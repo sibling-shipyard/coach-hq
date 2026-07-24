@@ -1,0 +1,158 @@
+/* Layout only — widget internals stay in warm-instrument.css. Same tokens, new shell. */
+
+/*
+ * Mirrors .wi-right-rail's layout without its selector name, so this page's
+ * QuestCard/CoachReadCard stay visible below 720px instead of matching
+ * warm-instrument.css's `.wi-right-rail > .wi-quest-card`/`.wi-coach-read-card`
+ * mobile display:none — the gallery shows every widget at every width.
+ */
+.wg-rail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.wg-page {
+  padding: 0 40px 96px;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.wg-intro {
+  padding: 32px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wg-intro__kicker {
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--wi-rust);
+}
+
+.wg-intro__lede {
+  font-family: "Newsreader", serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--wi-ink-muted);
+  max-width: 760px;
+}
+
+.wg-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 6px;
+}
+
+.wg-toc a {
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--wi-ink-muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.wg-toc a:hover {
+  color: var(--wi-rust);
+  border-bottom-color: var(--wi-rust);
+}
+
+.wg-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 44px;
+  margin-top: 44px;
+  border-top: 1px solid var(--wi-line);
+  scroll-margin-top: 24px;
+}
+
+.wg-section:first-of-type {
+  border-top: none;
+}
+
+.wg-section__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 720px;
+}
+
+.wg-section__meta .wg-note {
+  max-width: 560px;
+}
+
+.wg-section__kicker {
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  color: var(--wi-ink-faint);
+}
+
+.wg-section__meaning {
+  font-family: "Newsreader", serif;
+  font-style: italic;
+  font-size: 15px;
+  color: var(--wi-ink-muted);
+  margin-top: 6px;
+}
+
+.wg-note {
+  margin-top: 14px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  background: rgba(127, 55, 40, 0.05);
+  border: 1px solid var(--wi-line);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--wi-ink-muted);
+}
+
+.wg-note__label {
+  display: block;
+  font-family: "Space Mono", monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--wi-rust);
+  margin-bottom: 4px;
+}
+
+.wg-note--ios {
+  background: rgba(168, 112, 44, 0.08);
+  border: 1px dashed rgba(168, 112, 44, 0.45);
+}
+
+.wg-note--ios .wg-note__label {
+  color: #a8702c;
+}
+
+.wg-section__body {
+  min-width: 0;
+}
+
+.wg-body-note {
+  font-family: "Space Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--wi-ink-faint);
+  margin: 0 0 8px;
+}
+
+@media (max-width: 900px) {
+  .wg-page {
+    padding: 0 20px 72px;
+  }
+
+  .wg-section {
+    gap: 14px;
+  }
+}
