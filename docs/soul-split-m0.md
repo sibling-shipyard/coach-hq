@@ -20,15 +20,25 @@ runtime-agnostic; athlete is *data, not identity*; one shared engine, versioned 
 user-editable; where A+B physically live at target is *deferred* (gated on the server-side
 decision, M3).
 
+## Source lineage — reconciled against v5.6, not v1.0
+
+The split was **reconciled against the live v5.6 engine** (Akash's `coach-phelps`), not just the
+v1.0 hq template it was first drafted from. v1.0 was behind: it lacked the structured
+`current_week.json` weekly-plan artifact, analytics usage, archive mechanics, visualization/voice
+references, and the graduated-habit lifecycle. All of those generic engine capabilities are in B;
+their athlete-/sport-specific content (Sky's profile, day→template lookup, opponent notes,
+milestone content) stays in Layer C / sport-packs. Parity is checked against **both** baselines
+(`docs/parity/soul-v1-baseline.md` and `soul-v5.6-baseline.md`). Composed SOUL is **v6.0**.
+
 ## Decision
 
 **1. Three layers, each a file under `soul/`.**
 
-| Layer | File | Contents | From SOUL.md |
+| Layer | File | Contents | Source (v1.0 §, + v5.6) |
 |---|---|---|---|
 | A — Soul | `soul/A_identity.md` | identity, voice, philosophy, seasons framing, playbook | §3–6 |
-| B — Engine | `soul/B_engine.md` | boot, file contracts, quest rules, rules engine, workflows, tools, commit | §1–2, §9–13 (+ mechanics pulled out of §5–6) |
-| C — Athlete | `soul/C_athlete.md` | per-user data *schema* + generic first-session intake | §7–8 (+ quest instance data) |
+| B — Engine | `soul/B_engine.md` | boot, file contracts, quest rules (+ graduated habits), rules engine, workflows, tools, commit — **and v5.6's** `current_week.json` model, Weekly Contract Safety, analytics usage, archive, visualization/voice refs | §1–2, §9–13 + v5.6 §10 |
+| C — Athlete | `soul/C_athlete.md` | per-user data *schema* (incl. `current_week.json`, analytics, archive, sport-packs) + generic first-session intake | §7–8 + v5.6 artifacts |
 
 **2. `SOUL.md` becomes a generated composition (backward compat).** `scripts/compose-soul.mjs`
 concatenates A+B+C into `SOUL.md`. Every reader — a Claude Code boot and `coach-chat.ts` — keeps
@@ -37,7 +47,7 @@ breaks mid-rollout. CI (`validate-data.yml`) enforces `SOUL.md == compose(A,B,C)
 deterministic (no timestamps) so the drift check is stable.
 
 **3. B is a capability contract, not a script.** B declares *what* must happen via verbs — `SYNC`,
-`READ`, `QUERY_ACTIVITY`, `TIME`, `WRITE_ATOMIC`, `VALIDATE`, `REGENERATE`, `COMMIT` — each bound
+`READ`, `QUERY_ACTIVITY`, `TIME`, `WRITE_ATOMIC`, `VALIDATE`, `VALIDATE_WEEK`, `REGENERATE`, `COMMIT` — each bound
 to a concrete primitive per runtime in a binding table. The Claude Code binding preserves today's
 exact commands (behavioral parity); the server-agent binding (Contents API) is the M2 target.
 `WRITE_ATOMIC → VALIDATE → COMMIT` is one transaction; no partial pushes.

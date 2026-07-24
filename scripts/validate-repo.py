@@ -40,9 +40,10 @@ CORE_REQUIRED_SECTIONS = [  # ERROR if missing — both real repos have these
 ]
 TEMPLATE_SECTIONS = [  # WARNING if missing — referenced by boot/engine, but drifted
     "athlete profile",
-    "current week plan",
     "sleep log",
 ]
+# NB: the weekly plan is NOT a state.md section — it lives in training/current_week.json
+# (see docs/current-week-contract.md), validated by check_current_week below.
 SEASON_SECTION_ALIASES = [  # WARNING if none present
     "current season",
     "current season / blocks",
@@ -234,6 +235,39 @@ def check_sleep(repo, rep, state_text):
                      f"{'…' if len(missing) > 3 else ''}) — §13 requires both updated together")
 
 
+def check_current_week(repo, rep):
+    """training/current_week.json — the weekly-plan artifact (schema v1).
+    ui/scripts/validate-current-week.mts is the authority; this is a light,
+    node-free fallback so the shared gate catches gross breakage too."""
+    path = os.path.join(repo, "training", "current_week.json")
+    d = load_json(path, rep, label="training/current_week.json")
+    if d is None:
+        return  # optional — absent is fine (unavailable state)
+    if not isinstance(d, dict):
+        rep.error("training/current_week.json: must be a JSON object")
+        return
+    if d.get("schema_version") != 1:
+        rep.warn(f"training/current_week.json: schema_version is {d.get('schema_version')!r}, expected 1")
+    ds = d.get("data_status")
+    if ds not in ("placeholder", "draft", "live"):
+        rep.error(f"training/current_week.json: data_status {ds!r} not in placeholder|draft|live")
+    for f in ("timezone", "days"):
+        if f not in d:
+            rep.warn(f"training/current_week.json: missing '{f}'")
+    if isinstance(d.get("days"), list) and len(d["days"]) not in (0, 7):
+        rep.warn(f"training/current_week.json: 'days' has {len(d['days'])} entries, expected 7")
+    # A live week must carry a coach_read (contract: required when live).
+    if ds == "live" and not d.get("coach_read"):
+        rep.error("training/current_week.json: data_status=live requires a non-null coach_read")
+
+
+def check_analytics(repo, rep):
+    """training/analytics_snapshot.json is auto-generated and dashboard-consumed —
+    if present it must at least parse."""
+    path = os.path.join(repo, "training", "analytics_snapshot.json")
+    load_json(path, rep, label="training/analytics_snapshot.json")
+
+
 def check_soul_drift(repo, rep):
     """Engine-repo only: SOUL.md must equal compose(A,B,C)."""
     soul_dir = os.path.join(repo, "soul")
@@ -279,6 +313,8 @@ def main():
     check_challenge(repo, rep)
     check_sessions(repo, rep)
     check_sleep(repo, rep, state_text)
+    check_current_week(repo, rep)
+    check_analytics(repo, rep)
     check_soul_drift(repo, rep)
     check_schema_version_constants(repo, rep)
 

@@ -106,6 +106,26 @@ ANCHORS = [
      [r"After a bad session|losing streak|wants to skip"]),
     ("soul.seasons", "Thinks in seasons; Base/Build/Peak framework",
      [r"seasons, not days", r"Base Phase|Build Phase|Peak Phase"]),
+
+    # -- v5.6-only engine evolutions (must survive the reconciliation) --
+    ("v56.current_week", "Weekly plan is the current_week.json artifact",
+     [r"current_week\.json"]),
+    ("v56.week_lifecycle", "current_week lifecycle: only live/grace is usable",
+     [r"data_status", r"placeholder.*draft.*live|draft.*live"]),
+    ("v56.contract_safety", "Weekly Contract Safety + VALIDATE_WEEK",
+     [r"Weekly Contract Safety|VALIDATE_WEEK|validate-current-week"]),
+    ("v56.week_reconcile", "Logging reconciles current_week.json (overlay), not deferred",
+     [r"[Rr]econcile.*current_week|overlay"]),
+    ("v56.analytics", "Using Analytics Data (analytics_snapshot, on-demand)",
+     [r"analytics_snapshot\.json|Using Analytics Data"]),
+    ("v56.archive", "Archive mechanics: phases.md + week_plans.md",
+     [r"archive/phases\.md", r"archive/week_plans\.md"]),
+    ("v56.graduated_habits", "Graduated-habit lifecycle (tracked → untracked identity)",
+     [r"[Gg]raduated"]),
+    ("v56.visualization", "Visualization Audio references phelps_voice_profile",
+     [r"Visualization Audio|phelps_voice_profile"]),
+    ("v56.voice_story", "Voice & Story Reference (phelps_research_notes)",
+     [r"Voice & Story Reference|phelps_research_notes"]),
 ]
 
 
@@ -115,14 +135,20 @@ def main():
     args = ap.parse_args()
     repo = os.path.abspath(args.repo)
 
-    baseline_path = os.path.join(repo, "docs", "parity", "soul-v1-baseline.md")
+    # Two baselines: the hq v1.0 template AND Akash's live v5.6 engine. The split
+    # was reconciled against both, so every anchor must exist in AT LEAST ONE
+    # baseline (union) and in the post-split SOUL.md.
+    baseline_paths = [
+        os.path.join(repo, "docs", "parity", "soul-v1-baseline.md"),
+        os.path.join(repo, "docs", "parity", "soul-v5.6-baseline.md"),
+    ]
     composed_path = os.path.join(repo, "SOUL.md")
-    for p in (baseline_path, composed_path):
+    for p in baseline_paths + [composed_path]:
         if not os.path.exists(p):
             print(f"ERROR: missing {p}")
             sys.exit(2)
 
-    baseline = open(baseline_path).read()
+    baseline = "\n".join(open(p).read() for p in baseline_paths)
     composed = open(composed_path).read()
 
     missing_baseline, missing_new = [], []
@@ -135,7 +161,7 @@ def main():
         if not any(r.search(composed) for r in rx):
             missing_new.append((aid, desc))
 
-    print(f"Parity: {len(ANCHORS)} rule anchors from SOUL.md v1.0 baseline\n")
+    print(f"Parity: {len(ANCHORS)} rule anchors from SOUL.md v1.0 + v5.6 baselines\n")
     if missing_baseline:
         print("  ANCHOR REGEX ERROR — these did not match the baseline (fix the pattern):")
         for aid, desc in missing_baseline:

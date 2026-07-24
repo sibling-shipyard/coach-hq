@@ -27,10 +27,14 @@ The athlete is **data, not identity**. Everything that varies from one person to
 
 | File | Holds |
 |------|-------|
-| `training/state.md` | Athlete Profile, Sports, Conditions & Injury Flags, Season/Phase, Current Week Plan, Recent Session Notes, Learned Patterns, Sleep Log, (optional) Tracking Modules |
+| `training/state.md` | Athlete Profile, Sports, Conditions & Injury Flags, Season/Phase, Recent Session Notes, Learned Patterns, Sleep Log, (optional) Tracking Modules — **durable** state only |
+| `training/current_week.json` | The active dated weekly plan + expiring Coach commentary (schema v1) — the weekly plan is an *artifact*, not a `state.md` section |
 | `training/challenge_v2.json` | The athlete's quests/challenge instance data (quest *types* are defined in Layer B) |
 | `training/sleep_log.json` | Nightly sleep hours (paired with the state.md Sleep Log table) |
+| `training/analytics_snapshot.json` | Auto-generated match/trend analytics (on-demand read; the coach does not write it) |
+| `training/archive/phases.md`, `training/archive/week_plans.md` | Closed-phase/block and closed-week retrospectives |
 | `sessions/*.json` | Coach-adjusted workout snapshots for this athlete |
+| *(sport-pack, optional)* `training/opponent_notes.md`, a day→template lookup, match-parser skills | Sport-specific data for competitive/racket sports — deferred content, added per sport, never in shared A/B |
 
 ## `state.md` schema
 
@@ -52,8 +56,7 @@ Both feed Layer B's auto-regulation as **contraindication signals**; Layer B rea
 ### Current Season / Blocks
 - **Season name**, **Phase / Block**, **Phase dates**. **Athlete-defined** — some people think in seasons, some in training blocks, some event-to-event, some just week to week. The engine's Base / Build / Peak is only a *default vocabulary*; capture how *this athlete* frames their training year, in their language. Informed by the one-year rhythm view (see First Session Protocol).
 
-### Current Week Plan
-Set during weekly kick-off. Day-by-day, with injury/condition modifications pre-applied.
+*(The weekly plan is **not** a `state.md` section — it lives in `training/current_week.json`; see below.)*
 
 ### Recent Session Notes *(rolling — last 3 sessions)*
 2–3 bullets per session; oldest dropped as newest is added.
@@ -73,6 +76,18 @@ The athlete's quest/challenge instance. Quest *types and rules* are defined in L
 - `challenge`: `{ name, start_date, duration_days, end_date }`
 - `main_quest`: a `count_target` quest (`id, name, type, target, count_from, count_pattern`)
 - `quests[]`: side quests, each with `id, name, type, category, start_date, status` plus type-specific fields (see Layer B for polarity/arrays).
+
+Milestone display/progress fields in `challenge_v2.json` follow `docs/milestone-schema.md` (the milestone-record authority).
+
+## `current_week.json` schema (instance data — the weekly plan artifact)
+The active dated plan and short-lived Coach commentary. **Schema v1 authority: `docs/current-week-contract.md`** — do not duplicate its field rules; this is a pointer. Shape in brief:
+- `schema_version: 1`, `data_status` (`placeholder` | `draft` | `live` — only `live` renders), `timezone` (IANA).
+- `start_date` / `end_date` (Monday → the Sunday six days later); `days[]` = exactly seven consecutive dated day objects.
+- `coach_read` (object, required when `live`; else nullable) — one primary weekly conclusion.
+- `coach_comments[]` (0–3, evidence-backed, each with a `confidence`).
+- `updated_by` (`coach` on coach saves), `updated_at` (ISO-8601 with timezone offset).
+
+Freshness/lifecycle (`current`, `grace`, `placeholder`, `draft`, `upcoming`, `stale`) is resolved against `timezone`; Layer B trusts only `current`/`grace` `live` weeks. Validated by `VALIDATE_WEEK` (Layer B) before every save.
 
 ## First Session Protocol *(generic intake that populates Layer C)*
 **Trigger:** Boot detects that `state.md` has an empty Athlete Profile (headings only, no data). *(The detection + history pull are Layer B mechanics; the questions and what they populate are here.)*

@@ -153,8 +153,13 @@ unchanged and no live session breaks.
 | B — Engine | `soul/B_engine.md` | §1–2, §9–13 (+ mechanics pulled out of §5–6), as capability contracts |
 | C — Athlete | `soul/C_athlete.md` | §7–8 (schema + generic intake) |
 
+Reconciled against the **live v5.6 engine** (`coach-phelps`), not just the v1.0 hq template — so
+`current_week.json` (structured weekly plan), Weekly Contract Safety, analytics usage, archive
+mechanics, visualization/voice references, and the graduated-habit lifecycle are all in B; parity is
+checked against both baselines. Composed SOUL is v6.0.
+
 `scripts/compose-soul.mjs` builds `SOUL.md` (CI enforces no drift). B declares capability verbs
-(`SYNC`/`READ`/`QUERY_ACTIVITY`/`TIME`/`WRITE_ATOMIC`/`VALIDATE`/`REGENERATE`/`COMMIT`) bound
+(`SYNC`/`READ`/`QUERY_ACTIVITY`/`TIME`/`WRITE_ATOMIC`/`VALIDATE`/`VALIDATE_WEEK`/`REGENERATE`/`COMMIT`) bound
 per-runtime, and is a **generic interpreter over Layer C data** — sports (`sports[]`), acute
 `injury_flags[]` vs chronic `conditions[]`, and open-ended auto-regulation signals — so new sports,
 conditions, and tracking modules land as additive data, not engine edits. Athlete specifics are
