@@ -1,0 +1,6 @@
+{
+  "id": "strength_a", "title": "Strength A", "session_date": "2026-07-20",
+  "based_on_template": "templates/strength_a.json",
+  "coaching_note": "standard week, no mods",
+  "phases": [ { "name": "Main", "exercises": [ { "name": "Squat", "sets": 3, "reps": 5 } ] } ]
+}

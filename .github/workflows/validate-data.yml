@@ -1,56 +1,82 @@
 name: Validate data
 
-# Guards the coach's direct-to-main lane: training/state.md, coach_notes.md,
-# challenge_v2.json, and sessions/** are committed to main without a PR (see
-# SOUL.md §2). challenge_v2.json and sessions/*.json are consumed by the
-# dashboard build (ui/scripts/build-data.mjs) and the quest-log generator, so a
-# malformed file would break the Vercel deploy unreviewed. This check catches
-# that fast — on the direct push to main, and on any PR that touches the data.
+# The shared safety net (scaling-plan §6.4). Guards the coach's direct-to-main
+# lane — training/state.md, sleep_log.json, challenge_v2.json, sessions/** are
+# committed to main without a PR (SOUL.md / Layer B §2, §13). A malformed or
+# contract-breaking file would break the Vercel dashboard build unreviewed.
+#
+# Both runtimes pass through the SAME gate: a BYO Claude Code session runs
+# scripts/validate-repo.py as its VALIDATE capability before commit, and this
+# workflow re-runs it on the push to main as the backstop. Severity is graduated
+# (see docs/soul-split-m0.md): ERROR fails the build; WARNING surfaces pre-existing
+# drift without failing. Also verifies the generated SOUL.md is in sync with
+# soul/*.md, that no v1.0/v5.6 coaching rule was dropped (parity), and that the
+# widget_snapshots.json contract holds.
 
 on:
   push:
     branches: [main]
     paths:
       - 'training/challenge_v2.json'
+      - 'training/state.md'
+      - 'training/sleep_log.json'
       - 'training/widget_snapshots.json'
       - 'sessions/*.json'
+      - 'SOUL.md'
+      - 'soul/**'
+      - 'scripts/compose-soul.mjs'
+      - 'scripts/validate-repo.py'
+      - 'scripts/parity-check.py'
+      - 'docs/parity/**'
   pull_request:
     paths:
       - 'training/challenge_v2.json'
+      - 'training/state.md'
+      - 'training/sleep_log.json'
       - 'training/widget_snapshots.json'
       - 'sessions/*.json'
+      - 'SOUL.md'
+      - 'soul/**'
+      - 'scripts/compose-soul.mjs'
+      - 'scripts/validate-repo.py'
+      - 'scripts/parity-check.py'
+      - 'docs/parity/**'
 
 jobs:
-  validate-json:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Validate JSON parses
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate data contracts (+ SOUL drift)
+        run: python3 scripts/validate-repo.py --repo . --format github
+      - name: Parity — no coaching rule dropped (v1.0 + v5.6 baselines)
+        run: python3 scripts/parity-check.py --repo .
+
+  self-test:
+    # The validator must pass its own fixtures: a valid mini-repo passes, and a
+    # deliberately broken one fails. Proves the safety net actually catches things.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fixtures — valid repo passes
+        run: python3 scripts/validate-repo.py --repo .github/validation-fixtures/valid
+      - name: Fixtures — broken repo fails (expected non-zero)
         run: |
-          python3 - <<'PY'
-          import glob, json, sys
+          if python3 scripts/validate-repo.py --repo .github/validation-fixtures/broken; then
+            echo "::error::broken fixture unexpectedly PASSED — validator is not catching errors"
+            exit 1
+          else
+            echo "broken fixture correctly failed"
+          fi
 
-          files = ['training/challenge_v2.json'] + sorted(glob.glob('sessions/*.json'))
-          bad = []
-          checked = 0
-          for f in files:
-              try:
-                  with open(f) as fh:
-                      json.load(fh)
-                  checked += 1
-              except FileNotFoundError:
-                  continue
-              except json.JSONDecodeError as e:
-                  bad.append(f"{f}: {e}")
-
-          if bad:
-              print("::error::Invalid JSON — a direct push to main with this would break the dashboard build:")
-              for b in bad:
-                  print(f"  - {b}")
-              sys.exit(1)
-          print(f"Validated {checked} JSON file(s) — all parse cleanly.")
-          PY
-
+  widget-snapshots:
+    # The iOS/web widget data contract (training/widget_snapshots.json).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
       - name: Validate widget_snapshots.json
         run: |
           python3 - <<'PY'
