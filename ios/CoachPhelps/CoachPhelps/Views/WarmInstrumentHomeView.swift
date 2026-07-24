@@ -440,6 +440,10 @@ private struct CommitmentCubesWidget: View {
                 CardKicker(label: "COMMITMENTS")
                 if size == .s {
                     SportCube(commitment: sizes.S)
+                } else if sizes.M.isEmpty {
+                    Text("No commitments configured yet.")
+                        .font(.system(size: 12))
+                        .foregroundColor(WarmInstrument.inkMuted)
                 } else {
                     LazyVGrid(columns: columns, spacing: 10) {
                         ForEach(sizes.M) { item in
@@ -576,6 +580,9 @@ private struct RecentSessionsWidget: View {
 private struct WeeklyPlanWidget: View {
     let plan: WeeklyPlanSnapshot
 
+    /// Local-only reorder state — resets to `plan.days` on next snapshot fetch. Writing the
+    /// swap back to GitHub is listed as *Proposed* (not required) in the Design Philosophy's
+    /// weekly-plan interaction note; this phase mirrors the web's client-side-only reorder.
     @State private var days: [PlanDaySnapshot]
     @State private var dragIndex: Int?
 
@@ -711,12 +718,20 @@ private struct TrainingActivityWidget: View {
         WarmCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    MonoLabel("ACTIVITY · \(visibleMonth?.label ?? "")")
+                    MonoLabel(visibleMonth.map { "ACTIVITY · \($0.label)" } ?? "ACTIVITY")
                     Spacer()
-                    HStack(spacing: 4) {
-                        pageButton(system: "chevron.left", enabled: windowStart > 0) { windowStart -= 1 }
-                        pageButton(system: "chevron.right", enabled: windowStart < activity.months.count - 1) { windowStart += 1 }
+                    if !activity.months.isEmpty {
+                        HStack(spacing: 4) {
+                            pageButton(system: "chevron.left", enabled: windowStart > 0) { windowStart -= 1 }
+                            pageButton(system: "chevron.right", enabled: windowStart < activity.months.count - 1) { windowStart += 1 }
+                        }
                     }
+                }
+
+                if activity.months.isEmpty {
+                    Text("No training activity logged yet.")
+                        .font(.system(size: 12))
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
 
                 if let month = visibleMonth {

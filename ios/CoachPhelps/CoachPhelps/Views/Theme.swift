@@ -65,6 +65,10 @@ enum Theme {
         Color(red: 0xEF/255.0, green: 0x44/255.0, blue: 0x44/255.0), // Z5 red
     ]
 
+    /// Heart/vitals red — an alias onto the Z5 zone color so the Settings heart icon stays
+    /// tokenized instead of a bare `.red` literal.
+    static let heartRateColor = hrZoneColors[4]
+
     // MARK: - Sport colors (mirror SPORT_CONFIG in ui/client/src/lib/activities.ts)
 
     static let weightsColor = Color(red: 0x3B / 255.0, green: 0x4A / 255.0, blue: 0x6B / 255.0)   // WEIGHTS  #3b4a6b
