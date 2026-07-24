@@ -135,11 +135,12 @@ This section describes the app as it was brought into this repo — it was built
 - HR zones configuration
 - Cache management (clear, eviction)
 - Workout timer (reads `sessions/*.json` from GitHub, haptics, background audio beep)
+- **Warm Instrument Home** — `WarmInstrumentHomeView.swift` is now the primary tab, consuming `training/widget_snapshots.json` via `GitHubAPIClient.readWidgetSnapshots()` (see ADR 0005). Renders the P0/P1/P2 widget set (Engine, sport commitment cubes, quest, recent sessions, weekly plan, training activity heatmap, coach's read, build phase, VO2, calories) as a scrolling column of M widgets, with long-press jiggle + S/M/L picker (Engine/Quest/Commitments — the only widgets with size variants in the snapshot schema), weekly-plan chip drag, session swipe→Edit, and heatmap month paging. `Theme.swift`'s `WarmInstrument` enum holds the token set (`shared/warm-instrument/tokens.json`); atoms (`WarmCard`, `SessionRow`, `SportChip`, `SportCube`, `MonoLabel`) live in `WarmInstrumentAtoms.swift`; snapshot Codable models in `Models/WidgetSnapshots.swift`.
+- `CoachingInsightsView.swift` is deprecated (no longer in the tab bar) — superseded by Warm Instrument Home; left in place for reference only, not to be extended.
 
 ## What's Next
 
-- **Phase 5: Coaching Insights Dashboard** — new `CoachingInsightsView.swift` tab with sports-science widgets: training load delta, zone distribution ring, form/consistency strip, streak/consistency, sport balance, mental state trend, calorie burn, intensity trend. See `ios/DESIGN.md` Phase 5 for full widget backlog. **These widgets are the first Warm Instrument surface on iOS** — build them against the "iOS app (Home)" interaction budget (see Design Language above), not static cards re-skinned in the new palette. Any widget with a trend or history (training load, zone distribution, intensity) should support the tap-to-detail / drill-down pattern the philosophy expects, not just a hero number.
-- **Future: iOS home-screen widgets (WidgetKit)** — a new WatchKit-style extension target, not yet started. When it's built, follow the Design Philosophy's glance-only row exactly: S/M/L WidgetKit snapshots, zero interaction required to read them, native long-press editor (no custom jiggle UI needed — WidgetKit provides this).
+- **Phase 3: iOS home-screen widgets (WidgetKit)** — a new WidgetKit extension target + App Group container, not yet started. Start with S variants (Engine, Main quest, single commitment cube) using `sizes.*.S` from the snapshot file. Follow the Design Philosophy's glance-only row exactly: zero interaction required to read them, native long-press editor (no custom jiggle UI needed — WidgetKit provides this).
 - **Future: Native Coach Chat** — in-app interface to Coach Phelps AI
 - **Future: Apple Watch companion** — separate WatchKit target
 
@@ -149,4 +150,6 @@ Reusable rules you discover about iOS work — add a one-liner when it's worth t
 next agent following (keep it tight; bloat makes agents worse). Decisions with tradeoffs
 go to `kdb/decisions/` as an ADR instead. KB rules: see AGENTS.md.
 
-- _(none yet)_
+- Coach-voice typography (Newsreader vs. system serif) was an open decision in `ios/DESIGN.md` — resolved as system serif italic (`.system(design: .serif).italic()`) for Warm Instrument Home rather than bundling a font asset. Revisit only if the team decides bundling Newsreader is worth it.
+- `Theme.cornerRadius`/`Theme.cardBackground`/`Theme.cardBorder`/`Theme.ink` are shared app-wide — retinting them (as Warm Instrument Home's Phase 1 did) changes every screen's card look, not just new ones. Cheap, low-risk way to roll a palette change across the whole app without touching each view file.
+- Snapshot JSON items (commitments, engine mix) already carry their own hex color — don't hardcode a sport color table for data-driven color; `WarmInstrument.sportColors` only exists as a fallback for cell/legend rendering where the snapshot doesn't carry per-item color (the training-activity heatmap cells).

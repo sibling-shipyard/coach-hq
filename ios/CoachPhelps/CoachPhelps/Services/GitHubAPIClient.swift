@@ -215,6 +215,18 @@ class GitHubAPIClient {
         }
     }
 
+    /// Reads the Warm Instrument Home widget snapshots from `training/widget_snapshots.json`
+    /// — generated on every sync/build from the same TS models as the web home dashboard
+    /// (see ADR 0005). Same fetch pattern as `readSyncState`/`readActivity`.
+    func readWidgetSnapshots() async throws -> WidgetSnapshotsFile {
+        let data = try await readFile(path: "training/widget_snapshots.json")
+        do {
+            return try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
+        } catch {
+            throw GitHubAPIError.decodingFailed(operation: "Parsing widget snapshots")
+        }
+    }
+
     func writeSyncState(_ state: SyncState) async throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
