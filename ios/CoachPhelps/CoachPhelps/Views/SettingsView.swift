@@ -134,7 +134,7 @@ struct SettingsView: View {
                             }
                         } icon: {
                             Image(systemName: "heart.fill")
-                                .foregroundColor(Theme.brandRed)
+                                .foregroundColor(Theme.heartRateColor)
                         }
                     }
                     .tint(Theme.accentGreen)

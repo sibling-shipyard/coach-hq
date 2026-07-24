@@ -1,5 +1,9 @@
 import SwiftUI
 
+// DEPRECATED: superseded by `WarmInstrumentHomeView` (see `AGENTS.md` → Warm Instrument Home,
+// `kdb/decisions/0005-widget-snapshots-cross-platform.md`). No longer reachable from
+// `MainTabView`. Left in place for reference only — do not add new widgets here.
+
 // MARK: - Date helpers
 
 private let _isoFmt: DateFormatter = {
@@ -191,7 +195,7 @@ struct TrainingLoadWidget: View {
 
     private func deltaChip(value: Int, suffix: String, icon: String) -> some View {
         let positive = value >= 0
-        let color: Color = positive ? Theme.accentGreen : Theme.brandRed
+        let color: Color = positive ? Theme.accentGreen : WarmInstrument.alarmFg
         return HStack(spacing: 4) {
             Image(systemName: positive ? "arrow.up.right" : "arrow.down.right")
                 .font(.system(size: 10, weight: .bold))
@@ -548,7 +552,7 @@ struct MentalStateWidget: View {
         switch s {
         case 8...10: return Theme.accentGreen
         case 5...7:  return Theme.attentionOrange
-        default:     return Theme.brandRed
+        default:     return WarmInstrument.alarmFg
         }
     }
 

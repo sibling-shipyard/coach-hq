@@ -7,6 +7,11 @@ struct MainTabView: View {
 
     var body: some View {
         TabView {
+            WarmInstrumentHomeView()
+                .tabItem {
+                    Label("Home", systemImage: "house.fill")
+                }
+
             SyncStatusView()
                 .tabItem {
                     Label("Sync", systemImage: "arrow.triangle.2.circlepath")
@@ -15,11 +20,6 @@ struct MainTabView: View {
             ActivityListView()
                 .tabItem {
                     Label("Activities", systemImage: "chart.bar.doc.horizontal")
-                }
-
-            CoachingInsightsView()
-                .tabItem {
-                    Label("Insights", systemImage: "chart.xyaxis.line")
                 }
 
             WorkoutListView()
