@@ -5,6 +5,7 @@ struct CoachPhelpsApp: App {
     @StateObject private var authManager = GitHubAuthManager()
     @StateObject private var syncManager = HealthKitSyncManager()
     @StateObject private var workoutService = WorkoutService()
+    @StateObject private var widgetStore = WidgetSnapshotStore()
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
 
     var body: some Scene {
@@ -15,10 +16,12 @@ struct CoachPhelpsApp: App {
                         .environmentObject(authManager)
                         .environmentObject(syncManager)
                         .environmentObject(workoutService)
+                        .environmentObject(widgetStore)
                         .task {
                             let apiClient = GitHubAPIClient(authManager: authManager)
-                            syncManager.configure(apiClient: apiClient)
+                            syncManager.configure(apiClient: apiClient, widgetStore: widgetStore)
                             workoutService.configure(apiClient: apiClient)
+                            widgetStore.configure(apiClient: apiClient)
                             try? await syncManager.requestAuthorization()
                         }
                 } else {

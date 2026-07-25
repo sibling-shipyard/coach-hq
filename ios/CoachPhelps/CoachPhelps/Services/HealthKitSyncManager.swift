@@ -27,6 +27,7 @@ class HealthKitSyncManager: ObservableObject {
 
     private let healthStore = HKHealthStore()
     private var apiClient: GitHubAPIClient?
+    private var widgetStore: WidgetSnapshotStore?
 
     // HealthKit data types we request access to
     private var readTypes: Set<HKObjectType> {
@@ -43,8 +44,9 @@ class HealthKitSyncManager: ObservableObject {
         return types
     }
 
-    func configure(apiClient: GitHubAPIClient) {
+    func configure(apiClient: GitHubAPIClient, widgetStore: WidgetSnapshotStore? = nil) {
         self.apiClient = apiClient
+        self.widgetStore = widgetStore
         Task { await loadSyncState() }
     }
 
@@ -188,6 +190,11 @@ class HealthKitSyncManager: ObservableObject {
             self.syncState = syncState
             lastSyncDate = Date()
             lastSyncResult = SyncResult(outcome: .synced(n), id: UUID())
+
+            // New activities just landed on GitHub — the widget snapshot pipeline runs on the
+            // next sync/build, but refreshing now picks up anything already regenerated and
+            // keeps Home from showing a stale pre-sync snapshot longer than necessary.
+            await widgetStore?.refresh(showSpinner: false)
         } catch is CancellationError {
             // Task was cancelled (e.g. view torn down mid-sync) — not a real
             // failure; stay quiet instead of showing a scary "cancelled" error.
