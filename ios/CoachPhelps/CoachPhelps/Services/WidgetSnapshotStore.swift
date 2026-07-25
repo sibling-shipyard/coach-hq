@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 /// Observable store for `training/widget_snapshots.json` (ADR 0005's cross-platform contract).
 /// Caches the last good snapshot in `UserDefaults` so Home has something to render on cold
@@ -33,14 +34,19 @@ class WidgetSnapshotStore: ObservableObject {
         lastFetchedAt = UserDefaults.standard.object(forKey: Self.cacheFetchedAtKey) as? Date
     }
 
-    /// Persists the last good snapshot locally. Overridden in the WidgetKit phase to also
-    /// mirror the file into the App Group shared container.
+    /// Persists the last good snapshot locally (in-app cache) and mirrors it into the App
+    /// Group shared container for the WidgetKit extension, then nudges WidgetKit to redraw
+    /// the S-size home screen widgets against the fresh data instead of waiting out their
+    /// own timeline policy.
     func persist(_ file: WidgetSnapshotsFile) {
         guard let data = try? JSONEncoder().encode(file) else { return }
         UserDefaults.standard.set(data, forKey: Self.cacheKey)
         let now = Date()
         UserDefaults.standard.set(now, forKey: Self.cacheFetchedAtKey)
         lastFetchedAt = now
+
+        AppGroupSnapshotBridge.write(file)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: - Refresh
