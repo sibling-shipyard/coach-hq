@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-24T22:13:29.141Z",
+  "generated_at": "2026-07-25T09:21:01.169Z",
   "home": {
     "engine": {
       "weekLabel": "WK 30",
@@ -165,7 +165,7 @@
       "completed": 0,
       "target": 0,
       "loaded": 0,
-      "daysLeft": 2,
+      "daysLeft": 1,
       "sideQuests": [
         {
           "id": "morning_routine",
@@ -185,7 +185,7 @@
       ]
     },
     "coachRead": {
-      "dateLabel": "FRI 24 JUL",
+      "dateLabel": "SAT 25 JUL",
       "body": "0 sessions logged. 0 active days · 0.0 hours · 0 disciplines. Factual log summary; no training prescription is inferred.",
       "eyebrow": "LOG",
       "signature": "— COACH",
@@ -194,7 +194,7 @@
       "evidence": [
         "LOAD 0 · BAND 0–0",
         "0.0H RECORDED THIS WEEK",
-        "QUEST 0/0 · 2D LEFT"
+        "QUEST 0/0 · 1D LEFT"
       ]
     },
     "commitments": [
@@ -342,10 +342,11 @@
       "monthLabel": "JUL",
       "current": 0,
       "target": 12000,
-      "daysLeft": 7,
+      "daysLeft": 6,
       "daysInMonth": 31,
-      "pacePercent": 77.41935483870968,
+      "pacePercent": 80.64516129032258,
       "dailyActual": [
+        0,
         0,
         0,
         0,
@@ -371,9 +372,9 @@
         0,
         0
       ],
-      "dailyNeeded": 1714.2857142857142,
+      "dailyNeeded": 2000,
       "targetIsFixture": false,
-      "elapsedDays": 24,
+      "elapsedDays": 25,
       "activeDays": 0
     },
     "trainingActivity": {
@@ -1129,7 +1130,7 @@
             "2026-07-22",
             "2026-07-23",
             "2026-07-24",
-            null,
+            "2026-07-25",
             null,
             null,
             null
@@ -1140,7 +1141,7 @@
       "activeDays": 0,
       "planTruePercent": null,
       "gapCount": 1,
-      "worstGap": 115,
+      "worstGap": 116,
       "read": "Activity is observed from the log; plan-truth appears when completed-vs-planned history lands.",
       "dayDetails": {}
     },
@@ -1506,7 +1507,7 @@
         "completed": 0,
         "target": 0,
         "loaded": 0,
-        "daysLeft": 2,
+        "daysLeft": 1,
         "sideQuests": [
           {
             "id": "morning_routine",

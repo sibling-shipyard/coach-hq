@@ -43,6 +43,15 @@ jobs:
           done
           echo "last_week contains $(ls training/last_week/ 2>/dev/null | wc -l) activities"
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate widget snapshots
+        working-directory: ui
+        run: npm ci && npm run generate-snapshots
+
       - name: Commit pipeline changes
         run: |
           git config user.name "github-actions[bot]"
