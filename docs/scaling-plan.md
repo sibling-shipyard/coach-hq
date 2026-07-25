@@ -143,9 +143,29 @@ flowchart TB
   runtimes --> val["Shared validators<br/>the safety net"]
 ```
 
-Mapping: A = SOUL §3–5; B = §1, §10–13; C = §7 → already `state.md`. The redesign strips athlete specifics
-out of A/B, turns first-session into generic intake that *populates* C, and rewrites B as capability
-contracts so either runtime executes it — validators enforcing the guarantees regardless of who ran it.
+**Landed in M0** (ADR `kdb/decisions/0004`, detail `docs/soul-split-m0.md`). Sources of truth are three files under `soul/`; `SOUL.md`
+becomes a *generated* composition of them, so the read path (Claude Code boot, `coach-chat.ts`) is
+unchanged and no live session breaks.
+
+| Layer | Source file | From SOUL.md |
+|---|---|---|
+| A — Soul | `soul/A_identity.md` | §3–6 (identity, voice, philosophy, playbook) |
+| B — Engine | `soul/B_engine.md` | §1–2, §9–13 (+ mechanics pulled out of §5–6), as capability contracts |
+| C — Athlete | `soul/C_athlete.md` | §7–8 (schema + generic intake) |
+
+Reconciled against the **live v5.6 engine** (`coach-phelps`), not just the v1.0 hq template — so
+`current_week.json` (structured weekly plan), Weekly Contract Safety, analytics usage, archive
+mechanics, visualization/voice references, and the graduated-habit lifecycle are all in B; parity is
+checked against both baselines. Composed SOUL is v6.0.
+
+`scripts/compose-soul.mjs` builds `SOUL.md` (CI enforces no drift). B declares capability verbs
+(`SYNC`/`READ`/`QUERY_ACTIVITY`/`TIME`/`WRITE_ATOMIC`/`VALIDATE`/`VALIDATE_WEEK`/`REGENERATE`/`COMMIT`) bound
+per-runtime, and is a **generic interpreter over Layer C data** — sports (`sports[]`), acute
+`injury_flags[]` vs chronic `conditions[]`, and open-ended auto-regulation signals — so new sports,
+conditions, and tracking modules land as additive data, not engine edits. Athlete specifics are
+stripped from A/B; first-session is generic intake that *populates* C (and pulls ~1yr of history to
+learn the athlete's rhythm). `scripts/validate-repo.py` enforces the guarantees regardless of who
+ran the commit (graduated ERROR/WARNING); `scripts/parity-check.py` proves no v1 rule was dropped.
 
 ### 5.3 Data flow
 

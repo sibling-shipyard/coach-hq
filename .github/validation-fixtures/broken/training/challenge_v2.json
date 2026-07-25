@@ -1,0 +1,7 @@
+{
+  "last_updated_by": "coach",
+  "main_quest": { "id": "main", "name": "Do stuff" },
+  "quests": [
+    { "id": "q1", "name": "Habit", "type": "daily_streak" }
+  ]
+}
