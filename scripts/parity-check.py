@@ -143,9 +143,19 @@ def main():
         os.path.join(repo, "docs", "parity", "soul-v5.6-baseline.md"),
     ]
     composed_path = os.path.join(repo, "SOUL.md")
-    for p in baseline_paths + [composed_path]:
+
+    # Graceful skip: an instance repo has a pinned/composed SOUL.md but none of the
+    # parity baselines (those live only in the engine repo). Mirror validate-repo's
+    # SOUL-drift skip so this can run unconditionally in CI everywhere.
+    if not any(os.path.exists(p) for p in baseline_paths):
+        print("parity: no baselines present — not the engine repo, skipping.")
+        sys.exit(0)
+    if not os.path.exists(composed_path):
+        print(f"ERROR: missing {composed_path}")
+        sys.exit(2)
+    for p in baseline_paths:  # in the engine repo, both baselines must be present
         if not os.path.exists(p):
-            print(f"ERROR: missing {p}")
+            print(f"ERROR: missing baseline {p}")
             sys.exit(2)
 
     baseline = "\n".join(open(p).read() for p in baseline_paths)

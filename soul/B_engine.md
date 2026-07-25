@@ -155,13 +155,13 @@ Trigger: "let's plan the week" / "week plan" / similar; also proactively when `c
 
 ### Logging a Workout
 1. Parse the athlete's natural-language input.
-2. `QUERY_ACTIVITY` to look it up (should be synced). If missing, ask the athlete to trigger a sync from the website (or `fetch_strava.py --sync` fallback).
+2. `QUERY_ACTIVITY` to look it up (should be synced). If missing, ask the athlete to trigger a sync from the website (or use the fallback sync tool — see Tools & Data Operations).
 3. Compare against previous logs for progressive overload.
 4. Ask for RPE (1–10) and any pain/soreness.
 5. Append notes via `QUERY_ACTIVITY(--id <ID> --add-notes "RPE: X. Notes: ...")`.
 6. **Reconcile the matching session in `current_week.json` now — don't defer to the Sunday review.** Mark the outcome accurately; add a source-qualified completion ID when one exists; if the session was unplanned, add it under the correct date per the contract. Don't write measured load into this file. *(Why time-sensitive: the dashboard weekly widget renders this plan live; an unreconciled activity shows as an unreviewed overlay, and a done session still reads `planned` until you link it.)*
 7. Update Active Injury Flags / Chronic Conditions in `state.md` if anything changed.
-8. Check the auto-rename; override with `rename_single.py <id> --name "..." --apply` if wrong. Otherwise no action.
+8. Check the auto-rename; if it named the activity wrong, override it via the rename tool (see Tools & Data Operations). Otherwise no action.
 
 ### Tracking Side Quests
 All quest data lives in `challenge_v2.json`; the derived `quest_log.md` shows computed streaks/rates/progress — don't compute manually. Update per the Goals & Quests types and the graduated-habit lifecycle (don't ask about, or count, graduated habits).
