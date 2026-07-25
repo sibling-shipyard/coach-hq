@@ -13,16 +13,32 @@ struct TrainingActivityEntry: TimelineEntry {
 }
 
 struct TrainingActivityProvider: TimelineProvider {
-    func placeholder(in context: Context) -> TrainingActivityEntry {
-        let month = ActivityMonthSnapshot(label: "—", cells: Array(repeating: .empty, count: 28), dates: nil)
-        let snapshot = TrainingActivitySnapshot(
-            rangeLabel: "—", months: [month], longestBlock: 0, activeDays: 0,
-            planTruePercent: nil, gapCount: 0, worstGap: 0, read: "—", dayDetails: nil
+    /// See `EngineProvider.sampleSizes` — same reasoning: a plausible mixed month (not all
+    /// `.empty`) so the gallery preview actually shows the sport-colored grid, not a blank block.
+    private static var sampleSnapshot: TrainingActivitySnapshot {
+        let pattern: [ActivityCellState] = [
+            .badminton, .empty, .foundation, .empty, .empty, .cycling, .empty,
+            .empty, .badminton, .empty, .foundation, .empty, .run, .empty,
+            .plannedMissed, .empty, .badminton, .empty, .foundation, .empty, .empty,
+            .cycling, .empty, .badminton, .empty, .foundation, .empty, .empty,
+        ]
+        let month = ActivityMonthSnapshot(label: "JUL", cells: pattern, dates: nil)
+        return TrainingActivitySnapshot(
+            rangeLabel: "Last 4 months", months: [month], longestBlock: 5, activeDays: 12,
+            planTruePercent: 78, gapCount: 2, worstGap: 3,
+            read: "Gaps follow big match days — consistency holds otherwise.", dayDetails: nil
         )
-        return TrainingActivityEntry(date: Date(), activity: snapshot, isPlaceholder: true)
+    }
+
+    func placeholder(in context: Context) -> TrainingActivityEntry {
+        TrainingActivityEntry(date: Date(), activity: Self.sampleSnapshot, isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TrainingActivityEntry) -> Void) {
+        if context.isPreview {
+            completion(TrainingActivityEntry(date: Date(), activity: Self.sampleSnapshot, isPlaceholder: false))
+            return
+        }
         completion(TrainingActivityEntry(date: Date(), activity: AppGroupSnapshotBridge.read()?.home.trainingActivity, isPlaceholder: false))
     }
 
