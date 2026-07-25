@@ -3,25 +3,27 @@ import SwiftUI
 
 struct EngineEntry: TimelineEntry {
     let date: Date
-    let engine: EngineSnapshotS?
+    let sizes: EngineSizes?
     let isPlaceholder: Bool
 }
 
 struct EngineProvider: TimelineProvider {
     func placeholder(in context: Context) -> EngineEntry {
-        EngineEntry(
-            date: Date(),
-            engine: EngineSnapshotS(weekLabel: "WK —", load: 0, signal: "—", compactVerdict: "—", bandLow: nil, bandHigh: nil),
-            isPlaceholder: true
+        let s = EngineSnapshotS(weekLabel: "WK —", load: 0, signal: "—", compactVerdict: "—", bandLow: nil, bandHigh: nil)
+        let full = EngineSnapshot(
+            weekLabel: "WK —", load: 0, signal: "—", verdict: "—", compactVerdict: "—", openVerdict: nil,
+            bandLow: nil, bandHigh: nil, scaleLow: 0, scaleHigh: 1, trend: [], mix: [], totalHours: 0,
+            method: "—", doseRows: []
         )
+        return EngineEntry(date: Date(), sizes: EngineSizes(S: s, M: full, L: full), isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (EngineEntry) -> Void) {
-        completion(EngineEntry(date: Date(), engine: AppGroupSnapshotBridge.read()?.sizes.engine.S, isPlaceholder: false))
+        completion(EngineEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.engine, isPlaceholder: false))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<EngineEntry>) -> Void) {
-        let entry = EngineEntry(date: Date(), engine: AppGroupSnapshotBridge.read()?.sizes.engine.S, isPlaceholder: false)
+        let entry = EngineEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.engine, isPlaceholder: false)
         // Safety-net refresh — the app calls `WidgetCenter.reloadAllTimelines()` right after
         // every sync/refresh, so this window is a fallback, not the primary update path.
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 6, to: Date()) ?? Date().addingTimeInterval(6 * 3600)
@@ -30,12 +32,20 @@ struct EngineProvider: TimelineProvider {
 }
 
 struct EngineWidgetView: View {
+    @Environment(\.widgetFamily) private var family
     let entry: EngineEntry
 
     var body: some View {
         Group {
-            if let engine = entry.engine {
-                content(engine)
+            if let sizes = entry.sizes {
+                switch family {
+                case .systemLarge:
+                    largeContent(sizes.L)
+                case .systemMedium:
+                    mediumContent(sizes.M)
+                default:
+                    smallContent(sizes.S)
+                }
             } else {
                 emptyState
             }
@@ -44,52 +54,83 @@ struct EngineWidgetView: View {
         .containerBackground(for: .widget) { WarmInstrument.accent }
     }
 
-    /// Own empty state rather than the shared `EmptyGlanceView` — Engine sits on the dark
-    /// terracotta fill, not the paper surface the other two widgets use.
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("ENGINE")
+    // MARK: - S — number + band strip only
+
+    private func smallContent(_ engine: EngineSnapshotS) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header(weekLabel: engine.weekLabel, signal: engine.signal)
+            readout(load: engine.load, verdict: engine.compactVerdict)
+            bandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - M — adds the 6-week trend sparkline
+
+    private func mediumContent(_ engine: EngineSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header(weekLabel: engine.weekLabel, signal: engine.signal)
+            readout(load: engine.load, verdict: engine.compactVerdict ?? engine.verdict)
+            bandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh)
+            if !engine.trend.isEmpty {
+                trendSparkline(engine.trend)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - L — adds the sport mix bar + method footnote
+
+    private func largeContent(_ engine: EngineSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header(weekLabel: engine.weekLabel, signal: engine.signal)
+            readout(load: engine.load, verdict: engine.verdict)
+            bandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh)
+            if !engine.trend.isEmpty {
+                trendSparkline(engine.trend)
+            }
+            if !engine.mix.isEmpty {
+                mixBar(engine.mix, totalHours: engine.totalHours)
+            }
+            Text(engine.method)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Shared pieces (mirror the in-app Engine widget's math 1:1)
+
+    private func header(weekLabel: String, signal: String) -> some View {
+        HStack {
+            Text("ENGINE · \(weekLabel)")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .tracking(1.0)
                 .foregroundColor(.white.opacity(0.75))
             Spacer()
-            Text("No sync yet")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.white.opacity(0.85))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func content(_ engine: EngineSnapshotS) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("ENGINE · \(engine.weekLabel)")
+            Text(signal)
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .tracking(1.0)
-                .foregroundColor(.white.opacity(0.75))
+                .foregroundColor(.white)
+        }
+    }
 
-            Text(numberString(engine.load))
+    private func readout(load: Double, verdict: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(numberString(load))
                 .font(.system(size: 32, weight: .heavy, design: .monospaced))
                 .foregroundColor(.white)
-
-            Text(engine.compactVerdict)
+            Text(verdict)
                 .font(.system(size: 12, design: .serif).italic())
                 .foregroundColor(.white.opacity(0.85))
                 .lineLimit(1)
-
-            bandStrip(engine)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Same band-strip math as the in-app Engine widget (`WarmInstrumentHomeView.swift`) —
-    /// duplicated rather than shared because the app's version is a `View` extension tied to
-    /// `GeometryReader` inside a much larger widget; not worth threading a shared type through
-    /// two targets for one small shape.
-    private func bandStrip(_ engine: EngineSnapshotS) -> some View {
+    private func bandStrip(load: Double, bandLow: Double?, bandHigh: Double?) -> some View {
         GeometryReader { geo in
-            let load = engine.load
-            let low = engine.bandLow ?? load * 0.8
-            let high = max(engine.bandHigh ?? load * 1.2, low + 1)
+            let low = bandLow ?? load * 0.8
+            let high = max(bandHigh ?? load * 1.2, low + 1)
             let scaleLow = min(low, load) * 0.85
             let scaleHigh = max(high, load) * 1.15 + 1
             let range = max(1, scaleHigh - scaleLow)
@@ -112,6 +153,61 @@ struct EngineWidgetView: View {
         .frame(height: 10)
     }
 
+    private func trendSparkline(_ points: [TrendPointSnapshot]) -> some View {
+        let values = points.map(\.value)
+        let minV = values.min() ?? 0
+        let maxV = values.max() ?? 1
+        let range = max(1, maxV - minV)
+        return GeometryReader { geo in
+            Path { path in
+                for (index, point) in points.enumerated() {
+                    let x = points.count > 1
+                        ? geo.size.width * CGFloat(index) / CGFloat(points.count - 1)
+                        : geo.size.width
+                    let y = geo.size.height - geo.size.height * CGFloat((point.value - minV) / range)
+                    if index == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+                }
+            }
+            .stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+        }
+        .frame(height: 28)
+    }
+
+    private func mixBar(_ mix: [LoadMixSnapshot], totalHours: Double) -> some View {
+        let denominator = max(totalHours, mix.reduce(0) { $0 + $1.hours }, 1)
+        return VStack(alignment: .leading, spacing: 5) {
+            GeometryReader { geo in
+                HStack(spacing: 1) {
+                    ForEach(mix.filter { $0.hours > 0 }) { item in
+                        Rectangle()
+                            .fill(WarmInstrument.color(hex: item.color))
+                            .frame(width: geo.size.width * CGFloat(item.hours / denominator))
+                    }
+                }
+                .clipShape(Capsule())
+            }
+            .frame(height: 7)
+
+            Text(String(format: "%.1fH LOGGED", totalHours))
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.7))
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("ENGINE")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .tracking(1.0)
+                .foregroundColor(.white.opacity(0.75))
+            Spacer()
+            Text("No sync yet")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.85))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func numberString(_ value: Double) -> String {
         value == value.rounded() ? "\(Int(value))" : String(format: "%.1f", value)
     }
@@ -126,6 +222,6 @@ struct EngineWidget: Widget {
         }
         .configurationDisplayName("Engine")
         .description("This week's load vs your rhythm band.")
-        .supportedFamilies([.systemSmall])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }

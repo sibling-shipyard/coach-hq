@@ -3,7 +3,7 @@ import SwiftUI
 
 struct CommitmentEntry: TimelineEntry {
     let date: Date
-    let commitment: CommitmentSnapshot?
+    let sizes: CommitmentSizes?
     let isPlaceholder: Bool
 }
 
@@ -15,30 +15,38 @@ struct CommitmentProvider: TimelineProvider {
     )
 
     func placeholder(in context: Context) -> CommitmentEntry {
-        CommitmentEntry(date: Date(), commitment: Self.placeholderCommitment, isPlaceholder: true)
+        let sizes = CommitmentSizes(S: Self.placeholderCommitment, M: [Self.placeholderCommitment])
+        return CommitmentEntry(date: Date(), sizes: sizes, isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (CommitmentEntry) -> Void) {
-        completion(CommitmentEntry(date: Date(), commitment: AppGroupSnapshotBridge.read()?.sizes.commitments.S, isPlaceholder: false))
+        completion(CommitmentEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.commitments, isPlaceholder: false))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<CommitmentEntry>) -> Void) {
-        let entry = CommitmentEntry(date: Date(), commitment: AppGroupSnapshotBridge.read()?.sizes.commitments.S, isPlaceholder: false)
+        let entry = CommitmentEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.commitments, isPlaceholder: false)
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 6, to: Date()) ?? Date().addingTimeInterval(6 * 3600)
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }
 }
 
 struct CommitmentWidgetView: View {
+    @Environment(\.widgetFamily) private var family
     let entry: CommitmentEntry
+
+    private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
 
     var body: some View {
         Group {
-            if let commitment = entry.commitment {
-                // Reuse the atom exactly as built for in-app Home — "never redesign it per
-                // platform," per the Design Philosophy's cube note. SportCube already carries
-                // its own padding, background, and border, so it drops into the widget as-is.
-                SportCube(commitment: commitment)
+            if let sizes = entry.sizes {
+                switch family {
+                case .systemMedium:
+                    mediumContent(sizes.M)
+                default:
+                    // Reuse the atom exactly as built for in-app Home — "never redesign it
+                    // per platform," per the Design Philosophy's cube note.
+                    SportCube(commitment: sizes.S)
+                }
             } else {
                 EmptyGlanceView(label: "COMMITMENT", message: "No commitments configured")
                     .padding(4)
@@ -46,6 +54,23 @@ struct CommitmentWidgetView: View {
         }
         .redacted(reason: entry.isPlaceholder ? .placeholder : [])
         .containerBackground(for: .widget) { WarmInstrument.paper }
+    }
+
+    /// M = quartet strip — same cube atom, laid out 2×2, per "iOS home S = single sport;
+    /// M = quartet strip."
+    private func mediumContent(_ commitments: [CommitmentSnapshot]) -> some View {
+        Group {
+            if commitments.isEmpty {
+                EmptyGlanceView(label: "COMMITMENTS", message: "No commitments configured")
+                    .padding(4)
+            } else {
+                LazyVGrid(columns: columns, spacing: 8) {
+                    ForEach(commitments.prefix(4)) { commitment in
+                        SportCube(commitment: commitment)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -57,7 +82,7 @@ struct CommitmentWidget: Widget {
             CommitmentWidgetView(entry: entry)
         }
         .configurationDisplayName("Sport Commitment")
-        .description("One kept promise, at a glance.")
-        .supportedFamilies([.systemSmall])
+        .description("Kept promises, at a glance.")
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
