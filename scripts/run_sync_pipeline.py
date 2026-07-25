@@ -11,8 +11,9 @@ Steps:
 
   activities.json, challenge_v2.json, and workouts.json are NOT written here -
   ui/scripts/build-data.mjs owns all three and regenerates them on every
-  build/dev via the prebuild/predev npm hooks. training/last_week/ is
-  populated by sync.yml, not this script, to avoid doing it twice.
+  build/dev via the prebuild/predev npm hooks. training/last_week/ and
+  training/widget_snapshots.json are populated by sync.yml (last_week shell
+  step; widget_snapshots via npm run generate-snapshots), not this script.
   (Commit & push is handled by sync.yml, not this script)
 
 Usage:

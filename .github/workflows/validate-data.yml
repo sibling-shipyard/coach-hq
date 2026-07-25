@@ -12,10 +12,12 @@ on:
     branches: [main]
     paths:
       - 'training/challenge_v2.json'
+      - 'training/widget_snapshots.json'
       - 'sessions/*.json'
   pull_request:
     paths:
       - 'training/challenge_v2.json'
+      - 'training/widget_snapshots.json'
       - 'sessions/*.json'
 
 jobs:
@@ -47,4 +49,33 @@ jobs:
                   print(f"  - {b}")
               sys.exit(1)
           print(f"Validated {checked} JSON file(s) — all parse cleanly.")
+          PY
+
+      - name: Validate widget_snapshots.json
+        run: |
+          python3 - <<'PY'
+          import json, sys
+
+          path = "training/widget_snapshots.json"
+          try:
+              with open(path) as fh:
+                  data = json.load(fh)
+          except FileNotFoundError:
+              print(f"::error::{path} not found")
+              sys.exit(1)
+          except json.JSONDecodeError as e:
+              print(f"::error::{path}: {e}")
+              sys.exit(1)
+
+          required = ("schema_version", "generated_at", "home")
+          missing = [k for k in required if k not in data]
+          if missing:
+              print(f"::error::{path} missing required keys: {', '.join(missing)}")
+              sys.exit(1)
+
+          if data["schema_version"] != 1:
+              print(f"::error::{path} schema_version must be 1, got {data['schema_version']!r}")
+              sys.exit(1)
+
+          print(f"Validated {path} — schema_version=1, required keys present.")
           PY
