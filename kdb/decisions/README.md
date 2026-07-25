@@ -10,6 +10,7 @@
 | 0003 | Start new users from a clean template, archive the original | cross-cutting |
 | 0004 | Split SOUL.md into three runtime-agnostic layers | core |
 | 0005 | Widget snapshots as the cross-platform contract | ui |
+| 0006 | Instance vs HQ repo split (M1 topology) | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 scripts/kdb/gen_adr_index.py`.

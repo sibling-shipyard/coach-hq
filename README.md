@@ -1,74 +1,45 @@
-# Coach Phelps
+# Coach Phelps — Hosted (3-repo topology)
 
-An AI coaching system powered by Claude. Clone this repo, connect your Strava, open a Claude session - Coach Phelps runs your intake and gets started.
+AI coaching with a **shared dashboard** and **private per-athlete data repos**. You do not
+self-host the UI or clone the full monolith anymore.
 
-Coach Phelps is Michael Phelps as a coaching persona: process-obsessed, emotionally honest, no platitudes. He tracks your training via Strava, manages a quest/streak system, and builds a living memory of your progress across sessions.
+```mermaid
+flowchart LR
+  you["You (browser / Claude Code)"] --> site["Shared site<br/>coach-phelps-hq"]
+  site -->|your token| repo["Your repo<br/>coach-you"]
+  repo -->|data/aggregate.json| site
+  claude["BYO Claude Code"] --> repo
+```
 
-**⚠️ Requires Strava Premium (Summit).** Almost everything here depends on syncing activity data from Strava, and that requires a paid Strava Premium subscription - a free Strava account will not work.
+## Quick start (hosted flow)
 
----
+1. **Get provisioned** — an operator runs `scripts/provision-user.sh` in
+   [`sibling-shipyard/coach-engine`](https://github.com/sibling-shipyard/coach-engine) to
+   create your private `coach-<user>` repo (Layer C skeleton + pinned engine).
+2. **Install the GitHub App** on that repo when you first sign in to the shared dashboard
+   (or follow the operator handoff).
+3. **Set Strava secrets** on your instance repo *or* use the iOS app for HealthKit sync.
+4. **Open Claude Code** in your instance repo — boot reads generated `SOUL.md`.
+5. **First session** — Coach Phelps runs intake when `training/state.md` Athlete Profile is empty.
 
-## Setup
+Full walkthrough: [SETUP.md](SETUP.md).
 
-**New here? Start with [SETUP.md](SETUP.md)** - a complete beginner walkthrough covering GitHub repo setup, GitHub tokens, Strava API credentials, and deploying your dashboard to Vercel, with no assumed prior experience.
+## Three repos
 
-**Once you're set up, read [HOW_IT_WORKS.md](HOW_IT_WORKS.md)** - explains the concepts (seasons, challenges, quests) and day-to-day workflow, so your first session doesn't feel like a black box.
+| Repo | What it is |
+|---|---|
+| [`coach-phelps-hq`](https://github.com/sibling-shipyard/coach-phelps-hq) | Shared React dashboard + API (Vercel). No athlete data. |
+| [`coach-engine`](https://github.com/sibling-shipyard/coach-engine) | Canonical Soul A+B, validators, sync pipeline, provisioning scripts. |
+| `coach-<user>` (yours, private) | Your training data, history, sessions, pinned engine, `data/aggregate.json`. |
 
-The quick version, if you've done this kind of thing before:
+Decision record: `kdb/decisions/0006-instance-vs-hq-split.md`.
 
-1. **Use this template** on GitHub, then clone your new repo locally.
-2. `pip3 install requests`
-3. Create a Strava API app at [strava.com/settings/api](https://www.strava.com/settings/api), copy `.env.example` to `.env` and fill in your Client ID/Secret, then run `python3 strava/oauth_reauth.py` to authorize and `python3 strava/fetch_strava.py --last 3` to confirm it works.
-4. Fill in your HR zones in `strava/README.md`.
-5. Sync history: `python3 strava/fetch_strava.py --sync --since YYYY-MM-DD`.
-6. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `training/state.md` to Claude.ai. Coach Phelps detects the blank `training/state.md` and runs intake automatically.
-7. Generate your quest log: `python3 scripts/generate_quest_log.py`.
-8. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables, and add `PAT_TOKEN`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REFRESH_TOKEN` as GitHub repo secrets so the sync workflow can run.
+## Legacy self-host
 
-Full details, screenshots-in-words, and troubleshooting for every step above are in [SETUP.md](SETUP.md).
-
----
-
-## How it works
-
-Every session, the coach:
-1. Reads `SOUL.md` (identity, rules, workflows)
-2. Reads `training/quest_log.md` (pre-computed streaks and progress)
-3. Reads `training/state.md` (your profile, injuries, week plan)
-4. Opens with context — not a status report
-
-At the end of every session, the coach commits updates to `training/state.md`, `training/challenge_v2.json`, and `training/coach_notes.md`.
-
----
-
-## What lives in your repo
-
-| File | Written by | Purpose |
-|------|-----------|---------|
-| `SOUL.md` | You (template) | Coach identity, rules, workflows |
-| `training/state.md` | Coach | Your profile, injuries, week plan |
-| `training/challenge_v2.json` | Coach | Quest and streak data |
-| `training/coach_notes.md` | Coach | Session insights (append-only) |
-| `training/quest_log.md` | Script (auto) | Live progress dashboard |
-| `training/history/*.json` | Sync script | Strava activity data (git-ignored) |
-| `strava/strava_tokens.json` | OAuth script | API tokens (git-ignored) |
-
----
-
-## Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `strava/oauth_reauth.py` | First-time auth and token refresh |
-| `strava/fetch_strava.py` | Fetch and sync activities from Strava |
-| `strava/query_history.py` | Search and filter local activity history |
-| `strava/rename_activities.py` / `rename_core.py` / `rename_single.py` | Rename Strava activities to a consistent naming pattern (dry-run by default) |
-| `scripts/generate_quest_log.py` | Regenerate `training/quest_log.md` |
-| `scripts/generate_quest_history.py` | Regenerate `ui/client/src/data/quest_history.json` for the dashboard |
-| `scripts/run_sync_pipeline.py` | Full sync pipeline - fetch, rename, regenerate quest data (used by the GitHub Actions workflow) |
-
-Workout templates and sessions are compiled separately, by `ui/scripts/build-data.mjs` - it runs automatically every time you do `npm run dev` or `npm run build` inside `ui/`, so there's nothing to run by hand for those.
+The old “clone the monolith + deploy your own Vercel UI” path is retired for F&F users.
+Engineering details remain in git history and `docs/scaling-plan.md`.
 
 ## Multi-agent setup
 
-This repo is designed to work with more than one Claude agent role sharing the same codebase - Coach Phelps (the coaching persona), plus a Tech Lead, UI Expert, and Bob the Builder for engineering work on the repo itself. See `CLAUDE.md` for the routing logic and `.github/agents/` for each role's instructions. If you're only using the coaching persona, you can ignore this entirely - it only activates when a session is addressed as one of the other roles.
+Engineering agents (Tech Lead, UI Expert, Bob, iOS Builder) work in **coach-phelps-hq** and
+**coach-engine**. Coach Phelps sessions run in your **instance** repo. See `AGENTS.md`.
