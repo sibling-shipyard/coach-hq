@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import WidgetKit
 
 /// Observable store for `training/widget_snapshots.json` (ADR 0005's cross-platform contract).
