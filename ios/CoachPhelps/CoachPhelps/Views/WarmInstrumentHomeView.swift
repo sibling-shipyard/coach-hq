@@ -8,9 +8,7 @@ import UniformTypeIdentifiers
 /// Home, `kdb/decisions/0005-widget-snapshots-cross-platform.md`, and
 /// `ui/docs/reference-interactions/Widget Design Philosophy.md` (platform row "iOS app (Home)").
 struct WarmInstrumentHomeView: View {
-    @EnvironmentObject var authManager: GitHubAuthManager
-    @State private var snapshots: WidgetSnapshotsFile?
-    @State private var isLoading = true
+    @EnvironmentObject var store: WidgetSnapshotStore
     @State private var toast: Toast?
     @State private var isEditingLayout = false
     @State private var navigationPath: [SyncCacheEntry] = []
@@ -24,16 +22,24 @@ struct WarmInstrumentHomeView: View {
             VStack(spacing: 0) {
                 BrandHeader(title: "Home", trailing: isEditingLayout ? AnyView(doneButton) : nil)
 
+                if let snapshots = store.snapshots {
+                    InstrumentHeaderView(
+                        phase: snapshots.home.phase,
+                        sync: snapshots.home.sync,
+                        generatedAt: snapshots.generatedAt
+                    )
+                }
+
                 ScrollView {
-                    if let snapshots {
+                    if let snapshots = store.snapshots {
                         widgetColumn(for: snapshots)
-                    } else if isLoading {
+                    } else if store.isLoading {
                         ProgressView().padding(.top, 100)
                     } else {
                         emptyState
                     }
                 }
-                .refreshable { await load(showSpinner: false) }
+                .refreshable { await store.refresh(showSpinner: false) }
             }
             .background(WarmInstrument.desk.ignoresSafeArea())
             .toast($toast)
@@ -41,7 +47,12 @@ struct WarmInstrumentHomeView: View {
             .navigationDestination(for: SyncCacheEntry.self) { entry in
                 ActivityDetailView(entry: entry)
             }
-            .task { await load(showSpinner: true) }
+            .task { await store.refresh(showSpinner: store.snapshots == nil) }
+            .onChange(of: store.lastError) { _, newError in
+                guard let newError else { return }
+                Haptics.error()
+                toast = Toast(kind: .error, message: newError)
+            }
         }
     }
 
@@ -51,6 +62,10 @@ struct WarmInstrumentHomeView: View {
     private func widgetColumn(for snapshots: WidgetSnapshotsFile) -> some View {
         let home = snapshots.home
         LazyVStack(spacing: 14) {
+            if !home.sync.healthy {
+                SyncWarningBanner(sync: home.sync)
+            }
+
             // P0
             EditableWidget(isEditing: $isEditingLayout, sizeBinding: $engineSize, sizeOptions: ["S", "M", "L"], jigglePhase: 0.00) {
                 EngineWidget(size: WidgetSize(rawValue: engineSize) ?? .m, sizes: snapshots.sizes.engine)
@@ -134,22 +149,36 @@ struct WarmInstrumentHomeView: View {
         .frame(maxWidth: .infinity)
         .padding(.top, 100)
     }
+}
 
-    // MARK: - Load
+// MARK: - Sync warning banner
 
-    private func load(showSpinner: Bool) async {
-        if showSpinner { isLoading = true }
-        defer { isLoading = false }
-        do {
-            let api = GitHubAPIClient(authManager: authManager)
-            let file = try await api.readWidgetSnapshots()
-            withAnimation(.spring(duration: 0.35, bounce: 0.1)) {
-                snapshots = file
+/// The one "something's wrong" treatment (Design Philosophy's alarm color) applied to the
+/// whole Home surface when the last sync round wasn't healthy — never stacked with other
+/// alarms, shown once at the top of the column.
+private struct SyncWarningBanner: View {
+    let sync: WidgetSyncSnapshot
+
+    var body: some View {
+        WarmCard(padding: 12, fill: WarmInstrument.alarmBg) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(WarmInstrument.alarmFg)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(sync.label)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(WarmInstrument.alarmFg)
+                    ForEach(sync.warnings, id: \.self) { warning in
+                        Text(warning)
+                            .font(.system(size: 11))
+                            .foregroundColor(WarmInstrument.alarmFg.opacity(0.85))
+                    }
+                }
+
+                Spacer(minLength: 0)
             }
-        } catch {
-            Haptics.error()
-            let message = (error as? GitHubAPIError)?.errorDescription ?? "Couldn't load Home"
-            toast = Toast(kind: .error, message: message)
         }
     }
 }
@@ -972,7 +1001,19 @@ private struct Vo2Sparkline: View {
 private struct CaloriesWidget: View {
     let calories: CaloriesSnapshot
 
-    private var hasTarget: Bool { (calories.target ?? 0) > 0 }
+    /// Issue #68: the live pipeline can still ship a fabricated 12,000 kcal target with
+    /// `targetIsFixture: false`, as if it were earned. Gate on all three signals — no target,
+    /// an explicit fixture flag, or the known hardcoded value — so Home never renders it as
+    /// real regardless of whether the upstream field is trustworthy yet.
+    private static let knownFixtureHardcode: Double = 12_000
+
+    private var hasTarget: Bool {
+        guard let target = calories.target, target > 0 else { return false }
+        if calories.targetIsFixture == true { return false }
+        if target == Self.knownFixtureHardcode { return false }
+        return true
+    }
+
     private var progress: Double {
         hasTarget ? min(1, calories.current / calories.target!) : min(1, calories.pacePercent / 100)
     }
