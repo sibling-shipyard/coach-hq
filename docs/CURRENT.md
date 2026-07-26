@@ -13,6 +13,7 @@
 | [`restructure-ledger.md`](restructure-ledger.md) | Migration ledger — every path move, archive, rename (M0–M5) |
 | [`repo-restructure-plan.md`](repo-restructure-plan.md) | Tech Lead restructure plan and milestone exit tests |
 | [`hq-port-plan.md`](hq-port-plan.md) | HQ port milestones (P1–P3) — adopt clean structure from `coach-phelps` |
+| [`m1-plan.md`](m1-plan.md) | **Active** M1 execution plan — thin skeleton, provision, Akash + Skanda clones |
 
 ---
 

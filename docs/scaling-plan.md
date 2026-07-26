@@ -269,7 +269,7 @@ flowchart LR
 | # | Size | Milestone | Done when (exit test) |
 |---|---|---|---|
 | **M0** | **L** | Split the engine | `SOUL.md` is separated into A / B / C; B is capability-contract form (no shell/git assumptions); `validate-data.yml` enforces the full file contracts; aggregate `schema_version` is frozen and documented. |
-| **M1** | **M** | Carve `coach-skeleton` + onboarding | `coach-skeleton` is carved from HQ (data + SOUL copy + pinned engine, per the init/post-init/gen bands); a new F&F user goes from zero to a working BYO-Claude coach by forking it via `provision-user.sh` in one sitting; the original repo is archived; root README/SETUP describe the hosted flow. |
+| **M1** | **M** | Carve `coach-skeleton` + onboarding | `sibling-shipyard/coach-skeleton` thin-carved from HQ (data bands + SOUL copy + minimal gen scripts — see [`m1-plan.md`](m1-plan.md)); **two** clones via `provision-user.sh` — **`akash-suresh/coach-akash`** and **`skanda-2003/coach-skanda`** (private on athlete accounts, full migration from legacy); each passes BYO boot, dashboard load, sync trigger; coach-chat P1; legacy repos kept as backup; README/SETUP describe hosted flow. |
 | **M2** | **L** | One engine, two hosts | `coach-chat.ts` and a BYO-Claude session execute the *same* shared B and pass the *same* validator — no coaching rule lives only in the endpoint prompt. |
 | **M3** | **S** | Pick the host | The A+B location decision is made from M2 feedback (server-only / BYO / hybrid), and §4/§6 are updated to match. |
 | **M4** | **M** | Self-serve onboarding | A user self-provisions on first login: repo created + secrets written automatically (Administration + Secrets perms granted); the operator step is gone. |
