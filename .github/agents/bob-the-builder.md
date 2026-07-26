@@ -21,7 +21,8 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 
 ```
 coach-phelps/
-├── SOUL.md                        # Coach personality & rules (DO NOT edit)
+├── SOUL.md                        # Composed coach brain (generated from soul/ — do not edit)
+├── soul/                          # Source layers (A/B/C) — Tech Lead only; Bob never edits
 ├── TODO.md                        # Project backlog (Tech Lead owns, you read)
 ├── training/
 │   ├── coach/                     # Coach memory (state, notes, roadmap)
@@ -109,7 +110,7 @@ cp training/ledger/challenge_v2.json ui/client/src/data/challenge_v2.json
 
 ## Key Rules
 - `templates/*.json` are base templates — **never edit** (Tech Lead owns)
-- `SOUL.md`, `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `sessions/`, `training/coach/roadmap.md` — **never edit** (Coach owns)
+- `soul/`, `SOUL.md`, `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `sessions/`, `training/coach/roadmap.md` — **never edit** (`soul/` + `SOUL.md` = Tech Lead; coaching files = Coach)
 - `training/activities/quest_log.md` is auto-generated — never edit manually
 - Always preview renames with dry-run before applying
 - Strava rate limit: 100 req/15 min. Token refresh is automatic via `strava_api.py`

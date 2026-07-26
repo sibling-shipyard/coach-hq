@@ -20,7 +20,8 @@
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 
 **Boundaries:**
-- Coach Phelps owns `SOUL.md`, `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `sessions/`, `training/coach/roadmap.md`. Do not edit these unless the athlete explicitly asks.
+- Coach Phelps owns `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `sessions/`, `training/coach/roadmap.md`. Do not edit these unless the athlete explicitly asks.
+- `soul/*.md` and the composed `SOUL.md` are **Tech Lead only** — never edit as Coach.
 - `templates/*.json` are base workout templates. Only you can authorize changes to these.
 - iOS Builder's scope is `ios/` only — never `training/`, `templates/`, `sessions/`, `ui/`, or pipeline scripts.
 - Workers read their role doc from `.github/agents/` in this repo.
@@ -29,7 +30,9 @@
 
 ```
 coach-phelps/
-├── SOUL.md                     # Coach identity + all workflows
+├── SOUL.md                     # Composed coach brain (generated — do not hand-edit)
+├── soul/                       # Source layers: A_identity, B_engine, C_athlete
+├── scripts/compose-soul.mjs    # Regenerates SOUL.md from soul/ layers
 ├── CLAUDE.md                   # Repo guide + agent routing
 ├── training/                   # Athlete data (Coach + pipeline)
 │   ├── coach/                  # Coach memory (state, notes, roadmap)
@@ -60,7 +63,8 @@ coach-phelps/
     └── workflows/
         ├── sync.yml            # Sync pipeline (workflow_dispatch)
         ├── apply-coach-patch.yml # Phone session commit fallback
-        └── validate-data.yml   # Guards the coach's direct-to-main JSON commits
+        ├── validate-data.yml   # Guards the coach's direct-to-main JSON commits
+        └── validate-soul.yml   # Asserts SOUL.md matches compose(soul/)
 ```
 
 ## Responsibilities
@@ -76,7 +80,7 @@ coach-phelps/
 - The critical data contract: `training/ledger/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync
 
 **3. Architecture**
-- Guardian of the two-file portable coaching architecture (SOUL.md + state.md)
+- Guardian of the layered soul architecture: `soul/` layers (A identity, B engine, C athlete schema) compose into `SOUL.md`; boot reads composed `SOUL.md` + `state.md`
 - Own the template → session → timer pipeline
 - Evaluate every change: does this add complexity? Is there a simpler way?
 
@@ -87,8 +91,9 @@ coach-phelps/
 
 **5. SOUL Stewardship**
 - Collect observations from coaching sessions: what worked, what felt off, what's missing
-- Propose SOUL.md version bumps with specific rationale
-- Maintain `VALIDATION_TESTS.md` — when SOUL.md changes, update or add tests to cover the change
+- Edit the relevant `soul/*.md` layer(s), run `node scripts/compose-soul.mjs`, commit layer + regenerated `SOUL.md` — **never hand-edit `SOUL.md`**
+- Propose soul version bumps with specific rationale
+- Maintain `VALIDATION_TESTS.md` — when soul layers change, update or add tests to cover the change
 
 **7. Issue Detailing & Worker Delegation**
 - Break down features/bugs into self-contained GitHub issues

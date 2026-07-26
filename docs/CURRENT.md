@@ -32,6 +32,9 @@
 
 | Doc | When to read |
 |-----|--------------|
+| [`soul-split-plan.md`](soul-split-plan.md) | Layered soul architecture (A/B/C split, compose pipeline, milestones) |
+| [`../soul/`](../soul/) | Source layers: `A_identity.md`, `B_engine.md`, `C_athlete.md` — edit these, not `SOUL.md` |
+| [`../scripts/compose-soul.mjs`](../scripts/compose-soul.mjs) | Regenerates `SOUL.md` from soul layers; CI drift-check via `validate-soul.yml` |
 | [`current-week-contract.md`](current-week-contract.md) | Before creating/changing `training/ledger/current_week.json` |
 | [`milestone-schema.md`](milestone-schema.md) | When testing/updating `training/ledger/challenge_v2.json` milestones |
 | [`timer-state-machine.md`](timer-state-machine.md) | When setting timer fields on workout templates/sessions (§7) |
@@ -69,7 +72,7 @@
 | Doc | Notes |
 |-----|-------|
 | [`soul-v4-design.md`](soul-v4-design.md) | v4 SOUL rewrite design — shipped |
-| [`soul-v5-design.md`](soul-v5-design.md) | v5 SOUL design — active spec until v5 lands, then archive |
+| [`soul-v5-design.md`](soul-v5-design.md) | v5 SOUL design — shipped (superseded by layered `soul/` + compose) |
 
 ---
 

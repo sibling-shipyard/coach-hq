@@ -199,6 +199,10 @@ Run this from inside your cloned repo folder. Requires a Claude Pro (or Max/Team
 **Claude.ai:**
 Upload `SOUL.md` and `training/coach/state.md` as attachments to a new conversation.
 
+Coach reads the composed `SOUL.md` at boot (source layers live in `soul/` — Tech Lead edits those and
+regenerates via `node scripts/compose-soul.mjs`; athletes and Coach never edit `soul/` or `SOUL.md`
+directly).
+
 **On your phone:** see section 9 below to set up chatting with your coach from the Claude mobile app.
 
 Coach Phelps detects the blank `training/coach/state.md` and automatically runs an intake conversation - no special prompting needed. During this first session the coach will:

@@ -22,7 +22,7 @@
 
 ## P1 — V2 Enhancements
 
-- [ ] **SOUL.md v2** — iterate on First Session Protocol and coaching quality after first 2-3 real users. Expected gaps: quest setup flow, weekly planning for unfamiliar sports, goal-setting depth.
+- [ ] **soul/ v2** — iterate on First Session Protocol and coaching quality after first 2-3 real users (edit `soul/A_identity.md` / `soul/B_engine.md`, then compose). Expected gaps: quest setup flow, weekly planning for unfamiliar sports, goal-setting depth.
 
 - [ ] **Sport-agnostic analytics option** — the analytics pages (`BadmintonAnalytics`, `BadmintonMatchAnalytics`, `RunAnalytics`, `MonthlyAnalytics`) are provided as examples from one real setup. A user doing a different sport has to build their own page from scratch rather than adapt a generic one. Consider adding a lightweight generic analytics page alongside them (activity heatmap, volume by sport type, HR zone distribution, streak counters) that works for any sport out of the box.
 
@@ -36,7 +36,7 @@
 
 - [ ] **Structured memory system** — when `training/coach/coach_notes.md` exceeds ~600 lines, distill permanent patterns into `training/key_insights.md` and archive old notes. Relevant ~6 months in for active users.
 
-- [ ] **Travel/bodyweight mode** — Coach detects travel context and switches to a bodyweight-only plan. Return protocol to ramp back up. Define in SOUL.md.
+- [ ] **Travel/bodyweight mode** — Coach detects travel context and switches to a bodyweight-only plan. Return protocol to ramp back up. Define in `soul/B_engine.md`.
 
 - [ ] **Readiness score** — daily 1-100 score derived from sleep, soreness, PRE, and streak data. Helps Coach calibrate session intensity without asking every time.
 
