@@ -29,7 +29,7 @@ The app is "dumb" by design: it reads from and writes to GitHub. The AI Coach (r
 
 ## Phase 1 (v0.1): HealthKit Sync Engine (The Strava Replacement)
 
-The primary goal of v0.1 is to establish HealthKit as the sole ingestion path for workout data. Historical Strava data in `training/history/` is preserved as-is.
+The primary goal of v0.1 is to establish HealthKit as the sole ingestion path for workout data. Historical Strava data in `training/activities/history/` is preserved as-is.
 
 ### HealthKit Integration
 - **Data Scope:** Workouts (type, duration, calories, HR), continuous heart rate, resting heart rate, sleep, steps, HRV, and VO2max.
@@ -38,7 +38,7 @@ The primary goal of v0.1 is to establish HealthKit as the sole ingestion path fo
 
 ### Naming & Enrichment (Option C Architecture)
 The iOS app owns naming and enrichment at commit time to ensure a single, clean commit per activity.
-- **Auto-Naming:** Before committing, the app reads the latest activities in `training/history/` to find the highest sequence number for a given category (e.g., `Calisthenics #29`). It increments the counter and assigns the new name (`Calisthenics #30`).
+- **Auto-Naming:** Before committing, the app reads the latest activities in `training/activities/history/` to find the highest sequence number for a given category (e.g., `Calisthenics #29`). It increments the counter and assigns the new name (`Calisthenics #30`).
 - **HR Zones:** The app computes time-in-zone distribution locally based on HR zone boundaries configured in the app settings.
 - **Fallback:** The legacy Python rename script remains in the repo as a validator/migration tool, but is not part of the active daily pipeline.
 

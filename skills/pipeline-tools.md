@@ -18,9 +18,9 @@ python3 strava/fetch_strava.py [flags]
 | `--last-week` | Print all activities from the past 7 days to stdout |
 | `--id ID` | Fetch a specific activity by Strava ID |
 | `--date YYYY-MM-DD` | Fetch activities on a specific date |
-| `--sync` | Sync mode — write fetched activities to `training/history/` |
+| `--sync` | Sync mode — write fetched activities to `training/activities/history/` |
 | `--since YYYY-MM-DD` | Use with `--sync` — only fetch activities from this date forward |
-| `--save` | Save fetched activities to `training/history/` (use with `--last` or `--id`) |
+| `--save` | Save fetched activities to `training/activities/history/` (use with `--last` or `--id`) |
 
 **Common recipes:**
 
@@ -41,7 +41,7 @@ python3 strava/fetch_strava.py --id 12345678 --save
 
 ## query_history.py
 
-Searches local `training/history/*.json` files. No API calls — fast and safe.
+Searches local `training/activities/history/*.json` files. No API calls — fast and safe.
 
 ```bash
 python3 strava/query_history.py [filters] [output mode]
@@ -114,7 +114,7 @@ python3 strava/rename_single.py [activity_id] [flags]
 | `--name "..."` | Override: use this exact name instead of auto-classification |
 | `--status` | Show current counters for all categories (no activity needed) |
 
-**Counter logic:** Scans `training/history/*.json`, buckets by the activity's calendar year (from `start_date_local`), and finds the highest counter per (year, category) — new activity = max + 1 within that year. Counters reset every Jan 1. Example: if `Run #8` is the highest in 2026, next 2026 run gets `Run #9`, but the first run of 2027 starts at `Run #1`.
+**Counter logic:** Scans `training/activities/history/*.json`, buckets by the activity's calendar year (from `start_date_local`), and finds the highest counter per (year, category) — new activity = max + 1 within that year. Counters reset every Jan 1. Example: if `Run #8` is the highest in 2026, next 2026 run gets `Run #9`, but the first run of 2027 starts at `Run #1`.
 
 **Common workflow:**
 
@@ -155,7 +155,7 @@ python3 strava/rename_activities.py [flags]
 
 ## generate_quest_log.py
 
-Regenerates `training/quest_log.md` from `training/challenge_v2.json` + `training/history/*.json`. Run this before every coach commit.
+Regenerates `training/activities/quest_log.md` from `training/ledger/challenge_v2.json` + `training/activities/history/*.json`. Run this before every coach commit.
 
 ```bash
 python3 scripts/generate_quest_log.py [flags]
@@ -163,7 +163,7 @@ python3 scripts/generate_quest_log.py [flags]
 
 | Flag | Description |
 |------|-------------|
-| *(no flags)* | Regenerate and write `training/quest_log.md` |
+| *(no flags)* | Regenerate and write `training/activities/quest_log.md` |
 | `--dry-run` | Print output to stdout instead of writing the file |
 | `--date YYYY-MM-DD` | Override today's date (for testing) |
 | `--validate` | Validate `challenge_v2.json` schema and exit |

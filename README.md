@@ -21,7 +21,7 @@ The quick version, if you've done this kind of thing before:
 3. Create a Strava API app at [strava.com/settings/api](https://www.strava.com/settings/api), copy `.env.example` to `.env` and fill in your Client ID/Secret, then run `python3 strava/oauth_reauth.py` to authorize and `python3 strava/fetch_strava.py --last 3` to confirm it works.
 4. Fill in your HR zones in `strava/README.md`.
 5. Sync history: `python3 strava/fetch_strava.py --sync --since YYYY-MM-DD`.
-6. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `training/state.md` to Claude.ai. Coach Phelps detects the blank `training/state.md` and runs intake automatically.
+6. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `training/coach/state.md` to Claude.ai. Coach Phelps detects the blank `training/coach/state.md` and runs intake automatically.
 7. Generate your quest log: `python3 scripts/generate_quest_log.py`.
 8. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables, and add `PAT_TOKEN`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REFRESH_TOKEN` as GitHub repo secrets so the sync workflow can run.
 
@@ -33,11 +33,11 @@ Full details, screenshots-in-words, and troubleshooting for every step above are
 
 Every session, the coach:
 1. Reads `SOUL.md` (identity, rules, workflows)
-2. Reads `training/quest_log.md` (pre-computed streaks and progress)
-3. Reads `training/state.md` (your profile, injuries, week plan)
+2. Reads `training/activities/quest_log.md` (pre-computed streaks and progress)
+3. Reads `training/coach/state.md` (your profile, injuries, week plan)
 4. Opens with context — not a status report
 
-At the end of every session, the coach commits updates to `training/state.md`, `training/challenge_v2.json`, and `training/coach_notes.md`.
+At the end of every session, the coach commits updates to `training/coach/state.md`, `training/ledger/challenge_v2.json`, and `training/coach/coach_notes.md`.
 
 ---
 
@@ -46,11 +46,11 @@ At the end of every session, the coach commits updates to `training/state.md`, `
 | File | Written by | Purpose |
 |------|-----------|---------|
 | `SOUL.md` | You (template) | Coach identity, rules, workflows |
-| `training/state.md` | Coach | Your profile, injuries, week plan |
-| `training/challenge_v2.json` | Coach | Quest and streak data |
-| `training/coach_notes.md` | Coach | Session insights (append-only) |
-| `training/quest_log.md` | Script (auto) | Live progress dashboard |
-| `training/history/*.json` | Sync script | Strava activity data (git-ignored) |
+| `training/coach/state.md` | Coach | Your profile, injuries, week plan |
+| `training/ledger/challenge_v2.json` | Coach | Quest and streak data |
+| `training/coach/coach_notes.md` | Coach | Session insights (append-only) |
+| `training/activities/quest_log.md` | Script (auto) | Live progress dashboard |
+| `training/activities/history/*.json` | Sync script | Strava activity data (git-ignored) |
 | `strava/strava_tokens.json` | OAuth script | API tokens (git-ignored) |
 
 ---
@@ -63,7 +63,7 @@ At the end of every session, the coach commits updates to `training/state.md`, `
 | `strava/fetch_strava.py` | Fetch and sync activities from Strava |
 | `strava/query_history.py` | Search and filter local activity history |
 | `strava/rename_activities.py` / `rename_core.py` / `rename_single.py` | Rename Strava activities to a consistent naming pattern (dry-run by default) |
-| `scripts/generate_quest_log.py` | Regenerate `training/quest_log.md` |
+| `scripts/generate_quest_log.py` | Regenerate `training/activities/quest_log.md` |
 | `scripts/generate_quest_history.py` | Regenerate `ui/client/src/data/quest_history.json` for the dashboard |
 | `scripts/run_sync_pipeline.py` | Full sync pipeline - fetch, rename, regenerate quest data (used by the GitHub Actions workflow) |
 

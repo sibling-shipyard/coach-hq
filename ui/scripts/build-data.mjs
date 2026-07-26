@@ -7,7 +7,7 @@
  * Reads:
  *   data/history/*.json    → activities (sorted newest-first)
  *   data/challenge_v2.json   → challenge_v2 (copy)
- *   training/current_week.json   → current_week (validated copy, or "unavailable" fallback)
+ *   training/ledger/current_week.json   → current_week (validated copy, or "unavailable" fallback)
  *   data/templates/*.json  → workouts.templates
  *   data/sessions/*.json   → workouts.sessions (session overrides template for same date+id)
  *   data/sync_status.json  → sync_status (copy, default if missing)
@@ -49,7 +49,7 @@ function buildAggregate() {
   const result = {};
 
   // 1. Merge history/*.json → activities
-  const historyDir = path.join(REPO_ROOT, "training", "history");
+  const historyDir = path.join(REPO_ROOT, "training", "activities", "history");
   const existingActivitiesPath = path.join(OUT_DIR, "activities.json");
   if (fs.existsSync(historyDir)) {
     const files = fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"));
@@ -81,7 +81,7 @@ function buildAggregate() {
   }
 
   // 2. challenge_v2.json
-  const challengeSrc = path.join(REPO_ROOT, "training", "challenge_v2.json");
+  const challengeSrc = path.join(REPO_ROOT, "training", "ledger", "challenge_v2.json");
   if (fs.existsSync(challengeSrc)) {
     result.challenge_v2 = JSON.parse(fs.readFileSync(challengeSrc, "utf-8"));
     console.log("✓ challenge_v2 loaded");
@@ -91,7 +91,7 @@ function buildAggregate() {
   }
 
   // 3. current_week.json — validated copy, or an "unavailable" fallback shape.
-  const currentWeekSrc = path.join(REPO_ROOT, "training", "current_week.json");
+  const currentWeekSrc = path.join(REPO_ROOT, "training", "ledger", "current_week.json");
   if (fs.existsSync(currentWeekSrc)) {
     try {
       const raw = fs.readFileSync(currentWeekSrc, "utf-8");
@@ -99,11 +99,11 @@ function buildAggregate() {
       console.log("✓ current_week loaded");
     } catch (e) {
       result.current_week = UNAVAILABLE_CURRENT_WEEK;
-      console.warn(`⚠ Invalid training/current_week.json; using unavailable fallback: ${e.message}`);
+      console.warn(`⚠ Invalid training/ledger/current_week.json; using unavailable fallback: ${e.message}`);
     }
   } else {
     result.current_week = UNAVAILABLE_CURRENT_WEEK;
-    console.warn("⚠ No training/current_week.json found; using unavailable fallback");
+    console.warn("⚠ No training/ledger/current_week.json found; using unavailable fallback");
   }
 
   // 4. Bundle workout templates and sessions → workouts

@@ -39,7 +39,7 @@ from rename_core import (
 from strava_api import api_put, load_tokens, refresh_if_needed
 
 REPO_DIR = Path(__file__).resolve().parent.parent
-HISTORY_DIR = REPO_DIR / "training" / "history"
+HISTORY_DIR = REPO_DIR / "training" / "activities" / "history"
 
 
 def get_all_counters_by_year():
@@ -72,7 +72,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Counter logic:
-  Scans training/history/*.json for existing renamed activities.
+  Scans training/activities/history/*.json for existing renamed activities.
   Counters reset every calendar year, per category, based on the
   activity's own start_date_local. New counter = max (that year) + 1.
 
@@ -89,7 +89,7 @@ Counter logic:
     counters_by_year = get_all_counters_by_year()
 
     if args.status:
-        print("\nCurrent counters (from training/history/*.json, reset per calendar year):")
+        print("\nCurrent counters (from training/activities/history/*.json, reset per calendar year):")
         for year in sorted(counters_by_year):
             print(f"\n  {year}:")
             for k, v in sorted(counters_by_year[year].items()):
@@ -104,7 +104,7 @@ Counter logic:
     # Find the activity
     data, filepath = find_activity(args.activity_id)
     if data is None:
-        print(f"ERROR: Activity {args.activity_id} not found in training/history/", file=sys.stderr)
+        print(f"ERROR: Activity {args.activity_id} not found in training/activities/history/", file=sys.stderr)
         print(f"  Run 'python strava/fetch_strava.py --sync --forward' first.", file=sys.stderr)
         sys.exit(1)
 

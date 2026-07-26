@@ -29,20 +29,6 @@ jobs:
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
         run: python3 scripts/run_sync_pipeline.py
 
-      - name: Populate last_week
-        run: |
-          mkdir -p training/last_week
-          CUTOFF=$(date -d '6 days ago' +%Y-%m-%d)
-          rm -f training/last_week/*.json
-          for f in training/history/*.json; do
-            [ -f "$f" ] || continue
-            ACT_DATE=$(python3 -c "import json; print(json.load(open('$f')).get('start_date','')[:10])" 2>/dev/null || echo "")
-            if [ "$ACT_DATE" \> "$CUTOFF" ] || [ "$ACT_DATE" = "$CUTOFF" ]; then
-              cp "$f" training/last_week/
-            fi
-          done
-          echo "last_week contains $(ls training/last_week/ 2>/dev/null | wc -l) activities"
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:

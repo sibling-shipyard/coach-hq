@@ -8,8 +8,8 @@ Usage:
     python fetch_strava.py --id ID            # specific activity by ID
     python fetch_strava.py --date 2026-03-23  # activities on a specific date
     python fetch_strava.py --sync --since 2025-12-24  # sync all history backwards to disk
-    python fetch_strava.py --last 3 --save            # fetch + save 3 recent to training/history/
-    python fetch_strava.py --id ID --save             # fetch + save specific activity to training/history/
+    python fetch_strava.py --last 3 --save            # fetch + save 3 recent to training/activities/history/
+    python fetch_strava.py --id ID --save             # fetch + save specific activity to training/activities/history/
 """
 
 import argparse
@@ -22,7 +22,7 @@ from strava_api import load_tokens, save_tokens, refresh_if_needed, api_get
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 TRAINING_DIR = REPO_DIR / "training"
-HISTORY_DIR = TRAINING_DIR / "history"
+HISTORY_DIR = TRAINING_DIR / "activities" / "history"
 PHOTOS_DIR = TRAINING_DIR / "photos"
 SYNC_STATE_PATH = TRAINING_DIR / "sync_state.json"
 
@@ -354,9 +354,9 @@ def main():
     parser.add_argument("--last-week", action="store_true", help="All activities from the past 7 days")
     parser.add_argument("--id", type=int, help="Specific activity ID")
     parser.add_argument("--date", type=str, help="Date in YYYY-MM-DD format")
-    parser.add_argument("--sync", action="store_true", help="Sync activities to training/history/")
+    parser.add_argument("--sync", action="store_true", help="Sync activities to training/activities/history/")
     parser.add_argument("--since", type=str, help="Sync start date (YYYY-MM-DD), used with --sync")
-    parser.add_argument("--save", action="store_true", help="Save fetched activities to training/history/ (use with --last or --id)")
+    parser.add_argument("--save", action="store_true", help="Save fetched activities to training/activities/history/ (use with --last or --id)")
     args = parser.parse_args()
 
     tokens = refresh_if_needed(load_tokens())

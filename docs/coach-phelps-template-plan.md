@@ -71,7 +71,7 @@ The biggest piece of work. Keep the Phelps identity intact; strip Sky-specific c
 
 ### First Session Protocol (new §7)
 
-Triggered when coach boots and detects `training/state.md` contains only the template header (Athlete Profile section is empty).
+Triggered when coach boots and detects `training/coach/state.md` contains only the template header (Athlete Profile section is empty).
 
 **Step 1 — Warm intro:** Introduce as Coach Phelps. Short. One paragraph: who you are, what you've been through, why you're here. Not a capabilities pitch. Feel like meeting someone at a coffee shop.
 
@@ -95,7 +95,7 @@ One or two questions at a time. Follow up naturally. Don't accept vague goals �
 - What's the one thing you want to track as your main challenge goal? (e.g., "20 strength sessions in 60 days")
 - What do you want to call your daily habits? (e.g., morning routine, cold shower, nutrition target)
 - How long do you want the challenge to run? (default: 60 days)
-Then write `training/challenge_v2.json` with: challenge dates (start today), `count_pattern` matching their Strava activity naming, and their chosen side quests.
+Then write `training/ledger/challenge_v2.json` with: challenge dates (start today), `count_pattern` matching their Strava activity naming, and their chosen side quests.
 
 **Step 6 — Commit both files.** `state.md` + `challenge_v2.json` together in one commit.
 
@@ -103,7 +103,7 @@ Then write `training/challenge_v2.json` with: challenge dates (start today), `co
 
 ---
 
-## Step 3 — Write training/state.md (blank template)
+## Step 3 — Write training/coach/state.md (blank template)
 
 ```markdown
 # Coach Phelps: state.md (Living Memory)
@@ -133,7 +133,7 @@ Then write `training/challenge_v2.json` with: challenge dates (start today), `co
 
 ---
 
-## Step 4 — Write training/challenge_v2.json (parameterized template)
+## Step 4 — Write training/ledger/challenge_v2.json (parameterized template)
 
 Key changes from the Sky version:
 - `main_quest.count_pattern` — new field (was hardcoded in script as `^Calisthenics\s*#`)
@@ -346,7 +346,7 @@ HR_ZONES = [
 ```
 .env
 strava/strava_tokens.json
-training/history/
+training/activities/history/
 __pycache__/
 *.pyc
 *.pyo

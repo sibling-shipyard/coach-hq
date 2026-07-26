@@ -144,7 +144,7 @@ Sync your recent activity history so the coach has context before your first con
 python3 strava/fetch_strava.py --sync --since YYYY-MM-DD
 ```
 
-Replace `YYYY-MM-DD` with a date about 2-3 months back (e.g. `2026-04-18`). Activities save to `training/history/` (git-ignored, stays local).
+Replace `YYYY-MM-DD` with a date about 2-3 months back (e.g. `2026-04-18`). Activities save to `training/activities/history/` (git-ignored, stays local).
 
 **No Strava, or don't want to sync history yet?** Skip this - the coach will just ask about your recent training during intake instead.
 
@@ -197,15 +197,15 @@ claude
 Run this from inside your cloned repo folder. Requires a Claude Pro (or Max/Team/Enterprise) subscription - see the note at the top of this guide.
 
 **Claude.ai:**
-Upload `SOUL.md` and `training/state.md` as attachments to a new conversation.
+Upload `SOUL.md` and `training/coach/state.md` as attachments to a new conversation.
 
 **On your phone:** see section 9 below to set up chatting with your coach from the Claude mobile app.
 
-Coach Phelps detects the blank `training/state.md` and automatically runs an intake conversation - no special prompting needed. During this first session the coach will:
+Coach Phelps detects the blank `training/coach/state.md` and automatically runs an intake conversation - no special prompting needed. During this first session the coach will:
 - Review your Strava history silently before saying hello (if you synced it)
 - Ask several intake questions conversationally (goals, timeline, coaching style preference, timezone, etc.)
 - Confirm your profile back to you
-- Write `training/state.md` and `training/challenge_v2.json`
+- Write `training/coach/state.md` and `training/ledger/challenge_v2.json`
 - Commit both files
 
 ---
@@ -218,7 +218,7 @@ After your first session:
 python3 scripts/generate_quest_log.py
 ```
 
-This produces `training/quest_log.md`, your live progress dashboard. The coach reads this at the start of every future session so it always knows your current streaks and progress.
+This produces `training/activities/quest_log.md`, your live progress dashboard. The coach reads this at the start of every future session so it always knows your current streaks and progress.
 
 ---
 

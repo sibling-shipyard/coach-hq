@@ -152,7 +152,7 @@ contracts so either runtime executes it — validators enforcing the guarantees 
 ```mermaid
 flowchart LR
   strava["Strava Premium<br/>API + secrets"] --> sync["sync.yml pipeline"]
-  ios["iOS HealthKit app"] -->|push history| hist["training/history/*.json<br/>same shape either source"]
+  ios["iOS HealthKit app"] -->|push history| hist["training/activities/history/*.json<br/>same shape either source"]
   sync --> hist
   hist --> agg["build-data.mjs --aggregate<br/>writes data/aggregate.json"]
   agg --> ghcdn["GitHub = data store + CDN"]

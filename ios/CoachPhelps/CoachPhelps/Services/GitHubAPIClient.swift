@@ -152,7 +152,7 @@ class GitHubAPIClient {
 
     // MARK: - Read Operations
 
-    /// Lists files in a directory (e.g., "training/history")
+    /// Lists files in a directory (e.g., "training/activities/history")
     func listFiles(path: String) async throws -> [GitHubFileEntry] {
         let label = "Listing \(path)"
         return try await withRetry(label) {
@@ -195,9 +195,9 @@ class GitHubAPIClient {
         }
     }
 
-    /// Reads a single activity from `training/history/<fileName>`.
+    /// Reads a single activity from `training/activities/history/<fileName>`.
     func readActivity(fileName: String) async throws -> Activity {
-        let data = try await readFile(path: "training/history/\(fileName)")
+        let data = try await readFile(path: "training/activities/history/\(fileName)")
         do {
             return try JSONDecoder().decode(Activity.self, from: data)
         } catch {

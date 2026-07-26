@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-25T09:21:01.169Z",
+  "generated_at": "2026-07-26T08:48:20.116Z",
   "home": {
     "engine": {
       "weekLabel": "WK 30",
@@ -165,7 +165,7 @@
       "completed": 0,
       "target": 0,
       "loaded": 0,
-      "daysLeft": 1,
+      "daysLeft": 0,
       "sideQuests": [
         {
           "id": "morning_routine",
@@ -185,7 +185,7 @@
       ]
     },
     "coachRead": {
-      "dateLabel": "SAT 25 JUL",
+      "dateLabel": "SUN 26 JUL",
       "body": "0 sessions logged. 0 active days · 0.0 hours · 0 disciplines. Factual log summary; no training prescription is inferred.",
       "eyebrow": "LOG",
       "signature": "— COACH",
@@ -194,7 +194,7 @@
       "evidence": [
         "LOAD 0 · BAND 0–0",
         "0.0H RECORDED THIS WEEK",
-        "QUEST 0/0 · 1D LEFT"
+        "QUEST 0/0 · 0D LEFT"
       ]
     },
     "commitments": [
@@ -342,10 +342,11 @@
       "monthLabel": "JUL",
       "current": 0,
       "target": 12000,
-      "daysLeft": 6,
+      "daysLeft": 5,
       "daysInMonth": 31,
-      "pacePercent": 80.64516129032258,
+      "pacePercent": 83.87096774193549,
       "dailyActual": [
+        0,
         0,
         0,
         0,
@@ -372,9 +373,9 @@
         0,
         0
       ],
-      "dailyNeeded": 2000,
+      "dailyNeeded": 2400,
       "targetIsFixture": false,
-      "elapsedDays": 25,
+      "elapsedDays": 26,
       "activeDays": 0
     },
     "trainingActivity": {
@@ -1131,7 +1132,7 @@
             "2026-07-23",
             "2026-07-24",
             "2026-07-25",
-            null,
+            "2026-07-26",
             null,
             null
           ]
@@ -1141,7 +1142,7 @@
       "activeDays": 0,
       "planTruePercent": null,
       "gapCount": 1,
-      "worstGap": 116,
+      "worstGap": 117,
       "read": "Activity is observed from the log; plan-truth appears when completed-vs-planned history lands.",
       "dayDetails": {}
     },
@@ -1154,7 +1155,7 @@
     },
     "sessions": [],
     "phase": {
-      "weekLabel": "WK 1/9",
+      "weekLabel": "WK 2/9",
       "title": "BUILD PHASE · CHALLENGE DATA",
       "milestones": [],
       "read": "Phase dates and milestone values are read directly from the generated challenge record."
@@ -1507,7 +1508,7 @@
         "completed": 0,
         "target": 0,
         "loaded": 0,
-        "daysLeft": 1,
+        "daysLeft": 0,
         "sideQuests": [
           {
             "id": "morning_routine",

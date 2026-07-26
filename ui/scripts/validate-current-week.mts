@@ -20,7 +20,7 @@ if (fileArgs.length > 1) {
   process.exit(2);
 }
 
-const target = resolve(fileArgs[0] ?? "training/current_week.json");
+const target = resolve(fileArgs[0] ?? "training/ledger/current_week.json");
 let input: unknown;
 
 try {

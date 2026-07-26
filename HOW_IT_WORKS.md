@@ -10,8 +10,8 @@ Read this once after setup, before your first session. You won't need to memoriz
 
 These three words get used a lot and it's easy to mix them up. They nest inside each other:
 
-- **Season** - your ongoing coaching relationship. Indefinite, no end date. Has a name and moves through phases (Base, Build, Peak - see below). Lives in `training/state.md`.
-- **The Challenge** - a bounded sprint *inside* the season, typically 60 days. This is the gamified kickstart tool: a main goal plus a handful of side quests, all with a start and end date. Lives in `training/challenge_v2.json`. When a Challenge ends, the Season keeps going - you just start a new Challenge, or coast without one for a while.
+- **Season** - your ongoing coaching relationship. Indefinite, no end date. Has a name and moves through phases (Base, Build, Peak - see below). Lives in `training/coach/state.md`.
+- **The Challenge** - a bounded sprint *inside* the season, typically 60 days. This is the gamified kickstart tool: a main goal plus a handful of side quests, all with a start and end date. Lives in `training/ledger/challenge_v2.json`. When a Challenge ends, the Season keeps going - you just start a new Challenge, or coast without one for a while.
 - **Quests** - the individual trackable things *inside* a Challenge: one `main_quest` (the headline goal) plus several side `quests` (habits and smaller goals). Both live inside the same `challenge_v2.json` file.
 
 So: Season (indefinite) contains Challenge (60-day sprint) contains Quests (main + side). If you only remember one thing from this doc, remember that the Challenge is a tool used *during* a season, not the whole relationship.
@@ -27,12 +27,12 @@ These are just labels + date ranges the coach writes into `state.md` and referen
 
 ## 2. What happens in your first session
 
-The very first time you talk to your coach, it detects that `training/state.md` is blank and runs an intake conversation automatically - you don't need to say anything special to trigger it. During this conversation the coach:
+The very first time you talk to your coach, it detects that `training/coach/state.md` is blank and runs an intake conversation automatically - you don't need to say anything special to trigger it. During this conversation the coach:
 
 - Reviews your synced Strava history silently, if you did that step in setup
 - Asks you conversationally about your goals, sport(s), schedule, coaching style preference, timezone, and any injuries
 - Confirms your profile back to you
-- Writes `training/state.md` (your profile) and `training/challenge_v2.json` (your first Challenge - main goal + side quests, defaulting to a 60-day sprint)
+- Writes `training/coach/state.md` (your profile) and `training/ledger/challenge_v2.json` (your first Challenge - main goal + side quests, defaulting to a 60-day sprint)
 - Commits both files to your repo
 
 You don't need to hand-write either of these files before this conversation happens - just leave them as they ship (blank/example) and let the coach fill them in. After that, they update automatically every session.
@@ -44,8 +44,8 @@ You don't need to hand-write either of these files before this conversation happ
 Day-to-day, you don't run commands or edit files - you just talk to the coach normally, and it captures what matters:
 
 - **Mention a workout, your sleep, how sore you are, anything about training** - the coach picks this up from normal conversation, no special format needed.
-- **Sleep specifically** gets written to two places at once: the Sleep Log table inside `state.md` *and* `training/sleep_log.json`. Both exist because one is for the coach's own memory, the other feeds the dashboard's sleep chart. You'll never need to touch either by hand.
-- **Ending the conversation** ("goodnight," "that's it for today") triggers a lightweight closing check, then the **Commit Protocol**: the coach updates `state.md`, `challenge_v2.json`, and `coach_notes.md`, regenerates `training/quest_log.md`, and pushes a commit straight to your repo's `main` branch. No pull request, no confirmation needed from you - this is pre-authorized as part of how the coach works.
+- **Sleep specifically** gets written to two places at once: the Sleep Log table inside `state.md` *and* `training/activities/sleep_log.json`. Both exist because one is for the coach's own memory, the other feeds the dashboard's sleep chart. You'll never need to touch either by hand.
+- **Ending the conversation** ("goodnight," "that's it for today") triggers a lightweight closing check, then the **Commit Protocol**: the coach updates `state.md`, `challenge_v2.json`, and `coach_notes.md`, regenerates `training/activities/quest_log.md`, and pushes a commit straight to your repo's `main` branch. No pull request, no confirmation needed from you - this is pre-authorized as part of how the coach works.
 
 That last point matters to understand: **every real conversation with your coach results in an actual commit to your GitHub repo.** If you check your repo's commit history, you'll see these show up as `coach: day-N - ...` commits.
 
@@ -121,6 +121,6 @@ The common thread: everything you tell your coach eventually lands in one of the
 
 A quick closing checklist:
 
-- **Never hand-edit:** `training/quest_log.md`, `ui/client/src/data/quest_history.json`, or anything inside `ui/client/src/data/` - these are all auto-generated and get overwritten on the next sync/build/session anyway.
-- **Normally coach-written, but fine to read:** `training/state.md`, `training/challenge_v2.json`, `training/coach_notes.md`, `training/roadmap.md`, `training/sleep_log.json`. You can open and read any of these anytime to see exactly what your coach knows. Editing them by hand won't break anything technically, but it's usually better to just tell the coach what you want changed in conversation - it'll keep everything in sync (e.g. regenerating `quest_log.md` after a `challenge_v2.json` edit) in a way a manual edit won't.
+- **Never hand-edit:** `training/activities/quest_log.md`, `ui/client/src/data/quest_history.json`, or anything inside `ui/client/src/data/` - these are all auto-generated and get overwritten on the next sync/build/session anyway.
+- **Normally coach-written, but fine to read:** `training/coach/state.md`, `training/ledger/challenge_v2.json`, `training/coach/coach_notes.md`, `training/coach/roadmap.md`, `training/activities/sleep_log.json`. You can open and read any of these anytime to see exactly what your coach knows. Editing them by hand won't break anything technically, but it's usually better to just tell the coach what you want changed in conversation - it'll keep everything in sync (e.g. regenerating `quest_log.md` after a `challenge_v2.json` edit) in a way a manual edit won't.
 - **Yours to edit freely:** `templates/*.json` if you want to change your base workouts (though see `.github/agents/` if you're using the multi-agent engineering setup - template changes go through Tech Lead review there), and anything in `sessions/` you want to clear out manually.

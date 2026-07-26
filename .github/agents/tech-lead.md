@@ -16,11 +16,11 @@
 | **Tech Lead** (you) | This thread | Full monorepo |
 | **Coach Phelps** | SOUL.md thread | `training/`, `sessions/` only |
 | **UI Expert** | Worker thread | `ui/client/src/` only |
-| **Bob the Builder** | Worker thread | `strava/`, `scripts/`, `training/history/` only |
+| **Bob the Builder** | Worker thread | `strava/`, `scripts/`, `training/activities/history/` only |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 
 **Boundaries:**
-- Coach Phelps owns `SOUL.md`, `state.md`, `coach_notes.md`, `challenge_v2.json`, `sessions/`, `roadmap.md`. Do not edit these unless the athlete explicitly asks.
+- Coach Phelps owns `SOUL.md`, `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `sessions/`, `training/coach/roadmap.md`. Do not edit these unless the athlete explicitly asks.
 - `templates/*.json` are base workout templates. Only you can authorize changes to these.
 - iOS Builder's scope is `ios/` only — never `training/`, `templates/`, `sessions/`, `ui/`, or pipeline scripts.
 - Workers read their role doc from `.github/agents/` in this repo.
@@ -32,12 +32,11 @@ coach-phelps/
 ├── SOUL.md                     # Coach identity + all workflows
 ├── CLAUDE.md                   # Repo guide + agent routing
 ├── training/                   # Athlete data (Coach + pipeline)
-│   ├── state.md                # Living memory (Coach)
-│   ├── challenge_v2.json       # Quest data (Coach writes, pipeline reads)
-│   ├── quest_log.md            # Auto-generated (pipeline)
-│   ├── roadmap.md              # Run plan (Coach)
-│   ├── history/                # Strava JSONs (pipeline, git-tracked)
-│   └── last_week/              # Recent 7 days (pipeline, not committed)
+│   ├── coach/                  # Coach memory (state, notes, roadmap)
+│   ├── ledger/                 # Structured JSON (challenge, current_week)
+│   ├── activities/             # Auto-generated (history, quest_log, sleep)
+│   ├── sync_state.json         # Sync counters (root, locked)
+│   └── sync_status.json        # Pipeline status (root, locked)
 ├── strava/                     # Strava API scripts (Bob)
 ├── scripts/                    # Sync pipeline + quest log gen (Bob)
 ├── templates/                  # Base workout templates (Tech Lead owns)
@@ -47,7 +46,7 @@ coach-phelps/
 │   └── client/src/
 │       ├── data/               # UI data bundle (pipeline writes, git-tracked)
 │       │   ├── activities.json
-│       │   ├── challenge_v2.json   # Mirror of training/challenge_v2.json
+│       │   ├── challenge_v2.json   # Mirror of training/ledger/challenge_v2.json
 │       │   ├── quest_history.json
 │       │   ├── sleep_log.json
 │       │   ├── sync_status.json
@@ -73,8 +72,8 @@ coach-phelps/
 
 **2. Codebase Knowledge**
 - Know the full monorepo in detail: data flow, build pipeline, deploy
-- Data flow: `Strava API → fetch_strava.py → training/history/ → pipeline step 4 → ui/client/src/data/ → git push → Vercel`
-- The critical data contract: `training/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync
+- Data flow: `Strava API → fetch_strava.py → training/activities/history/ → pipeline step 4 → ui/client/src/data/ → git push → Vercel`
+- The critical data contract: `training/ledger/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync
 
 **3. Architecture**
 - Guardian of the two-file portable coaching architecture (SOUL.md + state.md)
@@ -82,7 +81,7 @@ coach-phelps/
 - Evaluate every change: does this add complexity? Is there a simpler way?
 
 **4. Season Awareness**
-- Know the current season, phase, and block from `training/state.md` and SOUL.md §5
+- Know the current season, phase, and block from `training/coach/state.md` and SOUL.md §5
 - Track `TODO.md` priorities and how they map to the season goal
 - Flag when in-flight work is drifting from the season plan
 

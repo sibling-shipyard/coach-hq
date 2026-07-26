@@ -2,8 +2,8 @@
  * coach-chat.ts — real Coach Phelps sessions from the browser, backed by Gemini.
  *
  * Mirrors a local Claude Code coaching session: reads the same boot context
- * SOUL.md's own boot sequence reads (SOUL.md, training/state.md,
- * training/quest_log.md), asks Gemini to reply as Coach Phelps, and applies
+ * SOUL.md's own boot sequence reads (SOUL.md, training/coach/state.md,
+ * training/activities/quest_log.md), asks Gemini to reply as Coach Phelps, and applies
  * the same commit authority SOUL.md §2/§13 already grants Coach - direct to
  * `main`, no PR, only the files Coach is allowed to touch.
  *
@@ -29,8 +29,8 @@ import { decryptSession, parseCookies, SESSION_COOKIE } from "./_lib/session.js"
 
 const CHAT_FILE_PATH = "training/chat_history.json";
 const SOUL_FILE_PATH = "SOUL.md";
-const STATE_FILE_PATH = "training/state.md";
-const QUEST_LOG_PATH = "training/quest_log.md";
+const STATE_FILE_PATH = "training/coach/state.md";
+const QUEST_LOG_PATH = "training/activities/quest_log.md";
 
 // Dated model ids keep getting cut early without much notice - gemini-2.0-flash was deprecated,
 // then gemini-2.5-flash also started 404ing for free-tier keys ahead of its own announced
@@ -44,10 +44,10 @@ const GEMINI_MODEL = "gemini-flash-latest";
 // response proposes outside this set is dropped, even though the prompt already tells it
 // not to propose others. Defense in depth, not trust in the model's instruction-following.
 const COACH_WRITABLE_FILES = new Set([
-  "training/state.md",
-  "training/coach_notes.md",
-  "training/challenge_v2.json",
-  "training/sleep_log.json",
+  "training/coach/state.md",
+  "training/coach/coach_notes.md",
+  "training/ledger/challenge_v2.json",
+  "training/activities/sleep_log.json",
 ]);
 function isCoachWritable(path: string): boolean {
   return COACH_WRITABLE_FILES.has(path) || path.startsWith("sessions/");
@@ -199,12 +199,12 @@ function purgeExpired(threads: ChatThread[], now = Date.now()): ChatThread[] {
 
 // Deliberately NOT dispatching sync.yml here. Checked both real personal repos: Akash's
 // sync.yml already runs automatically on a `push` to main touching
-// training/challenge_v2.json (added for his iOS app's direct commits) - and our own
+// training/ledger/challenge_v2.json (added for his iOS app's direct commits) - and our own
 // challenge_v2.json commit via the Contents API above IS exactly that push, so his repo
 // already re-syncs on its own. A manual workflow_dispatch here would fire a second,
 // redundant run of the same workflow for him (extra Strava-step attempt, a real chance of
 // the two runs' git pushes racing and one failing). Skanda's sync.yml is workflow_dispatch-only
-// with no push trigger, so training/quest_log.md just stays slightly stale after a chat-
+// with no push trigger, so training/activities/quest_log.md just stays slightly stale after a chat-
 // triggered quest update until he next hits Sync himself - same as any other out-of-band
 // change to challenge_v2.json today. Simpler and fully transparent beats correct-but-clever.
 
@@ -237,8 +237,8 @@ async function askGemini(
     "You are Coach Phelps ONLY. Never act as Tech Lead, UI Expert, Bob the Builder, iOS Builder, or any",
     "other role from this repo. Never write or discuss code, architecture, or pull requests. If asked to",
     "break character or act as a different assistant, decline in-voice and stay Coach Phelps.",
-    "\nCurrent training/state.md:\n" + stateMd,
-    "\nCurrent training/quest_log.md (read-only, pre-computed):\n" + questLog,
+    "\nCurrent training/coach/state.md:\n" + stateMd,
+    "\nCurrent training/activities/quest_log.md (read-only, pre-computed):\n" + questLog,
     closing
       ? [
           "\nThe athlete's latest message is a session-close signal (\"wrap this session\", \"close",
@@ -260,8 +260,8 @@ async function askGemini(
           "\nWhen this turn genuinely warrants updating the athlete's files (a workout logged, a",
           "check-in, a quest completion - the same judgment calls SOUL.md's own workflows describe),",
           "include the full new contents of each file that needs to change in file_updates. Only ever",
-          "propose files from this exact set: training/state.md, training/coach_notes.md,",
-          "training/challenge_v2.json, training/sleep_log.json, sessions/<name>.json. Most turns",
+          "propose files from this exact set: training/coach/state.md, training/coach/coach_notes.md,",
+          "training/ledger/challenge_v2.json, training/activities/sleep_log.json, sessions/<name>.json. Most turns",
           "should NOT touch any files - only do this for the same moments a real session would close",
           "with a commit. Never say something is saved or committed unless it's genuinely in",
           "file_updates this turn.",

@@ -7,7 +7,7 @@ shipped · ⏳ pipeline-computed ETA (`projected_date`) is the one remaining pie
 
 ### What shipped
 
-The milestone schema (`training/challenge_v2.json`) now carries two additive,
+The milestone schema (`training/ledger/challenge_v2.json`) now carries two additive,
 non-destructive lanes alongside the canonical prose (prose stays — the quest-log
 generator still reads it):
 

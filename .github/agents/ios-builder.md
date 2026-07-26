@@ -70,7 +70,7 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 | `ui/client/src/lib/activities.ts` | Dashboard Activity interface + sport classification |
 | `ui/client/src/pages/workout-timer/useTimerEngine.ts` | Timer state machine (reference for Phase 2) |
 | `ui/client/src/lib/workouts.ts` | Session JSON schema |
-| `training/history/*.json` | Activity data files (what Coach reads) |
+| `training/activities/history/*.json` | Activity data files (what Coach reads) |
 | `training/sync_state.json` | Sync counters and last-synced timestamp |
 
 ## Design Language
