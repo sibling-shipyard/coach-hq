@@ -27,6 +27,7 @@ from pathlib import Path
 _here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_here.parent / "lib"))
 from repo_layout import ledger_dir, quest_history_path, repo_root_from_here, seasons_dir  # noqa: E402
+from challenge_schema import challenge_window, season_start_date  # noqa: E402
 
 REPO_DIR = repo_root_from_here(__file__)
 
@@ -50,7 +51,7 @@ def date_range(start: str, end: str):
 
 
 def process_season(data: dict, is_current: bool, quests_out: dict) -> None:
-    season_end = data["challenge"]["end_date"]
+    season_end = challenge_window(data)["end_date"]
 
     for quest in data.get("quests", []):
         if quest.get("type") != "daily_streak":
@@ -103,7 +104,7 @@ def main():
     seasons = seasons_dir(REPO_DIR)
     archive_files = sorted(
         seasons.glob("*/challenge_v2.json") if seasons.exists() else [],
-        key=lambda f: json.loads(f.read_text())["challenge"]["start_date"],
+        key=lambda f: season_start_date(json.loads(f.read_text())),
     )
     for path in archive_files:
         data = json.loads(path.read_text())

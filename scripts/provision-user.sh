@@ -160,6 +160,9 @@ regenerate_gen() {
   if [[ -f "${hq_root}/engine/lib/repo_layout.py" ]]; then
     cp "${hq_root}/engine/lib/repo_layout.py" "${target_root}/engine/lib/repo_layout.py"
     cp "${hq_root}/engine/lib/repo-layout.mjs" "${target_root}/engine/lib/repo-layout.mjs"
+    cp "${hq_root}/engine/lib/challenge_schema.py" "${target_root}/engine/lib/challenge_schema.py"
+    cp "${hq_root}/engine/scripts/generate_quest_log.py" "${target_root}/engine/scripts/generate_quest_log.py"
+    cp "${hq_root}/engine/scripts/generate_quest_history.py" "${target_root}/engine/scripts/generate_quest_history.py"
   fi
 
   log "Regenerating gen/ from migrated user_data/..."

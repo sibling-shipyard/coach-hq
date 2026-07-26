@@ -22,6 +22,7 @@ from typing import Optional
 _here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_here.parent / "lib"))
 from repo_layout import hist_dir, ledger_dir, quest_log_path, repo_root_from_here  # noqa: E402
+from challenge_schema import challenge_window  # noqa: E402
 
 ROOT = repo_root_from_here(__file__)
 CHALLENGE_FILE = ledger_dir(ROOT) / "challenge_v2.json"
@@ -32,7 +33,7 @@ VALID_QUEST_TYPES = {"daily_streak", "progress", "count_target", "weekly_frequen
 VALID_POLARITIES = {"default_done", "default_not_done"}
 VALID_STATUSES = {"active", "completed", "retired"}
 
-REQUIRED_CHALLENGE_FIELDS = {"version", "challenge", "main_quest", "quests"}
+REQUIRED_CHALLENGE_FIELDS = {"version", "main_quest", "quests"}
 REQUIRED_QUEST_FIELDS = {"id", "name", "type", "category", "start_date", "status"}
 REQUIRED_DAILY_STREAK_FIELDS = {"polarity", "tracking"}
 REQUIRED_PROGRESS_FIELDS = {"current", "target"}
@@ -59,18 +60,24 @@ def validate_schema(data: dict) -> list[str]:
     missing_top = REQUIRED_CHALLENGE_FIELDS - set(data.keys())
     if missing_top:
         errors.append(f"Missing top-level fields: {missing_top}")
-        return errors  # Can't continue without structure
 
-    # Challenge block
-    ch = data["challenge"]
-    for f in ("name", "start_date", "duration_days", "end_date"):
-        if f not in ch:
-            errors.append(f"challenge missing field: {f}")
+    has_challenge = "challenge" in data
+    has_season = "season" in data
+    if not has_challenge and not has_season:
+        errors.append("Missing challenge or season block")
+        return errors
+
+    # Challenge / season window
+    win = data["challenge"] if has_challenge else data["season"]
+    block = "season" if has_season else "challenge"
+    for f in ("name", "start_date", "end_date"):
+        if f not in win:
+            errors.append(f"{block} missing field: {f}")
 
     # Validate dates parse correctly
     for field_path, obj, key in [
-        ("challenge.start_date", ch, "start_date"),
-        ("challenge.end_date", ch, "end_date"),
+        (f"{block}.start_date", win, "start_date"),
+        (f"{block}.end_date", win, "end_date"),
     ]:
         if key in obj:
             try:
@@ -78,11 +85,28 @@ def validate_schema(data: dict) -> list[str]:
             except (ValueError, TypeError):
                 errors.append(f"{field_path} is not a valid YYYY-MM-DD date: {obj.get(key)}")
 
+    if has_challenge:
+        ch = data["challenge"]
+        if "duration_days" not in ch:
+            try:
+                start = parse_date(ch["start_date"])
+                end = parse_date(ch["end_date"])
+                if end < start:
+                    errors.append("challenge.end_date is before start_date")
+            except (ValueError, TypeError):
+                pass
+
     # Main quest
     mq = data["main_quest"]
-    for f in ("id", "name", "type", "target"):
-        if f not in mq:
-            errors.append(f"main_quest missing field: {f}")
+    mq_type = mq.get("type", "count_target")
+    if mq_type == "weekly_sessions":
+        for f in ("id", "name", "type", "weekly_floor"):
+            if f not in mq:
+                errors.append(f"main_quest missing field: {f}")
+    else:
+        for f in ("id", "name", "type", "target"):
+            if f not in mq:
+                errors.append(f"main_quest missing field: {f}")
 
     # Quests array
     if not isinstance(data["quests"], list):
@@ -224,6 +248,56 @@ def count_main_quest(main_quest: dict, activities: list[dict], challenge_start: 
         if act_date >= challenge_start and pattern and re.match(pattern, name):
             count += 1
     return count
+
+
+def main_quest_stats(mq: dict, activities: list[dict], ch_start: date, ch_end: date, today: date) -> dict:
+    """Render stats for main quest — count_target (v2) or weekly_sessions (v3)."""
+    mq_type = mq.get("type", "count_target")
+    if mq_type == "weekly_sessions":
+        sessions = mq.get("sessions", [])
+        weekly_floor = float(mq.get("weekly_floor", 0))
+        week_start = iso_week_start(today)
+        week_weight = 0.0
+        for s in sessions:
+            try:
+                s_date = parse_date(s["date"])
+            except (ValueError, KeyError, TypeError):
+                continue
+            if week_start <= s_date <= today:
+                week_weight += float(s.get("weight", 1.0))
+        if week_weight >= weekly_floor:
+            status = "ON TRACK"
+        elif week_weight >= weekly_floor * 0.6:
+            status = "SLIGHTLY BEHIND"
+        else:
+            status = "BEHIND PACE"
+        return {
+            "progress_line": (
+                f"This week: {week_weight:.1f}/{weekly_floor} weighted sessions | "
+                f"{len(sessions)} logged in season"
+            ),
+            "pace_line": f"Floor: {weekly_floor}/week (loaded + skill sessions)",
+            "status": status,
+        }
+
+    mq_count = count_main_quest(mq, activities, ch_start)
+    weeks_elapsed = max((today - ch_start).days / 7, 0.01)
+    weeks_remaining = max((ch_end - today).days / 7, 0.01)
+    pace = round(mq_count / weeks_elapsed, 1)
+    needed = round((mq["target"] - mq_count) / weeks_remaining, 1)
+    if mq_count >= mq["target"]:
+        status = "COMPLETED"
+    elif pace >= needed * 0.85:
+        status = "ON TRACK"
+    elif pace >= needed * 0.6:
+        status = "SLIGHTLY BEHIND"
+    else:
+        status = "BEHIND PACE"
+    return {
+        "progress_line": f"Progress: {mq_count}/{mq['target']}",
+        "pace_line": f"Pace: {pace}/week | Need: {needed}/week to finish on time",
+        "status": status,
+    }
 
 
 # ── Daily Streak Logic ───────────────────────────────────────────────────────
@@ -384,42 +458,28 @@ def progress_bar(done: int, target: int) -> str:
 # ── Render ───────────────────────────────────────────────────────────────────
 
 def render_quest_log(data: dict, activities: list[dict], today: date) -> str:
-    ch = data["challenge"]
-    ch_start = parse_date(ch["start_date"])
+    win = challenge_window(data)
+    ch_start = parse_date(win["start_date"])
     ch_day = (today - ch_start).days + 1
-    ch_pct = round(ch_day / ch["duration_days"] * 100, 1)
+    ch_pct = round(ch_day / win["duration_days"] * 100, 1)
 
-    # Main quest
     mq = data["main_quest"]
-    mq_count = count_main_quest(mq, activities, ch_start)
-    weeks_elapsed = max((today - ch_start).days / 7, 0.01)
-    ch_end = parse_date(ch["end_date"])
-    weeks_remaining = max((ch_end - today).days / 7, 0.01)
-    pace = round(mq_count / weeks_elapsed, 1)
-    needed = round((mq["target"] - mq_count) / weeks_remaining, 1)
-
-    if mq_count >= mq["target"]:
-        mq_status = "COMPLETED"
-    elif pace >= needed * 0.85:
-        mq_status = "ON TRACK"
-    elif pace >= needed * 0.6:
-        mq_status = "SLIGHTLY BEHIND"
-    else:
-        mq_status = "BEHIND PACE"
+    ch_end = parse_date(win["end_date"])
+    mq_stats = main_quest_stats(mq, activities, ch_start, ch_end, today)
 
     lines = []
     lines.append("# Quest Log")
     lines.append(f"> Auto-generated from challenge_v2.json + history data. **DO NOT EDIT.**")
     lines.append(f"> Last updated: {today.strftime('%Y-%m-%d')}")
     lines.append("")
-    lines.append(f"## Challenge: {ch['name']}")
-    lines.append(f"Day {min(ch_day, ch['duration_days'])} of {ch['duration_days']} | "
-                 f"{min(ch_pct, 100)}% complete | Ends {ch['end_date']}")
+    lines.append(f"## {win['label']}: {win['name']}")
+    lines.append(f"Day {min(ch_day, win['duration_days'])} of {win['duration_days']} | "
+                 f"{min(ch_pct, 100)}% complete | Ends {win['end_date']}")
     lines.append("")
     lines.append(f"## Main Quest: {mq['name']}")
-    lines.append(f"Progress: {mq_count}/{mq['target']} | "
-                 f"Pace: {pace}/week | Need: {needed}/week to finish on time")
-    lines.append(f"Status: **{mq_status}**")
+    lines.append(mq_stats["progress_line"])
+    lines.append(mq_stats["pace_line"])
+    lines.append(f"Status: **{mq_stats['status']}**")
     lines.append("")
 
     # Side quests table
@@ -517,8 +577,8 @@ def main():
             print(f"  - {e}", file=sys.stderr)
         print("Continuing with generation (output may be incomplete)...", file=sys.stderr)
 
-    # Load activities filtered by challenge start date
-    ch_start = parse_date(data["challenge"]["start_date"])
+    # Load activities filtered by challenge/season start date
+    ch_start = parse_date(challenge_window(data)["start_date"])
     activities = load_activities(earliest_date=ch_start)
 
     output = render_quest_log(data, activities, today)
