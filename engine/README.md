@@ -1,36 +1,48 @@
 # engine/ — HQ brain (IP stays here)
 
-Everything coaches, protocols, plugins, and Strava/rename logic lives in HQ `engine/`.
-**coach-skeleton gets the bare minimum** to run dashboard + BYO boot.
+Everything coaches, protocols, plugins, and Strava/rename logic is **authored in HQ** `engine/`.
+**coach-skeleton gets a carved copy** of the runnable BYO stack — same tree every athlete clones.
+
+Canonical layout: [`docs/skeleton-layout.md`](../docs/skeleton-layout.md).
 
 ## IP boundary
 
-| Stays in HQ (never in base skeleton) | In skeleton |
+| Stays in HQ only (never carved) | Carved into athlete `engine/` |
 |---|---|
-| `engine/soul/` source layers + compose | `SOUL.md` copy only |
-| Agents, KDB, skills, templates, plugins | — |
-| `strava/`, `core/taxonomy`, rename logic | Added at **provision** for Strava athletes only |
-| `run_sync_pipeline.py` (full pipeline) | `regenerate_derived.py` (quest + aggregate path) |
+| `engine/soul/` source layers + compose script | — |
+| `.github/agents/`, KDB, skills, HQ docs | — |
+| `plugins/` (badminton, visualization) | — |
+| Template **source** authoring (`engine/templates/`) | Copy of 2 samples → `user_data/.../templates/` |
 | UI, iOS app source | — |
+| `engine/SOUL.md` (draft during compose) | `SOUL.md` at repo root (composed copy) |
+
+| In every athlete repo | Notes |
+|---|---|
+| `engine/scripts/`, `engine/lib/` | Sync + aggregate pipeline |
+| `engine/strava/`, `engine/core/` | **Option A** — present for all, active when `STRAVA_*` secrets set |
+| `user_data/` | Athlete + coach memory |
+| `gen/` | Pipeline output |
 
 **Endgame (M2/M3):** SOUL + engine run server-side → skeleton thins to **data only**.
 
-## Skeleton contents (base carve)
+## Athlete repo shape (carved)
 
 ```mermaid
 flowchart TB
-  subgraph data["Data bands"]
-    init["init: training/coach/*, history/"]
-    post["post-init: ledger/, sessions/"]
-    gen["gen: aggregate, widget_snapshots, quest outputs"]
+  subgraph engine["engine/ — runtime"]
+    scripts["scripts + lib + strava + core"]
   end
-  soul["SOUL.md copy"]
-  scripts["4 scripts + lib/"]
-  data --> gen
+  subgraph gen["gen/ — rebuildable"]
+    out["aggregate, quest_log, sync_status, widgets"]
+  end
+  subgraph ud["user_data/ — precious"]
+    coach["coach/state.md, notes, reference"]
+    act["activities/hist, workout_plans"]
+    ledger["ledger/"]
+  end
+  soul["SOUL.md"] --> coach
   scripts --> gen
-  soul --> boot["BYO Claude boot"]
+  ud --> gen
 ```
 
-**Provision adds for Strava:** `strava/`, `core/`, `run_sync_pipeline.py`, `.env.example`, secrets.
-
-Operator: `node scripts/carve-skeleton.mjs --push`
+Operator refresh: `node scripts/carve-skeleton.mjs --push`
