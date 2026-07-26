@@ -14,7 +14,7 @@ Canonical layout: [`docs/skeleton-layout.md`](../docs/skeleton-layout.md).
 | `plugins/` (badminton, visualization) | — |
 | Template **source** authoring (`engine/templates/`) | Copy of 2 samples → `user_data/.../templates/` |
 | UI, iOS app source | — |
-| `engine/SOUL.md` (draft during compose) | `SOUL.md` at repo root (composed copy) |
+| `engine/SOUL.md` (draft during compose) | `propagated/SOUL.md` + `propagated/docs/` (composed copy) |
 
 | In every athlete repo | Notes |
 |---|---|
@@ -40,7 +40,7 @@ flowchart TB
     act["activities/hist, workout_plans"]
     ledger["ledger/"]
   end
-  soul["SOUL.md"] --> coach
+  soul["propagated/SOUL.md"] --> coach
   scripts --> gen
   ud --> gen
 ```

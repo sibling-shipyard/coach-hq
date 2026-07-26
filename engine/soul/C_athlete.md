@@ -63,7 +63,7 @@ Dynamic profile — current fitness baseline, goals, RPE calibration, sleep log,
 | Coaching priorities, learned patterns | `state.md` | Coach-derived institutional memory |
 | Recent session notes | `state.md` | Rolling last 3 — boot continuity |
 | Season arc, phase, milestones, quests | `user_data/ledger/challenge_v2.json` | Structured JSON — single source of truth for gamification |
-| Active week plan | `user_data/ledger/current_week.json` | Schema v1 per `docs/current-week-contract.md` |
+| Active week plan | `user_data/ledger/current_week.json` | Schema v1 per `propagated/docs/current-week-contract.md` |
 
 ---
 <!-- /soul:section -->

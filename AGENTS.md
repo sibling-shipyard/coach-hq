@@ -25,12 +25,12 @@ the athlete's words clearly point to another role; if the signals genuinely conf
 AI coaching system for the athlete — data, training pipeline, Strava sync, and UI in a single monorepo.
 
 **Layered soul:** Coach identity, engine rules, and athlete schema live in `engine/soul/` as three source
-layers. `SOUL.md` at repo root is a **composed artifact** (regenerated via `node engine/scripts/compose-soul.mjs`; CI checks drift). Boot and
-`coach-chat.ts` still **read `SOUL.md` + `user_data/coach/state.md`**. To change
+layers. `propagated/SOUL.md` at repo root is a **composed artifact** (regenerated via `node engine/scripts/compose-soul.mjs`; CI checks drift). Boot and
+`coach-chat.ts` still **read `propagated/SOUL.md` + `user_data/coach/state.md`**. To change
 coach behavior, edit the relevant `engine/soul/*.md` layer, run compose, commit both the layer edits and the
-regenerated `SOUL.md`. Never hand-edit `SOUL.md`.
+regenerated `propagated/SOUL.md`. Never hand-edit `propagated/SOUL.md`.
 
-- `SOUL.md` — composed coach brain (read at every boot; do not edit directly)
+- `SOUL.md` — composed coach brain (read at every boot; lives in `propagated/SOUL.md` — do not edit directly)
 - `engine/` — **skeleton source of truth** (carved into `coach-skeleton`; see `engine/README.md`)
 - `engine/soul/` — identity, engine rules, athlete schema layers
 - `user_data/` — athlete data (HQ keeps a copy for dogfooding; lives in user repos at scale)

@@ -31,6 +31,15 @@ const SKELETON_ENGINE_DIRS = ["lib", "strava", "core"];
 /** Workout plan templates copied from engine/templates/ → user_data/.../templates/ */
 const WORKOUT_TEMPLATES = ["foundation.json", "strength_a.json"];
 
+/** Reference docs copied from HQ → propagated/docs/ (SOUL on-demand reads) */
+const PROPAGATED_DOCS = [
+  "current-week-contract.md",
+  "timer-state-machine.md",
+  "phelps-voice-profile.md",
+  "soul-calibration.md",
+  "milestone-schema.md",
+];
+
 const CHALLENGE_V2_TEMPLATE = {
   version: 2,
   last_updated_by: "coach",
@@ -224,7 +233,7 @@ Private fork template for \`coach-<user>\` repos. Carved from \`coach-phelps-hq\
 | **init** | \`user_data/coach/*\`, \`user_data/activities/hist/\` |
 | **post-init** | \`user_data/ledger/*\`, \`user_data/activities/workout_plans/sessions/\` |
 | **gen** | \`gen/aggregate.json\`, \`gen/quest_log.md\`, \`gen/sync_status.json\`, \`gen/widget_snapshots.json\` |
-| **SOUL** | \`SOUL.md\` — committed copy from HQ (not editable) |
+| **propagated** | \`propagated/SOUL.md\` + \`propagated/docs/\` — HQ IP copy (not editable) |
 | **engine** | Runtime scripts, strava, core — carved from HQ; coach must not edit |
 
 Dashboard: shared site reads \`gen/aggregate.json\`. iOS app pushes \`user_data/activities/hist/\` directly.
@@ -234,7 +243,7 @@ Pin: \`.coach-engine-version\` · Operator: \`coach-phelps-hq/scripts/carve-skel
 
 const SKELETON_CLAUDE = `# Claude Code entry
 
-You are **Coach Phelps**. Read \`SOUL.md\` §1 and boot from \`user_data/coach/state.md\`.
+You are **Coach Phelps**. Read \`propagated/SOUL.md\` §1 and boot from \`user_data/coach/state.md\`.
 
 This is an athlete repo — not the HQ monorepo. No multi-agent routing.
 `;
@@ -304,7 +313,7 @@ claude
 \`\`\`
 Run from the repo root. Requires a Claude Pro (or Max/Team/Enterprise) plan.
 
-**Claude.ai:** upload \`SOUL.md\` and \`user_data/coach/state.md\` as attachments.
+**Claude.ai:** upload \`propagated/SOUL.md\` and \`user_data/coach/state.md\` as attachments.
 
 **Mobile:** Claude app → connect GitHub → Claude Code mode → select this repo.
 
@@ -437,6 +446,29 @@ function ensureComposedSoul() {
   }
 }
 
+function copyPropagated(outDir) {
+  const soulSrc = path.join(REPO_ROOT, "propagated", "SOUL.md");
+  if (!fs.existsSync(soulSrc)) {
+    throw new Error("Missing propagated/SOUL.md — run compose-soul before carve");
+  }
+  fs.mkdirSync(path.join(outDir, "propagated", "docs"), { recursive: true });
+  fs.copyFileSync(soulSrc, path.join(outDir, "propagated", "SOUL.md"));
+
+  for (const doc of PROPAGATED_DOCS) {
+    const src = path.join(ENGINE_DIR, "docs", doc);
+    if (!fs.existsSync(src)) {
+      throw new Error(`Missing engine/docs/${doc} for propagated bundle`);
+    }
+    fs.copyFileSync(src, path.join(outDir, "propagated", "docs", doc));
+  }
+
+  const pipelineTools = path.join(ENGINE_DIR, "skills", "pipeline-tools.md");
+  if (!fs.existsSync(pipelineTools)) {
+    throw new Error("Missing engine/skills/pipeline-tools.md for propagated bundle");
+  }
+  fs.copyFileSync(pipelineTools, path.join(outDir, "propagated", "docs", "pipeline-tools.md"));
+}
+
 function carve(outDir, sha) {
   console.log(`Carving skeleton → ${outDir}`);
   console.log(`Pinned HQ SHA: ${sha}`);
@@ -456,7 +488,7 @@ function carve(outDir, sha) {
   }
   copyWorkflows(outDir);
 
-  fs.copyFileSync(path.join(REPO_ROOT, "SOUL.md"), path.join(outDir, "SOUL.md"));
+  copyPropagated(outDir);
 
   writeText(outDir, ".coach-engine-version", `hq_sha=${sha}`);
   writeText(outDir, "README.md", SKELETON_README);

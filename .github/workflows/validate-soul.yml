@@ -1,17 +1,17 @@
 name: Validate SOUL composition
 
-# SOUL.md is a generated artifact from engine/soul/ via engine/scripts/compose-soul.mjs.
+# propagated/SOUL.md is a generated artifact from engine/soul/ via engine/scripts/compose-soul.mjs.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'SOUL.md'
+      - 'propagated/SOUL.md'
       - 'engine/soul/**'
       - 'engine/scripts/compose-soul.mjs'
   pull_request:
     paths:
-      - 'SOUL.md'
+      - 'propagated/SOUL.md'
       - 'engine/soul/**'
       - 'engine/scripts/compose-soul.mjs'
 
@@ -21,5 +21,5 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Assert SOUL.md matches composed output
+      - name: Assert propagated/SOUL.md matches composed output
         run: node engine/scripts/compose-soul.mjs --check

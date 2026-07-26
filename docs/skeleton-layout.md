@@ -17,7 +17,7 @@ Every athlete repo — greenfield or migrated — uses **identical layout**. Str
 ```mermaid
 flowchart TB
   subgraph root["Repo root"]
-    soul["SOUL.md + CLAUDE.md + SETUP.md"]
+    soul["propagated/SOUL.md + propagated/docs/"]
     gh[".github/workflows/"]
   end
   subgraph engine["engine/ — runtime, do not edit via coach"]
@@ -44,7 +44,9 @@ flowchart TB
 
 ```
 coach-skeleton/  (= coach-user after fork)
-├── SOUL.md
+├── propagated/
+│   ├── SOUL.md
+│   └── docs/                        # timer-state-machine, current-week-contract, etc.
 ├── CLAUDE.md
 ├── README.md
 ├── SETUP.md

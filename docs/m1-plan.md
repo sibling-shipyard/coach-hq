@@ -42,7 +42,7 @@ flowchart LR
 ```mermaid
 flowchart TB
   subgraph skel["coach-skeleton — full BYO tree"]
-    soul["SOUL.md + SETUP.md"]
+    soul["propagated/SOUL.md + SETUP.md"]
     eng["engine/ scripts, strava, core"]
     gen["gen/ pipeline outputs"]
     ud["user_data/ coach, ledger, activities"]
@@ -70,7 +70,7 @@ Two production clones onboarded: **`akash-suresh/coach-akash`** (iOS) and **`ska
 | BYO model | Clone full repo → `SETUP.md` → coach; no partial clone |
 | User repos | **Private on athlete account** |
 | Migration | **Full** Layer C + `hist/` + sessions from legacy repos (path rewrite) |
-| SOUL in skeleton | **Composed copy only** — no `soul/` layers, no compose script |
+| SOUL in skeleton | **Composed copy in `propagated/`** — SOUL.md + reference docs; no `engine/soul/` layers, no compose script |
 | Athlete profile | `user_data/coach/state.md` (boot); `coach_notes.md` archive only |
 | Sample templates | **`foundation.json` + `strength_a.json`** in carve |
 | Strava | **Option A** — `engine/strava/` in skeleton for all; active when `STRAVA_*` secrets exist |
@@ -138,7 +138,7 @@ Source: [`scripts/carve-skeleton.mjs`](../scripts/carve-skeleton.mjs) · Layout:
 
 | Category | Contents |
 |---|---|
-| Boot | `SOUL.md`, `CLAUDE.md`, `SETUP.md`, `README.md` |
+| Boot | `propagated/SOUL.md`, `propagated/docs/`, `CLAUDE.md`, `SETUP.md`, `README.md` |
 | Engine | `engine/scripts/`, `lib/`, `strava/`, `core/`, `.env.example` |
 | Workflows | `sync.yml`, `validate-data.yml`, `apply-coach-patch.yml` |
 | Gen | Placeholders under `gen/` |

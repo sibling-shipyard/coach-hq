@@ -28,7 +28,7 @@
 import { decryptSession, parseCookies, SESSION_COOKIE } from "./_lib/session.js";
 
 const CHAT_FILE_PATH = "training/chat_history.json";
-const SOUL_FILE_PATH = "SOUL.md";
+const SOUL_FILE_PATH = "propagated/SOUL.md";
 const STATE_FILE_PATH = "training/coach/state.md";
 const QUEST_LOG_PATH = "training/activities/quest_log.md";
 

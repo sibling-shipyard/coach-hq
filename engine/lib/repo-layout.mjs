@@ -10,8 +10,9 @@ export function repoRoot(fromDir = path.dirname(fileURLToPath(import.meta.url)))
       return dir;
     }
     if (
-      fs.existsSync(path.join(dir, "SOUL.md")) &&
-      (fs.existsSync(path.join(dir, "user_data")) || fs.existsSync(path.join(dir, "training")))
+      fs.existsSync(path.join(dir, "propagated", "SOUL.md")) ||
+      (fs.existsSync(path.join(dir, "SOUL.md")) &&
+        (fs.existsSync(path.join(dir, "user_data")) || fs.existsSync(path.join(dir, "training"))))
     ) {
       return dir;
     }
@@ -136,4 +137,11 @@ export function activitiesDir(repoRootPath) {
   return usesNewLayout(repoRootPath)
     ? path.join(repoRootPath, "user_data", "activities")
     : path.join(repoRootPath, "training", "activities");
+}
+
+/** Composed coach brain — propagated copy in athlete repos; HQ source is engine/soul/ layers. */
+export function soulFilePath(repoRootPath) {
+  const propagated = path.join(repoRootPath, "propagated", "SOUL.md");
+  if (fs.existsSync(propagated)) return propagated;
+  return path.join(repoRootPath, "SOUL.md");
 }
