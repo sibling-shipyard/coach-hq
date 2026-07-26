@@ -1,7 +1,7 @@
 # User-repo sync (coach-skeleton / coach-<user>).
 #
 # Base skeleton: regenerate_derived.py only (iOS path — history already in repo).
-# Strava athletes: provision adds strava/ + run_sync_pipeline.py; workflow uses full pipeline.
+# Strava athletes: provision adds engine/strava/ + run_sync_pipeline.py; workflow uses full pipeline.
 
 name: Sync
 
@@ -10,9 +10,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'training/activities/history/**'
-      - 'training/ledger/challenge_v2.json'
-      - 'training/activities/sleep_log.json'
+      - 'user_data/activities/hist/**'
+      - 'user_data/ledger/challenge_v2.json'
+      - 'user_data/coach/sleep_log.json'
 
 jobs:
   sync:
@@ -39,10 +39,10 @@ jobs:
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
         run: |
-          if [ -f scripts/run_sync_pipeline.py ] && [ -n "$STRAVA_CLIENT_ID" ]; then
-            python3 scripts/run_sync_pipeline.py
+          if [ -f engine/scripts/run_sync_pipeline.py ] && [ -n "$STRAVA_CLIENT_ID" ]; then
+            python3 engine/scripts/run_sync_pipeline.py
           else
-            python3 scripts/regenerate_derived.py
+            python3 engine/scripts/regenerate_derived.py
           fi
 
       - name: Set up Node
@@ -51,19 +51,19 @@ jobs:
           node-version: 20
 
       - name: Build aggregate
-        run: node scripts/build-aggregate.mjs --aggregate
+        run: node engine/scripts/build-aggregate.mjs --aggregate
 
       - name: Commit pipeline changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f data/aggregate.json
-          git add training/activities/quest_log.md training/activities/quest_history.json training/sync_status.json
-          git restore --staged strava/strava_tokens.json 2>/dev/null || true
+          git add -f gen/aggregate.json
+          git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
+          git restore --staged engine/strava/strava_tokens.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes"
           else
-            MSG=$(python3 -c "import json; print(json.load(open('training/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: sync pipeline run [skip ci]")
+            MSG=$(python3 -c "import json; print(json.load(open('gen/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: sync pipeline run [skip ci]")
             git commit -m "$MSG"
             git push
           fi

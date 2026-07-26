@@ -3,7 +3,7 @@
 
 **Ingestion happens elsewhere:**
   - Strava: fetch_strava.py (when repo has STRAVA_* secrets in CI)
-  - iOS: HealthKit app commits training/activities/history/hk_*.json directly
+  - iOS: HealthKit app commits user_data/activities/hist/hk_*.json directly
 
 This script regenerates derived files (quest_log, quest_history, sync_status).
 In CI, Strava pull + rename runs only when STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET,
@@ -21,31 +21,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# Bootstrap repo_layout before other path constants
 _BOOT = Path(__file__).resolve().parent
-if (_BOOT.parent / "soul").is_dir():
-    _REPO = _BOOT.parent
-    _LIB = _BOOT.parent / "lib"
-elif (_BOOT.parent.parent / "engine" / "soul").is_dir():
-    _REPO = _BOOT.parent.parent
-    _LIB = _BOOT.parent.parent / "engine" / "lib"
-elif (_BOOT.parent / "SOUL.md").is_file():
-    _REPO = _BOOT.parent
-    _LIB = _BOOT.parent / "lib"
-else:
-    raise RuntimeError("Cannot resolve repo root")
-
+_LIB = _BOOT.parent / "lib"
 sys.path.insert(0, str(_LIB))
-from repo_layout import engine_root, p, repo_root_from_here  # noqa: E402
+from repo_layout import (  # noqa: E402
+    gen_dir,
+    hist_dir,
+    p,
+    repo_root_from_here,
+    sleep_log_path,
+    sync_status_path,
+)
 
 REPO_DIR = repo_root_from_here(__file__)
-TRAINING_DIR = REPO_DIR / "training"
-HISTORY_DIR = TRAINING_DIR / "activities" / "history"
+HISTORY_DIR = hist_dir(REPO_DIR)
 UI_DIR = REPO_DIR / "ui"
 DATA_DIR = UI_DIR / "client" / "src" / "data"
 TOKENS_PATH = p(REPO_DIR, "strava", "strava_tokens.json")
 SCRIPTS_DIR = p(REPO_DIR, "scripts")
-SYNC_STATUS_PATH = TRAINING_DIR / "sync_status.json"
+SYNC_STATUS_PATH = sync_status_path(REPO_DIR)
 TIMEOUT = 600
 
 sys.path.insert(0, str(p(REPO_DIR, "strava")))
@@ -172,7 +166,7 @@ def write_sync_status(synced: int, renamed: int, warnings: list[str], error: Opt
     }
     if error:
         payload["error"] = error
-    TRAINING_DIR.mkdir(parents=True, exist_ok=True)
+    gen_dir(REPO_DIR).mkdir(parents=True, exist_ok=True)
     SYNC_STATUS_PATH.write_text(json.dumps(payload, indent=2) + "\n")
     log(f"sync_status.json written: {status}")
 
@@ -218,12 +212,12 @@ def main():
         if UI_DIR.exists():
             log("Step 5/5: Writing sleep_log.json to UI data bundle...")
             DATA_DIR.mkdir(parents=True, exist_ok=True)
-            sleep_src = TRAINING_DIR / "activities" / "sleep_log.json"
+            sleep_src = sleep_log_path(REPO_DIR)
             (DATA_DIR / "sleep_log.json").write_text(
                 sleep_src.read_text() if sleep_src.exists() else "[]"
             )
         else:
-            log("Step 5/5: No ui/ directory — sleep_log stays in training/activities/")
+            log("Step 5/5: No ui/ directory — sleep_log stays in athlete data tree")
 
         write_sync_status(synced, renamed, warnings)
         log("Pipeline complete.")

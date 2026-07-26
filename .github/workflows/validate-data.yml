@@ -1,24 +1,24 @@
 name: Validate data
 
-# Guards the coach's direct-to-main lane: training/coach/state.md, coach_notes.md,
-# training/ledger/challenge_v2.json, and sessions/** are committed to main without a PR (see
+# Guards the coach's direct-to-main lane: user_data/coach/state.md, coach_notes.md,
+# user_data/ledger/challenge_v2.json, and workout sessions are committed to main without a PR (see
 # SOUL.md §2). challenge_v2.json and sessions/*.json are consumed by the
-# dashboard build (ui/scripts/build-data.mjs) and the quest-log generator, so a
-# malformed file would break the Vercel deploy unreviewed. This check catches
+# dashboard build and the quest-log generator, so a
+# malformed file would break the deploy unreviewed. This check catches
 # that fast — on the direct push to main, and on any PR that touches the data.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'training/ledger/challenge_v2.json'
-      - 'training/widget_snapshots.json'
-      - 'sessions/*.json'
+      - 'user_data/ledger/challenge_v2.json'
+      - 'gen/widget_snapshots.json'
+      - 'user_data/activities/workout_plans/sessions/*.json'
   pull_request:
     paths:
-      - 'training/ledger/challenge_v2.json'
-      - 'training/widget_snapshots.json'
-      - 'sessions/*.json'
+      - 'user_data/ledger/challenge_v2.json'
+      - 'gen/widget_snapshots.json'
+      - 'user_data/activities/workout_plans/sessions/*.json'
 
 jobs:
   validate-json:
@@ -30,7 +30,9 @@ jobs:
           python3 - <<'PY'
           import glob, json, sys
 
-          files = ['training/ledger/challenge_v2.json'] + sorted(glob.glob('sessions/*.json'))
+          files = ['user_data/ledger/challenge_v2.json'] + sorted(
+              glob.glob('user_data/activities/workout_plans/sessions/*.json')
+          )
           bad = []
           checked = 0
           for f in files:
@@ -56,7 +58,7 @@ jobs:
           python3 - <<'PY'
           import json, sys
 
-          path = "training/widget_snapshots.json"
+          path = "gen/widget_snapshots.json"
           try:
               with open(path) as fh:
                   data = json.load(fh)

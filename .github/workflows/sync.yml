@@ -48,7 +48,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes"
           else
-            MSG=$(python3 -c "import json; print(json.load(open('training/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: sync pipeline run [skip ci]")
+            MSG=$(python3 -c "import json; print(json.load(open('gen/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: sync pipeline run [skip ci]")
             git commit -m "$MSG"
             git push
           fi

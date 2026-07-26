@@ -20,10 +20,13 @@ from pathlib import Path
 from typing import Optional
 
 _here = Path(__file__).resolve().parent
-ROOT = _here.parent.parent if (_here.parent.parent / "engine" / "soul").is_dir() else _here.parent
-CHALLENGE_FILE = ROOT / "training" / "ledger" / "challenge_v2.json"
-HISTORY_DIR = ROOT / "training" / "activities" / "history"
-OUTPUT_FILE = ROOT / "training" / "activities" / "quest_log.md"
+sys.path.insert(0, str(_here.parent / "lib"))
+from repo_layout import hist_dir, ledger_dir, quest_log_path, repo_root_from_here  # noqa: E402
+
+ROOT = repo_root_from_here(__file__)
+CHALLENGE_FILE = ledger_dir(ROOT) / "challenge_v2.json"
+HISTORY_DIR = hist_dir(ROOT)
+OUTPUT_FILE = quest_log_path(ROOT)
 
 VALID_QUEST_TYPES = {"daily_streak", "progress", "count_target", "weekly_frequency", "milestone"}
 VALID_POLARITIES = {"default_done", "default_not_done"}

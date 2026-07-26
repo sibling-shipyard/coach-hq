@@ -31,6 +31,10 @@ import sys
 import time
 from pathlib import Path
 
+_BOOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_BOOT.parent / "lib"))
+from repo_layout import hist_dir, repo_root_from_here  # noqa: E402
+
 from rename_core import (
     COUNTER_PATTERNS,
     SKIP_SPORTS,
@@ -41,8 +45,8 @@ from rename_core import (
 )
 from strava_api import api_put, load_tokens, refresh_if_needed
 
-REPO_DIR = Path(__file__).resolve().parent.parent
-HISTORY_DIR = REPO_DIR / "training" / "activities" / "history"
+REPO_DIR = repo_root_from_here(__file__)
+HISTORY_DIR = hist_dir(REPO_DIR)
 
 
 def derive_counters(activities):

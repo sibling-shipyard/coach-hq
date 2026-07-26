@@ -24,8 +24,12 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-REPO_DIR = Path(__file__).resolve().parent.parent
-HISTORY_DIR = REPO_DIR / "training" / "activities" / "history"
+_BOOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_BOOT.parent / "lib"))
+from repo_layout import hist_dir, repo_root_from_here  # noqa: E402
+
+REPO_DIR = repo_root_from_here(__file__)
+HISTORY_DIR = hist_dir(REPO_DIR)
 
 # ── CUSTOMIZE: HR zone boundaries ──────────────────────────────────────────
 # Update these to match your personal HR zones.

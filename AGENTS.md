@@ -26,14 +26,14 @@ AI coaching system for the athlete — data, training pipeline, Strava sync, and
 
 **Layered soul:** Coach identity, engine rules, and athlete schema live in `engine/soul/` as three source
 layers. `SOUL.md` at repo root is a **composed artifact** (regenerated via `node engine/scripts/compose-soul.mjs`; CI checks drift). Boot and
-`coach-chat.ts` still **read `SOUL.md` + `training/coach/state.md`**. To change
+`coach-chat.ts` still **read `SOUL.md` + `user_data/coach/state.md`**. To change
 coach behavior, edit the relevant `engine/soul/*.md` layer, run compose, commit both the layer edits and the
 regenerated `SOUL.md`. Never hand-edit `SOUL.md`.
 
 - `SOUL.md` — composed coach brain (read at every boot; do not edit directly)
 - `engine/` — **skeleton source of truth** (carved into `coach-skeleton`; see `engine/README.md`)
 - `engine/soul/` — identity, engine rules, athlete schema layers
-- `training/` — athlete data (HQ has none post-port; lives in user repos)
+- `user_data/` — athlete data (HQ keeps a copy for dogfooding; lives in user repos at scale)
 - `ui/` — shared hosted dashboard (HQ-only)
 - `ios/` — HealthKit sync app (HQ-only; commits history to user repo)
 - `scripts/carve-skeleton.mjs` — operator tool to stamp `sibling-shipyard/coach-skeleton`
@@ -73,4 +73,4 @@ git pull --rebase origin main && git push origin main
 pipeline — do not manually edit them. `challenge_v2.json` in `ui/client/src/data/` is updated
 on sync, not during coach sessions.
 
-**Coach commits:** Coach Phelps commits its own coaching memory — `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `training/activities/sleep_log.json`, `sessions/**` — directly to `main`, no PR. Full procedure is in SOUL.md §12. A `validate-data` CI check guards the JSON so a bad commit can't break the dashboard build undetected. Do not copy `challenge_v2.json` to `ui/client/src/data/` manually — the sync pipeline handles that.
+**Coach commits:** Coach Phelps commits its own coaching memory — `user_data/coach/state.md`, `user_data/coach/coach_notes.md`, `user_data/ledger/challenge_v2.json`, `user_data/coach/sleep_log.json`, `user_data/activities/workout_plans/sessions/**` — directly to `main`, no PR. Full procedure is in SOUL.md §12. A `validate-data` CI check guards the JSON so a bad commit can't break the dashboard build undetected. Do not copy `challenge_v2.json` to `ui/client/src/data/` manually — the sync pipeline handles that.

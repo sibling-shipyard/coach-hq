@@ -2,10 +2,10 @@
 """Regenerate derived training files — no Strava, no rename logic.
 
 Used in coach-skeleton and iOS-only user repos. Ingestion already happened
-(iOS app pushed history/, or provision will add strava/ separately).
+(iOS app pushed hist/, or provision will add strava/ separately).
 
 Usage:
-  python scripts/regenerate_derived.py
+  python engine/scripts/regenerate_derived.py
 """
 
 import json
@@ -16,18 +16,13 @@ from pathlib import Path
 from typing import Optional
 
 _BOOT = Path(__file__).resolve().parent
-if (_BOOT.parent / "soul").is_dir():
-    _REPO = _BOOT.parent
-elif (_BOOT.parent.parent / "engine" / "soul").is_dir():
-    _REPO = _BOOT.parent.parent
-elif (_BOOT.parent / "SOUL.md").is_file():
-    _REPO = _BOOT.parent
-else:
-    raise RuntimeError("Cannot resolve repo root")
+_LIB = _BOOT.parent / "lib"
+sys.path.insert(0, str(_LIB))
+from repo_layout import gen_dir, p, repo_root_from_here, sync_status_path  # noqa: E402
 
-TRAINING_DIR = _REPO / "training"
-SCRIPTS_DIR = _REPO / "scripts"
-SYNC_STATUS_PATH = TRAINING_DIR / "sync_status.json"
+REPO = repo_root_from_here(__file__)
+SCRIPTS_DIR = p(REPO, "scripts")
+SYNC_STATUS = sync_status_path(REPO)
 TIMEOUT = 600
 
 
@@ -38,7 +33,7 @@ def log(msg: str) -> None:
 def run(script: str) -> None:
     result = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / script)],
-        cwd=_REPO, capture_output=True, text=True, timeout=TIMEOUT,
+        cwd=REPO, capture_output=True, text=True, timeout=TIMEOUT,
     )
     if result.returncode != 0:
         raise RuntimeError(f"{script} failed:\n{result.stderr}")
@@ -59,8 +54,8 @@ def write_sync_status(error: Optional[str] = None) -> None:
     }
     if error:
         payload["error"] = error
-    TRAINING_DIR.mkdir(parents=True, exist_ok=True)
-    SYNC_STATUS_PATH.write_text(json.dumps(payload, indent=2) + "\n")
+    gen_dir(REPO).mkdir(parents=True, exist_ok=True)
+    SYNC_STATUS.write_text(json.dumps(payload, indent=2) + "\n")
 
 
 def main() -> None:
