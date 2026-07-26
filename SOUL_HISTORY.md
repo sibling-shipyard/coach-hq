@@ -4,6 +4,19 @@ A living record of how Coach Phelps evolved — what changed, and why. Updated w
 
 ---
 
+## v5.7 (hq-adopted) — "Personal Brain on Main" · Jul 26, 2026
+**Theme:** S0 milestone — adopt personal-repo v5.7 as hq's source of truth on `main`, reconciled not copied.
+
+**What changed:**
+- Replaced hq's thinner v1.0 (13 sections) with v5.7's 12-section layout: Commit Protocol §13→§12, Rules Engine §10→§9, First Session folded into §10 Workflows.
+- De-personalized: §7 is generic (no athlete name/profile); all Sky/badminton-specific content removed.
+- Preserved hq-only: `training/chat_history.json` file-map row, Vercel serverless Sync pipeline note, boot `git pull`, First Session Protocol, `sleep_log.json` + `roadmap.md` in commit ritual.
+- `ui/api/coach-chat.ts` §-references re-pointed to v5.7 numbering in the same PR.
+
+**Why:** Splitting the thinner v1.0 would bake a downgrade into every fork. S0 lands the richer brain first; the three-layer split (S1–S3) comes next.
+
+---
+
 ## v5.7 — "Canonical Layout" · Jul 25, 2026
 **Theme:** Repo restructure closed. Every hardcoded path in SOUL now matches the on-disk `training/` tree.
 
