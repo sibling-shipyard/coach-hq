@@ -23,6 +23,7 @@ Options:
   --dry-run               Print actions; do not create repos, push, or set secrets
   --skip-secrets          Do not set GitHub Actions secrets
   --skip-push             Clone and migrate locally only (for inspection)
+  --skip-regenerate       Copy legacy gen/ only; skip pipeline regen (not recommended)
   -h, --help              Show this help
 
 Secrets (optional — set when env vars are present):
@@ -48,6 +49,7 @@ LEGACY_REPO=""
 DRY_RUN=0
 SKIP_SECRETS=0
 SKIP_PUSH=0
+SKIP_REGENERATE=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -58,6 +60,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run) DRY_RUN=1 ;;
     --skip-secrets) SKIP_SECRETS=1 ;;
     --skip-push) SKIP_PUSH=1 ;;
+    --skip-regenerate) SKIP_REGENERATE=1 ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1 (try --help)" ;;
   esac
@@ -100,6 +103,7 @@ apply_legacy_overlay() {
   copy_tree() {
     local src_rel="$1"
     local dst_rel="$2"
+    local required="${3:-0}"
     local src="${legacy_root}/${src_rel}"
     local dst="${target_root}/${dst_rel}"
     if [[ -e "$src" ]]; then
@@ -112,14 +116,18 @@ apply_legacy_overlay() {
         cp "$src" "$dst"
         log "  copied ${src_rel} → ${dst_rel}"
       fi
+    elif [[ "$required" -eq 1 ]]; then
+      die "Required legacy path missing: ${src_rel} (check ${LEGACY_REPO})"
+    else
+      warn "  missing ${src_rel} (skipped)"
     fi
   }
 
   log "Applying legacy → new path map from ${LEGACY_REPO}:"
 
-  copy_tree "training/coach" "user_data/coach"
-  copy_tree "training/ledger" "user_data/ledger"
-  copy_tree "training/activities/history" "user_data/activities/hist"
+  copy_tree "training/coach" "user_data/coach" 1
+  copy_tree "training/ledger" "user_data/ledger" 1
+  copy_tree "training/activities/history" "user_data/activities/hist" 0
   copy_tree "training/reference" "user_data/coach/reference"
   copy_tree "sessions" "user_data/activities/workout_plans/sessions"
   copy_tree "templates" "user_data/activities/workout_plans/templates"
@@ -138,6 +146,51 @@ apply_legacy_overlay() {
   if [[ -d "${target_root}/user_data/activities/hist" ]]; then
     find "${target_root}/user_data/activities/hist" -name '.gitkeep' -delete 2>/dev/null || true
   fi
+}
+
+# Rebuild gen/ from migrated user_data/ (quest_log, quest_history, aggregate).
+regenerate_gen() {
+  local target_root="$1"
+  local hq_root
+  hq_root="$(cd "$(dirname "$0")/.." && pwd)"
+  command -v python3 >/dev/null || die "python3 required for gen/ regeneration"
+  command -v node >/dev/null || die "node required for gen/ regeneration"
+
+  # Skeleton may lag HQ engine fixes — sync layout helpers before regen.
+  if [[ -f "${hq_root}/engine/lib/repo_layout.py" ]]; then
+    cp "${hq_root}/engine/lib/repo_layout.py" "${target_root}/engine/lib/repo_layout.py"
+    cp "${hq_root}/engine/lib/repo-layout.mjs" "${target_root}/engine/lib/repo-layout.mjs"
+  fi
+
+  log "Regenerating gen/ from migrated user_data/..."
+  if ! (cd "$target_root" && python3 engine/scripts/regenerate_derived.py); then
+    warn "regenerate_derived.py failed (schema mismatch?) — legacy gen/ copies kept; rebuilding aggregate"
+  fi
+  (cd "$target_root" && node engine/scripts/build-aggregate.mjs --aggregate)
+  log "  gen/ regenerated (aggregate + best-effort quest files)"
+}
+
+# Fail fast if overlay left skeleton seeds in place.
+verify_migration() {
+  local target_root="$1"
+  local challenge="${target_root}/user_data/ledger/challenge_v2.json"
+  local aggregate="${target_root}/gen/aggregate.json"
+
+  [[ -f "$challenge" ]] || die "Missing user_data/ledger/challenge_v2.json after overlay"
+
+  if grep -q '"My 60-Day Challenge"' "$challenge" 2>/dev/null; then
+    die "challenge_v2.json still skeleton template — legacy overlay did not run"
+  fi
+
+  [[ -f "$aggregate" ]] || die "Missing gen/aggregate.json after regen"
+
+  if grep -q '"generated_at": "1970-01-01' "$aggregate" 2>/dev/null; then
+    die "aggregate.json still skeleton placeholder — run regen or check hist/ + ledger/"
+  fi
+
+  local activity_count
+  activity_count="$(python3 -c "import json; print(len(json.load(open('${aggregate}')).get('activities',[])))")"
+  log "  verified: challenge migrated, aggregate has ${activity_count} activities"
 }
 
 ensure_target_repo() {
@@ -258,6 +311,12 @@ if [[ "$MODE" == "migrate" || "$SKIP_PUSH" -eq 1 ]]; then
     else
       clone_to_workdir "https://github.com/${LEGACY_REPO}.git" "${WORKDIR}/legacy"
       apply_legacy_overlay "${WORKDIR}/legacy" "${WORKDIR}/target"
+      if [[ "$SKIP_REGENERATE" -eq 0 ]]; then
+        regenerate_gen "${WORKDIR}/target"
+      else
+        warn "Skipping gen/ regeneration (--skip-regenerate)"
+      fi
+      verify_migration "${WORKDIR}/target"
     fi
   fi
 

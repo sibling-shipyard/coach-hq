@@ -56,6 +56,8 @@ PAT_TOKEN=ghp_... scripts/provision-user.sh \
 
 ### Migrate (Akash / Skanda)
 
+**Important:** `--greenfield` or template-only create leaves skeleton **placeholder** ledger/gen. Athletes need `--migrate`.
+
 ```bash
 PAT_TOKEN=ghp_... \
 STRAVA_CLIENT_ID=... STRAVA_CLIENT_SECRET=... STRAVA_REFRESH_TOKEN=... \
@@ -63,6 +65,8 @@ scripts/provision-user.sh --migrate \
   --repo skanda-2003/coach-skanda \
   --legacy skanda-2003/coach-phelps
 ```
+
+After overlay, the script **regenerates `gen/`** (`regenerate_derived.py` + `build-aggregate.mjs`) and **verifies** ledger is not still the skeleton template.
 
 Inspect locally without push:
 
@@ -104,6 +108,7 @@ Engine, workflows, and `propagated/` come from skeleton — not overwritten.
 
 | Symptom | Fix |
 |---|---|
+| Skeleton ledger (`My 60-Day Challenge`, empty aggregate) | Migrate never ran — re-run with `--migrate`, not `--greenfield` / `--dry-run` only |
 | Template create fails | Script falls back to clone skeleton + push; or mark `coach-skeleton` as org template |
 | No access to athlete legacy repo | Athlete adds operator as collaborator read-only, or runs script on their machine |
 | `validate-data.yml` fails | Check migrated JSON paths; run pipeline locally in cloned repo |
