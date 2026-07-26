@@ -29,6 +29,9 @@ if (_BOOT.parent / "soul").is_dir():
 elif (_BOOT.parent.parent / "engine" / "soul").is_dir():
     _REPO = _BOOT.parent.parent
     _LIB = _BOOT.parent.parent / "engine" / "lib"
+elif (_BOOT.parent / "SOUL.md").is_file():
+    _REPO = _BOOT.parent
+    _LIB = _BOOT.parent / "lib"
 else:
     raise RuntimeError("Cannot resolve repo root")
 

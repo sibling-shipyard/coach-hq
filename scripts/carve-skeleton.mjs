@@ -1,13 +1,9 @@
 #!/usr/bin/env node
 /**
- * carve-skeleton.mjs — Build coach-skeleton tree from HQ at a pinned SHA.
+ * carve-skeleton.mjs — Build coach-skeleton from HQ.
  *
- * Copies allowlisted engine paths (see docs/m1-plan.md § path map), applies skeleton
- * transforms, runs compose-soul.mjs, and optionally pushes to sibling-shipyard/coach-skeleton.
- *
- * Usage:
- *   node scripts/carve-skeleton.mjs --dry-run [--out-dir ./skeleton-out] [--sha <git-sha>]
- *   node scripts/carve-skeleton.mjs --push [--sha <git-sha>]
+ * Skeleton shape (see engine/README.md + diagram): data bands (init/post-init/gen)
+ * + SOUL.md copy + minimal sync scripts. No agents, soul layers, templates, or plugins.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,27 +16,25 @@ const SKELETON_REPO = "sibling-shipyard/coach-skeleton";
 
 const ENGINE_DIR = path.join(REPO_ROOT, "engine");
 
-/** engine/ subtrees copied flat to skeleton root */
-const ENGINE_FLATTEN = [
-  "soul",
-  "strava",
-  "core",
-  "plugins",
-  "templates",
-  "skills",
-  "scripts",
-  "lib",
-  "docs",
+/** Bare-minimum scripts carved into skeleton (gen band only). */
+const SKELETON_SCRIPT_FILES = [
+  "scripts/regenerate_derived.py",
+  "scripts/build-aggregate.mjs",
+  "scripts/generate_quest_log.py",
+  "scripts/generate_quest_history.py",
 ];
 
-const ROOT_COPY_FILES = [
-  "AGENTS.md",
-  "CLAUDE.md",
-  ".github/CONVENTIONS.md",
-  "VALIDATION_TESTS.md",
-  "HOW_IT_WORKS.md",
-  ".env.example",
+/** lib/ for build-aggregate path resolution only */
+const SKELETON_DIRS = ["lib"];
+
+/** Copied at provision for Strava athletes — NOT in base skeleton */
+const STRAVA_PROVISION_BUNDLE = [
+  "scripts/run_sync_pipeline.py",
+  "strava",
+  "core",
 ];
+
+const SKELETON_ROOT_FILES = [];
 
 const CHALLENGE_V2_TEMPLATE = {
   version: 2,
@@ -196,13 +190,28 @@ __pycache__/
 
 const SKELETON_README = `# coach-skeleton
 
-Forkable starter for a private \`coach-<user>\` repo. Carved from \`coach-phelps-hq\` at a pinned engine SHA (see \`.coach-engine-version\`).
+Private fork template for \`coach-<user>\` repos. Carved from \`coach-phelps-hq\`.
 
-- **Dashboard:** shared site reads \`data/aggregate.json\` from your repo after sync.
-- **BYO Claude:** boot reads \`SOUL.md\` + \`training/coach/state.md\`.
-- **Sync:** GitHub Actions \`sync.yml\` — Strava pull when \`STRAVA_*\` secrets are set; iOS athletes push history from the app and sync regenerates derived files.
+## What's in this repo
 
-Operator onboarding: see \`coach-phelps-hq\` \`engine/README.md\` and \`scripts/provision-user.sh\` (M1b).
+| Band | Paths |
+|---|---|
+| **init** | \`training/coach/*\`, \`training/activities/history/\` |
+| **post-init** | \`training/ledger/*\`, \`sessions/\` |
+| **gen** | \`data/aggregate.json\`, \`training/widget_snapshots.json\`, quest/sync outputs |
+| **SOUL** | \`SOUL.md\` — committed copy from HQ (not editable) |
+| **scripts** | Sync + aggregate only — no agents, no soul source layers |
+
+Dashboard: shared site reads \`data/aggregate.json\`. iOS app pushes history directly.
+
+Pin: \`.coach-engine-version\` · Operator: \`coach-phelps-hq/scripts/carve-skeleton.mjs\`
+`;
+
+const SKELETON_CLAUDE = `# Claude Code entry
+
+You are **Coach Phelps**. Read \`SOUL.md\` §1 and boot from \`training/coach/state.md\`.
+
+This is an athlete repo — not the HQ monorepo. No multi-agent routing.
 `;
 
 function parseArgs(argv) {
@@ -267,41 +276,6 @@ function writeText(destRoot, relPath, text) {
   fs.writeFileSync(dest, text.endsWith("\n") ? text : `${text}\n`);
 }
 
-function adaptAgentsMd(content) {
-  return content
-    .replace(
-      "AI coaching system for the athlete — data, training pipeline, Strava sync, and UI in a single monorepo.",
-      "AI coaching system for your athlete data — training pipeline, Strava or iOS sync, and BYO Claude boot in this repo.",
-    )
-    .replace(
-      "**Watch-out:** this repo contains a large `ui/` React app, and the remote/web harness frames\n" +
-        "every session as a generic engineer (\"complete the task, make changes, commit, push\"). Neither\n" +
-        "the big codebase nor that framing makes you an engineer by default — that gravity is exactly\n" +
-        "what mis-routes a \"Hi Coach\" session into code/PR triage. **Default to Coach Phelps** unless\n" +
-        "the athlete's words clearly point to another role; if the signals genuinely conflict, ask before acting.",
-      "**Watch-out:** remote harnesses may frame every session as a generic engineer. **Default to Coach Phelps** unless the athlete's words clearly point to another role.",
-    )
-    .replace("- `ui/` — React + Vite frontend\n", "")
-    .replace("- `ios/` — native Swift/SwiftUI app (HealthKit sync), builds locally in Xcode, no CI deploy\n", "")
-    .replace(
-      "- **UI data files:** All files in `ui/client/src/data/` are managed exclusively by the sync\n" +
-        "pipeline — do not manually edit them. `challenge_v2.json` in `ui/client/src/data/` is updated\n" +
-        "on sync, not during coach sessions.\n\n",
-      "- **Aggregate contract:** `data/aggregate.json` is generated by sync — do not hand-edit.\n\n",
-    )
-    .replace(
-      "Do not copy `challenge_v2.json` to `ui/client/src/data/` manually — the sync pipeline handles that.",
-      "Dashboard reads `data/aggregate.json` from this repo via the shared hosted site.",
-    );
-}
-
-function adaptHowItWorks(content) {
-  return content.replace(
-    /For setup, see \[SETUP\.md\]\(SETUP\.md\)[^\n]*\n/g,
-    "For setup, install the GitHub App on this repo and use the shared Coach Phelps site.\n",
-  );
-}
-
 function copyFromEngine(outDir, rel) {
   const src = path.join(ENGINE_DIR, rel);
   const dest = path.join(outDir, rel);
@@ -311,6 +285,11 @@ function copyFromEngine(outDir, rel) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   if (fs.statSync(src).isDirectory()) {
     fs.cpSync(src, dest, { recursive: true });
+    // Never ship local OAuth tokens
+    const tokens = path.join(dest, "strava_tokens.json");
+    if (tokens.includes("strava") && fs.existsSync(tokens)) {
+      fs.unlinkSync(tokens);
+    }
   } else {
     fs.copyFileSync(src, dest);
   }
@@ -328,84 +307,68 @@ function copyWorkflows(outDir) {
   for (const wf of ["validate-data.yml", "apply-coach-patch.yml"]) {
     fs.copyFileSync(path.join(ENGINE_DIR, ".github/workflows", wf), path.join(wfDir, wf));
   }
+  // No validate-soul — skeleton carries SOUL.md copy only, no soul/ layers
+}
 
-  let validateSoul = fs.readFileSync(
-    path.join(ENGINE_DIR, ".github/workflows/validate-soul.yml"),
-    "utf-8",
-  );
-  validateSoul = validateSoul
-    .replaceAll("engine/soul/", "soul/")
-    .replaceAll("engine/scripts/", "scripts/");
-  fs.writeFileSync(path.join(wfDir, "validate-soul.yml"), validateSoul);
+function ensureComposedSoul() {
+  const compose = spawnSync("node", ["engine/scripts/compose-soul.mjs"], {
+    cwd: REPO_ROOT,
+    encoding: "utf-8",
+  });
+  if (compose.status !== 0) {
+    console.error(compose.stderr || compose.stdout);
+    throw new Error("engine/scripts/compose-soul.mjs failed before carve");
+  }
 }
 
 function carve(outDir, sha) {
   console.log(`Carving skeleton → ${outDir}`);
   console.log(`Pinned HQ SHA: ${sha}`);
 
+  ensureComposedSoul();
+
   if (fs.existsSync(outDir)) {
     fs.rmSync(outDir, { recursive: true, force: true });
   }
   fs.mkdirSync(outDir, { recursive: true });
 
-  for (const rel of ENGINE_FLATTEN) {
+  for (const rel of SKELETON_SCRIPT_FILES) {
     copyFromEngine(outDir, rel);
   }
-
-  copyFromEngine(outDir, ".github/agents");
+  for (const rel of SKELETON_DIRS) {
+    copyFromEngine(outDir, rel);
+  }
   copyWorkflows(outDir);
 
-  for (const rel of ROOT_COPY_FILES) {
+  for (const rel of SKELETON_ROOT_FILES) {
     copyFile(rel, outDir);
   }
 
-  // engine/README.md → skeleton docs/engine-boundary.md
-  fs.copyFileSync(
-    path.join(ENGINE_DIR, "README.md"),
-    path.join(outDir, "docs/engine-boundary.md"),
-  );
+  copyFile("SOUL.md", outDir);
 
   writeText(outDir, ".coach-engine-version", `hq_sha=${sha}`);
   writeText(outDir, "README.md", SKELETON_README);
+  writeText(outDir, "CLAUDE.md", SKELETON_CLAUDE);
   writeText(outDir, ".gitignore", SKELETON_GITIGNORE);
+
+  // init band
   writeText(outDir, "training/coach/state.md", STATE_MD_TEMPLATE);
   writeText(outDir, "training/coach/coach_notes.md", COACH_NOTES_TEMPLATE);
   writeText(outDir, "training/coach/opponent_notes.md", OPPONENT_NOTES_TEMPLATE);
+  writeText(outDir, "training/activities/history/.gitkeep", "");
+
+  // post-init band (empty templates)
   writeJson(outDir, "training/ledger/challenge_v2.json", CHALLENGE_V2_TEMPLATE);
   writeJson(outDir, "training/ledger/current_week.json", CURRENT_WEEK_TEMPLATE);
+  writeText(outDir, "sessions/.gitkeep", "");
+
+  // gen band placeholders / seeds
   writeJson(outDir, "training/activities/sleep_log.json", []);
   writeJson(outDir, "training/sync_state.json", SYNC_STATE_TEMPLATE);
   writeJson(outDir, "training/sync_status.json", SYNC_STATUS_TEMPLATE);
   writeJson(outDir, "training/widget_snapshots.json", WIDGET_SNAPSHOTS_PLACEHOLDER);
-  writeJson(outDir, "plugins/badminton/data/badminton_match_data.json", []);
-  writeText(outDir, "training/activities/history/.gitkeep", "");
-  writeText(outDir, "sessions/.gitkeep", "");
 
-  const agentsPath = path.join(outDir, "AGENTS.md");
-  fs.writeFileSync(agentsPath, adaptAgentsMd(fs.readFileSync(agentsPath, "utf-8")));
-
-  const howPath = path.join(outDir, "HOW_IT_WORKS.md");
-  fs.writeFileSync(howPath, adaptHowItWorks(fs.readFileSync(howPath, "utf-8")));
-
-  const compose = spawnSync("node", ["scripts/compose-soul.mjs"], {
-    cwd: outDir,
-    encoding: "utf-8",
-  });
-  if (compose.status !== 0) {
-    console.error(compose.stderr || compose.stdout);
-    throw new Error("compose-soul.mjs failed in skeleton output");
-  }
-
-  const check = spawnSync("node", ["scripts/compose-soul.mjs", "--check"], {
-    cwd: outDir,
-    encoding: "utf-8",
-  });
-  if (check.status !== 0) {
-    console.error(check.stderr || check.stdout);
-    throw new Error("SOUL.md drift check failed after compose");
-  }
-
-  console.log("✓ Skeleton tree carved and SOUL composed");
+  console.log("✓ Skeleton tree carved (SOUL.md copy + data bands + minimal scripts)");
   return outDir;
 }
 

@@ -1,8 +1,10 @@
 # Scripts — HQ operator notes
 
-## engine/ (skeleton source)
+## engine/ (full brain — HQ)
 
-Carveable brain lives under `engine/` — see `engine/README.md`. User forks get a **flat** copy (`soul/`, `scripts/`, `strava/` at repo root).
+Protocols, soul layers, plugins, templates, strava, scripts. See `engine/README.md`.
+
+Only a **subset** is carved into `coach-skeleton` (sync + aggregate scripts, strava, core, lib).
 
 ## compose-soul.mjs
 
@@ -13,20 +15,18 @@ node engine/scripts/compose-soul.mjs --check
 
 ## carve-skeleton.mjs
 
-Copies `engine/` → flat tree → `sibling-shipyard/coach-skeleton`.
+Builds thin skeleton: **data bands + SOUL.md copy + minimal scripts** (no agents, no soul layers).
 
 ```bash
 node scripts/carve-skeleton.mjs --dry-run
-node scripts/carve-skeleton.mjs --push   # requires org write access
+node scripts/carve-skeleton.mjs --push
 ```
 
 ## Sync model (user repos)
 
 | Ingestion | Who writes `history/` | Actions workflow |
 |---|---|---|
-| **iOS** | `ios/` app commits `hk_*.json` directly | Regenerates quest/aggregate only (no `STRAVA_*` secrets) |
-| **Strava** | `engine/strava/fetch_strava.py` in CI | Pull + rename + regenerate |
+| **iOS** | `ios/` app (HQ) commits `hk_*.json` | Regenerate only (no `STRAVA_*` secrets) |
+| **Strava** | `strava/fetch_strava.py` in CI | Pull + regenerate when secrets set |
 
-No per-repo flag — pipeline skips Strava when `STRAVA_*` secrets are absent.
-
-User-repo workflow template: `engine/.github/workflows/sync.user.yml` (carved as `.github/workflows/sync.yml`).
+Per-repo mode = which secrets are provisioned. No `SYNC_SOURCE` flag.

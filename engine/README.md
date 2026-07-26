@@ -1,25 +1,36 @@
-# engine/ — skeleton source of truth
+# engine/ — HQ brain (IP stays here)
 
-Everything under `engine/` is **carved into** `sibling-shipyard/coach-skeleton` (flattened to repo
-root in the fork) and **propagated** to per-user `coach-<user>` repos.
+Everything coaches, protocols, plugins, and Strava/rename logic lives in HQ `engine/`.
+**coach-skeleton gets the bare minimum** to run dashboard + BYO boot.
 
-**HQ-only (never carved):** `ui/`, `ios/`, `kdb/`, `shared/`, root `scripts/carve-skeleton.mjs`.
+## IP boundary
+
+| Stays in HQ (never in base skeleton) | In skeleton |
+|---|---|
+| `engine/soul/` source layers + compose | `SOUL.md` copy only |
+| Agents, KDB, skills, templates, plugins | — |
+| `strava/`, `core/taxonomy`, rename logic | Added at **provision** for Strava athletes only |
+| `run_sync_pipeline.py` (full pipeline) | `regenerate_derived.py` (quest + aggregate path) |
+| UI, iOS app source | — |
+
+**Endgame (M2/M3):** SOUL + engine run server-side → skeleton thins to **data only**.
+
+## Skeleton contents (base carve)
 
 ```mermaid
-flowchart LR
-  hq["coach-phelps-hq/engine/"]
-  skel["coach-skeleton<br/>flat: soul/, scripts/, strava/…"]
-  user["coach-user<br/>same flat layout"]
-  hq -->|carve-skeleton.mjs| skel
-  skel -->|fork + provision| user
+flowchart TB
+  subgraph data["Data bands"]
+    init["init: training/coach/*, history/"]
+    post["post-init: ledger/, sessions/"]
+    gen["gen: aggregate, widget_snapshots, quest outputs"]
+  end
+  soul["SOUL.md copy"]
+  scripts["4 scripts + lib/"]
+  data --> gen
+  scripts --> gen
+  soul --> boot["BYO Claude boot"]
 ```
 
-**Ingestion (not in this folder):**
+**Provision adds for Strava:** `strava/`, `core/`, `run_sync_pipeline.py`, `.env.example`, secrets.
 
-| Path | Role |
-|---|---|
-| `ios/` | HealthKit → commits `training/activities/history/hk_*.json` directly to GitHub |
-| `engine/strava/` | Strava API pull when repo has `STRAVA_*` secrets |
-| `engine/scripts/run_sync_pipeline.py` | Actions post-process: optional Strava pull + regenerate quest/aggregate |
-
-**Operator:** `node scripts/carve-skeleton.mjs --dry-run` · `--push`
+Operator: `node scripts/carve-skeleton.mjs --push`

@@ -10,6 +10,9 @@ export function repoRoot(fromDir = path.dirname(fileURLToPath(import.meta.url)))
   if (fs.existsSync(path.join(fromDir, "..", "..", "engine", "soul"))) {
     return path.resolve(fromDir, "..", "..");
   }
+  if (fs.existsSync(path.join(fromDir, "..", "SOUL.md"))) {
+    return path.resolve(fromDir, "..");
+  }
   throw new Error(`Cannot resolve repo root from ${fromDir}`);
 }
 

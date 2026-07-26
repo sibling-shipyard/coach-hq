@@ -1,10 +1,7 @@
-# User-repo sync workflow (skeleton / coach-<user>).
-# Carved from engine/.github/workflows/sync.user.yml — flat layout at repo root.
+# User-repo sync (coach-skeleton / coach-<user>).
 #
-# Ingestion:
-#   - iOS app commits training/activities/history/ directly (see ios/ in HQ)
-#   - Strava: this workflow pulls when STRAVA_* repo secrets are set
-# No per-repo flag — pipeline auto-skips Strava when secrets are absent.
+# Base skeleton: regenerate_derived.py only (iOS path — history already in repo).
+# Strava athletes: provision adds strava/ + run_sync_pipeline.py; workflow uses full pipeline.
 
 name: Sync
 
@@ -36,12 +33,17 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests
 
-      - name: Run sync pipeline
+      - name: Run pipeline
         env:
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
-        run: python3 scripts/run_sync_pipeline.py
+        run: |
+          if [ -f scripts/run_sync_pipeline.py ] && [ -n "$STRAVA_CLIENT_ID" ]; then
+            python3 scripts/run_sync_pipeline.py
+          else
+            python3 scripts/regenerate_derived.py
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@v4

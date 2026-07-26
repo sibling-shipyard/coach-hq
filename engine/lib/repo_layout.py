@@ -11,6 +11,9 @@ def repo_root_from_here(file: str | Path) -> Path:
         return here.parent
     if (here.parent.parent / "engine" / "soul").is_dir():
         return here.parent.parent
+    # Thin skeleton: SOUL.md copy only, no soul/ layers
+    if (here.parent / "SOUL.md").is_file() and (here.parent / "training").is_dir():
+        return here.parent
     raise RuntimeError(f"Cannot resolve repo root from {file}")
 
 

@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Regenerate derived training files — no Strava, no rename logic.
+
+Used in coach-skeleton and iOS-only user repos. Ingestion already happened
+(iOS app pushed history/, or provision will add strava/ separately).
+
+Usage:
+  python scripts/regenerate_derived.py
+"""
+
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
+_BOOT = Path(__file__).resolve().parent
+if (_BOOT.parent / "soul").is_dir():
+    _REPO = _BOOT.parent
+elif (_BOOT.parent.parent / "engine" / "soul").is_dir():
+    _REPO = _BOOT.parent.parent
+elif (_BOOT.parent / "SOUL.md").is_file():
+    _REPO = _BOOT.parent
+else:
+    raise RuntimeError("Cannot resolve repo root")
+
+TRAINING_DIR = _REPO / "training"
+SCRIPTS_DIR = _REPO / "scripts"
+SYNC_STATUS_PATH = TRAINING_DIR / "sync_status.json"
+TIMEOUT = 600
+
+
+def log(msg: str) -> None:
+    print(f"[regenerate] {msg}", file=sys.stderr)
+
+
+def run(script: str) -> None:
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS_DIR / script)],
+        cwd=_REPO, capture_output=True, text=True, timeout=TIMEOUT,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"{script} failed:\n{result.stderr}")
+    if result.stderr:
+        log(result.stderr.strip())
+
+
+def write_sync_status(error: Optional[str] = None) -> None:
+    status = "error" if error else "success"
+    payload = {
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "status": status,
+        "activities_synced": 0,
+        "activities_renamed": 0,
+        "descriptions_parsed": 0,
+        "warnings": [],
+        "commit_message": "core: regenerate derived data [skip ci]",
+    }
+    if error:
+        payload["error"] = error
+    TRAINING_DIR.mkdir(parents=True, exist_ok=True)
+    SYNC_STATUS_PATH.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def main() -> None:
+    try:
+        log("Generating quest_log.md...")
+        run("generate_quest_log.py")
+        log("Generating quest_history.json...")
+        run("generate_quest_history.py")
+        write_sync_status()
+        log("Done.")
+    except Exception as e:
+        log(f"Error: {e}")
+        write_sync_status(error=str(e))
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
