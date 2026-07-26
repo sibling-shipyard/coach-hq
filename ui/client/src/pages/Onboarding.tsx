@@ -16,7 +16,7 @@ const EMPTY_STATE_COPY: Record<string, { heading: string; body: string }> = {
   },
   no_marker_match: {
     heading: "Not set up yet",
-    body: "None of the repos you granted access to have a SOUL.md and training/ledger/challenge_v2.json. Finish setting one up, then sign in again.",
+    body: "None of the repos you granted access to have propagated/SOUL.md and user_data/ledger/challenge_v2.json. Finish setting one up, then sign in again.",
   },
 };
 
@@ -79,7 +79,7 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
                 {switchMode
                   ? "This is the only coach-phelps repo granted to your account."
                   : emptyCopy?.body ??
-                    "None of the repos you granted access to have a SOUL.md and training/ledger/challenge_v2.json."}
+                    "None of the repos you granted access to have propagated/SOUL.md and user_data/ledger/challenge_v2.json."}
               </p>
               {switchMode && (
                 <div className="auth-card__buttons">

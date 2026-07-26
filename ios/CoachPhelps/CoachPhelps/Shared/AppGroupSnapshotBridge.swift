@@ -1,6 +1,6 @@
 import Foundation
 
-/// Bridges `training/widget_snapshots.json` between the main app and the WidgetKit extension
+/// Bridges `gen/widget_snapshots.json` between the main app and the WidgetKit extension
 /// via an App Group shared container — WidgetKit timelines can't reach `GitHubAPIClient`
 /// (no network entitlement, no auth), so the app writes what it already fetched and the
 /// extension only ever reads the local mirror. Per ADR 0005, still no analytics here — this

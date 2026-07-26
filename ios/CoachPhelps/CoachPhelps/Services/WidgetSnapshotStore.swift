@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import WidgetKit
 
-/// Observable store for `training/widget_snapshots.json` (ADR 0005's cross-platform contract).
+/// Observable store for `gen/widget_snapshots.json` (ADR 0005's cross-platform contract).
 /// Caches the last good snapshot in `UserDefaults` so Home has something to render on cold
 /// launch / offline before the network read completes, and re-fetches on demand (pull-to-
 /// refresh, post-HealthKit-sync). A failed refresh never clears an already-loaded snapshot —

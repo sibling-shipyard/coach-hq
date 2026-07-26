@@ -51,7 +51,7 @@ class WorkoutService: ObservableObject {
 
         var sessions: [String: Workout] = [:]
         for template in templates {
-            let path = "sessions/\(today)_\(template.id).json"
+            let path = "user_data/activities/workout_plans/sessions/\(today)_\(template.id).json"
             do {
                 let data = try await apiClient.readFile(path: path)
                 let workout = try JSONDecoder().decode(Workout.self, from: data)
