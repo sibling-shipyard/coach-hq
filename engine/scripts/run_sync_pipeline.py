@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
-"""Sync pipeline for CI — chains all steps for workflow_dispatch.
+"""Post-ingestion pipeline for GitHub Actions.
 
-Steps (Strava path, SYNC_SOURCE=strava or unset):
-  1. Sync Strava activities to training/activities/history/ via fetch_strava.py --sync
-  2. Auto-rename new unrenamed activities via rename_single.py (new files only)
-  3. Generate quest_log.md
-  4. Generate quest_history.json (merged history across all seasons)
-  5. Mirror sleep_log.json into ui/client/src/data/ when ui/ exists (HQ only)
-  Write sync_status.json at the end.
+**Ingestion happens elsewhere:**
+  - Strava: fetch_strava.py (when repo has STRAVA_* secrets in CI)
+  - iOS: HealthKit app commits training/activities/history/hk_*.json directly
 
-Steps (iOS path, SYNC_SOURCE=ios):
-  Skip Strava token write + fetch/rename; still run steps 3–4 and sync_status.
-  Aggregate build is handled by sync.yml (build-aggregate.mjs or build-data.mjs).
+This script regenerates derived files (quest_log, quest_history, sync_status).
+In CI, Strava pull + rename runs only when STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET,
+and STRAVA_REFRESH_TOKEN are all set as repo secrets — no per-repo flag needed.
 
 Usage:
-  python scripts/run_sync_pipeline.py
-  SYNC_SOURCE=ios python scripts/run_sync_pipeline.py
+  python engine/scripts/run_sync_pipeline.py
 """
 
 import json
@@ -26,20 +21,42 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-REPO_DIR = Path(__file__).resolve().parent.parent
+# Bootstrap repo_layout before other path constants
+_BOOT = Path(__file__).resolve().parent
+if (_BOOT.parent / "soul").is_dir():
+    _REPO = _BOOT.parent
+    _LIB = _BOOT.parent / "lib"
+elif (_BOOT.parent.parent / "engine" / "soul").is_dir():
+    _REPO = _BOOT.parent.parent
+    _LIB = _BOOT.parent.parent / "engine" / "lib"
+else:
+    raise RuntimeError("Cannot resolve repo root")
+
+sys.path.insert(0, str(_LIB))
+from repo_layout import engine_root, p, repo_root_from_here  # noqa: E402
+
+REPO_DIR = repo_root_from_here(__file__)
 TRAINING_DIR = REPO_DIR / "training"
 HISTORY_DIR = TRAINING_DIR / "activities" / "history"
 UI_DIR = REPO_DIR / "ui"
 DATA_DIR = UI_DIR / "client" / "src" / "data"
-TOKENS_PATH = REPO_DIR / "strava" / "strava_tokens.json"
+TOKENS_PATH = p(REPO_DIR, "strava", "strava_tokens.json")
+SCRIPTS_DIR = p(REPO_DIR, "scripts")
 SYNC_STATUS_PATH = TRAINING_DIR / "sync_status.json"
 TIMEOUT = 600
 
-sys.path.insert(0, str(REPO_DIR / "strava"))
+sys.path.insert(0, str(p(REPO_DIR, "strava")))
 
 
 def log(msg: str) -> None:
     print(f"[pipeline] {msg}", file=sys.stderr)
+
+
+def strava_secrets_configured() -> bool:
+    return all(
+        os.environ.get(k)
+        for k in ("STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN")
+    )
 
 
 def write_tokens_from_env() -> None:
@@ -47,7 +64,7 @@ def write_tokens_from_env() -> None:
     client_secret = os.environ.get("STRAVA_CLIENT_SECRET")
     refresh_token = os.environ.get("STRAVA_REFRESH_TOKEN")
     if not all([client_id, client_secret, refresh_token]):
-        sys.exit("CI sync requires STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REFRESH_TOKEN secrets.")
+        sys.exit("Strava step requires STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REFRESH_TOKEN secrets.")
     tokens = {
         "client_id": client_id,
         "client_secret": client_secret,
@@ -64,7 +81,7 @@ def step_sync_strava() -> tuple[int, list[Path]]:
     """Run fetch_strava.py --sync. Detect new files by diffing directory before/after."""
     existing = set(HISTORY_DIR.glob("*.json")) if HISTORY_DIR.exists() else set()
     result = subprocess.run(
-        [sys.executable, str(REPO_DIR / "strava" / "fetch_strava.py"), "--sync"],
+        [sys.executable, str(p(REPO_DIR, "strava", "fetch_strava.py")), "--sync"],
         cwd=REPO_DIR, capture_output=True, text=True, timeout=TIMEOUT,
     )
     if result.returncode != 0:
@@ -80,7 +97,7 @@ def step_auto_rename(new_files: list[Path]) -> tuple[int, list[str]]:
     """Call rename_single.py <id> --apply for each new unrenamed activity."""
     from rename_core import is_already_renamed, SKIP_SPORTS, classify_activity
 
-    rename_script = REPO_DIR / "strava" / "rename_single.py"
+    rename_script = p(REPO_DIR, "strava", "rename_single.py")
     count = 0
     warnings: list[str] = []
 
@@ -117,7 +134,7 @@ def step_auto_rename(new_files: list[Path]) -> tuple[int, list[str]]:
 
 def step_generate_quest_log() -> None:
     result = subprocess.run(
-        [sys.executable, str(REPO_DIR / "scripts" / "generate_quest_log.py")],
+        [sys.executable, str(SCRIPTS_DIR / "generate_quest_log.py")],
         cwd=REPO_DIR, capture_output=True, text=True, timeout=TIMEOUT,
     )
     if result.returncode != 0:
@@ -127,7 +144,7 @@ def step_generate_quest_log() -> None:
 
 def step_generate_quest_history() -> None:
     result = subprocess.run(
-        [sys.executable, str(REPO_DIR / "scripts" / "generate_quest_history.py")],
+        [sys.executable, str(SCRIPTS_DIR / "generate_quest_history.py")],
         cwd=REPO_DIR, capture_output=True, text=True, timeout=TIMEOUT,
     )
     if result.returncode != 0:
@@ -157,16 +174,18 @@ def write_sync_status(synced: int, renamed: int, warnings: list[str], error: Opt
     log(f"sync_status.json written: {status}")
 
 
-def sync_source() -> str:
-    return os.environ.get("SYNC_SOURCE", "strava").strip().lower()
+def should_run_strava() -> bool:
+    """CI: only when secrets present. Local: always attempt (tokens file or env)."""
+    if os.environ.get("CI"):
+        return strava_secrets_configured()
+    return True
 
 
 def main():
     synced, renamed = 0, 0
     warnings: list[str] = []
     new_files: list[Path] = []
-    source = sync_source()
-    use_strava = source != "ios"
+    use_strava = should_run_strava()
 
     try:
         if use_strava:
@@ -185,7 +204,7 @@ def main():
             else:
                 log("Step 2/5: No new activities - skipping rename")
         else:
-            log(f"SYNC_SOURCE={source} — skipping Strava token write and fetch/rename")
+            log("No STRAVA_* secrets in CI — skipping Strava pull (iOS / regenerate-only path)")
 
         log("Step 3/5: Generating quest_log.md...")
         step_generate_quest_log()

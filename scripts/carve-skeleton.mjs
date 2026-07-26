@@ -18,52 +18,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 const SKELETON_REPO = "sibling-shipyard/coach-skeleton";
 
-const COPY_FILES = [
-  "soul/A_identity.md",
-  "soul/B_engine.md",
-  "soul/C_athlete.md",
-  "scripts/compose-soul.mjs",
-  "scripts/generate_quest_log.py",
-  "scripts/generate_quest_history.py",
-  "scripts/parse_match_description.py",
-  "scripts/run_sync_pipeline.py",
-  "scripts/build-aggregate.mjs",
-  "skills/pipeline-tools.md",
+const ENGINE_DIR = path.join(REPO_ROOT, "engine");
+
+/** engine/ subtrees copied flat to skeleton root */
+const ENGINE_FLATTEN = [
+  "soul",
+  "strava",
+  "core",
+  "plugins",
+  "templates",
+  "skills",
+  "scripts",
+  "lib",
+  "docs",
+];
+
+const ROOT_COPY_FILES = [
   "AGENTS.md",
   "CLAUDE.md",
   ".github/CONVENTIONS.md",
   "VALIDATION_TESTS.md",
   "HOW_IT_WORKS.md",
   ".env.example",
-];
-
-const COPY_DIRS = [
-  "strava",
-  "core",
-  "plugins/badminton",
-  "templates",
-  ".github/agents",
-];
-
-const COPY_WORKFLOWS = [
-  "validate-data.yml",
-  "validate-soul.yml",
-  "apply-coach-patch.yml",
-];
-
-const BOOT_DOCS = [
-  "docs/current-week-contract.md",
-  "docs/milestone-schema.md",
-  "docs/activity-enrichment-guide.md",
-  "docs/athlete-protein-reference.md",
-  "docs/badminton-roster.md",
-  "docs/visualization-audio-guide.md",
-  "docs/phelps-voice-profile.md",
-  "docs/phelps-research-notes.md",
-  "docs/soul-calibration.md",
-  "docs/timer-state-machine.md",
-  "docs/ios-app-spec.md",
-  "docs/ios-xcode-setup.md",
 ];
 
 const CHALLENGE_V2_TEMPLATE = {
@@ -224,9 +200,9 @@ Forkable starter for a private \`coach-<user>\` repo. Carved from \`coach-phelps
 
 - **Dashboard:** shared site reads \`data/aggregate.json\` from your repo after sync.
 - **BYO Claude:** boot reads \`SOUL.md\` + \`training/coach/state.md\`.
-- **Sync:** GitHub Actions \`sync.yml\` — set repo variable \`SYNC_SOURCE\` to \`ios\` or \`strava\`.
+- **Sync:** GitHub Actions \`sync.yml\` — Strava pull when \`STRAVA_*\` secrets are set; iOS athletes push history from the app and sync regenerates derived files.
 
-Operator onboarding: see \`coach-phelps-hq\` \`docs/m1-plan.md\` and \`scripts/provision-user.sh\` (M1b).
+Operator onboarding: see \`coach-phelps-hq\` \`engine/README.md\` and \`scripts/provision-user.sh\` (M1b).
 `;
 
 function parseArgs(argv) {
@@ -326,6 +302,43 @@ function adaptHowItWorks(content) {
   );
 }
 
+function copyFromEngine(outDir, rel) {
+  const src = path.join(ENGINE_DIR, rel);
+  const dest = path.join(outDir, rel);
+  if (!fs.existsSync(src)) {
+    throw new Error(`Missing engine/${rel}`);
+  }
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  if (fs.statSync(src).isDirectory()) {
+    fs.cpSync(src, dest, { recursive: true });
+  } else {
+    fs.copyFileSync(src, dest);
+  }
+}
+
+function copyWorkflows(outDir) {
+  const wfDir = path.join(outDir, ".github/workflows");
+  fs.mkdirSync(wfDir, { recursive: true });
+
+  fs.copyFileSync(
+    path.join(ENGINE_DIR, ".github/workflows/sync.user.yml"),
+    path.join(wfDir, "sync.yml"),
+  );
+
+  for (const wf of ["validate-data.yml", "apply-coach-patch.yml"]) {
+    fs.copyFileSync(path.join(ENGINE_DIR, ".github/workflows", wf), path.join(wfDir, wf));
+  }
+
+  let validateSoul = fs.readFileSync(
+    path.join(ENGINE_DIR, ".github/workflows/validate-soul.yml"),
+    "utf-8",
+  );
+  validateSoul = validateSoul
+    .replaceAll("engine/soul/", "soul/")
+    .replaceAll("engine/scripts/", "scripts/");
+  fs.writeFileSync(path.join(wfDir, "validate-soul.yml"), validateSoul);
+}
+
 function carve(outDir, sha) {
   console.log(`Carving skeleton → ${outDir}`);
   console.log(`Pinned HQ SHA: ${sha}`);
@@ -335,25 +348,22 @@ function carve(outDir, sha) {
   }
   fs.mkdirSync(outDir, { recursive: true });
 
-  for (const rel of COPY_FILES) {
-    copyFile(rel, outDir);
-  }
-  for (const rel of COPY_DIRS) {
-    copyDir(rel, outDir);
-  }
-  for (const rel of BOOT_DOCS) {
-    copyFile(rel, outDir);
-  }
-  for (const wf of COPY_WORKFLOWS) {
-    copyFile(path.join(".github/workflows", wf), outDir);
+  for (const rel of ENGINE_FLATTEN) {
+    copyFromEngine(outDir, rel);
   }
 
-  copyFile("scripts/templates/sync.yml", outDir);
-  fs.renameSync(
-    path.join(outDir, "scripts/templates/sync.yml"),
-    path.join(outDir, ".github/workflows/sync.yml"),
+  copyFromEngine(outDir, ".github/agents");
+  copyWorkflows(outDir);
+
+  for (const rel of ROOT_COPY_FILES) {
+    copyFile(rel, outDir);
+  }
+
+  // engine/README.md → skeleton docs/engine-boundary.md
+  fs.copyFileSync(
+    path.join(ENGINE_DIR, "README.md"),
+    path.join(outDir, "docs/engine-boundary.md"),
   );
-  fs.rmSync(path.join(outDir, "scripts/templates"), { recursive: true, force: true });
 
   writeText(outDir, ".coach-engine-version", `hq_sha=${sha}`);
   writeText(outDir, "README.md", SKELETON_README);

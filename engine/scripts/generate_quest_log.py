@@ -19,7 +19,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-ROOT = Path(__file__).resolve().parent.parent
+_here = Path(__file__).resolve().parent
+ROOT = _here.parent.parent if (_here.parent.parent / "engine" / "soul").is_dir() else _here.parent
 CHALLENGE_FILE = ROOT / "training" / "ledger" / "challenge_v2.json"
 HISTORY_DIR = ROOT / "training" / "activities" / "history"
 OUTPUT_FILE = ROOT / "training" / "activities" / "quest_log.md"

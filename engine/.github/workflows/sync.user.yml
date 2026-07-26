@@ -1,8 +1,10 @@
 # User-repo sync workflow (skeleton / coach-<user>).
-# Copied by scripts/carve-skeleton.mjs — not used in coach-phelps-hq.
+# Carved from engine/.github/workflows/sync.user.yml — flat layout at repo root.
 #
-# Set repository variable SYNC_SOURCE to "ios" or "strava" (default: strava).
-# Strava path requires PAT_TOKEN + STRAVA_* secrets. iOS path skips Strava fetch.
+# Ingestion:
+#   - iOS app commits training/activities/history/ directly (see ios/ in HQ)
+#   - Strava: this workflow pulls when STRAVA_* repo secrets are set
+# No per-repo flag — pipeline auto-skips Strava when secrets are absent.
 
 name: Sync
 
@@ -20,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: "true"
-      SYNC_SOURCE: ${{ vars.SYNC_SOURCE || 'strava' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5

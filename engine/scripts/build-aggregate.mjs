@@ -13,8 +13,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { repoRoot } from "../lib/repo-layout.mjs";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..");
+const REPO_ROOT = repoRoot(__dirname);
 const SCHEMA_VERSION = 1;
 
 const UNAVAILABLE_CURRENT_WEEK = {

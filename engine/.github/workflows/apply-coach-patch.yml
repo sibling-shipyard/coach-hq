@@ -1,0 +1,56 @@
+name: Apply Coach Patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      payload:
+        description: 'Paste the ||| delimited payload from Coach'
+        required: true
+        type: string
+      commit_message:
+        description: 'Commit message'
+        required: false
+        default: 'coach: apply session patch'
+        type: string
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Apply changes
+        shell: python
+        run: |
+          import os
+          payload = """${{ inputs.payload }}"""
+          for block in payload.split("===FILE==="):
+            block = block.strip()
+            if not block:
+              continue
+            parts = block.split(" ", 1)
+            if len(parts) != 2:
+              continue
+            filepath, content = parts[0], parts[1]
+            content = content.replace("|||", "\n")
+            dirpath = os.path.dirname(filepath)
+            if dirpath:
+              os.makedirs(dirpath, exist_ok=True)
+            with open(filepath, "w") as f:
+              f.write(content)
+            print(f"Wrote {filepath}")
+
+      - name: Commit and push
+        run: |
+          git config user.name "coach-phelps-bot"
+          git config user.email "bot@coach-phelps.local"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "${{ inputs.commit_message }}"
+            git push
+          fi

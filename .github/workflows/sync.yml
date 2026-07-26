@@ -27,7 +27,7 @@ jobs:
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
-        run: python3 scripts/run_sync_pipeline.py
+        run: python3 engine/scripts/run_sync_pipeline.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -43,7 +43,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f ui/client/src/data/
-          git restore --staged strava/strava_tokens.json 2>/dev/null || true
+          git restore --staged engine/strava/strava_tokens.json 2>/dev/null || true
           git add -A
           if git diff --cached --quiet; then
             echo "No changes"

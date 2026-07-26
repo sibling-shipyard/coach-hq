@@ -24,7 +24,8 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-REPO_DIR = Path(__file__).resolve().parent.parent
+_here = Path(__file__).resolve().parent
+REPO_DIR = _here.parent.parent if (_here.parent.parent / "engine" / "soul").is_dir() else _here.parent
 TRAINING_DIR = REPO_DIR / "training"
 
 
