@@ -11,9 +11,16 @@ import type { CurrentWeekContract } from "../client/src/components/home-warm/cur
 import { buildLiveWeekContract } from "../client/src/components/home-warm/liveWeekContract";
 import { buildWidgetSnapshotsFile } from "../client/src/components/home-warm/warmHomeSnapshots";
 import type { SyncStatusPayload } from "../client/src/components/home-warm/warmHomeModel";
+import {
+  histDir,
+  ledgerDir,
+  repoRoot,
+  syncStatusPath,
+  widgetSnapshotsPath,
+} from "../../engine/lib/repo-layout.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "../..");
+const REPO_ROOT = repoRoot(path.join(__dirname, ".."));
 
 function readJson<T>(filePath: string, fallback: T): T {
   if (!fs.existsSync(filePath)) return fallback;
@@ -25,11 +32,10 @@ function readJson<T>(filePath: string, fallback: T): T {
 }
 
 function loadActivities(): Activity[] {
-  const historyDir = path.join(REPO_ROOT, "training", "activities", "history");
+  const historyDir = histDir(REPO_ROOT);
   if (!fs.existsSync(historyDir)) return [];
-  const files = fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"));
   const activities: Activity[] = [];
-  for (const file of files) {
+  for (const file of fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"))) {
     try {
       activities.push(JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8")));
     } catch {
@@ -56,15 +62,16 @@ const UNAVAILABLE_CURRENT_WEEK: CurrentWeekContract = {
 
 const activities = loadActivities();
 const challenge = readJson<ChallengeV2 | null>(
-  path.join(REPO_ROOT, "training/ledger/challenge_v2.json"),
+  path.join(ledgerDir(REPO_ROOT), "challenge_v2.json"),
   null,
 );
-const syncStatus = readJson<SyncStatusPayload>(
-  path.join(REPO_ROOT, "training/sync_status.json"),
-  { status: "none", timestamp: null, warnings: [] },
-);
+const syncStatus = readJson<SyncStatusPayload>(syncStatusPath(REPO_ROOT), {
+  status: "none",
+  timestamp: null,
+  warnings: [],
+});
 const storedWeek = readJson<CurrentWeekContract>(
-  path.join(REPO_ROOT, "training/ledger/current_week.json"),
+  path.join(ledgerDir(REPO_ROOT), "current_week.json"),
   UNAVAILABLE_CURRENT_WEEK,
 );
 
@@ -73,24 +80,19 @@ if (!challenge) {
   process.exit(0);
 }
 
-const contract = storedWeek.data_status === "unavailable"
-  ? buildLiveWeekContract(activities, challenge)
-  : storedWeek;
+const contract =
+  storedWeek.data_status === "unavailable"
+    ? buildLiveWeekContract(activities, challenge)
+    : storedWeek;
 
-const snapshots = buildWidgetSnapshotsFile(
-  activities,
-  challenge,
-  syncStatus,
-  contract,
-  "live",
-);
+const snapshots = buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live");
 
 const payload = JSON.stringify(snapshots, null, 2);
-const trainingOut = path.join(REPO_ROOT, "training/widget_snapshots.json");
+const repoOut = widgetSnapshotsPath(REPO_ROOT);
 const clientOut = path.join(REPO_ROOT, "ui/client/src/data/widget_snapshots.json");
 
-fs.mkdirSync(path.dirname(trainingOut), { recursive: true });
+fs.mkdirSync(path.dirname(repoOut), { recursive: true });
 fs.mkdirSync(path.dirname(clientOut), { recursive: true });
-fs.writeFileSync(trainingOut, payload);
+fs.writeFileSync(repoOut, payload);
 fs.writeFileSync(clientOut, payload);
 console.log("✓ widget_snapshots.json written");

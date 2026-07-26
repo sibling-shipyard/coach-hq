@@ -414,7 +414,7 @@ function validateSession(
   validateNullableString(value.template_id, `${path}.template_id`, issues, 100);
   if (validateNullableString(value.session_file, `${path}.session_file`, issues, 160) && typeof value.session_file === "string") {
     if (!/^sessions\/[^/]+\.json$/.test(value.session_file)) {
-      issues.push(`${path}.session_file must be a sessions/*.json path`);
+      issues.push(`${path}.session_file must be a user_data/activities/workout_plans/sessions/*.json path`);
     }
   }
   validateNullableString(value.coach_note, `${path}.coach_note`, issues, 160);

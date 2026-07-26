@@ -5,7 +5,7 @@
  *   files, synchronously, same as before this existed - zero behavior change for
  *   `npm run dev`.
  * - Hosted deployment: fetches /api/repo-file once (the signed-in user's resolved
- *   repo's data/aggregate.json), cached module-wide so navigating between pages
+ *   repo's gen/aggregate.json), cached module-wide so navigating between pages
  *   doesn't refetch.
  *
  * Returned shape mirrors the old per-file static imports so each page only needs

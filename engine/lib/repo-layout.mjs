@@ -119,6 +119,12 @@ export function questHistoryPath(repoRootPath) {
     : path.join(repoRootPath, "training", "activities", "quest_history.json");
 }
 
+export function widgetSnapshotsPath(repoRootPath) {
+  return usesNewLayout(repoRootPath)
+    ? path.join(repoRootPath, "gen", "widget_snapshots.json")
+    : path.join(repoRootPath, "training", "widget_snapshots.json");
+}
+
 export function chatHistoryPath(repoRootPath) {
   return usesNewLayout(repoRootPath)
     ? path.join(repoRootPath, "user_data", "coach", "chat_history.json")

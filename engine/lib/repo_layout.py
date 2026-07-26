@@ -115,6 +115,12 @@ def quest_history_path(repo: Path) -> Path:
     return repo / "training" / "activities" / "quest_history.json"
 
 
+def widget_snapshots_path(repo: Path) -> Path:
+    if uses_new_layout(repo):
+        return repo / "gen" / "widget_snapshots.json"
+    return repo / "training" / "widget_snapshots.json"
+
+
 def chat_history_path(repo: Path) -> Path:
     if uses_new_layout(repo):
         return repo / "user_data" / "coach" / "chat_history.json"

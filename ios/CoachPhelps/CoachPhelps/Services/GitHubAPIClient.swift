@@ -152,7 +152,7 @@ class GitHubAPIClient {
 
     // MARK: - Read Operations
 
-    /// Lists files in a directory (e.g., "training/activities/history")
+    /// Lists files in a directory (e.g., "user_data/activities/hist")
     func listFiles(path: String) async throws -> [GitHubFileEntry] {
         let label = "Listing \(path)"
         return try await withRetry(label) {
@@ -187,7 +187,7 @@ class GitHubAPIClient {
     }
 
     func readSyncState() async throws -> SyncState {
-        let data = try await readFile(path: "training/sync_state.json")
+        let data = try await readFile(path: "user_data/activities/sync_state.json")
         do {
             return try JSONDecoder().decode(SyncState.self, from: data)
         } catch {
@@ -195,9 +195,9 @@ class GitHubAPIClient {
         }
     }
 
-    /// Reads a single activity from `training/activities/history/<fileName>`.
+    /// Reads a single activity from `user_data/activities/hist/<fileName>`.
     func readActivity(fileName: String) async throws -> Activity {
-        let data = try await readFile(path: "training/activities/history/\(fileName)")
+        let data = try await readFile(path: "user_data/activities/hist/\(fileName)")
         do {
             return try JSONDecoder().decode(Activity.self, from: data)
         } catch {
@@ -215,11 +215,11 @@ class GitHubAPIClient {
         }
     }
 
-    /// Reads the Warm Instrument Home widget snapshots from `training/widget_snapshots.json`
+    /// Reads the Warm Instrument Home widget snapshots from `gen/widget_snapshots.json`
     /// — generated on every sync/build from the same TS models as the web home dashboard
     /// (see ADR 0005). Same fetch pattern as `readSyncState`/`readActivity`.
     func readWidgetSnapshots() async throws -> WidgetSnapshotsFile {
-        let data = try await readFile(path: "training/widget_snapshots.json")
+        let data = try await readFile(path: "gen/widget_snapshots.json")
         do {
             return try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
         } catch {
@@ -232,7 +232,7 @@ class GitHubAPIClient {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(state)
         try await commitFile(
-            path: "training/sync_state.json",
+            path: "user_data/activities/sync_state.json",
             content: data,
             message: "sync: update hk sync state"
         )
