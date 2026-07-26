@@ -8,7 +8,7 @@ Multi-tenant scaling needs a **full BYO fork template** (`coach-skeleton`) so at
 
 First ~10 users = BYO Claude. The org template ships everything needed to start a fitness journey — coach sessions fill `user_data/`, not repo structure.
 
-**Permanent non-goals for M1:** agents in skeleton, `engine/soul/` layers in skeleton, self-serve onboarding (M4), archiving legacy repos, coach-chat engine unification (M2), plugins in base carve.
+**Permanent non-goals for M1:** agents in skeleton, `engine/soul/` layers in skeleton, self-serve onboarding (deferred to **M4 — hard gate before user 3+**, see [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md)), archiving legacy repos, coach-chat engine unification (M2), plugins in base carve.
 
 **IP principle:** HQ owns soul **source** + agents + UI/iOS. Skeleton carries **composed SOUL copy** + carved **engine runtime** + athlete data bands. True IP wall moves to M2/M3 server-side engine.
 
@@ -205,6 +205,10 @@ flowchart LR
 | **M1c** | M | Akash clone | Passes validation checklist |
 | **M1d** | M | Skanda clone | Passes validation checklist |
 | **M1e** | S | Hosted docs | README/SETUP describe shared site flow |
+
+### User 3+ gate (before any friend sign-up)
+
+**Do not invite friends until [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md) exit test passes.** Sign-up → repo → Sync → dashboard → Claude BYO must work with zero operator steps (no PAT, no `provision-user.sh`).
 
 ### Validation checklist (M1c / M1d)
 

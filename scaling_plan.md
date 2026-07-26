@@ -12,15 +12,15 @@
 
 ## What's still open
 
-**No public repo for a brand-new friend to fork — blocks onboarding anyone new.** Every part of
-the login/auth flow assumes the user already has a coach-phelps repo with `SOUL.md` and
-`training/ledger/challenge_v2.json` in it — true for Skanda and Akash only because both started from
-hand-built personal repos. Recommended approach: fork/scrub one of the two existing personal
-repos into a clean public starter (keep `SOUL.md`, `templates/`, `scripts/`,
-`.github/workflows/`, strip real training data and history) that a new friend forks, fills in
-their own sync credentials, then installs Coach Phelps via "Sign up with GitHub." See
-[issue #32](https://github.com/sibling-shipyard/coach-phelps-hq/issues/32). (Also tracked in
-`docs/scaling-plan.md` §2.2 / M1.)
+**Automated onboarding for user 3+ — hard gate before inviting friends.** Skeleton + sign-up App
+install exist; friends still hit manual `PAT_TOKEN` and operator provisioning. Full requirement:
+[`docs/user-3-onboarding-gate.md`](docs/user-3-onboarding-gate.md). M4 self-serve (repo create +
+secrets via App Administration + Secrets perms) or interim PAT-free `sync.yml` + auto repo on
+sign-up.
+
+**No public repo for a brand-new friend to fork — partially resolved.** Org template
+`sibling-shipyard/coach-skeleton` is live (~50 files). Remaining gap is **auto-provision on website
+sign-up**, not manual fork. See [issue #32](https://github.com/sibling-shipyard/coach-phelps-hq/issues/32).
 
 **Open questions from the login-flow hardening, not yet decided or built:**
 
