@@ -6,7 +6,7 @@
 ## Goal
 
 Bring the clean structure from `akash-suresh/coach-phelps` (`core/`, `plugins/`, regrouped
-`training/`, `archive/`, `soul/` split, kebab docs) onto `coach-phelps-hq`, without losing
+`training/`, kebab docs) onto `coach-phelps-hq`, without losing
 hq's ahead-of-clean work.
 
 ## Guardrails
@@ -21,7 +21,7 @@ hq's ahead-of-clean work.
 
 | # | Size | Milestone | Done when |
 |---|---|---|---|
-| **P1** | S | Additive port | `core/`, `plugins/` (badminton + taxonomy), `archive/`, `tests/`, `SOUL_HISTORY.md` (template), kebab doc renames landed. **Structure only** — no user data (empty match data, template roster/protein docs). hq builds, site deploys unchanged.
+| **P1** | S | Additive port | `core/`, `plugins/` (badminton + taxonomy), `tests/`, `SOUL_HISTORY.md`, kebab doc renames landed. **Structure only** — no user data (empty match data, template roster/protein docs). hq builds, site deploys unchanged.
 | **P2** | L, **critical** | `training/` reorg | Regroup into `coach/ledger/activities/reference`; in the **same PR** repoint every hq consumer — `ui/api/repo-file.ts`, `ui/api/coach-chat.ts`, `ui/scripts/{build-data.mjs, generate-widget-snapshots.ts, validate-current-week.mts}`, workflows, iOS read+write, Coach's hardcoded refs. Reconcile `last_week/` (hq reads it; clean dropped it) and `seasons/`. `validate-data` green, dashboard renders, coach-chat reads+writes, one real sync smoke-test passes. |
 | **P3** | S | Docs + index | `docs/CURRENT.md` added; keep `AGENTS.md` / `HOW_IT_WORKS.md`; reconcile root `scaling_plan.md` vs `docs/scaling-plan.md`. No broken inbound refs. |
 
