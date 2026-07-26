@@ -161,8 +161,13 @@ regenerate_gen() {
     cp "${hq_root}/engine/lib/repo_layout.py" "${target_root}/engine/lib/repo_layout.py"
     cp "${hq_root}/engine/lib/repo-layout.mjs" "${target_root}/engine/lib/repo-layout.mjs"
     cp "${hq_root}/engine/lib/challenge_schema.py" "${target_root}/engine/lib/challenge_schema.py"
+    cp "${hq_root}/engine/lib/current-week.mts" "${target_root}/engine/lib/current-week.mts"
     cp "${hq_root}/engine/scripts/generate_quest_log.py" "${target_root}/engine/scripts/generate_quest_log.py"
     cp "${hq_root}/engine/scripts/generate_quest_history.py" "${target_root}/engine/scripts/generate_quest_history.py"
+    cp "${hq_root}/engine/scripts/validate-current-week.mts" "${target_root}/engine/scripts/validate-current-week.mts"
+    mkdir -p "${target_root}/scripts"
+    cp "${hq_root}/scripts/validate-current-week" "${target_root}/scripts/validate-current-week"
+    chmod +x "${target_root}/scripts/validate-current-week"
   fi
 
   log "Regenerating gen/ from migrated user_data/..."
