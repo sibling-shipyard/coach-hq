@@ -42,7 +42,7 @@ from rename_core import (
 from strava_api import api_put, load_tokens, refresh_if_needed
 
 REPO_DIR = Path(__file__).resolve().parent.parent
-HISTORY_DIR = REPO_DIR / "training" / "history"
+HISTORY_DIR = REPO_DIR / "training" / "activities" / "history"
 
 
 def derive_counters(activities):

@@ -67,4 +67,4 @@ git pull --rebase origin main && git push origin main
 pipeline — do not manually edit them. `challenge_v2.json` in `ui/client/src/data/` is updated
 on sync, not during coach sessions.
 
-**Coach commits:** Coach Phelps commits its own coaching memory — `training/state.md`, `training/coach_notes.md`, `training/challenge_v2.json`, `training/sleep_log.json`, `sessions/**` — directly to `main`, no PR. Full procedure is in SOUL.md §13. A `validate-data` CI check guards the JSON so a bad commit can't break the dashboard build undetected. Do not copy `challenge_v2.json` to `ui/client/src/data/` manually — the sync pipeline handles that.
+**Coach commits:** Coach Phelps commits its own coaching memory — `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `training/activities/sleep_log.json`, `sessions/**` — directly to `main`, no PR. Full procedure is in SOUL.md §13. A `validate-data` CI check guards the JSON so a bad commit can't break the dashboard build undetected. Do not copy `challenge_v2.json` to `ui/client/src/data/` manually — the sync pipeline handles that.

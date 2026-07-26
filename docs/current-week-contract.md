@@ -4,19 +4,19 @@
 
 **Owner:** Coach Phelps
 
-**Source of truth:** `training/current_week.json`
+**Source of truth:** `training/ledger/current_week.json`
 
 **Consumers:** Web dashboard and, later, native iOS
 
 ## Decision
 
-The live weekly plan and short-lived coaching commentary live in `training/current_week.json`, not `training/state.md`. This keeps durable memory separate from a bounded, replaceable product snapshot while giving every product surface one structured contract.
+The live weekly plan and short-lived coaching commentary live in `training/ledger/current_week.json`, not `training/coach/state.md`. This keeps durable memory separate from a bounded, replaceable product snapshot while giving every product surface one structured contract.
 
 | File | Time horizon | Responsibility |
 |---|---:|---|
-| `training/state.md` | Months | Durable athlete state, constraints, priorities, phase context, and learned patterns |
-| `training/current_week.json` | One week | Active dated plan, completion state, one primary Coach conclusion, and expiring semantic comments |
-| `training/coach_notes.md` | Long-term, append-only | Private observations, pattern history, and analytical memory |
+| `training/coach/state.md` | Months | Durable athlete state, constraints, priorities, phase context, and learned patterns |
+| `training/ledger/current_week.json` | One week | Active dated plan, completion state, one primary Coach conclusion, and expiring semantic comments |
+| `training/coach/coach_notes.md` | Long-term, append-only | Private observations, pattern history, and analytical memory |
 | `templates/*.json` | Stable | Base exercise prescriptions |
 | `sessions/*.json` | One workout | Coach-adjusted timer prescriptions with sets, phases, and rest |
 
@@ -150,16 +150,16 @@ All date comparisons use `timezone`. The product never promotes `placeholder` or
 
 ## Build and validation boundary
 
-P0 provides three guards. Before a Coach-authored save, `./scripts/validate-current-week --coach-write` runs the same strict shape and invariant parser used by the dashboard and verifies Coach save metadata. GitHub Actions parses `training/current_week.json` on direct pushes and pull requests, catching malformed JSON before it can break a deploy. The dashboard repeats strict runtime validation before exposing the snapshot to components.
+P0 provides three guards. Before a Coach-authored save, `./scripts/validate-current-week --coach-write` runs the same strict shape and invariant parser used by the dashboard and verifies Coach save metadata. GitHub Actions parses `training/ledger/current_week.json` on direct pushes and pull requests, catching malformed JSON before it can break a deploy. The dashboard repeats strict runtime validation before exposing the snapshot to components.
 
 The shared local parser rejects invalid enums, date windows, duplicate IDs, copy-length violations, and provenance errors without duplicating schema rules. Enforcing those semantic checks inside CI remains a separate P1 hardening step.
 
 ## Ownership and delivery
 
-Coach owns ordinary writes to `training/current_week.json` and may include it in the existing direct-to-main coaching lane. Code, workflows, contract documentation, and UI integration remain branch-and-review changes.
+Coach owns ordinary writes to `training/ledger/current_week.json` and may include it in the existing direct-to-main coaching lane. Code, workflows, contract documentation, and UI integration remain branch-and-review changes.
 
-A change to `training/current_week.json` must trigger the dashboard build, produce `ui/client/src/data/current_week.json`, pass runtime validation, and degrade to an unavailable state if the source is absent, placeholder, draft, stale, or invalid.
+A change to `training/ledger/current_week.json` must trigger the dashboard build, produce `ui/client/src/data/current_week.json`, pass runtime validation, and degrade to an unavailable state if the source is absent, placeholder, draft, stale, or invalid.
 
 ## Migration rule
 
-Closed weekly history moves to `training/archive/week_plans.md`. Durable cut/block context remains in `training/state.md`. The next Week 30 snapshot is seeded as `placeholder` because its schedule has not yet been confirmed; it must not become `live` until Sky and Coach agree the real week.
+Closed weekly history moves to `training/archive/week_plans.md`. Durable cut/block context remains in `training/coach/state.md`. The next Week 30 snapshot is seeded as `placeholder` because its schedule has not yet been confirmed; it must not become `live` until Sky and Coach agree the real week.

@@ -59,8 +59,8 @@ Always include `fixes #N` in the PR body. PR body must follow `.github/agents/is
 ## Direct-to-Main vs Branch + PR
 
 **Direct to main (no PR):**
-- Coach session data: `training/state.md`, `training/coach_notes.md`, `training/challenge_v2.json`, `training/roadmap.md`, `sessions/`
-- Pipeline-generated: `training/history/`, `training/quest_log.md`, `training/sync_status.json`, `strava/strava_tokens.json`
+- Coach session data: `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `training/coach/roadmap.md`, `sessions/`
+- Pipeline-generated: `training/activities/history/`, `training/activities/quest_log.md`, `training/sync_status.json`, `strava/strava_tokens.json`
 - UI data bundle (pipeline writes): `ui/client/src/data/`
 - Activity renames (history JSON only)
 

@@ -2,7 +2,7 @@
 """Sync pipeline for CI — chains all steps for workflow_dispatch.
 
 Steps:
-  1. Sync Strava activities to training/history/ via fetch_strava.py --sync
+  1. Sync Strava activities to training/activities/history/ via fetch_strava.py --sync
   2. Auto-rename new unrenamed activities via rename_single.py (new files only)
   3. Generate quest_log.md
   4. Generate quest_history.json (merged history across all seasons)
@@ -11,9 +11,8 @@ Steps:
 
   activities.json, challenge_v2.json, and workouts.json are NOT written here -
   ui/scripts/build-data.mjs owns all three and regenerates them on every
-  build/dev via the prebuild/predev npm hooks. training/last_week/ and
-  training/widget_snapshots.json are populated by sync.yml (last_week shell
-  step; widget_snapshots via npm run generate-snapshots), not this script.
+  build/dev via the prebuild/predev npm hooks. training/widget_snapshots.json is populated
+  by sync.yml (via npm run generate-snapshots), not this script.
   (Commit & push is handled by sync.yml, not this script)
 
 Usage:
@@ -30,7 +29,7 @@ from typing import Optional
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 TRAINING_DIR = REPO_DIR / "training"
-HISTORY_DIR = TRAINING_DIR / "history"
+HISTORY_DIR = TRAINING_DIR / "activities" / "history"
 DATA_DIR = REPO_DIR / "ui" / "client" / "src" / "data"
 TOKENS_PATH = REPO_DIR / "strava" / "strava_tokens.json"
 SYNC_STATUS_PATH = TRAINING_DIR / "sync_status.json"
@@ -187,7 +186,7 @@ def main():
 
         log("Step 5/5: Writing sleep_log.json to UI data bundle...")
         DATA_DIR.mkdir(parents=True, exist_ok=True)
-        sleep_src = TRAINING_DIR / "sleep_log.json"
+        sleep_src = TRAINING_DIR / "activities" / "sleep_log.json"
         (DATA_DIR / "sleep_log.json").write_text(
             sleep_src.read_text() if sleep_src.exists() else "[]"
         )

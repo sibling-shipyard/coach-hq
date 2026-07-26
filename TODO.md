@@ -2,8 +2,8 @@
 
 ## Done (v1)
 - [x] SOUL.md — generic Phelps identity + First Session Protocol
-- [x] training/state.md — blank athlete template
-- [x] training/challenge_v2.json — parameterized quest schema (config-driven patterns, no hardcoded sport logic)
+- [x] training/coach/state.md — blank athlete template
+- [x] training/ledger/challenge_v2.json — parameterized quest schema (config-driven patterns, no hardcoded sport logic)
 - [x] scripts/generate_quest_log.py — fully config-driven (weekly_targets + main quest regex from JSON)
 - [x] Strava sync scripts — fetch_strava.py, query_history.py, strava_api.py, oauth_reauth.py
 - [x] SETUP.md — clone → Strava auth → HR zones → first session guide
@@ -34,7 +34,7 @@
 
 - [ ] **Milestone quest type** — schema already supports `milestone` type but it's undocumented and unrendered in generate_quest_log.py. Document and implement rendering.
 
-- [ ] **Structured memory system** — when `training/coach_notes.md` exceeds ~600 lines, distill permanent patterns into `training/key_insights.md` and archive old notes. Relevant ~6 months in for active users.
+- [ ] **Structured memory system** — when `training/coach/coach_notes.md` exceeds ~600 lines, distill permanent patterns into `training/key_insights.md` and archive old notes. Relevant ~6 months in for active users.
 
 - [ ] **Travel/bodyweight mode** — Coach detects travel context and switches to a bodyweight-only plan. Return protocol to ramp back up. Define in SOUL.md.
 

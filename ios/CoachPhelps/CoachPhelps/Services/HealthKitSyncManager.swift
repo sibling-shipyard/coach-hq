@@ -108,7 +108,7 @@ class HealthKitSyncManager: ObservableObject {
                 return
             }
 
-            let existingFiles = try await apiClient.listFiles(path: "training/history")
+            let existingFiles = try await apiClient.listFiles(path: "training/activities/history")
             var existingFileNames = Set(existingFiles.map { $0.name })
             var counters = syncState.counters ?? [:]
 
@@ -158,7 +158,7 @@ class HealthKitSyncManager: ObservableObject {
                 let fileName = ActivityNamer.fileName(for: named)
                 if existingFileNames.contains(fileName) { continue }
 
-                filesToCommit.append((path: "training/history/\(fileName)", data: try encoder.encode(named)))
+                filesToCommit.append((path: "training/activities/history/\(fileName)", data: try encoder.encode(named)))
                 existingFileNames.insert(fileName)
                 syncedForCache.append((fileName, named))
             }
@@ -211,7 +211,7 @@ class HealthKitSyncManager: ObservableObject {
     // MARK: - Cache backfill
 
     /// Reconciles the local `SyncCache` against what's already committed to
-    /// `training/history` on GitHub, for activities from the last `daysBack` days.
+    /// `training/activities/history` on GitHub, for activities from the last `daysBack` days.
     ///
     /// The cache is only ever populated as a side effect of `syncNewWorkouts()`
     /// committing *new* workouts — nothing backfills it from activities that were
@@ -222,7 +222,7 @@ class HealthKitSyncManager: ObservableObject {
     /// will never see them again.
     func backfillRecentCache(daysBack: Int = 7) async {
         guard let apiClient = apiClient else { return }
-        guard let files = try? await apiClient.listFiles(path: "training/history") else { return }
+        guard let files = try? await apiClient.listFiles(path: "training/activities/history") else { return }
 
         let cutoff = Calendar.current.date(byAdding: .day, value: -daysBack, to: Date()) ?? .distantPast
         let cachedNames = Set(SyncCache.load().map { $0.fileName })

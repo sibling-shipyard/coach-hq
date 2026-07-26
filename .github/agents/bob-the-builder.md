@@ -24,15 +24,11 @@ coach-phelps/
 ├── SOUL.md                        # Coach personality & rules (DO NOT edit)
 ├── TODO.md                        # Project backlog (Tech Lead owns, you read)
 ├── training/
-│   ├── state.md                   # Living memory (Coach owns, DO NOT edit)
-│   ├── coach_notes.md             # Coach observations (Coach owns, DO NOT edit)
-│   ├── challenge_v2.json          # Quest data (Coach updates, DO NOT edit)
-│   ├── quest_log.md               # Auto-generated (DO NOT edit)
-│   ├── roadmap.md                 # Run plan (Coach owns, DO NOT edit)
+│   ├── coach/                     # Coach memory (state, notes, roadmap)
+│   ├── ledger/                    # Structured JSON (challenge, current_week)
+│   ├── activities/                # Auto-generated (history, quest_log, sleep)
 │   ├── sync_state.json            # Sync boundaries (updated by fetch_strava.py)
-│   ├── sync_status.json           # Pipeline status for UI
-│   ├── history/*.json             # Activity data (git-tracked, one per activity)
-│   └── last_week/*.json           # Last 7 days (auto-populated, not committed)
+│   └── sync_status.json           # Pipeline status for UI
 ├── templates/                     # Base workout templates (Tech Lead owns, DO NOT edit)
 ├── sessions/                      # Coach-adjusted workout snapshots (Coach owns, DO NOT edit)
 ├── strava/
@@ -50,7 +46,7 @@ coach-phelps/
 ## Data Flow
 
 ```
-Strava API → fetch_strava.py → training/history/*.json
+Strava API → fetch_strava.py → training/activities/history/*.json
                                       ↓
                               rename_single.py (naming)
                                       ↓
@@ -97,7 +93,7 @@ Strava API → fetch_strava.py → training/history/*.json
 | Badminton | casual (no keyword) | `Badminton: Casual #N` |
 | Everything else (Walk, Hike, Ride, Swim...) | — | skip |
 
-**Counter logic:** Counters reset every calendar year, per category. Scan `training/history/*.json`
+**Counter logic:** Counters reset every calendar year, per category. Scan `training/activities/history/*.json`
 → bucket by the activity's year (from `start_date_local`) → find highest N per (year, category) →
 new activity = N+1 within that year. A 2025 `Run #3` and a 2026 `Run #3` can coexist; the year is
 what disambiguates them.
@@ -105,16 +101,16 @@ Use `rename_single.py <id>` (dry-run) to preview before applying. Use `--name` o
 know the exact context.
 
 ## UI Data Sync Rule
-`ui/client/src/data/challenge_v2.json` must mirror `training/challenge_v2.json`. The pipeline
-handles this automatically in step 4. If you manually touch `training/challenge_v2.json`, sync it:
+`ui/client/src/data/challenge_v2.json` must mirror `training/ledger/challenge_v2.json`. The pipeline
+handles this automatically in step 4. If you manually touch `training/ledger/challenge_v2.json`, sync it:
 ```bash
-cp training/challenge_v2.json ui/client/src/data/challenge_v2.json
+cp training/ledger/challenge_v2.json ui/client/src/data/challenge_v2.json
 ```
 
 ## Key Rules
 - `templates/*.json` are base templates — **never edit** (Tech Lead owns)
-- `SOUL.md`, `state.md`, `coach_notes.md`, `challenge_v2.json`, `sessions/`, `roadmap.md` — **never edit** (Coach owns)
-- `quest_log.md` is auto-generated — never edit manually
+- `SOUL.md`, `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `sessions/`, `training/coach/roadmap.md` — **never edit** (Coach owns)
+- `training/activities/quest_log.md` is auto-generated — never edit manually
 - Always preview renames with dry-run before applying
 - Strava rate limit: 100 req/15 min. Token refresh is automatic via `strava_api.py`
 
@@ -135,8 +131,8 @@ When Tech Lead opens an issue asking for one of these as a new field in `analyti
 ## Workflow
 
 **Data-only changes** (sync, rename, regenerate) — direct to `main`:
-- Eligible files: `training/history/`, `training/sync_state.json`, `training/sync_status.json`,
-  `training/quest_log.md`, `strava/strava_tokens.json`, `ui/client/src/data/`
+- Eligible files: `training/activities/history/`, `training/sync_state.json`, `training/sync_status.json`,
+  `training/activities/quest_log.md`, `strava/strava_tokens.json`, `ui/client/src/data/`
 - Commit prefix: `data:` (see `.github/CONVENTIONS.md`)
 
 **Everything else** — branch + PR:
@@ -153,7 +149,7 @@ When Tech Lead opens an issue asking for one of these as a new field in `analyti
 ```bash
 python3 scripts/run_sync_pipeline.py
 git add -f ui/client/src/data/
-git add training/history/ training/sync_state.json training/sync_status.json training/quest_log.md
+git add training/activities/history/ training/sync_state.json training/sync_status.json training/activities/quest_log.md
 git diff --cached --stat
 git commit -m "data: manual sync — N synced, M renamed [skip ci]"
 git pull --rebase origin main && git push origin main
@@ -163,12 +159,12 @@ git pull --rebase origin main && git push origin main
 1. `python3 strava/fetch_strava.py --sync --since YYYY-MM-DD`
 2. `python3 strava/rename_single.py <id>` — preview
 3. Use `--name "..." --apply` if you know the context
-4. `git add training/history/ && git commit -m "data: sync + rename" && git pull --rebase origin main && git push origin main`
+4. `git add training/activities/history/ && git commit -m "data: sync + rename" && git pull --rebase origin main && git push origin main`
 
 **Regenerate Quest Log:**
 ```bash
 python3 scripts/generate_quest_log.py
-git add training/quest_log.md && git commit -m "data: regenerate quest log"
+git add training/activities/quest_log.md && git commit -m "data: regenerate quest log"
 git pull --rebase origin main && git push origin main
 ```
 

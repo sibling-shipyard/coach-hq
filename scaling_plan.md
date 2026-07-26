@@ -8,7 +8,7 @@ parking lot for everything that only matters once there's a friend #3.
 
 **No public repo for a brand-new friend to fork — blocks onboarding anyone new.** Every part of
 the login/auth flow assumes the user already has a coach-phelps repo with `SOUL.md` and
-`training/challenge_v2.json` in it — true for Skanda and Akash only because both started from
+`training/ledger/challenge_v2.json` in it — true for Skanda and Akash only because both started from
 hand-built personal repos. Recommended approach: fork/scrub one of the two existing personal
 repos into a clean public starter (keep `SOUL.md`, `templates/`, `scripts/`,
 `.github/workflows/`, strip real training data and history) that a new friend forks, fills in
@@ -64,7 +64,7 @@ designed yet.
 
 **Sync-source pluggability, informally already true, not yet documented as an explicit choice.**
 Strava Premium and Akash's iOS/HealthKit app are both real, working sync sources today, and
-downstream pipeline/UI code doesn't care which one produced `training/history/*.json`. What's
+downstream pipeline/UI code doesn't care which one produced `training/activities/history/*.json`. What's
 still missing: a documented "choose your sync source" step in `SETUP.md` for a new user, and the
 question of whether Akash's iOS app stays iOS-only or Android/other-platform sync becomes a
 future ask. Not urgent — only matters once past friend #2-3.

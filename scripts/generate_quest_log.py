@@ -20,9 +20,9 @@ from pathlib import Path
 from typing import Optional
 
 ROOT = Path(__file__).resolve().parent.parent
-CHALLENGE_FILE = ROOT / "training" / "challenge_v2.json"
-HISTORY_DIR = ROOT / "training" / "history"
-OUTPUT_FILE = ROOT / "training" / "quest_log.md"
+CHALLENGE_FILE = ROOT / "training" / "ledger" / "challenge_v2.json"
+HISTORY_DIR = ROOT / "training" / "activities" / "history"
+OUTPUT_FILE = ROOT / "training" / "activities" / "quest_log.md"
 
 VALID_QUEST_TYPES = {"daily_streak", "progress", "count_target", "weekly_frequency", "milestone"}
 VALID_POLARITIES = {"default_done", "default_not_done"}

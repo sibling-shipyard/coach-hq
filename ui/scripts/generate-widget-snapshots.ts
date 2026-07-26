@@ -25,7 +25,7 @@ function readJson<T>(filePath: string, fallback: T): T {
 }
 
 function loadActivities(): Activity[] {
-  const historyDir = path.join(REPO_ROOT, "training", "history");
+  const historyDir = path.join(REPO_ROOT, "training", "activities", "history");
   if (!fs.existsSync(historyDir)) return [];
   const files = fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"));
   const activities: Activity[] = [];
@@ -56,7 +56,7 @@ const UNAVAILABLE_CURRENT_WEEK: CurrentWeekContract = {
 
 const activities = loadActivities();
 const challenge = readJson<ChallengeV2 | null>(
-  path.join(REPO_ROOT, "training/challenge_v2.json"),
+  path.join(REPO_ROOT, "training/ledger/challenge_v2.json"),
   null,
 );
 const syncStatus = readJson<SyncStatusPayload>(
@@ -64,7 +64,7 @@ const syncStatus = readJson<SyncStatusPayload>(
   { status: "none", timestamp: null, warnings: [] },
 );
 const storedWeek = readJson<CurrentWeekContract>(
-  path.join(REPO_ROOT, "training/current_week.json"),
+  path.join(REPO_ROOT, "training/ledger/current_week.json"),
   UNAVAILABLE_CURRENT_WEEK,
 );
 

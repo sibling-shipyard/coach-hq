@@ -39,10 +39,10 @@ ui/
 │   └── reference-interactions-validation.md    # Validation report (fidelity checks, TS diagnostics)
 └── client/src/
     ├── data/                  # Built output (DO NOT edit directly)
-    │   ├── activities.json    # Merged from training/history/
-    │   ├── challenge_v2.json  # Mirror of training/challenge_v2.json
+    │   ├── activities.json    # Merged from training/activities/history/
+    │   ├── challenge_v2.json  # Mirror of training/ledger/challenge_v2.json
     │   ├── quest_history.json # Quest completion history across seasons
-    │   ├── sleep_log.json     # Mirror of training/sleep_log.json
+    │   ├── sleep_log.json     # Mirror of training/activities/sleep_log.json
     │   ├── sync_status.json
     │   └── workouts.json
     ├── pages/

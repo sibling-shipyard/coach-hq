@@ -2,7 +2,7 @@
 """Generate ui/client/src/data/quest_history.json from all season archives.
 
 Reads training/seasons/*/challenge_v2.json (sorted by start_date) then
-training/challenge_v2.json (current season). For each daily_streak quest,
+training/ledger/challenge_v2.json (current season). For each daily_streak quest,
 reconstructs per-day status from polarity + date arrays and writes a unified
 flat file the UI can read without being season-aware.
 
@@ -92,7 +92,7 @@ def main():
         process_season(data, is_current=False, quests_out=quests_out)
 
     # Current season
-    current_path = TRAINING_DIR / "challenge_v2.json"
+    current_path = TRAINING_DIR / "ledger" / "challenge_v2.json"
     if current_path.exists():
         data = json.loads(current_path.read_text())
         process_season(data, is_current=True, quests_out=quests_out)

@@ -4,7 +4,7 @@
  *
  * With the GitHub App migration, candidates come directly from the repos the
  * user chose during install (GET /user/installations/{id}/repositories) -
- * already exactly the set they granted. The training/challenge_v2.json
+ * already exactly the set they granted. The training/ledger/challenge_v2.json
  * marker check stays as a sanity check.
  *
  * SECURITY: GitHub's install picker shows every repo the installing user has
@@ -48,7 +48,7 @@ const GH_HEADERS = (token: string) => ({
 
 async function hasMarkerFile(repoFullName: string, token: string): Promise<boolean> {
   const res = await fetch(
-    `https://api.github.com/repos/${repoFullName}/contents/training/challenge_v2.json`,
+    `https://api.github.com/repos/${repoFullName}/contents/training/ledger/challenge_v2.json`,
     { headers: GH_HEADERS(token) }
   );
   return res.status === 200;
@@ -88,7 +88,7 @@ export default {
       const ok = await hasMarkerFile(selected, session.gh_token);
       if (!ok) {
         return Response.json(
-          { error: "That repo doesn't look like a coach-phelps repo (no training/challenge_v2.json)" },
+          { error: "That repo doesn't look like a coach-phelps repo (no training/ledger/challenge_v2.json)" },
           { status: 400 }
         );
       }

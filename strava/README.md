@@ -8,7 +8,7 @@ Scripts for syncing, querying, and renaming Strava activities.
 
 | Script | Purpose |
 |--------|---------|
-| `fetch_strava.py` | Fetch activities from Strava API, save to `training/history/` |
+| `fetch_strava.py` | Fetch activities from Strava API, save to `training/activities/history/` |
 | `strava_api.py` | API wrapper — token management and HTTP client (shared, don't modify directly) |
 | `rename_core.py` | Classification engine and name generator — edit this to change naming rules |
 | `rename_single.py` | Preview or rename a single activity (safe, dry-run default) |
@@ -31,7 +31,7 @@ The sync pipeline runs this automatically. Use directly only for manual debuggin
 
 ## query_history.py
 
-Queries `training/history/*.json` locally — fast, no API calls.
+Queries `training/activities/history/*.json` locally — fast, no API calls.
 
 ```bash
 # List sport types with counts
@@ -83,7 +83,7 @@ Counters are per category, reset Jan 1 each year. Classification runs in `rename
 **Upper keywords:** "upper", "pull", "push"
 **Lower keywords:** "lower", "leg", "squat"
 
-**Counter logic:** Scan `training/history/2026-*.json` → find highest N per category → new = max + 1.
+**Counter logic:** Scan `training/activities/history/2026-*.json` → find highest N per category → new = max + 1.
 
 ---
 
@@ -113,7 +113,7 @@ python3 strava/rename_activities.py --apply     # apply — needs approval
 
 ## Activity JSON Structure
 
-Each file in `training/history/` is the raw Strava API response with two coach-added fields:
+Each file in `training/activities/history/` is the raw Strava API response with two coach-added fields:
 
 | Field | Source | Description |
 |-------|--------|-------------|
