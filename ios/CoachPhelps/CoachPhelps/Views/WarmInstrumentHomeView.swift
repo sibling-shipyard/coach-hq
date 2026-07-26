@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Warm Instrument Home — a scrolling column of M widgets consuming
-/// `training/widget_snapshots.json` (same fetch pattern as workouts/sessions via
+/// `gen/widget_snapshots.json` (same fetch pattern as workouts/sessions via
 /// `GitHubAPIClient`). Supersedes `CoachingInsightsView`. See `AGENTS.md` → Warm Instrument
 /// Home, `kdb/decisions/0005-widget-snapshots-cross-platform.md`, and
 /// `ui/docs/reference-interactions/Widget Design Philosophy.md` (platform row "iOS app (Home)").

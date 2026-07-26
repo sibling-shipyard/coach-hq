@@ -1,5 +1,5 @@
 /**
- * repo-file.ts — fetches the signed-in user's resolved repo's data/aggregate.json
+ * repo-file.ts — fetches the signed-in user's resolved repo's gen/aggregate.json
  * via the GitHub Contents API. One call, one file, per the Repo-as-CDN model
  * (WEBSITE_UNIFICATION_PLAN.md Section 7) - not several raw files merged at
  * request time.
@@ -32,13 +32,13 @@ export default {
     }
 
     const contentsRes = await fetch(
-      `https://api.github.com/repos/${session.repo_full_name}/contents/data/aggregate.json`,
+      `https://api.github.com/repos/${session.repo_full_name}/contents/gen/aggregate.json`,
       { headers: GH_HEADERS(session.gh_token) }
     );
 
     if (contentsRes.status === 404) {
       return Response.json(
-        { error: "data/aggregate.json not found in your repo - has it synced yet?" },
+        { error: "gen/aggregate.json not found in your repo - has it synced yet?" },
         { status: 404 }
       );
     }
@@ -50,7 +50,7 @@ export default {
     try {
       aggregate = await contentsRes.json();
     } catch {
-      return Response.json({ error: "data/aggregate.json is not valid JSON" }, { status: 502 });
+      return Response.json({ error: "gen/aggregate.json is not valid JSON" }, { status: 502 });
     }
 
     return new Response(JSON.stringify(aggregate), {

@@ -19,10 +19,14 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-ROOT = Path(__file__).resolve().parent.parent
-CHALLENGE_FILE = ROOT / "training" / "ledger" / "challenge_v2.json"
-HISTORY_DIR = ROOT / "training" / "activities" / "history"
-OUTPUT_FILE = ROOT / "training" / "activities" / "quest_log.md"
+_here = Path(__file__).resolve().parent
+sys.path.insert(0, str(_here.parent / "lib"))
+from repo_layout import hist_dir, ledger_dir, quest_log_path, repo_root_from_here  # noqa: E402
+
+ROOT = repo_root_from_here(__file__)
+CHALLENGE_FILE = ledger_dir(ROOT) / "challenge_v2.json"
+HISTORY_DIR = hist_dir(ROOT)
+OUTPUT_FILE = quest_log_path(ROOT)
 
 VALID_QUEST_TYPES = {"daily_streak", "progress", "count_target", "weekly_frequency", "milestone"}
 VALID_POLARITIES = {"default_done", "default_not_done"}

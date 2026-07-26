@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Generate ui/client/src/data/quest_history.json from all season archives.
+"""Generate quest_history.json from all season archives.
 
-Reads training/seasons/*/challenge_v2.json (sorted by start_date) then
-training/ledger/challenge_v2.json (current season). For each daily_streak quest,
+Reads seasons/*/challenge_v2.json (sorted by start_date) then
+ledger/challenge_v2.json (current season). For each daily_streak quest,
 reconstructs per-day status from polarity + date arrays and writes a unified
-flat file the UI can read without being season-aware.
+flat file the dashboard can read without being season-aware.
+
+Output path:
+  - QUEST_HISTORY_OUTPUT env var if set
+  - ui/client/src/data/quest_history.json when ui/ exists (HQ)
+  - gen/quest_history.json (new layout) or training/activities/quest_history.json (legacy)
 
 Status values: "done", "missed", "excused"
 Gaps (e.g., Jun 7-17 between seasons) are omitted — no entry means no data.
@@ -14,14 +19,26 @@ Usage:
 """
 
 import json
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-REPO_DIR = Path(__file__).resolve().parent.parent
-TRAINING_DIR = REPO_DIR / "training"
-DATA_DIR = REPO_DIR / "ui" / "client" / "src" / "data"
-OUTPUT_PATH = DATA_DIR / "quest_history.json"
+_here = Path(__file__).resolve().parent
+sys.path.insert(0, str(_here.parent / "lib"))
+from repo_layout import ledger_dir, quest_history_path, repo_root_from_here, seasons_dir  # noqa: E402
+
+REPO_DIR = repo_root_from_here(__file__)
+
+
+def resolve_output_path() -> Path:
+    override = os.environ.get("QUEST_HISTORY_OUTPUT")
+    if override:
+        return Path(override)
+    ui_data = REPO_DIR / "ui" / "client" / "src" / "data" / "quest_history.json"
+    if (REPO_DIR / "ui").exists():
+        return ui_data
+    return quest_history_path(REPO_DIR)
 
 
 def date_range(start: str, end: str):
@@ -83,8 +100,9 @@ def main():
     quests_out: dict = {}
 
     # Archive seasons sorted by start_date
+    seasons = seasons_dir(REPO_DIR)
     archive_files = sorted(
-        TRAINING_DIR.glob("seasons/*/challenge_v2.json"),
+        seasons.glob("*/challenge_v2.json") if seasons.exists() else [],
         key=lambda f: json.loads(f.read_text())["challenge"]["start_date"],
     )
     for path in archive_files:
@@ -92,7 +110,7 @@ def main():
         process_season(data, is_current=False, quests_out=quests_out)
 
     # Current season
-    current_path = TRAINING_DIR / "ledger" / "challenge_v2.json"
+    current_path = ledger_dir(REPO_DIR) / "challenge_v2.json"
     if current_path.exists():
         data = json.loads(current_path.read_text())
         process_season(data, is_current=True, quests_out=quests_out)
@@ -102,9 +120,10 @@ def main():
         "quests": quests_out,
     }
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(json.dumps(output, indent=2) + "\n")
-    print(f"[quest-history] wrote {OUTPUT_PATH}", file=sys.stderr)
+    output_path = resolve_output_path()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(output, indent=2) + "\n")
+    print(f"[quest-history] wrote {output_path}", file=sys.stderr)
     for qid, q in quests_out.items():
         print(f"[quest-history]   {qid}: {len(q['entries'])} entries", file=sys.stderr)
 

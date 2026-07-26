@@ -1,7 +1,18 @@
+# User-repo sync (coach-skeleton / coach-<user>).
+#
+# Base skeleton: regenerate_derived.py only (iOS path — history already in repo).
+# Strava athletes: provision adds engine/strava/ + run_sync_pipeline.py; workflow uses full pipeline.
+
 name: Sync
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'user_data/activities/hist/**'
+      - 'user_data/ledger/challenge_v2.json'
+      - 'user_data/coach/sleep_log.json'
 
 jobs:
   sync:
@@ -22,29 +33,33 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests
 
-      - name: Run sync pipeline
+      - name: Run pipeline
         env:
           STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
-        run: python3 engine/scripts/run_sync_pipeline.py
+        run: |
+          if [ -f engine/scripts/run_sync_pipeline.py ] && [ -n "$STRAVA_CLIENT_ID" ]; then
+            python3 engine/scripts/run_sync_pipeline.py
+          else
+            python3 engine/scripts/regenerate_derived.py
+          fi
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Generate widget snapshots
-        working-directory: ui
-        run: npm ci && npm run generate-snapshots
+      - name: Build aggregate
+        run: node engine/scripts/build-aggregate.mjs --aggregate
 
       - name: Commit pipeline changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f ui/client/src/data/
+          git add -f gen/aggregate.json
+          git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
           git restore --staged engine/strava/strava_tokens.json 2>/dev/null || true
-          git add -A
           if git diff --cached --quiet; then
             echo "No changes"
           else

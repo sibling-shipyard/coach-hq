@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
-"""Sync pipeline for CI — chains all steps for workflow_dispatch.
+"""Post-ingestion pipeline for GitHub Actions.
 
-Steps:
-  1. Sync Strava activities to training/activities/history/ via fetch_strava.py --sync
-  2. Auto-rename new unrenamed activities via rename_single.py (new files only)
-  3. Generate quest_log.md
-  4. Generate quest_history.json (merged history across all seasons)
-  5. Write sleep_log.json into the UI data bundle
-  Write sync_status.json at the end.
+**Ingestion happens elsewhere:**
+  - Strava: fetch_strava.py (when repo has STRAVA_* secrets in CI)
+  - iOS: HealthKit app commits user_data/activities/hist/hk_*.json directly
 
-  activities.json, challenge_v2.json, and workouts.json are NOT written here -
-  ui/scripts/build-data.mjs owns all three and regenerates them on every
-  build/dev via the prebuild/predev npm hooks. training/widget_snapshots.json is populated
-  by sync.yml (via npm run generate-snapshots), not this script.
-  (Commit & push is handled by sync.yml, not this script)
+This script regenerates derived files (quest_log, quest_history, sync_status).
+In CI, Strava pull + rename runs only when STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET,
+and STRAVA_REFRESH_TOKEN are all set as repo secrets — no per-repo flag needed.
 
 Usage:
-  python scripts/run_sync_pipeline.py
+  python engine/scripts/run_sync_pipeline.py
 """
 
 import json
@@ -27,19 +21,39 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-REPO_DIR = Path(__file__).resolve().parent.parent
-TRAINING_DIR = REPO_DIR / "training"
-HISTORY_DIR = TRAINING_DIR / "activities" / "history"
-DATA_DIR = REPO_DIR / "ui" / "client" / "src" / "data"
-TOKENS_PATH = REPO_DIR / "strava" / "strava_tokens.json"
-SYNC_STATUS_PATH = TRAINING_DIR / "sync_status.json"
+_BOOT = Path(__file__).resolve().parent
+_LIB = _BOOT.parent / "lib"
+sys.path.insert(0, str(_LIB))
+from repo_layout import (  # noqa: E402
+    gen_dir,
+    hist_dir,
+    p,
+    repo_root_from_here,
+    sleep_log_path,
+    sync_status_path,
+)
+
+REPO_DIR = repo_root_from_here(__file__)
+HISTORY_DIR = hist_dir(REPO_DIR)
+UI_DIR = REPO_DIR / "ui"
+DATA_DIR = UI_DIR / "client" / "src" / "data"
+TOKENS_PATH = p(REPO_DIR, "strava", "strava_tokens.json")
+SCRIPTS_DIR = p(REPO_DIR, "scripts")
+SYNC_STATUS_PATH = sync_status_path(REPO_DIR)
 TIMEOUT = 600
 
-sys.path.insert(0, str(REPO_DIR / "strava"))
+sys.path.insert(0, str(p(REPO_DIR, "strava")))
 
 
 def log(msg: str) -> None:
     print(f"[pipeline] {msg}", file=sys.stderr)
+
+
+def strava_secrets_configured() -> bool:
+    return all(
+        os.environ.get(k)
+        for k in ("STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN")
+    )
 
 
 def write_tokens_from_env() -> None:
@@ -47,7 +61,7 @@ def write_tokens_from_env() -> None:
     client_secret = os.environ.get("STRAVA_CLIENT_SECRET")
     refresh_token = os.environ.get("STRAVA_REFRESH_TOKEN")
     if not all([client_id, client_secret, refresh_token]):
-        sys.exit("CI sync requires STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REFRESH_TOKEN secrets.")
+        sys.exit("Strava step requires STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REFRESH_TOKEN secrets.")
     tokens = {
         "client_id": client_id,
         "client_secret": client_secret,
@@ -64,7 +78,7 @@ def step_sync_strava() -> tuple[int, list[Path]]:
     """Run fetch_strava.py --sync. Detect new files by diffing directory before/after."""
     existing = set(HISTORY_DIR.glob("*.json")) if HISTORY_DIR.exists() else set()
     result = subprocess.run(
-        [sys.executable, str(REPO_DIR / "strava" / "fetch_strava.py"), "--sync"],
+        [sys.executable, str(p(REPO_DIR, "strava", "fetch_strava.py")), "--sync"],
         cwd=REPO_DIR, capture_output=True, text=True, timeout=TIMEOUT,
     )
     if result.returncode != 0:
@@ -80,7 +94,7 @@ def step_auto_rename(new_files: list[Path]) -> tuple[int, list[str]]:
     """Call rename_single.py <id> --apply for each new unrenamed activity."""
     from rename_core import is_already_renamed, SKIP_SPORTS, classify_activity
 
-    rename_script = REPO_DIR / "strava" / "rename_single.py"
+    rename_script = p(REPO_DIR, "strava", "rename_single.py")
     count = 0
     warnings: list[str] = []
 
@@ -117,7 +131,7 @@ def step_auto_rename(new_files: list[Path]) -> tuple[int, list[str]]:
 
 def step_generate_quest_log() -> None:
     result = subprocess.run(
-        [sys.executable, str(REPO_DIR / "scripts" / "generate_quest_log.py")],
+        [sys.executable, str(SCRIPTS_DIR / "generate_quest_log.py")],
         cwd=REPO_DIR, capture_output=True, text=True, timeout=TIMEOUT,
     )
     if result.returncode != 0:
@@ -127,7 +141,7 @@ def step_generate_quest_log() -> None:
 
 def step_generate_quest_history() -> None:
     result = subprocess.run(
-        [sys.executable, str(REPO_DIR / "scripts" / "generate_quest_history.py")],
+        [sys.executable, str(SCRIPTS_DIR / "generate_quest_history.py")],
         cwd=REPO_DIR, capture_output=True, text=True, timeout=TIMEOUT,
     )
     if result.returncode != 0:
@@ -152,31 +166,42 @@ def write_sync_status(synced: int, renamed: int, warnings: list[str], error: Opt
     }
     if error:
         payload["error"] = error
-    TRAINING_DIR.mkdir(parents=True, exist_ok=True)
+    gen_dir(REPO_DIR).mkdir(parents=True, exist_ok=True)
     SYNC_STATUS_PATH.write_text(json.dumps(payload, indent=2) + "\n")
     log(f"sync_status.json written: {status}")
+
+
+def should_run_strava() -> bool:
+    """CI: only when secrets present. Local: always attempt (tokens file or env)."""
+    if os.environ.get("CI"):
+        return strava_secrets_configured()
+    return True
 
 
 def main():
     synced, renamed = 0, 0
     warnings: list[str] = []
     new_files: list[Path] = []
+    use_strava = should_run_strava()
 
     try:
-        if os.environ.get("CI"):
-            write_tokens_from_env()
+        if use_strava:
+            if os.environ.get("CI"):
+                write_tokens_from_env()
 
-        log("Step 1/5: Syncing Strava activities...")
-        synced, new_files = step_sync_strava()
-        log(f"  {synced} new activities")
+            log("Step 1/5: Syncing Strava activities...")
+            synced, new_files = step_sync_strava()
+            log(f"  {synced} new activities")
 
-        if new_files:
-            log("Step 2/5: Renaming new activities...")
-            renamed, rename_warnings = step_auto_rename(new_files)
-            warnings.extend(rename_warnings)
-            log(f"  {renamed} renamed")
+            if new_files:
+                log("Step 2/5: Renaming new activities...")
+                renamed, rename_warnings = step_auto_rename(new_files)
+                warnings.extend(rename_warnings)
+                log(f"  {renamed} renamed")
+            else:
+                log("Step 2/5: No new activities - skipping rename")
         else:
-            log("Step 2/5: No new activities - skipping rename")
+            log("No STRAVA_* secrets in CI — skipping Strava pull (iOS / regenerate-only path)")
 
         log("Step 3/5: Generating quest_log.md...")
         step_generate_quest_log()
@@ -184,12 +209,15 @@ def main():
         log("Step 4/5: Generating quest_history.json...")
         step_generate_quest_history()
 
-        log("Step 5/5: Writing sleep_log.json to UI data bundle...")
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        sleep_src = TRAINING_DIR / "activities" / "sleep_log.json"
-        (DATA_DIR / "sleep_log.json").write_text(
-            sleep_src.read_text() if sleep_src.exists() else "[]"
-        )
+        if UI_DIR.exists():
+            log("Step 5/5: Writing sleep_log.json to UI data bundle...")
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            sleep_src = sleep_log_path(REPO_DIR)
+            (DATA_DIR / "sleep_log.json").write_text(
+                sleep_src.read_text() if sleep_src.exists() else "[]"
+            )
+        else:
+            log("Step 5/5: No ui/ directory — sleep_log stays in athlete data tree")
 
         write_sync_status(synced, renamed, warnings)
         log("Pipeline complete.")

@@ -18,13 +18,16 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+_BOOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_BOOT.parent / "lib"))
+from repo_layout import activities_dir, hist_dir, repo_root_from_here, sync_state_path  # noqa: E402
+
 from strava_api import load_tokens, save_tokens, refresh_if_needed, api_get
 
-REPO_DIR = Path(__file__).resolve().parent.parent
-TRAINING_DIR = REPO_DIR / "training"
-HISTORY_DIR = TRAINING_DIR / "activities" / "history"
-PHOTOS_DIR = TRAINING_DIR / "photos"
-SYNC_STATE_PATH = TRAINING_DIR / "sync_state.json"
+REPO_DIR = repo_root_from_here(__file__)
+HISTORY_DIR = hist_dir(REPO_DIR)
+PHOTOS_DIR = activities_dir(REPO_DIR) / "photos"
+SYNC_STATE_PATH = sync_state_path(REPO_DIR)
 
 # ── CUSTOMIZE: HR zone boundaries ──────────────────────────────────────────
 # Update these to match your personal HR zones.
@@ -232,7 +235,7 @@ def load_sync_state():
 
 
 def save_sync_state(state):
-    TRAINING_DIR.mkdir(parents=True, exist_ok=True)
+    SYNC_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     SYNC_STATE_PATH.write_text(json.dumps(state, indent=2) + "\n")
 
 
@@ -354,9 +357,9 @@ def main():
     parser.add_argument("--last-week", action="store_true", help="All activities from the past 7 days")
     parser.add_argument("--id", type=int, help="Specific activity ID")
     parser.add_argument("--date", type=str, help="Date in YYYY-MM-DD format")
-    parser.add_argument("--sync", action="store_true", help="Sync activities to training/activities/history/")
+    parser.add_argument("--sync", action="store_true", help="Sync activities to activity history directory")
     parser.add_argument("--since", type=str, help="Sync start date (YYYY-MM-DD), used with --sync")
-    parser.add_argument("--save", action="store_true", help="Save fetched activities to training/activities/history/ (use with --last or --id)")
+    parser.add_argument("--save", action="store_true", help="Save fetched activities to history (use with --last or --id)")
     args = parser.parse_args()
 
     tokens = refresh_if_needed(load_tokens())

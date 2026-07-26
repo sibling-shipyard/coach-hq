@@ -24,23 +24,21 @@ the athlete's words clearly point to another role; if the signals genuinely conf
 
 AI coaching system for the athlete — data, training pipeline, Strava sync, and UI in a single monorepo.
 
-**Layered soul:** Coach identity, engine rules, and athlete schema live in `soul/` as three source
-layers — `soul/A_identity.md`, `soul/B_engine.md`, `soul/C_athlete.md`. `SOUL.md` at repo root is a
-**composed artifact** (regenerated via `node scripts/compose-soul.mjs`; CI checks drift). Boot and
-`coach-chat.ts` still **read `SOUL.md` + `training/coach/state.md`** — runtime unchanged. To change
-coach behavior, edit the relevant `soul/*.md` layer, run compose, commit both the layer edits and the
-regenerated `SOUL.md`. Never hand-edit `SOUL.md`.
+**Layered soul:** Coach identity, engine rules, and athlete schema live in `engine/soul/` as three source
+layers. `propagated/SOUL.md` at repo root is a **composed artifact** (regenerated via `node engine/scripts/compose-soul.mjs`; CI checks drift). Boot and
+`coach-chat.ts` still **read `propagated/SOUL.md` + `user_data/coach/state.md`**. To change
+coach behavior, edit the relevant `engine/soul/*.md` layer, run compose, commit both the layer edits and the
+regenerated `propagated/SOUL.md`. Never hand-edit `propagated/SOUL.md`.
 
-- `SOUL.md` — composed coach brain (read at every boot; do not edit directly)
-- `soul/` — source layers for identity, engine, and athlete schema (Tech Lead edits + compose)
-- `training/` — athlete data: state, coach notes, history, quest log, roadmap
-- `templates/` — base workout template JSONs (never modify directly)
-- `sessions/` — coach-adjusted workout snapshots
-- `scripts/` — sync pipeline and quest log generator
-- `strava/` — Strava API client scripts
-- `ui/` — React + Vite frontend
-- `ios/` — native Swift/SwiftUI app (HealthKit sync), builds locally in Xcode, no CI deploy
-- `.github/agents/` — agent role docs
+- `SOUL.md` — composed coach brain (read at every boot; lives in `propagated/SOUL.md` — do not edit directly)
+- `engine/` — **skeleton source of truth** (carved into `coach-skeleton`; see `engine/README.md`)
+- `engine/soul/` — identity, engine rules, athlete schema layers
+- `user_data/` — athlete data (HQ keeps a copy for dogfooding; lives in user repos at scale)
+- `ui/` — shared hosted dashboard (HQ-only)
+- `ios/` — HealthKit sync app (HQ-only; commits history to user repo)
+- `scripts/carve-skeleton.mjs` — operator tool to stamp `sibling-shipyard/coach-skeleton`
+- `.github/agents/` — multi-agent role docs (**HQ only**, not carved)
+- `kdb/` — engineering decisions (**HQ only**)
 
 ## Knowledge Base — read on entry
 
@@ -75,4 +73,4 @@ git pull --rebase origin main && git push origin main
 pipeline — do not manually edit them. `challenge_v2.json` in `ui/client/src/data/` is updated
 on sync, not during coach sessions.
 
-**Coach commits:** Coach Phelps commits its own coaching memory — `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `training/activities/sleep_log.json`, `sessions/**` — directly to `main`, no PR. Full procedure is in SOUL.md §12. A `validate-data` CI check guards the JSON so a bad commit can't break the dashboard build undetected. Do not copy `challenge_v2.json` to `ui/client/src/data/` manually — the sync pipeline handles that.
+**Coach commits:** Coach Phelps commits its own coaching memory — `user_data/coach/state.md`, `user_data/coach/coach_notes.md`, `user_data/ledger/challenge_v2.json`, `user_data/coach/sleep_log.json`, `user_data/activities/workout_plans/sessions/**` — directly to `main`, no PR. Full procedure is in SOUL.md §12. A `validate-data` CI check guards the JSON so a bad commit can't break the dashboard build undetected. Do not copy `challenge_v2.json` to `ui/client/src/data/` manually — the sync pipeline handles that.

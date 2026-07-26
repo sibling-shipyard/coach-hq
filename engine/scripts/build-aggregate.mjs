@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * build-data.mjs — Pre-build script: merge athlete data into ui/client/src/data/
- * for Vite, and (with --aggregate) write gen/aggregate.json at repo root.
+ * build-aggregate.mjs — Writes gen/aggregate.json (skeleton) or data/aggregate.json (HQ legacy).
  *
- * Paths via engine/lib/repo-layout.mjs (user_data/ + gen/ on HQ and user repos).
+ * Slim extract from ui/scripts/build-data.mjs buildAggregate() — reads athlete data
+ * via repo-layout path helpers. Matches HQ aggregate shape for the shared dashboard
+ * contract (schema_version: 1).
+ *
+ * Usage:
+ *   node engine/scripts/build-aggregate.mjs --aggregate
  */
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -20,12 +23,10 @@ import {
   sleepLogPath,
   syncStatusPath,
   templatesDir,
-} from "../../engine/lib/repo-layout.mjs";
+} from "../lib/repo-layout.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = repoRoot(path.join(__dirname, ".."));
-const UI_DIR = path.join(REPO_ROOT, "ui");
-const OUT_DIR = path.join(UI_DIR, "client", "src", "data");
+const REPO_ROOT = repoRoot(__dirname);
 const SCHEMA_VERSION = 1;
 
 const UNAVAILABLE_CURRENT_WEEK = {
@@ -37,21 +38,18 @@ const UNAVAILABLE_CURRENT_WEEK = {
   days: [],
   coach_comments: [],
   updated_at: null,
-  updated_by: "build-data",
+  updated_by: "build-aggregate",
 };
 
 function buildAggregate() {
   const result = {};
 
   const historyDir = histDir(REPO_ROOT);
-  const existingActivitiesPath = path.join(OUT_DIR, "activities.json");
   if (fs.existsSync(historyDir)) {
     const files = fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"));
     if (files.length === 0) {
-      result.activities = fs.existsSync(existingActivitiesPath)
-        ? JSON.parse(fs.readFileSync(existingActivitiesPath, "utf-8"))
-        : [];
-      console.log("✓ activities — no local history files, keeping committed version");
+      result.activities = [];
+      console.log("✓ activities — no local history files, using empty array");
     } else {
       const activities = [];
       for (const file of files) {
@@ -68,7 +66,7 @@ function buildAggregate() {
       console.log(`✓ activities — ${activities.length} activities`);
     }
   } else {
-    console.warn(`⚠ No history directory at ${historyDir}`);
+    console.warn(`⚠ No history directory found at ${historyDir}`);
     result.activities = [];
   }
 
@@ -77,7 +75,7 @@ function buildAggregate() {
     result.challenge_v2 = JSON.parse(fs.readFileSync(challengeSrc, "utf-8"));
     console.log("✓ challenge_v2 loaded");
   } else {
-    console.warn(`⚠ No challenge_v2.json at ${challengeSrc}`);
+    console.warn(`⚠ No challenge_v2.json found at ${challengeSrc}`);
     result.challenge_v2 = null;
   }
 
@@ -92,7 +90,7 @@ function buildAggregate() {
     }
   } else {
     result.current_week = UNAVAILABLE_CURRENT_WEEK;
-    console.warn(`⚠ No current_week.json at ${currentWeekSrc}; using unavailable fallback`);
+    console.warn(`⚠ No current_week.json found at ${currentWeekSrc}; using unavailable fallback`);
   }
 
   const templatesDirPath = templatesDir(REPO_ROOT);
@@ -100,7 +98,8 @@ function buildAggregate() {
   const workouts = { templates: [], sessions: [] };
 
   if (fs.existsSync(templatesDirPath)) {
-    for (const file of fs.readdirSync(templatesDirPath).filter((f) => f.endsWith(".json"))) {
+    const files = fs.readdirSync(templatesDirPath).filter((f) => f.endsWith(".json"));
+    for (const file of files) {
       try {
         workouts.templates.push(JSON.parse(fs.readFileSync(path.join(templatesDirPath, file), "utf-8")));
       } catch (e) {
@@ -108,19 +107,19 @@ function buildAggregate() {
       }
     }
     console.log(`✓ ${workouts.templates.length} workout templates loaded`);
-  } else {
-    console.warn(`⚠ No templates at ${templatesDirPath}`);
   }
 
   if (fs.existsSync(sessionsDirPath)) {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 7);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const files = fs.readdirSync(sessionsDirPath).filter((f) => f.endsWith(".json"));
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 7);
+    const cutoff = cutoffDate.toISOString().slice(0, 10);
     let skippedOld = 0;
-    for (const file of fs.readdirSync(sessionsDirPath).filter((f) => f.endsWith(".json"))) {
+
+    for (const file of files) {
       try {
         const session = JSON.parse(fs.readFileSync(path.join(sessionsDirPath, file), "utf-8"));
-        if (session.session_date && session.session_date < cutoffStr) {
+        if (session.session_date && session.session_date < cutoff) {
           skippedOld++;
           continue;
         }
@@ -131,8 +130,6 @@ function buildAggregate() {
     }
     workouts.sessions.sort((a, b) => (b.session_date ?? "").localeCompare(a.session_date ?? ""));
     console.log(`✓ ${workouts.sessions.length} workout sessions loaded (${skippedOld} older than 7d pruned)`);
-  } else {
-    console.warn(`⚠ No sessions at ${sessionsDirPath}`);
   }
   result.workouts = workouts;
 
@@ -168,34 +165,13 @@ function buildAggregate() {
   return result;
 }
 
-fs.mkdirSync(OUT_DIR, { recursive: true });
-
-spawnSync("node", ["scripts/generate-wi-tokens.mjs"], { cwd: UI_DIR, stdio: "inherit" });
+if (!process.argv.includes("--aggregate")) {
+  console.error("Usage: node engine/scripts/build-aggregate.mjs --aggregate");
+  process.exit(1);
+}
 
 const aggregate = buildAggregate();
-
-fs.writeFileSync(path.join(OUT_DIR, "activities.json"), JSON.stringify(aggregate.activities, null, 0));
-if (aggregate.challenge_v2) {
-  fs.writeFileSync(path.join(OUT_DIR, "challenge_v2.json"), JSON.stringify(aggregate.challenge_v2, null, 2));
-}
-fs.writeFileSync(path.join(OUT_DIR, "current_week.json"), JSON.stringify(aggregate.current_week, null, 2));
-fs.writeFileSync(path.join(OUT_DIR, "workouts.json"), JSON.stringify(aggregate.workouts, null, 2));
-fs.writeFileSync(path.join(OUT_DIR, "sync_status.json"), JSON.stringify(aggregate.sync_status, null, 2));
-
-const snapshotResult = spawnSync(
-  "npx",
-  ["tsx", "--tsconfig", "tsconfig.json", "scripts/generate-widget-snapshots.ts"],
-  { cwd: UI_DIR, stdio: "inherit" },
-);
-if (snapshotResult.status !== 0) {
-  console.warn("⚠ widget_snapshots generation failed — continuing build");
-}
-
-console.log("✓ Data build complete");
-
-if (process.argv.includes("--aggregate")) {
-  const outPath = aggregatePath(REPO_ROOT);
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify(aggregate, null, 0));
-  console.log(`✓ ${path.relative(REPO_ROOT, outPath)} written`);
-}
+const outPath = aggregatePath(REPO_ROOT);
+fs.mkdirSync(path.dirname(outPath), { recursive: true });
+fs.writeFileSync(outPath, JSON.stringify(aggregate, null, 0));
+console.log(`✓ ${path.relative(REPO_ROOT, outPath)} written`);

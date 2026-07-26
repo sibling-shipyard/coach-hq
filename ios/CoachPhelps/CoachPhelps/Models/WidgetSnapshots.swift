@@ -2,7 +2,7 @@ import Foundation
 
 /// Codable mirror of `ui/client/src/components/home-warm/snapshots.ts` — the cross-platform
 /// contract established by ADR 0005. TypeScript models remain the source of truth; this file
-/// only decodes what the pipeline already computed into `training/widget_snapshots.json`. No
+/// only decodes what the pipeline already computed into `gen/widget_snapshots.json`. No
 /// analytics logic is duplicated here — see `kdb/decisions/0005-widget-snapshots-cross-platform.md`.
 
 // MARK: - Sport / glyph identifiers

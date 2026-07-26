@@ -3,8 +3,8 @@
  * compose-soul.mjs — Deterministic assembly of SOUL.md from soul/ layer files.
  *
  * Usage:
- *   node scripts/compose-soul.mjs          # write SOUL.md
- *   node scripts/compose-soul.mjs --check  # compare to SOUL.md, exit 1 if drift
+ *   node engine/scripts/compose-soul.mjs          # write SOUL.md (HQ)
+ *   node scripts/compose-soul.mjs --check         # skeleton / user repo
  *
  * Section markers in soul/*.md:
  *   <!-- soul:section KEY -->
@@ -15,10 +15,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { repoRoot, soulDir } from "../lib/repo-layout.mjs";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..");
-const SOUL_DIR = path.join(REPO_ROOT, "soul");
-const SOUL_OUT = path.join(REPO_ROOT, "SOUL.md");
+const REPO_ROOT = repoRoot(__dirname);
+const SOUL_DIR = soulDir(REPO_ROOT);
+const SOUL_OUT = path.join(REPO_ROOT, "propagated", "SOUL.md");
 
 const FIXED_HEADER = `# Coach Phelps: SOUL.md
 **Version:** v5.7 (hq-adopted reconciliation)
@@ -169,7 +171,7 @@ function summarizeDiff(expected, actual) {
     }
   }
 
-  console.error("SOUL.md drift detected — composed output differs from committed file.");
+  console.error("propagated/SOUL.md drift detected — composed output differs from committed file.");
   console.error(
     `  lines: expected ${expectedLines.length}, actual ${actualLines.length}, differing ${diffs.length}`,
   );
@@ -187,7 +189,7 @@ function summarizeDiff(expected, actual) {
     }
   }
 
-  console.error("  fix: node scripts/compose-soul.mjs");
+  console.error("  fix: node engine/scripts/compose-soul.mjs");
 }
 
 function main() {
@@ -209,7 +211,7 @@ function main() {
 
     const committed = fs.readFileSync(SOUL_OUT, "utf-8");
     if (committed === composed) {
-      console.log("SOUL.md is in sync with soul/ layer files.");
+      console.log("propagated/SOUL.md is in sync with soul/ layer files.");
       process.exit(0);
     }
 
@@ -217,6 +219,7 @@ function main() {
     process.exit(1);
   }
 
+  fs.mkdirSync(path.dirname(SOUL_OUT), { recursive: true });
   fs.writeFileSync(SOUL_OUT, composed, "utf-8");
   console.log(`Wrote ${path.relative(REPO_ROOT, SOUL_OUT)}`);
 }
