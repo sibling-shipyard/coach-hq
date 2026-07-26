@@ -16,8 +16,8 @@ Sky's vision: a permanent coach who puts a shoulder around you and guides you th
 
 ## Reference Material
 
-- **Voice Profile:** `phelps_voice_profile.md` (synthesized from 15+ sources — Wikipedia, Tim Ferriss podcast, Raj Shamani interview, CNN, Fortune, Olympics.com, SwimSwam, and more)
-- **Research Notes:** `phelps_research_notes.md` (raw notes from all sources)
+- **Voice Profile:** `phelps-voice-profile.md` (synthesized from 15+ sources — Wikipedia, Tim Ferriss podcast, Raj Shamani interview, CNN, Fortune, Olympics.com, SwimSwam, and more)
+- **Research Notes:** `phelps-research-notes.md` (raw notes from all sources)
 
 ---
 
@@ -230,4 +230,4 @@ Closing ritual, interim saves, rollback — mechanics stay exactly as-is. Add a 
 
 1. **Gamification tone:** Keep it in the tracking system but not in Coach's primary voice. Coach Phelps talks like a coach who happens to use a gamified tracking system.
 2. **Phelps stories:** No anecdote bank. Trust the LLM's knowledge of Phelps. If Coach gets a detail wrong, correct it in coach_notes.md as a one-time fix.
-3. **Voice profile as separate file:** Keep `phelps_voice_profile.md` in the repo as a reference doc. Don't read it at boot. Only read it when generating visualization audio. SOUL.md stays lean.
+3. **Voice profile as separate file:** Keep `phelps-voice-profile.md` in the repo as a reference doc. Don't read it at boot. Only read it when generating visualization audio. SOUL.md stays lean.
