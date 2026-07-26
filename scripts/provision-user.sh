@@ -168,6 +168,12 @@ regenerate_gen() {
     mkdir -p "${target_root}/scripts"
     cp "${hq_root}/scripts/validate-current-week" "${target_root}/scripts/validate-current-week"
     chmod +x "${target_root}/scripts/validate-current-week"
+    cp "${hq_root}/engine/claude/athlete/CLAUDE.md" "${target_root}/CLAUDE.md"
+    mkdir -p "${target_root}/.claude/hooks"
+    cp "${hq_root}/engine/claude/athlete/hooks/session-start.sh" "${target_root}/.claude/hooks/session-start.sh"
+    chmod +x "${target_root}/.claude/hooks/session-start.sh"
+    cp "${hq_root}/engine/claude/athlete/settings.json" "${target_root}/.claude/settings.json"
+    cp "${hq_root}/propagated/SOUL.md" "${target_root}/propagated/SOUL.md"
   fi
 
   log "Regenerating gen/ from migrated user_data/..."
