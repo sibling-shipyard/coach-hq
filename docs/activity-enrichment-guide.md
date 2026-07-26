@@ -9,9 +9,8 @@ The following must be in place before starting:
 | Item | Location | Notes |
 |------|----------|-------|
 | Strava tokens (with `activity:write` scope) | `strava/strava_tokens.json` | Refresh handled automatically |
-| Synced activity history | `training/history/*.json` | Run `fetch_strava.py --sync` to backfill |
-| eBadders match history | `training/ebadders_history.json` | Run `strava/parse_ebadders.py` to refresh |
-| eBadders HTML export | Saved from `ebadders.com/24/players/10613/games/` | Re-export if new sessions exist |
+| Synced activity history | `training/activities/history/*.json` | Run `fetch_strava.py --sync` to backfill |
+| Badminton match history | `plugins/badminton/data/badminton_match_data.json` | Auto-updated by pipeline + iOS when scores are pasted |
 
 ## Overview
 
@@ -26,8 +25,7 @@ The pipeline has 5 stages, each building on the previous:
 | Aspect | Backfill Mode | Weekly Mode |
 |--------|--------------|-------------|
 | Scope | All activities for a year | This week's new activities |
-| eBadders data | Already in `ebadders_history.json` and merged into JSONs | Re-export HTML after Monday session, parse, merge |
-| Photos | Parse leaderboard screenshots for rank data | Screenshot leaderboard before session closes |
+| Match data | Parsed from pasted text descriptions → `badminton_match_data.json` | Paste `{partner} me vs {opp}/{opp} {score}` lines on iOS or in Strava |
 | Naming | Assign counters from Jan 1 of the year | Continue from last counter value |
 | Review | Full table of all renames | Quick check of 1-5 activities |
 
@@ -90,28 +88,31 @@ Counters are **per-type** and **per-year**, starting from #1 on Jan 1 each year.
 
 ## Stage 2: Gather Match Data and Leaderboard
 
-**Goal:** Collect match results and session rankings for Monday ranked sessions from the best available source.
+**Goal:** Collect match results and session rankings for Monday ranked sessions.
 
-### Data Sources by Date Range
+### Match data (current workflow)
+
+Match data comes from **text descriptions** pasted into the activity (iOS app or Strava). Format:
+
+```
+Tony me vs Alston/Wei 21-18
+Tony me vs Alex/Yin 13-21
+```
+
+The pipeline (`scripts/parse_match_description.py`) and iOS `DescriptionParser` parse this into:
+1. A formatted Strava description (`Games:` / `Friendlies:` sections)
+2. A structured entry in `plugins/badminton/data/badminton_match_data.json`
+
+**Weekly mode:** After each Monday session, paste raw scores into the activity description on iOS (or Strava). Sync runs the parser automatically on new activities.
+
+### Legacy data sources (historical backfill only)
 
 | Period | Match Data Source | Leaderboard Source |
 |--------|------------------|--------------------|
-| Jul 24, 2023 onwards | eBadders (`ebadders_history.json`) | Photos (screenshots) |
+| Jul 24, 2023 onwards | `badminton_match_data.json` (from text descriptions) | Photos (screenshots) |
 | Before Jul 24, 2023 | Photos (match result screenshots) | Photos (leaderboard screenshots) |
 
-### Step 2a: eBadders Data (Jul 24, 2023+)
-
-For sessions on or after Jul 24, 2023, match data is already available in `training/ebadders_history.json`.
-
-**Backfill mode:** The data is already merged into activity JSONs via `merge_ebadders.py`. Verify the `ebadders` key exists on each Monday ranked activity.
-
-**Weekly mode:** After each Monday session:
-1. Wait for the session to be closed on eBadders (usually same evening).
-2. Re-export the eBadders HTML from `ebadders.com/24/players/10613/games/`.
-3. Run `python3 strava/parse_ebadders.py /path/to/new-export.html` to update `ebadders_history.json`.
-4. Run `python3 strava/merge_ebadders.py` to attach the new session data to the activity JSON.
-
-### Step 2b: Photo Parsing for Match Data (Before Jul 24, 2023)
+### Step 2b: Photo Parsing for Match Data (Before Jul 24, 2023 — historical only)
 
 For sessions before Jul 24, 2023, eBadders data does not exist. Match data must be extracted from photos attached to the Strava activity.
 
@@ -165,18 +166,18 @@ L {score} w/ {partner} vs {opponent1} + {opponent2}
 
 1. **Preserve existing descriptions** — if Sky has written a comment, keep it at the top.
 2. **Rank line** — only include `| Rank: K` if leaderboard data is available for that session.
-3. **Games section** — sourced from eBadders data (Jul 2023+) or parsed photos (pre-Jul 2023). Each line: `W/L score w/ partner vs opponents`.
+3. **Games section** — sourced from parsed text descriptions or historical photo backfill. Each line: `W/L score w/ partner vs opponents`.
 4. **Friendlies** — if manually recorded in the existing description, move to bottom in the same format.
-5. **No description for non-ranked sessions** — Thursday friendlies, Saturday casuals, and league matches don't get auto-descriptions (no eBadders data).
-6. **Missing match data** — if neither eBadders nor photo data is available, generate a minimal description with just the rank line (if available) or skip entirely.
+5. **No description for non-ranked sessions** — Thursday friendlies, Saturday casuals, and league matches don't get auto-descriptions unless scores are pasted.
+6. **Missing match data** — if no text description or photo data is available, generate a minimal description with just the rank line (if available) or skip entirely.
 
 ### Steps
 
-1. **For each activity with match data** (from eBadders or photos), generate the description string.
+1. **For each activity with match data**, generate the description string.
 2. **Preview all changes** in a markdown file for review.
 3. **Get approval** before applying.
 4. **Update local JSONs** with the new description.
-5. **Remove `ebadders` and `ebadders_leaderboard` keys** from the JSON — the description is now the display layer, `ebadders_history.json` remains the analytics layer.
+5. **Remove legacy `ebadders` keys** from activity JSONs if present — the description is the display layer, `badminton_match_data.json` is the analytics layer.
 
 ---
 
@@ -258,15 +259,14 @@ Enrichment complete. Foundation suffix transitioned from Core (#1-9) to Kickstar
 | Script | Purpose |
 |--------|---------|
 | `strava/fetch_strava.py --sync` | Sync activities from Strava (forward + backward) |
-| `strava/parse_ebadders.py` | Parse eBadders HTML into `ebadders_history.json` |
-| `strava/merge_ebadders.py` | Merge eBadders data into activity JSONs |
+| `scripts/parse_match_description.py` | Parse pasted text scores into formatted descriptions |
+| `plugins/badminton/analytics.py` | Generate analytics snapshot from history + match data |
 | `strava/rename_activities.py` | Auto-classify and rename (needs updating per year) |
 
 ## Data Architecture
 
 ```
-training/ebadders_history.json    ← Master analytics source (all 63+ sessions, structured)
-training/history/*.json           ← Per-activity data (Strava + description as display layer)
-training/photos/*                 ← Leaderboard screenshots (historical reference)
-docs/activity_enrichment_guide.md ← This guide
+plugins/badminton/data/badminton_match_data.json    ← Master analytics source (structured match history)
+training/activities/history/*.json           ← Per-activity data (Strava + description as display layer)
+docs/activity-enrichment-guide.md ← This guide
 ```

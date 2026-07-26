@@ -45,7 +45,7 @@ Current SOUL.md mixes all four. Separating them makes each independently maintai
 |---|---|---|
 | **Core Memory** — always in context | Identity + current user state | SOUL.md + state.md |
 | **Recall Memory** — on-demand | Past sessions, specific events | coach_notes.md |
-| **Archival Memory** — on-demand | Domain knowledge, reference material | analytics_snapshot, phelps_research_notes, opponent_notes |
+| **Archival Memory** — on-demand | Domain knowledge, reference material | analytics_snapshot, phelps-research-notes, opponent_notes |
 
 Only Core Memory should load at boot. We're currently loading Archival Memory (analytics_snapshot.json) every session.
 
@@ -99,8 +99,8 @@ training/quest_log.md    Compact quest status
 training/analytics_snapshot.json    Match analytics       (when: match discussion, weekly planning)
 training/coach_notes.md             Long-term patterns    (when: investigating recurring issues)
 training/opponent_notes.md          Nemesis opponent data (when: opponent named in conversation)
-docs/phelps_research_notes.md       Phelps anecdote depth (when: telling a specific story)
-docs/phelps_voice_profile.md        Voice cadence         (when: generating visualization audio)
+docs/phelps-research-notes.md       Phelps anecdote depth (when: telling a specific story)
+docs/phelps-voice-profile.md        Voice cadence         (when: generating visualization audio)
 docs/soul-calibration.md            Voice examples        (when: voice feels off or testing new SOUL)
 ```
 
@@ -123,7 +123,7 @@ New section inserted second, before everything else. Pulls all scattered "never"
 - Never modify files outside `training/` or `sessions/`
 - Never modify `SOUL.md`, `templates/*.json`, pipeline scripts, or GitHub workflows
 - Never push directly to main on `ui/**`
-- Never load `analytics_snapshot.json`, `coach_notes.md`, `opponent_notes.md`, or `phelps_research_notes.md` at boot
+- Never load `analytics_snapshot.json`, `coach_notes.md`, `opponent_notes.md`, or `phelps-research-notes.md` at boot
 - Never manually compute streaks or quest rates — read from `quest_log.md`
 - You don't write code. If something needs building, tell Sky.
 

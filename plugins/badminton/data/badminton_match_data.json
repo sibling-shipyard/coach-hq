@@ -1,0 +1,7876 @@
+[
+  {
+    "activity_id" : null,
+    "date" : "2026-07-23",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Adrian",
+        "score" : "21-10",
+        "vs" : [
+          "Dashan",
+          "Frankie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Thea",
+        "score" : "19-21",
+        "vs" : [
+          "Vincent",
+          "Bao"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Joe",
+        "score" : "19-21",
+        "vs" : [
+          "Nicholas",
+          "Dom"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Simon",
+        "score" : "21-14",
+        "vs" : [
+          "Joe",
+          "Rehan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Dashan",
+        "score" : "21-19",
+        "vs" : [
+          "Rehan",
+          "Dashan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Andy",
+        "score" : "18-21",
+        "vs" : [
+          "Si",
+          "Thea"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Ivor",
+        "score" : "23-21",
+        "vs" : [
+          "Simon",
+          "Jr"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Ivor",
+        "score" : "21-19",
+        "vs" : [
+          "Nicholas",
+          "Si"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Adrian",
+        "score" : "21-19",
+        "vs" : [
+          "Athan",
+          "Ivor"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Dashan",
+        "score" : "21-19",
+        "vs" : [
+          "Joe",
+          "Simon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tsz to",
+        "score" : "21-14",
+        "vs" : [
+          "Dashan",
+          "Damon"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 11,
+    "win_pct" : 73,
+    "wins" : 8
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-07-20",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : "Michael",
+        "score" : "16-21",
+        "vs" : [
+          "Dom",
+          "Amier"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Niels",
+        "score" : "16-21",
+        "vs" : [
+          "Dom",
+          "frankie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "CK",
+        "score" : "18-21",
+        "vs" : [
+          "Steven",
+          "niels"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Leon",
+        "score" : "12-21",
+        "vs" : [
+          "Jon",
+          "edward"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Tsz to",
+        "score" : "20-22",
+        "vs" : [
+          "Joe",
+          "Yan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Dino",
+        "score" : "21-12",
+        "vs" : [
+          "Tsz to",
+          "Ivor"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Harry",
+        "score" : "21-10",
+        "vs" : [
+          "Leon",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Manu",
+        "score" : "22-20",
+        "vs" : [
+          "Ivor",
+          "Michael"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-07-16",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : "Tony",
+        "score" : "16-21",
+        "vs" : [
+          "Alston",
+          "Jon"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Alister",
+        "score" : "16-21",
+        "vs" : [
+          "Tony",
+          "Jon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Chris",
+        "score" : "21-14",
+        "vs" : [
+          "Tony",
+          "Alister"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jehan",
+        "score" : "21-16",
+        "vs" : [
+          "Cordi",
+          "Ivor"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Tony",
+        "score" : "18-21",
+        "vs" : [
+          "Chris",
+          "ivor"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Alister",
+        "score" : "12-21",
+        "vs" : [
+          "Glen",
+          "dashan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Girl",
+        "score" : "18-21",
+        "vs" : [
+          "Harry",
+          "Weijin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Alister",
+        "score" : "21-14",
+        "vs" : [
+          "Jon",
+          "cordi"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Alister",
+        "score" : "21-14",
+        "vs" : [
+          "Jr",
+          "Chris"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 9,
+    "win_pct" : 44,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-07-02",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : "Si",
+        "score" : "18-21",
+        "vs" : [
+          "Ivor",
+          "guy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Nathan",
+        "score" : "10-21",
+        "vs" : [
+          "Brian",
+          "liam"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Rehan",
+        "score" : "21-16",
+        "vs" : [
+          "Joe",
+          "alston"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Liam",
+        "score" : "21-14",
+        "vs" : [
+          "Joe",
+          "Lucas"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Meta guy",
+        "score" : "28-26",
+        "vs" : [
+          "Bish",
+          "Ethan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Joe",
+        "score" : "21-11",
+        "vs" : [
+          "thao",
+          "lucas"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Amier",
+        "score" : "21-19",
+        "vs" : [
+          "Si",
+          "Frankie"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Muiz",
+        "score" : "25-23",
+        "vs" : [
+          "Woojin",
+          "tado"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tado",
+        "score" : "22-20",
+        "vs" : [
+          "Joe",
+          "Frankie"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Athan",
+        "score" : "21-19",
+        "vs" : [
+          "Jr",
+          "tall Tony"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Athan",
+        "score" : "17-21",
+        "vs" : [
+          "Jr",
+          "tall tony"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Athan",
+        "score" : "19-21",
+        "vs" : [
+          "Jr",
+          "tall tony"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 12,
+    "win_pct" : 67,
+    "wins" : 8
+  },
+  {
+    "activity_id" : 19065827776,
+    "date" : "2026-06-25",
+    "losses" : 7,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : "Brian",
+        "score" : "19-21",
+        "vs" : [
+          "Alston",
+          "Dashan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Chris",
+        "score" : "21-13",
+        "vs" : [
+          "Dashan",
+          "glen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Amier",
+        "score" : "10-21",
+        "vs" : [
+          "Nicholas",
+          "harry"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Alston",
+        "score" : "21-16",
+        "vs" : [
+          "Brian",
+          "girl"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Ethan",
+        "score" : "18-21",
+        "vs" : [
+          "Jr",
+          "Damon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Girl",
+        "score" : "21-19",
+        "vs" : [
+          "Alston",
+          "girl"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Alston",
+        "score" : "20-22",
+        "vs" : [
+          "Frankie",
+          "amier"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Shinchan",
+        "score" : "23-25",
+        "vs" : [
+          "Brian",
+          "girl"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Jr",
+        "score" : "18-21",
+        "vs" : [
+          "Edward",
+          "harry"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Ivor",
+        "score" : "16-21",
+        "vs" : [
+          "Harry",
+          "juttu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 30,
+    "wins" : 3
+  },
+  {
+    "activity_id" : 18976207503,
+    "date" : "2026-06-18",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Alston",
+        "score" : "21-15",
+        "vs" : [
+          "Chris",
+          "Dashan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Guy",
+        "score" : "10-21",
+        "vs" : [
+          "Brian",
+          "chris"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Frankie",
+        "score" : "21-12",
+        "vs" : [
+          "Athan",
+          "Girl"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Si",
+        "score" : "21-10",
+        "vs" : [
+          "Alston",
+          "Dashan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Woojin",
+        "score" : "18-21",
+        "vs" : [
+          "Chris",
+          "new guy 2"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Brian",
+        "score" : "21-23",
+        "vs" : [
+          "Frankie",
+          "guy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Rahan",
+        "score" : "21-14",
+        "vs" : [
+          "Nicholas",
+          "michael"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Dashan",
+        "score" : "18-21",
+        "vs" : [
+          "Chris",
+          "woojin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Harry",
+        "score" : "21-18",
+        "vs" : [
+          "Chris",
+          "woojin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Elaine",
+        "score" : "18-21",
+        "vs" : [
+          "Harry",
+          "girl"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 50,
+    "wins" : 5
+  },
+  {
+    "activity_id" : 18882796913,
+    "date" : "2026-06-11",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Woojin",
+        "score" : "21-18",
+        "vs" : [
+          "Si",
+          "Dashan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Chris",
+        "score" : "22-24",
+        "vs" : [
+          "Si",
+          "Dashan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Dashan",
+        "score" : "20-22",
+        "vs" : [
+          "Glen",
+          "Eugene"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Dashan",
+        "score" : "21-12",
+        "vs" : [
+          "Glen",
+          "Eugene"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Woojin",
+        "score" : "21-10",
+        "vs" : [
+          "Jack",
+          "Si"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Frankie",
+        "score" : "21-16",
+        "vs" : [
+          "Si",
+          "woojin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Leftie",
+        "score" : "21-19",
+        "vs" : [
+          "Joe",
+          "Jack"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Joe",
+        "score" : "21-18",
+        "vs" : [
+          "Ivor",
+          "leftie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Dashan",
+        "score" : "9-21",
+        "vs" : [
+          "Ivor",
+          "duncan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Joe",
+        "score" : "21-16",
+        "vs" : [
+          "Ivor",
+          "frankie"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 70,
+    "wins" : 7
+  },
+  {
+    "activity_id" : 18842368537,
+    "date" : "2026-06-08",
+    "losses" : 6,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Joe",
+        "score" : "21-14",
+        "vs" : [
+          "Mark",
+          "Niels"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Yan",
+        "score" : "17-21",
+        "vs" : [
+          "Leon",
+          "Dom"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Leon",
+        "score" : "21-17",
+        "vs" : [
+          "Dom",
+          "George"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Trudy",
+        "score" : "21-15",
+        "vs" : [
+          "Charlotte",
+          "Mark L"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Sunny",
+        "score" : "11-21",
+        "vs" : [
+          "Trudy",
+          "Tsz to"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Sara",
+        "score" : "17-21",
+        "vs" : [
+          "sunny",
+          "alston"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Dom",
+        "score" : "13-21",
+        "vs" : [
+          "Alston",
+          "Yan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Sabari",
+        "score" : "9-21",
+        "vs" : [
+          "Leon",
+          "Joe"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Frankie",
+        "score" : "21-14",
+        "vs" : [
+          "Mui",
+          "Amier"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Tsz to",
+        "score" : "19-21",
+        "vs" : [
+          "Dom",
+          "Mark"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 40,
+    "wins" : 4
+  },
+  {
+    "activity_id" : 18747371898,
+    "date" : "2026-06-01",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Frankie",
+        "score" : "21-14",
+        "vs" : [
+          "Woojin",
+          "girl"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Girl",
+        "score" : "15-21",
+        "vs" : [
+          "Steven",
+          "new guy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Karolina",
+        "score" : "21-17",
+        "vs" : [
+          "Steven",
+          "Elaine"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Dom",
+        "score" : "21-19",
+        "vs" : [
+          "Frankie",
+          "Edward"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Rio",
+        "score" : "14-21",
+        "vs" : [
+          "George",
+          "edward"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Harry",
+        "score" : "15-21",
+        "vs" : [
+          "Jr",
+          "George"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Frankie",
+        "score" : "19-21",
+        "vs" : [
+          "Georgi",
+          "Jr"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Steven",
+        "score" : "19-21",
+        "vs" : [
+          "Alfred",
+          "dom"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Steven",
+        "score" : "24-22",
+        "vs" : [
+          "new guy",
+          "woojin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jr",
+        "score" : "24-22",
+        "vs" : [
+          "Frankie",
+          "Joe"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 50,
+    "wins" : 5
+  },
+  {
+    "activity_id" : 18600452137,
+    "date" : "2026-05-21",
+    "losses" : 7,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : "Dashan",
+        "score" : "18-21",
+        "vs" : [
+          "guy",
+          "glen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Shiv",
+        "score" : "15-21",
+        "vs" : [
+          "muiz",
+          "tony"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Shinchan",
+        "score" : "18-21",
+        "vs" : [
+          "guy",
+          "?"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jack",
+        "score" : "21-5",
+        "vs" : [
+          "Michael",
+          "vincent"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Shiv",
+        "score" : "16-21",
+        "vs" : [
+          "rehan",
+          "jihan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Amier",
+        "score" : "15-21",
+        "vs" : [
+          "rehan",
+          "jihan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Shiv",
+        "score" : "23-25",
+        "vs" : [
+          "jack",
+          "michael"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Glen",
+        "score" : "21-19",
+        "vs" : [
+          "rehan",
+          "jihan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Si",
+        "score" : "23-25",
+        "vs" : [
+          "amier",
+          "girl"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Qi",
+        "score" : "24-22",
+        "vs" : [
+          "Chloe",
+          "Tsz to"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 30,
+    "wins" : 3
+  },
+  {
+    "activity_id" : 18416666345,
+    "date" : "2026-05-07",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Wigmore",
+        "score" : "21-17",
+        "vs" : [
+          "boda",
+          "si"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Indian guy",
+        "score" : "21-17",
+        "vs" : [
+          "Nathan",
+          "guy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tony",
+        "score" : "21-5",
+        "vs" : [
+          "boda",
+          "newbie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Woojin",
+        "score" : "21-23",
+        "vs" : [
+          "wigmore",
+          "new Indian kid"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Jason",
+        "score" : "16-21",
+        "vs" : [
+          "a",
+          "b"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Si",
+        "score" : "15-21",
+        "vs" : [
+          "woojin",
+          "qwan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Qwan",
+        "score" : "21-23",
+        "vs" : [
+          "Jr",
+          "woojin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Woojin",
+        "score" : "18-21",
+        "vs" : [
+          "JR",
+          "si"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : 18323071558,
+    "date" : "2026-04-30",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : "Adrian",
+        "score" : "20-22",
+        "vs" : [
+          "Tony",
+          "alston"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Tintin",
+        "score" : "19-21",
+        "vs" : [
+          "Alston",
+          "amier"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Alston",
+        "score" : "21-15",
+        "vs" : [
+          "tintin",
+          "shinchan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Alston",
+        "score" : "21-15",
+        "vs" : [
+          "Frankie",
+          "si"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jr",
+        "score" : "21-14",
+        "vs" : [
+          "specs",
+          "tall guy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Alison",
+        "score" : "21-12",
+        "vs" : [
+          "si",
+          "elaine"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Adrian",
+        "score" : "21-17",
+        "vs" : [
+          "Frankie",
+          "guy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Amier",
+        "score" : "19-21",
+        "vs" : [
+          "guy",
+          "specs"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Amier",
+        "score" : "21-12",
+        "vs" : [
+          "guy",
+          "leftie"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 9,
+    "win_pct" : 67,
+    "wins" : 6
+  },
+  {
+    "activity_id" : 18283943824,
+    "date" : "2026-04-27",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Manu",
+        "score" : "21-17",
+        "vs" : [
+          "Joe",
+          "jason"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Charlotte",
+        "score" : "21-12",
+        "vs" : [
+          "Niels",
+          "Kit"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jon",
+        "score" : "21-17",
+        "vs" : [
+          "Joe",
+          "Dom"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Annabelle",
+        "score" : "17-21",
+        "vs" : [
+          "Cherizza",
+          "Damon"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Jasmine",
+        "score" : "15-21",
+        "vs" : [
+          "Georgi",
+          "Annabelle"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Annabelle",
+        "score" : "21-12",
+        "vs" : [
+          "sunny",
+          "Kevin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Elaine",
+        "score" : "12-21",
+        "vs" : [
+          "Annabelle",
+          "Jon"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Frankie",
+        "score" : "20-22",
+        "vs" : [
+          "Jason",
+          "Joe"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Mui",
+        "score" : "12-21",
+        "vs" : [
+          "Yan",
+          "Jason"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 9,
+    "win_pct" : 44,
+    "wins" : 4
+  },
+  {
+    "activity_id" : 18189940471,
+    "date" : "2026-04-20",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Glen",
+        "score" : "22-20",
+        "vs" : [
+          "Manu",
+          "Si"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Si",
+        "score" : "17-21",
+        "vs" : [
+          "Jr",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Mark T",
+        "score" : "21-15",
+        "vs" : [
+          "Ines",
+          "George"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "George",
+        "score" : "17-21",
+        "vs" : [
+          "Georgi",
+          "Mark T"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Kit",
+        "score" : "21-17",
+        "vs" : [
+          "Frankiee",
+          "Sunny"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jr",
+        "score" : "21-17",
+        "vs" : [
+          "Jon L",
+          "Charlotte"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tsz To",
+        "score" : "21-18",
+        "vs" : [
+          "George",
+          "Kevin Chen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Manu",
+        "score" : "12-21",
+        "vs" : [
+          "Jon",
+          "Nicholas"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Manu",
+        "score" : "11-21",
+        "vs" : [
+          "Richard",
+          "Frankie"
+        ]
+      }
+    ],
+    "pre_mental_state" : {
+      "score" : 4,
+      "word" : "mind too scattered from work"
+    },
+    "source" : "manual",
+    "total" : 9,
+    "win_pct" : 56,
+    "wins" : 5
+  },
+  {
+    "activity_id" : 18136801333,
+    "date" : "2026-04-16",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Tony",
+        "score" : "21-15",
+        "vs" : [
+          "Alston",
+          "AD"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "AD",
+        "score" : "16-21",
+        "vs" : [
+          "harry",
+          "new guy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tony",
+        "score" : "21-18",
+        "vs" : [
+          "DG SISTER",
+          "tul"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Kristy",
+        "score" : "23-21",
+        "vs" : [
+          "cordi",
+          "frankie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Shinchan",
+        "score" : "23-25",
+        "vs" : [
+          "Alston",
+          "AD"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Si",
+        "score" : "21-15",
+        "vs" : [
+          "Ethan",
+          "trung"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tien",
+        "score" : "21-15",
+        "vs" : [
+          "Nathan",
+          "nathan friend"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tony",
+        "score" : "21-15",
+        "vs" : [
+          "tul",
+          "frankie"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Frankie",
+        "score" : "21-18",
+        "vs" : [
+          "Si",
+          "trung"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jr",
+        "score" : "21-10",
+        "vs" : [
+          "trung",
+          "tul"
+        ]
+      }
+    ],
+    "pre_mental_state" : {
+      "score" : 8,
+      "word" : "determined"
+    },
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 80,
+    "wins" : 8
+  },
+  {
+    "activity_id" : 18097792836,
+    "date" : "2026-04-13",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Frankiee",
+        "score" : "21-13",
+        "vs" : [
+          "Woojin",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Woojin",
+        "score" : "15-21",
+        "vs" : [
+          "Frankiee",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tsz To",
+        "score" : "21-19",
+        "vs" : [
+          "Frankiee",
+          "Dom L"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Dom L",
+        "score" : "21-19",
+        "vs" : [
+          "Edward C",
+          "Steven Wu"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Niels G",
+        "score" : "20-22",
+        "vs" : [
+          "Woojin",
+          "Kevin Chen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Georgi",
+        "score" : "17-21",
+        "vs" : [
+          "Jr",
+          "Cherizza"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Manu",
+        "score" : "19-21",
+        "vs" : [
+          "Jr",
+          "Georgi"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jr",
+        "score" : "21-17",
+        "vs" : [
+          "Frankiee",
+          "Mark L"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jr",
+        "score" : "21-14",
+        "vs" : [
+          "Kevin",
+          "Ann"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Mui",
+        "score" : "21-12",
+        "vs" : [
+          "Kevin",
+          "Kaylee"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 60,
+    "wins" : 6
+  },
+  {
+    "activity_id" : 18045807684,
+    "date" : "2026-04-09",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Ujjan",
+        "score" : "21-12",
+        "vs" : [
+          "Eric",
+          "AJ"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Joe",
+        "score" : "20-22",
+        "vs" : [
+          "Frankie",
+          "ivor"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Alston",
+        "score" : "21-15",
+        "vs" : [
+          "Frankie",
+          "jason"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Ivor",
+        "score" : "17-21",
+        "vs" : [
+          "Nathan",
+          "Tien"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Ivor",
+        "score" : "21-14",
+        "vs" : [
+          "Jr",
+          "DG sister"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "jenny",
+        "score" : "12-21",
+        "vs" : [
+          "AD",
+          "simon"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Ujjan",
+        "score" : "21-23",
+        "vs" : [
+          "JR",
+          "simon"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Wei jin",
+        "score" : "12-21",
+        "vs" : [
+          "JR",
+          "Ujjan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Joe",
+        "score" : "21-17",
+        "vs" : [
+          "jenny",
+          "simon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Jr",
+        "score" : "21-14",
+        "vs" : [
+          "Ujjan",
+          "nathan"
+        ]
+      }
+    ],
+    "pre_mental_state" : {
+      "score" : 7,
+      "word" : "focused"
+    },
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 50,
+    "wins" : 5
+  },
+  {
+    "activity_id" : 17954323075,
+    "date" : "2026-04-02",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Eric",
+        "score" : "21-15",
+        "vs" : [
+          "new Chris",
+          "DG sister"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "New Chris",
+        "score" : "15-21",
+        "vs" : [
+          "Eric Joe"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Ujjan",
+        "score" : "21-18",
+        "vs" : [
+          "Tony",
+          "Tul"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Tony",
+        "score" : "21-19",
+        "vs" : [
+          "ujjan",
+          "long hair guy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Ujjan",
+        "score" : "21-12",
+        "vs" : [
+          "long hair guy",
+          "new leftie guy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Tony",
+        "score" : "13-21",
+        "vs" : [
+          "tul",
+          "shin chan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Simon",
+        "score" : "21-14",
+        "vs" : [
+          "Tony",
+          "Alston"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Simon",
+        "score" : "21-14",
+        "vs" : [
+          "Si",
+          "frankie"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Nicholas",
+        "score" : "21-17",
+        "vs" : [
+          "athan",
+          "harry"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Si",
+        "score" : "21-12",
+        "vs" : [
+          "AD",
+          "DG"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 10,
+    "win_pct" : 80,
+    "wins" : 8
+  },
+  {
+    "activity_id" : 17917472097,
+    "date" : "2026-03-30",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : "Damon",
+        "score" : "22-20",
+        "vs" : [
+          "Glen",
+          "Mark T"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Dion",
+        "score" : "21-15",
+        "vs" : [
+          "Georgi",
+          "Kean"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Kean",
+        "score" : "21-17",
+        "vs" : [
+          "Yan",
+          "Maggie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Mark T",
+        "score" : "19-21",
+        "vs" : [
+          "Georgi",
+          "Dion"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Niels G",
+        "score" : "10-21",
+        "vs" : [
+          "Glen",
+          "Mui"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Karolina",
+        "score" : "13-21",
+        "vs" : [
+          "Edward C",
+          "Bogdana"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Mui",
+        "score" : "21-14",
+        "vs" : [
+          "Frankiee",
+          "Maggie"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Manu",
+        "score" : "23-21",
+        "vs" : [
+          "Kean",
+          "Jonathan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Manu",
+        "score" : "19-21",
+        "vs" : [
+          "Mark T",
+          "Jonathan"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 9,
+    "win_pct" : 56,
+    "wins" : 5
+  },
+  {
+    "activity_id" : 17905361235,
+    "date" : "2026-03-29",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : "Ivor",
+        "score" : "12-21",
+        "vs" : [
+          "Edward Cheng",
+          "Myles Tang"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Ivor",
+        "score" : "19-21",
+        "vs" : [
+          "Edward Cheng",
+          "Myles Tang"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Ivor",
+        "score" : "22-24",
+        "vs" : [
+          "Randy",
+          "Christian"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Ivor",
+        "score" : "21-19",
+        "vs" : [
+          "Randy",
+          "Christian"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : "Ivor",
+        "score" : "21-12",
+        "vs" : [
+          "Randy",
+          "Christian"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Ivor",
+        "score" : "17-21",
+        "vs" : [
+          "Shen",
+          "Shiv"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : "Ivor",
+        "score" : "3-21",
+        "vs" : [
+          "Shen",
+          "Shiv"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "source" : "manual",
+    "total" : 7,
+    "win_pct" : 29,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-03-23",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dom L"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Kean",
+          "Harry S"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Edward C"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Tsz To",
+          "Rogie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Leon",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Dom L",
+          "Edward C"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Rogie"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Kean",
+          "Dom L"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Falvien B"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jr",
+          "Edward C"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kean"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Joe Chung",
+          "Edward C"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 29,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-03-09",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tony CHen"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Harry S",
+          "Frankiee"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Steven Wu",
+          "Harry S"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Edward C"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Tony CHen",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "George"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Dion",
+          "Woody"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Edward C"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Frankiee",
+          "Athan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Bogdana"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Annabelle",
+          "Ruiao"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Rich Tan",
+          "Yan"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 29,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-03-02",
+    "losses" : 6,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kevin Chen"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "George",
+          "Mark T"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Bogdana"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "George",
+          "Trudyy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dom L"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Steven Wu",
+          "Mark T"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Sunny"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Glen",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Jr",
+          "Yan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Johnny",
+          "Trudyy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jon L",
+          "Joe Chung"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Joe Chung",
+          "Steven Wu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 25,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-02-23",
+    "losses" : 8,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Manu",
+          "Wilson"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mark T"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Georgi",
+          "Fifi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Dom L"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Georgi",
+          "Jon L"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Wilson",
+          "Dom L"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mark L"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Mark T",
+          "Georgi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Annabelle"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Yan",
+          "Jasmine"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jon L"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Yan",
+          "Jack Wong"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Jasmine",
+          "Dom L"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 0,
+    "wins" : 0
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-02-09",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Wayne C"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Rich Tan",
+          "Jasmine"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mark T"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Steven Wu",
+          "George"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "♕Karolina"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "George",
+          "Sunny"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Bogdana"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Frankiee",
+          "Mui"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "George"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Frankiee",
+          "Kevin Chen"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Yan"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Ines",
+          "Rich Tan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-8",
+        "vs" : [
+          "Rogie",
+          "Niels G"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 57,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-02-02",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Frankiee",
+          "Yan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "George"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Harry S",
+          "Kevin Chen"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jasmine"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Frankiee",
+          "Cherriza"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Annabelle"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Kevin Chen",
+          "Jasmine"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Edward C"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Steven Wu",
+          "Jon L"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Sunny"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "CKC",
+          "Elaine"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Jr",
+          "Manu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 71,
+    "wins" : 5
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-01-26",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Tsz To"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Dom L",
+          "Arron"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kloe"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Charlotte",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Arron"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Damon",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Joe Chung",
+          "Arron"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jasmine"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Joe Chung",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Tsz To",
+          "Arron"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Arron",
+          "Manu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 43,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2026-01-19",
+    "losses" : 6,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Dom L"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Frankiee",
+          "Damon"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Manu",
+          "Dom L"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "George"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Dom L",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Annabelle"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Trudyy",
+          "Steven Wu"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jr",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Harry S",
+          "nicholas"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Bogdana"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Manu",
+          "♕Karolina"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 14,
+    "wins" : 1
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-11-17",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Bogdana"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Steven Wu",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "♕Karolina",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jasmine"
+        ],
+        "score" : "31-29",
+        "vs" : [
+          "Bogdana",
+          "Steven Wu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Bogdana",
+          "Edward C"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Abdullah"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "George",
+          "Dom L"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dom L"
+        ],
+        "score" : "25-23",
+        "vs" : [
+          "Bogdana",
+          "Ashley D"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "26-24",
+        "vs" : [
+          "Joe Chung",
+          "Dion"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Ivor",
+          "Joe Chung"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 50,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-11-10",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Dion",
+          "Elvis"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Gabriella"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Tsz To",
+          "Charlotte"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Yan"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "James S",
+          "Edward C"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "George"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Edward C",
+          "Dom L"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Trudyy"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "James S",
+          "Kloe"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kaylee"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Harry S",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Claire"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Joe Chung",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "James S",
+          "Wayne C"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 50,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-11-03",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Chris Chen"
+        ],
+        "score" : "21-8",
+        "vs" : [
+          "♕Karolina",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Athan",
+          "Ashley D"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Joe Chung",
+          "Edward C"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Simon"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Yan",
+          "Wayne C"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jacky Lee"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Dom L",
+          "Wayne C"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "James S"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "George",
+          "Chris Chen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Joe Chung",
+          "Elvis"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 43,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-10-27",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jacky Lee"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Anthony Hung",
+          "Dom L"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kaylee"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Jr",
+          "Sunny"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Tsz To"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Frankiee",
+          "Dion"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jasmine"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "James S",
+          "Maggie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Simon"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Athan",
+          "Georgi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jake"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "George",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Kaylee",
+          "James S"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 43,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-10-06",
+    "losses" : 1,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Claire"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Elaine",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tsz To"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "George",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Leon",
+          "Claire"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Edward C"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Kan",
+          "Elvis"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jasmine"
+        ],
+        "score" : "24-22",
+        "vs" : [
+          "Kan",
+          "Mui"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kaylee"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Isabella Chan",
+          "Manu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 6,
+    "win_pct" : 83,
+    "wins" : 5
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-09-29",
+    "losses" : 7,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Dion",
+          "Damon"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "♕Karolina",
+          "George"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Leon",
+          "Tilly"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ashley D"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Georgi",
+          "Joe Chung"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Leon"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Elvis",
+          "Dion"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "George"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Joe Chung",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mark"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "George",
+          "Damon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "♕Karolina"
+        ],
+        "score" : "25-23",
+        "vs" : [
+          "George",
+          "Bogdana"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 12,
+    "wins" : 1
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-09-15",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jacky Lee"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Dion",
+          "Edward C"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Leon"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Edward C",
+          "New Richard T"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Steven Wu",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jonathan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Frankiee",
+          "Manu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tsz To"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Frankiee",
+          "Dion"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Vanessa"
+        ],
+        "score" : "21-4",
+        "vs" : [
+          "Carl",
+          "Tilly"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Frankiee"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Claire",
+          "Tim Chan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Elaine"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Cordi",
+          "Manu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 75,
+    "wins" : 6
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-09-01",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jasmine"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Jr",
+          "Maggie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Trung"
+        ],
+        "score" : "21-9",
+        "vs" : [
+          "George",
+          "Elvis"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mark"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Jr",
+          "Frankiee"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Frankiee",
+          "George"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Mui"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Damon",
+          "Elaine"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Frankiee"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Ashley D",
+          "Trung"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Georgi",
+          "Joe Chung"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Maggie"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Ashley D",
+          "Manu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 62,
+    "wins" : 5
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-08-25",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Gabriella"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Mui",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Frankiee"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Jr",
+          "Edmond"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Mui"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Trung",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jr",
+          "Steven Wu"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Edmond"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Frankiee",
+          "Adrian"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Georgi",
+          "DIem"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Michael Kan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Mark",
+          "Edmond"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Adrian"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Edmond",
+          "Kloe"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 75,
+    "wins" : 6
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-08-18",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Katie",
+          "Diego"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Michael Kan",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Georgi",
+          "Damon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Edmond"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "♕Karolina",
+          "Michael Kan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jon L"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Damon",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Athan"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Adrian",
+          "Georgi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kloe"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Edmond",
+          "Jasmine"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 43,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-07-28",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Yan"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Steven Wu",
+          "Joey"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Dion",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Elaine"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Kristy",
+          "ED"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kan"
+        ],
+        "score" : "23-21",
+        "vs" : [
+          "Jack Wong",
+          "ED"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Joey",
+          "Issac"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "William",
+          "Frankiee"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kristy"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "William",
+          "Leon"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 57,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-07-14",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Issac"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Jr",
+          "Eric Leung"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Mui",
+          "Tim Chan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Nathan Yau"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Rich Tan",
+          "Elaine"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kristy"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Hugo",
+          "Mui"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "DIem"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Hugo",
+          "Issac"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Rich Tan",
+          "DIem"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Duncan Wan"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Steven Wu",
+          "Frankiee"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 57,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-07-07",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jay L",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Georgi",
+          "Hugo"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mui"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Isabella Chan",
+          "Duncan Wan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Hugo"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Isabella Chan",
+          "Alan Wong"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Frankiee"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Manu",
+          "Ashley D"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Joe Chung",
+          "Steven Wu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 6,
+    "win_pct" : 50,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-06-30",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "25-23",
+        "vs" : [
+          "Ada",
+          "Leon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Joe Chung",
+          "Ashley D"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Wilson",
+          "Ada"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "23-21",
+        "vs" : [
+          "Edmond",
+          "Edward C"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Frankiee",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Joe Chung",
+          "Edmond"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Kloe",
+          "Tsz To"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 29,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-06-23",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Joe Chung",
+          "Dion"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Jr",
+          "Cedric"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Edmond",
+          "Frankiee"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jr",
+          "Frankiee"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Cedric",
+          "Diego"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Tsz To",
+          "Edmond"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 6,
+    "win_pct" : 67,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-06-02",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "25-23",
+        "vs" : [
+          "Jr",
+          "Michael B"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "ED"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Claire",
+          "Diego"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Manu",
+          "ED"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Elaine"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Steven Tran",
+          "Charlotte"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mui"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Tsz To",
+          "Kloe"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Jr",
+          "Jacky Lee"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Jr",
+          "Anthony Hung"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 57,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-05-26",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Edmond",
+          "Kieran Tsang"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "James M"
+        ],
+        "score" : "21-9",
+        "vs" : [
+          "Ashley D",
+          "Ethan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Alison",
+          "Chai Chaiwat"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Glen"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Edmond",
+          "Kieran Tsang"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mui"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Kloe",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Leon",
+          "Mui"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Glen"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Ethan",
+          "Manu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 29,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-05-19",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tsz To"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Edmond",
+          "Eric Leung"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Jr",
+          "Eric Leung"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Michael Kan"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Edmond",
+          "Xinran Wei"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Claire",
+          "Yun Cheng"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Edmond"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Georgi",
+          "Michael Kan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kan"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jr",
+          "Damon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Thea"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Claire",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Rich Tan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Eric Leung",
+          "Dion"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 75,
+    "wins" : 6
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-02-17",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jr",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Manu",
+          "Leon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Ealine"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Manu",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-7",
+        "vs" : [
+          "Jr",
+          "Jake"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Claire"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Steven Tran",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Tran"
+        ],
+        "score" : "25-23",
+        "vs" : [
+          "Georgi",
+          "Charlotte"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Manu",
+          "Steven Tran"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 57,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2025-02-03",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jr",
+          "Bogdana"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Eric Leung",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Glen",
+          "Mark E"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Glen",
+          "Fuyue"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Ethan",
+          "Mark E"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Yan",
+          "Steven Wu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Charlotte"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Cordi",
+          "Damon"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 29,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-11-25",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Claire",
+          "Chai Chaiwat"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Claire"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Jonathan",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Mark E"
+        ],
+        "score" : "24-22",
+        "vs" : [
+          "Claire",
+          "Anthony Hung"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jonathan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Georgi",
+          "Kloe"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Gabriella"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Georgi",
+          "Elaine"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Steven Wu",
+          "Mark E"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Damon",
+          "Mark E"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Elvis",
+          "Steven Wu"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-09-09",
+    "losses" : 7,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Skanda"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Rich Tan",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Skanda"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "nicholas",
+          "Elaine"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Skanda"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Bish",
+          "Elvis"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Skanda"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jack Wong",
+          "Frankiee"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Skanda"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Frankiee",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Skanda"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jack Wong",
+          "Andy Lam"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Skanda"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "nicholas",
+          "Elvis"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 0,
+    "wins" : 0
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-09-02",
+    "losses" : 6,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jacky Lee"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Jr",
+          "Wilson"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Vik",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mui"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Megan",
+          "Hans"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Hans"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Jr",
+          "Wilson"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Hans",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Vik"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Steven Wu",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Megan"
+        ],
+        "score" : "21-7",
+        "vs" : [
+          "Basy",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Joe Chung",
+          "Georgi"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 25,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-08-26",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "nicholas",
+          "Hans"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Vik",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Elvis",
+          "Luna"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Jr",
+          "Wilson"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Injured Nik",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Bish",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "24-22",
+        "vs" : [
+          "Steven Tran",
+          "Wei Jin"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 43,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-08-05",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Mui"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Kan",
+          "Basy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Mui",
+          "James X"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Annabelle"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Niels G",
+          "Patrick"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Brian Lee"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Patrick",
+          "Steven Wu"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Cherriza"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Kan",
+          "Basy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Luna"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Cherriza",
+          "Brian Lee"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Brian Lee",
+          "Mark E"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Zun Yuan"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Brian Lee",
+          "Kan"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-07-29",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Rich Tan",
+          "Basy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "♕Karolina"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Trudyy",
+          "Alison"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Brian Lee",
+          "Mark E"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Mui"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Andy",
+          "Basy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Joe Chung",
+          "Ethan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Basy"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Andy",
+          "Mui"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Brian Lee"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Jr",
+          "Bish"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mark E"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Elvis",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Tran"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Rich Tan",
+          "Christroper"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 9,
+    "win_pct" : 44,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-07-01",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "24-22",
+        "vs" : [
+          "Kristy",
+          "Duncan Wan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Cordi"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Niels G",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jake Eaw",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Michael",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Si"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Simon",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kaho"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Simon",
+          "Si"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Gabriella"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Kristy",
+          "Si"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Rich Tan",
+          "Georgi"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 50,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-06-24",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kaho"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Andy",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Andy"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "New Richard T",
+          "Kristy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tsz To"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jr",
+          "Andy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Charlotte"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Kristy",
+          "Andy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jordan"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Dommmm",
+          "Kristy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Patrick"
+        ],
+        "score" : "21-9",
+        "vs" : [
+          "Brian Lee",
+          "Dommmm"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 6,
+    "win_pct" : 67,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-06-17",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Zack"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Brian Lee",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Kan",
+          "Brian Lee"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Tze To"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Cordi",
+          "Tony CHen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Damon"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Dommmm",
+          "Jr"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Patrick"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Leon",
+          "Joe Chung"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Rich Tan",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tony CHen"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Rich Tan",
+          "Joe Chung"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Brian Lee"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Trudyy",
+          "Joe Chung"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 62,
+    "wins" : 5
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-06-10",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Bogdana"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Trudyy",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jr",
+          "Richard Vong"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jack Wong"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Richard Vong",
+          "James M"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "James M"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Damon",
+          "Basy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "James M",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Trudyy"
+        ],
+        "score" : "21-9",
+        "vs" : [
+          "Richard Vong",
+          "Luna"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Richard Vong"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Tsz To",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Chai Chaiwat"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Elvis",
+          "Jonny"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 50,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-05-20",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Andy"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Brian Lee",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Cordi"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Steven Tran",
+          "Basy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jordan"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Kan",
+          "Andy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Martin",
+          "Patrick"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Wei Jin"
+        ],
+        "score" : "24-22",
+        "vs" : [
+          "Steven Tran",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jack Wong"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Wei Jin",
+          "Jordan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Brian Lee",
+          "Patrick"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Niels G",
+          "Patrick"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-05-13",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Joe Chung",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Steven Wu",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Kan",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Marco",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Brian Lee",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Brian Lee",
+          "Jordan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Jr",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Niels G",
+          "Joe Chung"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Jordan",
+          "Michael"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 9,
+    "win_pct" : 44,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-04-15",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Niels G",
+          "Georgi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Vicky",
+          "Chong"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Michael",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Luna",
+          "Michael"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Rogie",
+          "Jordan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Jonathan",
+          "Brian Lee"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Niels G",
+          "Rogie"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 57,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-04-08",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "23-21",
+        "vs" : [
+          "Rich Tan",
+          "Charlotte"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jack Wong"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Steven Tran",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kan"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Trudyy",
+          "Humzah"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Leon"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Michael",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Martin"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Ethan",
+          "Jack Wong"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "James M"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Steven Tran",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Humzah"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Andy",
+          "Martin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Rich Tan"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "James M",
+          "Martin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Jonathan",
+          "Trudyy"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 9,
+    "win_pct" : 44,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-04-01",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jr",
+          "Richard Vong"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Andy"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Steven Wu",
+          "Roggie"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Brian Lee",
+          "Roggie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Jr",
+          "Ethan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tsz To"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Richard Vong",
+          "Chris Chen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Simon",
+          "Andy"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 6,
+    "win_pct" : 50,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-03-04",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "nicholas"
+        ],
+        "score" : "24-22",
+        "vs" : [
+          "Steven Wu",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kristy"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Silver",
+          "Luke"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Marco"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Wei Jin",
+          "Kan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Silver",
+          "Yan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Niels G",
+          "Marco"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Silver"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Luna",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Patrick"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Kan",
+          "Stanley"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Yan"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Georgi",
+          "Stanley"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 62,
+    "wins" : 5
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-02-26",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Cordi",
+          "Wilson"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kan"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Niels G",
+          "Jordan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "♕Karolina"
+        ],
+        "score" : "21-9",
+        "vs" : [
+          "Stephen",
+          "Niels G"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Tsz To"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Kan",
+          "Jordan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jordan"
+        ],
+        "score" : "23-21",
+        "vs" : [
+          "Stephen",
+          "Patrick"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Stephen"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Kan",
+          "Andy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Charlotte"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Kan",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Andy"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Stephen",
+          "Martin"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 75,
+    "wins" : 6
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-02-19",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Patrick",
+          "Jordan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Simon",
+          "Wei Jin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Patrick"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Jr",
+          "Martin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Cordi"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Charlotte",
+          "Tom"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Marco"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Martin",
+          "Andy Lam"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jordan"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jr",
+          "Tom"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Khai S"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Rich Tan",
+          "Ethan"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 43,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-02-12",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Mimie"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Niels G",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jordan"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Joe Chung",
+          "Jack Wong"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Wei Jin"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Cordi",
+          "Wilson"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Cordi"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Niels G",
+          "Mimie"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Trudyy"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Yuyan",
+          "Bogdana"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Basy",
+          "Damon"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Bogdana"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Wei Jin",
+          "Mimie"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Mimie"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Shopie",
+          "Yuyan"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-02-05",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Omar"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Rich Tan",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Charlotte"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Gabriella",
+          "Omar"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Matthew"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Martin",
+          "Omar"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "27-25",
+        "vs" : [
+          "Charlotte",
+          "Wilson"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Michael"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Eric Leung",
+          "Leon"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Martin"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Matthew",
+          "Andy Lam"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Eric Leung",
+          "Omar"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Omar"
+        ],
+        "score" : "21-8",
+        "vs" : [
+          "Cordi",
+          "nicholas"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 75,
+    "wins" : 6
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-01-22",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ellie"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "James M",
+          "Hans"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Omar"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Chris Chen",
+          "jack"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "James M"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Chris Chen",
+          "Omar"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Martin",
+          "Omar"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "jack"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jonathan",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Trudyy"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Ellie",
+          "James M"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jonathan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Omar",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Duncan Wan"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Elvis",
+          "Trudyy"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 50,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2024-01-15",
+    "losses" : 6,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Martin",
+          "James M"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "James M"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Omar",
+          "Hans"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Basy"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Steven Tran",
+          "Luna"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Andy"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Steven Tran",
+          "Omar"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Marco"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Andy",
+          "Alex"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Steven Wu",
+          "Jonathan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Elvis"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Joe Chung",
+          "Rich Tan"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 14,
+    "wins" : 1
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-11-06",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Tony",
+          "Andy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Chi"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "♕Karolina",
+          "Andy"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Niels G"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Cryus",
+          "Ben L"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Ben L",
+          "Patrick"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Cryus"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Niels G",
+          "Chi"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kristy"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Niels G",
+          "Charlotte"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Niels G",
+          "Patrick"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tony CHen"
+        ],
+        "score" : "21-9",
+        "vs" : [
+          "Cryus",
+          "Georgi"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 62,
+    "wins" : 5
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-10-30",
+    "losses" : 6,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kit"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Cordi",
+          "nicholas"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Domnic"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Chen Lin",
+          "Mahmud Ali"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Mahmud Ali"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Cordi",
+          "nicholas"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jake"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Glen",
+          "Mahmud Ali"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Patrick"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Glen",
+          "Kevin  cheng"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Pete"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Glen",
+          "Samuel"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kevin  cheng"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Georgi",
+          "Samuel"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Christian",
+          "Randy"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 25,
+    "wins" : 2
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-10-23",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kit"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "nicholas",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Luna"
+        ],
+        "score" : "21-8",
+        "vs" : [
+          "Kit",
+          "Andy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Charlotte"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Kit",
+          "Vinod"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kevin  cheng"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Billy",
+          "Martin"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jake"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jack Wong",
+          "Patrick"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Martin"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Billy",
+          "Patrick"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Andy"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Kevin  cheng",
+          "Nicholas FU"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ben"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Elvis",
+          "Andy"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-10-16",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Richard Vong"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Steven Wu",
+          "Ben"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Steven Wu",
+          "Richard Vong"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Pan"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Jr",
+          "Bish"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jack Wong"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Pan",
+          "Charlotte"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Trudyy"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Jonathan",
+          "Cherriza"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Charlotte"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Trudyy",
+          "Jonathan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Rich Tan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Leon",
+          "Elvis"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ben"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Rich Tan",
+          "Elvis"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-10-09",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tony Chin"
+        ],
+        "score" : "24-22",
+        "vs" : [
+          "Jr",
+          "Bish"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Gretchen"
+        ],
+        "score" : "21-9",
+        "vs" : [
+          "Luna",
+          "Ming"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "CY",
+          "Fynn"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Bogdana"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Jack Wong",
+          "Ming"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Luna"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Rich Tan",
+          "Bogdana"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ming"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Wilson",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jack Wong"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Jr",
+          "Bish"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Khai S"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Rich Tan",
+          "Daniel"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 50,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-10-02",
+    "losses" : 7,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Daniel",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Tuan Nguyen",
+          "Joe Chung"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Khai S",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Rich Tan",
+          "Tiffany"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Athan",
+          "Gabriella"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-5",
+        "vs" : [
+          "Dion",
+          "Pete"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Georgi",
+          "Elvis"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Elvis",
+          "Alex"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 12,
+    "wins" : 1
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-09-25",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Glen"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Cordi",
+          "Duncan Wan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Chris Chen",
+          "Glen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jonathan"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "♕Karolina",
+          "Dion"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Dion"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Jr",
+          "Alex"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Duncan Wan"
+        ],
+        "score" : "23-21",
+        "vs" : [
+          "Mark E",
+          "Jr"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Donna"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Alex",
+          "Jill"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Luna"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Cordi",
+          "Rich Tan"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 57,
+    "wins" : 4
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-09-18",
+    "losses" : 3,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Dino Chan"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Cordi",
+          "nicholas"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Peter"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Steven Wu",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Bish",
+          "Jr"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Georgi"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Alex",
+          "Peter"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Pan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Casper",
+          "Steven Tran"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Steven Tran"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Glen",
+          "♕Karolina"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Glen"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Pan",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kit"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Glen",
+          "Tsz To"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 62,
+    "wins" : 5
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-09-11",
+    "losses" : 2,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Andy"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Ryan",
+          "Hillary"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Hillary"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Mujin",
+          "Pan"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Pan"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jake",
+          "Jonathan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Billy"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Pete",
+          "Jonathan"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Cordi"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jake",
+          "Mujin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kristy"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Jake",
+          "Hillary"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ben"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "CY",
+          "Fynn"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 71,
+    "wins" : 5
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-09-04",
+    "losses" : 4,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Alex"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Luna",
+          "Wilson"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jake"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Nathan Yau",
+          "Kristy"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kevin  cheng"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Jr",
+          "Bish"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ben"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Ensong",
+          "Pete"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Pete"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "DIem",
+          "Nathan Yau"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "nicholas",
+          "Alex"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Mark E"
+        ],
+        "score" : "21-18",
+        "vs" : [
+          "Alex",
+          "Nathan Yau"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 7,
+    "win_pct" : 43,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-08-28",
+    "losses" : 6,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Joe Chung"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "nicholas",
+          "Steven Wu"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Tianheng"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Alex",
+          "Cyrus"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "KF"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Tsz To",
+          "Alex Lam"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Nicole Patel"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Andy",
+          "Mavis"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Andy"
+        ],
+        "score" : "21-12",
+        "vs" : [
+          "Tsz To",
+          "Alex Lam"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Steven Wu"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Jr",
+          "Bish"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Cyrus"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Rich Tan",
+          "Cordi"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Ethan"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "nicholas",
+          "Tianheng"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Simon"
+        ],
+        "score" : "22-20",
+        "vs" : [
+          "Joe Chung",
+          "Ethan"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 9,
+    "win_pct" : 33,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-08-07",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Kheng"
+        ],
+        "score" : "21-13",
+        "vs" : [
+          "Steven Tran",
+          "Brian Lee"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Kit"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Rui",
+          "Kheng"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Canh"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Ben",
+          "Kheng"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Martin"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Jonny",
+          "Kit"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Kit",
+          "nicholas"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Alex"
+        ],
+        "score" : "23-21",
+        "vs" : [
+          "Jr",
+          "nicholas"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Jr"
+        ],
+        "score" : "21-11",
+        "vs" : [
+          "Alex",
+          "Canh"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Ben"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Martin",
+          "Canh"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  },
+  {
+    "activity_id" : null,
+    "date" : "2023-07-24",
+    "losses" : 5,
+    "matches" : [
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-19",
+        "vs" : [
+          "Tsz To",
+          "Glen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jonathan",
+          "Tsz To"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-10",
+        "vs" : [
+          "Chen Lin",
+          "Nicholas FU"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Cryus",
+          "Glen"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-14",
+        "vs" : [
+          "Jr",
+          "nicholas"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-15",
+        "vs" : [
+          "Steven Wu",
+          "Martin"
+        ]
+      },
+      {
+        "akash_won" : true,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-17",
+        "vs" : [
+          "Jr",
+          "Daniel"
+        ]
+      },
+      {
+        "akash_won" : false,
+        "partner" : [
+          "Manu"
+        ],
+        "score" : "21-16",
+        "vs" : [
+          "Ben",
+          "Joe Chung"
+        ]
+      }
+    ],
+    "pre_mental_state" : null,
+    "total" : 8,
+    "win_pct" : 38,
+    "wins" : 3
+  }
+]
