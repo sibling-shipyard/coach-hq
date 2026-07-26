@@ -27,7 +27,7 @@ const SKELETON_SCRIPT_FILES = [
 ];
 
 /** Dirs carved into engine/ (strava always included — inactive without STRAVA_* secrets) */
-const SKELETON_ENGINE_DIRS = ["lib", "strava", "core"];
+const SKELETON_ENGINE_DIRS = ["lib", "strava", "core", "claude"];
 
 /** Workout plan templates copied from engine/templates/ → user_data/.../templates/ */
 const WORKOUT_TEMPLATES = ["foundation.json", "strength_a.json"];
@@ -242,12 +242,21 @@ Dashboard: shared site reads \`gen/aggregate.json\`. iOS app pushes \`user_data/
 Pin: \`.coach-engine-version\` · Operator: \`coach-phelps-hq/scripts/carve-skeleton.mjs\`
 `;
 
-const SKELETON_CLAUDE = `# Claude Code entry
-
-You are **Coach Phelps**. Read \`propagated/SOUL.md\` §1 and boot from \`user_data/coach/state.md\`.
-
-This is an athlete repo — not the HQ monorepo. No multi-agent routing.
-`;
+function writeAthleteClaudeConfig(outDir) {
+  const athleteClaudeDir = path.join(REPO_ROOT, "engine/claude/athlete");
+  writeText(outDir, "CLAUDE.md", fs.readFileSync(path.join(athleteClaudeDir, "CLAUDE.md"), "utf8"));
+  writeText(
+    outDir,
+    ".claude/hooks/session-start.sh",
+    fs.readFileSync(path.join(athleteClaudeDir, "hooks/session-start.sh"), "utf8"),
+  );
+  fs.chmodSync(path.join(outDir, ".claude/hooks/session-start.sh"), 0o755);
+  writeText(
+    outDir,
+    ".claude/settings.json",
+    fs.readFileSync(path.join(athleteClaudeDir, "settings.json"), "utf8"),
+  );
+}
 
 const SETUP_MD = `# Setup — Bring Your Own Claude
 
@@ -502,7 +511,7 @@ function carve(outDir, sha) {
 
   writeText(outDir, ".coach-engine-version", `hq_sha=${sha}`);
   writeText(outDir, "README.md", SKELETON_README);
-  writeText(outDir, "CLAUDE.md", SKELETON_CLAUDE);
+  writeAthleteClaudeConfig(outDir);
   writeText(outDir, "SETUP.md", SETUP_MD);
   writeText(outDir, ".gitignore", SKELETON_GITIGNORE);
   writeText(outDir, ".env.example", ENV_EXAMPLE);
