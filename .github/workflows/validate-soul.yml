@@ -1,0 +1,27 @@
+name: Validate SOUL composition
+
+# SOUL.md is a generated artifact from soul/A_identity.md, soul/B_engine.md, and
+# soul/C_athlete.md via scripts/compose-soul.mjs. This job catches drift before
+# coach-chat.ts or BYO-Claude boot read a stale monolith.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SOUL.md'
+      - 'soul/**'
+      - 'scripts/compose-soul.mjs'
+  pull_request:
+    paths:
+      - 'SOUL.md'
+      - 'soul/**'
+      - 'scripts/compose-soul.mjs'
+
+jobs:
+  validate-soul:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Assert SOUL.md matches composed output
+        run: node scripts/compose-soul.mjs --check
