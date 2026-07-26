@@ -39,13 +39,18 @@ for fp in adr_files():
         if m.group(1) not in existing_nums:
             errors.append(f"{fp.name}: 'Superseded by {m.group(1)}' points at a missing ADR")
 
-# Index in sync: run the generator in --check style by comparing output
-gen = ROOT / "scripts" / "kb" / "gen_adr_index.py"
-before = (DEC / "README.md").read_text()
-subprocess.run([sys.executable, str(gen)], capture_output=True)
-after = (DEC / "README.md").read_text()
-if before != after:
-    errors.append("ADR index in kdb/decisions/README.md is stale — run scripts/kdb/gen_adr_index.py")
+# Index in sync: run the generator and compare. A failure to run the generator is a
+# hard error — never let a broken/missing generator make this check silently pass.
+gen = ROOT / "scripts" / "kdb" / "gen_adr_index.py"
+if not gen.exists():
+    errors.append(f"generator not found at {gen.relative_to(ROOT)}")
+else:
+    before = (DEC / "README.md").read_text()
+    r = subprocess.run([sys.executable, str(gen)], capture_output=True, text=True)
+    if r.returncode != 0:
+        errors.append(f"gen_adr_index.py failed to run: {(r.stderr or r.stdout).strip()}")
+    elif (DEC / "README.md").read_text() != before:
+        errors.append("ADR index in kdb/decisions/README.md is stale — run scripts/kdb/gen_adr_index.py")
 
 # AGENTS.md size (soft cap)
 if AGENTS.exists():
