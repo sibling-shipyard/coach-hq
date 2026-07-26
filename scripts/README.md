@@ -15,12 +15,23 @@ node engine/scripts/compose-soul.mjs --check
 
 ## carve-skeleton.mjs
 
-Builds thin skeleton: **data bands + SOUL.md copy + minimal scripts** (no agents, no soul layers).
+Builds full BYO skeleton: **propagated/ + engine/ + gen/ + user_data/** (no agents, soul layers, ui/, ios/).
 
 ```bash
 node scripts/carve-skeleton.mjs --dry-run
 node scripts/carve-skeleton.mjs --push
 ```
+
+## provision-user.sh
+
+Operator tool: fork `coach-skeleton` → private athlete repo. Greenfield or legacy migration with path rewrite.
+
+```bash
+scripts/provision-user.sh --greenfield --repo OWNER/coach-name --dry-run
+scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps
+```
+
+Runbook: [`docs/provision-runbook.md`](../docs/provision-runbook.md)
 
 ## Sync model (user repos)
 

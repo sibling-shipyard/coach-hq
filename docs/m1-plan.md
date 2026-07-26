@@ -20,9 +20,9 @@ First ~10 users = BYO Claude. The org template ships everything needed to start 
 |---|---|
 | HQ `engine/` | Scripts, soul layers, strava, plugins, templates — see [`engine/README.md`](../engine/README.md) |
 | `.github/agents/` | HQ-only (not carved) |
-| `scripts/carve-skeleton.mjs` | Thin carve on branch #83 — **PR 1 replaces with full tree** |
-| `sibling-shipyard/coach-skeleton` | Old 24-file layout — refresh after PR 1 |
-| `provision-user.sh` | Not built (M1b — after PR 1 + PR 2) |
+| `scripts/carve-skeleton.mjs` | Full BYO tree — merged #83 |
+| `sibling-shipyard/coach-skeleton` | **Fresh** — 50 files carved from `main` @ `2eac3d5` |
+| `provision-user.sh` | **M1b in progress** — see [`provision-runbook.md`](provision-runbook.md) |
 | User clones | Not provisioned (M1c/M1d) |
 
 ```mermaid
