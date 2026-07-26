@@ -16,6 +16,14 @@ The hard parts are identity (whose data?), access (read/write the right repo, on
 itself (one shared Phelps, per-user data, runnable as a local Claude session *and* a server agent). The
 identity/access layer is built; the coach-as-a-service layer is half-built and is where the work remains.
 
+**Target shape: two repos.** `coach-phelps-hq` holds everything that's *ours* — the shared UI, iOS, the
+brain (Soul + engine), scripts, plugins, and the agentic layer (roles/skills/hooks/docs/kdb).
+`coach-skeleton` is what each user forks: their data plus a copy of the SOUL. We get there in two stages —
+a **BYO-Claude intermediate first, the Gemini server-coach after** — so the skeleton starts fatter (carries
+the engine so a local Claude session can boot from the fork alone) and thins to data-only once the engine
+runs server-side. The clean-structure port onto hq is **done** (see `docs/hq-port-plan.md`); this plan
+picks up from there.
+
 **Permanent non-goal:** any cross-user / social feature. The per-repo install model enforces it — leave
 no seam.
 
@@ -76,39 +84,49 @@ runtime, with validators as the shared safety net.
 
 ```mermaid
 flowchart TB
-  users["N users (web / iOS)"] --> ui["Shared UI<br/>coach-phelps-hq"]
-  subgraph central["Central (org-owned)"]
-    engine["coach-engine<br/>Soul A + Engine B + skeleton + validators"]
-    server["Server coach agent<br/>Gemini now, Claude API maybe"]
+  users["N users (web / iOS)"] --> hq
+  subgraph hq["coach-phelps-hq (ours, org-owned)"]
+    ui["Shared UI + iOS"]
+    engine["Brain: Soul A + Engine B<br/>scripts, plugins, validators, agentic layer"]
+    server["Server coach agent<br/>Gemini, later stage"]
   end
-  ui --> server
-  engine -.->|canonical A+B| server
-  engine -.->|stamp instances + propagate| instances
-  subgraph instances["Per-user instance repos"]
-    r1["coach-userA<br/>Layer C + pinned engine"]
+  hq -.->|stamp forks + propagate engine and SOUL copy| skeletons
+  subgraph skeletons["Per-user coach-skeleton forks"]
+    r1["coach-userA<br/>data + SOUL copy (+ pinned engine in BYO stage)"]
     rn["coach-userN ..."]
   end
-  ui -->|read aggregate / write-back, user token| instances
-  server -->|commit via same protocol + validators| instances
+  hq -->|read aggregate / write-back, user token| skeletons
 ```
 
 Users never edit A or B. Each user's data is isolated (no query spans users). Moving the coach from
-BYO-Claude to fully server-side is a *hosting* change, not a rewrite.
+BYO-Claude to fully server-side is a *hosting* change, not a rewrite — the visible move is just the
+skeleton thinning from "data + engine" to "data + SOUL copy" as the engine goes server-side.
 
 ---
 
 ## 4. Assumptions & Locked Decisions
 
-Settled — build on these: 2 new repos (UI + skeleton) + N per-user instances; GitHub App installed per
-user; one shared Phelps, versioned centrally, not user-editable; fresh skeleton (original archived);
-SOUL = three separated layers with B runtime-agnostic; athlete is *data*, not identity; dual-path
-ingestion (Strava **or** iOS), same downstream shape; no social features, ever.
+Settled — build on these: **two repos** — `coach-phelps-hq` (ours: UI + iOS + brain + scripts + plugins +
+agentic layer) and `coach-skeleton` (each user forks it) — plus N per-user skeleton forks; GitHub App
+installed per user; one shared Phelps, versioned centrally in HQ, not user-editable; fresh skeleton
+(original archived); SOUL = three separated layers with B runtime-agnostic; athlete is *data*, not
+identity; dual-path ingestion (Strava **or** iOS), same downstream shape; no social features, ever.
+
+**Locked this session:**
+
+- **HQ trunk = the org repo.** The clean structure from `akash-suresh/coach-phelps` is already ported onto
+  `coach-phelps-hq` (see `docs/hq-port-plan.md`). The earlier three-repo sketch's separate `coach-engine`
+  is **dropped** — its canonical role folds into HQ.
+- **SOUL delivery = committed copy.** Each skeleton carries a copy of SOUL. Drop the copy and inject
+  server-side only if the Gemini path proves out.
+- **Staging = BYO-Claude first, Gemini after.** The intermediate skeleton is fatter — it carries a pinned
+  engine so a local Claude session boots from the fork alone. The target skeleton thins to data + SOUL copy
+  once the engine runs server-side.
 
 **Deferred (flagged, not decided here):**
 
-- **Where A+B physically live at target** — gated on whether server-side coaching (Gemini, maybe metered
-  Claude API) proves worth it. **BYO-Claude is an explicit stop-gap.** Only the server-side variant gives
-  a real IP boundary.
+- **Whether the engine ever leaves the skeleton** — i.e. the move to Gemini server-side. That's the only
+  variant giving a real IP boundary; decide it from BYO-Claude feedback (M3), don't pre-build it.
 - **Auto-provisioning.** MVP onboarding is **operator-run** (we hold the skeleton, clone + set up by
   hand). Self-serve needs Administration + Secrets App permissions — later.
 
@@ -120,9 +138,10 @@ ingestion (Strava **or** iOS), same downstream shape; no social features, ever.
 
 | Repo | Contains | Written by |
 |---|---|---|
-| `coach-phelps-hq` (UI) | Shared dashboard + `ui/api/*`. The only UI. No per-user data. | Engineering (PR) |
-| `coach-engine` (skeleton/canonical) | Soul A + Engine B + skeleton tree + workflows + validators. Source for new instances and propagation. | Engineering (PR) |
-| `coach-<user>` (instance) | Layer C data + history + pinned engine. One per user. | Coach + sync pipeline |
+| `coach-phelps-hq` | Shared UI + `ui/api/*` + iOS + the canonical brain (Soul A + Engine B) + scripts + plugins + workflows + validators + agentic layer (roles/skills/hooks/docs/kdb). No per-user data. | Engineering (PR) |
+| `coach-skeleton` → `coach-<user>` fork | The per-user fork. **Intermediate (BYO-Claude):** data + SOUL copy + pinned engine so a local session boots. **Target (Gemini):** thins to data + SOUL copy only. One per user. | Coach + sync pipeline |
+
+The earlier three-repo sketch's `coach-engine` is gone — HQ *is* the canonical engine now.
 
 ### 5.2 The 3-way SOUL split
 
@@ -147,6 +166,15 @@ flowchart TB
 Mapping: A = SOUL §3–5; B = §1, §10–13; C = §7 → already `state.md`. The redesign strips athlete specifics
 out of A/B, turns first-session into generic intake that *populates* C, and rewrites B as capability
 contracts so either runtime executes it — validators enforcing the guarantees regardless of who ran it.
+
+**Layer C sorts into three lifecycle bands** (from the skeleton design) — the band decides each file's git
++ rebuild policy:
+
+- **init** — seeded once at fork (coach-notes seed, imported activity history). Re-creatable from HQ.
+- **post-init** — accumulates in use (ledger, workout activities). The only precious band — protect and back up.
+- **gen** — machine-generated (web-build, iOS widget payload, housekeeping). Rebuildable; keep out of git
+  where possible, commit only the small typed snapshot contract (ADR 0005). Do **not** commit build output
+  to a user repo — the trap the restructure already hit with `aggregate.json`.
 
 ### 5.3 Data flow
 
@@ -204,15 +232,15 @@ only a JSON-parse check guarding it.
 
 ### 6.3 Skeleton, onboarding, propagation
 
-Onboarding is operator-run — a `provision-user.sh` that creates `coach-<user>` from `coach-engine`, sets
-the sync source, seeds empty Layer C; the user then installs the App and runs intake. Propagation depends
-on the deferred host:
+Onboarding is operator-run — a `provision-user.sh` that creates a `coach-<user>` fork from
+`coach-skeleton`, sets the sync source, seeds empty Layer C; the user then installs the App and runs
+intake. Propagation depends on the stage:
 
 ```mermaid
 flowchart TB
-  release["New engine version in coach-engine"] --> decide{"A+B host?"}
-  decide -->|server-side, target| free["Deploy once. Nothing pushed to user repos."]
-  decide -->|BYO-Claude, stop-gap| fanout["Fan out commit to every coach-user repo<br/>replacing pinned A+B"]
+  release["New engine version in coach-phelps-hq"] --> decide{"engine host?"}
+  decide -->|"Gemini, target"| free["Deploy HQ once. Nothing pushed to user repos."]
+  decide -->|"BYO-Claude, intermediate"| fanout["Fan out commit to every coach-user fork<br/>replacing pinned engine and SOUL copy"]
   fanout --> gate["Gate on schema_version compat"]
 ```
 
@@ -241,13 +269,15 @@ flowchart LR
 | # | Size | Milestone | Done when (exit test) |
 |---|---|---|---|
 | **M0** | **L** | Split the engine | `SOUL.md` is separated into A / B / C; B is capability-contract form (no shell/git assumptions); `validate-data.yml` enforces the full file contracts; aggregate `schema_version` is frozen and documented. |
-| **M1** | **M** | Skeleton + onboarding | A new F&F user goes from zero to a working BYO-Claude coach via `provision-user.sh` in one sitting; the original repo is archived; root README/SETUP describe the hosted flow. |
+| **M1** | **M** | Carve `coach-skeleton` + onboarding | `coach-skeleton` is carved from HQ (data + SOUL copy + pinned engine, per the init/post-init/gen bands); a new F&F user goes from zero to a working BYO-Claude coach by forking it via `provision-user.sh` in one sitting; the original repo is archived; root README/SETUP describe the hosted flow. |
 | **M2** | **L** | One engine, two hosts | `coach-chat.ts` and a BYO-Claude session execute the *same* shared B and pass the *same* validator — no coaching rule lives only in the endpoint prompt. |
 | **M3** | **S** | Pick the host | The A+B location decision is made from M2 feedback (server-only / BYO / hybrid), and §4/§6 are updated to match. |
 | **M4** | **M** | Self-serve onboarding | A user self-provisions on first login: repo created + secrets written automatically (Administration + Secrets perms granted); the operator step is gone. |
 
 Sizing is rough (S = a sitting, M = a few sessions, L = a real chunk of focused work). M0 and M2 are the
 heavy lifts and the critical path; M3 is mostly a decision.
+
+Prereq (done): the clean-structure port onto HQ — `docs/hq-port-plan.md`, P1–P3 shipped.
 
 Ordering: M0 unlocks everything (a runtime-agnostic engine + real validators is what makes both hosts
 safe). M1 gets real users on the stop-gap and generates the feedback M2/M3 need. M4 is deliberately last —
