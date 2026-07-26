@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { parseCurrentWeek } from "../../../engine/lib/current-week.mts";
+import { parseCurrentWeek } from "../lib/current-week.mts";
 
 const args = process.argv.slice(2);
 const allowedFlags = new Set(["--coach-write"]);

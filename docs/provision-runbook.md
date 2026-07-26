@@ -102,6 +102,30 @@ Engine, workflows, and `propagated/` come from skeleton — not overwritten.
 2. **iOS rebuild** (Akash) — app must target new GitHub paths (`hist/`, `gen/widget_snapshots.json`).
 3. **Validation** — [`m1-plan.md`](m1-plan.md) §7 checklist.
 
+### Patch an already-migrated repo (engine tool sync)
+
+When HQ adds or updates carved engine tools after migrate (e.g. `validate-current-week`), athlete repos do **not** auto-update. Operator syncs from HQ **without** re-running full migrate:
+
+```bash
+# From coach-phelps-hq checkout (main after merge)
+AKASH_ROOT="${AKASH_ROOT:-$HOME/src/coach-akash}"   # local clone of akash-suresh/coach-akash
+HQ_ROOT="$(pwd)"
+
+cp "$HQ_ROOT/engine/lib/current-week.mts"           "$AKASH_ROOT/engine/lib/"
+cp "$HQ_ROOT/engine/scripts/validate-current-week.mts" "$AKASH_ROOT/engine/scripts/"
+mkdir -p "$AKASH_ROOT/scripts"
+cp "$HQ_ROOT/scripts/validate-current-week"         "$AKASH_ROOT/scripts/"
+chmod +x "$AKASH_ROOT/scripts/validate-current-week"
+
+cd "$AKASH_ROOT"
+./scripts/validate-current-week user_data/ledger/current_week.json
+git add engine/lib/current-week.mts engine/scripts/validate-current-week.mts scripts/validate-current-week
+git commit -m "core: add validate-current-week wrapper (engine carve sync)"
+git push origin main
+```
+
+Re-run `regenerate_gen()` only if HQ changed quest/aggregate scripts — not needed for validator-only sync.
+
 ---
 
 ## Troubleshooting

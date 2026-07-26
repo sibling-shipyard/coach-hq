@@ -23,6 +23,7 @@ const SKELETON_SCRIPT_FILES = [
   "scripts/generate_quest_log.py",
   "scripts/generate_quest_history.py",
   "scripts/run_sync_pipeline.py",
+  "scripts/validate-current-week.mts",
 ];
 
 /** Dirs carved into engine/ (strava always included — inactive without STRAVA_* secrets) */
@@ -345,6 +346,15 @@ STRAVA_CLIENT_SECRET=
 STRAVA_REFRESH_TOKEN=
 `;
 
+const VALIDATE_CURRENT_WEEK_WRAPPER = `#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+exec node --experimental-strip-types --disable-warning=ExperimentalWarning engine/scripts/validate-current-week.mts "$@"
+`;
+
 function parseArgs(argv) {
   const opts = { dryRun: false, push: false, sha: null, outDir: null };
   for (let i = 0; i < argv.length; i++) {
@@ -496,6 +506,8 @@ function carve(outDir, sha) {
   writeText(outDir, "SETUP.md", SETUP_MD);
   writeText(outDir, ".gitignore", SKELETON_GITIGNORE);
   writeText(outDir, ".env.example", ENV_EXAMPLE);
+  writeText(outDir, "scripts/validate-current-week", VALIDATE_CURRENT_WEEK_WRAPPER);
+  fs.chmodSync(path.join(outDir, "scripts/validate-current-week"), 0o755);
 
   // user_data — init band
   writeText(outDir, "user_data/coach/state.md", STATE_MD_TEMPLATE);
