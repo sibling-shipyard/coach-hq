@@ -4,7 +4,7 @@
  * Mirrors a local Claude Code coaching session: reads the same boot context
  * SOUL.md's own boot sequence reads (SOUL.md, training/coach/state.md,
  * training/activities/quest_log.md), asks Gemini to reply as Coach Phelps, and applies
- * the same commit authority SOUL.md §2/§13 already grants Coach - direct to
+ * the same commit authority SOUL.md §2/§12 already grants Coach - direct to
  * `main`, no PR, only the files Coach is allowed to touch.
  *
  * Persistence mirrors how a real Claude Code coaching session actually works:
@@ -12,7 +12,7 @@
  * active thread in memory and sends the full running message list with every
  * POST; the server stays stateless per turn until the athlete signals they're
  * closing the session ("wrap this session", "close session", etc.), at which
- * point it runs the real commit protocol (SOUL.md §13) once, in one shot -
+ * point it runs the real commit protocol (SOUL.md §12) once, in one shot -
  * same as a real session only ever committing at close, not per message.
  * Losing an unwrapped conversation on a refresh is an accepted trade-off, not
  * a bug: no separate database, the repo is the only durable store.
@@ -40,13 +40,14 @@ const QUEST_LOG_PATH = "training/activities/quest_log.md";
 // RPM/RPD numbers - free-tier limits aren't published as a fixed table anymore.
 const GEMINI_MODEL = "gemini-flash-latest";
 
-// Only these files carry Coach's write authority (SOUL.md §2, §13) - anything a Gemini
+// Only these files carry Coach's write authority (SOUL.md §2, §12) - anything a Gemini
 // response proposes outside this set is dropped, even though the prompt already tells it
 // not to propose others. Defense in depth, not trust in the model's instruction-following.
 const COACH_WRITABLE_FILES = new Set([
   "training/coach/state.md",
   "training/coach/coach_notes.md",
   "training/ledger/challenge_v2.json",
+  "training/ledger/current_week.json",
   "training/activities/sleep_log.json",
 ]);
 function isCoachWritable(path: string): boolean {
@@ -242,10 +243,10 @@ async function askGemini(
     closing
       ? [
           "\nThe athlete's latest message is a session-close signal (\"wrap this session\", \"close",
-          "session\", or similar). This turn IS the commit-protocol moment (SOUL.md §13) - you must",
+          "session\", or similar). This turn IS the commit-protocol moment (SOUL.md §12) - you must",
           "actually execute it now, not just acknowledge it: reflect on this whole conversation, and",
           "put the full new content of every file that genuinely changed into file_updates (state.md",
-          "at minimum if anything was discussed; challenge_v2.json/coach_notes.md/sleep_log.json/",
+          "at minimum if anything was discussed; challenge_v2.json/coach_notes.md/current_week.json/sleep_log.json/",
           "sessions/<name>.json if relevant). If something the pre-commit checklist needs - today's",
           "sleep, side-quest status, injury flags - was never covered anywhere in this conversation or",
           "in the state.md/quest_log.md above, ask for it now instead of closing out. Only once you",
@@ -261,7 +262,7 @@ async function askGemini(
           "check-in, a quest completion - the same judgment calls SOUL.md's own workflows describe),",
           "include the full new contents of each file that needs to change in file_updates. Only ever",
           "propose files from this exact set: training/coach/state.md, training/coach/coach_notes.md,",
-          "training/ledger/challenge_v2.json, training/activities/sleep_log.json, sessions/<name>.json. Most turns",
+          "training/ledger/challenge_v2.json, training/ledger/current_week.json, training/activities/sleep_log.json, sessions/<name>.json. Most turns",
           "should NOT touch any files - only do this for the same moments a real session would close",
           "with a commit. Never say something is saved or committed unless it's genuinely in",
           "file_updates this turn.",
@@ -272,7 +273,7 @@ async function askGemini(
     "changed this conversation - even if it looks old or no longer relevant. If you're not",
     "deliberately editing a line, it must appear in your output identical to how it was given to",
     "you above.",
-    "\nAlways include a short commit_message (SOUL.md §13 style, e.g. 'day-12 — logged sprint",
+    "\nAlways include a short commit_message (SOUL.md §12 style, e.g. 'day-12 — logged sprint",
     "intervals', with no leading \"coach:\" - the caller adds that prefix itself) whenever",
     "file_updates is non-empty.",
   ].join("\n");

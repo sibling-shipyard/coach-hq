@@ -46,9 +46,10 @@ reconciliation — confirm in S0.
 - **Behavior-preserving.** The assembled brain a coach reads must mean the same as today's
   `SOUL.md`. Guard with `VALIDATION_TESTS.md`. Genericizing B is a *reword to read C*, not a
   logic change — if a rule's behavior would change, stop and flag.
-- **Keep a single assembled `SOUL.md` as the read artifact** (= A + B + C-schema). Split the
-  *sources* into `soul/`. This keeps `coach-chat.ts` and BYO-Claude boot reading one brain, and
-  stops the two runtimes diverging.
+- **`SOUL.md` becomes a generated artifact** = `compose(A, B, C-schema)` via
+  `scripts/compose-soul.mjs` (deterministic, no timestamps). A CI check asserts
+  `SOUL.md == compose(...)` so it can't drift. Consumers keep reading one `SOUL.md` — `coach-chat.ts`
+  and BYO-Claude boot are unchanged, and the two runtimes can't diverge.
 - **Do not hardcode C into B.** Every sport/condition/signal is C data B reads — the one rule
   that keeps the seam extensible.
 - **Preserve v5.7's section numbering in the assembled `SOUL.md` through the split**, so the
@@ -88,7 +89,8 @@ soul/
   A_identity.md    # voice, philosophy
   B_engine.md      # boot, guardrails, rules, workflows, commit — reads C generically
   C_athlete.md     # the declarative schema (sports[], injury_flags[], conditions[], tracking_modules{})
-SOUL.md            # assembled = A + B + C-schema (what both runtimes read)
+SOUL.md            # GENERATED = compose(A,B,C-schema) via scripts/compose-soul.mjs; CI checks it's in sync
+scripts/compose-soul.mjs   # deterministic concatenation A+B+C -> SOUL.md
 ```
 
 ## Milestones
@@ -96,8 +98,8 @@ SOUL.md            # assembled = A + B + C-schema (what both runtimes read)
 | # | Size | Milestone | Done when |
 |---|---|---|---|
 | **S0** | M | Adopt v5.7 on main | Main's `SOUL.md` reconciled to v5.7 content (hq-only bits preserved); `coach-chat.ts` §-references re-pointed to v5.7 numbering in the same PR; v5.7 paths confirmed to match hq's layout; `validate-data` green, one coach-chat smoke-test, live coach boots clean. **Still monolithic — no split yet.** |
-| **S1** | S | Boundary + schema | Every v5.7 section mapped to A/B/C; the C schema (`sports[]`, `injury_flags[]`, `conditions[]`, empty `tracking_modules{}`) written up and signed off. No content moved yet. |
-| **S2** | M, **critical** | Split + genericize + assemble | `soul/A_identity.md` + `B_engine.md` + `C_athlete.md` created from v5.7; B reworded to read C generically; Sky's specifics extracted into the C schema; `SOUL.md` reassembled, **behavior-equivalent**, section numbering preserved; `VALIDATION_TESTS.md` passes; a BYO-Claude boot behaves identically. |
+| **S1** | S | Boundary + schema + parity list | Every v5.7 section mapped to A/B/C; the C schema (`sports[]`, `injury_flags[]`, `conditions[]`, empty `tracking_modules{}`) written up and signed off; a **hand-written parity checklist** of v5.7's behaviors (boot steps, workflows, commit rules, key rules) captured. No content moved yet. |
+| **S2** | M, **critical** | Split + genericize + compose | `soul/A_identity.md` + `B_engine.md` + `C_athlete.md` created from v5.7; B reworded to read C generically; Sky's specifics extracted into the C schema; `SOUL.md` regenerated via `scripts/compose-soul.mjs` with a CI drift-check; **composed SOUL diffed against S1's parity checklist — nothing dropped**; section numbering preserved; a BYO-Claude boot behaves identically. |
 | **S3** | S | Reconcile consumers | `coach-chat.ts` verified to still send the full brain to Gemini (one chat smoke-test); agent docs + `CLAUDE.md`/`AGENTS.md` updated; `validate-data` green. |
 
 ```mermaid
