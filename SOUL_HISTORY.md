@@ -11,7 +11,8 @@ A living record of how Coach Phelps evolved — what changed, and why. Updated w
 - Replaced hq's thinner v1.0 (13 sections) with v5.7's 12-section layout: Commit Protocol §13→§12, Rules Engine §10→§9, First Session folded into §10 Workflows.
 - De-personalized: §7 is generic (no athlete name/profile); all Sky/badminton-specific content removed.
 - Preserved hq-only: `training/chat_history.json` file-map row, Vercel serverless Sync pipeline note, boot `git pull`, First Session Protocol, `sleep_log.json` + `roadmap.md` in commit ritual.
-- `ui/api/coach-chat.ts` §-references re-pointed to v5.7 numbering in the same PR.
+- Restored v5.7 `current_week.json` workflows (boot read, Weekly Contract Safety, logging reconciliation, Sunday rollover, §12 commit) — genericized, no personal sport data.
+- `ui/api/coach-chat.ts` §-references re-pointed to v5.7 numbering; added `current_week.json` to web-chat writable set.
 
 **Why:** Splitting the thinner v1.0 would bake a downgrade into every fork. S0 lands the richer brain first; the three-layer split (S1–S3) comes next.
 

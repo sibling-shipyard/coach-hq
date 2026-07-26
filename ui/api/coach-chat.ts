@@ -47,6 +47,7 @@ const COACH_WRITABLE_FILES = new Set([
   "training/coach/state.md",
   "training/coach/coach_notes.md",
   "training/ledger/challenge_v2.json",
+  "training/ledger/current_week.json",
   "training/activities/sleep_log.json",
 ]);
 function isCoachWritable(path: string): boolean {
@@ -245,7 +246,7 @@ async function askGemini(
           "session\", or similar). This turn IS the commit-protocol moment (SOUL.md §12) - you must",
           "actually execute it now, not just acknowledge it: reflect on this whole conversation, and",
           "put the full new content of every file that genuinely changed into file_updates (state.md",
-          "at minimum if anything was discussed; challenge_v2.json/coach_notes.md/sleep_log.json/",
+          "at minimum if anything was discussed; challenge_v2.json/coach_notes.md/current_week.json/sleep_log.json/",
           "sessions/<name>.json if relevant). If something the pre-commit checklist needs - today's",
           "sleep, side-quest status, injury flags - was never covered anywhere in this conversation or",
           "in the state.md/quest_log.md above, ask for it now instead of closing out. Only once you",
@@ -261,7 +262,7 @@ async function askGemini(
           "check-in, a quest completion - the same judgment calls SOUL.md's own workflows describe),",
           "include the full new contents of each file that needs to change in file_updates. Only ever",
           "propose files from this exact set: training/coach/state.md, training/coach/coach_notes.md,",
-          "training/ledger/challenge_v2.json, training/activities/sleep_log.json, sessions/<name>.json. Most turns",
+          "training/ledger/challenge_v2.json, training/ledger/current_week.json, training/activities/sleep_log.json, sessions/<name>.json. Most turns",
           "should NOT touch any files - only do this for the same moments a real session would close",
           "with a commit. Never say something is saved or committed unless it's genuinely in",
           "file_updates this turn.",
