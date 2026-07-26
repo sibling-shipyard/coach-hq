@@ -89,16 +89,16 @@ Use **positive + negative examples** for voice calibration — more effective th
 
 ### Boot — every session
 ```
-SOUL.md                  Identity, stable protocols, guardrails
-training/state.md        Current athlete state (injuries, week plan, fitness baseline, sleep)
-training/quest_log.md    Compact quest status
+SOUL.md                              Identity, stable protocols, guardrails
+training/coach/state.md              Current athlete state (injuries, week plan, fitness baseline, sleep)
+training/activities/quest_log.md     Compact quest status
 ```
 
 ### On-demand — never at boot
 ```
 training/analytics_snapshot.json    Match analytics       (when: match discussion, weekly planning)
-training/coach_notes.md             Long-term patterns    (when: investigating recurring issues)
-training/opponent_notes.md          Nemesis opponent data (when: opponent named in conversation)
+training/coach/coach_notes.md       Long-term patterns    (when: investigating recurring issues)
+training/reference/opponent_notes.md  Nemesis opponent data (when: opponent named in conversation)
 docs/phelps-research-notes.md       Phelps anecdote depth (when: telling a specific story)
 docs/phelps-voice-profile.md        Voice cadence         (when: generating visualization audio)
 docs/soul-calibration.md            Voice examples        (when: voice feels off or testing new SOUL)
@@ -108,7 +108,7 @@ docs/soul-calibration.md            Voice examples        (when: voice feels off
 ```
 docs/soul-calibration.md      Good and bad coaching output examples
 skills/pipeline-tools.md      Full CLI flag reference, extracted from SOUL.md Section 10
-training/opponent_notes.md    Running notes on nemesis opponents (Joe Chung, Tsz To, etc.)
+training/reference/opponent_notes.md    Running notes on nemesis opponents (Joe Chung, Tsz To, etc.)
 ```
 
 ---
@@ -296,7 +296,7 @@ Map to VALIDATION_TESTS.md before shipping.
 | 5a | End-of-day trigger hardening — only explicit closing signal triggers check-in; interim save commits data only and resumes conversation | Tech Lead | Done |
 | 6 | Merge PR #51 | Sky | Done |
 
-**Phase 2 companion files:** `docs/soul-calibration.md`, `skills/pipeline-tools.md`, `training/opponent_notes.md` (template first, then filled in Phase 4). Update `training/state.md` schema. Update `SOUL_HISTORY.md` with v5 entry.
+**Phase 2 companion files:** `docs/soul-calibration.md`, `skills/pipeline-tools.md`, `training/reference/opponent_notes.md` (template first, then filled in Phase 4). Update `training/coach/state.md` schema. Update `SOUL_HISTORY.md` with v5 entry.
 
 **Post-#25 SOUL update (future):** Once Bob ships the HR stream pipeline (issue #25), add per-match HR workflow to Coach — referencing win/loss HR signatures, ignition speed, etc. Cannot be in v5 as the underlying data doesn't exist yet.
 
