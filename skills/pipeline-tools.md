@@ -4,6 +4,43 @@ Load this file on-demand when you need to run pipeline scripts. Do not read at b
 
 ---
 
+## run_sync_pipeline.py
+
+Master sync pipeline — chains all steps for CI (`workflow_dispatch` via `.github/workflows/sync.yml`).
+
+```bash
+python3 scripts/run_sync_pipeline.py
+```
+
+**Steps (in order):**
+
+| Step | Action |
+|------|--------|
+| 1 | Sync Strava activities → `training/activities/history/` |
+| 2 | Parse raw badminton descriptions (new activities only) → `plugins/badminton/data/badminton_match_data.json` + Strava PUT |
+| 3 | Auto-rename unrenamed activities (new only) |
+| 4 | Generate `training/activities/quest_log.md` |
+| 5 | Generate `training/activities/quest_history.json` |
+| 6 | Write `sleep_log.json` to UI data bundle |
+| 7 | Generate `training/activities/badminton_analytics_snapshot.json` |
+| — | Write `training/sync_status.json` |
+
+Strava sync is non-fatal — iOS/HealthKit is the primary sync source for some users; steps 4–7 run from committed history regardless.
+
+---
+
+## generate_analytics_snapshot.py
+
+Regenerates `training/activities/badminton_analytics_snapshot.json` from activity history + match data.
+
+```bash
+python3 scripts/generate_analytics_snapshot.py
+```
+
+Implementation lives in `plugins/badminton/analytics.py`. Called automatically by the sync pipeline (step 7).
+
+---
+
 ## fetch_strava.py
 
 Fetches activity data from the Strava API. The sync pipeline runs this automatically — only use directly for manual debugging or one-off pulls.

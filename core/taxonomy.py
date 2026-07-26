@@ -8,11 +8,10 @@ from typing import Final
 # Sport type
 BADMINTON_SPORT: Final = "Badminton"
 
-# Rename categories (strava/rename_core.py classify_activity)
-RENAME_LEAGUE: Final = "league"
-RENAME_DRILLS: Final = "drills"
-RENAME_HITRUN_RANKED: Final = "hitrun_ranked"
-RENAME_HITRUN_FRIENDLY: Final = "hitrun_friendly"
+# HQ rename categories (strava/rename_core.py classify_activity)
+RENAME_BADMINTON_RANKED: Final = "badminton_ranked"
+RENAME_BADMINTON_LEAGUE: Final = "badminton_league"
+RENAME_BADMINTON_FRIENDLY: Final = "badminton_friendly"
 RENAME_BADMINTON_CASUAL: Final = "badminton_casual"
 
 # Analytics categories (plugins/badminton/analytics.py)
@@ -34,6 +33,17 @@ def get_training_category(activity: dict) -> str:
     name = activity.get("name", "")
     sport = activity.get("sport_type", activity.get("type", ""))
 
+    # HQ naming: Badminton: Ranked/League/Friendly/Casual #N
+    if re.match(r"^Badminton:\s*Ranked\s*#", name, re.IGNORECASE):
+        return BADMINTON_RANKED
+    if re.match(r"^Badminton:\s*League\s*#", name, re.IGNORECASE):
+        return BADMINTON_LEAGUE
+    if re.match(r"^Badminton:\s*Friendly\s*#", name, re.IGNORECASE):
+        return BADMINTON_FRIENDLY
+    if re.match(r"^Badminton:\s*Casual\s*#", name, re.IGNORECASE):
+        return BADMINTON_CASUAL
+
+    # Legacy clean-SoT naming (backward compat for migrated activities)
     if re.match(r"^League\s*#", name, re.IGNORECASE):
         return BADMINTON_LEAGUE
     if re.match(r"^Hit\s*&\s*Run\s*#", name, re.IGNORECASE):
@@ -41,7 +51,7 @@ def get_training_category(activity: dict) -> str:
             return BADMINTON_RANKED
         if re.search(r"friendly", name, re.IGNORECASE):
             return BADMINTON_FRIENDLY
-        return BADMINTON_RANKED  # default H&R to ranked
+        return BADMINTON_RANKED
     if re.match(r"^Badminton:", name, re.IGNORECASE):
         return BADMINTON_CASUAL
     if sport == BADMINTON_SPORT:

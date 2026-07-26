@@ -10,8 +10,21 @@ an activity's start_date_local, not the file it lives in.
 from __future__ import annotations
 
 import re
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Tuple
+
+REPO_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_DIR))
+
+from core.taxonomy import (
+    BADMINTON_SPORT,
+    RENAME_BADMINTON_CASUAL,
+    RENAME_BADMINTON_FRIENDLY,
+    RENAME_BADMINTON_LEAGUE,
+    RENAME_BADMINTON_RANKED,
+)
 
 
 def get_activity_year(data: dict) -> int:
@@ -94,14 +107,14 @@ def classify_activity(
         return ("swim", None, "swim")
 
     # Badminton — classify by keywords in name/description
-    if sport == "Badminton":
+    if sport == BADMINTON_SPORT:
         if "ranked" in name_lower or "ranked" in desc:
-            return ("badminton_ranked", None, "badminton_ranked")
+            return (RENAME_BADMINTON_RANKED, None, RENAME_BADMINTON_RANKED)
         if "league" in name_lower or "league" in desc:
-            return ("badminton_league", None, "badminton_league")
+            return (RENAME_BADMINTON_LEAGUE, None, RENAME_BADMINTON_LEAGUE)
         if "friendly" in name_lower or "friendly" in desc:
-            return ("badminton_friendly", None, "badminton_friendly")
-        return ("badminton_casual", None, "badminton_casual")
+            return (RENAME_BADMINTON_FRIENDLY, None, RENAME_BADMINTON_FRIENDLY)
+        return (RENAME_BADMINTON_CASUAL, None, RENAME_BADMINTON_CASUAL)
 
     # Yoga — recovery on weekdays, realign on Sunday
     if sport == "Yoga":
@@ -152,10 +165,10 @@ def generate_name(category: str, detail: Optional[str], counter: int) -> Optiona
         "recovery": lambda: f"Recovery #{counter}",
         "realign": lambda: f"Realign #{counter}",
         "calisthenics": lambda: f"Calisthenics #{counter}: {detail or 'General'}",
-        "badminton_ranked": lambda: f"Badminton: Ranked #{counter}",
-        "badminton_league": lambda: f"Badminton: League #{counter}",
-        "badminton_friendly": lambda: f"Badminton: Friendly #{counter}",
-        "badminton_casual": lambda: f"Badminton: Casual #{counter}",
+        RENAME_BADMINTON_RANKED: lambda: f"Badminton: Ranked #{counter}",
+        RENAME_BADMINTON_LEAGUE: lambda: f"Badminton: League #{counter}",
+        RENAME_BADMINTON_FRIENDLY: lambda: f"Badminton: Friendly #{counter}",
+        RENAME_BADMINTON_CASUAL: lambda: f"Badminton: Casual #{counter}",
     }
     fn = names.get(category)
     return fn() if fn else None
