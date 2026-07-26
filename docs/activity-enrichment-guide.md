@@ -70,7 +70,7 @@ Counters are **per-type** and **per-year**, starting from #1 on Jan 1 each year.
    - Badminton on non-standard days (could be friendly, league, or casual)
    - Activities with ambiguous names
 
-4. **Get Sky's input** on all outliers before proceeding.
+4. **Get the athlete's input** on all outliers before proceeding.
 
 5. **Assign counters** chronologically within each type.
 
@@ -164,7 +164,7 @@ L {score} w/ {partner} vs {opponent1} + {opponent2}
 
 ### Rules
 
-1. **Preserve existing descriptions** — if Sky has written a comment, keep it at the top.
+1. **Preserve existing descriptions** — if the athlete has written a comment, keep it at the top.
 2. **Rank line** — only include `| Rank: K` if leaderboard data is available for that session.
 3. **Games section** — sourced from parsed text descriptions or historical photo backfill. Each line: `W/L score w/ partner vs opponents`.
 4. **Friendlies** — if manually recorded in the existing description, move to bottom in the same format.
@@ -188,7 +188,7 @@ L {score} w/ {partner} vs {opponent1} + {opponent2}
 ### Backfill Mode
 
 1. Generate a full markdown preview with old vs new descriptions for every activity.
-2. Present to Sky for review.
+2. Present to the athlete for review.
 3. Address any corrections (wrong classification, missing data, formatting issues).
 
 ### Weekly Mode

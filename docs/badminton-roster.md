@@ -1,7 +1,8 @@
 # Badminton Roster — Key Partners & Opponents
 
-- Bumbu: Solid pairing, good chemistry
-- Ivor: Strong league partner
-- Manu: Regular partner for friendlies
-- Jonathan: Weaker league partner
-- Anurag: Rusty (returning after a break)
+Per-athlete reference for Coach on-demand reads. Populate with your regular partners and opponents, plus brief notes on pairing chemistry and tendencies.
+
+Example:
+
+- Partner Name: Short note (e.g. strong league partner, prefers front court)
+- Opponent Name: Short note (e.g. aggressive smasher, weak backhand)
