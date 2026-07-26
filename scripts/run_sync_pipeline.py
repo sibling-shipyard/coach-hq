@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """Sync pipeline for CI — chains all steps for workflow_dispatch.
 
-Steps:
+Steps (Strava path, SYNC_SOURCE=strava or unset):
   1. Sync Strava activities to training/activities/history/ via fetch_strava.py --sync
   2. Auto-rename new unrenamed activities via rename_single.py (new files only)
   3. Generate quest_log.md
   4. Generate quest_history.json (merged history across all seasons)
-  5. Write sleep_log.json into the UI data bundle
+  5. Mirror sleep_log.json into ui/client/src/data/ when ui/ exists (HQ only)
   Write sync_status.json at the end.
 
-  activities.json, challenge_v2.json, and workouts.json are NOT written here -
-  ui/scripts/build-data.mjs owns all three and regenerates them on every
-  build/dev via the prebuild/predev npm hooks. training/widget_snapshots.json is populated
-  by sync.yml (via npm run generate-snapshots), not this script.
-  (Commit & push is handled by sync.yml, not this script)
+Steps (iOS path, SYNC_SOURCE=ios):
+  Skip Strava token write + fetch/rename; still run steps 3–4 and sync_status.
+  Aggregate build is handled by sync.yml (build-aggregate.mjs or build-data.mjs).
 
 Usage:
   python scripts/run_sync_pipeline.py
+  SYNC_SOURCE=ios python scripts/run_sync_pipeline.py
 """
 
 import json
@@ -30,7 +29,8 @@ from typing import Optional
 REPO_DIR = Path(__file__).resolve().parent.parent
 TRAINING_DIR = REPO_DIR / "training"
 HISTORY_DIR = TRAINING_DIR / "activities" / "history"
-DATA_DIR = REPO_DIR / "ui" / "client" / "src" / "data"
+UI_DIR = REPO_DIR / "ui"
+DATA_DIR = UI_DIR / "client" / "src" / "data"
 TOKENS_PATH = REPO_DIR / "strava" / "strava_tokens.json"
 SYNC_STATUS_PATH = TRAINING_DIR / "sync_status.json"
 TIMEOUT = 600
@@ -157,26 +157,35 @@ def write_sync_status(synced: int, renamed: int, warnings: list[str], error: Opt
     log(f"sync_status.json written: {status}")
 
 
+def sync_source() -> str:
+    return os.environ.get("SYNC_SOURCE", "strava").strip().lower()
+
+
 def main():
     synced, renamed = 0, 0
     warnings: list[str] = []
     new_files: list[Path] = []
+    source = sync_source()
+    use_strava = source != "ios"
 
     try:
-        if os.environ.get("CI"):
-            write_tokens_from_env()
+        if use_strava:
+            if os.environ.get("CI"):
+                write_tokens_from_env()
 
-        log("Step 1/5: Syncing Strava activities...")
-        synced, new_files = step_sync_strava()
-        log(f"  {synced} new activities")
+            log("Step 1/5: Syncing Strava activities...")
+            synced, new_files = step_sync_strava()
+            log(f"  {synced} new activities")
 
-        if new_files:
-            log("Step 2/5: Renaming new activities...")
-            renamed, rename_warnings = step_auto_rename(new_files)
-            warnings.extend(rename_warnings)
-            log(f"  {renamed} renamed")
+            if new_files:
+                log("Step 2/5: Renaming new activities...")
+                renamed, rename_warnings = step_auto_rename(new_files)
+                warnings.extend(rename_warnings)
+                log(f"  {renamed} renamed")
+            else:
+                log("Step 2/5: No new activities - skipping rename")
         else:
-            log("Step 2/5: No new activities - skipping rename")
+            log(f"SYNC_SOURCE={source} — skipping Strava token write and fetch/rename")
 
         log("Step 3/5: Generating quest_log.md...")
         step_generate_quest_log()
@@ -184,12 +193,15 @@ def main():
         log("Step 4/5: Generating quest_history.json...")
         step_generate_quest_history()
 
-        log("Step 5/5: Writing sleep_log.json to UI data bundle...")
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        sleep_src = TRAINING_DIR / "activities" / "sleep_log.json"
-        (DATA_DIR / "sleep_log.json").write_text(
-            sleep_src.read_text() if sleep_src.exists() else "[]"
-        )
+        if UI_DIR.exists():
+            log("Step 5/5: Writing sleep_log.json to UI data bundle...")
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            sleep_src = TRAINING_DIR / "activities" / "sleep_log.json"
+            (DATA_DIR / "sleep_log.json").write_text(
+                sleep_src.read_text() if sleep_src.exists() else "[]"
+            )
+        else:
+            log("Step 5/5: No ui/ directory — sleep_log stays in training/activities/")
 
         write_sync_status(synced, renamed, warnings)
         log("Pipeline complete.")

@@ -1,0 +1,66 @@
+# User-repo sync workflow (skeleton / coach-<user>).
+# Copied by scripts/carve-skeleton.mjs — not used in coach-phelps-hq.
+#
+# Set repository variable SYNC_SOURCE to "ios" or "strava" (default: strava).
+# Strava path requires PAT_TOKEN + STRAVA_* secrets. iOS path skips Strava fetch.
+
+name: Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'training/activities/history/**'
+      - 'training/ledger/challenge_v2.json'
+      - 'training/activities/sleep_log.json'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      SYNC_SOURCE: ${{ vars.SYNC_SOURCE || 'strava' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Run sync pipeline
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+        run: python3 scripts/run_sync_pipeline.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build aggregate
+        run: node scripts/build-aggregate.mjs --aggregate
+
+      - name: Commit pipeline changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data/aggregate.json
+          git add training/activities/quest_log.md training/activities/quest_history.json training/sync_status.json
+          git restore --staged strava/strava_tokens.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            MSG=$(python3 -c "import json; print(json.load(open('training/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: sync pipeline run [skip ci]")
+            git commit -m "$MSG"
+            git push
+          fi

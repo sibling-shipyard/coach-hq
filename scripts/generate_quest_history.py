@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Generate ui/client/src/data/quest_history.json from all season archives.
+"""Generate quest_history.json from all season archives.
 
 Reads training/seasons/*/challenge_v2.json (sorted by start_date) then
 training/ledger/challenge_v2.json (current season). For each daily_streak quest,
 reconstructs per-day status from polarity + date arrays and writes a unified
-flat file the UI can read without being season-aware.
+flat file the dashboard can read without being season-aware.
+
+Output path:
+  - QUEST_HISTORY_OUTPUT env var if set
+  - ui/client/src/data/quest_history.json when ui/ exists (HQ)
+  - training/activities/quest_history.json otherwise (user repos)
 
 Status values: "done", "missed", "excused"
 Gaps (e.g., Jun 7-17 between seasons) are omitted — no entry means no data.
@@ -14,14 +19,23 @@ Usage:
 """
 
 import json
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 TRAINING_DIR = REPO_DIR / "training"
-DATA_DIR = REPO_DIR / "ui" / "client" / "src" / "data"
-OUTPUT_PATH = DATA_DIR / "quest_history.json"
+
+
+def resolve_output_path() -> Path:
+    override = os.environ.get("QUEST_HISTORY_OUTPUT")
+    if override:
+        return Path(override)
+    ui_data = REPO_DIR / "ui" / "client" / "src" / "data" / "quest_history.json"
+    if (REPO_DIR / "ui").exists():
+        return ui_data
+    return TRAINING_DIR / "activities" / "quest_history.json"
 
 
 def date_range(start: str, end: str):
@@ -102,9 +116,10 @@ def main():
         "quests": quests_out,
     }
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    OUTPUT_PATH.write_text(json.dumps(output, indent=2) + "\n")
-    print(f"[quest-history] wrote {OUTPUT_PATH}", file=sys.stderr)
+    output_path = resolve_output_path()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(output, indent=2) + "\n")
+    print(f"[quest-history] wrote {output_path}", file=sys.stderr)
     for qid, q in quests_out.items():
         print(f"[quest-history]   {qid}: {len(q['entries'])} entries", file=sys.stderr)
 
