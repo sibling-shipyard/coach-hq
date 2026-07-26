@@ -191,6 +191,17 @@ verify_migration() {
   local activity_count
   activity_count="$(python3 -c "import json; print(len(json.load(open('${aggregate}')).get('activities',[])))")"
   log "  verified: challenge migrated, aggregate has ${activity_count} activities"
+
+  local hist_dir="${target_root}/user_data/activities/hist"
+  local hist_count=0
+  if [[ -d "$hist_dir" ]]; then
+    hist_count="$(find "$hist_dir" -name '*.json' | wc -l | tr -d ' ')"
+  fi
+  if [[ "$hist_count" -eq 0 && "$activity_count" -gt 0 ]]; then
+    warn "hist/ empty but aggregate has activities — ensure git add -f hist/ on push"
+  elif [[ "$hist_count" -gt 0 ]]; then
+    log "  verified: ${hist_count} activity files in hist/"
+  fi
 }
 
 ensure_target_repo() {
@@ -332,6 +343,11 @@ if [[ "$MODE" == "migrate" || "$SKIP_PUSH" -eq 1 ]]; then
   if [[ "$MODE" == "migrate" ]]; then
     pushd "${WORKDIR}/target" >/dev/null
     git add -A
+    # hist/ is gitignored in skeleton (iOS/Strava write path) but must be
+    # committed on migrate — legacy repos track activity source files.
+    if [[ -d user_data/activities/hist ]]; then
+      git add -f user_data/activities/hist/
+    fi
     if git diff --cached --quiet; then
       warn "No changes after migration overlay"
     else
