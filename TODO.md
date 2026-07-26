@@ -1,6 +1,21 @@
 # coach-phelps-hq — TODO
 
-## Done (v1)
+## P0 — User 3+ gate (must-do before friends sign up)
+
+Friends will use **Sign up on the shared site → connect Claude to the same repo → coach**. They will not set up PATs or run operator scripts.
+
+**Authority:** [`docs/user-3-onboarding-gate.md`](docs/user-3-onboarding-gate.md)
+
+- [ ] **PAT-free Sync** — skeleton `sync.yml` uses `GITHUB_TOKEN` (+ permissions) instead of athlete-created `PAT_TOKEN`
+- [ ] **Auto repo on sign-up** — website creates `coach-<user>` from skeleton (App Administration perm or equivalent)
+- [ ] **Sign-up → working Sync** — exit test: dashboard login, Sync button, push-triggered Sync all green without operator
+- [ ] **SETUP.md** — athlete path is shared-site sign-up; remove manual PAT steps from friend-facing docs
+
+- [ ] **Unified challenge_v2 v4** — one schema all users; see [`docs/challenge-v2-schema.md`](docs/challenge-v2-schema.md) + ADR 0006. Migrate carve, provision, validate-data, live repos (C2–C4).
+
+**Do not invite user 3+ until all four pass.**
+
+---
 - [x] SOUL.md — generic Phelps identity + First Session Protocol
 - [x] training/coach/state.md — blank athlete template
 - [x] training/ledger/challenge_v2.json — parameterized quest schema (config-driven patterns, no hardcoded sport logic)

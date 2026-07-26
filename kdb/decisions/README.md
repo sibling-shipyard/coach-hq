@@ -9,6 +9,7 @@
 | 0002 | Wait to decide where the coach's "brain" lives | cross-cutting |
 | 0003 | Start new users from a clean template, archive the original | cross-cutting |
 | 0005 | Widget snapshots as the cross-platform contract | ui |
+| 0006 | One canonical challenge_v2 schema (version 4) | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 scripts/kdb/gen_adr_index.py`.

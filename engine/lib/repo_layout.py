@@ -11,6 +11,8 @@ def repo_root_from_here(file: str | Path) -> Path:
     for _ in range(6):
         if (dir / "engine" / "soul").is_dir():
             return dir
+        if (dir / "propagated" / "SOUL.md").is_file() and (dir / "user_data").is_dir():
+            return dir
         if (dir / "SOUL.md").is_file() and (
             (dir / "user_data").is_dir() or (dir / "training").is_dir()
         ):
