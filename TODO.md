@@ -11,6 +11,8 @@ Friends will use **Sign up on the shared site → connect Claude to the same rep
 - [ ] **Sign-up → working Sync** — exit test: dashboard login, Sync button, push-triggered Sync all green without operator
 - [ ] **SETUP.md** — athlete path is shared-site sign-up; remove manual PAT steps from friend-facing docs
 
+- [ ] **Unified challenge_v2 v4** — one schema all users; see [`docs/challenge-v2-schema.md`](docs/challenge-v2-schema.md) + ADR 0006. Migrate carve, provision, validate-data, live repos (C2–C4).
+
 **Do not invite user 3+ until all four pass.**
 
 ---
