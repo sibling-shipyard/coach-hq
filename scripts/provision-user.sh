@@ -264,9 +264,13 @@ if [[ "$MODE" == "migrate" || "$SKIP_PUSH" -eq 1 ]]; then
   if [[ "$SKIP_PUSH" -eq 1 || "$DRY_RUN" -eq 1 ]]; then
     log "Local workdir: ${WORKDIR}/target (not pushed)"
     [[ "$DRY_RUN" -eq 1 ]] && exit 0
+    # --skip-push: overlay applied locally for inspection only
+    set_repo_secrets
+    print_next_steps
+    exit 0
   fi
 
-  if [[ "$MODE" == "migrate" && "$DRY_RUN" -eq 0 ]]; then
+  if [[ "$MODE" == "migrate" ]]; then
     pushd "${WORKDIR}/target" >/dev/null
     git add -A
     if git diff --cached --quiet; then
