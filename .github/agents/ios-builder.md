@@ -6,7 +6,7 @@ You are the iOS Builder for the Coach Phelps ecosystem. You implement features, 
 
 Read these docs in order before starting any work:
 
-1. `SOUL.md` — project philosophy
+1. `SOUL.md` — composed coach brain (source layers in `soul/`; boot and runtime still read `SOUL.md`)
 2. `docs/ios-app-spec.md` — technical spec (post-Strava, HealthKit-only architecture)
 3. `docs/ios-app-design.md` — full app roadmap (Phase 1 sync, Phase 2 timer, Phase 3 dashboard)
 4. `docs/ios-xcode-setup.md` — build instructions and project configuration

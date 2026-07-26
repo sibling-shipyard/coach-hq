@@ -11,7 +11,7 @@ Format: `<prefix>: <description>`
 | Prefix | Used by | When |
 |---|---|---|
 | `coach:` | Coach Phelps | Session data: state.md, coach_notes.md, challenge_v2.json, sessions/, roadmap.md |
-| `core:` | Tech Lead | Architecture, SOUL.md, docs, agent configs |
+| `core:` | Tech Lead | Architecture, `soul/` layers, docs, agent configs |
 | `feat:` | Bob, UI Expert | New features — include issue ref: `feat: <desc> (#N)` |
 | `fix:` | Bob, UI Expert | Bug fixes — include issue ref: `fix: <desc> (#N)` |
 | `data:` | Pipeline (auto) | Auto-generated: sync, quest_log, sync_status |
@@ -50,7 +50,7 @@ Format: `<prefix>: <description> (#N)`
 Examples:
 - `feat: add run pace chart (#12)`
 - `fix: clamp quest streak display at 0 (#7)`
-- `core: SOUL.md v2.0 — periodization overhaul`
+- `core: soul layers — periodization overhaul` (regenerates `SOUL.md` via compose)
 
 Always include `fixes #N` in the PR body. PR body must follow `.github/agents/issue-template.md`.
 
@@ -67,12 +67,16 @@ Always include `fixes #N` in the PR body. PR body must follow `.github/agents/is
 **Always branch + PR:**
 - Scripts, workflows, GitHub Actions
 - Templates (`templates/*.json`)
-- SOUL.md, agent docs, CLAUDE.md, CONVENTIONS.md
+- `soul/*.md` (regenerates `SOUL.md`), agent docs, CLAUDE.md, CONVENTIONS.md
 - UI source: `ui/client/src/` (components, pages, styles)
 - iOS app code (`ios/**` — **never** push directly to main)
 - Anything that changes how data is processed or displayed
 
 **If in doubt:** use a branch.
+
+**SOUL changes:** edit `soul/A_identity.md`, `soul/B_engine.md`, and/or `soul/C_athlete.md`, then run
+`node scripts/compose-soul.mjs` and commit the layer edits plus the regenerated `SOUL.md`. Never
+hand-edit `SOUL.md`.
 
 ---
 

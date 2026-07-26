@@ -8,7 +8,7 @@ UI. Supersedes root `/scaling_plan.md` for architecture. Friend-#3 parking-lot i
 
 ## 1. Context
 
-Coach Phelps today is one person's repo: a `SOUL.md` persona, Strava/HealthKit data, a sync pipeline, and
+Coach Phelps today is one person's repo: a layered soul (`soul/` → composed `SOUL.md`), Strava/HealthKit data, a sync pipeline, and
 a dashboard, all driven by a Claude Code session. We want ~10 F&F users on **one shared site**, each with
 private data, without building a social product.
 
@@ -54,7 +54,7 @@ flowchart LR
   ui -->|user's own token| app["GitHub App<br/>installed per user"]
   app --> repo["coach-user repo<br/>private, per user"]
   subgraph repo_contents["Inside each user repo"]
-    soul["SOUL.md<br/>A+B, monolithic"]
+    soul["soul/ layers → SOUL.md<br/>composed A+B+C"]
     cdata["training/* + data/aggregate.json<br/>Layer C data"]
     wf["sync.yml / validate-data.yml"]
   end
@@ -68,7 +68,7 @@ flowchart LR
 ### 2.2 Gaps
 
 - **No skeleton onboarding.** Login assumes the user already owns a repo with the marker file (#32).
-- **`SOUL.md` is one 384-line file, per repo** — layers entangled, no central version, no propagation.
+- **Per-user forks may still carry a monolithic `SOUL.md` copy** — HQ has split `soul/` layers with composed `SOUL.md`; propagation to forks is not yet automated.
 - **The server coach is a *second* engine.** `coach-chat.ts` re-encodes Layer B in TS + a prompt that
   dumps `SOUL.md` at Gemini. BYO-Claude and Gemini now run *different copies* of the rules — the central
   risk (§7/§8).
@@ -147,8 +147,8 @@ The earlier three-repo sketch's `coach-engine` is gone — HQ *is* the canonical
 
 ```mermaid
 flowchart TB
-  monolith["SOUL.md today<br/>identity + engine + athlete, one file"] --> split
-  subgraph split["Target: three separated layers"]
+  monolith["SOUL.md (was monolithic)<br/>identity + engine + athlete, one file"] --> split
+  subgraph split["HQ target (shipped): three separated layers"]
     A["A — Soul<br/>voice, philosophy<br/>SHARED, not user-editable"]
     B["B — Engine<br/>boot, contracts, rules, commit<br/>SHARED, runtime-agnostic"]
     C["C — Athlete<br/>goals, injuries, targets<br/>PER-USER data"]
@@ -324,4 +324,4 @@ Not committed; recorded so the design doesn't box us in.
 Auth: `ui/api/auth-*.ts`, `_lib/session.ts`, `_lib/pkce.ts` · Repo resolution: `list-my-repos.ts` ·
 Runtime data: `repo-file.ts`, `hooks/useRepoData.ts` · Sync: `trigger-sync.ts` · Server coach:
 `coach-chat.ts` · Build: `build-data.mjs --aggregate` · Workflows: `sync.yml`, `apply-coach-patch.yml`,
-`validate-data.yml` · Engine (to split): `SOUL.md` · Prior: `docs/website-unification-history.md`.
+`validate-data.yml`, `validate-soul.yml` · Engine: `soul/` layers + composed `SOUL.md` · Prior: `docs/website-unification-history.md`.

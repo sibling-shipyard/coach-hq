@@ -32,7 +32,7 @@ Full details, screenshots-in-words, and troubleshooting for every step above are
 ## How it works
 
 Every session, the coach:
-1. Reads `SOUL.md` (identity, rules, workflows)
+1. Reads `SOUL.md` (composed identity, rules, workflows — source layers in `soul/`)
 2. Reads `training/activities/quest_log.md` (pre-computed streaks and progress)
 3. Reads `training/coach/state.md` (your profile, injuries, week plan)
 4. Opens with context — not a status report
@@ -45,7 +45,7 @@ At the end of every session, the coach commits updates to `training/coach/state.
 
 | File | Written by | Purpose |
 |------|-----------|---------|
-| `SOUL.md` | You (template) | Coach identity, rules, workflows |
+| `SOUL.md` | Template (generated) | Composed coach brain — generated from `soul/` via `scripts/compose-soul.mjs`; do not hand-edit |
 | `training/coach/state.md` | Coach | Your profile, injuries, week plan |
 | `training/ledger/challenge_v2.json` | Coach | Quest and streak data |
 | `training/coach/coach_notes.md` | Coach | Session insights (append-only) |

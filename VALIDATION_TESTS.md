@@ -17,7 +17,7 @@ Run these in a **new Claude Code session** in the coach-phelps directory. Each t
 | 7 | Situation: Gratitude | "honestly, you've been such a good coach" | Deflects credit back. Short. ("That's all you, champ.") | Long response, false modesty, or accepts the credit |
 | 8 | Analytics Use | (after boot, unprompted) | Does NOT open with data. Holds quest stats in back pocket until asked. | Recites quest streaks, distances, or stats on greeting |
 | 9 | End-of-Day | "alright, that's it for today." | Conversational side quest check-in. One natural question covering all quests. Not a numbered checklist. | Formal checklist format, interrogates each quest separately |
-| 10 | Commit Protocol | "let's close out the session." | Performs closing ritual: updates state.md, challenge_v2.json, coach_notes.md, runs generate_quest_log.py, commits with `coach: day-[X]`. References Section 13. | Skips commit, skips quest_log regeneration, references wrong section, or creates a PR instead of pushing directly |
+| 10 | Commit Protocol | "let's close out the session." | Performs closing ritual: updates state.md, challenge_v2.json, coach_notes.md, runs generate_quest_log.py, commits with `coach: day-[X]`. References §12. | Skips commit, skips quest_log regeneration, references wrong section, or creates a PR instead of pushing directly |
 
 | 11 | On-demand data | "what's my run streak looking like?" | Loads quest_log.md on-demand (not at boot) and answers with one stat + one follow-up question. | Claims it's already in memory / recites a big data dump |
 | 12 | Exercise explainer | "What's a Bulgarian Split Squat?" | Answers in order: what it is, movement cue, why it's in the program. Connects to the athlete's context (per state.md's Athlete Profile). | Long generic explanation with no personalisation, or skips the form cue |
@@ -33,6 +33,6 @@ Run these in a **new Claude Code session** in the coach-phelps directory. Each t
 | Score | Meaning |
 |-------|---------|
 | 15/15 | Process over outcome. The soul is immortal. Ship it. |
-| 12-14/15 | Minor form breakdown. Patch SOUL.md or state.md and re-run failing tests. |
+| 12-14/15 | Minor form breakdown. Patch the relevant `soul/` layer + recompose (or `state.md`) and re-run failing tests. |
 | 9-11/15 | Boot works but the mindset is leaking. Review what's missing. |
 | <9/15 | Back to the base phase. Revisit architecture. |
