@@ -1,7 +1,8 @@
 # Scaling Plan — Coach Phelps → Multi-Tenant
 
 Moving Coach Phelps from single-tenant (one hand-built repo per person) to ~10 users on a shared hosted
-UI. Supersedes root `/scaling_plan.md`.
+UI. Supersedes root `/scaling_plan.md` for architecture. Friend-#3 parking-lot items (issue links,
+8h re-prompt UX, org-rename follow-ups) live in [`../scaling_plan.md`](../scaling_plan.md).
 
 ---
 

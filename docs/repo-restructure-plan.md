@@ -21,7 +21,7 @@ history files. This is a *structure* pass, not a *logic* pass.
 
 Built and live: `training/` data, `scripts/` pipeline, `strava/` client,
 `ui/` dashboard (Netlify), `ios/` app (HealthKit → GitHub), `SOUL.md` +
-`training/state.md` coaching memory.
+`training/coach/state.md` coaching memory.
 
 Missing: any top-level grouping, a "current doc" pointer, plugin boundaries, and
 a dead-code sweep.

@@ -6,7 +6,9 @@ non-obvious decisions were made the way they were. Written so either of you can 
 this in six months — or so Akash, who wasn't in the room for most of this work, can actually
 understand what changed and why, not just that it changed.
 
-For what's still open or deliberately deferred until there's a friend #3, see `scaling_plan.md`.
+For what's still open or deliberately deferred until there's a friend #3, see
+[`scaling_plan.md`](../scaling_plan.md) (parking lot) and [`scaling-plan.md`](scaling-plan.md)
+(authoritative architecture).
 The one thing still left to do in each personal repo — removing the now-redundant standalone
 `ui/` and deployment — is tracked as an issue in each repo directly (not a doc, since it's a
 single to-do, not an ongoing plan): [skanda-2003/coach-phelps#94](https://github.com/skanda-2003/coach-phelps/issues/94),
@@ -176,4 +178,4 @@ shared site fully replaces both.
 Beyond that, everything intentionally left for "whenever there's a friend #3" — a public starter
 repo for a brand-new person to fork, a couple of small UX rough edges, and a few GitHub
 permissions that aren't needed until specific future features get built — is tracked in
-`scaling_plan.md`, not here.
+[`scaling_plan.md`](../scaling_plan.md) and [`scaling-plan.md`](scaling-plan.md), not here.
