@@ -1,0 +1,37 @@
+name: SOUL fidelity (P1)
+
+# Guards the SOUL A/B/C split fidelity harness (design doc §6.3-6.5):
+#   Gate 2 (line coverage)  — every frozen v5.7 line dispositioned exactly once, no double-claims
+#   Path-lint               — every §6.4 target is in the contract; no legacy training/** leaks
+#   Anchor-resolution       — every rule-ID resolves to a declared anchor (P1: stub registry)
+#
+# P1 is tooling only — no data moved, SOUL not yet split. These checks keep main green while
+# the ledger and contract are edited in later phases.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'soul/**'
+      - '.github/workflows/soul-fidelity.yml'
+  pull_request:
+    paths:
+      - 'soul/**'
+      - '.github/workflows/soul-fidelity.yml'
+
+jobs:
+  soul-fidelity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Gate 2 — dispositioned line coverage
+        run: python3 soul/ci/gate2_coverage.py
+      - name: Path-lint — target layout / no legacy leaks
+        run: python3 soul/ci/path_lint.py
+      - name: Anchor-resolution — every rule-ID resolves
+        run: python3 soul/ci/anchor_resolution.py

@@ -1,0 +1,73 @@
+{
+  "$schema_version": "1",
+  "artifact": "paths.contract.json",
+  "phase": "P1",
+  "description": "Frozen target-layout path contract for the SOUL A/B/C split. Written once, consumed four times: A/B authoring, the migration script, the Gate-3 path-lint, and runtime pointer resolution at boot (design doc SS6.4-6.5). B carries only symbolic pointers; boot step 0 loads this file and builds a pointer -> instance_path map. No literal path ever appears in A or B.",
+  "instance_root": "coach-<user>/",
+  "legacy_root": "coach-phelps/ (v5.7 monolith)",
+  "hq_root": "coach-hq/",
+  "groups": [
+    "A-support",
+    "B-support",
+    "C-config",
+    "C-state",
+    "generated",
+    "composed",
+    "propagated"
+  ],
+  "notes": {
+    "fragments": "An instance_path may carry a #fragment to address a sub-section of a file (e.g. coach/state.md#Active-Injury-Flags). The path-lint normalises the fragment away when checking the required-target inventory.",
+    "c_config_from_prose": "Config that v5.7 inlined in SOUL prose (SS5, SS7, SS8, SS9) lands in coach/config.yaml as data. Its legacy_path points at the SOUL section it came from, not a file.",
+    "quests_split": "challenge_v2.json carries both stable quest definitions (C-config) and daily completions (C-state); it maps to a single ledger/quests.json addressed by two pointers via #config and #completions.",
+    "hq_resident": "A-support and B-support source docs stay in coach-hq beside A/B; only a hash-pinned mirror is propagated to each instance under propagated/ when read at runtime."
+  },
+  "entries": [
+    { "pointer": "soul",                     "instance_path": "SOUL.md",                                       "group": "composed",   "writer": "composer(hq)",  "legacy_path": "SOUL.md" },
+
+    { "pointer": "c_state.state",            "instance_path": "coach/state.md",                                "group": "C-state",    "writer": "coach",         "legacy_path": "training/coach/state.md" },
+    { "pointer": "c_state.injury_flags",     "instance_path": "coach/state.md#Active-Injury-Flags",            "group": "C-state",    "writer": "coach",         "legacy_path": "training/coach/state.md#Active Injury Flags" },
+    { "pointer": "c_state.health",           "instance_path": "coach/state.md#health",                         "group": "C-state",    "writer": "coach",         "legacy_path": "training/coach/state.md" },
+    { "pointer": "c_state.notes",            "instance_path": "coach/notes.md",                                "group": "C-state",    "writer": "coach",         "legacy_path": "training/coach/coach_notes.md" },
+    { "pointer": "c_state.archive",          "instance_path": "coach/archive/",                                "group": "C-state",    "writer": "coach",         "legacy_path": "training/coach/archive/*" },
+    { "pointer": "c_state.current_week",     "instance_path": "ledger/current_week.json",                      "group": "C-state",    "writer": "coach",         "legacy_path": "training/ledger/current_week.json" },
+    { "pointer": "c_state.quest_completions","instance_path": "ledger/quests.json#completions",               "group": "C-state",    "writer": "coach",         "legacy_path": "training/ledger/challenge_v2.json" },
+    { "pointer": "c_state.workout_plans",    "instance_path": "activities/workout_plans/",                     "group": "C-state",    "writer": "coach",         "legacy_path": "sessions/*.json" },
+
+    { "pointer": "c_config.quests",          "instance_path": "ledger/quests.json#config",                     "group": "C-config",   "writer": "coach+user",    "legacy_path": "training/ledger/challenge_v2.json" },
+    { "pointer": "c_config.workout_templates","instance_path": "activities/workout_templates/",                "group": "C-config",   "writer": "user",          "legacy_path": "templates/*.json" },
+    { "pointer": "c_config.opponent_notes",  "instance_path": "coach/reference/opponent-notes.md",             "group": "C-config",   "writer": "coach+user",    "legacy_path": "training/coach/opponent_notes.md" },
+    { "pointer": "c_config.reference",       "instance_path": "coach/reference/",                              "group": "C-config",   "writer": "user",          "legacy_path": "training/reference/*" },
+    { "pointer": "c_config.roster",          "instance_path": "coach/reference/roster.md",                     "group": "C-config",   "writer": "user",          "legacy_path": "docs/badminton-roster.md" },
+    { "pointer": "c_config.protein_reference","instance_path": "coach/reference/protein-reference.md",         "group": "C-config",   "writer": "user",          "legacy_path": "docs/athlete-protein-reference.md" },
+    { "pointer": "c_config.sport",           "instance_path": "coach/config.yaml#sport",                       "group": "C-config",   "writer": "user",          "legacy_path": "SOUL.md#7" },
+    { "pointer": "c_config.season",          "instance_path": "coach/config.yaml#season",                      "group": "C-config",   "writer": "coach",         "legacy_path": "SOUL.md#5" },
+    { "pointer": "c_config.coaching_mode",   "instance_path": "coach/config.yaml#coaching_mode",               "group": "C-config",   "writer": "coach",         "legacy_path": "SOUL.md#5" },
+    { "pointer": "c_config.goals",           "instance_path": "coach/config.yaml#goals",                       "group": "C-config",   "writer": "coach",         "legacy_path": "SOUL.md#8" },
+    { "pointer": "c_config.milestones",      "instance_path": "coach/config.yaml#milestones",                  "group": "C-config",   "writer": "coach",         "legacy_path": "SOUL.md#8" },
+    { "pointer": "c_config.conditioning",    "instance_path": "coach/config.yaml#conditioning",                "group": "C-config",   "writer": "user",          "legacy_path": "SOUL.md#8" },
+    { "pointer": "c_config.side_quests",     "instance_path": "coach/config.yaml#side_quests",                 "group": "C-config",   "writer": "coach",         "legacy_path": "SOUL.md#8" },
+    { "pointer": "c_config.schedule",        "instance_path": "coach/config.yaml#schedule",                    "group": "C-config",   "writer": "coach+user",    "legacy_path": "SOUL.md#9" },
+    { "pointer": "c_config.day_template",    "instance_path": "coach/config.yaml#day_template",                "group": "C-config",   "writer": "user",          "legacy_path": "SOUL.md#9" },
+    { "pointer": "c_config.auto_regulation", "instance_path": "coach/config.yaml#auto_regulation",             "group": "C-config",   "writer": "coach+user",    "legacy_path": "SOUL.md#9" },
+    { "pointer": "c_config.recovery",        "instance_path": "coach/config.yaml#recovery",                    "group": "C-config",   "writer": "user",          "legacy_path": "SOUL.md#9" },
+    { "pointer": "c_config.equipment",       "instance_path": "coach/config.yaml#equipment",                   "group": "C-config",   "writer": "user",          "legacy_path": "SOUL.md#7" },
+    { "pointer": "c_config.injury_history",  "instance_path": "coach/config.yaml#injury_history",              "group": "C-config",   "writer": "user",          "legacy_path": "SOUL.md#7" },
+    { "pointer": "c_config.inner_game",      "instance_path": "coach/config.yaml#inner_game",                  "group": "C-config",   "writer": "user",          "legacy_path": "SOUL.md#7" },
+
+    { "pointer": "gen.quest_log",            "instance_path": "gen/quest_log.md",                              "group": "generated",  "writer": "pipeline",      "legacy_path": "training/activities/quest_log.md" },
+    { "pointer": "gen.analytics",            "instance_path": "gen/analytics.json",                            "group": "generated",  "writer": "pipeline",      "legacy_path": "training/activities/badminton_analytics_snapshot.json" },
+    { "pointer": "gen.history",              "instance_path": "activities/history/",                           "group": "generated",  "writer": "pipeline(sync)","legacy_path": "training/activities/history/*" },
+
+    { "pointer": "b_support.current_week_contract", "instance_path": "propagated/contracts/current-week-contract.md", "group": "B-support", "writer": "hq", "legacy_path": "docs/current-week-contract.md" },
+    { "pointer": "b_support.milestone_schema",      "instance_path": "propagated/contracts/milestone-schema.md",      "group": "B-support", "writer": "hq", "legacy_path": "docs/milestone-schema.md" },
+    { "pointer": "b_support.timer_state_machine",   "instance_path": "propagated/contracts/timer-state-machine.md",   "group": "B-support", "writer": "hq", "legacy_path": "docs/timer-state-machine.md" },
+
+    { "pointer": "a_support.phelps_research",   "instance_path": "propagated/voice/phelps-research-notes.md",    "group": "A-support", "writer": "hq", "legacy_path": "docs/phelps-research-notes.md" },
+    { "pointer": "a_support.phelps_voice",      "instance_path": "propagated/voice/phelps-voice-profile.md",     "group": "A-support", "writer": "hq", "legacy_path": "docs/phelps-voice-profile.md" },
+    { "pointer": "a_support.soul_calibration",  "instance_path": "propagated/voice/soul-calibration.md",         "group": "A-support", "writer": "hq", "legacy_path": "docs/soul-calibration.md" },
+    { "pointer": "a_support.viz_audio_guide",   "instance_path": "propagated/voice/visualization-audio-guide.md","group": "A-support", "writer": "hq", "legacy_path": "docs/visualization-audio-guide.md" },
+
+    { "pointer": "propagated.contract",      "instance_path": "propagated/paths.contract.json",                "group": "propagated", "writer": "hq",            "legacy_path": null },
+    { "pointer": "propagated.manifest",      "instance_path": "propagated/manifest.json",                      "group": "propagated", "writer": "hq",            "legacy_path": "propagated/manifest.json" }
+  ]
+}

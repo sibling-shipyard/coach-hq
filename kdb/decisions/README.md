@@ -9,6 +9,7 @@
 | 0002 | Wait to decide where the coach's "brain" lives | cross-cutting |
 | 0003 | Start new users from a clean template, archive the original | cross-cutting |
 | 0005 | Widget snapshots as the cross-platform contract | ui |
+| 0006 | Prove the SOUL split with a line-by-line ledger, not a byte match | core |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 scripts/kdb/gen_adr_index.py`.
