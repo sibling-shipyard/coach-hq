@@ -150,7 +150,7 @@ All date comparisons use `timezone`. The product never promotes `placeholder` or
 
 ## Build and validation boundary
 
-P0 provides three guards. Before a Coach-authored save, `./scripts/validate-current-week --coach-write` runs the same strict shape and invariant parser used by the dashboard and verifies Coach save metadata. GitHub Actions parses `training/ledger/current_week.json` on direct pushes and pull requests, catching malformed JSON before it can break a deploy. The dashboard repeats strict runtime validation before exposing the snapshot to components.
+P0 provides three guards. Before a Coach-authored save, `./engine/scripts/validate-current-week --coach-write` runs the same strict shape and invariant parser used by the dashboard and verifies Coach save metadata. GitHub Actions parses `training/ledger/current_week.json` on direct pushes and pull requests, catching malformed JSON before it can break a deploy. The dashboard repeats strict runtime validation before exposing the snapshot to components.
 
 The shared local parser rejects invalid enums, date windows, duplicate IDs, copy-length violations, and provenance errors without duplicating schema rules. Enforcing those semantic checks inside CI remains a separate P1 hardening step.
 

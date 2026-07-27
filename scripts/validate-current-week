@@ -2,6 +2,4 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$repo_root"
-
-exec node --experimental-strip-types --disable-warning=ExperimentalWarning engine/scripts/validate-current-week.mts "$@"
+exec "${repo_root}/engine/scripts/validate-current-week" "$@"

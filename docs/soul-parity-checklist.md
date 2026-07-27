@@ -168,7 +168,7 @@
 - [ ] Trust only current or rollover-grace live week.
 - [ ] Bounded edits: preserve session identity, record outcomes, null for unknowns, no measured load in plan.
 - [ ] Archive closed week before rollover replacement.
-- [ ] Before staging: fresh metadata, `./scripts/validate-current-week --coach-write`, inspect git diff.
+- [ ] Before staging: fresh metadata, `./engine/scripts/validate-current-week --coach-write`, inspect git diff.
 - [ ] Fix every validator failure; never bypass or commit fallback output.
 
 ## Workflows — Generating a weekly plan (§10)
