@@ -13,6 +13,7 @@
 | [`restructure-ledger.md`](restructure-ledger.md) | Migration ledger — every path move, archive, rename (M0–M5) |
 | [`repo-restructure-plan.md`](repo-restructure-plan.md) | Tech Lead restructure plan and milestone exit tests |
 | [`hq-port-plan.md`](hq-port-plan.md) | HQ port milestones (P1–P3) — adopt clean structure from `coach-phelps` |
+| [`hq-restructure-plan.md`](hq-restructure-plan.md) | **Draft** post-M1 HQ in-repo tidy — platform/engine/fixtures split |
 | [`m1-plan.md`](m1-plan.md) | **Active** M1 execution plan — thin skeleton, provision, Akash + Skanda clones |
 | [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md) | **Must-do** before friend sign-ups — auto repo + PAT-free Sync |
 | [`challenge-v2-schema.md`](challenge-v2-schema.md) | **Locked** canonical quest ledger schema (v4) — ADR 0006 |
