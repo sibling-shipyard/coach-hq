@@ -137,8 +137,3 @@ files.
 | `ios/CoachPhelps/CoachPhelps/Services/ActivityNamer.swift` | sequential naming, filenames |
 | `ios/CoachPhelps/CoachPhelps/Services/GitHubAPIClient.swift` | Git Data API commits, reads |
 | `ios/CoachPhelps/CoachPhelps/Services/GitHubAuthManager.swift` | OAuth + Keychain token storage |
-
-**Known stale docs** (not fixed here, flagging for a follow-up): `engine/docs/ios-app-spec.md`
-and `.github/agents/ios-builder.md`'s reference table both still cite the pre-migration
-`training/activities/history/` path — the real code uses `user_data/activities/hist/`. Trust the
-Swift code over those docs until they're updated.

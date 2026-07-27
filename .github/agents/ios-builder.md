@@ -70,8 +70,8 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 | `ui/client/src/lib/activities.ts` | Dashboard Activity interface + sport classification |
 | `ui/client/src/pages/workout-timer/useTimerEngine.ts` | Timer state machine (reference for Phase 2) |
 | `ui/client/src/lib/workouts.ts` | Session JSON schema |
-| `training/activities/history/*.json` | Activity data files (what Coach reads) |
-| `training/sync_state.json` | Sync counters and last-synced timestamp |
+| `user_data/activities/hist/*.json` | Activity data files (what Coach reads) |
+| `user_data/activities/sync_state.json` | Sync counters and last-synced timestamp |
 
 ## Design Language
 
@@ -135,7 +135,7 @@ This section describes the app as it was brought into this repo — it was built
 - HR zones configuration
 - Cache management (clear, eviction)
 - Workout timer (reads `sessions/*.json` from GitHub, haptics, background audio beep)
-- **Warm Instrument Home** — `WarmInstrumentHomeView.swift` is now the primary tab, consuming `training/widget_snapshots.json` via `GitHubAPIClient.readWidgetSnapshots()` (see ADR 0005). Renders the P0/P1/P2 widget set (Engine, sport commitment cubes, quest, recent sessions, weekly plan, training activity heatmap, coach's read, build phase, VO2, calories) as a scrolling column of M widgets, with long-press jiggle + S/M/L picker (Engine/Quest/Commitments — the only widgets with size variants in the snapshot schema), weekly-plan chip drag, session swipe→Edit, and heatmap month paging. `Theme.swift`'s `WarmInstrument` enum holds the token set (`shared/warm-instrument/tokens.json`); atoms (`WarmCard`, `SessionRow`, `SportChip`, `SportCube`, `MonoLabel`) live in `WarmInstrumentAtoms.swift`; snapshot Codable models in `Models/WidgetSnapshots.swift`.
+- **Warm Instrument Home** — `WarmInstrumentHomeView.swift` is now the primary tab, consuming `gen/widget_snapshots.json` via `GitHubAPIClient.readWidgetSnapshots()` (see ADR 0005). Renders the P0/P1/P2 widget set (Engine, sport commitment cubes, quest, recent sessions, weekly plan, training activity heatmap, coach's read, build phase, VO2, calories) as a scrolling column of M widgets, with long-press jiggle + S/M/L picker (Engine/Quest/Commitments — the only widgets with size variants in the snapshot schema), weekly-plan chip drag, session swipe→Edit, and heatmap month paging. `Theme.swift`'s `WarmInstrument` enum holds the token set (`shared/warm-instrument/tokens.json`); atoms (`WarmCard`, `SessionRow`, `SportChip`, `SportCube`, `MonoLabel`) live in `WarmInstrumentAtoms.swift`; snapshot Codable models in `Models/WidgetSnapshots.swift`.
 - `CoachingInsightsView.swift` is deprecated (no longer in the tab bar) — superseded by Warm Instrument Home; left in place for reference only, not to be extended.
 
 ## What's Next
