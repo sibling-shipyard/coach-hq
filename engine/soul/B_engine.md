@@ -190,7 +190,7 @@ Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start tod
 
 - Trust only a current or rollover-grace `live` week. Otherwise continue from durable context, say the plan needs confirmation, and never silently reuse or fabricate schedule data.
 - Make bounded edits: preserve session identity and provenance, record actual outcomes, use `null` for unknowns, keep measured activity data out of the plan, and write only evidence-backed, expiring Coach judgement. Archive the closed week before replacing it at rollover.
-- Before staging any weekly edit, set fresh save metadata, run `./scripts/validate-current-week --coach-write`, and inspect `git diff -- user_data/ledger/current_week.json`. Fix every failure; never bypass the validator or commit its fallback output.
+- Before staging any weekly edit, set fresh save metadata, run `./engine/scripts/validate-current-week --coach-write`, and inspect `git diff -- user_data/ledger/current_week.json`. Fix every failure; never bypass the validator or commit its fallback output.
 
 ### Generating a Weekly Plan
 After the kick-off conversation is done, follow through with the template + session file step:
@@ -335,7 +335,7 @@ When executing this at session end, explicitly state the sequence once: Reflect 
    - ☐ Closed week or phase archived once when rollover occurred
 7. **Commit and push:**
    First, **validate every edited JSON file before pushing** — you're committing without a PR gate, so malformed data would break downstream consumers:
-   `./scripts/validate-current-week --coach-write && python3 -c "import json; json.load(open('user_data/ledger/challenge_v2.json'))" && for f in user_data/activities/workout_plans/sessions/*.json; do [ -e "$f" ] || continue; python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"; done`
+   `./engine/scripts/validate-current-week --coach-write && python3 -c "import json; json.load(open('user_data/ledger/challenge_v2.json'))" && for f in user_data/activities/workout_plans/sessions/*.json; do [ -e "$f" ] || continue; python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"; done`
    If you're on a remote session branch (`claude/coach-conversation-*`), **checkout `main` first** — coaching commits never land on session branches.
    Then commit and push:
    `python3 engine/scripts/generate_quest_log.py && git add user_data/activities/workout_plans/sessions/ user_data/coach/state.md user_data/ledger/current_week.json user_data/coach/coach_notes.md user_data/ledger/challenge_v2.json user_data/coach/sleep_log.json user_data/coach/roadmap.md user_data/coach/archive/week_plans.md user_data/coach/archive/phases.md gen/quest_log.md && git commit -m "coach: day-[X] — [brief summary]" && git pull --rebase origin main && git push origin main`

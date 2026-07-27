@@ -111,15 +111,14 @@ When HQ adds or updates carved engine tools after migrate (e.g. `validate-curren
 AKASH_ROOT="${AKASH_ROOT:-$HOME/src/coach-akash}"   # local clone of akash-suresh/coach-akash
 HQ_ROOT="$(pwd)"
 
-cp "$HQ_ROOT/engine/lib/current-week.mts"           "$AKASH_ROOT/engine/lib/"
+cp "$HQ_ROOT/engine/lib/current-week.mts"              "$AKASH_ROOT/engine/lib/"
 cp "$HQ_ROOT/engine/scripts/validate-current-week.mts" "$AKASH_ROOT/engine/scripts/"
-mkdir -p "$AKASH_ROOT/scripts"
-cp "$HQ_ROOT/scripts/validate-current-week"         "$AKASH_ROOT/scripts/"
-chmod +x "$AKASH_ROOT/scripts/validate-current-week"
+cp "$HQ_ROOT/engine/scripts/validate-current-week"     "$AKASH_ROOT/engine/scripts/"
+chmod +x "$AKASH_ROOT/engine/scripts/validate-current-week"
 
 cd "$AKASH_ROOT"
-./scripts/validate-current-week user_data/ledger/current_week.json
-git add engine/lib/current-week.mts engine/scripts/validate-current-week.mts scripts/validate-current-week
+./engine/scripts/validate-current-week user_data/ledger/current_week.json
+git add engine/lib/current-week.mts engine/scripts/validate-current-week.mts engine/scripts/validate-current-week
 git commit -m "core: add validate-current-week wrapper (engine carve sync)"
 git push origin main
 ```
