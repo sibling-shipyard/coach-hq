@@ -1,9 +1,11 @@
 /**
  * useRepoData — loads the dashboard's data, from either source:
  *
- * - Local dev (import.meta.env.DEV): the statically bundled client/src/data/*.json
- *   files, synchronously, same as before this existed - zero behavior change for
- *   `npm run dev`.
+ * - Local dev (import.meta.env.DEV): the golden dataset's generated repo-data
+ *   (`shared/golden-dataset/repo-data/*.json`, produced fresh on every `npm run dev` by
+ *   `generate-repo-data.mjs` — see `shared/golden-dataset/README.md`), synchronously. Not
+ *   `ui/client/src/data/*` — those files are exclusively pipeline-managed (AGENTS.md) and
+ *   reflect whatever real repo is configured, not a stable local fixture.
  * - Hosted deployment: fetches /api/repo-file once (the signed-in user's resolved
  *   repo's gen/aggregate.json), cached module-wide so navigating between pages
  *   doesn't refetch.
@@ -13,13 +15,13 @@
  * loading/error check - not a rewrite of page logic.
  */
 import { useEffect, useState } from "react";
-import activitiesData from "@/data/activities.json";
-import challengeDataRaw from "@/data/challenge_v2.json";
-import syncStatusData from "@/data/sync_status.json";
-import workoutsData from "@/data/workouts.json";
-import sleepLogRaw from "@/data/sleep_log.json";
-import questHistoryRaw from "@/data/quest_history.json";
-import currentWeekRaw from "@/data/current_week.json";
+import activitiesData from "@golden/repo-data/activities.json";
+import challengeDataRaw from "@golden/repo-data/challenge_v2.json";
+import syncStatusData from "@golden/repo-data/sync_status.json";
+import workoutsData from "@golden/repo-data/workouts.json";
+import sleepLogRaw from "@golden/repo-data/sleep_log.json";
+import questHistoryRaw from "@golden/repo-data/quest_history.json";
+import currentWeekRaw from "@golden/repo-data/current_week.json";
 
 export interface RepoData {
   activities: unknown[];

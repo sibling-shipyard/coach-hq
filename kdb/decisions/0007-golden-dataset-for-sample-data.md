@@ -4,18 +4,37 @@
 - **Area:** cross-cutting
 - **Context:** Fake data had grown in three unrelated places on web — gallery fixtures, a
   current-week fixture, and hardcoded consts inside the marketing Welcome page — and iOS had
-  none at all, so previews and product screens had nothing real to show.
-- **Decision:** One hand-authored golden dataset lives in `shared/golden-dataset/`, written in
-  the same schemas as the real pipeline data (`WidgetSnapshotsFile`, `CurrentWeekContract`
-  from `ui/client/src/components/home-warm/snapshots.ts` and `currentWeek.fixture.ts`). Web
-  reads it through `ui/client/src/lib/goldenDataset.ts`; iOS bundles the same JSON and decodes
-  it with the existing `WidgetSnapshots.swift` models. Marketing copy is not data and stays in
-  the web app (`welcomeCopy.ts`).
-- **Why:** Reusing the real schema means zero new types on either platform, and it keeps the
-  fake data honest — if the schema changes, the sample data fails to typecheck or decode
-  instead of drifting quietly. One folder also means one place to update when the sample story
-  needs to change, instead of three.
-- **Rejected:** Fixtures next to each component (what we had) — three copies that drift
+  none at all, so previews and product screens had nothing real to show. Separately, most of
+  the app (Home, Workouts, sport-analytics pages, Coach Chat) doesn't read pre-baked snapshots
+  at all — it computes its own numbers from raw activities/challenge/sync data, and that
+  computation (streaks, "this week" filters, current-month analytics) keys off the real
+  wall-clock `new Date()`. A hand-typed fixture with frozen dates looks right the day it's
+  written and goes stale every day after.
+- **Decision:** `shared/golden-dataset/` has two layers:
+  - **Static, committed** (`widget_snapshots.json`, `current_week.json`) — hand-authored,
+    written in the real `WidgetSnapshotsFile`/`CurrentWeekContract` schemas
+    (`ui/client/src/components/home-warm/snapshots.ts`, `currentWeek.fixture.ts`). Read by web
+    through `ui/client/src/lib/goldenDataset.ts` for `/gallery` and `/welcome`, and by iOS via
+    `GoldenDataset.swift` decoding through the existing `WidgetSnapshots.swift` models for
+    SwiftUI previews. Fine to freeze because these consumers don't care what "today" is.
+  - **Generated, gitignored** (`generate-repo-data.mjs` → `repo-data/*.json`) — the raw
+    `RepoData` shape `ui/client/src/hooks/useRepoData.ts` expects (`activities`,
+    `challenge_v2`, `workouts`, `sync_status`, `sleep_log`, `quest_history`, `current_week`).
+    Every date is computed relative to `Date.now()` at generation time, wired into `ui`'s
+    `predev`/`prebuild` so it regenerates automatically on every `npm run dev`/`npm run build`.
+    Randomness (win/loss counts, HR noise, sleep hours) is seeded from today's calendar date,
+    so anyone running dev on the same day gets the identical dataset. This layer replaces
+    `ui/client/src/data/*.json` as `useRepoData.ts`'s dev-mode source — those files stay
+    exclusively pipeline-managed per `AGENTS.md`, untouched.
+  - Marketing copy is not data and stays in the web app (`welcomeCopy.ts`), not either layer.
+- **Why:** Reusing the real schemas means zero new types on either platform, and it keeps the
+  fake data honest — if a schema changes, the sample data fails to typecheck or decode instead
+  of drifting quietly. Splitting static vs. generated matches how the two consumer groups
+  actually differ: pre-baked-snapshot consumers don't care about real dates, computed-from-raw
+  consumers require them, and faking that would mean either date-stale fixtures or fragile
+  hand-maintained "current week" JSON.
+- **Rejected:** Fixtures next to each component (what we had) — copies that drift
   independently. Generating the golden file from real athlete data — leaks private data into a
   public marketing page. A new sample-only schema — a second contract to keep in sync with
-  ADR-0005's real one, for no gain.
+  ADR-0005's real one, for no gain. Hand-typing the raw layer's dates like the static layer —
+  works the day it's written, breaks every day after as "today" moves past the fixture.
