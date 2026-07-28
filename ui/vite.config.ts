@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
+      "@golden": path.resolve(import.meta.dirname, "..", "shared", "golden-dataset"),
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
@@ -19,6 +20,9 @@ export default defineConfig({
     port: 3000,
     host: true,
     allowedHosts: true,
+    fs: {
+      allow: [path.resolve(import.meta.dirname, "..")],
+    },
   },
   preview: {
     allowedHosts: true,

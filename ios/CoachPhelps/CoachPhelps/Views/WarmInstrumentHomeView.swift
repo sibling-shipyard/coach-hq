@@ -1061,3 +1061,10 @@ private struct CaloriesWidget: View {
         value >= 1000 ? String(format: "%.1fK", value / 1000) : "\(Int(value))"
     }
 }
+
+#Preview("Warm Instrument Home — golden dataset") {
+    let store = WidgetSnapshotStore()
+    store.snapshots = GoldenDataset.snapshots
+    return WarmInstrumentHomeView()
+        .environmentObject(store)
+}

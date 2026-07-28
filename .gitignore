@@ -13,6 +13,7 @@ __pycache__/
 ui/node_modules/
 ui/dist/
 ui/client/src/data/
+shared/golden-dataset/repo-data/
 issues/
 ios/**/xcuserdata/
 ios/**/*.xcuserstate
