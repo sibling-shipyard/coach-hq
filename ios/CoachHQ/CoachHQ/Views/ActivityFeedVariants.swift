@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Day grouping (shared by all variants)
+// MARK: - Day grouping
 
 struct DayGroup: Identifiable {
     let id: String       // YYYY-MM-DD
@@ -40,22 +40,6 @@ func groupByDay(_ entries: [SyncCacheEntry]) -> [DayGroup] {
 }
 
 // MARK: - Shared components
-
-/// Sticky day-group header used by Variants A and B.
-struct DayGroupHeader: View {
-    let label: String
-    var body: some View {
-        Text(label.uppercased())
-            .font(.system(size: 11, weight: .bold))
-            .kerning(1.5)
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.top, 22)
-            .padding(.bottom, 7)
-            .background(Color(uiColor: .systemBackground))
-    }
-}
 
 /// 5 small HR zone circles: filled at zone color if ≥8% time in that zone, else dimmed.
 struct ZoneDots: View {
@@ -118,7 +102,7 @@ struct CompactZoneBar: View {
     }
 }
 
-// MARK: - Week summary widget (Variants A)
+// MARK: - Week summary widget
 
 struct WeekSummaryWidget: View {
     let entries: [SyncCacheEntry]
@@ -162,21 +146,19 @@ struct WeekSummaryWidget: View {
     }
 
     var body: some View {
-        ThemedCard {
+        WarmCard {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("THIS WEEK")
-                        .font(.system(size: 10, weight: .bold)).kerning(2)
-                        .foregroundColor(.secondary)
+                    MonoLabel("This week", tracking: 2)
                     Spacer()
                     HStack(spacing: 6) {
                         ForEach(dots.indices, id: \.self) { i in
                             let d = dots[i]
                             Circle()
-                                .fill(d.isFuture || d.isEmpty ? Theme.mutedBackground : d.color)
+                                .fill(d.isFuture || d.isEmpty ? WarmInstrument.surfaceMuted : d.color)
                                 .frame(width: 9, height: 9)
                                 .overlay(Circle().stroke(
-                                    d.isToday ? Color.primary.opacity(0.45) : Color.clear,
+                                    d.isToday ? Theme.ink.opacity(0.45) : Color.clear,
                                     lineWidth: 1.5))
                         }
                     }
@@ -198,78 +180,60 @@ private struct WeekStatCell: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
                 .font(.system(size: 22, weight: .bold, design: .monospaced))
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.ink)
                 .contentTransition(.numericText())
-            Text(label)
-                .font(.system(size: 9, weight: .bold)).kerning(1)
-                .foregroundColor(.secondary)
+            MonoLabel(label, size: 9)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-// MARK: - ═══ VARIANT 1 — Dashboard + Icon Rows ═══
-//
-// Top: week summary widget (sessions · time · days + dot strip)
-// Feed: circular sport icon + name + zone dots + calories
+// MARK: - Ledger row
 
-struct FeedVariant1: View {
-    let entries: [SyncCacheEntry]
-    let grouped: [DayGroup]
-
-    var body: some View {
-        LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
-            WeekSummaryWidget(entries: entries)
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 4)
-
-            ForEach(grouped) { group in
-                Section {
-                    ForEach(Array(group.entries.enumerated()), id: \.element.id) { idx, entry in
-                        NavigationLink(value: entry) {
-                            IconRow(entry: entry)
-                        }
-                        .buttonStyle(RowPressButtonStyle())
-                        if idx < group.entries.count - 1 {
-                            Divider().padding(.leading, 68)
-                        }
-                    }
-                } header: {
-                    DayGroupHeader(label: group.label)
-                }
-            }
-        }
-    }
-}
-
-private struct IconRow: View {
+/// Receipt-style activity row — date · sport vein · title · load. Mirrors `SessionRow` for
+/// `SyncCacheEntry` data from the local sync cache.
+struct ActivityLedgerRow: View {
     let entry: SyncCacheEntry
-    private var badge: (label: String, color: Color) { Theme.sportBadge(for: entry.sportType) }
+
+    private var sportColor: Color { Theme.sportBadge(for: entry.sportType).color }
+
     private var timeString: String {
         guard let d = _inputFmt.date(from: entry.startDateLocal) else { return "" }
         return d.formatted(date: .omitted, time: .shortened)
     }
 
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            // Sport icon circle
-            Image(systemName: Theme.sportIcon(for: entry.sportType))
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(badge.color)
-                .frame(width: 40, height: 40)
-                .background(badge.color.opacity(0.1))
-                .clipShape(Circle())
+    private var monoTimeLabel: String {
+        guard let d = _inputFmt.date(from: entry.startDateLocal) else { return "" }
+        return d.formatted(date: .omitted, time: .shortened).uppercased()
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
+    private var calories: Int? { entry.activity?.calories ?? entry.calories }
+
+    private var trailingValue: String {
+        if let cal = calories { return "\(cal)" }
+        let h = entry.elapsedTime / 3600, m = (entry.elapsedTime % 3600) / 60
+        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            MonoLabel(monoTimeLabel, size: 9, color: WarmInstrument.inkFaint, tracking: 0.6)
+                .frame(width: 46, alignment: .leading)
+
+            RoundedRectangle(cornerRadius: 2)
+                .fill(sportColor)
+                .frame(width: 3, height: 30)
+
+            VStack(alignment: .leading, spacing: 1) {
                 Text(entry.name)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(WarmInstrument.ink)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     Text(timeString)
-                        .font(.system(size: 11)).foregroundColor(.secondary)
+                        .font(.system(size: 11))
+                        .foregroundColor(WarmInstrument.inkMuted)
                     if let zones = entry.activity?.hrZones {
                         ZoneDots(zones: zones)
                     }
@@ -279,317 +243,71 @@ private struct IconRow: View {
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 1) {
-                if let cal = entry.activity?.calories {
-                    Text("\(cal)")
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .foregroundColor(.primary)
-                    Text("CAL")
-                        .font(.system(size: 8, weight: .bold)).kerning(0.5)
-                        .foregroundColor(.secondary)
-                } else {
-                    let h = entry.elapsedTime / 3600, m = (entry.elapsedTime % 3600) / 60
-                    Text(h > 0 ? "\(h)h \(m)m" : "\(m)m")
-                        .font(.system(size: 15, weight: .bold, design: .monospaced))
-                        .foregroundColor(.primary)
-                    Text("TIME")
-                        .font(.system(size: 8, weight: .bold)).kerning(0.5)
-                        .foregroundColor(.secondary)
-                }
-            }
+            Text(trailingValue)
+                .font(WarmInstrument.figures(14, weight: .bold))
+                .foregroundColor(sportColor)
+                .contentTransition(.numericText())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
     }
 }
 
-// MARK: - ═══ VARIANT 2 — Sport Cards with Full Zone Bar ═══
-//
-// Top: large bold stat banner (no card container — raw numbers pop)
-// Feed: activity cards with sport-colored left bar, big watermark icon,
-//        calories prominent right, full-width zone bar flush to card bottom
+// MARK: - Activity feed
 
-struct FeedVariant2: View {
+/// Week summary + single ledger card with inline day groups. Taps via parent `onSelect`.
+struct ActivityFeedView: View {
     let entries: [SyncCacheEntry]
     let grouped: [DayGroup]
+    let onSelect: (SyncCacheEntry) -> Void
 
-    var body: some View {
-        LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
-            StatBanner(entries: entries)
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
-                .padding(.bottom, 16)
-
-            Divider().opacity(0.5)
-
-            ForEach(grouped) { group in
-                Section {
-                    VStack(spacing: 10) {
-                        ForEach(group.entries) { entry in
-                            NavigationLink(value: entry) {
-                                SportCard(entry: entry)
-                            }
-                            .buttonStyle(CardPressButtonStyle())
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 4)
-                } header: {
-                    DayGroupHeader(label: group.label)
-                }
-            }
-        }
+    private var sessionLabel: String {
+        entries.count == 1 ? "1 SESSION" : "\(entries.count) SESSIONS"
     }
-}
-
-private struct StatBanner: View {
-    let entries: [SyncCacheEntry]
-    private var totalSecs: Int { entries.reduce(0) { $0 + $1.elapsedTime } }
-    private var days: Int {
-        let cal = Calendar.current
-        return Set(entries.compactMap { e -> String? in
-            guard let d = _inputFmt.date(from: e.startDateLocal) else { return nil }
-            return _dayFmt.string(from: cal.startOfDay(for: d))
-        }).count
-    }
-    private var timeStr: String {
-        let h = totalSecs / 3600, m = (totalSecs % 3600) / 60
-        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
-    }
-
-    var body: some View {
-        HStack(spacing: 0) {
-            BannerStat(value: "\(entries.count)", label: "THIS WEEK")
-            BannerStat(value: timeStr, label: "ACTIVE TIME")
-            BannerStat(value: "\(days) / 7", label: "DAYS")
-        }
-    }
-}
-
-private struct BannerStat: View {
-    let value: String; let label: String
-    var body: some View {
-        VStack(alignment: .center, spacing: 3) {
-            Text(value)
-                .font(.system(size: 26, weight: .black, design: .monospaced))
-                .foregroundColor(.primary)
-                .contentTransition(.numericText())
-            Text(label)
-                .font(.system(size: 8, weight: .bold)).kerning(1.5)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private struct SportCard: View {
-    let entry: SyncCacheEntry
-    private var badge: (label: String, color: Color) { Theme.sportBadge(for: entry.sportType) }
-    private var timeStr: String {
-        guard let d = _inputFmt.date(from: entry.startDateLocal) else { return "" }
-        return d.formatted(date: .omitted, time: .shortened)
-    }
-    private var durStr: String {
-        let h = entry.elapsedTime / 3600, m = (entry.elapsedTime % 3600) / 60
-        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 0) {
-                // Bold sport color left bar
-                badge.color.frame(width: 5)
-
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(entry.name)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.primary)
-                            .lineLimit(2)
-
-                        HStack(spacing: 6) {
-                            Text(timeStr).font(.system(size: 11)).foregroundColor(.secondary)
-                            Text("·").foregroundColor(Color(uiColor: .tertiaryLabel))
-                            Text(durStr).font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
-                            if entry.sportType == "Badminton" && !entry.hasDescription {
-                                Circle().fill(Theme.attentionOrange).frame(width: 5, height: 5)
-                            }
-                        }
-                    }
-
-                    Spacer(minLength: 8)
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        // Watermark icon
-                        Image(systemName: Theme.sportIcon(for: entry.sportType))
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundColor(badge.color.opacity(0.2))
-
-                        if let cal = entry.activity?.calories {
-                            Text("\(cal)")
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                .foregroundColor(.primary)
-                            Text("CAL")
-                                .font(.system(size: 8, weight: .bold)).kerning(1)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 14)
-            }
-
-            // Zone bar: flush to card bottom, rounded by card clip
-            CompactZoneBar(zones: entry.activity?.hrZones, height: 6, rounded: false)
-        }
-        .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.cardBorder, lineWidth: 1))
-    }
-}
-
-// MARK: - ═══ VARIANT 3 — Sport-Tinted Activity Grid ═══
-//
-// Top: 3 raw bold numbers (no card, maximum visual weight)
-// Body: 2-column grid of sport-colored cards — each card shows the sport
-//       icon large, name, calories, and a compact zone bar at the bottom.
-//       The card's background tint immediately identifies the sport at a glance.
-
-struct FeedVariant3: View {
-    let entries: [SyncCacheEntry]
-
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
 
     var body: some View {
         LazyVStack(spacing: 0) {
-            GridStatBanner(entries: entries)
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
-                .padding(.bottom, 16)
+            WeekSummaryWidget(entries: entries)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
 
-            Divider().opacity(0.5)
+            WarmCard {
+                VStack(alignment: .leading, spacing: 0) {
+                    CardKicker(label: "LAST 7 DAYS", trailing: sessionLabel)
+                        .padding(.bottom, 12)
 
-            LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(entries) { entry in
-                    NavigationLink(value: entry) {
-                        ActivityGridCard(entry: entry)
+                    ForEach(Array(grouped.enumerated()), id: \.element.id) { groupIndex, group in
+                        MonoLabel(group.label, size: 11, tracking: 1.5)
+                            .padding(.top, groupIndex == 0 ? 0 : 16)
+                            .padding(.bottom, 8)
+
+                        ForEach(Array(group.entries.enumerated()), id: \.element.id) { entryIndex, entry in
+                            Button {
+                                onSelect(entry)
+                            } label: {
+                                ActivityLedgerRow(entry: entry)
+                            }
+                            .buttonStyle(RowPressButtonStyle())
+
+                            if !isLastRow(groupIndex: groupIndex, entryIndex: entryIndex) {
+                                Divider()
+                                    .overlay(WarmInstrument.headerRule)
+                            }
+                        }
                     }
-                    .buttonStyle(CardPressButtonStyle())
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 16)
+            .padding(.bottom, 12)
+
+            Color.clear.frame(height: 12)
         }
     }
-}
 
-private struct GridStatBanner: View {
-    let entries: [SyncCacheEntry]
-    private var totalSecs: Int { entries.reduce(0) { $0 + $1.elapsedTime } }
-    private var days: Int {
-        let cal = Calendar.current
-        return Set(entries.compactMap { e -> String? in
-            guard let d = _inputFmt.date(from: e.startDateLocal) else { return nil }
-            return _dayFmt.string(from: cal.startOfDay(for: d))
-        }).count
-    }
-    private var timeStr: String {
-        let h = totalSecs / 3600, m = (totalSecs % 3600) / 60
-        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
-    }
-
-    var body: some View {
-        HStack(spacing: 0) {
-            GridStat(value: "\(entries.count)", label: "THIS WEEK")
-            GridStat(value: timeStr, label: "ACTIVE")
-            GridStat(value: "\(days)", label: "DAYS")
-        }
-    }
-}
-
-private struct GridStat: View {
-    let value: String; let label: String
-    var body: some View {
-        VStack(alignment: .center, spacing: 3) {
-            Text(value)
-                .font(.system(size: 28, weight: .black, design: .monospaced))
-                .foregroundColor(.primary)
-                .contentTransition(.numericText())
-            Text(label)
-                .font(.system(size: 8, weight: .bold)).kerning(1.5)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private struct ActivityGridCard: View {
-    let entry: SyncCacheEntry
-    private var badge: (label: String, color: Color) { Theme.sportBadge(for: entry.sportType) }
-    private var timeStr: String {
-        guard let d = _inputFmt.date(from: entry.startDateLocal) else { return "" }
-        return d.formatted(date: .omitted, time: .shortened)
-    }
-    private var durStr: String {
-        let h = entry.elapsedTime / 3600, m = (entry.elapsedTime % 3600) / 60
-        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Header row: sport label + icon
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(badge.label)
-                            .font(.system(size: 8, weight: .bold)).kerning(1)
-                            .foregroundColor(badge.color)
-                        Text(timeStr)
-                            .font(.system(size: 9)).foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: Theme.sportIcon(for: entry.sportType))
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundColor(badge.color.opacity(0.35))
-                }
-
-                Spacer(minLength: 10)
-
-                // Name + cal
-                Text(entry.name)
-                    .font(.system(size: 11, weight: .semibold))
-                    .lineLimit(2)
-                    .foregroundColor(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if let cal = entry.activity?.calories {
-                    Text("\(cal) cal")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundColor(badge.color)
-                        .padding(.top, 3)
-                } else {
-                    Text(durStr)
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .padding(.top, 3)
-                }
-            }
-            .padding(12)
-
-            // Zone bar at card bottom, clipped by card shape
-            CompactZoneBar(zones: entry.activity?.hrZones, height: 4, rounded: false)
-        }
-        .frame(minHeight: 120, maxHeight: 140)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(badge.color.opacity(0.07))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(badge.color.opacity(0.2), lineWidth: 1))
+    private func isLastRow(groupIndex: Int, entryIndex: Int) -> Bool {
+        groupIndex == grouped.count - 1 && entryIndex == grouped[groupIndex].entries.count - 1
     }
 }

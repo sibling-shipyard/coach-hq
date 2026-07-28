@@ -6,6 +6,7 @@ struct CoachHQApp: App {
     @StateObject private var syncManager = HealthKitSyncManager()
     @StateObject private var workoutService = WorkoutService()
     @StateObject private var widgetStore = WidgetSnapshotStore()
+    @StateObject private var bottomDock = BottomDockState()
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
 
     var body: some Scene {
@@ -17,6 +18,7 @@ struct CoachHQApp: App {
                         .environmentObject(syncManager)
                         .environmentObject(workoutService)
                         .environmentObject(widgetStore)
+                        .environmentObject(bottomDock)
                         .task {
                             let apiClient = GitHubAPIClient(authManager: authManager)
                             syncManager.configure(apiClient: apiClient, widgetStore: widgetStore)
@@ -29,7 +31,7 @@ struct CoachHQApp: App {
                         .environmentObject(authManager)
                 }
             }
-            .tint(Theme.accentGreen)
+            .tint(Theme.ink)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)
         }
     }

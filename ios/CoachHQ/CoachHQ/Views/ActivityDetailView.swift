@@ -4,12 +4,13 @@ import SwiftUI
 /// previewing the parsed/formatted result live, then commits both the activity
 /// file and `ebadders_history.json` to GitHub in one atomic commit.
 ///
-/// Card-based layout matching the website: stats card at top, description input
-/// below with a live preview card.
+/// Warm Instrument layout — inline back + title meta on desk, hero stats card,
+/// quiet zone breakdown, coach's-read description treatment.
 struct ActivityDetailView: View {
     let entry: SyncCacheEntry
 
     @EnvironmentObject var authManager: GitHubAuthManager
+    @Environment(\.dismiss) private var dismiss
 
     @State private var activity: Activity?
     @State private var descriptionText: String = ""
@@ -43,16 +44,17 @@ struct ActivityDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 14) {
+                metaHeader
                 statsCard
                 zoneBreakdownSection
 
                 Group {
                     if isEditing {
-                        editorCard
-                        previewCard
+                        editorSection
+                        previewSection
                     } else {
-                        descriptionDisplayCard
+                        descriptionSection
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -60,125 +62,167 @@ struct ActivityDetailView: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(WarmInstrument.accent)
                 }
 
                 if isEditing {
-                    Button(action: { Task { await saveAndSync() } }) {
-                        HStack(spacing: 8) {
-                            if isSaving {
-                                ProgressView()
-                                    .tint(.white)
-                                    .controlSize(.small)
-                            }
-                            Text(isSaving ? "Saving…" : "Save & Sync")
-                        }
+                    WarmPrimaryCTA(title: isSaving ? "Saving…" : "Save & Sync") {
+                        Task { await saveAndSync() }
                     }
-                    .buttonStyle(PrimaryButtonStyle())
                     .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .opacity(descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
+                    .overlay {
+                        if isSaving {
+                            ProgressView()
+                                .tint(WarmInstrument.paper)
+                        }
+                    }
                 }
 
                 if saveSucceeded {
                     Label("Saved and synced to GitHub", systemImage: "checkmark.circle.fill")
                         .font(.footnote.weight(.medium))
-                        .foregroundColor(Theme.accentGreen)
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
             }
-            .padding(10)
-            .animation(.spring(duration: 0.3), value: isEditing)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 24)
+            .safeAreaPadding(.bottom, 8)
+            .animation(.spring(duration: 0.38, bounce: 0.15), value: isEditing)
         }
-        .background(Color(uiColor: .systemBackground))
+        .scrollClipDisabled()
+        .background(WarmInstrument.desk.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
-        .navigationTitle(entry.name)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .hidesMainTabBar()
+        .simultaneousGesture(edgeBackSwipeGesture)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { editorFocused = false }
                     .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.ink)
             }
         }
         .task { await loadExistingActivity() }
     }
 
-    // MARK: - Stats card (hero header)
+    // MARK: - Inline meta header (WorkoutOverview-style)
 
-    private var statsCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Sport color stripe — anchors the view's identity immediately
-            badge.color
-                .frame(height: 3)
-                .frame(maxWidth: .infinity)
-
-            // Sport label + date + loading indicator
-            HStack(spacing: 5) {
-                Text(badge.label)
-                    .font(.system(size: 10, weight: .bold))
-                    .kerning(1)
-                    .foregroundColor(badge.color)
-                Text("·")
-                    .font(.system(size: 10))
-                    .foregroundColor(Color(uiColor: .tertiaryLabel))
-                Text(formattedDate)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                Spacer()
-                if isLoading { ProgressView().controlSize(.small) }
+    private var metaHeader: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Button {
+                Haptics.tap()
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .padding(.top, 4)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 6)
+            .buttonStyle(.plain)
 
-            // Hero name — the biggest text on screen
-            Text(entry.name)
-                .font(.system(size: 22, weight: .bold))
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 14)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.name)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Divider().opacity(0.5)
-
-            // Stats columns — large monospaced values
-            HStack(spacing: 0) {
-                HeroStat(value: durationString, label: "DURATION")
-                if isLoading && activity == nil {
-                    HeroStat(value: "420", label: "CAL")
-                    HeroStat(value: "142", label: "AVG HR")
-                    HeroStat(value: "171", label: "PEAK")
-                } else {
-                    if let cal = activity?.calories {
-                        HeroStat(value: "\(cal)", label: "CAL")
-                    }
-                    if let hr = activity?.averageHeartrate {
-                        HeroStat(value: "\(Int(hr))", label: "AVG HR")
-                    }
-                    if let peak = activity?.maxHeartrate {
-                        HeroStat(value: "\(Int(peak))", label: "PEAK")
-                    }
-                    if let dist = activity?.distance, dist > 0 {
-                        HeroStat(value: String(format: "%.1f", dist / 1000), label: "KM")
-                    }
+                HStack(spacing: 5) {
+                    MonoLabel(badge.label, size: 10, color: badge.color)
+                    Text("·")
+                        .font(.system(size: 10))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                    Text(formattedDate)
+                        .font(.system(size: 11))
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
             }
-            .padding(.vertical, 14)
-            .padding(.horizontal, 8)
-            .skeleton(isLoading && activity == nil)
 
-            if let mental = activity?.preMentalState {
-                Divider().opacity(0.5)
-                MentalStateChip(score: mental.score, word: mental.word)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+            Spacer(minLength: 8)
+
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(.top, 4)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                .stroke(Theme.cardBorder, lineWidth: 1)
-        )
+    }
+
+    /// Swipe right from the leading edge to pop back.
+    private var edgeBackSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onEnded { value in
+                guard value.startLocation.x < 28,
+                      value.translation.width > 56,
+                      abs(value.translation.height) < 96 else { return }
+                Haptics.tap()
+                dismiss()
+            }
+    }
+
+    // MARK: - Hero stats card
+
+    private var statsCard: some View {
+        WarmCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 5) {
+                        MonoLabel(badge.label, size: 10, color: badge.color)
+                        Text("·")
+                            .font(.system(size: 10))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                        Text(formattedDate)
+                            .font(.system(size: 11))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                        Spacer()
+                    }
+
+                    HStack(spacing: 0) {
+                        HeroStat(value: durationString, label: "DURATION")
+                        if isLoading && activity == nil {
+                            HeroStat(value: "420", label: "CAL")
+                            HeroStat(value: "142", label: "AVG HR")
+                            HeroStat(value: "171", label: "PEAK")
+                        } else {
+                            if let cal = activity?.calories {
+                                HeroStat(value: "\(cal)", label: "CAL")
+                            }
+                            if let hr = activity?.averageHeartrate {
+                                HeroStat(value: "\(Int(hr))", label: "AVG HR")
+                            }
+                            if let peak = activity?.maxHeartrate {
+                                HeroStat(value: "\(Int(peak))", label: "PEAK")
+                            }
+                            if let dist = activity?.distance, dist > 0 {
+                                HeroStat(value: String(format: "%.1f", dist / 1000), label: "KM")
+                            }
+                        }
+                    }
+                    .skeleton(isLoading && activity == nil)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 12)
+
+                if activity?.hrZones != nil, hrZoneTotal > 0 {
+                    CompactZoneBar(zones: activity?.hrZones, height: 4, rounded: false)
+                }
+
+                if let mental = activity?.preMentalState {
+                    MentalStateChip(score: mental.score, word: mental.word)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                }
+            }
+        }
+    }
+
+    private var hrZoneTotal: Double {
+        guard let zones = activity?.hrZones else { return 0 }
+        let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+        return order.reduce(0) { $0 + (zones[$1]?.seconds ?? 0) }
     }
 
     private var formattedDate: String {
@@ -195,53 +239,62 @@ struct ActivityDetailView: View {
         return hours > 0 ? String(format: "%dh %02dm", hours, minutes) : String(format: "%dm", minutes)
     }
 
-    // MARK: - Description display (read mode)
+    // MARK: - Description (read mode — coach's read)
 
-    /// Read-only description card. Three states:
-    /// - saved description exists → render it, pencil to edit
-    /// - no description yet → muted empty state with an add button
-    /// Editing is entered via the pencil / add button.
-    private var descriptionDisplayCard: some View {
+    private var descriptionSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                SectionHeader("Description")
+                MonoLabel("Description")
                 Spacer()
                 Button {
                     startEditing()
                 } label: {
-                    Image(systemName: savedDescription == nil ? "plus.circle.fill" : "pencil.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundColor(Theme.accentGreen)
+                    Image(systemName: "pencil")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
+                .buttonStyle(TimerWarmPressStyle())
                 .accessibilityLabel(savedDescription == nil ? "Add description" : "Edit description")
             }
 
-            ThemedCard {
+            WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
                 if let desc = savedDescription {
                     Text(desc)
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(descriptionFont(for: desc))
+                        .foregroundColor(WarmInstrument.ink)
+                        .lineSpacing(descriptionLineSpacing(for: desc))
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    // Empty state — visually distinct from a filled description.
-                    VStack(spacing: 6) {
-                        Image(systemName: "text.badge.plus")
-                            .font(.system(size: 22))
-                            .foregroundColor(.secondary)
-                        Text(isLoading ? "Loading…" : "No description yet")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.secondary)
-                        if !isLoading && entry.sportType == "Badminton" {
-                            Text("Tap + to add match scores")
-                                .font(.caption2)
-                                .foregroundColor(Theme.attentionOrange)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    Text(emptyDescriptionPlaceholder)
+                        .font(WarmInstrument.coachVoice(14.5))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .italic()
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 4)
                 }
             }
         }
+    }
+
+    private var emptyDescriptionPlaceholder: String {
+        if isLoading { return "Loading session notes…" }
+        if entry.sportType == "Badminton" {
+            return "No scores logged yet — tap the pencil to paste match results."
+        }
+        return "Nothing written down for this session yet."
+    }
+
+    private func descriptionFont(for text: String) -> Font {
+        if DescriptionParser.isAlreadyFormatted(text) || text.contains(where: { $0.isNumber }) {
+            return .system(size: 13, design: .monospaced)
+        }
+        return WarmInstrument.coachVoice(14.5)
+    }
+
+    private func descriptionLineSpacing(for text: String) -> CGFloat {
+        DescriptionParser.isAlreadyFormatted(text) ? 0 : 3
     }
 
     private func startEditing() {
@@ -255,10 +308,10 @@ struct ActivityDetailView: View {
 
     // MARK: - Description editor (edit mode)
 
-    private var editorCard: some View {
+    private var editorSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                SectionHeader("Description — Paste Scores")
+                MonoLabel("Description — paste scores")
                 Spacer()
                 Button {
                     editorFocused = false
@@ -267,38 +320,40 @@ struct ActivityDetailView: View {
                 } label: {
                     Text("Cancel")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
             }
 
-            TextEditor(text: $descriptionText)
-                .font(.system(size: 14, design: .monospaced))
-                .frame(minHeight: 150)
-                .padding(8)
-                .scrollContentBackground(.hidden)
-                .background(Theme.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                        .stroke(editorFocused ? Theme.accentGreen : Theme.cardBorder, lineWidth: 1)
-                )
-                .focused($editorFocused)
+            WarmCard(padding: 0) {
+                TextEditor(text: $descriptionText)
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(Theme.ink)
+                    .frame(minHeight: 150)
+                    .padding(12)
+                    .scrollContentBackground(.hidden)
+                    .focused($editorFocused)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                    .stroke(editorFocused ? WarmInstrument.ink : WarmInstrument.border, lineWidth: 1)
+            )
         }
     }
 
     // MARK: - Preview
 
     @ViewBuilder
-    private var previewCard: some View {
+    private var previewSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionHeader("Live Preview")
+            MonoLabel("Live preview")
 
-            ThemedCard {
+            WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
                 Group {
                     if let parsed {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(DescriptionParser.formatDescription(parsed))
                                 .font(.system(size: 13, design: .monospaced))
+                                .foregroundColor(Theme.ink)
                                 .fixedSize(horizontal: false, vertical: true)
 
                             ForEach(parsed.warnings, id: \.self) { warning in
@@ -310,15 +365,17 @@ struct ActivityDetailView: View {
                     } else if DescriptionParser.isAlreadyFormatted(descriptionText) {
                         Text(descriptionText)
                             .font(.system(size: 13, design: .monospaced))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(WarmInstrument.inkMuted)
                     } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text("Paste scores above to see a preview.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(WarmInstrument.coachVoice(13))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .italic()
                     } else {
                         Text("No games recognized yet — keep typing or check the format.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(WarmInstrument.coachVoice(13))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .italic()
                     }
                 }
             }
@@ -498,8 +555,7 @@ struct ActivityDetailView: View {
 
     // MARK: - HR Zone Breakdown
 
-    /// Animated fill bars showing time distribution across HR zones.
-    /// Only rendered when the loaded activity has hrZones data.
+    /// Quiet hairline bars showing time distribution across HR zones.
     @ViewBuilder
     private var zoneBreakdownSection: some View {
         if let zones = activity?.hrZones {
@@ -509,8 +565,8 @@ struct ActivityDetailView: View {
             let total = vals.reduce(0, +)
             if total > 0 {
                 VStack(alignment: .leading, spacing: 6) {
-                    SectionHeader("Heart Rate Zones")
-                    ThemedCard {
+                    CardKicker(label: "Heart rate zones")
+                    WarmCard {
                         VStack(spacing: 10) {
                             ForEach(vals.indices, id: \.self) { i in
                                 ZoneBreakdownRow(
@@ -554,36 +610,29 @@ private struct ZoneBreakdownRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(label)
-                .font(.system(size: 10, weight: .bold))
-                .foregroundColor(color)
-                .frame(width: 18, alignment: .leading)
+            MonoLabel(label, size: 9, color: color)
+                .frame(width: 20, alignment: .leading)
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(color.opacity(0.12))
-                        .frame(height: 8)
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(color)
-                        .frame(width: appeared ? max(3, geo.size.width * fraction) : 0, height: 8)
-                        .animation(
-                            .spring(duration: 0.6, bounce: 0.1).delay(Double(index) * 0.06),
-                            value: appeared
-                        )
-                }
-            }
-            .frame(height: 8)
+            HairlineProgress(
+                fraction: appeared ? fraction : 0,
+                tint: color,
+                track: color.opacity(0.12),
+                height: 3
+            )
+            .animation(
+                .spring(duration: 0.6, bounce: 0.1).delay(Double(index) * 0.06),
+                value: appeared
+            )
 
             Text("\(Int(fraction * 100))%")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.secondary)
+                .font(WarmInstrument.figures(10))
+                .foregroundColor(WarmInstrument.inkMuted)
                 .frame(width: 28, alignment: .trailing)
 
             Text(timeString)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 50, alignment: .trailing)
+                .font(WarmInstrument.figures(10))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .frame(width: 48, alignment: .trailing)
         }
         .onAppear { appeared = true }
     }
@@ -595,28 +644,18 @@ private struct MentalStateChip: View {
     let score: Int
     let word: String
 
-    private var color: Color {
-        switch score {
-        case 7...10: return Theme.accentGreen
-        case 4...6:  return Theme.attentionOrange
-        default:     return .red
-        }
-    }
-
     var body: some View {
-        HStack(spacing: 5) {
-            Text("PRE")
-                .font(.system(size: 8, weight: .bold))
-                .kerning(1)
-                .foregroundColor(.secondary)
+        HStack(spacing: 6) {
+            MonoLabel("Pre-session", size: 8)
             Text("\(score) · \(word)")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundColor(color)
+                .font(WarmInstrument.coachVoice(12.5))
+                .foregroundColor(WarmInstrument.ink)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(color.opacity(0.1))
-        .clipShape(Capsule())
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WarmInstrument.surfaceMuted)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -627,15 +666,12 @@ private struct HeroStat: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 19, weight: .bold, design: .monospaced))
-                .foregroundColor(.primary)
+                .font(.system(size: 17, weight: .bold, design: .monospaced))
+                .foregroundColor(Theme.ink)
                 .contentTransition(.numericText())
-            Text(label)
-                .font(.system(size: 8, weight: .bold))
-                .kerning(1)
-                .foregroundColor(.secondary)
+            MonoLabel(label, size: 8)
         }
         .frame(maxWidth: .infinity)
     }

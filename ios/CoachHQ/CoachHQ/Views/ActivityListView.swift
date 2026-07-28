@@ -3,13 +3,15 @@ import SwiftUI
 struct ActivityListView: View {
     /// When pushed from Home, skip the outer `NavigationStack` — the parent stack owns back navigation.
     var embedded: Bool = false
+    /// When set (embedded Home), row taps call this instead of local `NavigationStack` push.
+    var onSelectEntry: ((SyncCacheEntry) -> Void)? = nil
 
     @EnvironmentObject var syncManager: HealthKitSyncManager
     @EnvironmentObject var authManager: GitHubAuthManager
     @Environment(\.dismiss) private var dismiss
     @State private var entries: [SyncCacheEntry] = []
     @State private var toast: Toast?
-    @AppStorage("feedVariant") private var feedVariant = 0
+    @State private var navigationPath: [SyncCacheEntry] = []
 
     private static let inputFmt: DateFormatter = {
         let f = DateFormatter()
@@ -32,10 +34,10 @@ struct ActivityListView: View {
 
     var body: some View {
         Group {
-            if embedded {
+            if embedded || onSelectEntry != nil {
                 content
             } else {
-                NavigationStack {
+                NavigationStack(path: $navigationPath) {
                     content
                         .navigationDestination(for: SyncCacheEntry.self) { entry in
                             ActivityDetailView(entry: entry)
@@ -47,34 +49,28 @@ struct ActivityListView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            if embedded {
-                embeddedHeader
-            } else {
-                BrandHeader(title: "Activities", trailing: AnyView(variantPicker))
-            }
+            warmHeader
 
-            if recentEntries.isEmpty {
-                ScrollView {
-                    emptyState.frame(maxWidth: .infinity).padding(.top, 100)
+            ScrollView {
+                if recentEntries.isEmpty {
+                    emptyState
+                        .padding(.horizontal, 16)
+                        .padding(.top, 24)
+                } else {
+                    ActivityFeedView(
+                        entries: recentEntries,
+                        grouped: grouped,
+                        onSelect: selectEntry
+                    )
                 }
-                .refreshable { await pullToSync() }
-            } else {
-                ScrollView {
-                    switch feedVariant {
-                    case 1:
-                        FeedVariant2(entries: recentEntries, grouped: grouped)
-                    case 2:
-                        FeedVariant3(entries: recentEntries)
-                    default:
-                        FeedVariant1(entries: recentEntries, grouped: grouped)
-                    }
-                }
-                .refreshable { await pullToSync() }
             }
+            .scrollClipDisabled()
+            .refreshable { await pullToSync() }
         }
-        .background(embedded ? WarmInstrument.desk : Color(uiColor: .systemBackground))
+        .background(WarmInstrument.desk.ignoresSafeArea())
         .toast($toast)
         .toolbar(.hidden, for: .navigationBar)
+        .hidesMainTabBar(embedded)
         .task {
             entries = SyncCache.load()
             await syncManager.backfillRecentCache()
@@ -104,59 +100,55 @@ struct ActivityListView: View {
         .onAppear { entries = SyncCache.load() }
     }
 
-    private var embeddedHeader: some View {
-        HStack(spacing: 10) {
-            Button {
-                Haptics.tap()
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(WarmInstrument.inkMuted)
-            }
-            .buttonStyle(.plain)
+    private var warmHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                if embedded {
+                    Button {
+                        Haptics.tap()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                    }
+                    .buttonStyle(.plain)
 
-            Text("Activities")
-                .font(.system(size: 17, weight: .bold))
-                .foregroundColor(Theme.ink)
-
-            Spacer(minLength: 8)
-
-            variantPicker
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .background(WarmInstrument.paper)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(WarmInstrument.headerRule)
-                .frame(height: 1)
-        }
-    }
-
-    // MARK: - Variant picker (1 / 2 / 3 dots in the header)
-
-    private var variantPicker: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<3, id: \.self) { i in
-                Button {
-                    withAnimation(.spring(duration: 0.25)) { feedVariant = i }
-                } label: {
-                    Text("\(i + 1)")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(feedVariant == i ? WarmInstrument.paper : WarmInstrument.inkFaint)
-                        .frame(width: 20, height: 20)
-                        .background(feedVariant == i ? WarmInstrument.ink : Color.clear)
-                        .clipShape(Circle())
-                        .animation(.spring(duration: 0.2), value: feedVariant)
+                    Text("HQ")
+                        .font(WarmInstrument.monoLabel(12))
+                        .tracking(1.4)
+                        .foregroundColor(WarmInstrument.ink)
+                } else {
+                    MonoLabel("Activities", size: 12, color: WarmInstrument.ink, tracking: 1.4)
                 }
             }
+
+            Text("The ledger")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(Theme.ink)
+
+            Text("Every entry earns its load — nothing invented.")
+                .font(WarmInstrument.coachVoice(14))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            MonoLabel("LAST 7 DAYS · PULL TO SYNC", size: 10, tracking: 1.5)
         }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 3)
-        .background(WarmInstrument.surfaceMuted)
-        .clipShape(Capsule())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 14)
+    }
+
+    // MARK: - Navigation
+
+    private func selectEntry(_ entry: SyncCacheEntry) {
+        Haptics.tap()
+        if let onSelectEntry {
+            onSelectEntry(entry)
+        } else {
+            navigationPath.append(entry)
+        }
     }
 
     // MARK: - Helpers
@@ -180,16 +172,17 @@ struct ActivityListView: View {
     // MARK: - Empty state
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "figure.badminton")
-                .font(.system(size: 40))
-                .foregroundColor(WarmInstrument.sportColor(.badminton))
-            Text("No activities yet")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(Theme.ink)
-            Text("Pull down to sync from HealthKit.")
-                .font(.footnote)
-                .foregroundColor(WarmInstrument.inkMuted)
+        WarmCard {
+            VStack(alignment: .leading, spacing: 10) {
+                CardKicker(label: "LAST 7 DAYS", trailing: "0 SESSIONS")
+                Text("No sessions logged yet — nothing invented here.")
+                    .font(WarmInstrument.coachVoice(14))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Pull down to sync from HealthKit.")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
         }
     }
 }

@@ -69,12 +69,11 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 | `ios/CoachHQ/CoachHQ/Models/Activity.swift` | Activity JSON schema (must match dashboard's TypeScript interface) |
 | `ios/CoachHQ/CoachHQ/Models/SyncCache.swift` | Local UserDefaults cache for activity list |
 | `ios/CoachHQ/CoachHQ/Views/Theme.swift` | Design tokens + reusable components. Key additions: `sportIcon(for:)` (SF Symbols), `hrZoneColors` (Z1–Z5), `RowPressButtonStyle`, `CardPressButtonStyle` |
-| `ios/CoachHQ/CoachHQ/Views/ActivityListView.swift` | Thin shell: data loading, `@AppStorage("feedVariant")` picker (0=Variant1 chosen), passes data to feed variants |
-| `ios/CoachHQ/CoachHQ/Views/ActivityFeedVariants.swift` | All 3 feed variants + shared components: `DayGroup`, `groupByDay()`, `ZoneDots`, `CompactZoneBar`, `WeekSummaryWidget`, `FeedVariant1/2/3` |
+| `ios/CoachHQ/CoachHQ/Views/ActivityListView.swift` | Activity list shell: data loading, programmatic row navigation via `onSelectEntry` when embedded from Home |
+| `ios/CoachHQ/CoachHQ/Views/ActivityFeedVariants.swift` | Activity feed + shared components: `DayGroup`, `groupByDay()`, `ZoneDots`, `CompactZoneBar`, `WeekSummaryWidget`, `ActivityFeedView` |
 | `ios/CoachHQ/CoachHQ/Views/ActivityDetailView.swift` | Hero stats card (sport stripe + 22pt name + 19pt monospace HeroStat columns), zone breakdown bars, mental state chip |
 | `ios/CoachHQ/CoachHQ/Views/TrainingHeatmapView.swift` | 8-week Mon–Sun training grid, sport-colored cells, tap → DayDetailSheet |
-| `ios/CoachHQ/CoachHQ/Views/SyncStatusView.swift` | Sync home screen + WeeklyVolumeChart (7-day sport-colored bars) |
-| `ios/CoachHQ/CoachHQ/Views/SettingsView.swift` | Settings (account, appearance, test mode, HR zones, cache) |
+| `ios/CoachHQ/CoachHQ/Views/SettingsView.swift` | Settings (account, appearance, sync, test mode, HR zones, cache) |
 | `ios/CoachHQ/CoachHQ/Views/WarmInstrumentHomeView.swift` | Primary Home tab — mobile Warm Instrument widget column |
 | `ios/CoachHQ/CoachHQ/Views/WarmInstrumentAtoms.swift` | Shared Warm Instrument card/row/chip atoms |
 | `ios/CoachHQ/CoachHQ/Views/InstrumentHeaderView.swift` | Compact `HQ` header on Home |
@@ -101,7 +100,7 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 - **Design system: Warm Instrument.** The canonical spec is `ui/docs/reference-interactions/Widget Design Philosophy.md` — warm paper surfaces, one terracotta accent reserved for load, Space Mono for counted figures, Newsreader italic for the coach's voice, 26px card shells. This is what the website itself now follows (`ui/client/src/pages/Home.tsx`, `home-warm/`) — it replaces the old neo-brutalist reference. Read it before touching any View file for Phase 5+ work; `ios/DESIGN.md`'s token table has been updated to match.
 - **Reference site:** `ui/client/src/` (specifically `Home.tsx` / `home-warm/`) — website is still the design source of truth, now on Warm Instrument.
 - **Platform mapping matters — iOS is not web.** Per the Design Philosophy's platform table, this app is the **"iOS app (Home)"** row: a scrolling column of M widgets with long-press → jiggle + S/M/L picker, chip drag, swipe→Edit, and month paging. There is a separate, **not-yet-built**, third surface — **"iOS home screen widgets"** (WidgetKit) — that is glance-only: no scrubs, no tooltips, native long-press editor, and every widget must be legible with zero interaction. No WidgetKit extension target exists in the Xcode project yet; this is the surface Phase 5+ is heading toward, not something to retrofit onto the in-app tab.
-- **Activity feed:** Variant 1 chosen — circular sport icon + day-grouped rows + WeekSummaryWidget. `@AppStorage("feedVariant")` key, default 0. Variant picker still in header for A/B testing.
+- **Activity feed:** `ActivityFeedView` — circular sport icon + day-grouped `WarmCard` rows + WeekSummaryWidget. Row taps use programmatic navigation (not `NavigationLink` — breaks when embedded).
 - **Sport icons:** `Theme.sportIcon(for:)` → SF Symbols (`figure.badminton`, `dumbbell.fill`, `figure.outdoor.cycle`, `figure.run`)
 - **Zone visualization:** `ZoneDots` (5 colored circles, opacity by fraction) and `CompactZoneBar` (proportional 5-segment bar, animated on appear) — both in `ActivityFeedVariants.swift`
 - **Typography:** 22pt bold hero name, 19pt bold monospace stat columns, 26–28pt black banner numbers, 16pt bold monospace row stats, 8–10pt bold uppercase labels

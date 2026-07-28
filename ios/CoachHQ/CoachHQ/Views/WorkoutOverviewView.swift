@@ -3,28 +3,31 @@ import SwiftUI
 struct WorkoutOverviewView: View {
     let workout: Workout
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var bottomDock: BottomDockState
     @State private var showTimer = false
 
     private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    metaSection
-                    coachingNote
-                    equipmentSection
-                    phaseBlocks
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-                .padding(.bottom, 100)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                metaSection
+                coachingNote
+                equipmentSection
+                phaseBlocks
             }
-
-            startBar
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 100)
         }
         .background(Theme.mutedBackground)
         .toolbar(.hidden, for: .navigationBar)
+        .onAppear {
+            bottomDock.showStartWorkout { showTimer = true }
+        }
+        .onDisappear {
+            bottomDock.showTabs()
+        }
         .simultaneousGesture(edgeBackSwipeGesture)
         .fullScreenCover(isPresented: $showTimer) {
             WorkoutTimerView(workout: workout, onExitToList: {
@@ -125,18 +128,6 @@ struct WorkoutOverviewView: View {
         }
     }
 
-    private var startBar: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(WarmInstrument.headerRule).frame(height: 1)
-            WarmPrimaryCTA(title: "▶ Start workout") {
-                Haptics.tap()
-                showTimer = true
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(WarmInstrument.paper)
-        }
-    }
 }
 
 // MARK: - Phase block (mock 3b)

@@ -68,13 +68,13 @@ struct WarmInstrumentHomeView: View {
                         )
                     }
                 case .activities:
-                    ActivityListView(embedded: true)
+                    ActivityListView(
+                        embedded: true,
+                        onSelectEntry: { entry in navigationPath.append(.activity(entry)) }
+                    )
                 case .activity(let entry):
                     ActivityDetailView(entry: entry)
                 }
-            }
-            .navigationDestination(for: SyncCacheEntry.self) { entry in
-                ActivityDetailView(entry: entry)
             }
             .task(id: homeFetchToken) {
                 guard store.isConfigured else { return }
