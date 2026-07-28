@@ -1,7 +1,7 @@
-# Coach Phelps iOS App: Architecture & Spec (Post-Strava)
+# Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
 ## Overview
-The Coach Phelps iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
+The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
 
 Due to Strava deprecating free API access, this app replaces the legacy Strava-dependent sync pipeline entirely. It enables true multi-user support (e.g., Sky and his brother) without requiring a centralized backend, database, or third-party API dependencies.
 

@@ -1,6 +1,6 @@
 # iOS Builder Agent
 
-You are the iOS Builder for the Coach Phelps ecosystem. You implement features, fix bugs, and ship code for the Coach Phelps iOS app (Swift/SwiftUI).
+You are the iOS Builder for the Coach Phelps ecosystem. You implement features, fix bugs, and ship code for the Coach HQ iOS app (Swift/SwiftUI).
 
 ## Boot Sequence
 
@@ -23,7 +23,7 @@ Read these docs in order before starting any work:
 
 ## Setup
 
-Copy `ios/CoachPhelps/CoachPhelps/Secrets.swift.example` to `Secrets.swift` (gitignored — this
+Copy `ios/CoachHQ/CoachHQ/Secrets.swift.example` to `Secrets.swift` (gitignored — this
 repo is public, so real OAuth credentials never get committed) and fill in your own GitHub
 OAuth App's client ID/secret from https://github.com/settings/developers. The app won't build
 without this file.
@@ -44,23 +44,23 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 
 | Path | Purpose |
 |------|---------|
-| `ios/CoachPhelps/CoachPhelps/CoachPhelpsApp.swift` | App entry point, EnvironmentObject injection |
-| `ios/CoachPhelps/CoachPhelps/Services/GitHubAuthManager.swift` | OAuth 2.0 sign-in, token in Keychain, repo discovery |
-| `ios/CoachPhelps/CoachPhelps/Services/GitHubAPIClient.swift` | Read/write files via GitHub API, atomic multi-file commits |
-| `ios/CoachPhelps/CoachPhelps/Services/HealthKitSyncManager.swift` | Background delivery, workout fetch, sync orchestration, cache backfill |
-| `ios/CoachPhelps/CoachPhelps/Services/ActivityMapper.swift` | HKWorkout → Activity JSON + HR zone computation |
-| `ios/CoachPhelps/CoachPhelps/Services/ActivityNamer.swift` | Auto-sequential naming (originally written with a weekday-based badminton rule baked in — check against `strava/rename_core.py` before assuming this still matches this repo's naming convention) |
-| `ios/CoachPhelps/CoachPhelps/Services/DescriptionParser.swift` | On-device match-score parsing, ported from a badminton-specific Python script that isn't part of this repo's `scripts/` — treat as a reference implementation, not something with a live source-of-truth file to sync against here |
-| `ios/CoachPhelps/CoachPhelps/Services/TestModeManager.swift` | Test mode toggle (syncs to `test/sync` branch) |
-| `ios/CoachPhelps/CoachPhelps/Models/Activity.swift` | Activity JSON schema (must match dashboard's TypeScript interface) |
-| `ios/CoachPhelps/CoachPhelps/Models/SyncCache.swift` | Local UserDefaults cache for activity list |
-| `ios/CoachPhelps/CoachPhelps/Views/Theme.swift` | Design tokens + reusable components. Key additions: `sportIcon(for:)` (SF Symbols), `hrZoneColors` (Z1–Z5), `RowPressButtonStyle`, `CardPressButtonStyle` |
-| `ios/CoachPhelps/CoachPhelps/Views/ActivityListView.swift` | Thin shell: data loading, `@AppStorage("feedVariant")` picker (0=Variant1 chosen), passes data to feed variants |
-| `ios/CoachPhelps/CoachPhelps/Views/ActivityFeedVariants.swift` | All 3 feed variants + shared components: `DayGroup`, `groupByDay()`, `ZoneDots`, `CompactZoneBar`, `WeekSummaryWidget`, `FeedVariant1/2/3` |
-| `ios/CoachPhelps/CoachPhelps/Views/ActivityDetailView.swift` | Hero stats card (sport stripe + 22pt name + 19pt monospace HeroStat columns), zone breakdown bars, mental state chip |
-| `ios/CoachPhelps/CoachPhelps/Views/TrainingHeatmapView.swift` | 8-week Mon–Sun training grid, sport-colored cells, tap → DayDetailSheet |
-| `ios/CoachPhelps/CoachPhelps/Views/SyncStatusView.swift` | Sync home screen + WeeklyVolumeChart (7-day sport-colored bars) |
-| `ios/CoachPhelps/CoachPhelps/Views/SettingsView.swift` | Settings (account, appearance, test mode, HR zones, cache) |
+| `ios/CoachHQ/CoachHQ/CoachHQApp.swift` | App entry point, EnvironmentObject injection |
+| `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | OAuth 2.0 sign-in, token in Keychain, repo discovery |
+| `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | Read/write files via GitHub API, atomic multi-file commits |
+| `ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift` | Background delivery, workout fetch, sync orchestration, cache backfill |
+| `ios/CoachHQ/CoachHQ/Services/ActivityMapper.swift` | HKWorkout → Activity JSON + HR zone computation |
+| `ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift` | Auto-sequential naming (originally written with a weekday-based badminton rule baked in — check against `strava/rename_core.py` before assuming this still matches this repo's naming convention) |
+| `ios/CoachHQ/CoachHQ/Services/DescriptionParser.swift` | On-device match-score parsing, ported from a badminton-specific Python script that isn't part of this repo's `scripts/` — treat as a reference implementation, not something with a live source-of-truth file to sync against here |
+| `ios/CoachHQ/CoachHQ/Services/TestModeManager.swift` | Test mode toggle (syncs to `test/sync` branch) |
+| `ios/CoachHQ/CoachHQ/Models/Activity.swift` | Activity JSON schema (must match dashboard's TypeScript interface) |
+| `ios/CoachHQ/CoachHQ/Models/SyncCache.swift` | Local UserDefaults cache for activity list |
+| `ios/CoachHQ/CoachHQ/Views/Theme.swift` | Design tokens + reusable components. Key additions: `sportIcon(for:)` (SF Symbols), `hrZoneColors` (Z1–Z5), `RowPressButtonStyle`, `CardPressButtonStyle` |
+| `ios/CoachHQ/CoachHQ/Views/ActivityListView.swift` | Thin shell: data loading, `@AppStorage("feedVariant")` picker (0=Variant1 chosen), passes data to feed variants |
+| `ios/CoachHQ/CoachHQ/Views/ActivityFeedVariants.swift` | All 3 feed variants + shared components: `DayGroup`, `groupByDay()`, `ZoneDots`, `CompactZoneBar`, `WeekSummaryWidget`, `FeedVariant1/2/3` |
+| `ios/CoachHQ/CoachHQ/Views/ActivityDetailView.swift` | Hero stats card (sport stripe + 22pt name + 19pt monospace HeroStat columns), zone breakdown bars, mental state chip |
+| `ios/CoachHQ/CoachHQ/Views/TrainingHeatmapView.swift` | 8-week Mon–Sun training grid, sport-colored cells, tap → DayDetailSheet |
+| `ios/CoachHQ/CoachHQ/Views/SyncStatusView.swift` | Sync home screen + WeeklyVolumeChart (7-day sport-colored bars) |
+| `ios/CoachHQ/CoachHQ/Views/SettingsView.swift` | Settings (account, appearance, test mode, HR zones, cache) |
 
 ## Reference Files (Source of Truth)
 
