@@ -58,8 +58,6 @@ class WidgetSnapshotStore: ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    // MARK: - Refresh
-
     /// Fetches the latest snapshots from the hosted dashboard API.
     /// `showSpinner` is `false` for background refreshes where stale data is already on screen.
     func refresh(showSpinner: Bool = true) async {
@@ -80,5 +78,12 @@ class WidgetSnapshotStore: ObservableObject {
         } catch {
             lastError = "Couldn't load Home"
         }
+    }
+
+    /// Skip automatic refresh when snapshots are fresh (5 min) — tab switches stay calm.
+    var shouldRefresh: Bool {
+        guard snapshots != nil else { return true }
+        guard let lastFetchedAt else { return true }
+        return Date().timeIntervalSince(lastFetchedAt) > 300
     }
 }

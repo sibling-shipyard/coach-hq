@@ -29,7 +29,7 @@ struct WarmInstrumentHomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
-                VStack(spacing: 14) {
+                LazyVStack(spacing: 14) {
                     if let snapshots = store.snapshots {
                         CompactInstrumentHeader(phase: snapshots.home.phase)
 
@@ -80,6 +80,7 @@ struct WarmInstrumentHomeView: View {
                 guard store.isConfigured else { return }
                 guard authManager.isAuthenticated, authManager.isSessionReady else { return }
                 guard authManager.selectedRepo != nil else { return }
+                guard store.shouldRefresh else { return }
                 await store.refresh(showSpinner: store.snapshots == nil)
             }
             .onChange(of: store.lastError) { _, newError in
@@ -1153,30 +1154,22 @@ private struct BuildPhaseWidget: View {
                 }
 
                 VStack(spacing: 6) {
-                    GeometryReader { geo in
-                        let gaps: CGFloat = 3 * 3
-                        let totalFlex: CGFloat = 4 + 1.2 + 4 + 1.2
-                        let unit = max(0, (geo.size.width - gaps) / totalFlex)
-                        HStack(spacing: 3) {
-                            phaseRailSegment(index: 0).frame(width: unit * 4)
-                            phaseRailSegment(index: 1).frame(width: unit * 1.2)
-                            phaseRailSegment(index: 2).frame(width: unit * 4)
-                            phaseRailSegment(index: 3).frame(width: unit * 1.2)
+                    HStack(spacing: 3) {
+                        ForEach(0..<4, id: \.self) { index in
+                            phaseRailSegment(index: index)
+                                .frame(maxWidth: .infinity)
+                                .layoutPriority(railFlex[index])
                         }
                     }
                     .frame(height: 9)
 
-                    GeometryReader { geo in
-                        let gaps: CGFloat = 3 * 3
-                        let totalFlex: CGFloat = 4 + 1.2 + 4 + 1.2
-                        let unit = max(0, (geo.size.width - gaps) / totalFlex)
-                        HStack(spacing: 3) {
-                            ForEach(Array(railLabels.enumerated()), id: \.offset) { index, label in
-                                Text(label)
-                                    .font(.system(size: 8, weight: .regular, design: .monospaced))
-                                    .foregroundColor(WarmInstrument.inkFaint)
-                                    .frame(width: unit * railFlex[index], alignment: index == railLabels.count - 1 ? .trailing : .leading)
-                            }
+                    HStack(spacing: 3) {
+                        ForEach(Array(railLabels.enumerated()), id: \.offset) { index, label in
+                            Text(label)
+                                .font(.system(size: 8, weight: .regular, design: .monospaced))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                                .frame(maxWidth: .infinity, alignment: index == railLabels.count - 1 ? .trailing : .leading)
+                                .layoutPriority(railFlex[index])
                         }
                     }
                     .frame(height: 12)

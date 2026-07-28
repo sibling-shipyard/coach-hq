@@ -18,8 +18,18 @@ struct ActivityDetailView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var saveSucceeded = false
+    @State private var saveCheckScale: CGFloat = 0.6
     @State private var isEditing = false
+    @State private var statsRevealed: Bool
     @FocusState private var editorFocused: Bool
+
+    init(entry: SyncCacheEntry) {
+        self.entry = entry
+        let cached = entry.activity
+        _activity = State(initialValue: cached)
+        // Cached entries render at full opacity immediately — no fade on every push.
+        _statsRevealed = State(initialValue: cached != nil)
+    }
 
     /// The saved description on the server (nil/empty until scored).
     private var savedDescription: String? {
@@ -57,7 +67,10 @@ struct ActivityDetailView: View {
                         descriptionSection
                     }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98)),
+                    removal: .opacity.combined(with: .scale(scale: 0.98))
+                ))
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -83,13 +96,16 @@ struct ActivityDetailView: View {
                     Label("Saved and synced to GitHub", systemImage: "checkmark.circle.fill")
                         .font(.footnote.weight(.medium))
                         .foregroundColor(WarmInstrument.inkMuted)
+                        .scaleEffect(saveCheckScale)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
             .padding(.bottom, 24)
             .safeAreaPadding(.bottom, 8)
-            .animation(.spring(duration: 0.38, bounce: 0.15), value: isEditing)
+            .animation(PremiumMotion.state, value: isEditing)
+            .animation(PremiumMotion.reveal, value: saveSucceeded)
         }
         .scrollClipDisabled()
         .background(WarmInstrument.desk.ignoresSafeArea())
@@ -106,6 +122,17 @@ struct ActivityDetailView: View {
             }
         }
         .task { await loadExistingActivity() }
+        .onChange(of: isLoading) { _, loading in
+            guard !loading else { return }
+            withAnimation(PremiumMotion.statsLoad) { statsRevealed = true }
+        }
+        .onChange(of: saveSucceeded) { _, success in
+            guard success else { return }
+            saveCheckScale = 0.6
+            withAnimation(.spring(duration: 0.35, bounce: 0.22)) {
+                saveCheckScale = 1
+            }
+        }
     }
 
     // MARK: - Inline meta header (WorkoutOverview-style)
@@ -201,6 +228,7 @@ struct ActivityDetailView: View {
                         }
                     }
                     .skeleton(isLoading && activity == nil)
+                    .opacity(statsRevealed ? 1 : 0.9)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
@@ -302,7 +330,9 @@ struct ActivityDetailView: View {
         descriptionText = savedDescription ?? ""
         saveSucceeded = false
         errorMessage = nil
-        isEditing = true
+        withAnimation(PremiumMotion.state) {
+            isEditing = true
+        }
         editorFocused = true
     }
 
@@ -314,9 +344,11 @@ struct ActivityDetailView: View {
                 MonoLabel("Description — paste scores")
                 Spacer()
                 Button {
-                    editorFocused = false
-                    isEditing = false
-                    errorMessage = nil
+                    withAnimation(PremiumMotion.state) {
+                        editorFocused = false
+                        isEditing = false
+                        errorMessage = nil
+                    }
                 } label: {
                     Text("Cancel")
                         .font(.system(size: 13, weight: .medium))
@@ -544,8 +576,10 @@ struct ActivityDetailView: View {
             SyncCache.updateActivity(fileName: entry.fileName, activity: updatedActivity)
             activity = updatedActivity
             saveSucceeded = true
-            editorFocused = false
-            isEditing = false
+            withAnimation(PremiumMotion.state) {
+                editorFocused = false
+                isEditing = false
+            }
             Haptics.success()
         } catch {
             errorMessage = "Save failed: \(error.localizedDescription)"
@@ -619,10 +653,7 @@ private struct ZoneBreakdownRow: View {
                 track: color.opacity(0.12),
                 height: 3
             )
-            .animation(
-                .spring(duration: 0.6, bounce: 0.1).delay(Double(index) * 0.06),
-                value: appeared
-            )
+            .animation(PremiumMotion.statsLoad, value: appeared)
 
             Text("\(Int(fraction * 100))%")
                 .font(WarmInstrument.figures(10))
@@ -635,6 +666,7 @@ private struct ZoneBreakdownRow: View {
                 .frame(width: 48, alignment: .trailing)
         }
         .onAppear { appeared = true }
+        .onDisappear { appeared = false }
     }
 }
 

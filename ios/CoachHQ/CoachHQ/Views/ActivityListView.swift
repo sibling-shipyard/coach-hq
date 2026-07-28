@@ -12,6 +12,7 @@ struct ActivityListView: View {
     @State private var entries: [SyncCacheEntry] = []
     @State private var toast: Toast?
     @State private var navigationPath: [SyncCacheEntry] = []
+    @State private var didInitialLoad = false
 
     private static let inputFmt: DateFormatter = {
         let f = DateFormatter()
@@ -60,7 +61,8 @@ struct ActivityListView: View {
                     ActivityFeedView(
                         entries: recentEntries,
                         grouped: grouped,
-                        onSelect: selectEntry
+                        onSelect: selectEntry,
+                        animateEntrance: !embedded
                     )
                 }
             }
@@ -73,12 +75,14 @@ struct ActivityListView: View {
         .hidesMainTabBar(embedded)
         .task {
             entries = SyncCache.load()
+            guard !didInitialLoad else { return }
+            didInitialLoad = true
             await syncManager.backfillRecentCache()
             entries = SyncCache.load()
             await backfillStats()
         }
         .onChange(of: syncManager.lastSyncDate) {
-            withAnimation(.spring(duration: 0.4, bounce: 0.15)) {
+            withAnimation(PremiumMotion.state) {
                 entries = SyncCache.load()
             }
             Task { await backfillStats() }
@@ -97,7 +101,6 @@ struct ActivityListView: View {
                 toast = Toast(kind: .error, message: msg)
             }
         }
-        .onAppear { entries = SyncCache.load() }
     }
 
     private var warmHeader: some View {
@@ -166,7 +169,9 @@ struct ActivityListView: View {
             guard let activity = try? await api.readActivity(fileName: entry.fileName) else { continue }
             SyncCache.updateStats(fileName: entry.fileName, activity: activity)
         }
-        entries = SyncCache.load()
+        withAnimation(PremiumMotion.state) {
+            entries = SyncCache.load()
+        }
     }
 
     // MARK: - Empty state

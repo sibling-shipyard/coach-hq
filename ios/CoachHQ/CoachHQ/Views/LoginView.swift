@@ -41,30 +41,38 @@ struct LoginView: View {
         WarmCard(padding: 24) {
             VStack(alignment: .leading, spacing: 18) {
                 MonoLabel("Coach HQ", size: 10, tracking: 1.2)
+                    .staggerReveal(delay: 0.12)
 
                 Text("Your coaching dashboard")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(Theme.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .staggerReveal(delay: 0.18)
 
                 Text("Train with intention. Sync from Health. Coach reads the data.")
                     .font(WarmInstrument.coachVoice(15))
                     .foregroundColor(WarmInstrument.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(3)
+                    .staggerReveal(delay: 0.24)
 
                 Rectangle()
                     .fill(WarmInstrument.headerRule)
                     .frame(height: 1)
                     .padding(.vertical, 2)
+                    .staggerReveal(delay: 0.30)
 
                 HStack(spacing: 8) {
                     LoginFeatureChip(icon: "heart.fill", label: "HealthKit sync")
+                        .staggerReveal(delay: 0.36)
                     LoginFeatureChip(icon: "chevron.left.forwardslash.chevron.right", label: "GitHub repo")
+                        .staggerReveal(delay: 0.42)
                     LoginFeatureChip(icon: "square.grid.2x2.fill", label: "Warm widgets")
+                        .staggerReveal(delay: 0.48)
                 }
             }
         }
+        .staggerReveal(delay: 0.06, offset: 8)
     }
 
     // MARK: - Auth
@@ -80,15 +88,20 @@ struct LoginView: View {
                         ProgressView()
                             .tint(WarmInstrument.paper)
                             .scaleEffect(0.85)
+                            .transition(.scale.combined(with: .opacity))
                     } else {
                         Image(systemName: "chevron.left.forwardslash.chevron.right")
                             .font(.system(size: 15, weight: .semibold))
+                            .transition(.scale.combined(with: .opacity))
                     }
                     Text(isLoading ? "Signing in…" : "Sign in with GitHub")
+                        .contentTransition(.opacity)
                 }
+                .animation(PremiumMotion.press, value: isLoading)
             }
             .buttonStyle(WarmLoginButtonStyle())
             .disabled(isLoading)
+            .staggerReveal(delay: 0.54)
 
             if let error = errorMessage {
                 Text(error)

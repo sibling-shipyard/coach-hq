@@ -23,10 +23,14 @@ struct WorkoutOverviewView: View {
         .background(Theme.mutedBackground)
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
-            bottomDock.showStartWorkout { showTimer = true }
+            withAnimation(PremiumMotion.dock) {
+                bottomDock.showStartWorkout { showTimer = true }
+            }
         }
         .onDisappear {
-            bottomDock.showTabs()
+            withAnimation(PremiumMotion.dock) {
+                bottomDock.showTabs()
+            }
         }
         .simultaneousGesture(edgeBackSwipeGesture)
         .fullScreenCover(isPresented: $showTimer) {
