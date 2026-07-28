@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var syncManager: HealthKitSyncManager
+    @Environment(\.warmTabBarScrollClearance) private var tabBarScrollClearance
     @ObservedObject var testMode = TestModeManager.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
     @AppStorage(HRZoneConfig.zone1UpperKey) private var zone1Upper = HRZoneConfig.defaultZone1Upper
@@ -29,7 +30,7 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
-                .padding(.bottom, 12)
+                .padding(.bottom, tabBarScrollClearance)
             }
             .scrollClipDisabled()
             .background(WarmInstrument.desk.ignoresSafeArea())
