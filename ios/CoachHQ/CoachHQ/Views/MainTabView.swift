@@ -1,5 +1,10 @@
 import SwiftUI
 
+/// Shared layout constants for the floating tab bar — used by tab roots for scroll clearance.
+enum WarmTabBarLayout {
+    static let scrollClearance: CGFloat = 126
+}
+
 enum AppTab: Hashable, CaseIterable {
     case home, workouts, more
 
@@ -48,10 +53,8 @@ struct MainTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
-        .environment(\.warmTabBarScrollClearance, WarmTabBarMetrics.scrollBottomPadding)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            WarmTabBar(selection: $selectedTab)
-                .padding(.bottom, WarmTabBarMetrics.bottomInset)
+        .overlay(alignment: .bottom) {
+            WarmTabBarChrome(selection: $selectedTab)
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
     }
@@ -62,10 +65,46 @@ struct MainTabView: View {
 private enum WarmTabBarMetrics {
     /// Icon row + inner pill padding (44 + 4×2).
     static let pillHeight: CGFloat = 52
-    /// Gap above the home indicator — pill sits in the safe-area band.
-    static let bottomInset: CGFloat = 4
-    /// Breathing room after the last scroll row (safeAreaInset handles the dock).
-    static let scrollBottomPadding: CGFloat = 20
+    /// Desk fade above the dock.
+    static let fadeHeight: CGFloat = 48
+    /// Gap above the home indicator — matches Fitness-style low dock placement.
+    static let bottomMargin: CGFloat = 6
+    /// Extra space so the last scroll item clears the fade + pill fully.
+    static let scrollBreathingRoom: CGFloat = 20
+    /// Total scroll bottom inset applied to tab content.
+    static var scrollClearance: CGFloat { WarmTabBarLayout.scrollClearance }
+}
+
+/// Fade scrim + floating dock — pinned low like Fitness, fade overlaps scrolling content.
+private struct WarmTabBarChrome: View {
+    @Binding var selection: AppTab
+
+    var body: some View {
+        VStack(spacing: 0) {
+            WarmTabBarScrollFade()
+            WarmTabBar(selection: $selection)
+        }
+        .padding(.bottom, WarmTabBarMetrics.bottomMargin)
+        .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
+    }
+}
+
+/// Desk-color fade so scroll content dissolves before the floating dock — not a hard clip.
+private struct WarmTabBarScrollFade: View {
+    var body: some View {
+        LinearGradient(
+            stops: [
+                .init(color: WarmInstrument.desk.opacity(0), location: 0),
+                .init(color: WarmInstrument.desk.opacity(0.4), location: 0.35),
+                .init(color: WarmInstrument.desk.opacity(0.85), location: 0.7),
+                .init(color: WarmInstrument.desk, location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: WarmTabBarMetrics.fadeHeight)
+        .allowsHitTesting(false)
+    }
 }
 
 /// Floating icon dock — inset pill, sliding muted highlight, spring lift on the active icon.
@@ -88,7 +127,6 @@ private struct WarmTabBar: View {
         )
         .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 5)
         .padding(.horizontal, 20)
-        .padding(.top, 2)
     }
 
     private func tabItem(_ tab: AppTab) -> some View {
@@ -130,18 +168,5 @@ private struct TabBarPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(.spring(duration: 0.18, bounce: 0.08), value: configuration.isPressed)
-    }
-}
-
-// MARK: - Scroll clearance (tab-root screens pad content by this amount)
-
-struct WarmTabBarScrollClearanceKey: EnvironmentKey {
-    static let defaultValue: CGFloat = 0
-}
-
-extension EnvironmentValues {
-    var warmTabBarScrollClearance: CGFloat {
-        get { self[WarmTabBarScrollClearanceKey.self] }
-        set { self[WarmTabBarScrollClearanceKey.self] = newValue }
     }
 }

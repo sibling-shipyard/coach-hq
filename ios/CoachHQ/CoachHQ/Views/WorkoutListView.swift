@@ -2,7 +2,6 @@ import SwiftUI
 
 struct WorkoutListView: View {
     @EnvironmentObject var workoutService: WorkoutService
-    @Environment(\.warmTabBarScrollClearance) private var tabBarScrollClearance
     @State private var navigationPath: [Workout] = []
 
     private var todayId: String? { WorkoutService.todayTemplateId() }
@@ -37,9 +36,11 @@ struct WorkoutListView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
-                    .padding(.bottom, tabBarScrollClearance)
+                    .padding(.bottom, 4)
                 }
             }
+            .scrollClipDisabled()
+            .contentMargins(.bottom, WarmTabBarLayout.scrollClearance, for: .scrollContent)
             .refreshable {
                 await workoutService.fetchTodaySessions()
             }

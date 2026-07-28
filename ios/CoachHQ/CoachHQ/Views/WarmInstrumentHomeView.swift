@@ -16,7 +16,6 @@ enum HomeRoute: Hashable {
 struct WarmInstrumentHomeView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var store: WidgetSnapshotStore
-    @Environment(\.warmTabBarScrollClearance) private var tabBarScrollClearance
 
     @State private var toast: Toast?
     @State private var isEditingLayout = false
@@ -52,9 +51,11 @@ struct WarmInstrumentHomeView: View {
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .padding(.bottom, tabBarScrollClearance)
+                .padding(.bottom, 4)
             }
+            .scrollClipDisabled()
             .scrollContentBackground(.hidden)
+            .contentMargins(.bottom, WarmTabBarLayout.scrollClearance, for: .scrollContent)
             .refreshable { await store.refresh(showSpinner: false) }
             .toast($toast)
             .toolbar(.hidden, for: .navigationBar)
