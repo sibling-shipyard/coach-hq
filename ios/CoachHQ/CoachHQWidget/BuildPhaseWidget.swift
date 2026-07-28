@@ -10,25 +10,15 @@ struct BuildPhaseEntry: TimelineEntry {
 }
 
 struct BuildPhaseProvider: TimelineProvider {
-    /// See `EngineProvider.sampleSizes` — same reasoning.
-    private static var sampleSnapshot: BuildPhaseSnapshot {
-        let milestones = [
-            PhaseMilestoneSnapshot(id: "vo2", name: "VO2 Max Test", baseline: "44.1", current: "46.8", target: "49.0", note: nil, progressPercent: 55, projectedDateLabel: nil),
-            PhaseMilestoneSnapshot(id: "bench", name: "Bench Press", baseline: "60kg", current: "72kg", target: "80kg", note: nil, progressPercent: 70, projectedDateLabel: nil),
-        ]
-        return BuildPhaseSnapshot(
-            weekLabel: "WK 3/9", title: "BUILD PHASE · BLOCK 1", milestones: milestones,
-            read: "On track — every missed bar day slides the test date right, none missed yet."
-        )
-    }
+    private static var previewPhase: BuildPhaseSnapshot { GoldenDataset.snapshots.home.phase }
 
     func placeholder(in context: Context) -> BuildPhaseEntry {
-        BuildPhaseEntry(date: Date(), phase: Self.sampleSnapshot, isPlaceholder: true)
+        BuildPhaseEntry(date: Date(), phase: Self.previewPhase, isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (BuildPhaseEntry) -> Void) {
         if context.isPreview {
-            completion(BuildPhaseEntry(date: Date(), phase: Self.sampleSnapshot, isPlaceholder: false))
+            completion(BuildPhaseEntry(date: Date(), phase: Self.previewPhase, isPlaceholder: false))
             return
         }
         completion(BuildPhaseEntry(date: Date(), phase: AppGroupSnapshotBridge.read()?.home.phase, isPlaceholder: false))

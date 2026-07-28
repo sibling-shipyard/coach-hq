@@ -376,12 +376,22 @@ function glyphForDiscipline(discipline: SessionDiscipline): ActivityGlyphKind {
   return "other";
 }
 
+function weekdayName(dateStr: string, explicit?: string) {
+  if (explicit) return explicit;
+  const weekday = new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "long",
+  });
+  return weekday || "Day";
+}
+
 function buildPlanDays(contract: CurrentWeekContract): PlanDayModel[] {
   const today = dateKey(new Date());
-  return contract.days.map((day) => ({
+  return contract.days.map((day) => {
+    const dayName = weekdayName(day.date, day.day);
+    return {
     date: day.date,
-    day: day.day,
-    dayShort: day.day.slice(0, 3),
+    day: dayName,
+    dayShort: dayName.slice(0, 3),
     dateNumber: String(Number(day.date.slice(-2))),
     intent: day.intent,
     isToday: day.date === today,
@@ -402,7 +412,8 @@ function buildPlanDays(contract: CurrentWeekContract): PlanDayModel[] {
           ? "/workouts"
           : undefined,
     })),
-  }));
+  };
+  });
 }
 
 function buildQuest(mainQuest: MainQuest): QuestModel {

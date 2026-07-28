@@ -63,7 +63,9 @@
 			membershipExceptions = (
 				Models/WidgetSnapshots.swift,
 				Models/Workout.swift,
+				Resources/golden_widget_snapshots.json,
 				Shared/AppGroupSnapshotBridge.swift,
+				Shared/GoldenDataset.swift,
 				Views/Theme.swift,
 				Views/WarmInstrumentAtoms.swift,
 			);

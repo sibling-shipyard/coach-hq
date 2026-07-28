@@ -8,45 +8,17 @@ struct EngineEntry: TimelineEntry {
 }
 
 struct EngineProvider: TimelineProvider {
-    /// Representative sample data — used for the redacted system placeholder (`placeholder(in:)`,
-    /// shimmered so exact values don't matter) and, unredacted, for the widget gallery's "Add
-    /// Widget" preview (`getSnapshot` when `context.isPreview`). Numbers mirror the Design
-    /// Philosophy's own worked example ("549 — in the band," 447–671 rhythm band) so the gallery
-    /// preview looks like a real, legible widget instead of the empty/no-data state — standard
-    /// WidgetKit convention (see Apple's own Weather/Stocks widgets), distinct from the "never
-    /// fabricate data on the home screen" rule, which is about the *deployed* widget once added.
-    private static var sampleSizes: EngineSizes {
-        let s = EngineSnapshotS(weekLabel: "WK 30", load: 549, signal: "IN BAND", compactVerdict: "In the band.", bandLow: 447, bandHigh: 671)
-        let trend = [
-            TrendPointSnapshot(label: "1 Jun", value: 512, weekLabel: "WK 23"),
-            TrendPointSnapshot(label: "8 Jun", value: 588, weekLabel: "WK 24"),
-            TrendPointSnapshot(label: "15 Jun", value: 471, weekLabel: "WK 25"),
-            TrendPointSnapshot(label: "22 Jun", value: 604, weekLabel: "WK 26"),
-            TrendPointSnapshot(label: "29 Jun", value: 559, weekLabel: "WK 27"),
-            TrendPointSnapshot(label: "6 Jul", value: 617, weekLabel: "WK 28"),
-            TrendPointSnapshot(label: "13 Jul", value: 533, weekLabel: "WK 29"),
-            TrendPointSnapshot(label: "20 Jul", value: 549, weekLabel: "WK 30"),
-        ]
-        let mix = [
-            LoadMixSnapshot(id: .badminton, label: "Badminton", shortLabel: "BDM", hours: 3.2, color: "#315a4a"),
-            LoadMixSnapshot(id: .foundation, label: "Foundation", shortLabel: "FDN", hours: 2.1, color: "#6d7d4e"),
-            LoadMixSnapshot(id: .cycling, label: "Ride", shortLabel: "RIDE", hours: 1.2, color: "#a8702c"),
-        ]
-        let full = EngineSnapshot(
-            weekLabel: "WK 30", load: 549, signal: "IN BAND", verdict: "Optimal.", compactVerdict: "In the band.",
-            openVerdict: "Hold here.", bandLow: 447, bandHigh: 671, scaleLow: 0, scaleHigh: 800, trend: trend,
-            mix: mix, totalHours: 6.5, method: "8-week rolling median · sample data", doseRows: []
-        )
-        return EngineSizes(S: s, M: full, L: full)
-    }
+    /// Golden dataset (ADR 0007) — used for the Add Widget gallery preview and the redacted
+    /// system placeholder. Never used for deployed home-screen widgets (those read App Group cache).
+    private static var previewSizes: EngineSizes { GoldenDataset.snapshots.sizes.engine }
 
     func placeholder(in context: Context) -> EngineEntry {
-        EngineEntry(date: Date(), sizes: Self.sampleSizes, isPlaceholder: true)
+        EngineEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (EngineEntry) -> Void) {
         if context.isPreview {
-            completion(EngineEntry(date: Date(), sizes: Self.sampleSizes, isPlaceholder: false))
+            completion(EngineEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: false))
             return
         }
         completion(EngineEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.engine, isPlaceholder: false))

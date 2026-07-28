@@ -8,25 +8,15 @@ struct QuestEntry: TimelineEntry {
 }
 
 struct QuestProvider: TimelineProvider {
-    /// See `EngineProvider.sampleSizes` — same reasoning: representative, unredacted sample
-    /// content for the gallery preview, reused (redacted) for the system placeholder.
-    private static var sampleSizes: QuestSizes {
-        let s = QuestSnapshotS(name: "Foundation Streak", completed: 4, target: 6, progressPercent: 67)
-        let sideQuests = [
-            QuestSideSnapshot(id: "reading", name: "Read 20 pages", value: 12, target: 20, color: "#6d7d4e", notes: nil),
-            QuestSideSnapshot(id: "viz", name: "Visualization", value: 3, target: 5, color: "#a8702c", notes: nil),
-        ]
-        let m = QuestSnapshot(name: "Foundation Streak — Week 6", completed: 4, target: 6, loaded: 4, daysLeft: 3, sideQuests: sideQuests, streakLabel: "4 in a row")
-        return QuestSizes(S: s, M: m)
-    }
+    private static var previewSizes: QuestSizes { GoldenDataset.snapshots.sizes.quest }
 
     func placeholder(in context: Context) -> QuestEntry {
-        QuestEntry(date: Date(), sizes: Self.sampleSizes, isPlaceholder: true)
+        QuestEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (QuestEntry) -> Void) {
         if context.isPreview {
-            completion(QuestEntry(date: Date(), sizes: Self.sampleSizes, isPlaceholder: false))
+            completion(QuestEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: false))
             return
         }
         completion(QuestEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.quest, isPlaceholder: false))
