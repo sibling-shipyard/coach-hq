@@ -36,9 +36,10 @@ struct WorkoutListView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 12)
                 }
             }
+            .scrollClipDisabled()
             .refreshable {
                 await workoutService.fetchTodaySessions()
             }

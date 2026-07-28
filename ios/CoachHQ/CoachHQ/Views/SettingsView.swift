@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
+    @EnvironmentObject var syncManager: HealthKitSyncManager
     @ObservedObject var testMode = TestModeManager.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
     @AppStorage(HRZoneConfig.zone1UpperKey) private var zone1Upper = HRZoneConfig.defaultZone1Upper
@@ -13,6 +14,7 @@ struct SettingsView: View {
     @State private var resetResult: String?
     @State private var hrZonesExpanded = false
     @State private var cacheCleared = false
+    @State private var toast: Toast?
 
     var body: some View {
         NavigationStack {
@@ -20,16 +22,33 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     accountSection
                     appearanceSection
+                    syncSection
                     developerSection
                     hrZonesSection
                     aboutSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
-                .padding(.bottom, 32)
+                .padding(.bottom, 12)
             }
+            .scrollClipDisabled()
             .background(WarmInstrument.desk.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+            .toast($toast)
+            .onChange(of: syncManager.lastSyncResult) { _, result in
+                guard let result else { return }
+                switch result.outcome {
+                case .synced(let n):
+                    Haptics.success()
+                    toast = Toast(kind: .success, message: "Synced \(n) new activit\(n == 1 ? "y" : "ies")")
+                case .nothingNew:
+                    Haptics.tap()
+                    toast = Toast(kind: .info, message: "Up to date — nothing new")
+                case .failed(let message):
+                    Haptics.error()
+                    toast = Toast(kind: .error, message: message)
+                }
+            }
         }
     }
 
@@ -92,6 +111,89 @@ struct SettingsView: View {
                 iconColor: darkModeEnabled ? WarmInstrument.alarmFg : WorkoutTimerWarm.amber,
                 isOn: $darkModeEnabled
             )
+        }
+    }
+
+    // MARK: - Sync
+
+    private var syncSection: some View {
+        WarmSettingsSection(title: "Sync") {
+            HStack(spacing: 12) {
+                Image(systemName: syncManager.isSyncing ? "arrow.triangle.2.circlepath" : "checkmark.circle")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundColor(syncManager.isSyncing ? WorkoutTimerWarm.amber : WarmInstrument.sportColor(.foundation))
+                    .rotationEffect(syncManager.isSyncing ? .degrees(360) : .zero)
+                    .animation(
+                        syncManager.isSyncing
+                            ? .linear(duration: 1).repeatForever(autoreverses: false)
+                            : .default,
+                        value: syncManager.isSyncing
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(syncManager.isSyncing ? "Syncing..." : "Up to date")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.ink)
+
+                    if let lastSync = syncManager.lastSyncDate {
+                        Text("Last synced \(lastSync.formatted(.relative(presentation: .named)))")
+                            .font(WarmInstrument.figures(11))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                    } else {
+                        Text("Not synced yet")
+                            .font(WarmInstrument.figures(11))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            if let error = syncManager.syncError {
+                Text(error)
+                    .font(.system(size: 12))
+                    .foregroundColor(WarmInstrument.accent)
+            }
+
+            Button {
+                Haptics.tap()
+                Task { await syncManager.syncNewWorkouts() }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(syncManager.isSyncing ? "Syncing..." : "Sync Now")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundColor(WarmInstrument.paper)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(WorkoutTimerWarm.rust)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
+            }
+            .buttonStyle(TimerWarmPressStyle())
+            .disabled(syncManager.isSyncing)
+            .opacity(syncManager.isSyncing ? 0.6 : 1)
+
+            Text("Pull down on Home to refresh your dashboard. Sync Now pushes new workouts from HealthKit to GitHub.")
+                .font(.system(size: 12))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let repo = authManager.selectedRepo {
+                WarmSettingsDivider()
+                HStack(spacing: 8) {
+                    Image(systemName: "folder.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .frame(width: 18)
+                    Text(repo)
+                        .font(WarmInstrument.figures(11))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .lineLimit(1)
+                }
+            }
         }
     }
 

@@ -1,8 +1,12 @@
 import SwiftUI
 
 struct ActivityListView: View {
+    /// When pushed from Home, skip the outer `NavigationStack` — the parent stack owns back navigation.
+    var embedded: Bool = false
+
     @EnvironmentObject var syncManager: HealthKitSyncManager
     @EnvironmentObject var authManager: GitHubAuthManager
+    @Environment(\.dismiss) private var dismiss
     @State private var entries: [SyncCacheEntry] = []
     @State private var toast: Toast?
     @AppStorage("feedVariant") private var feedVariant = 0
@@ -26,65 +30,108 @@ struct ActivityListView: View {
 
     private var grouped: [DayGroup] { groupByDay(recentEntries) }
 
-    // MARK: - Body
-
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                BrandHeader(title: "Activities", trailing: AnyView(variantPicker))
-
-                if recentEntries.isEmpty {
-                    ScrollView {
-                        emptyState.frame(maxWidth: .infinity).padding(.top, 100)
-                    }
-                    .refreshable { await pullToSync() }
-                } else {
-                    ScrollView {
-                        switch feedVariant {
-                        case 1:
-                            FeedVariant2(entries: recentEntries, grouped: grouped)
-                        case 2:
-                            FeedVariant3(entries: recentEntries)
-                        default:
-                            FeedVariant1(entries: recentEntries, grouped: grouped)
+        Group {
+            if embedded {
+                content
+            } else {
+                NavigationStack {
+                    content
+                        .navigationDestination(for: SyncCacheEntry.self) { entry in
+                            ActivityDetailView(entry: entry)
                         }
+                }
+            }
+        }
+    }
+
+    private var content: some View {
+        VStack(spacing: 0) {
+            if embedded {
+                embeddedHeader
+            } else {
+                BrandHeader(title: "Activities", trailing: AnyView(variantPicker))
+            }
+
+            if recentEntries.isEmpty {
+                ScrollView {
+                    emptyState.frame(maxWidth: .infinity).padding(.top, 100)
+                }
+                .refreshable { await pullToSync() }
+            } else {
+                ScrollView {
+                    switch feedVariant {
+                    case 1:
+                        FeedVariant2(entries: recentEntries, grouped: grouped)
+                    case 2:
+                        FeedVariant3(entries: recentEntries)
+                    default:
+                        FeedVariant1(entries: recentEntries, grouped: grouped)
                     }
-                    .refreshable { await pullToSync() }
                 }
+                .refreshable { await pullToSync() }
             }
-            .background(Color(uiColor: .systemBackground))
-            .toast($toast)
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: SyncCacheEntry.self) { entry in
-                ActivityDetailView(entry: entry)
-            }
-            .task {
+        }
+        .background(embedded ? WarmInstrument.desk : Color(uiColor: .systemBackground))
+        .toast($toast)
+        .toolbar(.hidden, for: .navigationBar)
+        .task {
+            entries = SyncCache.load()
+            await syncManager.backfillRecentCache()
+            entries = SyncCache.load()
+            await backfillStats()
+        }
+        .onChange(of: syncManager.lastSyncDate) {
+            withAnimation(.spring(duration: 0.4, bounce: 0.15)) {
                 entries = SyncCache.load()
-                await syncManager.backfillRecentCache()
-                entries = SyncCache.load()
-                await backfillStats()
             }
-            .onChange(of: syncManager.lastSyncDate) {
-                withAnimation(.spring(duration: 0.4, bounce: 0.15)) {
-                    entries = SyncCache.load()
-                }
-                Task { await backfillStats() }
+            Task { await backfillStats() }
+        }
+        .onChange(of: syncManager.lastSyncResult) { _, result in
+            guard let result else { return }
+            switch result.outcome {
+            case .synced(let n):
+                Haptics.success()
+                toast = Toast(kind: .success, message: "Synced \(n) new activit\(n == 1 ? "y" : "ies")")
+            case .nothingNew:
+                Haptics.tap()
+                toast = Toast(kind: .info, message: "Up to date")
+            case .failed(let msg):
+                Haptics.error()
+                toast = Toast(kind: .error, message: msg)
             }
-            .onChange(of: syncManager.lastSyncResult) { _, result in
-                guard let result else { return }
-                switch result.outcome {
-                case .synced(let n):
-                    Haptics.success()
-                    toast = Toast(kind: .success, message: "Synced \(n) new activit\(n == 1 ? "y" : "ies")")
-                case .nothingNew:
-                    Haptics.tap()
-                    toast = Toast(kind: .info, message: "Up to date")
-                case .failed(let msg):
-                    Haptics.error()
-                    toast = Toast(kind: .error, message: msg)
-                }
+        }
+        .onAppear { entries = SyncCache.load() }
+    }
+
+    private var embeddedHeader: some View {
+        HStack(spacing: 10) {
+            Button {
+                Haptics.tap()
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(WarmInstrument.inkMuted)
             }
-            .onAppear { entries = SyncCache.load() }
+            .buttonStyle(.plain)
+
+            Text("Activities")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(Theme.ink)
+
+            Spacer(minLength: 8)
+
+            variantPicker
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .background(WarmInstrument.paper)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(WarmInstrument.headerRule)
+                .frame(height: 1)
         }
     }
 
@@ -98,9 +145,9 @@ struct ActivityListView: View {
                 } label: {
                     Text("\(i + 1)")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(feedVariant == i ? .white : Color.primary.opacity(0.4))
+                        .foregroundColor(feedVariant == i ? WarmInstrument.paper : WarmInstrument.inkFaint)
                         .frame(width: 20, height: 20)
-                        .background(feedVariant == i ? Color.primary : Color.clear)
+                        .background(feedVariant == i ? WarmInstrument.ink : Color.clear)
                         .clipShape(Circle())
                         .animation(.spring(duration: 0.2), value: feedVariant)
                 }
@@ -108,7 +155,7 @@ struct ActivityListView: View {
         }
         .padding(.horizontal, 5)
         .padding(.vertical, 3)
-        .background(Theme.mutedBackground)
+        .background(WarmInstrument.surfaceMuted)
         .clipShape(Capsule())
     }
 
@@ -136,12 +183,13 @@ struct ActivityListView: View {
         VStack(spacing: 12) {
             Image(systemName: "figure.badminton")
                 .font(.system(size: 40))
-                .foregroundColor(Theme.accentGreen)
+                .foregroundColor(WarmInstrument.sportColor(.badminton))
             Text("No activities yet")
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(Theme.ink)
             Text("Pull down to sync from HealthKit.")
                 .font(.footnote)
-                .foregroundColor(.secondary)
+                .foregroundColor(WarmInstrument.inkMuted)
         }
     }
 }
