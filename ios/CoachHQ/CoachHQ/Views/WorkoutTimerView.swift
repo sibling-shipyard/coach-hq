@@ -57,16 +57,16 @@ struct WorkoutTimerView: View {
             @unknown default: break
             }
         }
-        .confirmationDialog(
-            "Quit workout?",
-            isPresented: $showQuitConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Quit", role: .destructive) { exitWorkout() }
-            Button("Continue", role: .cancel) {}
-        } message: {
-            Text("Your progress will be lost.")
+        .overlay {
+            if showQuitConfirm {
+                WarmQuitDialog(
+                    onContinue: { showQuitConfirm = false },
+                    onQuit: exitWorkout
+                )
+                .transition(.opacity)
+            }
         }
+        .animation(.spring(duration: 0.25, bounce: 0), value: showQuitConfirm)
     }
 
     private func exitWorkout() {
