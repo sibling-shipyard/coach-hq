@@ -10,6 +10,7 @@ struct ActivityDetailView: View {
     let entry: SyncCacheEntry
 
     @EnvironmentObject var authManager: GitHubAuthManager
+    @Environment(\.dismiss) private var dismiss
 
     @State private var activity: Activity?
     @State private var descriptionText: String = ""
@@ -42,143 +43,192 @@ struct ActivityDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                statsCard
-                zoneBreakdownSection
+        VStack(spacing: 0) {
+            detailHeader
 
-                Group {
-                    if isEditing {
-                        editorCard
-                        previewCard
-                    } else {
-                        descriptionDisplayCard
-                    }
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    statsCard
+                    zoneBreakdownSection
 
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-
-                if isEditing {
-                    Button(action: { Task { await saveAndSync() } }) {
-                        HStack(spacing: 8) {
-                            if isSaving {
-                                ProgressView()
-                                    .tint(.white)
-                                    .controlSize(.small)
-                            }
-                            Text(isSaving ? "Saving…" : "Save & Sync")
+                    Group {
+                        if isEditing {
+                            editorCard
+                            previewCard
+                        } else {
+                            descriptionDisplayCard
                         }
                     }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .opacity(descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
-                }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
 
-                if saveSucceeded {
-                    Label("Saved and synced to GitHub", systemImage: "checkmark.circle.fill")
-                        .font(.footnote.weight(.medium))
-                        .foregroundColor(Theme.accentGreen)
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundColor(WarmInstrument.accent)
+                    }
+
+                    if isEditing {
+                        WarmPrimaryCTA(title: isSaving ? "Saving…" : "Save & Sync") {
+                            Task { await saveAndSync() }
+                        }
+                        .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .opacity(descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
+                        .overlay {
+                            if isSaving {
+                                ProgressView()
+                                    .tint(WarmInstrument.paper)
+                            }
+                        }
+                    }
+
+                    if saveSucceeded {
+                        Label("Saved and synced to GitHub", systemImage: "checkmark.circle.fill")
+                            .font(.footnote.weight(.medium))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+                .animation(.spring(duration: 0.38, bounce: 0.15), value: isEditing)
             }
-            .padding(10)
-            .animation(.spring(duration: 0.3), value: isEditing)
+            .scrollClipDisabled()
         }
-        .background(Color(uiColor: .systemBackground))
+        .background(WarmInstrument.desk.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
-        .navigationTitle(entry.name)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+        .simultaneousGesture(edgeBackSwipeGesture)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { editorFocused = false }
                     .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.ink)
             }
         }
         .task { await loadExistingActivity() }
     }
 
+    private var detailHeader: some View {
+        HStack(spacing: 10) {
+            Button {
+                Haptics.tap()
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(WarmInstrument.inkMuted)
+            }
+            .buttonStyle(.plain)
+
+            Text(entry.name)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(Theme.ink)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .background(WarmInstrument.paper)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(WarmInstrument.headerRule)
+                .frame(height: 1)
+        }
+    }
+
+    /// Swipe right from the leading edge to pop back.
+    private var edgeBackSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onEnded { value in
+                guard value.startLocation.x < 28,
+                      value.translation.width > 56,
+                      abs(value.translation.height) < 96 else { return }
+                Haptics.tap()
+                dismiss()
+            }
+    }
+
     // MARK: - Stats card (hero header)
 
     private var statsCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Sport color stripe — anchors the view's identity immediately
-            badge.color
-                .frame(height: 3)
-                .frame(maxWidth: .infinity)
+        WarmCard(padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Sport color stripe — anchors the view's identity immediately
+                badge.color
+                    .frame(height: 3)
+                    .frame(maxWidth: .infinity)
 
-            // Sport label + date + loading indicator
-            HStack(spacing: 5) {
-                Text(badge.label)
-                    .font(.system(size: 10, weight: .bold))
-                    .kerning(1)
-                    .foregroundColor(badge.color)
-                Text("·")
-                    .font(.system(size: 10))
-                    .foregroundColor(Color(uiColor: .tertiaryLabel))
-                Text(formattedDate)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                Spacer()
-                if isLoading { ProgressView().controlSize(.small) }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 6)
-
-            // Hero name — the biggest text on screen
-            Text(entry.name)
-                .font(.system(size: 22, weight: .bold))
-                .fixedSize(horizontal: false, vertical: true)
+                // Sport label + date
+                HStack(spacing: 5) {
+                    MonoLabel(badge.label, size: 10, color: badge.color)
+                    Text("·")
+                        .font(.system(size: 10))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                    Text(formattedDate)
+                        .font(.system(size: 11))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                    Spacer()
+                }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 6)
 
-            Divider().opacity(0.5)
+                // Hero name — the biggest text on screen
+                Text(entry.name)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 14)
 
-            // Stats columns — large monospaced values
-            HStack(spacing: 0) {
-                HeroStat(value: durationString, label: "DURATION")
-                if isLoading && activity == nil {
-                    HeroStat(value: "420", label: "CAL")
-                    HeroStat(value: "142", label: "AVG HR")
-                    HeroStat(value: "171", label: "PEAK")
-                } else {
-                    if let cal = activity?.calories {
-                        HeroStat(value: "\(cal)", label: "CAL")
-                    }
-                    if let hr = activity?.averageHeartrate {
-                        HeroStat(value: "\(Int(hr))", label: "AVG HR")
-                    }
-                    if let peak = activity?.maxHeartrate {
-                        HeroStat(value: "\(Int(peak))", label: "PEAK")
-                    }
-                    if let dist = activity?.distance, dist > 0 {
-                        HeroStat(value: String(format: "%.1f", dist / 1000), label: "KM")
+                Rectangle()
+                    .fill(WarmInstrument.headerRule)
+                    .frame(height: 1)
+
+                // Stats columns — large monospaced values
+                HStack(spacing: 0) {
+                    HeroStat(value: durationString, label: "DURATION")
+                    if isLoading && activity == nil {
+                        HeroStat(value: "420", label: "CAL")
+                        HeroStat(value: "142", label: "AVG HR")
+                        HeroStat(value: "171", label: "PEAK")
+                    } else {
+                        if let cal = activity?.calories {
+                            HeroStat(value: "\(cal)", label: "CAL")
+                        }
+                        if let hr = activity?.averageHeartrate {
+                            HeroStat(value: "\(Int(hr))", label: "AVG HR")
+                        }
+                        if let peak = activity?.maxHeartrate {
+                            HeroStat(value: "\(Int(peak))", label: "PEAK")
+                        }
+                        if let dist = activity?.distance, dist > 0 {
+                            HeroStat(value: String(format: "%.1f", dist / 1000), label: "KM")
+                        }
                     }
                 }
-            }
-            .padding(.vertical, 14)
-            .padding(.horizontal, 8)
-            .skeleton(isLoading && activity == nil)
+                .padding(.vertical, 14)
+                .padding(.horizontal, 8)
+                .skeleton(isLoading && activity == nil)
 
-            if let mental = activity?.preMentalState {
-                Divider().opacity(0.5)
-                MentalStateChip(score: mental.score, word: mental.word)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                if let mental = activity?.preMentalState {
+                    Rectangle()
+                        .fill(WarmInstrument.headerRule)
+                        .frame(height: 1)
+                    MentalStateChip(score: mental.score, word: mental.word)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                .stroke(Theme.cardBorder, lineWidth: 1)
-        )
     }
 
     private var formattedDate: String {
@@ -204,33 +254,34 @@ struct ActivityDetailView: View {
     private var descriptionDisplayCard: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                SectionHeader("Description")
+                MonoLabel("Description")
                 Spacer()
                 Button {
                     startEditing()
                 } label: {
                     Image(systemName: savedDescription == nil ? "plus.circle.fill" : "pencil.circle.fill")
                         .font(.system(size: 22))
-                        .foregroundColor(Theme.accentGreen)
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
+                .buttonStyle(TimerWarmPressStyle())
                 .accessibilityLabel(savedDescription == nil ? "Add description" : "Edit description")
             }
 
-            ThemedCard {
+            WarmCard {
                 if let desc = savedDescription {
                     Text(desc)
                         .font(.system(size: 13, design: .monospaced))
+                        .foregroundColor(Theme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    // Empty state — visually distinct from a filled description.
                     VStack(spacing: 6) {
                         Image(systemName: "text.badge.plus")
                             .font(.system(size: 22))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(WarmInstrument.inkFaint)
                         Text(isLoading ? "Loading…" : "No description yet")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(WarmInstrument.inkMuted)
                         if !isLoading && entry.sportType == "Badminton" {
                             Text("Tap + to add match scores")
                                 .font(.caption2)
@@ -258,7 +309,7 @@ struct ActivityDetailView: View {
     private var editorCard: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                SectionHeader("Description — Paste Scores")
+                MonoLabel("Description — paste scores")
                 Spacer()
                 Button {
                     editorFocused = false
@@ -267,20 +318,21 @@ struct ActivityDetailView: View {
                 } label: {
                     Text("Cancel")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
             }
 
             TextEditor(text: $descriptionText)
                 .font(.system(size: 14, design: .monospaced))
+                .foregroundColor(Theme.ink)
                 .frame(minHeight: 150)
                 .padding(8)
                 .scrollContentBackground(.hidden)
-                .background(Theme.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+                .background(WarmInstrument.paper)
+                .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                        .stroke(editorFocused ? Theme.accentGreen : Theme.cardBorder, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                        .stroke(editorFocused ? WarmInstrument.ink : WarmInstrument.border, lineWidth: 1)
                 )
                 .focused($editorFocused)
         }
@@ -291,14 +343,15 @@ struct ActivityDetailView: View {
     @ViewBuilder
     private var previewCard: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionHeader("Live Preview")
+            MonoLabel("Live preview")
 
-            ThemedCard {
+            WarmCard {
                 Group {
                     if let parsed {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(DescriptionParser.formatDescription(parsed))
                                 .font(.system(size: 13, design: .monospaced))
+                                .foregroundColor(Theme.ink)
                                 .fixedSize(horizontal: false, vertical: true)
 
                             ForEach(parsed.warnings, id: \.self) { warning in
@@ -310,15 +363,15 @@ struct ActivityDetailView: View {
                     } else if DescriptionParser.isAlreadyFormatted(descriptionText) {
                         Text(descriptionText)
                             .font(.system(size: 13, design: .monospaced))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(WarmInstrument.inkMuted)
                     } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text("Paste scores above to see a preview.")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(WarmInstrument.inkFaint)
                     } else {
                         Text("No games recognized yet — keep typing or check the format.")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(WarmInstrument.inkFaint)
                     }
                 }
             }
@@ -509,8 +562,8 @@ struct ActivityDetailView: View {
             let total = vals.reduce(0, +)
             if total > 0 {
                 VStack(alignment: .leading, spacing: 6) {
-                    SectionHeader("Heart Rate Zones")
-                    ThemedCard {
+                    MonoLabel("Heart rate zones")
+                    WarmCard {
                         VStack(spacing: 10) {
                             ForEach(vals.indices, id: \.self) { i in
                                 ZoneBreakdownRow(
@@ -577,12 +630,12 @@ private struct ZoneBreakdownRow: View {
 
             Text("\(Int(fraction * 100))%")
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.secondary)
+                .foregroundColor(WarmInstrument.inkMuted)
                 .frame(width: 28, alignment: .trailing)
 
             Text(timeString)
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.secondary)
+                .foregroundColor(WarmInstrument.inkFaint)
                 .frame(width: 50, alignment: .trailing)
         }
         .onAppear { appeared = true }
@@ -597,18 +650,15 @@ private struct MentalStateChip: View {
 
     private var color: Color {
         switch score {
-        case 7...10: return Theme.accentGreen
+        case 7...10: return Theme.hrZoneColors[1]
         case 4...6:  return Theme.attentionOrange
-        default:     return .red
+        default:     return Theme.hrZoneColors[4]
         }
     }
 
     var body: some View {
         HStack(spacing: 5) {
-            Text("PRE")
-                .font(.system(size: 8, weight: .bold))
-                .kerning(1)
-                .foregroundColor(.secondary)
+            MonoLabel("Pre", size: 8)
             Text("\(score) · \(word)")
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .foregroundColor(color)
@@ -630,12 +680,9 @@ private struct HeroStat: View {
         VStack(spacing: 3) {
             Text(value)
                 .font(.system(size: 19, weight: .bold, design: .monospaced))
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.ink)
                 .contentTransition(.numericText())
-            Text(label)
-                .font(.system(size: 8, weight: .bold))
-                .kerning(1)
-                .foregroundColor(.secondary)
+            MonoLabel(label, size: 8)
         }
         .frame(maxWidth: .infinity)
     }

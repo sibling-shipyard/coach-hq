@@ -73,8 +73,7 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 | `ios/CoachHQ/CoachHQ/Views/ActivityFeedVariants.swift` | All 3 feed variants + shared components: `DayGroup`, `groupByDay()`, `ZoneDots`, `CompactZoneBar`, `WeekSummaryWidget`, `FeedVariant1/2/3` |
 | `ios/CoachHQ/CoachHQ/Views/ActivityDetailView.swift` | Hero stats card (sport stripe + 22pt name + 19pt monospace HeroStat columns), zone breakdown bars, mental state chip |
 | `ios/CoachHQ/CoachHQ/Views/TrainingHeatmapView.swift` | 8-week Mon–Sun training grid, sport-colored cells, tap → DayDetailSheet |
-| `ios/CoachHQ/CoachHQ/Views/SyncStatusView.swift` | Sync home screen + WeeklyVolumeChart (7-day sport-colored bars) |
-| `ios/CoachHQ/CoachHQ/Views/SettingsView.swift` | Settings (account, appearance, test mode, HR zones, cache) |
+| `ios/CoachHQ/CoachHQ/Views/SettingsView.swift` | Settings (account, appearance, sync, test mode, HR zones, cache) |
 | `ios/CoachHQ/CoachHQ/Views/WarmInstrumentHomeView.swift` | Primary Home tab — mobile Warm Instrument widget column |
 | `ios/CoachHQ/CoachHQ/Views/WarmInstrumentAtoms.swift` | Shared Warm Instrument card/row/chip atoms |
 | `ios/CoachHQ/CoachHQ/Views/InstrumentHeaderView.swift` | Compact `HQ` header on Home |

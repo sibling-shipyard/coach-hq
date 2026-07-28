@@ -47,16 +47,13 @@ struct ActivityListView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            if embedded {
-                embeddedHeader
-            } else {
-                BrandHeader(title: "Activities", trailing: AnyView(variantPicker))
-            }
+            warmHeader
 
             if recentEntries.isEmpty {
                 ScrollView {
                     emptyState.frame(maxWidth: .infinity).padding(.top, 100)
                 }
+                .scrollClipDisabled()
                 .refreshable { await pullToSync() }
             } else {
                 ScrollView {
@@ -69,10 +66,11 @@ struct ActivityListView: View {
                         FeedVariant1(entries: recentEntries, grouped: grouped)
                     }
                 }
+                .scrollClipDisabled()
                 .refreshable { await pullToSync() }
             }
         }
-        .background(embedded ? WarmInstrument.desk : Color(uiColor: .systemBackground))
+        .background(WarmInstrument.desk.ignoresSafeArea())
         .toast($toast)
         .toolbar(.hidden, for: .navigationBar)
         .task {
@@ -104,20 +102,22 @@ struct ActivityListView: View {
         .onAppear { entries = SyncCache.load() }
     }
 
-    private var embeddedHeader: some View {
+    private var warmHeader: some View {
         HStack(spacing: 10) {
-            Button {
-                Haptics.tap()
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(WarmInstrument.inkMuted)
+            if embedded {
+                Button {
+                    Haptics.tap()
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             Text("Activities")
-                .font(.system(size: 17, weight: .bold))
+                .font(.system(size: embedded ? 17 : 26, weight: .bold))
                 .foregroundColor(Theme.ink)
 
             Spacer(minLength: 8)
@@ -141,7 +141,8 @@ struct ActivityListView: View {
         HStack(spacing: 3) {
             ForEach(0..<3, id: \.self) { i in
                 Button {
-                    withAnimation(.spring(duration: 0.25)) { feedVariant = i }
+                    Haptics.tap()
+                    withAnimation(.spring(duration: 0.25, bounce: 0.15)) { feedVariant = i }
                 } label: {
                     Text("\(i + 1)")
                         .font(.system(size: 9, weight: .bold))

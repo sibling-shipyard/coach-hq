@@ -47,9 +47,9 @@ CoachHQ/
 │   └── DescriptionParser.swift       # On-device badminton score parsing (port of parse_match_description.py)
 ├── Views/
 │   ├── LoginView.swift               # GitHub OAuth sign-in screen
-│   ├── MainTabView.swift             # Tab navigation
-│   ├── SyncStatusView.swift          # Sync status + manual trigger
-│   ├── ActivityListView.swift        # Last-7-days synced activities
+│   ├── MainTabView.swift             # Tab navigation (Home · Workouts · More)
+│   ├── WarmInstrumentHomeView.swift  # Warm Instrument Home tab
+│   ├── ActivityListView.swift        # Last-7-days synced activities (from Home)
 │   ├── ActivityDetailView.swift      # Paste scores, live preview, save & sync
 │   ├── WorkoutPlaceholderView.swift  # v0.2 timer placeholder
 │   └── SettingsView.swift            # HR zones, account, repo selection

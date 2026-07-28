@@ -45,15 +45,12 @@ func groupByDay(_ entries: [SyncCacheEntry]) -> [DayGroup] {
 struct DayGroupHeader: View {
     let label: String
     var body: some View {
-        Text(label.uppercased())
-            .font(.system(size: 11, weight: .bold))
-            .kerning(1.5)
-            .foregroundColor(.secondary)
+        MonoLabel(label, size: 11, tracking: 1.5)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .padding(.top, 22)
             .padding(.bottom, 7)
-            .background(Color(uiColor: .systemBackground))
+            .background(WarmInstrument.desk)
     }
 }
 
@@ -162,21 +159,19 @@ struct WeekSummaryWidget: View {
     }
 
     var body: some View {
-        ThemedCard {
+        WarmCard {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("THIS WEEK")
-                        .font(.system(size: 10, weight: .bold)).kerning(2)
-                        .foregroundColor(.secondary)
+                    MonoLabel("This week", tracking: 2)
                     Spacer()
                     HStack(spacing: 6) {
                         ForEach(dots.indices, id: \.self) { i in
                             let d = dots[i]
                             Circle()
-                                .fill(d.isFuture || d.isEmpty ? Theme.mutedBackground : d.color)
+                                .fill(d.isFuture || d.isEmpty ? WarmInstrument.surfaceMuted : d.color)
                                 .frame(width: 9, height: 9)
                                 .overlay(Circle().stroke(
-                                    d.isToday ? Color.primary.opacity(0.45) : Color.clear,
+                                    d.isToday ? Theme.ink.opacity(0.45) : Color.clear,
                                     lineWidth: 1.5))
                         }
                     }
@@ -198,11 +193,9 @@ private struct WeekStatCell: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
                 .font(.system(size: 22, weight: .bold, design: .monospaced))
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.ink)
                 .contentTransition(.numericText())
-            Text(label)
-                .font(.system(size: 9, weight: .bold)).kerning(1)
-                .foregroundColor(.secondary)
+            MonoLabel(label, size: 9)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -232,13 +225,17 @@ struct FeedVariant1: View {
                         }
                         .buttonStyle(RowPressButtonStyle())
                         if idx < group.entries.count - 1 {
-                            Divider().padding(.leading, 68)
+                            Divider()
+                                .overlay(WarmInstrument.headerRule)
+                                .padding(.leading, 68)
                         }
                     }
                 } header: {
                     DayGroupHeader(label: group.label)
                 }
             }
+
+            Color.clear.frame(height: 12)
         }
     }
 }
@@ -264,12 +261,13 @@ private struct IconRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.name)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.ink)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     Text(timeString)
-                        .font(.system(size: 11)).foregroundColor(.secondary)
+                        .font(.system(size: 11))
+                        .foregroundColor(WarmInstrument.inkMuted)
                     if let zones = entry.activity?.hrZones {
                         ZoneDots(zones: zones)
                     }
@@ -285,18 +283,15 @@ private struct IconRow: View {
                 if let cal = entry.activity?.calories {
                     Text("\(cal)")
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .foregroundColor(.primary)
-                    Text("CAL")
-                        .font(.system(size: 8, weight: .bold)).kerning(0.5)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.ink)
+                        .contentTransition(.numericText())
+                    MonoLabel("Cal", size: 8, tracking: 0.5)
                 } else {
                     let h = entry.elapsedTime / 3600, m = (entry.elapsedTime % 3600) / 60
                     Text(h > 0 ? "\(h)h \(m)m" : "\(m)m")
                         .font(.system(size: 15, weight: .bold, design: .monospaced))
-                        .foregroundColor(.primary)
-                    Text("TIME")
-                        .font(.system(size: 8, weight: .bold)).kerning(0.5)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Theme.ink)
+                    MonoLabel("Time", size: 8, tracking: 0.5)
                 }
             }
         }

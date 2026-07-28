@@ -19,7 +19,8 @@ enum Theme {
 
     // MARK: - Core palette
 
-    /// Green accent for progress indicators and active states (#2d8a4e).
+    /// Legacy green accent — prefer `Theme.ink` for chrome and `WarmInstrument.accent` for load CTAs.
+    /// Kept for sport-color parity (badminton) and deprecated reference views.
     static let accentGreen = Color(red: 0x2D / 255.0, green: 0x8A / 255.0, blue: 0x4E / 255.0)
 
     /// Orange used for "needs attention" indicators (badminton without scores).
@@ -340,9 +341,9 @@ struct RowPressButtonStyle: ButtonStyle {
     }
 }
 
-/// Primary action button — green fill, white semibold label, soft corners.
+/// Primary action button — terracotta fill for load/save actions, white semibold label.
 struct PrimaryButtonStyle: ButtonStyle {
-    var fill: Color = Theme.accentGreen
+    var fill: Color = WarmInstrument.accent
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -350,8 +351,10 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(fill.opacity(configuration.isPressed ? 0.8 : 1))
-            .foregroundColor(.white)
+            .foregroundColor(WarmInstrument.paper)
             .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.15, bounce: 0), value: configuration.isPressed)
     }
 }
 
@@ -417,8 +420,8 @@ struct Toast: Equatable {
 
     var tint: Color {
         switch kind {
-        case .success: return Theme.accentGreen
-        case .error: return .red
+        case .success: return Theme.ink
+        case .error: return WarmInstrument.accent
         case .info: return Theme.ink
         }
     }

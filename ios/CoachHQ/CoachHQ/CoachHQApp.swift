@@ -29,7 +29,7 @@ struct CoachHQApp: App {
                         .environmentObject(authManager)
                 }
             }
-            .tint(Theme.accentGreen)
+            .tint(Theme.ink)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)
         }
     }
