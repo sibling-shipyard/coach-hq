@@ -7,7 +7,6 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Home from "./pages/Home";
-import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
 import AuthError from "./pages/AuthError";
 import Workouts from "./pages/Workouts";
@@ -18,10 +17,12 @@ import SportAnalyticsRunning from "./pages/SportAnalyticsRunning";
 import SportAnalyticsCalisthenics from "./pages/SportAnalyticsCalisthenics";
 import CoachChat from "./pages/CoachChat";
 import WidgetGallery from "./pages/WidgetGallery";
+import Welcome from "./pages/Welcome";
 
 function Router() {
   return (
     <Switch>
+      <Route path="/welcome" component={Welcome} />
       <Route path={"/"} component={Home} />
       <Route path="/workouts" component={Workouts} />
       <Route path="/workouts/:id" component={WorkoutTimer} />
@@ -50,7 +51,7 @@ function Gate({ children }: { children: ReactNode }) {
 
   if (authError) return <AuthError type={authError} />;
   if (auth.status === "loading") return null;
-  if (auth.status === "unauthenticated") return <Login />;
+  if (auth.status === "unauthenticated") return <Welcome />;
   if (auth.status === "onboarding") return <Onboarding />;
   if (switching && auth.status === "authenticated") return <Onboarding switchMode />;
   return <>{children}</>;
