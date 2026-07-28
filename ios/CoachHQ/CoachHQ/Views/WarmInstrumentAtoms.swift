@@ -135,6 +135,108 @@ struct SportChip: View {
     }
 }
 
+// MARK: - SportStripCell
+
+/// One column in the mobile commitment quartet strip — glyph, mono numeral, ruled scale,
+/// micro caption. Matches `Warm Instrument Mobile.dc.html` phone 1 sport strip.
+struct SportStripCell: View {
+    let commitment: CommitmentSnapshot
+    var showingRanked: Bool = false
+    var onToggle: (() -> Void)? = nil
+
+    private var accent: Color { WarmInstrument.color(hex: commitment.accent) }
+    private var isAlarm: Bool { commitment.alarm == true }
+
+    private var progressFraction: Double {
+        if let progress = commitment.progress {
+            return max(0, min(1, progress / 100))
+        }
+        return commitment.value > 0 ? 1 : 0
+    }
+
+    private var recordCaption: String {
+        if commitment.id == "badminton" {
+            return showingRanked ? (commitment.rankedRecord ?? commitment.note) : (commitment.allRecord ?? commitment.note)
+        }
+        return commitment.note
+    }
+
+    private var statusCaption: String {
+        if commitment.id == "badminton" {
+            return showingRanked ? "RKD" : "ALL"
+        }
+        return commitment.status
+    }
+
+    private func number(_ value: Double) -> String {
+        value == value.rounded() ? String(Int(value)) : String(format: "%.1f", value)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: WarmInstrument.sfSymbol(for: commitment.glyph))
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundColor(isAlarm ? WarmInstrument.alarmFg : accent)
+
+            Text(number(commitment.value))
+                .font(WarmInstrument.figures(22, weight: .bold))
+                .foregroundColor(isAlarm ? WarmInstrument.alarmFg : WarmInstrument.ink)
+                .contentTransition(.numericText())
+
+            VStack(alignment: .leading, spacing: 6) {
+                HairlineProgress(
+                    fraction: progressFraction,
+                    tint: isAlarm ? WarmInstrument.alarmFg.opacity(0.35) : accent,
+                    track: isAlarm ? WarmInstrument.alarmFg.opacity(0.3) : WarmInstrument.headerRule,
+                    height: 1
+                )
+
+                HStack(spacing: 4) {
+                    if isAlarm {
+                        Text((commitment.note.isEmpty ? commitment.status : commitment.note).uppercased())
+                            .font(WarmInstrument.monoLabel(8.5, weight: .bold))
+                            .tracking(0.3)
+                            .foregroundColor(WarmInstrument.alarmFg)
+                            .lineLimit(1)
+                    } else {
+                        Text(recordCaption.uppercased())
+                            .font(WarmInstrument.monoLabel(8.5, weight: .regular))
+                            .tracking(0.3)
+                            .foregroundColor(WarmInstrument.inkMuted)
+                            .lineLimit(1)
+                        if commitment.id == "badminton" {
+                            Text(statusCaption)
+                                .font(WarmInstrument.monoLabel(8.5, weight: .bold))
+                                .tracking(0.3)
+                                .foregroundColor(accent)
+                        } else if !commitment.status.isEmpty {
+                            Text(commitment.status.uppercased())
+                                .font(WarmInstrument.monoLabel(8.5, weight: .bold))
+                                .tracking(0.3)
+                                .foregroundColor(WarmInstrument.inkMuted)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(isAlarm ? WarmInstrument.alarmBg : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard let onToggle else { return }
+            Haptics.tap()
+            onToggle()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(onToggle != nil ? .isButton : [])
+        .accessibilityLabel("\(commitment.label): \(number(commitment.value))")
+    }
+}
+
 // MARK: - SportCube
 
 /// One cube per sport commitment — icon top-left, count top-right, hairline underline +
@@ -214,36 +316,46 @@ struct SportCube: View {
 /// invented." One component everywhere; platforms only change row count and density.
 struct SessionRow: View {
     let session: RecentSessionSnapshot
+    /// Mobile home recent list — date · vein · title · load (no detail line).
+    var compact: Bool = false
 
     private var sportColor: Color { WarmInstrument.sportColor(session.sport) }
 
     var body: some View {
         HStack(spacing: 10) {
+            MonoLabel(session.dateLabel, size: 9, color: WarmInstrument.inkFaint, tracking: 0.6)
+                .frame(width: compact ? 42 : 46, alignment: .leading)
+
             RoundedRectangle(cornerRadius: 2)
                 .fill(sportColor)
-                .frame(width: 4, height: 30)
+                .frame(width: 3, height: compact ? 22 : 30)
 
-            MonoLabel(session.dateLabel, size: 9, color: WarmInstrument.inkFaint, tracking: 0.6)
-                .frame(width: 46, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: 1) {
+            if compact {
                 Text(session.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .foregroundColor(WarmInstrument.ink)
                     .lineLimit(1)
-                Text(session.detail)
-                    .font(.system(size: 11))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(session.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(WarmInstrument.ink)
+                        .lineLimit(1)
+                    Text(session.detail)
+                        .font(.system(size: 11))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .lineLimit(1)
+                }
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: compact ? 0 : 8)
 
             Text(session.load.map { "+\(Int($0))" } ?? "—")
-                .font(WarmInstrument.figures(14, weight: .bold))
+                .font(WarmInstrument.figures(compact ? 10 : 14, weight: .bold))
                 .foregroundColor(sportColor)
                 .contentTransition(.numericText())
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, compact ? 10 : 8)
     }
 }

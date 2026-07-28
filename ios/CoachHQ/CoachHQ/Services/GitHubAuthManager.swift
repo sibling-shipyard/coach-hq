@@ -9,6 +9,11 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     @Published var isAuthenticated = false
     @Published var user: GitHubUser?
     @Published var selectedRepo: String?
+    /// True once a stored-token bootstrap or fresh sign-in has finished loading
+    /// `user` and attempting repo discovery. Home should wait for this before
+    /// calling the GitHub API — otherwise `selectedRepo` is still nil and reads
+    /// look like a sign-in failure.
+    @Published private(set) var isSessionReady = false
 
     private let keychainKey = "com.siblingshipyard.coachhq.github.token"
 
@@ -23,13 +28,11 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
 
     override init() {
         super.init()
-        // Check for existing token on launch
-        if let _ = loadToken() {
+        if loadToken() != nil {
             isAuthenticated = true
-            Task {
-                await fetchUser()
-                await discoverRepo()
-            }
+            Task { await bootstrapSession() }
+        } else {
+            isSessionReady = true
         }
     }
 
@@ -75,8 +78,15 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         let token = try await exchangeCodeForToken(code: code)
         saveToken(token)
         isAuthenticated = true
+        await bootstrapSession()
+    }
+
+    /// Loads profile + discovers repo after sign-in or cold launch with a stored token.
+    func bootstrapSession() async {
+        isSessionReady = false
         await fetchUser()
         await discoverRepo()
+        isSessionReady = true
     }
 
     /// Exchanges the OAuth authorization code for an access token
@@ -192,6 +202,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         ]
         SecItemDelete(query as CFDictionary)
         isAuthenticated = false
+        isSessionReady = true
         user = nil
         selectedRepo = nil
     }

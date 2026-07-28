@@ -27,9 +27,12 @@ class GitHubAPIClient {
 
     private var baseURL: String {
         get throws {
+            guard authManager.loadToken() != nil else {
+                throw GitHubAPIError.notAuthenticated
+            }
             guard let user = authManager.user?.login,
                   let repo = authManager.selectedRepo else {
-                throw GitHubAPIError.notAuthenticated
+                throw GitHubAPIError.sessionNotReady
             }
             return "https://api.github.com/repos/\(user)/\(repo)"
         }
@@ -76,7 +79,7 @@ class GitHubAPIClient {
             case .requestFailed(_, let status, _), .commitFailed(_, let status, _):
                 guard let status else { return true }   // no status = network-level failure
                 return status >= 500 || status == 409 || status == 429 || status == 403
-            case .notAuthenticated, .decodingFailed, .notFound:
+            case .notAuthenticated, .sessionNotReady, .widgetSnapshotsPlaceholder, .decodingFailed, .notFound:
                 return false
             }
         }
@@ -263,15 +266,65 @@ class GitHubAPIClient {
     }
 
     /// Reads the Warm Instrument Home widget snapshots from `gen/widget_snapshots.json`
-    /// — generated on every sync/build from the same TS models as the web home dashboard
-    /// (see ADR 0005). Same fetch pattern as `readSyncState`/`readActivity`.
+    /// (legacy repos may still have `training/widget_snapshots.json`) — generated on every
+    /// sync/build from the same TS models as the web home dashboard (see ADR 0005).
     func readWidgetSnapshots() async throws -> WidgetSnapshotsFile {
-        let data = try await readFile(path: "gen/widget_snapshots.json")
-        do {
-            return try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
-        } catch {
+        let paths = [
+            "gen/widget_snapshots.json",
+            "training/widget_snapshots.json",
+        ]
+        var lastDecodeError: Error?
+        var sawFile = false
+
+        for path in paths {
+            let data: Data
+            do {
+                data = try await readFile(path: path)
+                sawFile = true
+            } catch let error as GitHubAPIError {
+                if case .notFound = error { continue }
+                throw error
+            }
+
+            do {
+                try Self.validateWidgetSnapshotPayload(data)
+                return try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
+            } catch let error as GitHubAPIError {
+                throw error
+            } catch {
+                lastDecodeError = error
+            }
+        }
+
+        if let lastDecodeError {
+            if Self.isPlaceholderPayloadError(lastDecodeError) {
+                throw GitHubAPIError.widgetSnapshotsPlaceholder
+            }
+            let detail = WidgetSnapshotsFile.decodingErrorDescription(lastDecodeError)
+            throw GitHubAPIError.decodingFailed(operation: "Parsing widget snapshots (\(detail))")
+        }
+        if sawFile {
             throw GitHubAPIError.decodingFailed(operation: "Parsing widget snapshots")
         }
+        throw GitHubAPIError.notFound(operation: "Reading widget snapshots")
+    }
+
+    /// Skeleton repos ship `"home": {}` until the data pipeline runs. Fail fast with a
+    /// actionable message instead of a cryptic Codable key-not-found.
+    private static func validateWidgetSnapshotPayload(_ data: Data) throws {
+        guard
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let home = json["home"] as? [String: Any]
+        else { return }
+
+        if home.isEmpty || home["engine"] == nil {
+            throw GitHubAPIError.widgetSnapshotsPlaceholder
+        }
+    }
+
+    private static func isPlaceholderPayloadError(_ error: Error) -> Bool {
+        guard case DecodingError.keyNotFound(let key, let context) = error else { return false }
+        return key.stringValue == "engine" && context.codingPath.map(\.stringValue) == ["home"]
     }
 
     func writeSyncState(_ state: SyncState) async throws {
@@ -533,6 +586,10 @@ enum GitHubAPIError: LocalizedError {
     case decodingFailed(operation: String)
     case notFound(operation: String)
     case notAuthenticated
+    /// Token exists but profile/repo discovery has not finished yet — retry, don't toast.
+    case sessionNotReady
+    /// `gen/widget_snapshots.json` is still the carved skeleton (`home: {}`).
+    case widgetSnapshotsPlaceholder
 
     var errorDescription: String? {
         switch self {
@@ -554,6 +611,10 @@ enum GitHubAPIError: LocalizedError {
             return "\(op) failed — file not found on GitHub (404)"
         case .notAuthenticated:
             return "Not signed in to GitHub — go to Settings and reconnect"
+        case .sessionNotReady:
+            return nil
+        case .widgetSnapshotsPlaceholder:
+            return "Home snapshot on GitHub is still empty. In your coach repo run `cd ui && npm run build-data`, commit `gen/widget_snapshots.json`, push, then pull to refresh here."
         }
     }
 

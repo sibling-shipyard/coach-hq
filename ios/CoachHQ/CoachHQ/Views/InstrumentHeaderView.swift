@@ -1,5 +1,40 @@
 import SwiftUI
 
+/// Compact mobile home header — `HQ` wordmark, build-phase badge, sync glyph. Matches the
+/// `wi-instrument-header` mobile row in `Warm Instrument Mobile.dc.html` / web `@media (max-width: 720px)`.
+struct CompactInstrumentHeader: View {
+    let phase: BuildPhaseSnapshot
+    let sync: WidgetSyncSnapshot
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("HQ")
+                .font(WarmInstrument.monoLabel(12))
+                .tracking(1.4)
+                .foregroundColor(WarmInstrument.ink)
+
+            Text("BUILD · \(phase.weekLabel.uppercased())")
+                .font(WarmInstrument.monoLabel(9))
+                .tracking(1.0)
+                .foregroundColor(WarmInstrument.paper)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(WarmInstrument.accent)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(sync.healthy ? WarmInstrument.sportColor(.badminton) : WarmInstrument.alarmFg)
+                .accessibilityLabel(sync.label)
+        }
+        .padding(.horizontal, 6)
+        .padding(.top, 2)
+        .padding(.bottom, 4)
+    }
+}
+
 /// The slim instrument strip under the "Home" tab bar title — phase label, sync pill, and
 /// snapshot staleness. Mirrors the intent of the web `InstrumentHeader.tsx` phase label + sync
 /// pill for the "iOS app (Home)" surface, without the nav menu (that's the tab bar's job here).
@@ -64,6 +99,12 @@ struct InstrumentHeaderView: View {
         .background(sync.healthy ? Color.clear : WarmInstrument.alarmBg)
         .clipShape(Capsule())
     }
+}
+
+#Preview("Compact instrument header — golden dataset") {
+    CompactInstrumentHeader(phase: GoldenDataset.phase, sync: GoldenDataset.sync)
+        .padding()
+        .background(WarmInstrument.desk)
 }
 
 #Preview("Instrument header — golden dataset") {

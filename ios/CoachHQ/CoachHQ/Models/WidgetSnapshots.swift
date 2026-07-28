@@ -119,6 +119,32 @@ struct EngineSnapshotS: Codable {
     let compactVerdict: String
     let bandLow: Double?
     let bandHigh: Double?
+
+    init(
+        weekLabel: String,
+        load: Double,
+        signal: String,
+        compactVerdict: String,
+        bandLow: Double?,
+        bandHigh: Double?
+    ) {
+        self.weekLabel = weekLabel
+        self.load = load
+        self.signal = signal
+        self.compactVerdict = compactVerdict
+        self.bandLow = bandLow
+        self.bandHigh = bandHigh
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        weekLabel = try container.decode(String.self, forKey: .weekLabel)
+        load = try container.decode(Double.self, forKey: .load)
+        signal = try container.decode(String.self, forKey: .signal)
+        compactVerdict = try container.decodeIfPresent(String.self, forKey: .compactVerdict) ?? "—"
+        bandLow = try container.decodeIfPresent(Double.self, forKey: .bandLow)
+        bandHigh = try container.decodeIfPresent(Double.self, forKey: .bandHigh)
+    }
 }
 
 // MARK: - Quest
@@ -354,6 +380,62 @@ struct WidgetSizes: Codable {
     let engine: EngineSizes
     let quest: QuestSizes
     let commitments: CommitmentSizes
+
+    /// Older pipeline output (pre-WidgetKit `sizes` block) only ships `home`. Mirror the TS
+    /// builder in `warmHomeSnapshots.ts` so Home can still render from legacy JSON.
+    static func derived(from home: WarmHomeSnapshots) -> WidgetSizes {
+        let engine = home.engine
+        let quest = home.quest
+        let questProgress = quest.target > 0
+            ? min(100, (quest.completed / quest.target) * 100)
+            : 0
+        let defaultCommitment = CommitmentSnapshot(
+            id: "badminton",
+            label: "Badminton",
+            glyph: .badminton,
+            value: 0,
+            target: 2,
+            note: "NO DATA",
+            status: "ALL",
+            progress: 0,
+            accent: "#315a4a",
+            alarm: nil,
+            allRecord: nil,
+            rankedRecord: nil,
+            hasRankedRecord: nil,
+            latest: nil,
+            latestRanked: nil,
+            streak: nil
+        )
+        let commitmentS = home.commitments.first(where: { $0.id == "badminton" })
+            ?? home.commitments.first
+            ?? defaultCommitment
+
+        return WidgetSizes(
+            engine: EngineSizes(
+                S: EngineSnapshotS(
+                    weekLabel: engine.weekLabel,
+                    load: engine.load,
+                    signal: engine.signal,
+                    compactVerdict: engine.compactVerdict ?? engine.verdict,
+                    bandLow: engine.bandLow,
+                    bandHigh: engine.bandHigh
+                ),
+                M: engine,
+                L: engine
+            ),
+            quest: QuestSizes(
+                S: QuestSnapshotS(
+                    name: quest.name,
+                    completed: quest.completed,
+                    target: quest.target,
+                    progressPercent: questProgress
+                ),
+                M: quest
+            ),
+            commitments: CommitmentSizes(S: commitmentS, M: home.commitments)
+        )
+    }
 }
 
 // MARK: - File root
@@ -369,5 +451,27 @@ struct WidgetSnapshotsFile: Codable {
         case generatedAt = "generated_at"
         case home
         case sizes
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        generatedAt = try container.decode(String.self, forKey: .generatedAt)
+        home = try container.decode(WarmHomeSnapshots.self, forKey: .home)
+        sizes = try container.decodeIfPresent(WidgetSizes.self, forKey: .sizes) ?? WidgetSizes.derived(from: home)
+    }
+
+    /// Human-readable decode failure for surfacing in Home's error toast.
+    static func decodingErrorDescription(_ error: Error) -> String {
+        switch error {
+        case let DecodingError.keyNotFound(key, context):
+            return "missing \"\(key.stringValue)\" at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+        case let DecodingError.typeMismatch(type, context):
+            return "wrong type for \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+        case let DecodingError.valueNotFound(type, context):
+            return "missing value for \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))"
+        default:
+            return error.localizedDescription
+        }
     }
 }
