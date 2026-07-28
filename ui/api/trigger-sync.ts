@@ -1,4 +1,4 @@
-import { decryptSession, parseCookies, SESSION_COOKIE } from "./_lib/session.js";
+import { decryptSession, parseCookies, SESSION_COOKIE } from "./auth/_lib/session.js";
 
 // Every account's sync.yml is named identically - each repo's own workflow decides what
 // "sync" actually means for that account (Strava pull, or - since the iOS app already

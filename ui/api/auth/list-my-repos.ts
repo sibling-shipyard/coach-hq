@@ -2,10 +2,12 @@
  * list-my-repos.ts — repo resolution: find the signed-in user's coach-phelps
  * repo and remember it in their session.
  *
- * With the GitHub App migration, candidates come directly from the repos the
- * user chose during install (GET /user/installations/{id}/repositories) -
- * already exactly the set they granted. The user_data/ledger/challenge_v2.json
- * marker check stays as a sanity check.
+ * Candidates come from the repos the user chose during install (GET
+ * /user/installations/{id}/repositories) - since every install is single-repo
+ * by design (see ui/api/auth/callback.ts + pages/Setup.tsx), this almost
+ * always resolves to exactly one candidate now. The marker-file check and
+ * multi-candidate picker path are kept for accounts installed before that
+ * convention (or anyone who picked more than one repo during install).
  *
  * SECURITY: GitHub's install picker shows every repo the installing user has
  * admin rights on - including repos they're merely a collaborator on, not
@@ -140,8 +142,8 @@ export default {
     }
 
     // Distinguish "nothing granted to this installation that you own" (fix: install on a
-    // repo via Sign up) from "some repos granted, but none look like a coach-phelps repo"
-    // (fix: finish setting it up) - these need different messaging, not one generic error.
+    // repo via the Setup wizard) from "some repos granted, but none look like a coach-phelps
+    // repo" (fix: finish setting it up) - these need different messaging, not one generic error.
     if (confirmed.length === 0) {
       const reason = ownRepos.length === 0 ? "no_owned_repos" : "no_marker_match";
       return Response.json({ candidates: [], reason });

@@ -25,7 +25,7 @@
  * PATCH {threadId, status}   → archive / unarchive / delete / restore an
  *                               already-committed thread
  */
-import { decryptSession, parseCookies, SESSION_COOKIE } from "./_lib/session.js";
+import { decryptSession, parseCookies, SESSION_COOKIE } from "./auth/_lib/session.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 const SOUL_FILE_PATH = "propagated/SOUL.md";
@@ -355,7 +355,7 @@ export default {
 
     const repo = session.repo_full_name;
     if (!repo) {
-      return Response.json({ error: "No repo resolved yet - visit /api/list-my-repos first" }, { status: 400 });
+      return Response.json({ error: "No repo resolved yet - visit /api/auth/list-my-repos first" }, { status: 400 });
     }
     const token = session.gh_token;
 

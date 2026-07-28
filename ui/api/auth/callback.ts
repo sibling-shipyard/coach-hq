@@ -12,15 +12,30 @@ const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
 
-// auth-callback.ts is reached by the browser navigating directly here (GitHub's redirect),
-// not by a fetch() call from React - so error responses can't just be JSON bodies, the user
+// callback.ts is reached by the browser navigating directly here (GitHub's redirect), not
+// by a fetch() call from React - so error responses can't just be JSON bodies, the user
 // would see literal unstyled JSON text with nothing clickable. Every failure path redirects
 // to the client app instead, where AuthError.tsx renders something with an explanation and a
-// working button. `not_installed` is the important one: it's not a rare misconfiguration,
-// it's the default state for every brand-new user's first visit (see App.tsx/AuthError.tsx).
+// working button.
 function errorRedirect(origin: string, type: string, clearOauthCookie = true): Response {
   const headers = new Headers();
   headers.set("Location", `${origin}/?auth_error=${type}`);
+  if (clearOauthCookie) {
+    headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
+  }
+  return new Response(null, { status: 302, headers });
+}
+
+// Sends a first-time user into the Setup wizard instead of a dead-end error page - see
+// pages/Setup.tsx. not_installed isn't a rare misconfiguration here, it's the expected state
+// for anyone who's never signed up: GitHub App tokens can't create repos on a personal
+// account (confirmed: 404/403 on both /repos/{template}/generate and /user/repos), so
+// callback.ts can't silently provision anything itself. Setup.tsx walks the user through the
+// two GitHub-native steps that remain (create-from-template, then install) and this is where
+// they land back after finishing both.
+function setupRedirect(origin: string, login: string, clearOauthCookie = true): Response {
+  const headers = new Headers();
+  headers.set("Location", `${origin}/setup?login=${encodeURIComponent(login)}`);
   if (clearOauthCookie) {
     headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
   }
@@ -59,7 +74,7 @@ export default {
       return errorRedirect(url.origin, "state_mismatch");
     }
 
-    const redirectUri = `${url.origin}/api/auth-callback`;
+    const redirectUri = `${url.origin}/api/auth/callback`;
 
     const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
@@ -98,12 +113,9 @@ export default {
     // and account.login. app_slug alone isn't enough: this endpoint returns every
     // installation the calling user has *any visibility into*, which GitHub grants based on
     // repo access - not just installations the user personally created. A collaborator on
-    // someone else's repo that already has the App installed will see that installation too.
-    // Confirmed in practice: without the account.login check, a collaborator's session
-    // resolved to the repo owner's installation, not their own (a real cross-account data
-    // exposure - see sibling-shipyard/coach-phelps-hq#30). account.login is the account
-    // the App is actually installed *on*, which is what "is this actually my installation"
-    // has to mean.
+    // someone else's repo that already has the App installed will see that installation too
+    // (see sibling-shipyard/coach-phelps-hq#30). account.login is the account the App is
+    // actually installed *on*, which is what "is this actually my installation" has to mean.
     const installationsRes = await fetch("https://api.github.com/user/installations", {
       headers: {
         Authorization: `Bearer ${ghToken}`,
@@ -112,9 +124,6 @@ export default {
       },
     });
 
-    // A failed lookup is not the same thing as "genuinely no installation" - conflating them
-    // used to mean a transient GitHub API hiccup for an already-installed user looked
-    // identical to a brand-new user who's never installed, sending both down the same path.
     if (!installationsRes.ok) {
       return errorRedirect(url.origin, "lookup_failed");
     }
@@ -130,11 +139,7 @@ export default {
     const installationId = match?.id ?? null;
 
     if (!installationId) {
-      // Not a dead end: not_installed is the expected first-visit state for anyone who's
-      // never installed the App, which is most new friends. AuthError.tsx points them at
-      // "Sign up with GitHub" (auth-install.ts) rather than showing raw JSON with a URL to
-      // copy-paste.
-      return errorRedirect(url.origin, "not_installed");
+      return setupRedirect(url.origin, user.login as string);
     }
 
     const session = await encryptSession({

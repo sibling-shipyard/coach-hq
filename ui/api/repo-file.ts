@@ -10,7 +10,7 @@
  * aggregate.json came back as `encoding: "none"`, empty `content`, at ~2.8MB).
  * `.raw` returns the actual file bytes directly regardless of size.
  */
-import { decryptSession, parseCookies, SESSION_COOKIE } from "./_lib/session.js";
+import { decryptSession, parseCookies, SESSION_COOKIE } from "./auth/_lib/session.js";
 
 const GH_HEADERS = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -28,7 +28,7 @@ export default {
     if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
     if (!session.repo_full_name) {
-      return Response.json({ error: "No repo resolved yet - visit /api/list-my-repos first" }, { status: 400 });
+      return Response.json({ error: "No repo resolved yet - visit /api/auth/list-my-repos first" }, { status: 400 });
     }
 
     const contentsRes = await fetch(

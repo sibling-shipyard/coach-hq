@@ -33,11 +33,8 @@ export function WelcomePage() {
           <span className="welcome-nav__brand">COACH PHELPS</span>
           <span className="welcome-nav__beta">PRIVATE BETA</span>
           <nav className="welcome-nav__links" aria-label="Account">
-            <a href="/api/auth-install" className="welcome-nav__cta welcome-nav__cta--ghost">
-              SIGN UP
-            </a>
-            <a href="/api/auth-login" className="welcome-nav__cta">
-              LOG IN
+            <a href="/api/auth/start" className="welcome-nav__cta">
+              CONTINUE WITH GITHUB
             </a>
           </nav>
         </div>
