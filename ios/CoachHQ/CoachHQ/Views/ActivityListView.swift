@@ -3,13 +3,15 @@ import SwiftUI
 struct ActivityListView: View {
     /// When pushed from Home, skip the outer `NavigationStack` — the parent stack owns back navigation.
     var embedded: Bool = false
+    /// When set (embedded Home), row taps call this instead of local `NavigationStack` push.
+    var onSelectEntry: ((SyncCacheEntry) -> Void)? = nil
 
     @EnvironmentObject var syncManager: HealthKitSyncManager
     @EnvironmentObject var authManager: GitHubAuthManager
     @Environment(\.dismiss) private var dismiss
     @State private var entries: [SyncCacheEntry] = []
     @State private var toast: Toast?
-    @AppStorage("feedVariant") private var feedVariant = 0
+    @State private var navigationPath: [SyncCacheEntry] = []
 
     private static let inputFmt: DateFormatter = {
         let f = DateFormatter()
@@ -32,10 +34,10 @@ struct ActivityListView: View {
 
     var body: some View {
         Group {
-            if embedded {
+            if embedded || onSelectEntry != nil {
                 content
             } else {
-                NavigationStack {
+                NavigationStack(path: $navigationPath) {
                     content
                         .navigationDestination(for: SyncCacheEntry.self) { entry in
                             ActivityDetailView(entry: entry)
@@ -57,14 +59,11 @@ struct ActivityListView: View {
                 .refreshable { await pullToSync() }
             } else {
                 ScrollView {
-                    switch feedVariant {
-                    case 1:
-                        FeedVariant2(entries: recentEntries, grouped: grouped)
-                    case 2:
-                        FeedVariant3(entries: recentEntries)
-                    default:
-                        FeedVariant1(entries: recentEntries, grouped: grouped)
-                    }
+                    ActivityFeedView(
+                        entries: recentEntries,
+                        grouped: grouped,
+                        onSelect: selectEntry
+                    )
                 }
                 .scrollClipDisabled()
                 .refreshable { await pullToSync() }
@@ -73,6 +72,7 @@ struct ActivityListView: View {
         .background(WarmInstrument.desk.ignoresSafeArea())
         .toast($toast)
         .toolbar(.hidden, for: .navigationBar)
+        .hidesMainTabBar(embedded)
         .task {
             entries = SyncCache.load()
             await syncManager.backfillRecentCache()
@@ -103,61 +103,45 @@ struct ActivityListView: View {
     }
 
     private var warmHeader: some View {
-        HStack(spacing: 10) {
-            if embedded {
-                Button {
-                    Haptics.tap()
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
+                if embedded {
+                    Button {
+                        Haptics.tap()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Activities")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Theme.ink)
+                    Text("Last 7 days · pull to sync")
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(WarmInstrument.inkMuted)
                 }
-                .buttonStyle(.plain)
             }
-
-            Text("Activities")
-                .font(.system(size: embedded ? 17 : 26, weight: .bold))
-                .foregroundColor(Theme.ink)
-
-            Spacer(minLength: 8)
-
-            variantPicker
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .background(WarmInstrument.paper)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(WarmInstrument.headerRule)
-                .frame(height: 1)
-        }
+        .padding(.top, 12)
+        .padding(.bottom, 14)
     }
 
-    // MARK: - Variant picker (1 / 2 / 3 dots in the header)
+    // MARK: - Navigation
 
-    private var variantPicker: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<3, id: \.self) { i in
-                Button {
-                    Haptics.tap()
-                    withAnimation(.spring(duration: 0.25, bounce: 0.15)) { feedVariant = i }
-                } label: {
-                    Text("\(i + 1)")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(feedVariant == i ? WarmInstrument.paper : WarmInstrument.inkFaint)
-                        .frame(width: 20, height: 20)
-                        .background(feedVariant == i ? WarmInstrument.ink : Color.clear)
-                        .clipShape(Circle())
-                        .animation(.spring(duration: 0.2), value: feedVariant)
-                }
-            }
+    private func selectEntry(_ entry: SyncCacheEntry) {
+        Haptics.tap()
+        if let onSelectEntry {
+            onSelectEntry(entry)
+        } else {
+            navigationPath.append(entry)
         }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 3)
-        .background(WarmInstrument.surfaceMuted)
-        .clipShape(Capsule())
     }
 
     // MARK: - Helpers

@@ -25,6 +25,7 @@ struct WorkoutOverviewView: View {
         }
         .background(Theme.mutedBackground)
         .toolbar(.hidden, for: .navigationBar)
+        .hidesMainTabBar()
         .simultaneousGesture(edgeBackSwipeGesture)
         .fullScreenCover(isPresented: $showTimer) {
             WorkoutTimerView(workout: workout, onExitToList: {
@@ -136,6 +137,7 @@ struct WorkoutOverviewView: View {
             .padding(.vertical, 14)
             .background(WarmInstrument.paper)
         }
+        .safeAreaPadding(.bottom, 8)
     }
 }
 

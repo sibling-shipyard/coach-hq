@@ -7,67 +7,97 @@ struct LoginView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer()
+            loginWordmark
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
 
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(WarmInstrument.surfaceMuted)
-                        .frame(width: 88, height: 88)
-                    Image(systemName: "figure.badminton")
-                        .font(.system(size: 40, weight: .semibold))
-                        .foregroundColor(Theme.badmintonColor)
-                }
-
-                VStack(spacing: 8) {
-                    Text("Coach HQ")
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundColor(Theme.ink)
-
-                    Text("Your personal coaching dashboard")
-                        .font(WarmInstrument.coachVoice(15))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .multilineTextAlignment(.center)
-                }
+            VStack(spacing: 28) {
+                heroCard
+                authSection
             }
-
-            Spacer()
-
-            VStack(spacing: 14) {
-                Button {
-                    Haptics.tap()
-                    signIn()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "person.crop.circle")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Sign in with GitHub")
-                    }
-                }
-                .buttonStyle(WarmLoginButtonStyle())
-                .disabled(isLoading)
-                .opacity(isLoading ? 0.55 : 1)
-
-                if isLoading {
-                    ProgressView()
-                        .tint(WarmInstrument.inkMuted)
-                }
-
-                if let error = errorMessage {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(WarmInstrument.accent)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 8)
-                }
-            }
-            .padding(.horizontal, 32)
-
-            Spacer()
-                .frame(height: 56)
+            .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.bottom, 40)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WarmInstrument.desk.ignoresSafeArea())
+    }
+
+    // MARK: - Wordmark
+
+    private var loginWordmark: some View {
+        HStack {
+            Text("HQ")
+                .font(WarmInstrument.monoLabel(12))
+                .tracking(1.4)
+                .foregroundColor(WarmInstrument.ink)
+            Spacer(minLength: 0)
+        }
+    }
+
+    // MARK: - Hero card
+
+    private var heroCard: some View {
+        WarmCard(padding: 24) {
+            VStack(alignment: .leading, spacing: 18) {
+                MonoLabel("Coach HQ", size: 10, tracking: 1.2)
+
+                Text("Your coaching dashboard")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Train with intention. Sync from Health. Coach reads the data.")
+                    .font(WarmInstrument.coachVoice(15))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(3)
+
+                Rectangle()
+                    .fill(WarmInstrument.headerRule)
+                    .frame(height: 1)
+                    .padding(.vertical, 2)
+
+                HStack(spacing: 8) {
+                    LoginFeatureChip(icon: "heart.fill", label: "HealthKit sync")
+                    LoginFeatureChip(icon: "chevron.left.forwardslash.chevron.right", label: "GitHub repo")
+                    LoginFeatureChip(icon: "square.grid.2x2.fill", label: "Warm widgets")
+                }
+            }
+        }
+    }
+
+    // MARK: - Auth
+
+    private var authSection: some View {
+        VStack(spacing: 12) {
+            Button {
+                Haptics.tap()
+                signIn()
+            } label: {
+                HStack(spacing: 10) {
+                    if isLoading {
+                        ProgressView()
+                            .tint(WarmInstrument.paper)
+                            .scaleEffect(0.85)
+                    } else {
+                        Image(systemName: "chevron.left.forwardslash.chevron.right")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    Text(isLoading ? "Signing in…" : "Sign in with GitHub")
+                }
+            }
+            .buttonStyle(WarmLoginButtonStyle())
+            .disabled(isLoading)
+
+            if let error = errorMessage {
+                Text(error)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(WarmInstrument.accent)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
+            }
+        }
     }
 
     private func signIn() {
@@ -87,7 +117,40 @@ struct LoginView: View {
     }
 }
 
-/// Ink-filled primary button for login — terracotta is reserved for load CTAs elsewhere.
+// MARK: - Feature chip
+
+private struct LoginFeatureChip: View {
+    let icon: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(WarmInstrument.inkMuted)
+
+            Text(label)
+                .font(WarmInstrument.monoLabel(7.5, weight: .semibold))
+                .tracking(0.4)
+                .foregroundColor(WarmInstrument.inkFaint)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 11)
+        .padding(.horizontal, 4)
+        .background(WarmInstrument.surfaceMuted)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(WarmInstrument.border, lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Ink primary button (auth — terracotta reserved for load CTAs)
+
 private struct WarmLoginButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

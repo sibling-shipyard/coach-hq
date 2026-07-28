@@ -1,5 +1,21 @@
 import SwiftUI
 
+/// Child views set this preference to hide the floating `WarmTabBar` (e.g. workout overview, activity detail).
+private struct TabBarHiddenPreferenceKey: PreferenceKey {
+    static var defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
+extension View {
+    /// Hides the main floating tab bar when pushed detail screens need full bottom space.
+    func hidesMainTabBar(_ hidden: Bool = true) -> some View {
+        toolbar(hidden ? .hidden : .visible, for: .tabBar)
+            .preference(key: TabBarHiddenPreferenceKey.self, value: hidden)
+    }
+}
+
 enum AppTab: Hashable, CaseIterable {
     case home, workouts, more
 
@@ -33,6 +49,7 @@ struct MainTabView: View {
     @EnvironmentObject var syncManager: HealthKitSyncManager
     @EnvironmentObject var workoutService: WorkoutService
     @State private var selectedTab: AppTab = .home
+    @State private var tabBarHidden = false
 
     var body: some View {
         Group {
@@ -48,13 +65,18 @@ struct MainTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
+        .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            WarmTabBar(selection: $selectedTab)
-                .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
+            if !tabBarHidden {
+                WarmTabBar(selection: $selectedTab)
+                    .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
+            }
         }
         .overlay(alignment: .bottom) {
-            WarmTabBarScrollFade()
-                .allowsHitTesting(false)
+            if !tabBarHidden {
+                WarmTabBarScrollFade()
+                    .allowsHitTesting(false)
+            }
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
     }

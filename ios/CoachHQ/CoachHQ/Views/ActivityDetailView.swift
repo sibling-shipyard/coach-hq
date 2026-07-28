@@ -90,6 +90,7 @@ struct ActivityDetailView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 24)
+                .safeAreaPadding(.bottom, 8)
                 .animation(.spring(duration: 0.38, bounce: 0.15), value: isEditing)
             }
             .scrollClipDisabled()
@@ -97,6 +98,7 @@ struct ActivityDetailView: View {
         .background(WarmInstrument.desk.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
         .toolbar(.hidden, for: .navigationBar)
+        .hidesMainTabBar()
         .simultaneousGesture(edgeBackSwipeGesture)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
