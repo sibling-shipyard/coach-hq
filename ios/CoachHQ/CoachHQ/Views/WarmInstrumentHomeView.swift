@@ -39,19 +39,22 @@ struct WarmInstrumentHomeView: View {
 
                         widgetColumn(for: snapshots)
                     } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
-                        ProgressView().padding(.top, 100)
+                        ProgressView()
+                            .frame(maxWidth: .infinity, minHeight: 320)
+                            .padding(.top, 80)
                     } else if authManager.selectedRepo == nil {
                         repoNotConfiguredState
                     } else {
                         emptyState
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 28)
             }
+            .scrollContentBackground(.hidden)
             .refreshable { await store.refresh(showSpinner: false) }
-            .background(WarmInstrument.desk.ignoresSafeArea())
             .toast($toast)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: HomeRoute.self) { route in
@@ -86,6 +89,7 @@ struct WarmInstrumentHomeView: View {
                 }
             }
         }
+        .background(WarmInstrument.desk.ignoresSafeArea())
     }
 
     // MARK: - Widget column
