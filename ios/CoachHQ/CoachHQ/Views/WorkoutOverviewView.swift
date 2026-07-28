@@ -25,7 +25,7 @@ struct WorkoutOverviewView: View {
         }
         .background(Theme.mutedBackground)
         .toolbar(.hidden, for: .navigationBar)
-        .overlay(alignment: .leading) { backSwipeEdge }
+        .simultaneousGesture(edgeBackSwipeGesture)
         .fullScreenCover(isPresented: $showTimer) {
             WorkoutTimerView(workout: workout, onExitToList: {
                 showTimer = false
@@ -34,20 +34,16 @@ struct WorkoutOverviewView: View {
         }
     }
 
-    /// Leading-edge strip — swipe right to pop back to the workouts list.
-    private var backSwipeEdge: some View {
-        Color.clear
-            .frame(width: 28)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 12)
-                    .onEnded { value in
-                        guard value.translation.width > 56,
-                              abs(value.translation.height) < 96 else { return }
-                        Haptics.tap()
-                        dismiss()
-                    }
-            )
+    /// Swipe right from the leading edge to pop back to the workouts list.
+    private var edgeBackSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onEnded { value in
+                guard value.startLocation.x < 28,
+                      value.translation.width > 56,
+                      abs(value.translation.height) < 96 else { return }
+                Haptics.tap()
+                dismiss()
+            }
     }
 
     private var metaSection: some View {
