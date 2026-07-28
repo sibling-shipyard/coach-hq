@@ -49,12 +49,18 @@ struct MainTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            WarmTabBar(selection: $selectedTab)
-                .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
+            Color.clear.frame(height: WarmTabBarMetrics.contentInset)
         }
         .overlay(alignment: .bottom) {
-            WarmTabBarScrollFade()
-                .allowsHitTesting(false)
+            ZStack(alignment: .bottom) {
+                WarmTabBarScrollFade()
+                    .allowsHitTesting(false)
+
+                WarmTabBar(selection: $selectedTab)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, WarmTabBarMetrics.bottomInset)
+            }
+            .ignoresSafeArea(edges: .bottom)
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
     }
@@ -63,37 +69,41 @@ struct MainTabView: View {
 // MARK: - Warm tab bar (main app only — not compiled into WidgetKit extension)
 
 private enum WarmTabBarMetrics {
-    /// Icon row + inner pill padding (44 + 4×2).
     static let pillHeight: CGFloat = 52
-    /// How far the desk fade extends above the pill.
     static let fadeHeight: CGFloat = 56
+    /// Sits the dock closer to the physical bottom — just above the home indicator.
+    static let bottomInset: CGFloat = 2
+    static var contentInset: CGFloat { pillHeight + bottomInset + 6 }
 }
 
-/// Desk-color fade so scroll content dissolves before the floating dock — not a hard clip.
+/// Desk fade so widgets dissolve before the dock; softer with glass since content shows through.
 private struct WarmTabBarScrollFade: View {
     var body: some View {
         VStack(spacing: 0) {
             LinearGradient(
                 stops: [
                     .init(color: WarmInstrument.desk.opacity(0), location: 0),
-                    .init(color: WarmInstrument.desk.opacity(0.45), location: 0.38),
-                    .init(color: WarmInstrument.desk.opacity(0.88), location: 0.72),
-                    .init(color: WarmInstrument.desk, location: 1),
+                    .init(color: WarmInstrument.desk.opacity(0.35), location: 0.42),
+                    .init(color: WarmInstrument.desk.opacity(0.78), location: 0.78),
+                    .init(color: WarmInstrument.desk.opacity(0.94), location: 1),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .frame(height: WarmTabBarMetrics.fadeHeight)
 
-            Color.clear.frame(height: WarmTabBarMetrics.pillHeight)
+            Color.clear.frame(height: WarmTabBarMetrics.pillHeight + WarmTabBarMetrics.bottomInset)
         }
     }
 }
 
-/// Floating icon dock — inset pill, sliding muted highlight, spring lift on the active icon.
+/// Floating glass dock — warm-tinted liquid glass over scroll content, spring selection pill.
 private struct WarmTabBar: View {
     @Binding var selection: AppTab
     @Namespace private var tabIndicator
+
+    private let pillShape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+    private let itemShape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
     var body: some View {
         HStack(spacing: 4) {
@@ -102,15 +112,13 @@ private struct WarmTabBar: View {
             }
         }
         .padding(4)
-        .background(WarmInstrument.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(WarmInstrument.border.opacity(0.55), lineWidth: 1)
+        .glassEffect(
+            .regular.tint(WarmInstrument.paper.opacity(0.78)).interactive(),
+            in: pillShape
         )
-        .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 5)
-        .padding(.horizontal, 20)
-        .padding(.top, 2)
+        .overlay(
+            pillShape.strokeBorder(WarmInstrument.border.opacity(0.35), lineWidth: 0.75)
+        )
     }
 
     private func tabItem(_ tab: AppTab) -> some View {
@@ -124,10 +132,12 @@ private struct WarmTabBar: View {
         } label: {
             ZStack {
                 if selected {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(WarmInstrument.surfaceMuted)
+                    itemShape
+                        .glassEffect(
+                            .regular.tint(WarmInstrument.surfaceMuted.opacity(0.92)).interactive(),
+                            in: itemShape
+                        )
                         .matchedGeometryEffect(id: "tabHighlight", in: tabIndicator)
-                        .shadow(color: WarmInstrument.cardShadow.opacity(0.35), radius: 4, y: 2)
                 }
 
                 Image(systemName: selected ? tab.filledIcon : tab.outlineIcon)
@@ -139,7 +149,7 @@ private struct WarmTabBar: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 44)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(itemShape)
         }
         .buttonStyle(TabBarPressStyle())
         .accessibilityLabel(tab.accessibilityLabel)
