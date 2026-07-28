@@ -244,7 +244,7 @@ struct EngineWidgetView: View {
 }
 
 struct EngineWidget: Widget {
-    let kind = "com.coachphelps.ios.widget.engine"
+    let kind = "com.coachhq.ios.widget.engine"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: EngineProvider()) { entry in

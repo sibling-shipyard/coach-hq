@@ -12,7 +12,7 @@ struct SyncStatusView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                BrandHeader(title: "Coach Phelps")
+                BrandHeader(title: "Coach HQ")
 
                 ScrollView {
                     VStack(spacing: 8) {

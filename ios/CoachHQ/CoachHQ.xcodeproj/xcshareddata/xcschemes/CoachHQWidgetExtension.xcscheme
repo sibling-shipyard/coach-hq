@@ -17,9 +17,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "33FBADBF3014A92000439B25"
-               BuildableName = "CoachPhelpsWidgetExtension.appex"
-               BlueprintName = "CoachPhelpsWidgetExtension"
-               ReferencedContainer = "container:CoachPhelps.xcodeproj">
+               BuildableName = "CoachHQWidgetExtension.appex"
+               BlueprintName = "CoachHQWidgetExtension"
+               ReferencedContainer = "container:CoachHQ.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -31,9 +31,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "330C048B2FFAF26600E40822"
-               BuildableName = "CoachPhelps.app"
-               BlueprintName = "CoachPhelps"
-               ReferencedContainer = "container:CoachPhelps.xcodeproj">
+               BuildableName = "CoachHQ.app"
+               BlueprintName = "CoachHQ"
+               ReferencedContainer = "container:CoachHQ.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -64,18 +64,18 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "33FBADBF3014A92000439B25"
-            BuildableName = "CoachPhelpsWidgetExtension.appex"
-            BlueprintName = "CoachPhelpsWidgetExtension"
-            ReferencedContainer = "container:CoachPhelps.xcodeproj">
+            BuildableName = "CoachHQWidgetExtension.appex"
+            BlueprintName = "CoachHQWidgetExtension"
+            ReferencedContainer = "container:CoachHQ.xcodeproj">
          </BuildableReference>
       </RemoteRunnable>
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "330C048B2FFAF26600E40822"
-            BuildableName = "CoachPhelps.app"
-            BlueprintName = "CoachPhelps"
-            ReferencedContainer = "container:CoachPhelps.xcodeproj">
+            BuildableName = "CoachHQ.app"
+            BlueprintName = "CoachHQ"
+            ReferencedContainer = "container:CoachHQ.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <EnvironmentVariables>
@@ -96,7 +96,7 @@
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "_XCWidgetKind"
-            value = "com.coachphelps.ios.widget.engine"
+            value = "com.coachhq.ios.widget.engine"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
@@ -114,9 +114,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "330C048B2FFAF26600E40822"
-            BuildableName = "CoachPhelps.app"
-            BlueprintName = "CoachPhelps"
-            ReferencedContainer = "container:CoachPhelps.xcodeproj">
+            BuildableName = "CoachHQ.app"
+            BlueprintName = "CoachHQ"
+            ReferencedContainer = "container:CoachHQ.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

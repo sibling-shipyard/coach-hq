@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Design tokens matching the Coach Phelps HQ website (coach-phelps.netlify.app).
+/// Design tokens matching the Coach HQ website (coach-phelps.netlify.app).
 ///
 /// Source of truth: `ui/client/src/lib/activities.ts` (SPORT_CONFIG) for sport colors, and
 /// `shared/warm-instrument/tokens.json` (see `ios-token-mapping.md`) for the Warm Instrument
@@ -358,7 +358,7 @@ struct PrimaryButtonStyle: ButtonStyle {
 /// Minimal screen header: large bold title on the system background with a
 /// hairline divider underneath. Quiet, aesthetic, iOS-native.
 struct BrandHeader: View {
-    var title: String = "Coach Phelps"
+    var title: String = "Coach HQ"
     var trailing: AnyView? = nil
 
     var body: some View {

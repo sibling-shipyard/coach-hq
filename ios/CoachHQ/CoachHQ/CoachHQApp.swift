@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CoachPhelpsApp: App {
+struct CoachHQApp: App {
     @StateObject private var authManager = GitHubAuthManager()
     @StateObject private var syncManager = HealthKitSyncManager()
     @StateObject private var workoutService = WorkoutService()

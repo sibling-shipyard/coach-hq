@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		33FBADC33014A92000439B25 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33FBADC23014A92000439B25 /* WidgetKit.framework */; };
 		33FBADC53014A92000439B25 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33FBADC43014A92000439B25 /* SwiftUI.framework */; };
-		33FBADD43014A92200439B25 /* CoachPhelpsWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 33FBADC03014A92000439B25 /* CoachPhelpsWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		33FBADD43014A92200439B25 /* CoachHQWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -18,7 +18,7 @@
 			containerPortal = 330C04842FFAF26600E40822 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 33FBADBF3014A92000439B25;
-			remoteInfo = CoachPhelpsWidgetExtension;
+			remoteInfo = CoachHQWidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -29,7 +29,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				33FBADD43014A92200439B25 /* CoachPhelpsWidgetExtension.appex in Embed Foundation Extensions */,
+				33FBADD43014A92200439B25 /* CoachHQWidgetExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -37,28 +37,28 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		330C048C2FFAF26600E40822 /* CoachPhelps.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoachPhelps.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		33FBADC03014A92000439B25 /* CoachPhelpsWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CoachPhelpsWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		330C048C2FFAF26600E40822 /* CoachHQ.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoachHQ.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CoachHQWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		33FBADC23014A92000439B25 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		33FBADC43014A92000439B25 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		330C04E12FFC2A4800E40822 /* Exceptions for "CoachPhelps" folder in "CoachPhelps" target */ = {
+		330C04E12FFC2A4800E40822 /* Exceptions for "CoachHQ" folder in "CoachHQ" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 330C048B2FFAF26600E40822 /* CoachPhelps */;
+			target = 330C048B2FFAF26600E40822 /* CoachHQ */;
 		};
-		33FBADD83014A92200439B25 /* Exceptions for "CoachPhelpsWidget" folder in "CoachPhelpsWidgetExtension" target */ = {
+		33FBADD83014A92200439B25 /* Exceptions for "CoachHQWidget" folder in "CoachHQWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 33FBADBF3014A92000439B25 /* CoachPhelpsWidgetExtension */;
+			target = 33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */;
 		};
-		33FBADEA3014ACED00439B25 /* Exceptions for "CoachPhelps" folder in "CoachPhelpsWidgetExtension" target */ = {
+		33FBADEA3014ACED00439B25 /* Exceptions for "CoachHQ" folder in "CoachHQWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Models/WidgetSnapshots.swift,
@@ -67,26 +67,26 @@
 				Views/Theme.swift,
 				Views/WarmInstrumentAtoms.swift,
 			);
-			target = 33FBADBF3014A92000439B25 /* CoachPhelpsWidgetExtension */;
+			target = 33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		330C048E2FFAF26600E40822 /* CoachPhelps */ = {
+		330C048E2FFAF26600E40822 /* CoachHQ */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				330C04E12FFC2A4800E40822 /* Exceptions for "CoachPhelps" folder in "CoachPhelps" target */,
-				33FBADEA3014ACED00439B25 /* Exceptions for "CoachPhelps" folder in "CoachPhelpsWidgetExtension" target */,
+				330C04E12FFC2A4800E40822 /* Exceptions for "CoachHQ" folder in "CoachHQ" target */,
+				33FBADEA3014ACED00439B25 /* Exceptions for "CoachHQ" folder in "CoachHQWidgetExtension" target */,
 			);
-			path = CoachPhelps;
+			path = CoachHQ;
 			sourceTree = "<group>";
 		};
-		33FBADC63014A92000439B25 /* CoachPhelpsWidget */ = {
+		33FBADC63014A92000439B25 /* CoachHQWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				33FBADD83014A92200439B25 /* Exceptions for "CoachPhelpsWidget" folder in "CoachPhelpsWidgetExtension" target */,
+				33FBADD83014A92200439B25 /* Exceptions for "CoachHQWidget" folder in "CoachHQWidgetExtension" target */,
 			);
-			path = CoachPhelpsWidget;
+			path = CoachHQWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -114,8 +114,8 @@
 		330C04832FFAF26600E40822 = {
 			isa = PBXGroup;
 			children = (
-				330C048E2FFAF26600E40822 /* CoachPhelps */,
-				33FBADC63014A92000439B25 /* CoachPhelpsWidget */,
+				330C048E2FFAF26600E40822 /* CoachHQ */,
+				33FBADC63014A92000439B25 /* CoachHQWidget */,
 				33FBADC13014A92000439B25 /* Frameworks */,
 				330C048D2FFAF26600E40822 /* Products */,
 			);
@@ -124,8 +124,8 @@
 		330C048D2FFAF26600E40822 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				330C048C2FFAF26600E40822 /* CoachPhelps.app */,
-				33FBADC03014A92000439B25 /* CoachPhelpsWidgetExtension.appex */,
+				330C048C2FFAF26600E40822 /* CoachHQ.app */,
+				33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -142,9 +142,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		330C048B2FFAF26600E40822 /* CoachPhelps */ = {
+		330C048B2FFAF26600E40822 /* CoachHQ */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 330C04972FFAF26700E40822 /* Build configuration list for PBXNativeTarget "CoachPhelps" */;
+			buildConfigurationList = 330C04972FFAF26700E40822 /* Build configuration list for PBXNativeTarget "CoachHQ" */;
 			buildPhases = (
 				330C04882FFAF26600E40822 /* Sources */,
 				330C04892FFAF26600E40822 /* Frameworks */,
@@ -157,18 +157,18 @@
 				33FBADD33014A92200439B25 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				330C048E2FFAF26600E40822 /* CoachPhelps */,
+				330C048E2FFAF26600E40822 /* CoachHQ */,
 			);
-			name = CoachPhelps;
+			name = CoachHQ;
 			packageProductDependencies = (
 			);
-			productName = CoachPhelps;
-			productReference = 330C048C2FFAF26600E40822 /* CoachPhelps.app */;
+			productName = CoachHQ;
+			productReference = 330C048C2FFAF26600E40822 /* CoachHQ.app */;
 			productType = "com.apple.product-type.application";
 		};
-		33FBADBF3014A92000439B25 /* CoachPhelpsWidgetExtension */ = {
+		33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 33FBADD53014A92200439B25 /* Build configuration list for PBXNativeTarget "CoachPhelpsWidgetExtension" */;
+			buildConfigurationList = 33FBADD53014A92200439B25 /* Build configuration list for PBXNativeTarget "CoachHQWidgetExtension" */;
 			buildPhases = (
 				33FBADBC3014A92000439B25 /* Sources */,
 				33FBADBD3014A92000439B25 /* Frameworks */,
@@ -179,13 +179,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				33FBADC63014A92000439B25 /* CoachPhelpsWidget */,
+				33FBADC63014A92000439B25 /* CoachHQWidget */,
 			);
-			name = CoachPhelpsWidgetExtension;
+			name = CoachHQWidgetExtension;
 			packageProductDependencies = (
 			);
-			productName = CoachPhelpsWidgetExtension;
-			productReference = 33FBADC03014A92000439B25 /* CoachPhelpsWidgetExtension.appex */;
+			productName = CoachHQWidgetExtension;
+			productReference = 33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -206,7 +206,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 330C04872FFAF26600E40822 /* Build configuration list for PBXProject "CoachPhelps" */;
+			buildConfigurationList = 330C04872FFAF26600E40822 /* Build configuration list for PBXProject "CoachHQ" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -220,8 +220,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				330C048B2FFAF26600E40822 /* CoachPhelps */,
-				33FBADBF3014A92000439B25 /* CoachPhelpsWidgetExtension */,
+				330C048B2FFAF26600E40822 /* CoachHQ */,
+				33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -263,7 +263,7 @@
 /* Begin PBXTargetDependency section */
 		33FBADD33014A92200439B25 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 33FBADBF3014A92000439B25 /* CoachPhelpsWidgetExtension */;
+			target = 33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */;
 			targetProxy = 33FBADD23014A92200439B25 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -393,14 +393,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = CoachPhelps/CoachPhelps.entitlements;
+				CODE_SIGN_ENTITLEMENTS = CoachHQ/CoachHQ.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q9S8XL6SS8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = CoachPhelps/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Coach;
+				INFOPLIST_FILE = CoachHQ/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Coach HQ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -411,7 +411,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.coachphelps.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.coachhq.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -432,14 +432,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = CoachPhelps/CoachPhelps.entitlements;
+				CODE_SIGN_ENTITLEMENTS = CoachHQ/CoachHQ.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q9S8XL6SS8;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = CoachPhelps/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Coach;
+				INFOPLIST_FILE = CoachHQ/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Coach HQ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -450,7 +450,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.coachphelps.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.coachhq.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -475,8 +475,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q9S8XL6SS8;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = CoachPhelpsWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = CoachPhelpsWidget;
+				INFOPLIST_FILE = CoachHQWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Coach HQ";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -484,7 +484,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.coachphelps.ios.CoachPhelpsWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.coachhq.ios.CoachHQWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -505,8 +505,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q9S8XL6SS8;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = CoachPhelpsWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = CoachPhelpsWidget;
+				INFOPLIST_FILE = CoachHQWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Coach HQ";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -514,7 +514,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.coachphelps.ios.CoachPhelpsWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.coachhq.ios.CoachHQWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -529,7 +529,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		330C04872FFAF26600E40822 /* Build configuration list for PBXProject "CoachPhelps" */ = {
+		330C04872FFAF26600E40822 /* Build configuration list for PBXProject "CoachHQ" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				330C04952FFAF26700E40822 /* Debug */,
@@ -538,7 +538,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		330C04972FFAF26700E40822 /* Build configuration list for PBXNativeTarget "CoachPhelps" */ = {
+		330C04972FFAF26700E40822 /* Build configuration list for PBXNativeTarget "CoachHQ" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				330C04982FFAF26700E40822 /* Debug */,
@@ -547,7 +547,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		33FBADD53014A92200439B25 /* Build configuration list for PBXNativeTarget "CoachPhelpsWidgetExtension" */ = {
+		33FBADD53014A92200439B25 /* Build configuration list for PBXNativeTarget "CoachHQWidgetExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				33FBADD63014A92200439B25 /* Debug */,

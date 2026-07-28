@@ -19,7 +19,7 @@ consumers don't care what "today" is — they just render whatever numbers they'
   - `/gallery` (`WidgetGallery.tsx`)
   - `/welcome` marketing page (`WelcomePage.tsx`)
 - iOS: `GoldenDataset.swift` bundles a manually-synced copy of `widget_snapshots.json`
-  (`ios/CoachPhelps/CoachPhelps/Resources/golden_widget_snapshots.json` — same "manual sync
+  (`ios/CoachHQ/CoachHQ/Resources/golden_widget_snapshots.json` — same "manual sync
   until codegen" convention as `shared/warm-instrument/ios-token-mapping.md` uses for design
   tokens; if you change `widget_snapshots.json`, copy it over there too) and decodes it with
   the existing `WidgetSnapshots.swift` models, for SwiftUI `#Preview`s.

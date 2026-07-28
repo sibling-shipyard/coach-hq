@@ -7,7 +7,7 @@ import SwiftUI
 /// Activity, Build Phase, and VO2 Max are new S/M additions. Calories is intentionally excluded
 /// until issue #68 lands upstream (see `patches/PATCHES.md`).
 @main
-struct CoachPhelpsWidgetBundle: WidgetBundle {
+struct CoachHQWidgetBundle: WidgetBundle {
     var body: some Widget {
         EngineWidget()
         QuestWidget()

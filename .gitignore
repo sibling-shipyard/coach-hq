@@ -21,4 +21,4 @@ ios/**/DerivedData/
 *.ipa
 *.dSYM.zip
 *.dSYM
-ios/CoachPhelps/CoachPhelps/Secrets.swift
+ios/CoachHQ/CoachHQ/Secrets.swift

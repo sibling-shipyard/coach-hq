@@ -57,7 +57,7 @@ struct SettingsView: View {
                 } header: {
                     SectionHeader("Appearance")
                 } footer: {
-                    Text("The app is designed for light mode, matching Coach Phelps HQ.")
+                    Text("The app is designed for light mode, matching Coach HQ.")
                 }
 
                 // Test Mode Section

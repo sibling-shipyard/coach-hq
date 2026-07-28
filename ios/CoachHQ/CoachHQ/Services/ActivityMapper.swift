@@ -1,7 +1,7 @@
 import Foundation
 import HealthKit
 
-/// Maps HealthKit HKWorkout objects to the Coach Phelps Activity schema.
+/// Maps HealthKit HKWorkout objects to the Activity schema.
 struct ActivityMapper {
 
     /// Maps a HealthKit workout type to our sport_type classification.

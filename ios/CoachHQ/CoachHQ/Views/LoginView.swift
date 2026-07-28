@@ -15,7 +15,7 @@ struct LoginView: View {
                     .font(.system(size: 56))
                     .foregroundColor(Theme.accentGreen)
 
-                Text("Coach Phelps")
+                Text("Coach HQ")
                     .font(.system(size: 30, weight: .bold, design: .rounded))
 
                 Text("Your AI coaching system")

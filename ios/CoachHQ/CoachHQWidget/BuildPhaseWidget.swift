@@ -137,7 +137,7 @@ struct BuildPhaseWidgetView: View {
 }
 
 struct BuildPhaseWidget: Widget {
-    let kind = "com.coachphelps.ios.widget.buildPhase"
+    let kind = "com.coachhq.ios.widget.buildPhase"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: BuildPhaseProvider()) { entry in
