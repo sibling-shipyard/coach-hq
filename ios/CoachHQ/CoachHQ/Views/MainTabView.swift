@@ -50,12 +50,45 @@ struct MainTabView: View {
         .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             WarmTabBar(selection: $selectedTab)
+                .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
+        }
+        .overlay(alignment: .bottom) {
+            WarmTabBarScrollFade()
+                .allowsHitTesting(false)
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
     }
 }
 
 // MARK: - Warm tab bar (main app only — not compiled into WidgetKit extension)
+
+private enum WarmTabBarMetrics {
+    /// Icon row + inner pill padding (44 + 4×2).
+    static let pillHeight: CGFloat = 52
+    /// How far the desk fade extends above the pill.
+    static let fadeHeight: CGFloat = 56
+}
+
+/// Desk-color fade so scroll content dissolves before the floating dock — not a hard clip.
+private struct WarmTabBarScrollFade: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            LinearGradient(
+                stops: [
+                    .init(color: WarmInstrument.desk.opacity(0), location: 0),
+                    .init(color: WarmInstrument.desk.opacity(0.45), location: 0.38),
+                    .init(color: WarmInstrument.desk.opacity(0.88), location: 0.72),
+                    .init(color: WarmInstrument.desk, location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: WarmTabBarMetrics.fadeHeight)
+
+            Color.clear.frame(height: WarmTabBarMetrics.pillHeight)
+        }
+    }
+}
 
 /// Floating icon dock — inset pill, sliding muted highlight, spring lift on the active icon.
 private struct WarmTabBar: View {

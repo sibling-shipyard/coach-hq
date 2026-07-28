@@ -29,8 +29,9 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
-                .padding(.bottom, 32)
+                .padding(.bottom, 12)
             }
+            .scrollClipDisabled()
             .background(WarmInstrument.desk.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .toast($toast)

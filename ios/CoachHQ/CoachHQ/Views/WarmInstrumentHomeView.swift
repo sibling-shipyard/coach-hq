@@ -51,8 +51,9 @@ struct WarmInstrumentHomeView: View {
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .padding(.bottom, 28)
+                .padding(.bottom, 12)
             }
+            .scrollClipDisabled()
             .scrollContentBackground(.hidden)
             .refreshable { await store.refresh(showSpinner: false) }
             .toast($toast)
