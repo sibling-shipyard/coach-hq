@@ -49,14 +49,9 @@ struct MainTabView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
         .environment(\.warmTabBarScrollClearance, WarmTabBarMetrics.scrollBottomPadding)
-        .overlay(alignment: .bottom) {
-            WarmTabBarScrollFade()
-                .allowsHitTesting(false)
-        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             WarmTabBar(selection: $selectedTab)
                 .padding(.bottom, WarmTabBarMetrics.bottomInset)
-                .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
     }
@@ -67,36 +62,10 @@ struct MainTabView: View {
 private enum WarmTabBarMetrics {
     /// Icon row + inner pill padding (44 + 4×2).
     static let pillHeight: CGFloat = 52
-    /// How far the desk fade extends above the pill.
-    static let fadeHeight: CGFloat = 56
     /// Gap above the home indicator — pill sits in the safe-area band.
     static let bottomInset: CGFloat = 4
-    /// Extra scroll padding so the last row clears the fade + dock.
-    static let scrollBreathing: CGFloat = 16
-    static var scrollBottomPadding: CGFloat {
-        pillHeight + fadeHeight + bottomInset + scrollBreathing
-    }
-}
-
-/// Desk-color fade so scroll content dissolves before the floating dock — not a hard clip.
-private struct WarmTabBarScrollFade: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            LinearGradient(
-                stops: [
-                    .init(color: WarmInstrument.desk.opacity(0), location: 0),
-                    .init(color: WarmInstrument.desk.opacity(0.45), location: 0.38),
-                    .init(color: WarmInstrument.desk.opacity(0.88), location: 0.72),
-                    .init(color: WarmInstrument.desk, location: 1),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: WarmTabBarMetrics.fadeHeight)
-
-            Color.clear.frame(height: WarmTabBarMetrics.pillHeight)
-        }
-    }
+    /// Breathing room after the last scroll row (safeAreaInset handles the dock).
+    static let scrollBottomPadding: CGFloat = 20
 }
 
 /// Floating icon dock — inset pill, sliding muted highlight, spring lift on the active icon.

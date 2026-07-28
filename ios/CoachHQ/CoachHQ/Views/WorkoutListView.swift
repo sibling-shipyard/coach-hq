@@ -40,7 +40,6 @@ struct WorkoutListView: View {
                     .padding(.bottom, tabBarScrollClearance)
                 }
             }
-            .scrollClipDisabled()
             .refreshable {
                 await workoutService.fetchTodaySessions()
             }

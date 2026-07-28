@@ -54,7 +54,6 @@ struct WarmInstrumentHomeView: View {
                 .padding(.top, 14)
                 .padding(.bottom, tabBarScrollClearance)
             }
-            .scrollClipDisabled()
             .scrollContentBackground(.hidden)
             .refreshable { await store.refresh(showSpinner: false) }
             .toast($toast)
