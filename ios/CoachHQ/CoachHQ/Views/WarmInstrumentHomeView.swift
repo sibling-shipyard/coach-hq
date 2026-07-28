@@ -38,6 +38,7 @@ struct WarmInstrumentHomeView: View {
                         }
 
                         widgetColumn(for: snapshots)
+                            .transition(.opacity)
                     } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 320)
@@ -52,6 +53,7 @@ struct WarmInstrumentHomeView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 12)
+                .animation(PremiumMotion.statsLoad, value: store.snapshots != nil)
             }
             .scrollClipDisabled()
             .scrollContentBackground(.hidden)
@@ -418,6 +420,7 @@ private struct EngineWidget: View {
                         .frame(width: 118, alignment: .leading)
 
                         mobileTrendSparkline(sizes.M.trend, bandLow: sizes.M.bandLow, bandHigh: sizes.M.bandHigh)
+                            .drawingGroup()
                             .frame(maxWidth: .infinity)
                     }
                     .padding(.top, 2)
@@ -792,6 +795,8 @@ private struct RecentSessionsWidget: View {
     let onOpen: (SyncCacheEntry) -> Void
     let onUnavailable: () -> Void
 
+    @State private var cacheEntries: [SyncCacheEntry] = []
+
     private var visible: [RecentSessionSnapshot] { Array(sessions.prefix(3)) }
 
     var body: some View {
@@ -836,10 +841,15 @@ private struct RecentSessionsWidget: View {
                 }
             }
         }
+        .onAppear {
+            if cacheEntries.isEmpty {
+                cacheEntries = SyncCache.load()
+            }
+        }
     }
 
     private func handleEdit(_ session: RecentSessionSnapshot) {
-        let cache = SyncCache.load()
+        let cache = cacheEntries.isEmpty ? SyncCache.load() : cacheEntries
         if let source = session.evidence?.source,
            let hit = cache.first(where: { $0.fileName == source }) {
             onOpen(hit)

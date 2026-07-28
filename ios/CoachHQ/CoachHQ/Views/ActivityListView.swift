@@ -49,6 +49,11 @@ struct ActivityListView: View {
     }
 
     private var content: some View {
+        contentStack
+            .edgeBackSwipe(enabled: embedded) { dismiss() }
+    }
+
+    private var contentStack: some View {
         VStack(spacing: 0) {
             warmHeader
 

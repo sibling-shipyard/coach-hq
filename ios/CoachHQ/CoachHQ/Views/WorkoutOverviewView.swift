@@ -32,25 +32,13 @@ struct WorkoutOverviewView: View {
                 bottomDock.showTabs()
             }
         }
-        .simultaneousGesture(edgeBackSwipeGesture)
+        .edgeBackSwipe { dismiss() }
         .fullScreenCover(isPresented: $showTimer) {
             WorkoutTimerView(workout: workout, onExitToList: {
                 showTimer = false
                 dismiss()
             })
         }
-    }
-
-    /// Swipe right from the leading edge to pop back to the workouts list.
-    private var edgeBackSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onEnded { value in
-                guard value.startLocation.x < 28,
-                      value.translation.width > 56,
-                      abs(value.translation.height) < 96 else { return }
-                Haptics.tap()
-                dismiss()
-            }
     }
 
     private var metaSection: some View {

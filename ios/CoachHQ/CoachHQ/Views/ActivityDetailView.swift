@@ -112,7 +112,7 @@ struct ActivityDetailView: View {
         .scrollDismissesKeyboard(.interactively)
         .toolbar(.hidden, for: .navigationBar)
         .hidesMainTabBar()
-        .simultaneousGesture(edgeBackSwipeGesture)
+        .edgeBackSwipe { dismiss() }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -177,18 +177,6 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// Swipe right from the leading edge to pop back.
-    private var edgeBackSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onEnded { value in
-                guard value.startLocation.x < 28,
-                      value.translation.width > 56,
-                      abs(value.translation.height) < 96 else { return }
-                Haptics.tap()
-                dismiss()
-            }
-    }
-
     // MARK: - Hero stats card
 
     private var statsCard: some View {
@@ -235,7 +223,12 @@ struct ActivityDetailView: View {
                 .padding(.bottom, 12)
 
                 if activity?.hrZones != nil, hrZoneTotal > 0 {
-                    CompactZoneBar(zones: activity?.hrZones, height: 4, rounded: false)
+                    CompactZoneBar(
+                        zones: activity?.hrZones,
+                        height: 4,
+                        rounded: false,
+                        animateEntrance: entry.activity == nil
+                    )
                 }
 
                 if let mental = activity?.preMentalState {
@@ -608,7 +601,7 @@ struct ActivityDetailView: View {
                                     color: Theme.hrZoneColors[i],
                                     fraction: vals[i] / total,
                                     seconds: Int(vals[i]),
-                                    index: i
+                                    animateEntrance: entry.activity == nil
                                 )
                             }
                         }
@@ -626,9 +619,23 @@ private struct ZoneBreakdownRow: View {
     let color: Color
     let fraction: Double
     let seconds: Int
-    let index: Int
+    var animateEntrance: Bool = true
+    @State private var appeared: Bool
 
-    @State private var appeared = false
+    init(
+        label: String,
+        color: Color,
+        fraction: Double,
+        seconds: Int,
+        animateEntrance: Bool = true
+    ) {
+        self.label = label
+        self.color = color
+        self.fraction = fraction
+        self.seconds = seconds
+        self.animateEntrance = animateEntrance
+        _appeared = State(initialValue: !animateEntrance)
+    }
 
     private var timeString: String {
         if seconds >= 3600 {
@@ -665,8 +672,14 @@ private struct ZoneBreakdownRow: View {
                 .foregroundColor(WarmInstrument.inkFaint)
                 .frame(width: 48, alignment: .trailing)
         }
-        .onAppear { appeared = true }
-        .onDisappear { appeared = false }
+        .onAppear {
+            guard animateEntrance else { return }
+            appeared = true
+        }
+        .onDisappear {
+            guard animateEntrance else { return }
+            appeared = false
+        }
     }
 }
 

@@ -70,7 +70,21 @@ struct CompactZoneBar: View {
     let zones: [String: HRZoneEntry]?
     var height: CGFloat = 5
     var rounded: Bool = true
-    @State private var appeared = false
+    var animateEntrance: Bool = true
+    @State private var appeared: Bool
+
+    init(
+        zones: [String: HRZoneEntry]?,
+        height: CGFloat = 5,
+        rounded: Bool = true,
+        animateEntrance: Bool = true
+    ) {
+        self.zones = zones
+        self.height = height
+        self.rounded = rounded
+        self.animateEntrance = animateEntrance
+        _appeared = State(initialValue: !animateEntrance)
+    }
 
     private var fractions: [Double] {
         let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
@@ -96,8 +110,14 @@ struct CompactZoneBar: View {
             }
             .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: rounded ? height / 2 : 0))
-            .onAppear { appeared = true }
-            .onDisappear { appeared = false }
+            .onAppear {
+                guard animateEntrance else { return }
+                appeared = true
+            }
+            .onDisappear {
+                guard animateEntrance else { return }
+                appeared = false
+            }
         }
     }
 }

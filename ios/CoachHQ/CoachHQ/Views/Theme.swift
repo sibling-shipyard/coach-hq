@@ -542,4 +542,31 @@ extension View {
     func staggerReveal(delay: Double = 0, offset: CGFloat = 4) -> some View {
         modifier(StaggerRevealModifier(delay: delay, offset: offset))
     }
+
+    /// Swipe right from the leading edge to pop — matches hidden-nav-bar push screens.
+    func edgeBackSwipe(enabled: Bool = true, action: @escaping () -> Void) -> some View {
+        modifier(EdgeBackSwipeModifier(enabled: enabled, action: action))
+    }
+}
+
+private struct EdgeBackSwipeModifier: ViewModifier {
+    let enabled: Bool
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.simultaneousGesture(
+                DragGesture(minimumDistance: 12)
+                    .onEnded { value in
+                        guard value.startLocation.x < 28,
+                              value.translation.width > 56,
+                              abs(value.translation.height) < 96 else { return }
+                        Haptics.tap()
+                        action()
+                    }
+            )
+        } else {
+            content
+        }
+    }
 }
