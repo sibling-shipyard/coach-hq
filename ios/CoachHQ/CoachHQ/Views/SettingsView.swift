@@ -248,12 +248,9 @@ struct SettingsView: View {
         }
     }
 
-    /// Reads the real version from the bundle so Settings can never drift from
-    /// the shipped MARKETING_VERSION / build number.
+    /// Reads the marketing version from the bundle — matches what TestFlight shows as "Version."
     private var appVersion: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        return "\(version) (\(build))"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     }
 
     private func resetTestBranch() async {
