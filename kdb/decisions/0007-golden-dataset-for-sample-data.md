@@ -38,3 +38,18 @@
   public marketing page. A new sample-only schema — a second contract to keep in sync with
   ADR-0005's real one, for no gain. Hand-typing the raw layer's dates like the static layer —
   works the day it's written, breaks every day after as "today" moves past the fixture.
+- **Realism, not just happy-path:** an early version of the generated layer produced perfectly
+  clean data — daily activity with zero misses — which meant a bunch of real UI states could
+  never be exercised locally: heatmap gaps, a foundation streak reset, a stalled milestone, a
+  calisthenics week under floor, badminton head-to-head/"am I improving," running route/PB
+  clustering, and a quest that hasn't started yet ("not applicable" empty state). The generator
+  now deliberately produces all of these — a few multi-day blackout blocks (one excused, e.g.
+  travel), occasional single-day misses, a stalled `handstand_free` milestone alongside a
+  progressing `fl_single_leg`/`weighted_pullups` (with a flagged PR), a couple of thin
+  calisthenics weeks, badminton descriptions in the real `Games: / W <score> w/ <partner> vs
+  <opponent>` format with a recurring opponent pool, a consistent named running route for
+  benchmark clustering, and a second quest (`cold-plunge`) that only started a few weeks ago.
+  One state — the commitment cube's alarm/BELOW-floor styling — turned out to be gated on
+  `dataMode !== "live"` in `warmHomeSnapshots.ts`, and `Home.tsx` always passes `"live"`; no
+  fixture can make that render on `/`, since it's an app-level constraint, not a data gap. It
+  already renders on `/gallery` via the static layer.
