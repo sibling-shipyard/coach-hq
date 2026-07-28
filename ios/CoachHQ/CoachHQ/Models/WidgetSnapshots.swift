@@ -370,4 +370,17 @@ struct WidgetSnapshotsFile: Codable {
         case home
         case sizes
     }
+
+    static func decodingErrorDescription(_ error: Error) -> String {
+        switch error {
+        case DecodingError.keyNotFound(let key, let context):
+            let path = context.codingPath.map(\.stringValue).joined(separator: ".")
+            return "missing key '\(key.stringValue)' at \(path.isEmpty ? "root" : path)"
+        case DecodingError.typeMismatch(let type, let context):
+            let path = context.codingPath.map(\.stringValue).joined(separator: ".")
+            return "type mismatch for \(type) at \(path.isEmpty ? "root" : path)"
+        default:
+            return error.localizedDescription
+        }
+    }
 }
