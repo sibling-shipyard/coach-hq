@@ -91,8 +91,30 @@ const payload = JSON.stringify(snapshots, null, 2);
 const repoOut = widgetSnapshotsPath(REPO_ROOT);
 const clientOut = path.join(REPO_ROOT, "ui/client/src/data/widget_snapshots.json");
 
+// `generated_at` is a fresh timestamp on every run, so a naive write would dirty
+// gen/widget_snapshots.json (git-tracked, validated by validate-data.yml) on every single
+// `npm run dev`/`build` even when nothing about the underlying data changed. Compare content
+// with generated_at stripped from both sides, and only write when something real changed —
+// real changes still get a fresh, correct timestamp.
+function contentUnchanged(existingPath: string): boolean {
+  if (!fs.existsSync(existingPath)) return false;
+  try {
+    const existing = JSON.parse(fs.readFileSync(existingPath, "utf-8"));
+    const { generated_at: _existingTs, ...existingRest } = existing;
+    const { generated_at: _newTs, ...newRest } = snapshots;
+    return JSON.stringify(existingRest) === JSON.stringify(newRest);
+  } catch {
+    return false;
+  }
+}
+
 fs.mkdirSync(path.dirname(repoOut), { recursive: true });
 fs.mkdirSync(path.dirname(clientOut), { recursive: true });
-fs.writeFileSync(repoOut, payload);
-fs.writeFileSync(clientOut, payload);
-console.log("✓ widget_snapshots.json written");
+
+if (contentUnchanged(repoOut)) {
+  console.log("✓ widget_snapshots.json unchanged — skipped write");
+} else {
+  fs.writeFileSync(repoOut, payload);
+  fs.writeFileSync(clientOut, payload);
+  console.log("✓ widget_snapshots.json written");
+}
