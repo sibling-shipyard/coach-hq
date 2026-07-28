@@ -1,22 +1,26 @@
 import SwiftUI
 import AVFoundation
 
-// MARK: - WorkoutTimerView (container)
+// MARK: - WorkoutTimerView (Warm Instrument live follow-along — mock 1b)
 
 struct WorkoutTimerView: View {
     let workout: Workout
+    var onExitToList: (() -> Void)? = nil
+
     @Environment(\.dismiss) private var dismiss
     @StateObject private var engine: WorkoutTimerEngine
+    @State private var showQuitConfirm = false
 
-    init(workout: Workout) {
+    init(workout: Workout, onExitToList: (() -> Void)? = nil) {
         self.workout = workout
+        self.onExitToList = onExitToList
         _engine = StateObject(wrappedValue: WorkoutTimerEngine(
             workout: workout,
             beepPlayer: BeepPlayer()
         ))
     }
 
-    private var accentColor: Color { Theme.workoutColor(for: workout.workoutType) }
+    private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
 
     var body: some View {
         Group {
@@ -24,7 +28,7 @@ struct WorkoutTimerView: View {
                 WorkoutCompleteView(
                     workout: workout,
                     elapsed: engine.totalElapsed,
-                    onDismiss: { dismiss() }
+                    onDismiss: exitWorkout
                 )
                 .transition(.asymmetric(
                     insertion: .opacity.combined(with: .move(edge: .bottom)),
@@ -44,7 +48,6 @@ struct WorkoutTimerView: View {
             UIApplication.shared.isIdleTimerDisabled = false
             engine.cleanup()
         }
-        // Auto-pause on phone calls / audio interruptions
         .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)) { n in
             guard let raw = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                   let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
@@ -54,462 +57,326 @@ struct WorkoutTimerView: View {
             @unknown default: break
             }
         }
+        .confirmationDialog(
+            "Quit workout?",
+            isPresented: $showQuitConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Quit", role: .destructive) { exitWorkout() }
+            Button("Continue", role: .cancel) {}
+        } message: {
+            Text("Your progress will be lost.")
+        }
     }
 
-    // MARK: - Active timer layout
+    private func exitWorkout() {
+        if let onExitToList {
+            onExitToList()
+        } else {
+            dismiss()
+        }
+    }
+
+    // MARK: - Active layout
 
     private var activeTimer: some View {
         VStack(spacing: 0) {
-            TimerHeaderView(engine: engine, accentColor: accentColor, onClose: { dismiss() })
+            timerHeader
 
-            // Progress bar — spring so it eases into position rather than sliding linearly
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Color(uiColor: .systemFill)
-                    accentColor
-                        .frame(width: geo.size.width * engine.progressPct)
-                        .animation(.spring(duration: 0.5, bounce: 0), value: engine.progressPct)
-                }
-            }
-            .frame(height: 3)
-
-            // Main content — fades + slides up when state changes
             ScrollView {
-                TimerScreenView(engine: engine, accentColor: accentColor)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 28)
-                    .frame(maxWidth: .infinity)
+                WarmTimerFocusBody(engine: engine, workout: workout, accent: accent)
+                    .padding(.horizontal, 22)
+                    .padding(.top, 14)
+                    .padding(.bottom, 12)
                     .id(engine.state)
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .offset(y: 10)),
-                        removal: .opacity
-                    ))
-            }
-            .animation(.spring(duration: 0.35, bounce: 0.05), value: engine.state)
-
-            TimerControlsView(engine: engine, accentColor: accentColor)
-        }
-        .background(Color(uiColor: .systemBackground))
-    }
-}
-
-// MARK: - Header
-
-private struct TimerHeaderView: View {
-    @ObservedObject var engine: WorkoutTimerEngine
-    let accentColor: Color
-    let onClose: () -> Void
-
-    private var phaseLabel: String {
-        switch engine.state {
-        case .phaseTransition: return "NEXT PHASE"
-        case .prep:            return "GET READY"
-        case .rest:            return "REST"
-        default:               return engine.phase?.name.uppercased() ?? ""
-        }
-    }
-
-    var body: some View {
-        HStack {
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .padding(10)
             }
 
-            Spacer()
-
-            // Phase label crossfades when state changes
-            Text(phaseLabel)
-                .font(.system(size: 11, weight: .bold))
-                .kerning(1.5)
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .id(phaseLabel)
-                .transition(.opacity)
-
-            Spacer()
-
-            Button {
-                engine.isMuted.toggle()
-                Haptics.tap()
-            } label: {
-                Image(systemName: engine.isMuted ? "speaker.slash" : "speaker.wave.2")
-                    .font(.system(size: 16))
-                    .foregroundColor(engine.isMuted ? .secondary : accentColor)
-                    .padding(10)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.top, 4)
-        // Provides the animation context for the label's .transition(.opacity)
-        .animation(.easeOut(duration: 0.2), value: engine.state)
-    }
-}
-
-// MARK: - Screen (state-driven content)
-
-private struct TimerScreenView: View {
-    @ObservedObject var engine: WorkoutTimerEngine
-    let accentColor: Color
-
-    // Drives the countdown pulse on final 3 seconds
-    @State private var isPulsing = false
-
-    var body: some View {
-        switch engine.state {
-        case .phaseTransition: phaseTransitionScreen
-        case .prep:            prepScreen
-        case .rest:            restScreen
-        case .exercise:        exerciseScreen
-        case .complete:        EmptyView()
-        }
-    }
-
-    // MARK: Phase transition
-
-    private var phaseTransitionScreen: some View {
-        VStack(spacing: 20) {
-            Text("NEXT PHASE")
-                .font(.system(size: 11, weight: .bold)).kerning(2)
-                .foregroundColor(.blue)
-
-            Text(engine.phase?.name ?? "")
-                .font(.system(size: 24, weight: .bold))
-                .multilineTextAlignment(.center)
-
-            timerDisplay(color: .blue)
-
-            if let first = engine.phase?.exercises.first {
-                infoCard(label: "First Up", content: first.name)
-            }
-
-            if engine.phase?.isOptional == true {
-                skipPhaseButton
-            }
-        }
-    }
-
-    // MARK: Prep
-
-    private var prepScreen: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("GET READY")
-                .font(.system(size: 11, weight: .bold)).kerning(2)
-                .foregroundColor(Theme.attentionOrange)
-                .frame(maxWidth: .infinity, alignment: .center)
-
-            if let ex = engine.exercise {
-                Text(ex.name)
-                    .font(.system(size: 26, weight: .bold))
-
-                setLine(for: ex)
-
-                timerDisplay(color: Theme.attentionOrange)
-
-                infoCard(label: "Form Cue", content: ex.formCue)
-            }
-        }
-    }
-
-    // MARK: Rest
-
-    private var restScreen: some View {
-        VStack(spacing: 20) {
-            Text(engine.isCircuit ? "REST · ROUND \(engine.pos.roundNum)/\(engine.phaseRounds)" : "REST")
-                .font(.system(size: 11, weight: .bold)).kerning(2)
-                .foregroundColor(.secondary)
-
-            timerDisplay(color: Theme.accentGreen)
-
-            if let preview = engine.nextPreview {
-                infoCard(label: preview.label.uppercased(), content: preview.name)
-            }
-        }
-    }
-
-    // MARK: Exercise
-
-    private var exerciseScreen: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            if let ex = engine.exercise {
-                // Exercise name + optional badge
-                HStack(alignment: .top, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(ex.name)
-                            .font(.system(size: 26, weight: .bold))
-                            .fixedSize(horizontal: false, vertical: true)
-                        setLine(for: ex)
-                    }
-                    if ex.isOptional {
-                        Text("OPTIONAL")
-                            .font(.system(size: 9, weight: .bold)).kerning(1)
-                            .foregroundColor(Theme.attentionOrange)
-                            .padding(.horizontal, 5).padding(.vertical, 2)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 3)
-                                    .stroke(Theme.attentionOrange.opacity(0.5), lineWidth: 1)
-                            )
-                            .padding(.top, 4)
-                    }
-                }
-
-                // Both-sides indicator — springs when side flips
-                if ex.isBothSides && ex.type == .timed {
-                    bothSidesIndicator
-                        .animation(.spring(duration: 0.3, bounce: 0.2), value: engine.sideNum)
-                }
-
-                // Timer / reps display
-                if ex.type == .timed {
-                    timerDisplay(color: accentColor)
-                } else {
-                    repsDisplay(reps: ex.reps ?? 0)
-                }
-
-                infoCard(label: "Form Cue", content: ex.formCue)
-                infoCard(label: "Why", content: ex.why)
-            }
-        }
-    }
-
-    // MARK: - Shared sub-views
-
-    private func timerDisplay(color: Color) -> some View {
-        Text(formattedTimer(engine.timerValue ?? 0))
-            .font(.system(size: 76, weight: .bold, design: .rounded))
-            .monospacedDigit()
-            .foregroundColor(color)
-            .frame(maxWidth: .infinity, alignment: .center)
-            // Roll downward — correct direction for a countdown
-            .contentTransition(.numericText(countsDown: true))
-            .animation(.spring(duration: 0.2, bounce: 0), value: engine.timerValue)
-            // Scale pulse on final 3 seconds to amplify the audio beep
-            .scaleEffect(isPulsing ? 1.07 : 1.0)
-            .animation(.spring(duration: 0.3, bounce: 0.5), value: isPulsing)
-            .onChange(of: engine.timerValue) {
-                guard let v = engine.timerValue, v <= 3, v > 0 else { return }
-                isPulsing = true
-                Task {
-                    try? await Task.sleep(nanoseconds: 120_000_000)
-                    isPulsing = false
-                }
-            }
-    }
-
-    private func repsDisplay(reps: Int) -> some View {
-        VStack(spacing: 4) {
-            Text("\(reps)")
-                .font(.system(size: 76, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundColor(accentColor)
-                .frame(maxWidth: .infinity, alignment: .center)
-            Text(reps == 1 ? "REP" : "REPS")
-                .font(.system(size: 11, weight: .bold)).kerning(2)
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-        }
-    }
-
-    private func setLine(for ex: WorkoutExercise) -> some View {
-        Text(engine.isCircuit
-             ? "Round \(engine.pos.roundNum) of \(engine.phaseRounds)"
-             : "Set \(engine.pos.setNum) of \(ex.sets)")
-            .font(.system(size: 14).monospacedDigit())
-            .foregroundColor(.secondary)
-    }
-
-    private var bothSidesIndicator: some View {
-        HStack(spacing: 12) {
-            sideChip("LEFT",  active: engine.sideNum == 0)
-            Image(systemName: "arrow.right")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-            sideChip("RIGHT", active: engine.sideNum == 1)
-        }
-    }
-
-    private func sideChip(_ label: String, active: Bool) -> some View {
-        Text(label)
-            .font(.system(size: 11, weight: .bold)).kerning(1)
-            .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(active ? Color.primary : Color.clear)
-            .foregroundColor(active ? Color(uiColor: .systemBackground) : .secondary)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(active ? Color.primary : Theme.cardBorder, lineWidth: 1.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-    }
-
-    private func infoCard(label: String, content: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(label)
-                .font(.system(size: 10, weight: .bold)).kerning(1.5)
-                .foregroundColor(.secondary)
-            Text(content)
-                .font(.system(size: 13))
-                .foregroundColor(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Theme.mutedBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    private var skipPhaseButton: some View {
-        Button {
-            engine.handleSkipPhase()
-            Haptics.tap()
-        } label: {
-            Label("Skip Phase", systemImage: "forward.end")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(Theme.attentionOrange)
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.top, 4)
-    }
-
-    private func formattedTimer(_ seconds: Int) -> String {
-        let s = max(0, seconds)
-        return String(format: "%02d:%02d", s / 60, s % 60)
-    }
-}
-
-// MARK: - Controls bar
-
-private struct TimerControlsView: View {
-    @ObservedObject var engine: WorkoutTimerEngine
-    let accentColor: Color
-
-    private var isPhaseTransition: Bool { engine.state == .phaseTransition }
-    private var isPrep: Bool            { engine.state == .prep }
-    private var isRest: Bool            { engine.state == .rest }
-    private var isReps: Bool            { engine.state == .exercise && engine.exercise?.type == .reps }
-    private var isOptionalEx: Bool      { engine.exercise?.isOptional == true }
-    private var isOptionalPhase: Bool   { engine.phase?.isOptional == true }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Divider()
-            HStack(spacing: 16) {
-                // Back
-                controlButton(icon: "backward.end") {
+            WarmTimerControls(
+                primaryLabel: primaryLabel,
+                onPrev: {
                     engine.handleGoBack()
                     Haptics.tap()
+                },
+                onPrimary: handlePrimary,
+                onNext: {
+                    handleForward()
+                    Haptics.tap()
                 }
+            )
+        }
+        .background(WarmInstrument.paper)
+    }
 
-                // Main action
-                mainActionButton
+    private var timerHeader: some View {
+        HStack(spacing: 10) {
+            Button { showQuitConfirm = true } label: {
+                Text("←")
+                    .font(.system(size: 16))
+                    .foregroundColor(WarmInstrument.inkMuted)
+            }
+            .buttonStyle(.plain)
 
-                // Forward / optional skip
-                if isOptionalEx {
-                    controlButton(icon: "forward.end", tint: Theme.attentionOrange) {
-                        engine.handleSkipOptional()
-                        Haptics.tap()
-                    }
-                } else if isOptionalPhase && (engine.state == .exercise || isRest || isPrep) {
-                    controlButton(icon: "forward.end", tint: Theme.attentionOrange) {
-                        engine.handleSkipPhase()
-                        Haptics.tap()
-                    }
-                } else {
-                    controlButton(icon: "forward.end") {
-                        engine.handleSkip()
-                        Haptics.tap()
-                    }
+            Text(workout.title)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Theme.ink)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            WarmTimerHeaderRight(
+                muted: engine.isMuted,
+                elapsed: engine.totalElapsed,
+                onToggleMute: {
+                    engine.isMuted.toggle()
+                    Haptics.tap()
+                }
+            )
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .background(WarmInstrument.paper)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(WarmInstrument.headerRule)
+                .frame(height: 1)
+        }
+    }
+
+    private var primaryLabel: String {
+        switch engine.state {
+        case .phaseTransition, .prep:
+            return "Skip"
+        case .rest:
+            return "Skip Rest"
+        case .exercise:
+            if engine.exercise?.type == .reps { return "Done" }
+            return engine.isPaused ? "Resume" : "Pause"
+        case .complete:
+            return ""
+        }
+    }
+
+    private func handlePrimary() {
+        switch engine.state {
+        case .phaseTransition, .prep, .rest:
+            engine.handleSkip()
+        case .exercise:
+            if engine.exercise?.type == .reps {
+                engine.handleExerciseDone()
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } else {
+                engine.togglePause()
+            }
+        case .complete:
+            break
+        }
+        Haptics.tap()
+    }
+
+    private func handleForward() {
+        if engine.exercise?.isOptional == true {
+            engine.handleSkipOptional()
+        } else if engine.phase?.isOptional == true,
+                  engine.state == .exercise || engine.state == .rest || engine.state == .prep {
+            engine.handleSkipPhase()
+        } else {
+            engine.handleSkip()
+        }
+    }
+}
+
+// MARK: - Focus body (mock 1b content column)
+
+private struct WarmTimerFocusBody: View {
+    @ObservedObject var engine: WorkoutTimerEngine
+    let workout: Workout
+    let accent: Color
+
+    @State private var isPulsing = false
+
+    private var phase: WorkoutPhase? { engine.phase }
+    private var exercise: WorkoutExercise? { engine.exercise }
+
+    private var exOfBlock: String {
+        guard let phase else { return "" }
+        return "\(engine.pos.exerciseIdx + 1)/\(phase.exercises.count)"
+    }
+
+    private var setLabel: String {
+        guard let exercise else { return "" }
+        if engine.isCircuit {
+            return "Round \(engine.pos.roundNum) of \(engine.phaseRounds)"
+        }
+        return "Set \(engine.pos.setNum) of \(exercise.sets)"
+    }
+
+    private var displayName: String {
+        switch engine.state {
+        case .rest: return "Rest"
+        case .phaseTransition: return phase?.name ?? "Up next"
+        default: return exercise?.name ?? ""
+        }
+    }
+
+    private var readoutColor: Color {
+        if engine.state == .exercise, exercise?.type == .reps {
+            return Theme.ink
+        }
+        return WorkoutTimerWarm.readoutColor(for: engine.state)
+    }
+
+    private var upNext: WorkoutTimerWarm.UpNextItem? {
+        WorkoutTimerWarm.buildUpNext(
+            workout: workout,
+            phaseIdx: engine.pos.phaseIdx,
+            exerciseIdx: engine.pos.exerciseIdx
+        ).first
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            blockRow
+            exerciseMeta
+            readoutSection
+            cueSection
+            if let next = upNext, engine.state != .complete {
+                WarmNextStrip(name: next.name, dose: next.dose)
+            }
+        }
+    }
+
+    private var blockRow: some View {
+        HStack(spacing: 8) {
+            if let phase {
+                Text(shortBlockName(phase.name))
+                    .font(WarmInstrument.monoLabel(9))
+                    .kerning(1)
+                    .foregroundColor(WarmInstrument.paper)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .lineLimit(1)
+            }
+            Text(exOfBlock)
+                .font(WarmInstrument.figures(10))
+                .foregroundColor(WarmInstrument.inkFaint)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func shortBlockName(_ name: String) -> String {
+        let parts = name.split(separator: "—", maxSplits: 1)
+        return String(parts.first ?? Substring(name)).trimmingCharacters(in: .whitespaces).uppercased()
+    }
+
+    private var exerciseMeta: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if let exercise {
+                Text("#\(exercise.num) · \(setLabel)")
+                    .font(WarmInstrument.figures(10))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
+            HStack(alignment: .top, spacing: 8) {
+                Text(displayName)
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                if exercise?.isOptional == true, engine.state == .exercise {
+                    Text("OPTIONAL")
+                        .font(WarmInstrument.monoLabel(9))
+                        .kerning(0.8)
+                        .foregroundColor(WarmInstrument.inkFaint)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(WarmInstrument.border, lineWidth: 1)
+                        )
+                        .padding(.top, 4)
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
         }
-        .background(Color(uiColor: .systemBackground))
     }
 
     @ViewBuilder
-    private var mainActionButton: some View {
-        if isPhaseTransition || isPrep {
-            primaryButton(label: "Skip", icon: "chevron.right") {
-                engine.handleSkip()
-                Haptics.tap()
+    private var readoutSection: some View {
+        if engine.state == .exercise,
+           let exercise,
+           exercise.isBothSides,
+           exercise.type == .timed {
+            WarmSidePills(sideNum: engine.sideNum)
+                .animation(.spring(duration: 0.3, bounce: 0.2), value: engine.sideNum)
+        }
+
+        if engine.state == .exercise, exercise?.type == .reps, let reps = exercise?.reps {
+            VStack(spacing: 12) {
+                Text("×\(reps)")
+                    .font(WarmInstrument.figures(76, weight: .bold))
+                    .foregroundColor(readoutColor)
+                    .frame(maxWidth: .infinity)
+                caption
             }
-        } else if isRest {
-            primaryButton(label: "Skip Rest", icon: "chevron.right") {
-                engine.handleSkip()
-                Haptics.tap()
-            }
-        } else if isReps {
-            // Large Done button — medium impact since this is completing a set
-            Button {
-                engine.handleExerciseDone()
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .bold))
-                    Text("DONE")
-                        .font(.system(size: 17, weight: .bold))
-                        .kerning(1)
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
-                .background(accentColor)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-            }
-            .buttonStyle(ScaleButtonStyle())
+            .padding(.vertical, 14)
         } else {
-            // Timed exercise: pause/resume
-            primaryButton(
-                label: engine.isPaused ? "Resume" : "Pause",
-                icon: engine.isPaused ? "play.fill" : "pause.fill"
-            ) {
-                engine.togglePause()
-                Haptics.tap()
+            VStack(spacing: 12) {
+                Text(WorkoutTimerWarm.formatTimer(engine.timerValue ?? 0))
+                    .font(WarmInstrument.figures(76, weight: .bold))
+                    .foregroundColor(readoutColor)
+                    .monospacedDigit()
+                    .contentTransition(.numericText(countsDown: true))
+                    .animation(.spring(duration: 0.2, bounce: 0), value: engine.timerValue)
+                    .scaleEffect(isPulsing ? 1.05 : 1)
+                    .animation(.spring(duration: 0.3, bounce: 0.5), value: isPulsing)
+                    .onChange(of: engine.timerValue) {
+                        guard let v = engine.timerValue, v <= 3, v > 0 else { return }
+                        isPulsing = true
+                        Task {
+                            try? await Task.sleep(nanoseconds: 120_000_000)
+                            isPulsing = false
+                        }
+                    }
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Theme.mutedBackground)
+                        Capsule()
+                            .fill(readoutColor)
+                            .frame(width: geo.size.width * engine.segmentProgressPct)
+                            .animation(.linear(duration: 0.9), value: engine.segmentProgressPct)
+                    }
+                }
+                .frame(height: 4)
+
+                caption
             }
+            .padding(.vertical, 14)
         }
     }
 
-    private func primaryButton(label: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                Text(label)
-                    .font(.system(size: 15, weight: .semibold))
-            }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(Color.primary)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-        }
-        .buttonStyle(ScaleButtonStyle())
+    private var caption: some View {
+        Text(WorkoutTimerWarm.timerCaption(
+            state: engine.state,
+            exercise: exercise,
+            sideNum: engine.sideNum,
+            isCircuit: engine.isCircuit,
+            roundNum: engine.pos.roundNum,
+            phaseRounds: engine.phaseRounds,
+            phaseName: phase?.name
+        ))
+        .font(WarmInstrument.monoLabel(9))
+        .kerning(1.2)
+        .foregroundColor(WarmInstrument.inkFaint)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
     }
 
-    private func controlButton(icon: String, tint: Color = Color(uiColor: .secondaryLabel), action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundColor(tint)
-                .frame(width: 50, height: 50)
-                .background(Theme.mutedBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+    @ViewBuilder
+    private var cueSection: some View {
+        if (engine.state == .exercise || engine.state == .prep), let exercise {
+            WarmFormCueCard(formCue: exercise.formCue, why: exercise.why)
         }
-        .buttonStyle(ScaleButtonStyle(scale: 0.90))
-    }
-}
-
-// MARK: - Scale press feedback (DESIGN.md: instant press response, no list edge clipping)
-
-private struct ScaleButtonStyle: ButtonStyle {
-    var scale: CGFloat = 0.95
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0)
-            .animation(.spring(duration: 0.15, bounce: 0), value: configuration.isPressed)
     }
 }

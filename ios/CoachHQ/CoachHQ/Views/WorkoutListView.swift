@@ -6,237 +6,245 @@ struct WorkoutListView: View {
 
     private var todayId: String? { WorkoutService.todayTemplateId() }
 
-    private var todayEntry: (workout: Workout, isSession: Bool)? {
-        guard let id = todayId,
-              let workout = workoutService.displayWorkout(for: id) else { return nil }
-        return (workout, workoutService.todaySessions[id] != nil)
+    private var allWorkouts: [(workout: Workout, isSession: Bool)] {
+        workoutService.templates.compactMap { template in
+            guard let w = workoutService.displayWorkout(for: template.id) else { return nil }
+            return (w, workoutService.todaySessions[template.id] != nil)
+        }
     }
 
-    private var otherEntries: [(workout: Workout, isSession: Bool)] {
-        workoutService.templates
-            .filter { $0.id != todayId }
-            .compactMap { template in
-                guard let w = workoutService.displayWorkout(for: template.id) else { return nil }
-                return (w, workoutService.todaySessions[template.id] != nil)
-            }
+    private var groupedWorkouts: [(type: WorkoutType, entries: [(workout: Workout, isSession: Bool)])] {
+        let order: [WorkoutType] = [.foundation, .calisthenics, .recovery, .realign]
+        return order.compactMap { type in
+            let entries = allWorkouts.filter { $0.workout.workoutType == type }
+            return entries.isEmpty ? nil : (type, entries)
+        }
     }
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    BrandHeader(title: "Timer")
-
-                    // Coach-adjusted callout
                     if !workoutService.todaySessions.isEmpty {
-                        HStack(spacing: 8) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("Coach has adjusted today's workout")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundColor(Theme.accentGreen)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.accentGreen.opacity(0.08))
+                        coachAdjustedBanner
                     }
 
-                    // TODAY hero
-                    if let entry = todayEntry {
-                        VStack(alignment: .leading, spacing: 0) {
-                            SectionHeader("TODAY")
-                                .padding(.horizontal, 16)
-                                .padding(.top, 20)
-                                .padding(.bottom, 10)
-                            HeroWorkoutCard(
-                                workout: entry.workout,
-                                isSession: entry.isSession,
-                                onTap: { navigationPath.append(entry.workout) }
-                            )
-                            .padding(.horizontal, 16)
+                    VStack(alignment: .leading, spacing: 20) {
+                        ForEach(groupedWorkouts, id: \.type) { group in
+                            workoutGroup(type: group.type, entries: group.entries)
                         }
                     }
-
-                    // All workouts
-                    VStack(alignment: .leading, spacing: 0) {
-                        SectionHeader(todayEntry == nil ? "WORKOUTS" : "ALL WORKOUTS")
-                            .padding(.horizontal, 16)
-                            .padding(.top, 24)
-                            .padding(.bottom, 10)
-
-                        VStack(spacing: 0) {
-                            ForEach(otherEntries, id: \.workout.id) { entry in
-                                WorkoutListCell(
-                                    workout: entry.workout,
-                                    isSession: entry.isSession,
-                                    onTap: { navigationPath.append(entry.workout) }
-                                )
-                            }
-                            // If no today entry, show all templates as cells
-                            if todayEntry == nil {
-                                ForEach(workoutService.templates, id: \.id) { template in
-                                    if let w = workoutService.displayWorkout(for: template.id) {
-                                        WorkoutListCell(
-                                            workout: w,
-                                            isSession: workoutService.todaySessions[template.id] != nil,
-                                            onTap: { navigationPath.append(w) }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        .background(Theme.cardBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                                .stroke(Theme.cardBorder, lineWidth: 1)
-                        )
-                        .padding(.horizontal, 16)
-                    }
-
-                    Spacer(minLength: 24)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 32)
                 }
             }
             .refreshable {
                 await workoutService.fetchTodaySessions()
             }
-            .overlay(alignment: .center) {
+            .overlay {
                 if workoutService.isLoading && workoutService.templates.isEmpty {
                     ProgressView()
                 }
             }
-            .background(Color(uiColor: .systemBackground))
+            .background(Theme.mutedBackground)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Workout.self) { workout in
                 WorkoutOverviewView(workout: workout)
             }
         }
     }
-}
 
-// MARK: - Hero card (today's promoted workout)
-
-struct HeroWorkoutCard: View {
-    let workout: Workout
-    let isSession: Bool
-    let onTap: () -> Void
-
-    private var color: Color { Theme.workoutColor(for: workout.workoutType) }
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 0) {
-                Rectangle().fill(color).frame(height: 4)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 8) {
-                        Text(Theme.workoutLabel(for: workout.workoutType))
-                            .font(.system(size: 9, weight: .bold)).kerning(1)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(color)
-                        if isSession {
-                            Text("COACH ADJUSTED")
-                                .font(.system(size: 9, weight: .bold)).kerning(1)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Theme.accentGreen)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.secondary)
-                    }
-
-                    Text(workout.title)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.primary)
-
-                    Text(workout.coachingNote)
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                        .padding(.leading, 8)
-                        .overlay(alignment: .leading) {
-                            Rectangle().fill(color).frame(width: 2)
-                        }
-
-                    HStack(spacing: 16) {
-                        Label("\(workout.estimatedDurationMins)m", systemImage: "clock")
-                        Label("\(workout.exerciseCount) exercises", systemImage: "dumbbell")
-                        if !workout.location.isEmpty {
-                            Label(workout.location, systemImage: "mappin")
-                        }
-                    }
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-
-                    if !workout.equipment.isEmpty {
-                        Text(workout.equipment.joined(separator: " · "))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-                }
-                .padding(16)
-            }
-            .background(Theme.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                    .stroke(Theme.cardBorder, lineWidth: 1)
-            )
+    private var coachAdjustedBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 12, weight: .semibold))
+            Text("Coach has adjusted today's workout")
+                .font(.system(size: 12, weight: .semibold))
         }
-        .buttonStyle(CardPressButtonStyle())
+        .foregroundColor(WarmInstrument.sportColor(.badminton))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WarmInstrument.sportColor(.badminton).opacity(0.08))
+    }
+
+    private func workoutGroup(
+        type: WorkoutType,
+        entries: [(workout: Workout, isSession: Bool)]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(Theme.workoutLabel(for: type))
+                .font(WarmInstrument.monoLabel(11))
+                .kerning(1.4)
+                .foregroundColor(WarmInstrument.inkMuted)
+
+            VStack(spacing: 12) {
+                ForEach(entries, id: \.workout.id) { entry in
+                    WarmWorkoutListCard(
+                        workout: entry.workout,
+                        isSession: entry.isSession,
+                        isToday: entry.workout.id == todayId,
+                        onTap: { navigationPath.append(entry.workout) }
+                    )
+                }
+            }
+        }
     }
 }
 
-// MARK: - Compact list cell
+// MARK: - Workout card (mock 3a)
 
-struct WorkoutListCell: View {
+struct WarmWorkoutListCard: View {
     let workout: Workout
     let isSession: Bool
+    let isToday: Bool
     let onTap: () -> Void
 
-    private var color: Color { Theme.workoutColor(for: workout.workoutType) }
+    private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
+    private var blockTags: WorkoutTimerWarm.BlockTags {
+        WorkoutTimerWarm.deriveBlockTags(from: workout)
+    }
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 0) {
-                Rectangle().fill(color).frame(width: 4)
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(workout.title)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.primary)
-                        HStack(spacing: 10) {
-                            Text("\(workout.estimatedDurationMins)m")
-                                .font(.system(size: 12).monospacedDigit())
-                            Text("·")
-                            Text("\(workout.exerciseCount) exercises")
-                                .font(.system(size: 12))
-                            if isSession {
-                                Text("COACH")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundColor(Theme.accentGreen)
-                            }
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .center) {
+                    HStack(spacing: 6) {
+                        WarmWorkoutTypeBadge(
+                            label: Theme.workoutLabel(for: workout.workoutType),
+                            accent: accent
+                        )
+                        if isToday {
+                            Text("TODAY")
+                                .font(WarmInstrument.monoLabel(9))
+                                .kerning(1)
+                                .foregroundColor(WarmInstrument.paper)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Theme.ink)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
-                        .foregroundColor(.secondary)
+                        if isSession {
+                            Text("COACH")
+                                .font(WarmInstrument.monoLabel(9))
+                                .kerning(1)
+                                .foregroundColor(WarmInstrument.sportColor(.badminton))
+                        }
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    Text("→")
+                        .font(.system(size: 15))
+                        .foregroundColor(Color(red: 0xC2 / 255, green: 0xBC / 255, blue: 0xAE / 255))
                 }
-                .padding(.vertical, 14)
-                .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(workout.title)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(Theme.ink)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(2)
+                    Text(workout.subtitle)
+                        .font(.system(size: 13))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: 12) {
+                    Text("\(workout.estimatedDurationMins)M")
+                    Text("\(workout.exerciseCount) EX")
+                    Text("\(workout.setCount) SETS")
+                    if !workout.location.isEmpty {
+                        Text(workout.location.uppercased())
+                    }
+                }
+                .font(WarmInstrument.figures(10))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .lineLimit(1)
+
+                if !blockTags.tags.isEmpty {
+                    FlowLayout(spacing: 6) {
+                        ForEach(blockTags.tags.prefix(3), id: \.self) { tag in
+                            tagChip(tag)
+                        }
+                        let hidden = max(0, blockTags.tags.count - 3) + blockTags.overflow
+                        if hidden > 0 {
+                            tagChip("+\(hidden)")
+                        }
+                    }
+                }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(WarmInstrument.paper)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(accent)
+                    .frame(height: 3)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(WarmInstrument.border, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: WarmInstrument.cardShadow, radius: 8, y: 4)
         }
-        .buttonStyle(RowPressButtonStyle())
-        .overlay(alignment: .bottom) {
-            Divider().padding(.leading, 20)
+        .buttonStyle(CardPressButtonStyle())
+    }
+
+    private func tagChip(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(WarmInstrument.monoLabel(9))
+            .foregroundColor(WarmInstrument.inkMuted)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(Color(red: 0xDC / 255, green: 0xD5 / 255, blue: 0xC6 / 255), lineWidth: 1)
+            )
+    }
+}
+
+// MARK: - Simple flow layout for tag chips
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = arrange(proposal: proposal, subviews: subviews)
+        return result.size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrange(proposal: proposal, subviews: subviews)
+        for (index, position) in result.positions.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
+                proposal: .unspecified
+            )
         }
+    }
+
+    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var positions: [CGPoint] = []
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth, x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            positions.append(CGPoint(x: x, y: y))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+        }
+
+        return (CGSize(width: maxWidth, height: y + rowHeight), positions)
     }
 }
