@@ -25,12 +25,11 @@ struct SettingsView: View {
                     aboutSection
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.top, 16)
                 .padding(.bottom, 32)
             }
             .background(WarmInstrument.desk.ignoresSafeArea())
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 
@@ -93,12 +92,6 @@ struct SettingsView: View {
                 iconColor: darkModeEnabled ? WarmInstrument.alarmFg : WorkoutTimerWarm.amber,
                 isOn: $darkModeEnabled
             )
-
-            Text("The app is designed for light mode, matching Coach HQ.")
-                .font(WarmInstrument.coachVoice(13))
-                .foregroundColor(WarmInstrument.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 4)
         }
     }
 
