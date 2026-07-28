@@ -10,25 +10,15 @@ struct Vo2Entry: TimelineEntry {
 }
 
 struct Vo2Provider: TimelineProvider {
-    /// See `EngineProvider.sampleSizes` — same reasoning. Percentile text mirrors the Design
-    /// Philosophy's own worked example ("top 15%, age 30–39").
-    private static var sampleSnapshot: Vo2Snapshot {
-        let trend = (0..<12).map { i in
-            TrendPointSnapshot(label: "M\(i + 1)", value: 42.0 + Double(i) * 0.4, weekLabel: nil)
-        }
-        return Vo2Snapshot(
-            status: "available", value: 46.8, delta: 1.3, percentileLabel: "TOP 15% · 30–39",
-            trend: trend, read: "Steady climb — the boring easy volume is working."
-        )
-    }
+    private static var previewVo2: Vo2Snapshot { GoldenDataset.snapshots.home.vo2 }
 
     func placeholder(in context: Context) -> Vo2Entry {
-        Vo2Entry(date: Date(), vo2: Self.sampleSnapshot, isPlaceholder: true)
+        Vo2Entry(date: Date(), vo2: Self.previewVo2, isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (Vo2Entry) -> Void) {
         if context.isPreview {
-            completion(Vo2Entry(date: Date(), vo2: Self.sampleSnapshot, isPlaceholder: false))
+            completion(Vo2Entry(date: Date(), vo2: Self.previewVo2, isPlaceholder: false))
             return
         }
         completion(Vo2Entry(date: Date(), vo2: AppGroupSnapshotBridge.read()?.home.vo2, isPlaceholder: false))

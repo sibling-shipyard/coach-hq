@@ -8,39 +8,15 @@ struct CommitmentEntry: TimelineEntry {
 }
 
 struct CommitmentProvider: TimelineProvider {
-    /// See `EngineProvider.sampleSizes` — same reasoning. The "1/2" denominator and note text
-    /// mirror the Design Philosophy's own worked cube example.
-    private static var sampleSizes: CommitmentSizes {
-        let badminton = CommitmentSnapshot(
-            id: "badminton", label: "Badminton", glyph: .badminton, value: 1, target: 2, note: "2 to go this week",
-            status: "ON TRACK", progress: 50, accent: "#315a4a", alarm: false, allRecord: nil,
-            rankedRecord: nil, hasRankedRecord: nil, latest: nil, latestRanked: nil, streak: 2
-        )
-        let calisthenics = CommitmentSnapshot(
-            id: "calisthenics", label: "Calisthenics", glyph: .calisthenics, value: 0, target: 2, note: "The bar is cold.",
-            status: "BEHIND", progress: 0, accent: "#4f587a", alarm: true, allRecord: nil,
-            rankedRecord: nil, hasRankedRecord: nil, latest: nil, latestRanked: nil, streak: 0
-        )
-        let foundation = CommitmentSnapshot(
-            id: "foundation", label: "Foundation", glyph: .foundation, value: 2, target: 2, note: "Floor kept",
-            status: "DONE", progress: 100, accent: "#6d7d4e", alarm: false, allRecord: nil,
-            rankedRecord: nil, hasRankedRecord: nil, latest: nil, latestRanked: nil, streak: 3
-        )
-        let cycling = CommitmentSnapshot(
-            id: "cycling", label: "Ride", glyph: .cycling, value: 1, target: 1, note: "Floor kept",
-            status: "DONE", progress: 100, accent: "#a8702c", alarm: false, allRecord: nil,
-            rankedRecord: nil, hasRankedRecord: nil, latest: nil, latestRanked: nil, streak: 1
-        )
-        return CommitmentSizes(S: badminton, M: [badminton, calisthenics, foundation, cycling])
-    }
+    private static var previewSizes: CommitmentSizes { GoldenDataset.snapshots.sizes.commitments }
 
     func placeholder(in context: Context) -> CommitmentEntry {
-        CommitmentEntry(date: Date(), sizes: Self.sampleSizes, isPlaceholder: true)
+        CommitmentEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (CommitmentEntry) -> Void) {
         if context.isPreview {
-            completion(CommitmentEntry(date: Date(), sizes: Self.sampleSizes, isPlaceholder: false))
+            completion(CommitmentEntry(date: Date(), sizes: Self.previewSizes, isPlaceholder: false))
             return
         }
         completion(CommitmentEntry(date: Date(), sizes: AppGroupSnapshotBridge.read()?.sizes.commitments, isPlaceholder: false))

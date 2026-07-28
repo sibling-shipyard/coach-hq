@@ -2,11 +2,10 @@ import Foundation
 import Combine
 import WidgetKit
 
-/// Observable store for `gen/widget_snapshots.json` (ADR 0005's cross-platform contract).
-/// Caches the last good snapshot in `UserDefaults` so Home has something to render on cold
-/// launch / offline before the network read completes, and re-fetches on demand (pull-to-
-/// refresh, post-HealthKit-sync). A failed refresh never clears an already-loaded snapshot —
-/// Home stays on the last good read and surfaces `lastError` instead of going blank.
+/// Observable store for Warm Instrument Home snapshots (ADR 0005).
+/// Fetches live snapshots from the hosted dashboard API (`/api/widget-snapshots`), which
+/// runs the TS generator server-side from `gen/aggregate.json`. Caches the last good snapshot
+/// locally and mirrors it to the App Group for WidgetKit.
 @MainActor
 class WidgetSnapshotStore: ObservableObject {
     @Published var snapshots: WidgetSnapshotsFile?
@@ -52,9 +51,8 @@ class WidgetSnapshotStore: ObservableObject {
 
     // MARK: - Refresh
 
-    /// Fetches the latest snapshot file from GitHub via `GitHubAPIClient.readWidgetSnapshots()`.
-    /// `showSpinner` is `false` for background refreshes (pull-to-refresh, post-sync) where a
-    /// stale-but-present snapshot is already on screen.
+    /// Fetches the latest snapshots from the hosted dashboard API.
+    /// `showSpinner` is `false` for background refreshes where stale data is already on screen.
     func refresh(showSpinner: Bool = true) async {
         guard let apiClient else { return }
         guard !isLoading else { return }
@@ -63,7 +61,7 @@ class WidgetSnapshotStore: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let file = try await apiClient.readWidgetSnapshots()
+            let file = try await apiClient.fetchWidgetSnapshots()
             snapshots = file
             lastError = nil
             persist(file)

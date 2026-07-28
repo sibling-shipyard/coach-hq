@@ -215,6 +215,53 @@ class GitHubAPIClient {
         }
     }
 
+    /// Fetches live Warm Instrument snapshots from the hosted dashboard API (ADR 0005).
+    /// HQ runs the TS generator server-side from `gen/aggregate.json` — athlete repos
+    /// do not need a committed `gen/widget_snapshots.json`.
+    func fetchWidgetSnapshots() async throws -> WidgetSnapshotsFile {
+        guard let token = authManager.loadToken(),
+              let user = authManager.user?.login,
+              let repo = authManager.selectedRepo else {
+            throw GitHubAPIError.notAuthenticated
+        }
+
+        let repoFull = "\(user)/\(repo)"
+        guard let url = URL(string: "\(Secrets.dashboardBaseURL)/api/widget-snapshots") else {
+            throw GitHubAPIError.decodingFailed(operation: "Widget snapshots URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(repoFull, forHTTPHeaderField: "X-Coach-Repo")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw GitHubAPIError.decodingFailed(operation: "Widget snapshots")
+        }
+
+        if http.statusCode == 401 {
+            throw GitHubAPIError.notAuthenticated
+        }
+
+        if !(200...299).contains(http.statusCode) {
+            let detail = String(data: data, encoding: .utf8)
+            throw GitHubAPIError.requestFailed(
+                operation: "Loading Home snapshots",
+                status: http.statusCode,
+                detail: detail
+            )
+        }
+
+        do {
+            return try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
+        } catch {
+            let detail = WidgetSnapshotsFile.decodingErrorDescription(error)
+            throw GitHubAPIError.decodingFailed(operation: "Parsing widget snapshots (\(detail))")
+        }
+    }
+
     /// Reads the Warm Instrument Home widget snapshots from `gen/widget_snapshots.json`
     /// — generated on every sync/build from the same TS models as the web home dashboard
     /// (see ADR 0005). Same fetch pattern as `readSyncState`/`readActivity`.
