@@ -51,11 +51,10 @@ struct WarmInstrumentHomeView: View {
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .padding(.bottom, 4)
+                .padding(.bottom, 12)
             }
             .scrollClipDisabled()
             .scrollContentBackground(.hidden)
-            .contentMargins(.bottom, WarmTabBarLayout.scrollClearance, for: .scrollContent)
             .refreshable { await store.refresh(showSpinner: false) }
             .toast($toast)
             .toolbar(.hidden, for: .navigationBar)

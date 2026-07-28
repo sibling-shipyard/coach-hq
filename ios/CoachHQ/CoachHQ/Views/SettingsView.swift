@@ -29,10 +29,9 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
-                .padding(.bottom, 4)
+                .padding(.bottom, 12)
             }
             .scrollClipDisabled()
-            .contentMargins(.bottom, WarmTabBarLayout.scrollClearance, for: .scrollContent)
             .background(WarmInstrument.desk.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .toast($toast)

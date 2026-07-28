@@ -36,11 +36,10 @@ struct WorkoutListView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 16)
-                    .padding(.bottom, 4)
+                    .padding(.bottom, 12)
                 }
             }
             .scrollClipDisabled()
-            .contentMargins(.bottom, WarmTabBarLayout.scrollClearance, for: .scrollContent)
             .refreshable {
                 await workoutService.fetchTodaySessions()
             }
