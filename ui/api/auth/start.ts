@@ -4,6 +4,12 @@ import { buildCookie, OAUTH_STATE_COOKIE } from "./_lib/session.js";
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const OAUTH_STATE_MAX_AGE_SEC = 600; // 10 min - just needs to survive the redirect round trip
 
+// Local testing note: `vercel dev --listen 3000` doesn't reliably pick up ui/.env.local on
+// its own in this project - source it into the shell first (`set -a; source .env.local; set
+// +a`) before launching, otherwise GITHUB_APP_CLIENT_ID etc. read as unset here. Also run it
+// from inside ui/ - vercel.json's SPA rewrite can intercept Vite's own dev asset requests
+// (blank page, /src/main.tsx returns index.html) if invoked from the wrong cwd.
+
 // The single "Continue with GitHub" entry point - same URL for brand-new and returning
 // users. Unlike the old two-button split, this never routes through
 // /apps/<slug>/installations/new itself; it always hits GitHub's plain sign-in endpoint,
