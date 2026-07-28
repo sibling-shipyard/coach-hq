@@ -48,6 +48,7 @@ struct MainTabView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var syncManager: HealthKitSyncManager
     @EnvironmentObject var workoutService: WorkoutService
+    @EnvironmentObject var bottomDock: BottomDockState
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
 
@@ -65,11 +66,19 @@ struct MainTabView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
+        .animation(.spring(duration: 0.38, bounce: 0.12), value: bottomDock.mode)
         .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !tabBarHidden {
-                WarmTabBar(selection: $selectedTab)
-                    .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
+                Group {
+                    switch bottomDock.mode {
+                    case .tabs:
+                        WarmTabBar(selection: $selectedTab)
+                    case .startWorkout:
+                        WarmDockStartCTA()
+                    }
+                }
+                .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
             }
         }
         .overlay(alignment: .bottom) {
@@ -84,11 +93,13 @@ struct MainTabView: View {
 
 // MARK: - Warm tab bar (main app only — not compiled into WidgetKit extension)
 
-private enum WarmTabBarMetrics {
-    /// Icon row + inner pill padding (44 + 4×2).
+private enum WarmDockMetrics {
+    /// Icon row + inner pill padding (44 + 4×2); shared by tab bar and start CTA.
     static let pillHeight: CGFloat = 52
     /// How far the desk fade extends above the pill.
     static let fadeHeight: CGFloat = 56
+    static let horizontalPadding: CGFloat = 20
+    static let topPadding: CGFloat = 2
 }
 
 /// Desk-color fade so scroll content dissolves before the floating dock — not a hard clip.
@@ -105,9 +116,9 @@ private struct WarmTabBarScrollFade: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: WarmTabBarMetrics.fadeHeight)
+            .frame(height: WarmDockMetrics.fadeHeight)
 
-            Color.clear.frame(height: WarmTabBarMetrics.pillHeight)
+            Color.clear.frame(height: WarmDockMetrics.pillHeight)
         }
     }
 }
@@ -131,8 +142,8 @@ private struct WarmTabBar: View {
                 .strokeBorder(WarmInstrument.border.opacity(0.55), lineWidth: 1)
         )
         .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 5)
-        .padding(.horizontal, 20)
-        .padding(.top, 2)
+        .padding(.horizontal, WarmDockMetrics.horizontalPadding)
+        .padding(.top, WarmDockMetrics.topPadding)
     }
 
     private func tabItem(_ tab: AppTab) -> some View {
@@ -174,5 +185,34 @@ private struct TabBarPressStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(.spring(duration: 0.18, bounce: 0.08), value: configuration.isPressed)
+    }
+}
+
+/// Terracotta start pill — occupies the same dock slot as `WarmTabBar`.
+private struct WarmDockStartCTA: View {
+    @EnvironmentObject private var bottomDock: BottomDockState
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            bottomDock.onStartWorkout?()
+        } label: {
+            Text("▶ Start workout")
+                .font(.system(size: 15, weight: .bold))
+                .kerning(0.3)
+                .foregroundColor(WarmInstrument.paper)
+                .frame(maxWidth: .infinity)
+                .frame(height: WarmDockMetrics.pillHeight)
+                .background(WorkoutTimerWarm.rust)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(WarmInstrument.border.opacity(0.35), lineWidth: 1)
+                )
+                .shadow(color: WorkoutTimerWarm.rust.opacity(0.28), radius: 8, y: 4)
+        }
+        .buttonStyle(TimerWarmPressStyle())
+        .padding(.horizontal, WarmDockMetrics.horizontalPadding)
+        .padding(.top, WarmDockMetrics.topPadding)
     }
 }

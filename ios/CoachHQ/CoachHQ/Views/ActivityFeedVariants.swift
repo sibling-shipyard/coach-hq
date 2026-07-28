@@ -41,19 +41,6 @@ func groupByDay(_ entries: [SyncCacheEntry]) -> [DayGroup] {
 
 // MARK: - Shared components
 
-/// Sticky day-group header.
-struct DayGroupHeader: View {
-    let label: String
-    var body: some View {
-        MonoLabel(label, size: 11, tracking: 1.5)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.top, 22)
-            .padding(.bottom, 7)
-            .background(WarmInstrument.desk)
-    }
-}
-
 /// 5 small HR zone circles: filled at zone color if ≥8% time in that zone, else dimmed.
 struct ZoneDots: View {
     let zones: [String: HRZoneEntry]?
@@ -201,74 +188,46 @@ private struct WeekStatCell: View {
     }
 }
 
-// MARK: - Activity feed
+// MARK: - Ledger row
 
-/// Week summary + day-grouped icon rows. Taps are handled by the parent via `onSelect`.
-struct ActivityFeedView: View {
-    let entries: [SyncCacheEntry]
-    let grouped: [DayGroup]
-    let onSelect: (SyncCacheEntry) -> Void
-
-    var body: some View {
-        LazyVStack(spacing: 0, pinnedViews: .sectionHeaders) {
-            WeekSummaryWidget(entries: entries)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 4)
-
-            ForEach(grouped) { group in
-                Section {
-                    WarmCard(padding: 0) {
-                        VStack(spacing: 0) {
-                            ForEach(Array(group.entries.enumerated()), id: \.element.id) { idx, entry in
-                                Button {
-                                    onSelect(entry)
-                                } label: {
-                                    IconRow(entry: entry)
-                                }
-                                .buttonStyle(RowPressButtonStyle())
-
-                                if idx < group.entries.count - 1 {
-                                    Divider()
-                                        .overlay(WarmInstrument.headerRule)
-                                        .padding(.leading, 68)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
-                } header: {
-                    DayGroupHeader(label: group.label)
-                }
-            }
-
-            Color.clear.frame(height: 12)
-        }
-    }
-}
-
-private struct IconRow: View {
+/// Receipt-style activity row — date · sport vein · title · load. Mirrors `SessionRow` for
+/// `SyncCacheEntry` data from the local sync cache.
+struct ActivityLedgerRow: View {
     let entry: SyncCacheEntry
-    private var badge: (label: String, color: Color) { Theme.sportBadge(for: entry.sportType) }
+
+    private var sportColor: Color { Theme.sportBadge(for: entry.sportType).color }
+
     private var timeString: String {
         guard let d = _inputFmt.date(from: entry.startDateLocal) else { return "" }
         return d.formatted(date: .omitted, time: .shortened)
     }
 
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Image(systemName: Theme.sportIcon(for: entry.sportType))
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(badge.color)
-                .frame(width: 40, height: 40)
-                .background(badge.color.opacity(0.1))
-                .clipShape(Circle())
+    private var monoTimeLabel: String {
+        guard let d = _inputFmt.date(from: entry.startDateLocal) else { return "" }
+        return d.formatted(date: .omitted, time: .shortened).uppercased()
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
+    private var calories: Int? { entry.activity?.calories ?? entry.calories }
+
+    private var trailingValue: String {
+        if let cal = calories { return "\(cal)" }
+        let h = entry.elapsedTime / 3600, m = (entry.elapsedTime % 3600) / 60
+        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            MonoLabel(monoTimeLabel, size: 9, color: WarmInstrument.inkFaint, tracking: 0.6)
+                .frame(width: 46, alignment: .leading)
+
+            RoundedRectangle(cornerRadius: 2)
+                .fill(sportColor)
+                .frame(width: 3, height: 30)
+
+            VStack(alignment: .leading, spacing: 1) {
                 Text(entry.name)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Theme.ink)
+                    .foregroundColor(WarmInstrument.ink)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
@@ -284,31 +243,71 @@ private struct IconRow: View {
                 }
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 1) {
-                if let cal = entry.activity?.calories {
-                    Text("\(cal)")
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .foregroundColor(Theme.ink)
-                        .contentTransition(.numericText())
-                    MonoLabel("Cal", size: 8, tracking: 0.5)
-                } else {
-                    let h = entry.elapsedTime / 3600, m = (entry.elapsedTime % 3600) / 60
-                    Text(h > 0 ? "\(h)h \(m)m" : "\(m)m")
-                        .font(.system(size: 15, weight: .bold, design: .monospaced))
-                        .foregroundColor(Theme.ink)
-                    MonoLabel("Time", size: 8, tracking: 0.5)
+            Text(trailingValue)
+                .font(WarmInstrument.figures(14, weight: .bold))
+                .foregroundColor(sportColor)
+                .contentTransition(.numericText())
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Activity feed
+
+/// Week summary + single ledger card with inline day groups. Taps via parent `onSelect`.
+struct ActivityFeedView: View {
+    let entries: [SyncCacheEntry]
+    let grouped: [DayGroup]
+    let onSelect: (SyncCacheEntry) -> Void
+
+    private var sessionLabel: String {
+        entries.count == 1 ? "1 SESSION" : "\(entries.count) SESSIONS"
+    }
+
+    var body: some View {
+        LazyVStack(spacing: 0) {
+            WeekSummaryWidget(entries: entries)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+                .padding(.bottom, 8)
+
+            WarmCard {
+                VStack(alignment: .leading, spacing: 0) {
+                    CardKicker(label: "LAST 7 DAYS", trailing: sessionLabel)
+                        .padding(.bottom, 12)
+
+                    ForEach(Array(grouped.enumerated()), id: \.element.id) { groupIndex, group in
+                        MonoLabel(group.label, size: 11, tracking: 1.5)
+                            .padding(.top, groupIndex == 0 ? 0 : 16)
+                            .padding(.bottom, 8)
+
+                        ForEach(Array(group.entries.enumerated()), id: \.element.id) { entryIndex, entry in
+                            Button {
+                                onSelect(entry)
+                            } label: {
+                                ActivityLedgerRow(entry: entry)
+                            }
+                            .buttonStyle(RowPressButtonStyle())
+
+                            if !isLastRow(groupIndex: groupIndex, entryIndex: entryIndex) {
+                                Divider()
+                                    .overlay(WarmInstrument.headerRule)
+                            }
+                        }
+                    }
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(WarmInstrument.inkFaint)
-                .padding(.leading, 4)
+            Color.clear.frame(height: 12)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
+    }
+
+    private func isLastRow(groupIndex: Int, entryIndex: Int) -> Bool {
+        groupIndex == grouped.count - 1 && entryIndex == grouped[groupIndex].entries.count - 1
     }
 }

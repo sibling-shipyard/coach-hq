@@ -51,23 +51,21 @@ struct ActivityListView: View {
         VStack(spacing: 0) {
             warmHeader
 
-            if recentEntries.isEmpty {
-                ScrollView {
-                    emptyState.frame(maxWidth: .infinity).padding(.top, 100)
-                }
-                .scrollClipDisabled()
-                .refreshable { await pullToSync() }
-            } else {
-                ScrollView {
+            ScrollView {
+                if recentEntries.isEmpty {
+                    emptyState
+                        .padding(.horizontal, 16)
+                        .padding(.top, 24)
+                } else {
                     ActivityFeedView(
                         entries: recentEntries,
                         grouped: grouped,
                         onSelect: selectEntry
                     )
                 }
-                .scrollClipDisabled()
-                .refreshable { await pullToSync() }
             }
+            .scrollClipDisabled()
+            .refreshable { await pullToSync() }
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
         .toast($toast)
@@ -104,7 +102,7 @@ struct ActivityListView: View {
 
     private var warmHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 10) {
+            HStack(spacing: 10) {
                 if embedded {
                     Button {
                         Haptics.tap()
@@ -115,17 +113,26 @@ struct ActivityListView: View {
                             .foregroundColor(WarmInstrument.inkMuted)
                     }
                     .buttonStyle(.plain)
-                }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Activities")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(Theme.ink)
-                    Text("Last 7 days · pull to sync")
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(WarmInstrument.inkMuted)
+                    Text("HQ")
+                        .font(WarmInstrument.monoLabel(12))
+                        .tracking(1.4)
+                        .foregroundColor(WarmInstrument.ink)
+                } else {
+                    MonoLabel("Activities", size: 12, color: WarmInstrument.ink, tracking: 1.4)
                 }
             }
+
+            Text("The ledger")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(Theme.ink)
+
+            Text("Every entry earns its load — nothing invented.")
+                .font(WarmInstrument.coachVoice(14))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            MonoLabel("LAST 7 DAYS · PULL TO SYNC", size: 10, tracking: 1.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
@@ -165,16 +172,17 @@ struct ActivityListView: View {
     // MARK: - Empty state
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "figure.badminton")
-                .font(.system(size: 40))
-                .foregroundColor(WarmInstrument.sportColor(.badminton))
-            Text("No activities yet")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(Theme.ink)
-            Text("Pull down to sync from HealthKit.")
-                .font(.footnote)
-                .foregroundColor(WarmInstrument.inkMuted)
+        WarmCard {
+            VStack(alignment: .leading, spacing: 10) {
+                CardKicker(label: "LAST 7 DAYS", trailing: "0 SESSIONS")
+                Text("No sessions logged yet — nothing invented here.")
+                    .font(WarmInstrument.coachVoice(14))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Pull down to sync from HealthKit.")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
         }
     }
 }
