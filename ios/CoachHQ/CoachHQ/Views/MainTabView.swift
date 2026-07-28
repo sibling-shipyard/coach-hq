@@ -35,20 +35,21 @@ struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
 
     var body: some View {
-        Group {
-            switch selectedTab {
-            case .home:
-                WarmInstrumentHomeView()
-            case .workouts:
-                WorkoutListView()
-                    .environmentObject(workoutService)
-            case .more:
-                SettingsView()
+        ZStack(alignment: .bottom) {
+            Group {
+                switch selectedTab {
+                case .home:
+                    WarmInstrumentHomeView()
+                case .workouts:
+                    WorkoutListView()
+                        .environmentObject(workoutService)
+                case .more:
+                    SettingsView()
+                }
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
+
             WarmTabBar(selection: $selectedTab)
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
@@ -57,40 +58,34 @@ struct MainTabView: View {
 
 // MARK: - Warm tab bar (main app only — not compiled into WidgetKit extension)
 
-/// Floating icon dock — inset pill, sliding muted highlight, spring lift on the active icon.
+/// Fitness-style translucent bottom bar — content scrolls beneath frosted warm glass.
 private struct WarmTabBar: View {
     @Binding var selection: AppTab
     @Namespace private var tabIndicator
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(AppTab.allCases, id: \.self) { tab in
-                tabItem(tab)
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(WarmInstrument.headerRule.opacity(0.45))
+                .frame(height: 0.5)
+
+            HStack(spacing: 0) {
+                ForEach(AppTab.allCases, id: \.self) { tab in
+                    tabItem(tab)
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
         }
-        .padding(6)
-        .background(WarmInstrument.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(WarmInstrument.border.opacity(0.55), lineWidth: 1)
-        )
-        .shadow(color: WarmInstrument.cardShadow, radius: 18, x: 0, y: 8)
-        .shadow(color: Color(red: 57 / 255, green: 52 / 255, blue: 42 / 255).opacity(0.04), radius: 4, x: 0, y: 1)
-        .padding(.horizontal, 22)
-        .padding(.top, 4)
-        .padding(.bottom, 6)
-        .frame(maxWidth: .infinity)
-        .background {
-            LinearGradient(
-                colors: [
-                    WarmInstrument.desk.opacity(0),
-                    WarmInstrument.desk.opacity(0.92),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .allowsHitTesting(false)
+        .background { tabBarMaterial }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private var tabBarMaterial: some View {
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+            Rectangle().fill(WarmInstrument.paper.opacity(0.34))
         }
     }
 
@@ -105,22 +100,20 @@ private struct WarmTabBar: View {
         } label: {
             ZStack {
                 if selected {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(WarmInstrument.surfaceMuted)
+                    Capsule(style: .continuous)
+                        .fill(WarmInstrument.surfaceMuted.opacity(0.72))
                         .matchedGeometryEffect(id: "tabHighlight", in: tabIndicator)
-                        .shadow(color: WarmInstrument.cardShadow.opacity(0.35), radius: 4, y: 2)
                 }
 
                 Image(systemName: selected ? tab.filledIcon : tab.outlineIcon)
-                    .font(.system(size: 20, weight: selected ? .semibold : .regular))
+                    .font(.system(size: 21, weight: selected ? .semibold : .regular))
                     .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
-                    .scaleEffect(selected ? 1.05 : 1)
-                    .offset(y: selected ? -1.5 : 0)
+                    .scaleEffect(selected ? 1.04 : 1)
                     .animation(.spring(duration: 0.38, bounce: 0.2), value: selected)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(height: 48)
+            .contentShape(Capsule())
         }
         .buttonStyle(TabBarPressStyle())
         .accessibilityLabel(tab.accessibilityLabel)
@@ -131,7 +124,8 @@ private struct WarmTabBar: View {
 private struct TabBarPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .opacity(configuration.isPressed ? 0.72 : 1)
             .animation(.spring(duration: 0.18, bounce: 0.08), value: configuration.isPressed)
     }
 }
