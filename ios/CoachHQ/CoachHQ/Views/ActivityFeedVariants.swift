@@ -70,7 +70,21 @@ struct CompactZoneBar: View {
     let zones: [String: HRZoneEntry]?
     var height: CGFloat = 5
     var rounded: Bool = true
-    @State private var appeared = false
+    var animateEntrance: Bool = true
+    @State private var appeared: Bool
+
+    init(
+        zones: [String: HRZoneEntry]?,
+        height: CGFloat = 5,
+        rounded: Bool = true,
+        animateEntrance: Bool = true
+    ) {
+        self.zones = zones
+        self.height = height
+        self.rounded = rounded
+        self.animateEntrance = animateEntrance
+        _appeared = State(initialValue: !animateEntrance)
+    }
 
     private var fractions: [Double] {
         let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
@@ -96,8 +110,14 @@ struct CompactZoneBar: View {
             }
             .frame(height: height)
             .clipShape(RoundedRectangle(cornerRadius: rounded ? height / 2 : 0))
-            .onAppear { appeared = true }
-            .onDisappear { appeared = false }
+            .onAppear {
+                guard animateEntrance else { return }
+                appeared = true
+            }
+            .onDisappear {
+                guard animateEntrance else { return }
+                appeared = false
+            }
         }
     }
 }
@@ -262,6 +282,8 @@ struct ActivityFeedView: View {
     let entries: [SyncCacheEntry]
     let grouped: [DayGroup]
     let onSelect: (SyncCacheEntry) -> Void
+    /// When false, rows appear instantly — use for embedded pushes from Home.
+    var animateEntrance: Bool = true
 
     private var sessionLabel: String {
         entries.count == 1 ? "1 SESSION" : "\(entries.count) SESSIONS"
@@ -269,45 +291,103 @@ struct ActivityFeedView: View {
 
     var body: some View {
         LazyVStack(spacing: 0) {
-            WeekSummaryWidget(entries: entries)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 8)
-
-            WarmCard {
-                VStack(alignment: .leading, spacing: 0) {
-                    CardKicker(label: "LAST 7 DAYS", trailing: sessionLabel)
-                        .padding(.bottom, 12)
-
-                    ForEach(Array(grouped.enumerated()), id: \.element.id) { groupIndex, group in
-                        MonoLabel(group.label, size: 11, tracking: 1.5)
-                            .padding(.top, groupIndex == 0 ? 0 : 16)
-                            .padding(.bottom, 8)
-
-                        ForEach(Array(group.entries.enumerated()), id: \.element.id) { entryIndex, entry in
-                            Button {
-                                onSelect(entry)
-                            } label: {
-                                ActivityLedgerRow(entry: entry)
-                            }
-                            .buttonStyle(RowPressButtonStyle())
-
-                            if !isLastRow(groupIndex: groupIndex, entryIndex: entryIndex) {
-                                Divider()
-                                    .overlay(WarmInstrument.headerRule)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-
+            weekSummary
+            ledgerCard
             Color.clear.frame(height: 12)
         }
     }
 
+    @ViewBuilder
+    private var weekSummary: some View {
+        let widget = WeekSummaryWidget(entries: entries)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+        if animateEntrance {
+            widget.staggerReveal(delay: PremiumMotion.staggerDelay(index: 0))
+        } else {
+            widget
+        }
+    }
+
+    @ViewBuilder
+    private var ledgerCard: some View {
+        let card = WarmCard {
+            VStack(alignment: .leading, spacing: 0) {
+                CardKicker(label: "LAST 7 DAYS", trailing: sessionLabel)
+                    .padding(.bottom, 12)
+
+                ForEach(Array(grouped.enumerated()), id: \.element.id) { groupIndex, group in
+                    dayHeader(groupIndex: groupIndex, label: group.label)
+
+                    ForEach(Array(group.entries.enumerated()), id: \.element.id) { entryIndex, entry in
+                        Button {
+                            onSelect(entry)
+                        } label: {
+                            ActivityLedgerRow(entry: entry)
+                                .frame(minHeight: 44)
+                        }
+                        .buttonStyle(RowPressButtonStyle())
+                        .modifier(OptionalStaggerReveal(
+                            animate: animateEntrance,
+                            delay: PremiumMotion.staggerDelay(index: revealIndex(groupIndex: groupIndex, entryIndex: entryIndex))
+                        ))
+
+                        if !isLastRow(groupIndex: groupIndex, entryIndex: entryIndex) {
+                            Divider()
+                                .overlay(WarmInstrument.headerRule)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+
+        if animateEntrance {
+            card.staggerReveal(delay: PremiumMotion.staggerDelay(index: 1))
+        } else {
+            card
+        }
+    }
+
+    @ViewBuilder
+    private func dayHeader(groupIndex: Int, label: String) -> some View {
+        let header = MonoLabel(label, size: 11, tracking: 1.5)
+            .padding(.top, groupIndex == 0 ? 0 : 16)
+            .padding(.bottom, 8)
+        if animateEntrance {
+            header.staggerReveal(delay: PremiumMotion.staggerDelay(index: revealIndex(groupIndex: groupIndex, entryIndex: -1)))
+        } else {
+            header
+        }
+    }
+
+    /// Global stagger index: week summary = 0, ledger card = 1, then headers + rows.
+    private func revealIndex(groupIndex: Int, entryIndex: Int) -> Int {
+        var index = 2
+        for g in 0..<groupIndex {
+            index += 1 + grouped[g].entries.count
+        }
+        if entryIndex < 0 { return index }
+        return index + 1 + entryIndex
+    }
+
     private func isLastRow(groupIndex: Int, entryIndex: Int) -> Bool {
         groupIndex == grouped.count - 1 && entryIndex == grouped[groupIndex].entries.count - 1
+    }
+}
+
+/// Applies stagger reveal only when `animate` is true.
+private struct OptionalStaggerReveal: ViewModifier {
+    let animate: Bool
+    let delay: Double
+
+    func body(content: Content) -> some View {
+        if animate {
+            content.staggerReveal(delay: delay)
+        } else {
+            content
+        }
     }
 }

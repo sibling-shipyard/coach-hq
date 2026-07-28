@@ -504,3 +504,69 @@ extension View {
         modifier(SkeletonModifier(isLoading: isLoading))
     }
 }
+
+// MARK: - Premium motion
+
+/// Shared spring presets — tight, physical, never cartoon-bouncy.
+enum PremiumMotion {
+    static let state = Animation.spring(duration: 0.38, bounce: 0.15)
+    static let dock = Animation.spring(duration: 0.38, bounce: 0.12)
+    static let press = Animation.spring(duration: 0.18, bounce: 0)
+    static let reveal = Animation.spring(duration: 0.35, bounce: 0.12)
+    /// Hero stats after a network load — slow ease, no bounce (list→detail should feel calm).
+    static let statsLoad = Animation.easeOut(duration: 0.65)
+    /// ≤60ms per item — Design Philosophy stagger budget.
+    static func staggerDelay(index: Int) -> Double { Double(index) * 0.055 }
+}
+
+/// Fade + 3–4pt slide reveal for ledger rows, login hero, etc.
+struct StaggerRevealModifier: ViewModifier {
+    let delay: Double
+    var offset: CGFloat = 4
+    @State private var visible = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(visible ? 1 : 0)
+            .offset(y: visible ? 0 : offset)
+            .onAppear {
+                withAnimation(PremiumMotion.reveal.delay(delay)) {
+                    visible = true
+                }
+            }
+    }
+}
+
+extension View {
+    /// Cascading entrance — default 4pt lift, spring fade-in.
+    func staggerReveal(delay: Double = 0, offset: CGFloat = 4) -> some View {
+        modifier(StaggerRevealModifier(delay: delay, offset: offset))
+    }
+
+    /// Swipe right from the leading edge to pop — matches hidden-nav-bar push screens.
+    func edgeBackSwipe(enabled: Bool = true, action: @escaping () -> Void) -> some View {
+        modifier(EdgeBackSwipeModifier(enabled: enabled, action: action))
+    }
+}
+
+private struct EdgeBackSwipeModifier: ViewModifier {
+    let enabled: Bool
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.simultaneousGesture(
+                DragGesture(minimumDistance: 12)
+                    .onEnded { value in
+                        guard value.startLocation.x < 28,
+                              value.translation.width > 56,
+                              abs(value.translation.height) < 96 else { return }
+                        Haptics.tap()
+                        action()
+                    }
+            )
+        } else {
+            content
+        }
+    }
+}

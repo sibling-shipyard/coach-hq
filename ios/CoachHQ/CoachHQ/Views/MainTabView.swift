@@ -53,32 +53,24 @@ struct MainTabView: View {
     @State private var tabBarHidden = false
 
     var body: some View {
-        Group {
-            switch selectedTab {
-            case .home:
+        ZStack {
+            tabRoot(.home) {
                 WarmInstrumentHomeView()
-            case .workouts:
+            }
+            tabRoot(.workouts) {
                 WorkoutListView()
                     .environmentObject(workoutService)
-            case .more:
+            }
+            tabRoot(.more) {
                 SettingsView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.spring(duration: 0.38, bounce: 0.12), value: selectedTab)
-        .animation(.spring(duration: 0.38, bounce: 0.12), value: bottomDock.mode)
         .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !tabBarHidden {
-                Group {
-                    switch bottomDock.mode {
-                    case .tabs:
-                        WarmTabBar(selection: $selectedTab)
-                    case .startWorkout:
-                        WarmDockStartCTA()
-                    }
-                }
-                .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
+                bottomDockContent
+                    .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
             }
         }
         .overlay(alignment: .bottom) {
@@ -88,6 +80,39 @@ struct MainTabView: View {
             }
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
+    }
+
+    /// Keep every tab root alive so scroll position, navigation paths, and fetch state survive tab switches.
+    @ViewBuilder
+    private func tabRoot<Content: View>(_ tab: AppTab, @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .opacity(selectedTab == tab ? 1 : 0)
+            .allowsHitTesting(selectedTab == tab)
+            .accessibilityHidden(selectedTab != tab)
+            .zIndex(selectedTab == tab ? 1 : 0)
+    }
+
+    /// Tab bar ↔ Start CTA — crossfade + slight scale in the same dock slot.
+    @ViewBuilder
+    private var bottomDockContent: some View {
+        ZStack {
+            if bottomDock.mode == .tabs {
+                WarmTabBar(selection: $selectedTab)
+                    .transition(.dockMorph)
+            }
+            if bottomDock.mode == .startWorkout {
+                WarmDockStartCTA()
+                    .transition(.dockMorph)
+            }
+        }
+        .animation(PremiumMotion.dock, value: bottomDock.mode)
+    }
+}
+
+private extension AnyTransition {
+    /// Shared dock swap — scale down slightly while fading out/in.
+    static var dockMorph: AnyTransition {
+        .scale(scale: 0.96).combined(with: .opacity)
     }
 }
 
@@ -214,5 +239,6 @@ private struct WarmDockStartCTA: View {
         .buttonStyle(TimerWarmPressStyle())
         .padding(.horizontal, WarmDockMetrics.horizontalPadding)
         .padding(.top, WarmDockMetrics.topPadding)
+        .accessibilityLabel("Start workout")
     }
 }

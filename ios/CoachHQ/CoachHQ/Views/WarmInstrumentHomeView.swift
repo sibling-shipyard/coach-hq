@@ -29,7 +29,7 @@ struct WarmInstrumentHomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
-                VStack(spacing: 14) {
+                LazyVStack(spacing: 14) {
                     if let snapshots = store.snapshots {
                         CompactInstrumentHeader(phase: snapshots.home.phase)
 
@@ -38,6 +38,7 @@ struct WarmInstrumentHomeView: View {
                         }
 
                         widgetColumn(for: snapshots)
+                            .transition(.opacity)
                     } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 320)
@@ -52,6 +53,7 @@ struct WarmInstrumentHomeView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 12)
+                .animation(PremiumMotion.statsLoad, value: store.snapshots != nil)
             }
             .scrollClipDisabled()
             .scrollContentBackground(.hidden)
@@ -80,6 +82,7 @@ struct WarmInstrumentHomeView: View {
                 guard store.isConfigured else { return }
                 guard authManager.isAuthenticated, authManager.isSessionReady else { return }
                 guard authManager.selectedRepo != nil else { return }
+                guard store.shouldRefresh else { return }
                 await store.refresh(showSpinner: store.snapshots == nil)
             }
             .onChange(of: store.lastError) { _, newError in
@@ -417,6 +420,7 @@ private struct EngineWidget: View {
                         .frame(width: 118, alignment: .leading)
 
                         mobileTrendSparkline(sizes.M.trend, bandLow: sizes.M.bandLow, bandHigh: sizes.M.bandHigh)
+                            .drawingGroup()
                             .frame(maxWidth: .infinity)
                     }
                     .padding(.top, 2)
@@ -791,6 +795,8 @@ private struct RecentSessionsWidget: View {
     let onOpen: (SyncCacheEntry) -> Void
     let onUnavailable: () -> Void
 
+    @State private var cacheEntries: [SyncCacheEntry] = []
+
     private var visible: [RecentSessionSnapshot] { Array(sessions.prefix(3)) }
 
     var body: some View {
@@ -835,10 +841,15 @@ private struct RecentSessionsWidget: View {
                 }
             }
         }
+        .onAppear {
+            if cacheEntries.isEmpty {
+                cacheEntries = SyncCache.load()
+            }
+        }
     }
 
     private func handleEdit(_ session: RecentSessionSnapshot) {
-        let cache = SyncCache.load()
+        let cache = cacheEntries.isEmpty ? SyncCache.load() : cacheEntries
         if let source = session.evidence?.source,
            let hit = cache.first(where: { $0.fileName == source }) {
             onOpen(hit)
@@ -1153,30 +1164,22 @@ private struct BuildPhaseWidget: View {
                 }
 
                 VStack(spacing: 6) {
-                    GeometryReader { geo in
-                        let gaps: CGFloat = 3 * 3
-                        let totalFlex: CGFloat = 4 + 1.2 + 4 + 1.2
-                        let unit = max(0, (geo.size.width - gaps) / totalFlex)
-                        HStack(spacing: 3) {
-                            phaseRailSegment(index: 0).frame(width: unit * 4)
-                            phaseRailSegment(index: 1).frame(width: unit * 1.2)
-                            phaseRailSegment(index: 2).frame(width: unit * 4)
-                            phaseRailSegment(index: 3).frame(width: unit * 1.2)
+                    HStack(spacing: 3) {
+                        ForEach(0..<4, id: \.self) { index in
+                            phaseRailSegment(index: index)
+                                .frame(maxWidth: .infinity)
+                                .layoutPriority(railFlex[index])
                         }
                     }
                     .frame(height: 9)
 
-                    GeometryReader { geo in
-                        let gaps: CGFloat = 3 * 3
-                        let totalFlex: CGFloat = 4 + 1.2 + 4 + 1.2
-                        let unit = max(0, (geo.size.width - gaps) / totalFlex)
-                        HStack(spacing: 3) {
-                            ForEach(Array(railLabels.enumerated()), id: \.offset) { index, label in
-                                Text(label)
-                                    .font(.system(size: 8, weight: .regular, design: .monospaced))
-                                    .foregroundColor(WarmInstrument.inkFaint)
-                                    .frame(width: unit * railFlex[index], alignment: index == railLabels.count - 1 ? .trailing : .leading)
-                            }
+                    HStack(spacing: 3) {
+                        ForEach(Array(railLabels.enumerated()), id: \.offset) { index, label in
+                            Text(label)
+                                .font(.system(size: 8, weight: .regular, design: .monospaced))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                                .frame(maxWidth: .infinity, alignment: index == railLabels.count - 1 ? .trailing : .leading)
+                                .layoutPriority(railFlex[index])
                         }
                     }
                     .frame(height: 12)
