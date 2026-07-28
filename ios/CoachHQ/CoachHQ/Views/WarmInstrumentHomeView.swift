@@ -31,7 +31,7 @@ struct WarmInstrumentHomeView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     if let snapshots = store.snapshots {
-                        CompactInstrumentHeader(phase: snapshots.home.phase, sync: snapshots.home.sync)
+                        CompactInstrumentHeader(phase: snapshots.home.phase)
 
                         if !snapshots.home.sync.healthy {
                             SyncWarningBanner(sync: snapshots.home.sync)
