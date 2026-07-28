@@ -2,16 +2,25 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Warm Instrument Home — a scrolling column of M widgets consuming
-/// `gen/widget_snapshots.json` (same fetch pattern as workouts/sessions via
-/// `GitHubAPIClient`). Supersedes `CoachingInsightsView`. See `AGENTS.md` → Warm Instrument
-/// Home, `kdb/decisions/0005-widget-snapshots-cross-platform.md`, and
-/// `ui/docs/reference-interactions/Widget Design Philosophy.md` (platform row "iOS app (Home)").
+/// Warm Instrument Home — mobile-first scrolling column fed by the hosted dashboard API
+/// (`GET /api/widget-snapshots`, ADR 0005). Layout matches `Warm Instrument Mobile.dc.html`:
+/// compact header, engine → commitments strip → plan → calories/quest pair → build phase → recent.
+/// Engine detail opens via push navigation. See `ui/docs/reference-interactions/Widget Design Philosophy.md`
+/// (platform row "iOS app (Home)").
+enum HomeRoute: Hashable {
+    case engine
+    case activity(SyncCacheEntry)
+}
+
 struct WarmInstrumentHomeView: View {
+    @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var store: WidgetSnapshotStore
+    var onOpenActivities: (() -> Void)? = nil
+
     @State private var toast: Toast?
     @State private var isEditingLayout = false
-    @State private var navigationPath: [SyncCacheEntry] = []
+    @State private var navigationPath: [HomeRoute] = []
+    @State private var badmintonShowsRanked = false
 
     @AppStorage("wiEngineSize") private var engineSize = "M"
     @AppStorage("wiQuestSize") private var questSize = "M"
@@ -19,39 +28,62 @@ struct WarmInstrumentHomeView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            VStack(spacing: 0) {
-                BrandHeader(title: "Home", trailing: isEditingLayout ? AnyView(doneButton) : nil)
-
-                if let snapshots = store.snapshots {
-                    InstrumentHeaderView(
-                        phase: snapshots.home.phase,
-                        sync: snapshots.home.sync,
-                        generatedAt: snapshots.generatedAt
-                    )
-                }
-
-                ScrollView {
+            ScrollView {
+                VStack(spacing: 14) {
                     if let snapshots = store.snapshots {
+                        CompactInstrumentHeader(phase: snapshots.home.phase, sync: snapshots.home.sync)
+
+                        if !snapshots.home.sync.healthy {
+                            SyncWarningBanner(sync: snapshots.home.sync)
+                        }
+
                         widgetColumn(for: snapshots)
-                    } else if store.isLoading {
+                    } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
                         ProgressView().padding(.top, 100)
+                    } else if authManager.selectedRepo == nil {
+                        repoNotConfiguredState
                     } else {
                         emptyState
                     }
                 }
-                .refreshable { await store.refresh(showSpinner: false) }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 28)
             }
+            .refreshable { await store.refresh(showSpinner: false) }
             .background(WarmInstrument.desk.ignoresSafeArea())
             .toast($toast)
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: SyncCacheEntry.self) { entry in
-                ActivityDetailView(entry: entry)
+            .navigationDestination(for: HomeRoute.self) { route in
+                switch route {
+                case .engine:
+                    if let snapshots = store.snapshots {
+                        EngineDetailView(
+                            engine: snapshots.sizes.engine.M,
+                            coachRead: snapshots.home.coachRead
+                        )
+                    }
+                case .activity(let entry):
+                    ActivityDetailView(entry: entry)
+                }
             }
-            .task { await store.refresh(showSpinner: store.snapshots == nil) }
+            .task(id: homeFetchToken) {
+                guard store.isConfigured else { return }
+                guard authManager.isAuthenticated, authManager.isSessionReady else { return }
+                guard authManager.selectedRepo != nil else { return }
+                await store.refresh(showSpinner: store.snapshots == nil)
+            }
             .onChange(of: store.lastError) { _, newError in
-                guard let newError else { return }
+                guard let newError, !newError.isEmpty else { return }
                 Haptics.error()
                 toast = Toast(kind: .error, message: newError)
+            }
+            .overlay(alignment: .topTrailing) {
+                if isEditingLayout {
+                    doneButton
+                        .padding(.top, 14)
+                        .padding(.trailing, 16)
+                }
             }
         }
     }
@@ -61,67 +93,71 @@ struct WarmInstrumentHomeView: View {
     @ViewBuilder
     private func widgetColumn(for snapshots: WidgetSnapshotsFile) -> some View {
         let home = snapshots.home
-        LazyVStack(spacing: 14) {
-            if !home.sync.healthy {
-                SyncWarningBanner(sync: home.sync)
-            }
 
-            // P0
-            EditableWidget(isEditing: $isEditingLayout, sizeBinding: $engineSize, sizeOptions: ["S", "M", "L"], jigglePhase: 0.00) {
+        // Engine — tap opens dose ledger + coach read
+        EditableWidget(isEditing: $isEditingLayout, sizeBinding: $engineSize, sizeOptions: ["S", "M", "L"], jigglePhase: 0.00) {
+            Button {
+                Haptics.tap()
+                navigationPath.append(.engine)
+            } label: {
                 EngineWidget(size: WidgetSize(rawValue: engineSize) ?? .m, sizes: snapshots.sizes.engine)
             }
+            .buttonStyle(.plain)
+        }
 
-            EditableWidget(isEditing: $isEditingLayout, sizeBinding: $commitmentsSize, sizeOptions: ["S", "M"], jigglePhase: 0.05) {
-                CommitmentCubesWidget(size: WidgetSize(rawValue: commitmentsSize) ?? .m, sizes: snapshots.sizes.commitments)
-            }
+        // Sport commitment quartet strip
+        EditableWidget(isEditing: $isEditingLayout, sizeBinding: $commitmentsSize, sizeOptions: ["S", "M"], jigglePhase: 0.05) {
+            CommitmentStripWidget(
+                size: WidgetSize(rawValue: commitmentsSize) ?? .m,
+                sizes: snapshots.sizes.commitments,
+                showingRanked: $badmintonShowsRanked
+            )
+        }
 
-            EditableWidget(isEditing: $isEditingLayout, sizeBinding: $questSize, sizeOptions: ["S", "M"], jigglePhase: 0.10) {
-                QuestWidget(size: WidgetSize(rawValue: questSize) ?? .m, home: home.quest, small: snapshots.sizes.quest.S)
-            }
+        // Weekly plan — chip drag owns long-press; not wrapped in jiggle editor.
+        WeeklyPlanWidget(plan: home.plan, compact: true)
 
+        // Calories + main quest side-by-side
+        HStack(spacing: 14) {
             EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.15) {
-                RecentSessionsWidget(
-                    sessions: home.sessions,
-                    onOpen: { entry in
-                        Haptics.tap()
-                        navigationPath.append(entry)
-                    },
-                    onUnavailable: {
-                        toast = Toast(kind: .info, message: "Sync this session to open it.")
-                    }
-                )
+                CaloriesWidget(calories: home.calories, compact: true)
             }
-
-            // P1 — plan chip-drag owns long-press, so it isn't wrapped in the
-            // jiggle/size editor to avoid the two long-press gestures fighting.
-            WeeklyPlanWidget(plan: home.plan)
-
-            EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.20) {
-                TrainingActivityWidget(activity: home.trainingActivity)
-            }
-
-            EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.25) {
-                CoachReadWidget(read: home.coachRead)
-            }
-
-            // P2
-            EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
-                BuildPhaseWidget(phase: home.phase)
-            }
-
-            EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.35) {
-                Vo2Widget(vo2: home.vo2)
-            }
-
-            EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.40) {
-                CaloriesWidget(calories: home.calories)
+            EditableWidget(isEditing: $isEditingLayout, sizeBinding: $questSize, sizeOptions: ["S", "M"], jigglePhase: 0.20) {
+                QuestWidget(size: WidgetSize(rawValue: questSize) ?? .m, home: home.quest, small: snapshots.sizes.quest.S, compact: true)
             }
         }
-        .padding(16)
-        .padding(.bottom, 24)
+
+        EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.25) {
+            BuildPhaseWidget(phase: home.phase)
+        }
+
+        EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
+            RecentSessionsWidget(
+                sessions: home.sessions,
+                compact: true,
+                onOpenActivities: onOpenActivities,
+                onOpen: { entry in
+                    Haptics.tap()
+                    navigationPath.append(.activity(entry))
+                },
+                onUnavailable: {
+                    toast = Toast(kind: .info, message: "Sync this session to open it.")
+                }
+            )
+        }
     }
 
     // MARK: - Header / states
+
+    /// Re-triggers the Home fetch once GitHub profile + repo discovery finish.
+    private var homeFetchToken: String {
+        [
+            store.isConfigured ? "configured" : "pending",
+            authManager.isSessionReady ? "ready" : "boot",
+            authManager.user?.login ?? "",
+            authManager.selectedRepo ?? "",
+        ].joined(separator: "|")
+    }
 
     private var doneButton: some View {
         Button {
@@ -132,6 +168,24 @@ struct WarmInstrumentHomeView: View {
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(WarmInstrument.accent)
         }
+    }
+
+    private var repoNotConfiguredState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "folder.badge.questionmark")
+                .font(.system(size: 36))
+                .foregroundColor(WarmInstrument.accent)
+            Text("Coach repo not found")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(WarmInstrument.ink)
+            Text("Signed in as \(authManager.user?.login ?? "GitHub"), but no `coach-*` repo was discovered. Check Settings for the linked repo.")
+                .font(.system(size: 12))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 12)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 100)
     }
 
     private var emptyState: some View {
@@ -330,7 +384,7 @@ private struct EngineWidget: View {
     let sizes: EngineSizes
 
     var body: some View {
-        WarmCard(padding: 18, fill: WarmInstrument.accent) {
+        WarmCard(padding: size == .m ? 20 : 18, fill: WarmInstrument.accent) {
             VStack(alignment: .leading, spacing: 14) {
                 switch size {
                 case .s:
@@ -338,10 +392,33 @@ private struct EngineWidget: View {
                     readout(load: sizes.S.load, verdict: sizes.S.compactVerdict)
                     bandStrip(load: sizes.S.load, bandLow: sizes.S.bandLow, bandHigh: sizes.S.bandHigh)
                 case .m:
-                    header(weekLabel: sizes.M.weekLabel, signal: sizes.M.signal)
-                    readout(load: sizes.M.load, verdict: sizes.M.compactVerdict ?? sizes.M.verdict)
-                    bandStrip(load: sizes.M.load, bandLow: sizes.M.bandLow, bandHigh: sizes.M.bandHigh)
-                    trendSparkline(sizes.M.trend)
+                    mobileHeader(weekLabel: sizes.M.weekLabel, signal: sizes.M.signal)
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(numberString(sizes.M.load))
+                                .font(.system(size: 46, weight: .medium, design: .default))
+                                .tracking(-2)
+                                .foregroundColor(.white)
+                                .contentTransition(.numericText())
+                            Text(sizes.M.compactVerdict ?? sizes.M.verdict)
+                                .font(WarmInstrument.coachVoice(16))
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        .frame(width: 118, alignment: .leading)
+
+                        mobileTrendSparkline(sizes.M.trend, bandLow: sizes.M.bandLow, bandHigh: sizes.M.bandHigh)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding(.top, 2)
+
+                    mixBar(sizes.M.mix, totalHours: sizes.M.totalHours)
+                        .padding(.top, 14)
+                        .overlay(alignment: .top) {
+                            Rectangle()
+                                .fill(Color.white.opacity(0.16))
+                                .frame(height: 1)
+                                .padding(.top, -12)
+                        }
                 case .l:
                     header(weekLabel: sizes.L.weekLabel, signal: sizes.L.signal)
                     readout(load: sizes.L.load, verdict: sizes.L.verdict)
@@ -354,7 +431,7 @@ private struct EngineWidget: View {
                 }
             }
         }
-        .shadow(color: WarmInstrument.engineShadow, radius: 20, x: 0, y: 10)
+        .shadow(color: WarmInstrument.engineShadow, radius: size == .m ? 24 : 20, x: 0, y: size == .m ? 12 : 10)
     }
 
     private func header(weekLabel: String, signal: String) -> some View {
@@ -368,6 +445,20 @@ private struct EngineWidget: View {
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .tracking(1.1)
                 .foregroundColor(.white)
+        }
+    }
+
+    private func mobileHeader(weekLabel: String, signal: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("ENGINE")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .tracking(1.3)
+                .foregroundColor(.white.opacity(0.65))
+            Spacer()
+            Text(weekLabel.uppercased())
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .tracking(1.3)
+                .foregroundColor(.white.opacity(0.45))
         }
     }
 
@@ -429,24 +520,101 @@ private struct EngineWidget: View {
         .frame(height: 40)
     }
 
-    private func mixBar(_ mix: [LoadMixSnapshot], totalHours: Double) -> some View {
-        let denominator = max(totalHours, mix.reduce(0) { $0 + $1.hours }, 1)
-        return VStack(alignment: .leading, spacing: 6) {
-            GeometryReader { geo in
-                HStack(spacing: 1) {
-                    ForEach(mix.filter { $0.hours > 0 }) { item in
-                        Rectangle()
-                            .fill(WarmInstrument.color(hex: item.color))
-                            .frame(width: geo.size.width * CGFloat(item.hours / denominator))
+    private func mobileTrendSparkline(_ points: [TrendPointSnapshot], bandLow: Double?, bandHigh: Double?) -> some View {
+        let values = points.map(\.value)
+        let minV = values.min() ?? 0
+        let maxV = values.max() ?? 1
+        let range = max(1, maxV - minV)
+        let lowLabel = bandLow.map { "\(Int($0))–\(Int(bandHigh ?? $0)) USUAL" } ?? ""
+        let firstLabel = points.first?.label.uppercased() ?? "6 WK"
+
+        return GeometryReader { geo in
+            let chartTop: CGFloat = 18
+            let chartHeight: CGFloat = 34
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.white.opacity(0.09))
+                    .frame(height: chartHeight)
+                    .offset(y: chartTop)
+
+                Path { path in
+                    for (index, point) in points.enumerated() {
+                        let x = points.count > 1
+                            ? geo.size.width * CGFloat(index) / CGFloat(points.count - 1)
+                            : geo.size.width
+                        let normalized = (point.value - minV) / range
+                        let y = chartTop + chartHeight - chartHeight * 0.65 * normalized - chartHeight * 0.15
+                        if index == 0 { path.move(to: CGPoint(x: x, y: y)) }
+                        else { path.addLine(to: CGPoint(x: x, y: y)) }
                     }
                 }
-                .clipShape(Capsule())
+                .stroke(Color.white.opacity(0.9), style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+
+                if let last = points.last {
+                    let x = points.count > 1
+                        ? geo.size.width * CGFloat(points.count - 1) / CGFloat(points.count - 1)
+                        : geo.size.width
+                    let normalized = (last.value - minV) / range
+                    let y = chartTop + chartHeight - chartHeight * 0.65 * normalized - chartHeight * 0.15
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 8, height: 8)
+                        .position(x: x, y: y)
+                }
+
+                HStack {
+                    Text(firstLabel)
+                    Spacer()
+                    Text(lowLabel)
+                }
+                .font(.system(size: 8.5, weight: .regular, design: .monospaced))
+                .tracking(1)
+                .foregroundColor(.white.opacity(0.5))
+                .offset(y: chartTop + chartHeight + 16)
+            }
+        }
+        .frame(height: 76)
+    }
+
+    private func mixBar(_ mix: [LoadMixSnapshot], totalHours: Double) -> some View {
+        let trackedHours = mix.reduce(0) { $0 + $1.hours }
+        let denominator = max(totalHours, trackedHours, 1)
+        let activeMix = mix.filter { $0.hours > 0 }
+
+        return VStack(alignment: .leading, spacing: 8) {
+            GeometryReader { geo in
+                HStack(spacing: 2) {
+                    ForEach(activeMix) { item in
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(WarmInstrument.color(hex: item.color))
+                            .frame(width: max(2, geo.size.width * CGFloat(item.hours / denominator)))
+                    }
+                    if trackedHours < totalHours {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(Color.white.opacity(0.16))
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
             .frame(height: 8)
 
-            Text(String(format: "%.1fH LOGGED", totalHours))
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .foregroundColor(.white.opacity(0.7))
+            HStack(spacing: 14) {
+                ForEach(activeMix) { item in
+                    HStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(WarmInstrument.color(hex: item.color))
+                            .frame(width: 7, height: 7)
+                        Text("\(item.shortLabel.uppercased()) \(String(format: "%.1f", item.hours))H")
+                            .font(.system(size: 9.5, weight: .regular, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.75))
+                    }
+                }
+                Spacer(minLength: 0)
+                Text(String(format: "%.1fH", totalHours))
+                    .font(.system(size: 9.5, weight: .regular, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.45))
+            }
         }
     }
 
@@ -455,28 +623,41 @@ private struct EngineWidget: View {
     }
 }
 
-// MARK: - P0: Sport commitment cubes
+// MARK: - P0: Sport commitment strip
 
-private struct CommitmentCubesWidget: View {
+private struct CommitmentStripWidget: View {
     let size: WidgetSize
     let sizes: CommitmentSizes
-
-    private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+    @Binding var showingRanked: Bool
 
     var body: some View {
-        WarmCard {
-            VStack(alignment: .leading, spacing: 12) {
-                CardKicker(label: "COMMITMENTS")
-                if size == .s {
-                    SportCube(commitment: sizes.S)
-                } else if sizes.M.isEmpty {
-                    Text("No commitments configured yet.")
-                        .font(.system(size: 12))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                } else {
-                    LazyVGrid(columns: columns, spacing: 10) {
-                        ForEach(sizes.M) { item in
-                            SportCube(commitment: item)
+        if size == .s {
+            WarmCard {
+                SportCube(commitment: sizes.S)
+            }
+        } else if sizes.M.isEmpty {
+            WarmCard {
+                Text("No commitments configured yet.")
+                    .font(.system(size: 12))
+                    .foregroundColor(WarmInstrument.inkMuted)
+            }
+        } else {
+            WarmCard(padding: 0) {
+                HStack(spacing: 0) {
+                    ForEach(Array(sizes.M.enumerated()), id: \.element.id) { index, item in
+                        SportStripCell(
+                            commitment: item,
+                            showingRanked: item.id == "badminton" ? showingRanked : false,
+                            onToggle: item.id == "badminton" && item.hasRankedRecord == true
+                                ? { showingRanked.toggle() }
+                                : nil
+                        )
+                        .overlay(alignment: .trailing) {
+                            if index < sizes.M.count - 1 {
+                                Rectangle()
+                                    .fill(WarmInstrument.border.opacity(0.7))
+                                    .frame(width: 1)
+                            }
                         }
                     }
                 }
@@ -491,6 +672,7 @@ private struct QuestWidget: View {
     let size: WidgetSize
     let home: QuestSnapshot
     let small: QuestSnapshotS
+    var compact: Bool = false
 
     private var fraction: Double {
         size == .s
@@ -499,55 +681,94 @@ private struct QuestWidget: View {
     }
 
     var body: some View {
-        WarmCard {
-            VStack(alignment: .leading, spacing: 10) {
-                CardKicker(label: "MAIN QUEST")
+        WarmCard(padding: compact ? 16 : 16) {
+            VStack(alignment: .leading, spacing: compact ? 0 : 10) {
+                MonoLabel("MAIN QUEST", size: compact ? 9 : 10)
 
-                HStack(alignment: .firstTextBaseline) {
+                if compact {
                     Text(size == .s ? small.name : home.name)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 11.5, weight: .semibold))
                         .foregroundColor(WarmInstrument.ink)
-                        .lineLimit(1)
-                    Spacer()
-                    HStack(alignment: .firstTextBaseline, spacing: 1) {
-                        Text(size == .s ? "\(Int(small.completed))" : "\(Int(home.completed))")
-                            .font(WarmInstrument.figures(18, weight: .bold))
-                        Text(size == .s ? " / \(Int(small.target))" : " / \(Int(home.target))")
-                            .font(WarmInstrument.figures(12, weight: .semibold))
+                        .lineLimit(2)
+                        .padding(.top, 8)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(size == .s ? "\(Int(small.completed))" : questNumber(home.completed))
+                            .font(WarmInstrument.figures(26, weight: .bold))
+                            .foregroundColor(WarmInstrument.accent)
+                        Text(size == .s ? " / \(Int(small.target))" : " / \(questNumber(home.target))")
+                            .font(WarmInstrument.figures(11, weight: .semibold))
                             .foregroundColor(WarmInstrument.inkFaint)
                     }
-                    .foregroundColor(WarmInstrument.ink)
-                    .contentTransition(.numericText())
-                }
+                    .padding(.top, 4)
 
-                HairlineProgress(fraction: fraction, height: 4)
+                    Spacer(minLength: 0)
 
-                if size != .s, !home.sideQuests.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        MonoLabel("SIDE QUESTS", size: 9)
-                        ForEach(home.sideQuests.prefix(2), id: \.name) { side in
-                            VStack(alignment: .leading, spacing: 3) {
-                                HStack {
-                                    Text(side.name)
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(WarmInstrument.ink)
-                                    Spacer()
-                                    Text("\(Int(side.value))/\(Int(side.target))")
-                                        .font(WarmInstrument.figures(11))
-                                        .foregroundColor(WarmInstrument.inkMuted)
+                    HairlineProgress(fraction: fraction, height: 8)
+                        .padding(.top, 14)
+
+                    HStack {
+                        Text("LOADED \(questNumber(home.loaded))")
+                            .font(.system(size: 8, weight: .regular, design: .monospaced))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                        Spacer()
+                        Text("\(home.daysLeft)D LEFT")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundColor(WarmInstrument.accent)
+                    }
+                    .padding(.top, 6)
+                } else {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(size == .s ? small.name : home.name)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(WarmInstrument.ink)
+                            .lineLimit(1)
+                        Spacer()
+                        HStack(alignment: .firstTextBaseline, spacing: 1) {
+                            Text(size == .s ? "\(Int(small.completed))" : questNumber(home.completed))
+                                .font(WarmInstrument.figures(18, weight: .bold))
+                            Text(size == .s ? " / \(Int(small.target))" : " / \(questNumber(home.target))")
+                                .font(WarmInstrument.figures(12, weight: .semibold))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                        }
+                        .foregroundColor(WarmInstrument.ink)
+                        .contentTransition(.numericText())
+                    }
+
+                    HairlineProgress(fraction: fraction, height: 4)
+
+                    if size != .s, !home.sideQuests.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            MonoLabel("SIDE QUESTS", size: 9)
+                            ForEach(home.sideQuests.prefix(2), id: \.name) { side in
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack {
+                                        Text(side.name)
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(WarmInstrument.ink)
+                                        Spacer()
+                                        Text("\(Int(side.value))/\(Int(side.target))")
+                                            .font(WarmInstrument.figures(11))
+                                            .foregroundColor(WarmInstrument.inkMuted)
+                                    }
+                                    HairlineProgress(
+                                        fraction: side.target > 0 ? side.value / side.target : 0,
+                                        tint: WarmInstrument.color(hex: side.color),
+                                        height: 3
+                                    )
                                 }
-                                HairlineProgress(
-                                    fraction: side.target > 0 ? side.value / side.target : 0,
-                                    tint: WarmInstrument.color(hex: side.color),
-                                    height: 3
-                                )
                             }
                         }
+                        .padding(.top, 4)
                     }
-                    .padding(.top, 4)
                 }
             }
+            .frame(maxWidth: .infinity, minHeight: compact ? 148 : nil, alignment: .leading)
         }
+    }
+
+    private func questNumber(_ value: Double) -> String {
+        value == value.rounded() ? "\(Int(value))" : String(format: "%.1f", value)
     }
 }
 
@@ -555,17 +776,31 @@ private struct QuestWidget: View {
 
 private struct RecentSessionsWidget: View {
     let sessions: [RecentSessionSnapshot]
+    var compact: Bool = false
+    var onOpenActivities: (() -> Void)? = nil
     let onOpen: (SyncCacheEntry) -> Void
     let onUnavailable: () -> Void
 
     private var visible: [RecentSessionSnapshot] { Array(sessions.prefix(3)) }
 
     var body: some View {
-        WarmCard(padding: 14) {
+        WarmCard(padding: compact ? 18 : 14) {
             VStack(alignment: .leading, spacing: 4) {
-                CardKicker(label: "RECENT SESSIONS")
-                    .padding(.horizontal, 2)
-                    .padding(.bottom, 4)
+                HStack(alignment: .firstTextBaseline) {
+                    MonoLabel(compact ? "RECENT" : "RECENT SESSIONS", size: compact ? 10 : 10)
+                    Spacer()
+                    if compact, let onOpenActivities {
+                        Button {
+                            Haptics.tap()
+                            onOpenActivities()
+                        } label: {
+                            Text("All activity")
+                                .font(.system(size: 11.5, weight: .semibold))
+                                .foregroundColor(WarmInstrument.ink)
+                        }
+                    }
+                }
+                .padding(.bottom, compact ? 4 : 4)
 
                 if visible.isEmpty {
                     Text("No sessions logged yet — nothing invented here.")
@@ -575,8 +810,12 @@ private struct RecentSessionsWidget: View {
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(visible.enumerated()), id: \.element.id) { index, session in
-                            SwipeToEditRow(onEdit: { handleEdit(session) }) {
-                                SessionRow(session: session).padding(.horizontal, 2)
+                            if compact {
+                                SessionRow(session: session, compact: true)
+                            } else {
+                                SwipeToEditRow(onEdit: { handleEdit(session) }) {
+                                    SessionRow(session: session).padding(.horizontal, 2)
+                                }
                             }
                             if index < visible.count - 1 {
                                 Divider().overlay(WarmInstrument.headerRule)
@@ -608,6 +847,7 @@ private struct RecentSessionsWidget: View {
 
 private struct WeeklyPlanWidget: View {
     let plan: WeeklyPlanSnapshot
+    var compact: Bool = false
 
     /// Local-only reorder state — resets to `plan.days` on next snapshot fetch. Writing the
     /// swap back to GitHub is listed as *Proposed* (not required) in the Design Philosophy's
@@ -615,8 +855,9 @@ private struct WeeklyPlanWidget: View {
     @State private var days: [PlanDaySnapshot]
     @State private var dragIndex: Int?
 
-    init(plan: WeeklyPlanSnapshot) {
+    init(plan: WeeklyPlanSnapshot, compact: Bool = false) {
         self.plan = plan
+        self.compact = compact
         _days = State(initialValue: plan.days)
     }
 
@@ -633,23 +874,34 @@ private struct WeeklyPlanWidget: View {
     }
 
     var body: some View {
-        WarmCard(dashed: true) {
+        WarmCard(padding: compact ? 18 : 16, dashed: true) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    MonoLabel(plan.title ?? "WEEKLY PLAN")
+                    MonoLabel(plan.title ?? "WEEKLY PLAN", size: compact ? 10 : 10)
                     Spacer()
-                    MonoLabel(plan.statusLabel ?? (plan.isPreview ? "COACH DRAFT" : plan.label), color: WarmInstrument.accent)
+                    Text(plan.statusLabel ?? (plan.isPreview ? "COACH DRAFT" : plan.label))
+                        .font(WarmInstrument.monoLabel(9))
+                        .tracking(1.0)
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
+                        )
                 }
 
-                HStack(spacing: 6) {
+                HStack(spacing: compact ? 7 : 6) {
                     ForEach(Array(days.enumerated()), id: \.element.key) { index, day in
                         daySlot(day, index: index)
                     }
                 }
 
-                Text(projection.label)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(projection.isOver ? WarmInstrument.accent : WarmInstrument.inkMuted)
+                if !compact {
+                    Text(projection.label)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(projection.isOver ? WarmInstrument.accent : WarmInstrument.inkMuted)
+                }
             }
         }
         .onChange(of: plan.days.map(\.key)) { _, _ in days = plan.days }
@@ -658,35 +910,43 @@ private struct WeeklyPlanWidget: View {
     private func daySlot(_ day: PlanDaySnapshot, index: Int) -> some View {
         VStack(spacing: 4) {
             Text(String(day.dayShort.prefix(1)))
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: compact ? 8.5 : 9, weight: .bold, design: .monospaced))
                 .foregroundColor(WarmInstrument.inkFaint)
 
-            VStack(spacing: 2) {
+            Group {
                 if let glyph = day.glyph {
                     Image(systemName: WarmInstrument.sfSymbol(for: glyph))
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: compact ? 14 : 13, weight: .semibold))
                         .foregroundColor(sportTint(day))
+                } else if compact {
+                    Color.clear
                 } else {
                     Text("REST")
                         .font(.system(size: 7, weight: .bold))
                         .foregroundColor(WarmInstrument.inkFaint)
                 }
-                if let delta = day.loadDelta {
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: compact ? 26 : 38)
+            .background(sportTint(day).opacity(day.glyph != nil ? 0.1 : 0))
+            .clipShape(RoundedRectangle(cornerRadius: compact ? 5 : 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: compact ? 5 : 10, style: .continuous)
+                    .strokeBorder(
+                        day.glyph != nil
+                            ? sportTint(day).opacity(0.35)
+                            : (compact ? WarmInstrument.border.opacity(0.5) : WarmInstrument.border),
+                        style: day.glyph == nil && compact ? StrokeStyle(lineWidth: 1, dash: [4, 3]) : StrokeStyle(lineWidth: 1)
+                    )
+            )
+            .overlay(alignment: .bottom) {
+                if !compact, let delta = day.loadDelta {
                     Text("+\(Int(delta))")
                         .font(.system(size: 8, weight: .semibold, design: .monospaced))
                         .foregroundColor(WarmInstrument.inkMuted)
+                        .offset(y: 14)
                 }
             }
-            .frame(width: 38, height: 38)
-            .background(sportTint(day).opacity(day.glyph != nil ? 0.12 : 0))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(
-                        dragIndex == index ? WarmInstrument.accent : WarmInstrument.border,
-                        lineWidth: dragIndex == index ? 1.5 : 1
-                    )
-            )
         }
         .frame(maxWidth: .infinity)
         .onDrag {
@@ -871,28 +1131,45 @@ private struct BuildPhaseWidget: View {
     let phase: BuildPhaseSnapshot
 
     private let railLabels = ["BLOCK 1", "DELOAD", "BLOCK 2", "TEST"]
+    private let railFlex: [CGFloat] = [4, 1.2, 4, 1.2]
 
     var body: some View {
-        WarmCard {
+        WarmCard(padding: 18) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    MonoLabel(phase.title ?? "BUILD PHASE")
+                    MonoLabel(phase.title ?? "BUILD PHASE", size: 10)
                     Spacer()
-                    MonoLabel(phase.weekLabel, color: WarmInstrument.accent)
+                    MonoLabel(phase.weekLabel, size: 9.5, color: WarmInstrument.accent)
                 }
 
-                HStack(spacing: 4) {
-                    ForEach(railLabels, id: \.self) { _ in
-                        Capsule().fill(WarmInstrument.border).frame(height: 4)
+                VStack(spacing: 6) {
+                    GeometryReader { geo in
+                        let gaps: CGFloat = 3 * 3
+                        let totalFlex: CGFloat = 4 + 1.2 + 4 + 1.2
+                        let unit = max(0, (geo.size.width - gaps) / totalFlex)
+                        HStack(spacing: 3) {
+                            phaseRailSegment(index: 0).frame(width: unit * 4)
+                            phaseRailSegment(index: 1).frame(width: unit * 1.2)
+                            phaseRailSegment(index: 2).frame(width: unit * 4)
+                            phaseRailSegment(index: 3).frame(width: unit * 1.2)
+                        }
                     }
-                }
-                HStack {
-                    ForEach(railLabels, id: \.self) { label in
-                        Text(label)
-                            .font(.system(size: 7, weight: .bold, design: .monospaced))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 9)
+
+                    GeometryReader { geo in
+                        let gaps: CGFloat = 3 * 3
+                        let totalFlex: CGFloat = 4 + 1.2 + 4 + 1.2
+                        let unit = max(0, (geo.size.width - gaps) / totalFlex)
+                        HStack(spacing: 3) {
+                            ForEach(Array(railLabels.enumerated()), id: \.offset) { index, label in
+                                Text(label)
+                                    .font(.system(size: 8, weight: .regular, design: .monospaced))
+                                    .foregroundColor(WarmInstrument.inkFaint)
+                                    .frame(width: unit * railFlex[index], alignment: index == railLabels.count - 1 ? .trailing : .leading)
+                            }
+                        }
                     }
+                    .frame(height: 12)
                 }
 
                 if phase.milestones.isEmpty {
@@ -900,33 +1177,70 @@ private struct BuildPhaseWidget: View {
                         .font(.system(size: 12))
                         .foregroundColor(WarmInstrument.inkMuted)
                 } else {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(phase.milestones.prefix(3), id: \.name) { milestone in
-                            VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        ForEach(phase.milestones.prefix(2), id: \.name) { milestone in
+                            HStack(alignment: .firstTextBaseline) {
                                 Text(milestone.name)
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(.system(size: 12.5, weight: .semibold))
                                     .foregroundColor(WarmInstrument.ink)
-                                HStack(spacing: 4) {
-                                    Text(milestone.current ?? milestone.baseline)
-                                    Text("→")
-                                    Text(milestone.target).fontWeight(.bold)
-                                }
-                                .font(WarmInstrument.figures(12))
-                                .foregroundColor(WarmInstrument.inkMuted)
-
-                                if let progress = milestone.progressPercent {
-                                    HairlineProgress(fraction: progress / 100, height: 3)
-                                }
+                                    .lineLimit(1)
+                                Spacer(minLength: 8)
+                                milestoneLine(milestone)
                             }
                         }
                     }
                 }
 
                 Text(phase.read)
-                    .font(.system(size: 11))
+                    .font(WarmInstrument.coachVoice(14))
                     .foregroundColor(WarmInstrument.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    @ViewBuilder
+    private func phaseRailSegment(index: Int) -> some View {
+        switch index {
+        case 0:
+            ZStack(alignment: .trailing) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(WarmInstrument.accent)
+                Rectangle()
+                    .fill(WarmInstrument.ink)
+                    .frame(width: 2, height: 15)
+                    .offset(x: -4, y: -3)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        case 1:
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255))
+        case 2:
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .strokeBorder(Color(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        default:
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .strokeBorder(WarmInstrument.accent.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+        }
+    }
+
+    @ViewBuilder
+    private func milestoneLine(_ milestone: PhaseMilestoneSnapshot) -> some View {
+        let current = milestone.current ?? milestone.baseline
+        HStack(spacing: 4) {
+            Text(current)
+            Text("→")
+            if let projected = milestone.projectedDateLabel {
+                Text("\(milestone.target) · \(projected.uppercased())")
+                    .foregroundColor(WarmInstrument.accent)
+            } else {
+                Text(milestone.target)
+                    .foregroundColor(WarmInstrument.accent)
+            }
+        }
+        .font(WarmInstrument.figures(10))
+        .foregroundColor(WarmInstrument.inkMuted)
+        .lineLimit(1)
     }
 }
 
@@ -1000,6 +1314,7 @@ private struct Vo2Sparkline: View {
 
 private struct CaloriesWidget: View {
     let calories: CaloriesSnapshot
+    var compact: Bool = false
 
     /// Issue #68: the live pipeline can still ship a fabricated 12,000 kcal target with
     /// `targetIsFixture: false`, as if it were earned. Gate on all three signals — no target,
@@ -1019,41 +1334,61 @@ private struct CaloriesWidget: View {
     }
 
     var body: some View {
-        WarmCard {
-            VStack(alignment: .leading, spacing: 10) {
+        WarmCard(padding: compact ? 16 : 16) {
+            VStack(alignment: .leading, spacing: compact ? 0 : 10) {
                 HStack {
-                    MonoLabel("CALORIES · \(calories.monthLabel)")
-                    Spacer()
-                    MonoLabel("\(calories.daysLeft)D LEFT")
+                    MonoLabel("CALORIES · \(calories.monthLabel)", size: compact ? 9 : 10)
+                    if !compact {
+                        Spacer()
+                        MonoLabel("\(calories.daysLeft)D LEFT")
+                    }
                 }
 
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(compact(calories.current))
                         .font(WarmInstrument.figures(26, weight: .bold))
                         .foregroundColor(WarmInstrument.ink)
                         .contentTransition(.numericText())
-                    Text(hasTarget ? "/ \(compact(calories.target!)) KCAL" : "KCAL LOGGED")
-                        .font(.system(size: 11))
-                        .foregroundColor(WarmInstrument.inkMuted)
+                    Text(hasTarget ? "/ \(compact(calories.target!))" : "KCAL")
+                        .font(WarmInstrument.figures(compact ? 11 : 11, weight: .regular))
+                        .foregroundColor(WarmInstrument.inkFaint)
                 }
+                .padding(.top, compact ? 10 : 0)
 
                 ZStack(alignment: .leading) {
-                    HairlineProgress(fraction: progress, height: 6)
+                    HairlineProgress(fraction: progress, tint: WarmInstrument.accent, height: compact ? 8 : 6)
                     GeometryReader { geo in
-                        Circle()
+                        Rectangle()
                             .fill(WarmInstrument.ink)
-                            .frame(width: 6, height: 6)
-                            .offset(x: geo.size.width * CGFloat(min(1, calories.pacePercent / 100)) - 3)
+                            .frame(width: 2, height: compact ? 12 : 6)
+                            .offset(x: geo.size.width * CGFloat(min(1, calories.pacePercent / 100)) - 1, y: compact ? -2 : 0)
                     }
-                    .frame(height: 6)
+                    .frame(height: compact ? 8 : 6)
                 }
+                .padding(.top, compact ? 14 : 0)
 
-                Text(hasTarget && calories.dailyNeeded != nil
-                     ? "\(Int(calories.dailyNeeded!))/DAY NEEDED"
-                     : "MONTH TO DATE")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(WarmInstrument.inkMuted)
+                if compact {
+                    HStack {
+                        Text(hasTarget && calories.dailyNeeded != nil
+                             ? "\(Int(calories.dailyNeeded!))/DAY"
+                             : "MONTH TO DATE")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundColor(WarmInstrument.accent)
+                        Spacer()
+                        Text("\(calories.daysLeft)D LEFT")
+                            .font(.system(size: 8, weight: .regular, design: .monospaced))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                    }
+                    .padding(.top, 6)
+                } else {
+                    Text(hasTarget && calories.dailyNeeded != nil
+                         ? "\(Int(calories.dailyNeeded!))/DAY NEEDED"
+                         : "MONTH TO DATE")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                }
             }
+            .frame(maxWidth: .infinity, minHeight: compact ? 148 : nil, alignment: .leading)
         }
     }
 
@@ -1062,9 +1397,246 @@ private struct CaloriesWidget: View {
     }
 }
 
+// MARK: - Opened Engine (Phone 2 in Warm Instrument Mobile.dc.html)
+
+struct EngineDetailView: View {
+    let engine: EngineSnapshot
+    let coachRead: CoachReadSnapshot
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                headerBar
+
+                VStack(alignment: .leading, spacing: 18) {
+                    heroCard
+                    doseLedger
+                    coachReadCard
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+            }
+        }
+        .background(WarmInstrument.paper.ignoresSafeArea())
+        .navigationBarBackButtonHidden(false)
+    }
+
+    private var headerBar: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Engine")
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundColor(WarmInstrument.ink)
+            Text(engine.weekLabel.uppercased())
+                .font(WarmInstrument.monoLabel(10))
+                .tracking(1.2)
+                .foregroundColor(WarmInstrument.inkFaint)
+            Spacer()
+            Text(engine.signal.uppercased())
+                .font(WarmInstrument.monoLabel(10))
+                .tracking(1.0)
+                .foregroundColor(WarmInstrument.sportColor(.badminton))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(WarmInstrument.sportColor(.badminton).opacity(0.4), lineWidth: 1)
+                )
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(WarmInstrument.headerRule).frame(height: 1)
+        }
+    }
+
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(loadLabel)
+                    .font(.system(size: 54, weight: .medium))
+                    .tracking(-2.5)
+                    .foregroundColor(.white)
+                if let low = engine.bandLow, let high = engine.bandHigh {
+                    Text("of \(Int(low))–\(Int(high))\nusual rhythm")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.6))
+                        .lineSpacing(2)
+                }
+                Spacer(minLength: 0)
+                Text(engine.openVerdict ?? engine.compactVerdict ?? engine.verdict)
+                    .font(WarmInstrument.coachVoice(17))
+                    .foregroundColor(.white.opacity(0.95))
+                    .multilineTextAlignment(.trailing)
+            }
+
+            EngineDetailGauge(engine: engine)
+                .frame(height: 52)
+
+            Text(engine.method.uppercased())
+                .font(.system(size: 9, weight: .regular, design: .monospaced))
+                .tracking(0.4)
+                .foregroundColor(.white.opacity(0.5))
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.06), .clear],
+                        startPoint: .topLeading,
+                        endPoint: UnitPoint(x: 0.45, y: 0.45)
+                    )
+                )
+                .background(WarmInstrument.accent)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private var doseLedger: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            MonoLabel("THIS WEEK'S DOSE", size: 10)
+
+            VStack(spacing: 0) {
+                ForEach(Array(engine.doseRows.enumerated()), id: \.element.id) { index, row in
+                    HStack(alignment: .center, spacing: 12) {
+                        Text(row.day.uppercased())
+                            .font(WarmInstrument.monoLabel(10, weight: .regular))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .frame(width: 30, alignment: .leading)
+
+                        if row.isRest == true {
+                            Text(row.title)
+                                .font(.system(size: 13.5, weight: .semibold))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("—")
+                                .font(WarmInstrument.figures(11))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                        } else {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.title)
+                                    .font(.system(size: 13.5, weight: .semibold))
+                                    .foregroundColor(WarmInstrument.ink)
+                                if let detail = row.detail, !detail.isEmpty {
+                                    Text(detail.uppercased())
+                                        .font(WarmInstrument.monoLabel(10, weight: .regular))
+                                        .foregroundColor(WarmInstrument.inkFaint)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if let load = row.load {
+                                Text("+\(Int(load))")
+                                    .font(WarmInstrument.figures(11, weight: .bold))
+                                    .foregroundColor(WarmInstrument.sportColor(row.sport))
+                            }
+                        }
+                    }
+                    .padding(.vertical, 11)
+
+                    if index < engine.doseRows.count - 1 {
+                        Divider().overlay(WarmInstrument.headerRule)
+                    }
+                }
+            }
+        }
+    }
+
+    private var coachReadCard: some View {
+        WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
+            VStack(alignment: .leading, spacing: 7) {
+                MonoLabel(coachRead.eyebrow ?? "COACH'S READ", size: 10)
+                Text(coachRead.body)
+                    .font(WarmInstrument.coachVoice(16.5))
+                    .foregroundColor(WarmInstrument.ink)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var loadLabel: String {
+        engine.load == engine.load.rounded() ? "\(Int(engine.load))" : String(format: "%.1f", engine.load)
+    }
+}
+
+private struct EngineDetailGauge: View {
+    let engine: EngineSnapshot
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let range = max(1, engine.scaleHigh - engine.scaleLow)
+            let x: (Double) -> CGFloat = { value in
+                CGFloat((value - engine.scaleLow) / range) * width
+            }
+            let bandLow = engine.bandLow ?? engine.load * 0.8
+            let bandHigh = engine.bandHigh ?? engine.load * 1.2
+            let markerX = x(engine.load)
+            let bandX = x(bandLow)
+            let bandWidth = max(12, x(bandHigh) - bandX)
+
+            ZStack(alignment: .topLeading) {
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 28))
+                    path.addLine(to: CGPoint(x: width, y: 28))
+                }
+                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: bandWidth, height: 16)
+                    .offset(x: bandX, y: 20)
+
+                Path { path in
+                    path.move(to: CGPoint(x: markerX, y: 16))
+                    path.addLine(to: CGPoint(x: markerX + 5, y: 5))
+                    path.addLine(to: CGPoint(x: markerX - 5, y: 5))
+                    path.closeSubpath()
+                }
+                .fill(Color.white)
+
+                Path { path in
+                    path.move(to: CGPoint(x: markerX, y: 16))
+                    path.addLine(to: CGPoint(x: markerX, y: 40))
+                }
+                .stroke(Color.white, lineWidth: 2)
+
+                Text("\(Int(bandLow))")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                    .position(x: bandX, y: 8)
+
+                Text("\(Int(bandHigh))")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+                    .position(x: bandX + bandWidth, y: 8)
+
+                Text("\(Int(engine.scaleLow))")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.5))
+                    .position(x: 0, y: 48)
+
+                Text("\(Int(engine.scaleHigh))")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.5))
+                    .position(x: width, y: 48)
+            }
+        }
+    }
+}
+
+#Preview("Engine detail — golden dataset") {
+    NavigationStack {
+        EngineDetailView(engine: GoldenDataset.engine, coachRead: GoldenDataset.home.coachRead)
+    }
+}
+
 #Preview("Warm Instrument Home — golden dataset") {
+    let auth = GitHubAuthManager()
     let store = WidgetSnapshotStore()
     store.snapshots = GoldenDataset.snapshots
     return WarmInstrumentHomeView()
+        .environmentObject(auth)
         .environmentObject(store)
 }

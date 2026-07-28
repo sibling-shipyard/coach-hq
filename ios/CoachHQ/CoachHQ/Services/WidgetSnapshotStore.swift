@@ -12,6 +12,7 @@ class WidgetSnapshotStore: ObservableObject {
     @Published var isLoading = false
     @Published var lastFetchedAt: Date?
     @Published var lastError: String?
+    @Published private(set) var isConfigured = false
 
     private var apiClient: GitHubAPIClient?
 
@@ -24,14 +25,22 @@ class WidgetSnapshotStore: ObservableObject {
 
     func configure(apiClient: GitHubAPIClient) {
         self.apiClient = apiClient
+        isConfigured = true
     }
 
     // MARK: - Cache
 
     private func loadCached() {
         guard let data = UserDefaults.standard.data(forKey: Self.cacheKey) else { return }
-        snapshots = try? JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
-        lastFetchedAt = UserDefaults.standard.object(forKey: Self.cacheFetchedAtKey) as? Date
+        do {
+            snapshots = try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
+            lastFetchedAt = UserDefaults.standard.object(forKey: Self.cacheFetchedAtKey) as? Date
+        } catch {
+            // Drop corrupt cache — e.g. schema drift or a partial placeholder file that
+            // decoded before `sizes` was required. A fresh GitHub fetch will repopulate.
+            UserDefaults.standard.removeObject(forKey: Self.cacheKey)
+            UserDefaults.standard.removeObject(forKey: Self.cacheFetchedAtKey)
+        }
     }
 
     /// Persists the last good snapshot locally (in-app cache) and mirrors it into the App
@@ -65,8 +74,11 @@ class WidgetSnapshotStore: ObservableObject {
             snapshots = file
             lastError = nil
             persist(file)
+        } catch let error as GitHubAPIError {
+            if case .sessionNotReady = error { return }
+            lastError = error.errorDescription ?? "Couldn't load Home"
         } catch {
-            lastError = (error as? GitHubAPIError)?.errorDescription ?? "Couldn't load Home"
+            lastError = "Couldn't load Home"
         }
     }
 }
