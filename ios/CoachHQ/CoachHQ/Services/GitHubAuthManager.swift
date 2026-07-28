@@ -118,13 +118,17 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         }
     }
 
-    /// Auto-discovers the coach-phelps repo by convention, or lists repos for selection
+    /// Auto-discovers the athlete coaching repo by naming convention.
+    ///
+    /// Provision names repos like `coach-akash` / `coach-skanda` from the *given*
+    /// name, not the full GitHub login (`akash-suresh`, `skanda-2003`). Prefer that
+    /// form first, then `coach-{login}`, then legacy `coach-phelps*`. Marker-file
+    /// discovery (shared with the web app) is deferred — see ADR 0008 / upcoming
+    /// shared GitHub layer.
     func discoverRepo() async {
         guard let token = loadToken(), let username = user?.login else { return }
 
-        // Try convention-based discovery
-        let conventionNames = ["coach-phelps", "coach-phelps-template"]
-        for name in conventionNames {
+        for name in Self.repoNameCandidates(for: username) {
             let url = URL(string: "https://api.github.com/repos/\(username)/\(name)")!
             var request = URLRequest(url: url)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -138,6 +142,22 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         }
 
         // If convention fails, user will need to pick from repo list (handled in UI)
+    }
+
+    /// Ordered repo-name guesses for `username/repo`. Deduped, first hit wins.
+    static func repoNameCandidates(for login: String) -> [String] {
+        var names: [String] = []
+        let firstSegment = login.split { $0 == "-" || $0 == "_" }.first.map(String.init)
+        if let firstSegment, !firstSegment.isEmpty {
+            // akash-suresh → coach-akash; skanda-2003 → coach-skanda
+            names.append("coach-\(firstSegment)")
+        }
+        names.append("coach-\(login)")
+        names.append("coach-phelps")
+        names.append("coach-phelps-template")
+
+        var seen = Set<String>()
+        return names.filter { seen.insert($0).inserted }
     }
 
     // MARK: - Token Management (Keychain)
