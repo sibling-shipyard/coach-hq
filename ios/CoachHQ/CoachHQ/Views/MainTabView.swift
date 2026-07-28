@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AppTab: Hashable {
-    case home, sync, activities, timer, settings
+    case home, workouts, more
 }
 
 struct MainTabView: View {
@@ -11,38 +11,22 @@ struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            WarmInstrumentHomeView(onOpenActivities: { selectedTab = .activities })
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
+        VStack(spacing: 0) {
+            Group {
+                switch selectedTab {
+                case .home:
+                    WarmInstrumentHomeView()
+                case .workouts:
+                    WorkoutListView()
+                        .environmentObject(workoutService)
+                case .more:
+                    SettingsView()
                 }
-                .tag(AppTab.home)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            SyncStatusView()
-                .tabItem {
-                    Label("Sync", systemImage: "arrow.triangle.2.circlepath")
-                }
-                .tag(AppTab.sync)
-
-            ActivityListView()
-                .tabItem {
-                    Label("Activities", systemImage: "chart.bar.doc.horizontal")
-                }
-                .tag(AppTab.activities)
-
-            WorkoutListView()
-                .environmentObject(workoutService)
-                .tabItem {
-                    Label("Timer", systemImage: "timer")
-                }
-                .tag(AppTab.timer)
-
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
-                }
-                .tag(AppTab.settings)
+            WarmTabBar(selection: $selectedTab)
         }
-        .tint(Theme.accentGreen)
+        .background(WarmInstrument.desk.ignoresSafeArea())
     }
 }

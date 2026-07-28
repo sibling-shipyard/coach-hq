@@ -9,13 +9,13 @@ import UniformTypeIdentifiers
 /// (platform row "iOS app (Home)").
 enum HomeRoute: Hashable {
     case engine
+    case activities
     case activity(SyncCacheEntry)
 }
 
 struct WarmInstrumentHomeView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var store: WidgetSnapshotStore
-    var onOpenActivities: (() -> Void)? = nil
 
     @State private var toast: Toast?
     @State private var isEditingLayout = false
@@ -66,9 +66,14 @@ struct WarmInstrumentHomeView: View {
                             coachRead: snapshots.home.coachRead
                         )
                     }
+                case .activities:
+                    ActivityListView(embedded: true)
                 case .activity(let entry):
                     ActivityDetailView(entry: entry)
                 }
+            }
+            .navigationDestination(for: SyncCacheEntry.self) { entry in
+                ActivityDetailView(entry: entry)
             }
             .task(id: homeFetchToken) {
                 guard store.isConfigured else { return }
@@ -139,7 +144,7 @@ struct WarmInstrumentHomeView: View {
             RecentSessionsWidget(
                 sessions: home.sessions,
                 compact: true,
-                onOpenActivities: onOpenActivities,
+                onOpenActivities: { navigationPath.append(.activities) },
                 onOpen: { entry in
                     Haptics.tap()
                     navigationPath.append(.activity(entry))
