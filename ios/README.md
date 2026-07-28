@@ -17,7 +17,7 @@ Apple Watch / Garmin → Apple Health → This App → GitHub Repo → Coach + D
 - iOS 16.0+
 - Xcode 15.0+
 - An Apple Watch or Garmin watch syncing to Apple Health
-- A `coach-phelps` or `coach-phelps-template` GitHub repository
+- A `coach-<name>` GitHub repository (e.g. `coach-akash`), or legacy `coach-phelps` / `coach-phelps-template`
 
 ## Setup
 
