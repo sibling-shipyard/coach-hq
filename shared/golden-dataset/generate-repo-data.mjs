@@ -116,12 +116,6 @@ function isBlackout(date) {
   return blackoutDates.has(toLocalDateStr(date));
 }
 
-// A handful of recent weeks (not the most recent — that one should look active for the
-// demo) where calisthenics is skipped entirely, so the "floor not met" branch in
-// calisthenicsLensModel's consistency/coachLine actually renders instead of always hitting
-// the streak branch.
-const CALISTHENICS_FLOOR_MISS_WEEKS = new Set([2, 6]);
-
 // ─── Badminton match descriptions ──────────────────────────────────────────
 // matchParser.ts requires a `Games:` marker and lines shaped
 // `W <score> w/ <partner> vs <opponent>` — bare "W 21-18" lines (what an earlier version of
@@ -191,15 +185,15 @@ const WEEKS_OF_HISTORY = 26;
 for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
   const weekStart = mondayOf(daysAgo(w * 7));
 
-  // Foundation — daily, short mobility/strength primer. Skipped on blackout days, plus a
-  // small independent chance of an ordinary missed day (a real athlete doesn't log every
-  // single day for six months straight).
+  // Foundation — short mobility/strength primer, most days but not every day. Skipped on
+  // blackout days, plus a real per-day miss chance — a daily-habit quest still means real
+  // rest days and the occasional skipped morning, not literally 365/365.
   for (let d = 0; d < 7; d++) {
     const date = new Date(weekStart);
     date.setDate(date.getDate() + d);
     if (date > NOW) continue;
     if (isBlackout(date)) continue;
-    if (random() < 0.06) continue;
+    if (random() < 0.55) continue;
     const seconds = 900 + Math.round(random() * 300);
     foundationN++;
     pushActivity({
@@ -216,8 +210,9 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     });
   }
 
-  // Badminton ranked — Monday evening.
-  if (weekStart <= NOW && !isBlackout(weekStart)) {
+  // Badminton ranked — Monday evening, most weeks but not every week (no court, travel,
+  // life) — a per-week chance on top of the blackout check, not a fixed weekly fixture.
+  if (weekStart <= NOW && !isBlackout(weekStart) && random() < 0.55) {
     const date = new Date(weekStart);
     const seconds = 6300 + Math.round(random() * 900);
     badmintonRankedN++;
@@ -238,11 +233,11 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     });
   }
 
-  // Badminton friendly — Thursday evening.
+  // Badminton friendly — Thursday evening, roughly half the weeks.
   {
     const date = new Date(weekStart);
     date.setDate(date.getDate() + 3);
-    if (date <= NOW && !isBlackout(date)) {
+    if (date <= NOW && !isBlackout(date) && random() < 0.35) {
       const seconds = 5400 + Math.round(random() * 900);
       badmintonFriendlyN++;
       const rw = 1 + Math.round(random() * 2);
@@ -258,41 +253,46 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
         max_heartrate: 165,
         has_heartrate: true,
         hr_zones: hrZones(seconds),
-        description: rw + rl > 0 ? badmintonDescription(Math.max(rw, 1), rl) : undefined,
+        description: badmintonDescription(rw, rl),
       });
     }
   }
 
-  // Calisthenics — Tuesday and Friday, except deliberately-thin weeks (floor-miss weeks) and
-  // blackout days.
-  if (!CALISTHENICS_FLOOR_MISS_WEEKS.has(w)) {
-    for (const offset of [1, 4]) {
-      const date = new Date(weekStart);
-      date.setDate(date.getDate() + offset);
-      if (date > NOW) continue;
-      if (isBlackout(date)) continue;
-      const seconds = 2700 + Math.round(random() * 900);
-      calisthenicsN++;
-      pushActivity({
-        name: `Calisthenics #${calisthenicsN}`,
-        sport_type: "WeightTraining",
-        start_date_local: localTimestamp(date, 18, 0),
-        elapsed_time: seconds,
-        moving_time: seconds,
-        calories: Math.round(seconds / 7),
-        average_heartrate: 128,
-        max_heartrate: 158,
-        has_heartrate: true,
-        hr_zones: hrZones(seconds),
-      });
-    }
+  // Calisthenics — a per-week session-count roll (0/1/2) rather than a fixed Tue+Fri slot
+  // every week. This is what actually produces organic "floor not met" weeks — not a couple
+  // of hardcoded exceptions — while still landing near the 2/week target most of the time.
+  const calisthenicsRoll = random();
+  const calisthenicsSessionCount = calisthenicsRoll < 0.3 ? 0 : calisthenicsRoll < 0.65 ? 1 : 2;
+  // For a 1-session week, pick Tuesday or Friday rather than always Tuesday — otherwise
+  // every "light" week looks mechanically identical.
+  const calisthenicsOffsets =
+    calisthenicsSessionCount === 1 ? [random() < 0.5 ? 1 : 4] : [1, 4].slice(0, calisthenicsSessionCount);
+  for (const offset of calisthenicsOffsets) {
+    const date = new Date(weekStart);
+    date.setDate(date.getDate() + offset);
+    if (date > NOW) continue;
+    if (isBlackout(date)) continue;
+    const seconds = 2700 + Math.round(random() * 900);
+    calisthenicsN++;
+    pushActivity({
+      name: `Calisthenics #${calisthenicsN}`,
+      sport_type: "WeightTraining",
+      start_date_local: localTimestamp(date, 18, 0),
+      elapsed_time: seconds,
+      moving_time: seconds,
+      calories: Math.round(seconds / 7),
+      average_heartrate: 128,
+      max_heartrate: 158,
+      has_heartrate: true,
+      hr_zones: hrZones(seconds),
+    });
   }
 
-  // Easy ride — Saturday.
+  // Easy ride — Saturday, most weeks.
   {
     const date = new Date(weekStart);
     date.setDate(date.getDate() + 5);
-    if (date <= NOW && !isBlackout(date)) {
+    if (date <= NOW && !isBlackout(date) && random() < 0.4) {
       const seconds = 2200 + Math.round(random() * 600);
       pushActivity({
         name: "Easy Loop Ride",
@@ -312,21 +312,23 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     }
   }
 
-  // Sunday run — most weeks (2 of every 3), not every-other-week, so the trailing 8-week
-  // window comfortably clears the "≥4 active weeks" band-availability threshold. Distance is
-  // tightly banded around the same route so it clusters for the benchmark/PR lens, with an
-  // occasional near-exact-5K "time trial" for standard-distance PB detection.
-  if (w % 3 !== 0) {
+  // Sunday run — a per-week chance, not a fixed cadence, while still comfortably clearing the
+  // "≥4 active weeks in trailing 8" band-availability threshold. Distance is tightly banded
+  // around the same route so it clusters for the benchmark/PR lens, with an occasional
+  // near-exact-5K "time trial" for standard-distance PB detection.
+  {
     const date = new Date(weekStart);
     date.setDate(date.getDate() + 6);
-    if (date <= NOW && !isBlackout(date)) {
+    if (date <= NOW && !isBlackout(date) && random() < 0.35) {
       const isTimeTrial = w % 5 === 0;
       // Route name intentionally has no run number in it — getTrainingCategory() falls back
       // to sport_type "Run" for categorization either way, and runningLensModel's route
-      // clustering keys off the literal name text, so embedding "#N" would make every run a
-      // unique "route" and benchmark/PR clustering would never fire. Distance is tightly
-      // banded (5100-5180m) to stay inside one 500m cluster bucket, not straddle it.
-      const distance = isTimeTrial ? 5000 + Math.round(random() * 60) : 5100 + Math.round(random() * 80);
+      // clustering keys off the literal name text plus distance. Its "500m bucket" math
+      // (`Math.round((distance / 500) * 500)`) is actually a no-op that resolves to the exact
+      // meter value, so clustering needs an EXACT repeated distance, not just "close" — a
+      // real GPS-recorded repeat of the same route. River Loop is fixed at exactly 5120m;
+      // only the time trial's distance varies (a deliberate one-off effort, not a repeat).
+      const distance = isTimeTrial ? 5000 + Math.round(random() * 60) : 5120;
       const pace = 320 - Math.round(random() * 20); // seconds per km, slow jog
       const seconds = Math.round((distance / 1000) * pace);
       runN++;

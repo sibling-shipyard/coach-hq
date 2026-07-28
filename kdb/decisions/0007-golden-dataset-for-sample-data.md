@@ -53,3 +53,16 @@
   `dataMode !== "live"` in `warmHomeSnapshots.ts`, and `Home.tsx` always passes `"live"`; no
   fixture can make that render on `/`, since it's an app-level constraint, not a data gap. It
   already renders on `/gallery` via the static layer.
+- **Density, not just variety:** even with the edge cases above wired in, the schedule was
+  still a fixed weekly template (Foundation ~94% of days, badminton/calisthenics/ride/run each
+  on the same weekday every week) that read as "trains every single day." Replaced the fixed
+  per-weekday slots with per-week/per-day probabilities (Foundation ~45% of days;
+  badminton/calisthenics/ride/run each a per-week roll, calisthenics additionally rolling a
+  0/1/2 session count instead of a fixed Tue+Fri) so presence is genuinely inconsistent week to
+  week — active-day coverage over the 26-week window dropped from ~84% to ~60%, with the
+  heatmap gap count roughly tripling. Also found and worked around a real bug in
+  `runningLensModel.ts`: its "500m route bucket" math (`Math.round((distance / 500) * 500)`) is
+  a no-op that resolves to the exact distance in meters, so route clustering for the
+  benchmark/PR card actually requires a bit-for-bit repeated distance, not "close enough" — the
+  generator's recurring route is a fixed 5120m rather than randomized within a range. Left the
+  app bug itself unfixed (out of scope for a fixture-only change); worth a follow-up ticket.
