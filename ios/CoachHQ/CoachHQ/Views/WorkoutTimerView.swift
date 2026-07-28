@@ -288,8 +288,8 @@ private struct TimerScreenView: View {
             // Scale pulse on final 3 seconds to amplify the audio beep
             .scaleEffect(isPulsing ? 1.07 : 1.0)
             .animation(.spring(duration: 0.3, bounce: 0.5), value: isPulsing)
-            .onChange(of: engine.timerValue) { val in
-                guard let v = val, v <= 3, v > 0 else { return }
+            .onChange(of: engine.timerValue) {
+                guard let v = engine.timerValue, v <= 3, v > 0 else { return }
                 isPulsing = true
                 Task {
                     try? await Task.sleep(nanoseconds: 120_000_000)

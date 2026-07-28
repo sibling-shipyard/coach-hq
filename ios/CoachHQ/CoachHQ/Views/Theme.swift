@@ -489,8 +489,8 @@ struct SkeletonModifier: ViewModifier {
                 value: pulsing
             )
             .onAppear { if isLoading { pulsing = true } }
-            .onChange(of: isLoading) { loading in
-                pulsing = loading
+            .onChange(of: isLoading) {
+                pulsing = isLoading
             }
     }
 }
