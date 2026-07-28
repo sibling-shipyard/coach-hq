@@ -77,12 +77,12 @@ enum Theme {
     static let runColor = Color(red: 0xC4 / 255.0, green: 0x40 / 255.0, blue: 0x20 / 255.0)       // RUN      #c44020
     static let otherColor = Color(red: 0x77 / 255.0, green: 0x77 / 255.0, blue: 0x77 / 255.0)     // OTHERS   #777
 
-    // MARK: - Workout type colors (timer palette)
+    // MARK: - Workout type colors (Warm Instrument timer palette — mirrors WORKOUT_TYPE_ACCENT on web)
 
-    static let foundationColor      = Color(red: 0x2B / 255.0, green: 0x6C / 255.0, blue: 0xB6 / 255.0) // blue
-    static let calisthenicsTimerColor = Color(red: 0x2D / 255.0, green: 0x3A / 255.0, blue: 0x55 / 255.0) // dark blue-gray
-    static let recoveryColor        = Color(red: 0x14 / 255.0, green: 0x82 / 255.0, blue: 0x7E / 255.0) // teal
-    static let realignColor         = Color(red: 0x6B / 255.0, green: 0x21 / 255.0, blue: 0xA8 / 255.0) // purple
+    static let foundationColor        = Color(red: 0x4F / 255.0, green: 0x58 / 255.0, blue: 0x7A / 255.0)
+    static let calisthenicsTimerColor = Color(red: 0x7F / 255.0, green: 0x37 / 255.0, blue: 0x28 / 255.0)
+    static let recoveryColor          = Color(red: 0x31 / 255.0, green: 0x5A / 255.0, blue: 0x4A / 255.0)
+    static let realignColor           = Color(red: 0xA8 / 255.0, green: 0x70 / 255.0, blue: 0x2C / 255.0)
 
     static func workoutColor(for type: WorkoutType?) -> Color {
         switch type {

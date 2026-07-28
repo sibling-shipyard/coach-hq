@@ -36,6 +36,22 @@ final class WorkoutTimerEngine: ObservableObject {
     var isCircuit: Bool          { phase?.isCircuit == true }
     var phaseRounds: Int         { phase?.roundCount ?? 1 }
 
+    /// Total seconds for the active countdown segment — drives the in-set progress bar.
+    var stateDuration: Int {
+        switch state {
+        case .phaseTransition: return phase?.transitionRestSecs ?? 0
+        case .prep:            return exercise?.prepSecs ?? 0
+        case .exercise:        return exercise?.type == .timed ? (exercise?.durationSecs ?? 0) : 0
+        case .rest:            return getRestDuration()
+        case .complete:        return 0
+        }
+    }
+
+    var segmentProgressPct: Double {
+        guard let timer = timerValue, stateDuration > 0 else { return 0 }
+        return max(0, min(1, 1 - Double(timer) / Double(stateDuration)))
+    }
+
     // MARK: - Progress
 
     var progressPct: Double {

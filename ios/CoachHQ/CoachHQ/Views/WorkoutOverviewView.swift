@@ -2,187 +2,223 @@ import SwiftUI
 
 struct WorkoutOverviewView: View {
     let workout: Workout
+    @Environment(\.dismiss) private var dismiss
     @State private var showTimer = false
 
-    private var color: Color { Theme.workoutColor(for: workout.workoutType) }
+    private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-
-                // Meta
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text(Theme.workoutLabel(for: workout.workoutType))
-                            .font(.system(size: 9, weight: .bold)).kerning(1)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6).padding(.vertical, 2)
-                            .background(color)
-                        if workout.isCoachAdjusted, let date = workout.sessionDate {
-                            Text(date)
-                                .font(.system(size: 9, weight: .bold)).kerning(1)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Theme.accentGreen)
-                        }
-                    }
-
-                    Text(workout.subtitle)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-
-                    HStack(spacing: 16) {
-                        Label("\(workout.estimatedDurationMins) min", systemImage: "clock")
-                        Label("\(workout.exerciseCount) exercises · \(workout.setCount) sets", systemImage: "dumbbell")
-                    }
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    metaSection
+                    coachingNote
+                    equipmentSection
+                    phaseBlocks
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 100)
+            }
 
-                // Coaching note
-                Text(workout.coachingNote)
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-                    .italic()
-                    .padding(.leading, 10)
-                    .overlay(alignment: .leading) {
-                        Rectangle().fill(color).frame(width: 2)
+            startBar
+        }
+        .background(Theme.mutedBackground)
+        .toolbar(.hidden, for: .navigationBar)
+        .overlay(alignment: .leading) { backSwipeEdge }
+        .fullScreenCover(isPresented: $showTimer) {
+            WorkoutTimerView(workout: workout, onExitToList: {
+                showTimer = false
+                dismiss()
+            })
+        }
+    }
+
+    /// Leading-edge strip — swipe right to pop back to the workouts list.
+    private var backSwipeEdge: some View {
+        Color.clear
+            .frame(width: 28)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 12)
+                    .onEnded { value in
+                        guard value.translation.width > 56,
+                              abs(value.translation.height) < 96 else { return }
+                        Haptics.tap()
+                        dismiss()
                     }
+            )
+    }
 
-                // Equipment
-                if !workout.equipment.isEmpty {
-                    ThemedCard {
-                        VStack(alignment: .leading, spacing: 6) {
-                            SectionHeader("Equipment")
-                            Text(workout.equipment.joined(separator: " · "))
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.primary)
-                        }
-                    }
-                }
-
-                // Coach note (for session adjustments)
-                if let note = workout.phases.first(where: { $0.coachingNote != nil })?.coachingNote {
-                    ThemedCard {
-                        VStack(alignment: .leading, spacing: 6) {
-                            SectionHeader("Session Note")
-                            Text(note)
-                                .font(.system(size: 13))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-
-                // Phase list
-                VStack(spacing: 10) {
-                    ForEach(workout.phases) { phase in
-                        PhasePreviewRow(phase: phase, workoutColor: color)
-                    }
-                }
-
-                // Start button
+    private var metaSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
                 Button {
                     Haptics.tap()
-                    showTimer = true
+                    dismiss()
                 } label: {
-                    Text("Start Workout")
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkMuted)
                 }
-                .buttonStyle(PrimaryButtonStyle(fill: color))
-                .padding(.top, 4)
-                .padding(.bottom, 8)
+                .buttonStyle(.plain)
+
+                Text(workout.title)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(16)
+
+            WarmWorkoutTypeBadge(
+                label: Theme.workoutLabel(for: workout.workoutType),
+                accent: accent
+            )
+            Text(workout.subtitle)
+                .font(.system(size: 14))
+                .foregroundColor(WarmInstrument.inkMuted)
+            HStack(spacing: 16) {
+                Text("\(workout.estimatedDurationMins)M")
+                Text("\(workout.exerciseCount) EXERCISES")
+                Text("\(workout.setCount) SETS")
+            }
+            .font(WarmInstrument.figures(11))
+            .foregroundColor(WarmInstrument.inkFaint)
         }
-        .navigationTitle(workout.title)
-        .navigationBarTitleDisplayMode(.large)
-        .background(Color(uiColor: .systemBackground))
-        .fullScreenCover(isPresented: $showTimer) {
-            WorkoutTimerView(workout: workout)
+    }
+
+    private var coachingNote: some View {
+        Text(workout.coachingNote)
+            .font(WarmInstrument.coachVoice(14.5))
+            .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+            .padding(.leading, 14)
+            .overlay(alignment: .leading) {
+                Rectangle().fill(accent).frame(width: 2)
+            }
+    }
+
+    @ViewBuilder
+    private var equipmentSection: some View {
+        if !workout.equipment.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("EQUIPMENT")
+                    .font(WarmInstrument.monoLabel(9))
+                    .kerning(1.4)
+                    .foregroundColor(WarmInstrument.inkFaint)
+                Text(workout.equipment.joined(separator: " · "))
+                    .font(WarmInstrument.figures(12.5, weight: .regular))
+                    .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(WarmInstrument.paper)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(WarmInstrument.border, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+    }
+
+    private var phaseBlocks: some View {
+        VStack(spacing: 14) {
+            ForEach(workout.phases) { phase in
+                WarmPhaseBlock(phase: phase)
+            }
+        }
+    }
+
+    private var startBar: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(WarmInstrument.headerRule).frame(height: 1)
+            WarmPrimaryCTA(title: "▶ Start workout") {
+                Haptics.tap()
+                showTimer = true
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(WarmInstrument.paper)
         }
     }
 }
 
-// MARK: - Phase preview row
+// MARK: - Phase block (mock 3b)
 
-private struct PhasePreviewRow: View {
+private struct WarmPhaseBlock: View {
     let phase: WorkoutPhase
-    let workoutColor: Color
 
     var body: some View {
-        ThemedCard(padding: 0) {
-            VStack(spacing: 0) {
-                // Phase header
-                HStack {
-                    HStack(spacing: 6) {
-                        Text(phase.name.uppercased())
-                            .font(.system(size: 11, weight: .bold))
-                            .kerning(0.5)
-                        if phase.isCircuit {
-                            HStack(spacing: 2) {
-                                Image(systemName: "repeat")
-                                    .font(.system(size: 10))
-                                Text("\(phase.roundCount)×")
-                                    .font(.system(size: 11, weight: .medium).monospacedDigit())
-                            }
-                            .foregroundColor(.secondary)
-                        }
-                        if phase.isOptional {
-                            Text("OPTIONAL")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(Theme.attentionOrange)
-                        }
+        VStack(spacing: 0) {
+            HStack {
+                HStack(spacing: 8) {
+                    Text(phase.name.uppercased())
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Theme.ink)
+                    if phase.isCircuit {
+                        Text("↻ \(phase.roundCount)×")
+                            .font(WarmInstrument.figures(11))
+                            .foregroundColor(WorkoutTimerWarm.rust)
                     }
-                    Spacer()
-                    Text(phase.duration)
-                        .font(.system(size: 11).monospacedDigit())
-                        .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Theme.mutedBackground)
+                Spacer()
+                Text(phase.duration.uppercased())
+                    .font(WarmInstrument.figures(10))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .background(WarmInstrument.surfaceMuted)
 
-                Divider()
+            ForEach(phase.exercises) { ex in
+                HStack(alignment: .top, spacing: 14) {
+                    Text("\(ex.num)")
+                        .font(WarmInstrument.figures(11))
+                        .foregroundColor(Color(red: 0xC2 / 255, green: 0xBC / 255, blue: 0xAE / 255))
+                        .frame(width: 14, alignment: .trailing)
+                        .padding(.top, 2)
 
-                // Exercise rows
-                ForEach(phase.exercises) { ex in
-                    HStack(alignment: .top, spacing: 10) {
-                        Text("\(ex.num)")
-                            .font(.system(size: 11).monospacedDigit())
-                            .foregroundColor(.secondary)
-                            .frame(width: 20, alignment: .trailing)
-
-                        VStack(alignment: .leading, spacing: 1) {
-                            HStack(spacing: 6) {
-                                Text(ex.name)
-                                    .font(.system(size: 13, weight: .medium))
-                                if ex.isOptional {
-                                    Text("optional")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(Color(uiColor: .tertiaryLabel))
-                                }
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            Text(ex.name)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Theme.ink)
+                            if ex.isOptional {
+                                Text("OPTIONAL")
+                                    .font(WarmInstrument.monoLabel(8))
+                                    .kerning(1)
+                                    .foregroundColor(Color(red: 0xA8 / 255, green: 0x9F / 255, blue: 0x8C / 255))
                             }
-                            Text(ex.formCue)
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
                         }
-
-                        Spacer()
-
-                        Text(ex.type == .timed
-                             ? "\(ex.sets)×\(ex.durationSecs ?? 0)s"
-                             : "\(ex.sets)×\(ex.reps ?? 0)")
-                            .font(.system(size: 11).monospacedDigit())
-                            .foregroundColor(.secondary)
+                        Text(ex.formCue)
+                            .font(.system(size: 12))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
 
+                    Spacer(minLength: 0)
+
+                    Text(WorkoutTimerWarm.doseFor(ex))
+                        .font(WarmInstrument.figures(12))
+                        .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                        .padding(.top, 2)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .overlay(alignment: .bottom) {
                     if ex.num != phase.exercises.last?.num {
-                        Divider().padding(.leading, 44)
+                        Rectangle()
+                            .fill(Color(red: 0xEF / 255, green: 0xE9 / 255, blue: 0xDC / 255))
+                            .frame(height: 1)
                     }
                 }
             }
         }
+        .background(WarmInstrument.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(WarmInstrument.border, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
