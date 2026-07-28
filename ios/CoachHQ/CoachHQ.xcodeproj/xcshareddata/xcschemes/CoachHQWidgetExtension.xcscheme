@@ -96,7 +96,7 @@
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "_XCWidgetKind"
-            value = "com.coachphelps.ios.widget.engine"
+            value = "com.siblingshipyard.coachhq.widget.engine"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

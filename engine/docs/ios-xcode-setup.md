@@ -29,7 +29,7 @@ Open `ios/CoachHQ/CoachHQ.xcodeproj` in Xcode.
 4. Check **Automatically manage signing**.
 5. Under **Team**, select your Personal Team (your Apple ID).
    - If no team appears: go to **Xcode → Settings → Accounts → "+" → Apple ID** and sign in first.
-6. The **Bundle Identifier** should be `com.coachphelps.ios`. If it shows a conflict, change it to something unique like `com.yourname.coachphelps`.
+6. The **Bundle Identifier** should be `com.siblingshipyard.coachhq`. If it shows a conflict, change it to something unique like `com.yourname.coachhq`.
 
 ## Step 4: Fix Duplicate Info.plist Error
 
@@ -38,8 +38,8 @@ The project has a custom `Info.plist` file but Xcode is also auto-generating one
 1. In the Project Navigator, find and **delete** the file `CoachHQ/Info.plist` (choose "Move to Trash").
 2. Select the **CoachHQ** target → **Info** tab.
 3. Under **URL Types**, click the **+** button and add:
-   - **Identifier:** `com.coachphelps.oauth`
-   - **URL Schemes:** `coachphelps`
+   - **Identifier:** `com.siblingshipyard.coachhq.oauth`
+   - **URL Schemes:** `coachhq`
 4. Still in the **Info** tab, under **Custom iOS Target Properties**, click **+** and add these keys:
    - Key: `Privacy - Health Share Usage Description`
    - Value: `Coach HQ needs access to your health data to sync workouts, heart rate, and recovery metrics to your coaching dashboard.`
@@ -88,7 +88,7 @@ The project has a custom `Info.plist` file but Xcode is also auto-generating one
 | "Developer not trusted" on phone | Settings → General → VPN & Device Management → Trust |
 | App expires after 7 days | Just hit Cmd+R in Xcode again to re-deploy |
 | "No such module 'HealthKit'" | Ensure you added the HealthKit capability (Step 5) |
-| OAuth callback not working | Verify URL Scheme is exactly `coachphelps` (lowercase, no colon or slashes) |
+| OAuth callback not working | Verify URL Scheme is exactly `coachhq` (lowercase, no colon or slashes) |
 | HealthKit permission not appearing | Must run on a real device, not simulator |
 | Build fails with Sendable warnings | These are warnings, not errors. Set **Strict Concurrency Checking** to **Minimal** in Build Settings if they bother you |
 

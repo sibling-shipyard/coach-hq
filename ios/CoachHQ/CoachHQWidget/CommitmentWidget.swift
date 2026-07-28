@@ -98,7 +98,7 @@ struct CommitmentWidgetView: View {
 }
 
 struct CommitmentWidget: Widget {
-    let kind = "com.coachphelps.ios.widget.commitment"
+    let kind = "com.siblingshipyard.coachhq.widget.commitment"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: CommitmentProvider()) { entry in

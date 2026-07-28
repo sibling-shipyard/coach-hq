@@ -8,7 +8,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.coachphelps.ios</string>
+		<string>group.com.siblingshipyard.coachhq</string>
 	</array>
 </dict>
 </plist>

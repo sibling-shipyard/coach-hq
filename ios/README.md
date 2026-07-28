@@ -68,6 +68,6 @@ CoachHQ/
 
 - [ ] Create a GitHub OAuth App at github.com/settings/developers
 - [ ] Replace `YOUR_CLIENT_ID` and `YOUR_CLIENT_SECRET` in `GitHubAuthManager.swift`
-- [ ] Set the OAuth callback URL to `coachphelps://callback`
+- [ ] Set the OAuth callback URL to `coachhq://callback`
 - [ ] Enable HealthKit capability in Xcode project settings
 - [ ] Test that `build-data.mjs` picks up `hk_` prefixed files correctly

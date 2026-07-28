@@ -127,7 +127,7 @@ struct Vo2WidgetView: View {
 }
 
 struct Vo2Widget: Widget {
-    let kind = "com.coachphelps.ios.widget.vo2"
+    let kind = "com.siblingshipyard.coachhq.widget.vo2"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Vo2Provider()) { entry in
