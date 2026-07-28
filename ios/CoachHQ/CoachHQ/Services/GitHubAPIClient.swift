@@ -222,10 +222,12 @@ class GitHubAPIClient {
     /// HQ runs the TS generator server-side from `gen/aggregate.json` — athlete repos
     /// do not need a committed `gen/widget_snapshots.json`.
     func fetchWidgetSnapshots() async throws -> WidgetSnapshotsFile {
-        guard let token = authManager.loadToken(),
-              let user = authManager.user?.login,
-              let repo = authManager.selectedRepo else {
+        guard let token = authManager.loadToken() else {
             throw GitHubAPIError.notAuthenticated
+        }
+        guard let user = authManager.user?.login,
+              let repo = authManager.selectedRepo else {
+            throw GitHubAPIError.sessionNotReady
         }
 
         let repoFull = "\(user)/\(repo)"
@@ -614,7 +616,7 @@ enum GitHubAPIError: LocalizedError {
         case .sessionNotReady:
             return nil
         case .widgetSnapshotsPlaceholder:
-            return "Home snapshot on GitHub is still empty. In your coach repo run `cd ui && npm run build-data`, commit `gen/widget_snapshots.json`, push, then pull to refresh here."
+            return "Home data isn't ready yet — sync your activities, then pull to refresh."
         }
     }
 

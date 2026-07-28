@@ -2,14 +2,11 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Warm Instrument Home — a scrolling column of M widgets consuming
-/// `gen/widget_snapshots.json` (same fetch pattern as workouts/sessions via
-/// `GitHubAPIClient`). Supersedes `CoachingInsightsView`. See `AGENTS.md` → Warm Instrument
-/// Home, `kdb/decisions/0005-widget-snapshots-cross-platform.md`, and
-/// `ui/docs/reference-interactions/Widget Design Philosophy.md` (platform row "iOS app (Home)").
-/// Warm Instrument Home — mobile-first scrolling column consuming `gen/widget_snapshots.json`.
-/// Layout matches `Warm Instrument Mobile.dc.html` (compact header, engine → commitments strip →
-/// plan → calories/quest pair → build phase → recent). Opened Engine detail is push navigation.
+/// Warm Instrument Home — mobile-first scrolling column fed by the hosted dashboard API
+/// (`GET /api/widget-snapshots`, ADR 0005). Layout matches `Warm Instrument Mobile.dc.html`:
+/// compact header, engine → commitments strip → plan → calories/quest pair → build phase → recent.
+/// Engine detail opens via push navigation. See `ui/docs/reference-interactions/Widget Design Philosophy.md`
+/// (platform row "iOS app (Home)").
 enum HomeRoute: Hashable {
     case engine
     case activity(SyncCacheEntry)
