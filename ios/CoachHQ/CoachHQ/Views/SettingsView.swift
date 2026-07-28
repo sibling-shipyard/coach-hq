@@ -244,14 +244,7 @@ struct SettingsView: View {
         WarmSettingsSection(title: "About") {
             WarmSettingsInfoRow(label: "Version", value: appVersion)
             WarmSettingsDivider()
-            WarmSettingsInfoRow(label: "Architecture", value: "GitHub as Backend")
-            WarmSettingsDivider()
-            WarmSettingsInfoRow(
-                label: "Target Branch",
-                value: testMode.targetBranch,
-                valueColor: testMode.isEnabled ? WorkoutTimerWarm.amber : WarmInstrument.inkFaint,
-                valueWeight: testMode.isEnabled ? .bold : .regular
-            )
+            WarmSettingsInfoRow(label: "Developers", value: "Sibling Shipyard")
         }
     }
 
