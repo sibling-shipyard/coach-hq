@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// Compact mobile home header — `HQ` wordmark, build-phase badge, sync glyph. Matches the
+/// Compact mobile home header — `HQ` wordmark and build-phase badge. Matches the
 /// `wi-instrument-header` mobile row in `Warm Instrument Mobile.dc.html` / web `@media (max-width: 720px)`.
 struct CompactInstrumentHeader: View {
     let phase: BuildPhaseSnapshot
-    let sync: WidgetSyncSnapshot
 
     var body: some View {
         HStack(spacing: 10) {
@@ -23,11 +22,6 @@ struct CompactInstrumentHeader: View {
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
 
             Spacer(minLength: 0)
-
-            Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(sync.healthy ? WarmInstrument.sportColor(.badminton) : WarmInstrument.alarmFg)
-                .accessibilityLabel(sync.label)
         }
         .padding(.horizontal, 6)
         .padding(.top, 2)
@@ -102,7 +96,7 @@ struct InstrumentHeaderView: View {
 }
 
 #Preview("Compact instrument header — golden dataset") {
-    CompactInstrumentHeader(phase: GoldenDataset.phase, sync: GoldenDataset.sync)
+    CompactInstrumentHeader(phase: GoldenDataset.phase)
         .padding()
         .background(WarmInstrument.desk)
 }
