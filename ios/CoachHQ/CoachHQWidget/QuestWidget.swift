@@ -136,7 +136,7 @@ struct QuestWidgetView: View {
 }
 
 struct QuestWidget: Widget {
-    let kind = "com.coachhq.ios.widget.quest"
+    let kind = "com.coachphelps.ios.widget.quest"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: QuestProvider()) { entry in

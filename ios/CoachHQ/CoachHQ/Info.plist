@@ -10,10 +10,10 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.coachhq.oauth</string>
+			<string>com.coachphelps.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>coachhq</string>
+				<string>coachphelps</string>
 			</array>
 		</dict>
 	</array>

@@ -10,7 +10,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     @Published var user: GitHubUser?
     @Published var selectedRepo: String?
 
-    private let keychainKey = "com.coachhq.github.token"
+    private let keychainKey = "com.coachphelps.github.token"
 
     // MARK: - OAuth Configuration
     // Register your own GitHub OAuth App at: https://github.com/settings/developers
@@ -18,7 +18,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     // own via Secrets.swift (gitignored; copy Secrets.swift.example and fill in your values).
     private let clientId = Secrets.githubClientId
     private let clientSecret = Secrets.githubClientSecret
-    private let callbackScheme = "coachhq"
+    private let callbackScheme = "coachphelps"
     private let scopes = "repo"
 
     override init() {

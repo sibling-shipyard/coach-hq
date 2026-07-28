@@ -10,7 +10,7 @@ import Foundation
 /// target and the widget extension target's membership, and add the App Group capability
 /// (`\(appGroupID)`) to both targets.
 enum AppGroupSnapshotBridge {
-    static let appGroupID = "group.com.coachhq.ios"
+    static let appGroupID = "group.com.coachphelps.ios"
     private static let fileName = "widget_snapshots.json"
 
     private static var containerURL: URL? {

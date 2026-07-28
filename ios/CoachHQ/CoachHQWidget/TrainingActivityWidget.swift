@@ -137,7 +137,7 @@ struct TrainingActivityWidgetView: View {
 }
 
 struct TrainingActivityWidget: Widget {
-    let kind = "com.coachhq.ios.widget.trainingActivity"
+    let kind = "com.coachphelps.ios.widget.trainingActivity"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TrainingActivityProvider()) { entry in
