@@ -1,52 +1,21 @@
 import { SportCommitmentCard } from "@/components/home-warm/WarmInstrumentWidgets";
-import { GALLERY_COMMITMENTS, GALLERY_ENGINE } from "@/components/home-warm/galleryFixtures";
+import { GOLDEN_HOME } from "@/lib/goldenDataset";
 import { WelcomeEngineHero } from "./WelcomeEngineHero";
 import { WelcomeInviteCta } from "./WelcomeInviteCta";
 import { WelcomeTimerDemo } from "./WelcomeTimerDemo";
+import { COACH_CARDS } from "./welcomeCopy";
 import { useScrollReveal } from "./useScrollReveal";
 import "@/components/home-warm/warm-instrument.css";
 import "./welcome.css";
 
-const FEATURE_SESSIONS = [
-  {
-    date: "JUL 16",
-    sport: "badminton" as const,
-    title: "Hit & Run #35 · Friendly",
-    meta: "130 BPM",
-    load: "+412",
-  },
-  {
-    date: "JUL 14",
-    sport: "cycling" as const,
-    title: "River Loop 5.2K",
-    badge: "STRAVA",
-    meta: "26:54",
-    load: "+180",
-  },
-  {
-    date: "JUL 12",
-    sport: "calisthenics" as const,
-    title: "Calisthenics #31 · FL & Handstand",
-    meta: "55 MIN",
-    load: "+96",
-  },
-];
-
-const COACH_CARDS = [
-  {
-    label: "QUIETS THE CRITIC",
-    quote:
-      "You missed two days. That's not failure — that's a week with a life in it. We adjust and keep going.",
-  },
-  {
-    label: "PROCESS OVER OUTCOME",
-    quote: "Forget the number on the test. Show up for the boring easy volume — that's what moves it.",
-  },
-  {
-    label: "HONEST & VULNERABLE",
-    quote: "I know the knee scares you. It scares me a little too — so we go slow, and we go together.",
-  },
-];
+const FEATURE_SESSIONS = GOLDEN_HOME.sessions.map((session) => ({
+  date: session.dateLabel,
+  sport: session.sport as "badminton" | "cycling" | "calisthenics",
+  title: session.title,
+  meta: session.detail,
+  load: session.load != null ? `+${session.load}` : "",
+  badge: session.sport === "cycling" ? "STRAVA" : undefined,
+}));
 
 function sportAccent(sport: "badminton" | "cycling" | "calisthenics") {
   if (sport === "badminton") return "#315a4a";
@@ -64,6 +33,9 @@ export function WelcomePage() {
           <span className="welcome-nav__brand">COACH PHELPS</span>
           <span className="welcome-nav__beta">PRIVATE BETA</span>
           <nav className="welcome-nav__links" aria-label="Account">
+            <a href="/api/auth-install" className="welcome-nav__cta welcome-nav__cta--ghost">
+              SIGN UP
+            </a>
             <a href="/api/auth-login" className="welcome-nav__cta">
               LOG IN
             </a>
@@ -96,7 +68,7 @@ export function WelcomePage() {
             </div>
           </div>
           <div data-reveal>
-            <WelcomeEngineHero engine={GALLERY_ENGINE} />
+            <WelcomeEngineHero engine={GOLDEN_HOME.engine} />
           </div>
         </div>
       </section>
@@ -237,7 +209,7 @@ export function WelcomePage() {
               <span className="welcome-widgets-card__hint">CLICK BADMINTON ⇄</span>
             </div>
             <div className="welcome-commitments">
-              {GALLERY_COMMITMENTS.map((item) => (
+              {GOLDEN_HOME.commitments.map((item) => (
                 <SportCommitmentCard key={item.id} item={item} />
               ))}
             </div>
@@ -252,8 +224,8 @@ export function WelcomePage() {
               </div>
               <div className="welcome-phone__engine">
                 <span className="welcome-phone__engine-label">ENGINE</span>
-                <span className="welcome-phone__engine-value">{GALLERY_ENGINE.load}</span>
-                <span className="welcome-phone__engine-verdict">{GALLERY_ENGINE.compactVerdict}</span>
+                <span className="welcome-phone__engine-value">{GOLDEN_HOME.engine.load}</span>
+                <span className="welcome-phone__engine-verdict">{GOLDEN_HOME.engine.compactVerdict}</span>
                 <div className="welcome-phone__engine-mix">
                   <span style={{ width: "41%" }} />
                   <span style={{ width: "27%" }} />

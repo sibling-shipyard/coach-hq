@@ -11,19 +11,8 @@ import {
   Vo2Card,
   WeeklyPlanCard,
 } from "@/components/home-warm/WarmInstrumentWidgets";
-import {
-  GALLERY_CALORIES,
-  GALLERY_COACH_READ,
-  GALLERY_COMMITMENTS,
-  GALLERY_ENGINE,
-  GALLERY_PHASE,
-  GALLERY_PLAN,
-  GALLERY_QUEST,
-  GALLERY_SESSIONS,
-  GALLERY_TRAINING_ACTIVITY,
-  GALLERY_VO2,
-  GALLERY_VO2_EMPTY,
-} from "@/components/home-warm/galleryFixtures";
+import { GALLERY_VO2_EMPTY } from "@/components/home-warm/galleryVariants";
+import { GOLDEN_HOME } from "@/lib/goldenDataset";
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/home-warm/widget-gallery.css";
 import type { ReactNode } from "react";
@@ -76,6 +65,17 @@ const SECTIONS = [
 ];
 
 export default function WidgetGallery() {
+  const GALLERY_ENGINE = GOLDEN_HOME.engine;
+  const GALLERY_QUEST = GOLDEN_HOME.quest;
+  const GALLERY_COACH_READ = GOLDEN_HOME.coachRead;
+  const GALLERY_COMMITMENTS = GOLDEN_HOME.commitments;
+  const GALLERY_PLAN = GOLDEN_HOME.plan;
+  const GALLERY_CALORIES = GOLDEN_HOME.calories;
+  const GALLERY_SESSIONS = GOLDEN_HOME.sessions;
+  const GALLERY_PHASE = GOLDEN_HOME.phase;
+  const GALLERY_TRAINING_ACTIVITY = GOLDEN_HOME.trainingActivity;
+  const GALLERY_VO2 = GOLDEN_HOME.vo2;
+
   return (
     <div className="wi-shell">
       <div className="wg-page">

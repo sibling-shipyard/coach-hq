@@ -18,7 +18,8 @@
     "ignoreDeprecations": "5.0",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["./client/src/*"]
+      "@/*": ["./client/src/*"],
+      "@golden/*": ["../shared/golden-dataset/*"]
     }
   }
 }

@@ -1,10 +1,8 @@
 import { useMemo } from "react";
 import type { ChallengeV2 } from "@/lib/challenge";
 import type { Activity } from "@/lib/activities";
-import {
-  CURRENT_WEEK_FIXTURE,
-  type CurrentWeekContract,
-} from "./currentWeek.fixture";
+import type { CurrentWeekContract } from "./currentWeek.fixture";
+import { GOLDEN_CURRENT_WEEK } from "@/lib/goldenDataset";
 import { buildLiveWeekContract } from "./liveWeekContract";
 import type { SyncStatusPayload } from "./warmHomeModel";
 import { buildWarmHomeModel } from "./warmHomeModel";
@@ -53,7 +51,7 @@ export function WarmInstrumentHome({
   const snapshots = useMemo(() => {
     const effectiveWeek = currentWeek ?? (dataMode === "live"
       ? buildLiveWeekContract(activities, challengeData)
-      : CURRENT_WEEK_FIXTURE);
+      : GOLDEN_CURRENT_WEEK);
     return buildWarmHomeSnapshots(
       activities,
       challengeData,
@@ -66,7 +64,7 @@ export function WarmInstrumentHome({
   const model = useMemo(() => {
     const effectiveWeek = currentWeek ?? (dataMode === "live"
       ? buildLiveWeekContract(activities, challengeData)
-      : CURRENT_WEEK_FIXTURE);
+      : GOLDEN_CURRENT_WEEK);
     return buildWarmHomeModel(activities, challengeData, syncStatus, effectiveWeek);
   }, [activities, challengeData, currentWeek, dataMode, syncStatus]);
 

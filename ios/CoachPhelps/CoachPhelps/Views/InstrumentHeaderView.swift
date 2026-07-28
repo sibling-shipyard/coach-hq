@@ -65,3 +65,13 @@ struct InstrumentHeaderView: View {
         .clipShape(Capsule())
     }
 }
+
+#Preview("Instrument header — golden dataset") {
+    InstrumentHeaderView(
+        phase: GoldenDataset.phase,
+        sync: GoldenDataset.sync,
+        generatedAt: GoldenDataset.snapshots.generatedAt
+    )
+    .padding()
+    .background(WarmInstrument.desk)
+}
