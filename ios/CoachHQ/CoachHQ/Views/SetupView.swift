@@ -10,7 +10,6 @@ struct SetupView: View {
     @State private var isInstalling = false
     @State private var isCheckingRepo = true
     @State private var errorMessage: String?
-    @State private var showStep2Hint = false
 
     private var login: String? { authManager.pendingSetupLogin }
 
@@ -27,35 +26,52 @@ struct SetupView: View {
         return components.url
     }
 
+    private var currentStep: Int { repoStepComplete ? 2 : 1 }
+    private var progressFraction: Double { repoStepComplete ? 1.0 : 0.5 }
+
     var body: some View {
         VStack(spacing: 0) {
-            wordmark
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-
             VStack(spacing: 28) {
-                card
+                OnboardingLogo()
+                    .onboardingReveal(index: 0)
+
+                VStack(spacing: 16) {
+                    progressSection
+                        .onboardingReveal(index: 1)
+
+                    Text("Setting up your coach")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(WarmInstrument.ink)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .onboardingReveal(index: 2)
+
+                    Text("You're signed in\(login.map { " as \($0)" } ?? ""). After this, you'll meet Coach in chat — your dashboard fills in from that first conversation.")
+                        .font(WarmInstrument.coachVoice(15))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineSpacing(3)
+                        .onboardingReveal(index: 3)
+
+                    if repoStepComplete {
+                        repoReadyHint
+                            .onboardingReveal(index: 4)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.horizontal, 32)
+                .animation(PremiumMotion.state, value: repoStepComplete)
             }
-            .padding(.horizontal, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.bottom, 40)
+
+            actionSection
+                .padding(.horizontal, 24)
+                .safeAreaPadding(.bottom, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WarmInstrument.desk.ignoresSafeArea())
-        .task(id: login) {
-            await refreshRepoStatus()
-        }
-    }
-
-    // MARK: - Wordmark
-
-    private var wordmark: some View {
-        HStack {
-            Text("HQ")
-                .font(WarmInstrument.monoLabel(12))
-                .tracking(1.4)
-                .foregroundColor(WarmInstrument.ink)
-            Spacer(minLength: 0)
+        .overlay(alignment: .topTrailing) {
             Button {
                 Haptics.tap()
                 authManager.signOut()
@@ -65,147 +81,114 @@ struct SetupView: View {
                     .tracking(0.8)
                     .foregroundColor(WarmInstrument.inkMuted)
             }
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+        }
+        .task(id: login) {
+            await refreshRepoStatus()
         }
     }
 
-    // MARK: - Card
-
-    private var card: some View {
-        WarmCard(padding: 24) {
-            VStack(alignment: .leading, spacing: 18) {
-                MonoLabel("Setting up your coach", size: 10, tracking: 1.2)
-
-                Text("Two quick steps on GitHub")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(Theme.ink)
-
-                Text("You're signed in\(login.map { " as \($0)" } ?? ""). After this, you'll meet Coach in chat — your dashboard fills in from that first conversation.")
-                    .font(WarmInstrument.coachVoice(14))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .lineSpacing(3)
-
-                Rectangle()
-                    .fill(WarmInstrument.headerRule)
-                    .frame(height: 1)
-                    .padding(.vertical, 2)
-
-                VStack(spacing: 10) {
-                    stepRow(
-                        number: 1,
-                        title: "Create your coach repo",
-                        subtitle: repoStepComplete
-                            ? "coach-\(login ?? "you") exists on GitHub"
-                            : "Pre-filled from the coach-skeleton template",
-                        complete: repoStepComplete,
-                        isLoading: isCheckingRepo
-                    )
-
-                    stepRow(
-                        number: 2,
-                        title: "Authorize Coach Phelps",
-                        subtitle: "Grant access to that one repo only — not another sign-in",
-                        complete: false,
-                        isLoading: isInstalling
-                    )
-                }
-
-                VStack(spacing: 12) {
-                    if !repoStepComplete {
-                        Button {
-                            Haptics.tap()
-                            openCreateRepo()
-                        } label: {
-                            Text("Create repo on GitHub")
-                        }
-                        .buttonStyle(WarmSetupButtonStyle(primary: true))
-                        .disabled(generateURL == nil || isCheckingRepo)
-                    } else {
-                        Button {
-                            Haptics.tap()
-                            continueToInstall()
-                        } label: {
-                            HStack(spacing: 10) {
-                                if isInstalling {
-                                    ProgressView()
-                                        .tint(WarmInstrument.paper)
-                                        .scaleEffect(0.85)
-                                }
-                                Text(isInstalling ? "Opening GitHub…" : "Authorize Coach Phelps →")
-                            }
-                        }
-                        .buttonStyle(WarmSetupButtonStyle(primary: true))
-                        .disabled(isInstalling)
-                    }
-
-                    if showStep2Hint && repoStepComplete {
-                        Text("Repo ready — tap above to connect Coach Phelps.")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(WarmInstrument.ink)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                    }
-
-                    if let error = errorMessage ?? authManager.lastNetworkError {
-                        Text(UserFacingError.friendlyAPIError(error))
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(WarmInstrument.alarmFg)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 4)
-                        if devModeEnabled {
-                            Text(error)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func stepRow(
-        number: Int,
-        title: String,
-        subtitle: String,
-        complete: Bool,
-        isLoading: Bool
-    ) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(complete ? WarmInstrument.ink : WarmInstrument.surfaceMuted)
-                    .frame(width: 28, height: 28)
-                if isLoading {
+    private var progressSection: some View {
+        VStack(spacing: 8) {
+            HStack {
+                MonoLabel("Step \(currentStep) of 2", size: 9, tracking: 1.0)
+                Spacer(minLength: 0)
+                if isCheckingRepo {
                     ProgressView()
-                        .scaleEffect(0.55)
-                        .tint(WarmInstrument.ink)
-                } else if complete {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(WarmInstrument.paper)
-                } else {
-                    Text("\(number)")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(WarmInstrument.inkMuted)
+                        .scaleEffect(0.65)
+                        .tint(WarmInstrument.inkMuted)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(WarmInstrument.ink)
-                Text(subtitle)
-                    .font(.system(size: 12))
-                    .foregroundColor(WarmInstrument.inkFaint)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
+            HairlineProgress(
+                fraction: progressFraction,
+                tint: WarmInstrument.ink,
+                height: 4
+            )
+            .animation(PremiumMotion.state, value: progressFraction)
         }
-        .padding(12)
-        .background(complete ? WarmInstrument.surfaceMuted.opacity(0.6) : WarmInstrument.surfaceMuted)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var repoReadyHint: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(WarmInstrument.inkMuted)
+            Text("coach-\(login ?? "you") is ready on GitHub")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(WarmInstrument.inkFaint)
+        }
+    }
+
+    // MARK: - Action section
+
+    private var actionSection: some View {
+        VStack(spacing: 12) {
+            if repoStepComplete {
+                Text(
+                    "The next screen authorizes Coach Phelps — not another sign-in.\n\nWhen GitHub asks which repos to share, choose **Only select repositories** and pick **coach-\(login ?? "yours")**. Don't grant access to all repos."
+                )
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
+            if let error = errorMessage ?? authManager.lastNetworkError {
+                Text(UserFacingError.friendlyAPIError(error))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(WarmInstrument.alarmFg)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
+                if devModeEnabled {
+                    Text(error)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                        .multilineTextAlignment(.center)
+                }
+            }
+
+            Button {
+                Haptics.tap()
+                if repoStepComplete {
+                    continueToInstall()
+                } else {
+                    openCreateRepo()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    if isInstalling {
+                        ProgressView()
+                            .tint(WarmInstrument.paper)
+                            .scaleEffect(0.85)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                    Text(primaryButtonLabel)
+                        .contentTransition(.opacity)
+                }
+                .animation(PremiumMotion.press, value: isInstalling)
+            }
+            .buttonStyle(WarmSetupButtonStyle(primary: true))
+            .disabled(primaryButtonDisabled)
+            .onboardingReveal(index: 5)
+        }
+        .animation(PremiumMotion.onboardingReveal, value: repoStepComplete)
+    }
+
+    private var primaryButtonLabel: String {
+        if repoStepComplete {
+            return isInstalling ? "Opening GitHub…" : "Authorize Coach Phelps"
+        }
+        return "Create Repo"
+    }
+
+    private var primaryButtonDisabled: Bool {
+        if repoStepComplete {
+            return isInstalling
+        }
+        return generateURL == nil || isCheckingRepo
     }
 
     // MARK: - Actions
@@ -216,14 +199,27 @@ struct SetupView: View {
             return
         }
         isCheckingRepo = true
-        repoStepComplete = await authManager.coachRepoExists(for: login)
-        isCheckingRepo = false
+        defer { isCheckingRepo = false }
+
+        // Never downgrade — URL detection may mark complete before the REST API catches up.
+        if await authManager.coachRepoExists(for: login) {
+            repoStepComplete = true
+            return
+        }
+
+        // One retry after browse dismiss — GitHub can lag a second after repo create.
+        if !repoStepComplete {
+            try? await Task.sleep(for: .seconds(1))
+            if await authManager.coachRepoExists(for: login) {
+                repoStepComplete = true
+            }
+        }
     }
 
+    @MainActor
     private func markRepoComplete() {
         guard !repoStepComplete else { return }
         repoStepComplete = true
-        showStep2Hint = true
         Haptics.success()
         WebAuthPresenter.shared.dismissBrowse()
     }
@@ -232,11 +228,20 @@ struct SetupView: View {
         guard let generateURL, let login else { return }
         guard !repoStepComplete else { return }
 
-        WebAuthPresenter.shared.presentBrowse(url: generateURL) { url in
-            if authManager.isCoachRepoCreationURL(url, login: login) {
-                markRepoComplete()
+        WebAuthPresenter.shared.presentBrowse(
+            url: generateURL,
+            onNavigation: { url in
+                guard authManager.isCoachRepoCreationURL(url, login: login) else { return }
+                Task { @MainActor in
+                    markRepoComplete()
+                }
+            },
+            onDismiss: {
+                Task { @MainActor in
+                    await refreshRepoStatus()
+                }
             }
-        }
+        )
     }
 
     private func continueToInstall() {

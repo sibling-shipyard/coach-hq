@@ -85,7 +85,8 @@ The system uses a unidirectional data flow centered around the GitHub repository
 
 - **Language:** Swift 5.9+
 - **UI Framework:** SwiftUI
-- **Authentication:** `ASWebAuthenticationSession` (OAuth 2.0 via GitHub)
+- **Authentication:** Shared in-app WKWebView OAuth via the coach-phelps-hq auth backend
+  (`WebAuthPresenter` / `WebAuthBrowserStore` — see `github-auth.md` § iOS flow)
 - **Health Data:** HealthKit (`HKSampleQueryDescriptor`)
 - **API Client:** Custom lightweight `URLSession` wrapper for GitHub REST API (Contents, Git Data, Trees, Commits).
 - **Minimum Target:** iOS 16.0 (required for modern Swift concurrency and Live Activities).

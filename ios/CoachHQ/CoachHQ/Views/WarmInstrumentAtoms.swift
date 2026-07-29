@@ -5,6 +5,22 @@ import SwiftUI
 /// progress underline, and the card shell. See `ui/docs/reference-interactions/Widget Design
 /// Philosophy.md` for the spec these mirror.
 
+// MARK: - Onboarding logo
+
+/// Centered app mark for login/setup onboarding — shared across auth screens.
+struct OnboardingLogo: View {
+    var size: CGFloat = 88
+
+    var body: some View {
+        Image("CoachLogo")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+            .shadow(color: WarmInstrument.cardShadow, radius: 12, y: 6)
+    }
+}
+
 // MARK: - WarmCard
 
 /// The Warm Instrument card shell — paper surface, warm hairline border, soft shadow, 18pt

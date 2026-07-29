@@ -154,6 +154,12 @@ enum WarmInstrument {
             ? UIColor(red: 0x27 / 255, green: 0x25 / 255, blue: 0x20 / 255, alpha: 1)
             : UIColor(red: 0xf3 / 255, green: 0xee / 255, blue: 0xe3 / 255, alpha: 1)
     })
+    /// Coach Chat message pane — slightly warmer than desk (`Coach Chat Mobile.dc.html`).
+    static let chatSurface = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x22 / 255, green: 0x21 / 255, blue: 0x1c / 255, alpha: 1)
+            : UIColor(red: 0xf5 / 255, green: 0xf0 / 255, blue: 0xe6 / 255, alpha: 1)
+    })
     static let ink = Theme.ink
     static let inkMuted = Color(red: 0x75 / 255, green: 0x74 / 255, blue: 0x6b / 255)
     static let inkFaint = Color(red: 0x98 / 255, green: 0x99 / 255, blue: 0x8f / 255)
@@ -411,6 +417,7 @@ struct WarmDialog: View {
     let primaryAction: () -> Void
     var secondaryTitle: String? = nil
     var secondaryAction: (() -> Void)? = nil
+    var primaryColor: Color? = nil
     /// Backdrop tap — defaults to secondary action, then primary.
     var onBackdropTap: (() -> Void)? = nil
 
@@ -444,7 +451,7 @@ struct WarmDialog: View {
                     if let secondaryTitle, let secondaryAction {
                         WarmDialogActionButton(title: secondaryTitle, style: .secondary, action: secondaryAction)
                     }
-                    WarmDialogActionButton(title: primaryTitle, style: .primary, action: primaryAction)
+                    WarmDialogActionButton(title: primaryTitle, style: .primary, primaryColor: primaryColor, action: primaryAction)
                 }
             }
             .padding(.horizontal, 26)
@@ -467,7 +474,10 @@ struct WarmDialogActionButton: View {
 
     let title: String
     let style: Style
+    var primaryColor: Color? = nil
     let action: () -> Void
+
+    private var resolvedPrimaryColor: Color { primaryColor ?? WarmInstrument.accent }
 
     var body: some View {
         Button(action: action) {
@@ -476,7 +486,7 @@ struct WarmDialogActionButton: View {
                 .foregroundColor(style == .primary ? WarmInstrument.paper : Theme.ink)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(style == .primary ? WarmInstrument.accent : WarmInstrument.paper)
+                .background(style == .primary ? resolvedPrimaryColor : WarmInstrument.paper)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(
@@ -654,30 +664,69 @@ enum PremiumMotion {
     static let statsLoad = Animation.easeOut(duration: 0.65)
     /// ≤60ms per item — Design Philosophy stagger budget.
     static func staggerDelay(index: Int) -> Double { Double(index) * 0.055 }
+    /// Onboarding hero cascade — slightly wider spacing so the sequence reads on cold launch.
+    static func onboardingStaggerDelay(index: Int) -> Double { 0.08 + Double(index) * 0.07 }
+    static let onboardingReveal = Animation.spring(duration: 0.48, bounce: 0.14)
 }
 
-/// Fade + 3–4pt slide reveal for ledger rows, login hero, etc.
+/// Fade + slide (optional scale) reveal for ledger rows, login hero, etc.
 struct StaggerRevealModifier: ViewModifier {
     let delay: Double
     var offset: CGFloat = 4
+    var scale: CGFloat = 1
+    var animation: Animation = PremiumMotion.reveal
     @State private var visible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var hiddenScale: CGFloat { scale < 1 ? scale : 1 }
 
     func body(content: Content) -> some View {
         content
             .opacity(visible ? 1 : 0)
             .offset(y: visible ? 0 : offset)
-            .onAppear {
-                withAnimation(PremiumMotion.reveal.delay(delay)) {
-                    visible = true
-                }
+            .scaleEffect(visible ? 1 : hiddenScale)
+            .onAppear { playEntrance() }
+            .onDisappear { visible = false }
+    }
+
+    private func playEntrance() {
+        guard !visible else { return }
+        if reduceMotion {
+            visible = true
+            return
+        }
+        Task { @MainActor in
+            // Yield one frame so opacity-0 paints before we animate in.
+            await Task.yield()
+            if delay > 0 {
+                try? await Task.sleep(for: .seconds(delay))
             }
+            withAnimation(animation) {
+                visible = true
+            }
+        }
     }
 }
 
 extension View {
     /// Cascading entrance — default 4pt lift, spring fade-in.
-    func staggerReveal(delay: Double = 0, offset: CGFloat = 4) -> some View {
-        modifier(StaggerRevealModifier(delay: delay, offset: offset))
+    func staggerReveal(
+        delay: Double = 0,
+        offset: CGFloat = 4,
+        scale: CGFloat = 1,
+        animation: Animation = PremiumMotion.reveal
+    ) -> some View {
+        modifier(StaggerRevealModifier(delay: delay, offset: offset, scale: scale, animation: animation))
+    }
+
+    /// Hero onboarding entrance — larger lift + scale pop, tuned for login/setup cold launch.
+    func onboardingReveal(delay: Double = 0, index: Int = 0) -> some View {
+        staggerReveal(
+            delay: delay > 0 ? delay : PremiumMotion.onboardingStaggerDelay(index: index),
+            offset: 14,
+            scale: index == 0 ? 0.9 : 1,
+            animation: PremiumMotion.onboardingReveal
+        )
     }
 
     /// Swipe right from the leading edge to pop — matches hidden-nav-bar push screens.

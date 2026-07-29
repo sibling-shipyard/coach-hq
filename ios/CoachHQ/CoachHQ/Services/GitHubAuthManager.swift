@@ -96,8 +96,10 @@ class GitHubAuthManager: ObservableObject {
     func isCoachRepoCreationURL(_ url: URL, login: String) -> Bool {
         guard url.host?.lowercased() == "github.com" else { return false }
         let parts = url.path.split(separator: "/").map(String.init)
-        return parts.count >= 2 && parts[0].caseInsensitiveCompare(login) == .orderedSame
-            && parts[1].caseInsensitiveCompare("coach-\(login)") == .orderedSame
+        guard parts.count >= 2 else { return false }
+        let ownerMatches = parts[0].caseInsensitiveCompare(login) == .orderedSame
+        let repoMatches = parts[1].caseInsensitiveCompare("coach-\(login)") == .orderedSame
+        return ownerMatches && repoMatches
     }
 
     private func runAuthSession(path: String) async throws {

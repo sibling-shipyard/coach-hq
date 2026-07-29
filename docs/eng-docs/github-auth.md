@@ -129,37 +129,42 @@ sequenceDiagram
 
 ## iOS flow
 
-`ASWebAuthenticationSession` (what presents the GitHub sign-in webview) is a single,
-self-contained session - it can't cleanly host the web wizard's "click a link, it opens a new
-tab, come back" pattern. So `Setup.tsx` gets reimplemented **natively** as `SetupView.swift`
-rather than embedding the React page.
+`Setup.tsx` is reimplemented **natively** as `SetupView.swift` rather than embedding the React
+page. OAuth and install run in a **shared in-app WKWebView** (`WebAuthPresenter.shared` +
+`InAppAuthWebView`) backed by `WebAuthBrowserStore` — one cookie jar for the whole flow
+(Google federated login → GitHub → repo create → app install). `ASWebAuthenticationSession` and
+Safari each use separate stores, so federated cookies did not carry across the old split flow.
 
-- `GitHubAuthManager.swift` - `signIn()` opens `ASWebAuthenticationSession` against
-  `{dashboardBaseURL}/api/auth/start?platform=ios`, `callbackURLScheme = "coachhq"`. Parses the
+- `CoachHQApp.swift` — presents `InAppAuthWebView` in a `.sheet` bound to
+  `WebAuthPresenter.shared`. OAuth resumes on `coachhq://` callback; browse mode (repo create)
+  dismisses manually while cookies persist for step 2.
+- `GitHubAuthManager.swift` — `signIn()` and `continueToInstall()` call
+  `WebAuthPresenter.start()` against `{dashboardBaseURL}/api/auth/start?platform=ios` and
+  `/api/auth/install-redirect?platform=ios` respectively. `continueToInstall()` also passes
+  `suggested_target_id` (GitHub user id) so install lands on the right account. Parses the
   `coachhq://callback` redirect (`handleCallback()`): `error=` throws, `needs_setup=1&login=`
   sets `pendingSetupLogin` (routes to `SetupView`), `token=&login=[&repo=]` saves the token to
   Keychain (`com.siblingshipyard.coachhq.github.token`, unchanged key) and sets `selectedRepo`
-  when present.
-- `SetupView.swift` - step 1 opens the same `github.com/new?template_owner=...` URL in system
-  Safari via `UIApplication.shared.open()` (standard "switch out, do a thing, switch back"
-  mobile pattern - no in-session navigation needed). Step 2 calls
-  `authManager.continueToInstall()`, which opens a **second** `ASWebAuthenticationSession`
-  against `/api/auth/install-redirect?platform=ios`. Has a Cancel button (signs out) - the only
-  way out used to be force-quitting the app.
-- `resolveRepoIfNeeded()` - the fallback for the rare not-exactly-one-candidate case, calls
+  when present. `repoFullName` normalizes `selectedRepo` whether it is already `owner/repo` or
+  repo-name-only — fixes `X-Coach-Repo` and REST URLs on legacy paths.
+- `SetupView.swift` — step 1 calls `WebAuthPresenter.presentBrowse()` with the same
+  `github.com/new?template_owner=...` URL (shared cookies, no app switch). Step 2 calls
+  `authManager.continueToInstall()`. Cancel signs out — used to be force-quit only.
+- `resolveRepoIfNeeded()` — fallback for the rare not-exactly-one-candidate case; calls
   `list-my-repos.ts` with `Authorization: Bearer <token>`, no `X-Coach-Repo` (that's what's being
-  resolved). No native picker UI exists yet for a genuine 2+ result - `selectedRepo` just stays
-  nil, and `bootstrapSession()` routes back into `pendingSetupLogin` instead of leaving
-  `CoachHQApp` on a broken `MainTabView` with nothing to show.
+  resolved). No native picker UI for 2+ results — `selectedRepo` stays nil and
+  `bootstrapSession()` routes back into `pendingSetupLogin` instead of a broken `MainTabView`.
 - `CoachHQApp.swift` routing: `isAuthenticated && (selectedRepo != nil || !isSessionReady)` →
-  `MainTabView` (the `!isSessionReady` half keeps the normal loading state during cold-launch
-  resolution from flashing to `SetupView`); else `pendingSetupLogin != nil` → `SetupView`; else
-  `LoginView`.
+  `MainTabView` (the `!isSessionReady` half keeps cold-launch resolution from flashing to
+  `SetupView`); else `pendingSetupLogin != nil` → `SetupView`; else `LoginView`.
+- `CoachSetupState` / `CoachSetupBootstrap` — after setup completes, new athletes land on the
+  **Chat** tab until first Coach intake is done (`UserDefaults` per repo). On upgrade,
+  `MainTabView` loads chat history first; existing threads auto-mark setup complete so returning
+  athletes still open Home.
 - `fetchUser()`/`resolveRepoIfNeeded()` failures surface via `lastNetworkError`, shown inline on
-  `LoginView`/`SetupView` - used to fail with only a console `print()`, no signal at all.
+  `LoginView`/`SetupView` — used to fail with only a console `print()`, no signal at all.
 - `GitHubAuthManager`'s public surface (`isAuthenticated`, `isSessionReady`, `user`,
-  `selectedRepo`, `loadToken()`, `signOut()`) is unchanged, so `GitHubAPIClient.swift`,
-  `SettingsView.swift`, etc. needed no changes for the initial rewrite - `GitHubAPIClient.swift`
+  `selectedRepo`, `loadToken()`, `signOut()`) is unchanged for callers — `GitHubAPIClient.swift`
   does now call `validToken()` (see Session mechanics) instead of `loadToken()` in a couple of
   places, for the refresh-token rotation below.
 

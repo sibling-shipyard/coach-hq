@@ -1,10 +1,13 @@
 import SwiftUI
 
-/// Native Coach Chat - a client of the same /api/coach-chat endpoint the web app uses
-/// (docs/eng-docs/coach-chat-flow.md, ADR 0012). No Gemini or commit logic lives here; this
-/// view only sends/receives and renders. Smallest useful surface for #126: thread list +
-/// conversation pane + thinking indicator, matching the web app's information, not its full
-/// Warm Instrument chrome pixel-for-pixel.
+/// Native Coach Chat — Warm Instrument continuous landing (`Coach Chat Mobile.dc.html` Turn 1).
+///
+/// **Wireup checklist (Skanda):**
+/// 1. `loadThreads()` — API returns seeded today thread on new-day open; drop preview fallback.
+/// 2. `headerContext` — populate from `challenge_v2` / widget snapshots (`D-143 · WK 4/4 · …`).
+/// 3. `chips(for:)` — map coach message metadata from API instead of `CoachChatPreviewData.chipsByMessageId`.
+/// 4. `showSignature(for:)` — server flag on unprompted morning-read messages only.
+/// 5. `historyThreads` — enforce 7-day window server-side; client already groups by `dayOffset`.
 struct CoachChatView: View {
     @EnvironmentObject private var authManager: GitHubAuthManager
 
@@ -17,48 +20,80 @@ struct CoachChatView: View {
     @State private var errorMessage: String?
     @State private var showErrorDialog = false
     @State private var needsSignIn = false
+    @State private var showHistorySheet = false
 
-    private var activeThread: ChatThread? {
-        threads.first { $0.id == activeThreadId }
+    /// Until wired: preview header from mock. Replace with snapshot/challenge_v2 read.
+    @State private var headerContext = CoachChatHeaderContext.preview
+
+    private var usingPreviewShell: Bool {
+        !threadsLoading && threads.filter { $0.status != .deleted }.isEmpty
+    }
+
+    private var historyThreads: [ChatThread] {
+        let live = threads.filter { $0.status != .deleted }
+        return live.isEmpty ? CoachChatPreviewData.historyThreads : live
+    }
+
+    private var todayThread: ChatThread? {
+        threads.first { $0.dayOffset == 0 && $0.status != .deleted }
+    }
+
+    private var yesterdayThread: ChatThread? {
+        if let live = threads.first(where: { $0.dayOffset == 1 && $0.status != .deleted }) {
+            return live
+        }
+        if usingPreviewShell {
+            return CoachChatPreviewData.historyThreads.first { $0.dayOffset == 1 }
+        }
+        return nil
+    }
+
+    private var displayThread: ChatThread {
+        if let id = activeThreadId {
+            if let thread = threads.first(where: { $0.id == id }) { return thread }
+            if usingPreviewShell,
+               let preview = CoachChatPreviewData.historyThreads.first(where: { $0.id == id }) {
+                return preview
+            }
+        }
+        if let today = todayThread { return today }
+        return CoachChatPreviewData.seededTodayThread
+    }
+
+    private var isViewingToday: Bool {
+        displayThread.dayOffset == 0
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if needsSignIn {
-                    signInAgainView
-                } else if let thread = activeThread {
-                    conversationView(thread)
-                } else {
-                    threadListView
-                }
-            }
-            .background(WarmInstrument.desk.ignoresSafeArea())
-            .navigationTitle(needsSignIn ? "Coach Chat" : (activeThread?.title ?? "Coach Chat"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if !needsSignIn && activeThread != nil {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button("Conversations") { activeThreadId = nil }
-                    }
-                }
-                if !needsSignIn {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            activeThreadId = nil
-                            draft = ""
-                        } label: {
-                            Image(systemName: "square.and.pencil")
-                        }
-                    }
-                }
+        Group {
+            if needsSignIn {
+                signInAgainView
+            } else if threadsLoading {
+                loadingView
+            } else {
+                continuousLandingView
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(WarmInstrument.desk.ignoresSafeArea())
         .task(id: chatFetchToken) {
             guard authManager.isAuthenticated, authManager.isSessionReady else { return }
             guard authManager.selectedRepo != nil else { return }
             apiClient = CoachChatAPIClient(authManager: authManager)
             await loadThreads()
+        }
+        .sheet(isPresented: $showHistorySheet) {
+            CoachChatHistorySheet(
+                threads: historyThreads,
+                todayThreadId: todayThread?.id ?? CoachChatPreviewData.previewTodayThreadId,
+                onSelect: { thread in
+                    activeThreadId = thread.id
+                },
+                onNew: {
+                    activeThreadId = nil
+                    draft = ""
+                }
+            )
         }
         .onChange(of: errorMessage) { _, message in
             showErrorDialog = message != nil
@@ -78,23 +113,134 @@ struct CoachChatView: View {
         .animation(.spring(duration: 0.25, bounce: 0), value: showErrorDialog)
     }
 
-    private func dismissErrorDialog() {
-        showErrorDialog = false
-        errorMessage = nil
+    // MARK: - Continuous landing
+
+    private var continuousLandingView: some View {
+        VStack(spacing: 0) {
+            CoachChatHeaderBar(
+                context: headerContext,
+                showsBack: !isViewingToday,
+                onBack: isViewingToday ? nil : { selectTodayThread() },
+                onHistory: { showHistorySheet = true }
+            )
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        ForEach(displayThread.messages) { message in
+                            messageRow(message)
+                                .id(message.id)
+                        }
+
+                        if isViewingToday, let yesterday = yesterdayThread {
+                            CoachChatPickUpRow(
+                                dayLabel: headerContext.dayLabel(offset: yesterday.dayOffset),
+                                title: "Pick up \"\(yesterday.title)\""
+                            ) {
+                                activeThreadId = yesterday.id
+                            }
+                        }
+
+                        if sending {
+                            HStack {
+                                CoachChatThinkingBubble()
+                                Spacer(minLength: 40)
+                            }
+                            .id("thinking")
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
+                }
+                .background(WarmInstrument.chatSurface)
+                .onAppear {
+                    scrollToBottom(proxy: proxy)
+                }
+                .onChange(of: displayThread.messages.count) { _, _ in
+                    scrollToBottom(proxy: proxy)
+                }
+                .onChange(of: sending) { _, isSending in
+                    if isSending {
+                        withAnimation { proxy.scrollTo("thinking", anchor: .bottom) }
+                    }
+                }
+            }
+
+            VStack(spacing: 8) {
+                if isViewingToday {
+                    CoachChatStarterChips(
+                        prompts: CoachChatPreviewData.starterPrompts,
+                        isDisabled: sending
+                    ) { prompt in
+                        draft = prompt
+                        Task { await send(from: resolvedSendThreadId()) }
+                    }
+                }
+
+                CoachChatComposer(
+                    draft: $draft,
+                    placeholder: sending ? "Coach is replying…" : "Message Coach…",
+                    isSending: sending
+                ) {
+                    Task { await send(from: resolvedSendThreadId()) }
+                }
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 10)
+            .background(WarmInstrument.chatSurface)
+        }
     }
 
-    /// Re-triggers the thread load once GitHub profile + repo discovery finish - same fix
-    /// WarmInstrumentHomeView.homeFetchToken applies for Home. Without this, a cold-launch
-    /// race (token in Keychain ≠ repo discovered yet) leaves the thread list silently
-    /// empty forever, since this tab never unmounts to re-run a plain `.task`.
-    private var chatFetchToken: String {
-        [
-            authManager.isAuthenticated ? "authed" : "anon",
-            authManager.isSessionReady ? "ready" : "boot",
-            authManager.user?.login ?? "",
-            authManager.selectedRepo ?? "",
-        ].joined(separator: "|")
+    private var loadingView: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .tint(WarmInstrument.inkMuted)
+            Text("Loading Coach…")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(WarmInstrument.inkFaint)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    // MARK: - Messages
+
+    @ViewBuilder
+    private func messageRow(_ message: ChatMessage) -> some View {
+        switch message.role {
+        case .divider:
+            CoachChatDayDivider(label: message.label ?? "")
+                .frame(maxWidth: .infinity)
+
+        case .user:
+            HStack {
+                Spacer(minLength: 40)
+                CoachChatUserBubble(text: message.text ?? "")
+            }
+
+        case .coach:
+            HStack {
+                CoachChatCoachBubble(
+                    paragraphs: message.paragraphs ?? [],
+                    chips: chips(for: message),
+                    showSignature: showSignature(for: message)
+                )
+                Spacer(minLength: 40)
+            }
+        }
+    }
+
+    /// Wireup: replace preview map with API-provided chip payloads on coach messages.
+    private func chips(for message: ChatMessage) -> [CoachChatInlineChip] {
+        CoachChatPreviewData.chipsByMessageId[message.id] ?? []
+    }
+
+    /// Wireup: server should flag unprompted morning-read messages only.
+    private func showSignature(for message: ChatMessage) -> Bool {
+        CoachChatPreviewData.signatureMessageIds.contains(message.id)
+    }
+
+    // MARK: - Auth expired
 
     private var signInAgainView: some View {
         VStack(spacing: 14) {
@@ -117,7 +263,7 @@ struct CoachChatView: View {
             } label: {
                 Text("Sign in again")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(WarmInstrument.paper)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                     .background(WarmInstrument.ink)
@@ -127,154 +273,39 @@ struct CoachChatView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Thread list
+    private func dismissErrorDialog() {
+        showErrorDialog = false
+        errorMessage = nil
+    }
 
-    private var threadListView: some View {
-        Group {
-            if threadsLoading {
-                ProgressView("Loading conversations…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if threads.isEmpty {
-                emptyStateView
-            } else {
-                List {
-                    ForEach(threads.filter { $0.status != .deleted }) { thread in
-                        Button {
-                            activeThreadId = thread.id
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(thread.title)
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(WarmInstrument.ink)
-                                Text(thread.preview)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(WarmInstrument.inkFaint)
-                                    .lineLimit(2)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-                .listStyle(.plain)
-                .refreshable { await loadThreads() }
-            }
+    private func selectTodayThread() {
+        activeThreadId = todayThread?.id ?? CoachChatPreviewData.previewTodayThreadId
+    }
+
+    private func resolvedSendThreadId() -> String? {
+        let id = displayThread.id
+        if threads.contains(where: { $0.id == id }) { return id }
+        if id == CoachChatPreviewData.previewTodayThreadId { return nil }
+        return id.hasPrefix("local-") ? id : nil
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy) {
+        if let last = displayThread.messages.last?.id {
+            proxy.scrollTo(last, anchor: .bottom)
         }
     }
 
-    private var emptyStateView: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 32))
-                .foregroundStyle(WarmInstrument.inkFaint)
-            Text("Ask Coach anything")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(WarmInstrument.ink)
-            composer(sendAction: { Task { await send(from: nil) } })
-                .padding(.horizontal, 20)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: - Conversation
-
-    private func conversationView(_ thread: ChatThread) -> some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(thread.messages) { message in
-                            messageRow(message)
-                        }
-                        if sending {
-                            thinkingBubble.id("thinking")
-                        }
-                    }
-                    .padding(16)
-                }
-                .onChange(of: sending) { _, isSending in
-                    if isSending { withAnimation { proxy.scrollTo("thinking", anchor: .bottom) } }
-                }
-            }
-            composer(sendAction: { Task { await send(from: thread.id) } })
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(WarmInstrument.paper)
-        }
-    }
-
-    @ViewBuilder
-    private func messageRow(_ message: ChatMessage) -> some View {
-        switch message.role {
-        case .divider:
-            Text(message.label ?? "")
-                .font(.system(size: 11, weight: .bold))
-                .kerning(1.2)
-                .foregroundStyle(WarmInstrument.inkFaint)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-        case .user:
-            HStack {
-                Spacer(minLength: 40)
-                Text(message.text ?? "")
-                    .font(.system(size: 15))
-                    .foregroundColor(.white)
-                    .padding(12)
-                    .background(WarmInstrument.ink)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-            }
-        case .coach:
-            HStack {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array((message.paragraphs ?? []).enumerated()), id: \.offset) { _, paragraph in
-                        Text(paragraph)
-                            .font(.system(size: 15))
-                            .italic()
-                            .foregroundStyle(WarmInstrument.ink)
-                    }
-                }
-                .padding(12)
-                .background(WarmInstrument.surfaceMuted)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-                Spacer(minLength: 40)
-            }
-        }
-    }
-
-    private var thinkingBubble: some View {
-        HStack {
-            HStack(spacing: 5) {
-                ForEach(0..<3, id: \.self) { _ in
-                    Circle().frame(width: 6, height: 6).foregroundStyle(WarmInstrument.inkFaint)
-                }
-            }
-            .padding(12)
-            .background(WarmInstrument.surfaceMuted)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-            Spacer(minLength: 40)
-        }
-        .accessibilityLabel("Coach is thinking")
-    }
-
-    private func composer(sendAction: @escaping () -> Void) -> some View {
-        HStack(spacing: 8) {
-            TextField(sending ? "Coach is replying…" : "Ask Coach anything…", text: $draft, axis: .vertical)
-                .disabled(sending)
-                .padding(10)
-                .background(WarmInstrument.surfaceMuted)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            Button(action: sendAction) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending ? WarmInstrument.inkFaint : WarmInstrument.ink)
-            }
-            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
-        }
+    private var chatFetchToken: String {
+        [
+            authManager.isAuthenticated ? "authed" : "anon",
+            authManager.isSessionReady ? "ready" : "boot",
+            authManager.user?.login ?? "",
+            authManager.selectedRepo ?? "",
+        ].joined(separator: "|")
     }
 
     // MARK: - Networking
 
-    /// Called wherever `needsSignIn` is set, so the previous account's threads can't flash on
-    /// screen before the next sign-in's fetch completes (this view never re-mounts on sign-out).
     private func clearThreadState() {
         threads = []
         activeThreadId = nil
@@ -285,12 +316,20 @@ struct CoachChatView: View {
         guard let apiClient else { return }
         threadsLoading = true
         defer { threadsLoading = false }
+
         do {
             threads = try await apiClient.fetchThreads()
             if !threads.filter({ $0.status != .deleted }).isEmpty,
                let repo = authManager.repoFullName {
                 CoachSetupState.markComplete(repoFullName: repo)
             }
+            // Wireup: prefer API today's thread; preview shell when empty.
+            if let today = todayThread {
+                activeThreadId = today.id
+            } else if activeThreadId == nil {
+                activeThreadId = CoachChatPreviewData.previewTodayThreadId
+            }
+            // Wireup: headerContext = await CoachChatHeaderLoader.load(...)
         } catch let error as GitHubAPIError {
             if case .sessionNotReady = error { return }
             if case .notAuthenticated = error {
@@ -299,14 +338,13 @@ struct CoachChatView: View {
                 return
             }
             errorMessage = error.errorDescription ?? "Couldn't load conversations"
+            activeThreadId = CoachChatPreviewData.previewTodayThreadId
         } catch {
             errorMessage = "Couldn't load conversations"
+            activeThreadId = CoachChatPreviewData.previewTodayThreadId
         }
     }
 
-    /// Mirrors CoachChat.tsx's appendUserMessage(): nothing is persisted server-side until a
-    /// `closed: true` response reports a real commit (coach-chat-flow.md "ordinary turn" vs
-    /// "close-session turn") - otherwise this appends the reply to local state itself.
     private func send(from targetId: String?) async {
         guard let apiClient else { return }
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -333,20 +371,19 @@ struct CoachChatView: View {
             }
 
             let coachMsg = ChatMessage.coach(id: "c-\(now)", paragraphs: [result.reply])
-            if let targetId {
-                if let idx = threads.firstIndex(where: { $0.id == targetId }) {
-                    threads[idx].messages.append(contentsOf: [userMsg, coachMsg])
-                    threads[idx].preview = String(result.reply.prefix(80))
-                    threads[idx].ageLabel = "NOW"
-                    threads[idx].status = .active
-                }
+            if let targetId, let idx = threads.firstIndex(where: { $0.id == targetId }) {
+                threads[idx].messages.append(contentsOf: [userMsg, coachMsg])
+                threads[idx].preview = String(result.reply.prefix(80))
+                threads[idx].ageLabel = "NOW"
+                threads[idx].status = .active
+                activeThreadId = targetId
             } else {
                 let id = "local-\(now)"
-                let divider = ChatMessage.divider(id: "d-\(now)", label: "TODAY")
+                let divider = ChatMessage.divider(id: "d-\(now)", label: headerContext.dayLabel(offset: 0))
                 let created = ChatThread(
                     id: id,
                     dayOffset: 0,
-                    title: String(trimmed.prefix(28)),
+                    title: "Today's thread",
                     preview: String(result.reply.prefix(80)),
                     ageLabel: "NOW",
                     status: .active,
@@ -367,5 +404,15 @@ struct CoachChatView: View {
             errorMessage = "Coach didn't reply — try again"
             draft = trimmed
         }
+    }
+}
+
+// MARK: - Header helpers
+
+extension CoachChatHeaderContext {
+    /// `D-143` with offset 1 → `D-142` (wireup: derive from challenge day index).
+    func dayLabel(offset: Int) -> String {
+        let base = Int(dayLabel.replacingOccurrences(of: "D-", with: "")) ?? 0
+        return "D-\(max(0, base - offset))"
     }
 }

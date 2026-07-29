@@ -85,6 +85,11 @@ private struct InAppAuthWebViewRepresentable: UIViewRepresentable {
             decisionHandler(.allow)
         }
 
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard case .browse = mode, let url = webView.url else { return }
+            WebAuthPresenter.shared.onBrowseNavigation?(url)
+        }
+
         /// Google / GitHub federated login opens target=_blank — load in the same web view.
         func webView(
             _ webView: WKWebView,
