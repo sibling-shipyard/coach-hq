@@ -1,4 +1,4 @@
-# Coach Phelps iOS App
+# Coach HQ iOS App
 
 > The silent bridge between your body and your coach.
 
@@ -17,11 +17,11 @@ Apple Watch / Garmin → Apple Health → This App → GitHub Repo → Coach + D
 - iOS 16.0+
 - Xcode 15.0+
 - An Apple Watch or Garmin watch syncing to Apple Health
-- A `coach-phelps` or `coach-phelps-template` GitHub repository
+- A `coach-<name>` GitHub repository (e.g. `coach-akash`), or legacy `coach-phelps` / `coach-phelps-template`
 
 ## Setup
 
-1. Open `ios/CoachPhelps/CoachPhelps.xcodeproj` in Xcode
+1. Open `ios/CoachHQ/CoachHQ.xcodeproj` in Xcode
 2. Set your development team (Signing & Capabilities)
 3. Enable the **HealthKit** capability
 4. Build and run on your device (not simulator — HealthKit requires a real device)
@@ -32,9 +32,9 @@ Apple Watch / Garmin → Apple Health → This App → GitHub Repo → Coach + D
 ## Project Structure
 
 ```
-CoachPhelps/
+CoachHQ/
 ├── App/
-│   └── CoachPhelpsApp.swift          # Entry point
+│   └── CoachHQApp.swift              # Entry point
 ├── Models/
 │   ├── Activity.swift                # Activity JSON schema (matches legacy Strava format)
 │   └── SyncCache.swift               # Local cache of synced activities (UserDefaults)
@@ -47,9 +47,9 @@ CoachPhelps/
 │   └── DescriptionParser.swift       # On-device badminton score parsing (port of parse_match_description.py)
 ├── Views/
 │   ├── LoginView.swift               # GitHub OAuth sign-in screen
-│   ├── MainTabView.swift             # Tab navigation
-│   ├── SyncStatusView.swift          # Sync status + manual trigger
-│   ├── ActivityListView.swift        # Last-7-days synced activities
+│   ├── MainTabView.swift             # Tab navigation (Home · Workouts · More)
+│   ├── WarmInstrumentHomeView.swift  # Warm Instrument Home tab
+│   ├── ActivityListView.swift        # Last-7-days synced activities (from Home)
 │   ├── ActivityDetailView.swift      # Paste scores, live preview, save & sync
 │   ├── WorkoutPlaceholderView.swift  # v0.2 timer placeholder
 │   └── SettingsView.swift            # HR zones, account, repo selection
@@ -68,6 +68,6 @@ CoachPhelps/
 
 - [ ] Create a GitHub OAuth App at github.com/settings/developers
 - [ ] Replace `YOUR_CLIENT_ID` and `YOUR_CLIENT_SECRET` in `GitHubAuthManager.swift`
-- [ ] Set the OAuth callback URL to `coachphelps://callback`
+- [ ] Set the OAuth callback URL to `coachhq://callback`
 - [ ] Enable HealthKit capability in Xcode project settings
 - [ ] Test that `build-data.mjs` picks up `hk_` prefixed files correctly

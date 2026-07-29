@@ -7,7 +7,7 @@ import Foundation
 // `swift`/`swiftc` CLI directly against the app's DescriptionParser.swift.
 //
 // Usage:
-//   swiftc ios/CoachPhelps/CoachPhelps/Services/DescriptionParser.swift \
+//   swiftc ios/CoachHQ/CoachHQ/Services/DescriptionParser.swift \
 //          ios/scripts/verify_description_parser.swift \
 //          -o /tmp/verify_parser && /tmp/verify_parser
 //

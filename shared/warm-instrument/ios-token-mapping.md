@@ -2,7 +2,7 @@
 
 Source of truth: [`tokens.json`](./tokens.json). Web CSS is generated into
 `ui/client/src/components/home-warm/wi-tokens.generated.css`. iOS maps the same hex values
-in `ios/CoachPhelps/CoachPhelps/Views/Theme.swift` (manual sync until codegen).
+in `ios/CoachHQ/CoachHQ/Views/Theme.swift` (manual sync until codegen).
 
 | Token (JSON path) | Web CSS var | iOS `Theme` target |
 |---|---|---|

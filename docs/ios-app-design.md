@@ -1,14 +1,14 @@
-# Coach Phelps iOS App: Architecture & Design
+# Coach HQ iOS App: Architecture & Design
 
-This document outlines the architecture, roadmap, and design philosophy for the Coach Phelps iOS app. 
+This document outlines the architecture, roadmap, and design philosophy for the Coach HQ iOS app. 
 
-The app is designed as a **silent, fast, native iOS utility** that serves as the bridge between Apple Health, the user's physical workouts, and the Coach Phelps GitHub repository. It does not replace the AI coaching intelligence (which lives in Manus) but rather provides the native sensors, timers, and data ingestion required to make the system seamless.
+The app is designed as a **silent, fast, native iOS utility** that serves as the bridge between Apple Health, the user's physical workouts, and the user's coaching GitHub repository. It does not replace the AI coaching intelligence (which lives in Manus) but rather provides the native sensors, timers, and data ingestion required to make the system seamless.
 
 ---
 
 ## 1. Identity & Design Philosophy
 
-The iOS app is the on-device executor for Coach Phelps. It follows strict design boundaries:
+The iOS app is the on-device executor for Coach Phelps (the AI coach). It follows strict design boundaries:
 
 - **Silent Utility:** No push notifications, no chat interface, no AI personality inside the app. Coach Phelps talks to the user via Manus. The app just moves data and runs timers.
 - **Native Aesthetic:** Built entirely in SwiftUI using system colors, SF Symbols, and standard iOS typography. Fully supports Light and Dark mode without custom theming.
@@ -26,7 +26,7 @@ The app is being built in three distinct phases.
 
 - **GitHub OAuth:** Secure authentication to the private repository.
 - **HealthKit Sync:** Background and manual fetching of workouts (duration, calories, distance, HR samples).
-- **Enrichment:** On-device computation of Heart Rate zones, mapping HealthKit sport types to Coach Phelps categories, and auto-generating sequential names (e.g., `Calisthenics #34: General`).
+- **Enrichment:** On-device computation of Heart Rate zones, mapping HealthKit sport types to coaching sport categories, and auto-generating sequential names (e.g., `Calisthenics #34: General`).
 - **Badminton Scores:** An activity list view where users can tap a synced badminton session, paste raw match scores, see a live parsed preview, and commit the structured data to `ebadders_history.json`.
 
 ### Phase 2: Enhanced Workout Timer

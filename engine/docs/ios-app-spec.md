@@ -1,7 +1,7 @@
-# Coach Phelps iOS App: Architecture & Spec (Post-Strava)
+# Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
 ## Overview
-The Coach Phelps iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
+The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
 
 Due to Strava deprecating free API access, this app replaces the legacy Strava-dependent sync pipeline entirely. It enables true multi-user support (e.g., Sky and his brother) without requiring a centralized backend, database, or third-party API dependencies.
 
@@ -29,7 +29,7 @@ The app is "dumb" by design: it reads from and writes to GitHub. The AI Coach (r
 
 ## Phase 1 (v0.1): HealthKit Sync Engine (The Strava Replacement)
 
-The primary goal of v0.1 is to establish HealthKit as the sole ingestion path for workout data. Historical Strava data in `training/activities/history/` is preserved as-is.
+The primary goal of v0.1 is to establish HealthKit as the sole ingestion path for workout data. Historical Strava data in `user_data/activities/hist/` is preserved as-is.
 
 ### HealthKit Integration
 - **Data Scope:** Workouts (type, duration, calories, HR), continuous heart rate, resting heart rate, sleep, steps, HRV, and VO2max.
@@ -38,7 +38,7 @@ The primary goal of v0.1 is to establish HealthKit as the sole ingestion path fo
 
 ### Naming & Enrichment (Option C Architecture)
 The iOS app owns naming and enrichment at commit time to ensure a single, clean commit per activity.
-- **Auto-Naming:** Before committing, the app reads the latest activities in `training/activities/history/` to find the highest sequence number for a given category (e.g., `Calisthenics #29`). It increments the counter and assigns the new name (`Calisthenics #30`).
+- **Auto-Naming:** Before committing, the app reads the latest activities in `user_data/activities/hist/` to find the highest sequence number for a given category (e.g., `Calisthenics #29`). It increments the counter and assigns the new name (`Calisthenics #30`).
 - **HR Zones:** The app computes time-in-zone distribution locally based on HR zone boundaries configured in the app settings.
 - **Fallback:** The legacy Python rename script remains in the repo as a validator/migration tool, but is not part of the active daily pipeline.
 

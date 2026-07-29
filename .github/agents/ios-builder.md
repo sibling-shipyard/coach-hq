@@ -1,6 +1,6 @@
 # iOS Builder Agent
 
-You are the iOS Builder for the Coach Phelps ecosystem. You implement features, fix bugs, and ship code for the Coach Phelps iOS app (Swift/SwiftUI).
+You are the iOS Builder for the Coach Phelps ecosystem. You implement features, fix bugs, and ship code for the Coach HQ iOS app (Swift/SwiftUI).
 
 ## Boot Sequence
 
@@ -23,44 +23,61 @@ Read these docs in order before starting any work:
 
 ## Setup
 
-Copy `ios/CoachPhelps/CoachPhelps/Secrets.swift.example` to `Secrets.swift` (gitignored — this
-repo is public, so real OAuth credentials never get committed) and fill in your own GitHub
-OAuth App's client ID/secret from https://github.com/settings/developers. The app won't build
-without this file.
+Copy `ios/CoachHQ/CoachHQ/Secrets.swift.example` to `Secrets.swift` (gitignored — this
+repo is public, so real OAuth credentials never get committed) and fill in:
+
+- **GitHub OAuth App** client ID/secret from https://github.com/settings/developers
+  (callback URL must be exactly `coachhq://callback`)
+- **`dashboardBaseURL`** — hosted Coach HQ site that serves `/api/widget-snapshots`
+  (production: `https://coach-phelps-hq.vercel.app`)
+
+The app won't build without this file.
 
 ## Architecture Overview
 
 ```
 Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard + Coach
+                                      ↘ HQ API (Home snapshots only)
 ```
 
-- **No backend server.** GitHub IS the backend.
-- **GitHub Contents API + Git Data API** for all reads/writes.
+- **GitHub is the backend** for activity sync, settings, and workout sessions (Contents API + Git Data API).
+- **HQ hosted API** for Warm Instrument Home only: `GET {dashboardBaseURL}/api/widget-snapshots`
+  with the user's GitHub token + repo name. HQ reads `gen/aggregate.json` from the athlete repo
+  and runs the same TS snapshot models as the web dashboard (ADR 0005, #105). Athlete repos do
+  **not** need a committed `gen/widget_snapshots.json`.
 - **HealthKit** is the sole data ingestion path (Strava API is dead).
 - **Each user** has their own personal repo, forked/cloned from this template.
 - **Coach Phelps (AI)** runs locally via Claude Code, reading from the same repo. The app doesn't talk to Coach directly.
+- **Website sign-in ≠ iOS sign-in:** the dashboard uses the org **GitHub App** (`coach-phelps`,
+  callback `https://coach-phelps-hq.vercel.app/api/auth-callback`). iOS uses a separate **OAuth App**
+  (`coachhq://callback`). Do not conflate the two when debugging auth.
 
 ## Key Files
 
 | Path | Purpose |
 |------|---------|
-| `ios/CoachPhelps/CoachPhelps/CoachPhelpsApp.swift` | App entry point, EnvironmentObject injection |
-| `ios/CoachPhelps/CoachPhelps/Services/GitHubAuthManager.swift` | OAuth 2.0 sign-in, token in Keychain, repo discovery |
-| `ios/CoachPhelps/CoachPhelps/Services/GitHubAPIClient.swift` | Read/write files via GitHub API, atomic multi-file commits |
-| `ios/CoachPhelps/CoachPhelps/Services/HealthKitSyncManager.swift` | Background delivery, workout fetch, sync orchestration, cache backfill |
-| `ios/CoachPhelps/CoachPhelps/Services/ActivityMapper.swift` | HKWorkout → Activity JSON + HR zone computation |
-| `ios/CoachPhelps/CoachPhelps/Services/ActivityNamer.swift` | Auto-sequential naming (originally written with a weekday-based badminton rule baked in — check against `strava/rename_core.py` before assuming this still matches this repo's naming convention) |
-| `ios/CoachPhelps/CoachPhelps/Services/DescriptionParser.swift` | On-device match-score parsing, ported from a badminton-specific Python script that isn't part of this repo's `scripts/` — treat as a reference implementation, not something with a live source-of-truth file to sync against here |
-| `ios/CoachPhelps/CoachPhelps/Services/TestModeManager.swift` | Test mode toggle (syncs to `test/sync` branch) |
-| `ios/CoachPhelps/CoachPhelps/Models/Activity.swift` | Activity JSON schema (must match dashboard's TypeScript interface) |
-| `ios/CoachPhelps/CoachPhelps/Models/SyncCache.swift` | Local UserDefaults cache for activity list |
-| `ios/CoachPhelps/CoachPhelps/Views/Theme.swift` | Design tokens + reusable components. Key additions: `sportIcon(for:)` (SF Symbols), `hrZoneColors` (Z1–Z5), `RowPressButtonStyle`, `CardPressButtonStyle` |
-| `ios/CoachPhelps/CoachPhelps/Views/ActivityListView.swift` | Thin shell: data loading, `@AppStorage("feedVariant")` picker (0=Variant1 chosen), passes data to feed variants |
-| `ios/CoachPhelps/CoachPhelps/Views/ActivityFeedVariants.swift` | All 3 feed variants + shared components: `DayGroup`, `groupByDay()`, `ZoneDots`, `CompactZoneBar`, `WeekSummaryWidget`, `FeedVariant1/2/3` |
-| `ios/CoachPhelps/CoachPhelps/Views/ActivityDetailView.swift` | Hero stats card (sport stripe + 22pt name + 19pt monospace HeroStat columns), zone breakdown bars, mental state chip |
-| `ios/CoachPhelps/CoachPhelps/Views/TrainingHeatmapView.swift` | 8-week Mon–Sun training grid, sport-colored cells, tap → DayDetailSheet |
-| `ios/CoachPhelps/CoachPhelps/Views/SyncStatusView.swift` | Sync home screen + WeeklyVolumeChart (7-day sport-colored bars) |
-| `ios/CoachPhelps/CoachPhelps/Views/SettingsView.swift` | Settings (account, appearance, test mode, HR zones, cache) |
+| `ios/CoachHQ/CoachHQ/CoachHQApp.swift` | App entry point, EnvironmentObject injection |
+| `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | OAuth 2.0 sign-in, token in Keychain, repo discovery; `isSessionReady` gates Home fetch until profile + repo resolve |
+| `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | Read/write files via GitHub API; `fetchWidgetSnapshots()` hits HQ `/api/widget-snapshots` |
+| `ios/CoachHQ/CoachHQ/Services/WidgetSnapshotStore.swift` | Observable Home snapshot cache + refresh; mirrors last good payload to App Group for WidgetKit |
+| `ios/CoachHQ/CoachHQ/Models/WidgetSnapshots.swift` | Codable mirror of `ui/client/src/components/home-warm/snapshots.ts` (ADR 0005) |
+| `ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift` | Background delivery, workout fetch, sync orchestration, cache backfill |
+| `ios/CoachHQ/CoachHQ/Services/ActivityMapper.swift` | HKWorkout → Activity JSON + HR zone computation |
+| `ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift` | Auto-sequential naming (originally written with a weekday-based badminton rule baked in — check against `strava/rename_core.py` before assuming this still matches this repo's naming convention) |
+| `ios/CoachHQ/CoachHQ/Services/DescriptionParser.swift` | On-device match-score parsing, ported from a badminton-specific Python script that isn't part of this repo's `scripts/` — treat as a reference implementation, not something with a live source-of-truth file to sync against here |
+| `ios/CoachHQ/CoachHQ/Services/TestModeManager.swift` | Test mode toggle (syncs to `test/sync` branch) |
+| `ios/CoachHQ/CoachHQ/Models/Activity.swift` | Activity JSON schema (must match dashboard's TypeScript interface) |
+| `ios/CoachHQ/CoachHQ/Models/SyncCache.swift` | Local UserDefaults cache for activity list |
+| `ios/CoachHQ/CoachHQ/Views/Theme.swift` | Design tokens + reusable components. Key additions: `sportIcon(for:)` (SF Symbols), `hrZoneColors` (Z1–Z5), `RowPressButtonStyle`, `CardPressButtonStyle` |
+| `ios/CoachHQ/CoachHQ/Views/ActivityListView.swift` | Activity list shell: data loading, programmatic row navigation via `onSelectEntry` when embedded from Home |
+| `ios/CoachHQ/CoachHQ/Views/ActivityFeedVariants.swift` | Activity feed + shared components: `DayGroup`, `groupByDay()`, `ZoneDots`, `CompactZoneBar`, `WeekSummaryWidget`, `ActivityFeedView` |
+| `ios/CoachHQ/CoachHQ/Views/ActivityDetailView.swift` | Hero stats card (sport stripe + 22pt name + 19pt monospace HeroStat columns), zone breakdown bars, mental state chip |
+| `ios/CoachHQ/CoachHQ/Views/TrainingHeatmapView.swift` | 8-week Mon–Sun training grid, sport-colored cells, tap → DayDetailSheet |
+| `ios/CoachHQ/CoachHQ/Views/SettingsView.swift` | Settings (account, appearance, sync, test mode, HR zones, cache) |
+| `ios/CoachHQ/CoachHQ/Views/WarmInstrumentHomeView.swift` | Primary Home tab — mobile Warm Instrument widget column |
+| `ios/CoachHQ/CoachHQ/Views/WarmInstrumentAtoms.swift` | Shared Warm Instrument card/row/chip atoms |
+| `ios/CoachHQ/CoachHQ/Views/InstrumentHeaderView.swift` | Compact `HQ` header on Home |
+| `ios/CoachHQ/CoachHQ/Views/MainTabView.swift` | Tab shell; Home tab hosts `WarmInstrumentHomeView` |
 
 ## Reference Files (Source of Truth)
 
@@ -70,8 +87,11 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 | `ui/client/src/lib/activities.ts` | Dashboard Activity interface + sport classification |
 | `ui/client/src/pages/workout-timer/useTimerEngine.ts` | Timer state machine (reference for Phase 2) |
 | `ui/client/src/lib/workouts.ts` | Session JSON schema |
-| `training/activities/history/*.json` | Activity data files (what Coach reads) |
-| `training/sync_state.json` | Sync counters and last-synced timestamp |
+| `user_data/activities/hist/*.json` | Activity data files (what Coach reads) |
+| `user_data/activities/sync_state.json` | Sync counters and last-synced timestamp |
+| `ui/client/src/components/home-warm/snapshots.ts` | Widget snapshot schema (TypeScript source of truth for Home JSON) |
+| `ui/api/widget-snapshots.ts` | HQ API that generates snapshots server-side from `gen/aggregate.json` |
+| `ios/CoachHQ/CoachHQ/Resources/golden_widget_snapshots.json` | Golden previews for Xcode canvas / widget gallery |
 
 ## Design Language
 
@@ -80,7 +100,7 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 - **Design system: Warm Instrument.** The canonical spec is `ui/docs/reference-interactions/Widget Design Philosophy.md` — warm paper surfaces, one terracotta accent reserved for load, Space Mono for counted figures, Newsreader italic for the coach's voice, 26px card shells. This is what the website itself now follows (`ui/client/src/pages/Home.tsx`, `home-warm/`) — it replaces the old neo-brutalist reference. Read it before touching any View file for Phase 5+ work; `ios/DESIGN.md`'s token table has been updated to match.
 - **Reference site:** `ui/client/src/` (specifically `Home.tsx` / `home-warm/`) — website is still the design source of truth, now on Warm Instrument.
 - **Platform mapping matters — iOS is not web.** Per the Design Philosophy's platform table, this app is the **"iOS app (Home)"** row: a scrolling column of M widgets with long-press → jiggle + S/M/L picker, chip drag, swipe→Edit, and month paging. There is a separate, **not-yet-built**, third surface — **"iOS home screen widgets"** (WidgetKit) — that is glance-only: no scrubs, no tooltips, native long-press editor, and every widget must be legible with zero interaction. No WidgetKit extension target exists in the Xcode project yet; this is the surface Phase 5+ is heading toward, not something to retrofit onto the in-app tab.
-- **Activity feed:** Variant 1 chosen — circular sport icon + day-grouped rows + WeekSummaryWidget. `@AppStorage("feedVariant")` key, default 0. Variant picker still in header for A/B testing.
+- **Activity feed:** `ActivityFeedView` — circular sport icon + day-grouped `WarmCard` rows + WeekSummaryWidget. Row taps use programmatic navigation (not `NavigationLink` — breaks when embedded).
 - **Sport icons:** `Theme.sportIcon(for:)` → SF Symbols (`figure.badminton`, `dumbbell.fill`, `figure.outdoor.cycle`, `figure.run`)
 - **Zone visualization:** `ZoneDots` (5 colored circles, opacity by fraction) and `CompactZoneBar` (proportional 5-segment bar, animated on appear) — both in `ActivityFeedVariants.swift`
 - **Typography:** 22pt bold hero name, 19pt bold monospace stat columns, 26–28pt black banner numbers, 16pt bold monospace row stats, 8–10pt bold uppercase labels
@@ -135,7 +155,16 @@ This section describes the app as it was brought into this repo — it was built
 - HR zones configuration
 - Cache management (clear, eviction)
 - Workout timer (reads `sessions/*.json` from GitHub, haptics, background audio beep)
-- **Warm Instrument Home** — `WarmInstrumentHomeView.swift` is now the primary tab, consuming `training/widget_snapshots.json` via `GitHubAPIClient.readWidgetSnapshots()` (see ADR 0005). Renders the P0/P1/P2 widget set (Engine, sport commitment cubes, quest, recent sessions, weekly plan, training activity heatmap, coach's read, build phase, VO2, calories) as a scrolling column of M widgets, with long-press jiggle + S/M/L picker (Engine/Quest/Commitments — the only widgets with size variants in the snapshot schema), weekly-plan chip drag, session swipe→Edit, and heatmap month paging. `Theme.swift`'s `WarmInstrument` enum holds the token set (`shared/warm-instrument/tokens.json`); atoms (`WarmCard`, `SessionRow`, `SportChip`, `SportCube`, `MonoLabel`) live in `WarmInstrumentAtoms.swift`; snapshot Codable models in `Models/WidgetSnapshots.swift`.
+- **Warm Instrument Home** — `WarmInstrumentHomeView.swift` is the primary tab. Fetches live
+  snapshots from `GET {dashboardBaseURL}/api/widget-snapshots` via `WidgetSnapshotStore` /
+  `GitHubAPIClient.fetchWidgetSnapshots()` (ADR 0005, #105). Mobile layout: compact `HQ` header →
+  Engine → commitment strip → weekly plan → calories/quest pair → build phase → recent sessions.
+  Engine opens a push detail view; "All activity" jumps to the Activities tab. Long-press jiggle +
+  S/M/L picker on Engine/Quest/Commitments; weekly-plan chip drag; session swipe→Edit. Waits for
+  `GitHubAuthManager.isSessionReady` before fetch (avoids false auth errors on cold launch).
+  `Theme.swift`'s `WarmInstrument` enum holds tokens (`shared/warm-instrument/tokens.json`);
+  atoms in `WarmInstrumentAtoms.swift`; Codable models in `Models/WidgetSnapshots.swift`.
+  `GitHubAPIClient.readWidgetSnapshots()` remains as an unused legacy GitHub-file fallback.
 - `CoachingInsightsView.swift` is deprecated (no longer in the tab bar) — superseded by Warm Instrument Home; left in place for reference only, not to be extended.
 
 ## What's Next
@@ -153,3 +182,5 @@ go to `kdb/decisions/` as an ADR instead. KB rules: see AGENTS.md.
 - Coach-voice typography (Newsreader vs. system serif) was an open decision in `ios/DESIGN.md` — resolved as system serif italic (`.system(design: .serif).italic()`) for Warm Instrument Home rather than bundling a font asset. Revisit only if the team decides bundling Newsreader is worth it.
 - `Theme.cornerRadius`/`Theme.cardBackground`/`Theme.cardBorder`/`Theme.ink` are shared app-wide — retinting them (as Warm Instrument Home's Phase 1 did) changes every screen's card look, not just new ones. Cheap, low-risk way to roll a palette change across the whole app without touching each view file.
 - Snapshot JSON items (commitments, engine mix) already carry their own hex color — don't hardcode a sport color table for data-driven color; `WarmInstrument.sportColors` only exists as a fallback for cell/legend rendering where the snapshot doesn't carry per-item color (the training-activity heatmap cells).
+- Home fetch must wait for `isSessionReady` — token in Keychain ≠ repo discovered. `GitHubAPIError.sessionNotReady` is silent (no toast); only surface `notAuthenticated` when there is genuinely no token.
+- iOS Home depends on HQ `/api/widget-snapshots` being deployed and healthy. A 401 from that endpoint without auth headers is expected; 500 means a server-side bug (historically: Vercel not resolving TS `@/` path aliases — fixed by pre-build esbuild bundle in `ui/scripts/bundle-widget-snapshots-api.mjs`).

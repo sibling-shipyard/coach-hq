@@ -1,4 +1,4 @@
-# CoachPhelps iOS — Design Roadmap
+# Coach HQ iOS — Design Roadmap
 
 Reference: [coach-phelps.netlify.app](https://coach-phelps.netlify.app) (specifically the `/v2` Warm Instrument surface — the legacy neo-brutalist `Home.tsx` is not the target anymore)
 **Philosophy: This is not a fitness tracker. It is a personal coaching dashboard — every screen should deliver insights that drive action and bring out the best in the athlete.**
