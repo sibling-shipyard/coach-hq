@@ -11,6 +11,7 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+/*.dc.html
 ui/node_modules/
 ui/dist/
 ui/client/src/data/
@@ -19,6 +20,7 @@ issues/
 ios/**/xcuserdata/
 ios/**/*.xcuserstate
 ios/**/DerivedData/
+ios/CoachHQ/build/
 *.ipa
 *.dSYM.zip
 *.dSYM
