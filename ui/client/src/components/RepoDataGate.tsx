@@ -8,6 +8,10 @@ interface Props {
   error: string | null;
   schemaUnsupported: boolean;
   notOnboarded?: boolean;
+  // True on repo-file.ts's 401 - GitHub access was revoked/expired mid-session, not a generic
+  // fetch failure. Optional: only Home.tsx passes this today, other useRepoData() consumers
+  // fall back to the generic error state below until they're migrated too.
+  accessRevoked?: boolean;
   children: ReactNode;
 }
 
@@ -23,7 +27,7 @@ const RECOVERY_ACTIONS = (
 );
 
 /** Loading/error/schema-mismatch/not-onboarded states shared by every page reading useRepoData(). */
-export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, children }: Props) {
+export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, accessRevoked, children }: Props) {
   if (loading) {
     return (
       <div className="wi-shell">
@@ -71,6 +75,29 @@ export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, 
               latest template changes and sync again.
             </p>
             {RECOVERY_ACTIONS}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && accessRevoked) {
+    return (
+      <div className="wi-shell">
+        <AuthPageHeader action={{ label: "Sign out", href: "/api/auth/logout" }} />
+        <div className="auth-card-shell">
+          <div className="auth-card">
+            <h2 className="auth-card__heading">Your GitHub access expired</h2>
+            <p className="auth-card__body">
+              Your session is still active, but GitHub access was revoked or expired - this
+              happens if you uninstalled the App or removed its access on GitHub's side. Sign
+              in again to reconnect.
+            </p>
+            <div className="auth-card__buttons">
+              <a href="/api/auth/start" className="auth-card__button auth-card__button--primary">
+                Sign in again
+              </a>
+            </div>
           </div>
         </div>
       </div>

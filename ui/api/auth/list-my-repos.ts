@@ -38,6 +38,7 @@ import {
   isOwnedBy,
   hasMarkerFile,
   InstallationLookupFailedError,
+  MarkerLookupFailedError,
 } from "./_lib/repo-resolution.js";
 
 const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
@@ -152,7 +153,15 @@ export default {
       // Falls through to re-resolve below if not owned, or it 404s (deleted/renamed/access lost).
     }
 
-    const confirmed = await resolveOwnedRepos(ctx.installation_id, ctx.gh_token, ctx.login);
+    let confirmed: string[];
+    try {
+      confirmed = await resolveOwnedRepos(ctx.installation_id, ctx.gh_token, ctx.login);
+    } catch (e) {
+      if (e instanceof MarkerLookupFailedError) {
+        return Response.json({ error: "Failed to check your repos - try again" }, { status: 502 });
+      }
+      throw e;
+    }
 
     // Auto-select on exactly one match - but not in switch mode, where the whole point is
     // to show the picker even if there's only one other option (or none), so the client can

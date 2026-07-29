@@ -24,17 +24,28 @@ const OAUTH_STATE_MAX_AGE_SEC = 600; // 10 min - just needs to survive the redir
 // GitHubAuthManager.swift.
 export default {
   async fetch(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+    const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
+
     if (!CLIENT_ID) {
-      return Response.json({ error: "GITHUB_APP_CLIENT_ID not configured" }, { status: 500 });
+      // Redirects rather than a bare JSON body, same reasoning as callback.ts's
+      // errorRedirect - this is reached by direct navigation (a clicked link, or iOS opening
+      // it in a web session), not a fetch() call, so raw JSON just shows as unstyled text
+      // with no way forward. Confirmed this was actually hit once during local testing when
+      // env vars weren't loaded.
+      const headers = new Headers();
+      headers.set(
+        "Location",
+        platform === "ios" ? "coachhq://callback?error=config_error" : `${url.origin}/?auth_error=config_error`,
+      );
+      return new Response(null, { status: 302, headers });
     }
 
     const state = generateRandomString(24);
     const codeVerifier = generateRandomString(48);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    const url = new URL(req.url);
     const redirectUri = `${url.origin}/api/auth/callback`;
-    const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
 
     const authorizeUrl = new URL("https://github.com/login/oauth/authorize");
     authorizeUrl.searchParams.set("client_id", CLIENT_ID);

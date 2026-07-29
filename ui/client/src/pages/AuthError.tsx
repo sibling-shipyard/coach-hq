@@ -13,7 +13,13 @@ const MESSAGES: Record<string, { heading: string; body: string; cta: string; hre
   },
   state_mismatch: {
     heading: "Sign-in expired",
-    body: "That sign-in link looks stale or was tampered with. Try again.",
+    body: "That sign-in link looks stale, or you may have had more than one sign-in tab open at once - only the most recent one works. Close any other sign-in tabs and try again.",
+    cta: "Try logging in again",
+    href: "/api/auth/start",
+  },
+  network_error: {
+    heading: "Something went wrong",
+    body: "Couldn't reach GitHub just now - this is usually a transient network issue. Try again.",
     cta: "Try logging in again",
     href: "/api/auth/start",
   },

@@ -56,12 +56,27 @@ export async function resolveInstallationId(
   return match?.id ?? null;
 }
 
-async function hasMarkerFile(repoFullName: string, token: string): Promise<boolean> {
+type MarkerCheck = "found" | "not_found" | "lookup_failed";
+
+async function checkMarkerFile(repoFullName: string, token: string): Promise<MarkerCheck> {
   const res = await fetch(
     `https://api.github.com/repos/${repoFullName}/contents/user_data/ledger/challenge_v2.json`,
     { headers: GH_HEADERS(token) },
   );
-  return res.status === 200;
+  if (res.status === 200) return "found";
+  if (res.status === 404) return "not_found";
+  // Anything else (403 rate-limited, 5xx, etc.) - a genuine "not found" and "we couldn't
+  // check" must not be conflated. Treating a rate-limit as "this repo isn't set up" would
+  // silently misreport a transient API problem as the user's fault.
+  return "lookup_failed";
+}
+
+/** Single-repo check, for the `?select=`/already-resolved-repo call sites in list-my-repos.ts
+ * that only ever check one specific repo, not a batch - a lookup failure there already falls
+ * through to a sensible outcome (re-resolve, or "doesn't look like a coach-phelps repo"), so
+ * it doesn't need the 3-state distinction resolveOwnedRepos does. */
+export async function hasMarkerFile(repoFullName: string, token: string): Promise<boolean> {
+  return (await checkMarkerFile(repoFullName, token)) === "found";
 }
 
 /** True only if the logged-in user actually owns this repo - not just has access to it. */
@@ -70,10 +85,18 @@ export function isOwnedBy(repoFullName: string, login: string): boolean {
   return owner.toLowerCase() === login.toLowerCase();
 }
 
+export class MarkerLookupFailedError extends Error {}
+
 /**
  * Repos granted to this installation, filtered to ones this account actually owns (not just
  * a collaborator-accessible repo on someone else's account, see resolveInstallationId's SECURITY
  * note) and confirmed as an actual coach-phelps repo via the marker file.
+ *
+ * Marker-file checks run in parallel (Promise.all) rather than one at a time - on an account
+ * with several candidate repos, sequential awaits added up to real, avoidable latency. If any
+ * single check fails to complete (rate-limited, transient error), the whole result throws
+ * MarkerLookupFailedError rather than silently treating that repo as "marker not found" -
+ * same reasoning as resolveInstallationId's failed/not-found distinction above.
  */
 export async function resolveOwnedRepos(
   installationId: number,
@@ -84,18 +107,21 @@ export async function resolveOwnedRepos(
     `https://api.github.com/user/installations/${installationId}/repositories?per_page=100`,
     { headers: GH_HEADERS(ghToken) },
   );
-  if (!reposRes.ok) return [];
+  if (!reposRes.ok) throw new MarkerLookupFailedError();
 
   const { repositories } = (await reposRes.json()) as { repositories: GhRepo[] };
   const ownRepos = repositories.filter((r) => r.owner.login.toLowerCase() === login.toLowerCase());
 
-  const confirmed: string[] = [];
-  for (const repo of ownRepos) {
-    if (await hasMarkerFile(repo.full_name, ghToken)) {
-      confirmed.push(repo.full_name);
-    }
-  }
-  return confirmed;
-}
+  const checks = await Promise.all(
+    ownRepos.map(async (repo) => ({
+      repo: repo.full_name,
+      result: await checkMarkerFile(repo.full_name, ghToken),
+    })),
+  );
 
-export { hasMarkerFile };
+  if (checks.some((c) => c.result === "lookup_failed")) {
+    throw new MarkerLookupFailedError();
+  }
+
+  return checks.filter((c) => c.result === "found").map((c) => c.repo);
+}
