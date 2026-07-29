@@ -19,9 +19,12 @@
   `chat_history.json`) and the PATCH archive/unarchive/delete write — replacing the `putFile()`
   loop entirely. Replace `purgeExpired`'s calendar-based purge with a count cap: keep only the 7
   most-recently-active threads (active or archived both count toward the cap), evicting the oldest
-  when an 8th is created; deletes are immediate, no soft-delete retention window. The cap is
-  enforced server-side on write (POST/PATCH), not on every GET, so read-only requests never
-  rewrite the file.
+  when an 8th is created. The cap does not apply to soft-deleted threads — the UI's existing
+  Restore / Delete Forever actions need a deleted thread to still exist until the athlete acts on
+  it, so those pass through untouched; sending a second "deleted" status on an already-deleted
+  thread is now the real hard-delete (`Delete Forever`), since there's no more calendar purge to
+  eventually remove it. The cap is enforced server-side on write (POST/PATCH), not on every GET,
+  so read-only requests never rewrite the file.
 - **Why:** One atomic commit per close is what the athlete asked for directly, and iOS already
   proves the pattern works well enough to reuse rather than re-derive. A count cap is simpler to
   reason about than two separate calendar windows, and bounds `chat_history.json`'s size

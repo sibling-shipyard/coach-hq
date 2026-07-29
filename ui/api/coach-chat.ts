@@ -14,8 +14,12 @@
  * closing the session ("wrap this session", "close session", etc.), at which
  * point it runs the real commit protocol (SOUL.md §12) once, in one shot -
  * same as a real session only ever committing at close, not per message.
- * Losing an unwrapped conversation on a refresh is an accepted trade-off, not
- * a bug: no separate database, the repo is the only durable store.
+ * That one shot is a single atomic commit (see ./_lib/githubGitData.ts,
+ * ADR 0012) covering every file_update plus chat_history.json together,
+ * not a separate commit per file. Losing an unwrapped conversation on a
+ * refresh is an accepted trade-off, not a bug: no separate database, the
+ * repo is the only durable store. chat_history.json retains only the 7
+ * most-recently-active threads (ADR 0012).
  *
  * GET                        → load already-wrapped/committed threads
  * POST {threadId?, messages, message} → send a message, get a real coach reply.
@@ -26,6 +30,7 @@
  *                               already-committed thread
  */
 import { ensureFreshSession, withSessionCookie, type SessionPayload } from "./auth/_lib/session.js";
+import { commitFilesAtomic, type FileWrite } from "./_lib/githubGitData.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 const SOUL_FILE_PATH = "propagated/SOUL.md";
@@ -98,11 +103,6 @@ function cleanCommitMessage(message: string): string {
   return message.replace(/^\s*coach:?\s*[-—]*\s*/i, "").trim();
 }
 
-const GH_HEADERS_JSON = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-  Accept: "application/vnd.github+json",
-  "X-GitHub-Api-Version": "2022-11-28",
-});
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
   Accept: "application/vnd.github.raw+json",
@@ -141,40 +141,6 @@ async function getFileRaw(repo: string, path: string, token: string): Promise<st
   return res.text();
 }
 
-async function getFileSha(repo: string, path: string, token: string): Promise<string | null> {
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-    headers: GH_HEADERS_JSON(token),
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Failed to look up sha for ${path} (${res.status})`);
-  const body = (await res.json()) as { sha: string };
-  return body.sha;
-}
-
-async function putFile(
-  repo: string,
-  path: string,
-  token: string,
-  content: string,
-  message: string,
-): Promise<void> {
-  const sha = await getFileSha(repo, path, token);
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-    method: "PUT",
-    headers: { ...GH_HEADERS_JSON(token), "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message,
-      content: btoa(unescape(encodeURIComponent(content))),
-      branch: "main",
-      ...(sha ? { sha } : {}),
-    }),
-  });
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Failed to write ${path} (${res.status}): ${detail}`);
-  }
-}
-
 async function loadChatHistory(repo: string, token: string): Promise<ChatHistoryFile> {
   const raw = await getFileRaw(repo, CHAT_FILE_PATH, token);
   if (!raw) return { threads: [] };
@@ -186,18 +152,27 @@ async function loadChatHistory(repo: string, token: string): Promise<ChatHistory
   }
 }
 
-function purgeExpired(threads: ChatThread[], now = Date.now()): ChatThread[] {
-  const ARCHIVED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-  const DELETED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-  return threads.filter((thread) => {
+// ADR 0012: count-based retention, not calendar-based. Cap applies only to active + archived
+// threads (the 7 most-recently-active survive; the 8th evicts the oldest). Threads the athlete
+// explicitly soft-deletes (status "deleted") pass through untouched - the UI's Restore /
+// Delete Forever affordances still need them to exist, so this cap must not silently drop them.
+// Threads are already stored newest-first (unshift on create), so the cap is just "keep the
+// first 7 active/archived entries" - no separate sort needed.
+const MAX_RETAINED_THREADS = 7;
+
+function applyRetention(threads: ChatThread[]): ChatThread[] {
+  const kept: ChatThread[] = [];
+  let liveCount = 0;
+  for (const thread of threads) {
     if (thread.status === "deleted") {
-      return !(thread.deletedAt && now - thread.deletedAt >= DELETED_RETENTION_MS);
+      kept.push(thread);
+      continue;
     }
-    if (thread.status === "archived") {
-      return !(thread.archivedAt && now - thread.archivedAt >= ARCHIVED_RETENTION_MS);
-    }
-    return true;
-  });
+    if (liveCount >= MAX_RETAINED_THREADS) continue;
+    kept.push(thread);
+    liveCount++;
+  }
+  return kept;
 }
 
 // Deliberately NOT dispatching sync.yml here. Checked both real personal repos: Akash's
@@ -354,30 +329,38 @@ async function handle(req: Request, session: SessionPayload): Promise<Response> 
 
     if (req.method === "GET") {
       const history = await loadChatHistory(repo, token);
-      const threads = purgeExpired(history.threads);
-      return Response.json({ threads });
+      // Retention is enforced on write (POST/PATCH), not here - a GET must never rewrite the
+      // file just because it was read. Deleted threads are still returned so the sidebar's
+      // Restore / Delete Forever actions have something to act on.
+      return Response.json({ threads: history.threads });
     }
 
     if (req.method === "PATCH") {
       const { threadId, status } = (await req.json()) as { threadId: string; status: ChatThreadStatus };
       const history = await loadChatHistory(repo, token);
       const now = Date.now();
-      const threads = history.threads.map((thread) => {
-        if (thread.id !== threadId) return thread;
-        return {
-          ...thread,
-          status,
-          archivedAt: status === "archived" ? now : undefined,
-          deletedAt: status === "deleted" ? now : undefined,
-        };
-      });
-      const filtered = purgeExpired(threads);
-      await putFile(
-        repo,
-        CHAT_FILE_PATH,
-        token,
-        JSON.stringify({ threads: filtered }, null, 2),
+      // A "deleted" PATCH on a thread that's already deleted is the client's "Delete forever"
+      // action (CoachChat.tsx's deleteForever) - since retention no longer purges deleted
+      // threads on a timer, this is the only remaining path to actually remove one. Anything
+      // else is a normal status change (soft-delete, archive, restore).
+      const target = history.threads.find((t) => t.id === threadId);
+      const isHardDelete = status === "deleted" && target?.status === "deleted";
+      const threads = isHardDelete
+        ? history.threads.filter((t) => t.id !== threadId)
+        : history.threads.map((thread) => {
+            if (thread.id !== threadId) return thread;
+            return {
+              ...thread,
+              status,
+              archivedAt: status === "archived" ? now : undefined,
+              deletedAt: status === "deleted" ? now : undefined,
+            };
+          });
+      const filtered = applyRetention(threads);
+      await commitFilesAtomic(
+        [{ path: CHAT_FILE_PATH, content: JSON.stringify({ threads: filtered }, null, 2) }],
         `coach: chat — ${status} thread`,
+        { repo, branch: "main", token },
       );
       return Response.json({ threads: filtered });
     }
@@ -456,18 +439,17 @@ async function handle(req: Request, session: SessionPayload): Promise<Response> 
 
       const validUpdates = (reply.file_updates ?? []).filter((f) => isCoachWritable(f.path));
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
+      const retainedThreads = applyRetention(history.threads);
+
+      // ADR 0012: every file_update plus the updated chat_history.json lands in ONE atomic
+      // commit via the Git Data API, instead of a separate REST PUT per file.
+      const writes: FileWrite[] = [
+        ...validUpdates,
+        { path: CHAT_FILE_PATH, content: JSON.stringify({ threads: retainedThreads }, null, 2) },
+      ];
 
       try {
-        for (const update of validUpdates) {
-          await putFile(repo, update.path, token, update.content, `coach: chat — ${commitMessage}`);
-        }
-        await putFile(
-          repo,
-          CHAT_FILE_PATH,
-          token,
-          JSON.stringify({ threads: purgeExpired(history.threads) }, null, 2),
-          `coach: chat — ${commitMessage}`,
-        );
+        await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, { repo, branch: "main", token });
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}` }, { status: 502 });
@@ -477,7 +459,7 @@ async function handle(req: Request, session: SessionPayload): Promise<Response> 
         reply: reply.reply,
         closed: true,
         threadId: thread.id,
-        threads: purgeExpired(history.threads),
+        threads: retainedThreads,
       });
     }
 

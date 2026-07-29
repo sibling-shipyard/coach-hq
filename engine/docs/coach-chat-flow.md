@@ -4,7 +4,7 @@
 
 Real Coach Phelps sessions from the browser (and soon iOS), backed by Gemini. This doc traces
 exactly what happens between the athlete hitting send and anything landing on `main` — see
-ADR 0011 for why it commits the way it does. Companion to `engine/docs/ios-sync.md`: that doc
+ADR 0012 for why it commits the way it does. Companion to `engine/docs/ios-sync.md`: that doc
 covers the HealthKit ingestion path, this one covers the coaching-conversation path. They share
 a commit pattern (Git Data API, atomic) but nothing else.
 
@@ -26,7 +26,7 @@ flowchart LR
 Entry points:
 
 - `CoachChat.tsx` — the web chat page, send button / Enter.
-- iOS `CoachChatView` (planned, see ADR 0011 and the iOS Builder issue) — same endpoint, same
+- iOS `CoachChatView` (planned, see ADR 0012 and the iOS Builder issue) — same endpoint, same
   contract, `Bearer <token>` auth instead of a session cookie.
 
 Both call `POST /api/coach-chat` with `{ threadId?, messages, message }`. `messages` is the
@@ -79,7 +79,7 @@ sequenceDiagram
      `user_data/ledger/challenge_v2.json`, `current_week.json`, `sleep_log.json`,
      `user_data/activities/workout_plans/sessions/**`) survive, regardless of what the model
      proposed — defense in depth, not trust in instruction-following.
-   - Apply the count-based retention cap (ADR 0011): keep the 7 most-recently-active threads.
+   - Apply the count-based retention cap (ADR 0012): keep the 7 most-recently-active threads.
    - `commitFilesAtomic()` — every valid `file_updates` entry plus the updated
      `chat_history.json`, in **one** commit via the Git Data API (blob → tree → commit → ref,
      retried on a non-fast-forward conflict), pushed straight to `main`. Commit message:
@@ -105,10 +105,13 @@ conversation lives in browser/app memory until close.
   already uses for other `/api/*` calls (`GitHubAuthManager.swift:155-178`) — a different
   transport for the same underlying per-athlete GitHub token, not a second auth system.
 
-## Retention (ADR 0011)
+## Retention (ADR 0012)
 
 Newest 7 threads by last activity survive, across active + archived status combined. Creating
-an 8th evicts the oldest. Deletes are immediate — no soft-delete window. Replaces the prior
+an 8th evicts the oldest. Soft-deleted threads (`status: "deleted"`) don't count toward the cap
+and aren't auto-purged — they sit in the DELETED section until the athlete taps Restore (back to
+active) or Delete Forever, which sends the same "deleted" status a second time; the server
+recognizes that as a real hard delete and removes the thread outright. Replaces the prior
 30-day-archived / 7-day-deleted calendar purge.
 
 ## Files changed — summary

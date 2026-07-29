@@ -783,10 +783,79 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 32px 16px;
   color: var(--cc-muted, #6b7280);
   font-size: 13px;
   letter-spacing: 0.02em;
+}
+
+.cc-loading__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ece2cf;
+  border-top-color: var(--wi-ink);
+  border-radius: 50%;
+  animation: cc-spin 0.7s linear infinite;
+}
+
+@keyframes cc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cc-bubble--thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 16px 18px;
+}
+
+.cc-thinking-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wi-ink);
+  opacity: 0.35;
+  animation: cc-thinking-bounce 1.1s ease-in-out infinite;
+}
+
+.cc-thinking-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.cc-thinking-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes cc-thinking-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 0.9;
+    transform: translateY(-3px);
+  }
+}
+
+.cc-coach-wrap--empty {
+  align-self: flex-start;
+  margin-top: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-loading__spinner {
+    animation: none;
+  }
+
+  .cc-thinking-dot {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
