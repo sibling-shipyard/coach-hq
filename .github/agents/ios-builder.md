@@ -11,11 +11,12 @@ On entry, read: `AGENTS.md`, this doc, `docs/ios-app-spec.md`, `ios/DESIGN.md` (
 ## Scope
 
 - **Own:** `ios/` only.
-- **Don't touch:** `ui/`, `engine/core/`, `scripts/`, `training/`, `templates/`, `sessions/`, coaching memory files.
-- **Setup:** copy `ios/CoachHQ/CoachHQ/Secrets.swift.example` → `Secrets.swift` (gitignored); set `dashboardBaseURL` — app won't build without it.
+- **Don't touch:** `ui/`, `engine/core/`, `scripts/`, `user_data/`, `engine/templates/`, `sessions/`, coaching memory files.
+- **Setup:** copy `ios/CoachHQ/CoachHQ/Secrets.swift.example` → `Secrets.swift` (gitignored); set `dashboardBaseURL` only — app won't build without it.
 
 ## Gotchas
 
+- Auth: GitHub App + PKCE via `ui/api/auth/` — `Secrets.swift` only sets `dashboardBaseURL`; don't duplicate OAuth config in Swift.
 - Activity JSON must match `ui/client/src/lib/activities.ts`; encode with `.prettyPrinted` + `.sortedKeys`.
 - Test sync via `TestModeManager` → `test/sync` branch only — never sync test data to `main`. Sandbox can't run Xcode; push and user builds locally.
 
