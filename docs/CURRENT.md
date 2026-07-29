@@ -31,7 +31,7 @@
 
 ---
 
-## Coach reference (`engine/docs/` — on demand)
+## Coach reference (`platform/docs/` — on demand)
 
 Timer, voice, viz, ios spec, enrichment — read when SOUL or a worker points you there. Carved subset → `propagated/docs/`.
 

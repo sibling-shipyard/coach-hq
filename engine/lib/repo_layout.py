@@ -8,7 +8,10 @@ def repo_root_from_here(file: str | Path) -> Path:
     """engine/scripts/foo.py → repo root; scripts/foo.py (skeleton) → repo root."""
     here = Path(file).resolve().parent
     dir = here
-    for _ in range(6):
+    for _ in range(8):
+        # HQ monorepo
+        if (dir / "platform" / "soul").is_dir() and (dir / "ui").is_dir():
+            return dir
         if (dir / "engine" / "soul").is_dir():
             return dir
         if (dir / "propagated" / "SOUL.md").is_file() and (dir / "user_data").is_dir():
@@ -17,11 +20,13 @@ def repo_root_from_here(file: str | Path) -> Path:
             (dir / "user_data").is_dir() or (dir / "training").is_dir()
         ):
             return dir
-        # Flat skeleton: soul/ copy at repo root — not the engine/ subtree of HQ
+        # Flat skeleton: soul/ at repo root — not HQ platform/soul/ subtree
         if (
             (dir / "soul").is_dir()
             and not (dir / "engine").is_dir()
+            and not (dir / "platform" / "scripts").is_dir()
             and not (dir.parent / "engine" / "soul").is_dir()
+            and not (dir.parent / "platform" / "soul").is_dir()
         ):
             return dir
         parent = dir.parent

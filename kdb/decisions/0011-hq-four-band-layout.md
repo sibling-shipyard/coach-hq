@@ -17,10 +17,10 @@ Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-p
 | `engine/lib/`, `engine/core/`, `engine/claude/athlete/` | `engine/` + root Claude config | `engine/` |
 | `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
 | `platform/scripts/compose-soul.mjs` + `platform/soul/` | *(runs at carve)* → `propagated/SOUL.md` | `platform/` |
-| `engine/docs/` (5 refs) + `engine/skills/pipeline-tools.md` | `propagated/docs/` | platform → propagated |
-| `engine/templates/` (2 samples) | `user_data/.../templates/` | platform templates → init stamp |
+| `platform/docs/` (5 refs) + `platform/skills/pipeline-tools.md` | `propagated/docs/` | `platform/` |
+| `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
 | `platform/scripts/carve-skeleton.mjs`, `provision-user.sh` | not copied | `platform/` |
-| `engine/plugins/` | not copied | `platform/` (R4) |
+| `platform/plugins/` | not copied | `platform/` |
 | Generated init templates | `user_data/*`, `gen/*` placeholders | skeleton stamps only |
 | `user_data/`, `gen/` at HQ | **never copied** | R5 delete from HQ |
 | `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |

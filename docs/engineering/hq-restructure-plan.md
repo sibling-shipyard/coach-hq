@@ -31,7 +31,7 @@ flowchart TB
 | `shared/` | Cross-platform sample data + design tokens ([ADR 0007](../kdb/decisions/0007-golden-dataset-for-sample-data.md)) |
 | `ui/` | Web app + platform backend (`ui/api/auth/`, coach-chat, repo-file) |
 | `ios/` | Native app |
-| `platform/` | Soul layers + operator scripts (R3 ✓); plugins/contracts in R4 |
+| `platform/` | Soul layers + operator scripts (R3 ✓); plugins, docs, skeleton-templates (R4 ✓) |
 | `engine/` | Exactly what athlete repos get post-carve |
 
 **Carve rule:** `platform/` → `propagated/` + stamps; `engine/` copies verbatim. CI fails if platform paths leak into carve output.
@@ -55,7 +55,7 @@ flowchart LR
 | **R1** | S | Eng plans under `docs/engineering/` | **Done** |
 | **R2** | M | **Mostly done** — `shared/golden-dataset/` powers local dev; R5 finishes decoupling `ui/client/src/data/` from HQ `user_data/` |
 | **R3** | M | `platform/` band — soul + operator scripts | **Done** |
-| **R4** | L | HQ-only code out of `engine/`; skeleton re-carved |
+| **R4** | L | HQ-only code out of `engine/`; skeleton re-carved | **Done** |
 | **R5** | S | Delete root `user_data/`, `gen/`, `data/`; local dev uses golden dataset only |
 
 ## Risks (one-liners)

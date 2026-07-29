@@ -26,3 +26,13 @@ platform/scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OW
 ```
 
 Runbook: [`docs/engineering/provision-runbook.md`](../docs/engineering/provision-runbook.md)
+
+## Also here (R4)
+
+| Path | Role |
+|---|---|
+| `plugins/` | HQ extensions (badminton analytics) |
+| `docs/` | Coach reference — carved subset → `propagated/docs/` |
+| `skeleton-templates/` | Workout templates — 2 samples carved to athlete repos |
+| `skills/` | pipeline-tools.md (carved to propagated) |
+| `scripts/parse_match_description.py` | HQ operator tool (iOS ports logic to Swift) |

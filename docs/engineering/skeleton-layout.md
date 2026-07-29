@@ -6,7 +6,7 @@
 > see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). `engine/strava/`
 > no longer exists; `query_history.py`/`rename_core.py` moved to `engine/core/`. `.env.example`
 > was also dropped from the skeleton. Untouched: this doc still describes the manual clone+PAT
-> setup flow, which self-serve GitHub auth (see `engine/docs/github-auth.md`) has since replaced
+> setup flow, which self-serve GitHub auth (see [`platform/docs/github-auth.md`](../../platform/docs/github-auth.md)) has since replaced
 > for new sign-ups — that's a separate, not-yet-done doc pass.
 
 ## Context

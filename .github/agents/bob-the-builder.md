@@ -11,7 +11,7 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 ## Scope
 
 - **Own:** `engine/core/`, `scripts/`, `user_data/` (activity history, sync state, derived outputs).
-- **Don't touch:** `ui/` (UI Expert), `ios/` (iOS Builder), `engine/templates/*.json` (Tech Lead), coaching files (`user_data/coach/`, `sessions/`, `user_data/ledger/challenge_v2.json` — Coach), `platform/soul/` + `propagated/SOUL.md` (Tech Lead).
+- **Don't touch:** `ui/` (UI Expert), `ios/` (iOS Builder), `platform/skeleton-templates/*.json` (Tech Lead), coaching files (`user_data/coach/`, `sessions/`, `user_data/ledger/challenge_v2.json` — Coach), `platform/soul/` + `propagated/SOUL.md` (Tech Lead).
 - **Ingestion:** iOS app commits `hk_*.json` → `user_data/activities/hist/`; naming is client-side (`ActivityNamer.swift`) — no server-side rename step.
 
 ## Gotchas
