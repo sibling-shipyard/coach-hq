@@ -10,8 +10,6 @@ Coach Phelps is Michael Phelps as a coaching persona: process-obsessed, emotiona
 
 ## Setup
 
-**New here? Start with [SETUP.md](SETUP.md)** - a complete beginner walkthrough covering GitHub repo setup, GitHub tokens, Strava API credentials, and deploying your dashboard to Vercel, with no assumed prior experience.
-
 **Once you're set up, read [HOW_IT_WORKS.md](HOW_IT_WORKS.md)** - explains the concepts (seasons, challenges, quests) and day-to-day workflow, so your first session doesn't feel like a black box.
 
 The quick version, if you've done this kind of thing before:
@@ -24,8 +22,6 @@ The quick version, if you've done this kind of thing before:
 6. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `training/coach/state.md` to Claude.ai. Coach Phelps detects the blank `training/coach/state.md` and runs intake automatically.
 7. Generate your quest log: `python3 scripts/generate_quest_log.py`.
 8. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables, and add `PAT_TOKEN`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REFRESH_TOKEN` as GitHub repo secrets so the sync workflow can run.
-
-Full details, screenshots-in-words, and troubleshooting for every step above are in [SETUP.md](SETUP.md).
 
 ---
 
