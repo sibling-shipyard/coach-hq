@@ -13,9 +13,7 @@ hq's ahead-of-clean work.
 
 - **Do not touch hq's `ui/`, `ui/api/`, `kdb/`, `shared/`.** hq is ahead there (auth, widgets,
   server coach). Keep them.
-- Work on branch `core/hq-port`. Use the clean repo's `docs/restructure-ledger.md` as the move
-  reference — it already lists every `git mv`.
-- One milestone = one PR = one exit test. `validate-data` stays green throughout.
+- Work on branch `core/hq-port`. One milestone = one PR = one exit test. `validate-data` stays green throughout.
 
 ## Milestones
 
