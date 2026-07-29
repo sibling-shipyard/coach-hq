@@ -25,9 +25,8 @@ const SKELETON_SCRIPT_FILES = [
   "scripts/validate-current-week.mts",
 ];
 
-/** Dirs carved into engine/ ("strava" only holds query_history.py + rename_core.py now —
- * Strava ingestion itself was removed, issue #113; kept for the shared naming/query logic) */
-const SKELETON_ENGINE_DIRS = ["lib", "strava", "core", "claude"];
+/** Dirs carved into engine/ */
+const SKELETON_ENGINE_DIRS = ["lib", "core", "claude"];
 
 /** Workout plan templates copied from engine/templates/ → user_data/.../templates/ */
 const WORKOUT_TEMPLATES = ["foundation.json", "strength_a.json"];

@@ -59,7 +59,7 @@ Dynamic profile — current fitness baseline, goals, RPE calibration, sleep log,
 | Phase / block context | `state.md` → Current Season / Phase sections | Evolved athletes may use `Current Phase / Block Context` |
 | Fitness baseline, RPE calibration | `state.md` dedicated sections | Athlete-specific snapshots |
 | Sleep log (rolling table) | `state.md` → Sleep Log | Dual-written with `sleep_log.json` at commit |
-| Pre-session mental state | `state.md` → Pre-Session Mental State | Strava `PRE:` field |
+| Pre-session mental state | `state.md` → Pre-Session Mental State | Activity description `PRE:` field |
 | Coaching priorities, learned patterns | `state.md` | Coach-derived institutional memory |
 | Recent session notes | `state.md` | Rolling last 3 — boot continuity |
 | Season arc, phase, milestones, quests | `user_data/ledger/challenge_v2.json` | Structured JSON — single source of truth for gamification |

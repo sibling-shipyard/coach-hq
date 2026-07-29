@@ -8,7 +8,7 @@ from typing import Final
 # Sport type
 BADMINTON_SPORT: Final = "Badminton"
 
-# Rename categories (strava/rename_core.py classify_activity)
+# Rename categories (rename_core.py classify_activity, same directory)
 RENAME_LEAGUE: Final = "league"
 RENAME_DRILLS: Final = "drills"
 RENAME_HITRUN_RANKED: Final = "hitrun_ranked"
