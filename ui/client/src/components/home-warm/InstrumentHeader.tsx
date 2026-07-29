@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Dumbbell, Home, LogOut, Menu, MessageSquare, Repeat } from "lucide-react";
-import { toast } from "sonner";
+import { Dumbbell, Home, LogOut, Menu, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ActivityGlyph } from "./ActivityGlyph";
 import type { SportAnalyticsNavLink } from "./snapshots";
@@ -34,11 +33,11 @@ function AnalyticsIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-function SyncIcon({ healthy, spinning }: { healthy: boolean; spinning?: boolean }) {
+function SyncIcon({ healthy }: { healthy: boolean }) {
   return (
     <svg
       aria-hidden="true"
-      className={`${healthy ? "is-healthy" : "is-warning"} ${spinning ? "is-spinning" : ""}`.trim()}
+      className={healthy ? "is-healthy" : "is-warning"}
       fill="none"
       height="18"
       stroke="currentColor"
@@ -67,7 +66,6 @@ function HeaderNavMenu({
   login,
   syncHealthy,
   syncLabel,
-  onOpenSync,
 }: {
   homeHref: string;
   workoutsHref: string;
@@ -79,10 +77,8 @@ function HeaderNavMenu({
   login?: string;
   syncHealthy: boolean;
   syncLabel: string;
-  onOpenSync?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const menuHasActive = currentRoute
@@ -91,34 +87,6 @@ function HeaderNavMenu({
         analyticsHref,
       ].includes(currentRoute)
     : false;
-
-  async function handleSync() {
-    if (syncing) return;
-    setSyncing(true);
-    toast.info("Syncing... usually takes ~30s");
-    try {
-      const res = await fetch("/api/trigger-sync", { method: "POST" });
-      const data = await res.json();
-      if (data.ok) {
-        toast.success("Sync triggered! Refresh in ~2 min to see results.");
-      } else {
-        toast.error(`Sync failed: ${data.error || "Unknown error"}`);
-      }
-    } catch {
-      toast.error("Could not reach sync endpoint.");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  function triggerSync() {
-    closeMenu();
-    if (onOpenSync) {
-      onOpenSync();
-      return;
-    }
-    void handleSync();
-  }
 
   useEffect(() => {
     if (!open) return;
@@ -209,24 +177,13 @@ function HeaderNavMenu({
             <span>Monthly analytics</span>
           </Link>
           <div aria-hidden="true" className="wi-instrument-header__menu-divider" />
-          <button
-            aria-label={`Trigger sync. ${syncing ? "Syncing…" : `Synced · ${syncLabel}`}.`}
-            className="wi-instrument-header__menu-sync"
-            disabled={syncing}
-            onClick={triggerSync}
-            role="menuitem"
-            type="button"
-          >
-            <SyncIcon healthy={syncHealthy} spinning={syncing} />
-            <span>{syncing ? "Syncing…" : `Sync · ${syncLabel}`}</span>
-          </button>
+          <div aria-label={`Synced · ${syncLabel}`} className="wi-instrument-header__menu-sync" role="status">
+            <SyncIcon healthy={syncHealthy} />
+            <span>Synced · {syncLabel}</span>
+          </div>
           {showAccountActions ? (
             <>
               <div aria-hidden="true" className="wi-instrument-header__menu-divider" />
-              <a href="/?switch_repo=1" onClick={closeMenu} role="menuitem">
-                <Repeat aria-hidden="true" size={18} strokeWidth={1.8} />
-                <span>Switch repo</span>
-              </a>
               <a href="/api/auth/logout" onClick={closeMenu} role="menuitem">
                 <LogOut aria-hidden="true" size={18} strokeWidth={1.8} />
                 <span>Sign out{login ? ` (${login})` : ""}</span>
@@ -244,7 +201,6 @@ export function InstrumentHeader({
   mobilePhaseLabel,
   syncLabel,
   syncHealthy,
-  onOpenSync,
   homeHref = "/",
   sportAnalyticsLinks = DEFAULT_SPORT_ANALYTICS_LINKS,
   analyticsHref = "/analytics/monthly",
@@ -256,7 +212,6 @@ export function InstrumentHeader({
   mobilePhaseLabel?: string;
   syncLabel: string;
   syncHealthy: boolean;
-  onOpenSync?: () => void;
   homeHref?: string;
   sportAnalyticsLinks?: SportAnalyticsNavLink[];
   analyticsHref?: string;
@@ -313,7 +268,6 @@ export function InstrumentHeader({
           currentRoute={currentRoute}
           homeHref={homeHref}
           login={auth.login}
-          onOpenSync={onOpenSync}
           showAccountActions={showAccountActions}
           sportAnalyticsLinks={sportAnalyticsLinks}
           syncHealthy={syncHealthy}

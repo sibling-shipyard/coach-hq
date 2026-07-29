@@ -28,9 +28,6 @@ Options:
 
 Secrets (optional — set when env vars are present):
   PAT_TOKEN               Required for sync workflow
-  STRAVA_CLIENT_ID        Strava athletes only
-  STRAVA_CLIENT_SECRET
-  STRAVA_REFRESH_TOKEN
 
 Examples:
   scripts/provision-user.sh --greenfield --repo akash-suresh/coach-akash --dry-run
@@ -280,9 +277,6 @@ set_repo_secrets() {
   }
 
   set_one_secret "PAT_TOKEN" "${PAT_TOKEN:-}"
-  set_one_secret "STRAVA_CLIENT_ID" "${STRAVA_CLIENT_ID:-}"
-  set_one_secret "STRAVA_CLIENT_SECRET" "${STRAVA_CLIENT_SECRET:-}"
-  set_one_secret "STRAVA_REFRESH_TOKEN" "${STRAVA_REFRESH_TOKEN:-}"
 }
 
 print_next_steps() {
@@ -293,13 +287,13 @@ print_next_steps() {
 Next steps (operator + athlete):
   1. Athlete installs GitHub App: ${APP_INSTALL_URL}
      (select repo: ${TARGET_REPO})
-  2. Confirm secrets: PAT_TOKEN (+ STRAVA_* for Strava athletes)
+  2. Confirm secrets: PAT_TOKEN
   3. Validation (docs/m1-plan.md §7):
      - validate-data.yml green on first push
      - Shared site login → repo resolves
      - Dashboard loads gen/aggregate.json
      - BYO boot reads user_data/coach/state.md
-     - Sync: iOS push (Akash) or Strava workflow (Skanda)
+     - Sync: iOS push
 
 Legacy repo kept as backup — do not delete ${LEGACY_REPO:-N/A}.
 EOF

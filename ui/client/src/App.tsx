@@ -49,7 +49,6 @@ function Gate({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const params = new URLSearchParams(window.location.search);
   const authError = params.get("auth_error");
-  const switching = params.get("switch_repo") === "1";
 
   // /setup is reached mid-flow, between the two GitHub-native steps (create-from-template,
   // then install) - there's no session yet at that point, so it must render regardless of
@@ -60,7 +59,6 @@ function Gate({ children }: { children: ReactNode }) {
   if (auth.status === "loading") return null;
   if (auth.status === "unauthenticated") return <Welcome />;
   if (auth.status === "onboarding") return <Onboarding />;
-  if (switching && auth.status === "authenticated") return <Onboarding switchMode />;
   return <>{children}</>;
 }
 

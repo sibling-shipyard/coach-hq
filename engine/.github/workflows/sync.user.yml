@@ -1,7 +1,6 @@
-# User-repo sync (coach-skeleton / coach-<user>).
-#
-# Base skeleton: regenerate_derived.py only (iOS path — history already in repo).
-# Strava athletes: provision adds engine/strava/ + run_sync_pipeline.py; workflow uses full pipeline.
+# User-repo sync (coach-skeleton / coach-<user>). iOS path only — the HealthKit app commits
+# history directly, this just regenerates derived files (quest_log, quest_history, sync_status,
+# gen/aggregate.json) on every push.
 
 name: Sync
 
@@ -34,16 +33,7 @@ jobs:
         run: pip install requests
 
       - name: Run pipeline
-        env:
-          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
-          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
-          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
-        run: |
-          if [ -f engine/scripts/run_sync_pipeline.py ] && [ -n "$STRAVA_CLIENT_ID" ]; then
-            python3 engine/scripts/run_sync_pipeline.py
-          else
-            python3 engine/scripts/regenerate_derived.py
-          fi
+        run: python3 engine/scripts/regenerate_derived.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -59,7 +49,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -f gen/aggregate.json
           git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
-          git restore --staged engine/strava/strava_tokens.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes"
           else

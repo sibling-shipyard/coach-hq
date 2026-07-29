@@ -1,6 +1,6 @@
 # engine/ — HQ brain (IP stays here)
 
-Everything coaches, protocols, plugins, and Strava/rename logic is **authored in HQ** `engine/`.
+Everything coaches, protocols, plugins, and activity-naming logic is **authored in HQ** `engine/`.
 **coach-skeleton gets a carved copy** of the runnable BYO stack — same tree every athlete clones.
 
 Canonical layout: [`docs/skeleton-layout.md`](../docs/skeleton-layout.md).
@@ -19,7 +19,7 @@ Canonical layout: [`docs/skeleton-layout.md`](../docs/skeleton-layout.md).
 | In every athlete repo | Notes |
 |---|---|
 | `engine/scripts/`, `engine/lib/` | Sync + aggregate pipeline |
-| `engine/strava/`, `engine/core/` | **Option A** — present for all, active when `STRAVA_*` secrets set |
+| `engine/strava/`, `engine/core/` | Shared activity-naming + local-query logic (Strava ingestion itself removed, issue #113) |
 | `user_data/` | Athlete + coach memory |
 | `gen/` | Pipeline output |
 

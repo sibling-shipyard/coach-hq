@@ -2,11 +2,10 @@
 
 ## Context
 
-Akash doesn't use Strava — his data comes from Apple Health via the native iOS app under `ios/`.
-This doc traces exactly what happens when he presses Sync in the app, mirroring
-[[strava-sync]] so the two can be compared directly. The two paths write into some of the same
-files but get there completely differently — this one talks straight to GitHub's API from the
-phone, no GitHub Actions involved in the sync action itself.
+Akash's data comes from Apple Health via the native iOS app under `ios/` — this is the only
+ingestion path this repo supports (Strava ingestion was removed, issue #113). This doc traces
+exactly what happens when he presses Sync in the app: it talks straight to GitHub's API from
+the phone, no GitHub Actions involved in the sync action itself.
 
 ## Overview
 
@@ -85,14 +84,12 @@ an iOS sync. The code says so directly (comment in `HealthKitSyncManager.swift`)
 snapshot pipeline "runs on the next sync/build" — this action just picks up whatever's already
 there.
 
-Those downstream artifacts only get regenerated when the Strava-style pipeline runs. On a user
-fork, `engine/.github/workflows/sync.user.yml` has a `push` trigger on
-`user_data/activities/hist/**` and `user_data/activities/sync_state.json` — exactly the files this
-iOS commit touches. So an iOS-only sync **does indirectly trigger a second, automatic GitHub
-Actions run**, which (with no Strava secrets configured) falls back to
+Those downstream artifacts only get regenerated when the sync workflow runs. On a user fork,
+`engine/.github/workflows/sync.user.yml` has a `push` trigger on `user_data/activities/hist/**`
+and `user_data/activities/sync_state.json` — exactly the files this iOS commit touches. So an
+iOS sync **does indirectly trigger a second, automatic GitHub Actions run**, which calls
 `engine/scripts/regenerate_derived.py` and `engine/scripts/build-aggregate.mjs` to rebuild
-`gen/aggregate.json`, `gen/quest_log.md`, etc. See [[strava-sync]] → "Fork variant" for that
-workflow's own step list — it's the same downstream pipeline either app triggers.
+`gen/aggregate.json`, `gen/quest_log.md`, etc.
 
 ## Auth
 
