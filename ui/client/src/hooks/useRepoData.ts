@@ -1,7 +1,7 @@
 /**
  * useRepoData — loads the dashboard's data, from either source:
  *
- * - Local dev (import.meta.env.DEV): the golden dataset's generated repo-data
+ * - Local dev (import.meta.env.DEV, unless VITE_FORCE_HOSTED_AUTH): the golden dataset's generated repo-data
  *   (`shared/golden-dataset/repo-data/*.json`, produced fresh on every `npm run dev` by
  *   `generate-repo-data.mjs` — see `shared/golden-dataset/README.md`), synchronously. Not
  *   `ui/client/src/data/*` — those files are exclusively pipeline-managed (AGENTS.md) and
@@ -15,6 +15,7 @@
  * loading/error check - not a rewrite of page logic.
  */
 import { useEffect, useState } from "react";
+import { isLocalDevBypass } from "../lib/devMode";
 import activitiesData from "@golden/repo-data/activities.json";
 import challengeDataRaw from "@golden/repo-data/challenge_v2.json";
 import syncStatusData from "@golden/repo-data/sync_status.json";
@@ -64,7 +65,7 @@ export interface UseRepoDataResult {
 let cachedData: RepoData | null = null;
 
 function initialState(): UseRepoDataResult {
-  if (import.meta.env.DEV) {
+  if (isLocalDevBypass) {
     return { data: LOCAL_DATA, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
   }
   if (cachedData) {
@@ -77,7 +78,7 @@ export function useRepoData(): UseRepoDataResult {
   const [state, setState] = useState<UseRepoDataResult>(initialState);
 
   useEffect(() => {
-    if (import.meta.env.DEV || cachedData) return;
+    if (isLocalDevBypass || cachedData) return;
 
     let cancelled = false;
 

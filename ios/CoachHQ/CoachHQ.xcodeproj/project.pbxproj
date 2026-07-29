@@ -66,6 +66,7 @@
 				Resources/golden_widget_snapshots.json,
 				Shared/AppGroupSnapshotBridge.swift,
 				Shared/GoldenDataset.swift,
+				Shared/WarmInstrumentTokens.generated.swift,
 				Views/Theme.swift,
 				Views/WarmInstrumentAtoms.swift,
 			);
@@ -172,6 +173,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 33FBADD53014A92200439B25 /* Build configuration list for PBXNativeTarget "CoachHQWidgetExtension" */;
 			buildPhases = (
+				33GD00013014B00100439B25 /* Sync Golden Dataset */,
+				33WI00013014B00200439B26 /* Generate WI Tokens */,
 				33FBADBC3014A92000439B25 /* Sources */,
 				33FBADBD3014A92000439B25 /* Frameworks */,
 				33FBADBE3014A92000439B25 /* Resources */,
@@ -261,6 +264,43 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		33GD00013014B00100439B25 /* Sync Golden Dataset */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../shared/golden-dataset/widget_snapshots.json",
+			);
+			name = "Sync Golden Dataset";
+			outputPaths = (
+				"$(SRCROOT)/CoachHQ/Resources/golden_widget_snapshots.json",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "node \"${SRCROOT}/../scripts/sync-golden-dataset.mjs\"\n";
+		};
+		33WI00013014B00200439B26 /* Generate WI Tokens */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../shared/warm-instrument/tokens.json",
+			);
+			name = "Generate WI Tokens";
+			outputPaths = (
+				"$(SRCROOT)/CoachHQ/Shared/WarmInstrumentTokens.generated.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "node \"${SRCROOT}/../scripts/generate-wi-tokens.swift.mjs\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 		33FBADD33014A92200439B25 /* PBXTargetDependency */ = {

@@ -1,13 +1,12 @@
 import Foundation
 
 /// Sample-only data for SwiftUI previews and product screenshots. Decodes
-/// `Resources/golden_widget_snapshots.json` — a manually-synced copy of
-/// `shared/golden-dataset/widget_snapshots.json` (same convention as
-/// `shared/warm-instrument/ios-token-mapping.md`'s "manual sync until codegen" for design
-/// tokens; see `shared/golden-dataset/README.md` and ADR 0005 / ADR 0007). Uses the
-/// unmodified `WidgetSnapshotsFile` model, same as `AppGroupSnapshotBridge` — if this fails
-/// to decode, the web schema and the bundled copy have drifted, re-sync the JSON rather than
-/// patching the models. Never shown to a signed-in athlete as if it were their own data.
+/// `Resources/golden_widget_snapshots.json` — synced from
+/// `shared/golden-dataset/widget_snapshots.json` by `ios/scripts/sync-golden-dataset.mjs`
+/// (Xcode pre-build phase; see `shared/golden-dataset/README.md` and ADR 0005 / ADR 0007).
+/// Uses the unmodified `WidgetSnapshotsFile` model, same as `AppGroupSnapshotBridge` — if this
+/// fails to decode, the web schema and the bundled copy have drifted; run the sync script
+/// rather than patching the models. Never shown to a signed-in athlete as if it were their own data.
 enum GoldenDataset {
     static let snapshots: WidgetSnapshotsFile = {
         guard

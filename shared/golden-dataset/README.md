@@ -18,11 +18,10 @@ consumers don't care what "today" is — they just render whatever numbers they'
 - Web: `ui/client/src/lib/goldenDataset.ts` imports both through the `@golden` alias.
   - `/gallery` (`WidgetGallery.tsx`)
   - `/welcome` marketing page (`WelcomePage.tsx`)
-- iOS: `GoldenDataset.swift` bundles a manually-synced copy of `widget_snapshots.json`
-  (`ios/CoachHQ/CoachHQ/Resources/golden_widget_snapshots.json` — same "manual sync
-  until codegen" convention as `shared/warm-instrument/ios-token-mapping.md` uses for design
-  tokens; if you change `widget_snapshots.json`, copy it over there too) and decodes it with
-  the existing `WidgetSnapshots.swift` models, for SwiftUI `#Preview`s.
+- iOS: `GoldenDataset.swift` decodes `ios/CoachHQ/CoachHQ/Resources/golden_widget_snapshots.json`,
+  synced from this file by `ios/scripts/sync-golden-dataset.mjs` (Xcode pre-build on
+  `CoachHQWidgetExtension`; manual: `node ios/scripts/sync-golden-dataset.mjs`). Uses the
+  existing `WidgetSnapshots.swift` models for SwiftUI `#Preview`s.
 
 I reuse the real schemas on purpose (see ADR-0005 and ADR-0007): no new types on either
 platform, and if a schema changes, this data fails to compile/decode instead of silently

@@ -1,5 +1,6 @@
 .env
 .env.local
+ui/.env.local
 ui/.vercel/
 engine/strava/strava_tokens.json
 skeleton-out/

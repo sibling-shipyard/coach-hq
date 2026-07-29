@@ -29,6 +29,21 @@ Apple Watch / Garmin → Apple Health → This App → GitHub Repo → Coach + D
 6. Grant HealthKit permissions
 7. Done. Workouts will auto-sync.
 
+## Codegen
+
+Golden preview data is synced from `shared/golden-dataset/widget_snapshots.json` into
+`CoachHQ/Resources/golden_widget_snapshots.json` automatically via an Xcode pre-build phase
+(`ios/scripts/sync-golden-dataset.mjs`). Warm Instrument tokens are generated from
+`shared/warm-instrument/tokens.json` into
+`CoachHQ/Shared/WarmInstrumentTokens.generated.swift` via
+`ios/scripts/generate-wi-tokens.swift.mjs`. Both scripts run on the `CoachHQWidgetExtension`
+target before the main app embeds the widget. To refresh without building:
+
+```bash
+node ios/scripts/sync-golden-dataset.mjs
+node ios/scripts/generate-wi-tokens.swift.mjs
+```
+
 ## Project Structure
 
 ```
