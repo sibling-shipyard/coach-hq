@@ -10,8 +10,6 @@
  *
  * GET                          → list/confirm candidates, auto-select if exactly one.
  * GET ?select=<owner>/<name>   → confirm and persist a specific pick (2+ case).
- * GET ?switch=1                → re-list every candidate (skips cached-pick/auto-select), so
- *                                 a user can switch repos without logging out. Cookie only.
  */
 import {
   encryptSession,
@@ -122,7 +120,6 @@ export default {
 async function handle(req: Request, ctx: AuthContext): Promise<Response> {
     const url = new URL(req.url);
     const selected = url.searchParams.get("select");
-    const switching = url.searchParams.get("switch") === "1";
 
     // Explicit pick from a 2+ candidate list.
     if (selected) {
@@ -151,8 +148,8 @@ async function handle(req: Request, ctx: AuthContext): Promise<Response> {
     }
 
     // Re-confirm an already-resolved repo still exists and is owned by this account before
-    // trusting it. Skipped in switch mode. Bearer auth never has a cached repo_full_name.
-    if (ctx.repo_full_name && !switching) {
+    // trusting it. Bearer auth never has a cached repo_full_name.
+    if (ctx.repo_full_name) {
       const stillOwned = isOwnedBy(ctx.repo_full_name, ctx.login);
       const stillOk = stillOwned && (await hasMarkerFile(ctx.repo_full_name, ctx.gh_token));
       if (stillOk) {
@@ -174,9 +171,8 @@ async function handle(req: Request, ctx: AuthContext): Promise<Response> {
       throw e;
     }
 
-    // Auto-select on exactly one match - not in switch mode, where the point is to show the
-    // picker even with only one option so the client can say so instead of silently bouncing back.
-    if (confirmed.length === 1 && !switching) {
+    // Auto-select on exactly one match.
+    if (confirmed.length === 1) {
       if (ctx.via === "bearer") {
         return Response.json({ repo_full_name: confirmed[0] });
       }

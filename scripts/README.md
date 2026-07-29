@@ -2,9 +2,10 @@
 
 ## engine/ (full brain — HQ)
 
-Protocols, soul layers, plugins, templates, strava, scripts. See `engine/README.md`.
+Protocols, soul layers, plugins, templates, scripts. See `engine/README.md`.
 
-Only a **subset** is carved into `coach-skeleton` (sync + aggregate scripts, strava, core, lib).
+Only a **subset** is carved into `coach-skeleton` (sync + aggregate scripts, strava (naming/query
+logic only, no ingestion), core, lib).
 
 ## compose-soul.mjs
 
@@ -35,9 +36,6 @@ Runbook: [`docs/provision-runbook.md`](../docs/provision-runbook.md)
 
 ## Sync model (user repos)
 
-| Ingestion | Who writes `history/` | Actions workflow |
-|---|---|---|
-| **iOS** | `ios/` app (HQ) commits `hk_*.json` | Regenerate only (no `STRAVA_*` secrets) |
-| **Strava** | `strava/fetch_strava.py` in CI | Pull + regenerate when secrets set |
-
-Per-repo mode = which secrets are provisioned. No `SYNC_SOURCE` flag.
+iOS is the only ingestion path (Strava ingestion removed, issue #113): the `ios/` app (HQ)
+commits `hk_*.json` directly to `user_data/activities/hist/`, and the Actions workflow just
+regenerates derived files (`gen/aggregate.json`, `gen/quest_log.md`, etc.) on push.

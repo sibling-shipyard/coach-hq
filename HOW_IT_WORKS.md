@@ -1,6 +1,6 @@
 # How It Works
 
-This explains the concepts and daily workflow behind Coach Phelps - not how to set your accounts up (that's [SETUP.md](SETUP.md)), but what actually happens once it's running: what a "season" is, what files exist and why, and how everything connects to what you see on the dashboard.
+This explains the concepts and daily workflow behind Coach Phelps - not how to set your accounts up, but what actually happens once it's running: what a "season" is, what files exist and why, and how everything connects to what you see on the dashboard.
 
 Read this once after setup, before your first session. You won't need to memorize it - the coach handles almost everything automatically - but it'll save you a lot of "wait, what does this mean?" moments.
 

@@ -27,7 +27,6 @@ Legacy repos stay as backup — do not archive in M1.
 2. **Skeleton live** — ~50 files at https://github.com/sibling-shipyard/coach-skeleton.
 3. **Secrets ready** (cannot read from legacy via API):
    - `PAT_TOKEN` — fine-grained PAT, Contents + Workflows write on target repo.
-   - Strava athletes: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REFRESH_TOKEN`.
 
 ---
 
@@ -60,7 +59,6 @@ PAT_TOKEN=ghp_... scripts/provision-user.sh \
 
 ```bash
 PAT_TOKEN=ghp_... \
-STRAVA_CLIENT_ID=... STRAVA_CLIENT_SECRET=... STRAVA_REFRESH_TOKEN=... \
 scripts/provision-user.sh --migrate \
   --repo skanda-2003/coach-skanda \
   --legacy skanda-2003/coach-phelps

@@ -222,7 +222,8 @@
 }
 
 .wi-instrument-header__menu-panel a,
-.wi-instrument-header__menu-panel button[role="menuitem"] {
+.wi-instrument-header__menu-panel button[role="menuitem"],
+.wi-instrument-header__menu-panel [role="status"] {
   display: flex;
   align-items: center;
   gap: 10px;

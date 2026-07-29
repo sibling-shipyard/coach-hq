@@ -16,10 +16,7 @@ interface Props {
 
 const RECOVERY_ACTIONS = (
   <div className="auth-card__buttons">
-    <a href="/?switch_repo=1" className="auth-card__button auth-card__button--primary">
-      Switch repo
-    </a>
-    <a href="/api/auth/logout" className="auth-card__button">
+    <a href="/api/auth/logout" className="auth-card__button auth-card__button--primary">
       Sign out
     </a>
   </div>

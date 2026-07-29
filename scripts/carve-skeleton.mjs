@@ -22,11 +22,11 @@ const SKELETON_SCRIPT_FILES = [
   "scripts/build-aggregate.mjs",
   "scripts/generate_quest_log.py",
   "scripts/generate_quest_history.py",
-  "scripts/run_sync_pipeline.py",
   "scripts/validate-current-week.mts",
 ];
 
-/** Dirs carved into engine/ (strava always included — inactive without STRAVA_* secrets) */
+/** Dirs carved into engine/ ("strava" only holds query_history.py + rename_core.py now —
+ * Strava ingestion itself was removed, issue #113; kept for the shared naming/query logic) */
 const SKELETON_ENGINE_DIRS = ["lib", "strava", "core", "claude"];
 
 /** Workout plan templates copied from engine/templates/ → user_data/.../templates/ */
@@ -215,7 +215,6 @@ const QUEST_LOG_STARTER = `# Quest Log
 
 const SKELETON_GITIGNORE = `.env
 .env.local
-engine/strava/strava_tokens.json
 user_data/activities/hist/
 __pycache__/
 *.pyc
@@ -235,7 +234,7 @@ Private fork template for \`coach-<user>\` repos. Carved from \`coach-phelps-hq\
 | **post-init** | \`user_data/ledger/*\`, \`user_data/activities/workout_plans/sessions/\` |
 | **gen** | \`gen/aggregate.json\`, \`gen/quest_log.md\`, \`gen/sync_status.json\`, \`gen/widget_snapshots.json\` |
 | **propagated** | \`propagated/SOUL.md\` + \`propagated/docs/\` — HQ IP copy (not editable) |
-| **engine** | Runtime scripts, strava, core — carved from HQ; coach must not edit |
+| **engine** | Runtime scripts, core, and shared naming/query logic — carved from HQ; coach must not edit |
 
 Dashboard: shared site reads \`gen/aggregate.json\`. iOS app pushes \`user_data/activities/hist/\` directly.
 
@@ -282,9 +281,6 @@ Go to your repo → **Settings → Secrets and variables → Actions → New rep
 | Secret | Required | Notes |
 |---|---|---|
 | \`PAT_TOKEN\` | **Yes** | Fine-grained PAT with **Contents: Read and write** and **Workflows: Read and write** on this repo. Lets CI push sync output and coach commits. |
-| \`STRAVA_CLIENT_ID\` | No | Only if you sync via Strava (see step 4). |
-| \`STRAVA_CLIENT_SECRET\` | No | Same. |
-| \`STRAVA_REFRESH_TOKEN\` | No | From \`engine/strava/oauth_reauth.py\` after local auth. |
 
 ---
 
@@ -300,22 +296,7 @@ Without the app, local Claude Code still works; the shared dashboard and mobile 
 
 ---
 
-## 4. Optional — Strava sync
-
-Skip this if you use the **iOS app** to push activities, or if you want to start coaching before syncing history.
-
-1. Create a Strava API app at [strava.com/settings/api](https://www.strava.com/settings/api) (callback: \`localhost\`).
-2. \`cp .env.example .env\` and fill in \`STRAVA_CLIENT_ID\` and \`STRAVA_CLIENT_SECRET\`.
-3. \`pip3 install requests\`
-4. \`python3 engine/strava/oauth_reauth.py\` — authorize in the browser; tokens save to \`engine/strava/strava_tokens.json\` (git-ignored).
-5. Copy \`STRAVA_CLIENT_ID\`, \`STRAVA_CLIENT_SECRET\`, and the refresh token from \`strava_tokens.json\` into repo secrets (step 2).
-6. Test locally: \`python3 engine/strava/fetch_strava.py --last 3\`
-
-When \`STRAVA_*\` secrets are set, the **Sync** workflow runs the full Strava pipeline. Without them, it runs \`regenerate_derived.py\` only (iOS / manual history path).
-
----
-
-## 5. Open Claude Code
+## 4. Open Claude Code
 
 **Recommended (local):**
 \`\`\`bash
@@ -331,7 +312,7 @@ Coach detects the blank Athlete Profile in \`user_data/coach/state.md\` and runs
 
 ---
 
-## 6. First sync
+## 5. First sync
 
 Trigger the pipeline once so \`gen/\` is populated:
 
@@ -344,15 +325,8 @@ After sync, \`gen/quest_log.md\` and \`gen/aggregate.json\` reflect your challen
 
 ## Troubleshooting
 
-- **Sync workflow fails:** check \`PAT_TOKEN\` and (if Strava) all three \`STRAVA_*\` secrets.
-- **Strava tokens expired:** re-run \`python3 engine/strava/oauth_reauth.py\` and update \`STRAVA_REFRESH_TOKEN\` secret.
+- **Sync workflow fails:** check \`PAT_TOKEN\` is set correctly.
 - **Coach can't push from mobile:** use **Actions → Apply Coach Patch** with the \`===FILE===\` payload from your session.
-`;
-
-const ENV_EXAMPLE = `# Local Strava auth only — CI uses repo secrets (see SETUP.md)
-STRAVA_CLIENT_ID=
-STRAVA_CLIENT_SECRET=
-STRAVA_REFRESH_TOKEN=
 `;
 
 function parseArgs(argv) {
@@ -398,7 +372,7 @@ function writeText(destRoot, relPath, text) {
   fs.writeFileSync(dest, text.endsWith("\n") ? text : `${text}\n`);
 }
 
-/** Copy engine/<rel> → outDir/engine/<rel>; strip strava_tokens.json from strava/ */
+/** Copy engine/<rel> → outDir/engine/<rel> */
 function copyFromEngine(outDir, rel) {
   const src = path.join(ENGINE_DIR, rel);
   const dest = path.join(outDir, "engine", rel);
@@ -408,10 +382,6 @@ function copyFromEngine(outDir, rel) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   if (fs.statSync(src).isDirectory()) {
     fs.cpSync(src, dest, { recursive: true });
-    const tokens = path.join(dest, "strava_tokens.json");
-    if (fs.existsSync(tokens)) {
-      fs.unlinkSync(tokens);
-    }
   } else {
     fs.copyFileSync(src, dest);
   }
@@ -505,7 +475,6 @@ function carve(outDir, sha) {
   writeAthleteClaudeConfig(outDir);
   writeText(outDir, "SETUP.md", SETUP_MD);
   writeText(outDir, ".gitignore", SKELETON_GITIGNORE);
-  writeText(outDir, ".env.example", ENV_EXAMPLE);
   const validateWrapperSrc = path.join(REPO_ROOT, "engine/scripts/validate-current-week");
   fs.copyFileSync(validateWrapperSrc, path.join(outDir, "engine/scripts/validate-current-week"));
   fs.chmodSync(path.join(outDir, "engine/scripts/validate-current-week"), 0o755);

@@ -57,7 +57,7 @@ export interface UseRepoDataResult {
   schemaUnsupported: boolean;
   // True when repo-file.ts's 401 - GitHub access was revoked/expired mid-session, not a
   // generic fetch failure. RepoDataGate.tsx shows a specific "sign in again" message + button
-  // for this instead of the generic error state's Switch repo/Sign out pair.
+  // for this instead of the generic error state's Sign out button.
   accessRevoked: boolean;
 }
 

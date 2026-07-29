@@ -14,7 +14,6 @@ const FEATURE_SESSIONS = GOLDEN_HOME.sessions.map((session) => ({
   title: session.title,
   meta: session.detail,
   load: session.load != null ? `+${session.load}` : "",
-  badge: session.sport === "cycling" ? "STRAVA" : undefined,
 }));
 
 function sportAccent(sport: "badminton" | "cycling" | "calisthenics") {
@@ -46,7 +45,7 @@ export function WelcomePage() {
             <span className="welcome-kicker">AI PERSONAL TRAINER</span>
             <h1 className="welcome-hero__title">Train the process. The outcome follows.</h1>
             <p className="welcome-hero__lede">
-              A coach that reads your Strava, your match scores, your heart-rate trends — and remembers
+              A coach that reads your training, your match scores, your heart-rate trends — and remembers
               your injuries, your goals, your bad habits. Then builds the week around them.
             </p>
             <div className="welcome-hero__actions">
@@ -81,8 +80,8 @@ export function WelcomePage() {
             <span className="welcome-feature__index">01 · IT READS EVERYTHING</span>
             <h3>It reads what you already do — no manual logging.</h3>
             <p>
-              Coach pulls sessions from Strava, reads your match scores, and watches heart-rate trends.
-              Every figure on the page is earned from real activity — nothing invented.
+              Coach pulls sessions straight from Apple Health, reads your match scores, and watches
+              heart-rate trends. Every figure on the page is earned from real activity — nothing invented.
             </p>
           </div>
           <div className="welcome-feature__card" data-reveal>
@@ -97,12 +96,7 @@ export function WelcomePage() {
                   className="welcome-session-row__bar"
                   style={{ background: sportAccent(session.sport) }}
                 />
-                <span className="welcome-session-row__title">
-                  {session.title}
-                  {session.badge ? (
-                    <span className="welcome-session-row__badge">{session.badge}</span>
-                  ) : null}
-                </span>
+                <span className="welcome-session-row__title">{session.title}</span>
                 <span className="welcome-session-row__meta">{session.meta}</span>
                 <span
                   className="welcome-session-row__load"

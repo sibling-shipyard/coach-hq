@@ -21,7 +21,7 @@ const EMPTY_STATE_COPY: Record<string, { heading: string; body: string }> = {
   },
 };
 
-export default function Onboarding({ switchMode = false }: { switchMode?: boolean }) {
+export default function Onboarding() {
   const [loading, setLoading] = useState(true);
   const [candidates, setCandidates] = useState<string[]>([]);
   const [reason, setReason] = useState<string | null>(null);
@@ -37,10 +37,10 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
   }, []);
 
   useEffect(() => {
-    fetch(`/api/auth/list-my-repos${switchMode ? "?switch=1" : ""}`)
+    fetch("/api/auth/list-my-repos")
       .then(async (res) => {
         const data: RepoResult = await res.json();
-        if (data.repo_full_name && !switchMode) {
+        if (data.repo_full_name) {
           window.location.href = "/";
           return;
         }
@@ -56,7 +56,7 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
         setError("Failed to look up your repos.");
         setLoading(false);
       });
-  }, [switchMode]);
+  }, []);
 
   async function selectRepo(fullName: string) {
     setSelecting(true);
@@ -82,28 +82,18 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
 
           {!loading && !error && candidates.length === 0 && (
             <>
-              <h2 className="auth-card__heading">
-                {switchMode ? "Nothing else to switch to" : emptyCopy?.heading ?? "No repo found"}
-              </h2>
+              <h2 className="auth-card__heading">{emptyCopy?.heading ?? "No repo found"}</h2>
               <p className="auth-card__body">
-                {switchMode
-                  ? "This is the only coach-phelps repo granted to your account."
-                  : emptyCopy?.body ??
-                    "None of the repos you granted access to have propagated/SOUL.md and user_data/ledger/challenge_v2.json."}
+                {emptyCopy?.body ??
+                  "None of the repos you granted access to have propagated/SOUL.md and user_data/ledger/challenge_v2.json."}
               </p>
               <div className="auth-card__buttons">
-                {switchMode ? (
-                  <a href="/" className="auth-card__button">
-                    Back to dashboard
-                  </a>
-                ) : (
-                  <a
-                    href={login ? `/setup?login=${encodeURIComponent(login)}` : "/api/auth/start"}
-                    className="auth-card__button auth-card__button--primary"
-                  >
-                    Try setup again
-                  </a>
-                )}
+                <a
+                  href={login ? `/setup?login=${encodeURIComponent(login)}` : "/api/auth/start"}
+                  className="auth-card__button auth-card__button--primary"
+                >
+                  Try setup again
+                </a>
                 <a href="/api/auth/logout" className="auth-card__button">
                   Sign out
                 </a>
@@ -113,9 +103,7 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
 
           {!loading && !error && candidates.length > 0 && (
             <>
-              <h2 className="auth-card__heading">
-                {switchMode ? "Switch to which repo?" : "Which repo is yours?"}
-              </h2>
+              <h2 className="auth-card__heading">Which repo is yours?</h2>
               <div className="auth-card__buttons">
                 {candidates.map((c) => (
                   <button
