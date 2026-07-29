@@ -41,6 +41,15 @@ def uses_new_layout(repo: Path) -> bool:
     return (repo / "user_data").is_dir()
 
 
+def is_hq_monorepo(repo: Path) -> bool:
+    """HQ monorepo — platform IP + ui; no athlete instance band at root."""
+    return (repo / "platform" / "soul").is_dir() and (repo / "ui").is_dir()
+
+
+def golden_repo_data_dir(repo: Path) -> Path:
+    return repo / "shared" / "golden-dataset" / "repo-data"
+
+
 def engine_root(repo: Path) -> Path:
     eng = repo / "engine"
     return eng if eng.is_dir() else repo

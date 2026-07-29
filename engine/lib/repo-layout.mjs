@@ -45,6 +45,18 @@ export function usesNewLayout(repoRootPath) {
   return fs.existsSync(path.join(repoRootPath, "user_data"));
 }
 
+/** HQ monorepo — platform IP + ui; no athlete instance band at root. */
+export function isHqMonorepo(repoRootPath) {
+  return (
+    fs.existsSync(path.join(repoRootPath, "platform", "soul")) &&
+    fs.existsSync(path.join(repoRootPath, "ui"))
+  );
+}
+
+export function goldenRepoDataDir(repoRootPath) {
+  return path.join(repoRootPath, "shared/golden-dataset/repo-data");
+}
+
 export function soulDir(repoRootPath) {
   const inPlatform = path.join(repoRootPath, "platform", "soul");
   if (fs.existsSync(inPlatform)) return inPlatform;

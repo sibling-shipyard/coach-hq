@@ -8,7 +8,6 @@ flat file the dashboard can read without being season-aware.
 
 Output path:
   - QUEST_HISTORY_OUTPUT env var if set
-  - ui/client/src/data/quest_history.json when ui/ exists (HQ)
   - gen/quest_history.json (new layout) or training/activities/quest_history.json (legacy)
 
 Status values: "done", "missed", "excused"
@@ -36,9 +35,6 @@ def resolve_output_path() -> Path:
     override = os.environ.get("QUEST_HISTORY_OUTPUT")
     if override:
         return Path(override)
-    ui_data = REPO_DIR / "ui" / "client" / "src" / "data" / "quest_history.json"
-    if (REPO_DIR / "ui").exists():
-        return ui_data
     return quest_history_path(REPO_DIR)
 
 

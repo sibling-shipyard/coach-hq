@@ -119,7 +119,7 @@ Omit blocks entirely when unused — do not null-fill.
 
 **Provision:** `provision-user.sh --migrate` runs v2/v3 → v4 rewrite before push (follow-up PR).
 
-**Live repos:** Akash (`coach-akash`) already v3-shaped → trivial v4 bump. HQ dogfood + Skanda migrate → convert at M1d.
+**Live repos:** Akash (`coach-akash`) already v3-shaped → trivial v4 bump. Skanda migrates → convert at M1d.
 
 ---
 

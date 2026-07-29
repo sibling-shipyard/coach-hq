@@ -8,7 +8,7 @@ Platform ops (compose, carve, provision) moved to [`platform/`](../platform/READ
 |---|---|
 | `kdb/` | ADR index + validate-kdb (pre-commit) |
 | `validate-current-week` | Wrapper → `engine/scripts/validate-current-week` |
-| `generate_analytics_snapshot.py` | HQ dogfood badminton analytics wrapper |
+| `generate_analytics_snapshot.py` | Badminton analytics wrapper — athlete repos only (HQ has no `user_data/`) |
 
 ## Sync model (user repos)
 

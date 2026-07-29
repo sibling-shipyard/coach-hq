@@ -550,7 +550,7 @@ def protected_home_isolation_check(driver: webdriver.Chrome, report: dict[str, A
 
 
 def generated_current_week_zone_load() -> dict[str, Any]:
-    activities_path = Path(__file__).parents[1] / "client/src/data/activities.json"
+    activities_path = Path(__file__).parents[2] / "shared/golden-dataset/repo-data/activities.json"
     activities = json.loads(activities_path.read_text(encoding="utf-8"))
     today = datetime.now().date()
     monday = today - timedelta(days=today.weekday())

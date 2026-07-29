@@ -22,7 +22,7 @@ Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-p
 | `platform/scripts/carve-skeleton.mjs`, `provision-user.sh` | not copied | `platform/` |
 | `platform/plugins/` | not copied | `platform/` |
 | Generated init templates | `user_data/*`, `gen/*` placeholders | skeleton stamps only |
-| `user_data/`, `gen/` at HQ | **never copied** | R5 delete from HQ |
+| `user_data/`, `gen/` at HQ | **never copied** | R5 ✓ deleted from HQ |
 | `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |
 
 ## Deferred

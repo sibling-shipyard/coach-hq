@@ -3,7 +3,8 @@
  * build-data.mjs — Pre-build script: merge athlete data into ui/client/src/data/
  * for Vite, and (with --aggregate) write gen/aggregate.json at repo root.
  *
- * Paths via engine/lib/repo-layout.mjs (user_data/ + gen/ on HQ and user repos).
+ * HQ monorepo: early-exits after copying shared/golden-dataset/ → OUT_DIR
+ * (no user_data/ or gen/ at root). Athlete repos: paths via repo-layout.mjs.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -12,7 +13,9 @@ import { fileURLToPath } from "node:url";
 
 import {
   aggregatePath,
+  goldenRepoDataDir,
   histDir,
+  isHqMonorepo,
   ledgerDir,
   questHistoryPath,
   repoRoot,
@@ -168,9 +171,35 @@ function buildAggregate() {
   return result;
 }
 
+function copyGoldenToOutDir() {
+  const gen = spawnSync("node", [path.join(REPO_ROOT, "shared/golden-dataset/generate-repo-data.mjs")], {
+    stdio: "inherit",
+  });
+  if (gen.status !== 0) process.exit(gen.status ?? 1);
+
+  const goldenDir = goldenRepoDataDir(REPO_ROOT);
+  for (const file of fs.readdirSync(goldenDir).filter((f) => f.endsWith(".json"))) {
+    fs.copyFileSync(path.join(goldenDir, file), path.join(OUT_DIR, file));
+  }
+  const widgetSrc = path.join(REPO_ROOT, "shared/golden-dataset/widget_snapshots.json");
+  if (fs.existsSync(widgetSrc)) {
+    fs.copyFileSync(widgetSrc, path.join(OUT_DIR, "widget_snapshots.json"));
+  }
+  console.log("✓ HQ golden dataset → ui/client/src/data/");
+}
+
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
 spawnSync("node", ["scripts/generate-wi-tokens.mjs"], { cwd: UI_DIR, stdio: "inherit" });
+
+if (isHqMonorepo(REPO_ROOT)) {
+  copyGoldenToOutDir();
+  console.log("✓ Data build complete");
+  if (process.argv.includes("--aggregate")) {
+    console.warn("⚠ --aggregate ignored on HQ (no gen/ band)");
+  }
+  process.exit(0);
+}
 
 const aggregate = buildAggregate();
 
