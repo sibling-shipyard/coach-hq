@@ -1,16 +1,26 @@
 import Foundation
 import Combine
-import AuthenticationServices
 import Security
 
 /// Manages sign-in via the shared coach-phelps-hq auth backend (ui/api/auth/) and token
 /// storage. Same GitHub App + PKCE flow the web dashboard uses, entirely server-side, so
 /// there's no client secret shipped in this app. See callback.ts's `platform === "ios"` branch.
+///
+/// OAuth runs in a shared WKWebView (`WebAuthBrowserStore`) so GitHub cookies — including
+/// Google federated login — persist into setup's repo-create and install steps.
 @MainActor
-class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
+class GitHubAuthManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var user: GitHubUser?
     @Published var selectedRepo: String?
+    /// Full `owner/repo` slug for API headers and GitHub REST URLs. `selectedRepo` may
+    /// already be a full name from OAuth/list-my-repos, or repo-name-only from legacy paths.
+    var repoFullName: String? {
+        guard let repo = selectedRepo, !repo.isEmpty else { return nil }
+        if repo.contains("/") { return repo }
+        guard let login = user?.login else { return nil }
+        return "\(login)/\(repo)"
+    }
     /// True once a stored-token bootstrap or fresh sign-in has finished loading
     /// `user` and attempting repo discovery. Home should wait for this before
     /// calling the GitHub API — otherwise `selectedRepo` is still nil and reads
@@ -27,26 +37,13 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     private let keychainKey = "com.siblingshipyard.coachhq.github.token"
     private let callbackScheme = "coachhq"
 
-    override init() {
-        super.init()
+    init() {
         if loadToken() != nil {
             isAuthenticated = true
             Task { await bootstrapSession() }
         } else {
             isSessionReady = true
         }
-    }
-
-    // MARK: - ASWebAuthenticationPresentationContextProviding
-
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        guard let scene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene }).first else {
-            preconditionFailure("No UIWindowScene available — OAuth should never be triggered without a connected scene")
-        }
-        return scene.windows.first(where: { $0.isKeyWindow })
-            ?? scene.windows.first
-            ?? UIWindow(windowScene: scene)
     }
 
     // MARK: - OAuth Flow
@@ -57,10 +54,50 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         try await runAuthSession(path: "/api/auth/start")
     }
 
-    /// SetupView's step 2 - re-enters the flow at install once the user has created their repo
-    /// on GitHub's template page. Mirrors Setup.tsx's "Continue to install" link.
+    /// SetupView's step 2 — authorize the GitHub App on the new repo (not a second sign-in).
     func continueToInstall() async throws {
-        try await runAuthSession(path: "/api/auth/install-redirect")
+        guard var components = URLComponents(string: Secrets.dashboardBaseURL + "/api/auth/install-redirect") else {
+            throw AuthError.invalidBaseURL
+        }
+        var query = [URLQueryItem(name: "platform", value: "ios")]
+        if let userId = user?.id {
+            query.append(URLQueryItem(name: "suggested_target_id", value: String(userId)))
+        }
+        components.queryItems = query
+        guard let authURL = components.url else {
+            throw AuthError.invalidBaseURL
+        }
+
+        let callbackURL = try await WebAuthPresenter.shared.start(
+            url: authURL,
+            callbackScheme: callbackScheme
+        )
+        try await handleCallback(callbackURL)
+    }
+
+    /// Whether `coach-<login>` exists on GitHub (repo created, install may still be pending).
+    func coachRepoExists(for login: String) async -> Bool {
+        guard let token = await validToken() else { return false }
+        let repoFull = "\(login)/coach-\(login)"
+        guard let url = URL(string: "https://api.github.com/repos/\(repoFull)") else { return false }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            return (response as? HTTPURLResponse)?.statusCode == 200
+        } catch {
+            return false
+        }
+    }
+
+    /// True when navigation landed on the athlete's coach repo page after template create.
+    func isCoachRepoCreationURL(_ url: URL, login: String) -> Bool {
+        guard url.host?.lowercased() == "github.com" else { return false }
+        let parts = url.path.split(separator: "/").map(String.init)
+        return parts.count >= 2 && parts[0].caseInsensitiveCompare(login) == .orderedSame
+            && parts[1].caseInsensitiveCompare("coach-\(login)") == .orderedSame
     }
 
     private func runAuthSession(path: String) async throws {
@@ -72,23 +109,10 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
             throw AuthError.invalidBaseURL
         }
 
-        let callbackURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
-            let session = ASWebAuthenticationSession(
-                url: authURL,
-                callbackURLScheme: self.callbackScheme
-            ) { url, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else if let url = url {
-                    continuation.resume(returning: url)
-                } else {
-                    continuation.resume(throwing: AuthError.missingCallback)
-                }
-            }
-            session.presentationContextProvider = self
-            session.prefersEphemeralWebBrowserSession = false
-            session.start()
-        }
+        let callbackURL = try await WebAuthPresenter.shared.start(
+            url: authURL,
+            callbackScheme: callbackScheme
+        )
 
         try await handleCallback(callbackURL)
     }
@@ -314,10 +338,12 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
 // MARK: - Supporting Types
 
 struct GitHubUser: Codable {
+    let id: Int?
     let login: String
     let avatarUrl: String?
 
     enum CodingKeys: String, CodingKey {
+        case id
         case login
         case avatarUrl = "avatar_url"
     }

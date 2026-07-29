@@ -88,7 +88,7 @@ struct WarmInstrumentHomeView: View {
             .onChange(of: store.lastError) { _, newError in
                 guard let newError, !newError.isEmpty else { return }
                 Haptics.error()
-                toast = Toast(kind: .error, message: newError)
+                toast = Toast(kind: .error, message: UserFacingError.friendlyAPIError(newError))
             }
             .overlay(alignment: .topTrailing) {
                 if isEditingLayout {

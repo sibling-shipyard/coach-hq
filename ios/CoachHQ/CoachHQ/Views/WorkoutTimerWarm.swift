@@ -363,67 +363,14 @@ struct WarmQuitDialog: View {
     let onQuit: () -> Void
 
     var body: some View {
-        ZStack {
-            Color(red: 43 / 255, green: 45 / 255, blue: 41 / 255)
-                .opacity(0.45)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onContinue)
-
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Quit workout?")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Theme.ink)
-                    .padding(.bottom, 8)
-
-                Text("Your progress will be lost.")
-                    .font(.system(size: 13.5))
-                    .foregroundColor(WarmInstrument.inkFaint)
-                    .padding(.bottom, 20)
-
-                HStack(spacing: 12) {
-                    WarmDialogActionButton(title: "Continue", style: .secondary, action: onContinue)
-                    WarmDialogActionButton(title: "Quit", style: .primary, action: onQuit)
-                }
-            }
-            .padding(.horizontal, 26)
-            .padding(.vertical, 24)
-            .frame(maxWidth: 340)
-            .background(WarmInstrument.paper)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(WarmInstrument.border, lineWidth: 1)
-            )
-            .shadow(color: Color(red: 43 / 255, green: 45 / 255, blue: 41 / 255).opacity(0.25), radius: 24, y: 12)
-            .padding(.horizontal, 16)
-        }
-    }
-}
-
-private struct WarmDialogActionButton: View {
-    enum Style { case primary, secondary }
-
-    let title: String
-    let style: Style
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(style == .primary ? WarmInstrument.paper : Theme.ink)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(style == .primary ? WorkoutTimerWarm.rust : WarmInstrument.paper)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(
-                            style == .secondary ? WarmInstrument.headerRule : Color.clear,
-                            lineWidth: 1
-                        )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(TimerWarmPressStyle())
+        WarmDialog(
+            title: "Quit workout?",
+            message: "Your progress will be lost.",
+            primaryTitle: "Quit",
+            primaryAction: onQuit,
+            secondaryTitle: "Continue",
+            secondaryAction: onContinue,
+            onBackdropTap: onContinue
+        )
     }
 }

@@ -54,6 +54,7 @@ struct MainTabView: View {
     @EnvironmentObject var bottomDock: BottomDockState
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
+    @State private var didSetInitialTab = false
 
     var body: some View {
         ZStack {
@@ -87,6 +88,13 @@ struct MainTabView: View {
             }
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
+        .onAppear {
+            guard !didSetInitialTab else { return }
+            didSetInitialTab = true
+            if !CoachSetupState.isComplete(repoFullName: authManager.repoFullName) {
+                selectedTab = .chat
+            }
+        }
     }
 
     /// Keep every tab root alive so scroll position, navigation paths, and fetch state survive tab switches.

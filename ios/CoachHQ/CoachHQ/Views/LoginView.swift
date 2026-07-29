@@ -2,8 +2,10 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
+    @AppStorage(UserFacingError.devModeKey) private var devModeEnabled = false
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var devErrorDetail: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -106,9 +108,15 @@ struct LoginView: View {
             if let error = errorMessage ?? authManager.lastNetworkError {
                 Text(error)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(WarmInstrument.accent)
+                    .foregroundColor(WarmInstrument.alarmFg)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 4)
+                if devModeEnabled, let devErrorDetail {
+                    Text(devErrorDetail)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                        .multilineTextAlignment(.center)
+                }
             }
         }
     }
@@ -116,13 +124,15 @@ struct LoginView: View {
     private func signIn() {
         isLoading = true
         errorMessage = nil
+        devErrorDetail = nil
 
         Task {
             do {
                 try await authManager.signIn()
                 Haptics.success()
             } catch {
-                errorMessage = "Sign in failed: \(error.localizedDescription)"
+                errorMessage = UserFacingError.message(for: error, devMode: false)
+                devErrorDetail = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 Haptics.error()
             }
             isLoading = false

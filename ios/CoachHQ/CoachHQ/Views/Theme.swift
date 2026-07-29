@@ -400,12 +400,110 @@ enum Haptics {
     }
 }
 
+// MARK: - Warm Dialog
+
+/// Warm Instrument modal — paper card on a dim scrim, primary + optional secondary actions.
+/// Mirrors `wtx-dialog` in workout-timer-warm.css; shared by quit confirm, chat errors, etc.
+struct WarmDialog: View {
+    let title: String
+    let message: String
+    let primaryTitle: String
+    let primaryAction: () -> Void
+    var secondaryTitle: String? = nil
+    var secondaryAction: (() -> Void)? = nil
+    /// Backdrop tap — defaults to secondary action, then primary.
+    var onBackdropTap: (() -> Void)? = nil
+
+    var body: some View {
+        ZStack {
+            Color(red: 43 / 255, green: 45 / 255, blue: 41 / 255)
+                .opacity(0.45)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    if let onBackdropTap {
+                        onBackdropTap()
+                    } else if let secondaryAction {
+                        secondaryAction()
+                    } else {
+                        primaryAction()
+                    }
+                }
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                    .padding(.bottom, 8)
+
+                Text(message)
+                    .font(.system(size: 13.5))
+                    .foregroundColor(WarmInstrument.inkFaint)
+                    .padding(.bottom, 20)
+
+                HStack(spacing: 12) {
+                    if let secondaryTitle, let secondaryAction {
+                        WarmDialogActionButton(title: secondaryTitle, style: .secondary, action: secondaryAction)
+                    }
+                    WarmDialogActionButton(title: primaryTitle, style: .primary, action: primaryAction)
+                }
+            }
+            .padding(.horizontal, 26)
+            .padding(.vertical, 24)
+            .frame(maxWidth: 340)
+            .background(WarmInstrument.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(WarmInstrument.border, lineWidth: 1)
+            )
+            .shadow(color: Color(red: 43 / 255, green: 45 / 255, blue: 41 / 255).opacity(0.25), radius: 24, y: 12)
+            .padding(.horizontal, 16)
+        }
+    }
+}
+
+struct WarmDialogActionButton: View {
+    enum Style { case primary, secondary }
+
+    let title: String
+    let style: Style
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(style == .primary ? WarmInstrument.paper : Theme.ink)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(style == .primary ? WarmInstrument.accent : WarmInstrument.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(
+                            style == .secondary ? WarmInstrument.headerRule : Color.clear,
+                            lineWidth: 1
+                        )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(WarmDialogPressStyle())
+    }
+}
+
+private struct WarmDialogPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.15, bounce: 0), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Toast
 
 /// Toast payload: message + severity. Identifiable by generation so repeated
 /// toasts with the same text still re-trigger.
 struct Toast: Equatable {
-    enum Kind { case success, error, info }
+    enum Kind { case success, error, info, warning }
     let kind: Kind
     let message: String
     var id = UUID()
@@ -415,54 +513,93 @@ struct Toast: Equatable {
         case .success: return "checkmark.circle.fill"
         case .error: return "exclamationmark.triangle.fill"
         case .info: return "info.circle.fill"
+        case .warning: return "exclamationmark.circle.fill"
         }
     }
 
-    var tint: Color {
+    var backgroundFill: Color {
         switch kind {
-        case .success: return Theme.ink
-        case .error: return WarmInstrument.accent
-        case .info: return Theme.ink
+        case .error: return WarmInstrument.alarmBg
+        case .success, .info, .warning: return WarmInstrument.paper
         }
     }
+
+    var foregroundColor: Color {
+        switch kind {
+        case .error: return WarmInstrument.alarmFg
+        case .success: return WarmInstrument.ink
+        case .info: return WarmInstrument.ink
+        case .warning: return Theme.attentionOrange
+        }
+    }
+
+    /// Errors stay until the athlete dismisses; other kinds auto-hide.
+    var autoDismisses: Bool { kind != .error }
 }
 
-/// Overlay modifier that slides a compact toast down from the top, auto-hides
-/// after a few seconds, and fires matching haptics.
+/// Overlay modifier that slides a compact toast down from the top. Errors persist
+/// until tap or X; success/info/warning auto-hide after ~3.5s.
 struct ToastModifier: ViewModifier {
     @Binding var toast: Toast?
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .top) {
             if let toast {
-                HStack(spacing: 8) {
-                    Image(systemName: toast.icon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                    Text(toast.message)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(toast.tint)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .onTapGesture { withAnimation { self.toast = nil } }
-                .task(id: toast.id) {
-                    // Errors linger longer so they can actually be read.
-                    let seconds: UInt64 = toast.kind == .error ? 6 : 2
-                    try? await Task.sleep(nanoseconds: seconds * 1_000_000_000)
-                    withAnimation { self.toast = nil }
-                }
+                toastBanner(toast)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .onTapGesture { dismissToast() }
+                    .task(id: toast.id) {
+                        guard toast.autoDismisses else { return }
+                        try? await Task.sleep(nanoseconds: 3_500_000_000)
+                        dismissToast()
+                    }
             }
         }
         .animation(.spring(duration: 0.35), value: toast)
+    }
+
+    private func dismissToast() {
+        withAnimation { toast = nil }
+    }
+
+    @ViewBuilder
+    private func toastBanner(_ toast: Toast) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: toast.icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(toast.foregroundColor)
+
+            Text(toast.message)
+                .font(.system(size: 13, weight: toast.kind == .error ? .semibold : .medium))
+                .foregroundColor(toast.foregroundColor)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if toast.kind == .error {
+                Button(action: dismissToast) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(toast.foregroundColor.opacity(0.85))
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(toast.backgroundFill)
+        .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                .strokeBorder(
+                    toast.kind == .error ? Color.clear : WarmInstrument.border,
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: WarmInstrument.cardShadow, radius: 14, x: 0, y: 7)
     }
 }
 

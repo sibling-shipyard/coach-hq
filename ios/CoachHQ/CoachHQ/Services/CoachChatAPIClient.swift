@@ -21,10 +21,10 @@ final class CoachChatAPIClient {
         guard let token = await authManager.validToken() else {
             throw GitHubAPIError.notAuthenticated
         }
-        guard let user = authManager.user?.login, let repo = authManager.selectedRepo else {
+        guard let repoFull = authManager.repoFullName else {
             throw GitHubAPIError.sessionNotReady
         }
-        return AuthContext(token: token, repoFull: "\(user)/\(repo)")
+        return AuthContext(token: token, repoFull: repoFull)
     }
 
     private func request(_ method: String, body: [String: Any]? = nil, auth: AuthContext) throws -> URLRequest {

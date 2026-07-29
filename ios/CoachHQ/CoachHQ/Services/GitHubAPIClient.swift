@@ -18,11 +18,10 @@ class GitHubAPIClient {
             guard authManager.loadToken() != nil else {
                 throw GitHubAPIError.notAuthenticated
             }
-            guard let user = authManager.user?.login,
-                  let repo = authManager.selectedRepo else {
+            guard let repoFull = authManager.repoFullName else {
                 throw GitHubAPIError.sessionNotReady
             }
-            return "https://api.github.com/repos/\(user)/\(repo)"
+            return "https://api.github.com/repos/\(repoFull)"
         }
     }
 
@@ -216,12 +215,9 @@ class GitHubAPIClient {
         guard let token = await authManager.validToken() else {
             throw GitHubAPIError.notAuthenticated
         }
-        guard let user = authManager.user?.login,
-              let repo = authManager.selectedRepo else {
+        guard let repoFull = authManager.repoFullName else {
             throw GitHubAPIError.sessionNotReady
         }
-
-        let repoFull = "\(user)/\(repo)"
         guard let url = URL(string: "\(Secrets.dashboardBaseURL)/api/widget-snapshots") else {
             throw GitHubAPIError.decodingFailed(operation: "Widget snapshots URL")
         }

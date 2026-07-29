@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var syncManager: HealthKitSyncManager
     @ObservedObject var testMode = TestModeManager.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
+    @AppStorage(UserFacingError.devModeKey) private var devModeEnabled = false
     @AppStorage(HRZoneConfig.zone1UpperKey) private var zone1Upper = HRZoneConfig.defaultZone1Upper
     @AppStorage(HRZoneConfig.zone2UpperKey) private var zone2Upper = HRZoneConfig.defaultZone2Upper
     @AppStorage(HRZoneConfig.zone3UpperKey) private var zone3Upper = HRZoneConfig.defaultZone3Upper
@@ -201,6 +202,17 @@ struct SettingsView: View {
 
     private var developerSection: some View {
         WarmSettingsSection(title: "Developer") {
+            WarmSettingsToggleRow(
+                title: "Dev Mode",
+                icon: "ladybug",
+                iconColor: WarmInstrument.inkMuted,
+                isOn: $devModeEnabled
+            )
+
+            Text("Shows technical error details on login and setup screens.")
+                .font(.system(size: 11))
+                .foregroundColor(WarmInstrument.inkFaint)
+
             WarmSettingsToggleRow(
                 title: "Test Mode",
                 icon: "arrow.triangle.branch",
