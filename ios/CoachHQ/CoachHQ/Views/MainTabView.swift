@@ -17,12 +17,13 @@ extension View {
 }
 
 enum AppTab: Hashable, CaseIterable {
-    case home, workouts, more
+    case home, workouts, chat, more
 
     var outlineIcon: String {
         switch self {
         case .home: return "house"
         case .workouts: return "dumbbell"
+        case .chat: return "bubble.left.and.bubble.right"
         case .more: return "ellipsis.circle"
         }
     }
@@ -31,6 +32,7 @@ enum AppTab: Hashable, CaseIterable {
         switch self {
         case .home: return "house.fill"
         case .workouts: return "dumbbell.fill"
+        case .chat: return "bubble.left.and.bubble.right.fill"
         case .more: return "ellipsis.circle.fill"
         }
     }
@@ -39,6 +41,7 @@ enum AppTab: Hashable, CaseIterable {
         switch self {
         case .home: return "Home"
         case .workouts: return "Workouts"
+        case .chat: return "Coach Chat"
         case .more: return "More"
         }
     }
@@ -60,6 +63,10 @@ struct MainTabView: View {
             tabRoot(.workouts) {
                 WorkoutListView()
                     .environmentObject(workoutService)
+            }
+            tabRoot(.chat) {
+                CoachChatView()
+                    .environmentObject(authManager)
             }
             tabRoot(.more) {
                 SettingsView()

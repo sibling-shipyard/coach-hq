@@ -2,7 +2,7 @@
 
 ## Context
 
-Real Coach Phelps sessions from the browser (and soon iOS), backed by Gemini. This doc traces
+Real Coach Phelps sessions from the browser and iOS, backed by Gemini. This doc traces
 exactly what happens between the athlete hitting send and anything landing on `main` — see
 ADR 0012 for why it commits the way it does. Companion to `engine/docs/ios-sync.md`: that doc
 covers the HealthKit ingestion path, this one covers the coaching-conversation path. They share
@@ -13,7 +13,7 @@ a commit pattern (Git Data API, atomic) but nothing else.
 ```mermaid
 flowchart LR
     web["ui/client CoachChat.tsx"] --> api["ui/api/coach-chat.ts"]
-    ios["iOS CoachChatView (planned)"] --> api
+    ios["iOS CoachChatView"] --> api
     api --> ctx["read SOUL.md + state.md + quest_log.md"]
     ctx --> gemini["Gemini generateContent (gemini-flash-latest)"]
     gemini -- "ordinary turn" --> reply["reply only, no write"]
@@ -26,8 +26,8 @@ flowchart LR
 Entry points:
 
 - `CoachChat.tsx` — the web chat page, send button / Enter.
-- iOS `CoachChatView` (planned, see ADR 0012 and the iOS Builder issue) — same endpoint, same
-  contract, `Bearer <token>` auth instead of a session cookie.
+- iOS `CoachChatView` (see ADR 0012) — same endpoint, same contract, `Bearer <token>` +
+  `X-Coach-Repo` auth instead of a session cookie.
 
 Both call `POST /api/coach-chat` with `{ threadId?, messages, message }`. `messages` is the
 client's own in-memory running history for the thread — nothing is persisted server-side for an
@@ -141,5 +141,7 @@ never written by chat.
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API), shared by all writes in `coach-chat.ts` |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |
 | `ui/client/src/components/coach-chat/coachChatModel.ts` | client fetch helpers (`fetchThreads`, `sendMessage`, `setThreadStatus`) |
-| `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift` (planned) | iOS client of the same endpoint |
+| `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift` | iOS client of the same endpoint (Bearer + X-Coach-Repo) |
+| `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift` | Codable mirrors of the server's ChatThread/ChatMessage JSON |
+| `ios/CoachHQ/CoachHQ/Views/CoachChatView.swift` | iOS chat UI, wired into `MainTabView.swift`'s `.chat` tab |
 | `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | iOS's own Git Data API implementation — HealthKit sync only, not shared with chat |
