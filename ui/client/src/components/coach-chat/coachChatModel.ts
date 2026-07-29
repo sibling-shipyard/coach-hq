@@ -101,13 +101,26 @@ function isTransientStatus(status: number): boolean {
   return status >= 500 || status === 429;
 }
 
-async function fetchWithRetry(input: RequestInfo, init?: RequestInit, attempts = 3): Promise<Response> {
+// `retryNetworkFailures` defaults true for GET/PATCH, which are safe either way (a pure read,
+// or a status change idempotent by thread id). sendMessage() passes false: a 5xx/429 *response*
+// means the server confirmed the request failed before anything committed, safe to retry - but
+// a raw network-level failure (fetch() itself throwing, no response received) means we genuinely
+// don't know whether the server's commit landed before the connection dropped. Retrying that
+// blindly for a close-session turn would re-run Gemini and the commit a second time, producing
+// a duplicate thread/reply instead of just wasted work.
+async function fetchWithRetry(
+  input: RequestInfo,
+  init?: RequestInit,
+  attempts = 3,
+  retryNetworkFailures = true,
+): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const res = await fetch(input, init);
       if (res.ok || !isTransientStatus(res.status) || attempt === attempts - 1) return res;
     } catch (err) {
+      if (!retryNetworkFailures) throw err;
       lastError = err;
       if (attempt === attempts - 1) throw err;
     }
@@ -138,11 +151,16 @@ export async function sendMessage(
   priorMessages: ChatMessage[],
   message: string,
 ): Promise<SendMessageResult> {
-  const res = await fetchWithRetry("/api/coach-chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message }),
-  });
+  const res = await fetchWithRetry(
+    "/api/coach-chat",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message }),
+    },
+    3,
+    false,
+  );
   if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };

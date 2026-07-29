@@ -133,18 +133,34 @@ interface ChatHistoryFile {
   threads: ChatThread[];
 }
 
-async function getFileRaw(repo: string, path: string, token: string): Promise<string | null> {
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-    headers: GH_HEADERS_RAW(token),
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    // Tagged with .status so the top-level handler can tell an expired/invalid token (401)
-    // apart from any other failure and respond 401 instead of a generic 500 - iOS's Bearer
-    // auth has no cookie-refresh equivalent, so this is the only signal it gets to re-auth.
-    throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), { status: res.status });
+// A pure read - safe to retry on any transient failure including a raw network error, unlike
+// the POST commit path where a lost response after a successful write makes blind retry unsafe.
+function isTransientReadFailure(err: unknown): boolean {
+  const status = (err as { status?: number }).status;
+  if (status == null) return true; // network-level failure
+  return status >= 500 || status === 429;
+}
+
+async function getFileRaw(repo: string, path: string, token: string, attempts = 3): Promise<string | null> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+        headers: GH_HEADERS_RAW(token),
+      });
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        // Tagged with .status so the top-level handler can tell an expired/invalid token (401)
+        // apart from any other failure and respond 401 instead of a generic 500 - iOS's Bearer
+        // auth has no cookie-refresh equivalent, so this is the only signal it gets to re-auth.
+        throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), { status: res.status });
+      }
+      return await res.text();
+    } catch (err) {
+      if (!isTransientReadFailure(err) || attempt === attempts - 1) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
   }
-  return res.text();
+  throw new Error(`Failed to fetch ${path} - unreachable`); // keeps TS happy, loop always returns/throws
 }
 
 async function loadChatHistory(repo: string, token: string): Promise<ChatHistoryFile> {
@@ -478,7 +494,13 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         },
       };
 
-      const validUpdates = (reply.file_updates ?? []).filter((f) => isCoachWritable(f.path));
+      // Defense in depth alongside isCoachWritable: an empty/blank content string is never a
+      // legitimate update (state.md etc always has real content) and would otherwise silently
+      // wipe the file in this same atomic commit - reject it rather than trust Gemini never
+      // proposes one.
+      const validUpdates = (reply.file_updates ?? []).filter(
+        (f) => isCoachWritable(f.path) && f.content.trim().length > 0,
+      );
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
 
       // ADR 0012: every file_update plus the updated chat_history.json lands in ONE atomic

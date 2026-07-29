@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Native Coach Chat - a client of the same /api/coach-chat endpoint the web app uses
-/// (engine/docs/coach-chat-flow.md, ADR 0012). No Gemini or commit logic lives here; this
+/// (platform/docs/coach-chat-flow.md, ADR 0012). No Gemini or commit logic lives here; this
 /// view only sends/receives and renders. Smallest useful surface for #126: thread list +
 /// conversation pane + thinking indicator, matching the web app's information, not its full
 /// Warm Instrument chrome pixel-for-pixel.
@@ -95,6 +95,7 @@ struct CoachChatView: View {
             Button {
                 needsSignIn = false
                 errorMessage = nil
+                clearThreadState()
                 authManager.signOut()
             } label: {
                 Text("Sign in again")
@@ -255,6 +256,16 @@ struct CoachChatView: View {
 
     // MARK: - Networking
 
+    /// Called wherever `needsSignIn` is set. Without this, the previous account's thread
+    /// titles/content could stay in @State and flash on screen in the brief window between a
+    /// sign-out and the next account's fresh fetch completing - this view never re-mounts
+    /// across a sign-out (MainTabView keeps every tab alive), so nothing else clears it.
+    private func clearThreadState() {
+        threads = []
+        activeThreadId = nil
+        threadsLoading = true
+    }
+
     private func loadThreads() async {
         guard let apiClient else { return }
         threadsLoading = true
@@ -265,6 +276,7 @@ struct CoachChatView: View {
             if case .sessionNotReady = error { return }
             if case .notAuthenticated = error {
                 needsSignIn = true
+                clearThreadState()
                 return
             }
             errorMessage = error.errorDescription ?? "Couldn't load conversations"
@@ -324,6 +336,7 @@ struct CoachChatView: View {
         } catch let error as GitHubAPIError {
             if case .notAuthenticated = error {
                 needsSignIn = true
+                clearThreadState()
             } else {
                 errorMessage = error.errorDescription ?? "Coach didn't reply — try again"
             }

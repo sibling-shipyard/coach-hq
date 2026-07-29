@@ -1,7 +1,7 @@
 import Foundation
 
 /// Client for /api/coach-chat - a thin client of the same endpoint the web app talks to
-/// (see engine/docs/coach-chat-flow.md, ADR 0012). No Gemini calls or Git Data API commit
+/// (see platform/docs/coach-chat-flow.md, ADR 0012). No Gemini calls or Git Data API commit
 /// logic here: the server does all of that. Kept separate from GitHubAPIClient, which talks
 /// straight to GitHub's REST API for HealthKit sync - this hits the dashboard's own API
 /// instead, same as GitHubAPIClient.fetchWidgetSnapshots() already does for Home (ADR 0005).
@@ -46,15 +46,22 @@ final class CoachChatAPIClient {
     /// Runs `operation` up to `attempts` times with exponential backoff (0.5s, 1s, 2s…) -
     /// mirrors GitHubAPIClient.withRetry so this client is as resilient to a network blip as
     /// every other network-touching service in the app, instead of failing outright on the
-    /// first drop.
-    private func withRetry<T>(attempts: Int = 3, operation: () async throws -> T) async throws -> T {
+    /// first drop. `retryNetworkFailures` gates only the "no status = network-level failure"
+    /// branch below - see `send(_:operation:retryNetworkFailures:)`.
+    private func withRetry<T>(
+        attempts: Int = 3,
+        retryNetworkFailures: Bool = true,
+        operation: () async throws -> T,
+    ) async throws -> T {
         var lastError: Error = GitHubAPIError.requestFailed(operation: "Coach chat", status: nil, detail: nil)
         for attempt in 0..<attempts {
             do {
                 return try await operation()
             } catch {
+                guard Self.isTransient(error, retryNetworkFailures: retryNetworkFailures), attempt < attempts - 1 else {
+                    throw error
+                }
                 lastError = error
-                guard Self.isTransient(error), attempt < attempts - 1 else { throw error }
                 let delay = 0.5 * pow(2, Double(attempt))
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
@@ -62,14 +69,19 @@ final class CoachChatAPIClient {
         throw lastError
     }
 
-    /// Transient = worth retrying: network drops, timeouts, 5xx, 429 - never a 4xx rejection
-    /// (400/401/etc are real answers, not blips to paper over). Mirrors
-    /// GitHubAPIClient.isTransient's classification.
-    private static func isTransient(_ error: Error) -> Bool {
+    /// Transient = worth retrying: 5xx/429 always; a raw network-level failure (timeout,
+    /// connection drop, no response received at all) only when `retryNetworkFailures` is true.
+    /// `sendMessage()` passes false: a 5xx/429 *response* means the server confirmed the request
+    /// failed before anything committed, safe to retry - but a network-level failure means we
+    /// genuinely don't know whether the server's commit landed before the connection dropped.
+    /// Retrying that blindly for a close-session turn would re-run Gemini and the commit a
+    /// second time, producing a duplicate thread/reply instead of just wasted work. Mirrors
+    /// GitHubAPIClient.isTransient's classification otherwise.
+    private static func isTransient(_ error: Error, retryNetworkFailures: Bool) -> Bool {
         if let apiError = error as? GitHubAPIError {
             switch apiError {
             case .requestFailed(_, let status, _), .commitFailed(_, let status, _):
-                guard let status else { return true } // no status = network-level failure
+                guard let status else { return retryNetworkFailures } // no status = network-level failure
                 return status >= 500 || status == 429
             case .notAuthenticated, .sessionNotReady, .widgetSnapshotsPlaceholder, .decodingFailed, .notFound:
                 return false
@@ -78,6 +90,7 @@ final class CoachChatAPIClient {
         if error is CancellationError { return false }
         let ns = error as NSError
         if ns.domain == NSURLErrorDomain {
+            guard retryNetworkFailures else { return false }
             return [NSURLErrorTimedOut, NSURLErrorNetworkConnectionLost,
                     NSURLErrorNotConnectedToInternet, NSURLErrorCannotConnectToHost,
                     NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed].contains(ns.code)
@@ -85,8 +98,8 @@ final class CoachChatAPIClient {
         return false
     }
 
-    private func send(_ req: URLRequest, operation: String) async throws -> Data {
-        try await withRetry {
+    private func send(_ req: URLRequest, operation: String, retryNetworkFailures: Bool = true) async throws -> Data {
+        try await withRetry(retryNetworkFailures: retryNetworkFailures) {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse else {
                 throw GitHubAPIError.decodingFailed(operation: operation)
@@ -121,7 +134,7 @@ final class CoachChatAPIClient {
         var body: [String: Any] = ["messages": messagesJSON, "message": message]
         if let threadId { body["threadId"] = threadId }
         let req = try request("POST", body: body, auth: auth)
-        let data = try await send(req, operation: "Sending message")
+        let data = try await send(req, operation: "Sending message", retryNetworkFailures: false)
         return try JSONDecoder().decode(ChatSendResponse.self, from: data)
     }
 

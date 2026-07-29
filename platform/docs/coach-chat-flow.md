@@ -77,7 +77,8 @@ sequenceDiagram
      `COACH_WRITABLE_FILES` (`user_data/coach/state.md`, `coach_notes.md`,
      `user_data/ledger/challenge_v2.json`, `current_week.json`, `sleep_log.json`,
      `user_data/activities/workout_plans/sessions/**`) survive, regardless of what the model
-     proposed — defense in depth, not trust in instruction-following.
+     proposed — defense in depth, not trust in instruction-following. An update with
+     empty/blank content is dropped too, so a Gemini failure mode can't silently wipe a file.
    - `chat_history.json`'s new content is **not** computed from a snapshot read before the
      commit starts. It's a `resolve()` callback (`githubGitData.ts`'s `ResolvedFileWrite`) that
      re-reads `chat_history.json` fresh, merges this thread to the front
@@ -95,12 +96,11 @@ sequenceDiagram
 
 ## What does NOT happen in this action
 
-No GitHub Actions workflow is dispatched by chat. `challenge_v2.json` (if touched) is a plain
-push to `main` — on a repo where `sync.yml` already has a push trigger on that path, this
-indirectly re-triggers the downstream pipeline the same way an iOS HealthKit sync would; on a
-repo where `sync.yml` is `workflow_dispatch`-only, `quest_log.md` just stays slightly stale until
-the athlete next hits Sync themselves. This was a deliberate choice to avoid a second, racing
-workflow run — see the comment block at `coach-chat.ts:203-212`.
+No GitHub Actions workflow is dispatched by chat, deliberately (avoids a second, racing
+`sync.yml` run — see `coach-chat.ts:207-216` for the full reasoning). `challenge_v2.json`, if
+touched, is just a plain push, so it re-triggers `sync.yml` only on a repo whose workflow already
+has a push trigger on that path; otherwise derived files like `quest_log.md` stay slightly stale
+until the athlete next hits Sync themselves.
 
 An ordinary (non-closing) turn writes nothing, commits nothing, and touches no file — the whole
 conversation lives in browser/app memory until close.
@@ -120,7 +120,11 @@ the same one `widget-snapshots.ts` already uses (ADR 0005) — no new auth code 
 **Resilience matches the rest of the app**, not a special case: `fetchWithRetry`
 (`coachChatModel.ts`) and `CoachChatAPIClient.withRetry` retry a transient failure (network
 drop, 5xx, 429) with the same backoff `githubGitData.ts`/`GitHubAPIClient` already use, never a
-real 4xx rejection. A 401 gets its own "sign in again" UI on both platforms (`RepoDataGate`'s
+real 4xx rejection. Sending a message is the one exception: a 5xx/429 *response* still retries
+(the server confirmed nothing committed), but a raw network-level failure does not, since a
+close-session turn's commit could have already landed before the response was lost — retrying
+that blindly would re-run Gemini and the commit a second time. A 401 gets its own "sign in
+again" UI on both platforms (`RepoDataGate`'s
 `accessRevoked` card on web, `CoachChatView.signInAgainView` on iOS) instead of a generic error.
 `CoachChatView` re-triggers its thread load via `.task(id: chatFetchToken)` once
 `GitHubAuthManager`'s session/repo discovery finishes, the same fix `WarmInstrumentHomeView`
