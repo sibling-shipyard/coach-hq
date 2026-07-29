@@ -31,8 +31,9 @@ Runbook: [`docs/engineering/provision-runbook.md`](../docs/engineering/provision
 
 | Path | Role |
 |---|---|
-| `plugins/` | HQ extensions (badminton analytics) |
+| `plugins/` | HQ extensions (badminton analytics + `generate_analytics_snapshot.py`) |
 | `docs/` | Coach reference — carved subset → `propagated/docs/` |
 | `skeleton-templates/` | Workout templates — 2 samples carved to athlete repos |
 | `skills/` | pipeline-tools.md (carved to propagated) |
 | `scripts/parse_match_description.py` | HQ operator tool (iOS ports logic to Swift) |
+| `tests/` | HQ pytest (parse_match_description parity) |

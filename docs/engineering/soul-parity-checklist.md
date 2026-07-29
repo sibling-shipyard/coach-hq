@@ -331,6 +331,6 @@ SOUL §8 names four quest types; Sky's live `challenge_v2.json` is **v3** with e
 1. Compose SOUL.md via `scripts/compose-soul.mjs`.
 2. Walk this checklist line by line — each box must still pass or have documented intentional change with Tech Lead approval.
 3. Walk the Sky v3 addendum if composing against live `coach-phelps` data.
-4. Run VALIDATION_TESTS.md + coach-chat smoke-test per soul-split-plan S2 exit criteria.
+4. Run `docs/engineering/VALIDATION_TESTS.md` + coach-chat smoke-test per soul-split-plan S2 exit criteria.
 
 **Checklist count:** 200+ v5.7 behaviors + Sky v3 C-data addendum across boot, guardrails, voice, philosophy, seasons, playbook, quests, rules engine, 15 workflows, tools, and commit protocol.

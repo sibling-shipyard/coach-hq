@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-# Optional local gate: run `ln -s ../../scripts/kdb/pre-commit .git/hooks/pre-commit` to enable.
-# Blocks a commit if the knowledge base is malformed or the ADR index is stale.
-exec python3 "$(git rev-parse --show-toplevel)/scripts/kdb/validate_kdb.py"

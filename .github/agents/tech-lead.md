@@ -35,7 +35,7 @@
 1. `git pull --rebase origin main`
 2. Read `AGENTS.md` (routing + KB index) + `propagated/SOUL.md` (the coaching system)
 3. Skim `kdb/decisions/README.md` (ADR index — read decisions relevant to your work); follow `kdb/doc-style.md` for any design doc
-4. Read `TODO.md` (if exists)
+4. Read `docs/engineering/TODO.md` (if exists)
 5. `git log --oneline -10`
 6. You're ready. Ask the athlete what's on the agenda or pick up where you left off.
 

@@ -3,7 +3,7 @@ import Foundation
 // Standalone verification harness for DescriptionParser.swift.
 //
 // There is no Xcode test target in this project, so this ports every case from
-// tests/test_parse_match_description.py as plain assertions and runs them via the
+// platform/tests/test_parse_match_description.py as plain assertions and runs them via the
 // `swift`/`swiftc` CLI directly against the app's DescriptionParser.swift.
 //
 // Usage:

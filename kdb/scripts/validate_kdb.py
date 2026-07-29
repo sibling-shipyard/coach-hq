@@ -41,7 +41,7 @@ for fp in adr_files():
 
 # Index in sync: run the generator and compare. A failure to run the generator is a
 # hard error — never let a broken/missing generator make this check silently pass.
-gen = ROOT / "scripts" / "kdb" / "gen_adr_index.py"
+gen = ROOT / "kdb" / "scripts" / "gen_adr_index.py"
 if not gen.exists():
     errors.append(f"generator not found at {gen.relative_to(ROOT)}")
 else:
@@ -50,7 +50,7 @@ else:
     if r.returncode != 0:
         errors.append(f"gen_adr_index.py failed to run: {(r.stderr or r.stdout).strip()}")
     elif (DEC / "README.md").read_text() != before:
-        errors.append("ADR index in kdb/decisions/README.md is stale — run scripts/kdb/gen_adr_index.py")
+        errors.append("ADR index in kdb/decisions/README.md is stale — run kdb/scripts/gen_adr_index.py")
 
 # AGENTS.md size (soft cap)
 if AGENTS.exists():

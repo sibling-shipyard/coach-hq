@@ -1,6 +1,6 @@
 # HQ Restructure Plan
 
-> **Active** · M1 + R5 cleared · Authority: [`scaling-plan.md`](scaling-plan.md) (two-repo topology unchanged)
+> **Active** · M1 + R5 cleared · R6a/R6b done (uncommitted) · Authority: [`scaling-plan.md`](scaling-plan.md) (two-repo topology unchanged)
 
 ## Context
 
@@ -46,6 +46,9 @@ flowchart LR
   R1 --> R3["R3 platform/"]
   R3 --> R4["R4 engine mirror"]
   R4 --> R5["R5 drop dogfood ✓"]
+  R5 --> R6a["R6a root tidy ✓"]
+  R6a --> R6b["R6b fold scripts ✓"]
+  R6b --> R6c["R6c propagated → platform/artifacts"]
   R2["R2 golden ✓"] -.-> R5
 ```
 
@@ -57,6 +60,9 @@ flowchart LR
 | **R3** | M | `platform/` band — soul + operator scripts | **Done** |
 | **R4** | L | HQ-only code out of `engine/`; skeleton re-carved | **Done** |
 | **R5** | S | Delete root `user_data/`, `gen/`, `data/`; local dev uses golden dataset only | **Done** |
+| **R6a** | S | Delete `sessions/`; move root markdown → `docs/`; `tests/` → `platform/tests/` | **Done** |
+| **R6b** | S | Fold root `scripts/` → `kdb/scripts/`, `platform/plugins/badminton/` | **Done** |
+| **R6c** | M | HQ-only: `propagated/` → `platform/artifacts/` (athlete carve output unchanged) | Pending |
 
 ## Risks (one-liners)
 

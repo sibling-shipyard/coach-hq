@@ -4,13 +4,13 @@
 Thin wrapper — implementation lives in platform/plugins/badminton/analytics.py.
 
 Usage:
-    python scripts/generate_analytics_snapshot.py
+    python platform/plugins/badminton/generate_analytics_snapshot.py
 """
 
 import sys
 from pathlib import Path
 
-REPO_DIR = Path(__file__).resolve().parent.parent
+REPO_DIR = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_DIR / "engine" / "lib"))
 sys.path.insert(0, str(REPO_DIR / "engine"))
 sys.path.insert(0, str(REPO_DIR / "platform"))

@@ -6,7 +6,7 @@ computes match analytics, and writes a compact snapshot for Coach Phelps.
 
 Usage:
     python plugins/badminton/analytics.py
-    python scripts/generate_analytics_snapshot.py  # thin wrapper
+    python platform/plugins/badminton/generate_analytics_snapshot.py  # thin wrapper
 """
 
 import json

@@ -280,7 +280,7 @@ v5 is working when:
 7. Sunday session ritual triggers correctly and covers all 5 agenda items
 8. Coach outputs match calibration examples in `soul-calibration.md`
 
-Map to VALIDATION_TESTS.md before shipping.
+Map to `docs/engineering/VALIDATION_TESTS.md` before shipping.
 
 ---
 
@@ -289,14 +289,14 @@ Map to VALIDATION_TESTS.md before shipping.
 | Phase | Work | Owner | Status |
 |---|---|---|---|
 | 1 | Add `date` bash call to SOUL.md boot sequence | Tech Lead | Done |
-| 2 | SOUL.md v5 rewrite + new companion files + update SOUL_HISTORY.md | Tech Lead | In progress |
+| 2 | SOUL.md v5 rewrite + new companion files + update `docs/engineering/SOUL_HISTORY.md` | Tech Lead | In progress |
 | 3 | Pipeline: PRE: + game-note parsing, leaderboard upsert | Bob | Done (Issue #17) |
 | 4 | Coach calibration pass: discuss with Coach, then fill `training/opponent_notes.md` from real session observations | Sky + Coach | Pending |
-| 5 | Validation — boot Coach in fresh thread, run VALIDATION_TESTS.md + update VALIDATION_TESTS.md for v5 criteria | Sky + Tech Lead | Pending |
+| 5 | Validation — boot Coach in fresh thread, run `docs/engineering/VALIDATION_TESTS.md` + update `docs/engineering/VALIDATION_TESTS.md` for v5 criteria | Sky + Tech Lead | Pending |
 | 5a | End-of-day trigger hardening — only explicit closing signal triggers check-in; interim save commits data only and resumes conversation | Tech Lead | Done |
 | 6 | Merge PR #51 | Sky | Done |
 
-**Phase 2 companion files:** `docs/soul-calibration.md`, `skills/pipeline-tools.md`, `training/reference/opponent_notes.md` (template first, then filled in Phase 4). Update `training/coach/state.md` schema. Update `SOUL_HISTORY.md` with v5 entry.
+**Phase 2 companion files:** `docs/soul-calibration.md`, `skills/pipeline-tools.md`, `training/reference/opponent_notes.md` (template first, then filled in Phase 4). Update `training/coach/state.md` schema. Update `docs/engineering/SOUL_HISTORY.md` with v5 entry.
 
 **Post-#25 SOUL update (future):** Once Bob ships the HR stream pipeline (issue #25), add per-match HR workflow to Coach — referencing win/loss HR signatures, ignition speed, etc. Cannot be in v5 as the underlying data doesn't exist yet.
 
