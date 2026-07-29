@@ -142,7 +142,7 @@ See `.github/CONVENTIONS.md` for the full spec. Summary:
 
 ## Escalation
 - Workers flag blockers in their thread. The athlete triages and brings it here if needed.
-- If a worker's PR has issues, leave review comments on the PR directly.
+- PR feedback: conversational in chat by default; GitHub comments only when the athlete asks.
 
 ## Learnings
 
