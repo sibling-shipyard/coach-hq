@@ -10,29 +10,19 @@ const OAUTH_STATE_MAX_AGE_SEC = 600; // 10 min - just needs to survive the redir
 // from inside ui/ - vercel.json's SPA rewrite can intercept Vite's own dev asset requests
 // (blank page, /src/main.tsx returns index.html) if invoked from the wrong cwd.
 
-// The single "Continue with GitHub" entry point - same URL for brand-new and returning
-// users. Unlike the old two-button split, this never routes through
-// /apps/<slug>/installations/new itself; it always hits GitHub's plain sign-in endpoint,
-// which recognizes an existing installation and skips straight to authorization for
-// returning users. callback.ts is what decides whether a first-time user needs routing
-// into repo creation + install - see ui/api/auth/callback.ts and pages/Setup.tsx.
+// Single "Log in with GitHub" entry point for both new and returning users - always hits
+// GitHub's plain sign-in endpoint; callback.ts decides whether a first-timer needs routing
+// into Setup.tsx's repo creation + install flow.
 //
-// ?platform=ios: iOS opens this same URL in an ASWebAuthenticationSession instead of a
-// browser tab. The value rides through in the state cookie (same one that already carries
-// `state`/`codeVerifier` across the redirect) so callback.ts knows to hand back a
-// coachhq://callback redirect with the raw token instead of a Set-Cookie session - see
-// GitHubAuthManager.swift.
+// ?platform=ios rides through the state cookie so callback.ts knows to hand back a
+// coachhq://callback redirect instead of a Set-Cookie session - see GitHubAuthManager.swift.
 export default {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
 
     if (!CLIENT_ID) {
-      // Redirects rather than a bare JSON body, same reasoning as callback.ts's
-      // errorRedirect - this is reached by direct navigation (a clicked link, or iOS opening
-      // it in a web session), not a fetch() call, so raw JSON just shows as unstyled text
-      // with no way forward. Confirmed this was actually hit once during local testing when
-      // env vars weren't loaded.
+      // Redirect rather than bare JSON - reached by direct navigation, not fetch().
       const headers = new Headers();
       headers.set(
         "Location",

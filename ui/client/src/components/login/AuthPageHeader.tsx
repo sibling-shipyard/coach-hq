@@ -1,11 +1,7 @@
 /**
- * AuthPageHeader — shared header for every screen in the sign-in/setup flow (Setup.tsx,
- * AuthError.tsx, Onboarding.tsx, RepoDataGate.tsx's non-content states).
- *
- * These screens used to have no header at all - no brand, no way out except an unreliable
- * browser-back mid-OAuth-redirect. One shared component instead of four copy-pasted headers,
- * so the brand/link markup can't drift between them. `action` is the one thing that varies:
- * "Cancel" back to the product page pre-session, "Sign out" once there's a session to clear.
+ * Shared header for the sign-in/setup flow (Setup.tsx, AuthError.tsx, Onboarding.tsx,
+ * RepoDataGate.tsx's non-content states). `action` is the one thing that varies per screen -
+ * "Cancel" pre-session, "Sign out" once there's a session to clear.
  */
 interface AuthPageHeaderProps {
   action?: { label: string; href: string };

@@ -1,19 +1,15 @@
 /**
  * Resolve GitHub credentials for repo-scoped API handlers.
- *
- * Web: encrypted session cookie (same as repo-file.ts) - via ensureFreshSession, so a routine
- * 8h access-token rotation happens transparently here too, not just in the handlers that
- * import session.ts directly.
- * iOS: Authorization: Bearer <github_token> + X-Coach-Repo: owner/repo. iOS refreshes its own
- * token client-side (GitHubAuthManager.swift) before it ever presents a Bearer header here, so
- * this side doesn't need refresh logic of its own.
+ * Web: encrypted session cookie, refreshed via ensureFreshSession.
+ * iOS: Authorization: Bearer <github_token> + X-Coach-Repo: owner/repo - iOS refreshes its own
+ * token client-side (GitHubAuthManager.swift) before presenting a Bearer header here.
  */
 import { ensureFreshSession, parseCookies, SESSION_COOKIE } from "./session.js";
 
 export interface RepoAuthContext {
   gh_token: string;
   repo_full_name: string;
-  // Cookie mode only - caller must attach via withSessionCookie() if present.
+  /** Cookie mode only - caller must attach via withSessionCookie() if present. */
   setCookie?: string;
 }
 

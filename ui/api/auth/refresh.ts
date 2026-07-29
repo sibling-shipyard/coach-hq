@@ -1,15 +1,10 @@
 /**
  * refresh.ts — mints a fresh GitHub access token from a refresh_token, for iOS.
- *
- * The web side never needs this directly: ensureFreshSession (_lib/session.ts) does the same
- * refresh_token exchange inline, since it already holds CLIENT_SECRET server-side and controls
- * the session cookie. iOS holds its own refresh_token in Keychain (no cookie, no
- * client_secret embedded in the app - that's exactly what the OAuth rewrite removed), so it
- * needs a server-side helper to do the confidential part of the exchange on its behalf.
- *
- * No cookie/bearer auth on this endpoint itself - possession of a valid, GitHub-issued
- * refresh_token *is* the auth; GitHub's own token endpoint is what actually validates it.
- * Same trust model as the initial sign-in exchange in callback.ts.
+ * Web doesn't need this: ensureFreshSession (_lib/session.ts) does the same exchange inline.
+ * iOS holds its refresh_token in Keychain with no client_secret embedded in the app, so it
+ * needs this server-side helper for the confidential part of the exchange.
+ * No cookie/bearer auth here - possession of a valid refresh_token is the auth; GitHub's own
+ * token endpoint validates it, same trust model as callback.ts's initial exchange.
  */
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
@@ -29,9 +24,8 @@ export default {
       return Response.json({ error: "refresh_token required" }, { status: 400 });
     }
 
-    // A thrown network error (DNS blip, timeout) here isn't the same as GitHub genuinely
-    // rejecting the refresh - iOS's validToken() falls back to the possibly-stale existing
-    // token either way, but the distinction matters for what it should retry vs. give up on.
+    // A thrown network error isn't the same as GitHub rejecting the refresh outright - iOS's
+    // validToken() treats these differently (retry vs. give up).
     let tokenRes: Response;
     try {
       tokenRes = await fetch("https://github.com/login/oauth/access_token", {
@@ -50,8 +44,7 @@ export default {
 
     const tokenBody = await tokenRes.json().catch(() => null);
     if (!tokenRes.ok || !tokenBody?.access_token || !tokenBody?.refresh_token || !tokenBody?.expires_in) {
-      // Refresh token expired (6 months idle) or was revoked - a genuine "sign in again"
-      // case, same as ensureFreshSession's equivalent failure on the web side.
+      // Refresh token expired (6mo idle) or revoked - genuine "sign in again" case.
       return Response.json({ error: "refresh_failed" }, { status: 401 });
     }
 

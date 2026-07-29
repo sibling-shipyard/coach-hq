@@ -8,9 +8,8 @@ interface Props {
   error: string | null;
   schemaUnsupported: boolean;
   notOnboarded?: boolean;
-  // True on repo-file.ts's 401 - GitHub access was revoked/expired mid-session, not a generic
-  // fetch failure. Optional: only Home.tsx passes this today, other useRepoData() consumers
-  // fall back to the generic error state below until they're migrated too.
+  /** True on repo-file.ts's 401 - GitHub access revoked/expired mid-session, not a generic
+   * fetch failure. Only Home.tsx passes this today. */
   accessRevoked?: boolean;
   children: ReactNode;
 }
@@ -39,11 +38,8 @@ export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, 
     );
   }
 
-  // challenge_v2 is null until Coach's first session ever runs and writes to it - a
-  // freshly-provisioned repo (see ui/api/auth/callback.ts + pages/Setup.tsx) genuinely has
-  // no coaching data yet, so there's nothing real to render on the dashboard. Distinct from
-  // `error`: this isn't a failure, it's the expected state for day zero. Still offers a way
-  // out (switch/sign out) in case the athlete actually meant to land on a different repo.
+  // challenge_v2 is null until Coach's first session runs - a freshly-provisioned repo
+  // genuinely has no data yet. Not an error, just day zero.
   if (notOnboarded) {
     return (
       <div className="wi-shell">

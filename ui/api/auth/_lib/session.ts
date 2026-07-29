@@ -14,16 +14,12 @@ import { EncryptJWT, jwtDecrypt } from "jose";
 export const SESSION_COOKIE = "coach_session";
 export const OAUTH_STATE_COOKIE = "coach_oauth_state";
 
-// Sliding absolute cap on the cookie itself, renewed on every successful refresh (see
-// ensureFreshSession below). 180 days rather than unbounded: GitHub's own refresh token is
-// only valid 6 months of inactivity (per their docs), so this roughly matches that ceiling -
-// anyone who opens the app at least once every 6 months never sees a login screen again, but
-// a genuinely abandoned device's session still has a real, bounded worst case instead of
-// living forever.
+// Sliding cap, renewed on each refresh (ensureFreshSession below) - roughly matches GitHub's
+// own 6-month refresh-token validity. See ADR 0009 for the full reasoning.
 export const SESSION_MAX_AGE_SEC = 180 * 24 * 60 * 60;
 
-// Refresh this many ms before the access token's actual expiry, so a request never races a
-// token that's about to die mid-flight.
+// Refresh this long before the access token's real expiry, so a request never races a token
+// that's about to die mid-flight.
 const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
@@ -34,9 +30,7 @@ export interface SessionPayload {
   login: string;
   gh_token: string;
   refresh_token: string;
-  // Epoch ms. GitHub's own access token expiry (currently 8h - coach-phelps has "expire user
-  // authorization tokens" opted in) - not the cookie's own expiry, which is the separate,
-  // much longer SESSION_MAX_AGE_SEC above.
+  /** Epoch ms - GitHub's access-token expiry, distinct from the cookie's own SESSION_MAX_AGE_SEC. */
   gh_token_expires_at: number;
   installation_id: number;
   repo_full_name?: string;
@@ -57,8 +51,6 @@ function getEncryptionKey(): Uint8Array {
 
 export async function encryptSession(payload: SessionPayload): Promise<string> {
   const key = getEncryptionKey();
-  // JWE's own exp claim is the cookie's sliding cap, not the (much shorter) GitHub token
-  // expiry embedded in the payload - the two are deliberately different clocks.
   return new EncryptJWT({ ...payload })
     .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
     .setIssuedAt()
@@ -107,20 +99,13 @@ export function clearCookie(name: string): string {
 
 export interface FreshSession {
   session: SessionPayload;
-  // Present only when the access token was actually rotated this request - caller must
-  // attach this as a Set-Cookie header on whatever response it returns, via
-  // withSessionCookie() below, so the sliding renewal actually reaches the browser.
+  /** Set only when the token was rotated this request - attach via withSessionCookie(). */
   setCookie?: string;
 }
 
 /**
- * The one place session cookies get read and, if needed, silently refreshed. Every handler
- * that used to do parseCookies -> decryptSession -> use session.gh_token directly should call
- * this instead - see round 4's plan for why: GitHub's own access token dies at 8h regardless
- * of the cookie's lifetime (coach-phelps has "expire user authorization tokens" opted in), so
- * treating the cookie alone as "is this session good" was already subtly wrong even before
- * this existed. This is what makes "stay logged in until you log out" actually work instead
- * of just moving the 8h wall into a confusing mid-session 401.
+ * The one place session cookies get read and, if needed, silently refreshed (ADR 0009).
+ * Every handler should call this instead of parseCookies + decryptSession directly.
  */
 export async function ensureFreshSession(req: Request): Promise<FreshSession | Response> {
   const cookies = parseCookies(req);
@@ -138,12 +123,8 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
     return Response.json({ error: "Site misconfigured" }, { status: 500 });
   }
 
-  // A thrown network error here (DNS blip, timeout - not a 4xx/5xx *response*) is not the
-  // same thing as GitHub genuinely rejecting the refresh: the former is transient and
-  // shouldn't force a re-login, the latter should. Same distinction round 2's callback.ts
-  // hardening made for the initial exchange - this is the routine-refresh equivalent, and
-  // every one of ensureFreshSession's callers (repo-file.ts, list-my-repos.ts, etc.) needs it
-  // too, since none of them wrap this call in their own try/catch.
+  // A thrown network error isn't a genuine rejection - fall back below rather than force a
+  // re-login over a transient blip.
   let refreshRes: Response;
   try {
     refreshRes = await fetch("https://github.com/login/oauth/access_token", {
@@ -157,26 +138,18 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
       }),
     });
   } catch {
-    // Same fallback as a rejected refresh below - see that comment for why.
     return { session };
   }
 
   const body = await refreshRes.json().catch(() => null);
   if (!refreshRes.ok || !body?.access_token || !body?.refresh_token || !body?.expires_in) {
-    // Issue #117: this used to hard-fail with "access revoked, sign in again" - but a failed
-    // refresh isn't proof the session is dead. GitHub rotates refresh_token on each use
-    // (single-use), so two concurrent requests racing near the 8h boundary means the loser's
-    // exchange gets rejected even though the session is completely fine (the winner already
-    // has a fresh cookie). We refresh proactively, 5 minutes *before* the access token's real
-    // expiry (REFRESH_BUFFER_MS) - so the old access token is almost certainly still valid
-    // right now regardless of why the refresh failed. Falling back to it here, unrefreshed,
-    // means: a race resolves itself silently (this request just uses the still-good old
-    // token; the next request either sees the winner's already-rotated cookie or retries the
-    // refresh itself); a *genuine* revocation surfaces naturally the moment this token is
-    // actually used against GitHub - repo-file.ts's/coach-chat.ts's own 401 detection is a
-    // more reliable signal for "is this really dead" than guessing at the refresh layer.
-    // iOS's validToken() already does exactly this (falls back to the old token on refresh
-    // failure) - this brings web in line with what iOS already gets right.
+    // Not necessarily a dead session (issue #117): GitHub rotates refresh_token on each use,
+    // so two concurrent requests racing near the 8h boundary means the loser's exchange gets
+    // rejected even though the session is fine. We refresh 5min early (REFRESH_BUFFER_MS), so
+    // the old token is almost certainly still valid - fall back to it unrefreshed rather than
+    // hard-fail. A genuine revocation surfaces on its own once that old token is actually used
+    // (repo-file.ts's 401 check), a more reliable signal than guessing here. Matches iOS's
+    // validToken(), which has always worked this way.
     return { session };
   }
 

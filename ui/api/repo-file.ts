@@ -1,14 +1,8 @@
 /**
- * repo-file.ts — fetches the signed-in user's resolved repo's gen/aggregate.json
- * via the GitHub Contents API. One call, one file, per the Repo-as-CDN model
- * (WEBSITE_UNIFICATION_PLAN.md Section 7) - not several raw files merged at
- * request time.
- *
- * Uses the `.raw` media type, not the default JSON+base64 wrapper - GitHub's
- * Contents API only inlines base64 `content` for files under ~1MB, and a real
- * activity history aggregate blows past that easily (confirmed: a real
- * aggregate.json came back as `encoding: "none"`, empty `content`, at ~2.8MB).
- * `.raw` returns the actual file bytes directly regardless of size.
+ * repo-file.ts — fetches the signed-in user's resolved repo's gen/aggregate.json via the
+ * GitHub Contents API (Repo-as-CDN model).
+ * Uses `.raw` media type, not the default JSON+base64 wrapper - Contents API only inlines
+ * base64 for files under ~1MB, and a real aggregate.json blows past that (~2.8MB observed).
  */
 import { ensureFreshSession, withSessionCookie } from "./auth/_lib/session.js";
 
@@ -38,20 +32,15 @@ export default {
         { headers: GH_HEADERS(session.gh_token) }
       );
     } catch {
-      // A thrown network error here (not a 4xx/5xx response) would otherwise propagate
-      // uncaught - same class of dead end round 2 fixed for callback.ts, and losing
-      // `setCookie` here specifically risks stranding the next request with an
-      // already-rotated-away refresh_token (ADR 0009's refresh tokens are single-use).
+      // A thrown network error would otherwise propagate uncaught and drop setCookie,
+      // stranding the next request with an already-rotated-away refresh_token (ADR 0009).
       return withSessionCookie(Response.json({ error: "Failed to fetch your data" }, { status: 502 }), setCookie);
     }
 
     if (contentsRes.status === 401 || contentsRes.status === 403) {
-      // Distinct from a generic failure: this is what a revoked/expired GitHub App
-      // installation looks like (user removed access on GitHub's side, or the App was
-      // uninstalled) - genuinely different from ensureFreshSession's routine 8h rotation,
-      // which already happened above if needed. "Failed to fetch your data" would be
-      // misleading here - the fix isn't retrying, it's signing in again.
-      // RepoDataGate.tsx keys off this specific error string.
+      // A revoked/expired GitHub App installation, distinct from ensureFreshSession's routine
+      // rotation above - the fix is signing in again, not retrying. RepoDataGate.tsx keys off
+      // this exact error string.
       return withSessionCookie(
         Response.json(
           { error: "Your GitHub access was revoked or expired - sign in again to reconnect." },

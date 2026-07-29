@@ -12,12 +12,9 @@ struct CoachHQApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                // selectedRepo != nil: repo already known. !isSessionReady: still resolving
-                // (cold launch / bootstrapSession in flight) - let MainTabView's own
-                // isSessionReady gating show the loading state, same as before this check
-                // existed. Only once isSessionReady flips true with no repo resolved does
-                // GitHubAuthManager set pendingSetupLogin, which routes to SetupView below
-                // instead of a MainTabView with nothing to show.
+                // !isSessionReady: still resolving (cold launch) - let MainTabView's own
+                // gating show the loading state. Once isSessionReady flips true with no repo
+                // resolved, pendingSetupLogin routes to SetupView instead.
                 if authManager.isAuthenticated && (authManager.selectedRepo != nil || !authManager.isSessionReady) {
                     MainTabView()
                         .environmentObject(authManager)

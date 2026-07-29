@@ -1,28 +1,17 @@
 /**
- * list-my-repos.ts — repo resolution: find the signed-in user's coach-phelps
- * repo and remember it in their session.
+ * list-my-repos.ts — repo resolution: find the signed-in user's coach-phelps repo and
+ * remember it in their session. Almost always resolves to exactly one candidate (installs
+ * are single-repo by design), but keeps the marker-file check and picker path for accounts
+ * installed before that convention.
  *
- * Candidates come from the repos the user chose during install (GET
- * /user/installations/{id}/repositories) - since every install is single-repo
- * by design (see ui/api/auth/callback.ts + pages/Setup.tsx), this almost
- * always resolves to exactly one candidate now. The marker-file check and
- * multi-candidate picker path are kept for accounts installed before that
- * convention (or anyone who picked more than one repo during install).
- *
- * Auth: session cookie (web) or Authorization: Bearer <github_token> (iOS) -
- * matches resolve-auth.ts's split, except this endpoint runs *before* iOS has
- * a resolved repo to put in X-Coach-Repo, so it only needs the bearer token.
- * callback.ts already includes `repo` in its coachhq:// redirect for the
- * common single-candidate case; this endpoint is iOS's fallback for the rare
- * 0-or-2+ candidate case, same picker flow web's Onboarding.tsx uses.
+ * Auth: session cookie (web) or Authorization: Bearer <github_token> (iOS, before it has a
+ * resolved repo for X-Coach-Repo). This is iOS's fallback for the 0-or-2+ candidate case;
+ * callback.ts already includes `repo` in its redirect for the common single-candidate case.
  *
  * GET                          → list/confirm candidates, auto-select if exactly one.
  * GET ?select=<owner>/<name>   → confirm and persist a specific pick (2+ case).
- * GET ?switch=1                → re-list every candidate, skipping the cached-pick fast
- *                                 path and the auto-select-on-one shortcut, so a user who
- *                                 already resolved a repo can deliberately switch to another
- *                                 one they own without logging out first. Cookie auth only -
- *                                 iOS has nothing cached to switch away from.
+ * GET ?switch=1                → re-list every candidate (skips cached-pick/auto-select), so
+ *                                 a user can switch repos without logging out. Cookie only.
  */
 import {
   encryptSession,
@@ -51,14 +40,11 @@ interface AuthContext {
   installation_id: number;
   repo_full_name?: string;
   via: "cookie" | "bearer";
-  // Cookie mode only - the complete, possibly-just-refreshed session, spread into any new
-  // session this handler builds (repo selection) so a rotated access/refresh token from
-  // ensureFreshSession never gets silently dropped by a handler that only knew about a few
-  // of the session's fields.
+  /** Cookie mode only - full session, spread into any new session this handler builds so a
+   * rotated token from ensureFreshSession never gets dropped. */
   fullSession?: SessionPayload;
-  // Cookie mode only - set when ensureFreshSession actually rotated the token this request.
-  // Only needs attaching to responses that don't already Set-Cookie a full new session
-  // themselves (those already carry the fresh tokens via fullSession above).
+  /** Cookie mode only - set when ensureFreshSession rotated the token this request. Only
+   * needs attaching to responses that don't already Set-Cookie a full new session. */
   rotatedCookie?: string;
 }
 
@@ -117,10 +103,8 @@ function withUpdatedSession(body: unknown, sessionToken: string, status = 200): 
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Declared outside the try block so a throw anywhere below can still attach a rotated
-    // cookie if resolveAuthContext got one before the throw - same reasoning as
-    // widget-snapshots.ts/coach-chat.ts's catch blocks: GitHub's refresh tokens are
-    // single-use (ADR 0009), losing a successful rotation here strands the next request.
+    // Declared outside the try block so a throw can still attach a rotated cookie -
+    // refresh_token is single-use (ADR 0009), losing a rotation strands the next request.
     let ctx: AuthContext | undefined;
     try {
       const resolved = await resolveAuthContext(req);
@@ -128,9 +112,6 @@ export default {
       ctx = resolved;
       return await handle(req, ctx);
     } catch (err) {
-      // Covers uncaught throws from repo-resolution.ts's own unwrapped fetch calls
-      // (resolveInstallationId/resolveOwnedRepos re-throw anything that isn't their own
-      // typed *LookupFailedError) and the 0-candidates path's own fetch below.
       const message = err instanceof Error ? err.message : "Failed to look up your repos";
       console.error("[list-my-repos]", err);
       return withSessionCookie(Response.json({ error: message }, { status: 502 }), ctx?.rotatedCookie);
@@ -164,24 +145,20 @@ async function handle(req: Request, ctx: AuthContext): Promise<Response> {
       if (ctx.via === "bearer") {
         return Response.json({ repo_full_name: selected });
       }
-      // fullSession already carries any rotation from ctx.rotatedCookie (same underlying
-      // refresh) - this Set-Cookie supersedes it, no separate attach needed here.
+      // fullSession already carries any rotation - this Set-Cookie supersedes it.
       const newSession = await encryptSession({ ...ctx.fullSession!, repo_full_name: selected });
       return withUpdatedSession({ repo_full_name: selected }, newSession);
     }
 
-    // Re-confirm an already-resolved repo still exists, is accessible, AND is actually
-    // owned by this account before trusting it - defense in depth against a session that
-    // resolved incorrectly before this check existed. Skipped in switch mode: the whole
-    // point there is to re-list every option, not short-circuit back to the current pick.
-    // Bearer auth never has a cached repo_full_name, so this only applies to cookie sessions.
+    // Re-confirm an already-resolved repo still exists and is owned by this account before
+    // trusting it. Skipped in switch mode. Bearer auth never has a cached repo_full_name.
     if (ctx.repo_full_name && !switching) {
       const stillOwned = isOwnedBy(ctx.repo_full_name, ctx.login);
       const stillOk = stillOwned && (await hasMarkerFile(ctx.repo_full_name, ctx.gh_token));
       if (stillOk) {
         return withSessionCookie(Response.json({ repo_full_name: ctx.repo_full_name }), ctx.rotatedCookie);
       }
-      // Falls through to re-resolve below if not owned, or it 404s (deleted/renamed/access lost).
+      // Falls through to re-resolve if not owned or it 404s (deleted/renamed/access lost).
     }
 
     let confirmed: string[];
@@ -197,9 +174,8 @@ async function handle(req: Request, ctx: AuthContext): Promise<Response> {
       throw e;
     }
 
-    // Auto-select on exactly one match - but not in switch mode, where the whole point is
-    // to show the picker even if there's only one other option (or none), so the client can
-    // say so explicitly instead of silently bouncing back to the same repo.
+    // Auto-select on exactly one match - not in switch mode, where the point is to show the
+    // picker even with only one option so the client can say so instead of silently bouncing back.
     if (confirmed.length === 1 && !switching) {
       if (ctx.via === "bearer") {
         return Response.json({ repo_full_name: confirmed[0] });
@@ -208,9 +184,8 @@ async function handle(req: Request, ctx: AuthContext): Promise<Response> {
       return withUpdatedSession({ repo_full_name: confirmed[0] }, newSession);
     }
 
-    // Distinguish "nothing granted to this installation that you own" (fix: Setup wizard)
-    // from "some repos granted, but none look like a coach-phelps repo" (fix: finish setting
-    // it up) - these need different messaging, not one generic error.
+    // Distinguish "nothing granted that you own" (fix: Setup wizard) from "some repos
+    // granted, none look like a coach-phelps repo" (fix: finish setup) - different messaging.
     if (confirmed.length === 0) {
       const reposRes = await fetch(
         `https://api.github.com/user/installations/${ctx.installation_id}/repositories?per_page=100`,
@@ -230,6 +205,6 @@ async function handle(req: Request, ctx: AuthContext): Promise<Response> {
       return withSessionCookie(Response.json({ candidates: [], reason }), ctx.rotatedCookie);
     }
 
-    // 2+ - client renders the picker.
+    // 2+ candidates - client renders the picker.
     return withSessionCookie(Response.json({ candidates: confirmed }), ctx.rotatedCookie);
 }
