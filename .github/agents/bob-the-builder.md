@@ -19,10 +19,8 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 - Regenerate derived data with `python3 scripts/regenerate_derived.py` (quest_log, quest_history, sync_status); `training/activities/quest_log.md` is auto-generated — never edit manually.
 - `data:` commits to `main` for sync-only changes; scripts/workflows need branch + PR (see `.github/CONVENTIONS.md`).
 
-## Learnings (durable, pipeline-specific)
+## Learnings
 
-Reusable rules you discover about pipeline work — add a one-liner when it's worth the
-next agent following (keep it tight; bloat makes agents worse). Decisions with tradeoffs
-go to `kdb/decisions/` as an ADR instead. KB rules: see AGENTS.md.
+One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`.
 
 - _(none yet)_

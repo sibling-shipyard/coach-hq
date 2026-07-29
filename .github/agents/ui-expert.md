@@ -19,10 +19,8 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 - Widget work: read `ui/docs/reference-interactions/Widget Design Philosophy.md` first — Warm Instrument is visual *and* interaction spec; a re-skinned but interaction-flat widget is not done.
 - CSS under `.wi-shell`: global button reset beats bare single-class selectors — use compound selectors; verify with `getComputedStyle` if type looks off.
 
-## Learnings (durable, UI-specific)
+## Learnings
 
-Reusable rules you discover about UI work — add a one-liner when it's worth the
-next agent following (keep it tight; bloat makes agents worse). Decisions with tradeoffs
-go to `kdb/decisions/` as an ADR instead. KB rules: see AGENTS.md.
+One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`.
 
 - _(none yet)_

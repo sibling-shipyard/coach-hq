@@ -19,11 +19,9 @@ On entry, read: `AGENTS.md`, this doc, `docs/ios-app-spec.md`, `ios/DESIGN.md` (
 - Activity JSON must match `ui/client/src/lib/activities.ts`; encode with `.prettyPrinted` + `.sortedKeys`.
 - Test sync via `TestModeManager` → `test/sync` branch only — never sync test data to `main`. Sandbox can't run Xcode; push and user builds locally.
 
-## Learnings (durable, iOS-specific)
+## Learnings
 
-Reusable rules you discover about iOS work — add a one-liner when it's worth the
-next agent following (keep it tight; bloat makes agents worse). Decisions with tradeoffs
-go to `kdb/decisions/` as an ADR instead. KB rules: see AGENTS.md.
+One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`.
 
 - Coach-voice typography (Newsreader vs. system serif) was an open decision in `ios/DESIGN.md` — resolved as system serif italic (`.system(design: .serif).italic()`) for Warm Instrument Home rather than bundling a font asset. Revisit only if the team decides bundling Newsreader is worth it.
 - `Theme.cornerRadius`/`Theme.cardBackground`/`Theme.cardBorder`/`Theme.ink` are shared app-wide — retinting them (as Warm Instrument Home's Phase 1 did) changes every screen's card look, not just new ones. Cheap, low-risk way to roll a palette change across the whole app without touching each view file.
