@@ -7,6 +7,7 @@ struct CoachHQApp: App {
     @StateObject private var workoutService = WorkoutService()
     @StateObject private var widgetStore = WidgetSnapshotStore()
     @StateObject private var bottomDock = BottomDockState()
+    @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
 
     var body: some Scene {
@@ -39,6 +40,17 @@ struct CoachHQApp: App {
             }
             .tint(Theme.ink)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)
+            .sheet(isPresented: webAuth.isPresentedBinding) {
+                if let url = webAuth.currentURL {
+                    InAppAuthWebView(
+                        url: url,
+                        mode: webAuth.mode,
+                        onCallback: { webAuth.complete(with: $0) },
+                        onCancel: { webAuth.cancel() },
+                        onDismissBrowse: { webAuth.dismissBrowse() }
+                    )
+                }
+            }
         }
     }
 }

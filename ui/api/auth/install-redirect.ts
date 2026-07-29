@@ -29,7 +29,14 @@ export default {
 
     const redirectUri = `${url.origin}/api/auth/callback`;
 
-    const installUrl = new URL(`https://github.com/apps/${APP_SLUG}/installations/new`);
+    const suggestedTargetId = url.searchParams.get("suggested_target_id");
+    const installUrl = suggestedTargetId
+      ? new URL(`https://github.com/apps/${APP_SLUG}/installations/new/permissions`)
+      : new URL(`https://github.com/apps/${APP_SLUG}/installations/new`);
+    if (suggestedTargetId) {
+      installUrl.searchParams.set("suggested_target_id", suggestedTargetId);
+      installUrl.searchParams.set("target_type", "User");
+    }
     installUrl.searchParams.set("state", state);
     installUrl.searchParams.set("redirect_uri", redirectUri);
     installUrl.searchParams.set("client_id", CLIENT_ID);

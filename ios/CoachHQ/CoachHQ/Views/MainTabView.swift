@@ -54,6 +54,7 @@ struct MainTabView: View {
     @EnvironmentObject var bottomDock: BottomDockState
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
+    @State private var didSetInitialTab = false
 
     var body: some View {
         ZStack {
@@ -87,6 +88,22 @@ struct MainTabView: View {
             }
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
+        .task(id: initialTabResolveToken) {
+            guard !didSetInitialTab else { return }
+            guard authManager.isSessionReady else { return }
+            if await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) {
+                selectedTab = .chat
+            }
+            didSetInitialTab = true
+        }
+    }
+
+    /// Re-runs initial tab resolution once session + repo are ready (not on every tab switch).
+    private var initialTabResolveToken: String {
+        [
+            authManager.isSessionReady ? "ready" : "boot",
+            authManager.repoFullName ?? "",
+        ].joined(separator: "|")
     }
 
     /// Keep every tab root alive so scroll position, navigation paths, and fetch state survive tab switches.

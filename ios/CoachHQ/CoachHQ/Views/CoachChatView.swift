@@ -15,6 +15,7 @@ struct CoachChatView: View {
     @State private var threadsLoading = true
     @State private var sending = false
     @State private var errorMessage: String?
+    @State private var showErrorDialog = false
     @State private var needsSignIn = false
 
     private var activeThread: ChatThread? {
@@ -59,11 +60,27 @@ struct CoachChatView: View {
             apiClient = CoachChatAPIClient(authManager: authManager)
             await loadThreads()
         }
-        .alert("Coach chat", isPresented: .constant(errorMessage != nil), actions: {
-            Button("OK") { errorMessage = nil }
-        }, message: {
-            Text(errorMessage ?? "")
-        })
+        .onChange(of: errorMessage) { _, message in
+            showErrorDialog = message != nil
+        }
+        .overlay {
+            if showErrorDialog, let message = errorMessage {
+                WarmDialog(
+                    title: "Coach chat",
+                    message: message,
+                    primaryTitle: "OK",
+                    primaryAction: dismissErrorDialog,
+                    onBackdropTap: dismissErrorDialog
+                )
+                .transition(.opacity)
+            }
+        }
+        .animation(.spring(duration: 0.25, bounce: 0), value: showErrorDialog)
+    }
+
+    private func dismissErrorDialog() {
+        showErrorDialog = false
+        errorMessage = nil
     }
 
     /// Re-triggers the thread load once GitHub profile + repo discovery finish - same fix
@@ -270,6 +287,10 @@ struct CoachChatView: View {
         defer { threadsLoading = false }
         do {
             threads = try await apiClient.fetchThreads()
+            if !threads.filter({ $0.status != .deleted }).isEmpty,
+               let repo = authManager.repoFullName {
+                CoachSetupState.markComplete(repoFullName: repo)
+            }
         } catch let error as GitHubAPIError {
             if case .sessionNotReady = error { return }
             if case .notAuthenticated = error {
@@ -305,6 +326,9 @@ struct CoachChatView: View {
             if result.closed, let newThreads = result.threads {
                 threads = newThreads
                 activeThreadId = result.threadId
+                if let repo = authManager.repoFullName {
+                    CoachSetupState.markComplete(repoFullName: repo)
+                }
                 return
             }
 
