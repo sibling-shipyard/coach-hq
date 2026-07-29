@@ -4,7 +4,7 @@
 
 **Owner:** Coach Phelps
 
-**Source of truth:** `training/ledger/challenge_v2.json` → `milestones[]`
+**Source of truth:** `user_data/ledger/challenge_v2.json` → `milestones[]`
 
 **Consumers:** Build Phase widget on the web dashboard; `scripts/generate_quest_log.py` (milestones table).
 

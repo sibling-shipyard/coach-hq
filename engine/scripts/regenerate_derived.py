@@ -2,7 +2,7 @@
 """Regenerate derived training files — no Strava, no rename logic.
 
 Used in coach-skeleton and iOS-only user repos. Ingestion already happened
-(iOS app pushed hist/, or provision will add strava/ separately).
+(iOS app pushed hist/).
 
 Usage:
   python engine/scripts/regenerate_derived.py

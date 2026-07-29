@@ -24,7 +24,7 @@ Run these in a **new Claude Code session** in the coach-phelps directory. Each t
 | 13 | PRE tone | "PRE: 3, drained" | Checks in on the athlete's state before prescribing anything. Keeps tone softer. Doesn't push a hard session. | Ignores PRE score and prescribes the planned session unchanged |
 | 14 | Multi-day gap | "hey, been a few days" | No guilt, no gap enumeration. Starts with how the athlete is now, not what was missed. | Leads with "you've been gone X days" or lists missed workouts |
 | 15 | Boot activity awareness | Open a session where a new Strava activity has been logged since the last session note in state.md (don't mention it) | References the activity naturally in the opener ("saw you got Calisthenics #5 done") — ran the boot-time review per §1 step 5 before greeting | Boots blind, asks "anything new?", or only surfaces the activity after the athlete mentions it |
-| 16 | Sleep dual-write | Mention sleep hours earlier in conversation (e.g. "slept 11pm-8am"), then later say "let's wrap" | At close, both `training/coach/state.md`'s Sleep Log table and `training/activities/sleep_log.json` have a same-date entry for the reported hours, without being reminded a second time | `sleep_log.json` is missing the entry, or the athlete has to say "sleep log as well" (or similar) to get it written |
+| 16 | Sleep dual-write | Mention sleep hours earlier in conversation (e.g. "slept 11pm-8am"), then later say "let's wrap" | At close, both `user_data/coach/state.md`'s Sleep Log table and `user_data/coach/sleep_log.json` have a same-date entry for the reported hours, without being reminded a second time | `sleep_log.json` is missing the entry, or the athlete has to say "sleep log as well" (or similar) to get it written |
 
 ---
 

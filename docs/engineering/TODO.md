@@ -49,7 +49,7 @@ Friends will use **Sign up on the shared site → connect Claude to the same rep
 
 - [ ] **Milestone quest type** — schema already supports `milestone` type but it's undocumented and unrendered in generate_quest_log.py. Document and implement rendering.
 
-- [ ] **Structured memory system** — when `training/coach/coach_notes.md` exceeds ~600 lines, distill permanent patterns into `training/key_insights.md` and archive old notes. Relevant ~6 months in for active users.
+- [ ] **Structured memory system** — when `user_data/coach/coach_notes.md` exceeds ~600 lines, distill permanent patterns into `user_data/key_insights.md` and archive old notes. Relevant ~6 months in for active users.
 
 - [ ] **Travel/bodyweight mode** — Coach detects travel context and switches to a bodyweight-only plan. Return protocol to ramp back up. Define in `soul/B_engine.md`.
 

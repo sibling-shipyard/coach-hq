@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Search and filter training history stored in training/activities/history/.
+"""Search and filter training history stored in user_data/activities/hist/.
 
 Usage:
     python query_history.py                              # all activities (table)
@@ -326,7 +326,7 @@ def update_activity(activities, args):
             target = a
             break
     if not target:
-        print(f"Error: Activity {args.id} not found in training/activities/history/", file=sys.stderr)
+        print(f"Error: Activity {args.id} not found in user_data/activities/hist/", file=sys.stderr)
         sys.exit(1)
 
     filepath = Path(target["_file"])

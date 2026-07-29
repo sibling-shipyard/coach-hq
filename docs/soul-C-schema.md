@@ -10,9 +10,9 @@ Layer C is the extensibility seam: new sports, conditions, and future tracking s
 
 ```
 soul/C_athlete.md     ← declarative schema (shared, composed into SOUL.md)
-training/coach/state.md          ← durable athlete state (per-user data)
-training/ledger/challenge_v2.json ← quests, season arc, milestones (per-user data)
-training/ledger/current_week.json ← active week plan (per-user data, read by B)
+user_data/coach/state.md          ← durable athlete state (per-user data)
+user_data/ledger/challenge_v2.json ← quests, season arc, milestones (per-user data)
+user_data/ledger/current_week.json ← active week plan (per-user data, read by B)
 ```
 
 ## MVP schema shape
@@ -74,7 +74,7 @@ B does **not** manually count quest streaks (reads `quest_log.md`), store day-by
 
 | Concern | Primary file | Notes |
 |---------|--------------|-------|
-| Profile (name, sports, goal, timezone, coaching style) | `training/coach/state.md` → Athlete Profile | HQ template has headings; populated at First Session |
+| Profile (name, sports, goal, timezone, coaching style) | `user_data/coach/state.md` → Athlete Profile | HQ template has headings; populated at First Session |
 | Active injuries (acute/transient) | `state.md` → Active Injury Flags | Freeform bullets today; maps to `injury_flags[]` |
 | Chronic constraints | `state.md` → Learned Patterns + flag notes | Maps to `conditions[]`; e.g. lower-back history, reactive glute pattern |
 | Phase / block context | `state.md` → Current Season / Phase sections | Evolved athletes may use `Current Phase / Block Context` |
@@ -83,8 +83,8 @@ B does **not** manually count quest streaks (reads `quest_log.md`), store day-by
 | Pre-session mental state | `state.md` → Pre-Session Mental State | Strava `PRE:` field |
 | Coaching priorities, learned patterns | `state.md` | Coach-derived institutional memory — stays in state.md (not MVP schema slots) |
 | Recent session notes | `state.md` | Rolling last 3 — boot continuity |
-| Season arc, phase, milestones, quests | `training/ledger/challenge_v2.json` | Structured JSON — single source of truth for gamification |
-| Active week plan | `training/ledger/current_week.json` | Schema v1 per `docs/current-week-contract.md` |
+| Season arc, phase, milestones, quests | `user_data/ledger/challenge_v2.json` | Structured JSON — single source of truth for gamification |
+| Active week plan | `user_data/ledger/current_week.json` | Schema v1 per `docs/current-week-contract.md` |
 
 ### Schema version note
 

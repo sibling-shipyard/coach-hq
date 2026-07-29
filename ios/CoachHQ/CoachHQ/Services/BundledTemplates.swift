@@ -1,7 +1,7 @@
 import Foundation
 
 /// Workout templates bundled in the app as an offline fallback.
-/// Source of truth: coach-phelps/templates/*.json — keep in sync when templates change.
+/// Source of truth: user_data/activities/workout_plans/templates/*.json — keep in sync when templates change.
 enum BundledTemplates {
 
     static func json(for id: String) -> String? { all[id] }

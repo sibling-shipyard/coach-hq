@@ -31,7 +31,7 @@ export interface RepoData {
   sleep_log: unknown[];
   quest_history: unknown;
   // Optional - not every repo's build pipeline populates a coach-authored current-week
-  // plan. Absent for a repo with no training/ledger/current_week.json.
+  // plan. Absent for a repo with no user_data/ledger/current_week.json.
   current_week?: unknown;
   schema_version?: number;
 }

@@ -58,16 +58,19 @@ Always include `fixes #N` in the PR body. PR body must follow `.github/agents/is
 
 ## Direct-to-Main vs Branch + PR
 
+Paths below are the athlete-repo layout (`user_data/`, `gen/`) - HQ itself doesn't hold populated
+coach data (ADR 0011, R5); these conventions apply once carved out to a real athlete repo.
+
 **Direct to main (no PR):**
-- Coach session data: `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `training/coach/roadmap.md`, `sessions/`
-- Pipeline-generated: `training/activities/history/`, `training/activities/quest_log.md`, `training/sync_status.json`, `strava/strava_tokens.json`
+- Coach session data: `user_data/coach/state.md`, `user_data/coach/coach_notes.md`, `user_data/ledger/challenge_v2.json`, `sessions/`
+- Pipeline-generated: `user_data/activities/hist/`, `gen/quest_log.md`, `user_data/sync_status.json`
 - UI data bundle (pipeline writes): `ui/client/src/data/`
 - Activity renames (history JSON only)
 
 **Always branch + PR:**
 - Scripts, workflows, GitHub Actions
-- Templates (`templates/*.json`)
-- `soul/*.md` (regenerates `SOUL.md`), agent docs, CLAUDE.md, CONVENTIONS.md
+- Templates (`user_data/activities/workout_plans/templates/*.json`)
+- `platform/soul/*.md` (regenerates `SOUL.md`), agent docs, CLAUDE.md, CONVENTIONS.md
 - UI source: `ui/client/src/` (components, pages, styles)
 - iOS app code (`ios/**` — **never** push directly to main)
 - Anything that changes how data is processed or displayed

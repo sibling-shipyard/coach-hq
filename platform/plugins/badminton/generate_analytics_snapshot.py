@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate training/activities/badminton_analytics_snapshot.json from activity history.
+"""Generate user_data/activities/badminton_analytics_snapshot.json from activity history.
 
 Thin wrapper — implementation lives in platform/plugins/badminton/analytics.py.
 

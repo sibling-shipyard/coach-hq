@@ -79,7 +79,7 @@ The project has a custom `Info.plist` file but Xcode is also auto-generating one
 2. Log in to GitHub and authorize the app.
 3. Grant HealthKit permissions when prompted.
 4. Tap **Sync Now** to pull recent workouts from Apple Health into your repo.
-5. Check your GitHub repo's `training/activities/history/` folder for new `hk_` prefixed JSON files.
+5. Check your GitHub repo's `user_data/activities/hist/` folder for new `hk_` prefixed JSON files.
 
 ## Troubleshooting
 
