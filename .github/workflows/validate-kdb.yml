@@ -11,13 +11,13 @@ on:
       - 'kdb/**'
       - 'AGENTS.md'
       - '.github/agents/**'
-      - 'scripts/kdb/**'
+      - 'kdb/scripts/**'
   pull_request:
     paths:
       - 'kdb/**'
       - 'AGENTS.md'
       - '.github/agents/**'
-      - 'scripts/kdb/**'
+      - 'kdb/scripts/**'
 
 jobs:
   validate-kdb:
@@ -25,4 +25,4 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Lint the knowledge base
-        run: python3 scripts/kdb/validate_kdb.py
+        run: python3 kdb/scripts/validate_kdb.py

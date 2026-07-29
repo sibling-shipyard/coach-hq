@@ -99,7 +99,7 @@ Tony me vs Alston/Wei 21-18
 Tony me vs Alex/Yin 13-21
 ```
 
-The pipeline (`scripts/parse_match_description.py`) and iOS `DescriptionParser` parse this into:
+The pipeline (`platform/scripts/parse_match_description.py`) and iOS `DescriptionParser` parse this into:
 1. A formatted Strava description (`Games:` / `Friendlies:` sections)
 2. A structured entry in `plugins/badminton/data/badminton_match_data.json`
 
@@ -259,7 +259,7 @@ Enrichment complete. Foundation suffix transitioned from Core (#1-9) to Kickstar
 | Script | Purpose |
 |--------|---------|
 | `strava/fetch_strava.py --sync` | Sync activities from Strava (forward + backward) |
-| `scripts/parse_match_description.py` | Parse pasted text scores into formatted descriptions |
+| `platform/scripts/parse_match_description.py` | Parse pasted text scores into formatted descriptions |
 | `plugins/badminton/analytics.py` | Generate analytics snapshot from history + match data |
 | `strava/rename_activities.py` | Auto-classify and rename (needs updating per year) |
 

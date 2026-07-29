@@ -6,7 +6,7 @@ computes match analytics, and writes a compact snapshot for Coach Phelps.
 
 Usage:
     python plugins/badminton/analytics.py
-    python scripts/generate_analytics_snapshot.py  # thin wrapper
+    python platform/plugins/badminton/generate_analytics_snapshot.py  # thin wrapper
 """
 
 import json
@@ -17,17 +17,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-_ENGINE = Path(__file__).resolve().parent.parent.parent
+_ENGINE = Path(__file__).resolve().parents[3] / "engine"
 sys.path.insert(0, str(_ENGINE / "lib"))
 sys.path.insert(0, str(_ENGINE))
 
-from repo_layout import activities_dir, hist_dir, p, repo_root_from_here  # noqa: E402
+from repo_layout import activities_dir, hist_dir, repo_root_from_here  # noqa: E402
 from core.taxonomy import BADMINTON_CATEGORIES, get_training_category
 
 REPO_DIR = repo_root_from_here(__file__)
 ACTIVITIES_DIR = activities_dir(REPO_DIR)
 HISTORY_DIR = hist_dir(REPO_DIR)
-MATCH_DATA_PATH = p(REPO_DIR, "plugins", "badminton", "data", "badminton_match_data.json")
+MATCH_DATA_PATH = Path(__file__).resolve().parent / "data" / "badminton_match_data.json"
 OUTPUT_PATH = ACTIVITIES_DIR / "badminton_analytics_snapshot.json"
 
 # ─── Description parsing (formatted descriptions) ───────────────────────

@@ -25,13 +25,13 @@
 | Doc | Role |
 |-----|------|
 | [`../AGENTS.md`](../AGENTS.md) | Multi-agent routing |
-| [`../HOW_IT_WORKS.md`](../HOW_IT_WORKS.md) | Athlete daily workflow |
-| [`../TODO.md`](../TODO.md) | HQ backlog |
+| [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) | Athlete daily workflow |
+| [`engineering/TODO.md`](engineering/TODO.md) | HQ backlog |
 | [`soul-C-schema.md`](soul-C-schema.md) | Athlete schema layer (Soul C) |
 
 ---
 
-## Coach reference (`engine/docs/` — on demand)
+## Coach reference (`platform/docs/` — on demand)
 
 Timer, voice, viz, ios spec, enrichment — read when SOUL or a worker points you there. Carved subset → `propagated/docs/`.
 

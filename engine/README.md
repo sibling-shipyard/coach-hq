@@ -1,48 +1,21 @@
-# engine/ — HQ brain (IP stays here)
+# engine/ — carved runtime mirror
 
-Everything coaches, protocols, plugins, and activity-naming logic is **authored in HQ** `engine/`.
-**coach-skeleton gets a carved copy** of the runnable BYO stack — same tree every athlete clones.
+Exactly what athlete repos get post-carve. **HQ-only authoring** lives in `platform/` (soul, plugins, templates, docs).
 
-Canonical layout: [`docs/engineering/skeleton-layout.md`](../docs/engineering/skeleton-layout.md).
+Layout: [`docs/engineering/skeleton-layout.md`](../docs/engineering/skeleton-layout.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../platform/scripts/carve-skeleton.mjs)
 
-## IP boundary
+## Contents (carved verbatim)
 
-| Stays in HQ only (never carved) | Carved into athlete `engine/` |
+| Path | Role |
 |---|---|
-| `platform/soul/` source layers + compose script | — |
-| `.github/agents/`, KDB, skills, HQ docs | — |
-| `plugins/` (badminton, visualization) | — |
-| Template **source** authoring (`engine/templates/`) | Copy of 2 samples → `user_data/.../templates/` |
-| UI, iOS app source | — |
-| `engine/SOUL.md` (draft during compose) | `propagated/SOUL.md` + `propagated/docs/` (composed copy) |
+| `scripts/` | Sync pipeline — regenerate derived, aggregate, quest log/history, validate current week |
+| `lib/` | Shared layout + schema helpers |
+| `core/` | Taxonomy, query_history, rename_core |
+| `claude/athlete/` | BYO Claude config (→ repo root on carve) |
+| `.github/workflows/` | sync, validate-data, apply-coach-patch |
 
-| In every athlete repo | Notes |
-|---|---|
-| `engine/scripts/`, `engine/lib/` | Sync + aggregate pipeline |
-| `engine/core/` | Taxonomy, activity-naming, and local-query logic (Strava ingestion removed, issue #113 — `query_history.py`/`rename_core.py` moved here from the old `engine/strava/`) |
-| `user_data/` | Athlete + coach memory |
-| `gen/` | Pipeline output |
+## Not in engine/ (platform/)
 
-**Endgame (M2/M3):** SOUL + engine run server-side → skeleton thins to **data only**.
-
-## Athlete repo shape (carved)
-
-```mermaid
-flowchart TB
-  subgraph engine["engine/ — runtime"]
-    scripts["scripts + lib + core"]
-  end
-  subgraph gen["gen/ — rebuildable"]
-    out["aggregate, quest_log, sync_status, widgets"]
-  end
-  subgraph ud["user_data/ — precious"]
-    coach["coach/state.md, notes, reference"]
-    act["activities/hist, workout_plans"]
-    ledger["ledger/"]
-  end
-  soul["propagated/SOUL.md"] --> coach
-  scripts --> gen
-  ud --> gen
-```
+Soul layers, plugins, template authoring, coach reference docs, compose/carve/provision scripts.
 
 Operator refresh: `node platform/scripts/carve-skeleton.mjs --push`

@@ -27,15 +27,15 @@
 **Boundaries:**
 - Coach Phelps owns `user_data/coach/state.md`, `user_data/coach/coach_notes.md`, `user_data/ledger/challenge_v2.json`, `sessions/`, `user_data/coach/roadmap.md`. Do not edit these unless the athlete explicitly asks.
 - `platform/soul/*.md` and composed `propagated/SOUL.md` are **Tech Lead only** — never edit as Coach.
-- `engine/templates/*.json` are base workout templates. Only you can authorize changes to these.
-- iOS Builder's scope is `ios/` only — never `user_data/`, `engine/templates/`, `sessions/`, `ui/`, or pipeline scripts.
+- `platform/skeleton-templates/*.json` are base workout templates. Only you can authorize changes to these.
+- iOS Builder's scope is `ios/` only — never `user_data/`, `platform/skeleton-templates/`, `sessions/`, `ui/`, or pipeline scripts.
 - Workers read their role doc from `.github/agents/` in this repo.
 
 ## Boot Sequence
 1. `git pull --rebase origin main`
 2. Read `AGENTS.md` (routing + KB index) + `propagated/SOUL.md` (the coaching system)
 3. Skim `kdb/decisions/README.md` (ADR index — read decisions relevant to your work); follow `kdb/doc-style.md` for any design doc
-4. Read `TODO.md` (if exists)
+4. Read `docs/engineering/TODO.md` (if exists)
 5. `git log --oneline -10`
 6. You're ready. Ask the athlete what's on the agenda or pick up where you left off.
 

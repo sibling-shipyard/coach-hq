@@ -37,7 +37,7 @@ One file, one version number, one validator.
 | Time arc | **`season`** required — replaces legacy `challenge` |
 | Main quest | **`main_quest.type`** ∈ `count_target` \| `weekly_sessions` |
 | Side quests | **`quests[]`** required (may be empty `[]`) |
-| Milestones | Optional `milestones[]` — see [`engine/docs/milestone-schema.md`](../engine/docs/milestone-schema.md) |
+| Milestones | Optional `milestones[]` — see [`platform/docs/milestone-schema.md`](../../platform/docs/milestone-schema.md) |
 | Legacy v2/v3 | Read via adapter during migration; **must convert to v4** |
 
 ---
@@ -119,7 +119,7 @@ Omit blocks entirely when unused — do not null-fill.
 
 **Provision:** `provision-user.sh --migrate` runs v2/v3 → v4 rewrite before push (follow-up PR).
 
-**Live repos:** Akash (`coach-akash`) already v3-shaped → trivial v4 bump. HQ dogfood + Skanda migrate → convert at M1d.
+**Live repos:** Akash (`coach-akash`) already v3-shaped → trivial v4 bump. Skanda migrates → convert at M1d.
 
 ---
 

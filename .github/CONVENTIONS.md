@@ -85,9 +85,9 @@ hand-edit `SOUL.md`.
 Update the KB in the **same commit** as the change that motivated it — don't leave it for later:
 
 - Made a durable, hard-to-reverse decision? Add or supersede an ADR in `kdb/decisions/`, then
-  run `python3 scripts/kdb/gen_adr_index.py`.
+  run `python3 kdb/scripts/gen_adr_index.py`.
 - Found a reusable rule for your area? Add a one-liner to your role doc's `## Learnings`.
 - Writing a design/architecture doc? Follow `kdb/doc-style.md`.
 
 CI (`validate-kdb`) rejects a malformed ADR, a duplicate number, or a stale index. To catch it
-locally before you commit: `ln -s ../../scripts/kdb/pre-commit .git/hooks/pre-commit`.
+locally before you commit: `ln -s ../../kdb/scripts/pre-commit .git/hooks/pre-commit`.

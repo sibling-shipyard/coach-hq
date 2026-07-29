@@ -33,7 +33,7 @@ regenerated `propagated/SOUL.md`. Never hand-edit `propagated/SOUL.md`.
 - `SOUL.md` — composed coach brain (read at every boot; lives in `propagated/SOUL.md` — do not edit directly)
 - `engine/` — **skeleton source of truth** (carved into `coach-skeleton`; see `engine/README.md`)
 - `platform/soul/` — identity, engine rules, athlete schema layers
-- `user_data/` — athlete data (HQ keeps a copy for dogfooding; lives in user repos at scale)
+- `user_data/` — athlete data (HQ keeps no instance band; lives in athlete repos at scale)
 - `ui/` — shared hosted dashboard (HQ-only)
 - `ios/` — HealthKit sync app (HQ-only; commits history to user repo)
 - `platform/scripts/carve-skeleton.mjs` — operator tool to stamp `sibling-shipyard/coach-skeleton`
@@ -94,8 +94,8 @@ rejected. Always use:
 git pull --rebase origin main && git push origin main
 ```
 
-**UI data files:** All files in `ui/client/src/data/` are managed exclusively by the sync
-pipeline — do not manually edit them. `challenge_v2.json` in `ui/client/src/data/` is updated
-on sync, not during coach sessions.
+**UI data files:** At HQ, `ui/client/src/data/` is generated from `shared/golden-dataset/` on
+`npm run dev`/`build`. Athlete repos populate it via the sync pipeline — do not hand-edit.
 
-**Coach commits:** Coach Phelps commits its own coaching memory — `user_data/coach/state.md`, `user_data/coach/coach_notes.md`, `user_data/ledger/challenge_v2.json`, `user_data/coach/sleep_log.json`, `user_data/activities/workout_plans/sessions/**` — directly to `main`, no PR. Full procedure is in SOUL.md §12. A `validate-data` CI check guards the JSON so a bad commit can't break the dashboard build undetected. Do not copy `challenge_v2.json` to `ui/client/src/data/` manually — the sync pipeline handles that.
+**Coach commits:** Coach Phelps commits coaching memory in **athlete repos** only
+(`user_data/coach/state.md`, etc.) — not at HQ root. Procedure in SOUL.md §12.

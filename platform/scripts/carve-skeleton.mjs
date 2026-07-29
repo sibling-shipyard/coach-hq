@@ -18,6 +18,7 @@ const REPO_ROOT = path.resolve(__dirname, "../..");
 const SKELETON_REPO = "sibling-shipyard/coach-skeleton";
 
 const ENGINE_DIR = path.join(REPO_ROOT, "engine");
+const PLATFORM_DIR = path.join(REPO_ROOT, "platform");
 
 /** Scripts carved into engine/scripts/ */
 const SKELETON_SCRIPT_FILES = [
@@ -31,7 +32,7 @@ const SKELETON_SCRIPT_FILES = [
 /** Dirs carved into engine/ */
 const SKELETON_ENGINE_DIRS = ["lib", "core", "claude"];
 
-/** Workout plan templates copied from engine/templates/ → user_data/.../templates/ */
+/** Workout plan templates copied from platform/skeleton-templates/ → user_data/.../templates/ */
 const WORKOUT_TEMPLATES = ["foundation.json", "strength_a.json"];
 
 /** Reference docs copied from HQ → propagated/docs/ (SOUL on-demand reads) */
@@ -390,14 +391,14 @@ function copyFromEngine(outDir, rel) {
 }
 
 function copyEngineTemplate(outDir, filename) {
-  const src = path.join(ENGINE_DIR, "templates", filename);
+  const src = path.join(PLATFORM_DIR, "skeleton-templates", filename);
   const dest = path.join(
     outDir,
     "user_data/activities/workout_plans/templates",
     filename,
   );
   if (!fs.existsSync(src)) {
-    throw new Error(`Missing engine/templates/${filename}`);
+    throw new Error(`Missing platform/skeleton-templates/${filename}`);
   }
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.copyFileSync(src, dest);
@@ -437,16 +438,16 @@ function copyPropagated(outDir) {
   fs.copyFileSync(soulSrc, path.join(outDir, "propagated", "SOUL.md"));
 
   for (const doc of PROPAGATED_DOCS) {
-    const src = path.join(ENGINE_DIR, "docs", doc);
+    const src = path.join(PLATFORM_DIR, "docs", doc);
     if (!fs.existsSync(src)) {
-      throw new Error(`Missing engine/docs/${doc} for propagated bundle`);
+      throw new Error(`Missing platform/docs/${doc} for propagated bundle`);
     }
     fs.copyFileSync(src, path.join(outDir, "propagated", "docs", doc));
   }
 
-  const pipelineTools = path.join(ENGINE_DIR, "skills", "pipeline-tools.md");
+  const pipelineTools = path.join(PLATFORM_DIR, "skills", "pipeline-tools.md");
   if (!fs.existsSync(pipelineTools)) {
-    throw new Error("Missing engine/skills/pipeline-tools.md for propagated bundle");
+    throw new Error("Missing platform/skills/pipeline-tools.md for propagated bundle");
   }
   fs.copyFileSync(pipelineTools, path.join(outDir, "propagated", "docs", "pipeline-tools.md"));
 }
