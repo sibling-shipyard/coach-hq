@@ -18,7 +18,7 @@ struct WorkoutOverviewView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
-            .padding(.bottom, 100)
+            .padding(.bottom, WarmMainDockLayout.scrollBottomClearance)
         }
         .background(Theme.mutedBackground)
         .toolbar(.hidden, for: .navigationBar)

@@ -224,6 +224,41 @@ struct CoachChatPickUpRow: View {
     }
 }
 
+struct CoachChatEmptyThreadPrompt: View {
+    let dayLabel: String
+    let threadTitle: String
+    let onBackToToday: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("\(dayLabel.uppercased()) · \(threadTitle.uppercased())")
+                .font(WarmInstrument.monoLabel(9.5))
+                .tracking(1)
+                .foregroundStyle(WarmInstrument.inkFaint)
+            Text("No messages in this thread.")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(WarmInstrument.ink)
+            Text("Coach only keeps the last seven days with something in them.")
+                .font(.system(size: 13))
+                .foregroundStyle(WarmInstrument.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(action: onBackToToday) {
+                Text("Back to today")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(WarmInstrument.paper)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(WarmInstrument.accent)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 24)
+    }
+}
+
 struct CoachChatThinkingBubble: View {
     var body: some View {
         HStack(spacing: 5) {
@@ -286,20 +321,28 @@ struct CoachChatStarterChips: View {
 
 struct CoachChatComposer: View {
     @Binding var draft: String
+    @FocusState.Binding var isFocused: Bool
     var placeholder: String = "Message Coach…"
     var isSending: Bool = false
     let onSend: () -> Void
+
+    @State private var fieldHeight = CoachChatMessageField.minHeight
 
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
     }
 
     var body: some View {
-        HStack(spacing: 9) {
-            TextField(placeholder, text: $draft, axis: .vertical)
-                .font(.system(size: 14.5))
-                .lineLimit(1...4)
-                .disabled(isSending)
+        HStack(alignment: .bottom, spacing: 9) {
+            CoachChatMessageField(
+                text: $draft,
+                height: $fieldHeight,
+                placeholder: placeholder,
+                isDisabled: isSending,
+                isFocused: $isFocused
+            )
+            .frame(height: fieldHeight)
+            .animation(.easeOut(duration: 0.12), value: fieldHeight)
 
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
@@ -313,14 +356,159 @@ struct CoachChatComposer: View {
         }
         .padding(.leading, 16)
         .padding(.trailing, 8)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(WarmInstrument.paper)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255), lineWidth: 1)
+                .strokeBorder(
+                    isFocused ? WarmInstrument.accent.opacity(0.55) : Color(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255),
+                    lineWidth: 1
+                )
         )
         .padding(.horizontal, 16)
+        .onChange(of: draft) { _, newValue in
+            if newValue.isEmpty {
+                fieldHeight = CoachChatMessageField.minHeight
+            }
+        }
+    }
+}
+
+// MARK: - Minimal keyboard text view
+//
+// Disables QuickType / spell-check / smart punctuation. Apple does not expose APIs to remove
+// the system emoji globe or dictation mic — those stay on the stock keyboard.
+
+struct CoachChatMessageField: UIViewRepresentable {
+    static let minHeight: CGFloat = 22
+    static let maxHeight: CGFloat = 96
+    /// Composer chrome + send button — used when the text view has not laid out yet.
+    private static let widthFallbackInset: CGFloat = 108
+
+    @Binding var text: String
+    @Binding var height: CGFloat
+    var placeholder: String
+    var isDisabled: Bool
+    @FocusState.Binding var isFocused: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> UITextView {
+        let view = GrowingTextView()
+        view.onWidthChange = { [weak coordinator = context.coordinator] textView in
+            coordinator?.syncHeight(for: textView)
+        }
+        view.delegate = context.coordinator
+        view.backgroundColor = .clear
+        view.font = .systemFont(ofSize: 14.5)
+        view.textColor = UIColor(WarmInstrument.ink)
+        view.tintColor = UIColor(WarmInstrument.accent)
+        view.textContainerInset = .zero
+        view.textContainer.lineFragmentPadding = 0
+        view.isScrollEnabled = false
+        view.autocorrectionType = .no
+        view.spellCheckingType = .no
+        view.smartQuotesType = .no
+        view.smartDashesType = .no
+        view.smartInsertDeleteType = .no
+        view.autocapitalizationType = .sentences
+        view.keyboardType = .default
+        view.returnKeyType = .default
+        view.enablesReturnKeyAutomatically = false
+        view.textContentType = nil
+        view.inputAssistantItem.leadingBarButtonGroups = []
+        view.inputAssistantItem.trailingBarButtonGroups = []
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        context.coordinator.placeholderLabel = makePlaceholder(in: view, text: placeholder)
+        return view
+    }
+
+    func updateUIView(_ uiView: UITextView, context: Context) {
+        let coordinator = context.coordinator
+        coordinator.parent = self
+
+        if uiView.text != text {
+            coordinator.isProgrammaticUpdate = true
+            uiView.text = text
+            coordinator.isProgrammaticUpdate = false
+            coordinator.syncHeight(for: uiView)
+        }
+
+        uiView.isEditable = !isDisabled
+        uiView.isUserInteractionEnabled = !isDisabled
+        coordinator.placeholderLabel?.isHidden = !text.isEmpty
+    }
+
+    private func makePlaceholder(in textView: UITextView, text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.font = textView.font
+        label.textColor = UIColor(WarmInstrument.inkFaint)
+        label.numberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        textView.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: textView.leadingAnchor),
+            label.trailingAnchor.constraint(equalTo: textView.trailingAnchor),
+            label.topAnchor.constraint(equalTo: textView.topAnchor),
+        ])
+        return label
+    }
+
+    final class Coordinator: NSObject, UITextViewDelegate {
+        var parent: CoachChatMessageField
+        weak var placeholderLabel: UILabel?
+        var isProgrammaticUpdate = false
+
+        init(parent: CoachChatMessageField) {
+            self.parent = parent
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            guard !isProgrammaticUpdate else { return }
+            let newText = textView.text ?? ""
+            if parent.text != newText {
+                parent.text = newText
+            }
+            placeholderLabel?.isHidden = !newText.isEmpty
+            syncHeight(for: textView)
+        }
+
+        func syncHeight(for textView: UITextView) {
+            let width = textView.bounds.width > 1
+                ? textView.bounds.width
+                : UIScreen.main.bounds.width - CoachChatMessageField.widthFallbackInset
+            let fitting = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+            let contentHeight = max(CoachChatMessageField.minHeight, fitting.height)
+            let clamped = min(contentHeight, CoachChatMessageField.maxHeight)
+            textView.isScrollEnabled = contentHeight > CoachChatMessageField.maxHeight
+            guard abs(parent.height - clamped) > 0.5 else { return }
+            parent.height = clamped
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            parent.isFocused = true
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            parent.isFocused = false
+        }
+    }
+}
+
+private final class GrowingTextView: UITextView {
+    var onWidthChange: ((UITextView) -> Void)?
+    private var lastWidth: CGFloat = 0
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let width = bounds.width
+        guard abs(width - lastWidth) > 0.5 else { return }
+        lastWidth = width
+        onWidthChange?(self)
     }
 }
 
@@ -412,7 +600,7 @@ struct CoachChatHistorySheet: View {
     }
 
     private var earlierThreads: [ChatThread] {
-        threads.filter { $0.dayOffset > 0 && $0.status != .deleted }
+        threads.filter { $0.dayOffset > 0 && $0.status != .deleted && !$0.messages.isEmpty }
             .sorted { $0.dayOffset < $1.dayOffset }
     }
 
@@ -508,6 +696,7 @@ private struct FlowLayout: Layout {
 
 private struct CoachChatPreviewHost: View {
     @State private var draft = ""
+    @FocusState private var composerFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -529,7 +718,7 @@ private struct CoachChatPreviewHost: View {
             }
             .background(WarmInstrument.chatSurface)
             CoachChatStarterChips(prompts: CoachChatPreviewData.starterPrompts) { draft = $0 }
-            CoachChatComposer(draft: $draft, onSend: {})
+            CoachChatComposer(draft: $draft, isFocused: $composerFocused) {}
                 .padding(.bottom, 8)
                 .background(WarmInstrument.chatSurface)
         }

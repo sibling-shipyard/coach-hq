@@ -669,6 +669,28 @@ enum PremiumMotion {
     static let onboardingReveal = Animation.spring(duration: 0.48, bounce: 0.14)
 }
 
+/// Floating main-tab dock geometry — keep scroll clearance in sync with `MainTabView`.
+enum WarmMainDockLayout {
+    static let pillHeight: CGFloat = 52
+    static let topPadding: CGFloat = 2
+    /// Gap between the last scroll row and the dock pill.
+    static let scrollBottomBreathingRoom: CGFloat = 16
+
+    static var dockHeight: CGFloat { pillHeight + topPadding }
+
+    /// Scroll content inset so the last row clears the floating dock (pill + shadow).
+    static var scrollBottomClearance: CGFloat {
+        dockHeight + scrollBottomBreathingRoom + 8
+    }
+}
+
+extension View {
+    /// Reserves space at the bottom of a tab-root `ScrollView` for the floating dock.
+    func mainTabScrollBottomClearance() -> some View {
+        contentMargins(.bottom, WarmMainDockLayout.scrollBottomClearance, for: .scrollContent)
+    }
+}
+
 /// Fade + slide (optional scale) reveal for ledger rows, login hero, etc.
 struct StaggerRevealModifier: ViewModifier {
     let delay: Double

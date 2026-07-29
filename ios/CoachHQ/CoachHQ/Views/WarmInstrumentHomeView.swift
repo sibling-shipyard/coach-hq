@@ -52,9 +52,9 @@ struct WarmInstrumentHomeView: View {
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .padding(.bottom, 12)
                 .animation(PremiumMotion.statsLoad, value: store.snapshots != nil)
             }
+            .mainTabScrollBottomClearance()
             .scrollClipDisabled()
             .scrollContentBackground(.hidden)
             .refreshable { await store.refresh(showSpinner: false) }
@@ -1430,6 +1430,7 @@ struct EngineDetailView: View {
                 .padding(.vertical, 18)
             }
         }
+        .mainTabScrollBottomClearance()
         .background(WarmInstrument.paper.ignoresSafeArea())
         .navigationBarBackButtonHidden(false)
     }

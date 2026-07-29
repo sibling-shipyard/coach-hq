@@ -57,36 +57,31 @@ struct MainTabView: View {
     @State private var didSetInitialTab = false
 
     var body: some View {
-        ZStack {
-            tabRoot(.home) {
-                WarmInstrumentHomeView()
+        ZStack(alignment: .bottom) {
+            ZStack {
+                tabRoot(.home) {
+                    WarmInstrumentHomeView()
+                }
+                tabRoot(.workouts) {
+                    WorkoutListView()
+                        .environmentObject(workoutService)
+                }
+                tabRoot(.chat) {
+                    CoachChatView()
+                        .environmentObject(authManager)
+                }
+                tabRoot(.more) {
+                    SettingsView()
+                }
             }
-            tabRoot(.workouts) {
-                WorkoutListView()
-                    .environmentObject(workoutService)
-            }
-            tabRoot(.chat) {
-                CoachChatView()
-                    .environmentObject(authManager)
-            }
-            tabRoot(.more) {
-                SettingsView()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             if !tabBarHidden {
                 bottomDockContent
-                    .background(WarmInstrument.desk.ignoresSafeArea(edges: .bottom))
             }
         }
-        .overlay(alignment: .bottom) {
-            if !tabBarHidden {
-                WarmTabBarScrollFade()
-                    .allowsHitTesting(false)
-            }
-        }
+        .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
+        .animation(PremiumMotion.dock, value: tabBarHidden)
         .background(WarmInstrument.desk.ignoresSafeArea())
         .task(id: initialTabResolveToken) {
             guard !didSetInitialTab else { return }
@@ -144,32 +139,9 @@ private extension AnyTransition {
 
 private enum WarmDockMetrics {
     /// Icon row + inner pill padding (44 + 4×2); shared by tab bar and start CTA.
-    static let pillHeight: CGFloat = 52
-    /// How far the desk fade extends above the pill.
-    static let fadeHeight: CGFloat = 56
+    static let pillHeight = WarmMainDockLayout.pillHeight
     static let horizontalPadding: CGFloat = 20
-    static let topPadding: CGFloat = 2
-}
-
-/// Desk-color fade so scroll content dissolves before the floating dock — not a hard clip.
-private struct WarmTabBarScrollFade: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            LinearGradient(
-                stops: [
-                    .init(color: WarmInstrument.desk.opacity(0), location: 0),
-                    .init(color: WarmInstrument.desk.opacity(0.45), location: 0.38),
-                    .init(color: WarmInstrument.desk.opacity(0.88), location: 0.72),
-                    .init(color: WarmInstrument.desk, location: 1),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: WarmDockMetrics.fadeHeight)
-
-            Color.clear.frame(height: WarmDockMetrics.pillHeight)
-        }
-    }
+    static let topPadding = WarmMainDockLayout.topPadding
 }
 
 /// Floating icon dock — inset pill, sliding muted highlight, spring lift on the active icon.
