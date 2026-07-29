@@ -430,9 +430,9 @@ function ensureComposedSoul() {
 }
 
 function copyPropagated(outDir) {
-  const soulSrc = path.join(REPO_ROOT, "platform", "propagated", "SOUL.md");
+  const soulSrc = path.join(REPO_ROOT, "platform", "SOUL.md");
   if (!fs.existsSync(soulSrc)) {
-    throw new Error("Missing platform/propagated/SOUL.md — run compose-soul before carve");
+    throw new Error("Missing platform/SOUL.md — run compose-soul before carve");
   }
   fs.mkdirSync(path.join(outDir, "propagated", "docs"), { recursive: true });
   fs.copyFileSync(soulSrc, path.join(outDir, "propagated", "SOUL.md"));

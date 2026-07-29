@@ -1,13 +1,11 @@
 # Platform — HQ IP (not carved verbatim)
 
-Soul layers, compose/carve/provision operator tools.
-
 ```
-platform/soul/        ← source layers (edit these)
-platform/propagated/  ← composed SOUL (compose output; carved → athlete root propagated/)
+platform/soul/   ← source layers (edit these)
+platform/SOUL.md ← composed output (never hand-edit; carved → athlete propagated/SOUL.md)
 ```
 
-Athlete repos get carved copy at `propagated/SOUL.md`.
+Athlete repos receive carved copy at `propagated/SOUL.md` + `propagated/docs/`.
 
 ## compose-soul.mjs
 
@@ -16,7 +14,7 @@ node platform/scripts/compose-soul.mjs
 node platform/scripts/compose-soul.mjs --check
 ```
 
-Edit `platform/soul/*.md`, never hand-edit `platform/propagated/SOUL.md`.
+Edit `platform/soul/*.md`, never hand-edit `platform/SOUL.md`.
 
 ## carve-skeleton.mjs
 
@@ -38,10 +36,8 @@ Runbook: [`docs/engineering/provision-runbook.md`](../docs/engineering/provision
 
 | Path | Role |
 |---|---|
-| `soul/` | Source layers — edit these, then compose |
-| `propagated/` | Composed SOUL + doc preview (never hand-edit SOUL.md) |
+| `docs/` | Coach reference — carved subset → athlete `propagated/docs/` |
 | `plugins/` | HQ extensions (badminton analytics + `generate_analytics_snapshot.py`) |
-| `docs/` | Coach reference — carved subset → `propagated/docs/` |
 | `skeleton-templates/` | Workout templates — 2 samples carved to athlete repos |
 | `skills/` | pipeline-tools.md (carved to propagated) |
 | `scripts/parse_match_description.py` | HQ operator tool (iOS ports logic to Swift) |

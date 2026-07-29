@@ -15,12 +15,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { propagatedDir, repoRoot, soulDir } from "../../engine/lib/repo-layout.mjs";
+import { repoRoot, soulDir, soulFilePath } from "../../engine/lib/repo-layout.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(__dirname);
 const SOUL_DIR = soulDir(REPO_ROOT);
-const SOUL_OUT = path.join(propagatedDir(REPO_ROOT), "SOUL.md");
+const SOUL_OUT = soulFilePath(REPO_ROOT);
 
 const FIXED_HEADER = `# Coach Phelps: SOUL.md
 **Version:** v5.7 (hq-adopted reconciliation)
@@ -172,7 +172,7 @@ function summarizeDiff(expected, actual) {
   }
 
   console.error(
-    "platform/propagated/SOUL.md drift detected — composed output differs from committed file.",
+    "platform/SOUL.md drift detected — composed output differs from committed file.",
   );
   console.error(
     `  lines: expected ${expectedLines.length}, actual ${actualLines.length}, differing ${diffs.length}`,
@@ -213,7 +213,7 @@ function main() {
 
     const committed = fs.readFileSync(SOUL_OUT, "utf-8");
     if (committed === composed) {
-      console.log("platform/propagated/SOUL.md is in sync with soul/ layer files.");
+      console.log("platform/SOUL.md is in sync with soul/ layer files.");
       process.exit(0);
     }
 

@@ -48,7 +48,7 @@ flowchart LR
   R4 --> R5["R5 drop dogfood ✓"]
   R5 --> R6a["R6a root tidy ✓"]
   R6a --> R6b["R6b fold scripts ✓"]
-  R6b --> R6c["R6c propagated → platform/propagated ✓"]
+  R6b --> R6c["R6c SOUL → platform/SOUL.md ✓"]
   R2["R2 golden ✓"] -.-> R5
 ```
 
@@ -62,7 +62,7 @@ flowchart LR
 | **R5** | S | Delete root `user_data/`, `gen/`, `data/`; local dev uses golden dataset only | **Done** |
 | **R6a** | S | Delete `sessions/`; move root markdown → `docs/`; `tests/` → `platform/tests/` | **Done** |
 | **R6b** | S | Fold root `scripts/` → `kdb/scripts/`, `platform/plugins/badminton/` | **Done** |
-| **R6c** | M | HQ-only: root `propagated/` → `platform/propagated/` (athlete carve output unchanged) | **Done** |
+| **R6c** | M | HQ-only: composed SOUL at `platform/SOUL.md` (athlete carve → root `propagated/`) | **Done** |
 
 ## Risks (one-liners)
 

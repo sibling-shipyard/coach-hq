@@ -168,16 +168,13 @@ export function activitiesDir(repoRootPath) {
     : path.join(repoRootPath, "training", "activities");
 }
 
-/** HQ composed SOUL lives under platform/propagated/; athlete repos use root propagated/. */
-export function propagatedDir(repoRootPath) {
-  if (isHqMonorepo(repoRootPath)) {
-    return path.join(repoRootPath, "platform", "propagated");
-  }
-  return path.join(repoRootPath, "propagated");
-}
-/** Composed coach brain — HQ: platform/propagated/SOUL.md; athlete: propagated/SOUL.md. */
+/** Composed SOUL path — HQ: platform/SOUL.md; athlete repos: propagated/SOUL.md. */
 export function soulFilePath(repoRootPath) {
-  const soul = path.join(propagatedDir(repoRootPath), "SOUL.md");
-  if (fs.existsSync(soul)) return soul;
+  if (isHqMonorepo(repoRootPath)) {
+    const hq = path.join(repoRootPath, "platform", "SOUL.md");
+    if (fs.existsSync(hq)) return hq;
+  }
+  const propagated = path.join(repoRootPath, "propagated", "SOUL.md");
+  if (fs.existsSync(propagated)) return propagated;
   return path.join(repoRootPath, "SOUL.md");
 }

@@ -1,17 +1,17 @@
 name: Validate SOUL composition
 
-# platform/propagated/SOUL.md is a generated artifact from platform/soul/ via platform/scripts/compose-soul.mjs.
+# platform/SOUL.md is a generated artifact from platform/soul/ via platform/scripts/compose-soul.mjs.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'platform/propagated/SOUL.md'
+      - 'platform/SOUL.md'
       - 'platform/soul/**'
       - 'platform/scripts/compose-soul.mjs'
   pull_request:
     paths:
-      - 'platform/propagated/SOUL.md'
+      - 'platform/SOUL.md'
       - 'platform/soul/**'
       - 'platform/scripts/compose-soul.mjs'
 
@@ -21,5 +21,5 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Assert platform/propagated/SOUL.md matches composed output
+      - name: Assert platform/SOUL.md matches composed output
         run: node platform/scripts/compose-soul.mjs --check
