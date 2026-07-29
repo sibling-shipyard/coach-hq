@@ -55,13 +55,13 @@ At the end of every session, the coach commits updates to `training/coach/state.
 
 | Script | Purpose |
 |--------|---------|
-| `strava/oauth_reauth.py` | First-time auth and token refresh |
-| `strava/fetch_strava.py` | Fetch and sync activities from Strava |
-| `strava/query_history.py` | Search and filter local activity history |
-| `strava/rename_activities.py` / `rename_core.py` / `rename_single.py` | Rename Strava activities to a consistent naming pattern (dry-run by default) |
+| `engine/core/query_history.py` | Search and filter local activity history |
 | `scripts/generate_quest_log.py` | Regenerate `training/activities/quest_log.md` |
 | `scripts/generate_quest_history.py` | Regenerate `ui/client/src/data/quest_history.json` for the dashboard |
-| `scripts/run_sync_pipeline.py` | Full sync pipeline - fetch, rename, regenerate quest data (used by the GitHub Actions workflow) |
+| `scripts/regenerate_derived.py` | Regenerate quest_log, quest_history, and sync_status in one pass (used by the GitHub Actions workflow) |
+
+Ingestion is iOS/HealthKit only now - Strava ingestion was removed (ADR 0010). Activities are
+named client-side by the app; there's no separate rename script anymore.
 
 Workout templates and sessions are compiled separately, by `ui/scripts/build-data.mjs` - it runs automatically every time you do `npm run dev` or `npm run build` inside `ui/`, so there's nothing to run by hand for those.
 

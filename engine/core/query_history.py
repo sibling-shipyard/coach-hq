@@ -372,7 +372,7 @@ def main():
     parser.add_argument("--has-photos", action="store_true", help="Only activities with photos")
     parser.add_argument("--has-description", action="store_true", help="Only activities with descriptions")
     parser.add_argument("--search", type=str, help="Text search in title and description")
-    parser.add_argument("--id", type=int, help="Single activity by Strava ID")
+    parser.add_argument("--id", type=int, help="Single activity by ID")
     parser.add_argument("--summary", action="store_true", help="Show aggregate stats instead of table")
     parser.add_argument("--detail", action="store_true", help="Show full detail per activity")
     parser.add_argument("--list-sports", action="store_true", help="List all sport types with counts")
