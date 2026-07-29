@@ -23,13 +23,15 @@ Read these docs in order before starting any work:
 
 ## Setup
 
-Copy `ios/CoachHQ/CoachHQ/Secrets.swift.example` to `Secrets.swift` (gitignored — this
-repo is public, so real OAuth credentials never get committed) and fill in:
+Copy `ios/CoachHQ/CoachHQ/Secrets.swift.example` to `Secrets.swift` (gitignored) and fill in:
 
-- **GitHub OAuth App** client ID/secret from https://github.com/settings/developers
-  (callback URL must be exactly `coachhq://callback`)
-- **`dashboardBaseURL`** — hosted Coach HQ site that serves `/api/widget-snapshots`
-  (production: `https://coach-phelps-hq.vercel.app`)
+- **`dashboardBaseURL`** — hosted Coach HQ site that serves `/api/auth/*` and
+  `/api/widget-snapshots` (production: `https://coach-phelps-hq.vercel.app`)
+
+That's it — sign-in goes through the shared `coach-phelps-hq` GitHub App + PKCE flow entirely
+server-side (`ui/api/auth/`), same mechanism the web dashboard uses. There's no OAuth App to
+register, no client secret to embed. `Secrets.swift`'s only remaining job is pointing at which
+deployment to talk to (prod, or a local `vercel dev` instance).
 
 The app won't build without this file.
 
@@ -48,16 +50,23 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 - **HealthKit** is the sole data ingestion path (Strava API is dead).
 - **Each user** has their own personal repo, forked/cloned from this template.
 - **Coach Phelps (AI)** runs locally via Claude Code, reading from the same repo. The app doesn't talk to Coach directly.
-- **Website sign-in ≠ iOS sign-in:** the dashboard uses the org **GitHub App** (`coach-phelps`,
-  callback `https://coach-phelps-hq.vercel.app/api/auth-callback`). iOS uses a separate **OAuth App**
-  (`coachhq://callback`). Do not conflate the two when debugging auth.
+- **Website and iOS sign-in share one backend, `ui/api/auth/`.** Both hit
+  `/api/auth/start` (and, for a first-time user, `/api/auth/install-redirect`) on the org
+  **GitHub App** (`coach-phelps`). `callback.ts` branches on `?platform=ios`: web gets a
+  session cookie and redirects to `/`; iOS gets redirected to `coachhq://callback` with the raw
+  GitHub token (+ resolved repo, in the common single-repo-per-install case) instead. See
+  `engine/docs/github-auth.md` for the full web-side trace and `GitHubAuthManager.swift` for
+  iOS's half. A first-time user (no installation yet) lands on `SetupView.swift` — the native
+  equivalent of the web's `pages/Setup.tsx` wizard, since `ASWebAuthenticationSession` can't
+  host that wizard's "opens a new tab, come back" pattern the way a real browser can.
 
 ## Key Files
 
 | Path | Purpose |
 |------|---------|
 | `ios/CoachHQ/CoachHQ/CoachHQApp.swift` | App entry point, EnvironmentObject injection |
-| `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | OAuth 2.0 sign-in, token in Keychain, repo discovery; `isSessionReady` gates Home fetch until profile + repo resolve |
+| `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | Sign-in via shared `ui/api/auth/` backend (ASWebAuthenticationSession + coachhq:// callback), token in Keychain, repo resolution; `isSessionReady` gates Home fetch until profile + repo resolve |
+| `ios/CoachHQ/CoachHQ/Views/SetupView.swift` | First-time-user wizard (native equivalent of `pages/Setup.tsx`) — create repo from template, then install the App |
 | `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | Read/write files via GitHub API; `fetchWidgetSnapshots()` hits HQ `/api/widget-snapshots` |
 | `ios/CoachHQ/CoachHQ/Services/WidgetSnapshotStore.swift` | Observable Home snapshot cache + refresh; mirrors last good payload to App Group for WidgetKit |
 | `ios/CoachHQ/CoachHQ/Models/WidgetSnapshots.swift` | Codable mirror of `ui/client/src/components/home-warm/snapshots.ts` (ADR 0005) |
@@ -142,7 +151,7 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 This section describes the app as it was brought into this repo — it was built and proven out in a single personal repo before this template adopted it, so treat it as a snapshot of what exists in the copied `ios/` code, not a live changelog for this repo yet:
 
 - HealthKit → GitHub sync (background + manual trigger)
-- GitHub OAuth sign-in (auto-discovers user's repo)
+- GitHub sign-in via the shared ui/api/auth/ backend (resolves user's repo server-side)
 - Test mode toggle (syncs to `test/sync` branch)
 - Activity feed: day-grouped, Variant 1 chosen (sport icon rows + WeekSummaryWidget + zone dots + calories)
 - 3 feed variants in `ActivityFeedVariants.swift` — picker in header for A/B review

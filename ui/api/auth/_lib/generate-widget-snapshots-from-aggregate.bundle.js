@@ -1086,7 +1086,7 @@ function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contrac
   };
 }
 
-// api/_lib/generate-widget-snapshots-from-aggregate.ts
+// api/auth/_lib/generate-widget-snapshots-from-aggregate.ts
 function isUnavailableWeek(week) {
   return !week || week.data_status === "unavailable";
 }

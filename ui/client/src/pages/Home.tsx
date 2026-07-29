@@ -9,9 +9,10 @@ import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 
 export default function Home() {
   const { data, loading, error, schemaUnsupported } = useRepoData();
+  const notOnboarded = !loading && !error && !schemaUnsupported && data != null && data.challenge_v2 == null;
   return (
-    <RepoDataGate loading={loading} error={error} schemaUnsupported={schemaUnsupported}>
-      {data && <HomeContent data={data} />}
+    <RepoDataGate loading={loading} error={error} schemaUnsupported={schemaUnsupported} notOnboarded={notOnboarded}>
+      {data && data.challenge_v2 != null && <HomeContent data={data} />}
     </RepoDataGate>
   );
 }

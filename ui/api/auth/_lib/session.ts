@@ -1,6 +1,7 @@
 /**
- * session.ts — encrypted session cookie helpers, shared by all ui/api/auth-*.ts
- * and ui/api/list-my-repos.ts handlers.
+ * session.ts — encrypted session cookie helpers, shared by every handler in
+ * ui/api/auth/ (and by ios/ once it talks to these same endpoints instead of
+ * GitHub directly).
  *
  * The session is a JWE (encrypted, not just signed) so the raw GitHub access
  * token it carries isn't readable even if the cookie value leaks somewhere

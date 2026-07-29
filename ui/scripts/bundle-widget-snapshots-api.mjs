@@ -11,10 +11,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const uiRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const entry = path.join(uiRoot, "api/_lib/generate-widget-snapshots-from-aggregate.ts");
+const entry = path.join(uiRoot, "api/auth/_lib/generate-widget-snapshots-from-aggregate.ts");
 const outfile = path.join(
   uiRoot,
-  "api/_lib/generate-widget-snapshots-from-aggregate.bundle.js",
+  "api/auth/_lib/generate-widget-snapshots-from-aggregate.bundle.js",
 );
 
 await esbuild.build({

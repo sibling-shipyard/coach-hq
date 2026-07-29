@@ -1,5 +1,5 @@
 /**
- * AuthContext — gates the app on /api/auth-me.
+ * AuthContext — gates the app on /api/auth/me.
  *
  * "local" status covers plain `npm run dev`/self-hosted single-repo use, where
  * there's no hosted auth layer at all. Keyed off Vite's own import.meta.env.DEV
@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    fetch("/api/auth-me")
+    fetch("/api/auth/me")
       .then(async (res) => {
         if (cancelled) return;
 

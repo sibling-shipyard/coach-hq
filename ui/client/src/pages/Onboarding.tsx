@@ -28,7 +28,7 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
   const [selecting, setSelecting] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/list-my-repos${switchMode ? "?switch=1" : ""}`)
+    fetch(`/api/auth/list-my-repos${switchMode ? "?switch=1" : ""}`)
       .then(async (res) => {
         const data: RepoResult = await res.json();
         if (data.repo_full_name && !switchMode) {
@@ -51,7 +51,7 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
 
   async function selectRepo(fullName: string) {
     setSelecting(true);
-    const res = await fetch(`/api/list-my-repos?select=${encodeURIComponent(fullName)}`);
+    const res = await fetch(`/api/auth/list-my-repos?select=${encodeURIComponent(fullName)}`);
     if (res.ok) {
       window.location.href = "/";
     } else {

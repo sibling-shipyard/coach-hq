@@ -22,3 +22,4 @@ ios/**/DerivedData/
 *.dSYM.zip
 *.dSYM
 ios/CoachHQ/CoachHQ/Secrets.swift
+.vercel

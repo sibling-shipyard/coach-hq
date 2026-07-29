@@ -7,10 +7,10 @@
  *
  * Auth: session cookie (web) or Bearer token + X-Coach-Repo (iOS).
  */
-import { fetchRepoAggregate } from "./_lib/github-aggregate.js";
-import type { RepoAggregateInput } from "./_lib/generate-widget-snapshots-from-aggregate.js";
-import { generateWidgetSnapshotsFromAggregate } from "./_lib/generate-widget-snapshots-from-aggregate.bundle.js";
-import { resolveRepoAuth } from "./_lib/resolve-auth.js";
+import { fetchRepoAggregate } from "./auth/_lib/github-aggregate.js";
+import type { RepoAggregateInput } from "./auth/_lib/generate-widget-snapshots-from-aggregate.js";
+import { generateWidgetSnapshotsFromAggregate } from "./auth/_lib/generate-widget-snapshots-from-aggregate.bundle.js";
+import { resolveRepoAuth } from "./auth/_lib/resolve-auth.js";
 
 export default {
   async fetch(req: Request): Promise<Response> {

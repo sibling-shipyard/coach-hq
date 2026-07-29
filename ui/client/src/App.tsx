@@ -18,11 +18,13 @@ import SportAnalyticsCalisthenics from "./pages/SportAnalyticsCalisthenics";
 import CoachChat from "./pages/CoachChat";
 import WidgetGallery from "./pages/WidgetGallery";
 import Welcome from "./pages/Welcome";
+import Setup from "./pages/Setup";
 
 function Router() {
   return (
     <Switch>
       <Route path="/welcome" component={Welcome} />
+      <Route path="/setup" component={Setup} />
       <Route path={"/"} component={Home} />
       <Route path="/workouts" component={Workouts} />
       <Route path="/workouts/:id" component={WorkoutTimer} />
@@ -48,6 +50,11 @@ function Gate({ children }: { children: ReactNode }) {
   const params = new URLSearchParams(window.location.search);
   const authError = params.get("auth_error");
   const switching = params.get("switch_repo") === "1";
+
+  // /setup is reached mid-flow, between the two GitHub-native steps (create-from-template,
+  // then install) - there's no session yet at that point, so it must render regardless of
+  // auth.status instead of being swallowed by the unauthenticated -> Welcome fallback below.
+  if (window.location.pathname === "/setup") return <>{children}</>;
 
   if (authError) return <AuthError type={authError} />;
   if (auth.status === "loading") return null;

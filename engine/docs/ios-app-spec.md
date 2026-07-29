@@ -23,9 +23,9 @@ The app is "dumb" by design: it reads from and writes to GitHub. The AI Coach (r
                         └──────────────┘
 ```
 
-- **No Backend:** The app uses the GitHub REST API (Contents API) to read and commit files directly to the user's `coach-phelps-template` clone.
-- **Authentication:** Users authenticate via "Sign in with GitHub" (OAuth 2.0). The resulting access token is stored securely in the iOS Keychain.
-- **Multi-User:** The app automatically discovers the user's `coach-phelps` or `coach-phelps-template` repository upon login, or presents a picker if multiple candidates exist.
+- **No Backend for activity data:** The app uses the GitHub REST API (Contents API) to read and commit files directly to the user's `coach-<login>` repo (forked from `coach-skeleton`).
+- **Authentication:** "Continue with GitHub" goes through the shared `coach-phelps-hq` GitHub App + PKCE flow entirely server-side (`ui/api/auth/`) - the same mechanism the web dashboard uses, no client secret embedded in the app. The resulting access token is stored securely in the iOS Keychain. See `engine/docs/github-auth.md` and `.github/agents/ios-builder.md`'s Architecture Overview.
+- **Multi-User:** A first-time user is walked through creating their repo from the `coach-skeleton` template and installing the App on it (`SetupView.swift`); a returning user's repo resolves automatically via the same ownership + marker-file check the web dashboard uses.
 
 ## Phase 1 (v0.1): HealthKit Sync Engine (The Strava Replacement)
 

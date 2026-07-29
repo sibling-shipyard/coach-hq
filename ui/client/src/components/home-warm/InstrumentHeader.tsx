@@ -227,7 +227,7 @@ function HeaderNavMenu({
                 <Repeat aria-hidden="true" size={18} strokeWidth={1.8} />
                 <span>Switch repo</span>
               </a>
-              <a href="/api/auth-logout" onClick={closeMenu} role="menuitem">
+              <a href="/api/auth/logout" onClick={closeMenu} role="menuitem">
                 <LogOut aria-hidden="true" size={18} strokeWidth={1.8} />
                 <span>Sign out{login ? ` (${login})` : ""}</span>
               </a>

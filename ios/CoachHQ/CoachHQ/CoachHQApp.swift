@@ -26,6 +26,9 @@ struct CoachHQApp: App {
                             widgetStore.configure(apiClient: apiClient)
                             try? await syncManager.requestAuthorization()
                         }
+                } else if authManager.pendingSetupLogin != nil {
+                    SetupView()
+                        .environmentObject(authManager)
                 } else {
                     LoginView()
                         .environmentObject(authManager)
