@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: **Locked (2026-07-26)** · Owner: Tech Lead · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`scripts/carve-skeleton.mjs`](../scripts/carve-skeleton.mjs)
+> Status: **Locked (2026-07-26)** · Owner: Tech Lead · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`scripts/carve-skeleton.mjs`](../../scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). `engine/strava/`
@@ -210,4 +210,4 @@ flowchart LR
 | Carve operator tool | `scripts/carve-skeleton.mjs` |
 | HQ engine source | `engine/` |
 | Live skeleton | https://github.com/sibling-shipyard/coach-skeleton |
-| M1 milestones | `docs/m1-plan.md` |
+| M1 milestones | [`m1-plan.md`](m1-plan.md) |

@@ -2,11 +2,11 @@
 /**
  * carve-skeleton.mjs — Build coach-skeleton from HQ.
  *
- * Full BYO tree (see docs/skeleton-layout.md): composed SOUL.md, engine runtime,
+ * Full BYO tree (see docs/engineering/skeleton-layout.md): composed SOUL.md, engine runtime,
  * gen/ placeholders, user_data/ init bands. No agents, soul layers, ui/, ios/, kdb/.
  *
  * Copy map and band model: kdb/decisions/0011-hq-four-band-layout.md
- * Restructure milestones: docs/hq-restructure-plan.md (R0–R5)
+ * Restructure milestones: docs/engineering/hq-restructure-plan.md (R0–R5)
  */
 import fs from "node:fs";
 import path from "node:path";

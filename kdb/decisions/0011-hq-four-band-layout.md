@@ -5,11 +5,11 @@
 - **Context:** HQ root mixes product surfaces, platform backend, engine IP, operator tooling, and dogfood athlete data (`user_data/`, `gen/`). M1 carved a clean athlete repo; HQ needs the same band discipline before more path moves.
 - **Decision:** HQ organizes into five root bands — `shared/` (cross-platform fixtures + tokens), `ui/` (web + `ui/api/` platform backend), `ios/`, `platform/` (HQ IP: soul, carve/provision, contracts, plugins), `engine/` (exact mirror of athlete runtime post-carve). HQ never holds populated athlete instances.
 - **Why:** One grep-friendly story for what ships to athlete repos vs what stays operator-only. Carve becomes "copy `engine/` verbatim + compose from `platform/`" instead of hunting HQ-only paths inside `engine/`.
-- **Rejected:** New GitHub repo for platform backend → two-repo topology locked ([`scaling-plan.md`](../../docs/scaling-plan.md)). Move `ui/api/` to `platform/` now → correct logical home but Vercel Root Directory is `ui/`; defer until deploy rewire (P2). Rename `ui/` → `frontend/` → breaks Vercel config.
+- **Rejected:** New GitHub repo for platform backend → two-repo topology locked ([`scaling-plan.md`](../../docs/engineering/scaling-plan.md)). Move `ui/api/` to `platform/` now → correct logical home but Vercel Root Directory is `ui/`; defer until deploy rewire (P2). Rename `ui/` → `frontend/` → breaks Vercel config.
 
 ## Carve copy map (today)
 
-Authority: `scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-plan.md`](../../docs/hq-restructure-plan.md).
+Authority: `scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-plan.md`](../../docs/engineering/hq-restructure-plan.md).
 
 | Source (HQ today) | Skeleton destination | Target band |
 |---|---|---|

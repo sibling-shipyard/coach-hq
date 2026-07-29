@@ -2,7 +2,7 @@
 
 > **Status:** Design only — Tech Lead sign-off gate for S2  
 > **Source:** `SOUL.md` v5.7 (hq-adopted reconciliation) on `main`, 12 sections  
-> **Milestone:** S1 of `docs/soul-split-plan.md` — no content moved, no `soul/` files
+> **Milestone:** S1 of [`soul-split-plan.md`](soul-split-plan.md) — no content moved, no `soul/` files
 
 ## Layer definitions
 

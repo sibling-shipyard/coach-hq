@@ -1,7 +1,7 @@
 # HQ Port Plan — Adopt the Clean Structure
 
 > Status: **P3 in review** · P1 ✅ · P2 ✅ · Owner: Tech Lead · Scope: structure only. Skeleton carve and the
-> two-repo split are out of scope here — see `docs/scaling-plan.md`, done after this.
+> two-repo split are out of scope here — see [`scaling-plan.md`](scaling-plan.md), done after this.
 
 ## Goal
 
@@ -21,7 +21,7 @@ hq's ahead-of-clean work.
 |---|---|---|---|
 | **P1** | S | Additive port | `core/`, `plugins/` (badminton + taxonomy), `tests/`, `SOUL_HISTORY.md`, kebab doc renames landed. **Structure only** — no user data (empty match data, template roster/protein docs). hq builds, site deploys unchanged.
 | **P2** | L, **critical** | `training/` reorg | Regroup into `coach/ledger/activities/reference`; in the **same PR** repoint every hq consumer — `ui/api/repo-file.ts`, `ui/api/coach-chat.ts`, `ui/scripts/{build-data.mjs, generate-widget-snapshots.ts, validate-current-week.mts}`, workflows, iOS read+write, Coach's hardcoded refs. Reconcile `last_week/` (hq reads it; clean dropped it) and `seasons/`. `validate-data` green, dashboard renders, coach-chat reads+writes, one real sync smoke-test passes. |
-| **P3** | S | Docs + index | `docs/CURRENT.md` added; keep `AGENTS.md` / `HOW_IT_WORKS.md`; reconcile root `scaling_plan.md` vs `docs/scaling-plan.md`. No broken inbound refs. |
+| **P3** | S | Docs + index | `docs/CURRENT.md` added; keep `AGENTS.md` / `HOW_IT_WORKS.md`; reconcile root `scaling_plan.md` vs `docs/engineering/scaling-plan.md`. No broken inbound refs. |
 
 ```mermaid
 flowchart LR

@@ -139,7 +139,7 @@ Post-ingestion: `engine/scripts/regenerate_derived.py` → `build-aggregate.mjs`
 
 ### Skeleton carve (PR 1)
 
-Source: [`scripts/carve-skeleton.mjs`](../scripts/carve-skeleton.mjs) · Layout: [`skeleton-layout.md`](skeleton-layout.md)
+Source: [`scripts/carve-skeleton.mjs`](../../scripts/carve-skeleton.mjs) · Layout: [`skeleton-layout.md`](skeleton-layout.md)
 
 | Category | Contents |
 |---|---|
@@ -240,9 +240,9 @@ flowchart LR
 
 | Concern | Path |
 |---|---|
-| Canonical layout | `docs/skeleton-layout.md` |
+| Canonical layout | [`skeleton-layout.md`](skeleton-layout.md) |
 | Carve script | `scripts/carve-skeleton.mjs` |
 | Engine boundary | `engine/README.md` |
 | Soul data locations | `engine/soul/C_athlete.md`, `engine/soul/B_engine.md` |
-| Scaling authority | `docs/scaling-plan.md` |
+| Scaling authority | [`scaling-plan.md`](scaling-plan.md) |
 | Live skeleton | https://github.com/sibling-shipyard/coach-skeleton |

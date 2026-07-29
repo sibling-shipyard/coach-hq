@@ -3,7 +3,7 @@
 Everything coaches, protocols, plugins, and activity-naming logic is **authored in HQ** `engine/`.
 **coach-skeleton gets a carved copy** of the runnable BYO stack — same tree every athlete clones.
 
-Canonical layout: [`docs/skeleton-layout.md`](../docs/skeleton-layout.md).
+Canonical layout: [`docs/engineering/skeleton-layout.md`](../docs/engineering/skeleton-layout.md).
 
 ## IP boundary
 

@@ -5,7 +5,7 @@
 #   --greenfield   Skeleton as-is (new athlete)
 #   --migrate      Overlay legacy coach-phelps data with path rewrite
 #
-# See docs/provision-runbook.md for the full operator checklist.
+# See docs/engineering/provision-runbook.md for the full operator checklist.
 set -euo pipefail
 
 SKELETON_REPO="sibling-shipyard/coach-skeleton"
@@ -288,7 +288,7 @@ Next steps (operator + athlete):
   1. Athlete installs GitHub App: ${APP_INSTALL_URL}
      (select repo: ${TARGET_REPO})
   2. Confirm secrets: PAT_TOKEN
-  3. Validation (docs/m1-plan.md §7):
+  3. Validation (docs/engineering/m1-plan.md §7):
      - validate-data.yml green on first push
      - Shared site login → repo resolves
      - Dashboard loads gen/aggregate.json

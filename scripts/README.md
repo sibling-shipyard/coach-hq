@@ -31,7 +31,7 @@ scripts/provision-user.sh --greenfield --repo OWNER/coach-name --dry-run
 scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps
 ```
 
-Runbook: [`docs/provision-runbook.md`](../docs/provision-runbook.md)
+Runbook: [`docs/engineering/provision-runbook.md`](../docs/engineering/provision-runbook.md)
 
 ## Sync model (user repos)
 
