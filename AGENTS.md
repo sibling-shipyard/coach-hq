@@ -52,8 +52,33 @@ Two layers, both small on purpose:
   re-litigate them; if one is wrong, supersede it with a new ADR. A PR that changes a locked/architectural
   decision must add or supersede an ADR — Tech Lead checks this in review.
 - **Doc style — `kdb/doc-style.md`.** Any design/architecture doc, RFC, plan, or ADR follows the house style in `kdb/doc-style.md`: short, diagram-led, plain English (self-contained — no external skill required).
-- **Recording:** a durable rule for your area → your role doc's `## Learnings` section; a
-  decision with tradeoffs → a new ADR in `kdb/decisions/`.
+**Recording:** durable rule for your area → that role doc's `## Learnings` (one line, when you discover it mid-task). Tradeoffs with cost → ADR in `kdb/decisions/`.
+
+## How all agents work
+
+Every agent (Tech Lead + workers) follows this. Role docs add scope; they don't override these rules.
+
+**Talk:** Co-worker mode. Replies and plans **10–20 lines max** unless the athlete asks for depth.
+
+**Lists:** Number steps/questions `1, 2, 3`; sub-items on new lines, one tab indent:
+```
+1. Main step
+	a. sub-step
+	b. sub-step
+```
+Athlete may reference `1a` — match that item exactly.
+
+**Priorities:** Quality compromise → **P0/P1** (must fix now). Overengineering / nice-to-have → **P2/P3** (follow-up ticket, one line — don't build unless asked).
+
+**Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2/P3, don't implement. If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
+
+**Execution loop (tasks, not chat):**
+1. Plan (~10–20 lines): goal, end state, how we validate.
+2. **Stop for approval.**
+3. Execute smallest diff that hits end state.
+4. Review until clean → PR → short summary back to athlete.
+
+**Docs:** One page max per `kdb/doc-style.md`. No long plans in issues or PR bodies.
 
 ## Universal Rules
 

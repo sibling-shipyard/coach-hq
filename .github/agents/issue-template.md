@@ -1,48 +1,27 @@
 # Issue Template
 
-Use this format when creating GitHub issues for workers. The issue should be a **self-contained prompt** — the worker should have full context from the issue alone, with no follow-up needed.
+Self-contained prompt for a worker. **Keep it one screen (~20 lines).** Worker should not need a follow-up thread.
 
----
-
-**Repo:** Always `<your-github-username>/<your-repo-name>` — replace with your own repo once you've set it up.
-PRs go on this repo. Reference issues with `fixes <your-github-username>/<your-repo-name>#X` in the PR body.
-
-**Title:** `[ui-expert]`, `[bob]`, or `[ios]` prefix + concise description
-
-**Labels:** `ui-expert`, `bob-the-builder`, or `ios-builder`
+**Title:** `[ui-expert]` / `[bob]` / `[ios]` + concise description
 
 **Body:**
 
 ```markdown
-## Context
-[Why this change is needed. Link to the bigger picture. Reference any design docs.]
+## Goal
+One sentence — what and why.
 
-## Current Behavior
-[What happens now. Include code snippets, line numbers, or screenshots if relevant.]
-
-## Desired Behavior
-[What should happen after the fix/feature.]
+## Done when
+1. [testable criterion]
+2. [testable criterion]
 
 ## Scope
+**Touch:** `path/file` — [one line each]
+**Don't touch:** [paths + why, if non-obvious]
 
-**Files to touch:**
-- `path/to/file.tsx` — [what to change]
+## P2/P3 (do NOT build)
+- [deferred nice-to-haves, one line each]
 
-**Files NOT to touch:**
-- `path/to/file` — [why]
-
-**Reference docs:**
-- `docs/some-spec.md`
-- Link to related PR or issue
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] No TS errors in changed files (`npx tsc --noEmit`)
-- [ ] Tested in browser / locally
-
-## Guardrails
-- Commit prefix: see `.github/CONVENTIONS.md`
-- Branch: `feat/<issue-N>-<brief>` or `fix/<issue-N>-<brief>`
-- PR must reference this issue: `fixes #X`
+Branch: `feat/<N>-<brief>` · PR: `fixes #N`
 ```
+
+Tech Lead writes issues this way. Workers implement **Done when** only; **P2/P3** goes to backlog, not the PR.
