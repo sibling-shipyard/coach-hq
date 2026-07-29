@@ -99,11 +99,15 @@ conversation lives in browser/app memory until close.
 
 ## Auth
 
-- **Web:** session cookie (`ensureFreshSession`/`withSessionCookie`, ADR 0009's refresh-token
-  rotation), carrying `gh_token` and `repo_full_name`.
-- **iOS (planned):** `Bearer <token>` via `GitHubAuthManager.validToken()`, same convention iOS
-  already uses for other `/api/*` calls (`GitHubAuthManager.swift:155-178`) — a different
-  transport for the same underlying per-athlete GitHub token, not a second auth system.
+`coach-chat.ts` uses the shared `resolveRepoAuth()` helper (`ui/api/auth/_lib/resolve-auth.ts`),
+the same one `widget-snapshots.ts` already uses (ADR 0005) — no new auth code needed for iOS:
+
+- **Web:** session cookie present → `ensureFreshSession`/`withSessionCookie` (ADR 0009's
+  refresh-token rotation), resolving `gh_token` and `repo_full_name`.
+- **iOS:** no cookie → falls through to `Authorization: Bearer <token>` +
+  `X-Coach-Repo: owner/repo` headers, same pattern `GitHubAPIClient.fetchWidgetSnapshots()`
+  already sends (`GitHubAPIClient.swift:215-259`). `CoachChatAPIClient` follows that exact
+  header shape.
 
 ## Retention (ADR 0012)
 

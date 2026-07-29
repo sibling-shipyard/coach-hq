@@ -29,7 +29,8 @@
  * PATCH {threadId, status}   → archive / unarchive / delete / restore an
  *                               already-committed thread
  */
-import { ensureFreshSession, withSessionCookie, type SessionPayload } from "./auth/_lib/session.js";
+import { withSessionCookie } from "./auth/_lib/session.js";
+import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileWrite } from "./_lib/githubGitData.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
@@ -320,12 +321,9 @@ async function askGemini(
 }
 
 // Split from fetch() below so a rotated session cookie only needs attaching in one place.
-async function handle(req: Request, session: SessionPayload): Promise<Response> {
-    const repo = session.repo_full_name;
-    if (!repo) {
-      return Response.json({ error: "No repo resolved yet - visit /api/auth/list-my-repos first" }, { status: 400 });
-    }
-    const token = session.gh_token;
+async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
+    const repo = auth.repo_full_name;
+    const token = auth.gh_token;
 
     if (req.method === "GET") {
       const history = await loadChatHistory(repo, token);
@@ -468,17 +466,22 @@ async function handle(req: Request, session: SessionPayload): Promise<Response> 
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const fresh = await ensureFreshSession(req);
-    if (fresh instanceof Response) return fresh;
+    // resolveRepoAuth handles both auth modes (ADR 0012 makes coach chat iOS-reachable the
+    // same way ADR 0005's widget-snapshots.ts already is): session cookie for web,
+    // `Authorization: Bearer <token>` + `X-Coach-Repo: owner/repo` for iOS. Cookie mode's
+    // setCookie (ADR 0009 rotation) is undefined in Bearer mode, so withSessionCookie below
+    // is a no-op for iOS calls.
+    const resolved = await resolveRepoAuth(req);
+    if (resolved instanceof Response) return resolved;
     try {
-      const res = await handle(req, fresh.session);
-      return withSessionCookie(res, fresh.setCookie);
+      const res = await handle(req, resolved);
+      return withSessionCookie(res, resolved.setCookie);
     } catch (err) {
-      // A rotated refresh_token (ADR 0009) is single-use - losing fresh.setCookie here would
-      // strand the next request, not just fail this one.
+      // A rotated refresh_token (ADR 0009) is single-use - losing resolved.setCookie here
+      // would strand the next request, not just fail this one.
       const message = err instanceof Error ? err.message : "Coach chat failed";
       console.error("[coach-chat]", err);
-      return withSessionCookie(Response.json({ error: message }, { status: 500 }), fresh.setCookie);
+      return withSessionCookie(Response.json({ error: message }, { status: 500 }), resolved.setCookie);
     }
   },
 };
