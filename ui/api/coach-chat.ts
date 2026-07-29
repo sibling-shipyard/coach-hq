@@ -344,9 +344,7 @@ async function askGemini(
   return JSON.parse(text) as GeminiReply;
 }
 
-// Split from the exported fetch() below so a rotated session cookie (see
-// ensureFreshSession) only needs attaching in one place, not on every one of this
-// handler's many return points (GET/PATCH/POST each have several).
+// Split from fetch() below so a rotated session cookie only needs attaching in one place.
 async function handle(req: Request, session: SessionPayload): Promise<Response> {
     const repo = session.repo_full_name;
     if (!repo) {
@@ -494,10 +492,8 @@ export default {
       const res = await handle(req, fresh.session);
       return withSessionCookie(res, fresh.setCookie);
     } catch (err) {
-      // Same reasoning as widget-snapshots.ts's catch: a rotated refresh_token (ADR 0009) is
-      // single-use on GitHub's side - losing fresh.setCookie here because something
-      // downstream threw would strand the *next* request with an already-invalidated token,
-      // not just this one failing.
+      // A rotated refresh_token (ADR 0009) is single-use - losing fresh.setCookie here would
+      // strand the next request, not just fail this one.
       const message = err instanceof Error ? err.message : "Coach chat failed";
       console.error("[coach-chat]", err);
       return withSessionCookie(Response.json({ error: message }, { status: 500 }), fresh.setCookie);

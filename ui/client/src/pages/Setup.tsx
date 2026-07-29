@@ -2,13 +2,10 @@ import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
 import { AuthPageHeader } from "@/components/login/AuthPageHeader";
 
-// Landed here from callback.ts's not_installed redirect - the two GitHub-native screens
-// that remain (create-from-template, then install) can't be automated away: GitHub App
-// tokens can't create personal repos via API (confirmed live - 404/403 on both
-// /repos/{template}/generate and /user/repos), and installs are always single-repo by
-// design, so the repo has to exist before GitHub's install picker has anything to show.
-// Everything else in sign-up is already automatic; this wizard is just the two remaining
-// clicks, explained plainly instead of hidden behind a generic spinner.
+// Landed here from callback.ts's not_installed redirect. These two GitHub-native steps can't
+// be automated away: GitHub App tokens can't create personal repos via API (confirmed live -
+// 404/403 on /repos/{template}/generate and /user/repos), so the repo has to exist before
+// GitHub's install picker has anything to show.
 export default function Setup() {
   const params = new URLSearchParams(window.location.search);
   const login = params.get("login") ?? "";

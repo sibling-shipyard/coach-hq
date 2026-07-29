@@ -4,11 +4,8 @@ import AuthenticationServices
 import Security
 
 /// Manages sign-in via the shared coach-phelps-hq auth backend (ui/api/auth/) and token
-/// storage. Used to be a standalone classic-OAuth-App flow with a client secret embedded in
-/// the binary - moved to the same GitHub App + PKCE flow the web dashboard uses, entirely
-/// server-side, so there's nothing secret shipped in this app at all. See
-/// ui/api/auth/callback.ts's `platform === "ios"` branch and ADR-adjacent notes there for the
-/// server side of this contract.
+/// storage. Same GitHub App + PKCE flow the web dashboard uses, entirely server-side, so
+/// there's no client secret shipped in this app. See callback.ts's `platform === "ios"` branch.
 @MainActor
 class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
     @Published var isAuthenticated = false
@@ -23,10 +20,8 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     /// CoachHQApp routes to SetupView while this is set (the native equivalent of
     /// pages/Setup.tsx). Cleared once continueToInstall() resolves a repo.
     @Published var pendingSetupLogin: String?
-    /// fetchUser()/resolveRepoIfNeeded() used to fail silently (print() only) - a network
-    /// blip during sign-in left `user`/`selectedRepo` quietly unset with no signal to the
-    /// person looking at the screen. LoginView/SetupView surface this the same way they
-    /// already surface a thrown sign-in error.
+    /// Surfaced by LoginView/SetupView so a network blip during sign-in doesn't leave
+    /// `user`/`selectedRepo` silently unset with no signal to the person looking at the screen.
     @Published var lastNetworkError: String?
 
     private let keychainKey = "com.siblingshipyard.coachhq.github.token"
@@ -56,17 +51,14 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
 
     // MARK: - OAuth Flow
 
-    /// Starts sign-in - identical entry point for new and returning users, matching the web
-    /// "Continue with GitHub" button. All PKCE/state/token-exchange logic lives server-side in
-    /// ui/api/auth/start.ts + callback.ts; this just opens that URL in a web session and reads
-    /// what comes back on the coachhq:// redirect.
+    /// Identical entry point for new and returning users, matching the web "Log in with
+    /// GitHub" button. PKCE/state/token-exchange all live server-side in start.ts + callback.ts.
     func signIn() async throws {
         try await runAuthSession(path: "/api/auth/start")
     }
 
-    /// SetupView's step 2 - re-enters the flow at the install step once the user has created
-    /// their repo on GitHub's template page (step 1, opened externally in Safari). Mirrors
-    /// pages/Setup.tsx's "Continue to install" link, via ui/api/auth/install-redirect.ts.
+    /// SetupView's step 2 - re-enters the flow at install once the user has created their repo
+    /// on GitHub's template page. Mirrors Setup.tsx's "Continue to install" link.
     func continueToInstall() async throws {
         try await runAuthSession(path: "/api/auth/install-redirect")
     }
@@ -101,13 +93,9 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         try await handleCallback(callbackURL)
     }
 
-    /// Parses the coachhq://callback redirect from either entry point above. Three shapes,
-    /// matching callback.ts's platform === "ios" branches:
-    ///   ?error=<type>              - something failed server-side, see AuthError.serverError
-    ///   ?needs_setup=1&login=<x>   - signed in, no installation yet -> route to SetupView
-    ///   ?token=<x>&login=<x>[&repo=<x>] - signed in and installed; repo included when
-    ///                                     callback.ts found exactly one owned+confirmed repo
-    ///                                     (the common case - installs are single-repo)
+    /// Parses the coachhq://callback redirect. Three shapes, matching callback.ts's
+    /// platform === "ios" branches: ?error=<type>, ?needs_setup=1&login=<x>, or
+    /// ?token=<x>&login=<x>[&repo=<x>] (repo included when there's exactly one candidate).
     private func handleCallback(_ url: URL) async throws {
         lastNetworkError = nil
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -140,11 +128,8 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
             await fetchUser()
             isSessionReady = true
         } else {
-            // Rare: not exactly one owned+confirmed repo on this installation (legacy
-            // multi-repo installs, or none confirmed yet). Falls back to the same
-            // ownership/marker-file resolution list-my-repos.ts runs for the web onboarding
-            // screen - see resolveRepoIfNeeded(). If that still can't resolve one repo,
-            // selectedRepo stays nil; there's no native picker UI for the 2+ case yet.
+            // Rare: not exactly one candidate repo. Falls back to resolveRepoIfNeeded(); if
+            // that still can't resolve one, selectedRepo stays nil - no native picker for 2+.
             await bootstrapSession()
         }
     }
@@ -155,21 +140,18 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         isSessionReady = false
         await fetchUser()
         await resolveRepoIfNeeded()
-        // Couldn't resolve a repo at all (rare - not exactly one owned+confirmed candidate,
-        // and list-my-repos.ts's fallback also came up empty). Route back into the Setup
-        // wizard instead of leaving CoachHQApp stuck on a broken MainTabView with no repo -
-        // see CoachHQApp.swift's routing, which checks this alongside isAuthenticated.
+        // Couldn't resolve a repo at all - route back into Setup instead of leaving
+        // CoachHQApp stuck on a broken MainTabView with no repo.
         if selectedRepo == nil {
             pendingSetupLogin = user?.login
         }
         isSessionReady = true
     }
 
-    /// Fallback repo resolution for the rare case handleCallback() didn't already get one -
-    /// same ownership/marker-file logic web's Onboarding.tsx drives, via list-my-repos.ts's
-    /// bearer-token auth path.
+    /// Fallback repo resolution for the rare case handleCallback() didn't already get one,
+    /// via list-my-repos.ts's bearer-token auth path.
     private func resolveRepoIfNeeded() async {
-        guard selectedRepo == nil, let token = loadToken() else { return }
+        guard selectedRepo == nil, let token = await validToken() else { return }
         guard let url = URL(string: Secrets.dashboardBaseURL + "/api/auth/list-my-repos") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -189,7 +171,9 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
 
     /// Fetches the authenticated user's profile
     func fetchUser() async {
-        guard let token = loadToken() else { return }
+        // validToken(), not loadToken() - runs before GitHubAPIClient's proactive refresh
+        // gets a chance to, so a token expired since last session would 401 needlessly at startup.
+        guard let token = await validToken() else { return }
         var request = URLRequest(url: URL(string: "https://api.github.com/user")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
@@ -246,12 +230,9 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         saveKeychainString(token, for: keychainKey)
     }
 
-    /// Mirrors ui/api/auth/_lib/session.ts's refresh_token/gh_token_expires_at fields - GitHub
-    /// tokens die at 8h (coach-phelps has "expire user authorization tokens" opted in), and a
-    /// classic OAuth-style refresh call from the client would need client_secret embedded in
-    /// the app (exactly what GitHubAuthManager was rewritten to avoid). Instead this hits
-    /// /api/auth/refresh, which does the confidential refresh_token exchange server-side and
-    /// hands back a fresh token pair - same trust model as sign-in itself.
+    /// Mirrors session.ts's refresh_token/gh_token_expires_at fields. A classic client-side
+    /// refresh would need client_secret embedded in the app, so this hits /api/auth/refresh
+    /// instead, which does the confidential exchange server-side.
     private func saveRefreshToken(_ refreshToken: String, expiresAt: Date) {
         saveKeychainString(refreshToken, for: refreshTokenKeychainKey)
         saveKeychainString(String(expiresAt.timeIntervalSince1970), for: expiresAtKeychainKey)
@@ -266,11 +247,9 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         return Date(timeIntervalSince1970: interval)
     }
 
-    /// Returns a token guaranteed usable for the next request, refreshing first if the stored
-    /// one is at or near its 8h expiry. Falls back to whatever's stored (even if possibly
-    /// stale) on a refresh failure - the resulting 401 from GitHub is still handled
-    /// (GitHubAPIClient's existing "token expired, sign out and sign in again" path), just
-    /// without the silent, invisible recovery a successful refresh gives.
+    /// Returns a token usable for the next request, refreshing first if near expiry. Falls
+    /// back to whatever's stored on a refresh failure - a resulting 401 is still handled by
+    /// GitHubAPIClient's existing "sign in again" path, just without silent recovery.
     func validToken() async -> String? {
         guard let token = loadToken() else { return nil }
         guard let expiresAt = loadExpiresAt(), expiresAt > Date().addingTimeInterval(300) else {
@@ -279,12 +258,10 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         return token
     }
 
-    // GitHub rotates refresh tokens on each use (single-use) - two concurrent callers (e.g. a
-    // HealthKit sync push and a widget-snapshots fetch landing near the same moment) racing to
-    // refresh with the same stored refresh_token would mean the loser's exchange gets rejected
-    // by GitHub. @MainActor already serializes access to this property, so caching the
-    // in-flight task here is enough to make concurrent callers share one exchange instead of
-    // racing - no separate actor/lock needed.
+    // GitHub rotates refresh tokens on each use - concurrent callers racing to refresh with
+    // the same stored refresh_token would have the loser's exchange rejected. @MainActor
+    // already serializes access, so caching the in-flight task here makes callers share one
+    // exchange instead of racing.
     private var refreshTask: Task<String?, Never>?
 
     private func refreshAccessToken() async -> String? {

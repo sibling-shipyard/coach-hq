@@ -1,12 +1,8 @@
 import SwiftUI
 
-/// Native equivalent of the web's pages/Setup.tsx wizard. Shown when
-/// GitHubAuthManager.pendingSetupLogin is set - the account signed in but has no
-/// coach-phelps installation yet. Two GitHub-native steps that can't be automated away (see
-/// ui/api/auth/callback.ts's comments): creating the repo from the template, then installing
-/// the App on it. ASWebAuthenticationSession can't host a "click a link, opens a new tab,
-/// come back" flow the way a real browser can, so step 1 opens system Safari instead of
-/// staying inside a webview.
+/// Native equivalent of Setup.tsx's wizard. Shown when pendingSetupLogin is set - signed in
+/// but no installation yet. Step 1 opens system Safari instead of a webview, since
+/// ASWebAuthenticationSession can't host a "click a link, come back" flow.
 struct SetupView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @State private var isInstalling = false
@@ -49,8 +45,6 @@ struct SetupView: View {
                 .tracking(1.4)
                 .foregroundColor(WarmInstrument.ink)
             Spacer(minLength: 0)
-            // Only way out of this screen otherwise is force-quitting the app - matches the
-            // web wizard's "Cancel" link (pages/Setup.tsx's AuthPageHeader).
             Button {
                 Haptics.tap()
                 authManager.signOut()
@@ -110,9 +104,6 @@ struct SetupView: View {
                     .buttonStyle(WarmSetupButtonStyle(primary: false))
                     .disabled(isInstalling)
 
-                    // errorMessage: a thrown continueToInstall() failure. authManager's
-                    // lastNetworkError: fetchUser()/resolveRepoIfNeeded() failing silently
-                    // used to leave no signal at all - now surfaced the same way.
                     if let error = errorMessage ?? authManager.lastNetworkError {
                         Text(error)
                             .font(.system(size: 12, weight: .medium))

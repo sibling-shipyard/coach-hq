@@ -19,23 +19,13 @@ interface GhRepo {
   owner: { login: string };
 }
 
-/**
- * Resolve installation_id via GET /user/installations, verified against BOTH app_slug and
- * account.login. app_slug alone isn't enough: this endpoint returns every installation the
- * calling user has *any visibility into*, which GitHub grants based on repo access - not just
- * installations the user personally created. A collaborator on someone else's repo that
- * already has the App installed will see that installation too (see
- * sibling-shipyard/coach-phelps-hq#30). account.login is the account the App is actually
- * installed *on*, which is what "is this actually my installation" has to mean.
- */
 export class InstallationLookupFailedError extends Error {}
 
 /**
- * Returns null when the lookup succeeded but genuinely found no matching installation (the
- * expected first-visit state for a new user) - throws InstallationLookupFailedError on a
- * transient GitHub API failure instead of returning null for that case too. Conflating the
- * two used to mean a GitHub API hiccup for an already-installed user looked identical to a
- * brand-new user who's never installed, sending both down the same "go sign up" path.
+ * Resolves installation_id, matched on BOTH app_slug and account.login - app_slug alone isn't
+ * enough, /user/installations includes installs the caller merely collaborates on (#30).
+ * Throws InstallationLookupFailedError on a genuine API failure rather than returning null,
+ * so that doesn't read identically to "no installation yet" (a brand-new user's normal state).
  */
 export async function resolveInstallationId(
   ghToken: string,
@@ -65,16 +55,13 @@ async function checkMarkerFile(repoFullName: string, token: string): Promise<Mar
   );
   if (res.status === 200) return "found";
   if (res.status === 404) return "not_found";
-  // Anything else (403 rate-limited, 5xx, etc.) - a genuine "not found" and "we couldn't
-  // check" must not be conflated. Treating a rate-limit as "this repo isn't set up" would
-  // silently misreport a transient API problem as the user's fault.
+  // 403 rate-limited / 5xx - don't conflate with a genuine "not found", or a transient API
+  // hiccup silently reads as the repo being unconfigured.
   return "lookup_failed";
 }
 
-/** Single-repo check, for the `?select=`/already-resolved-repo call sites in list-my-repos.ts
- * that only ever check one specific repo, not a batch - a lookup failure there already falls
- * through to a sensible outcome (re-resolve, or "doesn't look like a coach-phelps repo"), so
- * it doesn't need the 3-state distinction resolveOwnedRepos does. */
+/** Single-repo check for list-my-repos.ts's `?select=`/already-resolved call sites - those
+ * already fall through to a sensible outcome on failure, so no 3-state distinction needed. */
 export async function hasMarkerFile(repoFullName: string, token: string): Promise<boolean> {
   return (await checkMarkerFile(repoFullName, token)) === "found";
 }
@@ -88,15 +75,9 @@ export function isOwnedBy(repoFullName: string, login: string): boolean {
 export class MarkerLookupFailedError extends Error {}
 
 /**
- * Repos granted to this installation, filtered to ones this account actually owns (not just
- * a collaborator-accessible repo on someone else's account, see resolveInstallationId's SECURITY
- * note) and confirmed as an actual coach-phelps repo via the marker file.
- *
- * Marker-file checks run in parallel (Promise.all) rather than one at a time - on an account
- * with several candidate repos, sequential awaits added up to real, avoidable latency. If any
- * single check fails to complete (rate-limited, transient error), the whole result throws
- * MarkerLookupFailedError rather than silently treating that repo as "marker not found" -
- * same reasoning as resolveInstallationId's failed/not-found distinction above.
+ * Repos granted to this installation, filtered to ones this account owns (see #30 above) and
+ * confirmed via the marker file. Checks run in parallel; if any single one fails to complete,
+ * the whole result throws rather than silently reading as "marker not found".
  */
 export async function resolveOwnedRepos(
   installationId: number,

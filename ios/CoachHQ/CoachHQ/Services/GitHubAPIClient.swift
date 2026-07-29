@@ -1,20 +1,8 @@
 import Foundation
 
 /// Client for reading and writing files to the user's GitHub repository via the Contents API.
-///
-/// Smooth-UX round additions:
-/// - **Automatic retries** with exponential backoff on transient failures
-///   (network errors, 5xx, 409 ref conflicts) — users were manually retrying
-///   2-3 times to get saves through; the client now does that itself.
-/// - **Readable errors** — `GitHubAPIError` carries the failing operation,
-///   HTTP status, and GitHub's own error message, so failures say
-///   "Saving scores failed: GitHub returned 409 (…)" instead of a generic
-///   "The operation couldn't be completed".
-/// - **ETag conditional requests** — reads send `If-None-Match` and reuse the
-///   cached body on `304 Not Modified`. Fresh like a no-cache read (GitHub
-///   revalidates against the current ref), but unchanged files cost only a
-///   tiny header exchange — fast on cellular, and immune to the stale
-///   max-age=60 cache problem fixed earlier.
+/// Retries transient failures automatically, ETag-caches reads (304 reuses the cached body),
+/// and wraps errors with the failing operation + GitHub's own message.
 class GitHubAPIClient {
     private let authManager: GitHubAuthManager
     var targetBranch: String {
@@ -57,12 +45,8 @@ class GitHubAPIClient {
         attempts: Int = 3,
         operation: () async throws -> T
     ) async throws -> T {
-        // Refreshes the Keychain token first if it's at/near its 8h expiry (GitHubAuthManager
-        // .validToken() writes the fresh token back to the same Keychain key `headers`/
-        // `baseURL` below read synchronously) - this is what makes a session actually last
-        // past 8h instead of silently degrading into "token expired, sign out and sign in
-        // again" every session. One choke point here rather than threading async token
-        // lookups through every call site in this file.
+        // Proactively refreshes the Keychain token if near expiry - one choke point instead
+        // of threading async token lookups through every call site in this file.
         _ = await authManager.validToken()
         var lastError: Error = GitHubAPIError.requestFailed(operation: label, status: nil, detail: nil)
         for attempt in 0..<attempts {
@@ -349,19 +333,13 @@ class GitHubAPIClient {
 
     // MARK: - Write Operations
 
-    /// Commits multiple files in a single Git commit using the Git Data API.
-    ///
-    /// The whole tree/commit/ref sequence runs inside `withRetry`: a
-    /// non-fast-forward ref update (branch moved since reading HEAD — another
-    /// sync landed, or "Reset Test Branch" recreated the branch mid-save)
-    /// throws a transient 409-class error, and the retry rebuilds everything
-    /// against a fresh HEAD. Blobs don't depend on HEAD, so they're created
-    /// once and reused across attempts.
+    /// Commits multiple files in a single Git commit using the Git Data API. The tree/commit/ref
+    /// sequence runs inside `withRetry` - a non-fast-forward ref update throws a transient
+    /// 409-class error and rebuilds against a fresh HEAD. Blobs are reused across attempts.
     func commitFiles(_ files: [(path: String, data: Data)], message: String) async throws {
         let base = try baseURL
 
-        // Create blobs once — independent of HEAD, safe to reuse across retries.
-        // (Sequential, not a task group, to avoid Swift 6 actor-isolation issues.)
+        // Sequential, not a task group, to avoid Swift 6 actor-isolation issues.
         var blobs: [(path: String, sha: String)] = []
         for file in files {
             let data = try await withRetry("Uploading \(file.path)") {
@@ -398,8 +376,7 @@ class GitHubAPIClient {
             ], label: "Creating commit")
             let newCommitSHA = try JSONDecoder().decode(GitCommitResponse.self, from: newCommitData).sha
 
-            // 5. Update ref — non-fast-forward (branch moved since step 1) fails
-            //    here with 409/422; classified transient so withRetry rebuilds.
+            // 5. Update ref - non-fast-forward fails with 409/422; classified transient.
             var updateReq = URLRequest(url: URL(string: "\(base)/git/refs/heads/\(targetBranch)")!,
                                        cachePolicy: .reloadIgnoringLocalCacheData)
             updateReq.httpMethod = "PATCH"
@@ -408,7 +385,6 @@ class GitHubAPIClient {
             let (respData, updateResp) = try await URLSession.shared.data(for: updateReq)
             guard let http = updateResp as? HTTPURLResponse, http.statusCode == 200 else {
                 let status = (updateResp as? HTTPURLResponse)?.statusCode
-                // Treat ref-update failures as transient (branch likely moved).
                 throw GitHubAPIError.commitFailed(
                     operation: "Updating branch \(targetBranch)",
                     status: status == 422 ? 409 : status,   // 422 non-FF ⇒ retryable

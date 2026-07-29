@@ -20,10 +20,7 @@ export default {
     }
 
     // Declared outside the try block so the catch clause can still attach a rotated cookie
-    // (ensureFreshSession's refresh_token rotation, see ADR 0009) if auth resolved fine but
-    // something downstream threw - GitHub rotates refresh tokens on each use, so dropping a
-    // successful rotation here would strand the *next* request with an already-invalidated
-    // refresh_token.
+    // (ADR 0009) if auth resolved fine but something downstream threw.
     let auth: RepoAuthContext | undefined;
 
     try {

@@ -37,9 +37,10 @@ final class TestModeManager: ObservableObject {
 
     /// Creates the test branch from main HEAD. If it already exists, force-resets it.
     func resetTestBranch(authManager: GitHubAuthManager) async throws {
+        // validToken(), not loadToken() - avoids reading a possibly-stale token directly.
         guard let user = authManager.user?.login,
               let repo = authManager.selectedRepo,
-              let token = authManager.loadToken() else {
+              let token = await authManager.validToken() else {
             throw TestModeError.notAuthenticated
         }
 
