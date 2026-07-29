@@ -489,6 +489,13 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, { repo, branch: "main", token });
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
+        // The resolve() guard above throws a tagged {status: 400} when this close targets a
+        // thread another request archived/deleted in the meantime - that's a correct rejection,
+        // not a save failure, so it gets its own status/message instead of being flattened into
+        // the generic "saving failed" 502 below (which would be actively misleading here).
+        if ((err as { status?: number }).status === 400) {
+          return Response.json({ error: errMessage }, { status: 400 });
+        }
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}` }, { status: 502 });
       }
 
