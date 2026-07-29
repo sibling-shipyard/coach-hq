@@ -10,7 +10,7 @@
  * aggregate.json came back as `encoding: "none"`, empty `content`, at ~2.8MB).
  * `.raw` returns the actual file bytes directly regardless of size.
  */
-import { decryptSession, parseCookies, SESSION_COOKIE } from "./auth/_lib/session.js";
+import { ensureFreshSession, withSessionCookie } from "./auth/_lib/session.js";
 
 const GH_HEADERS = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -20,15 +20,15 @@ const GH_HEADERS = (token: string) => ({
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const cookies = parseCookies(req);
-    const raw = cookies[SESSION_COOKIE];
-    if (!raw) return Response.json({ error: "Not authenticated" }, { status: 401 });
-
-    const session = await decryptSession(raw);
-    if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+    const fresh = await ensureFreshSession(req);
+    if (fresh instanceof Response) return fresh;
+    const { session, setCookie } = fresh;
 
     if (!session.repo_full_name) {
-      return Response.json({ error: "No repo resolved yet - visit /api/auth/list-my-repos first" }, { status: 400 });
+      return withSessionCookie(
+        Response.json({ error: "No repo resolved yet - visit /api/auth/list-my-repos first" }, { status: 400 }),
+        setCookie,
+      );
     }
 
     const contentsRes = await fetch(
@@ -39,38 +39,48 @@ export default {
     if (contentsRes.status === 401 || contentsRes.status === 403) {
       // Distinct from a generic failure: this is what a revoked/expired GitHub App
       // installation looks like (user removed access on GitHub's side, or the App was
-      // uninstalled) while the session cookie is still within its ~8h window. "Failed to
-      // fetch your data" would be misleading here - the fix isn't retrying, it's signing
-      // in again. RepoDataGate.tsx keys off this specific error string.
-      return Response.json(
-        { error: "Your GitHub access was revoked or expired - sign in again to reconnect." },
-        { status: 401 }
+      // uninstalled) - genuinely different from ensureFreshSession's routine 8h rotation,
+      // which already happened above if needed. "Failed to fetch your data" would be
+      // misleading here - the fix isn't retrying, it's signing in again.
+      // RepoDataGate.tsx keys off this specific error string.
+      return withSessionCookie(
+        Response.json(
+          { error: "Your GitHub access was revoked or expired - sign in again to reconnect." },
+          { status: 401 }
+        ),
+        setCookie,
       );
     }
     if (contentsRes.status === 404) {
-      return Response.json(
-        { error: "gen/aggregate.json not found in your repo - has it synced yet?" },
-        { status: 404 }
+      return withSessionCookie(
+        Response.json(
+          { error: "gen/aggregate.json not found in your repo - has it synced yet?" },
+          { status: 404 }
+        ),
+        setCookie,
       );
     }
     if (!contentsRes.ok) {
-      return Response.json({ error: "Failed to fetch your data" }, { status: 502 });
+      return withSessionCookie(Response.json({ error: "Failed to fetch your data" }, { status: 502 }), setCookie);
     }
 
     let aggregate: unknown;
     try {
       aggregate = await contentsRes.json();
     } catch {
-      return Response.json({ error: "gen/aggregate.json is not valid JSON" }, { status: 502 });
+      return withSessionCookie(
+        Response.json({ error: "gen/aggregate.json is not valid JSON" }, { status: 502 }),
+        setCookie,
+      );
     }
 
-    return new Response(JSON.stringify(aggregate), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        // Data changes at most once/day, on sync - short cache is plenty.
-        "Cache-Control": "private, max-age=180",
-      },
+    const headers = new Headers({
+      "Content-Type": "application/json",
+      // Data changes at most once/day, on sync - short cache is plenty.
+      "Cache-Control": "private, max-age=180",
     });
+    if (setCookie) headers.append("Set-Cookie", setCookie);
+
+    return new Response(JSON.stringify(aggregate), { status: 200, headers });
   },
 };

@@ -11,6 +11,7 @@ import { fetchRepoAggregate } from "./auth/_lib/github-aggregate.js";
 import type { RepoAggregateInput } from "./auth/_lib/generate-widget-snapshots-from-aggregate.js";
 import { generateWidgetSnapshotsFromAggregate } from "./auth/_lib/generate-widget-snapshots-from-aggregate.bundle.js";
 import { resolveRepoAuth } from "./auth/_lib/resolve-auth.js";
+import { withSessionCookie } from "./auth/_lib/session.js";
 
 export default {
   async fetch(req: Request): Promise<Response> {
@@ -24,26 +25,29 @@ export default {
 
       const fetched = await fetchRepoAggregate(auth.repo_full_name, auth.gh_token);
       if ("error" in fetched) {
-        return Response.json({ error: fetched.error }, { status: fetched.status });
+        return withSessionCookie(Response.json({ error: fetched.error }, { status: fetched.status }), auth.setCookie);
       }
 
       const snapshots = generateWidgetSnapshotsFromAggregate(
         fetched.aggregate as RepoAggregateInput,
       );
       if (!snapshots) {
-        return Response.json(
-          { error: "No challenge_v2.json in aggregate — complete coach intake first" },
-          { status: 404 },
+        return withSessionCookie(
+          Response.json(
+            { error: "No challenge_v2.json in aggregate — complete coach intake first" },
+            { status: 404 },
+          ),
+          auth.setCookie,
         );
       }
 
-      return new Response(JSON.stringify(snapshots), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "private, max-age=180",
-        },
+      const headers = new Headers({
+        "Content-Type": "application/json",
+        "Cache-Control": "private, max-age=180",
       });
+      if (auth.setCookie) headers.append("Set-Cookie", auth.setCookie);
+
+      return new Response(JSON.stringify(snapshots), { status: 200, headers });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Snapshot generation failed";
       console.error("[widget-snapshots]", err);

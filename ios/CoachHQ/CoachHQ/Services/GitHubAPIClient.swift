@@ -57,6 +57,13 @@ class GitHubAPIClient {
         attempts: Int = 3,
         operation: () async throws -> T
     ) async throws -> T {
+        // Refreshes the Keychain token first if it's at/near its 8h expiry (GitHubAuthManager
+        // .validToken() writes the fresh token back to the same Keychain key `headers`/
+        // `baseURL` below read synchronously) - this is what makes a session actually last
+        // past 8h instead of silently degrading into "token expired, sign out and sign in
+        // again" every session. One choke point here rather than threading async token
+        // lookups through every call site in this file.
+        _ = await authManager.validToken()
         var lastError: Error = GitHubAPIError.requestFailed(operation: label, status: nil, detail: nil)
         for attempt in 0..<attempts {
             do {
@@ -222,7 +229,7 @@ class GitHubAPIClient {
     /// HQ runs the TS generator server-side from `gen/aggregate.json` — athlete repos
     /// do not need a committed `gen/widget_snapshots.json`.
     func fetchWidgetSnapshots() async throws -> WidgetSnapshotsFile {
-        guard let token = authManager.loadToken() else {
+        guard let token = await authManager.validToken() else {
             throw GitHubAPIError.notAuthenticated
         }
         guard let user = authManager.user?.login,
