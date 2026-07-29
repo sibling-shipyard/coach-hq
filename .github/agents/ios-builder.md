@@ -6,7 +6,7 @@
 
 ## Boot Sequence
 
-On entry, read: `AGENTS.md`, this doc, `docs/ios-app-spec.md`, `ios/DESIGN.md` (before any View work), and `kdb/decisions/README.md` (skim `Area: ios`). Follow `kdb/doc-style.md` for any design doc.
+On entry, read: `AGENTS.md`, this doc, `docs/eng-docs/ios-app-spec.md`, `ios/DESIGN.md` (before any View work), and `kdb/decisions/README.md` (skim `Area: ios`). Follow `kdb/doc-style.md` for any design doc.
 
 ## Scope
 

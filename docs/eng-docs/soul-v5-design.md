@@ -100,13 +100,13 @@ training/analytics_snapshot.json    Match analytics       (when: match discussio
 training/coach/coach_notes.md       Long-term patterns    (when: investigating recurring issues)
 training/reference/opponent_notes.md  Nemesis opponent data (when: opponent named in conversation)
 docs/phelps-research-notes.md       Phelps anecdote depth (when: telling a specific story)
-docs/phelps-voice-profile.md        Voice cadence         (when: generating visualization audio)
-docs/soul-calibration.md            Voice examples        (when: voice feels off or testing new SOUL)
+docs/ref-docs/phelps-voice-profile.md        Voice cadence         (when: generating visualization audio)
+docs/ref-docs/soul-calibration.md            Voice examples        (when: voice feels off or testing new SOUL)
 ```
 
 ### New files
 ```
-docs/soul-calibration.md      Good and bad coaching output examples
+docs/ref-docs/soul-calibration.md      Good and bad coaching output examples
 skills/pipeline-tools.md      Full CLI flag reference, extracted from SOUL.md Section 10
 training/reference/opponent_notes.md    Running notes on nemesis opponents (Joe Chung, Tsz To, etc.)
 ```
@@ -193,7 +193,7 @@ Rigorous by design. One additive change: add `training/opponent_notes.md` to the
 
 ## 6. New Files
 
-**`docs/soul-calibration.md`** — 5-6 good output examples (post-bad-session, milestone, wants-to-skip, rest day, weekly plan opener), 3-4 bad output examples (too data-heavy, cheerleader, too long, corporate), 2-3 borderline examples with notes. Tech Lead drafts; Sky approves in PR review. On-demand only.
+**`docs/ref-docs/soul-calibration.md`** — 5-6 good output examples (post-bad-session, milestone, wants-to-skip, rest day, weekly plan opener), 3-4 bad output examples (too data-heavy, cheerleader, too long, corporate), 2-3 borderline examples with notes. Tech Lead drafts; Sky approves in PR review. On-demand only.
 
 **`skills/pipeline-tools.md`** — Verbatim extraction of current SOUL.md Section 10 script docs: `fetch_strava.py`, `query_history.py`, `rename_single.py`, `rename_activities.py`, `generate_quest_log.py`.
 
@@ -280,7 +280,7 @@ v5 is working when:
 7. Sunday session ritual triggers correctly and covers all 5 agenda items
 8. Coach outputs match calibration examples in `soul-calibration.md`
 
-Map to `docs/engineering/VALIDATION_TESTS.md` before shipping.
+Map to `docs/eng-docs/VALIDATION_TESTS.md` before shipping.
 
 ---
 
@@ -289,14 +289,14 @@ Map to `docs/engineering/VALIDATION_TESTS.md` before shipping.
 | Phase | Work | Owner | Status |
 |---|---|---|---|
 | 1 | Add `date` bash call to SOUL.md boot sequence | Tech Lead | Done |
-| 2 | SOUL.md v5 rewrite + new companion files + update `docs/engineering/SOUL_HISTORY.md` | Tech Lead | In progress |
+| 2 | SOUL.md v5 rewrite + new companion files + update `docs/eng-docs/SOUL_HISTORY.md` | Tech Lead | In progress |
 | 3 | Pipeline: PRE: + game-note parsing, leaderboard upsert | Bob | Done (Issue #17) |
 | 4 | Coach calibration pass: discuss with Coach, then fill `training/opponent_notes.md` from real session observations | Sky + Coach | Pending |
-| 5 | Validation — boot Coach in fresh thread, run `docs/engineering/VALIDATION_TESTS.md` + update `docs/engineering/VALIDATION_TESTS.md` for v5 criteria | Sky + Tech Lead | Pending |
+| 5 | Validation — boot Coach in fresh thread, run `docs/eng-docs/VALIDATION_TESTS.md` + update `docs/eng-docs/VALIDATION_TESTS.md` for v5 criteria | Sky + Tech Lead | Pending |
 | 5a | End-of-day trigger hardening — only explicit closing signal triggers check-in; interim save commits data only and resumes conversation | Tech Lead | Done |
 | 6 | Merge PR #51 | Sky | Done |
 
-**Phase 2 companion files:** `docs/soul-calibration.md`, `skills/pipeline-tools.md`, `training/reference/opponent_notes.md` (template first, then filled in Phase 4). Update `training/coach/state.md` schema. Update `docs/engineering/SOUL_HISTORY.md` with v5 entry.
+**Phase 2 companion files:** `docs/ref-docs/soul-calibration.md`, `skills/pipeline-tools.md`, `training/reference/opponent_notes.md` (template first, then filled in Phase 4). Update `training/coach/state.md` schema. Update `docs/eng-docs/SOUL_HISTORY.md` with v5 entry.
 
 **Post-#25 SOUL update (future):** Once Bob ships the HR stream pipeline (issue #25), add per-match HR workflow to Coach — referencing win/loss HR signatures, ignition speed, etc. Cannot be in v5 as the underlying data doesn't exist yet.
 

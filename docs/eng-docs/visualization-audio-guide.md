@@ -1,6 +1,6 @@
 # Visualization Audio Guide
 
-When writing guided visualization scripts, read `docs/phelps-voice-profile.md` for voice cadence, pacing, and delivery style. Match Phelps' rhythm — slow, deliberate, with pauses between cues. Don't read it at boot — only when generating visualization audio.
+When writing guided visualization scripts, read `docs/ref-docs/phelps-voice-profile.md` for voice cadence, pacing, and delivery style. Match Phelps' rhythm — slow, deliberate, with pauses between cues. Don't read it at boot — only when generating visualization audio.
 
 ## Format rules
 

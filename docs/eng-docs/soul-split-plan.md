@@ -44,7 +44,7 @@ reconciliation — confirm in S0.
 ## Guardrails
 
 - **Behavior-preserving.** The assembled brain a coach reads must mean the same as today's
-  `SOUL.md`. Guard with `docs/engineering/VALIDATION_TESTS.md`. Genericizing B is a *reword to read C*, not a
+  `SOUL.md`. Guard with `docs/eng-docs/VALIDATION_TESTS.md`. Genericizing B is a *reword to read C*, not a
   logic change — if a rule's behavior would change, stop and flag.
 - **`SOUL.md` becomes a generated artifact** = `compose(A, B, C-schema)` via
   `scripts/compose-soul.mjs` (deterministic, no timestamps). A CI check asserts
@@ -79,7 +79,7 @@ framework consults `sports[]`) instead of listing examples inline as the rules.
   change** — just verify it still receives the full A+B+C-schema brain.
 - **BYO-Claude boot** — `CLAUDE.md` / `AGENTS.md` + `SOUL.md` §1 read `SOUL.md`. Unchanged if the
   artifact stays `SOUL.md`.
-- **Agent docs** (`.github/agents/*`), `docs/engineering/VALIDATION_TESTS.md`, `CONVENTIONS.md` — wording updates
+- **Agent docs** (`.github/agents/*`), `docs/eng-docs/VALIDATION_TESTS.md`, `CONVENTIONS.md` — wording updates
   ("two-file portable architecture" → the layered layout).
 
 ## File layout

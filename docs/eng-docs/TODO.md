@@ -4,14 +4,14 @@
 
 Friends will use **Sign up on the shared site → connect Claude to the same repo → coach**. They will not set up PATs or run operator scripts.
 
-**Authority:** [`docs/engineering/user-3-onboarding-gate.md`](docs/engineering/user-3-onboarding-gate.md)
+**Authority:** [`docs/eng-docs/user-3-onboarding-gate.md`](user-3-onboarding-gate.md)
 
 - [ ] **PAT-free Sync** — skeleton `sync.yml` uses `GITHUB_TOKEN` (+ permissions) instead of athlete-created `PAT_TOKEN`
 - [ ] **Auto repo on sign-up** — website creates `coach-<user>` from skeleton (App Administration perm or equivalent)
 - [ ] **Sign-up → working Sync** — exit test: dashboard login, Sync button, push-triggered Sync all green without operator
 - [ ] **SETUP.md** — athlete path is shared-site sign-up; remove manual PAT steps from friend-facing docs
 
-- [ ] **Unified challenge_v2 v4** — one schema all users; see [`docs/engineering/challenge-v2-schema.md`](docs/engineering/challenge-v2-schema.md) + ADR 0006. Migrate carve, provision, validate-data, live repos (C2–C4).
+- [ ] **Unified challenge_v2 v4** — one schema all users; see [`docs/eng-docs/challenge-v2-schema.md`](challenge-v2-schema.md) + ADR 0006. Migrate carve, provision, validate-data, live repos (C2–C4).
 
 **Do not invite user 3+ until all four pass.**
 
@@ -28,7 +28,7 @@ Friends will use **Sign up on the shared site → connect Claude to the same rep
 ---
 
 ## Done (v2)
-- [x] **Automated sync pipeline** — `scripts/run_sync_pipeline.py` + `.github/workflows/sync.yml`, manually triggered by default (`workflow_dispatch`), can be put on a cron schedule per SETUP.md step 8.
+- [x] **Automated sync pipeline** — athlete `.github/workflows/sync.yml` (carved from `engine/.github/workflows/sync.user.yml`), manually triggered by default (`workflow_dispatch`), can be put on a cron schedule per SETUP.md step 8.
 - [x] **Workout template system** — `templates/` folder with generic starter templates (calisthenics, strength, foundation, recovery). `ui/scripts/build-data.mjs` compiles templates plus any coach-written `sessions/*.json` overrides into the dashboard's workout data automatically on every `npm run dev`/`build`.
 - [x] **Dashboard on Vercel** — `ui/` deploys via Vercel (`vercel.json`, `ui/api/trigger-sync.ts`), includes four example analytics pages (Badminton, Badminton Match Analytics, Run, Monthly) as reference implementations.
 - [x] **Activity rename system** — `strava/rename_core.py` + `rename_activities.py` for consistent naming (since replaced by client-side iOS naming + `engine/core/rename_core.py`, ADR 0010).

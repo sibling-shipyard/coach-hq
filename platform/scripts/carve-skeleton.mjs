@@ -2,11 +2,11 @@
 /**
  * carve-skeleton.mjs — Build coach-skeleton from HQ.
  *
- * Full BYO tree (see docs/engineering/skeleton-layout.md): composed SOUL.md, engine runtime,
+ * Full BYO tree (see docs/eng-docs/skeleton-layout.md): composed SOUL.md, engine runtime,
  * gen/ placeholders, user_data/ init bands. No agents, soul layers, ui/, ios/, kdb/.
  *
  * Copy map and band model: kdb/decisions/0011-hq-four-band-layout.md
- * Restructure milestones: docs/engineering/hq-restructure-plan.md (R0–R5)
+ * Restructure milestones: docs/eng-docs/hq-restructure-plan.md (R0–R5)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -430,17 +430,17 @@ function ensureComposedSoul() {
 }
 
 function copyPropagated(outDir) {
-  const soulSrc = path.join(REPO_ROOT, "propagated", "SOUL.md");
+  const soulSrc = path.join(REPO_ROOT, "platform", "SOUL.md");
   if (!fs.existsSync(soulSrc)) {
-    throw new Error("Missing propagated/SOUL.md — run compose-soul before carve");
+    throw new Error("Missing platform/SOUL.md — run compose-soul before carve");
   }
   fs.mkdirSync(path.join(outDir, "propagated", "docs"), { recursive: true });
   fs.copyFileSync(soulSrc, path.join(outDir, "propagated", "SOUL.md"));
 
   for (const doc of PROPAGATED_DOCS) {
-    const src = path.join(PLATFORM_DIR, "docs", doc);
+    const src = path.join(REPO_ROOT, "docs", "ref-docs", doc);
     if (!fs.existsSync(src)) {
-      throw new Error(`Missing platform/docs/${doc} for propagated bundle`);
+      throw new Error(`Missing docs/ref-docs/${doc} for propagated bundle`);
     }
     fs.copyFileSync(src, path.join(outDir, "propagated", "docs", doc));
   }

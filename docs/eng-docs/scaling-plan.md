@@ -40,8 +40,8 @@ no seam.
 | Runtime data load ("repo-as-CDN") | Done | `ui/api/repo-file.ts`, `hooks/useRepoData.ts` |
 | Sync trigger from UI | Done | `ui/api/trigger-sync.ts` |
 | **Server coach (Gemini) + write-back at close** | **Built** | `ui/api/coach-chat.ts` |
-| Dual-path ingestion (Strava / iOS) | Working | `.github/workflows/sync.yml` |
-| Direct-to-main data validation | JSON-parse only | `.github/workflows/validate-data.yml` |
+| Dual-path ingestion (Strava / iOS) | Working | athlete `.github/workflows/sync.yml` (carved from `engine/.github/workflows/sync.user.yml`) |
+| Direct-to-main data validation | JSON-parse only | athlete `.github/workflows/validate-data.yml` (carved from `engine/.github/workflows/`) |
 
 Three load-bearing facts: every GitHub call uses the **signed-in user's own token**, App-scoped to their
 one repo (Contents R/W + Actions R/W) — no shared PAT. **Sessions are stateless** (encrypted 8h cookie, no
@@ -269,7 +269,7 @@ flowchart LR
 | # | Size | Milestone | Done when (exit test) |
 |---|---|---|---|
 | **M0** | **L** | Split the engine | `SOUL.md` is separated into A / B / C; B is capability-contract form (no shell/git assumptions); `validate-data.yml` enforces the full file contracts; aggregate `schema_version` is frozen and documented. |
-| **M1** | **M** | Carve `coach-skeleton` + onboarding | `sibling-shipyard/coach-skeleton` full BYO tree carved from HQ (`engine/` + `gen/` + `user_data/` + SOUL copy — see [`skeleton-layout.md`](skeleton-layout.md), [`m1-plan.md`](m1-plan.md)); **two** clones via `provision-user.sh` — **`akash-suresh/coach-akash`** and **`skanda-2003/coach-skanda`** (private on athlete accounts, full migration from legacy); each passes BYO boot, dashboard load, sync trigger; coach-chat P1; legacy repos kept as backup; README/SETUP describe hosted flow. |
+| **M1** | **M** | Carve `coach-skeleton` + onboarding | `sibling-shipyard/coach-skeleton` full BYO tree carved from HQ `engine/` (skeleton layout: `gen/` + `user_data/` + SOUL copy — see [`skeleton-layout.md`](skeleton-layout.md), [`m1-plan.md`](m1-plan.md)); **two** clones via `provision-user.sh` — **`akash-suresh/coach-akash`** and **`skanda-2003/coach-skanda`** (private on athlete accounts, full migration from legacy); each passes BYO boot, dashboard load, sync trigger; coach-chat P1; legacy repos kept as backup; README/SETUP describe hosted flow. |
 | **M2** | **L** | One engine, two hosts | `coach-chat.ts` and a BYO-Claude session execute the *same* shared B and pass the *same* validator — no coaching rule lives only in the endpoint prompt. |
 | **M3** | **S** | Pick the host | The A+B location decision is made from M2 feedback (server-only / BYO / hybrid), and §4/§6 are updated to match. |
 | **M4** | **M** | Self-serve onboarding | A user self-provisions on first login: repo created + secrets written automatically (Administration + Secrets perms granted); the operator step is gone. **Hard gate before user 3+** — see [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md). |
@@ -325,5 +325,6 @@ Not committed; recorded so the design doesn't box us in.
 
 Auth: `ui/api/auth-*.ts`, `_lib/session.ts`, `_lib/pkce.ts` · Repo resolution: `list-my-repos.ts` ·
 Runtime data: `repo-file.ts`, `hooks/useRepoData.ts` · Sync: `trigger-sync.ts` · Server coach:
-`coach-chat.ts` · Build: `build-data.mjs --aggregate` · Workflows: `sync.yml`, `apply-coach-patch.yml`,
-`validate-data.yml`, `validate-soul.yml` · Engine: `soul/` layers + composed `SOUL.md` · Prior: `docs/website-unification-history.md`.
+`coach-chat.ts` · Build: `build-data.mjs --aggregate` · Athlete workflows (carved from `engine/.github/workflows/`):
+`sync.yml`, `validate-data.yml`, `apply-coach-patch.yml` · HQ workflows: `validate-soul.yml`, `validate-kdb.yml` ·
+Engine: `soul/` layers + composed `SOUL.md` · Prior: `docs/website-unification-history.md`.
