@@ -1,6 +1,6 @@
 # HQ Restructure Plan
 
-> **Active** · M1 + R5 cleared · R6a/R6b done (uncommitted) · Authority: [`scaling-plan.md`](scaling-plan.md) (two-repo topology unchanged)
+> **Active** · R0–R6c complete · Authority: [`scaling-plan.md`](scaling-plan.md) (two-repo topology unchanged)
 
 ## Context
 
@@ -31,10 +31,11 @@ flowchart TB
 | `shared/` | Cross-platform sample data + design tokens ([ADR 0007](../kdb/decisions/0007-golden-dataset-for-sample-data.md)) |
 | `ui/` | Web app + platform backend (`ui/api/auth/`, coach-chat, repo-file) |
 | `ios/` | Native app |
-| `platform/` | Soul layers + operator scripts (R3 ✓); plugins, docs, skeleton-templates (R4 ✓) |
+| `platform/` | Soul layers + operator scripts (R3 ✓); plugins, skeleton-templates (R4 ✓) |
+| `docs/` | Eng plans (`eng-docs/`) + carve refs (`ref-docs/`) — HQ-only |
 | `engine/` | Exactly what athlete repos get post-carve |
 
-**Carve rule:** `platform/` → `propagated/` + stamps; `engine/` copies verbatim. CI fails if platform paths leak into carve output.
+**Carve rule:** `platform/SOUL.md` → athlete `propagated/SOUL.md`; `docs/ref-docs/` → `propagated/docs/`; stamps; `engine/` copies verbatim. CI fails if platform paths leak into carve output.
 
 ## Milestones
 
