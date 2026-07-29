@@ -49,6 +49,10 @@ enum WarmInstrumentTokens {
     }
 
     enum Lines {
+        static func borderUIColor(alpha: CGFloat) -> UIColor {
+            UIColor(red: CGFloat(84) / 255, green: CGFloat(76) / 255, blue: CGFloat(65) / 255, alpha: alpha)
+        }
+
         static let border = Color(red: Double(84) / 255, green: Double(76) / 255, blue: Double(65) / 255).opacity(0.16)
         static let borderDashed = Color(red: Double(84) / 255, green: Double(76) / 255, blue: Double(65) / 255).opacity(0.35)
         static let headerRule = color(hex: "#d8d2c6")

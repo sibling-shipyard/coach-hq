@@ -9,8 +9,9 @@
 - **Decision:** Treat **widget snapshots** (typed JSON, generated at build/sync time) as the
   portable API between platforms. TypeScript models remain the source of truth; the pipeline
   writes `training/widget_snapshots.json` (copied to `ui/client/src/data/`). Design tokens
-  live in `shared/warm-instrument/tokens.json` and feed web CSS + iOS `Theme.swift` (manual
-  sync until codegen lands). Views stay native — React on web, SwiftUI on iOS.
+  live in `shared/warm-instrument/tokens.json`; web CSS via `ui/scripts/generate-wi-tokens.mjs`,
+  iOS via `ios/scripts/generate-wi-tokens.swift.mjs` (Xcode pre-build). Views stay native —
+  React on web, SwiftUI on iOS.
 - **Why:** WidgetKit cannot run TS model code at render time; iOS Home should not fork
   analytics logic. One snapshot schema keeps web, in-app Home, and home-screen widgets aligned.
   Web keeps client-side models for interactive widgets (plan drag, hover scrub); snapshots

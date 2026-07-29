@@ -40,11 +40,11 @@ enum Theme {
             : WarmInstrumentTokens.Palette.UI.paper
     })
 
-    /// Warm hairline card border (`rgba(84,76,65,.16)`, site `--wi-border`).
+    /// Warm hairline card border — light uses token opacity; dark bumps alpha for contrast.
     static let cardBorder = Color(uiColor: UIColor { trait in
-        trait.userInterfaceStyle == .dark
-            ? UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: 0.35)
-            : UIColor(red: 84 / 255, green: 76 / 255, blue: 65 / 255, alpha: 0.16)
+        WarmInstrumentTokens.Lines.borderUIColor(
+            alpha: trait.userInterfaceStyle == .dark ? 0.35 : 0.16
+        )
     })
 
     /// Muted background — warm desk tone in light mode, elevated dark in dark mode.
