@@ -31,7 +31,7 @@ Friends will use **Sign up on the shared site → connect Claude to the same rep
 - [x] **Automated sync pipeline** — `scripts/run_sync_pipeline.py` + `.github/workflows/sync.yml`, manually triggered by default (`workflow_dispatch`), can be put on a cron schedule per SETUP.md step 8.
 - [x] **Workout template system** — `templates/` folder with generic starter templates (calisthenics, strength, foundation, recovery). `ui/scripts/build-data.mjs` compiles templates plus any coach-written `sessions/*.json` overrides into the dashboard's workout data automatically on every `npm run dev`/`build`.
 - [x] **Dashboard on Vercel** — `ui/` deploys via Vercel (`vercel.json`, `ui/api/trigger-sync.ts`), includes four example analytics pages (Badminton, Badminton Match Analytics, Run, Monthly) as reference implementations.
-- [x] **Activity rename system** — `strava/rename_core.py` + `rename_activities.py` for consistent naming.
+- [x] **Activity rename system** — `strava/rename_core.py` + `rename_activities.py` for consistent naming (since replaced by client-side iOS naming + `engine/core/rename_core.py`, ADR 0010).
 - [x] **Multi-agent setup** — `.github/agents/` (Tech Lead, UI Expert, Bob the Builder) for engineering work on the repo itself, routed via `CLAUDE.md`.
 - [x] **HOW_IT_WORKS.md** — conceptual guide explaining Season/Challenge/Quest, the file map, quest types, and dashboard-to-file relationships, so new users understand day-to-day usage rather than just account setup. Also removed `scripts/generate_workouts.py`, a dead/duplicate script that always wrote empty sessions and could silently wipe real session data if run by mistake - `ui/scripts/build-data.mjs` already handles this correctly.
 

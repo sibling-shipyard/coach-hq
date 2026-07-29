@@ -72,7 +72,7 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 | `ios/CoachHQ/CoachHQ/Models/WidgetSnapshots.swift` | Codable mirror of `ui/client/src/components/home-warm/snapshots.ts` (ADR 0005) |
 | `ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift` | Background delivery, workout fetch, sync orchestration, cache backfill |
 | `ios/CoachHQ/CoachHQ/Services/ActivityMapper.swift` | HKWorkout → Activity JSON + HR zone computation |
-| `ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift` | Auto-sequential naming (originally written with a weekday-based badminton rule baked in — check against `strava/rename_core.py` before assuming this still matches this repo's naming convention) |
+| `ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift` | Auto-sequential naming (originally written with a weekday-based badminton rule baked in — check against `engine/core/rename_core.py` before assuming this still matches this repo's naming convention) |
 | `ios/CoachHQ/CoachHQ/Services/DescriptionParser.swift` | On-device match-score parsing, ported from a badminton-specific Python script that isn't part of this repo's `scripts/` — treat as a reference implementation, not something with a live source-of-truth file to sync against here |
 | `ios/CoachHQ/CoachHQ/Services/TestModeManager.swift` | Test mode toggle (syncs to `test/sync` branch) |
 | `ios/CoachHQ/CoachHQ/Models/Activity.swift` | Activity JSON schema (must match dashboard's TypeScript interface) |
@@ -92,7 +92,7 @@ Apple Watch / Garmin → Apple Health → iOS App → GitHub repo → Dashboard 
 
 | Path | What it defines |
 |------|-----------------|
-| `strava/rename_core.py` | This repo's activity-naming convention — check any naming logic in `ActivityNamer.swift` against this, not the sport-specific rule it may have started from |
+| `engine/core/rename_core.py` | This repo's activity-naming convention — check any naming logic in `ActivityNamer.swift` against this, not the sport-specific rule it may have started from |
 | `ui/client/src/lib/activities.ts` | Dashboard Activity interface + sport classification |
 | `ui/client/src/pages/workout-timer/useTimerEngine.ts` | Timer state machine (reference for Phase 2) |
 | `ui/client/src/lib/workouts.ts` | Session JSON schema |

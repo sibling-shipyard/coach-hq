@@ -1,6 +1,11 @@
 # M1 Plan — Skeleton Carve + Operator Onboarding
 
 > Status: **M1a structure locked** · Layout: [`skeleton-layout.md`](skeleton-layout.md) · Owner: Tech Lead · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1
+>
+> **Superseded in part:** Strava ingestion (referenced throughout as "Option A") was removed
+> entirely — see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md).
+> iOS/HealthKit is the only ingestion path now. The specific athlete/secrets rows below are a
+> historical record of the M1c/d migration and are left as-is.
 
 ## Context
 
@@ -18,7 +23,7 @@ First ~10 users = BYO Claude. The org template ships everything needed to start 
 
 | Item | State |
 |---|---|
-| HQ `engine/` | Scripts, soul layers, strava, plugins, templates — see [`engine/README.md`](../engine/README.md) |
+| HQ `engine/` | Scripts, soul layers, core, plugins, templates — see [`engine/README.md`](../engine/README.md) |
 | `.github/agents/` | HQ-only (not carved) |
 | `scripts/carve-skeleton.mjs` | Full BYO tree — merged #83 |
 | `sibling-shipyard/coach-skeleton` | **Fresh** — 50 files carved from `main` @ `2eac3d5` |
@@ -43,7 +48,7 @@ flowchart LR
 flowchart TB
   subgraph skel["coach-skeleton — full BYO tree"]
     soul["propagated/SOUL.md + SETUP.md"]
-    eng["engine/ scripts, strava, core"]
+    eng["engine/ scripts, core"]
     gen["gen/ pipeline outputs"]
     ud["user_data/ coach, ledger, activities"]
   end
@@ -73,7 +78,7 @@ Two production clones onboarded: **`akash-suresh/coach-akash`** (iOS) and **`ska
 | SOUL in skeleton | **Composed copy in `propagated/`** — SOUL.md + reference docs; no `engine/soul/` layers, no compose script |
 | Athlete profile | `user_data/coach/state.md` (boot); `coach_notes.md` archive only |
 | Sample templates | **`foundation.json` + `strength_a.json`** in carve |
-| Strava | **Option A** — `engine/strava/` in skeleton for all; active when `STRAVA_*` secrets exist |
+| Ingestion | iOS/HealthKit only — Strava removed (ADR 0010) |
 | Sync mode | No `SYNC_SOURCE` flag |
 | Agents | **HQ only** |
 | Plugins | **Deferred** — add-on later, not base carve |
@@ -139,7 +144,7 @@ Source: [`scripts/carve-skeleton.mjs`](../scripts/carve-skeleton.mjs) · Layout:
 | Category | Contents |
 |---|---|
 | Boot | `propagated/SOUL.md`, `propagated/docs/`, `CLAUDE.md`, `SETUP.md`, `README.md` |
-| Engine | `engine/scripts/`, `lib/`, `strava/`, `core/`, `.env.example` |
+| Engine | `engine/scripts/`, `lib/`, `core/` |
 | Workflows | `sync.yml`, `validate-data.yml`, `apply-coach-patch.yml` |
 | Gen | Placeholders under `gen/` |
 | User data | Seeds under `user_data/` + 2 sample templates |
@@ -174,7 +179,7 @@ sequenceDiagram
     Op->>Legacy: Read-only clone
     Op->>GH: Copy user_data + gen with path rewrite
   end
-  Op->>GH: PAT + optional STRAVA secrets
+  Op->>GH: PAT secret
   Op->>GH: Install GitHub App
 ```
 

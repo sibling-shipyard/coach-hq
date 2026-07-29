@@ -336,7 +336,7 @@ HR_ZONES = [
    - `cp .env.example .env` → fill in `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET`
    - Run `python strava/oauth_reauth.py` — it opens a browser, you authorize, tokens are saved
    - Test: `python strava/fetch_strava.py --last 3` — should print your last 3 activities
-3. **Customize HR zones:** Open `strava/fetch_strava.py` and `strava/query_history.py` — update the `HR_ZONES` list to match your personal zones
+3. **Customize HR zones:** Open `engine/core/query_history.py` — update the `HR_ZONES` list to match your personal zones (note: this plan predates the Strava-removal restructure, ADR 0010 — `fetch_strava.py` referenced above no longer exists)
 4. **First session:**
    - Install [Claude Code CLI](https://claude.ai/code) or use Claude.ai
    - Open a Claude session in the cloned repo directory (Claude Code: `claude` command from repo root; Claude.ai: upload SOUL.md + state.md as attachments)

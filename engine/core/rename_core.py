@@ -1,6 +1,7 @@
-"""Shared renaming rules for Coach Phelps Strava activities.
+"""Shared naming rules for Coach Phelps activities.
 
-Used by rename_single.py and rename_activities.py.
+Naming convention source of truth — mirrored client-side by
+ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift.
 
 Counters reset every calendar year — each category's numbering (Run #N,
 Weight Training #N, etc.) starts fresh at #1 for each year, derived from

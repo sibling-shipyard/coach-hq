@@ -1,6 +1,13 @@
 # Skeleton Layout — Full BYO Tree
 
 > Status: **Locked (2026-07-26)** · Owner: Tech Lead · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`scripts/carve-skeleton.mjs`](../scripts/carve-skeleton.mjs)
+>
+> **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
+> see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). `engine/strava/`
+> no longer exists; `query_history.py`/`rename_core.py` moved to `engine/core/`. `.env.example`
+> was also dropped from the skeleton. Untouched: this doc still describes the manual clone+PAT
+> setup flow, which self-serve GitHub auth (see `engine/docs/github-auth.md`) has since replaced
+> for new sign-ups — that's a separate, not-yet-done doc pass.
 
 ## Context
 
@@ -12,7 +19,8 @@ First ~10 athletes use **BYO Claude** — clone one repo, follow `SETUP.md`, ope
 
 ## Goal State
 
-Every athlete repo — greenfield or migrated — uses **identical layout**. Strava path activates when `STRAVA_*` secrets exist (Option A). iOS path ignores dormant Strava code.
+Every athlete repo — greenfield or migrated — uses **identical layout**. iOS/HealthKit is the
+only ingestion path (Strava removed, ADR 0010).
 
 ```mermaid
 flowchart TB
@@ -22,7 +30,7 @@ flowchart TB
   end
   subgraph engine["engine/ — runtime, do not edit via coach"]
     scripts["scripts/ + lib/"]
-    strava["strava/ + core/ — dormant without secrets"]
+    core["core/ — taxonomy, naming, query"]
   end
   subgraph gen["gen/ — pipeline output, rebuildable"]
     agg["aggregate.json, quest_log, sync_status, widget_snapshots"]
@@ -52,7 +60,6 @@ coach-skeleton/  (= coach-user after fork)
 ├── SETUP.md
 ├── .coach-engine-version
 ├── .gitignore
-├── .env.example
 │
 ├── .github/workflows/
 │   ├── sync.yml
@@ -60,10 +67,9 @@ coach-skeleton/  (= coach-user after fork)
 │   └── apply-coach-patch.yml
 │
 ├── engine/
-│   ├── scripts/          # regenerate, aggregate, quest gen, run_sync_pipeline
+│   ├── scripts/          # regenerate, aggregate, quest gen
 │   ├── lib/
-│   ├── strava/           # all athletes — inactive without STRAVA_* secrets
-│   └── core/
+│   └── core/             # taxonomy, activity naming, local query_history.py
 │
 ├── gen/
 │   ├── aggregate.json
@@ -74,7 +80,7 @@ coach-skeleton/  (= coach-user after fork)
 │
 └── user_data/
     ├── activities/
-    │   ├── hist/                    # synced activity JSON (iOS or Strava)
+    │   ├── hist/                    # synced activity JSON (iOS/HealthKit)
     │   ├── sync_state.json          # ingestion counters
     │   └── workout_plans/
     │       ├── templates/
@@ -113,7 +119,7 @@ coach-skeleton/  (= coach-user after fork)
 | Phase | Who | What |
 |---|---|---|
 | **Clone** | Athlete | Full repo on disk — SOUL, engine, gen, user_data |
-| **Setup** | Athlete + operator (App/secrets in M1) | `SETUP.md`: secrets, GitHub App, optional iOS/Strava |
+| **Setup** | Athlete + operator (App/secrets in M1) | `SETUP.md`: secrets, GitHub App |
 | **Coach** | Athlete + Claude | Fills `user_data/` per SOUL boot + First Session Protocol |
 
 We cannot hide files from a local clone. Control is **SOUL boot sequence**, **write allowlist** (§2/§12), and **CI validators** — not filesystem ACL.
@@ -124,15 +130,11 @@ We cannot hide files from a local clone. Control is **SOUL boot sequence**, **wr
 
 ---
 
-## Ingestion (Option A)
+## Ingestion
 
-| Path | iOS athlete | Strava athlete |
-|---|---|---|
-| `engine/strava/` | Present, unused | Active when `STRAVA_*` set |
-| `user_data/activities/hist/` | iOS commits `hk_*.json` | CI fetches via pipeline |
-| Pipeline entry | `regenerate_derived.py` | `run_sync_pipeline.py` when secrets exist |
-
-No `SYNC_SOURCE` flag — workflow picks pipeline by secrets + file presence.
+iOS/HealthKit is the only path (Strava removed, ADR 0010). The iOS app commits `hk_*.json`
+directly to `user_data/activities/hist/`; the workflow's only pipeline entry is
+`regenerate_derived.py`.
 
 ---
 
@@ -157,7 +159,7 @@ For `provision-user.sh --migrate` and HQ consumer updates (PR 2).
 | `sessions/` | `user_data/activities/workout_plans/sessions/` |
 | `templates/` | `user_data/activities/workout_plans/templates/` |
 | `scripts/`, `lib/` | `engine/scripts/`, `engine/lib/` |
-| `strava/`, `core/` | `engine/strava/`, `engine/core/` |
+| `strava/`, `core/` | `engine/core/` (Strava ingestion removed, ADR 0010 — only naming/query logic carries over) |
 
 ---
 
@@ -168,7 +170,7 @@ For `provision-user.sh --migrate` and HQ consumer updates (PR 2).
 | Source | Fork org skeleton as-is | Legacy `coach-phelps` + path rewrite |
 | Templates | `foundation` + `strength_a` from carve | Athlete's real templates (rewritten paths) |
 | `hist/` | Empty until sync | Full history import |
-| Secrets | Operator sets PAT + optional Strava | Copy from legacy repo |
+| Secrets | Operator sets PAT | Copy from legacy repo |
 
 Same tree in both cases.
 

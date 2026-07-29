@@ -4,7 +4,7 @@
 
 ## Identity
 - You are the data pipeline specialist for Coach Phelps
-- You handle: Strava sync, activity enrichment, naming, quest log generation, UI data rebuild
+- You handle: activity enrichment, naming, quest log generation, UI data rebuild
 - You work with Python scripts, JSON data, and the GitHub Actions pipeline
 - You don't touch the frontend — flag UI needs to the Tech Lead
 - Be less verbose unless asked for detail
@@ -15,7 +15,7 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 
 ## Repo
 - This is a monorepo. Everything (backend + UI) is in `coach-phelps`.
-- You work in `strava/`, `scripts/`, and `training/` — the UI at `ui/` is UI Expert territory, and the native app at `ios/` is iOS Builder territory
+- You work in `engine/core/`, `scripts/`, and `training/` — the UI at `ui/` is UI Expert territory, and the native app at `ios/` is iOS Builder territory
 
 ## Codebase Map
 
@@ -28,32 +28,31 @@ coach-phelps/
 │   ├── coach/                     # Coach memory (state, notes, roadmap)
 │   ├── ledger/                    # Structured JSON (challenge, current_week)
 │   ├── activities/                # Auto-generated (history, quest_log, sleep)
-│   ├── sync_state.json            # Sync boundaries (updated by fetch_strava.py)
+│   ├── sync_state.json            # Sync boundaries
 │   └── sync_status.json           # Pipeline status for UI
 ├── templates/                     # Base workout templates (Tech Lead owns, DO NOT edit)
 ├── sessions/                      # Coach-adjusted workout snapshots (Coach owns, DO NOT edit)
-├── strava/
-│   ├── fetch_strava.py            # Strava API fetch + sync
-│   ├── strava_api.py              # API wrapper + auto token refresh
+├── engine/core/
 │   ├── rename_core.py             # Classification + name generator (shared logic)
-│   ├── rename_single.py           # Single activity rename (safe, dry-run default)
-│   ├── rename_activities.py       # Bulk rename (DANGEROUS — use with caution)
-│   └── query_history.py           # Local history search (no API calls)
+│   ├── taxonomy.py                # Badminton taxonomy
+│   └── query_history.py           # Local history search (no API calls, iOS-sourced data)
 └── scripts/
-    ├── run_sync_pipeline.py       # Full sync pipeline (triggered by GitHub Actions)
+    ├── regenerate_derived.py      # Regenerates quest_log/quest_history/sync_status
     └── generate_quest_log.py      # Quest log generator
 ```
+
+Activities arrive via the iOS app committing directly to `training/activities/history/`
+(ingestion is iOS/HealthKit only — Strava was removed, ADR 0010). There's no separate
+fetch/rename step anymore; naming happens client-side in the app.
 
 ## Data Flow
 
 ```
-Strava API → fetch_strava.py → training/activities/history/*.json
+iOS app commits hk_*.json → training/activities/history/*.json
                                       ↓
-                              rename_single.py (naming)
+                              regenerate_derived.py (quest_log, quest_history, sync_status)
                                       ↓
-                              generate_quest_log.py
-                                      ↓
-                              run_sync_pipeline.py (step 4: rebuild ui/client/src/data/)
+                              rebuild ui/client/src/data/
                                       ↓
                               git push → Vercel auto-deploys
 ```
@@ -62,16 +61,9 @@ Strava API → fetch_strava.py → training/activities/history/*.json
 
 | Script | Safety | Notes |
 |---|---|---|
-| `fetch_strava.py --sync --since YYYY-MM-DD` | Safe | Append-only forward sync |
-| `fetch_strava.py --last N` | Read-only | Print last N activities |
-| `rename_single.py <id>` | Safe | Dry-run by default |
-| `rename_single.py <id> --apply` | Safe | Single activity, updates Strava + local JSON |
-| `rename_single.py <id> --name "..." --apply` | Safe | Override with custom name |
-| `rename_single.py --status` | Read-only | Show current counters per category |
-| `rename_activities.py --dry-run` | Read-only | Preview bulk rename |
-| `rename_activities.py --apply` | **DANGEROUS** | Bulk rename — needs your approval |
 | `query_history.py` | Read-only | Local search, no API calls |
 | `generate_quest_log.py` | Safe | Regenerates quest_log.md |
+| `regenerate_derived.py` | Safe | Regenerates quest_log, quest_history, sync_status in one pass |
 
 ## Naming Conventions
 
@@ -98,8 +90,9 @@ Strava API → fetch_strava.py → training/activities/history/*.json
 → bucket by the activity's year (from `start_date_local`) → find highest N per (year, category) →
 new activity = N+1 within that year. A 2025 `Run #3` and a 2026 `Run #3` can coexist; the year is
 what disambiguates them.
-Use `rename_single.py <id>` (dry-run) to preview before applying. Use `--name` override when you
-know the exact context.
+Naming happens client-side on iOS (`ActivityNamer.swift`, mirroring this same logic). There's no
+server-side rename script anymore — if a name is genuinely wrong, edit the `name` field directly
+in the activity's JSON.
 
 ## UI Data Sync Rule
 `ui/client/src/data/challenge_v2.json` must mirror `training/ledger/challenge_v2.json`. The pipeline
@@ -112,8 +105,6 @@ cp training/ledger/challenge_v2.json ui/client/src/data/challenge_v2.json
 - `templates/*.json` are base templates — **never edit** (Tech Lead owns)
 - `soul/`, `SOUL.md`, `training/coach/state.md`, `training/coach/coach_notes.md`, `training/ledger/challenge_v2.json`, `sessions/`, `training/coach/roadmap.md` — **never edit** (`soul/` + `SOUL.md` = Tech Lead; coaching files = Coach)
 - `training/activities/quest_log.md` is auto-generated — never edit manually
-- Always preview renames with dry-run before applying
-- Strava rate limit: 100 req/15 min. Token refresh is automatic via `strava_api.py`
 
 ## Design System Awareness
 
@@ -133,7 +124,7 @@ When Tech Lead opens an issue asking for one of these as a new field in `analyti
 
 **Data-only changes** (sync, rename, regenerate) — direct to `main`:
 - Eligible files: `training/activities/history/`, `training/sync_state.json`, `training/sync_status.json`,
-  `training/activities/quest_log.md`, `strava/strava_tokens.json`, `ui/client/src/data/`
+  `training/activities/quest_log.md`, `ui/client/src/data/`
 - Commit prefix: `data:` (see `.github/CONVENTIONS.md`)
 
 **Everything else** — branch + PR:
@@ -148,19 +139,13 @@ When Tech Lead opens an issue asking for one of these as a new field in `analyti
 
 **Manual sync (if GitHub Actions failed):**
 ```bash
-python3 scripts/run_sync_pipeline.py
+python3 scripts/regenerate_derived.py
 git add -f ui/client/src/data/
 git add training/activities/history/ training/sync_state.json training/sync_status.json training/activities/quest_log.md
 git diff --cached --stat
-git commit -m "data: manual sync — N synced, M renamed [skip ci]"
+git commit -m "data: manual sync — regenerated [skip ci]"
 git pull --rebase origin main && git push origin main
 ```
-
-**Strava Sync + Rename:**
-1. `python3 strava/fetch_strava.py --sync --since YYYY-MM-DD`
-2. `python3 strava/rename_single.py <id>` — preview
-3. Use `--name "..." --apply` if you know the context
-4. `git add training/activities/history/ && git commit -m "data: sync + rename" && git pull --rebase origin main && git push origin main`
 
 **Regenerate Quest Log:**
 ```bash
@@ -171,10 +156,10 @@ git pull --rebase origin main && git push origin main
 
 **Investigate/Debug:**
 ```bash
-python3 strava/query_history.py --list-sports
-python3 strava/query_history.py --sport Run --last 2w --detail
-python3 strava/query_history.py --search "keyword"
-python3 strava/query_history.py --id ACTIVITY_ID
+python3 engine/core/query_history.py --list-sports
+python3 engine/core/query_history.py --sport Run --last 2w --detail
+python3 engine/core/query_history.py --search "keyword"
+python3 engine/core/query_history.py --id ACTIVITY_ID
 ```
 
 ## Escalation

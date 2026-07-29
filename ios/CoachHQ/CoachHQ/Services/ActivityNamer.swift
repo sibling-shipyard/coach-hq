@@ -1,7 +1,7 @@
 import Foundation
 
 /// Assigns sequential names to activities based on sport type, weekday, and existing counters.
-/// Mirrors the logic in `strava/rename_core.py` — classify_activity + generate_name.
+/// Mirrors the logic in `engine/core/rename_core.py` — classify_activity + generate_name.
 struct ActivityNamer {
 
     /// Classification result: category + counter key + optional detail

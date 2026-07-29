@@ -1,10 +1,8 @@
 # Coach Phelps
 
-An AI coaching system powered by Claude. Clone this repo, connect your Strava, open a Claude session - Coach Phelps runs your intake and gets started.
+An AI coaching system powered by Claude. Clone this repo, sync your training from Apple Health via the iOS app, open a Claude session - Coach Phelps runs your intake and gets started.
 
-Coach Phelps is Michael Phelps as a coaching persona: process-obsessed, emotionally honest, no platitudes. He tracks your training via Strava, manages a quest/streak system, and builds a living memory of your progress across sessions.
-
-**⚠️ Requires Strava Premium (Summit).** Almost everything here depends on syncing activity data from Strava, and that requires a paid Strava Premium subscription - a free Strava account will not work.
+Coach Phelps is Michael Phelps as a coaching persona: process-obsessed, emotionally honest, no platitudes. He tracks your training, manages a quest/streak system, and builds a living memory of your progress across sessions.
 
 ---
 
@@ -15,13 +13,10 @@ Coach Phelps is Michael Phelps as a coaching persona: process-obsessed, emotiona
 The quick version, if you've done this kind of thing before:
 
 1. **Use this template** on GitHub, then clone your new repo locally.
-2. `pip3 install requests`
-3. Create a Strava API app at [strava.com/settings/api](https://www.strava.com/settings/api), copy `.env.example` to `.env` and fill in your Client ID/Secret, then run `python3 strava/oauth_reauth.py` to authorize and `python3 strava/fetch_strava.py --last 3` to confirm it works.
-4. Fill in your HR zones in `strava/README.md`.
-5. Sync history: `python3 strava/fetch_strava.py --sync --since YYYY-MM-DD`.
-6. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `training/coach/state.md` to Claude.ai. Coach Phelps detects the blank `training/coach/state.md` and runs intake automatically.
-7. Generate your quest log: `python3 scripts/generate_quest_log.py`.
-8. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables, and add `PAT_TOKEN`, `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REFRESH_TOKEN` as GitHub repo secrets so the sync workflow can run.
+2. Install the iOS app and sign in to sync your Apple Health activity history - see `ios/README.md`. Activities land in `training/activities/history/` automatically, no manual fetch step.
+3. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `training/coach/state.md` to Claude.ai. Coach Phelps detects the blank `training/coach/state.md` and runs intake automatically.
+4. Generate your quest log: `python3 scripts/generate_quest_log.py`.
+5. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables, and add `PAT_TOKEN` as a GitHub repo secret so the sync workflow can run.
 
 ---
 
@@ -46,8 +41,7 @@ At the end of every session, the coach commits updates to `training/coach/state.
 | `training/ledger/challenge_v2.json` | Coach | Quest and streak data |
 | `training/coach/coach_notes.md` | Coach | Session insights (append-only) |
 | `training/activities/quest_log.md` | Script (auto) | Live progress dashboard |
-| `training/activities/history/*.json` | Sync script | Strava activity data (git-ignored) |
-| `strava/strava_tokens.json` | OAuth script | API tokens (git-ignored) |
+| `training/activities/history/*.json` | iOS app | Activity data (git-ignored) |
 
 ---
 
@@ -55,13 +49,13 @@ At the end of every session, the coach commits updates to `training/coach/state.
 
 | Script | Purpose |
 |--------|---------|
-| `strava/oauth_reauth.py` | First-time auth and token refresh |
-| `strava/fetch_strava.py` | Fetch and sync activities from Strava |
-| `strava/query_history.py` | Search and filter local activity history |
-| `strava/rename_activities.py` / `rename_core.py` / `rename_single.py` | Rename Strava activities to a consistent naming pattern (dry-run by default) |
+| `engine/core/query_history.py` | Search and filter local activity history |
 | `scripts/generate_quest_log.py` | Regenerate `training/activities/quest_log.md` |
 | `scripts/generate_quest_history.py` | Regenerate `ui/client/src/data/quest_history.json` for the dashboard |
-| `scripts/run_sync_pipeline.py` | Full sync pipeline - fetch, rename, regenerate quest data (used by the GitHub Actions workflow) |
+| `scripts/regenerate_derived.py` | Regenerate quest_log, quest_history, and sync_status in one pass (used by the GitHub Actions workflow) |
+
+Ingestion is iOS/HealthKit only now - Strava ingestion was removed (ADR 0010). Activities are
+named client-side by the app; there's no separate rename script anymore.
 
 Workout templates and sessions are compiled separately, by `ui/scripts/build-data.mjs` - it runs automatically every time you do `npm run dev` or `npm run build` inside `ui/`, so there's nothing to run by hand for those.
 

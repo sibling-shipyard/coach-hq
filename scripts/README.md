@@ -4,8 +4,7 @@
 
 Protocols, soul layers, plugins, templates, scripts. See `engine/README.md`.
 
-Only a **subset** is carved into `coach-skeleton` (sync + aggregate scripts, strava (naming/query
-logic only, no ingestion), core, lib).
+Only a **subset** is carved into `coach-skeleton` (sync + aggregate scripts, core, lib).
 
 ## compose-soul.mjs
 

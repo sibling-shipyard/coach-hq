@@ -19,7 +19,7 @@ Canonical layout: [`docs/skeleton-layout.md`](../docs/skeleton-layout.md).
 | In every athlete repo | Notes |
 |---|---|
 | `engine/scripts/`, `engine/lib/` | Sync + aggregate pipeline |
-| `engine/strava/`, `engine/core/` | Shared activity-naming + local-query logic (Strava ingestion itself removed, issue #113) |
+| `engine/core/` | Taxonomy, activity-naming, and local-query logic (Strava ingestion removed, issue #113 — `query_history.py`/`rename_core.py` moved here from the old `engine/strava/`) |
 | `user_data/` | Athlete + coach memory |
 | `gen/` | Pipeline output |
 
@@ -30,7 +30,7 @@ Canonical layout: [`docs/skeleton-layout.md`](../docs/skeleton-layout.md).
 ```mermaid
 flowchart TB
   subgraph engine["engine/ — runtime"]
-    scripts["scripts + lib + strava + core"]
+    scripts["scripts + lib + core"]
   end
   subgraph gen["gen/ — rebuildable"]
     out["aggregate, quest_log, sync_status, widgets"]
