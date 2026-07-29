@@ -31,10 +31,19 @@ export default {
       );
     }
 
-    const contentsRes = await fetch(
-      `https://api.github.com/repos/${session.repo_full_name}/contents/gen/aggregate.json`,
-      { headers: GH_HEADERS(session.gh_token) }
-    );
+    let contentsRes: Response;
+    try {
+      contentsRes = await fetch(
+        `https://api.github.com/repos/${session.repo_full_name}/contents/gen/aggregate.json`,
+        { headers: GH_HEADERS(session.gh_token) }
+      );
+    } catch {
+      // A thrown network error here (not a 4xx/5xx response) would otherwise propagate
+      // uncaught - same class of dead end round 2 fixed for callback.ts, and losing
+      // `setCookie` here specifically risks stranding the next request with an
+      // already-rotated-away refresh_token (ADR 0009's refresh tokens are single-use).
+      return withSessionCookie(Response.json({ error: "Failed to fetch your data" }, { status: 502 }), setCookie);
+    }
 
     if (contentsRes.status === 401 || contentsRes.status === 403) {
       // Distinct from a generic failure: this is what a revoked/expired GitHub App

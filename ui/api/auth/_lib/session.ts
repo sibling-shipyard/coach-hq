@@ -138,16 +138,27 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
     return Response.json({ error: "Site misconfigured" }, { status: 500 });
   }
 
-  const refreshRes = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      grant_type: "refresh_token",
-      refresh_token: session.refresh_token,
-    }),
-  });
+  // A thrown network error here (DNS blip, timeout - not a 4xx/5xx *response*) is not the
+  // same thing as GitHub genuinely rejecting the refresh: the former is transient and
+  // shouldn't force a re-login, the latter should. Same distinction round 2's callback.ts
+  // hardening made for the initial exchange - this is the routine-refresh equivalent, and
+  // every one of ensureFreshSession's callers (repo-file.ts, list-my-repos.ts, etc.) needs it
+  // too, since none of them wrap this call in their own try/catch.
+  let refreshRes: Response;
+  try {
+    refreshRes = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: "refresh_token",
+        refresh_token: session.refresh_token,
+      }),
+    });
+  } catch {
+    return Response.json({ error: "Couldn't reach GitHub just now - try again." }, { status: 502 });
+  }
 
   const body = await refreshRes.json().catch(() => null);
   if (!refreshRes.ok || !body?.access_token || !body?.refresh_token || !body?.expires_in) {

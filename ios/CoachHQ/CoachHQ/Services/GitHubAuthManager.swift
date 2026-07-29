@@ -279,7 +279,28 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         return token
     }
 
+    // GitHub rotates refresh tokens on each use (single-use) - two concurrent callers (e.g. a
+    // HealthKit sync push and a widget-snapshots fetch landing near the same moment) racing to
+    // refresh with the same stored refresh_token would mean the loser's exchange gets rejected
+    // by GitHub. @MainActor already serializes access to this property, so caching the
+    // in-flight task here is enough to make concurrent callers share one exchange instead of
+    // racing - no separate actor/lock needed.
+    private var refreshTask: Task<String?, Never>?
+
     private func refreshAccessToken() async -> String? {
+        if let existing = refreshTask {
+            return await existing.value
+        }
+        let task = Task<String?, Never> { [weak self] in
+            await self?.performRefreshAccessToken()
+        }
+        refreshTask = task
+        let result = await task.value
+        refreshTask = nil
+        return result
+    }
+
+    private func performRefreshAccessToken() async -> String? {
         guard let refreshToken = loadRefreshToken() else { return nil }
         guard let url = URL(string: Secrets.dashboardBaseURL + "/api/auth/refresh") else { return nil }
         var request = URLRequest(url: url)

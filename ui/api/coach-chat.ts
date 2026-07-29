@@ -490,7 +490,17 @@ export default {
   async fetch(req: Request): Promise<Response> {
     const fresh = await ensureFreshSession(req);
     if (fresh instanceof Response) return fresh;
-    const res = await handle(req, fresh.session);
-    return withSessionCookie(res, fresh.setCookie);
+    try {
+      const res = await handle(req, fresh.session);
+      return withSessionCookie(res, fresh.setCookie);
+    } catch (err) {
+      // Same reasoning as widget-snapshots.ts's catch: a rotated refresh_token (ADR 0009) is
+      // single-use on GitHub's side - losing fresh.setCookie here because something
+      // downstream threw would strand the *next* request with an already-invalidated token,
+      // not just this one failing.
+      const message = err instanceof Error ? err.message : "Coach chat failed";
+      console.error("[coach-chat]", err);
+      return withSessionCookie(Response.json({ error: message }, { status: 500 }), fresh.setCookie);
+    }
   },
 };

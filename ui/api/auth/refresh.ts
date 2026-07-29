@@ -29,16 +29,24 @@ export default {
       return Response.json({ error: "refresh_token required" }, { status: 400 });
     }
 
-    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: body.refresh_token,
-      }),
-    });
+    // A thrown network error (DNS blip, timeout) here isn't the same as GitHub genuinely
+    // rejecting the refresh - iOS's validToken() falls back to the possibly-stale existing
+    // token either way, but the distinction matters for what it should retry vs. give up on.
+    let tokenRes: Response;
+    try {
+      tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: CLIENT_ID,
+          client_secret: CLIENT_SECRET,
+          grant_type: "refresh_token",
+          refresh_token: body.refresh_token,
+        }),
+      });
+    } catch {
+      return Response.json({ error: "network_error" }, { status: 502 });
+    }
 
     const tokenBody = await tokenRes.json().catch(() => null);
     if (!tokenRes.ok || !tokenBody?.access_token || !tokenBody?.refresh_token || !tokenBody?.expires_in) {

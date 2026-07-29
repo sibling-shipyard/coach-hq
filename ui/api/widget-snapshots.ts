@@ -10,7 +10,7 @@
 import { fetchRepoAggregate } from "./auth/_lib/github-aggregate.js";
 import type { RepoAggregateInput } from "./auth/_lib/generate-widget-snapshots-from-aggregate.js";
 import { generateWidgetSnapshotsFromAggregate } from "./auth/_lib/generate-widget-snapshots-from-aggregate.bundle.js";
-import { resolveRepoAuth } from "./auth/_lib/resolve-auth.js";
+import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
 
 export default {
@@ -19,9 +19,17 @@ export default {
       return Response.json({ error: "Method not allowed" }, { status: 405 });
     }
 
+    // Declared outside the try block so the catch clause can still attach a rotated cookie
+    // (ensureFreshSession's refresh_token rotation, see ADR 0009) if auth resolved fine but
+    // something downstream threw - GitHub rotates refresh tokens on each use, so dropping a
+    // successful rotation here would strand the *next* request with an already-invalidated
+    // refresh_token.
+    let auth: RepoAuthContext | undefined;
+
     try {
-      const auth = await resolveRepoAuth(req);
-      if (auth instanceof Response) return auth;
+      const resolved = await resolveRepoAuth(req);
+      if (resolved instanceof Response) return resolved;
+      auth = resolved;
 
       const fetched = await fetchRepoAggregate(auth.repo_full_name, auth.gh_token);
       if ("error" in fetched) {
@@ -51,7 +59,7 @@ export default {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Snapshot generation failed";
       console.error("[widget-snapshots]", err);
-      return Response.json({ error: message }, { status: 500 });
+      return withSessionCookie(Response.json({ error: message }, { status: 500 }), auth?.setCookie);
     }
   },
 };

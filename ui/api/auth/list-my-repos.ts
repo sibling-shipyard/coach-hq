@@ -117,9 +117,28 @@ function withUpdatedSession(body: unknown, sessionToken: string, status = 200): 
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const ctx = await resolveAuthContext(req);
-    if (ctx instanceof Response) return ctx;
+    // Declared outside the try block so a throw anywhere below can still attach a rotated
+    // cookie if resolveAuthContext got one before the throw - same reasoning as
+    // widget-snapshots.ts/coach-chat.ts's catch blocks: GitHub's refresh tokens are
+    // single-use (ADR 0009), losing a successful rotation here strands the next request.
+    let ctx: AuthContext | undefined;
+    try {
+      const resolved = await resolveAuthContext(req);
+      if (resolved instanceof Response) return resolved;
+      ctx = resolved;
+      return await handle(req, ctx);
+    } catch (err) {
+      // Covers uncaught throws from repo-resolution.ts's own unwrapped fetch calls
+      // (resolveInstallationId/resolveOwnedRepos re-throw anything that isn't their own
+      // typed *LookupFailedError) and the 0-candidates path's own fetch below.
+      const message = err instanceof Error ? err.message : "Failed to look up your repos";
+      console.error("[list-my-repos]", err);
+      return withSessionCookie(Response.json({ error: message }, { status: 502 }), ctx?.rotatedCookie);
+    }
+  },
+};
 
+async function handle(req: Request, ctx: AuthContext): Promise<Response> {
     const url = new URL(req.url);
     const selected = url.searchParams.get("select");
     const switching = url.searchParams.get("switch") === "1";
@@ -127,18 +146,26 @@ export default {
     // Explicit pick from a 2+ candidate list.
     if (selected) {
       if (!isOwnedBy(selected, ctx.login)) {
-        return Response.json({ error: "You can only select a repo you own" }, { status: 403 });
+        return withSessionCookie(
+          Response.json({ error: "You can only select a repo you own" }, { status: 403 }),
+          ctx.rotatedCookie,
+        );
       }
       const ok = await hasMarkerFile(selected, ctx.gh_token);
       if (!ok) {
-        return Response.json(
-          { error: "That repo doesn't look like a coach-phelps repo (no user_data/ledger/challenge_v2.json)" },
-          { status: 400 }
+        return withSessionCookie(
+          Response.json(
+            { error: "That repo doesn't look like a coach-phelps repo (no user_data/ledger/challenge_v2.json)" },
+            { status: 400 }
+          ),
+          ctx.rotatedCookie,
         );
       }
       if (ctx.via === "bearer") {
         return Response.json({ repo_full_name: selected });
       }
+      // fullSession already carries any rotation from ctx.rotatedCookie (same underlying
+      // refresh) - this Set-Cookie supersedes it, no separate attach needed here.
       const newSession = await encryptSession({ ...ctx.fullSession!, repo_full_name: selected });
       return withUpdatedSession({ repo_full_name: selected }, newSession);
     }
@@ -205,5 +232,4 @@ export default {
 
     // 2+ - client renders the picker.
     return withSessionCookie(Response.json({ candidates: confirmed }), ctx.rotatedCookie);
-  },
-};
+}
