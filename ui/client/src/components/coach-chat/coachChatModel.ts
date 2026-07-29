@@ -84,8 +84,42 @@ export function normalizeThread(thread: ChatThread): ChatThread {
   };
 }
 
+/** Thrown instead of a plain Error on a 401 from /api/coach-chat - the session cookie is
+ * valid but GitHub access itself was revoked/expired, same case useRepoData.ts's
+ * `accessRevoked` covers for the rest of the dashboard. CoachChat.tsx checks for this and shows
+ * RepoDataGate's "sign in again" card instead of a generic toast. */
+export class CoachChatAccessRevokedError extends Error {
+  constructor() {
+    super("Your GitHub access expired - sign in again");
+    this.name = "CoachChatAccessRevokedError";
+  }
+}
+
+// Mirrors githubGitData.ts's isTransient: retry a network failure or 5xx/429, never a 4xx
+// rejection (400/401/etc are real answers, not blips to paper over).
+function isTransientStatus(status: number): boolean {
+  return status >= 500 || status === 429;
+}
+
+async function fetchWithRetry(input: RequestInfo, init?: RequestInit, attempts = 3): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch(input, init);
+      if (res.ok || !isTransientStatus(res.status) || attempt === attempts - 1) return res;
+    } catch (err) {
+      lastError = err;
+      if (attempt === attempts - 1) throw err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+  }
+  // Unreachable in practice (the loop above always returns or throws), but keeps TS happy.
+  throw lastError ?? new Error("Coach chat request failed");
+}
+
 export async function fetchThreads(): Promise<ChatThread[]> {
-  const res = await fetch("/api/coach-chat");
+  const res = await fetchWithRetry("/api/coach-chat");
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) throw new Error(`Failed to load coach chat (${res.status})`);
   const body = (await res.json()) as { threads: ChatThread[] };
   return body.threads.map(normalizeThread);
@@ -104,11 +138,12 @@ export async function sendMessage(
   priorMessages: ChatMessage[],
   message: string,
 ): Promise<SendMessageResult> {
-  const res = await fetch("/api/coach-chat", {
+  const res = await fetchWithRetry("/api/coach-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message }),
   });
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
@@ -119,11 +154,12 @@ export async function sendMessage(
 }
 
 export async function setThreadStatus(threadId: string, status: ChatThreadStatus): Promise<ChatThread[]> {
-  const res = await fetch("/api/coach-chat", {
+  const res = await fetchWithRetry("/api/coach-chat", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ threadId, status }),
   });
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) throw new Error(`Failed to update thread (${res.status})`);
   const body = (await res.json()) as { threads: ChatThread[] };
   return body.threads.map(normalizeThread);

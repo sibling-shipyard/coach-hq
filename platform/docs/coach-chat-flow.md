@@ -117,6 +117,16 @@ the same one `widget-snapshots.ts` already uses (ADR 0005) — no new auth code 
   already sends (`GitHubAPIClient.swift:215-259`). `CoachChatAPIClient` follows that exact
   header shape.
 
+**Resilience matches the rest of the app**, not a special case: `fetchWithRetry`
+(`coachChatModel.ts`) and `CoachChatAPIClient.withRetry` retry a transient failure (network
+drop, 5xx, 429) with the same backoff `githubGitData.ts`/`GitHubAPIClient` already use, never a
+real 4xx rejection. A 401 gets its own "sign in again" UI on both platforms (`RepoDataGate`'s
+`accessRevoked` card on web, `CoachChatView.signInAgainView` on iOS) instead of a generic error.
+`CoachChatView` re-triggers its thread load via `.task(id: chatFetchToken)` once
+`GitHubAuthManager`'s session/repo discovery finishes, the same fix `WarmInstrumentHomeView`
+uses for Home — without it, a cold-launch race leaves the tab silently empty forever, since it
+never unmounts to retry on its own.
+
 ## Retention (ADR 0012)
 
 Newest 7 threads by last activity survive, across active + archived status combined. Creating

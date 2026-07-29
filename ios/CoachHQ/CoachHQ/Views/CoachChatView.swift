@@ -15,6 +15,7 @@ struct CoachChatView: View {
     @State private var threadsLoading = true
     @State private var sending = false
     @State private var errorMessage: String?
+    @State private var needsSignIn = false
 
     private var activeThread: ChatThread? {
         threads.first { $0.id == activeThreadId }
@@ -23,32 +24,38 @@ struct CoachChatView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let thread = activeThread {
+                if needsSignIn {
+                    signInAgainView
+                } else if let thread = activeThread {
                     conversationView(thread)
                 } else {
                     threadListView
                 }
             }
             .background(WarmInstrument.desk.ignoresSafeArea())
-            .navigationTitle(activeThread?.title ?? "Coach Chat")
+            .navigationTitle(needsSignIn ? "Coach Chat" : (activeThread?.title ?? "Coach Chat"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if activeThread != nil {
+                if !needsSignIn && activeThread != nil {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button("Conversations") { activeThreadId = nil }
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        activeThreadId = nil
-                        draft = ""
-                    } label: {
-                        Image(systemName: "square.and.pencil")
+                if !needsSignIn {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button {
+                            activeThreadId = nil
+                            draft = ""
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                        }
                     }
                 }
             }
         }
-        .task {
+        .task(id: chatFetchToken) {
+            guard authManager.isAuthenticated, authManager.isSessionReady else { return }
+            guard authManager.selectedRepo != nil else { return }
             apiClient = CoachChatAPIClient(authManager: authManager)
             await loadThreads()
         }
@@ -57,6 +64,49 @@ struct CoachChatView: View {
         }, message: {
             Text(errorMessage ?? "")
         })
+    }
+
+    /// Re-triggers the thread load once GitHub profile + repo discovery finish - same fix
+    /// WarmInstrumentHomeView.homeFetchToken applies for Home. Without this, a cold-launch
+    /// race (token in Keychain ≠ repo discovered yet) leaves the thread list silently
+    /// empty forever, since this tab never unmounts to re-run a plain `.task`.
+    private var chatFetchToken: String {
+        [
+            authManager.isAuthenticated ? "authed" : "anon",
+            authManager.isSessionReady ? "ready" : "boot",
+            authManager.user?.login ?? "",
+            authManager.selectedRepo ?? "",
+        ].joined(separator: "|")
+    }
+
+    private var signInAgainView: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                .font(.system(size: 32))
+                .foregroundStyle(WarmInstrument.inkFaint)
+            Text("Your GitHub access expired")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(WarmInstrument.ink)
+            Text("This happens if you uninstalled the App or removed its access on GitHub's side.")
+                .font(.system(size: 13))
+                .foregroundStyle(WarmInstrument.inkFaint)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Button {
+                needsSignIn = false
+                errorMessage = nil
+                authManager.signOut()
+            } label: {
+                Text("Sign in again")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(WarmInstrument.ink)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Thread list
@@ -213,6 +263,10 @@ struct CoachChatView: View {
             threads = try await apiClient.fetchThreads()
         } catch let error as GitHubAPIError {
             if case .sessionNotReady = error { return }
+            if case .notAuthenticated = error {
+                needsSignIn = true
+                return
+            }
             errorMessage = error.errorDescription ?? "Couldn't load conversations"
         } catch {
             errorMessage = "Couldn't load conversations"
@@ -268,7 +322,11 @@ struct CoachChatView: View {
                 activeThreadId = id
             }
         } catch let error as GitHubAPIError {
-            errorMessage = error.errorDescription ?? "Coach didn't reply — try again"
+            if case .notAuthenticated = error {
+                needsSignIn = true
+            } else {
+                errorMessage = error.errorDescription ?? "Coach didn't reply — try again"
+            }
             draft = trimmed
         } catch {
             errorMessage = "Coach didn't reply — try again"
