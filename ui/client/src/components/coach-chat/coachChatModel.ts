@@ -101,13 +101,9 @@ function isTransientStatus(status: number): boolean {
   return status >= 500 || status === 429;
 }
 
-// `retryNetworkFailures` defaults true for GET/PATCH, which are safe either way (a pure read,
-// or a status change idempotent by thread id). sendMessage() passes false: a 5xx/429 *response*
-// means the server confirmed the request failed before anything committed, safe to retry - but
-// a raw network-level failure (fetch() itself throwing, no response received) means we genuinely
-// don't know whether the server's commit landed before the connection dropped. Retrying that
-// blindly for a close-session turn would re-run Gemini and the commit a second time, producing
-// a duplicate thread/reply instead of just wasted work.
+// sendMessage() passes retryNetworkFailures: false - retrying a raw network failure (as opposed
+// to a confirmed 5xx/429 response) risks re-running a close-session commit that already landed.
+// See platform/docs/coach-chat-flow.md's Resilience section.
 async function fetchWithRetry(
   input: RequestInfo,
   init?: RequestInit,

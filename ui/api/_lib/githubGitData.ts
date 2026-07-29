@@ -78,13 +78,8 @@ export interface FileWrite {
 
 export interface ResolvedFileWrite {
   path: string;
-  /**
-   * Called fresh on every retry attempt, after HEAD is re-read - lets a write react to
-   * whatever a concurrent writer just committed instead of clobbering it with content computed
-   * once before this function was even called. Use this for any path whose new content depends
-   * on the file's own current state (e.g. chat_history.json's thread list) - a static
-   * FileWrite is only safe when the new content doesn't depend on concurrent repo state.
-   */
+  /** Recomputed fresh on every retry attempt (after HEAD is re-read) instead of once up
+   * front - use for content that depends on the file's own current state. */
   resolve: () => Promise<string>;
 }
 

@@ -256,10 +256,8 @@ struct CoachChatView: View {
 
     // MARK: - Networking
 
-    /// Called wherever `needsSignIn` is set. Without this, the previous account's thread
-    /// titles/content could stay in @State and flash on screen in the brief window between a
-    /// sign-out and the next account's fresh fetch completing - this view never re-mounts
-    /// across a sign-out (MainTabView keeps every tab alive), so nothing else clears it.
+    /// Called wherever `needsSignIn` is set, so the previous account's threads can't flash on
+    /// screen before the next sign-in's fetch completes (this view never re-mounts on sign-out).
     private func clearThreadState() {
         threads = []
         activeThreadId = nil

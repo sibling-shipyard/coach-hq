@@ -43,11 +43,11 @@ final class CoachChatAPIClient {
         return req
     }
 
-    /// Runs `operation` up to `attempts` times with exponential backoff (0.5s, 1s, 2s…) -
-    /// mirrors GitHubAPIClient.withRetry so this client is as resilient to a network blip as
-    /// every other network-touching service in the app, instead of failing outright on the
-    /// first drop. `retryNetworkFailures` gates only the "no status = network-level failure"
-    /// branch below - see `send(_:operation:retryNetworkFailures:)`.
+    /// Runs `operation` up to `attempts` times with exponential backoff (0.5s, 1s, 2s…),
+    /// mirroring GitHubAPIClient.withRetry. `retryNetworkFailures` should stay false for
+    /// sendMessage(): a 5xx/429 response is safe to retry (the server confirmed nothing
+    /// committed), but a raw network failure isn't - the commit could have landed before the
+    /// response was lost, and retrying would re-run Gemini + the commit a second time.
     private func withRetry<T>(
         attempts: Int = 3,
         retryNetworkFailures: Bool = true,
@@ -69,14 +69,8 @@ final class CoachChatAPIClient {
         throw lastError
     }
 
-    /// Transient = worth retrying: 5xx/429 always; a raw network-level failure (timeout,
-    /// connection drop, no response received at all) only when `retryNetworkFailures` is true.
-    /// `sendMessage()` passes false: a 5xx/429 *response* means the server confirmed the request
-    /// failed before anything committed, safe to retry - but a network-level failure means we
-    /// genuinely don't know whether the server's commit landed before the connection dropped.
-    /// Retrying that blindly for a close-session turn would re-run Gemini and the commit a
-    /// second time, producing a duplicate thread/reply instead of just wasted work. Mirrors
-    /// GitHubAPIClient.isTransient's classification otherwise.
+    /// 5xx/429 always transient; a raw network-level failure only when `retryNetworkFailures`
+    /// is true (see withRetry above). Otherwise mirrors GitHubAPIClient.isTransient.
     private static func isTransient(_ error: Error, retryNetworkFailures: Bool) -> Bool {
         if let apiError = error as? GitHubAPIError {
             switch apiError {

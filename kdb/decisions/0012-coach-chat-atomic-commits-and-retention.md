@@ -32,6 +32,16 @@
 - **Rejected:** Share one Git Data API implementation across web (TypeScript) and iOS (Swift) →
   no practical way to share code across those runtimes without a new build/packaging layer neither
   app currently has; kept as two implementations of the same documented pattern
-  (`engine/docs/coach-chat-flow.md`) instead, with unifying them behind a shared contract test
+  (`platform/docs/coach-chat-flow.md`) instead, with unifying them behind a shared contract test
   logged as a P2/P3 follow-up, not built now. Keep calendar-based retention → doesn't bound file
   size, and doesn't match "keep the last 7 chats" as the athlete described it.
+- **Amendment (2026-07-29):** Post-implementation review found the initial design still
+  overwrote `chat_history.json` from a snapshot read before the commit, a lost-update race under
+  concurrent requests. `commitFilesAtomic` now accepts a `ResolvedFileWrite` whose content is
+  recomputed fresh on every retry attempt, not just once; `coach-chat.ts` uses it for
+  `chat_history.json` so a losing attempt retries against what the winner actually committed
+  instead of clobbering it. A close targeting a thread archived/deleted by another request in the
+  meantime now fails (400) instead of silently reactivating it. Separately, retrying the
+  send-message request itself (added for resilience) turned out to be unsafe on a raw
+  network-level failure — the commit could have already landed before the response was lost — so
+  that retry now only fires on a confirmed 5xx/429 response, never a network throw.

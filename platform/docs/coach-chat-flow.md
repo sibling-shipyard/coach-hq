@@ -92,12 +92,15 @@ sequenceDiagram
    - `commitFilesAtomic()` — every valid `file_updates` entry plus the resolved
      `chat_history.json` content, in **one** commit via the Git Data API (blob → tree → commit →
      ref, retried on a non-fast-forward conflict), pushed straight to `main`. Commit message:
-     `coach: chat — <cleaned commit_message>`.
+     `coach: chat — <cleaned commit_message>`. Known gap: that retry still treats a raw
+     network-level failure as retryable across the whole blob→tree→ref sequence, so a lost
+     response after the ref move already succeeded can redo it — same class of risk the
+     send-message retry fix addresses one layer up, not yet applied here.
 
 ## What does NOT happen in this action
 
 No GitHub Actions workflow is dispatched by chat, deliberately (avoids a second, racing
-`sync.yml` run — see `coach-chat.ts:207-216` for the full reasoning). `challenge_v2.json`, if
+`sync.yml` run — see `coach-chat.ts:207-209`). `challenge_v2.json`, if
 touched, is just a plain push, so it re-triggers `sync.yml` only on a repo whose workflow already
 has a push trigger on that path; otherwise derived files like `quest_log.md` stay slightly stale
 until the athlete next hits Sync themselves.

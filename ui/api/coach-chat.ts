@@ -1,25 +1,6 @@
 /**
- * coach-chat.ts — real Coach Phelps sessions from the browser, backed by Gemini.
- *
- * Mirrors a local Claude Code coaching session: reads the same boot context
- * SOUL.md's own boot sequence reads (SOUL.md, training/coach/state.md,
- * training/activities/quest_log.md), asks Gemini to reply as Coach Phelps, and applies
- * the same commit authority SOUL.md §2/§12 already grants Coach - direct to
- * `main`, no PR, only the files Coach is allowed to touch.
- *
- * Persistence mirrors how a real Claude Code coaching session actually works:
- * nothing is written to the repo mid-conversation. The client holds the
- * active thread in memory and sends the full running message list with every
- * POST; the server stays stateless per turn until the athlete signals they're
- * closing the session ("wrap this session", "close session", etc.), at which
- * point it runs the real commit protocol (SOUL.md §12) once, in one shot -
- * same as a real session only ever committing at close, not per message.
- * That one shot is a single atomic commit (see ./_lib/githubGitData.ts,
- * ADR 0012) covering every file_update plus chat_history.json together,
- * not a separate commit per file. Losing an unwrapped conversation on a
- * refresh is an accepted trade-off, not a bug: no separate database, the
- * repo is the only durable store. chat_history.json retains only the 7
- * most-recently-active threads (ADR 0012).
+ * coach-chat.ts — real Coach Phelps sessions from the browser and iOS, backed by Gemini.
+ * Full design/flow: platform/docs/coach-chat-flow.md. Commit + retention design: ADR 0012.
  *
  * GET                        → load already-wrapped/committed threads
  * POST {threadId?, messages, message} → send a message, get a real coach reply.
@@ -204,16 +185,9 @@ function applyRetention(threads: ChatThread[]): ChatThread[] {
   return kept;
 }
 
-// Deliberately NOT dispatching sync.yml here. Checked both real personal repos: Akash's
-// sync.yml already runs automatically on a `push` to main touching
-// training/ledger/challenge_v2.json (added for his iOS app's direct commits) - and our own
-// challenge_v2.json commit via the Contents API above IS exactly that push, so his repo
-// already re-syncs on its own. A manual workflow_dispatch here would fire a second,
-// redundant run of the same workflow for him (extra Strava-step attempt, a real chance of
-// the two runs' git pushes racing and one failing). Skanda's sync.yml is workflow_dispatch-only
-// with no push trigger, so training/activities/quest_log.md just stays slightly stale after a chat-
-// triggered quest update until he next hits Sync himself - same as any other out-of-band
-// change to challenge_v2.json today. Simpler and fully transparent beats correct-but-clever.
+// Deliberately NOT dispatching sync.yml here - a repo whose workflow has a push trigger on
+// challenge_v2.json already re-syncs from the commit above; dispatching too would risk a second,
+// racing run. See platform/docs/coach-chat-flow.md's "What does NOT happen" section.
 
 interface GeminiReply {
   reply: string;
@@ -494,10 +468,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         },
       };
 
-      // Defense in depth alongside isCoachWritable: an empty/blank content string is never a
-      // legitimate update (state.md etc always has real content) and would otherwise silently
-      // wipe the file in this same atomic commit - reject it rather than trust Gemini never
-      // proposes one.
+      // Blank content would silently wipe a real file - never a legitimate update, so reject it
+      // alongside the path check above.
       const validUpdates = (reply.file_updates ?? []).filter(
         (f) => isCoachWritable(f.path) && f.content.trim().length > 0,
       );
