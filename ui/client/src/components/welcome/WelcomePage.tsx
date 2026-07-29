@@ -34,7 +34,7 @@ export function WelcomePage() {
           <span className="welcome-nav__beta">PRIVATE BETA</span>
           <nav className="welcome-nav__links" aria-label="Account">
             <a href="/api/auth/start" className="welcome-nav__cta">
-              CONTINUE WITH GITHUB
+              LOG IN WITH GITHUB
             </a>
           </nav>
         </div>

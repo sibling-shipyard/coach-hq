@@ -1,25 +1,29 @@
 /**
- * login.css — HQ sign-in page.
+ * login.css — auth/setup flow shared shell.
  * Extends --wi-* from warm-instrument.css; no new palette.
  */
 
-.login-page {
-  display: flex;
-  min-height: 100vh;
-  flex-direction: column;
-  background:
-    radial-gradient(circle at 88% -4%, rgba(255, 255, 255, 0.5), transparent 34rem),
-    var(--wi-page);
+/* ─── AuthPageHeader — shared across Setup, AuthError, Onboarding, RepoDataGate ────── */
+
+.auth-page-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid #d8d2c6;
+  background: rgba(232, 226, 215, 0.82);
+  backdrop-filter: blur(12px);
 }
 
-.login-page__header {
+.auth-page-header__inner {
   display: flex;
+  max-width: 1180px;
   align-items: center;
-  gap: 12px;
-  padding: 26px 40px;
+  gap: 20px;
+  margin: 0 auto;
+  padding: 16px 40px;
 }
 
-.login-page__brand {
+.auth-page-header__brand {
   color: var(--wi-ink) !important;
   font-family: "Space Mono", monospace;
   font-size: 14px;
@@ -27,464 +31,49 @@
   letter-spacing: 0.14em;
 }
 
-.login-page__beta {
-  padding: 3px 7px;
+.auth-page-header__beta {
+  padding: 3px 8px;
   border: 1px solid rgba(127, 55, 40, 0.4);
   border-radius: 5px;
   color: var(--wi-rust);
   font-family: "Space Mono", monospace;
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  line-height: 1.15;
 }
 
-.login-page__main {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 40px 60px;
-}
-
-.login-page__grid {
-  display: grid;
-  width: 100%;
-  max-width: 980px;
-  align-items: center;
-  gap: 56px;
-  grid-template-columns: minmax(0, 1fr) 340px;
-}
-
-.login-page__form {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.login-page__title {
-  margin: 0;
-  font-size: 40px;
-  font-weight: 600;
-  letter-spacing: -0.028em;
-  line-height: 1;
-}
-
-.login-page__voice {
-  max-width: 380px;
-  margin: 14px 0 0;
-  color: #54564e;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 18px;
-  font-style: italic;
-  line-height: 1.45;
-}
-
-.login-page__voice-sign {
-  font-family: "Space Mono", monospace;
-  font-size: 9px;
-  font-style: normal;
-  letter-spacing: 0.1em;
-  color: var(--wi-rust);
-}
-
-.login-page__alarm {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 440px;
-  margin-top: 28px;
-  padding: 12px 14px;
-  border: 1px solid rgba(75, 85, 120, 0.3);
-  border-radius: 12px;
-  background: #e4e4ec;
-}
-
-.login-page__alarm svg {
-  flex: none;
-  stroke: #4b5578;
-}
-
-.login-page__alarm span {
-  color: #4b5578;
-  font-family: "Space Mono", monospace;
-  font-size: 11px;
-  letter-spacing: 0.03em;
-}
-
-a.login-page__github {
-  text-decoration: none;
-  display: flex;
-  max-width: 440px;
-  align-items: center;
-  justify-content: center;
-  gap: 11px;
-  margin-top: 30px;
-  padding: 17px;
-  border: 0;
-  border-radius: 13px;
-  color: var(--wi-surface);
-  background: var(--wi-ink);
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 160ms ease;
-}
-
-a.login-page__github:hover {
-  background: #1c1d1a;
-}
-
-.login-page__github--secondary {
-  margin-top: 12px;
-  background: transparent;
-  color: var(--wi-ink);
+.auth-page-header__action {
+  margin-left: auto;
+  padding: 9px 16px;
   border: 1.5px solid var(--wi-line-dashed);
-}
-
-.login-page__github--secondary:hover {
-  background: var(--wi-surface-muted);
-}
-
-.login-page__hint {
-  margin-top: 14px;
-  color: var(--wi-ink-muted);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.login-page__github-spinner {
-  display: inline-block;
-  width: 17px;
-  height: 17px;
-  border: 2px solid rgba(251, 248, 241, 0.3);
-  border-top-color: var(--wi-surface);
-  border-radius: 50%;
-  animation: login-spin 0.7s linear infinite;
-}
-
-.login-page__divider {
-  display: flex;
-  max-width: 440px;
-  align-items: center;
-  gap: 14px;
-  margin: 26px 0;
-}
-
-.login-page__divider::before,
-.login-page__divider::after {
-  flex: 1;
-  height: 1px;
-  background: #d8d2c6;
-  content: "";
-}
-
-.login-page__divider span {
-  color: var(--wi-ink-faint);
-  font-family: "Space Mono", monospace;
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  white-space: nowrap;
-}
-
-.login-page__invite-ok {
-  display: flex;
-  max-width: 440px;
-  align-items: center;
-  gap: 11px;
-  padding: 14px 16px;
-  border: 1px solid rgba(84, 76, 65, 0.14);
-  border-radius: 12px;
-  background: var(--wi-surface-muted);
-}
-
-.login-page__invite-ok-icon {
-  display: flex;
-  width: 26px;
-  height: 26px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: var(--wi-surface);
-  background: var(--wi-ink);
-  font-size: 14px;
-  line-height: 1;
-}
-
-.login-page__invite-ok-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.login-page__invite-ok-sub {
-  color: var(--wi-ink-muted);
-  font-family: "Space Mono", monospace;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-}
-
-.login-page__invite-row {
-  display: flex;
-  max-width: 440px;
-  gap: 10px;
-}
-
-input.login-page__invite-input {
-  flex: 1;
-  min-width: 0;
-  padding: 14px 15px;
-  border: 1px solid #d4cdbf;
-  border-radius: 11px;
+  border-radius: 8px;
   color: var(--wi-ink);
-  background: var(--wi-surface);
   font-family: "Space Mono", monospace;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  outline: none;
-  transition: border-color 160ms ease;
-}
-
-input.login-page__invite-input:focus {
-  border-color: var(--wi-rust);
-}
-
-input.login-page__invite-input::placeholder {
-  color: var(--wi-ink-faint);
-}
-
-button.login-page__redeem {
-  padding: 0 22px;
-  border: 1px solid #c7c0b2;
-  border-radius: 11px;
-  color: var(--wi-ink);
-  background: var(--wi-surface);
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-decoration: none;
   transition: background 160ms ease;
 }
 
-button.login-page__redeem:hover:not(:disabled) {
-  background: #efe9dc;
+.auth-page-header__action:hover {
+  background: var(--wi-surface-muted);
 }
 
-.login-page__links {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin-top: 34px;
-  color: var(--wi-ink-faint);
-  font-family: "Space Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 0.05em;
-}
+@media (max-width: 600px) {
+  .auth-page-header__inner {
+    padding: 14px 20px;
+  }
 
-.login-page__links-sep {
-  color: #c7c0b2;
-}
-
-.login-page__hero {
-  width: 100%;
-  min-width: 0;
-}
-
-.login-engine-hero {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  flex-direction: column;
-  padding: 28px 30px;
-  border: 1px solid rgba(101, 43, 32, 0.7);
-  border-radius: 24px;
-  color: var(--wi-surface);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.08), transparent 45%),
-    var(--wi-rust);
-  box-shadow: 0 22px 46px rgba(101, 43, 32, 0.34);
-  transition: transform 160ms ease, box-shadow 160ms ease;
-}
-
-.login-engine-hero__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.login-engine-hero__label {
-  opacity: 0.65;
-  font-family: "Space Mono", monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-}
-
-.login-engine-hero__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--wi-surface);
-  opacity: 0.8;
-  animation: login-pulse-dot 2.4s ease-in-out infinite;
-}
-
-.login-engine-hero__value {
-  margin-top: 16px;
-  font-size: 80px;
-  font-weight: 540;
-  letter-spacing: -0.05em;
-  line-height: 0.86;
-}
-
-.login-engine-hero__verdict {
-  margin: 10px 0 0;
-  font-family: "Newsreader", Georgia, serif;
-  font-size: 17px;
-  font-style: italic;
-  font-weight: 500;
-}
-
-.login-engine-hero__trend {
-  display: block;
-  width: 100%;
-  height: 86px;
-  margin-top: 22px;
-  overflow: visible;
-}
-
-.login-engine-hero__trend[data-wi-scrub] {
-  cursor: crosshair;
-}
-
-.login-engine-hero__trend rect {
-  fill: rgba(251, 248, 241, 0.09);
-}
-
-.login-engine-hero__trend polyline {
-  fill: none;
-  stroke: rgba(251, 248, 241, 0.9);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.login-engine-hero__trend-end,
-.login-engine-hero__trend-scrub-dot {
-  fill: var(--wi-surface);
-}
-
-.login-engine-hero__trend-axis {
-  fill: rgba(251, 248, 241, 0.45);
-  font-family: "Space Mono", monospace;
-  font-size: 7px;
-  letter-spacing: 0.08em;
-}
-
-.login-engine-hero .wi-trend-scrub__guide {
-  stroke: rgba(251, 248, 241, 0.72);
-}
-
-.login-engine-hero__foot {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(251, 248, 241, 0.16);
-  opacity: 0.55;
-  font-family: "Space Mono", monospace;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-}
-
-.login-page__footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
-  padding: 0 40px 30px;
-}
-
-.login-page__legal {
-  color: #a4a498;
-  font-family: "Space Mono", monospace;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-}
-
-@keyframes login-spin {
-  to {
-    transform: rotate(360deg);
+  .auth-page-header__beta {
+    display: none;
   }
 }
 
-@keyframes login-pulse-dot {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.3;
-  }
-}
-
-@media (max-width: 760px) {
-  .login-page__header {
-    padding: 22px 24px;
-  }
-
-  .login-page__main {
-    padding: 16px 24px 48px;
-  }
-
-  .login-page__grid {
-    gap: 36px;
-    grid-template-columns: 1fr;
-  }
-
-  .login-page__title {
-    font-size: 34px;
-  }
-
-  .login-engine-hero__value {
-    font-size: 64px;
-  }
-
-  .login-engine-hero__trend[data-wi-scrub] {
-    cursor: default;
-  }
-
-  .login-page__footer {
-    padding: 0 24px 24px;
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .login-engine-hero:hover {
-    box-shadow: 0 26px 52px rgba(101, 43, 32, 0.38);
-    transform: translateY(-3px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .login-engine-hero__dot {
-    animation: none;
-  }
-
-  .login-engine-hero {
-    transition: none;
-  }
-
-  a.login-page__github {
-    transition: none;
-  }
-}
-
-/* ─── Shared small-card auth shell — Onboarding (repo picker) + AuthError ────── */
+/* ─── Shared small-card auth shell — Setup, Onboarding, AuthError, RepoDataGate ────── */
 
 .auth-card-shell {
-  min-height: 100vh;
+  min-height: calc(100vh - 60px);
   width: 100%;
   display: flex;
   align-items: center;
@@ -497,7 +86,7 @@ button.login-page__redeem:hover:not(:disabled) {
   width: 100%;
   max-width: 420px;
   padding: 32px;
-  border-radius: 18px;
+  border-radius: 26px;
   background: var(--wi-surface);
   box-shadow: var(--wi-card-shadow);
   text-align: center;
@@ -548,6 +137,8 @@ button.login-page__redeem:hover:not(:disabled) {
   display: block;
   width: 100%;
   padding: 13px;
+  min-height: 44px;
+  box-sizing: border-box;
   border: 1.5px solid var(--wi-line-dashed);
   border-radius: 11px;
   background: transparent;
@@ -583,4 +174,24 @@ button.login-page__redeem:hover:not(:disabled) {
 
 .auth-card__button--primary:hover:not(:disabled) {
   background: #1c1d1a;
+}
+
+@media (max-width: 600px) {
+  .auth-card-shell {
+    padding: 16px;
+  }
+
+  .auth-card {
+    padding: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-page-header__action {
+    transition: none;
+  }
+
+  .auth-card__button {
+    transition: none;
+  }
 }

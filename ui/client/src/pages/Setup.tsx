@@ -1,5 +1,6 @@
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
+import { AuthPageHeader } from "@/components/login/AuthPageHeader";
 
 // Landed here from callback.ts's not_installed redirect - the two GitHub-native screens
 // that remain (create-from-template, then install) can't be automated away: GitHub App
@@ -21,6 +22,7 @@ export default function Setup() {
 
   return (
     <div className="wi-shell">
+      <AuthPageHeader action={{ label: "Cancel", href: "/welcome" }} />
       <div className="auth-card-shell">
         <div className="auth-card">
           <span className="auth-card__eyebrow">Setting up your coach</span>
@@ -41,14 +43,16 @@ export default function Setup() {
               1. Create your repo on GitHub ↗
             </a>
             <a href="/api/auth/install-redirect" className="auth-card__button">
-              2. Continue to install →
+              2. Continue to install (after step 1) →
             </a>
           </div>
 
           <p className="auth-card__body">
             Step 1 opens GitHub in a new tab, pre-filled - just click their green &quot;Create
             repository&quot; button. Once that&apos;s done, come back here and click step 2, which
-            gives Coach Phelps access to that one repo only.
+            gives Coach Phelps access to that one repo only. If you click step 2 first, GitHub
+            just won&apos;t have your repo to pick yet - go back and finish step 1, then try
+            again.
           </p>
         </div>
       </div>

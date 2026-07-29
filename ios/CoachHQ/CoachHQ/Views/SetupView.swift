@@ -49,6 +49,17 @@ struct SetupView: View {
                 .tracking(1.4)
                 .foregroundColor(WarmInstrument.ink)
             Spacer(minLength: 0)
+            // Only way out of this screen otherwise is force-quitting the app - matches the
+            // web wizard's "Cancel" link (pages/Setup.tsx's AuthPageHeader).
+            Button {
+                Haptics.tap()
+                authManager.signOut()
+            } label: {
+                Text("Cancel")
+                    .font(WarmInstrument.monoLabel(10.5))
+                    .tracking(0.8)
+                    .foregroundColor(WarmInstrument.inkMuted)
+            }
         }
     }
 
@@ -93,7 +104,7 @@ struct SetupView: View {
                                     .tint(WarmInstrument.ink)
                                     .scaleEffect(0.85)
                             }
-                            Text(isInstalling ? "Opening install…" : "2. Continue to install →")
+                            Text(isInstalling ? "Opening install…" : "2. Continue to install (after step 1) →")
                         }
                     }
                     .buttonStyle(WarmSetupButtonStyle(primary: false))
@@ -108,7 +119,7 @@ struct SetupView: View {
                     }
                 }
 
-                Text("Step 1 opens GitHub in Safari, pre-filled - just tap their green \"Create repository\" button. Once that's done, come back here and tap step 2, which gives Coach Phelps access to that one repo only.")
+                Text("Step 1 opens GitHub in Safari, pre-filled - just tap their green \"Create repository\" button. Once that's done, come back here and tap step 2, which gives Coach Phelps access to that one repo only. If you tap step 2 first, GitHub just won't have your repo to pick yet - go back and finish step 1, then try again.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(WarmInstrument.inkFaint)
                     .fixedSize(horizontal: false, vertical: true)

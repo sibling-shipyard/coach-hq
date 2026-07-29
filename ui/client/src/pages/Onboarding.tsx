@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
+import { AuthPageHeader } from "@/components/login/AuthPageHeader";
 
 interface RepoResult {
   candidates?: string[];
@@ -26,6 +27,14 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
   const [reason, setReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selecting, setSelecting] = useState(false);
+  const [login, setLogin] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setLogin(data?.login ?? null))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch(`/api/auth/list-my-repos${switchMode ? "?switch=1" : ""}`)
@@ -64,6 +73,7 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
 
   return (
     <div className="wi-shell">
+      <AuthPageHeader action={{ label: "Sign out", href: "/api/auth/logout" }} />
       <div className="auth-card-shell">
         <div className="auth-card">
           {loading && <p className="auth-card__eyebrow">Looking for your coach repo…</p>}
@@ -81,13 +91,23 @@ export default function Onboarding({ switchMode = false }: { switchMode?: boolea
                   : emptyCopy?.body ??
                     "None of the repos you granted access to have propagated/SOUL.md and user_data/ledger/challenge_v2.json."}
               </p>
-              {switchMode && (
-                <div className="auth-card__buttons">
+              <div className="auth-card__buttons">
+                {switchMode ? (
                   <a href="/" className="auth-card__button">
                     Back to dashboard
                   </a>
-                </div>
-              )}
+                ) : (
+                  <a
+                    href={login ? `/setup?login=${encodeURIComponent(login)}` : "/api/auth/start"}
+                    className="auth-card__button auth-card__button--primary"
+                  >
+                    Try setup again
+                  </a>
+                )}
+                <a href="/api/auth/logout" className="auth-card__button">
+                  Sign out
+                </a>
+              </div>
             </>
           )}
 

@@ -1,5 +1,6 @@
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
+import { AuthPageHeader } from "@/components/login/AuthPageHeader";
 
 // not_installed used to live here but callback.ts now routes that case straight into
 // pages/Setup.tsx's wizard instead of a dead-end error page - see ui/api/auth/callback.ts.
@@ -61,6 +62,7 @@ export default function AuthError({ type }: { type: string }) {
 
   return (
     <div className="wi-shell">
+      <AuthPageHeader action={{ label: "Cancel", href: "/welcome" }} />
       <div className="auth-card-shell">
         <div className="auth-card">
           <span className="auth-card__eyebrow">Sign-in error</span>

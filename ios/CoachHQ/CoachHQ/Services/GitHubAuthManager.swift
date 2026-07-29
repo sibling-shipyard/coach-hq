@@ -145,6 +145,13 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         isSessionReady = false
         await fetchUser()
         await resolveRepoIfNeeded()
+        // Couldn't resolve a repo at all (rare - not exactly one owned+confirmed candidate,
+        // and list-my-repos.ts's fallback also came up empty). Route back into the Setup
+        // wizard instead of leaving CoachHQApp stuck on a broken MainTabView with no repo -
+        // see CoachHQApp.swift's routing, which checks this alongside isAuthenticated.
+        if selectedRepo == nil {
+            pendingSetupLogin = user?.login
+        }
         isSessionReady = true
     }
 
