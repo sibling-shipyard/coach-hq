@@ -16,3 +16,28 @@ enum CoachSetupState {
         UserDefaults.standard.set(true, forKey: storageKey(repoFullName: repoFullName))
     }
 }
+
+/// Resolves whether a fresh app launch should open Chat or Home. Defers the decision until
+/// chat history is loaded so existing athletes are not sent to Chat after upgrade.
+enum CoachSetupBootstrap {
+    /// `true` → open Chat first (new athlete, no history). `false` → Home (intake done or history exists).
+    @MainActor
+    static func shouldOpenChatFirst(authManager: GitHubAuthManager) async -> Bool {
+        if CoachSetupState.isComplete(repoFullName: authManager.repoFullName) {
+            return false
+        }
+        guard let repo = authManager.repoFullName, authManager.isSessionReady else {
+            return false
+        }
+
+        let client = CoachChatAPIClient(authManager: authManager)
+        if let threads = try? await client.fetchThreads() {
+            let active = threads.filter { $0.status != .deleted }
+            if !active.isEmpty {
+                CoachSetupState.markComplete(repoFullName: repo)
+                return false
+            }
+        }
+        return true
+    }
+}

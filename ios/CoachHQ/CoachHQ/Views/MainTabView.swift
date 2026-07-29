@@ -88,13 +88,22 @@ struct MainTabView: View {
             }
         }
         .background(WarmInstrument.desk.ignoresSafeArea())
-        .onAppear {
+        .task(id: initialTabResolveToken) {
             guard !didSetInitialTab else { return }
-            didSetInitialTab = true
-            if !CoachSetupState.isComplete(repoFullName: authManager.repoFullName) {
+            guard authManager.isSessionReady else { return }
+            if await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) {
                 selectedTab = .chat
             }
+            didSetInitialTab = true
         }
+    }
+
+    /// Re-runs initial tab resolution once session + repo are ready (not on every tab switch).
+    private var initialTabResolveToken: String {
+        [
+            authManager.isSessionReady ? "ready" : "boot",
+            authManager.repoFullName ?? "",
+        ].joined(separator: "|")
     }
 
     /// Keep every tab root alive so scroll position, navigation paths, and fetch state survive tab switches.
