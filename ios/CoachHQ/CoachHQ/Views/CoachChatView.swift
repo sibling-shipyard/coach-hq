@@ -31,6 +31,21 @@ struct CoachChatView: View {
         !threadsLoading && threads.filter { $0.status != .deleted }.isEmpty
     }
 
+    /// Empty today landing when the API has no threads — UI only, never sent to the server.
+    private var emptyTodayShell: ChatThread {
+        ChatThread(
+            id: CoachChatPreviewData.previewTodayThreadId,
+            dayOffset: 0,
+            title: "Today's thread",
+            preview: "",
+            ageLabel: "NOW",
+            status: .active,
+            archivedAt: nil,
+            deletedAt: nil,
+            messages: []
+        )
+    }
+
     private var historyThreads: [ChatThread] {
         let live = threads.filter { $0.status != .deleted }
         return live.isEmpty ? CoachChatPreviewData.historyThreads : live
@@ -59,7 +74,7 @@ struct CoachChatView: View {
             }
         }
         if let today = todayThread { return today }
-        return CoachChatPreviewData.seededTodayThread
+        return emptyTodayShell
     }
 
     private var isViewingToday: Bool {
@@ -87,7 +102,7 @@ struct CoachChatView: View {
         .sheet(isPresented: $showHistorySheet) {
             CoachChatHistorySheet(
                 threads: historyThreads,
-                todayThreadId: todayThread?.id ?? CoachChatPreviewData.previewTodayThreadId,
+                todayThreadId: todayThread?.id,
                 onSelect: { thread in
                     if thread.messages.isEmpty, thread.dayOffset != 0 {
                         selectTodayThread()
@@ -172,7 +187,7 @@ struct CoachChatView: View {
 
     private var chatMessageStack: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if displayThread.messages.isEmpty {
+            if displayThread.messages.isEmpty, !isViewingToday {
                 CoachChatEmptyThreadPrompt(
                     dayLabel: headerContext.dayLabel(offset: displayThread.dayOffset),
                     threadTitle: displayThread.title,
@@ -328,7 +343,7 @@ struct CoachChatView: View {
     }
 
     private func selectTodayThread() {
-        activeThreadId = todayThread?.id ?? CoachChatPreviewData.previewTodayThreadId
+        activeThreadId = todayThread?.id
     }
 
     private func resolvedSendThreadId() -> String? {
@@ -381,8 +396,6 @@ struct CoachChatView: View {
             // Wireup: prefer API today's thread; preview shell when empty.
             if let today = todayThread {
                 activeThreadId = today.id
-            } else if activeThreadId == nil {
-                activeThreadId = CoachChatPreviewData.previewTodayThreadId
             }
             // Wireup: headerContext = await CoachChatHeaderLoader.load(...)
         } catch let error as GitHubAPIError {
@@ -393,37 +406,51 @@ struct CoachChatView: View {
                 return
             }
             errorMessage = error.errorDescription ?? "Couldn't load conversations"
-            activeThreadId = CoachChatPreviewData.previewTodayThreadId
         } catch {
             errorMessage = "Couldn't load conversations"
-            activeThreadId = CoachChatPreviewData.previewTodayThreadId
         }
     }
 
+    /// Live thread messages only — never include preview shell content in API context.
     private func priorMessagesForSend(targetId: String?) -> [ChatMessage] {
-        if let targetId, let thread = threads.first(where: { $0.id == targetId }) {
-            return thread.messages
+        guard let targetId,
+              let thread = threads.first(where: { $0.id == targetId }) else {
+            return []
         }
-        if displayThread.id == CoachChatPreviewData.previewTodayThreadId {
-            return CoachChatPreviewData.seededTodayThread.messages
-        }
-        return displayThread.messages
+        return thread.messages
     }
 
+    /// Ensures a mutable live thread exists before optimistic UI update. Never inserts preview seed data.
     @discardableResult
     private func materializeThreadIfNeeded(for targetId: String?) -> String {
         if let targetId, threads.contains(where: { $0.id == targetId }) {
             return targetId
         }
-        let previewId = CoachChatPreviewData.previewTodayThreadId
-        if displayThread.id == previewId || targetId == nil {
-            if !threads.contains(where: { $0.id == previewId }) {
-                threads.insert(CoachChatPreviewData.seededTodayThread, at: 0)
-            }
-            activeThreadId = previewId
-            return previewId
+
+        let now = Date().timeIntervalSince1970 * 1000
+        let id = targetId?.hasPrefix("local-") == true ? targetId! : "local-\(Int(now))"
+        if threads.contains(where: { $0.id == id }) {
+            return id
         }
-        return targetId ?? displayThread.id
+
+        let divider = ChatMessage.divider(
+            id: "d-\(Int(now))",
+            label: "TODAY · \(headerContext.dayLabel(offset: 0))"
+        )
+        let created = ChatThread(
+            id: id,
+            dayOffset: 0,
+            title: "Today's thread",
+            preview: "",
+            ageLabel: "NOW",
+            status: .active,
+            archivedAt: nil,
+            deletedAt: nil,
+            messages: [divider]
+        )
+        threads.insert(created, at: 0)
+        activeThreadId = id
+        return id
     }
 
     private func appendUserMessage(_ message: ChatMessage, to threadId: String) {
