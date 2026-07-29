@@ -15,6 +15,7 @@
 | 0009 | Refresh-token rotation for "stay logged in until logout" | cross-cutting |
 | 0010 | Remove Strava ingestion, relocate shared activity tools out of `strava/` | cross-cutting |
 | 0011 | HQ four-band layout (shared, ui, ios, platform, engine) | cross-cutting |
+| 0012 | Coach chat: atomic commits via Git Data API, count-based retention | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 scripts/kdb/gen_adr_index.py`.
