@@ -9,23 +9,20 @@
  * multi-candidate picker path are kept for accounts installed before that
  * convention (or anyone who picked more than one repo during install).
  *
- * SECURITY: GitHub's install picker shows every repo the installing user has
- * admin rights on - including repos they're merely a collaborator on, not
- * just their own. Two people who are mutual collaborators on each other's
- * personal repos can end up with the other person's repo included in their
- * own installation (confirmed: happened in practice - a first-time install
- * resolved straight to a collaborator's repo, no picker, no confirmation).
- * Marker-file presence alone doesn't distinguish "your repo" from "a repo
- * you can see" - only actual ownership does. Every candidate is filtered to
- * `repo.owner.login === session.login` before anything else runs, on both
- * the auto-resolution path and the explicit `?select=` path.
+ * Auth: session cookie (web) or Authorization: Bearer <github_token> (iOS) -
+ * matches resolve-auth.ts's split, except this endpoint runs *before* iOS has
+ * a resolved repo to put in X-Coach-Repo, so it only needs the bearer token.
+ * callback.ts already includes `repo` in its coachhq:// redirect for the
+ * common single-candidate case; this endpoint is iOS's fallback for the rare
+ * 0-or-2+ candidate case, same picker flow web's Onboarding.tsx drives.
  *
  * GET                          → list/confirm candidates, auto-select if exactly one.
  * GET ?select=<owner>/<name>   → confirm and persist a specific pick (2+ case).
  * GET ?switch=1                → re-list every candidate, skipping the cached-pick fast
  *                                 path and the auto-select-on-one shortcut, so a user who
  *                                 already resolved a repo can deliberately switch to another
- *                                 one they own without logging out first.
+ *                                 one they own without logging out first. Cookie auth only -
+ *                                 iOS has nothing cached to switch away from.
  */
 import {
   decryptSession,
@@ -35,31 +32,69 @@ import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_SEC,
 } from "./_lib/session.js";
+import {
+  resolveInstallationId,
+  resolveOwnedRepos,
+  isOwnedBy,
+  hasMarkerFile,
+  InstallationLookupFailedError,
+} from "./_lib/repo-resolution.js";
 
-interface GhRepo {
-  full_name: string;
-  name: string;
-  owner: { login: string };
+const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
+
+interface AuthContext {
+  login: string;
+  gh_token: string;
+  installation_id: number;
+  repo_full_name?: string;
+  via: "cookie" | "bearer";
+  github_user_id?: number;
 }
 
-const GH_HEADERS = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-  Accept: "application/vnd.github+json",
-  "X-GitHub-Api-Version": "2022-11-28",
-});
+async function resolveAuthContext(req: Request): Promise<AuthContext | Response> {
+  const cookies = parseCookies(req);
+  const raw = cookies[SESSION_COOKIE];
+  if (raw) {
+    const session = await decryptSession(raw);
+    if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+    return {
+      login: session.login,
+      gh_token: session.gh_token,
+      installation_id: session.installation_id,
+      repo_full_name: session.repo_full_name,
+      github_user_id: session.github_user_id,
+      via: "cookie",
+    };
+  }
 
-async function hasMarkerFile(repoFullName: string, token: string): Promise<boolean> {
-  const res = await fetch(
-    `https://api.github.com/repos/${repoFullName}/contents/user_data/ledger/challenge_v2.json`,
-    { headers: GH_HEADERS(token) }
-  );
-  return res.status === 200;
-}
+  const authorization = req.headers.get("authorization") ?? "";
+  if (!authorization.startsWith("Bearer ")) {
+    return Response.json({ error: "Not authenticated" }, { status: 401 });
+  }
+  const token = authorization.slice("Bearer ".length).trim();
 
-/** True only if the logged-in user actually owns this repo - not just has access to it. */
-function isOwnedBy(repoFullName: string, login: string): boolean {
-  const owner = repoFullName.split("/")[0];
-  return owner.toLowerCase() === login.toLowerCase();
+  const userRes = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!userRes.ok) return Response.json({ error: "Not authenticated" }, { status: 401 });
+  const user = await userRes.json();
+
+  let installationId: number | null;
+  try {
+    installationId = await resolveInstallationId(token, user.login as string, APP_SLUG);
+  } catch (e) {
+    if (e instanceof InstallationLookupFailedError) {
+      return Response.json({ error: "Failed to look up installation" }, { status: 502 });
+    }
+    throw e;
+  }
+  if (!installationId) return Response.json({ error: "Not authenticated" }, { status: 401 });
+
+  return { login: user.login as string, gh_token: token, installation_id: installationId, via: "bearer" };
 }
 
 function withUpdatedSession(body: unknown, sessionToken: string, status = 200): Response {
@@ -71,12 +106,8 @@ function withUpdatedSession(body: unknown, sessionToken: string, status = 200): 
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const cookies = parseCookies(req);
-    const raw = cookies[SESSION_COOKIE];
-    if (!raw) return Response.json({ error: "Not authenticated" }, { status: 401 });
-
-    const session = await decryptSession(raw);
-    if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+    const ctx = await resolveAuthContext(req);
+    if (ctx instanceof Response) return ctx;
 
     const url = new URL(req.url);
     const selected = url.searchParams.get("select");
@@ -84,17 +115,26 @@ export default {
 
     // Explicit pick from a 2+ candidate list.
     if (selected) {
-      if (!isOwnedBy(selected, session.login)) {
+      if (!isOwnedBy(selected, ctx.login)) {
         return Response.json({ error: "You can only select a repo you own" }, { status: 403 });
       }
-      const ok = await hasMarkerFile(selected, session.gh_token);
+      const ok = await hasMarkerFile(selected, ctx.gh_token);
       if (!ok) {
         return Response.json(
           { error: "That repo doesn't look like a coach-phelps repo (no user_data/ledger/challenge_v2.json)" },
           { status: 400 }
         );
       }
-      const newSession = await encryptSession({ ...session, repo_full_name: selected });
+      if (ctx.via === "bearer") {
+        return Response.json({ repo_full_name: selected });
+      }
+      const newSession = await encryptSession({
+        github_user_id: ctx.github_user_id!,
+        login: ctx.login,
+        gh_token: ctx.gh_token,
+        installation_id: ctx.installation_id,
+        repo_full_name: selected,
+      });
       return withUpdatedSession({ repo_full_name: selected }, newSession);
     }
 
@@ -102,49 +142,53 @@ export default {
     // owned by this account before trusting it - defense in depth against a session that
     // resolved incorrectly before this check existed. Skipped in switch mode: the whole
     // point there is to re-list every option, not short-circuit back to the current pick.
-    if (session.repo_full_name && !switching) {
-      const stillOwned = isOwnedBy(session.repo_full_name, session.login);
-      const stillOk = stillOwned && (await hasMarkerFile(session.repo_full_name, session.gh_token));
+    // Bearer auth never has a cached repo_full_name, so this only applies to cookie sessions.
+    if (ctx.repo_full_name && !switching) {
+      const stillOwned = isOwnedBy(ctx.repo_full_name, ctx.login);
+      const stillOk = stillOwned && (await hasMarkerFile(ctx.repo_full_name, ctx.gh_token));
       if (stillOk) {
-        return Response.json({ repo_full_name: session.repo_full_name });
+        return Response.json({ repo_full_name: ctx.repo_full_name });
       }
       // Falls through to re-resolve below if not owned, or it 404s (deleted/renamed/access lost).
     }
 
-    // Repos this installation was granted, filtered to ones this account actually owns -
-    // being included in the installation isn't enough, collaborator-accessible repos on
-    // someone else's account can show up here too (see SECURITY note above).
-    const reposRes = await fetch(
-      `https://api.github.com/user/installations/${session.installation_id}/repositories?per_page=100`,
-      { headers: GH_HEADERS(session.gh_token) }
-    );
-
-    if (!reposRes.ok) {
-      return Response.json({ error: "Failed to list repos granted to this installation" }, { status: 502 });
-    }
-
-    const { repositories } = (await reposRes.json()) as { repositories: GhRepo[] };
-    const ownRepos = repositories.filter((r) => r.owner.login.toLowerCase() === session.login.toLowerCase());
-
-    const confirmed: string[] = [];
-    for (const repo of ownRepos) {
-      if (await hasMarkerFile(repo.full_name, session.gh_token)) {
-        confirmed.push(repo.full_name);
-      }
-    }
+    const confirmed = await resolveOwnedRepos(ctx.installation_id, ctx.gh_token, ctx.login);
 
     // Auto-select on exactly one match - but not in switch mode, where the whole point is
     // to show the picker even if there's only one other option (or none), so the client can
     // say so explicitly instead of silently bouncing back to the same repo.
     if (confirmed.length === 1 && !switching) {
-      const newSession = await encryptSession({ ...session, repo_full_name: confirmed[0] });
+      if (ctx.via === "bearer") {
+        return Response.json({ repo_full_name: confirmed[0] });
+      }
+      const newSession = await encryptSession({
+        github_user_id: ctx.github_user_id!,
+        login: ctx.login,
+        gh_token: ctx.gh_token,
+        installation_id: ctx.installation_id,
+        repo_full_name: confirmed[0],
+      });
       return withUpdatedSession({ repo_full_name: confirmed[0] }, newSession);
     }
 
-    // Distinguish "nothing granted to this installation that you own" (fix: install on a
-    // repo via the Setup wizard) from "some repos granted, but none look like a coach-phelps
-    // repo" (fix: finish setting it up) - these need different messaging, not one generic error.
+    // Distinguish "nothing granted to this installation that you own" (fix: Setup wizard)
+    // from "some repos granted, but none look like a coach-phelps repo" (fix: finish setting
+    // it up) - these need different messaging, not one generic error.
     if (confirmed.length === 0) {
+      const reposRes = await fetch(
+        `https://api.github.com/user/installations/${ctx.installation_id}/repositories?per_page=100`,
+        {
+          headers: {
+            Authorization: `Bearer ${ctx.gh_token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        },
+      );
+      const { repositories } = reposRes.ok
+        ? ((await reposRes.json()) as { repositories: Array<{ owner: { login: string } }> })
+        : { repositories: [] };
+      const ownRepos = repositories.filter((r) => r.owner.login.toLowerCase() === ctx.login.toLowerCase());
       const reason = ownRepos.length === 0 ? "no_owned_repos" : "no_marker_match";
       return Response.json({ candidates: [], reason });
     }

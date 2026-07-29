@@ -16,6 +16,12 @@ const OAUTH_STATE_MAX_AGE_SEC = 600; // 10 min - just needs to survive the redir
 // which recognizes an existing installation and skips straight to authorization for
 // returning users. callback.ts is what decides whether a first-time user needs routing
 // into repo creation + install - see ui/api/auth/callback.ts and pages/Setup.tsx.
+//
+// ?platform=ios: iOS opens this same URL in an ASWebAuthenticationSession instead of a
+// browser tab. The value rides through in the state cookie (same one that already carries
+// `state`/`codeVerifier` across the redirect) so callback.ts knows to hand back a
+// coachhq://callback redirect with the raw token instead of a Set-Cookie session - see
+// GitHubAuthManager.swift.
 export default {
   async fetch(req: Request): Promise<Response> {
     if (!CLIENT_ID) {
@@ -28,6 +34,7 @@ export default {
 
     const url = new URL(req.url);
     const redirectUri = `${url.origin}/api/auth/callback`;
+    const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
 
     const authorizeUrl = new URL("https://github.com/login/oauth/authorize");
     authorizeUrl.searchParams.set("client_id", CLIENT_ID);
@@ -36,7 +43,7 @@ export default {
     authorizeUrl.searchParams.set("code_challenge", codeChallenge);
     authorizeUrl.searchParams.set("code_challenge_method", "S256");
 
-    const tempValue = JSON.stringify({ state, codeVerifier });
+    const tempValue = JSON.stringify({ state, codeVerifier, platform });
 
     const headers = new Headers();
     headers.set("Location", authorizeUrl.toString());
