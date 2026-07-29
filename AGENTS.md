@@ -39,7 +39,7 @@ regenerated `platform/SOUL.md`. Never hand-edit the composed SOUL.
 - `.github/agents/` — multi-agent role docs (**HQ only**, not carved)
 - `kdb/` — engineering decisions (**HQ only**)
 - `docs/eng-docs/` — operator/architecture plans (**HQ only**)
-- `docs/ref-docs/` — Coach on-demand reference; carved subset → athlete `propagated/docs/`
+- `docs/ref-docs/` — coach skeleton carve source (5 files → athlete `propagated/docs/`)
 
 ## Knowledge Base — read on entry
 

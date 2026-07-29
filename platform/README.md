@@ -36,7 +36,8 @@ Runbook: [`docs/eng-docs/provision-runbook.md`](../docs/eng-docs/provision-runbo
 
 | Path | Role |
 |---|---|
-| [`docs/ref-docs/`](../docs/ref-docs/) | Coach reference — carved subset → athlete `propagated/docs/` |
+| [`docs/eng-docs/`](../docs/eng-docs/) | HQ operator docs (iOS, auth, enrichment, HOW_IT_WORKS) |
+| [`docs/ref-docs/`](../docs/ref-docs/) | Skeleton carve source only (5 files → `propagated/docs/`) |
 | `plugins/` | HQ extensions (badminton analytics + `generate_analytics_snapshot.py`) |
 | `skeleton-templates/` | Workout templates — 2 samples carved to athlete repos |
 | `skills/` | pipeline-tools.md (carved to propagated) |

@@ -8,7 +8,7 @@ Coach Phelps is Michael Phelps as a coaching persona: process-obsessed, emotiona
 
 ## Setup
 
-**Once you're set up, read [HOW_IT_WORKS.md](docs/ref-docs/HOW_IT_WORKS.md)** - explains the concepts (seasons, challenges, quests) and day-to-day workflow, so your first session doesn't feel like a black box.
+**Once you're set up, read [HOW_IT_WORKS.md](docs/eng-docs/HOW_IT_WORKS.md)** - explains the concepts (seasons, challenges, quests) and day-to-day workflow, so your first session doesn't feel like a black box.
 
 The quick version, if you've done this kind of thing before:
 

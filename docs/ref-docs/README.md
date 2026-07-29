@@ -1,11 +1,15 @@
-# Coach reference docs (`docs/ref-docs/`)
+# Coach skeleton reference (`docs/ref-docs/`)
 
-On-demand reference for Coach Phelps and workers — timer contracts, voice profile, viz/audio, iOS spec, enrichment guides, athlete workflow.
+**Only** the docs carved to athlete `propagated/docs/` by `carve-skeleton.mjs` (plus `platform/skills/pipeline-tools.md`).
 
-**When to read:** only when `platform/SOUL.md`, a role doc, or a task points you here. Not boot material.
+Coach reads these on-demand via SOUL — never at boot. HQ-only material (iOS setup, auth, enrichment, HOW_IT_WORKS) lives in `docs/eng-docs/`.
 
-## Carve source
+| File | Carved to |
+|---|---|
+| `current-week-contract.md` | `propagated/docs/` |
+| `timer-state-machine.md` | `propagated/docs/` |
+| `phelps-voice-profile.md` | `propagated/docs/` |
+| `soul-calibration.md` | `propagated/docs/` |
+| `milestone-schema.md` | `propagated/docs/` |
 
-`carve-skeleton.mjs` copies a subset of these files to athlete `propagated/docs/`. If a doc must ship to every athlete repo, it belongs here (not in `eng-docs/`).
-
-**Index:** [`../CURRENT.md`](../CURRENT.md) — ref-docs section.
+**Index:** [`../CURRENT.md`](../CURRENT.md)
