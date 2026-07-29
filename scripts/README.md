@@ -1,40 +1,15 @@
-# Scripts — HQ operator notes
+# Scripts — HQ operator utilities
 
-## engine/ (full brain — HQ)
+Platform ops (compose, carve, provision) moved to [`platform/`](../platform/README.md).
 
-Protocols, soul layers, plugins, templates, scripts. See `engine/README.md`.
+## This folder
 
-Only a **subset** is carved into `coach-skeleton` (sync + aggregate scripts, core, lib).
-
-## compose-soul.mjs
-
-```bash
-node engine/scripts/compose-soul.mjs
-node engine/scripts/compose-soul.mjs --check
-```
-
-## carve-skeleton.mjs
-
-Builds full BYO skeleton: **propagated/ + engine/ + gen/ + user_data/** (no agents, soul layers, ui/, ios/).
-
-```bash
-node scripts/carve-skeleton.mjs --dry-run
-node scripts/carve-skeleton.mjs --push
-```
-
-## provision-user.sh
-
-Operator tool: fork `coach-skeleton` → private athlete repo. Greenfield or legacy migration with path rewrite.
-
-```bash
-scripts/provision-user.sh --greenfield --repo OWNER/coach-name --dry-run
-scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps
-```
-
-Runbook: [`docs/provision-runbook.md`](../docs/provision-runbook.md)
+| Script | Role |
+|---|---|
+| `kdb/` | ADR index + validate-kdb (pre-commit) |
+| `validate-current-week` | Wrapper → `engine/scripts/validate-current-week` |
+| `generate_analytics_snapshot.py` | HQ dogfood badminton analytics wrapper |
 
 ## Sync model (user repos)
 
-iOS is the only ingestion path (Strava ingestion removed, issue #113): the `ios/` app (HQ)
-commits `hk_*.json` directly to `user_data/activities/hist/`, and the Actions workflow just
-regenerates derived files (`gen/aggregate.json`, `gen/quest_log.md`, etc.) on push.
+iOS commits `hk_*.json` to `user_data/activities/hist/`; Actions regenerates `gen/*` on push.

@@ -21,7 +21,7 @@ brain (Soul + engine), scripts, plugins, and the agentic layer (roles/skills/hoo
 `coach-skeleton` is what each user forks: their data plus a copy of the SOUL. We get there in two stages —
 a **BYO-Claude intermediate first, the Gemini server-coach after** — so the skeleton starts fatter (carries
 the engine so a local Claude session can boot from the fork alone) and thins to data-only once the engine
-runs server-side. The clean-structure port onto hq is **done** (see `docs/hq-port-plan.md`); this plan
+runs server-side. The clean-structure port onto hq is **done** (see [`hq-port-plan.md`](hq-port-plan.md)); this plan
 picks up from there.
 
 **Permanent non-goal:** any cross-user / social feature. The per-repo install model enforces it — leave
@@ -115,7 +115,7 @@ identity; dual-path ingestion (Strava **or** iOS), same downstream shape; no soc
 **Locked this session:**
 
 - **HQ trunk = the org repo.** The clean structure from `akash-suresh/coach-phelps` is already ported onto
-  `coach-phelps-hq` (see `docs/hq-port-plan.md`). The earlier three-repo sketch's separate `coach-engine`
+  `coach-phelps-hq` (see [`hq-port-plan.md`](hq-port-plan.md)). The earlier three-repo sketch's separate `coach-engine`
   is **dropped** — its canonical role folds into HQ.
 - **SOUL delivery = committed copy.** Each skeleton carries a copy of SOUL. Drop the copy and inject
   server-side only if the Gemini path proves out.
@@ -277,7 +277,7 @@ flowchart LR
 Sizing is rough (S = a sitting, M = a few sessions, L = a real chunk of focused work). M0 and M2 are the
 heavy lifts and the critical path; M3 is mostly a decision.
 
-Prereq (done): the clean-structure port onto HQ — `docs/hq-port-plan.md`, P1–P3 shipped.
+Prereq (done): the clean-structure port onto HQ — [`hq-port-plan.md`](hq-port-plan.md), P1–P3 shipped.
 
 Ordering: M0 unlocks everything (a runtime-agnostic engine + real validators is what makes both hosts
 safe). M1 gets real users on the stop-gap and generates the feedback M2/M3 need. **M4 is no longer

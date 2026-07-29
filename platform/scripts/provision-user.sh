@@ -5,7 +5,7 @@
 #   --greenfield   Skeleton as-is (new athlete)
 #   --migrate      Overlay legacy coach-phelps data with path rewrite
 #
-# See docs/provision-runbook.md for the full operator checklist.
+# See docs/engineering/provision-runbook.md for the full operator checklist.
 set -euo pipefail
 
 SKELETON_REPO="sibling-shipyard/coach-skeleton"
@@ -14,8 +14,8 @@ APP_INSTALL_URL="https://github.com/apps/coach-phelps/installations/new"
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/provision-user.sh --greenfield --repo OWNER/coach-name [options]
-  scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps [options]
+  platform/scripts/provision-user.sh --greenfield --repo OWNER/coach-name [options]
+  platform/scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps [options]
 
 Options:
   --repo OWNER/NAME       Target private athlete repo (created if missing)
@@ -30,8 +30,8 @@ Secrets (optional — set when env vars are present):
   PAT_TOKEN               Required for sync workflow
 
 Examples:
-  scripts/provision-user.sh --greenfield --repo akash-suresh/coach-akash --dry-run
-  PAT_TOKEN=ghp_... scripts/provision-user.sh --migrate \
+  platform/scripts/provision-user.sh --greenfield --repo akash-suresh/coach-akash --dry-run
+  PAT_TOKEN=ghp_... platform/scripts/provision-user.sh --migrate \
     --repo skanda-2003/coach-skanda --legacy skanda-2003/coach-phelps
 EOF
 }
@@ -288,7 +288,7 @@ Next steps (operator + athlete):
   1. Athlete installs GitHub App: ${APP_INSTALL_URL}
      (select repo: ${TARGET_REPO})
   2. Confirm secrets: PAT_TOKEN
-  3. Validation (docs/m1-plan.md §7):
+  3. Validation (docs/engineering/m1-plan.md §7):
      - validate-data.yml green on first push
      - Shared site login → repo resolves
      - Dashboard loads gen/aggregate.json

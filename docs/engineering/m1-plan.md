@@ -13,7 +13,7 @@ Multi-tenant scaling needs a **full BYO fork template** (`coach-skeleton`) so at
 
 First ~10 users = BYO Claude. The org template ships everything needed to start a fitness journey — coach sessions fill `user_data/`, not repo structure.
 
-**Permanent non-goals for M1:** agents in skeleton, `engine/soul/` layers in skeleton, self-serve onboarding (deferred to **M4 — hard gate before user 3+**, see [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md)), archiving legacy repos, coach-chat engine unification (M2), plugins in base carve.
+**Permanent non-goals for M1:** agents in skeleton, `platform/soul/` layers in skeleton, self-serve onboarding (deferred to **M4 — hard gate before user 3+**, see [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md)), archiving legacy repos, coach-chat engine unification (M2), plugins in base carve.
 
 **IP principle:** HQ owns soul **source** + agents + UI/iOS. Skeleton carries **composed SOUL copy** + carved **engine runtime** + athlete data bands. True IP wall moves to M2/M3 server-side engine.
 
@@ -25,7 +25,7 @@ First ~10 users = BYO Claude. The org template ships everything needed to start 
 |---|---|
 | HQ `engine/` | Scripts, soul layers, core, plugins, templates — see [`engine/README.md`](../engine/README.md) |
 | `.github/agents/` | HQ-only (not carved) |
-| `scripts/carve-skeleton.mjs` | Full BYO tree — merged #83 |
+| `platform/scripts/carve-skeleton.mjs` | Full BYO tree — merged #83 |
 | `sibling-shipyard/coach-skeleton` | **Fresh** — 50 files carved from `main` @ `2eac3d5` |
 | `provision-user.sh` | **M1b in progress** — see [`provision-runbook.md`](provision-runbook.md) |
 | User clones | Not provisioned (M1c/M1d) |
@@ -54,7 +54,7 @@ flowchart TB
   end
   subgraph hq_only["HQ only"]
     agents[".github/agents/"]
-    soul_src["engine/soul/"]
+    soul_src["platform/soul/"]
     ui["ui/, ios/"]
     plugins["plugins/"]
   end
@@ -75,7 +75,7 @@ Two production clones onboarded: **`akash-suresh/coach-akash`** (iOS) and **`ska
 | BYO model | Clone full repo → `SETUP.md` → coach; no partial clone |
 | User repos | **Private on athlete account** |
 | Migration | **Full** Layer C + `hist/` + sessions from legacy repos (path rewrite) |
-| SOUL in skeleton | **Composed copy in `propagated/`** — SOUL.md + reference docs; no `engine/soul/` layers, no compose script |
+| SOUL in skeleton | **Composed copy in `propagated/`** — SOUL.md + reference docs; no `platform/soul/` layers, no compose script |
 | Athlete profile | `user_data/coach/state.md` (boot); `coach_notes.md` archive only |
 | Sample templates | **`foundation.json` + `strength_a.json`** in carve |
 | Ingestion | iOS/HealthKit only — Strava removed (ADR 0010) |
@@ -139,7 +139,7 @@ Post-ingestion: `engine/scripts/regenerate_derived.py` → `build-aggregate.mjs`
 
 ### Skeleton carve (PR 1)
 
-Source: [`scripts/carve-skeleton.mjs`](../scripts/carve-skeleton.mjs) · Layout: [`skeleton-layout.md`](skeleton-layout.md)
+Source: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs) · Layout: [`skeleton-layout.md`](skeleton-layout.md)
 
 | Category | Contents |
 |---|---|
@@ -150,9 +150,9 @@ Source: [`scripts/carve-skeleton.mjs`](../scripts/carve-skeleton.mjs) · Layout:
 | User data | Seeds under `user_data/` + 2 sample templates |
 | Pin | `.coach-engine-version` |
 
-**Not carved:** agents, `engine/soul/`, compose script, plugins, UI, iOS.
+**Not carved:** agents, `platform/soul/`, compose script, plugins, UI, iOS.
 
-Refresh: `node scripts/carve-skeleton.mjs --push`
+Refresh: `node platform/scripts/carve-skeleton.mjs --push`
 
 ### Consumer updates (PR 2)
 
@@ -240,9 +240,9 @@ flowchart LR
 
 | Concern | Path |
 |---|---|
-| Canonical layout | `docs/skeleton-layout.md` |
-| Carve script | `scripts/carve-skeleton.mjs` |
+| Canonical layout | [`skeleton-layout.md`](skeleton-layout.md) |
+| Carve script | `platform/scripts/carve-skeleton.mjs` |
 | Engine boundary | `engine/README.md` |
-| Soul data locations | `engine/soul/C_athlete.md`, `engine/soul/B_engine.md` |
-| Scaling authority | `docs/scaling-plan.md` |
+| Soul data locations | `platform/soul/C_athlete.md`, `platform/soul/B_engine.md` |
+| Scaling authority | [`scaling-plan.md`](scaling-plan.md) |
 | Live skeleton | https://github.com/sibling-shipyard/coach-skeleton |

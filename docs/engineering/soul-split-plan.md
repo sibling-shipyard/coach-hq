@@ -3,7 +3,7 @@
 > Status: **S3 in progress** (S0–S2 complete) · Owner: Tech Lead ·
 > Built **from scratch on main**, not from `core/soul-split-m0` (pre-restructure, baked-in
 > assumptions — do not reuse). Prereq for the `coach-skeleton` carve — do it now so every fork
-> is born clean and extensible. See `docs/scaling-plan.md` §5.2.
+> is born clean and extensible. See [`scaling-plan.md`](scaling-plan.md) §5.2.
 
 ## Goal
 

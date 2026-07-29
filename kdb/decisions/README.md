@@ -14,6 +14,7 @@
 | 0008 | Coach HQ iOS uses Sibling Shipyard Apple IDs | ios |
 | 0009 | Refresh-token rotation for "stay logged in until logout" | cross-cutting |
 | 0010 | Remove Strava ingestion, relocate shared activity tools out of `strava/` | cross-cutting |
+| 0011 | HQ four-band layout (shared, ui, ios, platform, engine) | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 scripts/kdb/gen_adr_index.py`.
@@ -31,4 +32,4 @@ Rules:
 - A PR that changes a locked/architectural decision must add or supersede an ADR here
   (Tech Lead checks this in review).
 
-Seeded from `docs/scaling-plan.md` §4 (locked decisions).
+Seeded from `docs/engineering/scaling-plan.md` §4 (locked decisions).

@@ -2,8 +2,11 @@
 /**
  * carve-skeleton.mjs — Build coach-skeleton from HQ.
  *
- * Full BYO tree (see docs/skeleton-layout.md): composed SOUL.md, engine runtime,
+ * Full BYO tree (see docs/engineering/skeleton-layout.md): composed SOUL.md, engine runtime,
  * gen/ placeholders, user_data/ init bands. No agents, soul layers, ui/, ios/, kdb/.
+ *
+ * Copy map and band model: kdb/decisions/0011-hq-four-band-layout.md
+ * Restructure milestones: docs/engineering/hq-restructure-plan.md (R0–R5)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -11,7 +14,7 @@ import { execSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..");
+const REPO_ROOT = path.resolve(__dirname, "../..");
 const SKELETON_REPO = "sibling-shipyard/coach-skeleton";
 
 const ENGINE_DIR = path.join(REPO_ROOT, "engine");
@@ -237,7 +240,7 @@ Private fork template for \`coach-<user>\` repos. Carved from \`coach-phelps-hq\
 
 Dashboard: shared site reads \`gen/aggregate.json\`. iOS app pushes \`user_data/activities/hist/\` directly.
 
-Pin: \`.coach-engine-version\` · Operator: \`coach-phelps-hq/scripts/carve-skeleton.mjs\`
+Pin: \`.coach-engine-version\` · Operator: \`coach-phelps-hq/platform/scripts/carve-skeleton.mjs\`
 `;
 
 function writeAthleteClaudeConfig(outDir) {
@@ -338,8 +341,8 @@ function parseArgs(argv) {
     else if (arg === "--out-dir") opts.outDir = argv[++i];
     else if (arg === "--help" || arg === "-h") {
       console.log(`Usage:
-  node scripts/carve-skeleton.mjs --dry-run [--out-dir DIR] [--sha SHA]
-  node scripts/carve-skeleton.mjs --push [--sha SHA]`);
+  node platform/scripts/carve-skeleton.mjs --dry-run [--out-dir DIR] [--sha SHA]
+  node platform/scripts/carve-skeleton.mjs --push [--sha SHA]`);
       process.exit(0);
     }
   }
@@ -415,13 +418,13 @@ function copyWorkflows(outDir) {
 }
 
 function ensureComposedSoul() {
-  const compose = spawnSync("node", ["engine/scripts/compose-soul.mjs"], {
+  const compose = spawnSync("node", ["platform/scripts/compose-soul.mjs"], {
     cwd: REPO_ROOT,
     encoding: "utf-8",
   });
   if (compose.status !== 0) {
     console.error(compose.stderr || compose.stdout);
-    throw new Error("engine/scripts/compose-soul.mjs failed before carve");
+    throw new Error("platform/scripts/compose-soul.mjs failed before carve");
   }
 }
 

@@ -128,8 +128,8 @@ flowchart LR
 
 | Concern | Path |
 |---|---|
-| Scaling authority | `docs/scaling-plan.md` §6.1, §7 M4 |
-| Operator migrate (Akash/Skanda only) | `docs/provision-runbook.md` |
+| Scaling authority | [`scaling-plan.md`](scaling-plan.md) §6.1, §7 M4 |
+| Operator migrate (Akash/Skanda only) | [`provision-runbook.md`](provision-runbook.md) |
 | Sign-up entry | `ui/api/auth-install.ts` |
 | Sync dispatch | `ui/api/trigger-sync.ts` |
 | Skeleton sync workflow | `engine/.github/workflows/sync.user.yml` |

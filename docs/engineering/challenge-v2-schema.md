@@ -1,6 +1,6 @@
 # challenge_v2.json — Canonical Schema (version 4)
 
-> Status: **Locked (2026-07-26)** · ADR: [0006](../kdb/decisions/0006-unified-challenge-v2-schema.md) · Owner: Tech Lead · Path: `user_data/ledger/challenge_v2.json`
+> Status: **Locked (2026-07-26)** · ADR: [0006](../../kdb/decisions/0006-unified-challenge-v2-schema.md) · Owner: Tech Lead · Path: `user_data/ledger/challenge_v2.json`
 
 ## Context
 
@@ -132,7 +132,7 @@ Omit blocks entirely when unused — do not null-fill.
 | Aggregate | `engine/scripts/build-aggregate.mjs` |
 | Dashboard types | `ui/client/src/lib/challenge.ts` |
 | Validator | `engine/.github/workflows/validate-data.yml` |
-| Skeleton seed | `scripts/carve-skeleton.mjs` |
+| Skeleton seed | `platform/scripts/carve-skeleton.mjs` |
 | Adapter (transitional) | `engine/lib/challenge_schema.py` |
 
 ---

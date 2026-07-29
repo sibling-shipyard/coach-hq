@@ -24,19 +24,19 @@ the athlete's words clearly point to another role; if the signals genuinely conf
 
 AI coaching system for the athlete — data, training pipeline, Strava sync, and UI in a single monorepo.
 
-**Layered soul:** Coach identity, engine rules, and athlete schema live in `engine/soul/` as three source
-layers. `propagated/SOUL.md` at repo root is a **composed artifact** (regenerated via `node engine/scripts/compose-soul.mjs`; CI checks drift). Boot and
+**Layered soul:** Coach identity, engine rules, and athlete schema live in `platform/soul/` as three source
+layers. `propagated/SOUL.md` at repo root is a **composed artifact** (regenerated via `node platform/scripts/compose-soul.mjs`; CI checks drift). Boot and
 `coach-chat.ts` still **read `propagated/SOUL.md` + `user_data/coach/state.md`**. To change
-coach behavior, edit the relevant `engine/soul/*.md` layer, run compose, commit both the layer edits and the
+coach behavior, edit the relevant `platform/soul/*.md` layer, run compose, commit both the layer edits and the
 regenerated `propagated/SOUL.md`. Never hand-edit `propagated/SOUL.md`.
 
 - `SOUL.md` — composed coach brain (read at every boot; lives in `propagated/SOUL.md` — do not edit directly)
 - `engine/` — **skeleton source of truth** (carved into `coach-skeleton`; see `engine/README.md`)
-- `engine/soul/` — identity, engine rules, athlete schema layers
+- `platform/soul/` — identity, engine rules, athlete schema layers
 - `user_data/` — athlete data (HQ keeps a copy for dogfooding; lives in user repos at scale)
 - `ui/` — shared hosted dashboard (HQ-only)
 - `ios/` — HealthKit sync app (HQ-only; commits history to user repo)
-- `scripts/carve-skeleton.mjs` — operator tool to stamp `sibling-shipyard/coach-skeleton`
+- `platform/scripts/carve-skeleton.mjs` — operator tool to stamp `sibling-shipyard/coach-skeleton`
 - `.github/agents/` — multi-agent role docs (**HQ only**, not carved)
 - `kdb/` — engineering decisions (**HQ only**)
 

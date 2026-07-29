@@ -3,13 +3,13 @@
 Everything coaches, protocols, plugins, and activity-naming logic is **authored in HQ** `engine/`.
 **coach-skeleton gets a carved copy** of the runnable BYO stack — same tree every athlete clones.
 
-Canonical layout: [`docs/skeleton-layout.md`](../docs/skeleton-layout.md).
+Canonical layout: [`docs/engineering/skeleton-layout.md`](../docs/engineering/skeleton-layout.md).
 
 ## IP boundary
 
 | Stays in HQ only (never carved) | Carved into athlete `engine/` |
 |---|---|
-| `engine/soul/` source layers + compose script | — |
+| `platform/soul/` source layers + compose script | — |
 | `.github/agents/`, KDB, skills, HQ docs | — |
 | `plugins/` (badminton, visualization) | — |
 | Template **source** authoring (`engine/templates/`) | Copy of 2 samples → `user_data/.../templates/` |
@@ -45,4 +45,4 @@ flowchart TB
   ud --> gen
 ```
 
-Operator refresh: `node scripts/carve-skeleton.mjs --push`
+Operator refresh: `node platform/scripts/carve-skeleton.mjs --push`
