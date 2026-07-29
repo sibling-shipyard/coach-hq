@@ -1,10 +1,8 @@
 .env
 .env.local
 ui/.vercel/
-engine/strava/strava_tokens.json
 skeleton-out/
 .skeleton-push/
-training/activities/history/
 user_data/activities/hist/
 __pycache__/
 *.pyc

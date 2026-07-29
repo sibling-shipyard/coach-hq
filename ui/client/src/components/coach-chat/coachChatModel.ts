@@ -1,6 +1,10 @@
 import type { ChallengeV2 } from "@/lib/challenge";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+// ADR 0012: retention is a count cap (newest 7 active/archived threads), enforced server-side
+// in ui/api/coach-chat.ts. Nothing to purge client-side any more - the server never returns
+// more than 7 live threads to begin with.
+export const MAX_RETAINED_THREADS = 7;
 
 export type ChatRole = "user" | "coach" | "divider";
 
@@ -32,9 +36,9 @@ export type ChatThread = {
   status?: ChatThreadStatus;
   /** @deprecated Prefer `status`. Kept for older localStorage payloads. */
   archived?: boolean;
-  /** Epoch ms when moved to archived. Used for 30-day retention. */
+  /** Epoch ms when moved to archived. */
   archivedAt?: number;
-  /** Epoch ms when soft-deleted. Used for 7-day retention. */
+  /** Epoch ms when soft-deleted. */
   deletedAt?: number;
   messages: ChatMessage[];
 };
@@ -44,11 +48,6 @@ export type ChatStarter = {
   label: string;
   icon: "week" | "cold" | "match";
 };
-
-export const ARCHIVED_RETENTION_DAYS = 30;
-export const DELETED_RETENTION_DAYS = 7;
-export const ARCHIVED_RETENTION_MS = ARCHIVED_RETENTION_DAYS * DAY_MS;
-export const DELETED_RETENTION_MS = DELETED_RETENTION_DAYS * DAY_MS;
 
 /** Challenge day since start (1-indexed). Falls back to 1 if dates are missing. */
 export function challengeDayNumber(challenge: ChallengeV2, now = new Date()): number {
@@ -76,23 +75,6 @@ export function threadStatus(thread: ChatThread): ChatThreadStatus {
   return "active";
 }
 
-export function isThreadExpired(thread: ChatThread, now = Date.now()): boolean {
-  const status = threadStatus(thread);
-  if (status === "deleted") {
-    const deletedAt = thread.deletedAt ?? 0;
-    return deletedAt > 0 && now - deletedAt >= DELETED_RETENTION_MS;
-  }
-  if (status === "archived") {
-    const archivedAt = thread.archivedAt ?? 0;
-    return archivedAt > 0 && now - archivedAt >= ARCHIVED_RETENTION_MS;
-  }
-  return false;
-}
-
-export function purgeExpiredThreads(threads: ChatThread[], now = Date.now()): ChatThread[] {
-  return threads.filter((thread) => !isThreadExpired(thread, now));
-}
-
 export function normalizeThread(thread: ChatThread): ChatThread {
   const status = threadStatus(thread);
   return {
@@ -102,11 +84,54 @@ export function normalizeThread(thread: ChatThread): ChatThread {
   };
 }
 
+/** Thrown instead of a plain Error on a 401 from /api/coach-chat - the session cookie is
+ * valid but GitHub access itself was revoked/expired, same case useRepoData.ts's
+ * `accessRevoked` covers for the rest of the dashboard. CoachChat.tsx checks for this and shows
+ * RepoDataGate's "sign in again" card instead of a generic toast. */
+export class CoachChatAccessRevokedError extends Error {
+  constructor() {
+    super("Your GitHub access expired - sign in again");
+    this.name = "CoachChatAccessRevokedError";
+  }
+}
+
+// Mirrors githubGitData.ts's isTransient: retry a network failure or 5xx/429, never a 4xx
+// rejection (400/401/etc are real answers, not blips to paper over).
+function isTransientStatus(status: number): boolean {
+  return status >= 500 || status === 429;
+}
+
+// sendMessage() passes retryNetworkFailures: false - retrying a raw network failure (as opposed
+// to a confirmed 5xx/429 response) risks re-running a close-session commit that already landed.
+// See docs/eng-docs/coach-chat-flow.md's Resilience section.
+async function fetchWithRetry(
+  input: RequestInfo,
+  init?: RequestInit,
+  attempts = 3,
+  retryNetworkFailures = true,
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch(input, init);
+      if (res.ok || !isTransientStatus(res.status) || attempt === attempts - 1) return res;
+    } catch (err) {
+      if (!retryNetworkFailures) throw err;
+      lastError = err;
+      if (attempt === attempts - 1) throw err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+  }
+  // Unreachable in practice (the loop above always returns or throws), but keeps TS happy.
+  throw lastError ?? new Error("Coach chat request failed");
+}
+
 export async function fetchThreads(): Promise<ChatThread[]> {
-  const res = await fetch("/api/coach-chat");
+  const res = await fetchWithRetry("/api/coach-chat");
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) throw new Error(`Failed to load coach chat (${res.status})`);
   const body = (await res.json()) as { threads: ChatThread[] };
-  return purgeExpiredThreads(body.threads).map(normalizeThread);
+  return body.threads.map(normalizeThread);
 }
 
 // Nothing is persisted server-side until the athlete says wrap/close - the server is stateless
@@ -122,27 +147,34 @@ export async function sendMessage(
   priorMessages: ChatMessage[],
   message: string,
 ): Promise<SendMessageResult> {
-  const res = await fetch("/api/coach-chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message }),
-  });
+  const res = await fetchWithRetry(
+    "/api/coach-chat",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message }),
+    },
+    3,
+    false,
+  );
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
   }
   const body = (await res.json()) as SendMessageResult;
   if (!body.closed) return body;
-  return { ...body, threads: purgeExpiredThreads(body.threads).map(normalizeThread) };
+  return { ...body, threads: body.threads.map(normalizeThread) };
 }
 
 export async function setThreadStatus(threadId: string, status: ChatThreadStatus): Promise<ChatThread[]> {
-  const res = await fetch("/api/coach-chat", {
+  const res = await fetchWithRetry("/api/coach-chat", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ threadId, status }),
   });
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) throw new Error(`Failed to update thread (${res.status})`);
   const body = (await res.json()) as { threads: ChatThread[] };
-  return purgeExpiredThreads(body.threads).map(normalizeThread);
+  return body.threads.map(normalizeThread);
 }

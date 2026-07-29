@@ -13,9 +13,9 @@ Coach Phelps is Michael Phelps as a coaching persona: process-obsessed, emotiona
 The quick version, if you've done this kind of thing before:
 
 1. **Use this template** on GitHub, then clone your new repo locally.
-2. Install the iOS app and sign in to sync your Apple Health activity history - see `ios/README.md`. Activities land in `training/activities/history/` automatically, no manual fetch step.
-3. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `training/coach/state.md` to Claude.ai. Coach Phelps detects the blank `training/coach/state.md` and runs intake automatically.
-4. Generate your quest log: `python3 scripts/generate_quest_log.py`.
+2. Install the iOS app and sign in to sync your Apple Health activity history - see `ios/README.md`. Activities land in `user_data/activities/hist/` automatically, no manual fetch step.
+3. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `user_data/coach/state.md` to Claude.ai. Coach Phelps detects the blank `user_data/coach/state.md` and runs intake automatically.
+4. Generate your quest log: `python3 engine/scripts/generate_quest_log.py`.
 5. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables, and add `PAT_TOKEN` as a GitHub repo secret so the sync workflow can run.
 
 ---
@@ -23,12 +23,12 @@ The quick version, if you've done this kind of thing before:
 ## How it works
 
 Every session, the coach:
-1. Reads `SOUL.md` (composed identity, rules, workflows — source layers in `soul/`)
-2. Reads `training/activities/quest_log.md` (pre-computed streaks and progress)
-3. Reads `training/coach/state.md` (your profile, injuries, week plan)
+1. Reads `SOUL.md` (composed identity, rules, workflows — source layers in `platform/soul/`)
+2. Reads `gen/quest_log.md` (pre-computed streaks and progress)
+3. Reads `user_data/coach/state.md` (your profile, injuries, week plan)
 4. Opens with context — not a status report
 
-At the end of every session, the coach commits updates to `training/coach/state.md`, `training/ledger/challenge_v2.json`, and `training/coach/coach_notes.md`.
+At the end of every session, the coach commits updates to `user_data/coach/state.md`, `user_data/ledger/challenge_v2.json`, and `user_data/coach/coach_notes.md`.
 
 ---
 
@@ -37,11 +37,11 @@ At the end of every session, the coach commits updates to `training/coach/state.
 | File | Written by | Purpose |
 |------|-----------|---------|
 | `SOUL.md` | Template (generated) | Composed coach brain — generated from `platform/soul/` via `platform/scripts/compose-soul.mjs`; do not hand-edit |
-| `training/coach/state.md` | Coach | Your profile, injuries, week plan |
-| `training/ledger/challenge_v2.json` | Coach | Quest and streak data |
-| `training/coach/coach_notes.md` | Coach | Session insights (append-only) |
-| `training/activities/quest_log.md` | Script (auto) | Live progress dashboard |
-| `training/activities/history/*.json` | iOS app | Activity data (git-ignored) |
+| `user_data/coach/state.md` | Coach | Your profile, injuries, week plan |
+| `user_data/ledger/challenge_v2.json` | Coach | Quest and streak data |
+| `user_data/coach/coach_notes.md` | Coach | Session insights (append-only) |
+| `gen/quest_log.md` | Script (auto) | Live progress dashboard |
+| `user_data/activities/hist/*.json` | iOS app | Activity data (git-ignored) |
 
 ---
 
@@ -50,9 +50,9 @@ At the end of every session, the coach commits updates to `training/coach/state.
 | Script | Purpose |
 |--------|---------|
 | `engine/core/query_history.py` | Search and filter local activity history |
-| `scripts/generate_quest_log.py` | Regenerate `training/activities/quest_log.md` |
-| `scripts/generate_quest_history.py` | Regenerate `ui/client/src/data/quest_history.json` for the dashboard |
-| `scripts/regenerate_derived.py` | Regenerate quest_log, quest_history, and sync_status in one pass (used by the GitHub Actions workflow) |
+| `engine/scripts/generate_quest_log.py` | Regenerate `gen/quest_log.md` |
+| `engine/scripts/generate_quest_history.py` | Regenerate `ui/client/src/data/quest_history.json` for the dashboard |
+| `engine/scripts/regenerate_derived.py` | Regenerate quest_log, quest_history, and sync_status in one pass (used by the GitHub Actions workflow) |
 
 Ingestion is iOS/HealthKit only now - Strava ingestion was removed (ADR 0010). Activities are
 named client-side by the app; there's no separate rename script anymore.

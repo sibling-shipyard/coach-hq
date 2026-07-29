@@ -17,6 +17,7 @@ import {
   ThreadSidebar,
 } from "@/components/coach-chat/CoachChatWidgets";
 import {
+  CoachChatAccessRevokedError,
   challengeDayNumber,
   fetchThreads,
   sendMessage,
@@ -27,6 +28,7 @@ import {
   type ChatThread,
 } from "@/components/coach-chat/coachChatModel";
 import "@/components/home-warm/warm-instrument.css";
+import "@/components/login/login.css";
 import "@/components/coach-chat/coach-chat.css";
 
 type MobileView = "list" | "thread" | "new";
@@ -61,15 +63,21 @@ function CoachChatContent({ data }: { data: RepoData }) {
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
+  const [threadsAccessRevoked, setThreadsAccessRevoked] = useState(false);
+  const [threadsError, setThreadsError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [mobileView, setMobileView] = useState<MobileView>("new");
   const [sending, setSending] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const activeThread = threads.find((thread) => thread.id === activeId) ?? null;
 
   useEffect(() => {
     let cancelled = false;
+    setThreadsLoading(true);
+    setThreadsAccessRevoked(false);
+    setThreadsError(null);
     fetchThreads()
       .then((loaded) => {
         if (cancelled) return;
@@ -78,7 +86,14 @@ function CoachChatContent({ data }: { data: RepoData }) {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        toast.error(err instanceof Error ? err.message : "Failed to load Coach Chat");
+        // Distinct from a generic failure - the session cookie is valid but GitHub access was
+        // revoked/expired, same case useRepoData.ts's accessRevoked covers for the rest of the
+        // dashboard. Shown as a "sign in again" card below, not a toast that just disappears.
+        if (err instanceof CoachChatAccessRevokedError) {
+          setThreadsAccessRevoked(true);
+          return;
+        }
+        setThreadsError(err instanceof Error ? err.message : "Failed to load Coach Chat");
       })
       .finally(() => {
         if (!cancelled) setThreadsLoading(false);
@@ -86,7 +101,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadAttempt]);
 
   useEffect(() => {
     if (activeId && !threads.some((thread) => thread.id === activeId)) {
@@ -126,6 +141,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
       const next = await patchThreadStatus(id, status ?? "active");
       setThreads(next);
     } catch (err: unknown) {
+      if (err instanceof CoachChatAccessRevokedError) {
+        setThreadsAccessRevoked(true);
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Failed to update conversation");
     }
   }
@@ -147,8 +166,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
   }
 
   function deleteForever(id: string) {
-    // Hard delete happens server-side once retention expires; from the UI, soft-delete
-    // is the only action available — mirror it here so the button doesn't dead-end.
+    // Sending "deleted" again on an already-deleted thread is how the server (ADR 0012)
+    // distinguishes a real hard delete from an ordinary soft-delete.
     void updateStatus(id, "deleted");
   }
 
@@ -223,7 +242,11 @@ function CoachChatContent({ data }: { data: RepoData }) {
         setActiveId(id);
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Coach didn't reply — try again");
+      if (err instanceof CoachChatAccessRevokedError) {
+        setThreadsAccessRevoked(true);
+      } else {
+        toast.error(err instanceof Error ? err.message : "Coach didn't reply — try again");
+      }
       setDraft(trimmed);
     } finally {
       setSending(false);
@@ -254,11 +277,47 @@ function CoachChatContent({ data }: { data: RepoData }) {
           currentRoute="/coach-chat"
         />
 
+        {threadsAccessRevoked ? (
+          <div className="auth-card-shell">
+            <div className="auth-card">
+              <h2 className="auth-card__heading">Your GitHub access expired</h2>
+              <p className="auth-card__body">
+                Your session is still active, but GitHub access was revoked or expired - this
+                happens if you uninstalled the App or removed its access on GitHub's side. Sign
+                in again to reconnect Coach Chat.
+              </p>
+              <div className="auth-card__buttons">
+                <a href="/api/auth/start" className="auth-card__button auth-card__button--primary">
+                  Sign in again
+                </a>
+              </div>
+            </div>
+          </div>
+        ) : threadsError ? (
+          <div className="auth-card-shell">
+            <div className="auth-card">
+              <h2 className="auth-card__heading">Couldn't load Coach Chat</h2>
+              <p className="auth-card__body auth-card__body--error">{threadsError}</p>
+              <div className="auth-card__buttons">
+                <button
+                  type="button"
+                  className="auth-card__button auth-card__button--primary"
+                  onClick={() => setLoadAttempt((n) => n + 1)}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="cc-shell">
           <div className="cc-frame">
             <div className="cc-desktop-chat">
               {threadsLoading ? (
-                <aside className="cc-sidebar cc-loading" aria-label="Conversations">Loading conversations…</aside>
+                <aside className="cc-sidebar cc-loading" aria-label="Conversations">
+                  <span className="cc-loading__spinner" aria-hidden="true" />
+                  Loading conversations…
+                </aside>
               ) : (
                 <ThreadSidebar
                   dayNumber={dayNumber}
@@ -276,6 +335,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   draft={draft}
                   onDraftChange={setDraft}
                   onSend={() => void appendUserMessage(draft, activeId)}
+                  pending={sending}
                 />
               ) : (
                 <EmptyChatPane
@@ -285,6 +345,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   onDraftChange={setDraft}
                   onSend={() => void appendUserMessage(draft, null)}
                   onStarter={handleStarter}
+                  pending={sending}
                 />
               )}
             </div>
@@ -292,6 +353,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
             <div className="cc-mobile-chat">
               {mobileView === "list" && threadsLoading ? (
                 <section className="cc-mobile-list cc-loading" aria-label="Conversations">
+                  <span className="cc-loading__spinner" aria-hidden="true" />
                   Loading conversations…
                 </section>
               ) : null}
@@ -312,6 +374,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   draft={draft}
                   onDraftChange={setDraft}
                   onSend={() => void appendUserMessage(draft, activeId)}
+                  pending={sending}
                   showBack
                   onBack={() => setMobileView("list")}
                 />
@@ -324,6 +387,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   onDraftChange={setDraft}
                   onSend={() => void appendUserMessage(draft, null)}
                   onStarter={handleStarter}
+                  pending={sending}
                   showBack
                   onBack={() => setMobileView("list")}
                 />
@@ -331,6 +395,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

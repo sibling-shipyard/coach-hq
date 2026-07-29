@@ -1,21 +1,6 @@
 /**
- * coach-chat.ts — real Coach Phelps sessions from the browser, backed by Gemini.
- *
- * Mirrors a local Claude Code coaching session: reads the same boot context
- * SOUL.md's own boot sequence reads (SOUL.md, training/coach/state.md,
- * training/activities/quest_log.md), asks Gemini to reply as Coach Phelps, and applies
- * the same commit authority SOUL.md §2/§12 already grants Coach - direct to
- * `main`, no PR, only the files Coach is allowed to touch.
- *
- * Persistence mirrors how a real Claude Code coaching session actually works:
- * nothing is written to the repo mid-conversation. The client holds the
- * active thread in memory and sends the full running message list with every
- * POST; the server stays stateless per turn until the athlete signals they're
- * closing the session ("wrap this session", "close session", etc.), at which
- * point it runs the real commit protocol (SOUL.md §12) once, in one shot -
- * same as a real session only ever committing at close, not per message.
- * Losing an unwrapped conversation on a refresh is an accepted trade-off, not
- * a bug: no separate database, the repo is the only durable store.
+ * coach-chat.ts — real Coach Phelps sessions from the browser and iOS, backed by Gemini.
+ * Full design/flow: docs/eng-docs/coach-chat-flow.md. Commit + retention design: ADR 0012.
  *
  * GET                        → load already-wrapped/committed threads
  * POST {threadId?, messages, message} → send a message, get a real coach reply.
@@ -25,7 +10,9 @@
  * PATCH {threadId, status}   → archive / unarchive / delete / restore an
  *                               already-committed thread
  */
-import { ensureFreshSession, withSessionCookie, type SessionPayload } from "./auth/_lib/session.js";
+import { withSessionCookie } from "./auth/_lib/session.js";
+import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
+import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 const SOUL_FILE_PATH = "propagated/SOUL.md";
@@ -98,11 +85,6 @@ function cleanCommitMessage(message: string): string {
   return message.replace(/^\s*coach:?\s*[-—]*\s*/i, "").trim();
 }
 
-const GH_HEADERS_JSON = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-  Accept: "application/vnd.github+json",
-  "X-GitHub-Api-Version": "2022-11-28",
-});
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
   Accept: "application/vnd.github.raw+json",
@@ -132,47 +114,34 @@ interface ChatHistoryFile {
   threads: ChatThread[];
 }
 
-async function getFileRaw(repo: string, path: string, token: string): Promise<string | null> {
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-    headers: GH_HEADERS_RAW(token),
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Failed to fetch ${path} (${res.status})`);
-  return res.text();
+// A pure read - safe to retry on any transient failure including a raw network error, unlike
+// the POST commit path where a lost response after a successful write makes blind retry unsafe.
+function isTransientReadFailure(err: unknown): boolean {
+  const status = (err as { status?: number }).status;
+  if (status == null) return true; // network-level failure
+  return status >= 500 || status === 429;
 }
 
-async function getFileSha(repo: string, path: string, token: string): Promise<string | null> {
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-    headers: GH_HEADERS_JSON(token),
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Failed to look up sha for ${path} (${res.status})`);
-  const body = (await res.json()) as { sha: string };
-  return body.sha;
-}
-
-async function putFile(
-  repo: string,
-  path: string,
-  token: string,
-  content: string,
-  message: string,
-): Promise<void> {
-  const sha = await getFileSha(repo, path, token);
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
-    method: "PUT",
-    headers: { ...GH_HEADERS_JSON(token), "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message,
-      content: btoa(unescape(encodeURIComponent(content))),
-      branch: "main",
-      ...(sha ? { sha } : {}),
-    }),
-  });
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Failed to write ${path} (${res.status}): ${detail}`);
+async function getFileRaw(repo: string, path: string, token: string, attempts = 3): Promise<string | null> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+        headers: GH_HEADERS_RAW(token),
+      });
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        // Tagged with .status so the top-level handler can tell an expired/invalid token (401)
+        // apart from any other failure and respond 401 instead of a generic 500 - iOS's Bearer
+        // auth has no cookie-refresh equivalent, so this is the only signal it gets to re-auth.
+        throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), { status: res.status });
+      }
+      return await res.text();
+    } catch (err) {
+      if (!isTransientReadFailure(err) || attempt === attempts - 1) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
   }
+  throw new Error(`Failed to fetch ${path} - unreachable`); // keeps TS happy, loop always returns/throws
 }
 
 async function loadChatHistory(repo: string, token: string): Promise<ChatHistoryFile> {
@@ -186,30 +155,39 @@ async function loadChatHistory(repo: string, token: string): Promise<ChatHistory
   }
 }
 
-function purgeExpired(threads: ChatThread[], now = Date.now()): ChatThread[] {
-  const ARCHIVED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-  const DELETED_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-  return threads.filter((thread) => {
-    if (thread.status === "deleted") {
-      return !(thread.deletedAt && now - thread.deletedAt >= DELETED_RETENTION_MS);
-    }
-    if (thread.status === "archived") {
-      return !(thread.archivedAt && now - thread.archivedAt >= ARCHIVED_RETENTION_MS);
-    }
-    return true;
-  });
+// Puts `thread` at the front of `threads`, replacing any existing entry with the same id.
+// Used for both brand-new threads and reactivated ones (reopening + closing an old thread used
+// to leave it wherever it already sat in the array, silently breaking the newest-first
+// invariant applyRetention() below depends on).
+function mergeThreadToFront(threads: ChatThread[], thread: ChatThread): ChatThread[] {
+  return [thread, ...threads.filter((t) => t.id !== thread.id)];
 }
 
-// Deliberately NOT dispatching sync.yml here. Checked both real personal repos: Akash's
-// sync.yml already runs automatically on a `push` to main touching
-// training/ledger/challenge_v2.json (added for his iOS app's direct commits) - and our own
-// challenge_v2.json commit via the Contents API above IS exactly that push, so his repo
-// already re-syncs on its own. A manual workflow_dispatch here would fire a second,
-// redundant run of the same workflow for him (extra Strava-step attempt, a real chance of
-// the two runs' git pushes racing and one failing). Skanda's sync.yml is workflow_dispatch-only
-// with no push trigger, so training/activities/quest_log.md just stays slightly stale after a chat-
-// triggered quest update until he next hits Sync himself - same as any other out-of-band
-// change to challenge_v2.json today. Simpler and fully transparent beats correct-but-clever.
+// ADR 0012: count-based retention, not calendar-based. Cap applies only to active + archived
+// threads (the 7 most-recently-active survive; the 8th evicts the oldest). Threads the athlete
+// explicitly soft-deletes (status "deleted") pass through untouched - the UI's Restore /
+// Delete Forever affordances still need them to exist, so this cap must not silently drop them.
+// Threads must be newest-first for the cap to keep the right ones - see mergeThreadToFront above.
+const MAX_RETAINED_THREADS = 7;
+
+function applyRetention(threads: ChatThread[]): ChatThread[] {
+  const kept: ChatThread[] = [];
+  let liveCount = 0;
+  for (const thread of threads) {
+    if (thread.status === "deleted") {
+      kept.push(thread);
+      continue;
+    }
+    if (liveCount >= MAX_RETAINED_THREADS) continue;
+    kept.push(thread);
+    liveCount++;
+  }
+  return kept;
+}
+
+// Deliberately NOT dispatching sync.yml here - a repo whose workflow has a push trigger on
+// challenge_v2.json already re-syncs from the commit above; dispatching too would risk a second,
+// racing run. See docs/eng-docs/coach-chat-flow.md's "What does NOT happen" section.
 
 interface GeminiReply {
   reply: string;
@@ -345,41 +323,57 @@ async function askGemini(
 }
 
 // Split from fetch() below so a rotated session cookie only needs attaching in one place.
-async function handle(req: Request, session: SessionPayload): Promise<Response> {
-    const repo = session.repo_full_name;
-    if (!repo) {
-      return Response.json({ error: "No repo resolved yet - visit /api/auth/list-my-repos first" }, { status: 400 });
-    }
-    const token = session.gh_token;
+async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
+    const repo = auth.repo_full_name;
+    const token = auth.gh_token;
 
     if (req.method === "GET") {
       const history = await loadChatHistory(repo, token);
-      const threads = purgeExpired(history.threads);
-      return Response.json({ threads });
+      // Retention is enforced on write (POST/PATCH), not here - a GET must never rewrite the
+      // file just because it was read. Deleted threads are still returned so the sidebar's
+      // Restore / Delete Forever actions have something to act on.
+      return Response.json({ threads: history.threads });
     }
 
     if (req.method === "PATCH") {
       const { threadId, status } = (await req.json()) as { threadId: string; status: ChatThreadStatus };
-      const history = await loadChatHistory(repo, token);
       const now = Date.now();
-      const threads = history.threads.map((thread) => {
-        if (thread.id !== threadId) return thread;
-        return {
-          ...thread,
-          status,
-          archivedAt: status === "archived" ? now : undefined,
-          deletedAt: status === "deleted" ? now : undefined,
-        };
-      });
-      const filtered = purgeExpired(threads);
-      await putFile(
-        repo,
-        CHAT_FILE_PATH,
-        token,
-        JSON.stringify({ threads: filtered }, null, 2),
-        `coach: chat — ${status} thread`,
-      );
-      return Response.json({ threads: filtered });
+
+      // Resolved fresh on every commit retry attempt (see githubGitData.ts) rather than once
+      // up front, so a concurrent PATCH/POST touching the same chat_history.json is retried
+      // against whatever that other request just committed instead of silently overwriting it -
+      // a static snapshot read before commitFilesAtomic runs would otherwise be a lost-update
+      // race between e.g. this "Delete forever" and another tab auto-closing a session.
+      let latestThreads: ChatThread[] = [];
+      const chatWrite: FileEntry = {
+        path: CHAT_FILE_PATH,
+        resolve: async () => {
+          const fresh = await loadChatHistory(repo, token);
+          // A "deleted" PATCH on a thread that's already deleted is the client's "Delete forever"
+          // action (CoachChat.tsx's deleteForever) - since retention no longer purges deleted
+          // threads on a timer, this is the only remaining path to actually remove one. Checked
+          // against fresh state each attempt, same as the merge itself.
+          const target = fresh.threads.find((t) => t.id === threadId);
+          const isHardDelete = status === "deleted" && target?.status === "deleted";
+          const threads = isHardDelete
+            ? fresh.threads.filter((t) => t.id !== threadId)
+            : fresh.threads.map((thread) => {
+                if (thread.id !== threadId) return thread;
+                return {
+                  ...thread,
+                  status,
+                  archivedAt: status === "archived" ? now : undefined,
+                  deletedAt: status === "deleted" ? now : undefined,
+                };
+              });
+          const retained = applyRetention(threads);
+          latestThreads = retained;
+          return JSON.stringify({ threads: retained }, null, 2);
+        },
+      };
+
+      await commitFilesAtomic([chatWrite], `coach: chat — ${status} thread`, { repo, branch: "main", token });
+      return Response.json({ threads: latestThreads });
     }
 
     if (req.method === "POST") {
@@ -432,52 +426,78 @@ async function handle(req: Request, session: SessionPayload): Promise<Response> 
         ? [...priorMessages, userMsg, coachMsg]
         : [{ id: `d-${now}`, role: "divider", label: "TODAY" }, userMsg, coachMsg];
 
-      const history = await loadChatHistory(repo, token);
-      let thread = history.threads.find((t) => t.id === threadId);
-      if (!thread) {
-        const firstUserText = allMessages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user")?.text ?? trimmed;
-        thread = {
-          id: threadId ?? `t-${now}`,
-          dayOffset: 0,
-          title: firstUserText.length > 28 ? `${firstUserText.slice(0, 28)}…` : firstUserText,
-          preview: reply.reply.slice(0, 80),
-          ageLabel: "NOW",
-          status: "active",
-          messages: [],
-        };
-        history.threads.unshift(thread);
-      }
-      thread.messages = allMessages;
-      thread.preview = reply.reply.slice(0, 80);
-      thread.ageLabel = "NOW";
-      thread.status = "active";
-      thread.archivedAt = undefined;
-      thread.deletedAt = undefined;
+      // Fixed once outside the retry loop so the id/title/preview this response reports stay
+      // stable across attempts, even though the merge against fresh state below can run more
+      // than once.
+      const finalThreadId = threadId ?? `t-${now}`;
+      const firstUserText = allMessages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user")?.text ?? trimmed;
+      const computedTitle = firstUserText.length > 28 ? `${firstUserText.slice(0, 28)}…` : firstUserText;
+      const previewText = reply.reply.slice(0, 80);
 
-      const validUpdates = (reply.file_updates ?? []).filter((f) => isCoachWritable(f.path));
+      // Resolved fresh on every commit retry attempt (see githubGitData.ts), not from a
+      // snapshot read before this function was even called - otherwise two requests racing on
+      // the same repo (e.g. this close vs. another tab's "Delete forever") could have the
+      // last-to-commit silently overwrite the first's changes instead of merging on top of them.
+      let latestThreads: ChatThread[] = [];
+      const chatWrite: FileEntry = {
+        path: CHAT_FILE_PATH,
+        resolve: async () => {
+          const fresh = await loadChatHistory(repo, token);
+          const existing = fresh.threads.find((t) => t.id === finalThreadId);
+          if (existing && (existing.status === "archived" || existing.status === "deleted")) {
+            // Stale client reference (e.g. a backgrounded tab holding an old thread open) closing
+            // into a thread another request archived/deleted since this conversation started -
+            // fail loudly instead of silently resurrecting it as active.
+            throw Object.assign(
+              new Error(`Thread ${finalThreadId} was ${existing.status} - refusing to reactivate it via close`),
+              { status: 400 }, // non-transient: don't burn retries on a real rejection
+            );
+          }
+          const thread: ChatThread = {
+            id: finalThreadId,
+            dayOffset: existing?.dayOffset ?? 0,
+            title: existing?.title ?? computedTitle,
+            preview: previewText,
+            ageLabel: "NOW",
+            status: "active",
+            messages: allMessages,
+          };
+          const retained = applyRetention(mergeThreadToFront(fresh.threads, thread));
+          latestThreads = retained;
+          return JSON.stringify({ threads: retained }, null, 2);
+        },
+      };
+
+      // Blank content would silently wipe a real file - never a legitimate update, so reject it
+      // alongside the path check above.
+      const validUpdates = (reply.file_updates ?? []).filter(
+        (f) => isCoachWritable(f.path) && f.content.trim().length > 0,
+      );
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
 
+      // ADR 0012: every file_update plus the updated chat_history.json lands in ONE atomic
+      // commit via the Git Data API, instead of a separate REST PUT per file.
+      const writes: FileEntry[] = [...validUpdates, chatWrite];
+
       try {
-        for (const update of validUpdates) {
-          await putFile(repo, update.path, token, update.content, `coach: chat — ${commitMessage}`);
-        }
-        await putFile(
-          repo,
-          CHAT_FILE_PATH,
-          token,
-          JSON.stringify({ threads: purgeExpired(history.threads) }, null, 2),
-          `coach: chat — ${commitMessage}`,
-        );
+        await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, { repo, branch: "main", token });
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
+        // The resolve() guard above throws a tagged {status: 400} when this close targets a
+        // thread another request archived/deleted in the meantime - that's a correct rejection,
+        // not a save failure, so it gets its own status/message instead of being flattened into
+        // the generic "saving failed" 502 below (which would be actively misleading here).
+        if ((err as { status?: number }).status === 400) {
+          return Response.json({ error: errMessage }, { status: 400 });
+        }
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}` }, { status: 502 });
       }
 
       return Response.json({
         reply: reply.reply,
         closed: true,
-        threadId: thread.id,
-        threads: purgeExpired(history.threads),
+        threadId: finalThreadId,
+        threads: latestThreads,
       });
     }
 
@@ -486,17 +506,26 @@ async function handle(req: Request, session: SessionPayload): Promise<Response> 
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const fresh = await ensureFreshSession(req);
-    if (fresh instanceof Response) return fresh;
+    // resolveRepoAuth handles both auth modes (ADR 0012 makes coach chat iOS-reachable the
+    // same way ADR 0005's widget-snapshots.ts already is): session cookie for web,
+    // `Authorization: Bearer <token>` + `X-Coach-Repo: owner/repo` for iOS. Cookie mode's
+    // setCookie (ADR 0009 rotation) is undefined in Bearer mode, so withSessionCookie below
+    // is a no-op for iOS calls.
+    const resolved = await resolveRepoAuth(req);
+    if (resolved instanceof Response) return resolved;
     try {
-      const res = await handle(req, fresh.session);
-      return withSessionCookie(res, fresh.setCookie);
+      const res = await handle(req, resolved);
+      return withSessionCookie(res, resolved.setCookie);
     } catch (err) {
-      // A rotated refresh_token (ADR 0009) is single-use - losing fresh.setCookie here would
-      // strand the next request, not just fail this one.
+      // A rotated refresh_token (ADR 0009) is single-use - losing resolved.setCookie here
+      // would strand the next request, not just fail this one.
       const message = err instanceof Error ? err.message : "Coach chat failed";
+      // A 401 from GitHub itself (expired/invalid token) is surfaced as a real 401 instead of
+      // a generic 500 - iOS's Bearer auth has no cookie-refresh equivalent, so this status is
+      // its only signal to re-prompt sign-in rather than showing a dead-end error.
+      const status = (err as { status?: number }).status === 401 ? 401 : 500;
       console.error("[coach-chat]", err);
-      return withSessionCookie(Response.json({ error: message }, { status: 500 }), fresh.setCookie);
+      return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
     }
   },
 };

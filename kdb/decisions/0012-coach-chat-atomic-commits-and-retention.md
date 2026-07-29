@@ -19,9 +19,12 @@
   `chat_history.json`) and the PATCH archive/unarchive/delete write — replacing the `putFile()`
   loop entirely. Replace `purgeExpired`'s calendar-based purge with a count cap: keep only the 7
   most-recently-active threads (active or archived both count toward the cap), evicting the oldest
-  when an 8th is created; deletes are immediate, no soft-delete retention window. The cap is
-  enforced server-side on write (POST/PATCH), not on every GET, so read-only requests never
-  rewrite the file.
+  when an 8th is created. The cap does not apply to soft-deleted threads — the UI's existing
+  Restore / Delete Forever actions need a deleted thread to still exist until the athlete acts on
+  it, so those pass through untouched; sending a second "deleted" status on an already-deleted
+  thread is now the real hard-delete (`Delete Forever`), since there's no more calendar purge to
+  eventually remove it. The cap is enforced server-side on write (POST/PATCH), not on every GET,
+  so read-only requests never rewrite the file.
 - **Why:** One atomic commit per close is what the athlete asked for directly, and iOS already
   proves the pattern works well enough to reuse rather than re-derive. A count cap is simpler to
   reason about than two separate calendar windows, and bounds `chat_history.json`'s size
@@ -32,3 +35,13 @@
   (`docs/eng-docs/coach-chat-flow.md`) instead, with unifying them behind a shared contract test
   logged as a P2/P3 follow-up, not built now. Keep calendar-based retention → doesn't bound file
   size, and doesn't match "keep the last 7 chats" as the athlete described it.
+- **Amendment (2026-07-29):** Post-implementation review found the initial design still
+  overwrote `chat_history.json` from a snapshot read before the commit, a lost-update race under
+  concurrent requests. `commitFilesAtomic` now accepts a `ResolvedFileWrite` whose content is
+  recomputed fresh on every retry attempt, not just once; `coach-chat.ts` uses it for
+  `chat_history.json` so a losing attempt retries against what the winner actually committed
+  instead of clobbering it. A close targeting a thread archived/deleted by another request in the
+  meantime now fails (400) instead of silently reactivating it. Separately, retrying the
+  send-message request itself (added for resilience) turned out to be unsafe on a raw
+  network-level failure — the commit could have already landed before the response was lost — so
+  that retry now only fires on a confirmed 5xx/429 response, never a network throw.

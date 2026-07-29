@@ -11,9 +11,8 @@ import {
 } from "react";
 import { Link } from "wouter";
 import {
-  ARCHIVED_RETENTION_DAYS,
   CHAT_STARTERS,
-  DELETED_RETENTION_DAYS,
+  MAX_RETAINED_THREADS,
   type ChatMessage,
   type ChatStarter,
   type ChatThread,
@@ -156,12 +155,24 @@ function CoachChips({ chips }: { chips: CoachChip[] }) {
   );
 }
 
-function MessageList({ messages }: { messages: ChatMessage[] }) {
+function ThinkingBubble() {
+  return (
+    <div className="cc-coach-wrap" aria-label="Coach is thinking">
+      <div className="cc-bubble cc-bubble--coach cc-bubble--thinking">
+        <span className="cc-thinking-dot" />
+        <span className="cc-thinking-dot" />
+        <span className="cc-thinking-dot" />
+      </div>
+    </div>
+  );
+}
+
+function MessageList({ messages, pending }: { messages: ChatMessage[]; pending?: boolean }) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
+  }, [messages, pending]);
 
   return (
     <div className="cc-messages" role="log" aria-live="polite" aria-relevant="additions">
@@ -194,6 +205,7 @@ function MessageList({ messages }: { messages: ChatMessage[] }) {
           </div>
         );
       })}
+      {pending ? <ThinkingBubble /> : null}
       <div ref={endRef} />
     </div>
   );
@@ -205,23 +217,27 @@ function Composer({
   onChange,
   onSubmit,
   round = false,
+  disabled = false,
 }: {
   placeholder: string;
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
   round?: boolean;
+  disabled?: boolean;
 }) {
   const inputId = useId();
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (disabled) return;
     onSubmit();
   }
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+      if (disabled) return;
       onSubmit();
     }
   }
@@ -239,11 +255,12 @@ function Composer({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
+        disabled={disabled}
       />
       <button
         aria-label="Send message"
         className="cc-composer__send"
-        disabled={!value.trim()}
+        disabled={disabled || !value.trim()}
         type="submit"
       >
         <SendIcon size={round ? 16 : 18} />
@@ -511,7 +528,7 @@ function ThreadSections({
       {archived.length > 0 ? (
         <>
           <div className="cc-sidebar__section cc-sidebar__section--spaced">ARCHIVED</div>
-          <div className="cc-sidebar__hint">Kept {ARCHIVED_RETENTION_DAYS} days, then removed</div>
+          <div className="cc-sidebar__hint">Newest {MAX_RETAINED_THREADS} kept — oldest drop off automatically</div>
           {archived.map((thread) => (
             <ThreadRow
               key={thread.id}
@@ -527,7 +544,7 @@ function ThreadSections({
       {deleted.length > 0 ? (
         <>
           <div className="cc-sidebar__section cc-sidebar__section--spaced">DELETED</div>
-          <div className="cc-sidebar__hint">Kept {DELETED_RETENTION_DAYS} days, then removed</div>
+          <div className="cc-sidebar__hint">Restore, or delete forever</div>
           {deleted.map((thread) => (
             <ThreadRow
               key={thread.id}
@@ -615,6 +632,7 @@ export function ConversationPane({
   onSend,
   onBack,
   showBack,
+  pending,
 }: {
   dayNumber: number;
   thread: ChatThread;
@@ -623,6 +641,7 @@ export function ConversationPane({
   onSend: () => void;
   onBack?: () => void;
   showBack?: boolean;
+  pending?: boolean;
 }) {
   return (
     <section className="cc-pane" aria-label={thread.title}>
@@ -641,13 +660,14 @@ export function ConversationPane({
           </span>
         ) : null}
       </div>
-      <MessageList messages={thread.messages} />
+      <MessageList messages={thread.messages} pending={pending} />
       <div className="cc-pane__footer">
         <Composer
-          placeholder="Ask Coach anything…"
+          placeholder={pending ? "Coach is replying…" : "Ask Coach anything…"}
           value={draft}
           onChange={onDraftChange}
           onSubmit={onSend}
+          disabled={pending}
         />
         <p className="cc-pane__footnote">
           COACH SEES YOUR LOAD, LEDGER, PLAN &amp; SPORT ANALYTICS · NOT SHARED BETWEEN ACCOUNTS
@@ -666,6 +686,7 @@ export function EmptyChatPane({
   onStarter,
   onBack,
   showBack,
+  pending,
 }: {
   dayNumber: number;
   engineLoad: number | null;
@@ -675,6 +696,7 @@ export function EmptyChatPane({
   onStarter: (starter: ChatStarter) => void;
   onBack?: () => void;
   showBack?: boolean;
+  pending?: boolean;
 }) {
   const loadLabel = engineLoad !== null ? String(engineLoad) : "—";
   const mobileChrome = Boolean(showBack);
@@ -724,12 +746,22 @@ export function EmptyChatPane({
           ))}
         </div>
 
+        {pending ? (
+          <div className="cc-coach-wrap cc-coach-wrap--empty">
+            <div className="cc-bubble cc-bubble--coach cc-bubble--thinking">
+              <span className="cc-thinking-dot" />
+              <span className="cc-thinking-dot" />
+              <span className="cc-thinking-dot" />
+            </div>
+          </div>
+        ) : null}
         <Composer
-          placeholder={mobileChrome ? "Message Coach…" : "Ask Coach anything…"}
+          placeholder={pending ? "Coach is replying…" : mobileChrome ? "Message Coach…" : "Ask Coach anything…"}
           value={draft}
           onChange={onDraftChange}
           onSubmit={onSend}
           round={mobileChrome}
+          disabled={pending}
         />
         {!mobileChrome ? (
           <p className="cc-pane__footnote">

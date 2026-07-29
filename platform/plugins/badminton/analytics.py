@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Generate training/activities/badminton_analytics_snapshot.json from activity history.
+"""Generate user_data/activities/badminton_analytics_snapshot.json from activity history.
 
-Reads training/activities/history/*.json and plugins/badminton/data/badminton_match_data.json,
+Reads user_data/activities/hist/*.json and platform/plugins/badminton/data/badminton_match_data.json,
 computes match analytics, and writes a compact snapshot for Coach Phelps.
 
 Usage:
-    python plugins/badminton/analytics.py
+    python platform/plugins/badminton/analytics.py
     python platform/plugins/badminton/generate_analytics_snapshot.py  # thin wrapper
 """
 

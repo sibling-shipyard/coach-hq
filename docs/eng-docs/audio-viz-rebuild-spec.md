@@ -12,7 +12,7 @@ Self 2 doesn't respond to language or technique instruction. It responds to imag
 
 ---
 
-## Changes: Morning Viz (`training/audio/morning_viz_part*.txt`)
+## Changes: Morning Viz (`user_data/audio/morning_viz_part*.txt`)
 
 ### 1. Add silence gaps between scenes
 After each scene resolves, insert 15–20 seconds of silence before the next cue. Let Self 2 process and run variations before moving on. Current script transitions too quickly between scenes.
@@ -52,7 +52,7 @@ Example:
 > *New:* "See yourself moving to the backhand corner." → [15s silence] → "You have the shuttle. Send it deep."
 
 ### 5. Add opponent-specific modular inserts
-Before Monday Hit & Run sessions, swap in a 60–90 second opponent segment between the movement sequence and the 14-10 anchor. Pull patterns from `training/opponent_notes.md`.
+Before Monday Hit & Run sessions, swap in a 60–90 second opponent segment between the movement sequence and the 14-10 anchor. Pull patterns from `user_data/opponent_notes.md`.
 
 Structure:
 ```
@@ -74,7 +74,7 @@ Cue → silence → Self 2 runs the decisions.
 
 ---
 
-## Changes: Night Viz (`training/audio/night_viz_part*.txt`)
+## Changes: Night Viz (`user_data/audio/night_viz_part*.txt`)
 
 ### 1. Add silence gaps between scenarios
 The three scenarios (19-all, down 5-15, blowing a lead) are strong — keep them. But add 20 seconds of silence after each scenario resolves before cueing the next one. Let Self 2 run its own variation of the resolution.

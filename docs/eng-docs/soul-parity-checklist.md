@@ -8,18 +8,18 @@
 
 - [ ] Step 1: `git pull --rebase origin main` before anything else (sync pipeline commits).
 - [ ] Step 2: Read entire `SOUL.md`.
-- [ ] Step 3: Read `training/activities/quest_log.md` (read-only, auto-generated).
-- [ ] Step 4: Read `training/coach/state.md` (durable athlete state).
+- [ ] Step 3: Read `gen/quest_log.md` (read-only, auto-generated).
+- [ ] Step 4: Read `user_data/coach/state.md` (durable athlete state).
 - [ ] Step 4 branch: If Athlete Profile empty (template headings only) → First Session Protocol (§10), stop boot.
 - [ ] Step 4 note: Recent Session Notes (last 3) replaces boot-time read of `coach_notes.md`.
-- [ ] Step 5: Read `training/ledger/current_week.json`.
+- [ ] Step 5: Read `user_data/ledger/current_week.json`.
 - [ ] Step 6: Read Timezone from Athlete Profile; run `TZ=<tz> date` (fallback `TZ=UTC`).
 - [ ] Step 6: Trust week only if schema v1, `data_status=live`, today in week or rollover-grace day.
 - [ ] Step 6 stale/missing: Continue from durable state; say week needs refresh; never fabricate or silently reuse plan.
-- [ ] Step 7: Mandatory Strava catch-up — `python3 strava/query_history.py --last 10d` before greeting.
+- [ ] Step 7: Mandatory Strava catch-up — `python3 engine/core/query_history.py --last 10d` before greeting.
 - [ ] Step 7 freshness guard: If newest activity predates last session note or >~2 days old → suggest Sync gently.
 - [ ] Step 8: Open naturally per Greeting & Check-in; data in back pocket not on clipboard.
-- [ ] Boot exclusion: Do NOT read `training/coach/coach_notes.md` at boot.
+- [ ] Boot exclusion: Do NOT read `user_data/coach/coach_notes.md` at boot.
 - [ ] File roles table present: challenge_v2, quest_log, sleep_log, quest_history, state.md, current_week.json, coach_notes, history, sessions, roadmap, chat_history, templates, archive phases/week_plans.
 
 ## Guardrails (§2)
@@ -27,11 +27,11 @@
 - [ ] Coach does not write code — tell athlete to build.
 - [ ] Coach-owned files committed directly to `main` — no branch, no PR.
 - [ ] Coach-owned file list: state.md, current_week.json, coach_notes.md, challenge_v2.json, sleep_log.json, archive/week_plans.md, archive/phases.md, sessions/**.
-- [ ] Never modify SOUL.md, templates/*.json, pipeline scripts, GitHub workflows.
+- [ ] Never modify SOUL.md, user_data/activities/workout_plans/templates/*.json, pipeline scripts, GitHub workflows.
 - [ ] Non-coaching changes: branch + PR, Tech Lead review.
-- [ ] Never edit auto-generated `training/activities/quest_log.md`.
+- [ ] Never edit auto-generated `gen/quest_log.md`.
 - [ ] Never manually compute quest streaks or rates — read from quest_log.md.
-- [ ] On-demand-only at boot: coach_notes.md, training/reference/, skills/pipeline-tools.md, docs/ref-docs/phelps-voice-profile.md, docs/ref-docs/soul-calibration.md.
+- [ ] On-demand-only at boot: coach_notes.md, user_data/reference/, skills/pipeline-tools.md, docs/ref-docs/phelps-voice-profile.md, docs/ref-docs/soul-calibration.md.
 
 ## Identity & voice (§3)
 
@@ -56,7 +56,7 @@
 - [ ] Default phase framework: Base → Build → Peak (with descriptions).
 - [ ] Onboarding season example present (illustrative "Full Send Season" text).
 - [ ] Phase Awareness: Check date vs phase boundaries in state.md; reference naturally; no formal announcements.
-- [ ] Phase close: Write retrospective to training/coach/archive/phases.md; keep state.md and SOUL.md clean.
+- [ ] Phase close: Write retrospective to user_data/coach/archive/phases.md; keep state.md and SOUL.md clean.
 - [ ] The Challenge is kickstart within season — season continues after challenge ends.
 - [ ] Beyond current season, coaching relationship continues.
 - [ ] Operating mode: Principled not prescriptive; weekly spine is default not contract.
@@ -176,7 +176,7 @@
 - [ ] Ask schedule changes/events.
 - [ ] Apply Rules Engine for week type.
 - [ ] Check Active Injury Flags.
-- [ ] Load template from templates/ (strength_a, strength_b, foundation, recovery).
+- [ ] Load template from user_data/activities/workout_plans/templates/ (strength_a, strength_b, foundation, recovery).
 - [ ] Deload/injury mods in memory — never edit template files.
 - [ ] Save customized workout as session file.
 
@@ -299,7 +299,7 @@
 - [ ] validate-data CI backstop on main.
 - [ ] Confirm to athlete: save complete, session over.
 - [ ] Do NOT manually edit quest_log.md — regenerate only.
-- [ ] Do NOT modify templates/*.json.
+- [ ] Do NOT modify user_data/activities/workout_plans/templates/*.json.
 - [ ] Interim save: 10+ exchanges without commit → validate + commit changed coach files only.
 - [ ] Interim save message: coach: day-[X] interim — [context].
 - [ ] Interim save: no End-of-Day Check-in; resume conversation after.
@@ -307,7 +307,7 @@
 
 ## Cross-cutting (embedded in multiple sections)
 
-- [ ] Web chat memory: training/chat_history.json — not read at boot (hq-only).
+- [ ] Web chat memory: user_data/coach/chat_history.json — not read at boot (hq-only).
 - [ ] Vercel serverless / Sync-button pipeline note present (hq-only).
 - [ ] Section numbering §1–§12 preserved (no §13 commit protocol).
 - [ ] First Session Protocol referenced as §10 (not standalone section).

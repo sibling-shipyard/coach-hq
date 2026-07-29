@@ -2,9 +2,9 @@
 
 ## Context
 
-Real Coach Phelps sessions from the browser (and soon iOS), backed by Gemini. This doc traces
+Real Coach Phelps sessions from the browser and iOS, backed by Gemini. This doc traces
 exactly what happens between the athlete hitting send and anything landing on `main` — see
-ADR 0011 for why it commits the way it does. Companion to [`ios-sync.md`](ios-sync.md): that doc
+ADR 0012 for why it commits the way it does. Companion to [`ios-sync.md`](ios-sync.md): that doc
 covers the HealthKit ingestion path, this one covers the coaching-conversation path. They share
 a commit pattern (Git Data API, atomic) but nothing else.
 
@@ -13,7 +13,7 @@ a commit pattern (Git Data API, atomic) but nothing else.
 ```mermaid
 flowchart LR
     web["ui/client CoachChat.tsx"] --> api["ui/api/coach-chat.ts"]
-    ios["iOS CoachChatView (planned)"] --> api
+    ios["iOS CoachChatView"] --> api
     api --> ctx["read SOUL.md + state.md + quest_log.md"]
     ctx --> gemini["Gemini generateContent (gemini-flash-latest)"]
     gemini -- "ordinary turn" --> reply["reply only, no write"]
@@ -26,8 +26,8 @@ flowchart LR
 Entry points:
 
 - `CoachChat.tsx` — the web chat page, send button / Enter.
-- iOS `CoachChatView` (planned, see ADR 0011 and the iOS Builder issue) — same endpoint, same
-  contract, `Bearer <token>` auth instead of a session cookie.
+- iOS `CoachChatView` (see ADR 0012) — same endpoint, same contract, `Bearer <token>` +
+  `X-Coach-Repo` auth instead of a session cookie.
 
 Both call `POST /api/coach-chat` with `{ threadId?, messages, message }`. `messages` is the
 client's own in-memory running history for the thread — nothing is persisted server-side for an
@@ -73,42 +73,74 @@ sequenceDiagram
    in-memory thread; refreshing before "wrap" loses the conversation (accepted trade-off, no
    separate database — the repo is the only durable store).
 5. **Close-session turn** — the one moment a real commit happens:
-   - Load `chat_history.json`, find or create the thread, merge in the full message list.
    - Filter Gemini's `file_updates` through `isCoachWritable()` — only files in
      `COACH_WRITABLE_FILES` (`user_data/coach/state.md`, `coach_notes.md`,
      `user_data/ledger/challenge_v2.json`, `current_week.json`, `sleep_log.json`,
      `user_data/activities/workout_plans/sessions/**`) survive, regardless of what the model
-     proposed — defense in depth, not trust in instruction-following.
-   - Apply the count-based retention cap (ADR 0011): keep the 7 most-recently-active threads.
-   - `commitFilesAtomic()` — every valid `file_updates` entry plus the updated
-     `chat_history.json`, in **one** commit via the Git Data API (blob → tree → commit → ref,
-     retried on a non-fast-forward conflict), pushed straight to `main`. Commit message:
-     `coach: chat — <cleaned commit_message>`.
+     proposed — defense in depth, not trust in instruction-following. An update with
+     empty/blank content is dropped too, so a Gemini failure mode can't silently wipe a file.
+   - `chat_history.json`'s new content is **not** computed from a snapshot read before the
+     commit starts. It's a `resolve()` callback (`githubGitData.ts`'s `ResolvedFileWrite`) that
+     re-reads `chat_history.json` fresh, merges this thread to the front
+     (`mergeThreadToFront`), and reapplies the retention cap — run again on every commit retry
+     attempt, not just once. This closes a lost-update race: two requests touching the thread
+     list at once (e.g. this close racing a "Delete forever" in another tab) used to have
+     whichever committed last silently overwrite the other's change; now a losing attempt
+     retries against what the winner actually committed instead of clobbering it. A close
+     targeting a thread another request archived/deleted in the meantime fails loudly (400)
+     rather than silently resurrecting it as active.
+   - `commitFilesAtomic()` — every valid `file_updates` entry plus the resolved
+     `chat_history.json` content, in **one** commit via the Git Data API (blob → tree → commit →
+     ref, retried on a non-fast-forward conflict), pushed straight to `main`. Commit message:
+     `coach: chat — <cleaned commit_message>`. Known gap: that retry still treats a raw
+     network-level failure as retryable across the whole blob→tree→ref sequence, so a lost
+     response after the ref move already succeeded can redo it — same class of risk the
+     send-message retry fix addresses one layer up, not yet applied here.
 
 ## What does NOT happen in this action
 
-No GitHub Actions workflow is dispatched by chat. `challenge_v2.json` (if touched) is a plain
-push to `main` — on a repo where `sync.yml` already has a push trigger on that path, this
-indirectly re-triggers the downstream pipeline the same way an iOS HealthKit sync would; on a
-repo where `sync.yml` is `workflow_dispatch`-only, `quest_log.md` just stays slightly stale until
-the athlete next hits Sync themselves. This was a deliberate choice to avoid a second, racing
-workflow run — see the comment block at `coach-chat.ts:203-212`.
+No GitHub Actions workflow is dispatched by chat, deliberately (avoids a second, racing
+`sync.yml` run — see `coach-chat.ts:207-209`). `challenge_v2.json`, if
+touched, is just a plain push, so it re-triggers `sync.yml` only on a repo whose workflow already
+has a push trigger on that path; otherwise derived files like `quest_log.md` stay slightly stale
+until the athlete next hits Sync themselves.
 
 An ordinary (non-closing) turn writes nothing, commits nothing, and touches no file — the whole
 conversation lives in browser/app memory until close.
 
 ## Auth
 
-- **Web:** session cookie (`ensureFreshSession`/`withSessionCookie`, ADR 0009's refresh-token
-  rotation), carrying `gh_token` and `repo_full_name`.
-- **iOS (planned):** `Bearer <token>` via `GitHubAuthManager.validToken()`, same convention iOS
-  already uses for other `/api/*` calls (`GitHubAuthManager.swift:155-178`) — a different
-  transport for the same underlying per-athlete GitHub token, not a second auth system.
+`coach-chat.ts` uses the shared `resolveRepoAuth()` helper (`ui/api/auth/_lib/resolve-auth.ts`),
+the same one `widget-snapshots.ts` already uses (ADR 0005) — no new auth code needed for iOS:
 
-## Retention (ADR 0011)
+- **Web:** session cookie present → `ensureFreshSession`/`withSessionCookie` (ADR 0009's
+  refresh-token rotation), resolving `gh_token` and `repo_full_name`.
+- **iOS:** no cookie → falls through to `Authorization: Bearer <token>` +
+  `X-Coach-Repo: owner/repo` headers, same pattern `GitHubAPIClient.fetchWidgetSnapshots()`
+  already sends (`GitHubAPIClient.swift:215-259`). `CoachChatAPIClient` follows that exact
+  header shape.
+
+**Resilience matches the rest of the app**, not a special case: `fetchWithRetry`
+(`coachChatModel.ts`) and `CoachChatAPIClient.withRetry` retry a transient failure (network
+drop, 5xx, 429) with the same backoff `githubGitData.ts`/`GitHubAPIClient` already use, never a
+real 4xx rejection. Sending a message is the one exception: a 5xx/429 *response* still retries
+(the server confirmed nothing committed), but a raw network-level failure does not, since a
+close-session turn's commit could have already landed before the response was lost — retrying
+that blindly would re-run Gemini and the commit a second time. A 401 gets its own "sign in
+again" UI on both platforms (`RepoDataGate`'s
+`accessRevoked` card on web, `CoachChatView.signInAgainView` on iOS) instead of a generic error.
+`CoachChatView` re-triggers its thread load via `.task(id: chatFetchToken)` once
+`GitHubAuthManager`'s session/repo discovery finishes, the same fix `WarmInstrumentHomeView`
+uses for Home — without it, a cold-launch race leaves the tab silently empty forever, since it
+never unmounts to retry on its own.
+
+## Retention (ADR 0012)
 
 Newest 7 threads by last activity survive, across active + archived status combined. Creating
-an 8th evicts the oldest. Deletes are immediate — no soft-delete window. Replaces the prior
+an 8th evicts the oldest. Soft-deleted threads (`status: "deleted"`) don't count toward the cap
+and aren't auto-purged — they sit in the DELETED section until the athlete taps Restore (back to
+active) or Delete Forever, which sends the same "deleted" status a second time; the server
+recognizes that as a real hard delete and removes the thread outright. Replaces the prior
 30-day-archived / 7-day-deleted calendar purge.
 
 ## Files changed — summary
@@ -134,5 +166,7 @@ never written by chat.
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API), shared by all writes in `coach-chat.ts` |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |
 | `ui/client/src/components/coach-chat/coachChatModel.ts` | client fetch helpers (`fetchThreads`, `sendMessage`, `setThreadStatus`) |
-| `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift` (planned) | iOS client of the same endpoint |
+| `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift` | iOS client of the same endpoint (Bearer + X-Coach-Repo) |
+| `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift` | Codable mirrors of the server's ChatThread/ChatMessage JSON |
+| `ios/CoachHQ/CoachHQ/Views/CoachChatView.swift` | iOS chat UI, wired into `MainTabView.swift`'s `.chat` tab |
 | `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | iOS's own Git Data API implementation — HealthKit sync only, not shared with chat |

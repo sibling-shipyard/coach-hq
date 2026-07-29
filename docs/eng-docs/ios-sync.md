@@ -126,10 +126,10 @@ files.
 
 | File | Role |
 |---|---|
-| `ios/CoachPhelps/CoachPhelps/Views/SyncStatusView.swift` | Sync Now button, pull-to-refresh |
-| `ios/CoachPhelps/CoachPhelps/Views/ActivityListView.swift` | secondary sync trigger |
-| `ios/CoachPhelps/CoachPhelps/Services/HealthKitSyncManager.swift` | orchestrates the whole flow |
-| `ios/CoachPhelps/CoachPhelps/Services/ActivityMapper.swift` | HKWorkout → Activity schema, HR zones |
-| `ios/CoachPhelps/CoachPhelps/Services/ActivityNamer.swift` | sequential naming, filenames |
-| `ios/CoachPhelps/CoachPhelps/Services/GitHubAPIClient.swift` | Git Data API commits, reads |
-| `ios/CoachPhelps/CoachPhelps/Services/GitHubAuthManager.swift` | OAuth + Keychain token storage |
+| `ios/CoachHQ/CoachHQ/Views/SyncStatusView.swift` | Sync Now button, pull-to-refresh |
+| `ios/CoachHQ/CoachHQ/Views/ActivityListView.swift` | secondary sync trigger |
+| `ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift` | orchestrates the whole flow |
+| `ios/CoachHQ/CoachHQ/Services/ActivityMapper.swift` | HKWorkout → Activity schema, HR zones |
+| `ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift` | sequential naming, filenames |
+| `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | Git Data API commits, reads |
+| `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | OAuth + Keychain token storage |

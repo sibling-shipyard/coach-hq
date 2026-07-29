@@ -44,7 +44,7 @@ The app is being built in three distinct phases.
 
 - **Weekly Summary:** Port the web dashboard's weekly card (workouts completed, hours, badminton W/L record).
 - **Quest Log:** Native view of `quest_log.md` progress.
-- **Data Source:** Reads directly from `training/activities/history/*.json` and `plugins/badminton/data/badminton_match_data.json`.
+- **Data Source:** Reads directly from `user_data/activities/hist/*.json` and `platform/plugins/badminton/data/badminton_match_data.json`.
 
 ### Future: Apple Watch Companion
 - A WatchOS app that mirrors the active iOS timer.
@@ -62,8 +62,8 @@ The system uses a unidirectional data flow centered around the GitHub repository
 2. iOS App wakes up (Background Delivery) or user opens the app.
 3. App fetches the `HKWorkout` and associated `HKQuantitySample` (Heart Rate).
 4. App maps data to the `Activity` JSON schema, computes HR zones, and assigns a name.
-5. App commits the new `hk_YYYY-MM-DD_<type>_<num>.json` file to `training/activities/history/` via GitHub Contents API.
-6. App updates `training/sync_state.json` with the incremented counters.
+5. App commits the new `hk_YYYY-MM-DD_<type>_<num>.json` file to `user_data/activities/hist/` via GitHub Contents API.
+6. App updates `user_data/activities/sync_state.json` with the incremented counters.
 
 ### Badminton Score Flow
 1. User taps a synced badminton activity in the app.
