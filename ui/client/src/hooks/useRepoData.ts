@@ -55,18 +55,22 @@ export interface UseRepoDataResult {
   loading: boolean;
   error: string | null;
   schemaUnsupported: boolean;
+  // True when repo-file.ts's 401 - GitHub access was revoked/expired mid-session, not a
+  // generic fetch failure. RepoDataGate.tsx shows a specific "sign in again" message + button
+  // for this instead of the generic error state's Switch repo/Sign out pair.
+  accessRevoked: boolean;
 }
 
 let cachedData: RepoData | null = null;
 
 function initialState(): UseRepoDataResult {
   if (import.meta.env.DEV) {
-    return { data: LOCAL_DATA, loading: false, error: null, schemaUnsupported: false };
+    return { data: LOCAL_DATA, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
   }
   if (cachedData) {
-    return { data: cachedData, loading: false, error: null, schemaUnsupported: false };
+    return { data: cachedData, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
   }
-  return { data: null, loading: true, error: null, schemaUnsupported: false };
+  return { data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false };
 }
 
 export function useRepoData(): UseRepoDataResult {
@@ -88,6 +92,7 @@ export function useRepoData(): UseRepoDataResult {
             loading: false,
             error: body.error ?? "Failed to load your data",
             schemaUnsupported: false,
+            accessRevoked: res.status === 401,
           });
           return;
         }
@@ -97,16 +102,22 @@ export function useRepoData(): UseRepoDataResult {
           typeof aggregate.schema_version === "number" &&
           aggregate.schema_version > SUPPORTED_SCHEMA_VERSION
         ) {
-          setState({ data: null, loading: false, error: null, schemaUnsupported: true });
+          setState({ data: null, loading: false, error: null, schemaUnsupported: true, accessRevoked: false });
           return;
         }
 
         cachedData = aggregate;
-        setState({ data: aggregate, loading: false, error: null, schemaUnsupported: false });
+        setState({ data: aggregate, loading: false, error: null, schemaUnsupported: false, accessRevoked: false });
       })
       .catch(() => {
         if (!cancelled) {
-          setState({ data: null, loading: false, error: "Failed to load your data", schemaUnsupported: false });
+          setState({
+            data: null,
+            loading: false,
+            error: "Failed to load your data",
+            schemaUnsupported: false,
+            accessRevoked: false,
+          });
         }
       });
 

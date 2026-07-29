@@ -36,6 +36,17 @@ export default {
       { headers: GH_HEADERS(session.gh_token) }
     );
 
+    if (contentsRes.status === 401 || contentsRes.status === 403) {
+      // Distinct from a generic failure: this is what a revoked/expired GitHub App
+      // installation looks like (user removed access on GitHub's side, or the App was
+      // uninstalled) while the session cookie is still within its ~8h window. "Failed to
+      // fetch your data" would be misleading here - the fix isn't retrying, it's signing
+      // in again. RepoDataGate.tsx keys off this specific error string.
+      return Response.json(
+        { error: "Your GitHub access was revoked or expired - sign in again to reconnect." },
+        { status: 401 }
+      );
+    }
     if (contentsRes.status === 404) {
       return Response.json(
         { error: "gen/aggregate.json not found in your repo - has it synced yet?" },

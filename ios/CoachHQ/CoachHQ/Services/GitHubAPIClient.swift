@@ -622,7 +622,7 @@ enum GitHubAPIError: LocalizedError {
 
     private static func hint(for status: Int) -> String {
         switch status {
-        case 401: return " — token expired, reconnect in Settings"
+        case 401: return " — token expired, sign out and sign in again in Settings"
         case 403: return " — rate limited, retried automatically"
         case 409: return " — repo changed mid-save, retried automatically"
         case 422: return " — GitHub rejected the request"

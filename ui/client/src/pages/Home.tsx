@@ -8,10 +8,16 @@ import type { ChallengeV2 } from "@/lib/challenge";
 import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 
 export default function Home() {
-  const { data, loading, error, schemaUnsupported } = useRepoData();
+  const { data, loading, error, schemaUnsupported, accessRevoked } = useRepoData();
   const notOnboarded = !loading && !error && !schemaUnsupported && data != null && data.challenge_v2 == null;
   return (
-    <RepoDataGate loading={loading} error={error} schemaUnsupported={schemaUnsupported} notOnboarded={notOnboarded}>
+    <RepoDataGate
+      loading={loading}
+      error={error}
+      schemaUnsupported={schemaUnsupported}
+      notOnboarded={notOnboarded}
+      accessRevoked={accessRevoked}
+    >
       {data && data.challenge_v2 != null && <HomeContent data={data} />}
     </RepoDataGate>
   );

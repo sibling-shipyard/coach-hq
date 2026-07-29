@@ -23,6 +23,11 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     /// CoachHQApp routes to SetupView while this is set (the native equivalent of
     /// pages/Setup.tsx). Cleared once continueToInstall() resolves a repo.
     @Published var pendingSetupLogin: String?
+    /// fetchUser()/resolveRepoIfNeeded() used to fail silently (print() only) - a network
+    /// blip during sign-in left `user`/`selectedRepo` quietly unset with no signal to the
+    /// person looking at the screen. LoginView/SetupView surface this the same way they
+    /// already surface a thrown sign-in error.
+    @Published var lastNetworkError: String?
 
     private let keychainKey = "com.siblingshipyard.coachhq.github.token"
     private let callbackScheme = "coachhq"
@@ -104,6 +109,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     ///                                     callback.ts found exactly one owned+confirmed repo
     ///                                     (the common case - installs are single-repo)
     private func handleCallback(_ url: URL) async throws {
+        lastNetworkError = nil
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         func value(_ name: String) -> String? { items.first(where: { $0.name == name })?.value }
 
@@ -145,6 +151,13 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         isSessionReady = false
         await fetchUser()
         await resolveRepoIfNeeded()
+        // Couldn't resolve a repo at all (rare - not exactly one owned+confirmed candidate,
+        // and list-my-repos.ts's fallback also came up empty). Route back into the Setup
+        // wizard instead of leaving CoachHQApp stuck on a broken MainTabView with no repo -
+        // see CoachHQApp.swift's routing, which checks this alongside isAuthenticated.
+        if selectedRepo == nil {
+            pendingSetupLogin = user?.login
+        }
         isSessionReady = true
     }
 
@@ -163,6 +176,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
                 selectedRepo = result.repoFullName
             }
         } catch {
+            lastNetworkError = "Couldn't look up your repo just now - check your connection and try again."
             print("Failed to resolve repo: \(error)")
         }
     }
@@ -179,6 +193,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
             let (data, _) = try await URLSession.shared.data(for: request)
             user = try JSONDecoder().decode(GitHubUser.self, from: data)
         } catch {
+            lastNetworkError = "Couldn't load your GitHub profile just now - check your connection and try again."
             print("Failed to fetch user: \(error)")
         }
     }
@@ -219,6 +234,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         user = nil
         selectedRepo = nil
         pendingSetupLogin = nil
+        lastNetworkError = nil
     }
 }
 

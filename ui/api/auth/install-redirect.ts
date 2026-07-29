@@ -17,17 +17,24 @@ const OAUTH_STATE_MAX_AGE_SEC = 600; // 10 min - just needs to survive the redir
 // there.
 export default {
   async fetch(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+    const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
+
     if (!CLIENT_ID) {
-      return Response.json({ error: "GITHUB_APP_CLIENT_ID not configured" }, { status: 500 });
+      // See start.ts's identical check for why this redirects instead of returning JSON.
+      const headers = new Headers();
+      headers.set(
+        "Location",
+        platform === "ios" ? "coachhq://callback?error=config_error" : `${url.origin}/?auth_error=config_error`,
+      );
+      return new Response(null, { status: 302, headers });
     }
 
     const state = generateRandomString(24);
     const codeVerifier = generateRandomString(48);
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    const url = new URL(req.url);
     const redirectUri = `${url.origin}/api/auth/callback`;
-    const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
 
     const installUrl = new URL(`https://github.com/apps/${APP_SLUG}/installations/new`);
     installUrl.searchParams.set("state", state);

@@ -62,12 +62,30 @@ export default {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
 
-    if (!CLIENT_ID || !CLIENT_SECRET) {
-      return errorRedirect(url.origin, "config_error", "web", false);
+    // Defaults to a web redirect regardless of platform - an uncaught exception here means a
+    // GitHub API call itself threw (see handleCallback's comment), rare enough that an iOS
+    // session seeing a web error page instead of a native one is an acceptable degrade rather
+    // than threading platform out of the try block for this one case.
+    try {
+      return await handleCallback(req, url);
+    } catch {
+      return errorRedirect(url.origin, "network_error", "web");
     }
+  },
+};
 
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
+// GitHub API calls below aren't individually try/caught - a thrown exception (DNS blip,
+// timeout, transient network failure - not a 4xx/5xx *response*, an actual throw) previously
+// propagated uncaught, and Vercel's own generic 500 page replaced AuthError.tsx entirely: no
+// styling, no recovery buttons, the exact class of dead end the rest of this file exists to
+// avoid. The wrapper above catches anything this function throws.
+async function handleCallback(req: Request, url: URL): Promise<Response> {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    return errorRedirect(url.origin, "config_error", "web", false);
+  }
+
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
 
     if (!code || !state) {
       return errorRedirect(url.origin, "missing_params", "web", false);
@@ -173,6 +191,5 @@ export default {
     headers.append("Set-Cookie", buildCookie(SESSION_COOKIE, session, SESSION_MAX_AGE_SEC));
     headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
 
-    return new Response(null, { status: 302, headers });
-  },
-};
+  return new Response(null, { status: 302, headers });
+}
