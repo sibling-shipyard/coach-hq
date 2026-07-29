@@ -102,11 +102,10 @@ only backend.
 
 ## A correction worth noting
 
-`AGENTS.md` describes `apply-coach-patch.yml` as a "Phone session commit fallback." Tracing the
-actual code: that workflow is unrelated to HealthKit sync — it's a generic `workflow_dispatch`
-that takes a pasted text blob ("apply this patch from a Coach chat session") and commits it. It
-isn't referenced anywhere in the iOS codebase. Not fixing `AGENTS.md` in this session, just
-flagging the mismatch.
+`apply-coach-patch.yml` lives only in athlete repos — carved from
+`engine/.github/workflows/apply-coach-patch.yml` into each fork's `.github/workflows/`. It is
+unrelated to HealthKit sync: a generic `workflow_dispatch` that commits a pasted Coach chat patch.
+Not referenced in the iOS codebase. `AGENTS.md` no longer documents it as a phone fallback.
 
 ## Files changed — summary
 

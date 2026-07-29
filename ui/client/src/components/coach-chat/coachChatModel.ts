@@ -103,7 +103,7 @@ function isTransientStatus(status: number): boolean {
 
 // sendMessage() passes retryNetworkFailures: false - retrying a raw network failure (as opposed
 // to a confirmed 5xx/429 response) risks re-running a close-session commit that already landed.
-// See platform/docs/coach-chat-flow.md's Resilience section.
+// See docs/eng-docs/coach-chat-flow.md's Resilience section.
 async function fetchWithRetry(
   input: RequestInfo,
   init?: RequestInit,

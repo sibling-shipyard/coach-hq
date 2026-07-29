@@ -5,11 +5,11 @@
 - **Context:** HQ root mixes product surfaces, platform backend, engine IP, operator tooling, and dogfood athlete data (`user_data/`, `gen/`). M1 carved a clean athlete repo; HQ needs the same band discipline before more path moves.
 - **Decision:** HQ organizes into five root bands — `shared/` (cross-platform fixtures + tokens), `ui/` (web + `ui/api/` platform backend), `ios/`, `platform/` (HQ IP: soul, carve/provision, contracts, plugins), `engine/` (exact mirror of athlete runtime post-carve). HQ never holds populated athlete instances.
 - **Why:** One grep-friendly story for what ships to athlete repos vs what stays operator-only. Carve becomes "copy `engine/` verbatim + compose from `platform/`" instead of hunting HQ-only paths inside `engine/`.
-- **Rejected:** New GitHub repo for platform backend → two-repo topology locked ([`scaling-plan.md`](../../docs/engineering/scaling-plan.md)). Move `ui/api/` to `platform/` now → correct logical home but Vercel Root Directory is `ui/`; defer until deploy rewire (P2). Rename `ui/` → `frontend/` → breaks Vercel config.
+- **Rejected:** New GitHub repo for platform backend → two-repo topology locked ([`scaling-plan.md`](../../docs/eng-docs/scaling-plan.md)). Move `ui/api/` to `platform/` now → correct logical home but Vercel Root Directory is `ui/`; defer until deploy rewire (P2). Rename `ui/` → `frontend/` → breaks Vercel config.
 
 ## Carve copy map
 
-Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-plan.md`](../../docs/engineering/hq-restructure-plan.md).
+Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-plan.md`](../../docs/eng-docs/hq-restructure-plan.md).
 
 | Source (HQ) | Skeleton destination | Band |
 |---|---|---|
@@ -17,7 +17,8 @@ Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-p
 | `engine/lib/`, `engine/core/`, `engine/claude/athlete/` | `engine/` + root Claude config | `engine/` |
 | `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
 | `platform/scripts/compose-soul.mjs` + `platform/soul/` | *(runs at carve)* → `propagated/SOUL.md` | `platform/` |
-| `platform/docs/` (5 refs) + `platform/skills/pipeline-tools.md` | `propagated/docs/` | `platform/` |
+| HQ composed artifact (pre-carve) | `platform/SOUL.md` | `platform/` |
+| `docs/ref-docs/` (5 refs) + `platform/skills/pipeline-tools.md` | `propagated/docs/` | `platform/` |
 | `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
 | `platform/scripts/carve-skeleton.mjs`, `provision-user.sh` | not copied | `platform/` |
 | `platform/plugins/` | not copied | `platform/` |
@@ -27,5 +28,4 @@ Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-p
 
 ## Deferred
 
-- `propagated/SOUL.md` under `platform/artifacts/` vs carve-only output.
 - `ui/api/` physical move to `platform/api/` with Vercel rewire.

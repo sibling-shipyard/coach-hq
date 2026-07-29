@@ -1,6 +1,6 @@
 # HQ Restructure Plan
 
-> **Active** · M1 + R5 cleared · R6a/R6b done (uncommitted) · Authority: [`scaling-plan.md`](scaling-plan.md) (two-repo topology unchanged)
+> **Active** · R0–R6c complete · Authority: [`scaling-plan.md`](scaling-plan.md) (two-repo topology unchanged)
 
 ## Context
 
@@ -31,10 +31,11 @@ flowchart TB
 | `shared/` | Cross-platform sample data + design tokens ([ADR 0007](../kdb/decisions/0007-golden-dataset-for-sample-data.md)) |
 | `ui/` | Web app + platform backend (`ui/api/auth/`, coach-chat, repo-file) |
 | `ios/` | Native app |
-| `platform/` | Soul layers + operator scripts (R3 ✓); plugins, docs, skeleton-templates (R4 ✓) |
+| `platform/` | Soul layers + operator scripts (R3 ✓); plugins, skeleton-templates (R4 ✓) |
+| `docs/` | Eng plans (`eng-docs/`) + carve refs (`ref-docs/`) — HQ-only |
 | `engine/` | Exactly what athlete repos get post-carve |
 
-**Carve rule:** `platform/` → `propagated/` + stamps; `engine/` copies verbatim. CI fails if platform paths leak into carve output.
+**Carve rule:** `platform/SOUL.md` → athlete `propagated/SOUL.md`; `docs/ref-docs/` → `propagated/docs/`; stamps; `engine/` copies verbatim. CI fails if platform paths leak into carve output.
 
 ## Milestones
 
@@ -48,21 +49,21 @@ flowchart LR
   R4 --> R5["R5 drop dogfood ✓"]
   R5 --> R6a["R6a root tidy ✓"]
   R6a --> R6b["R6b fold scripts ✓"]
-  R6b --> R6c["R6c propagated → platform/artifacts"]
+  R6b --> R6c["R6c SOUL → platform/SOUL.md ✓"]
   R2["R2 golden ✓"] -.-> R5
 ```
 
 | # | Size | Done when |
 |---|---|---|
 | **R0** | S | ADR records four-band layout + carve copy map | **Done** — [ADR 0011](../kdb/decisions/0011-hq-four-band-layout.md) |
-| **R1** | S | Eng plans under `docs/engineering/` | **Done** |
+| **R1** | S | Eng plans under `docs/eng-docs/` | **Done** |
 | **R2** | M | `shared/golden-dataset/` powers local dev; `ui/client/src/data/` decoupled from HQ instance paths | **Done** |
 | **R3** | M | `platform/` band — soul + operator scripts | **Done** |
 | **R4** | L | HQ-only code out of `engine/`; skeleton re-carved | **Done** |
 | **R5** | S | Delete root `user_data/`, `gen/`, `data/`; local dev uses golden dataset only | **Done** |
 | **R6a** | S | Delete `sessions/`; move root markdown → `docs/`; `tests/` → `platform/tests/` | **Done** |
 | **R6b** | S | Fold root `scripts/` → `kdb/scripts/`, `platform/plugins/badminton/` | **Done** |
-| **R6c** | M | HQ-only: `propagated/` → `platform/artifacts/` (athlete carve output unchanged) | Pending |
+| **R6c** | M | HQ-only: composed SOUL at `platform/SOUL.md` (athlete carve → root `propagated/`) | **Done** |
 
 ## Risks (one-liners)
 
@@ -72,7 +73,6 @@ flowchart LR
 
 ## Deferred → ADR before R0
 
-- `propagated/SOUL.md` under `platform/artifacts/` vs carve-only output.
 - Plugin pack layout (#90) vs full `platform/plugins/` carve.
 
 ## P2 follow-ups

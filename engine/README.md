@@ -2,7 +2,7 @@
 
 Exactly what athlete repos get post-carve. **HQ-only authoring** lives in `platform/` (soul, plugins, templates, docs).
 
-Layout: [`docs/engineering/skeleton-layout.md`](../docs/engineering/skeleton-layout.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../platform/scripts/carve-skeleton.mjs)
+Layout: [`docs/eng-docs/skeleton-layout.md`](../docs/eng-docs/skeleton-layout.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../platform/scripts/carve-skeleton.mjs)
 
 ## Contents (carved verbatim)
 

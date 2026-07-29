@@ -4,7 +4,7 @@
 
 Real Coach Phelps sessions from the browser and iOS, backed by Gemini. This doc traces
 exactly what happens between the athlete hitting send and anything landing on `main` — see
-ADR 0012 for why it commits the way it does. Companion to `platform/docs/ios-sync.md`: that doc
+ADR 0012 for why it commits the way it does. Companion to [`ios-sync.md`](ios-sync.md): that doc
 covers the HealthKit ingestion path, this one covers the coaching-conversation path. They share
 a commit pattern (Git Data API, atomic) but nothing else.
 

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Native Coach Chat - a client of the same /api/coach-chat endpoint the web app uses
-/// (platform/docs/coach-chat-flow.md, ADR 0012). No Gemini or commit logic lives here; this
+/// (docs/eng-docs/coach-chat-flow.md, ADR 0012). No Gemini or commit logic lives here; this
 /// view only sends/receives and renders. Smallest useful surface for #126: thread list +
 /// conversation pane + thinking indicator, matching the web app's information, not its full
 /// Warm Instrument chrome pixel-for-pixel.

@@ -33,4 +33,4 @@ Rules:
 - A PR that changes a locked/architectural decision must add or supersede an ADR here
   (Tech Lead checks this in review).
 
-Seeded from `docs/engineering/scaling-plan.md` §4 (locked decisions).
+Seeded from `docs/eng-docs/scaling-plan.md` §4 (locked decisions).

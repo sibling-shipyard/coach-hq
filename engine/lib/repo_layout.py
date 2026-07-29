@@ -153,3 +153,15 @@ def activities_dir(repo: Path) -> Path:
     if uses_new_layout(repo):
         return repo / "user_data" / "activities"
     return repo / "training" / "activities"
+
+
+def soul_file_path(repo: Path) -> Path:
+    """Composed SOUL — HQ: platform/SOUL.md; athlete repos: propagated/SOUL.md."""
+    if is_hq_monorepo(repo):
+        hq = repo / "platform" / "SOUL.md"
+        if hq.is_file():
+            return hq
+    propagated = repo / "propagated" / "SOUL.md"
+    if propagated.is_file():
+        return propagated
+    return repo / "SOUL.md"

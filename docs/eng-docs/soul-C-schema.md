@@ -1,7 +1,7 @@
 # Layer C Schema — Declarative Athlete Seam (MVP)
 
 > **Status:** Design only — Tech Lead sign-off gate for S2  
-> **Source:** [`engineering/soul-split-plan.md`](engineering/soul-split-plan.md) MVP shape + v5.7 runtime files  
+> **Source:** [`soul-split-plan.md`](soul-split-plan.md) MVP shape + v5.7 runtime files  
 > **Scope:** Schema definition only. `tracking_modules{}` is **reserved and empty** in MVP.
 
 ## Purpose
@@ -84,7 +84,7 @@ B does **not** manually count quest streaks (reads `quest_log.md`), store day-by
 | Coaching priorities, learned patterns | `state.md` | Coach-derived institutional memory — stays in state.md (not MVP schema slots) |
 | Recent session notes | `state.md` | Rolling last 3 — boot continuity |
 | Season arc, phase, milestones, quests | `user_data/ledger/challenge_v2.json` | Structured JSON — single source of truth for gamification |
-| Active week plan | `user_data/ledger/current_week.json` | Schema v1 per `docs/current-week-contract.md` |
+| Active week plan | `user_data/ledger/current_week.json` | Schema v1 per `docs/ref-docs/current-week-contract.md` |
 
 ### Schema version note
 
@@ -151,9 +151,9 @@ From Sky's `state.md` → Active Injury Flags (abbreviated):
 tracking_modules: {}   # MVP — empty. Sky's sleep/PRE/RPE live in state.md sections until P2.
 ```
 
-Future modules (not MVP): `cycle`, `readiness`, `illness`, `hrv_deload` — per [`engineering/soul-split-plan.md`](engineering/soul-split-plan.md) follow-ups.
+Future modules (not MVP): `cycle`, `readiness`, `illness`, `hrv_deload` — per [`soul-split-plan.md`](soul-split-plan.md) follow-ups.
 
-HQ ships a **v4 template** (see [`engineering/challenge-v2-schema.md`](engineering/challenge-v2-schema.md)). Legacy v2/v3 repos **migrate to v4** at provision — no parallel shapes in production.
+HQ ships a **v4 template** (see [`challenge-v2-schema.md`](challenge-v2-schema.md)). Legacy v2/v3 repos **migrate to v4** at provision — no parallel shapes in production.
 
 | Block | Sky example (v4 data) |
 |-------|-------------|
@@ -171,7 +171,7 @@ S2 parity must preserve this live shape even though MVP schema formalizes only `
 | File | HQ (`coach-phelps-hq/main`) | Sky (`coach-phelps`) |
 |------|----------------------------|----------------------|
 | `state.md` | Empty Athlete Profile template | Evolved runtime sections (no Athlete Profile heading — data migrated to structured sections) |
-| `challenge_v2.json` | v4 template (see [`engineering/challenge-v2-schema.md`](engineering/challenge-v2-schema.md)) | v4 live — migrate from legacy v2/v3 at provision |
+| `challenge_v2.json` | v4 template (see [`challenge-v2-schema.md`](challenge-v2-schema.md)) | v4 live — migrate from legacy v2/v3 at provision |
 | `current_week.json` | Absent until first week plan | Live W30 with guardrails |
 
 First Session Protocol (§10) populates the HQ template shape. Long-running athletes may evolve `state.md` beyond the template — C schema must tolerate both.

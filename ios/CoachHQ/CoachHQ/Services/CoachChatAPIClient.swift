@@ -1,7 +1,7 @@
 import Foundation
 
 /// Client for /api/coach-chat - a thin client of the same endpoint the web app talks to
-/// (see platform/docs/coach-chat-flow.md, ADR 0012). No Gemini calls or Git Data API commit
+/// (see docs/eng-docs/coach-chat-flow.md, ADR 0012). No Gemini calls or Git Data API commit
 /// logic here: the server does all of that. Kept separate from GitHubAPIClient, which talks
 /// straight to GitHub's REST API for HealthKit sync - this hits the dashboard's own API
 /// instead, same as GitHubAPIClient.fetchWidgetSnapshots() already does for Home (ADR 0005).

@@ -145,7 +145,7 @@ Source: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-ske
 |---|---|
 | Boot | `propagated/SOUL.md`, `propagated/docs/`, `CLAUDE.md`, `SETUP.md`, `README.md` |
 | Engine | `engine/scripts/`, `lib/`, `core/` |
-| Workflows | `sync.yml`, `validate-data.yml`, `apply-coach-patch.yml` |
+| Workflows | athlete `.github/workflows/` — `sync.yml`, `validate-data.yml`, `apply-coach-patch.yml` (carved from `engine/.github/workflows/`) |
 | Gen | Placeholders under `gen/` |
 | User data | Seeds under `user_data/` + 2 sample templates |
 | Pin | `.coach-engine-version` |

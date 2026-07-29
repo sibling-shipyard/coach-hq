@@ -1,6 +1,6 @@
 /**
  * coach-chat.ts — real Coach Phelps sessions from the browser and iOS, backed by Gemini.
- * Full design/flow: platform/docs/coach-chat-flow.md. Commit + retention design: ADR 0012.
+ * Full design/flow: docs/eng-docs/coach-chat-flow.md. Commit + retention design: ADR 0012.
  *
  * GET                        → load already-wrapped/committed threads
  * POST {threadId?, messages, message} → send a message, get a real coach reply.
@@ -187,7 +187,7 @@ function applyRetention(threads: ChatThread[]): ChatThread[] {
 
 // Deliberately NOT dispatching sync.yml here - a repo whose workflow has a push trigger on
 // challenge_v2.json already re-syncs from the commit above; dispatching too would risk a second,
-// racing run. See platform/docs/coach-chat-flow.md's "What does NOT happen" section.
+// racing run. See docs/eng-docs/coach-chat-flow.md's "What does NOT happen" section.
 
 interface GeminiReply {
   reply: string;

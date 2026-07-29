@@ -1,7 +1,7 @@
 import Foundation
 
 /// Mirrors the JSON shapes ui/api/coach-chat.ts and coachChatModel.ts already define -
-/// see platform/docs/coach-chat-flow.md. A single flat struct instead of a Swift enum with
+/// see docs/eng-docs/coach-chat-flow.md. A single flat struct instead of a Swift enum with
 /// associated values: the three roles (divider/user/coach) only populate the fields that
 /// apply to them, which Codable handles fine without a custom discriminated-union decoder.
 struct ChatMessage: Codable, Identifiable, Equatable {

@@ -35,7 +35,7 @@ A living record of how Coach Phelps evolved — what changed, and why. Updated w
 **Theme:** Build Phase milestones got a structured display/progress lane without touching canonical prose.
 
 **What changed:**
-- §8 pointer to new `docs/milestone-schema.md` — authority for optional `short_*` display fields and `progress` blocks on `challenge_v2.json` milestones. SOUL keeps behavior; schema stays in the contract doc (mirrors `current-week-contract.md` pattern).
+- §8 pointer to new `docs/ref-docs/milestone-schema.md` — authority for optional `short_*` display fields and `progress` blocks on `challenge_v2.json` milestones. SOUL keeps behavior; schema stays in the contract doc (mirrors `current-week-contract.md` pattern).
 
 **Why:** Dashboard Build Phase widget needed terse rows and honest progress bars. Prose milestone names stay canonical for the quest-log generator; structured fields feed the UI without Coach hand-computing percentages.
 
@@ -109,7 +109,7 @@ A living record of how Coach Phelps evolved — what changed, and why. Updated w
 - Extended Situation Playbook with two real-world edges: multi-day gap re-entry and using mental state (PRE:/game-note) data without judgment.
 - Tools section slimmed to purpose/when-to-use; full CLI flag reference moved to `skills/pipeline-tools.md`.
 - New on-demand companion files introduced:
-  - `docs/soul-calibration.md` — good/bad/borderline output anchors
+  - `docs/ref-docs/soul-calibration.md` — good/bad/borderline output anchors
   - `training/opponent_notes.md` — opponent scouting notes (load when opponent named)
 
 **Why:** v4.1 was operational but brittle: too much loaded at boot, rules scattered, and no examples anchoring voice. v5 reduces boot noise (lost-in-the-middle), centralizes hard constraints, and adds calibration examples so the coach stays Phelps under pressure.
