@@ -154,6 +154,12 @@ enum WarmInstrument {
             ? UIColor(red: 0x27 / 255, green: 0x25 / 255, blue: 0x20 / 255, alpha: 1)
             : UIColor(red: 0xf3 / 255, green: 0xee / 255, blue: 0xe3 / 255, alpha: 1)
     })
+    /// Coach Chat message pane — slightly warmer than desk (`Coach Chat Mobile.dc.html`).
+    static let chatSurface = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x22 / 255, green: 0x21 / 255, blue: 0x1c / 255, alpha: 1)
+            : UIColor(red: 0xf5 / 255, green: 0xf0 / 255, blue: 0xe6 / 255, alpha: 1)
+    })
     static let ink = Theme.ink
     static let inkMuted = Color(red: 0x75 / 255, green: 0x74 / 255, blue: 0x6b / 255)
     static let inkFaint = Color(red: 0x98 / 255, green: 0x99 / 255, blue: 0x8f / 255)
