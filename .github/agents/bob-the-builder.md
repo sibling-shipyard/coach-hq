@@ -17,7 +17,7 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 ## Gotchas
 
 - Activity naming: `engine/core/rename_core.py` is source of truth — keep iOS `ActivityNamer.swift` aligned.
-- Regenerate derived data with `python3 scripts/regenerate_derived.py` (quest_log, quest_history, sync_status); `user_data/activities/quest_log.md` is auto-generated — never edit manually.
+- Regenerate derived data with `python3 scripts/regenerate_derived.py` (quest_log, quest_history, sync_status); `gen/quest_log.md` is auto-generated — never edit manually.
 - `data:` commits to `main` for sync-only changes; scripts/workflows need branch + PR (see `.github/CONVENTIONS.md`).
 
 ## Learnings

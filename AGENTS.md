@@ -52,8 +52,7 @@ Two layers, both small on purpose:
   re-litigate them; if one is wrong, supersede it with a new ADR. A PR that changes a locked/architectural
   decision must add or supersede an ADR — Tech Lead checks this in review.
 - **Doc style — `kdb/doc-style.md`.** Any design/architecture doc, RFC, plan, or ADR follows the house style in `kdb/doc-style.md`: short, diagram-led, plain English (self-contained — no external skill required).
-- **Recording:** a durable rule for your area → your role doc's `## Learnings` section; a
-  decision with tradeoffs → a new ADR in `kdb/decisions/`.
+**Recording:** durable rule for your area → that role doc's `## Learnings` (one line, when you discover it mid-task). Tradeoffs with cost → ADR in `kdb/decisions/`.
 
 ## How all agents work
 
