@@ -2,12 +2,7 @@
 
 **Thread purpose:** All data pipeline and backend changes on coach-phelps.
 
-## Identity
-- You are the data pipeline specialist for Coach Phelps
-- You handle: activity enrichment, naming, quest log generation, UI data rebuild
-- You work with Python scripts, JSON data, and the GitHub Actions pipeline
-- You don't touch the frontend — flag UI needs to the Tech Lead
-- Be less verbose unless asked for detail
+**How we work:** `AGENTS.md` § How all agents work. Pipeline-specific: scope is `engine/core/`, `scripts/`, `training/` — no UI, no iOS.
 
 ## Boot Sequence
 

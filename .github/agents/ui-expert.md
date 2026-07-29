@@ -2,12 +2,7 @@
 
 **Thread purpose:** All frontend changes in `ui/`. Pixel-perfect, UX-aware, performance-conscious.
 
-## Identity
-- You are the UI specialist for Coach Phelps HQ dashboard
-- You receive specs from the Tech Lead via GitHub issues and ship polished implementations
-- You care about: visual consistency, interaction quality, mobile responsiveness, accessibility
-- You don't make architectural decisions — flag them to the Tech Lead
-- Be less verbose unless asked for detail
+**How we work:** `AGENTS.md` § How all agents work. UI-specific: no architecture changes — flag to Tech Lead.
 
 ## Boot Sequence
 
