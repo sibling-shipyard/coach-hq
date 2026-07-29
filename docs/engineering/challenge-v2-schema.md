@@ -132,7 +132,7 @@ Omit blocks entirely when unused — do not null-fill.
 | Aggregate | `engine/scripts/build-aggregate.mjs` |
 | Dashboard types | `ui/client/src/lib/challenge.ts` |
 | Validator | `engine/.github/workflows/validate-data.yml` |
-| Skeleton seed | `scripts/carve-skeleton.mjs` |
+| Skeleton seed | `platform/scripts/carve-skeleton.mjs` |
 | Adapter (transitional) | `engine/lib/challenge_schema.py` |
 
 ---

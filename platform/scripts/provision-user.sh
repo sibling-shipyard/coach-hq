@@ -14,8 +14,8 @@ APP_INSTALL_URL="https://github.com/apps/coach-phelps/installations/new"
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/provision-user.sh --greenfield --repo OWNER/coach-name [options]
-  scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps [options]
+  platform/scripts/provision-user.sh --greenfield --repo OWNER/coach-name [options]
+  platform/scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps [options]
 
 Options:
   --repo OWNER/NAME       Target private athlete repo (created if missing)
@@ -30,8 +30,8 @@ Secrets (optional — set when env vars are present):
   PAT_TOKEN               Required for sync workflow
 
 Examples:
-  scripts/provision-user.sh --greenfield --repo akash-suresh/coach-akash --dry-run
-  PAT_TOKEN=ghp_... scripts/provision-user.sh --migrate \
+  platform/scripts/provision-user.sh --greenfield --repo akash-suresh/coach-akash --dry-run
+  PAT_TOKEN=ghp_... platform/scripts/provision-user.sh --migrate \
     --repo skanda-2003/coach-skanda --legacy skanda-2003/coach-phelps
 EOF
 }

@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: **Locked (2026-07-26)** · Owner: Tech Lead · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`scripts/carve-skeleton.mjs`](../../scripts/carve-skeleton.mjs)
+> Status: **Locked (2026-07-26)** · Owner: Tech Lead · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). `engine/strava/`
@@ -13,7 +13,7 @@
 
 First ~10 athletes use **BYO Claude** — clone one repo, follow `SETUP.md`, open Claude Code, talk to Coach. The org template (`sibling-shipyard/coach-skeleton`) must ship the **complete coaching workspace** on first clone. Coach sessions fill `user_data/` — not repo structure.
 
-**Permanent non-goals:** agents in skeleton, `engine/soul/` source layers, compose script, `ui/`, `ios/`, `kdb/`, plugins (add-on later).
+**Permanent non-goals:** agents in skeleton, `platform/soul/` source layers, compose script, `ui/`, `ios/`, `kdb/`, plugins (add-on later).
 
 ---
 
@@ -99,7 +99,7 @@ coach-skeleton/  (= coach-user after fork)
         └── current_week.json
 ```
 
-**Not in skeleton:** `.github/agents/`, `engine/soul/`, compose script, plugins, HQ-only docs/skills.
+**Not in skeleton:** `.github/agents/`, `platform/soul/`, compose script, plugins, HQ-only docs/skills.
 
 ---
 
@@ -207,7 +207,7 @@ flowchart LR
 
 | Concern | Path |
 |---|---|
-| Carve operator tool | `scripts/carve-skeleton.mjs` |
+| Carve operator tool | `platform/scripts/carve-skeleton.mjs` |
 | HQ engine source | `engine/` |
 | Live skeleton | https://github.com/sibling-shipyard/coach-skeleton |
 | M1 milestones | [`m1-plan.md`](m1-plan.md) |

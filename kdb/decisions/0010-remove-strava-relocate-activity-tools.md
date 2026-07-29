@@ -11,14 +11,14 @@
   regardless. `engine/strava/query_history.py` and `rename_core.py` are not Strava-specific
   despite the folder name — `query_history.py` just searches local
   `user_data/activities/hist/*.json` and is called from Coach's mandatory boot sequence
-  (`engine/soul/B_engine.md` §1 step 7); `rename_core.py` is the naming-convention source of
+  (`platform/soul/B_engine.md` §1 step 7); `rename_core.py` is the naming-convention source of
   truth `ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift` mirrors. Both needed to survive the
   removal.
 - **Decision:** Delete `fetch_strava.py`, `strava_api.py`, `oauth_reauth.py`, `rename_single.py`,
   `rename_activities.py`, `run_sync_pipeline.py`, and all `STRAVA_*` secret/env plumbing across
   workflows, provisioning, and the carved skeleton template. Move `query_history.py` and
   `rename_core.py` into `engine/core/` (alongside `taxonomy.py`, which they already relate to)
-  and delete the now-empty `engine/strava/`. Update `engine/soul/B_engine.md`'s boot sequence,
+  and delete the now-empty `engine/strava/`. Update `platform/soul/B_engine.md`'s boot sequence,
   workout-logging, and weekly-review steps to the new path and recompose `propagated/SOUL.md`.
   iOS/HealthKit becomes the only ingestion path; sync workflows call
   `engine/scripts/regenerate_derived.py` directly instead of branching on secret presence.

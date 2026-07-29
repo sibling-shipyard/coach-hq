@@ -6,7 +6,7 @@
 
 Operator provisions private athlete repos from `sibling-shipyard/coach-skeleton`. Two modes: greenfield fork or full migration from legacy `coach-phelps` with path rewrite. Athlete installs the GitHub App and validates the shared dashboard.
 
-**Prereq:** Skeleton fresh — `node scripts/carve-skeleton.mjs --push` on HQ `main`.
+**Prereq:** Skeleton fresh — `node platform/scripts/carve-skeleton.mjs --push` on HQ `main`.
 
 ---
 
@@ -35,12 +35,12 @@ Legacy repos stay as backup — do not archive in M1.
 ### Dry-run (always first)
 
 ```bash
-scripts/provision-user.sh --migrate \
+platform/scripts/provision-user.sh --migrate \
   --repo akash-suresh/coach-akash \
   --legacy akash-suresh/coach-phelps \
   --dry-run
 
-scripts/provision-user.sh --migrate \
+platform/scripts/provision-user.sh --migrate \
   --repo skanda-2003/coach-skanda \
   --legacy skanda-2003/coach-phelps \
   --dry-run
@@ -49,7 +49,7 @@ scripts/provision-user.sh --migrate \
 ### Greenfield (new athlete)
 
 ```bash
-PAT_TOKEN=ghp_... scripts/provision-user.sh \
+PAT_TOKEN=ghp_... platform/scripts/provision-user.sh \
   --greenfield --repo OWNER/coach-name
 ```
 
@@ -59,7 +59,7 @@ PAT_TOKEN=ghp_... scripts/provision-user.sh \
 
 ```bash
 PAT_TOKEN=ghp_... \
-scripts/provision-user.sh --migrate \
+platform/scripts/provision-user.sh --migrate \
   --repo skanda-2003/coach-skanda \
   --legacy skanda-2003/coach-phelps
 ```
@@ -69,7 +69,7 @@ After overlay, the script **regenerates `gen/`** (`regenerate_derived.py` + `bui
 Inspect locally without push:
 
 ```bash
-scripts/provision-user.sh --migrate \
+platform/scripts/provision-user.sh --migrate \
   --repo OWNER/coach-name --legacy OWNER/coach-phelps \
   --skip-push
 ```

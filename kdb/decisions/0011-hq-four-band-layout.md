@@ -7,20 +7,20 @@
 - **Why:** One grep-friendly story for what ships to athlete repos vs what stays operator-only. Carve becomes "copy `engine/` verbatim + compose from `platform/`" instead of hunting HQ-only paths inside `engine/`.
 - **Rejected:** New GitHub repo for platform backend → two-repo topology locked ([`scaling-plan.md`](../../docs/engineering/scaling-plan.md)). Move `ui/api/` to `platform/` now → correct logical home but Vercel Root Directory is `ui/`; defer until deploy rewire (P2). Rename `ui/` → `frontend/` → breaks Vercel config.
 
-## Carve copy map (today)
+## Carve copy map
 
-Authority: `scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-plan.md`](../../docs/engineering/hq-restructure-plan.md).
+Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-plan.md`](../../docs/engineering/hq-restructure-plan.md).
 
-| Source (HQ today) | Skeleton destination | Target band |
+| Source (HQ) | Skeleton destination | Band |
 |---|---|---|
 | `engine/scripts/` (5 runtime + validate wrapper) | `engine/scripts/` | `engine/` |
 | `engine/lib/`, `engine/core/`, `engine/claude/athlete/` | `engine/` + root Claude config | `engine/` |
 | `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
-| `engine/scripts/compose-soul.mjs` + `engine/soul/` | *(runs at carve)* → `propagated/SOUL.md` | `platform/` (R3) |
-| `engine/docs/` (5 refs) + `engine/skills/pipeline-tools.md` | `propagated/docs/` | `platform/` → propagated |
+| `platform/scripts/compose-soul.mjs` + `platform/soul/` | *(runs at carve)* → `propagated/SOUL.md` | `platform/` |
+| `engine/docs/` (5 refs) + `engine/skills/pipeline-tools.md` | `propagated/docs/` | platform → propagated |
 | `engine/templates/` (2 samples) | `user_data/.../templates/` | platform templates → init stamp |
-| `scripts/carve-skeleton.mjs`, `provision-user.sh` | not copied | `platform/scripts/` (R3) |
-| `engine/plugins/`, compose-soul, soul layers | not copied | `platform/` (R3–R4) |
+| `platform/scripts/carve-skeleton.mjs`, `provision-user.sh` | not copied | `platform/` |
+| `engine/plugins/` | not copied | `platform/` (R4) |
 | Generated init templates | `user_data/*`, `gen/*` placeholders | skeleton stamps only |
 | `user_data/`, `gen/` at HQ | **never copied** | R5 delete from HQ |
 | `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |

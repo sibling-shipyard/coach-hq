@@ -5,7 +5,14 @@ import { fileURLToPath } from "node:url";
 /** Walk up from `fromDir` to find repo root (HQ monorepo or athlete skeleton). */
 export function repoRoot(fromDir = path.dirname(fileURLToPath(import.meta.url))) {
   let dir = path.resolve(fromDir);
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 8; i++) {
+    // HQ monorepo — platform band + product surfaces
+    if (
+      fs.existsSync(path.join(dir, "platform", "soul")) &&
+      fs.existsSync(path.join(dir, "ui"))
+    ) {
+      return dir;
+    }
     if (fs.existsSync(path.join(dir, "engine", "soul"))) {
       return dir;
     }
@@ -16,11 +23,13 @@ export function repoRoot(fromDir = path.dirname(fileURLToPath(import.meta.url)))
     ) {
       return dir;
     }
-    // Flat skeleton: soul/ copy at repo root — not the engine/ subtree of HQ
+    // Flat athlete skeleton: soul/ at repo root — not HQ's platform/soul/ subtree
     if (
       fs.existsSync(path.join(dir, "soul")) &&
       !fs.existsSync(path.join(dir, "engine")) &&
-      !fs.existsSync(path.join(path.dirname(dir), "engine", "soul"))
+      !fs.existsSync(path.join(dir, "platform", "scripts")) &&
+      !fs.existsSync(path.join(path.dirname(dir), "engine", "soul")) &&
+      !fs.existsSync(path.join(path.dirname(dir), "platform", "soul"))
     ) {
       return dir;
     }
@@ -37,6 +46,8 @@ export function usesNewLayout(repoRootPath) {
 }
 
 export function soulDir(repoRootPath) {
+  const inPlatform = path.join(repoRootPath, "platform", "soul");
+  if (fs.existsSync(inPlatform)) return inPlatform;
   const inEngine = path.join(repoRootPath, "engine", "soul");
   return fs.existsSync(inEngine) ? inEngine : path.join(repoRootPath, "soul");
 }
@@ -145,7 +156,7 @@ export function activitiesDir(repoRootPath) {
     : path.join(repoRootPath, "training", "activities");
 }
 
-/** Composed coach brain — propagated copy in athlete repos; HQ source is engine/soul/ layers. */
+/** Composed coach brain — propagated copy in athlete repos; HQ source is platform/soul/ layers. */
 export function soulFilePath(repoRootPath) {
   const propagated = path.join(repoRootPath, "propagated", "SOUL.md");
   if (fs.existsSync(propagated)) return propagated;

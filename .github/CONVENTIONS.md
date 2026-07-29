@@ -75,7 +75,7 @@ Always include `fixes #N` in the PR body. PR body must follow `.github/agents/is
 **If in doubt:** use a branch.
 
 **SOUL changes:** edit `soul/A_identity.md`, `soul/B_engine.md`, and/or `soul/C_athlete.md`, then run
-`node scripts/compose-soul.mjs` and commit the layer edits plus the regenerated `SOUL.md`. Never
+`node platform/scripts/compose-soul.mjs` and commit the layer edits plus the regenerated `SOUL.md`. Never
 hand-edit `SOUL.md`.
 
 ---

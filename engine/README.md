@@ -9,7 +9,7 @@ Canonical layout: [`docs/engineering/skeleton-layout.md`](../docs/engineering/sk
 
 | Stays in HQ only (never carved) | Carved into athlete `engine/` |
 |---|---|
-| `engine/soul/` source layers + compose script | — |
+| `platform/soul/` source layers + compose script | — |
 | `.github/agents/`, KDB, skills, HQ docs | — |
 | `plugins/` (badminton, visualization) | — |
 | Template **source** authoring (`engine/templates/`) | Copy of 2 samples → `user_data/.../templates/` |
@@ -45,4 +45,4 @@ flowchart TB
   ud --> gen
 ```
 
-Operator refresh: `node scripts/carve-skeleton.mjs --push`
+Operator refresh: `node platform/scripts/carve-skeleton.mjs --push`

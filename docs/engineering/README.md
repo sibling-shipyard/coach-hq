@@ -9,7 +9,7 @@ HQ operator and architecture docs. Athletes never see these.
 | **`docs/engineering/`** | Tech Lead, workers | scaling, M1, restructure, provision, schemas |
 | **`engine/docs/`** | Coach on-demand + carve | timer contract, voice profile, ios spec |
 | **`propagated/docs/`** | Athlete repo (read-only copy) | subset carved by `carve-skeleton.mjs` |
-| **`platform/`** (R3) | HQ IP authoring | soul layers, contracts source — not yet split |
+| **`platform/`** (R3) | HQ IP authoring | soul layers, contracts source — `platform/soul/` + `platform/scripts/` live |
 
 **Rule:** if it ships in `propagated/docs/` on carve, source lives in `engine/docs/` until R3 moves platform IP.
 

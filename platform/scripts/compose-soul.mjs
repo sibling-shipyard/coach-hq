@@ -3,8 +3,8 @@
  * compose-soul.mjs — Deterministic assembly of SOUL.md from soul/ layer files.
  *
  * Usage:
- *   node engine/scripts/compose-soul.mjs          # write SOUL.md (HQ)
- *   node scripts/compose-soul.mjs --check         # skeleton / user repo
+ *   node platform/scripts/compose-soul.mjs          # write SOUL.md (HQ)
+ *   node platform/scripts/compose-soul.mjs --check
  *
  * Section markers in soul/*.md:
  *   <!-- soul:section KEY -->
@@ -15,7 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { repoRoot, soulDir } from "../lib/repo-layout.mjs";
+import { repoRoot, soulDir } from "../../engine/lib/repo-layout.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(__dirname);
@@ -189,7 +189,7 @@ function summarizeDiff(expected, actual) {
     }
   }
 
-  console.error("  fix: node engine/scripts/compose-soul.mjs");
+  console.error("  fix: node platform/scripts/compose-soul.mjs");
 }
 
 function main() {
