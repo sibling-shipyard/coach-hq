@@ -30,13 +30,13 @@ platform/scripts/provision-user.sh --greenfield --repo OWNER/coach-name --dry-ru
 platform/scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps
 ```
 
-Runbook: [`docs/engineering/provision-runbook.md`](../docs/engineering/provision-runbook.md)
+Runbook: [`docs/eng-docs/provision-runbook.md`](../docs/eng-docs/provision-runbook.md)
 
 ## Also here (R4)
 
 | Path | Role |
 |---|---|
-| `docs/` | Coach reference — carved subset → athlete `propagated/docs/` |
+| [`docs/ref-docs/`](../docs/ref-docs/) | Coach reference — carved subset → athlete `propagated/docs/` |
 | `plugins/` | HQ extensions (badminton analytics + `generate_analytics_snapshot.py`) |
 | `skeleton-templates/` | Workout templates — 2 samples carved to athlete repos |
 | `skills/` | pipeline-tools.md (carved to propagated) |

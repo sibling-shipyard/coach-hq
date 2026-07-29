@@ -55,7 +55,7 @@ flowchart LR
 | # | Size | Done when |
 |---|---|---|
 | **R0** | S | ADR records four-band layout + carve copy map | **Done** — [ADR 0011](../kdb/decisions/0011-hq-four-band-layout.md) |
-| **R1** | S | Eng plans under `docs/engineering/` | **Done** |
+| **R1** | S | Eng plans under `docs/eng-docs/` | **Done** |
 | **R2** | M | `shared/golden-dataset/` powers local dev; `ui/client/src/data/` decoupled from HQ instance paths | **Done** |
 | **R3** | M | `platform/` band — soul + operator scripts | **Done** |
 | **R4** | L | HQ-only code out of `engine/`; skeleton re-carved | **Done** |

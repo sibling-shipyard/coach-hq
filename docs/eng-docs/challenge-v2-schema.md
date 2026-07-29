@@ -37,7 +37,7 @@ One file, one version number, one validator.
 | Time arc | **`season`** required — replaces legacy `challenge` |
 | Main quest | **`main_quest.type`** ∈ `count_target` \| `weekly_sessions` |
 | Side quests | **`quests[]`** required (may be empty `[]`) |
-| Milestones | Optional `milestones[]` — see [`platform/docs/milestone-schema.md`](../../platform/docs/milestone-schema.md) |
+| Milestones | Optional `milestones[]` — see [`docs/ref-docs/milestone-schema.md`](../ref-docs/milestone-schema.md) |
 | Legacy v2/v3 | Read via adapter during migration; **must convert to v4** |
 
 ---

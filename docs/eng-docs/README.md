@@ -1,4 +1,4 @@
-# Engineering docs
+# Engineering docs (`docs/eng-docs/`)
 
 HQ operator and architecture docs. Athletes never see these.
 
@@ -6,12 +6,12 @@ HQ operator and architecture docs. Athletes never see these.
 
 | Location | Audience | Examples |
 |---|---|---|
-| **`docs/engineering/`** | Tech Lead, workers | scaling, M1, restructure, provision, schemas |
-| **`platform/docs/`** | Coach on-demand + carve | timer contract, voice profile, ios spec |
+| **`docs/eng-docs/`** | Tech Lead, workers | scaling, M1, restructure, provision, schemas |
+| **`docs/ref-docs/`** | Coach on-demand + carve | timer contract, voice profile, ios spec |
 | **`propagated/docs/`** | Athlete repo (read-only copy) | subset carved by `carve-skeleton.mjs` |
 | **`engine/`** (R4 ✓) | Carved runtime mirror only | scripts, lib, core, claude |
 
-**Rule:** if it ships in `propagated/docs/` on carve, source lives in `platform/docs/`.
+**Rule:** if it ships in `propagated/docs/` on carve, source lives in `docs/ref-docs/`.
 
 ## Index
 

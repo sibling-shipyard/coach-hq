@@ -31,7 +31,7 @@
 - [ ] Non-coaching changes: branch + PR, Tech Lead review.
 - [ ] Never edit auto-generated `training/activities/quest_log.md`.
 - [ ] Never manually compute quest streaks or rates — read from quest_log.md.
-- [ ] On-demand-only at boot: coach_notes.md, training/reference/, skills/pipeline-tools.md, docs/phelps-voice-profile.md, docs/soul-calibration.md.
+- [ ] On-demand-only at boot: coach_notes.md, training/reference/, skills/pipeline-tools.md, docs/ref-docs/phelps-voice-profile.md, docs/ref-docs/soul-calibration.md.
 
 ## Identity & voice (§3)
 
@@ -102,7 +102,7 @@
 
 ## Rules engine (§9)
 
-- [ ] Weekly structure from first session; stored in current_week.json; contract = docs/current-week-contract.md.
+- [ ] Weekly structure from first session; stored in current_week.json; contract = docs/ref-docs/current-week-contract.md.
 - [ ] Default week framework: HIT days → no extra strength.
 - [ ] Default week framework: Strength/skill days → 1hr focused.
 - [ ] Default week framework: Recovery/mobility → 30–45min light.
@@ -164,7 +164,7 @@
 
 ## Workflows — Weekly contract safety (§10)
 
-- [ ] docs/current-week-contract.md is schema authority — read before edits.
+- [ ] docs/ref-docs/current-week-contract.md is schema authority — read before edits.
 - [ ] Trust only current or rollover-grace live week.
 - [ ] Bounded edits: preserve session identity, record outcomes, null for unknowns, no measured load in plan.
 - [ ] Archive closed week before rollover replacement.
@@ -201,7 +201,7 @@
 - [ ] transition_rest_secs on equipment-change phases.
 - [ ] optional: true on bonus exercises.
 - [ ] Omit fields when value equals default.
-- [ ] Full reference: docs/timer-state-machine.md §7.
+- [ ] Full reference: docs/ref-docs/timer-state-machine.md §7.
 
 ## Workflows — Logging a workout (§10)
 
@@ -316,7 +316,7 @@
 
 ## Sky v3 C-data parity (S2 addendum — live coach-phelps)
 
-SOUL §8 names four quest types; Sky's live `challenge_v2.json` is **v3** with extensions. S2 must preserve this runtime shape via Layer C data — not by hardcoding in B. Cross-reference `docs/soul-C-schema.md` Sky mapping.
+SOUL §8 names four quest types; Sky's live `challenge_v2.json` is **v3** with extensions. S2 must preserve this runtime shape via Layer C data — not by hardcoding in B. Cross-reference `docs/eng-docs/soul-C-schema.md` Sky mapping.
 
 - [ ] v3 `main_quest.type=weekly_sessions` preserved (floor 2.5/wk, loaded 1.5, skill weight 0.5, cap 1.0).
 - [ ] Coach logs sessions as `{date, label, kind, weight}` — loaded=1.0, skill=0.5; conditioning/sprints do NOT count toward floor.
@@ -331,6 +331,6 @@ SOUL §8 names four quest types; Sky's live `challenge_v2.json` is **v3** with e
 1. Compose SOUL.md via `scripts/compose-soul.mjs`.
 2. Walk this checklist line by line — each box must still pass or have documented intentional change with Tech Lead approval.
 3. Walk the Sky v3 addendum if composing against live `coach-phelps` data.
-4. Run `docs/engineering/VALIDATION_TESTS.md` + coach-chat smoke-test per soul-split-plan S2 exit criteria.
+4. Run `docs/eng-docs/VALIDATION_TESTS.md` + coach-chat smoke-test per soul-split-plan S2 exit criteria.
 
 **Checklist count:** 200+ v5.7 behaviors + Sky v3 C-data addendum across boot, guardrails, voice, philosophy, seasons, playbook, quests, rules engine, 15 workflows, tools, and commit protocol.

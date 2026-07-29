@@ -38,6 +38,8 @@ regenerated `platform/SOUL.md`. Never hand-edit the composed SOUL.
 - `platform/scripts/carve-skeleton.mjs` — operator tool to stamp `sibling-shipyard/coach-skeleton`
 - `.github/agents/` — multi-agent role docs (**HQ only**, not carved)
 - `kdb/` — engineering decisions (**HQ only**)
+- `docs/eng-docs/` — operator/architecture plans (**HQ only**)
+- `docs/ref-docs/` — Coach on-demand reference; carved subset → athlete `propagated/docs/`
 
 ## Knowledge Base — read on entry
 
