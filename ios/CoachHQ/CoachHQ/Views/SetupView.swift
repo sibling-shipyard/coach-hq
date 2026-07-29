@@ -110,7 +110,10 @@ struct SetupView: View {
                     .buttonStyle(WarmSetupButtonStyle(primary: false))
                     .disabled(isInstalling)
 
-                    if let error = errorMessage {
+                    // errorMessage: a thrown continueToInstall() failure. authManager's
+                    // lastNetworkError: fetchUser()/resolveRepoIfNeeded() failing silently
+                    // used to leave no signal at all - now surfaced the same way.
+                    if let error = errorMessage ?? authManager.lastNetworkError {
                         Text(error)
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(WarmInstrument.accent)

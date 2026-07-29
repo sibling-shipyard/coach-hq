@@ -103,7 +103,10 @@ struct LoginView: View {
             .disabled(isLoading)
             .staggerReveal(delay: 0.54)
 
-            if let error = errorMessage {
+            // errorMessage: a thrown sign-in failure (this view's own signIn() catch).
+            // authManager.lastNetworkError: fetchUser()/resolveRepoIfNeeded() failing
+            // silently used to leave no signal at all - now surfaced the same way.
+            if let error = errorMessage ?? authManager.lastNetworkError {
                 Text(error)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(WarmInstrument.accent)
