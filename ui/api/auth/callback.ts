@@ -128,8 +128,17 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
     if (!tokenRes.ok || tokenBody.error || !tokenBody.access_token) {
       return errorRedirect(url.origin, "token_exchange_failed", platform);
     }
+    // refresh_token/expires_in are always present here - coach-phelps has "expire user
+    // authorization tokens" opted in (GitHub's recommended setting). Discarding these used to
+    // mean every session died in lockstep with the 8h access token; ensureFreshSession/iOS's
+    // refresh logic use them to rotate silently instead - see round 4's plan.
+    if (!tokenBody.refresh_token || !tokenBody.expires_in) {
+      return errorRedirect(url.origin, "token_exchange_failed", platform);
+    }
 
     const ghToken = tokenBody.access_token as string;
+    const ghRefreshToken = tokenBody.refresh_token as string;
+    const ghTokenExpiresAt = Date.now() + Number(tokenBody.expires_in) * 1000;
 
     const userRes = await fetch("https://api.github.com/user", {
       headers: {
@@ -173,7 +182,10 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
       const headers = new Headers();
       headers.set(
         "Location",
-        `coachhq://callback?token=${encodeURIComponent(ghToken)}&login=${encodeURIComponent(user.login as string)}${repoParam}`,
+        `coachhq://callback?token=${encodeURIComponent(ghToken)}` +
+          `&refresh_token=${encodeURIComponent(ghRefreshToken)}` +
+          `&expires_at=${ghTokenExpiresAt}` +
+          `&login=${encodeURIComponent(user.login as string)}${repoParam}`,
       );
       headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
       return new Response(null, { status: 302, headers });
@@ -183,6 +195,8 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
       github_user_id: user.id,
       login: user.login,
       gh_token: ghToken,
+      refresh_token: ghRefreshToken,
+      gh_token_expires_at: ghTokenExpiresAt,
       installation_id: installationId,
     });
 

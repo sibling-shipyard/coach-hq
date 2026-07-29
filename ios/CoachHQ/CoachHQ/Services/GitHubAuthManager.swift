@@ -127,6 +127,10 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
             throw AuthError.missingCode
         }
         saveToken(token)
+        if let refreshToken = value("refresh_token"), let expiresAtRaw = value("expires_at"),
+           let expiresAtMs = Double(expiresAtRaw) {
+            saveRefreshToken(refreshToken, expiresAt: Date(timeIntervalSince1970: expiresAtMs / 1000))
+        }
         pendingSetupLogin = nil
         isAuthenticated = true
 
@@ -200,10 +204,13 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
 
     // MARK: - Token Management (Keychain)
 
-    func loadToken() -> String? {
+    private let refreshTokenKeychainKey = "com.siblingshipyard.coachhq.github.refresh_token"
+    private let expiresAtKeychainKey = "com.siblingshipyard.coachhq.github.expires_at"
+
+    private func loadKeychainString(_ key: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keychainKey,
+            kSecAttrAccount as String: key,
             kSecReturnData as String: true
         ]
         var result: AnyObject?
@@ -212,23 +219,112 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
         return String(data: data, encoding: .utf8)
     }
 
-    private func saveToken(_ token: String) {
-        let data = token.data(using: .utf8)!
+    private func saveKeychainString(_ value: String, for key: String) {
+        let data = value.data(using: .utf8)!
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keychainKey,
+            kSecAttrAccount as String: key,
             kSecValueData as String: data
         ]
         SecItemDelete(query as CFDictionary) // Remove existing
         SecItemAdd(query as CFDictionary, nil)
     }
 
-    func signOut() {
+    private func deleteKeychainString(for key: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: keychainKey
+            kSecAttrAccount as String: key
         ]
         SecItemDelete(query as CFDictionary)
+    }
+
+    func loadToken() -> String? {
+        loadKeychainString(keychainKey)
+    }
+
+    private func saveToken(_ token: String) {
+        saveKeychainString(token, for: keychainKey)
+    }
+
+    /// Mirrors ui/api/auth/_lib/session.ts's refresh_token/gh_token_expires_at fields - GitHub
+    /// tokens die at 8h (coach-phelps has "expire user authorization tokens" opted in), and a
+    /// classic OAuth-style refresh call from the client would need client_secret embedded in
+    /// the app (exactly what GitHubAuthManager was rewritten to avoid). Instead this hits
+    /// /api/auth/refresh, which does the confidential refresh_token exchange server-side and
+    /// hands back a fresh token pair - same trust model as sign-in itself.
+    private func saveRefreshToken(_ refreshToken: String, expiresAt: Date) {
+        saveKeychainString(refreshToken, for: refreshTokenKeychainKey)
+        saveKeychainString(String(expiresAt.timeIntervalSince1970), for: expiresAtKeychainKey)
+    }
+
+    private func loadRefreshToken() -> String? {
+        loadKeychainString(refreshTokenKeychainKey)
+    }
+
+    private func loadExpiresAt() -> Date? {
+        guard let raw = loadKeychainString(expiresAtKeychainKey), let interval = Double(raw) else { return nil }
+        return Date(timeIntervalSince1970: interval)
+    }
+
+    /// Returns a token guaranteed usable for the next request, refreshing first if the stored
+    /// one is at or near its 8h expiry. Falls back to whatever's stored (even if possibly
+    /// stale) on a refresh failure - the resulting 401 from GitHub is still handled
+    /// (GitHubAPIClient's existing "token expired, sign out and sign in again" path), just
+    /// without the silent, invisible recovery a successful refresh gives.
+    func validToken() async -> String? {
+        guard let token = loadToken() else { return nil }
+        guard let expiresAt = loadExpiresAt(), expiresAt > Date().addingTimeInterval(300) else {
+            return await refreshAccessToken() ?? token
+        }
+        return token
+    }
+
+    // GitHub rotates refresh tokens on each use (single-use) - two concurrent callers (e.g. a
+    // HealthKit sync push and a widget-snapshots fetch landing near the same moment) racing to
+    // refresh with the same stored refresh_token would mean the loser's exchange gets rejected
+    // by GitHub. @MainActor already serializes access to this property, so caching the
+    // in-flight task here is enough to make concurrent callers share one exchange instead of
+    // racing - no separate actor/lock needed.
+    private var refreshTask: Task<String?, Never>?
+
+    private func refreshAccessToken() async -> String? {
+        if let existing = refreshTask {
+            return await existing.value
+        }
+        let task = Task<String?, Never> { [weak self] in
+            await self?.performRefreshAccessToken()
+        }
+        refreshTask = task
+        let result = await task.value
+        refreshTask = nil
+        return result
+    }
+
+    private func performRefreshAccessToken() async -> String? {
+        guard let refreshToken = loadRefreshToken() else { return nil }
+        guard let url = URL(string: Secrets.dashboardBaseURL + "/api/auth/refresh") else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(["refresh_token": refreshToken])
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            let result = try JSONDecoder().decode(RefreshResponse.self, from: data)
+            saveToken(result.accessToken)
+            saveRefreshToken(result.refreshToken, expiresAt: Date().addingTimeInterval(result.expiresIn))
+            return result.accessToken
+        } catch {
+            print("Token refresh failed: \(error)")
+            return nil
+        }
+    }
+
+    func signOut() {
+        deleteKeychainString(for: keychainKey)
+        deleteKeychainString(for: refreshTokenKeychainKey)
+        deleteKeychainString(for: expiresAtKeychainKey)
         isAuthenticated = false
         isSessionReady = true
         user = nil
@@ -255,6 +351,18 @@ private struct RepoResolution: Codable {
 
     enum CodingKeys: String, CodingKey {
         case repoFullName = "repo_full_name"
+    }
+}
+
+private struct RefreshResponse: Codable {
+    let accessToken: String
+    let refreshToken: String
+    let expiresIn: TimeInterval
+
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case expiresIn = "expires_in"
     }
 }
 

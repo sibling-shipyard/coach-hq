@@ -25,7 +25,7 @@
  * PATCH {threadId, status}   → archive / unarchive / delete / restore an
  *                               already-committed thread
  */
-import { decryptSession, parseCookies, SESSION_COOKIE } from "./auth/_lib/session.js";
+import { ensureFreshSession, withSessionCookie, type SessionPayload } from "./auth/_lib/session.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 const SOUL_FILE_PATH = "propagated/SOUL.md";
@@ -344,15 +344,10 @@ async function askGemini(
   return JSON.parse(text) as GeminiReply;
 }
 
-export default {
-  async fetch(req: Request): Promise<Response> {
-    const cookies = parseCookies(req);
-    const raw = cookies[SESSION_COOKIE];
-    if (!raw) return Response.json({ error: "Not authenticated" }, { status: 401 });
-
-    const session = await decryptSession(raw);
-    if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
-
+// Split from the exported fetch() below so a rotated session cookie (see
+// ensureFreshSession) only needs attaching in one place, not on every one of this
+// handler's many return points (GET/PATCH/POST each have several).
+async function handle(req: Request, session: SessionPayload): Promise<Response> {
     const repo = session.repo_full_name;
     if (!repo) {
       return Response.json({ error: "No repo resolved yet - visit /api/auth/list-my-repos first" }, { status: 400 });
@@ -489,5 +484,23 @@ export default {
     }
 
     return Response.json({ error: "Method not allowed" }, { status: 405 });
+}
+
+export default {
+  async fetch(req: Request): Promise<Response> {
+    const fresh = await ensureFreshSession(req);
+    if (fresh instanceof Response) return fresh;
+    try {
+      const res = await handle(req, fresh.session);
+      return withSessionCookie(res, fresh.setCookie);
+    } catch (err) {
+      // Same reasoning as widget-snapshots.ts's catch: a rotated refresh_token (ADR 0009) is
+      // single-use on GitHub's side - losing fresh.setCookie here because something
+      // downstream threw would strand the *next* request with an already-invalidated token,
+      // not just this one failing.
+      const message = err instanceof Error ? err.message : "Coach chat failed";
+      console.error("[coach-chat]", err);
+      return withSessionCookie(Response.json({ error: message }, { status: 500 }), fresh.setCookie);
+    }
   },
 };

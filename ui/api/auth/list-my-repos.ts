@@ -14,7 +14,7 @@
  * a resolved repo to put in X-Coach-Repo, so it only needs the bearer token.
  * callback.ts already includes `repo` in its coachhq:// redirect for the
  * common single-candidate case; this endpoint is iOS's fallback for the rare
- * 0-or-2+ candidate case, same picker flow web's Onboarding.tsx drives.
+ * 0-or-2+ candidate case, same picker flow web's Onboarding.tsx uses.
  *
  * GET                          → list/confirm candidates, auto-select if exactly one.
  * GET ?select=<owner>/<name>   → confirm and persist a specific pick (2+ case).
@@ -25,12 +25,14 @@
  *                                 iOS has nothing cached to switch away from.
  */
 import {
-  decryptSession,
   encryptSession,
   buildCookie,
   parseCookies,
   SESSION_COOKIE,
   SESSION_MAX_AGE_SEC,
+  ensureFreshSession,
+  withSessionCookie,
+  type SessionPayload,
 } from "./_lib/session.js";
 import {
   resolveInstallationId,
@@ -49,22 +51,30 @@ interface AuthContext {
   installation_id: number;
   repo_full_name?: string;
   via: "cookie" | "bearer";
-  github_user_id?: number;
+  // Cookie mode only - the complete, possibly-just-refreshed session, spread into any new
+  // session this handler builds (repo selection) so a rotated access/refresh token from
+  // ensureFreshSession never gets silently dropped by a handler that only knew about a few
+  // of the session's fields.
+  fullSession?: SessionPayload;
+  // Cookie mode only - set when ensureFreshSession actually rotated the token this request.
+  // Only needs attaching to responses that don't already Set-Cookie a full new session
+  // themselves (those already carry the fresh tokens via fullSession above).
+  rotatedCookie?: string;
 }
 
 async function resolveAuthContext(req: Request): Promise<AuthContext | Response> {
   const cookies = parseCookies(req);
-  const raw = cookies[SESSION_COOKIE];
-  if (raw) {
-    const session = await decryptSession(raw);
-    if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+  if (cookies[SESSION_COOKIE]) {
+    const fresh = await ensureFreshSession(req);
+    if (fresh instanceof Response) return fresh;
     return {
-      login: session.login,
-      gh_token: session.gh_token,
-      installation_id: session.installation_id,
-      repo_full_name: session.repo_full_name,
-      github_user_id: session.github_user_id,
+      login: fresh.session.login,
+      gh_token: fresh.session.gh_token,
+      installation_id: fresh.session.installation_id,
+      repo_full_name: fresh.session.repo_full_name,
       via: "cookie",
+      fullSession: fresh.session,
+      rotatedCookie: fresh.setCookie,
     };
   }
 
@@ -107,9 +117,28 @@ function withUpdatedSession(body: unknown, sessionToken: string, status = 200): 
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const ctx = await resolveAuthContext(req);
-    if (ctx instanceof Response) return ctx;
+    // Declared outside the try block so a throw anywhere below can still attach a rotated
+    // cookie if resolveAuthContext got one before the throw - same reasoning as
+    // widget-snapshots.ts/coach-chat.ts's catch blocks: GitHub's refresh tokens are
+    // single-use (ADR 0009), losing a successful rotation here strands the next request.
+    let ctx: AuthContext | undefined;
+    try {
+      const resolved = await resolveAuthContext(req);
+      if (resolved instanceof Response) return resolved;
+      ctx = resolved;
+      return await handle(req, ctx);
+    } catch (err) {
+      // Covers uncaught throws from repo-resolution.ts's own unwrapped fetch calls
+      // (resolveInstallationId/resolveOwnedRepos re-throw anything that isn't their own
+      // typed *LookupFailedError) and the 0-candidates path's own fetch below.
+      const message = err instanceof Error ? err.message : "Failed to look up your repos";
+      console.error("[list-my-repos]", err);
+      return withSessionCookie(Response.json({ error: message }, { status: 502 }), ctx?.rotatedCookie);
+    }
+  },
+};
 
+async function handle(req: Request, ctx: AuthContext): Promise<Response> {
     const url = new URL(req.url);
     const selected = url.searchParams.get("select");
     const switching = url.searchParams.get("switch") === "1";
@@ -117,25 +146,27 @@ export default {
     // Explicit pick from a 2+ candidate list.
     if (selected) {
       if (!isOwnedBy(selected, ctx.login)) {
-        return Response.json({ error: "You can only select a repo you own" }, { status: 403 });
+        return withSessionCookie(
+          Response.json({ error: "You can only select a repo you own" }, { status: 403 }),
+          ctx.rotatedCookie,
+        );
       }
       const ok = await hasMarkerFile(selected, ctx.gh_token);
       if (!ok) {
-        return Response.json(
-          { error: "That repo doesn't look like a coach-phelps repo (no user_data/ledger/challenge_v2.json)" },
-          { status: 400 }
+        return withSessionCookie(
+          Response.json(
+            { error: "That repo doesn't look like a coach-phelps repo (no user_data/ledger/challenge_v2.json)" },
+            { status: 400 }
+          ),
+          ctx.rotatedCookie,
         );
       }
       if (ctx.via === "bearer") {
         return Response.json({ repo_full_name: selected });
       }
-      const newSession = await encryptSession({
-        github_user_id: ctx.github_user_id!,
-        login: ctx.login,
-        gh_token: ctx.gh_token,
-        installation_id: ctx.installation_id,
-        repo_full_name: selected,
-      });
+      // fullSession already carries any rotation from ctx.rotatedCookie (same underlying
+      // refresh) - this Set-Cookie supersedes it, no separate attach needed here.
+      const newSession = await encryptSession({ ...ctx.fullSession!, repo_full_name: selected });
       return withUpdatedSession({ repo_full_name: selected }, newSession);
     }
 
@@ -148,7 +179,7 @@ export default {
       const stillOwned = isOwnedBy(ctx.repo_full_name, ctx.login);
       const stillOk = stillOwned && (await hasMarkerFile(ctx.repo_full_name, ctx.gh_token));
       if (stillOk) {
-        return Response.json({ repo_full_name: ctx.repo_full_name });
+        return withSessionCookie(Response.json({ repo_full_name: ctx.repo_full_name }), ctx.rotatedCookie);
       }
       // Falls through to re-resolve below if not owned, or it 404s (deleted/renamed/access lost).
     }
@@ -158,7 +189,10 @@ export default {
       confirmed = await resolveOwnedRepos(ctx.installation_id, ctx.gh_token, ctx.login);
     } catch (e) {
       if (e instanceof MarkerLookupFailedError) {
-        return Response.json({ error: "Failed to check your repos - try again" }, { status: 502 });
+        return withSessionCookie(
+          Response.json({ error: "Failed to check your repos - try again" }, { status: 502 }),
+          ctx.rotatedCookie,
+        );
       }
       throw e;
     }
@@ -170,13 +204,7 @@ export default {
       if (ctx.via === "bearer") {
         return Response.json({ repo_full_name: confirmed[0] });
       }
-      const newSession = await encryptSession({
-        github_user_id: ctx.github_user_id!,
-        login: ctx.login,
-        gh_token: ctx.gh_token,
-        installation_id: ctx.installation_id,
-        repo_full_name: confirmed[0],
-      });
+      const newSession = await encryptSession({ ...ctx.fullSession!, repo_full_name: confirmed[0] });
       return withUpdatedSession({ repo_full_name: confirmed[0] }, newSession);
     }
 
@@ -199,10 +227,9 @@ export default {
         : { repositories: [] };
       const ownRepos = repositories.filter((r) => r.owner.login.toLowerCase() === ctx.login.toLowerCase());
       const reason = ownRepos.length === 0 ? "no_owned_repos" : "no_marker_match";
-      return Response.json({ candidates: [], reason });
+      return withSessionCookie(Response.json({ candidates: [], reason }), ctx.rotatedCookie);
     }
 
     // 2+ - client renders the picker.
-    return Response.json({ candidates: confirmed });
-  },
-};
+    return withSessionCookie(Response.json({ candidates: confirmed }), ctx.rotatedCookie);
+}

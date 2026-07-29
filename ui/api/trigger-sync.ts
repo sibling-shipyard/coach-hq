@@ -1,4 +1,4 @@
-import { decryptSession, parseCookies, SESSION_COOKIE } from "./auth/_lib/session.js";
+import { ensureFreshSession, withSessionCookie } from "./auth/_lib/session.js";
 
 // Every account's sync.yml is named identically - each repo's own workflow decides what
 // "sync" actually means for that account (Strava pull, or - since the iOS app already
@@ -18,16 +18,16 @@ export default {
       return Response.json({ error: "Method not allowed" }, { status: 405 });
     }
 
-    const cookies = parseCookies(req);
-    const raw = cookies[SESSION_COOKIE];
-    if (!raw) return Response.json({ error: "Not authenticated" }, { status: 401 });
-
-    const session = await decryptSession(raw);
-    if (!session) return Response.json({ error: "Not authenticated" }, { status: 401 });
+    const fresh = await ensureFreshSession(req);
+    if (fresh instanceof Response) return fresh;
+    const { session, setCookie } = fresh;
 
     const repo = session.repo_full_name;
     if (!repo) {
-      return Response.json({ error: "No repo resolved for this account yet" }, { status: 400 });
+      return withSessionCookie(
+        Response.json({ error: "No repo resolved for this account yet" }, { status: 400 }),
+        setCookie,
+      );
     }
 
     // The signed-in user's own token, not a shared bot account's PAT - it's already scoped
@@ -42,7 +42,10 @@ export default {
     const lastDispatchTime = lastDispatchByRepo.get(repo) ?? 0;
     if (now - lastDispatchTime < COOLDOWN_MS) {
       const waitSec = Math.ceil((COOLDOWN_MS - (now - lastDispatchTime)) / 1000);
-      return Response.json({ ok: false, error: `Sync already triggered. Try again in ${waitSec}s.` }, { status: 429 });
+      return withSessionCookie(
+        Response.json({ ok: false, error: `Sync already triggered. Try again in ${waitSec}s.` }, { status: 429 }),
+        setCookie,
+      );
     }
 
     try {
@@ -61,14 +64,17 @@ export default {
 
       if (res.status === 204) {
         lastDispatchByRepo.set(repo, now);
-        return Response.json({ ok: true, message: "Sync triggered" });
+        return withSessionCookie(Response.json({ ok: true, message: "Sync triggered" }), setCookie);
       }
 
       const body = await res.text();
-      return Response.json({ ok: false, error: `GitHub API returned ${res.status}`, detail: body }, { status: res.status });
+      return withSessionCookie(
+        Response.json({ ok: false, error: `GitHub API returned ${res.status}`, detail: body }, { status: res.status }),
+        setCookie,
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      return Response.json({ ok: false, error: message }, { status: 500 });
+      return withSessionCookie(Response.json({ ok: false, error: message }, { status: 500 }), setCookie);
     }
   },
 };
