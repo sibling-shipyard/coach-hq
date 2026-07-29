@@ -30,8 +30,8 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
-                .padding(.bottom, 12)
             }
+            .mainTabScrollBottomClearance()
             .scrollClipDisabled()
             .background(WarmInstrument.desk.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
