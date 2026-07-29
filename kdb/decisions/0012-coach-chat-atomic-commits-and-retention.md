@@ -29,6 +29,6 @@
 - **Rejected:** Share one Git Data API implementation across web (TypeScript) and iOS (Swift) →
   no practical way to share code across those runtimes without a new build/packaging layer neither
   app currently has; kept as two implementations of the same documented pattern
-  (`engine/docs/coach-chat-flow.md`) instead, with unifying them behind a shared contract test
+  (`docs/eng-docs/coach-chat-flow.md`) instead, with unifying them behind a shared contract test
   logged as a P2/P3 follow-up, not built now. Keep calendar-based retention → doesn't bound file
   size, and doesn't match "keep the last 7 chats" as the athlete described it.
