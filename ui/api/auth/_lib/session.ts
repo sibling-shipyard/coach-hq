@@ -157,18 +157,27 @@ export async function ensureFreshSession(req: Request): Promise<FreshSession | R
       }),
     });
   } catch {
-    return Response.json({ error: "Couldn't reach GitHub just now - try again." }, { status: 502 });
+    // Same fallback as a rejected refresh below - see that comment for why.
+    return { session };
   }
 
   const body = await refreshRes.json().catch(() => null);
   if (!refreshRes.ok || !body?.access_token || !body?.refresh_token || !body?.expires_in) {
-    // Refresh token itself expired (6 months idle) or the user revoked the App's access on
-    // GitHub's side - either way, this is a genuine "sign in again" case, not a transient
-    // blip. Same shape RepoDataGate.tsx's accessRevoked state already expects.
-    return Response.json(
-      { error: "Your GitHub access was revoked or expired - sign in again to reconnect." },
-      { status: 401 },
-    );
+    // Issue #117: this used to hard-fail with "access revoked, sign in again" - but a failed
+    // refresh isn't proof the session is dead. GitHub rotates refresh_token on each use
+    // (single-use), so two concurrent requests racing near the 8h boundary means the loser's
+    // exchange gets rejected even though the session is completely fine (the winner already
+    // has a fresh cookie). We refresh proactively, 5 minutes *before* the access token's real
+    // expiry (REFRESH_BUFFER_MS) - so the old access token is almost certainly still valid
+    // right now regardless of why the refresh failed. Falling back to it here, unrefreshed,
+    // means: a race resolves itself silently (this request just uses the still-good old
+    // token; the next request either sees the winner's already-rotated cookie or retries the
+    // refresh itself); a *genuine* revocation surfaces naturally the moment this token is
+    // actually used against GitHub - repo-file.ts's/coach-chat.ts's own 401 detection is a
+    // more reliable signal for "is this really dead" than guessing at the refresh layer.
+    // iOS's validToken() already does exactly this (falls back to the old token on refresh
+    // failure) - this brings web in line with what iOS already gets right.
+    return { session };
   }
 
   const newSession: SessionPayload = {

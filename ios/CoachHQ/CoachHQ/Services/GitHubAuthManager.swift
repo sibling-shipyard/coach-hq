@@ -57,7 +57,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     // MARK: - OAuth Flow
 
     /// Starts sign-in - identical entry point for new and returning users, matching the web
-    /// "Continue with GitHub" button. All PKCE/state/token-exchange logic lives server-side in
+    /// "Log in with GitHub" button. All PKCE/state/token-exchange logic lives server-side in
     /// ui/api/auth/start.ts + callback.ts; this just opens that URL in a web session and reads
     /// what comes back on the coachhq:// redirect.
     func signIn() async throws {
@@ -169,7 +169,7 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
     /// same ownership/marker-file logic web's Onboarding.tsx drives, via list-my-repos.ts's
     /// bearer-token auth path.
     private func resolveRepoIfNeeded() async {
-        guard selectedRepo == nil, let token = loadToken() else { return }
+        guard selectedRepo == nil, let token = await validToken() else { return }
         guard let url = URL(string: Secrets.dashboardBaseURL + "/api/auth/list-my-repos") else { return }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -189,7 +189,12 @@ class GitHubAuthManager: NSObject, ObservableObject, ASWebAuthenticationPresenta
 
     /// Fetches the authenticated user's profile
     func fetchUser() async {
-        guard let token = loadToken() else { return }
+        // validToken(), not loadToken() - fetchUser() runs first thing in bootstrapSession()
+        // on every cold launch with a stored token, before GitHubAPIClient's own proactive
+        // refresh (withRetry) ever gets a chance to run. Reading loadToken() directly here
+        // meant a token that expired since the last session would 401 needlessly right at
+        // startup instead of refreshing silently like everywhere else now does.
+        guard let token = await validToken() else { return }
         var request = URLRequest(url: URL(string: "https://api.github.com/user")!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 

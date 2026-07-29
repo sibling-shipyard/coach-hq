@@ -37,9 +37,12 @@ final class TestModeManager: ObservableObject {
 
     /// Creates the test branch from main HEAD. If it already exists, force-resets it.
     func resetTestBranch(authManager: GitHubAuthManager) async throws {
+        // validToken() (not loadToken()) - this makes several real GitHub API calls below;
+        // was reading a possibly-8h-stale token directly, same class of gap GitHubAPIClient's
+        // withRetry choke point already fixed for the main commit path.
         guard let user = authManager.user?.login,
               let repo = authManager.selectedRepo,
-              let token = authManager.loadToken() else {
+              let token = await authManager.validToken() else {
             throw TestModeError.notAuthenticated
         }
 

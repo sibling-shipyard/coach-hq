@@ -185,9 +185,17 @@ back (6 months, rotated on each use) for a new access token before the old one d
   re-issues the cookie with a renewed 180-day `Max-Age` (`SESSION_MAX_AGE_SEC`) - a sliding
   window roughly matching the refresh token's own 6-month GitHub-side validity, so anyone
   active within any 6-month stretch never sees a login screen again. If the refresh itself
-  fails (refresh token expired from 6 months idle, or genuinely revoked on GitHub's side),
-  that's a real `401` - same "your GitHub access was revoked or expired, sign in again" shape
-  `repo-file.ts`'s direct revocation check already used.
+  fails, `ensureFreshSession()` **falls back to the pre-refresh session** (old access token,
+  cookie left as-is) rather than hard-failing - refreshing proactively 5 minutes before actual
+  expiry means the old token is almost always still valid at that moment, and a failed refresh
+  is just as likely two concurrent requests racing over the same single-use refresh token
+  (GitHub rotates it on each use - one request wins, the other's exchange is rejected even
+  though the session is fine) as it is a genuine revocation (issue #117). A *real* revocation
+  surfaces on its own the next time the old token is actually used against GitHub -
+  `repo-file.ts`'s direct 401/403 check (below) is what shows "your GitHub access was revoked
+  or expired, sign in again," not the refresh layer guessing at it. iOS's `validToken()` has
+  always worked this way (falls back to the old token on refresh failure); this brought web in
+  line with it.
   `coach_oauth_state` - short-lived (10 min), carries `{ state, codeVerifier, platform }`
   across the GitHub redirect round trip, unchanged.
 - **iOS**: no server-side session - stateless, same as before. Every API call presents
