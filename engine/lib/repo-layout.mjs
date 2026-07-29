@@ -168,25 +168,16 @@ export function activitiesDir(repoRootPath) {
     : path.join(repoRootPath, "training", "activities");
 }
 
-/** HQ composed artifact dir; athlete repos use root propagated/. */
-export function propagatedArtifactsDir(repoRootPath) {
+/** HQ composed SOUL lives under platform/propagated/; athlete repos use root propagated/. */
+export function propagatedDir(repoRootPath) {
   if (isHqMonorepo(repoRootPath)) {
-    return path.join(repoRootPath, "platform", "artifacts", "propagated");
+    return path.join(repoRootPath, "platform", "propagated");
   }
   return path.join(repoRootPath, "propagated");
 }
-
-/** Composed coach brain — propagated copy in athlete repos; HQ artifact under platform/artifacts/. */
+/** Composed coach brain — HQ: platform/propagated/SOUL.md; athlete: propagated/SOUL.md. */
 export function soulFilePath(repoRootPath) {
-  const hqArtifact = path.join(
-    repoRootPath,
-    "platform",
-    "artifacts",
-    "propagated",
-    "SOUL.md",
-  );
-  if (isHqMonorepo(repoRootPath) && fs.existsSync(hqArtifact)) return hqArtifact;
-  const propagated = path.join(repoRootPath, "propagated", "SOUL.md");
-  if (fs.existsSync(propagated)) return propagated;
+  const soul = path.join(propagatedDir(repoRootPath), "SOUL.md");
+  if (fs.existsSync(soul)) return soul;
   return path.join(repoRootPath, "SOUL.md");
 }

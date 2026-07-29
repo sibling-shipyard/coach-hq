@@ -155,19 +155,16 @@ def activities_dir(repo: Path) -> Path:
     return repo / "training" / "activities"
 
 
-def propagated_artifacts_dir(repo: Path) -> Path:
-    """HQ composed artifact dir; athlete repos use root propagated/."""
+def propagated_dir(repo: Path) -> Path:
+    """HQ composed SOUL under platform/propagated/; athlete repos use root propagated/."""
     if is_hq_monorepo(repo):
-        return repo / "platform" / "artifacts" / "propagated"
+        return repo / "platform" / "propagated"
     return repo / "propagated"
 
 
 def soul_file_path(repo: Path) -> Path:
-    """Composed coach brain — propagated copy in athlete repos; HQ artifact under platform/artifacts/."""
-    hq_artifact = repo / "platform" / "artifacts" / "propagated" / "SOUL.md"
-    if is_hq_monorepo(repo) and hq_artifact.is_file():
-        return hq_artifact
-    propagated = repo / "propagated" / "SOUL.md"
-    if propagated.is_file():
-        return propagated
+    """Composed coach brain — HQ: platform/propagated/SOUL.md; athlete: propagated/SOUL.md."""
+    soul = propagated_dir(repo) / "SOUL.md"
+    if soul.is_file():
+        return soul
     return repo / "SOUL.md"
