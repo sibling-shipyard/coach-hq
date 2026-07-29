@@ -38,6 +38,8 @@ Runbook: [`docs/engineering/provision-runbook.md`](../docs/engineering/provision
 
 | Path | Role |
 |---|---|
+| `soul/` | Source layers — edit these, then compose |
+| `propagated/` | Composed SOUL + doc preview (never hand-edit SOUL.md) |
 | `plugins/` | HQ extensions (badminton analytics + `generate_analytics_snapshot.py`) |
 | `docs/` | Coach reference — carved subset → `propagated/docs/` |
 | `skeleton-templates/` | Workout templates — 2 samples carved to athlete repos |
