@@ -1,6 +1,6 @@
 # Platform — HQ IP (not carved verbatim)
 
-Soul layers, compose/carve/provision operator tools. Athlete repos get **composed output** only (`propagated/SOUL.md`).
+Soul layers, compose/carve/provision operator tools. HQ composed artifact: `platform/artifacts/propagated/SOUL.md`. Athlete repos get carved copy at `propagated/SOUL.md`.
 
 ## compose-soul.mjs
 
@@ -9,7 +9,7 @@ node platform/scripts/compose-soul.mjs
 node platform/scripts/compose-soul.mjs --check
 ```
 
-Edit `platform/soul/*.md`, never hand-edit `propagated/SOUL.md`.
+Edit `platform/soul/*.md`, never hand-edit `platform/artifacts/propagated/SOUL.md`.
 
 ## carve-skeleton.mjs
 

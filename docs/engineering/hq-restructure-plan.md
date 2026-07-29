@@ -48,7 +48,7 @@ flowchart LR
   R4 --> R5["R5 drop dogfood ✓"]
   R5 --> R6a["R6a root tidy ✓"]
   R6a --> R6b["R6b fold scripts ✓"]
-  R6b --> R6c["R6c propagated → platform/artifacts"]
+  R6b --> R6c["R6c propagated → platform/artifacts ✓"]
   R2["R2 golden ✓"] -.-> R5
 ```
 
@@ -62,7 +62,7 @@ flowchart LR
 | **R5** | S | Delete root `user_data/`, `gen/`, `data/`; local dev uses golden dataset only | **Done** |
 | **R6a** | S | Delete `sessions/`; move root markdown → `docs/`; `tests/` → `platform/tests/` | **Done** |
 | **R6b** | S | Fold root `scripts/` → `kdb/scripts/`, `platform/plugins/badminton/` | **Done** |
-| **R6c** | M | HQ-only: `propagated/` → `platform/artifacts/` (athlete carve output unchanged) | Pending |
+| **R6c** | M | HQ-only: `propagated/` → `platform/artifacts/` (athlete carve output unchanged) | **Done** |
 
 ## Risks (one-liners)
 
@@ -72,7 +72,6 @@ flowchart LR
 
 ## Deferred → ADR before R0
 
-- `propagated/SOUL.md` under `platform/artifacts/` vs carve-only output.
 - Plugin pack layout (#90) vs full `platform/plugins/` carve.
 
 ## P2 follow-ups

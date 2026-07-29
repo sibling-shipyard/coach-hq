@@ -169,7 +169,7 @@ regenerate_gen() {
     cp "${hq_root}/engine/claude/athlete/hooks/session-start.sh" "${target_root}/.claude/hooks/session-start.sh"
     chmod +x "${target_root}/.claude/hooks/session-start.sh"
     cp "${hq_root}/engine/claude/athlete/settings.json" "${target_root}/.claude/settings.json"
-    cp "${hq_root}/propagated/SOUL.md" "${target_root}/propagated/SOUL.md"
+    cp "${hq_root}/platform/artifacts/propagated/SOUL.md" "${target_root}/propagated/SOUL.md"
   fi
 
   log "Regenerating gen/ from migrated user_data/..."

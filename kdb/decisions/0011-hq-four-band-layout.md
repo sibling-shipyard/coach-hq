@@ -17,6 +17,7 @@ Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-p
 | `engine/lib/`, `engine/core/`, `engine/claude/athlete/` | `engine/` + root Claude config | `engine/` |
 | `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
 | `platform/scripts/compose-soul.mjs` + `platform/soul/` | *(runs at carve)* → `propagated/SOUL.md` | `platform/` |
+| HQ composed artifact (pre-carve) | `platform/artifacts/propagated/SOUL.md` | `platform/` |
 | `platform/docs/` (5 refs) + `platform/skills/pipeline-tools.md` | `propagated/docs/` | `platform/` |
 | `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
 | `platform/scripts/carve-skeleton.mjs`, `provision-user.sh` | not copied | `platform/` |
@@ -27,5 +28,4 @@ Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-p
 
 ## Deferred
 
-- `propagated/SOUL.md` under `platform/artifacts/` vs carve-only output.
 - `ui/api/` physical move to `platform/api/` with Vercel rewire.
