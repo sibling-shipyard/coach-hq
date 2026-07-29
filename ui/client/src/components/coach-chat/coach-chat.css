@@ -189,14 +189,6 @@
   background: #e4e4ec;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cc-shell button.cc-ctx__item,
-  .cc-mobile-list button.cc-ctx__item,
-  .cc-ctx button.cc-ctx__item {
-    transition: none;
-  }
-}
-
 .cc-shell button.cc-thread-row,
 .cc-mobile-list button.cc-thread-row {
   display: flex;
@@ -856,9 +848,10 @@
     animation: none;
     opacity: 0.6;
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
+  .cc-shell button.cc-ctx__item,
+  .cc-mobile-list button.cc-ctx__item,
+  .cc-ctx button.cc-ctx__item,
   .cc-shell button.cc-new-btn,
   .cc-mobile-list button.cc-new-btn,
   .cc-shell button.cc-thread-row,

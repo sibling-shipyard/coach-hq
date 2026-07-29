@@ -76,30 +76,65 @@ export interface FileWrite {
   content: string;
 }
 
+export interface ResolvedFileWrite {
+  path: string;
+  /**
+   * Called fresh on every retry attempt, after HEAD is re-read - lets a write react to
+   * whatever a concurrent writer just committed instead of clobbering it with content computed
+   * once before this function was even called. Use this for any path whose new content depends
+   * on the file's own current state (e.g. chat_history.json's thread list) - a static
+   * FileWrite is only safe when the new content doesn't depend on concurrent repo state.
+   */
+  resolve: () => Promise<string>;
+}
+
+export type FileEntry = FileWrite | ResolvedFileWrite;
+
+function isResolvedEntry(entry: FileEntry): entry is ResolvedFileWrite {
+  return typeof (entry as ResolvedFileWrite).resolve === "function";
+}
+
 /**
- * Commits every file in `files` in a single atomic commit. Blobs are uploaded once up front
- * (content-addressed, safe to reuse across retries); the ref-move step is retried against a
- * fresh HEAD/tree on a non-fast-forward conflict (422 is treated as retryable, same as iOS).
+ * Commits every file in `files` in a single atomic commit. Static entries' blobs are uploaded
+ * once up front (content-addressed, safe to reuse across retries). Resolved entries recompute
+ * their content - and re-upload a fresh blob for it - on every retry attempt, so a genuine
+ * conflict (another writer landed a commit between our HEAD read and our ref move) is retried
+ * against that writer's result instead of silently overwriting it. The ref-move step itself is
+ * retried on a non-fast-forward conflict (422 is treated as retryable, same as iOS).
  */
 export async function commitFilesAtomic(
-  files: FileWrite[],
+  files: FileEntry[],
   message: string,
   ctx: CommitContext,
 ): Promise<{ commitSha: string }> {
   if (files.length === 0) throw new Error("commitFilesAtomic called with no files");
 
-  const blobs: { path: string; sha: string }[] = [];
-  for (const file of files) {
+  const staticEntries = files.filter((f): f is FileWrite => !isResolvedEntry(f));
+  const resolvedEntries = files.filter(isResolvedEntry);
+
+  const staticBlobs: { path: string; sha: string }[] = [];
+  for (const file of staticEntries) {
     const blob = await withRetry(3, () =>
       ghPost("/git/blobs", ctx, {
         content: btoa(unescape(encodeURIComponent(file.content))),
         encoding: "base64",
       }),
     );
-    blobs.push({ path: file.path, sha: blob.sha });
+    staticBlobs.push({ path: file.path, sha: blob.sha });
   }
 
   return withRetry(3, async () => {
+    const resolvedBlobs: { path: string; sha: string }[] = [];
+    for (const entry of resolvedEntries) {
+      const content = await entry.resolve();
+      const blob = await ghPost("/git/blobs", ctx, {
+        content: btoa(unescape(encodeURIComponent(content))),
+        encoding: "base64",
+      });
+      resolvedBlobs.push({ path: entry.path, sha: blob.sha });
+    }
+    const blobs = [...staticBlobs, ...resolvedBlobs];
+
     const ref = await ghGet(`/git/ref/heads/${ctx.branch}`, ctx);
     const headSha: string = ref.object.sha;
 

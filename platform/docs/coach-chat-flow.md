@@ -73,16 +73,24 @@ sequenceDiagram
    in-memory thread; refreshing before "wrap" loses the conversation (accepted trade-off, no
    separate database — the repo is the only durable store).
 5. **Close-session turn** — the one moment a real commit happens:
-   - Load `chat_history.json`, find or create the thread, merge in the full message list.
    - Filter Gemini's `file_updates` through `isCoachWritable()` — only files in
      `COACH_WRITABLE_FILES` (`user_data/coach/state.md`, `coach_notes.md`,
      `user_data/ledger/challenge_v2.json`, `current_week.json`, `sleep_log.json`,
      `user_data/activities/workout_plans/sessions/**`) survive, regardless of what the model
      proposed — defense in depth, not trust in instruction-following.
-   - Apply the count-based retention cap (ADR 0012): keep the 7 most-recently-active threads.
-   - `commitFilesAtomic()` — every valid `file_updates` entry plus the updated
-     `chat_history.json`, in **one** commit via the Git Data API (blob → tree → commit → ref,
-     retried on a non-fast-forward conflict), pushed straight to `main`. Commit message:
+   - `chat_history.json`'s new content is **not** computed from a snapshot read before the
+     commit starts. It's a `resolve()` callback (`githubGitData.ts`'s `ResolvedFileWrite`) that
+     re-reads `chat_history.json` fresh, merges this thread to the front
+     (`mergeThreadToFront`), and reapplies the retention cap — run again on every commit retry
+     attempt, not just once. This closes a lost-update race: two requests touching the thread
+     list at once (e.g. this close racing a "Delete forever" in another tab) used to have
+     whichever committed last silently overwrite the other's change; now a losing attempt
+     retries against what the winner actually committed instead of clobbering it. A close
+     targeting a thread another request archived/deleted in the meantime fails loudly (400)
+     rather than silently resurrecting it as active.
+   - `commitFilesAtomic()` — every valid `file_updates` entry plus the resolved
+     `chat_history.json` content, in **one** commit via the Git Data API (blob → tree → commit →
+     ref, retried on a non-fast-forward conflict), pushed straight to `main`. Commit message:
      `coach: chat — <cleaned commit_message>`.
 
 ## What does NOT happen in this action
