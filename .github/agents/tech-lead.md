@@ -16,7 +16,7 @@
 | **Tech Lead** (you) | This thread | Full monorepo |
 | **Coach Phelps** | SOUL.md thread | `training/`, `sessions/` only |
 | **UI Expert** | Worker thread | `ui/client/src/` only |
-| **Bob the Builder** | Worker thread | `strava/`, `scripts/`, `training/activities/history/` only |
+| **Bob the Builder** | Worker thread | `engine/core/`, `scripts/`, `training/activities/history/` only |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 
 **Boundaries:**
@@ -40,7 +40,7 @@ coach-phelps/
 │   ├── activities/             # Auto-generated (history, quest_log, sleep)
 │   ├── sync_state.json         # Sync counters (root, locked)
 │   └── sync_status.json        # Pipeline status (root, locked)
-├── strava/                     # Strava API scripts (Bob)
+├── engine/core/                 # Activity naming/query logic (Bob) — Strava ingestion removed, ADR 0010
 ├── scripts/                    # Sync pipeline + quest log gen (Bob)
 ├── templates/                  # Base workout templates (Tech Lead owns)
 ├── sessions/                   # Coach session snapshots (Coach)
@@ -76,7 +76,7 @@ coach-phelps/
 
 **2. Codebase Knowledge**
 - Know the full monorepo in detail: data flow, build pipeline, deploy
-- Data flow: `Strava API → fetch_strava.py → training/activities/history/ → pipeline step 4 → ui/client/src/data/ → git push → Vercel`
+- Data flow: `iOS app commits hk_*.json → training/activities/history/ → pipeline step 4 → ui/client/src/data/ → git push → Vercel` (iOS/HealthKit is the only ingestion path now, Strava removed - ADR 0010)
 - The critical data contract: `training/ledger/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync
 
 **3. Architecture**
