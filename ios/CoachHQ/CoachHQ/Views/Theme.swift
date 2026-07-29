@@ -658,30 +658,69 @@ enum PremiumMotion {
     static let statsLoad = Animation.easeOut(duration: 0.65)
     /// ≤60ms per item — Design Philosophy stagger budget.
     static func staggerDelay(index: Int) -> Double { Double(index) * 0.055 }
+    /// Onboarding hero cascade — slightly wider spacing so the sequence reads on cold launch.
+    static func onboardingStaggerDelay(index: Int) -> Double { 0.08 + Double(index) * 0.07 }
+    static let onboardingReveal = Animation.spring(duration: 0.48, bounce: 0.14)
 }
 
-/// Fade + 3–4pt slide reveal for ledger rows, login hero, etc.
+/// Fade + slide (optional scale) reveal for ledger rows, login hero, etc.
 struct StaggerRevealModifier: ViewModifier {
     let delay: Double
     var offset: CGFloat = 4
+    var scale: CGFloat = 1
+    var animation: Animation = PremiumMotion.reveal
     @State private var visible = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var hiddenScale: CGFloat { scale < 1 ? scale : 1 }
 
     func body(content: Content) -> some View {
         content
             .opacity(visible ? 1 : 0)
             .offset(y: visible ? 0 : offset)
-            .onAppear {
-                withAnimation(PremiumMotion.reveal.delay(delay)) {
-                    visible = true
-                }
+            .scaleEffect(visible ? 1 : hiddenScale)
+            .onAppear { playEntrance() }
+            .onDisappear { visible = false }
+    }
+
+    private func playEntrance() {
+        guard !visible else { return }
+        if reduceMotion {
+            visible = true
+            return
+        }
+        Task { @MainActor in
+            // Yield one frame so opacity-0 paints before we animate in.
+            await Task.yield()
+            if delay > 0 {
+                try? await Task.sleep(for: .seconds(delay))
             }
+            withAnimation(animation) {
+                visible = true
+            }
+        }
     }
 }
 
 extension View {
     /// Cascading entrance — default 4pt lift, spring fade-in.
-    func staggerReveal(delay: Double = 0, offset: CGFloat = 4) -> some View {
-        modifier(StaggerRevealModifier(delay: delay, offset: offset))
+    func staggerReveal(
+        delay: Double = 0,
+        offset: CGFloat = 4,
+        scale: CGFloat = 1,
+        animation: Animation = PremiumMotion.reveal
+    ) -> some View {
+        modifier(StaggerRevealModifier(delay: delay, offset: offset, scale: scale, animation: animation))
+    }
+
+    /// Hero onboarding entrance — larger lift + scale pop, tuned for login/setup cold launch.
+    func onboardingReveal(delay: Double = 0, index: Int = 0) -> some View {
+        staggerReveal(
+            delay: delay > 0 ? delay : PremiumMotion.onboardingStaggerDelay(index: index),
+            offset: 14,
+            scale: index == 0 ? 0.9 : 1,
+            animation: PremiumMotion.onboardingReveal
+        )
     }
 
     /// Swipe right from the leading edge to pop — matches hidden-nav-bar push screens.
