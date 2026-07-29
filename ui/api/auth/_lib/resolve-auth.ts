@@ -23,7 +23,7 @@ export async function resolveRepoAuth(req: Request): Promise<RepoAuthContext | R
     }
     if (!session.repo_full_name) {
       return Response.json(
-        { error: "No repo resolved yet — visit /api/list-my-repos first" },
+        { error: "No repo resolved yet — visit /api/auth/list-my-repos first" },
         { status: 400 },
       );
     }
