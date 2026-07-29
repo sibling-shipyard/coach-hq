@@ -3,7 +3,7 @@
 ## Context
 
 One shared backend, `ui/api/auth/`, handles GitHub sign-in for both the web dashboard and the
-iOS app. There's a single entry point ("Continue with GitHub" on web, "Sign in with GitHub" on
+iOS app. There's a single entry point ("Log in with GitHub" on web, "Sign in with GitHub" on
 iOS) - it looks the same whether the person is new or returning. First-time users (no
 `coach-phelps` App installation yet) are walked through a two-step Setup wizard instead of
 seeing a dead-end error page. Covers the same ground as [[strava-sync]] and [[ios-sync]] do for
@@ -36,7 +36,7 @@ first for secrets/PII before flipping visibility - clean, single commit, all pla
 
 ```mermaid
 flowchart TD
-    btn["Continue with GitHub<br/>(web button / iOS Sign in)"] --> start["/api/auth/start<br/>?platform=web|ios"]
+    btn["Log in with GitHub<br/>(web button / iOS Sign in)"] --> start["/api/auth/start<br/>?platform=web|ios"]
     start --> authorize["GitHub /login/oauth/authorize"]
     authorize --> cb["/api/auth/callback"]
     cb -->|"installation found"| done["session ready"]
@@ -109,12 +109,23 @@ sequenceDiagram
 
 - `WelcomePage.tsx` - one link, `/api/auth/start`. (The old separate `/api/auth-install` "Sign
   up" link and `LoginPage.tsx`/`pages/Login.tsx` route are gone - both were fully replaced.)
+- `AuthPageHeader.tsx` - shared header (brand + a contextual "Cancel"/"Sign out" link) used by
+  every screen below plus `RepoDataGate.tsx` - none of these used to have a way back to the
+  product page mid-flow.
 - `pages/Setup.tsx` - shown when `callback.ts` redirects to `/setup?login=<login>`. Two buttons:
   a `target=_blank` link to `github.com/new?template_owner=sibling-shipyard&template_name=coach-skeleton&owner=<login>&name=coach-<login>&visibility=private`
   (opens in a new tab, user clicks GitHub's own green "Create repository" button), and a link to
-  `/api/auth/install-redirect`.
-- `pages/Onboarding.tsx` - unchanged from before: calls `list-my-repos.ts`, auto-selects on one
-  candidate, renders a picker on 2+.
+  `/api/auth/install-redirect`. Step 2's label notes it depends on step 1 finishing first, for
+  whoever clicks out of order.
+- `pages/Onboarding.tsx` - calls `list-my-repos.ts`, auto-selects on one candidate, renders a
+  picker on 2+. The 0-candidate dead end (no recovery button at all) is fixed - "Try setup
+  again" and "Sign out" both work now.
+- `RepoDataGate.tsx` - gates `Home.tsx` (and other `useRepoData()` consumers) on load/error
+  states. `error`/`notOnboarded`/`schemaUnsupported` all have working "Switch repo"/"Sign out"
+  buttons now (used to be dead ends - this is what "deleted my test repo, dashboard got stuck
+  with no way back" looked like before). A `401` from `repo-file.ts` specifically shows "Your
+  GitHub access expired - sign in again" with a direct re-auth button, distinct from the
+  generic error state.
 
 ## iOS flow
 
@@ -133,49 +144,91 @@ rather than embedding the React page.
   Safari via `UIApplication.shared.open()` (standard "switch out, do a thing, switch back"
   mobile pattern - no in-session navigation needed). Step 2 calls
   `authManager.continueToInstall()`, which opens a **second** `ASWebAuthenticationSession`
-  against `/api/auth/install-redirect?platform=ios`.
+  against `/api/auth/install-redirect?platform=ios`. Has a Cancel button (signs out) - the only
+  way out used to be force-quitting the app.
 - `resolveRepoIfNeeded()` - the fallback for the rare not-exactly-one-candidate case, calls
   `list-my-repos.ts` with `Authorization: Bearer <token>`, no `X-Coach-Repo` (that's what's being
   resolved). No native picker UI exists yet for a genuine 2+ result - `selectedRepo` just stays
-  nil in that case.
-- `CoachHQApp.swift` routing: `isAuthenticated` → `MainTabView`, else `pendingSetupLogin != nil`
-  → `SetupView`, else `LoginView`.
+  nil, and `bootstrapSession()` routes back into `pendingSetupLogin` instead of leaving
+  `CoachHQApp` on a broken `MainTabView` with nothing to show.
+- `CoachHQApp.swift` routing: `isAuthenticated && (selectedRepo != nil || !isSessionReady)` →
+  `MainTabView` (the `!isSessionReady` half keeps the normal loading state during cold-launch
+  resolution from flashing to `SetupView`); else `pendingSetupLogin != nil` → `SetupView`; else
+  `LoginView`.
+- `fetchUser()`/`resolveRepoIfNeeded()` failures surface via `lastNetworkError`, shown inline on
+  `LoginView`/`SetupView` - used to fail with only a console `print()`, no signal at all.
 - `GitHubAuthManager`'s public surface (`isAuthenticated`, `isSessionReady`, `user`,
   `selectedRepo`, `loadToken()`, `signOut()`) is unchanged, so `GitHubAPIClient.swift`,
-  `SettingsView.swift`, etc. needed no changes.
+  `SettingsView.swift`, etc. needed no changes for the initial rewrite - `GitHubAPIClient.swift`
+  does now call `validToken()` (see Session mechanics) instead of `loadToken()` in a couple of
+  places, for the refresh-token rotation below.
 
-## Session mechanics
+## Session mechanics — refresh-token rotation (ADR 0009)
+
+`coach-phelps` has GitHub's "expire user authorization tokens" opted in - the real GitHub
+access token embedded in every session dies at **8h** no matter what. That's not a cookie
+setting we control; it's GitHub's own token lifetime. So "stay logged in until you log out"
+isn't a bigger `Max-Age` - it's silently exchanging the `refresh_token` GitHub already hands
+back (6 months, rotated on each use) for a new access token before the old one dies. See
+`kdb/decisions/0009-refresh-token-sliding-session.md` for the full decision record.
 
 - **Web**: `coach_session` cookie - JWE (encrypted, not just signed) via `jose`, key =
-  `SESSION_SECRET`. ~8h max-age. Payload: `{ github_user_id, login, gh_token, installation_id,
-  repo_full_name? }`. `coach_oauth_state` - short-lived (10 min), carries `{ state, codeVerifier,
-  platform }` across the GitHub redirect round trip.
-- **iOS**: no server-side session at all - stateless. Every API call presents
-  `Authorization: Bearer <gh_token>` + `X-Coach-Repo: owner/repo`, verified fresh each time by
-  `_lib/resolve-auth.ts`. Token lives in iOS Keychain, not a cookie.
+  `SESSION_SECRET`. Payload: `{ github_user_id, login, gh_token, refresh_token,
+  gh_token_expires_at, installation_id, repo_full_name? }` - two clocks, deliberately separate:
+  `gh_token_expires_at` (the real ~8h GitHub token lifetime) vs. the cookie's own JWE expiry
+  (the sliding 180-day cap below).
+  `ensureFreshSession()` (`_lib/session.ts`) is the **one place** every handler reads the
+  session now (`repo-file.ts`, `list-my-repos.ts`, `me.ts`, `coach-chat.ts`, `trigger-sync.ts`,
+  `resolve-auth.ts`'s cookie branch) - decrypts, and if `gh_token_expires_at` is within 5
+  minutes of now, exchanges the refresh token for a new pair
+  (`POST https://github.com/login/oauth/access_token`, `grant_type=refresh_token`) and
+  re-issues the cookie with a renewed 180-day `Max-Age` (`SESSION_MAX_AGE_SEC`) - a sliding
+  window roughly matching the refresh token's own 6-month GitHub-side validity, so anyone
+  active within any 6-month stretch never sees a login screen again. If the refresh itself
+  fails (refresh token expired from 6 months idle, or genuinely revoked on GitHub's side),
+  that's a real `401` - same "your GitHub access was revoked or expired, sign in again" shape
+  `repo-file.ts`'s direct revocation check already used.
+  `coach_oauth_state` - short-lived (10 min), carries `{ state, codeVerifier, platform }`
+  across the GitHub redirect round trip, unchanged.
+- **iOS**: no server-side session - stateless, same as before. Every API call presents
+  `Authorization: Bearer <gh_token>` + `X-Coach-Repo: owner/repo`, verified by
+  `_lib/resolve-auth.ts` (which itself calls `ensureFreshSession()` for the web-cookie half of
+  its own dual auth). iOS can't do the refresh exchange itself - that needs `client_secret`
+  server-side, exactly what the OAuth rewrite removed from the app - so it calls
+  **`/api/auth/refresh`**, a new endpoint whose only job is the confidential half of the
+  exchange. No cookie/bearer auth on that endpoint itself: possessing a valid, GitHub-issued
+  `refresh_token` *is* the auth, same trust model as the initial sign-in exchange in
+  `callback.ts`. `GitHubAuthManager.validToken()` calls it proactively (5-minute buffer, same
+  as the web side) from `GitHubAPIClient`'s central retry choke point, and stores the rotated
+  `refresh_token`/expiry in Keychain alongside the access token.
 
 ## Appendix — file reference
 
 | Path | Role |
 |---|---|
-| `ui/client/src/components/welcome/WelcomePage.tsx` | Web "Continue with GitHub" entry point |
+| `ui/client/src/components/welcome/WelcomePage.tsx` | Web "Log in with GitHub" entry point |
+| `ui/client/src/components/login/AuthPageHeader.tsx` | Shared header (brand + Cancel/Sign out) |
 | `ui/client/src/pages/Setup.tsx` | Web Setup wizard |
 | `ui/client/src/pages/Onboarding.tsx` | Web repo picker (post-auth) |
 | `ui/client/src/pages/AuthError.tsx` | Renders `auth_error` types |
+| `ui/client/src/components/RepoDataGate.tsx` | Loading/error/not-onboarded/revoked states for `useRepoData()` pages |
 | `ui/client/src/contexts/AuthContext.tsx` | Client-side auth state gate |
 | `ui/api/auth/start.ts` | Sign-in entry point (both platforms) |
 | `ui/api/auth/callback.ts` | Shared OAuth callback, platform branch |
 | `ui/api/auth/install-redirect.ts` | Setup wizard step 2 |
+| `ui/api/auth/refresh.ts` | iOS-only: confidential half of the refresh_token exchange |
 | `ui/api/auth/me.ts` | Web session read endpoint |
 | `ui/api/auth/logout.ts` | Clears web session cookie |
 | `ui/api/auth/list-my-repos.ts` | Repo resolution/picker, dual auth |
-| `ui/api/auth/_lib/session.ts` | Cookie helpers, JWE encrypt/decrypt |
+| `ui/api/auth/_lib/session.ts` | Cookie helpers, JWE encrypt/decrypt, `ensureFreshSession()` |
 | `ui/api/auth/_lib/pkce.ts` | PKCE verifier/challenge generation |
 | `ui/api/auth/_lib/repo-resolution.ts` | Shared installation/repo lookup logic |
 | `ui/api/auth/_lib/resolve-auth.ts` | Per-request auth for repo-scoped endpoints (cookie or Bearer+X-Coach-Repo) |
+| `ui/api/repo-file.ts` | Reads `gen/aggregate.json`; 401 → revoked-access copy |
 | `ui/api/widget-snapshots.ts` | Server-side widget snapshot generation, used by iOS |
-| `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | iOS sign-in, Keychain, repo resolution |
+| `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | iOS sign-in, Keychain, repo resolution, token refresh |
 | `ios/CoachHQ/CoachHQ/Views/SetupView.swift` | iOS native Setup wizard |
 | `ios/CoachHQ/CoachHQ/Views/LoginView.swift` | iOS sign-in screen |
 | `ios/CoachHQ/CoachHQ/CoachHQApp.swift` | iOS auth-state routing |
 | `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | iOS direct GitHub Contents/Git Data API calls |
+| `kdb/decisions/0009-refresh-token-sliding-session.md` | ADR for the refresh-token session design |
