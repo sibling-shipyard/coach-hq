@@ -232,11 +232,17 @@ struct SetupView: View {
         guard let generateURL, let login else { return }
         guard !repoStepComplete else { return }
 
-        WebAuthPresenter.shared.presentBrowse(url: generateURL) { url in
-            if authManager.isCoachRepoCreationURL(url, login: login) {
-                markRepoComplete()
+        WebAuthPresenter.shared.presentBrowse(
+            url: generateURL,
+            onNavigation: { url in
+                if authManager.isCoachRepoCreationURL(url, login: login) {
+                    markRepoComplete()
+                }
+            },
+            onDismiss: {
+                Task { await refreshRepoStatus() }
             }
-        }
+        )
     }
 
     private func continueToInstall() {

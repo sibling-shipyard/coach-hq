@@ -411,6 +411,7 @@ struct WarmDialog: View {
     let primaryAction: () -> Void
     var secondaryTitle: String? = nil
     var secondaryAction: (() -> Void)? = nil
+    var primaryColor: Color? = nil
     /// Backdrop tap — defaults to secondary action, then primary.
     var onBackdropTap: (() -> Void)? = nil
 
@@ -444,7 +445,7 @@ struct WarmDialog: View {
                     if let secondaryTitle, let secondaryAction {
                         WarmDialogActionButton(title: secondaryTitle, style: .secondary, action: secondaryAction)
                     }
-                    WarmDialogActionButton(title: primaryTitle, style: .primary, action: primaryAction)
+                    WarmDialogActionButton(title: primaryTitle, style: .primary, primaryColor: primaryColor, action: primaryAction)
                 }
             }
             .padding(.horizontal, 26)
@@ -467,7 +468,10 @@ struct WarmDialogActionButton: View {
 
     let title: String
     let style: Style
+    var primaryColor: Color? = nil
     let action: () -> Void
+
+    private var resolvedPrimaryColor: Color { primaryColor ?? WarmInstrument.accent }
 
     var body: some View {
         Button(action: action) {
@@ -476,7 +480,7 @@ struct WarmDialogActionButton: View {
                 .foregroundColor(style == .primary ? WarmInstrument.paper : Theme.ink)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(style == .primary ? WarmInstrument.accent : WarmInstrument.paper)
+                .background(style == .primary ? resolvedPrimaryColor : WarmInstrument.paper)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(

@@ -20,11 +20,6 @@ enum UserFacingError {
         }
 
         let ns = error as NSError
-        if ns.domain == "com.apple.AuthenticationServices.WebAuthenticationSession" {
-            if ns.code == 1 { return "Sign-in cancelled." }
-            return "Couldn't complete sign-in. Try again."
-        }
-
         if ns.domain == NSURLErrorDomain {
             return "Couldn't reach the network just now — check your connection and try again."
         }

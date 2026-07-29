@@ -50,6 +50,14 @@ final class WebAuthPresenter: ObservableObject {
 
     /// OAuth / install flow — resumes when navigation hits `coachhq://…`.
     func start(url: URL, callbackScheme: String = "coachhq") async throws -> URL {
+        if let pending = continuation {
+            pending.resume(throwing: WebAuthError.cancelled)
+            continuation = nil
+        }
+        if isPresented, case .browse = mode {
+            dismissBrowse()
+        }
+
         mode = .authenticate(callbackScheme: callbackScheme)
         currentURL = url
         isPresented = true
@@ -60,15 +68,21 @@ final class WebAuthPresenter: ObservableObject {
     }
 
     /// Repo create and other GitHub pages — user dismisses manually; cookies persist for step 2.
-    func presentBrowse(url: URL, onNavigation: ((URL) -> Void)? = nil) {
+    func presentBrowse(
+        url: URL,
+        onNavigation: ((URL) -> Void)? = nil,
+        onDismiss: (() -> Void)? = nil
+    ) {
         mode = .browse
         currentURL = url
         onBrowseNavigation = onNavigation
+        onBrowseDismiss = onDismiss
         isPresented = true
     }
 
     /// Called from WKWebView when the athlete navigates during browse mode.
     var onBrowseNavigation: ((URL) -> Void)?
+    private var onBrowseDismiss: (() -> Void)?
 
     func complete(with url: URL) {
         isPresented = false
@@ -88,5 +102,7 @@ final class WebAuthPresenter: ObservableObject {
         isPresented = false
         currentURL = nil
         onBrowseNavigation = nil
+        onBrowseDismiss?()
+        onBrowseDismiss = nil
     }
 }

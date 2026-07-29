@@ -370,6 +370,7 @@ struct WarmQuitDialog: View {
             primaryAction: onQuit,
             secondaryTitle: "Continue",
             secondaryAction: onContinue,
+            primaryColor: WorkoutTimerWarm.rust,
             onBackdropTap: onContinue
         )
     }
