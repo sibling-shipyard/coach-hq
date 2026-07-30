@@ -9,6 +9,7 @@ final class BeepPlayer {
     init() {
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: format)
+        engine.mainMixerNode.outputVolume = 0.45
         do {
             try AVAudioSession.sharedInstance().setCategory(
                 .playback, mode: .default,
@@ -31,24 +32,33 @@ final class BeepPlayer {
         if type == .ended { try? engine.start() }
     }
 
-    func countdown3() { play(freq: 600, ms: 100) }
-    func transition()  { play(freq: 1000, ms: 200) }
+    func countdown3() { play(freq: 523, ms: 70, volume: 0.18) }
+    func transition()  { play(freq: 440, ms: 140, volume: 0.22) }
     func complete() {
-        play(freq: 1200, ms: 300)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            self?.play(freq: 1400, ms: 300)
+        engine.mainMixerNode.outputVolume = 0.92
+        play(freq: 392, ms: 360, volume: 0.72, decay: 2.8)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.34) { [weak self] in
+            guard let self else { return }
+            self.play(freq: 523, ms: 560, volume: 0.88, decay: 2.4)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+                self?.engine.mainMixerNode.outputVolume = 0.45
+            }
         }
     }
 
-    private func play(freq: Float, ms: Int) {
+    private func play(freq: Float, ms: Int, volume: Float, decay: Float = 6.5) {
         guard engine.isRunning else { return }
         let frameCount = AVAudioFrameCount(sampleRate * Double(ms) / 1000.0)
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
         buffer.frameLength = frameCount
         let data = buffer.floatChannelData![0]
-        let twoPiF = 2.0 * Float.pi * freq / Float(sampleRate)
+        let totalFrames = Float(frameCount)
         for i in 0..<Int(frameCount) {
-            data[i] = sinf(twoPiF * Float(i)) >= 0 ? 0.15 : -0.15
+            let t = Float(i) / Float(sampleRate)
+            let progress = Float(i) / totalFrames
+            let attack = min(1, t * 120)
+            let envelope = attack * exp(-t * decay) * (1 - progress * 0.12)
+            data[i] = sinf(2 * Float.pi * freq * t) * envelope * volume
         }
         if !player.isPlaying { player.play() }
         player.scheduleBuffer(buffer)
