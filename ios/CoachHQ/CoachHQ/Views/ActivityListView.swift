@@ -14,6 +14,14 @@ struct ActivityListView: View {
     @State private var navigationPath: [SyncCacheEntry] = []
     @State private var didInitialLoad = false
 
+    /// Re-run GitHub backfill once repo discovery finishes (same pattern as Home / Workouts).
+    private var activityFetchToken: String {
+        [
+            authManager.isSessionReady ? "ready" : "boot",
+            authManager.repoFullName ?? "",
+        ].joined(separator: "|")
+    }
+
     private static let inputFmt: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
@@ -78,8 +86,10 @@ struct ActivityListView: View {
         .toast($toast)
         .toolbar(.hidden, for: .navigationBar)
         .hidesMainTabBar(embedded)
-        .task {
+        .task(id: activityFetchToken) {
             entries = SyncCache.load()
+            guard authManager.isSessionReady else { return }
+            guard authManager.repoFullName != nil else { return }
             guard !didInitialLoad else { return }
             didInitialLoad = true
             await syncManager.backfillRecentCache()

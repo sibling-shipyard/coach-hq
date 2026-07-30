@@ -1,10 +1,18 @@
 import SwiftUI
 
 struct WorkoutListView: View {
+    @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var workoutService: WorkoutService
     @State private var navigationPath: [Workout] = []
 
-    private var todayId: String? { WorkoutService.todayTemplateId() }
+    /// Re-fetch once repo discovery finishes (same pattern as WarmInstrumentHomeView).
+    private var workoutFetchToken: String {
+        [
+            workoutService.templates.isEmpty ? "templates-pending" : "templates-ready",
+            authManager.isSessionReady ? "ready" : "boot",
+            authManager.repoFullName ?? "",
+        ].joined(separator: "|")
+    }
 
     private var allWorkouts: [(workout: Workout, isSession: Bool)] {
         workoutService.templates.compactMap { template in
@@ -41,6 +49,11 @@ struct WorkoutListView: View {
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()
             .refreshable {
+                await workoutService.fetchTodaySessions()
+            }
+            .task(id: workoutFetchToken) {
+                guard authManager.isSessionReady else { return }
+                guard authManager.repoFullName != nil else { return }
                 await workoutService.fetchTodaySessions()
             }
             .overlay {
@@ -85,7 +98,7 @@ struct WorkoutListView: View {
                     WarmWorkoutListCard(
                         workout: entry.workout,
                         isSession: entry.isSession,
-                        isToday: entry.workout.id == todayId,
+                        isToday: entry.isSession,
                         onTap: { navigationPath.append(entry.workout) }
                     )
                 }

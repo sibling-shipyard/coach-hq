@@ -152,6 +152,7 @@ class GitHubAuthManager: ObservableObject {
             selectedRepo = repo
             isSessionReady = false
             await fetchUser()
+            normalizeSelectedRepo()
             isSessionReady = true
         } else {
             // Rare: not exactly one candidate repo. Falls back to resolveRepoIfNeeded(); if
@@ -165,7 +166,9 @@ class GitHubAuthManager: ObservableObject {
     func bootstrapSession() async {
         isSessionReady = false
         await fetchUser()
+        normalizeSelectedRepo()
         await resolveRepoIfNeeded()
+        normalizeSelectedRepo()
         // Couldn't resolve a repo at all - route back into Setup instead of leaving
         // CoachHQApp stuck on a broken MainTabView with no repo.
         if selectedRepo == nil {
@@ -186,11 +189,18 @@ class GitHubAuthManager: ObservableObject {
             let (data, _) = try await URLSession.shared.data(for: request)
             if let result = try? JSONDecoder().decode(RepoResolution.self, from: data) {
                 selectedRepo = result.repoFullName
+                normalizeSelectedRepo()
             }
         } catch {
             lastNetworkError = "Couldn't look up your repo just now - check your connection and try again."
             print("Failed to resolve repo: \(error)")
         }
+    }
+
+    /// Ensures `selectedRepo` is always `owner/repo` once the GitHub login is known.
+    private func normalizeSelectedRepo() {
+        guard let full = repoFullName else { return }
+        if selectedRepo != full { selectedRepo = full }
     }
 
     // MARK: - User

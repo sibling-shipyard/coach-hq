@@ -168,7 +168,7 @@ struct WarmInstrumentHomeView: View {
             store.isConfigured ? "configured" : "pending",
             authManager.isSessionReady ? "ready" : "boot",
             authManager.user?.login ?? "",
-            authManager.selectedRepo ?? "",
+            authManager.repoFullName ?? "",
         ].joined(separator: "|")
     }
 

@@ -80,6 +80,33 @@ class WidgetSnapshotStore: ObservableObject {
         }
     }
 
+    /// Polls Home snapshots after a HealthKit commit until the user-repo sync workflow
+    /// has regenerated `gen/aggregate.json` (timestamp in `home.sync`) or attempts exhaust.
+    func refreshAfterSync(since commitFinishedAt: Date) async {
+        let waitSeconds: [UInt64] = [0, 15, 15, 20, 20, 30]
+        for (attempt, delay) in waitSeconds.enumerated() {
+            if attempt > 0 {
+                try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
+            }
+            await refresh(showSpinner: false)
+            if snapshotsAreFresh(since: commitFinishedAt) { return }
+        }
+    }
+
+    private func snapshotsAreFresh(since commitFinishedAt: Date) -> Bool {
+        guard let timestamp = snapshots?.home.sync.timestamp,
+              let pipelineAt = Self.parseSyncTimestamp(timestamp) else { return false }
+        return pipelineAt >= commitFinishedAt
+    }
+
+    private static func parseSyncTimestamp(_ raw: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: raw) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: raw)
+    }
+
     /// Skip automatic refresh when snapshots are fresh (5 min) — tab switches stay calm.
     var shouldRefresh: Bool {
         guard snapshots != nil else { return true }

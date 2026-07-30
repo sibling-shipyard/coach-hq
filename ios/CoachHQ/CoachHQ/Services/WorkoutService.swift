@@ -10,25 +10,12 @@ class WorkoutService: ObservableObject {
 
     private var apiClient: GitHubAPIClient?
 
-    /// Maps Calendar.weekday (1=Sun, 2=Mon … 7=Sat) → template id.
-    static let dowMap: [Int: String] = [
-        3: "workout_a",   // Tuesday
-        4: "workout_b",   // Wednesday
-        6: "workout_c",   // Friday
-        1: "workout_d",   // Sunday
-    ]
-
-    static func todayTemplateId() -> String? {
-        dowMap[Calendar.current.component(.weekday, from: Date())]
-    }
-
     init() {
         loadBundled()
     }
 
     func configure(apiClient: GitHubAPIClient) {
         self.apiClient = apiClient
-        Task { await fetchTodaySessions() }
     }
 
     // MARK: - Display helpers
@@ -45,9 +32,7 @@ class WorkoutService: ObservableObject {
         fetchError = nil
         defer { isLoading = false }
 
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = .withFullDate
-        let today = formatter.string(from: Date())
+        let today = Self.localDateKey(from: Date())
 
         var sessions: [String: Workout] = [:]
         for template in templates {
@@ -59,10 +44,24 @@ class WorkoutService: ObservableObject {
             } catch GitHubAPIError.notFound {
                 // No coach session today for this template — expected
             } catch {
-                // Non-critical: bundled template is the fallback
+                // Keep bundled templates visible; surface the first failure for debugging.
+                if fetchError == nil {
+                    fetchError = "Couldn't load today's coach sessions"
+                }
+                print("fetchTodaySessions failed for \(path): \(error)")
             }
         }
         todaySessions = sessions
+    }
+
+    /// Local calendar date for session filenames (`YYYY-MM-DD_workout_a.json`).
+    private static func localDateKey(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 
     // MARK: - Bundle load

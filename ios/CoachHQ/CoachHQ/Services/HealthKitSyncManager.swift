@@ -177,6 +177,7 @@ class HealthKitSyncManager: ObservableObject {
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
 
             let n = filesToCommit.count - 1
+            let commitFinishedAt = Date()
             try await apiClient.commitFiles(filesToCommit, message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")")
 
             // Freshly-synced HealthKit activities never have a description yet.
@@ -191,10 +192,10 @@ class HealthKitSyncManager: ObservableObject {
             lastSyncDate = Date()
             lastSyncResult = SyncResult(outcome: .synced(n), id: UUID())
 
-            // New activities just landed on GitHub — the widget snapshot pipeline runs on the
-            // next sync/build, but refreshing now picks up anything already regenerated and
-            // keeps Home from showing a stale pre-sync snapshot longer than necessary.
-            await widgetStore?.refresh(showSpinner: false)
+            // Home reads live snapshots from aggregate.json; the user-repo sync workflow
+            // regenerates that file ~30s after this commit. Poll until pipeline timestamp
+            // catches up so we don't cache a stale pre-pipeline snapshot for 5 minutes.
+            await widgetStore?.refreshAfterSync(since: commitFinishedAt)
         } catch is CancellationError {
             // Task was cancelled (e.g. view torn down mid-sync) — not a real
             // failure; stay quiet instead of showing a scary "cancelled" error.
