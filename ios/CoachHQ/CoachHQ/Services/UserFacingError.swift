@@ -32,7 +32,7 @@ enum UserFacingError {
         if raw.contains("coach intake") || raw.contains("challenge_v2") {
             return "Your dashboard fills in after your first chat with Coach — open the Chat tab to get started."
         }
-        if raw.contains("HTTP 401") || raw.contains("Not authenticated") {
+        if raw.contains("HTTP 401") || raw.contains("Not authenticated") || raw.contains("Not signed in to GitHub") {
             return "Your session expired — sign in again."
         }
         if raw.contains("HTTP 404") {

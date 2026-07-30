@@ -43,6 +43,13 @@ class WorkoutService: ObservableObject {
                 sessions[template.id] = workout
             } catch GitHubAPIError.notFound {
                 // No coach session today for this template — expected
+            } catch GitHubAPIError.notAuthenticated {
+                // Distinct from the generic case below so callers can match "HTTP 401"/"Not
+                // authenticated" in fetchError and flag session expiry (see GitHubAuthManager.noteAPIError).
+                if fetchError == nil {
+                    fetchError = GitHubAPIError.notAuthenticated.errorDescription
+                }
+                print("fetchTodaySessions failed for \(path): not authenticated")
             } catch {
                 // Keep bundled templates visible; surface the first failure for debugging.
                 if fetchError == nil {

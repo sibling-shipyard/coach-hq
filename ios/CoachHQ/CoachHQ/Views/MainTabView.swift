@@ -76,10 +76,18 @@ struct MainTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if !tabBarHidden {
+            if !tabBarHidden && !authManager.sessionExpired {
                 bottomDockContent
             }
         }
+        .overlay {
+            if authManager.sessionExpired {
+                SessionExpiredView(authManager: authManager)
+                    .background(WarmInstrument.desk.ignoresSafeArea())
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: authManager.sessionExpired)
         .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
         .animation(PremiumMotion.dock, value: tabBarHidden)
         .background(WarmInstrument.desk.ignoresSafeArea())

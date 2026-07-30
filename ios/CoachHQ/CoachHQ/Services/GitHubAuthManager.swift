@@ -33,6 +33,10 @@ class GitHubAuthManager: ObservableObject {
     /// Surfaced by LoginView/SetupView so a network blip during sign-in doesn't leave
     /// `user`/`selectedRepo` silently unset with no signal to the person looking at the screen.
     @Published var lastNetworkError: String?
+    /// True once any screen's API call comes back 401 - MainTabView shows one shared
+    /// "sign in again" screen over the whole app instead of each tab reacting on its own
+    /// (Home/Activity used to just toast it, Workouts didn't surface it at all).
+    @Published var sessionExpired = false
 
     private let keychainKey = "com.siblingshipyard.coachhq.github.token"
     private let callbackScheme = "coachhq"
@@ -92,6 +96,18 @@ class GitHubAuthManager: ObservableObject {
         }
     }
 
+    /// Call with any raw error string a fetch surfaces - flips `sessionExpired` on the same
+    /// signal `UserFacingError.friendlyAPIError` already matches (kept in sync with it: a
+    /// `requestFailed`/`commitFailed` 401 reads "HTTP 401", `GitHubAPIError.notAuthenticated`
+    /// itself reads "Not signed in to GitHub"), so every screen ends up at the same recovery
+    /// screen instead of reimplementing detection.
+    func noteAPIError(_ raw: String?) {
+        guard let raw,
+              raw.contains("HTTP 401") || raw.contains("Not authenticated") || raw.contains("Not signed in to GitHub")
+        else { return }
+        sessionExpired = true
+    }
+
     /// True when navigation landed on the athlete's coach repo page after template create.
     func isCoachRepoCreationURL(_ url: URL, login: String) -> Bool {
         guard url.host?.lowercased() == "github.com" else { return false }
@@ -147,6 +163,7 @@ class GitHubAuthManager: ObservableObject {
         }
         pendingSetupLogin = nil
         isAuthenticated = true
+        sessionExpired = false
 
         if let repo = value("repo") {
             selectedRepo = repo
@@ -344,6 +361,7 @@ class GitHubAuthManager: ObservableObject {
         selectedRepo = nil
         pendingSetupLogin = nil
         lastNetworkError = nil
+        sessionExpired = false
     }
 }
 
