@@ -13,6 +13,11 @@ This replaces an earlier two-button (Log in / Sign up) web-only flow and a compl
 classic-OAuth iOS flow (embedded client secret, on-device token exchange - a real App Store
 distribution blocker). Both are gone; this is what's there now.
 
+Web also now opens the whole flow (sign-in, and Setup's install step) in a **popup window**
+instead of navigating the tab away and back - functional parity with iOS's in-app WKWebView
+sheet (never leaves the app, closes itself on completion), not a visual port. Web's own design
+system is untouched; only the interaction model changed. See "Web flow" below.
+
 ## Why sign-up can't be fully automated
 
 GitHub App user-to-server tokens cannot create repositories under a personal account - confirmed
@@ -45,16 +50,28 @@ flowchart TD
     setup -->|"2. continue to install"| installredirect["/api/auth/install-redirect<br/>?platform=web|ios"]
     installredirect --> installpage["GitHub /installations/new<br/>repo now exists, shows in picker"]
     installpage --> cb
-    done -->|"web"| webdone["Set-Cookie session, redirect /"]
+    done -->|"web, popup=1"| popupdone["/auth/popup-complete<br/>postMessage + window.close()"]
+    done -->|"web, full nav"| webdone["Set-Cookie session, redirect /"]
     done -->|"ios"| iosdone["coachhq://callback?token=&repo=&login="]
 ```
+
+- Web always opens `start`/`install-redirect` in a popup now (`?popup=1`), so in practice the
+  "web, popup=1" branch is the common path - the plain full-page-redirect branch only fires as
+  `GitHubAuthButton`'s fallback when a popup can't be opened.
 
 - The button always hits the plain `/login/oauth/authorize` sign-in endpoint - identical for new
   and returning users. It never routes straight into `/installations/new`; only `callback.ts`
   does that, and only when it discovers there's genuinely no installation yet.
 - `callback.ts` branches its final response on a `platform` value (`web` or `ios`) that rides
   through the whole redirect chain inside the existing `coach_oauth_state` cookie payload
-  (`{ state, codeVerifier, platform }`) - no new cookie, no new endpoint needed for that.
+  (`{ state, codeVerifier, platform, popup }`) - `popup` is a third orthogonal flag web sets when
+  `GitHubAuthButton` opened the flow via `window.open()` instead of a full-page nav (see "Web
+  flow"). No new OAuth cookie, no new state machine - same payload, one more field.
+- When `popup` is set, every terminal redirect in `callback.ts` (success, `needs_setup`, or an
+  error) goes to `/auth/popup-complete` instead of `/`, `/setup`, or `/?auth_error=` - that page's
+  only job is `postMessage`-ing the result back to `window.opener` and closing itself. The opener
+  tab is what actually shows the dashboard/Setup/error state, exactly as if the full-page redirect
+  had happened there directly.
 
 ## Shared backend — `ui/api/auth/`
 
@@ -66,7 +83,8 @@ flowchart TD
 | `me.ts` | Session read endpoint (web only - iOS has no session cookie to read). |
 | `logout.ts` | Clears the session cookie. |
 | `list-my-repos.ts` | Repo resolution/picker. Dual auth: session cookie (web) or `Authorization: Bearer <token>` with no cookie (iOS's fallback for the rare 0-or-2+-candidate case). |
-| `_lib/session.ts` | JWE session cookie helpers (unchanged from before). |
+| `check-repo-exists.ts` | Web-only. Polled by `Setup.tsx`'s repo-create popup step to auto-detect when `coach-<login>` exists, using the short-lived, JWE-encrypted `coach_setup_token` cookie (see Session mechanics) since no real session exists yet at that point - `login` comes from the decrypted payload, not a query param. |
+| `_lib/session.ts` | JWE session cookie helpers, plus the short-lived, equally-JWE-encrypted `SETUP_TOKEN_COOKIE`/`encryptSetupToken`/`decryptSetupToken`. |
 | `_lib/pkce.ts` | PKCE verifier/challenge generation (unchanged from before). |
 | `_lib/repo-resolution.ts` | **Single source of truth** for installation + owned-repo lookup - used by both `callback.ts` (iOS's inline resolution) and `list-my-repos.ts` (web's picker, iOS's fallback), so the ownership/marker-file rules can't drift between the two callers. |
 
@@ -107,25 +125,49 @@ sequenceDiagram
 
 ## Web flow
 
-- `WelcomePage.tsx` - one link, `/api/auth/start`. (The old separate `/api/auth-install` "Sign
-  up" link and `LoginPage.tsx`/`pages/Login.tsx` route are gone - both were fully replaced.)
+- **`GitHubAuthButton.tsx`** - the one shared sign-in control every screen below uses (swapped
+  in for what used to be five separate `<a href="/api/auth/start">` links). Click opens
+  `/api/auth/start?popup=1` in a popup (`lib/authPopup.ts`'s `window.open()` + a `message`
+  listener), instead of navigating the tab away. Falls back to the old full-page redirect if the
+  popup is blocked (`window.open()` returns `null`) or the browser strips `window.opener`
+  (`AuthPopupComplete.tsx` self-redirects in that case). If the popup closes without ever posting
+  a result (athlete just closed it), the button is a no-op - no error shown, they're free to try
+  again. `onSuccess`/`onNeedsSetup` callbacks let a caller override the default
+  navigate-to-`/`/`/setup?login=` behavior (`Setup.tsx`'s own install-step button uses this).
+- **`AuthPopupComplete.tsx`** (`/auth/popup-complete`) - only ever reached inside the popup
+  window itself, never in a normal tab. Reads `ok`/`needs_setup`/`login`/`error` off its query
+  string (that's what `callback.ts` redirects it to in popup mode), `postMessage`s
+  `{ type: "coach-auth-complete", ... }` back to `window.opener`, then `window.close()`s. On
+  screen for a single frame at most - no design work needed here, ever.
+- `WelcomePage.tsx` - `GitHubAuthButton` in the nav. (The old separate `/api/auth-install` "Sign
+  up" link and `LoginPage.tsx`/`pages/Login.tsx` route are gone - both were fully replaced,
+  unrelated to this popup change.)
 - `AuthPageHeader.tsx` - shared header (brand + a contextual "Cancel"/"Sign out" link) used by
   every screen below plus `RepoDataGate.tsx` - none of these used to have a way back to the
   product page mid-flow.
-- `pages/Setup.tsx` - shown when `callback.ts` redirects to `/setup?login=<login>`. Two buttons:
-  a `target=_blank` link to `github.com/new?template_owner=sibling-shipyard&template_name=coach-skeleton&owner=<login>&name=coach-<login>&visibility=private`
-  (opens in a new tab, user clicks GitHub's own green "Create repository" button), and a link to
-  `/api/auth/install-redirect`. Step 2's label notes it depends on step 1 finishing first, for
-  whoever clicks out of order.
+- `pages/Setup.tsx` - shown when `callback.ts` redirects to `/setup?login=<login>`. Two steps,
+  both now popup-based and auto-detecting instead of "click and hope you remembered to come
+  back":
+  - **Step 1 (create repo)** - `window.open()`s `github.com/new?template_owner=sibling-shipyard&template_name=coach-skeleton&owner=<login>&name=coach-<login>&visibility=private`
+    directly (GitHub's own page, not one of our routes - no `postMessage` possible). Completion
+    is detected by polling `check-repo-exists.ts`: on a 3s interval while the popup is open, and
+    once more on `visibilitychange` when the athlete tabs back to this window. Auto-advances the
+    step-2 button from disabled to enabled the moment the repo exists. A manual "I've done this -
+    continue" button covers the case where polling misses or the setup-token cookie expired.
+  - **Step 2 (install)** - `GitHubAuthButton` pointed at `/api/auth/install-redirect` - this leg
+    *is* our own code end-to-end, so it gets the deterministic popup+postMessage-close treatment
+    from section A above, no polling needed.
 - `pages/Onboarding.tsx` - calls `list-my-repos.ts`, auto-selects on one candidate, renders a
   picker on 2+. The 0-candidate dead end (no recovery button at all) is fixed - "Try setup
-  again" and "Sign out" both work now.
+  again" (via `GitHubAuthButton` when no `login` is known yet, otherwise a plain link to
+  `/setup?login=`) and "Sign out" both work now.
 - `RepoDataGate.tsx` - gates `Home.tsx` (and other `useRepoData()` consumers) on load/error
   states. `error`/`notOnboarded`/`schemaUnsupported` all have working "Switch repo"/"Sign out"
   buttons now (used to be dead ends - this is what "deleted my test repo, dashboard got stuck
   with no way back" looked like before). A `401` from `repo-file.ts` specifically shows "Your
-  GitHub access expired - sign in again" with a direct re-auth button, distinct from the
-  generic error state.
+  GitHub access expired - sign in again" with a `GitHubAuthButton`, distinct from the generic
+  error state. `CoachChat.tsx`'s own access-revoked screen (a 401 from `coach-chat.ts`) uses the
+  same button.
 
 ## iOS flow
 
@@ -201,8 +243,18 @@ back (6 months, rotated on each use) for a new access token before the old one d
   or expired, sign in again," not the refresh layer guessing at it. iOS's `validToken()` has
   always worked this way (falls back to the old token on refresh failure); this brought web in
   line with it.
-  `coach_oauth_state` - short-lived (10 min), carries `{ state, codeVerifier, platform }`
-  across the GitHub redirect round trip, unchanged.
+  `coach_oauth_state` - short-lived (10 min), carries `{ state, codeVerifier, platform, popup }`
+  across the GitHub redirect round trip.
+  `coach_setup_token` - new, short-lived (20 min), **JWE-encrypted** (`encryptSetupToken`/
+  `decryptSetupToken` - same treatment as `SESSION_COOKIE`, for the same reason: a raw `gh_token`
+  in a plaintext cookie is exactly what the session cookie's encryption exists to prevent, short
+  TTL or not). `callback.ts`'s `setupRedirect()` sets it to `{ gh_token, login }` whenever a
+  first-timer has no installation yet - at that point there's no `installation_id` to build a
+  real session around, so this stands in just long enough for `Setup.tsx`'s repo-create polling
+  (`check-repo-exists.ts`) to work without a second sign-in. `login` travels inside the encrypted
+  payload, not a query param - `check-repo-exists.ts` can only ever check the repo belonging to
+  whoever the cookie's token actually is, never an arbitrary login a caller supplies. Cleared the
+  moment a real session gets created (install completes).
 - **iOS**: no server-side session - stateless, same as before. Every API call presents
   `Authorization: Bearer <gh_token>` + `X-Coach-Repo: owner/repo`, verified by
   `_lib/resolve-auth.ts` (which itself calls `ensureFreshSession()` for the web-cookie half of
@@ -220,20 +272,24 @@ back (6 months, rotated on each use) for a new access token before the old one d
 | Path | Role |
 |---|---|
 | `ui/client/src/components/welcome/WelcomePage.tsx` | Web "Log in with GitHub" entry point |
+| `ui/client/src/components/login/GitHubAuthButton.tsx` | Shared popup-based sign-in control, used everywhere a "sign in with GitHub" action appears |
+| `ui/client/src/lib/authPopup.ts` | `window.open()` + `message`-listener helper `GitHubAuthButton` is built on |
+| `ui/client/src/pages/AuthPopupComplete.tsx` | `/auth/popup-complete` - runs only inside the popup, posts the result to `window.opener` and closes itself |
 | `ui/client/src/components/login/AuthPageHeader.tsx` | Shared header (brand + Cancel/Sign out) |
-| `ui/client/src/pages/Setup.tsx` | Web Setup wizard |
+| `ui/client/src/pages/Setup.tsx` | Web Setup wizard - both steps popup-based, step 1 auto-detects via polling |
 | `ui/client/src/pages/Onboarding.tsx` | Web repo picker (post-auth) |
 | `ui/client/src/pages/AuthError.tsx` | Renders `auth_error` types |
 | `ui/client/src/components/RepoDataGate.tsx` | Loading/error/not-onboarded/revoked states for `useRepoData()` pages |
 | `ui/client/src/contexts/AuthContext.tsx` | Client-side auth state gate |
-| `ui/api/auth/start.ts` | Sign-in entry point (both platforms) |
-| `ui/api/auth/callback.ts` | Shared OAuth callback, platform branch |
-| `ui/api/auth/install-redirect.ts` | Setup wizard step 2 |
+| `ui/api/auth/start.ts` | Sign-in entry point (both platforms), accepts `?popup=1` on web |
+| `ui/api/auth/callback.ts` | Shared OAuth callback, platform + popup branch |
+| `ui/api/auth/install-redirect.ts` | Setup wizard step 2, accepts `?popup=1` on web |
+| `ui/api/auth/check-repo-exists.ts` | Web-only. Polled by `Setup.tsx` step 1 using the short-lived setup-token cookie |
 | `ui/api/auth/refresh.ts` | iOS-only: confidential half of the refresh_token exchange |
 | `ui/api/auth/me.ts` | Web session read endpoint |
 | `ui/api/auth/logout.ts` | Clears web session cookie |
 | `ui/api/auth/list-my-repos.ts` | Repo resolution/picker, dual auth |
-| `ui/api/auth/_lib/session.ts` | Cookie helpers, JWE encrypt/decrypt, `ensureFreshSession()` |
+| `ui/api/auth/_lib/session.ts` | Cookie helpers, JWE encrypt/decrypt, `ensureFreshSession()`, `SETUP_TOKEN_COOKIE` |
 | `ui/api/auth/_lib/pkce.ts` | PKCE verifier/challenge generation |
 | `ui/api/auth/_lib/repo-resolution.ts` | Shared installation/repo lookup logic |
 | `ui/api/auth/_lib/resolve-auth.ts` | Per-request auth for repo-scoped endpoints (cookie or Bearer+X-Coach-Repo) |

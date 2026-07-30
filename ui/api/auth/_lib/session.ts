@@ -13,6 +13,13 @@ import { EncryptJWT, jwtDecrypt } from "jose";
 
 export const SESSION_COOKIE = "coach_session";
 export const OAUTH_STATE_COOKIE = "coach_oauth_state";
+// Short-lived: holds the OAuth token from a first-timer's sign-in who has no installation yet
+// (callback.ts's setupRedirect), so Setup.tsx's popup-based repo-create step can poll
+// check-repo-exists.ts without asking the athlete to sign in a second time. Not the real
+// session - no installation_id exists yet, so encryptSession()'s full SessionPayload doesn't
+// apply here.
+export const SETUP_TOKEN_COOKIE = "coach_setup_token";
+export const SETUP_TOKEN_MAX_AGE_SEC = 20 * 60;
 
 // Sliding cap, renewed on each refresh (ensureFreshSession below) - roughly matches GitHub's
 // own 6-month refresh-token validity. See ADR 0009 for the full reasoning.
@@ -34,6 +41,13 @@ export interface SessionPayload {
   gh_token_expires_at: number;
   installation_id: number;
   repo_full_name?: string;
+}
+
+export interface SetupTokenPayload {
+  gh_token: string;
+  /** Carried in the encrypted payload, not read from a query string - check-repo-exists.ts
+   * must not let a caller ask about someone else's repo using this athlete's token. */
+  login: string;
 }
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -63,6 +77,28 @@ export async function decryptSession(token: string): Promise<SessionPayload | nu
     const key = getEncryptionKey();
     const { payload } = await jwtDecrypt(token, key);
     return payload as unknown as SessionPayload;
+  } catch {
+    return null;
+  }
+}
+
+// Same JWE treatment as the real session, for the same reason - a raw gh_token sitting in a
+// plaintext cookie for up to SETUP_TOKEN_MAX_AGE_SEC is exactly the risk encryptSession() exists
+// to close, and being short-lived doesn't change that if the value leaks via logs/a proxy.
+export async function encryptSetupToken(payload: SetupTokenPayload): Promise<string> {
+  const key = getEncryptionKey();
+  return new EncryptJWT({ ...payload })
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+    .setIssuedAt()
+    .setExpirationTime(`${SETUP_TOKEN_MAX_AGE_SEC}s`)
+    .encrypt(key);
+}
+
+export async function decryptSetupToken(token: string): Promise<SetupTokenPayload | null> {
+  try {
+    const key = getEncryptionKey();
+    const { payload } = await jwtDecrypt(token, key);
+    return payload as unknown as SetupTokenPayload;
   } catch {
     return null;
   }

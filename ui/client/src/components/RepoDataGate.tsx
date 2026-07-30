@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
 import { AuthPageHeader } from "@/components/login/AuthPageHeader";
+import { GitHubAuthButton } from "@/components/login/GitHubAuthButton";
 
 interface Props {
   loading: boolean;
@@ -87,9 +88,9 @@ export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, 
               in again to reconnect.
             </p>
             <div className="auth-card__buttons">
-              <a href="/api/auth/start" className="auth-card__button auth-card__button--primary">
+              <GitHubAuthButton className="auth-card__button auth-card__button--primary">
                 Sign in again
-              </a>
+              </GitHubAuthButton>
             </div>
           </div>
         </div>

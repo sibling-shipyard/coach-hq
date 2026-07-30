@@ -20,6 +20,9 @@ export default {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
+    // ?popup=1 - opened via GitHubAuthButton's window.open() instead of a full-page nav;
+    // callback.ts routes back to a self-closing page instead of redirecting this whole tab.
+    const popup = platform === "web" && url.searchParams.get("popup") === "1";
 
     if (!CLIENT_ID) {
       // Redirect rather than bare JSON - reached by direct navigation, not fetch().
@@ -44,7 +47,7 @@ export default {
     authorizeUrl.searchParams.set("code_challenge", codeChallenge);
     authorizeUrl.searchParams.set("code_challenge_method", "S256");
 
-    const tempValue = JSON.stringify({ state, codeVerifier, platform });
+    const tempValue = JSON.stringify({ state, codeVerifier, platform, popup });
 
     const headers = new Headers();
     headers.set("Location", authorizeUrl.toString());

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
 import { AuthPageHeader } from "@/components/login/AuthPageHeader";
+import { GitHubAuthButton } from "@/components/login/GitHubAuthButton";
 
 interface RepoResult {
   candidates?: string[];
@@ -88,12 +89,15 @@ export default function Onboarding() {
                   "None of the repos you granted access to have propagated/SOUL.md and user_data/ledger/challenge_v2.json."}
               </p>
               <div className="auth-card__buttons">
-                <a
-                  href={login ? `/setup?login=${encodeURIComponent(login)}` : "/api/auth/start"}
-                  className="auth-card__button auth-card__button--primary"
-                >
-                  Try setup again
-                </a>
+                {login ? (
+                  <a href={`/setup?login=${encodeURIComponent(login)}`} className="auth-card__button auth-card__button--primary">
+                    Try setup again
+                  </a>
+                ) : (
+                  <GitHubAuthButton className="auth-card__button auth-card__button--primary">
+                    Try setup again
+                  </GitHubAuthButton>
+                )}
                 <a href="/api/auth/logout" className="auth-card__button">
                   Sign out
                 </a>

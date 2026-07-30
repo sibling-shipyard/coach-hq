@@ -12,6 +12,8 @@ export default {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
+    // See start.ts - Setup.tsx's popup step 2 opens this in a popup instead of a full nav.
+    const popup = platform === "web" && url.searchParams.get("popup") === "1";
 
     if (!CLIENT_ID) {
       // See start.ts's identical check for why this redirects instead of returning JSON.
@@ -43,7 +45,7 @@ export default {
     installUrl.searchParams.set("code_challenge", codeChallenge);
     installUrl.searchParams.set("code_challenge_method", "S256");
 
-    const tempValue = JSON.stringify({ state, codeVerifier, platform });
+    const tempValue = JSON.stringify({ state, codeVerifier, platform, popup });
 
     const headers = new Headers();
     headers.set("Location", installUrl.toString());

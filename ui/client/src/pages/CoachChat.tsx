@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RepoDataGate } from "@/components/RepoDataGate";
+import { GitHubAuthButton } from "@/components/login/GitHubAuthButton";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import type { Activity } from "@/lib/activities";
 import type { ChallengeV2 } from "@/lib/challenge";
@@ -72,6 +73,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
   const [loadAttempt, setLoadAttempt] = useState(0);
 
   const activeThread = threads.find((thread) => thread.id === activeId) ?? null;
+  // Most recent still-open (active, non-today) thread - offered as a shortcut on the new-
+  // conversation screen so a still-unwrapped prior day's chat isn't just left behind once
+  // "today" starts. Threads come back newest-first, so the first match is the most recent one.
+  const pickupThread = threads.find(
+    (thread) => thread.dayOffset > 0 && threadStatus(thread) === "active" && thread.messages.length > 0,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -287,9 +294,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
                 in again to reconnect Coach Chat.
               </p>
               <div className="auth-card__buttons">
-                <a href="/api/auth/start" className="auth-card__button auth-card__button--primary">
+                <GitHubAuthButton className="auth-card__button auth-card__button--primary">
                   Sign in again
-                </a>
+                </GitHubAuthButton>
               </div>
             </div>
           </div>
@@ -346,6 +353,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   onSend={() => void appendUserMessage(draft, null)}
                   onStarter={handleStarter}
                   pending={sending}
+                  pickupThread={pickupThread}
+                  onPickup={selectThread}
                 />
               )}
             </div>
@@ -390,6 +399,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   pending={sending}
                   showBack
                   onBack={() => setMobileView("list")}
+                  pickupThread={pickupThread}
+                  onPickup={selectThread}
                 />
               ) : null}
             </div>

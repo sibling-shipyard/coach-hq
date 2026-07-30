@@ -97,6 +97,18 @@ sequenceDiagram
      response after the ref move already succeeded can redo it — same class of risk the
      send-message retry fix addresses one layer up, not yet applied here.
 
+## Pick up yesterday's thread
+
+The new-conversation screen (`CoachChatWidgets.tsx`'s `EmptyChatPane`, both web's desktop empty
+pane and its mobile "new" view) offers a shortcut to the most recent **still-open** thread - the
+newest thread with `dayOffset > 0`, `status: "active"`, and at least one message - above the
+usual starter prompts, reusing the same `cc-starter` button styling (no new visual design).
+`CoachChat.tsx` computes this client-side from the thread list it already has (server returns
+threads newest-first, so the first match is the right one); tapping it calls the same
+`selectThread()` every other thread-switch action uses. Matches the equivalent behavior already
+on iOS (`CoachChatView.swift`'s pick-up row) - a prior day's conversation that was never
+archived/deleted isn't just left behind once "today" starts.
+
 ## What does NOT happen in this action
 
 No GitHub Actions workflow is dispatched by chat, deliberately (avoids a second, racing
@@ -165,6 +177,7 @@ never written by chat.
 | `ui/api/coach-chat.ts` | request handler, Gemini call, commit orchestration |
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API), shared by all writes in `coach-chat.ts` |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |
+| `ui/client/src/components/coach-chat/CoachChatWidgets.tsx` | web chat presentational components (`ConversationPane`, `EmptyChatPane` incl. pick-up-thread, thread sidebar/mobile list) |
 | `ui/client/src/components/coach-chat/coachChatModel.ts` | client fetch helpers (`fetchThreads`, `sendMessage`, `setThreadStatus`) |
 | `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift` | iOS client of the same endpoint (Bearer + X-Coach-Repo) |
 | `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift` | Codable mirrors of the server's ChatThread/ChatMessage JSON |

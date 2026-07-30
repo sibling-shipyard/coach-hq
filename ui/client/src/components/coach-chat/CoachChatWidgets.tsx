@@ -687,6 +687,8 @@ export function EmptyChatPane({
   onBack,
   showBack,
   pending,
+  pickupThread,
+  onPickup,
 }: {
   dayNumber: number;
   engineLoad: number | null;
@@ -697,6 +699,9 @@ export function EmptyChatPane({
   onBack?: () => void;
   showBack?: boolean;
   pending?: boolean;
+  /** Most recent still-open (active, non-today) thread, if any - offered as a shortcut. */
+  pickupThread?: ChatThread | null;
+  onPickup?: (id: string) => void;
 }) {
   const loadLabel = engineLoad !== null ? String(engineLoad) : "—";
   const mobileChrome = Boolean(showBack);
@@ -730,6 +735,20 @@ export function EmptyChatPane({
           </p>
           <div className="cc-signature">— PHELPS</div>
         </div>
+
+        {pickupThread ? (
+          <div className="cc-starters">
+            <div className="cc-starters__label">PICK UP WHERE YOU LEFT OFF</div>
+            <button
+              className="cc-starter"
+              type="button"
+              onClick={() => onPickup?.(pickupThread.id)}
+            >
+              <StarterIcon icon="week" />
+              <span>{pickupThread.title}</span>
+            </button>
+          </div>
+        ) : null}
 
         <div className="cc-starters">
           <div className="cc-starters__label">START WITH</div>
