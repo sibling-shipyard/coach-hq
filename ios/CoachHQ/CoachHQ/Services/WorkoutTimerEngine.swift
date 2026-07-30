@@ -79,31 +79,89 @@ final class WorkoutTimerEngine: ObservableObject {
         return Double(step) / Double(total)
     }
 
-    var nextPreview: (label: String, name: String)? {
+    var nextPreview: (label: String, name: String, dose: String)? {
         guard let ph = phase, let ex = exercise else { return nil }
-        if isCircuit {
-            if pos.exerciseIdx < ph.exercises.count - 1 {
-                return ("Next", ph.exercises[pos.exerciseIdx + 1].name)
+
+        switch state {
+        case .prep:
+            return ("Up Next", ex.name, WorkoutTimerWarm.singleDoseFor(ex))
+        case .phaseTransition:
+            guard let first = ph.exercises.first else { return nil }
+            return ("Up Next", first.name, WorkoutTimerWarm.doseFor(first))
+        case .rest:
+            return nextAfterRest()
+        case .exercise:
+            if ex.isBothSides, ex.type == .timed, sideNum == 0 {
+                return ("Next Side", "Right — \(ex.name)", WorkoutTimerWarm.singleDoseFor(ex))
             }
-            if pos.roundNum < phaseRounds {
-                return ("Round \(pos.roundNum + 1)", ph.exercises[0].name)
-            }
-            if pos.phaseIdx < workout.phases.count - 1 {
-                let next = workout.phases[pos.phaseIdx + 1]
-                return (next.name, next.exercises.first?.name ?? "")
-            }
-            return ("Done", "Final stretch!")
+            return isCircuit ? nextInCircuit(from: ex) : nextInDefaultMode(from: ex)
+        case .complete:
+            return nil
         }
+    }
+
+    private func nextInCircuit(from ex: WorkoutExercise) -> (label: String, name: String, dose: String)? {
+        guard let ph = phase else { return nil }
         if pos.setNum < ex.sets {
-            return ("Next Set", "\(ex.name) — Set \(pos.setNum + 1) of \(ex.sets)")
+            return ("Next Set", "\(ex.name) — Set \(pos.setNum + 1)", WorkoutTimerWarm.singleDoseFor(ex))
+        }
+        let isLastEx = pos.exerciseIdx >= ph.exercises.count - 1
+        if isLastEx {
+            if pos.roundNum < phaseRounds {
+                let first = ph.exercises[0]
+                return ("Round \(pos.roundNum + 1)", first.name, WorkoutTimerWarm.doseFor(first))
+            }
+            return nextPhaseOrDone()
+        }
+        let nextEx = ph.exercises[pos.exerciseIdx + 1]
+        return ("Next", nextEx.name, WorkoutTimerWarm.doseFor(nextEx))
+    }
+
+    private func nextInDefaultMode(from ex: WorkoutExercise) -> (label: String, name: String, dose: String)? {
+        guard let ph = phase else { return nil }
+        if pos.setNum < ex.sets {
+            return ("Next Set", "\(ex.name) — Set \(pos.setNum + 1) of \(ex.sets)", WorkoutTimerWarm.singleDoseFor(ex))
         }
         if pos.exerciseIdx < ph.exercises.count - 1 {
-            return ("Up Next", ph.exercises[pos.exerciseIdx + 1].name)
+            let nextEx = ph.exercises[pos.exerciseIdx + 1]
+            return ("Up Next", nextEx.name, WorkoutTimerWarm.doseFor(nextEx))
         }
+        return nextPhaseOrDone()
+    }
+
+    /// What `advanceToNext()` will start when the current rest timer expires.
+    private func nextAfterRest() -> (label: String, name: String, dose: String)? {
+        guard let ph = phase else { return nil }
+        if isCircuit {
+            let isLastEx = pos.exerciseIdx >= ph.exercises.count - 1
+            if isLastEx {
+                if pos.roundNum < phaseRounds {
+                    let first = ph.exercises[0]
+                    return ("Round \(pos.roundNum + 1)", first.name, WorkoutTimerWarm.doseFor(first))
+                }
+                return nextPhaseOrDone()
+            }
+            let nextEx = ph.exercises[pos.exerciseIdx + 1]
+            return ("Next", nextEx.name, WorkoutTimerWarm.doseFor(nextEx))
+        }
+        guard let ex = exercise else { return nil }
+        if pos.setNum < ex.sets {
+            return ("Next Set", "\(ex.name) — Set \(pos.setNum + 1) of \(ex.sets)", WorkoutTimerWarm.singleDoseFor(ex))
+        }
+        if pos.exerciseIdx < ph.exercises.count - 1 {
+            let nextEx = ph.exercises[pos.exerciseIdx + 1]
+            return ("Up Next", nextEx.name, WorkoutTimerWarm.doseFor(nextEx))
+        }
+        return nextPhaseOrDone()
+    }
+
+    private func nextPhaseOrDone() -> (label: String, name: String, dose: String)? {
         if pos.phaseIdx < workout.phases.count - 1 {
-            return ("Up Next", workout.phases[pos.phaseIdx + 1].exercises.first?.name ?? "")
+            let nextPhase = workout.phases[pos.phaseIdx + 1]
+            let nextEx = nextPhase.exercises.first
+            return (nextPhase.name, nextEx?.name ?? "", nextEx.map(WorkoutTimerWarm.doseFor) ?? "")
         }
-        return ("Done", "Final stretch!")
+        return ("Done", "Final stretch!", "")
     }
 
     // MARK: - Init

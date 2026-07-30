@@ -10,6 +10,7 @@ struct WorkoutTimerView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var engine: WorkoutTimerEngine
     @State private var showQuitConfirm = false
+    @State private var showExerciseList = false
 
     init(workout: Workout, onExitToList: (() -> Void)? = nil) {
         self.workout = workout
@@ -67,6 +68,13 @@ struct WorkoutTimerView: View {
             }
         }
         .animation(.spring(duration: 0.25, bounce: 0), value: showQuitConfirm)
+        .sheet(isPresented: $showExerciseList) {
+            WarmWorkoutExerciseListSheet(
+                workout: workout,
+                engine: engine,
+                accent: accent
+            )
+        }
     }
 
     private func exitWorkout() {
@@ -122,6 +130,17 @@ struct WorkoutTimerView: View {
                 .lineLimit(1)
 
             Spacer(minLength: 0)
+
+            Button {
+                showExerciseList = true
+                Haptics.tap()
+            } label: {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
 
             WarmTimerHeaderRight(
                 muted: engine.isMuted,
@@ -226,12 +245,8 @@ private struct WarmTimerFocusBody: View {
         return WorkoutTimerWarm.readoutColor(for: engine.state)
     }
 
-    private var upNext: WorkoutTimerWarm.UpNextItem? {
-        WorkoutTimerWarm.buildUpNext(
-            workout: workout,
-            phaseIdx: engine.pos.phaseIdx,
-            exerciseIdx: engine.pos.exerciseIdx
-        ).first
+    private var upNext: (label: String, name: String, dose: String)? {
+        engine.nextPreview
     }
 
     var body: some View {
@@ -241,7 +256,7 @@ private struct WarmTimerFocusBody: View {
             readoutSection
             cueSection
             if let next = upNext, engine.state != .complete {
-                WarmNextStrip(name: next.name, dose: next.dose)
+                WarmNextStrip(label: next.label, name: next.name, dose: next.dose)
             }
         }
     }

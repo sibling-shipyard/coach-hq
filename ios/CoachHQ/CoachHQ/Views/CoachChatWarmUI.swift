@@ -386,6 +386,19 @@ struct CoachChatMessageField: UIViewRepresentable {
     /// Composer chrome + send button — used when the text view has not laid out yet.
     private static let widthFallbackInset: CGFloat = 108
 
+    private static func layoutWidth(for textView: UITextView) -> CGFloat {
+        if textView.bounds.width > 1 { return textView.bounds.width }
+        var container: UIView? = textView.superview
+        while let view = container {
+            if view.bounds.width > 1 { return view.bounds.width }
+            container = view.superview
+        }
+        if let windowWidth = textView.window?.bounds.width, windowWidth > 1 {
+            return windowWidth - widthFallbackInset
+        }
+        return 320
+    }
+
     @Binding var text: String
     @Binding var height: CGFloat
     var placeholder: String
@@ -478,9 +491,7 @@ struct CoachChatMessageField: UIViewRepresentable {
         }
 
         func syncHeight(for textView: UITextView) {
-            let width = textView.bounds.width > 1
-                ? textView.bounds.width
-                : UIScreen.main.bounds.width - CoachChatMessageField.widthFallbackInset
+            let width = CoachChatMessageField.layoutWidth(for: textView)
             let fitting = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
             let contentHeight = max(CoachChatMessageField.minHeight, fitting.height)
             let clamped = min(contentHeight, CoachChatMessageField.maxHeight)

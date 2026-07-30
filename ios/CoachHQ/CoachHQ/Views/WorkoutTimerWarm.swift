@@ -220,12 +220,13 @@ struct WarmFormCueCard: View {
 // MARK: - Next preview strip (iPhone mock)
 
 struct WarmNextStrip: View {
+    let label: String
     let name: String
     let dose: String
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("NEXT")
+            Text(label.uppercased())
                 .font(WarmInstrument.monoLabel(8.5))
                 .kerning(1.4)
                 .foregroundColor(WarmInstrument.inkFaint)
@@ -234,9 +235,11 @@ struct WarmNextStrip: View {
                 .foregroundColor(Theme.ink)
                 .lineLimit(1)
             Spacer(minLength: 0)
-            Text(dose)
-                .font(WarmInstrument.figures(11))
-                .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+            if !dose.isEmpty {
+                Text(dose)
+                    .font(WarmInstrument.figures(11))
+                    .foregroundColor(Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -373,5 +376,152 @@ struct WarmQuitDialog: View {
             primaryColor: WorkoutTimerWarm.rust,
             onBackdropTap: onContinue
         )
+    }
+}
+
+// MARK: - Full exercise list (during active timer)
+
+enum WarmExerciseRowStatus {
+    case done, current, upcoming
+}
+
+struct WarmWorkoutExerciseListSheet: View {
+    let workout: Workout
+    @ObservedObject var engine: WorkoutTimerEngine
+    let accent: Color
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 14) {
+                    ForEach(Array(workout.phases.enumerated()), id: \.element.id) { phaseIdx, phase in
+                        WarmExerciseListPhaseBlock(
+                            phase: phase,
+                            phaseIdx: phaseIdx,
+                            pos: engine.pos,
+                            accent: accent
+                        )
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
+            }
+            .background(Theme.mutedBackground)
+            .navigationTitle("Exercises")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(WorkoutTimerWarm.rust)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+private struct WarmExerciseListPhaseBlock: View {
+    let phase: WorkoutPhase
+    let phaseIdx: Int
+    let pos: TimerPosition
+    let accent: Color
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                HStack(spacing: 8) {
+                    Text(phase.name.uppercased())
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Theme.ink)
+                    if phase.isCircuit {
+                        Text("↻ \(phase.roundCount)×")
+                            .font(WarmInstrument.figures(11))
+                            .foregroundColor(WorkoutTimerWarm.rust)
+                    }
+                }
+                Spacer()
+                Text(phase.duration.uppercased())
+                    .font(WarmInstrument.figures(10))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .background(WarmInstrument.surfaceMuted)
+
+            ForEach(Array(phase.exercises.enumerated()), id: \.element.id) { exerciseIdx, ex in
+                let status = rowStatus(exerciseIdx: exerciseIdx)
+                HStack(alignment: .top, spacing: 14) {
+                    Text("\(ex.num)")
+                        .font(WarmInstrument.figures(11))
+                        .foregroundColor(status == .current ? accent : Color(red: 0xC2 / 255, green: 0xBC / 255, blue: 0xAE / 255))
+                        .frame(width: 14, alignment: .trailing)
+                        .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            Text(ex.name)
+                                .font(.system(size: 14, weight: status == .current ? .bold : .semibold))
+                                .foregroundColor(status == .done ? WarmInstrument.inkFaint : Theme.ink)
+                            if ex.isOptional {
+                                Text("OPTIONAL")
+                                    .font(WarmInstrument.monoLabel(8))
+                                    .kerning(1)
+                                    .foregroundColor(Color(red: 0xA8 / 255, green: 0x9F / 255, blue: 0x8C / 255))
+                            }
+                            if status == .current {
+                                Text("NOW")
+                                    .font(WarmInstrument.monoLabel(8))
+                                    .kerning(1)
+                                    .foregroundColor(WarmInstrument.paper)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(accent)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            }
+                        }
+                        Text(ex.formCue)
+                            .font(.system(size: 12))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Text(WorkoutTimerWarm.doseFor(ex))
+                        .font(WarmInstrument.figures(12))
+                        .foregroundColor(status == .done ? WarmInstrument.inkFaint : Color(red: 0x4A / 255, green: 0x4C / 255, blue: 0x45 / 255))
+                        .padding(.top, 2)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .background(status == .current ? accent.opacity(0.06) : Color.clear)
+                .overlay(alignment: .bottom) {
+                    if ex.num != phase.exercises.last?.num {
+                        Rectangle()
+                            .fill(Color(red: 0xEF / 255, green: 0xE9 / 255, blue: 0xDC / 255))
+                            .frame(height: 1)
+                    }
+                }
+            }
+        }
+        .background(WarmInstrument.paper)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(WarmInstrument.border, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func rowStatus(exerciseIdx: Int) -> WarmExerciseRowStatus {
+        if phaseIdx < pos.phaseIdx { return .done }
+        if phaseIdx > pos.phaseIdx { return .upcoming }
+        if exerciseIdx < pos.exerciseIdx { return .done }
+        if exerciseIdx > pos.exerciseIdx { return .upcoming }
+        return .current
     }
 }
