@@ -73,6 +73,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
   const [loadAttempt, setLoadAttempt] = useState(0);
 
   const activeThread = threads.find((thread) => thread.id === activeId) ?? null;
+  // Most recent still-open (active, non-today) thread - offered as a shortcut on the new-
+  // conversation screen so a still-unwrapped prior day's chat isn't just left behind once
+  // "today" starts. Threads come back newest-first, so the first match is the most recent one.
+  const pickupThread = threads.find(
+    (thread) => thread.dayOffset > 0 && threadStatus(thread) === "active" && thread.messages.length > 0,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -347,6 +353,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   onSend={() => void appendUserMessage(draft, null)}
                   onStarter={handleStarter}
                   pending={sending}
+                  pickupThread={pickupThread}
+                  onPickup={selectThread}
                 />
               )}
             </div>
@@ -391,6 +399,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   pending={sending}
                   showBack
                   onBack={() => setMobileView("list")}
+                  pickupThread={pickupThread}
+                  onPickup={selectThread}
                 />
               ) : null}
             </div>
