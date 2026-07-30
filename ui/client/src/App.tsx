@@ -19,12 +19,14 @@ import CoachChat from "./pages/CoachChat";
 import WidgetGallery from "./pages/WidgetGallery";
 import Welcome from "./pages/Welcome";
 import Setup from "./pages/Setup";
+import AuthPopupComplete from "./pages/AuthPopupComplete";
 
 function Router() {
   return (
     <Switch>
       <Route path="/welcome" component={Welcome} />
       <Route path="/setup" component={Setup} />
+      <Route path="/auth/popup-complete" component={AuthPopupComplete} />
       <Route path={"/"} component={Home} />
       <Route path="/workouts" component={Workouts} />
       <Route path="/workouts/:id" component={WorkoutTimer} />

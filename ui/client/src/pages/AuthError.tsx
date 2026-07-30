@@ -1,6 +1,7 @@
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
 import { AuthPageHeader } from "@/components/login/AuthPageHeader";
+import { GitHubAuthButton } from "@/components/login/GitHubAuthButton";
 
 // not_installed used to live here but callback.ts now routes that case straight into
 // pages/Setup.tsx's wizard instead of a dead-end error page - see ui/api/auth/callback.ts.
@@ -75,9 +76,9 @@ export default function AuthError({ type }: { type: string }) {
           <h1 className="auth-card__heading">{msg.heading}</h1>
           <p className="auth-card__body">{msg.body}</p>
           <div className="auth-card__buttons">
-            <a href={msg.href} className="auth-card__button auth-card__button--primary">
+            <GitHubAuthButton href={msg.href} className="auth-card__button auth-card__button--primary">
               {msg.cta}
-            </a>
+            </GitHubAuthButton>
           </div>
         </div>
       </div>

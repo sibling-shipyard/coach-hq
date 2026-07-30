@@ -13,6 +13,13 @@ import { EncryptJWT, jwtDecrypt } from "jose";
 
 export const SESSION_COOKIE = "coach_session";
 export const OAUTH_STATE_COOKIE = "coach_oauth_state";
+// Short-lived: holds the OAuth token from a first-timer's sign-in who has no installation yet
+// (callback.ts's setupRedirect), so Setup.tsx's popup-based repo-create step can poll
+// check-repo-exists.ts without asking the athlete to sign in a second time. Not the real
+// session - no installation_id exists yet, so encryptSession()'s full SessionPayload doesn't
+// apply here.
+export const SETUP_TOKEN_COOKIE = "coach_setup_token";
+export const SETUP_TOKEN_MAX_AGE_SEC = 20 * 60;
 
 // Sliding cap, renewed on each refresh (ensureFreshSession below) - roughly matches GitHub's
 // own 6-month refresh-token validity. See ADR 0009 for the full reasoning.

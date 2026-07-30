@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RepoDataGate } from "@/components/RepoDataGate";
+import { GitHubAuthButton } from "@/components/login/GitHubAuthButton";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import type { Activity } from "@/lib/activities";
 import type { ChallengeV2 } from "@/lib/challenge";
@@ -287,9 +288,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
                 in again to reconnect Coach Chat.
               </p>
               <div className="auth-card__buttons">
-                <a href="/api/auth/start" className="auth-card__button auth-card__button--primary">
+                <GitHubAuthButton className="auth-card__button auth-card__button--primary">
                   Sign in again
-                </a>
+                </GitHubAuthButton>
               </div>
             </div>
           </div>

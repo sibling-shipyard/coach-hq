@@ -6,6 +6,8 @@ import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_SEC,
   OAUTH_STATE_COOKIE,
+  SETUP_TOKEN_COOKIE,
+  SETUP_TOKEN_MAX_AGE_SEC,
 } from "./_lib/session.js";
 import {
   resolveInstallationId,
@@ -20,11 +22,24 @@ const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
 // callback.ts is reached by the browser (or iOS's ASWebAuthenticationSession) navigating here
 // directly, not by a fetch() from React - so failures redirect to a platform-appropriate
 // destination (AuthError.tsx, or iOS's coachhq:// scheme) rather than returning raw JSON.
-function errorRedirect(origin: string, type: string, platform: "web" | "ios" = "web", clearOauthCookie = true): Response {
+// In popup mode (GitHubAuthButton's window.open flow) every terminal redirect instead goes to
+// AuthPopupComplete.tsx, which posts the result back to window.opener and closes itself - the
+// popup never shows AuthError.tsx/Setup.tsx/the dashboard directly, the *opener* tab does.
+function errorRedirect(
+  origin: string,
+  type: string,
+  platform: "web" | "ios" = "web",
+  clearOauthCookie = true,
+  popup = false,
+): Response {
   const headers = new Headers();
   headers.set(
     "Location",
-    platform === "ios" ? `coachhq://callback?error=${type}` : `${origin}/?auth_error=${type}`,
+    platform === "ios"
+      ? `coachhq://callback?error=${type}`
+      : popup
+        ? `${origin}/auth/popup-complete?error=${type}`
+        : `${origin}/?auth_error=${type}`,
   );
   if (clearOauthCookie) {
     headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
@@ -35,16 +50,28 @@ function errorRedirect(origin: string, type: string, platform: "web" | "ios" = "
 // Sends a first-time user into the Setup wizard (Setup.tsx / SetupView.swift) instead of a
 // dead-end error - GitHub App tokens can't create repos on a personal account (confirmed via
 // 404/403 on /repos/{template}/generate and /user/repos), so this can't provision one itself.
-function setupRedirect(origin: string, login: string, platform: "web" | "ios" = "web", clearOauthCookie = true): Response {
+function setupRedirect(
+  origin: string,
+  login: string,
+  ghToken: string,
+  platform: "web" | "ios" = "web",
+  popup = false,
+): Response {
   const headers = new Headers();
   headers.set(
     "Location",
     platform === "ios"
       ? `coachhq://callback?needs_setup=1&login=${encodeURIComponent(login)}`
-      : `${origin}/setup?login=${encodeURIComponent(login)}`,
+      : popup
+        ? `${origin}/auth/popup-complete?needs_setup=1&login=${encodeURIComponent(login)}`
+        : `${origin}/setup?login=${encodeURIComponent(login)}`,
   );
-  if (clearOauthCookie) {
-    headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
+  headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
+  if (platform === "web") {
+    // Setup.tsx's popup-based repo-create step (check-repo-exists.ts) needs a token but there's
+    // no real session yet (no installation_id) - this short-lived cookie is the only thing
+    // standing in for one until step 2 completes and a real session gets created.
+    headers.append("Set-Cookie", buildCookie(SETUP_TOKEN_COOKIE, ghToken, SETUP_TOKEN_MAX_AGE_SEC));
   }
   return new Response(null, { status: 302, headers });
 }
@@ -83,7 +110,7 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
       return errorRedirect(url.origin, "missing_oauth_session", "web", false);
     }
 
-    let tempData: { state: string; codeVerifier: string; platform?: "web" | "ios" };
+    let tempData: { state: string; codeVerifier: string; platform?: "web" | "ios"; popup?: boolean };
     try {
       tempData = JSON.parse(tempRaw);
     } catch {
@@ -91,9 +118,10 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
     }
 
     const platform: "web" | "ios" = tempData.platform === "ios" ? "ios" : "web";
+    const popup = platform === "web" && tempData.popup === true;
 
     if (tempData.state !== state) {
-      return errorRedirect(url.origin, "state_mismatch", platform);
+      return errorRedirect(url.origin, "state_mismatch", platform, true, popup);
     }
 
     const redirectUri = `${url.origin}/api/auth/callback`;
@@ -112,12 +140,12 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
 
     const tokenBody = await tokenRes.json();
     if (!tokenRes.ok || tokenBody.error || !tokenBody.access_token) {
-      return errorRedirect(url.origin, "token_exchange_failed", platform);
+      return errorRedirect(url.origin, "token_exchange_failed", platform, true, popup);
     }
     // refresh_token/expires_in are always present - "expire user authorization tokens" is
     // opted in on the GitHub App. ensureFreshSession / iOS's refresh logic need both to rotate.
     if (!tokenBody.refresh_token || !tokenBody.expires_in) {
-      return errorRedirect(url.origin, "token_exchange_failed", platform);
+      return errorRedirect(url.origin, "token_exchange_failed", platform, true, popup);
     }
 
     const ghToken = tokenBody.access_token as string;
@@ -133,7 +161,7 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
     });
 
     if (!userRes.ok) {
-      return errorRedirect(url.origin, "user_fetch_failed", platform);
+      return errorRedirect(url.origin, "user_fetch_failed", platform, true, popup);
     }
 
     const user = await userRes.json();
@@ -143,13 +171,13 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
       installationId = await resolveInstallationId(ghToken, user.login as string, APP_SLUG);
     } catch (e) {
       if (e instanceof InstallationLookupFailedError) {
-        return errorRedirect(url.origin, "lookup_failed", platform);
+        return errorRedirect(url.origin, "lookup_failed", platform, true, popup);
       }
       throw e;
     }
 
     if (!installationId) {
-      return setupRedirect(url.origin, user.login as string, platform);
+      return setupRedirect(url.origin, user.login as string, ghToken, platform, popup);
     }
 
     // iOS has no shared cookie jar, so it gets the raw token back on the redirect (see
@@ -181,9 +209,12 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
     });
 
     const headers = new Headers();
-    headers.set("Location", "/");
+    headers.set("Location", popup ? `${url.origin}/auth/popup-complete?ok=1` : "/");
     headers.append("Set-Cookie", buildCookie(SESSION_COOKIE, session, SESSION_MAX_AGE_SEC));
     headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
+    // Only ever set by setupRedirect (Setup.tsx's popup-based repo-create polling) - a real
+    // session now exists, so this short-lived stand-in is no longer needed.
+    headers.append("Set-Cookie", clearCookie(SETUP_TOKEN_COOKIE));
 
   return new Response(null, { status: 302, headers });
 }

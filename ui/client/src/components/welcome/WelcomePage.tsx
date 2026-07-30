@@ -1,5 +1,6 @@
 import { SportCommitmentCard } from "@/components/home-warm/WarmInstrumentWidgets";
 import { GOLDEN_HOME } from "@/lib/goldenDataset";
+import { GitHubAuthButton } from "@/components/login/GitHubAuthButton";
 import { WelcomeEngineHero } from "./WelcomeEngineHero";
 import { WelcomeInviteCta } from "./WelcomeInviteCta";
 import { WelcomeTimerDemo } from "./WelcomeTimerDemo";
@@ -32,9 +33,7 @@ export function WelcomePage() {
           <span className="welcome-nav__brand">COACH PHELPS</span>
           <span className="welcome-nav__beta">PRIVATE BETA</span>
           <nav className="welcome-nav__links" aria-label="Account">
-            <a href="/api/auth/start" className="welcome-nav__cta">
-              LOG IN WITH GITHUB
-            </a>
+            <GitHubAuthButton className="welcome-nav__cta">LOG IN WITH GITHUB</GitHubAuthButton>
           </nav>
         </div>
       </header>
