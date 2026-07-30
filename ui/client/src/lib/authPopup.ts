@@ -14,7 +14,9 @@ export interface AuthPopupResult {
 
 export function openAuthPopup(url: string): Promise<AuthPopupResult> {
   return new Promise((resolve) => {
-    const popup = window.open(url, "coach-auth", "width=520,height=680,noopener=no");
+    // window.open() already preserves window.opener by default for a same-origin target - no
+    // window-feature string toggles that (there's no real "noopener=no"), so none is passed.
+    const popup = window.open(url, "coach-auth", "width=520,height=680");
     if (!popup) {
       resolve({ ok: false, error: "popup_blocked" });
       return;
