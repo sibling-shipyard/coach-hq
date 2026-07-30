@@ -99,6 +99,12 @@ struct MainTabView: View {
             }
             didSetInitialTab = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { _ in
+            withAnimation(PremiumMotion.state) { selectedTab = .chat }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
+            withAnimation(PremiumMotion.state) { selectedTab = .home }
+        }
     }
 
     /// Re-runs initial tab resolution once session + repo are ready (not on every tab switch).
@@ -226,12 +232,16 @@ private struct WarmDockStartCTA: View {
             Haptics.tap()
             bottomDock.onStartWorkout?()
         } label: {
-            Text("▶ Start workout")
-                .font(.system(size: 15, weight: .bold))
-                .kerning(0.3)
-                .foregroundColor(WarmInstrument.paper)
-                .frame(maxWidth: .infinity)
-                .frame(height: WarmDockMetrics.pillHeight)
+            HStack(spacing: 8) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 12, weight: .bold))
+                Text("Start workout")
+                    .font(.system(size: 15, weight: .bold))
+                    .kerning(0.3)
+            }
+            .foregroundColor(WarmInstrument.paper)
+            .frame(maxWidth: .infinity)
+            .frame(height: WarmDockMetrics.pillHeight)
                 .background(WorkoutTimerWarm.rust)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(

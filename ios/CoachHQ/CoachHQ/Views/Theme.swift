@@ -213,22 +213,43 @@ enum WarmInstrument {
         )
     }
 
-    /// Static sport palette mirroring `tokens.json`'s `sports.*.hex` — used only as a fallback
-    /// where a snapshot item doesn't carry its own hex (most do; commitments/mix always do).
+    /// Sport color palette — single source of truth for every sport tint in the app.
+    /// Reference these via `sportColor(_:)` at call sites so the palette can evolve here.
+    enum Sport {
+        static let badminton     = color(hex: "#1A4731") // deep forest green
+        static let run           = color(hex: "#374151") // asphalt road grey
+        static let swim          = color(hex: "#005F7A") // deep ocean teal
+        static let tennis        = color(hex: "#B5532A") // clay court terracotta
+        static let cycling       = color(hex: "#A8702C") // warm amber
+        static let calisthenics  = color(hex: "#4F587A") // slate blue
+        static let foundation    = color(hex: "#6D7D4E") // sage olive
+        static let strength      = color(hex: "#2D3A5A") // deep navy
+        static let weightTraining = color(hex: "#3B4A6B") // standard weights navy
+        static let football      = color(hex: "#166534") // pitch grass green
+        static let cricket       = color(hex: "#4A6741") // sage green
+        static let hike          = color(hex: "#7A5C3A") // earth brown
+        static let walk          = color(hex: "#6B7280") // stone grey
+        static let workout       = color(hex: "#5B6472") // neutral slate
+        static let other         = color(hex: "#8A8A8A") // fallback grey
+    }
+
+    /// Sport color lookup — keyed by `WarmSportId`, backed by `Sport` named constants.
     static let sportColors: [WarmSportId: Color] = [
-        .badminton: color(hex: "#315a4a"),
-        .calisthenics: color(hex: "#4f587a"),
-        .foundation: color(hex: "#6d7d4e"),
-        .cycling: color(hex: "#a8702c"),
-        .run: color(hex: "#c44020"),
-        .strength: color(hex: "#111111"),
-        .weightTraining: color(hex: "#3b4a6b"),
-        .hike: color(hex: "#8b6f47"),
-        .walk: color(hex: "#a8a29e"),
-        .cricket: color(hex: "#2dd4bf"),
-        .football: color(hex: "#e11d48"),
-        .workout: color(hex: "#6b7280"),
-        .swim: color(hex: "#0ea5e9"),
+        .badminton:     Sport.badminton,
+        .calisthenics:  Sport.calisthenics,
+        .foundation:    Sport.foundation,
+        .cycling:       Sport.cycling,
+        .run:           Sport.run,
+        .strength:      Sport.strength,
+        .weightTraining: Sport.weightTraining,
+        .hike:          Sport.hike,
+        .walk:          Sport.walk,
+        .cricket:       Sport.cricket,
+        .football:      Sport.football,
+        .workout:       Sport.workout,
+        .swim:          Sport.swim,
+        .tennis:        Sport.tennis,
+        .other:         Sport.other,
     ]
 
     static func sportColor(_ sport: WarmSportId) -> Color {
@@ -253,9 +274,19 @@ enum WarmInstrument {
         case .football: return "soccerball"
         case .workout: return "figure.mixed.cardio"
         case .swim: return "figure.pool.swim"
+        case .tennis: return "figure.tennis"
         case .other: return "figure.mixed.cardio"
         }
     }
+}
+
+// MARK: - App navigation notifications
+
+extension Notification.Name {
+    /// Posted by WorkoutCompleteView "Talk to Coach" CTA — observed by MainTabView.
+    static let navigateToChat = Notification.Name("coachHQ.navigateToChat")
+    /// Posted by WorkoutCompleteView "Back to Home" CTA — observed by MainTabView.
+    static let navigateToHome = Notification.Name("coachHQ.navigateToHome")
 }
 
 // MARK: - Reusable styled components

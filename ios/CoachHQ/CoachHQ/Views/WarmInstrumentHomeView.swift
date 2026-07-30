@@ -118,6 +118,7 @@ struct WarmInstrumentHomeView: View {
             }
             .buttonStyle(.plain)
         }
+        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 0))
 
         // Sport commitment quartet strip
         EditableWidget(isEditing: $isEditingLayout, sizeBinding: $commitmentsSize, sizeOptions: ["S", "M"], jigglePhase: 0.05) {
@@ -127,9 +128,11 @@ struct WarmInstrumentHomeView: View {
                 showingRanked: $badmintonShowsRanked
             )
         }
+        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 1))
 
         // Weekly plan — chip drag owns long-press; not wrapped in jiggle editor.
         WeeklyPlanWidget(plan: home.plan, compact: true)
+            .staggerReveal(delay: PremiumMotion.staggerDelay(index: 2))
 
         // Calories + main quest side-by-side
         HStack(spacing: 14) {
@@ -140,10 +143,12 @@ struct WarmInstrumentHomeView: View {
                 QuestWidget(size: WidgetSize(rawValue: questSize) ?? .m, home: home.quest, small: snapshots.sizes.quest.S, compact: true)
             }
         }
+        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 3))
 
         EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.25) {
             BuildPhaseWidget(phase: home.phase)
         }
+        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 4))
 
         EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
             RecentSessionsWidget(
@@ -159,6 +164,7 @@ struct WarmInstrumentHomeView: View {
                 }
             )
         }
+        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 5))
     }
 
     // MARK: - Header / states

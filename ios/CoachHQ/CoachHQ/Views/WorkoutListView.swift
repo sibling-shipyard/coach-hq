@@ -33,6 +33,7 @@ struct WorkoutListView: View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    workoutsHeader
                     if !workoutService.todaySessions.isEmpty {
                         coachAdjustedBanner
                     }
@@ -70,6 +71,25 @@ struct WorkoutListView: View {
                 WorkoutOverviewView(workout: workout)
             }
         }
+    }
+
+    private var workoutsHeader: some View {
+        HStack(spacing: 10) {
+            Text("WORKOUTS")
+                .font(WarmInstrument.monoLabel(12))
+                .tracking(1.4)
+                .foregroundColor(WarmInstrument.ink)
+
+            Spacer(minLength: 0)
+
+            Text(Date().formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                .font(WarmInstrument.monoLabel(9))
+                .tracking(1.0)
+                .foregroundColor(WarmInstrument.inkFaint)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 
     private var coachAdjustedBanner: some View {
