@@ -87,6 +87,7 @@ struct WarmInstrumentHomeView: View {
             }
             .onChange(of: store.lastError) { _, newError in
                 guard let newError, !newError.isEmpty else { return }
+                authManager.noteAPIError(newError)
                 Haptics.error()
                 toast = Toast(kind: .error, message: UserFacingError.friendlyAPIError(newError))
             }

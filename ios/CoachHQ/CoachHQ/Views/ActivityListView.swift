@@ -112,6 +112,7 @@ struct ActivityListView: View {
                 Haptics.tap()
                 toast = Toast(kind: .info, message: "Up to date")
             case .failed(let msg):
+                authManager.noteAPIError(msg)
                 Haptics.error()
                 toast = Toast(kind: .error, message: msg)
             }

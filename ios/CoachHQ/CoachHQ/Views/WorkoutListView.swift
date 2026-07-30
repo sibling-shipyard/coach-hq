@@ -61,6 +61,9 @@ struct WorkoutListView: View {
                     ProgressView()
                 }
             }
+            .onChange(of: workoutService.fetchError) { _, newError in
+                authManager.noteAPIError(newError)
+            }
             .background(Theme.mutedBackground)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Workout.self) { workout in

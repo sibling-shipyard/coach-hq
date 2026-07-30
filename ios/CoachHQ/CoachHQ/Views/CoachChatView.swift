@@ -19,7 +19,6 @@ struct CoachChatView: View {
     @State private var sending = false
     @State private var errorMessage: String?
     @State private var showErrorDialog = false
-    @State private var needsSignIn = false
     @State private var showHistorySheet = false
     @FocusState private var composerFocused: Bool
     @State private var keyboardVisible = false
@@ -83,9 +82,7 @@ struct CoachChatView: View {
 
     var body: some View {
         Group {
-            if needsSignIn {
-                signInAgainView
-            } else if threadsLoading {
+            if threadsLoading {
                 loadingView
             } else {
                 continuousLandingView
@@ -304,39 +301,6 @@ struct CoachChatView: View {
         CoachChatPreviewData.signatureMessageIds.contains(message.id)
     }
 
-    // MARK: - Auth expired
-
-    private var signInAgainView: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "person.crop.circle.badge.exclamationmark")
-                .font(.system(size: 32))
-                .foregroundStyle(WarmInstrument.inkFaint)
-            Text("Your GitHub access expired")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(WarmInstrument.ink)
-            Text("This happens if you uninstalled the App or removed its access on GitHub's side.")
-                .font(.system(size: 13))
-                .foregroundStyle(WarmInstrument.inkFaint)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Button {
-                needsSignIn = false
-                errorMessage = nil
-                clearThreadState()
-                authManager.signOut()
-            } label: {
-                Text("Sign in again")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(WarmInstrument.paper)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(WarmInstrument.ink)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private func dismissErrorDialog() {
         showErrorDialog = false
         errorMessage = nil
@@ -401,7 +365,7 @@ struct CoachChatView: View {
         } catch let error as GitHubAPIError {
             if case .sessionNotReady = error { return }
             if case .notAuthenticated = error {
-                needsSignIn = true
+                authManager.sessionExpired = true
                 clearThreadState()
                 return
             }
@@ -502,7 +466,7 @@ struct CoachChatView: View {
         } catch let error as GitHubAPIError {
             removeUserMessage(userMsg, from: liveThreadId)
             if case .notAuthenticated = error {
-                needsSignIn = true
+                authManager.sessionExpired = true
                 clearThreadState()
             } else {
                 errorMessage = error.errorDescription ?? "Coach didn't reply — try again"
