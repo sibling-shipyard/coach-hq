@@ -83,8 +83,8 @@ flowchart TD
 | `me.ts` | Session read endpoint (web only - iOS has no session cookie to read). |
 | `logout.ts` | Clears the session cookie. |
 | `list-my-repos.ts` | Repo resolution/picker. Dual auth: session cookie (web) or `Authorization: Bearer <token>` with no cookie (iOS's fallback for the rare 0-or-2+-candidate case). |
-| `check-repo-exists.ts` | Web-only. Polled by `Setup.tsx`'s repo-create popup step to auto-detect when `coach-<login>` exists, using the short-lived `coach_setup_token` cookie (see Session mechanics) since no real session exists yet at that point. |
-| `_lib/session.ts` | JWE session cookie helpers, plus the short-lived `SETUP_TOKEN_COOKIE` constant. |
+| `check-repo-exists.ts` | Web-only. Polled by `Setup.tsx`'s repo-create popup step to auto-detect when `coach-<login>` exists, using the short-lived, JWE-encrypted `coach_setup_token` cookie (see Session mechanics) since no real session exists yet at that point - `login` comes from the decrypted payload, not a query param. |
+| `_lib/session.ts` | JWE session cookie helpers, plus the short-lived, equally-JWE-encrypted `SETUP_TOKEN_COOKIE`/`encryptSetupToken`/`decryptSetupToken`. |
 | `_lib/pkce.ts` | PKCE verifier/challenge generation (unchanged from before). |
 | `_lib/repo-resolution.ts` | **Single source of truth** for installation + owned-repo lookup - used by both `callback.ts` (iOS's inline resolution) and `list-my-repos.ts` (web's picker, iOS's fallback), so the ownership/marker-file rules can't drift between the two callers. |
 
@@ -245,11 +245,16 @@ back (6 months, rotated on each use) for a new access token before the old one d
   line with it.
   `coach_oauth_state` - short-lived (10 min), carries `{ state, codeVerifier, platform, popup }`
   across the GitHub redirect round trip.
-  `coach_setup_token` - new, short-lived (20 min). `callback.ts`'s `setupRedirect()` sets it to
-  the just-obtained `gh_token` whenever a first-timer has no installation yet - at that point
-  there's no `installation_id` to build a real session around, so this stands in just long
-  enough for `Setup.tsx`'s repo-create polling (`check-repo-exists.ts`) to work without a second
-  sign-in. Cleared the moment a real session gets created (install completes).
+  `coach_setup_token` - new, short-lived (20 min), **JWE-encrypted** (`encryptSetupToken`/
+  `decryptSetupToken` - same treatment as `SESSION_COOKIE`, for the same reason: a raw `gh_token`
+  in a plaintext cookie is exactly what the session cookie's encryption exists to prevent, short
+  TTL or not). `callback.ts`'s `setupRedirect()` sets it to `{ gh_token, login }` whenever a
+  first-timer has no installation yet - at that point there's no `installation_id` to build a
+  real session around, so this stands in just long enough for `Setup.tsx`'s repo-create polling
+  (`check-repo-exists.ts`) to work without a second sign-in. `login` travels inside the encrypted
+  payload, not a query param - `check-repo-exists.ts` can only ever check the repo belonging to
+  whoever the cookie's token actually is, never an arbitrary login a caller supplies. Cleared the
+  moment a real session gets created (install completes).
 - **iOS**: no server-side session - stateless, same as before. Every API call presents
   `Authorization: Bearer <gh_token>` + `X-Coach-Repo: owner/repo`, verified by
   `_lib/resolve-auth.ts` (which itself calls `ensureFreshSession()` for the web-cookie half of

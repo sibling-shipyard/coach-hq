@@ -1,5 +1,6 @@
 import {
   encryptSession,
+  encryptSetupToken,
   buildCookie,
   clearCookie,
   parseCookies,
@@ -50,13 +51,13 @@ function errorRedirect(
 // Sends a first-time user into the Setup wizard (Setup.tsx / SetupView.swift) instead of a
 // dead-end error - GitHub App tokens can't create repos on a personal account (confirmed via
 // 404/403 on /repos/{template}/generate and /user/repos), so this can't provision one itself.
-function setupRedirect(
+async function setupRedirect(
   origin: string,
   login: string,
   ghToken: string,
   platform: "web" | "ios" = "web",
   popup = false,
-): Response {
+): Promise<Response> {
   const headers = new Headers();
   headers.set(
     "Location",
@@ -70,8 +71,13 @@ function setupRedirect(
   if (platform === "web") {
     // Setup.tsx's popup-based repo-create step (check-repo-exists.ts) needs a token but there's
     // no real session yet (no installation_id) - this short-lived cookie is the only thing
-    // standing in for one until step 2 completes and a real session gets created.
-    headers.append("Set-Cookie", buildCookie(SETUP_TOKEN_COOKIE, ghToken, SETUP_TOKEN_MAX_AGE_SEC));
+    // standing in for one until step 2 completes and a real session gets created. JWE-encrypted
+    // like the real session cookie (encryptSession) - a raw gh_token sitting in a plaintext
+    // cookie for up to SETUP_TOKEN_MAX_AGE_SEC is exactly the risk that encryption exists to
+    // close, short TTL or not. login travels inside the encrypted payload too, not as a query
+    // param, so check-repo-exists.ts can't be pointed at an arbitrary login using this token.
+    const setupToken = await encryptSetupToken({ gh_token: ghToken, login });
+    headers.append("Set-Cookie", buildCookie(SETUP_TOKEN_COOKIE, setupToken, SETUP_TOKEN_MAX_AGE_SEC));
   }
   return new Response(null, { status: 302, headers });
 }
@@ -177,7 +183,7 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
     }
 
     if (!installationId) {
-      return setupRedirect(url.origin, user.login as string, ghToken, platform, popup);
+      return await setupRedirect(url.origin, user.login as string, ghToken, platform, popup);
     }
 
     // iOS has no shared cookie jar, so it gets the raw token back on the redirect (see

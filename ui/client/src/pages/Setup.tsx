@@ -34,7 +34,9 @@ export default function Setup() {
     if (!login || repoExists) return;
     setChecking(true);
     try {
-      const res = await fetch(`/api/auth/check-repo-exists?login=${encodeURIComponent(login)}`);
+      // No ?login= param - the server derives login from the encrypted setup-token cookie, not
+      // a client-supplied value, so this token can't be used to check an arbitrary login.
+      const res = await fetch("/api/auth/check-repo-exists");
       if (res.ok) {
         const data = (await res.json()) as { exists?: boolean };
         if (data.exists) setRepoExists(true);
