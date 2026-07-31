@@ -23,6 +23,8 @@ struct WarmInstrumentHomeView: View {
     @State private var navigationPath: [HomeRoute] = []
     @State private var badmintonShowsRanked = false
 
+    @AppStorage("engineOverlayDismissed") private var engineOverlayDismissed = false
+
     @AppStorage("wiEngineSize") private var engineSize = "M"
     @AppStorage("wiQuestSize") private var questSize = "M"
     @AppStorage("wiCommitmentsSize") private var commitmentsSize = "M"
@@ -126,6 +128,15 @@ struct WarmInstrumentHomeView: View {
             .buttonStyle(.plain)
         }
         .staggerReveal(delay: 0.05)
+        .overlay {
+            if !engineOverlayDismissed {
+                EngineFirstVisitOverlay {
+                    withAnimation(.easeOut(duration: 0.25)) { engineOverlayDismissed = true }
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: engineOverlayDismissed)
 
         // Sport commitment quartet strip
         EditableWidget(isEditing: $isEditingLayout, sizeBinding: $commitmentsSize, sizeOptions: ["S", "M"], jigglePhase: 0.05) {
@@ -239,6 +250,39 @@ struct WarmInstrumentHomeView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 100)
+    }
+}
+
+// MARK: - Engine first-visit overlay
+
+private struct EngineFirstVisitOverlay: View {
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                .fill(WarmInstrument.ink.opacity(0.88))
+            VStack(spacing: 10) {
+                Text("This is your weekly load")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                Text("Coach uses your training dose score to calibrate what's next. Tap the Engine any time for the full breakdown.")
+                    .font(WarmInstrument.coachVoice(13))
+                    .foregroundColor(.white.opacity(0.88))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+                Text("TAP TO DISMISS")
+                    .font(WarmInstrument.monoLabel(9))
+                    .tracking(0.8)
+                    .foregroundColor(.white.opacity(0.45))
+            }
+            .padding(20)
+        }
+        .onTapGesture {
+            Haptics.tap()
+            onDismiss()
+        }
+        .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
     }
 }
 

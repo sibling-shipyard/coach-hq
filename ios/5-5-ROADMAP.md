@@ -21,7 +21,7 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [x] Card press style: add spring scale (0.97) alongside existing opacity dim across all list cards
 
 ### Typography
-- [ ] `WarmInstrument.coachVoice()`: switch to New York serif (`Font.system(.body, design: .serif)`) — one token change, touches every coach text: chat bubbles, coaching notes, coach's read, build phase
+- [x] `WarmInstrument.coachVoice()`: switch to New York serif (`Font.system(.body, design: .serif)`) — one token change, touches every coach text: chat bubbles, coaching notes, coach's read, build phase
 
 ### Chrome Polish
 - [x] Timer back button: `Text("←")` → `Image(systemName: "chevron.left")` with semibold weight
@@ -44,10 +44,10 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [ ] Welcome screen: Coach's voice intro — who they are, what this app does, what to expect
 - [ ] "What sports are you training for?" multi-select (seeds commitment strip)
 - [ ] "What's your main goal this season?" (seeds the quest with real context)
-- [ ] HealthKit permission prompt with a human explanation (not system boilerplate)
-- [ ] GitHub repo connection framed as "linking your training log" not a dev tool
+- [x] HealthKit permission prompt with a human explanation (not system boilerplate)
+- [x] GitHub repo connection framed as "linking your training log" not a dev tool
 - [x] First Coach Chat open: a waiting message — "I'm Coach Phelps. Tell me what you're working toward."
-- [ ] First Engine widget: annotated overlay explaining what the number means ("This is your weekly load")
+- [x] First Engine widget: annotated overlay explaining what the number means ("This is your weekly load")
 - [ ] First morning read: special "letter" format, not just a message bubble
 
 ### Home — Living Dashboard
@@ -70,7 +70,7 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [x] Add labels below tab icons (standard iOS pattern — removes ambiguity for new users)
 - [x] Or: stronger selected state — larger filled icon + brief label on first tap (tooltip style)
 - [ ] Context-aware CTA: dock adapts based on current surface (not just start-workout)
-- [ ] Chat tab unread treatment: dot badge, not number
+- [x] Chat tab unread treatment: dot badge, not number
 
 ---
 

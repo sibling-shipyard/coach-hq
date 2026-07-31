@@ -64,6 +64,7 @@ struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
     @State private var didSetInitialTab = false
+    @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -113,6 +114,12 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
             withAnimation(PremiumMotion.state) { selectedTab = .home }
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            if newTab == .chat { chatHasUnread = false }
+        }
+        .onChange(of: chatHasUnread) { _, hasUnread in
+            if hasUnread && selectedTab == .chat { chatHasUnread = false }
         }
     }
 
@@ -171,6 +178,7 @@ private enum WarmDockMetrics {
 private struct WarmTabBar: View {
     @Binding var selection: AppTab
     @Namespace private var tabIndicator
+    @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -213,6 +221,14 @@ private struct WarmTabBar: View {
                         .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
                         .scaleEffect(selected ? 1.04 : 1)
                         .offset(y: selected ? -1 : 0)
+                        .overlay(alignment: .topTrailing) {
+                            if tab == .chat && chatHasUnread {
+                                Circle()
+                                    .fill(WarmInstrument.accent)
+                                    .frame(width: 7, height: 7)
+                                    .offset(x: 5, y: -2)
+                            }
+                        }
 
                     Text(tab.labelText)
                         .font(.system(size: 9, weight: .semibold, design: .monospaced))

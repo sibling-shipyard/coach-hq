@@ -31,6 +31,8 @@ struct CoachHQApp: App {
     @StateObject private var bottomDock = BottomDockState()
     @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
+    @AppStorage("hkPrePromptShown") private var hkPrePromptShown = false
+    @State private var showHKPrePrompt = false
 
     var body: some Scene {
         WindowGroup {
@@ -50,10 +52,32 @@ struct CoachHQApp: App {
                             syncManager.configure(apiClient: apiClient, widgetStore: widgetStore)
                             workoutService.configure(apiClient: apiClient)
                             widgetStore.configure(apiClient: apiClient)
-                            try? await syncManager.requestAuthorization()
-                            await syncManager.requestNotificationPermission()
-                            syncManager.enableBackgroundDelivery()
-                            syncManager.setupWorkoutObserver()
+                            if hkPrePromptShown {
+                                try? await syncManager.requestAuthorization()
+                                await syncManager.requestNotificationPermission()
+                                syncManager.enableBackgroundDelivery()
+                                syncManager.setupWorkoutObserver()
+                            } else {
+                                showHKPrePrompt = true
+                            }
+                        }
+                        .fullScreenCover(isPresented: $showHKPrePrompt) {
+                            HealthKitPrePromptView(
+                                onConnect: {
+                                    showHKPrePrompt = false
+                                    hkPrePromptShown = true
+                                    Task {
+                                        try? await syncManager.requestAuthorization()
+                                        await syncManager.requestNotificationPermission()
+                                        syncManager.enableBackgroundDelivery()
+                                        syncManager.setupWorkoutObserver()
+                                    }
+                                },
+                                onSkip: {
+                                    showHKPrePrompt = false
+                                    hkPrePromptShown = true
+                                }
+                            )
                         }
                 } else if authManager.pendingSetupLogin != nil {
                     SetupView()

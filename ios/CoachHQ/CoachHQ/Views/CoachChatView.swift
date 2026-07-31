@@ -23,6 +23,7 @@ struct CoachChatView: View {
     @FocusState private var composerFocused: Bool
     @State private var keyboardVisible = false
     @State private var postWorkoutChips: [String]? = nil
+    @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     /// Until wired: preview header from mock. Replace with snapshot/challenge_v2 read.
     @State private var headerContext = CoachChatHeaderContext.preview
@@ -386,6 +387,9 @@ struct CoachChatView: View {
             if !threads.filter({ $0.status != .deleted }).isEmpty,
                let repo = authManager.repoFullName {
                 CoachSetupState.markComplete(repoFullName: repo)
+            }
+            if let today = todayThread, today.messages.contains(where: { $0.role == .coach }) {
+                chatHasUnread = true
             }
             // Wireup: prefer API today's thread; preview shell when empty.
             if let today = todayThread {
