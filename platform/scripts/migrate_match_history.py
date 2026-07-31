@@ -63,14 +63,34 @@ def main():
     args = parse_args()
     
     repo_root = Path(__file__).parent.parent.parent.resolve()
-    old_history_path = repo_root / "training" / "ebadders_history.json"
     activities_hist_dir = repo_root / "user_data" / "activities" / "hist"
     new_history_path = repo_root / "user_data" / "activities" / "match_history.json"
     
-    old_history = load_json(old_history_path)
+    candidate_paths = [
+        repo_root / "badminton_match_data.json",
+        repo_root / "training" / "ebadders_history.json",
+        repo_root / "platform" / "plugins" / "badminton" / "data" / "badminton_match_data.json",
+        repo_root / "engine" / "plugins" / "badminton" / "data" / "badminton_match_data.json",
+        repo_root / "user_data" / "activities" / "badminton_match_data.json"
+    ]
+    
+    old_history = None
+    source_path = None
+    for path in candidate_paths:
+        data = load_json(path)
+        if data and isinstance(data, list) and len(data) > 0:
+            old_history = data
+            source_path = path
+            break
+            
     if old_history is None:
-        print(f"Error: Could not read {old_history_path}", file=sys.stderr)
-        sys.exit(1)
+        if new_history_path.exists():
+            print(f"Match history already exists at {new_history_path}. Nothing to migrate.")
+            sys.exit(0)
+        print("No legacy match history found to migrate.")
+        sys.exit(0)
+
+    print(f"Migrating legacy match history from: {source_path}")
         
     new_sessions = []
     total_sessions_migrated = 0
@@ -97,18 +117,20 @@ def main():
                 category = games_categories[i]
                 
             partner = match.get('partner')
+            if isinstance(partner, list):
+                partner = " & ".join(partner) if partner else None
             if not partner or partner == "Solo":
                 partner = None
                 
-            fmt = "singles" if partner is None else "doubles"
+            fmt = match.get('format') or ("singles" if partner is None else "doubles")
             
-            akash_won = match.get('akashWon')
-            result = "W" if akash_won else ("L" if akash_won is False else None)
+            akash_won = match.get('akashWon') if 'akashWon' in match else match.get('akash_won')
+            result = match.get('result') or ("W" if akash_won else ("L" if akash_won is False else None))
             
             score_str = match.get('score', "")
-            score_for = 0
-            score_against = 0
-            if '-' in score_str:
+            score_for = match.get('scoreFor', 0)
+            score_against = match.get('scoreAgainst', 0)
+            if (score_for == 0 and score_against == 0) and '-' in score_str:
                 parts = score_str.split('-')
                 if len(parts) == 2:
                     try:
@@ -132,13 +154,13 @@ def main():
         summary = {
             "wins": entry.get('wins', 0),
             "losses": entry.get('losses', 0),
-            "winPct": entry.get('winPct', 0)
+            "winPct": entry.get('winPct') if entry.get('winPct') is not None else entry.get('win_pct', 0)
         }
         
         new_session = {
             "date": date,
-            "activityId": entry.get('activityId'),
-            "preMentalState": entry.get('preMentalState'),
+            "activityId": entry.get('activityId') if entry.get('activityId') is not None else entry.get('activity_id'),
+            "preMentalState": entry.get('preMentalState') if entry.get('preMentalState') is not None else entry.get('pre_mental_state'),
             "rank": rank,
             "notes": notes,
             "summary": summary,
