@@ -255,7 +255,7 @@ struct CoachChatView: View {
 
     private var composerDock: some View {
         VStack(spacing: 8) {
-            if isViewingToday {
+            if isViewingToday && (chatWelcomeShown || !usingPreviewShell) {
                 CoachChatStarterChips(
                     prompts: postWorkoutChips ?? CoachChatPreviewData.starterPrompts,
                     isDisabled: sending

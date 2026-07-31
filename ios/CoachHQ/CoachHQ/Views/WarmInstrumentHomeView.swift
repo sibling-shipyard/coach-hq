@@ -1381,7 +1381,7 @@ private struct Vo2Widget: View {
                             .font(WarmInstrument.figures(28, weight: .bold))
                             .foregroundColor(WarmInstrument.ink)
                         if let delta = vo2.delta {
-                            Text("ml/kg/min · ▲ \(String(format: "%.1f", delta))")
+                            Text("ml/kg/min · \(delta >= 0 ? "▲" : "▼") \(String(format: "%.1f", abs(delta)))")
                                 .font(.system(size: 11))
                                 .foregroundColor(WarmInstrument.inkMuted)
                         }
