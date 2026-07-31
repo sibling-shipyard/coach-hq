@@ -207,6 +207,7 @@ PY
 legacy_wants_badminton_plugin() {
   local target_root="$1"
   [[ -f "${target_root}/training/ebadders_history.json" ]] && return 0
+  [[ -f "${target_root}/gen/badminton_analytics_snapshot.json" ]] && return 0
   [[ -f "${target_root}/user_data/activities/badminton_analytics_snapshot.json" ]] && return 0
   [[ -f "${target_root}/user_data/activities/badminton_match_data.json" ]] && return 0
   [[ -f "${target_root}/user_data/activities/match_history.json" ]] && return 0

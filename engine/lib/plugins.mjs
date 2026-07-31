@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { activitiesDir, isHqMonorepo, ledgerDir } from "./repo-layout.mjs";
+import { genDir, isHqMonorepo, ledgerDir } from "./repo-layout.mjs";
 
 const DEFAULT_PLUGINS = { enabled: [] };
 
@@ -44,7 +44,7 @@ export function badmintonPluginDir(repoRootPath) {
 }
 
 export function badmintonSnapshotPath(repoRootPath) {
-  return path.join(activitiesDir(repoRootPath), "badminton_analytics_snapshot.json");
+  return path.join(genDir(repoRootPath), "badminton_analytics_snapshot.json");
 }
 
 export function badmintonAnalyticsAvailable(repoRootPath) {

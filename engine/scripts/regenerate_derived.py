@@ -50,7 +50,7 @@ def maybe_run_badminton_analytics() -> None:
     if script is None:
         log("Badminton plugin code absent — skipping analytics snapshot")
         return
-    log("Generating badminton_analytics_snapshot.json...")
+    log("Generating gen/badminton_analytics_snapshot.json...")
     result = subprocess.run(
         [sys.executable, str(script)],
         cwd=REPO,

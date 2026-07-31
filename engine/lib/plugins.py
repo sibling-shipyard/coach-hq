@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from repo_layout import activities_dir, is_hq_monorepo, ledger_dir, p
+from repo_layout import gen_dir, is_hq_monorepo, ledger_dir, p
 
 DEFAULT_PLUGINS: dict[str, list[str]] = {"enabled": []}
 
@@ -52,7 +52,7 @@ def badminton_analytics_script(repo: Path) -> Path | None:
 
 
 def badminton_snapshot_path(repo: Path) -> Path:
-    return activities_dir(repo) / "badminton_analytics_snapshot.json"
+    return gen_dir(repo) / "badminton_analytics_snapshot.json"
 
 
 def badminton_analytics_available(repo: Path) -> bool:

@@ -17,7 +17,7 @@ flowchart TB
     GATE["user_data/ledger/plugins.json"]
     ENG["engine/plugins/badminton/"]
     MH["user_data/activities/match_history.json"]
-    SNAP["user_data/activities/badminton_analytics_snapshot.json"]
+    SNAP["gen/badminton_analytics_snapshot.json"]
     REF["user_data/coach/reference/badminton.md"]
   end
   PACK -->|"provision --plugins badminton"| ENG
@@ -43,7 +43,7 @@ Implemented in one PR (stack items 1, 2, 3, 5). SOUL (#154) already merged separ
 ## Done when
 
 - Plugin-off repo: no snapshot regen, no match reads in Coach workflow, badminton nav hidden
-- Plugin-on + iOS score paste: `match_history.json` updates; sync regens `badminton_analytics_snapshot.json`
+- Plugin-on + iOS score paste: `match_history.json` updates; sync regens `gen/badminton_analytics_snapshot.json`
 - Coach names an opponent → reads snapshot on demand (SOUL §10)
 - `python3 platform/plugins/badminton/analytics.py` passes tests on golden/migrated data
 
