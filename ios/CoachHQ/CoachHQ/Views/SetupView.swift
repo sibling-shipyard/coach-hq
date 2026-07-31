@@ -271,33 +271,26 @@ struct HealthKitPrePromptView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 28) {
-                OnboardingLogo()
+            VStack(spacing: 0) {
+                // Large pull-quote serif headline — the visual anchor
+                Text("I read every\nworkout you do.")
+                    .font(.system(size: 36, weight: .semibold, design: .serif))
+                    .italic()
+                    .foregroundColor(WarmInstrument.ink)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .onboardingReveal(index: 0)
+                    .padding(.bottom, 28)
 
-                VStack(spacing: 16) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 36))
-                        .foregroundColor(WarmInstrument.accent)
-                        .onboardingReveal(index: 1)
-
-                    Text("Your training, always yours")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(WarmInstrument.ink)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .onboardingReveal(index: 2)
-
-                    Text("Coach reads your workouts — duration, heart rate, sport type — to give you real context when you talk. Nothing leaves your device without your say.")
-                        .font(WarmInstrument.coachVoice(15))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineSpacing(3)
-                        .onboardingReveal(index: 3)
-                }
-                .padding(.horizontal, 32)
+                Text("Duration, heart rate, sport type — that's how I learn your patterns and give you real feedback instead of generic advice.")
+                    .font(WarmInstrument.coachVoice(16))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(4)
+                    .onboardingReveal(index: 1)
             }
+            .padding(.horizontal, 32)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             VStack(spacing: 12) {
@@ -308,7 +301,7 @@ struct HealthKitPrePromptView: View {
                     Text("Connect Health")
                 }
                 .buttonStyle(WarmSetupButtonStyle(primary: true))
-                .onboardingReveal(index: 4)
+                .onboardingReveal(index: 2)
 
                 Button {
                     Haptics.tap()
@@ -320,6 +313,7 @@ struct HealthKitPrePromptView: View {
                         .frame(height: 44)
                 }
                 .buttonStyle(.plain)
+                .onboardingReveal(index: 3)
             }
             .padding(.horizontal, 24)
             .safeAreaPadding(.bottom, 12)
@@ -331,7 +325,7 @@ struct HealthKitPrePromptView: View {
 
 // MARK: - Setup button style
 
-private struct WarmSetupButtonStyle: ButtonStyle {
+struct WarmSetupButtonStyle: ButtonStyle {
     let primary: Bool
 
     func makeBody(configuration: Configuration) -> some View {

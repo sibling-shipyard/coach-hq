@@ -43,9 +43,18 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [ ] "Coach is reviewing" anticipation state in Chat: pinned chip/banner after sync fires, until morning read arrives — drives re-opens
 
 ### First-Time Onboarding / Coach Introduction
-- [ ] Welcome screen: Coach's voice intro — who they are, what this app does, what to expect
-- [ ] "What sports are you training for?" multi-select (seeds commitment strip)
-- [ ] "What's your main goal this season?" (seeds the quest with real context)
+
+**Architecture:** Replace chained `fullScreenCover`s with a single `OnboardingFlowView` coordinator.
+Holds all collected state, commits one atomic `user/state.md` write at the end of step 5.
+
+- [x] Step 1 — Name: Coach asks what to call you (`PersonalizeView`) — preferred name stored in AppStorage + `user/profile.md` committed
+- [ ] Step 2 — The Reveal: "Look what you built last year" — HK year summary (session count, hours, top sport, most active month) with count-up animations and a 52-week activity bar strip (column-by-column wave animation)
+- [ ] Step 3 — Your Rhythms: Full-bleed dot heatmap (52 × 7 GitHub-style grid), dots animate in left-to-right, sport colors blended. Coach voice: *"I can see when you push, when you rest, and when life gets in the way. I'll plan around all three."* No data collected — pure trust-building.
+- [ ] Step 4 — Your Season: Sport multi-select chips (pre-checked from HK history) + free-text goal field. Seeds quest widget and Coach's first conversation.
+- [ ] Step 5 — Morning Brief: Three time pills (6 AM / 7 AM / 8 AM), schedules daily notification. Skip for now option.
+- [ ] `OnboardingFlowView` coordinator: single fullScreenCover, `@State var step: OnboardingStep` enum, slide transition between steps, progress dots strip at top
+- [ ] `HealthKitSyncManager.fetchYearSummary()`: new method querying HKWorkout samples for last 52 weeks → `YearSummary` (sessions, hours, sport distribution, weekly density array for heatmap)
+- [ ] Atomic `user/state.md` commit at step 5 completion with name, sports, goal, brief time, and HK year stats
 - [x] HealthKit permission prompt with a human explanation (not system boilerplate)
 - [x] GitHub repo connection framed as "linking your training log" not a dev tool
 - [x] First Coach Chat open: a waiting message — "I'm Coach Phelps. Tell me what you're working toward."
@@ -82,6 +91,7 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 ### Navbar Rethink
 - [x] Add labels below tab icons (standard iOS pattern — removes ambiguity for new users)
 - [x] Or: stronger selected state — larger filled icon + brief label on first tap (tooltip style)
+- [x] Tab reorder: Home → Coach → Train → You (Chat promoted to 2nd; "More" renamed to "You" with person.circle icon)
 - [ ] Context-aware CTA: dock adapts based on current surface (not just start-workout)
 - [x] Chat tab unread treatment: dot badge, not number
 
@@ -108,9 +118,14 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [ ] Siri Shortcuts: "Start Foundation workout" / "What's my engine load?"
 
 ### Settings → Profile
-- [ ] Settings tab becomes a personal profile: current block, sport commitments, Coach context
+- [x] Settings tab renamed "You" (was "More"), profile header with GitHub avatar + display name + repo
+- [x] Developer section hidden from regular users — unlocked by 5-tapping version number
+- [x] Section order: Training (HR Zones promoted) → Sync → Appearance → Account → About
+- [x] Inline name editing in Account section (tap pencil → edit field → done)
+- [x] Time-of-day greeting on Home ("Good morning, Sky") using preferredName
+- [ ] Settings tab becomes a full personal profile: current block, sport commitments, Coach context (P2)
 - [ ] "About Your Coach" section with Phelps background
-- [ ] Configurable: morning read time, notification preferences, dark mode toggle
+- [ ] Configurable: morning read time, notification preferences (needs morning brief step 5 first)
 
 ### Performance
 - [ ] Instruments scroll profiling on Home (LazyVStack with many widgets)

@@ -360,6 +360,79 @@ class HealthKitSyncManager: ObservableObject {
             self.healthStore.execute(query)
         }
     }
+
+    // MARK: - Year Summary
+
+    func fetchYearSummary() async -> YearSummary {
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Subtract 52 weeks, then snap to the Monday of that week so indices are stable.
+        let anchor = calendar.date(byAdding: .weekOfYear, value: -52, to: now)!
+        let windowStart = calendar.date(
+            from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchor)
+        ) ?? calendar.date(byAdding: .day, value: -364, to: now)!
+
+        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: now, options: .strictStartDate)
+        let sortDescriptor = SortDescriptor(\HKWorkout.startDate, order: .forward)
+        let descriptor = HKSampleQueryDescriptor(predicates: [.workout(predicate)], sortDescriptors: [sortDescriptor])
+        let workouts = (try? await descriptor.result(for: healthStore)) ?? []
+
+        var sportCounts: [String: Int] = [:]
+        var totalSeconds: Double = 0
+        var weeklyDensity = [Int](repeating: 0, count: 52)
+        var dailyActivity = [[Bool]](repeating: [Bool](repeating: false, count: 7), count: 52)
+        var dailySport = [[String?]](repeating: [String?](repeating: nil, count: 7), count: 52)
+
+        for workout in workouts {
+            let sport = ActivityMapper.sportType(for: workout.workoutActivityType)
+            sportCounts[sport, default: 0] += 1
+            totalSeconds += workout.duration
+
+            // Use elapsed days / 7 — dateComponents(.weekOfYear) returns the field (0–53),
+            // not a difference, so it breaks when the window spans two calendar years.
+            let daysElapsed = calendar.dateComponents([.day], from: windowStart, to: workout.startDate).day ?? 0
+            let weekIndex = min(max(daysElapsed / 7, 0), 51)
+            // weekday: 1=Sun…7=Sat; map Mon=0 … Sun=6
+            let rawWeekday = calendar.component(.weekday, from: workout.startDate)
+            let dayIndex = (rawWeekday + 5) % 7
+
+            weeklyDensity[weekIndex] = min(weeklyDensity[weekIndex] + 1, 7)
+            dailyActivity[weekIndex][dayIndex] = true
+            if dailySport[weekIndex][dayIndex] == nil { dailySport[weekIndex][dayIndex] = sport }
+        }
+
+        let topSport = sportCounts.max(by: { $0.value < $1.value })?.key ?? "Other"
+        return YearSummary(
+            sessions: workouts.count,
+            hours: totalSeconds / 3600,
+            topSport: topSport,
+            weeklyDensity: weeklyDensity,
+            dailyActivity: dailyActivity,
+            dailySport: dailySport,
+            sportCounts: sportCounts
+        )
+    }
+}
+
+// MARK: - Year Summary
+
+struct YearSummary {
+    let sessions: Int
+    let hours: Double
+    let topSport: String
+    let weeklyDensity: [Int]        // 52 values, 0–7 sessions/week
+    let dailyActivity: [[Bool]]     // 52 weeks × 7 days
+    let dailySport: [[String?]]     // 52 weeks × 7 days (sport type string)
+    let sportCounts: [String: Int]  // raw counts for pre-selecting chips
+
+    static let empty = YearSummary(
+        sessions: 0, hours: 0, topSport: "Other",
+        weeklyDensity: [Int](repeating: 0, count: 52),
+        dailyActivity: [[Bool]](repeating: [Bool](repeating: false, count: 7), count: 52),
+        dailySport: [[String?]](repeating: [String?](repeating: nil, count: 7), count: 52),
+        sportCounts: [:]
+    )
 }
 
 // MARK: - Errors

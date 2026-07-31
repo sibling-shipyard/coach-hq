@@ -29,12 +29,17 @@ struct WarmInstrumentHomeView: View {
     @AppStorage("wiEngineSize") private var engineSize = "M"
     @AppStorage("wiQuestSize") private var questSize = "M"
     @AppStorage("wiCommitmentsSize") private var commitmentsSize = "M"
+    @AppStorage("preferredName") private var preferredName = ""
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(spacing: 14) {
                     if let snapshots = store.snapshots {
+                        if !preferredName.isEmpty {
+                            greetingRow
+                                .staggerReveal(delay: 0.10)
+                        }
                         CompactInstrumentHeader(phase: snapshots.home.phase)
 
                         if !snapshots.home.sync.healthy {
@@ -191,6 +196,18 @@ struct WarmInstrumentHomeView: View {
     }
 
     // MARK: - Header / states
+
+    private var greetingRow: some View {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let salutation = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
+        return HStack {
+            Text("\(salutation), \(preferredName)")
+                .font(WarmInstrument.coachVoice(13))
+                .foregroundColor(WarmInstrument.inkMuted)
+            Spacer()
+        }
+        .padding(.horizontal, 6)
+    }
 
     private func syncToastMessage(n: Int) -> String {
         let rounds = syncManager.lastRoundSynced

@@ -35,7 +35,10 @@ struct CoachHQApp: App {
     @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
     @AppStorage("hkPrePromptShown") private var hkPrePromptShown = false
+    @AppStorage("personalizeShown") private var personalizeShown = false
+    @AppStorage("onboardingRevealShown") private var onboardingRevealShown = false
     @State private var showHKPrePrompt = false
+    @State private var showOnboardingReveal = false
 
     var body: some Scene {
         WindowGroup {
@@ -51,18 +54,25 @@ struct CoachHQApp: App {
                         .environmentObject(widgetStore)
                         .environmentObject(bottomDock)
                         .task {
-                            let apiClient = GitHubAPIClient(authManager: authManager)
-                            syncManager.configure(apiClient: apiClient, widgetStore: widgetStore)
-                            workoutService.configure(apiClient: apiClient)
-                            widgetStore.configure(apiClient: apiClient)
-                            if hkPrePromptShown {
+                            let client = GitHubAPIClient(authManager: authManager)
+                            syncManager.configure(apiClient: client, widgetStore: widgetStore)
+                            workoutService.configure(apiClient: client)
+                            widgetStore.configure(apiClient: client)
+                            // If welcome overlay is still pending, wait for it (onChange handles HK).
+                            guard personalizeShown else { return }
+                            if !hkPrePromptShown {
+                                showHKPrePrompt = true
+                            } else {
                                 try? await syncManager.requestAuthorization()
                                 await syncManager.requestNotificationPermission()
                                 syncManager.enableBackgroundDelivery()
                                 syncManager.setupWorkoutObserver()
-                            } else {
-                                showHKPrePrompt = true
                             }
+                        }
+                        // When MainTabView's WelcomeOverlay sets personalizeShown=true, trigger HK.
+                        .onChange(of: personalizeShown) { _, shown in
+                            guard shown, !hkPrePromptShown else { return }
+                            showHKPrePrompt = true
                         }
                         .fullScreenCover(isPresented: $showHKPrePrompt) {
                             HealthKitPrePromptView(
@@ -74,6 +84,10 @@ struct CoachHQApp: App {
                                         await syncManager.requestNotificationPermission()
                                         syncManager.enableBackgroundDelivery()
                                         syncManager.setupWorkoutObserver()
+                                        if !onboardingRevealShown {
+                                            try? await Task.sleep(nanoseconds: 300_000_000)
+                                            showOnboardingReveal = true
+                                        }
                                     }
                                 },
                                 onSkip: {
@@ -82,6 +96,17 @@ struct CoachHQApp: App {
                                 }
                             )
                         }
+                        // Chain on a background EmptyView to avoid the two-covers-on-same-view
+                        // SwiftUI bug where the second modifier is silently dropped on iOS < 16.4.
+                        .background(
+                            EmptyView().fullScreenCover(isPresented: $showOnboardingReveal) {
+                                OnboardingRevealFlow(onComplete: {
+                                    showOnboardingReveal = false
+                                })
+                                .environmentObject(authManager)
+                                .environmentObject(syncManager)
+                            }
+                        )
                 } else if authManager.pendingSetupLogin != nil {
                     SetupView()
                         .environmentObject(authManager)
