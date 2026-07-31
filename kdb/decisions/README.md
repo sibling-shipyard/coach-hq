@@ -16,6 +16,7 @@
 | 0010 | Remove Strava ingestion, relocate shared activity tools out of `strava/` | cross-cutting |
 | 0011 | HQ four-band layout (shared, ui, ios, platform, engine) | cross-cutting |
 | 0012 | Coach chat: atomic commits via Git Data API, count-based retention | cross-cutting |
+| 0013 | Canonical match history: iOS parses once, consumers read JSON | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.
