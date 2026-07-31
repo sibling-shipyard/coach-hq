@@ -24,6 +24,7 @@ struct WarmInstrumentHomeView: View {
     @State private var badmintonShowsRanked = false
 
     @AppStorage("engineOverlayDismissed") private var engineOverlayDismissed = false
+    @State private var enginePulse: Bool = false
 
     @AppStorage("wiEngineSize") private var engineSize = "M"
     @AppStorage("wiQuestSize") private var questSize = "M"
@@ -36,7 +37,8 @@ struct WarmInstrumentHomeView: View {
                     if let snapshots = store.snapshots {
                         HomeGreetingHeader(
                             phase: snapshots.home.phase,
-                            login: authManager.user?.login
+                            login: authManager.user?.login,
+                            streak: trainingStreak
                         )
 
                         if !snapshots.home.sync.healthy {
@@ -99,6 +101,12 @@ struct WarmInstrumentHomeView: View {
             .onChange(of: syncManager.lastSyncResult) { _, result in
                 guard let result, case .synced(let n) = result.outcome, n > 0 else { return }
                 toast = Toast(kind: .success, message: syncToastMessage(n: n))
+                enginePulse = true
+                Task { try? await Task.sleep(for: .seconds(0.55)); enginePulse = false }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                guard store.isConfigured else { return }
+                Task { await store.refresh(showSpinner: false) }
             }
             .overlay(alignment: .topTrailing) {
                 if isEditingLayout {
@@ -127,6 +135,8 @@ struct WarmInstrumentHomeView: View {
             }
             .buttonStyle(.plain)
         }
+        .scaleEffect(enginePulse ? 1.02 : 1)
+        .animation(.spring(duration: 0.45, bounce: 0.35), value: enginePulse)
         .staggerReveal(delay: 0.05)
         .overlay {
             if !engineOverlayDismissed {
@@ -186,6 +196,32 @@ struct WarmInstrumentHomeView: View {
     }
 
     // MARK: - Header / states
+
+    private var trainingStreak: Int {
+        let entries = SyncCache.load()
+        guard !entries.isEmpty else { return 0 }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        formatter.timeZone = .current
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let activityDays = Set(entries.compactMap { e -> Date? in
+            guard let date = formatter.date(from: e.startDateLocal) else { return nil }
+            return calendar.startOfDay(for: date)
+        })
+        var checkDay = today
+        if !activityDays.contains(checkDay) {
+            checkDay = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+            if !activityDays.contains(checkDay) { return 0 }
+        }
+        var streak = 0
+        while activityDays.contains(checkDay) {
+            streak += 1
+            guard let prev = calendar.date(byAdding: .day, value: -1, to: checkDay) else { break }
+            checkDay = prev
+        }
+        return streak
+    }
 
     private func syncToastMessage(n: Int) -> String {
         let rounds = syncManager.lastRoundSynced
@@ -472,13 +508,13 @@ private struct EngineWidget: View {
                 switch size {
                 case .s:
                     header(weekLabel: sizes.S.weekLabel, signal: sizes.S.signal)
-                    readout(load: sizes.S.load, verdict: sizes.S.compactVerdict)
+                    readout(load: sizes.S.load * bandProgress, verdict: sizes.S.compactVerdict)
                     bandStrip(load: sizes.S.load, bandLow: sizes.S.bandLow, bandHigh: sizes.S.bandHigh)
                 case .m:
                     mobileHeader(weekLabel: sizes.M.weekLabel, signal: sizes.M.signal)
                     HStack(alignment: .top, spacing: 16) {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(numberString(sizes.M.load))
+                            Text(numberString(sizes.M.load * bandProgress))
                                 .font(.system(size: 46, weight: .medium, design: .default))
                                 .tracking(-2)
                                 .foregroundColor(.white)
@@ -505,7 +541,7 @@ private struct EngineWidget: View {
                         }
                 case .l:
                     header(weekLabel: sizes.L.weekLabel, signal: sizes.L.signal)
-                    readout(load: sizes.L.load, verdict: sizes.L.verdict)
+                    readout(load: sizes.L.load * bandProgress, verdict: sizes.L.verdict)
                     bandStrip(load: sizes.L.load, bandLow: sizes.L.bandLow, bandHigh: sizes.L.bandHigh)
                     trendSparkline(sizes.L.trend)
                     mixBar(sizes.L.mix, totalHours: sizes.L.totalHours)
@@ -516,6 +552,10 @@ private struct EngineWidget: View {
             }
         }
         .shadow(color: WarmInstrument.engineShadow, radius: size == .m ? 24 : 20, x: 0, y: size == .m ? 12 : 10)
+        .onChange(of: sizes.M.load) { _, _ in
+            bandProgress = 0
+            withAnimation(.spring(duration: 0.7, bounce: 0.1).delay(0.05)) { bandProgress = 1.0 }
+        }
     }
 
     private func header(weekLabel: String, signal: String) -> some View {
@@ -1720,6 +1760,7 @@ private struct EngineDetailGauge: View {
 private struct HomeGreetingHeader: View {
     let phase: BuildPhaseSnapshot?
     let login: String?
+    var streak: Int = 0
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -1746,6 +1787,18 @@ private struct HomeGreetingHeader: View {
                 .minimumScaleFactor(0.8)
 
             Spacer(minLength: 0)
+
+            if streak >= 2 {
+                Text("DAY \(streak)")
+                    .font(WarmInstrument.monoLabel(9))
+                    .tracking(1.0)
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(WarmInstrument.surfaceMuted)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .transition(.scale(scale: 0.85).combined(with: .opacity))
+            }
 
             if let phase {
                 Text("BUILD · \(phase.weekLabel.uppercased())")

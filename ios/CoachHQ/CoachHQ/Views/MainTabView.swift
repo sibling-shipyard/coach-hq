@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 /// Child views set this preference to hide the floating `WarmTabBar` (e.g. workout overview, activity detail).
 private struct TabBarHiddenPreferenceKey: PreferenceKey {
@@ -120,6 +121,7 @@ struct MainTabView: View {
         }
         .onChange(of: chatHasUnread) { _, hasUnread in
             if hasUnread && selectedTab == .chat { chatHasUnread = false }
+            Task { try? await UNUserNotificationCenter.current().setBadgeCount(hasUnread ? 1 : 0) }
         }
     }
 

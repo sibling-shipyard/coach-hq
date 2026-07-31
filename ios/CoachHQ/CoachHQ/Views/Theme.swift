@@ -161,8 +161,16 @@ enum WarmInstrument {
             : UIColor(red: 0xf5 / 255, green: 0xf0 / 255, blue: 0xe6 / 255, alpha: 1)
     })
     static let ink = Theme.ink
-    static let inkMuted = Color(red: 0x75 / 255, green: 0x74 / 255, blue: 0x6b / 255)
-    static let inkFaint = Color(red: 0x98 / 255, green: 0x99 / 255, blue: 0x8f / 255)
+    static let inkMuted = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x9e / 255, green: 0x9c / 255, blue: 0x93 / 255, alpha: 1)
+            : UIColor(red: 0x75 / 255, green: 0x74 / 255, blue: 0x6b / 255, alpha: 1)
+    })
+    static let inkFaint = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x6e / 255, green: 0x6c / 255, blue: 0x65 / 255, alpha: 1)
+            : UIColor(red: 0x98 / 255, green: 0x99 / 255, blue: 0x8f / 255, alpha: 1)
+    })
 
     /// Terracotta — reserved for LOAD only (Engine hero, commitment cube fills tied to load).
     /// Never use as a generic accent, CTA, or brand color.
@@ -175,7 +183,11 @@ enum WarmInstrument {
 
     static let border = Theme.cardBorder
     static let borderDashed = Color(red: 84 / 255, green: 76 / 255, blue: 65 / 255).opacity(0.35)
-    static let headerRule = Color(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255)
+    static let headerRule = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x3a / 255, green: 0x38 / 255, blue: 0x34 / 255, alpha: 1)
+            : UIColor(red: 0xd8 / 255, green: 0xd2 / 255, blue: 0xc6 / 255, alpha: 1)
+    })
 
     static let cardShadow = Color(red: 57 / 255, green: 52 / 255, blue: 42 / 255).opacity(0.08)
     static let engineShadow = Color(red: 101 / 255, green: 43 / 255, blue: 32 / 255).opacity(0.18)

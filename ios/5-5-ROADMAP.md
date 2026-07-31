@@ -27,7 +27,7 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [x] Timer back button: `Text("←")` → `Image(systemName: "chevron.left")` with semibold weight
 - [x] Dock start CTA: `Text("▶ Start workout")` → `Image(systemName: "play.fill")` + `Text("Start workout")`
 - [x] WorkoutListView: add page header (title + date, matches CompactInstrumentHeader pattern from Home)
-- [ ] Chat tab icon: unread dot badge when a new morning-read thread exists
+- [x] Chat tab icon: unread dot badge when a new morning-read thread exists
 
 ---
 
@@ -39,6 +39,8 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [x] Push notification: "Session logged — Coach is reviewing your workout"
 - [x] Notification tap: deep link into Coach Chat via navigateToChat notification
 - [x] Home "session synced" banner: brief pill strip that auto-dismisses after sync completes
+- [x] Engine card pulse on sync: spring-bounce scale when new HK data lands (visual "your data just arrived")
+- [ ] "Coach is reviewing" anticipation state in Chat: pinned chip/banner after sync fires, until morning read arrives — drives re-opens
 
 ### First-Time Onboarding / Coach Introduction
 - [ ] Welcome screen: Coach's voice intro — who they are, what this app does, what to expect
@@ -55,6 +57,7 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [x] Today's scheduled workout shown in header: tap → WorkoutOverview inline
 - [x] Skeleton shimmer loading: cards matching actual widget layout instead of centered ProgressView
 - [x] All progress bars: animate from 0 on first data load across Engine, Quest, Calories
+- [x] Training streak chip: consecutive training-day count (DAY N) in greeting header, computed from local SyncCache
 
 ### Coach Chat Feel
 - [x] Contextual composer placeholder: "How did that feel?" post-workout / "What's on your mind?" default
@@ -65,6 +68,16 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 ### Workout Tab
 - [x] "Today" hero section at top: today's assigned workout prominent, clear Start button
 - [x] Visual separation: "TODAY'S PLAN" vs "AVAILABLE WORKOUTS" sections
+
+### Reward Moments (Pavlov circuit — reward must follow trigger immediately)
+- [ ] Quest complete celebration: spring-scale + haptic burst + Coach quote card when quest bar hits 100%
+- [ ] Engine personal best: detect new all-time high load → celebration banner + Coach quote (data already in the snapshot)
+- [ ] Streak milestones: DAY 7 / DAY 30 / DAY 100 → brief full-screen Coach overlay (same energy as WorkoutCompleteView)
+
+### Daily Pull (the DAU flywheel — most apps die without this)
+- [ ] Morning read push notification at a user-configured time: "Your Coach brief is ready" → sets app badge → drives ritual open
+- [ ] Configurable morning brief time in Settings (6 AM / 7 AM / 8 AM picker)
+- [x] App icon badge: badge count = 1 when morning read arrives, clears to 0 when Chat opened
 
 ### Navbar Rethink
 - [x] Add labels below tab icons (standard iOS pattern — removes ambiguity for new users)
@@ -83,13 +96,14 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 
 ### Delight Moments
 - [ ] Confetti or particle burst on milestone completions (quest complete, new personal best)
-- [ ] Engine number: count up from previous value on data refresh (not just snap to new value)
+- [x] Engine number: count up from previous value on data refresh (not just snap to new value)
 - [ ] Weekly plan chip drag: live position shadow and snap animation during reorder
-- [ ] Activity detail: stats count up from 0 on push transition
+- [x] Activity detail: stats count up from 0 on push transition
+- [ ] Streak loss push notification: "Your N-day streak is on the line" when no session logged by evening
+- [ ] Streak freeze: 1 missed-day grace per week without breaking the chain (removes all-or-nothing anxiety)
 
 ### Platform Expansion
-- [ ] Dark mode audit: sweep static `Color(red:)` values without dark-adaptive variants
-- [ ] Push notifications: morning read delivered at a user-configured time
+- [x] Dark mode audit: sweep static `Color(red:)` values without dark-adaptive variants (tokens fixed; `inkMuted`, `inkFaint`, `headerRule` now dark-adaptive)
 - [ ] Live Activities: workout timer state on Lock Screen and Dynamic Island
 - [ ] Siri Shortcuts: "Start Foundation workout" / "What's my engine load?"
 
@@ -100,7 +114,7 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 
 ### Performance
 - [ ] Instruments scroll profiling on Home (LazyVStack with many widgets)
-- [ ] Pre-fetch widget snapshots on app foreground to reduce time-to-data on open
+- [x] Pre-fetch widget snapshots on app foreground to reduce time-to-data on open
 - [ ] Reduce sync wait: optimistic UI while sync is in-flight
 
 ---
@@ -112,3 +126,6 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - **The post-workout arc is the product.** Finish sport → notification → app → Coach. Design every screen around this loop.
 - **Coach's words deserve the best typography.** The coachVoice font is the soul of the brand.
 - **Onboarding sets expectations.** The magic of the first few weeks should be designed, not accidental.
+- **Reward must follow trigger immediately.** Every Pavlov moment (sync, quest complete, personal best) needs an in-app response in the same session — not later.
+- **The daily pull is non-negotiable.** Without a morning notification ritual, the app has no reason to be opened proactively. Scheduled brief → badge → open → reward is the DAU flywheel.
+- **Streak = identity.** Once a user has a 7-day streak, they have a reason to care. Design the streak mechanic before the confetti.
