@@ -2,6 +2,10 @@ import SwiftUI
 
 /// Shows a synced activity's stats and (for Badminton) lets the user log match scores.
 /// Layout: headerBar (full-bleed) → hero stats → zone donut → HR context → zone breakdown → mental state → scores.
+
+private let hrZoneKeys   = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+private let hrZoneShorts = ["Z1", "Z2", "Z3", "Z4", "Z5"]
+private let hrZoneNames  = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
 struct ActivityDetailView: View {
     let entry: SyncCacheEntry
 
@@ -36,6 +40,8 @@ struct ActivityDetailView: View {
     }
 
     private var apiClient: GitHubAPIClient {
+        // targetBranch is governed by TestModeManager — don't override here.
+        // Previously this forced "main" unconditionally, silently bypassing test mode.
         GitHubAPIClient(authManager: authManager)
     }
 
@@ -49,8 +55,7 @@ struct ActivityDetailView: View {
 
     private var hrZoneTotal: Double {
         guard let zones = activity?.hrZones else { return 0 }
-        let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-        return order.reduce(0) { $0 + (zones[$1]?.seconds ?? 0) }
+        return hrZoneKeys.reduce(0) { $0 + (zones[$1]?.seconds ?? 0) }
     }
 
     var body: some View {
@@ -213,9 +218,7 @@ struct ActivityDetailView: View {
     @ViewBuilder
     private var zoneDonutSection: some View {
         if let zones = activity?.hrZones, hrZoneTotal > 0 {
-            let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-            let names = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
-            let vals = order.map { zones[$0]?.seconds ?? 0 }
+            let vals = hrZoneKeys.map { zones[$0]?.seconds ?? 0 }
             let total = vals.reduce(0, +)
             let fracs = vals.map { $0 / total }
             let sortedIndices = fracs.indices
@@ -238,7 +241,7 @@ struct ActivityDetailView: View {
                                     RoundedRectangle(cornerRadius: 2, style: .continuous)
                                         .fill(Theme.hrZoneColors[i])
                                         .frame(width: 8, height: 8)
-                                    Text(names[i])
+                                    Text(hrZoneNames[i])
                                         .font(.system(size: 12.5, weight: .medium))
                                         .foregroundColor(WarmInstrument.ink)
                                     Spacer(minLength: 4)
@@ -274,10 +277,7 @@ struct ActivityDetailView: View {
     @ViewBuilder
     private var zoneBreakdownSection: some View {
         if let zones = activity?.hrZones {
-            let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-            let labels = ["Z1", "Z2", "Z3", "Z4", "Z5"]
-            let names = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
-            let vals = order.map { zones[$0]?.seconds ?? 0 }
+            let vals = hrZoneKeys.map { zones[$0]?.seconds ?? 0 }
             let total = vals.reduce(0, +)
             if total > 0 {
                 WarmCard(padding: 0) {
@@ -294,8 +294,8 @@ struct ActivityDetailView: View {
                             VStack(spacing: 10) {
                                 ForEach(vals.indices, id: \.self) { i in
                                     ZoneBreakdownRow(
-                                        label: labels[i],
-                                        name: names[i],
+                                        label: hrZoneShorts[i],
+                                        name: hrZoneNames[i],
                                         color: Theme.hrZoneColors[i],
                                         fraction: vals[i] / total,
                                         seconds: Int(vals[i]),
@@ -427,14 +427,22 @@ struct ActivityDetailView: View {
     // MARK: - Helpers
 
     private var formattedDate: String {
+        guard let date = Self.isoParser.date(from: entry.startDateLocal) else { return entry.startDateLocal }
+        return Self.shortDateFormatter.string(from: date).uppercased()
+    }
+
+    private static let isoParser: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
         f.timeZone = .current
-        guard let date = f.date(from: entry.startDateLocal) else { return entry.startDateLocal }
-        let df = DateFormatter()
-        df.dateFormat = "d MMM"
-        return df.string(from: date).uppercased()
-    }
+        return f
+    }()
+
+    private static let shortDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM"
+        return f
+    }()
 
     private var durationString: String {
         let hours = entry.elapsedTime / 3600
@@ -516,6 +524,8 @@ struct ActivityDetailView: View {
 
         do {
             let formatted = DescriptionParser.formatDescription(parsed)
+            // Cache-first order (#131): in-memory state → entry.activity (freshly synced) → network.
+            // Avoids a GitHub Contents API read that can 404 for ~60s after a branch reset.
             let currentActivity: Activity
             if let activity {
                 currentActivity = activity
@@ -664,6 +674,7 @@ private struct ScoreEntrySheet: View {
                     .foregroundColor(WarmInstrument.inkMuted)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
         }
     }
 
@@ -709,10 +720,15 @@ private struct ScoreEntrySheet: View {
                             .font(.system(size: 13, design: .monospaced))
                             .foregroundColor(WarmInstrument.inkMuted)
                     } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Paste scores above to see a preview.")
-                            .font(WarmInstrument.coachVoice(13))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                            .italic()
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Paste scores above to see a preview. Format:")
+                                .font(WarmInstrument.coachVoice(13))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                                .italic()
+                            Text("Doubles: Partner me vs Opp1/Opp2 21-18\nSingles: me vs Opponent 21-18")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                        }
                     } else {
                         Text("No games recognized yet — keep typing or check the format.")
                             .font(WarmInstrument.coachVoice(13))
@@ -747,8 +763,6 @@ private struct ZoneDonut: View {
         fractions.enumerated().max(by: { $0.element < $1.element })?.offset ?? 0
     }
 
-    private let names = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
-
     var body: some View {
         ZStack {
             Circle()
@@ -776,7 +790,7 @@ private struct ZoneDonut: View {
             }
 
             VStack(spacing: 2) {
-                Text(names[dominantIndex])
+                Text(hrZoneNames[dominantIndex])
                     .font(WarmInstrument.monoLabel(9))
                     .foregroundColor(Theme.hrZoneColors[dominantIndex])
                     .multilineTextAlignment(.center)
@@ -798,9 +812,10 @@ private struct HRContextCard: View {
     let avgHR: Double
     let peakHR: Double
 
-    private let displayMin: Double = 90
-    private let displayMax: Double = 200
-    private let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+    // Derived from actual HR so markers sit away from the edges of the bar.
+    private var displayMin: Double { max(40, floor((min(avgHR, peakHR) - 30) / 10) * 10) }
+    private var displayMax: Double { min(230, ceil((peakHR + 20) / 10) * 10) }
+    private let order = hrZoneKeys
 
     private var zoneFractions: [Double] {
         order.enumerated().map { i, key in
