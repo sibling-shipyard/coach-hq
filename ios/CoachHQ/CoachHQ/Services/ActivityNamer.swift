@@ -141,16 +141,28 @@ struct ActivityNamer {
             averageSpeed: activity.averageSpeed,
             maxSpeed: activity.maxSpeed,
             deviceName: activity.deviceName,
-            source: activity.source
+            source: activity.source,
+            activityId: activity.activityId,
+            idStr: activity.idStr
         )
     }
 
     /// Generates the file name for an activity.
-    /// Format: `hk_YYYY-MM-DD_<category>_<number>.json`
+    /// Format: `hk_YYYY-MM-DD_<uuid>.json`, where `<uuid>` is the HKWorkout uuid
+    /// (`activity.activityId`). The `YYYY-MM-DD` prefix is kept for browsability
+    /// and the pipeline's date-prefilter. The uuid makes the filename
+    /// deterministic, so re-syncing the same workout dedups by exact name.
+    ///
+    /// Legacy fallback (only when `activityId` is nil, which shouldn't happen for
+    /// HealthKit): the old `hk_YYYY-MM-DD_<category>_<number>.json` scheme.
     static func fileName(for activity: Activity) -> String {
         let date = String(activity.startDateLocal.prefix(10)) // YYYY-MM-DD
 
-        // Extract category from name for file naming
+        if let uuid = activity.activityId {
+            return "hk_\(date)_\(uuid).json"
+        }
+
+        // Fallback: derive category + counter from the display name.
         let fileCategory: String
         let number: String
 

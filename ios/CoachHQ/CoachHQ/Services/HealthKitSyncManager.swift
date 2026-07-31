@@ -205,10 +205,19 @@ class HealthKitSyncManager: ObservableObject {
                     averageSpeed: base.averageSpeed,
                     maxSpeed: base.maxSpeed,
                     deviceName: base.deviceName,
-                    source: base.source
+                    source: base.source,
+                    activityId: base.activityId,
+                    idStr: base.idStr
                 )
 
                 let named = ActivityNamer.assignName(activity: withHR, counters: &counters)
+
+                // Cheap uuid-filename dedup: the uuid filename is deterministic,
+                // so if this workout's uuid already appears in any committed
+                // filename, it's already synced. Filename-only (no file reads).
+                if let uuid = named.activityId,
+                   existingFiles.contains(where: { $0.name.contains("_\(uuid).json") }) { continue }
+
                 let fileName = ActivityNamer.fileName(for: named)
                 if existingFileNames.contains(fileName) { continue }
 

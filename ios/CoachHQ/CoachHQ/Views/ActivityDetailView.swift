@@ -556,7 +556,9 @@ struct ActivityDetailView: View {
                 source: currentActivity.source,
                 preMentalState: parsed.preMentalState.map {
                     PreMentalState(score: $0.score, word: $0.word)
-                } ?? currentActivity.preMentalState
+                } ?? currentActivity.preMentalState,
+                activityId: currentActivity.activityId,
+                idStr: currentActivity.idStr
             )
 
             let dateStr = String(currentActivity.startDateLocal.prefix(10))
