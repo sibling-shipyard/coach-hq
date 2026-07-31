@@ -46,13 +46,16 @@ struct SetupView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .onboardingReveal(index: 2)
 
-                    Text("You're signed in\(login.map { " as \($0)" } ?? ""). After this, you'll meet Coach in chat — your dashboard fills in from that first conversation.")
-                        .font(WarmInstrument.coachVoice(15))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineSpacing(3)
-                        .onboardingReveal(index: 3)
+                    if !repoStepComplete {
+                        Text("We'll create a private space for your workouts and goals — takes about a minute.")
+                            .font(WarmInstrument.coachVoice(15))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .lineSpacing(3)
+                            .onboardingReveal(index: 3)
+                            .transition(.opacity)
+                    }
 
                     if repoStepComplete {
                         repoReadyHint
@@ -121,18 +124,54 @@ struct SetupView: View {
         }
     }
 
+    private var installHintCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ON THE NEXT SCREEN")
+                .font(WarmInstrument.monoLabel(9))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .tracking(1.0)
+
+            VStack(alignment: .leading, spacing: 8) {
+                hintRow(n: 1, label: md("Choose **Only select repositories**"))
+                hintRow(n: 2, label: md("Pick **coach-\(login ?? "yours")**"))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WarmInstrument.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(WarmInstrument.border, lineWidth: 1)
+        )
+    }
+
+    private func hintRow(n: Int, label: AttributedString) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("\(n)")
+                .font(WarmInstrument.monoLabel(9))
+                .foregroundColor(WarmInstrument.paper)
+                .frame(width: 16, height: 16)
+                .background(WarmInstrument.inkFaint.opacity(0.5))
+                .clipShape(Circle())
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func md(_ string: String) -> AttributedString {
+        (try? AttributedString(markdown: string)) ?? AttributedString(string)
+    }
+
     // MARK: - Action section
 
     private var actionSection: some View {
         VStack(spacing: 12) {
             if repoStepComplete {
-                Text(
-                    "The next screen links your private training log — this isn't another sign-in.\n\nWhen GitHub asks which repositories to share, choose **Only select repositories** and pick **coach-\(login ?? "yours")**. Don't grant access to everything else."
-                )
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                installHintCard
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 

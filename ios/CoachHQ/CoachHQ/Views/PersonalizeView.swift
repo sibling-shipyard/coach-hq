@@ -16,7 +16,7 @@ struct SplashView: View {
                 .opacity(logoOpacity)
 
             Text("Coach HQ")
-                .font(.system(size: 26, weight: .bold))
+                .font(WarmInstrument.coachVoice(26))
                 .foregroundColor(WarmInstrument.ink)
                 .opacity(wordmarkOpacity)
         }
