@@ -117,7 +117,7 @@ sports:
     role: recovery
 ```
 
-Full schedule detail stays in C data / sport-pack files (e.g. `opponent_notes.md`) — not inlined in B.
+Full schedule detail stays in C data / sport-pack files (e.g. `reference/badminton.md`) — not inlined in B.
 
 ### `injury_flags[]`
 

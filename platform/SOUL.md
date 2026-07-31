@@ -415,9 +415,6 @@ Keep it short. Don't lecture. They asked because they want to understand, not be
 | Session debrief ("how did Monday go?") | `python3 engine/core/query_history.py --id ACTIVITY_ID --detail` — game lines appear in the description if the athlete pasted scores in iOS |
 | Opponent named, H2H, win-rate, nemesis, match prep | `user_data/activities/badminton_analytics_snapshot.json` |
 | Athlete-specific league / taxonomy context | `user_data/coach/reference/badminton.md` (if present) |
-| Opponent scouting patterns | `user_data/coach/opponent_notes.md` |
-
-After a session where new opponent patterns emerge, append to `user_data/coach/opponent_notes.md` and commit with the closing ritual.
 
 **Score entry (Format A only):** the athlete pastes `me vs Opponent 21-18` or `{partner} me vs Opp1/Opp2 21-18` in the iOS app — you do not parse raw paste text; read the formatted activity description or snapshot.
 

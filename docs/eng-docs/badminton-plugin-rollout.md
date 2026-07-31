@@ -45,7 +45,7 @@ flowchart TB
 
 - Plugin-off repo: no snapshot regen, no match reads in Coach workflow, badminton nav hidden
 - Plugin-on + iOS score paste: `match_history.json` updates; sync regens `badminton_analytics_snapshot.json`
-- Coach names an opponent → reads snapshot + `opponent_notes.md` on demand (SOUL §10)
+- Coach names an opponent → reads snapshot on demand (SOUL §10)
 - `python3 platform/plugins/badminton/analytics.py` passes tests on golden/migrated data
 
 ## Deferred

@@ -90,7 +90,6 @@ coach-skeleton/  (= coach-user after fork)
     ├── coach/
     │   ├── state.md                 # boot anchor — First Session fills blanks
     │   ├── coach_notes.md
-    │   ├── opponent_notes.md
     │   ├── sleep_log.json
     │   ├── chat_history.json
     │   └── reference/
