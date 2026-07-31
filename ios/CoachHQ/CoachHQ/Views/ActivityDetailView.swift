@@ -11,7 +11,6 @@ struct ActivityDetailView: View {
 
     @EnvironmentObject var authManager: GitHubAuthManager
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("preferredName") private var preferredName = ""
 
     @State private var activity: Activity?
     @State private var descriptionText: String = ""
@@ -52,15 +51,8 @@ struct ActivityDetailView: View {
         Theme.sportBadge(for: entry.sportType)
     }
 
-    /// Display name for eBadders table rows (Format A uses `me vs` and ignores this).
-    private var matchParserAthleteName: String {
-        if !preferredName.isEmpty { return preferredName }
-        if let login = authManager.user?.login, !login.isEmpty { return login }
-        return "me"
-    }
-
     private var parsed: ParsedDescription? {
-        DescriptionParser.parseRawDescription(descriptionText, athleteName: matchParserAthleteName)
+        DescriptionParser.parseRawDescription(descriptionText)
     }
 
     var body: some View {

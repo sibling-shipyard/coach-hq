@@ -109,18 +109,6 @@ enum DescriptionParser {
         options: [.caseInsensitive]
     )
 
-    // eBadders table header: "Winners\tScore\tOpponents" (tabs collapse to whitespace here
-    // since we only need to *detect* the header, not split it).
-    private static let ebaddersHeaderRegex = try! NSRegularExpression(
-        pattern: #"^winners\s+score\s+opponents"#,
-        options: [.caseInsensitive]
-    )
-
-    // eBadders table row: `{team1}\t+{score}\t+{team2}\t*`
-    private static let ebaddersLineRegex = try! NSRegularExpression(
-        pattern: #"^(.+?)\t+(\d+-\d+)\t+(.+?)(?:\t*)$"#
-    )
-
     private static let rankRegex = try! NSRegularExpression(
         pattern: #"^#rank\s+(\d+)$"#,
         options: [.caseInsensitive]
@@ -130,8 +118,6 @@ enum DescriptionParser {
         pattern: #"^PRE:\s*(\d+),\s*(.+)$"#,
         options: [.caseInsensitive]
     )
-
-    private static let crownCharacters: Set<Character> = ["♕", "♔", "♛", "♚"]
 
     // MARK: Public API
 
@@ -143,7 +129,7 @@ enum DescriptionParser {
     /// Parses a raw match description string.
     ///
     /// Returns nil if the input is empty, already formatted, or has no parseable games.
-    static func parseRawDescription(_ raw: String, athleteName: String = "me") -> ParsedDescription? {
+    static func parseRawDescription(_ raw: String) -> ParsedDescription? {
         if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return nil
         }
@@ -159,8 +145,6 @@ enum DescriptionParser {
         var warnings: [String] = []
         var inFriendlies = false
         var hasSeparator = false
-        var inEbaddersTable = false
-        var hadEbaddersTable = false
 
         let normalized = raw
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -200,40 +184,9 @@ enum DescriptionParser {
             if lineStripped == "---" {
                 hasSeparator = true
                 inFriendlies = true
-                inEbaddersTable = false
                 continue
             }
 
-            // eBadders table header detection
-            if firstMatch(ebaddersHeaderRegex, in: lineStripped) != nil {
-                inEbaddersTable = true
-                hadEbaddersTable = true
-                continue
-            }
-
-            // Try eBadders table format first (if we're in a table)
-            if inEbaddersTable && line.contains("\t") {
-                if let game = parseEbaddersLine(line, athleteName: athleteName) {
-                    if inFriendlies { friendlyGames.append(game) } else { rankedGames.append(game) }
-                } else {
-                    // Tab-separated line but couldn't parse
-                    let withoutTabs = lineStripped.replacingOccurrences(of: "\t", with: "")
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                    if withoutTabs.isEmpty { continue }
-                    warnings.append("Line \(i) skipped: malformed eBadders row '\(lineStripped)'")
-                }
-                continue
-            }
-
-            // Even without header, try eBadders format if line has tabs and "+"
-            if !inEbaddersTable && line.contains("\t") && line.contains("+") {
-                if let game = parseEbaddersLine(line, athleteName: athleteName) {
-                    if inFriendlies { friendlyGames.append(game) } else { rankedGames.append(game) }
-                    continue
-                }
-            }
-
-            // Try Format A (manual entry)
             if matches(rawMarkerRegex, lineStripped) {
                 if let game = parseGameLine(lineStripped) {
                     if inFriendlies { friendlyGames.append(game) } else { rankedGames.append(game) }
@@ -242,11 +195,6 @@ enum DescriptionParser {
                 }
                 continue
             }
-        }
-
-        // eBadders table rows are in reverse chronological order. Reverse them.
-        if hadEbaddersTable && !rankedGames.isEmpty {
-            rankedGames.reverse()
         }
 
         let allGames = rankedGames + friendlyGames
@@ -395,80 +343,6 @@ enum DescriptionParser {
         let won = our > theirs
 
         return ParsedGame(partner: partner, vs: opponents, score: score, won: won, preNote: preNote, postNote: postNote, isSingles: isSingles)
-    }
-
-    /// Parses a single eBadders table row (tab-separated).
-    /// Determines W/L based on which side contains athleteName. Returns nil if unparseable.
-    private static func parseEbaddersLine(_ line: String, athleteName: String) -> ParsedGame? {
-        var lineClean = line.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        var preNote: String?
-        var postNote: String?
-        if let (before, mental) = splitOnce(lineClean, " | ") {
-            lineClean = before
-            if let (pre, post) = splitOnce(mental, " :: ") {
-                preNote = pre.trimmingCharacters(in: .whitespacesAndNewlines)
-                postNote = post.trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                preNote = mental.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-
-        guard let m = firstMatch(ebaddersLineRegex, in: lineClean),
-              let winnersRaw = group(m, 1, in: lineClean),
-              let scoreRawG = group(m, 2, in: lineClean),
-              let losersRaw = group(m, 3, in: lineClean) else {
-            return nil
-        }
-
-        var scoreRaw = scoreRawG.trimmingCharacters(in: .whitespacesAndNewlines)
-        let winnersClean = stripCrownCharacters(winnersRaw.trimmingCharacters(in: .whitespacesAndNewlines))
-        let losersClean = stripCrownCharacters(losersRaw.trimmingCharacters(in: .whitespacesAndNewlines))
-
-        let winners = winnersClean.components(separatedBy: "+").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let losers = losersClean.components(separatedBy: "+").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-        let playerRegex = try! NSRegularExpression(
-            pattern: #"\b\#(NSRegularExpression.escapedPattern(for: athleteName))\b"#,
-            options: [.caseInsensitive]
-        )
-
-        let playerInWinners = winners.contains { matches(playerRegex, $0) }
-        let playerInLosers = losers.contains { matches(playerRegex, $0) }
-
-        if !playerInWinners && !playerInLosers {
-            // Player not in this game — skip
-            return nil
-        }
-
-        let won: Bool
-        let partnerList: [String]
-        let opponents: [String]
-
-        if playerInWinners {
-            won = true
-            partnerList = winners.filter { !matches(playerRegex, $0) }
-            opponents = losers
-        } else {
-            won = false
-            partnerList = losers.filter { !matches(playerRegex, $0) }
-            opponents = winners
-            // Flip the score so it's always athlete's score first
-            let parts = scoreRaw.components(separatedBy: "-")
-            if parts.count == 2 {
-                scoreRaw = "\(parts[1])-\(parts[0])"
-            }
-        }
-
-        let rawPartner = partnerList.first ?? "Solo"
-        let isSingles = rawPartner == "Solo"
-        let partner = isSingles ? nil : rawPartner
-
-        return ParsedGame(partner: partner, vs: opponents, score: scoreRaw, won: won, preNote: preNote, postNote: postNote, isSingles: isSingles)
-    }
-
-    private static func stripCrownCharacters(_ s: String) -> String {
-        String(s.filter { !crownCharacters.contains($0) }).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Regex helpers

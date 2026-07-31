@@ -353,46 +353,6 @@ struct Verify {
             )
         }
 
-        // ── Bonus: Format B (eBadders table) sanity checks ──────────────────
-        do {
-            let raw = [
-                "Winners\tScore\tOpponents",
-                "Mui + Akash\t21-14\tFrankiee + Maggie",
-                "Frankiee + Maggie\t21-19\tMui + Akash",
-            ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw, athleteName: "Akash")
-            t.check("bonus_ebadders_table: parsed not nil", parsed != nil)
-            if let parsed = parsed {
-                t.check("bonus_ebadders_table: 2 ranked games", parsed.ranked.count == 2)
-                t.check("bonus_ebadders_table: game 1 (oldest, row 2) is a loss", parsed.ranked.first?.won == false)
-                t.check("bonus_ebadders_table: game 1 partner is Mui", parsed.ranked.first?.partner == "Mui")
-                t.check("bonus_ebadders_table: game 1 score flipped to 19-21", parsed.ranked.first?.score == "19-21")
-                t.check("bonus_ebadders_table: game 2 (newest, row 1) is a win", parsed.ranked.last?.won == true)
-                t.check("bonus_ebadders_table: game 2 score is 21-14", parsed.ranked.last?.score == "21-14")
-            }
-        }
-
-        do {
-            // Singles row (no partner)
-            let raw = [
-                "Winners\tScore\tOpponents",
-                "Akash\t21-14\tFrankiee",
-            ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw, athleteName: "Akash")
-            t.check("bonus_ebadders_solo: parsed not nil", parsed != nil)
-            t.check("bonus_ebadders_solo: partner is empty or nil", parsed?.ranked.first?.partner == nil)
-        }
-
-        do {
-            // Row without Akash on either side should be skipped (no games -> nil overall if it's the only row).
-            let raw = [
-                "Winners\tScore\tOpponents",
-                "Frankiee + Maggie\t21-14\tSomeone + Else",
-            ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw, athleteName: "Akash")
-            t.check("bonus_ebadders_no_akash: nil (no games)", parsed == nil)
-        }
-
         let ok = t.summary()
         exit(ok ? 0 : 1)
     }
