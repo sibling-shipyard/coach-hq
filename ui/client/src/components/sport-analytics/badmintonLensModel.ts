@@ -29,7 +29,7 @@ const MIN_OPPONENT_GAMES = 3;
 const MIN_MONTH_SESSIONS = 3;
 
 export interface BadmintonSession {
-  activity: Activity & { ebadders?: any };
+  activity: Activity;
   parsed: ParsedMatch;
   dateKey: string;
   timestamp: number;
@@ -40,10 +40,10 @@ function buildSessions(activities: Activity[]): BadmintonSession[] {
   for (const activity of activities) {
     const category = getTrainingCategory(activity);
     if (!ALL_CATEGORIES.has(category)) continue;
-    const parsed = parseMatch(activity as Activity & { ebadders?: any });
+    const parsed = parseMatch(activity);
     if (!parsed || (parsed.games.length === 0 && parsed.friendlies.length === 0)) continue;
     result.push({
-      activity: activity as Activity & { ebadders?: any },
+      activity,
       parsed,
       dateKey: activity.start_date_local.slice(0, 10),
       timestamp: parseLocal(activity.start_date_local).getTime(),

@@ -202,14 +202,16 @@ function normalizeName(name) {
 
 // client/src/lib/matchParser.ts
 var WL_SUMMARY_RE = /(\d+)W[–-](\d+)L\s*\((\d+)%?\)/;
-var GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+w\/\s+(.+?)\s+vs\s+(.+)$/i;
+var GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+(?:w\/\s+(.+?)\s+)?vs\s+(.+)$/i;
 function parseGameLine(line, gameNumber, isFriendly) {
   const m = line.trim().match(GAME_LINE_RE);
   if (!m) return null;
   const result = m[1].toUpperCase();
   const s1 = parseInt(m[2], 10);
   const s2 = parseInt(m[3], 10);
-  const partner = normalizeName(m[4].trim());
+  const partnerRaw = m[4]?.trim();
+  const partner = partnerRaw ? normalizeName(partnerRaw) : null;
+  const format = partner ? "doubles" : "singles";
   const opponents = m[5].split(/\s*\+\s*/).map((s) => normalizeName(s.trim())).filter(Boolean);
   const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
   const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
@@ -223,7 +225,8 @@ function parseGameLine(line, gameNumber, isFriendly) {
     partner,
     opponents,
     gameNumber,
-    isFriendly
+    isFriendly,
+    format
   };
 }
 function parseDescription(description) {
@@ -297,61 +300,8 @@ function parseDescription(description) {
     friendlies
   };
 }
-function parseEbadders(ebadders) {
-  if (!ebadders?.matches?.length) return null;
-  const games = [];
-  let gameNumber = 1;
-  for (const match of ebadders.matches) {
-    const result = match.player_won ? "W" : "L";
-    const scoreParts = match.score.split(/[–-]/).map((s) => parseInt(s.trim(), 10));
-    if (scoreParts.length !== 2 || isNaN(scoreParts[0]) || isNaN(scoreParts[1])) continue;
-    const [s1, s2] = scoreParts;
-    const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
-    const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
-    games.push({
-      result,
-      score: match.score,
-      myScore,
-      oppScore,
-      margin: myScore - oppScore,
-      partner: normalizeName(match.partner?.[0] ?? "Unknown"),
-      opponents: (match.vs ?? []).map((v) => normalizeName(v)),
-      gameNumber,
-      isFriendly: false
-    });
-    gameNumber++;
-  }
-  const wins = games.filter((g) => g.result === "W").length;
-  const losses = games.filter((g) => g.result === "L").length;
-  const total = wins + losses;
-  return {
-    wins,
-    losses,
-    winPct: total > 0 ? Math.round(wins / total * 100) : 0,
-    comment: null,
-    games,
-    friendlies: []
-  };
-}
 function parseMatch(activity) {
-  const fromDesc = parseDescription(activity.description);
-  if (fromDesc && (fromDesc.games.length > 0 || fromDesc.friendlies.length > 0)) {
-    return fromDesc;
-  }
-  if (fromDesc) {
-    if (activity.ebadders) {
-      const fromEb = parseEbadders(activity.ebadders);
-      if (fromEb && fromEb.games.length > 0) {
-        fromEb.comment = fromDesc.comment;
-        return fromEb;
-      }
-    }
-    return fromDesc;
-  }
-  if (activity.ebadders) {
-    return parseEbadders(activity.ebadders);
-  }
-  return null;
+  return parseDescription(activity.description);
 }
 function getAllGames(match) {
   return [...match.games, ...match.friendlies];
