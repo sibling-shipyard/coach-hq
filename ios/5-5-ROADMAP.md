@@ -38,7 +38,7 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [x] Auto-trigger sync on HK workout detection (user plays badminton, app knows without them opening it)
 - [x] Push notification: "Session logged — Coach is reviewing your workout"
 - [x] Notification tap: deep link into Coach Chat via navigateToChat notification
-- [ ] Home "session synced" banner: brief pill strip that auto-dismisses after sync completes
+- [x] Home "session synced" banner: brief pill strip that auto-dismisses after sync completes
 
 ### First-Time Onboarding / Coach Introduction
 - [ ] Welcome screen: Coach's voice intro — who they are, what this app does, what to expect
@@ -54,12 +54,12 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 - [x] Personalized time-of-day greeting ("Good morning, [name]" / "Rest day — recover well")
 - [x] Today's scheduled workout shown in header: tap → WorkoutOverview inline
 - [x] Skeleton shimmer loading: cards matching actual widget layout instead of centered ProgressView
-- [ ] All progress bars: animate from 0 on first data load across Engine, Quest, Calories
+- [x] All progress bars: animate from 0 on first data load across Engine, Quest, Calories
 
 ### Coach Chat Feel
 - [x] Contextual composer placeholder: "How did that feel?" post-workout / "What's on your mind?" default
 - [x] Quick-react chips on new/empty thread: "How's my week looking?" / "Felt strong today" / "Struggling lately"
-- [ ] Post-workout auto-chips: pre-seeded chip row after a completed workout or HK sync
+- [x] Post-workout auto-chips: pre-seeded chip row after a completed workout or HK sync
 - [x] Coach bubble: slightly elevated cream card feel vs. plain text on background
 
 ### Workout Tab

@@ -22,6 +22,7 @@ struct CoachChatView: View {
     @State private var showHistorySheet = false
     @FocusState private var composerFocused: Bool
     @State private var keyboardVisible = false
+    @State private var postWorkoutChips: [String]? = nil
 
     /// Until wired: preview header from mock. Replace with snapshot/challenge_v2 read.
     @State private var headerContext = CoachChatHeaderContext.preview
@@ -136,6 +137,10 @@ struct CoachChatView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             keyboardVisible = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: .postWorkoutChatOpen)) { notification in
+            let type = notification.userInfo?["workoutType"] as? String ?? ""
+            postWorkoutChips = Self.chips(forWorkoutType: type)
+        }
     }
 
     private var composerChromeHidden: Bool {
@@ -241,9 +246,10 @@ struct CoachChatView: View {
         VStack(spacing: 8) {
             if isViewingToday {
                 CoachChatStarterChips(
-                    prompts: CoachChatPreviewData.starterPrompts,
+                    prompts: postWorkoutChips ?? CoachChatPreviewData.starterPrompts,
                     isDisabled: sending
                 ) { prompt in
+                    postWorkoutChips = nil
                     draft = prompt
                     Task { await send(from: resolvedSendThreadId()) }
                 }
@@ -302,6 +308,16 @@ struct CoachChatView: View {
                 )
                 Spacer(minLength: 40)
             }
+        }
+    }
+
+    private static func chips(forWorkoutType type: String) -> [String] {
+        switch type {
+        case "foundation":   return ["That felt good", "Legs were heavy", "How was my form?"]
+        case "calisthenics": return ["That felt good", "Struggled with reps", "How was my form?"]
+        case "recovery":     return ["Feeling restored", "Still feel tired", "Good call today"]
+        case "realign":      return ["That helped", "Still feeling off", "How was my form?"]
+        default:             return ["That felt good", "Legs were heavy", "How was my form?"]
         }
     }
 

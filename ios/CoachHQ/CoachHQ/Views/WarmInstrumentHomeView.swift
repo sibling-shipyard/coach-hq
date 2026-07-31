@@ -16,6 +16,7 @@ enum HomeRoute: Hashable {
 struct WarmInstrumentHomeView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var store: WidgetSnapshotStore
+    @EnvironmentObject var syncManager: HealthKitSyncManager
 
     @State private var toast: Toast?
     @State private var isEditingLayout = false
@@ -92,6 +93,10 @@ struct WarmInstrumentHomeView: View {
                 authManager.noteAPIError(newError)
                 Haptics.error()
                 toast = Toast(kind: .error, message: UserFacingError.friendlyAPIError(newError))
+            }
+            .onChange(of: syncManager.lastSyncResult) { _, result in
+                guard let result, case .synced(let n) = result.outcome, n > 0 else { return }
+                toast = Toast(kind: .success, message: syncToastMessage(n: n))
             }
             .overlay(alignment: .topTrailing) {
                 if isEditingLayout {
@@ -170,6 +175,16 @@ struct WarmInstrumentHomeView: View {
     }
 
     // MARK: - Header / states
+
+    private func syncToastMessage(n: Int) -> String {
+        let rounds = syncManager.lastRoundSynced
+        if rounds.count == 1, let (sportType, _) = rounds.first {
+            let label = Theme.sportBadge(for: sportType).label.capitalized
+            return "\(label) session synced — Coach is on it"
+        }
+        let word = n == 1 ? "session" : "sessions"
+        return "\(n) \(word) synced — Coach is on it"
+    }
 
     /// Re-triggers the Home fetch once GitHub profile + repo discovery finish.
     private var homeFetchToken: String {
@@ -405,6 +420,8 @@ private struct EngineWidget: View {
     let size: WidgetSize
     let sizes: EngineSizes
 
+    @State private var bandProgress: Double = 0
+
     var body: some View {
         WarmCard(padding: size == .m ? 20 : 18, fill: WarmInstrument.accent) {
             VStack(alignment: .leading, spacing: 14) {
@@ -512,15 +529,19 @@ private struct EngineWidget: View {
                 Capsule().fill(Color.white.opacity(0.18)).frame(height: 6)
                 Capsule()
                     .fill(Color.white.opacity(0.55))
-                    .frame(width: max(10, xHigh - xLow), height: 10)
-                    .offset(x: xLow)
+                    .frame(width: max(1, xHigh - xLow) * bandProgress, height: 10)
+                    .offset(x: xLow * bandProgress)
                 Circle()
                     .fill(Color.white)
                     .frame(width: 10, height: 10)
-                    .offset(x: xLoad - 5)
+                    .offset(x: max(0, xLoad * bandProgress - 5))
             }
         }
         .frame(height: 12)
+        .task {
+            try? await Task.sleep(for: .seconds(0.15))
+            withAnimation(.spring(duration: 0.7, bounce: 0.1)) { bandProgress = 1.0 }
+        }
     }
 
     private func trendSparkline(_ points: [TrendPointSnapshot]) -> some View {

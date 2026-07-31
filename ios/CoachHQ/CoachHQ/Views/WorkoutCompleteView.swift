@@ -140,6 +140,11 @@ struct WorkoutCompleteView: View {
     private var ctaButtons: some View {
         VStack(spacing: 12) {
             Button {
+                NotificationCenter.default.post(
+                    name: .postWorkoutChatOpen,
+                    object: nil,
+                    userInfo: ["workoutType": workout.workoutType.rawValue]
+                )
                 NotificationCenter.default.post(name: .navigateToChat, object: nil)
                 Haptics.tap()
                 onDismiss()

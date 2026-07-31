@@ -287,6 +287,8 @@ extension Notification.Name {
     static let navigateToChat = Notification.Name("coachHQ.navigateToChat")
     /// Posted by WorkoutCompleteView "Back to Home" CTA — observed by MainTabView.
     static let navigateToHome = Notification.Name("coachHQ.navigateToHome")
+    /// Posted by WorkoutCompleteView "Talk to Coach" CTA — carries `workoutType` String in userInfo. Observed by CoachChatView.
+    static let postWorkoutChatOpen = Notification.Name("coachHQ.postWorkoutChatOpen")
 }
 
 // MARK: - Reusable styled components
