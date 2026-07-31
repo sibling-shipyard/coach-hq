@@ -13,18 +13,18 @@
 import type { Activity } from "./activities";
 import { normalizeName } from "./nameAliases";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-export interface ParsedGame {
+// ─── Types ───────────────────�export interface ParsedGame {
   result: "W" | "L";
   score: string;           // "21-18"
   myScore: number;         // player's score
   oppScore: number;        // Opponent's score
   margin: number;          // positive for wins, negative for losses
-  partner: string;
+  partner: string | null;  // null for singles
   opponents: string[];
-  gameNumber: number;      // 1-indexed position in session (across games + friendlies)
-  isFriendly: boolean;     // true if in the "Friendlies:" section
+  gameNumber: number;      // 1-indexed position in session
+  isFriendly: boolean;     // true if category === "friendly"
+  format: "singles" | "doubles";
+  category: "ranked" | "friendly";
 }
 
 export interface ParsedMatch {
@@ -36,10 +36,34 @@ export interface ParsedMatch {
   friendlies: ParsedGame[];
 }
 
-// ─── Description Parser ─────────────────────────────────────────────────────
+export interface StructuredGame {
+  format?: "singles" | "doubles";
+  category?: "ranked" | "friendly";
+  partner?: string | null;
+  opponents?: string[];
+  scoreFor?: number;
+  scoreAgainst?: number;
+  result?: "W" | "L";
+  score?: string;
+  akash_won?: boolean;
+  akashWon?: boolean;
+  vs?: string[];
+}
+
+export interface StructuredSession {
+  date?: string;
+  activityId?: number | null;
+  rank?: number | null;
+  notes?: string | null;
+  summary?: { wins: number; losses: number; winPct: number };
+  games?: StructuredGame[];
+  matches?: StructuredGame[];
+}
+
+// ─── Description Parser (Text fallback) ────────────────────────────────────
 
 const WL_SUMMARY_RE = /(\d+)W[–-](\d+)L\s*\((\d+)%?\)/;
-const GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+w\/\s+(.+?)\s+vs\s+(.+)$/i;
+const GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+(?:w\/\s+(.+?)\s+)?vs\s+(.+)$/i;
 
 function parseGameLine(line: string, gameNumber: number, isFriendly: boolean): ParsedGame | null {
   const m = line.trim().match(GAME_LINE_RE);
@@ -48,13 +72,14 @@ function parseGameLine(line: string, gameNumber: number, isFriendly: boolean): P
   const result = m[1].toUpperCase() as "W" | "L";
   const s1 = parseInt(m[2], 10);
   const s2 = parseInt(m[3], 10);
-  const partner = normalizeName(m[4].trim());
+  const partnerRaw = m[4]?.trim();
+  const partner = partnerRaw ? normalizeName(partnerRaw) : null;
+  const isSingles = !partner;
   const opponents = m[5].split(/\s*\+\s*/).map((s) => normalizeName(s.trim())).filter(Boolean);
 
-  // Determine Sky's score vs opponent's score from result
   const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
   const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
-  const margin = myScore - oppScore; // positive for wins, negative for losses
+  const margin = myScore - oppScore;
 
   return {
     result,
@@ -66,6 +91,8 @@ function parseGameLine(line: string, gameNumber: number, isFriendly: boolean): P
     opponents,
     gameNumber,
     isFriendly,
+    format: isSingles ? "singles" : "doubles",
+    category: isFriendly ? "friendly" : "ranked",
   };
 }
 
@@ -74,7 +101,6 @@ export function parseDescription(description: string | null): ParsedMatch | null
 
   const lines = description.split("\n").map((l) => l.trim());
 
-  // Find the W-L summary line
   let summaryIdx = -1;
   let summaryWins = 0;
   let summaryLosses = 0;
@@ -93,11 +119,9 @@ export function parseDescription(description: string | null): ParsedMatch | null
 
   if (summaryIdx === -1) return null;
 
-  // Extract comment (free text before the W-L line)
   const commentLines = lines.slice(0, summaryIdx).filter((l) => l.length > 0);
   const comment = commentLines.length > 0 ? commentLines.join("\n") : null;
 
-  // Find "Games:" marker
   let gamesStartIdx = -1;
   for (let i = summaryIdx + 1; i < lines.length; i++) {
     if (/^Games:/i.test(lines[i])) {
@@ -106,7 +130,6 @@ export function parseDescription(description: string | null): ParsedMatch | null
     }
   }
 
-  // If no "Games:" section, return summary-only result
   if (gamesStartIdx === -1) {
     return {
       wins: summaryWins,
@@ -118,7 +141,6 @@ export function parseDescription(description: string | null): ParsedMatch | null
     };
   }
 
-  // Parse game lines, splitting at "Friendlies:" separator
   const games: ParsedGame[] = [];
   const friendlies: ParsedGame[] = [];
   let inFriendlies = false;
@@ -144,7 +166,6 @@ export function parseDescription(description: string | null): ParsedMatch | null
     }
   }
 
-  // Compute actual wins/losses from parsed games (may differ from summary if friendlies included)
   const allGames = [...games, ...friendlies];
   const actualWins = allGames.filter((g) => g.result === "W").length;
   const actualLosses = allGames.filter((g) => g.result === "L").length;
@@ -160,54 +181,71 @@ export function parseDescription(description: string | null): ParsedMatch | null
   };
 }
 
-// ─── eBadders Fallback Parser ───────────────────────────────────────────────
+// ─── Structured JSON Match Parser ──────────────────────────────────────────
 
-interface EbaddersMatch {
-  player_won: boolean;
-  score: string;
-  partner: string[];
-  vs: string[];
-}
-
-interface EbaddersData {
-  wins: number;
-  losses: number;
-  total: number;
-  win_pct: number;
-  matches: EbaddersMatch[];
-}
-
-export function parseEbadders(ebadders: EbaddersData): ParsedMatch | null {
-  if (!ebadders?.matches?.length) return null;
+export function parseStructuredGames(rawGames: StructuredGame[]): ParsedMatch | null {
+  if (!rawGames || !rawGames.length) return null;
 
   const games: ParsedGame[] = [];
+  const friendlies: ParsedGame[] = [];
   let gameNumber = 1;
 
-  for (const match of ebadders.matches) {
-    const result: "W" | "L" = match.player_won ? "W" : "L";
-    const scoreParts = match.score.split(/[–-]/).map((s) => parseInt(s.trim(), 10));
-    if (scoreParts.length !== 2 || isNaN(scoreParts[0]) || isNaN(scoreParts[1])) continue;
+  for (const item of rawGames) {
+    const won = item.result ? item.result === "W" : (item.akashWon ?? item.akash_won ?? false);
+    const result: "W" | "L" = won ? "W" : "L";
 
-    const [s1, s2] = scoreParts;
+    let s1 = item.scoreFor ?? 0;
+    let s2 = item.scoreAgainst ?? 0;
+
+    if (s1 === 0 && s2 === 0 && item.score) {
+      const parts = item.score.split(/[–-]/).map((s) => parseInt(s.trim(), 10));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        s1 = parts[0];
+        s2 = parts[1];
+      }
+    }
+
     const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
     const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
 
-    games.push({
+    let partnerStr: string | null = null;
+    if (typeof item.partner === "string" && item.partner && item.partner !== "Solo") {
+      partnerStr = normalizeName(item.partner);
+    } else if (Array.isArray(item.partner) && item.partner.length > 0 && item.partner[0] !== "Solo") {
+      partnerStr = normalizeName(item.partner[0]);
+    }
+
+    const rawOpponents = item.opponents ?? item.vs ?? [];
+    const opponents = rawOpponents.map((v) => normalizeName(v)).filter(Boolean);
+    const format = item.format ?? (!partnerStr ? "singles" : "doubles");
+    const category = item.category ?? "ranked";
+    const isFriendly = category === "friendly";
+
+    const parsedGame: ParsedGame = {
       result,
-      score: match.score,
+      score: `${s1}-${s2}`,
       myScore,
       oppScore,
       margin: myScore - oppScore,
-      partner: normalizeName(match.partner?.[0] ?? "Unknown"),
-      opponents: (match.vs ?? []).map((v: string) => normalizeName(v)),
+      partner: partnerStr,
+      opponents,
       gameNumber,
-      isFriendly: false,
-    });
+      isFriendly,
+      format,
+      category,
+    };
+
+    if (isFriendly) {
+      friendlies.push(parsedGame);
+    } else {
+      games.push(parsedGame);
+    }
     gameNumber++;
   }
 
-  const wins = games.filter((g) => g.result === "W").length;
-  const losses = games.filter((g) => g.result === "L").length;
+  const allGames = [...games, ...friendlies];
+  const wins = allGames.filter((g) => g.result === "W").length;
+  const losses = allGames.filter((g) => g.result === "L").length;
   const total = wins + losses;
 
   return {
@@ -216,21 +254,41 @@ export function parseEbadders(ebadders: EbaddersData): ParsedMatch | null {
     winPct: total > 0 ? Math.round((wins / total) * 100) : 0,
     comment: null,
     games,
-    friendlies: [],
+    friendlies,
   };
+}
+
+export function parseEbadders(ebadders: { matches?: StructuredGame[] }): ParsedMatch | null {
+  if (!ebadders?.matches?.length) return null;
+  return parseStructuredGames(ebadders.matches);
 }
 
 // ─── Main Entry Point ───────────────────────────────────────────────────────
 
-export function parseMatch(activity: Activity & { ebadders?: EbaddersData }): ParsedMatch | null {
-  // Try description first
-  const fromDesc = parseDescription(activity.description);
-  if (fromDesc && (fromDesc.games.length > 0 || fromDesc.friendlies.length > 0)) {
-    return fromDesc;
+export function parseMatch(
+  activity: Activity & {
+    games?: StructuredGame[];
+    match_history?: StructuredSession;
+    ebadders?: { matches?: StructuredGame[] };
+  }
+): ParsedMatch | null {
+  if (activity.games?.length) {
+    return parseStructuredGames(activity.games);
+  }
+  if (activity.match_history?.games?.length) {
+    return parseStructuredGames(activity.match_history.games);
+  }
+  if (activity.ebadders?.matches?.length) {
+    const fromEb = parseEbadders(activity.ebadders);
+    if (fromEb) {
+      const fromDesc = parseDescription(activity.description);
+      if (fromDesc?.comment) fromEb.comment = fromDesc.comment;
+      return fromEb;
+    }
   }
 
-  // Summary-only description (has W-L but no game lines) - still useful
-  if (fromDesc) {
+  return parseDescription(activity.description);
+}Desc) {
     // Try ebadders for full game data
     if (activity.ebadders) {
       const fromEb = parseEbadders(activity.ebadders);
