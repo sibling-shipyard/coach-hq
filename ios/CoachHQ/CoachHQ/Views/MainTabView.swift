@@ -64,7 +64,6 @@ struct MainTabView: View {
     @EnvironmentObject var bottomDock: BottomDockState
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
-    @State private var didSetInitialTab = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     var body: some View {
@@ -102,14 +101,6 @@ struct MainTabView: View {
         .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
         .animation(PremiumMotion.dock, value: tabBarHidden)
         .background(WarmInstrument.desk.ignoresSafeArea())
-        .task(id: initialTabResolveToken) {
-            guard !didSetInitialTab else { return }
-            guard authManager.isSessionReady else { return }
-            if await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) {
-                selectedTab = .chat
-            }
-            didSetInitialTab = true
-        }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { _ in
             withAnimation(PremiumMotion.state) { selectedTab = .chat }
         }
@@ -123,14 +114,6 @@ struct MainTabView: View {
             if hasUnread && selectedTab == .chat { chatHasUnread = false }
             Task { try? await UNUserNotificationCenter.current().setBadgeCount(hasUnread ? 1 : 0) }
         }
-    }
-
-    /// Re-runs initial tab resolution once session + repo are ready (not on every tab switch).
-    private var initialTabResolveToken: String {
-        [
-            authManager.isSessionReady ? "ready" : "boot",
-            authManager.repoFullName ?? "",
-        ].joined(separator: "|")
     }
 
     /// Keep every tab root alive so scroll position, navigation paths, and fetch state survive tab switches.

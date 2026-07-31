@@ -33,13 +33,9 @@ struct WarmInstrumentHomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
-                LazyVStack(spacing: 14) {
+                VStack(spacing: 14) {
                     if let snapshots = store.snapshots {
-                        HomeGreetingHeader(
-                            phase: snapshots.home.phase,
-                            login: authManager.user?.login,
-                            streak: trainingStreak
-                        )
+                        CompactInstrumentHeader(phase: snapshots.home.phase)
 
                         if !snapshots.home.sync.healthy {
                             SyncWarningBanner(sync: snapshots.home.sync)
@@ -48,7 +44,6 @@ struct WarmInstrumentHomeView: View {
                         widgetColumn(for: snapshots)
                             .transition(.opacity)
                     } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
-                        HomeGreetingHeader(phase: nil, login: authManager.user?.login)
                         HomeSkeletonView()
                     } else if authManager.selectedRepo == nil {
                         repoNotConfiguredState
@@ -137,7 +132,7 @@ struct WarmInstrumentHomeView: View {
         }
         .scaleEffect(enginePulse ? 1.02 : 1)
         .animation(.spring(duration: 0.45, bounce: 0.35), value: enginePulse)
-        .staggerReveal(delay: 0.05)
+        .staggerReveal(delay: 0.30)
         .overlay {
             if !engineOverlayDismissed {
                 EngineFirstVisitOverlay {
@@ -156,11 +151,11 @@ struct WarmInstrumentHomeView: View {
                 showingRanked: $badmintonShowsRanked
             )
         }
-        .staggerReveal(delay: 0.10)
+        .staggerReveal(delay: 0.40)
 
         // Weekly plan — chip drag owns long-press; not wrapped in jiggle editor.
         WeeklyPlanWidget(plan: home.plan, compact: true)
-            .staggerReveal(delay: 0.15)
+            .staggerReveal(delay: 0.50)
 
         // Calories + main quest side-by-side
         HStack(spacing: 14) {
@@ -171,12 +166,12 @@ struct WarmInstrumentHomeView: View {
                 QuestWidget(size: WidgetSize(rawValue: questSize) ?? .m, home: home.quest, small: snapshots.sizes.quest.S, compact: true)
             }
         }
-        .staggerReveal(delay: 0.20)
+        .staggerReveal(delay: 0.60)
 
         EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.25) {
             BuildPhaseWidget(phase: home.phase)
         }
-        .staggerReveal(delay: 0.25)
+        .staggerReveal(delay: 0.70)
 
         EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
             RecentSessionsWidget(
@@ -192,36 +187,10 @@ struct WarmInstrumentHomeView: View {
                 }
             )
         }
-        .staggerReveal(delay: 0.30)
+        .staggerReveal(delay: 0.80)
     }
 
     // MARK: - Header / states
-
-    private var trainingStreak: Int {
-        let entries = SyncCache.load()
-        guard !entries.isEmpty else { return 0 }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        formatter.timeZone = .current
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let activityDays = Set(entries.compactMap { e -> Date? in
-            guard let date = formatter.date(from: e.startDateLocal) else { return nil }
-            return calendar.startOfDay(for: date)
-        })
-        var checkDay = today
-        if !activityDays.contains(checkDay) {
-            checkDay = calendar.date(byAdding: .day, value: -1, to: today) ?? today
-            if !activityDays.contains(checkDay) { return 0 }
-        }
-        var streak = 0
-        while activityDays.contains(checkDay) {
-            streak += 1
-            guard let prev = calendar.date(byAdding: .day, value: -1, to: checkDay) else { break }
-            checkDay = prev
-        }
-        return streak
-    }
 
     private func syncToastMessage(n: Int) -> String {
         let rounds = syncManager.lastRoundSynced
@@ -557,7 +526,7 @@ private struct EngineWidget: View {
             withAnimation(.spring(duration: 0.7, bounce: 0.1).delay(0.05)) { bandProgress = 1.0 }
         }
         .task {
-            try? await Task.sleep(for: .seconds(0.15))
+            try? await Task.sleep(for: .seconds(0.30))
             withAnimation(.spring(duration: 0.7, bounce: 0.1)) { bandProgress = 1.0 }
         }
     }
@@ -1751,69 +1720,6 @@ private struct EngineDetailGauge: View {
                     .position(x: width, y: 48)
             }
         }
-    }
-}
-
-// MARK: - Home greeting header
-
-/// Replaces the static "HQ · BUILD" wordmark with a time-of-day greeting + phase badge.
-private struct HomeGreetingHeader: View {
-    let phase: BuildPhaseSnapshot?
-    let login: String?
-    var streak: Int = 0
-
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5..<12:  return "GOOD MORNING"
-        case 12..<17: return "GOOD AFTERNOON"
-        case 17..<21: return "GOOD EVENING"
-        default:      return "GOOD NIGHT"
-        }
-    }
-
-    private var displayName: String {
-        guard let login, !login.isEmpty else { return "" }
-        return ", " + login.uppercased()
-    }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(greeting + displayName)
-                .font(WarmInstrument.monoLabel(11))
-                .tracking(1.2)
-                .foregroundColor(WarmInstrument.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-
-            Spacer(minLength: 0)
-
-            if streak >= 2 {
-                Text("DAY \(streak)")
-                    .font(WarmInstrument.monoLabel(9))
-                    .tracking(1.0)
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(WarmInstrument.surfaceMuted)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    .transition(.scale(scale: 0.85).combined(with: .opacity))
-            }
-
-            if let phase {
-                Text("BUILD · \(phase.weekLabel.uppercased())")
-                    .font(WarmInstrument.monoLabel(9))
-                    .tracking(1.0)
-                    .foregroundColor(WarmInstrument.paper)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(WarmInstrument.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            }
-        }
-        .padding(.horizontal, 6)
-        .padding(.top, 2)
-        .padding(.bottom, 4)
     }
 }
 
