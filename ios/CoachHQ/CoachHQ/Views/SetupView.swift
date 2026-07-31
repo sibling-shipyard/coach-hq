@@ -115,7 +115,7 @@ struct SetupView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(WarmInstrument.inkMuted)
-            Text("coach-\(login ?? "you") is ready on GitHub")
+            Text("Your training log is ready")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(WarmInstrument.inkFaint)
         }
@@ -127,7 +127,7 @@ struct SetupView: View {
         VStack(spacing: 12) {
             if repoStepComplete {
                 Text(
-                    "The next screen authorizes Coach Phelps — not another sign-in.\n\nWhen GitHub asks which repos to share, choose **Only select repositories** and pick **coach-\(login ?? "yours")**. Don't grant access to all repos."
+                    "The next screen links your private training log — this isn't another sign-in.\n\nWhen GitHub asks which repositories to share, choose **Only select repositories** and pick **coach-\(login ?? "yours")**. Don't grant access to everything else."
                 )
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(WarmInstrument.inkMuted)
@@ -179,9 +179,9 @@ struct SetupView: View {
 
     private var primaryButtonLabel: String {
         if repoStepComplete {
-            return isInstalling ? "Opening GitHub…" : "Authorize Coach Phelps"
+            return isInstalling ? "Opening GitHub…" : "Link Your Log"
         }
-        return "Create Repo"
+        return "Create Your Log"
     }
 
     private var primaryButtonDisabled: Bool {
@@ -258,6 +258,74 @@ struct SetupView: View {
             }
             isInstalling = false
         }
+    }
+}
+
+// MARK: - HealthKit pre-permission screen
+
+/// Shown once before the system HealthKit dialog — explains in plain language what Coach
+/// reads and why, so the user isn't met cold by an OS permission sheet.
+struct HealthKitPrePromptView: View {
+    let onConnect: () -> Void
+    let onSkip: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 28) {
+                OnboardingLogo()
+                    .onboardingReveal(index: 0)
+
+                VStack(spacing: 16) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(WarmInstrument.accent)
+                        .onboardingReveal(index: 1)
+
+                    Text("Your training, always yours")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(WarmInstrument.ink)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .onboardingReveal(index: 2)
+
+                    Text("Coach reads your workouts — duration, heart rate, sport type — to give you real context when you talk. Nothing leaves your device without your say.")
+                        .font(WarmInstrument.coachVoice(15))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineSpacing(3)
+                        .onboardingReveal(index: 3)
+                }
+                .padding(.horizontal, 32)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            VStack(spacing: 12) {
+                Button {
+                    Haptics.tap()
+                    onConnect()
+                } label: {
+                    Text("Connect Health")
+                }
+                .buttonStyle(WarmSetupButtonStyle(primary: true))
+                .onboardingReveal(index: 4)
+
+                Button {
+                    Haptics.tap()
+                    onSkip()
+                } label: {
+                    Text("Not right now")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .frame(height: 44)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 24)
+            .safeAreaPadding(.bottom, 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(WarmInstrument.desk.ignoresSafeArea())
     }
 }
 

@@ -22,6 +22,10 @@ struct CoachChatView: View {
     @State private var showHistorySheet = false
     @FocusState private var composerFocused: Bool
     @State private var keyboardVisible = false
+    @State private var postWorkoutChips: [String]? = nil
+    @AppStorage("chatHasUnread") private var chatHasUnread = false
+    @AppStorage("pendingWorkoutType") private var pendingWorkoutType = ""
+    @AppStorage("chatWelcomeShown") private var chatWelcomeShown = false
 
     /// Until wired: preview header from mock. Replace with snapshot/challenge_v2 read.
     @State private var headerContext = CoachChatHeaderContext.preview
@@ -95,6 +99,10 @@ struct CoachChatView: View {
             guard authManager.selectedRepo != nil else { return }
             apiClient = CoachChatAPIClient(authManager: authManager)
             await loadThreads()
+            if !pendingWorkoutType.isEmpty {
+                postWorkoutChips = Self.chips(forWorkoutType: pendingWorkoutType)
+                pendingWorkoutType = ""
+            }
         }
         .sheet(isPresented: $showHistorySheet) {
             CoachChatHistorySheet(
@@ -136,10 +144,27 @@ struct CoachChatView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             keyboardVisible = false
         }
+        .onChange(of: pendingWorkoutType) { _, type in
+            guard !type.isEmpty else { return }
+            postWorkoutChips = Self.chips(forWorkoutType: type)
+            pendingWorkoutType = ""
+        }
     }
 
     private var composerChromeHidden: Bool {
         composerFocused || keyboardVisible
+    }
+
+    private var composerPlaceholder: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if !isViewingToday { return "Reply to Coach…" }
+        switch hour {
+        case 5..<10:  return "How are you feeling today?"
+        case 10..<14: return "What's on your mind?"
+        case 14..<18: return "How did training go?"
+        case 18..<22: return "How did it feel?"
+        default:      return "Message Coach…"
+        }
     }
 
     // MARK: - Continuous landing
@@ -190,6 +215,9 @@ struct CoachChatView: View {
                     threadTitle: displayThread.title,
                     onBackToToday: { selectTodayThread() }
                 )
+            } else if displayThread.messages.isEmpty, isViewingToday, usingPreviewShell, !chatWelcomeShown {
+                CoachChatWelcomeIntro()
+                    .onAppear { chatWelcomeShown = true }
             } else {
                 ForEach(displayThread.messages) { message in
                     messageRow(message)
@@ -227,9 +255,10 @@ struct CoachChatView: View {
         VStack(spacing: 8) {
             if isViewingToday {
                 CoachChatStarterChips(
-                    prompts: CoachChatPreviewData.starterPrompts,
+                    prompts: postWorkoutChips ?? CoachChatPreviewData.starterPrompts,
                     isDisabled: sending
                 ) { prompt in
+                    postWorkoutChips = nil
                     draft = prompt
                     Task { await send(from: resolvedSendThreadId()) }
                 }
@@ -242,7 +271,7 @@ struct CoachChatView: View {
             CoachChatComposer(
                 draft: $draft,
                 isFocused: $composerFocused,
-                placeholder: sending ? "Coach is replying…" : "Message Coach…",
+                placeholder: sending ? "Coach is replying…" : composerPlaceholder,
                 isSending: sending
             ) {
                 Task { await send(from: resolvedSendThreadId()) }
@@ -288,6 +317,16 @@ struct CoachChatView: View {
                 )
                 Spacer(minLength: 40)
             }
+        }
+    }
+
+    private static func chips(forWorkoutType type: String) -> [String] {
+        switch type {
+        case "foundation":   return ["That felt good", "Legs were heavy", "How was my form?"]
+        case "calisthenics": return ["That felt good", "Struggled with reps", "How was my form?"]
+        case "recovery":     return ["Feeling restored", "Still feel tired", "Good call today"]
+        case "realign":      return ["That helped", "Still feeling off", "How was my form?"]
+        default:             return ["That felt good", "Legs were heavy", "How was my form?"]
         }
     }
 
@@ -369,7 +408,7 @@ struct CoachChatView: View {
                 clearThreadState()
                 return
             }
-            errorMessage = error.errorDescription ?? "Couldn't load conversations"
+            errorMessage = UserFacingError.friendlyMessage(for: error)
         } catch {
             errorMessage = "Couldn't load conversations"
         }
@@ -469,7 +508,7 @@ struct CoachChatView: View {
                 authManager.sessionExpired = true
                 clearThreadState()
             } else {
-                errorMessage = error.errorDescription ?? "Coach didn't reply — try again"
+                errorMessage = UserFacingError.friendlyMessage(for: error)
             }
             draft = trimmed
         } catch {

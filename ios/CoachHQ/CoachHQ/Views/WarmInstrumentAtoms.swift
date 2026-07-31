@@ -110,16 +110,28 @@ struct HairlineProgress: View {
     var track: Color = WarmInstrument.border
     var height: CGFloat = 3
 
+    @State private var displayed: Double = 0
+
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(track)
                 Capsule()
                     .fill(tint)
-                    .frame(width: geo.size.width * max(0, min(1, fraction)))
+                    .frame(width: geo.size.width * max(0, min(1, displayed)))
+                    .animation(.spring(duration: 0.7, bounce: 0.1), value: displayed)
             }
         }
         .frame(height: height)
+        .task {
+            try? await Task.sleep(for: .seconds(0.15))
+            displayed = fraction
+        }
+        .onChange(of: fraction) { _, newValue in
+            withAnimation(.spring(duration: 0.5, bounce: 0.05)) {
+                displayed = newValue
+            }
+        }
     }
 }
 

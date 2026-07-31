@@ -1,7 +1,32 @@
 import SwiftUI
+import UserNotifications
+
+// MARK: - Notification delegate — routes "navigateTo=chat" taps to MainTabView
+
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if (response.notification.request.content.userInfo["navigateTo"] as? String) == "chat" {
+            // Store flag so MainTabView can read it on appear — handles cold-launch case
+            // where MainTabView isn't mounted when this fires.
+            UserDefaults.standard.set(true, forKey: "pendingChatNavigation")
+            NotificationCenter.default.post(name: .navigateToChat, object: nil)
+        }
+        completionHandler()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+}
 
 @main
 struct CoachHQApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var authManager = GitHubAuthManager()
     @StateObject private var syncManager = HealthKitSyncManager()
     @StateObject private var workoutService = WorkoutService()
@@ -9,6 +34,8 @@ struct CoachHQApp: App {
     @StateObject private var bottomDock = BottomDockState()
     @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
+    @AppStorage("hkPrePromptShown") private var hkPrePromptShown = false
+    @State private var showHKPrePrompt = false
 
     var body: some Scene {
         WindowGroup {
@@ -28,7 +55,32 @@ struct CoachHQApp: App {
                             syncManager.configure(apiClient: apiClient, widgetStore: widgetStore)
                             workoutService.configure(apiClient: apiClient)
                             widgetStore.configure(apiClient: apiClient)
-                            try? await syncManager.requestAuthorization()
+                            if hkPrePromptShown {
+                                try? await syncManager.requestAuthorization()
+                                await syncManager.requestNotificationPermission()
+                                syncManager.enableBackgroundDelivery()
+                                syncManager.setupWorkoutObserver()
+                            } else {
+                                showHKPrePrompt = true
+                            }
+                        }
+                        .fullScreenCover(isPresented: $showHKPrePrompt) {
+                            HealthKitPrePromptView(
+                                onConnect: {
+                                    showHKPrePrompt = false
+                                    hkPrePromptShown = true
+                                    Task {
+                                        try? await syncManager.requestAuthorization()
+                                        await syncManager.requestNotificationPermission()
+                                        syncManager.enableBackgroundDelivery()
+                                        syncManager.setupWorkoutObserver()
+                                    }
+                                },
+                                onSkip: {
+                                    showHKPrePrompt = false
+                                    hkPrePromptShown = true
+                                }
+                            )
                         }
                 } else if authManager.pendingSetupLogin != nil {
                     SetupView()

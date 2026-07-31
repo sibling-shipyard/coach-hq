@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import HealthKit
+import UserNotifications
 
 /// Manages HealthKit data access, background delivery, and sync to GitHub.
 @MainActor
@@ -25,9 +26,12 @@ class HealthKitSyncManager: ObservableObject {
         let id: UUID
     }
 
+    @Published var isHKObserverActive = false
+
     private let healthStore = HKHealthStore()
     private var apiClient: GitHubAPIClient?
     private var widgetStore: WidgetSnapshotStore?
+    private var observerRegistered = false
 
     // HealthKit data types we request access to
     private var readTypes: Set<HKObjectType> {
@@ -77,6 +81,56 @@ class HealthKitSyncManager: ObservableObject {
                 print("Background delivery registration failed: \(error)")
             }
         }
+    }
+
+    /// Authorizes HK, enables background delivery, and registers the observer in one shot.
+    /// Safe to call from Settings when the user enables HealthKit after initially skipping.
+    func connectHealthKit() async {
+        try? await requestAuthorization()
+        await requestNotificationPermission()
+        enableBackgroundDelivery()
+        setupWorkoutObserver()
+    }
+
+    /// Registers an HKObserverQuery that fires whenever new workouts arrive in HealthKit,
+    /// syncs them, and posts a local notification so the user knows Coach is aware.
+    /// Guard prevents duplicate queries accumulating across cold launches.
+    func setupWorkoutObserver() {
+        guard !observerRegistered else { return }
+        observerRegistered = true
+        isHKObserverActive = true
+        let workoutType = HKObjectType.workoutType()
+        let query = HKObserverQuery(sampleType: workoutType, predicate: nil) { [weak self] _, completionHandler, error in
+            guard error == nil else { completionHandler(); return }
+            Task { @MainActor [weak self] in
+                guard let self else { completionHandler(); return }
+                await self.syncNewWorkouts()
+                if case .synced(let n) = self.lastSyncResult?.outcome, n > 0 {
+                    await self.postSyncNotification(count: n)
+                }
+                completionHandler()
+            }
+        }
+        healthStore.execute(query)
+    }
+
+    /// Requests notification permission the first time the app runs (no-ops on subsequent launches).
+    func requestNotificationPermission() async {
+        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+    }
+
+    private func postSyncNotification(count: Int) async {
+        let content = UNMutableNotificationContent()
+        content.title = count == 1 ? "Session logged" : "\(count) sessions logged"
+        content.body = "Coach is reviewing your latest workout."
+        content.sound = .default
+        content.userInfo = ["navigateTo": "chat"]
+        let request = UNNotificationRequest(
+            identifier: "hk-sync-latest",
+            content: content,
+            trigger: nil
+        )
+        try? await UNUserNotificationCenter.current().add(request)
     }
 
     // MARK: - Sync
@@ -201,9 +255,15 @@ class HealthKitSyncManager: ObservableObject {
             // failure; stay quiet instead of showing a scary "cancelled" error.
         } catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
             // Same: URLSession-level cancellation, not a sync failure.
+        } catch let apiError as GitHubAPIError where {
+            if case .sessionNotReady = apiError { return true }
+            return false
+        }() {
+            // Session not ready yet — silently ignore, same as WidgetSnapshotStore.
         } catch {
-            syncError = error.localizedDescription
-            lastSyncResult = SyncResult(outcome: .failed(error.localizedDescription), id: UUID())
+            let friendly = UserFacingError.friendlyMessage(for: error)
+            syncError = friendly
+            lastSyncResult = SyncResult(outcome: .failed(friendly), id: UUID())
         }
 
         isSyncing = false

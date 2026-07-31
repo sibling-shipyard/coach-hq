@@ -118,8 +118,8 @@ struct WorkoutTimerView: View {
     private var timerHeader: some View {
         HStack(spacing: 10) {
             Button { showQuitConfirm = true } label: {
-                Text("←")
-                    .font(.system(size: 16))
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(WarmInstrument.inkMuted)
             }
             .buttonStyle(.plain)

@@ -21,6 +21,7 @@ struct ActivityDetailView: View {
     @State private var saveCheckScale: CGFloat = 0.6
     @State private var isEditing = false
     @State private var statsRevealed: Bool
+    @State private var statsProgress: Double = 0
     @FocusState private var editorFocused: Bool
 
     init(entry: SyncCacheEntry) {
@@ -29,6 +30,8 @@ struct ActivityDetailView: View {
         _activity = State(initialValue: cached)
         // Cached entries render at full opacity immediately — no fade on every push.
         _statsRevealed = State(initialValue: cached != nil)
+        // Skip count-up for cache hits so stats never flash zero.
+        _statsProgress = State(initialValue: cached != nil ? 1.0 : 0)
     }
 
     /// The saved description on the server (nil/empty until scored).
@@ -125,6 +128,7 @@ struct ActivityDetailView: View {
         .onChange(of: isLoading) { _, loading in
             guard !loading else { return }
             withAnimation(PremiumMotion.statsLoad) { statsRevealed = true }
+            withAnimation(.spring(duration: 0.7, bounce: 0.1).delay(0.1)) { statsProgress = 1.0 }
         }
         .onChange(of: saveSucceeded) { _, success in
             guard success else { return }
@@ -202,16 +206,16 @@ struct ActivityDetailView: View {
                             HeroStat(value: "171", label: "PEAK")
                         } else {
                             if let cal = activity?.calories {
-                                HeroStat(value: "\(cal)", label: "CAL")
+                                HeroStat(value: "\(Int(Double(cal) * statsProgress))", label: "CAL")
                             }
                             if let hr = activity?.averageHeartrate {
-                                HeroStat(value: "\(Int(hr))", label: "AVG HR")
+                                HeroStat(value: "\(Int(hr * statsProgress))", label: "AVG HR")
                             }
                             if let peak = activity?.maxHeartrate {
-                                HeroStat(value: "\(Int(peak))", label: "PEAK")
+                                HeroStat(value: "\(Int(peak * statsProgress))", label: "PEAK")
                             }
                             if let dist = activity?.distance, dist > 0 {
-                                HeroStat(value: String(format: "%.1f", dist / 1000), label: "KM")
+                                HeroStat(value: String(format: "%.1f", (dist / 1000) * statsProgress), label: "KM")
                             }
                         }
                     }
@@ -420,6 +424,7 @@ struct ActivityDetailView: View {
     /// succeeds.
     private func loadExistingActivity() async {
         // 1. Cache hit — render instantly, no spinner, no network.
+        // statsProgress is already 1.0 from init, so no animation needed.
         if let cached = entry.activity {
             activity = cached
             return
@@ -434,7 +439,7 @@ struct ActivityDetailView: View {
             activity = fetched
             SyncCache.updateStats(fileName: entry.fileName, activity: fetched)
         } catch {
-            errorMessage = "Could not load activity: \(error.localizedDescription)"
+            errorMessage = UserFacingError.friendlyMessage(for: error)
         }
     }
 
@@ -575,7 +580,7 @@ struct ActivityDetailView: View {
             }
             Haptics.success()
         } catch {
-            errorMessage = "Save failed: \(error.localizedDescription)"
+            errorMessage = UserFacingError.friendlyMessage(for: error)
             Haptics.error()
         }
     }

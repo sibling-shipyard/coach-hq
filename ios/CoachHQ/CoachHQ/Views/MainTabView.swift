@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 /// Child views set this preference to hide the floating `WarmTabBar` (e.g. workout overview, activity detail).
 private struct TabBarHiddenPreferenceKey: PreferenceKey {
@@ -45,6 +46,15 @@ enum AppTab: Hashable, CaseIterable {
         case .more: return "More"
         }
     }
+
+    var labelText: String {
+        switch self {
+        case .home: return "Home"
+        case .workouts: return "Train"
+        case .chat: return "Coach"
+        case .more: return "More"
+        }
+    }
 }
 
 struct MainTabView: View {
@@ -54,7 +64,8 @@ struct MainTabView: View {
     @EnvironmentObject var bottomDock: BottomDockState
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
-    @State private var didSetInitialTab = false
+    @AppStorage("chatHasUnread") private var chatHasUnread = false
+    @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -91,22 +102,25 @@ struct MainTabView: View {
         .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
         .animation(PremiumMotion.dock, value: tabBarHidden)
         .background(WarmInstrument.desk.ignoresSafeArea())
-        .task(id: initialTabResolveToken) {
-            guard !didSetInitialTab else { return }
-            guard authManager.isSessionReady else { return }
-            if await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) {
+        .onAppear {
+            if pendingChatNavigation {
+                pendingChatNavigation = false
                 selectedTab = .chat
             }
-            didSetInitialTab = true
         }
-    }
-
-    /// Re-runs initial tab resolution once session + repo are ready (not on every tab switch).
-    private var initialTabResolveToken: String {
-        [
-            authManager.isSessionReady ? "ready" : "boot",
-            authManager.repoFullName ?? "",
-        ].joined(separator: "|")
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { _ in
+            withAnimation(PremiumMotion.state) { selectedTab = .chat }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
+            withAnimation(PremiumMotion.state) { selectedTab = .home }
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            if newTab == .chat { chatHasUnread = false }
+        }
+        .onChange(of: chatHasUnread) { _, hasUnread in
+            if hasUnread && selectedTab == .chat { chatHasUnread = false }
+            Task { try? await UNUserNotificationCenter.current().setBadgeCount(hasUnread ? 1 : 0) }
+        }
     }
 
     /// Keep every tab root alive so scroll position, navigation paths, and fetch state survive tab switches.
@@ -156,6 +170,7 @@ private enum WarmDockMetrics {
 private struct WarmTabBar: View {
     @Binding var selection: AppTab
     @Namespace private var tabIndicator
+    @AppStorage("chatHasUnread") private var chatHasUnread = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -192,15 +207,30 @@ private struct WarmTabBar: View {
                         .shadow(color: WarmInstrument.cardShadow.opacity(0.35), radius: 4, y: 2)
                 }
 
-                Image(systemName: selected ? tab.filledIcon : tab.outlineIcon)
-                    .font(.system(size: 20, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
-                    .scaleEffect(selected ? 1.05 : 1)
-                    .offset(y: selected ? -1.5 : 0)
-                    .animation(.spring(duration: 0.38, bounce: 0.2), value: selected)
+                VStack(spacing: 2) {
+                    Image(systemName: selected ? tab.filledIcon : tab.outlineIcon)
+                        .font(.system(size: 18, weight: selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
+                        .scaleEffect(selected ? 1.04 : 1)
+                        .offset(y: selected ? -1 : 0)
+                        .overlay(alignment: .topTrailing) {
+                            if tab == .chat && chatHasUnread {
+                                Circle()
+                                    .fill(WarmInstrument.accent)
+                                    .frame(width: 7, height: 7)
+                                    .offset(x: 5, y: -2)
+                            }
+                        }
+
+                    Text(tab.labelText)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .tracking(0.4)
+                        .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
+                }
+                .animation(.spring(duration: 0.38, bounce: 0.2), value: selected)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: 50)
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(TabBarPressStyle())
@@ -226,12 +256,16 @@ private struct WarmDockStartCTA: View {
             Haptics.tap()
             bottomDock.onStartWorkout?()
         } label: {
-            Text("▶ Start workout")
-                .font(.system(size: 15, weight: .bold))
-                .kerning(0.3)
-                .foregroundColor(WarmInstrument.paper)
-                .frame(maxWidth: .infinity)
-                .frame(height: WarmDockMetrics.pillHeight)
+            HStack(spacing: 8) {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 12, weight: .bold))
+                Text("Start workout")
+                    .font(.system(size: 15, weight: .bold))
+                    .kerning(0.3)
+            }
+            .foregroundColor(WarmInstrument.paper)
+            .frame(maxWidth: .infinity)
+            .frame(height: WarmDockMetrics.pillHeight)
                 .background(WorkoutTimerWarm.rust)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(

@@ -13,6 +13,7 @@ enum WarmSportId: String, Codable {
     case cycling, badminton, calisthenics, foundation, run, other
     case strength, weightTraining = "weight_training"
     case hike, walk, cricket, football, workout, swim
+    case tennis
 
     init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
@@ -25,6 +26,7 @@ enum ActivityGlyphKind: String, Codable {
     case cycling, badminton, calisthenics, foundation, run, recovery, other
     case strength, weightTraining = "weight_training"
     case hike, walk, cricket, football, workout, swim
+    case tennis
 
     init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)

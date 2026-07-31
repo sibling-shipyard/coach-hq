@@ -21,6 +21,10 @@ struct WorkoutListView: View {
         }
     }
 
+    private var todayWorkout: Workout? {
+        allWorkouts.first { $0.isSession }?.workout
+    }
+
     private var groupedWorkouts: [(type: WorkoutType, entries: [(workout: Workout, isSession: Bool)])] {
         let order: [WorkoutType] = [.foundation, .calisthenics, .recovery, .realign]
         return order.compactMap { type in
@@ -33,8 +37,24 @@ struct WorkoutListView: View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    if !workoutService.todaySessions.isEmpty {
-                        coachAdjustedBanner
+                    workoutsHeader
+                    if let today = todayWorkout {
+                        TodayWorkoutHero(workout: today) {
+                            navigationPath.append(today)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 4)
+                        .staggerReveal(delay: 0.05)
+                    }
+
+                    if todayWorkout != nil && !groupedWorkouts.isEmpty {
+                        Text("ALL WORKOUTS")
+                            .font(WarmInstrument.monoLabel(9))
+                            .kerning(1.2)
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 22)
+                            .padding(.top, 12)
                     }
 
                     VStack(alignment: .leading, spacing: 20) {
@@ -43,7 +63,7 @@ struct WorkoutListView: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.top, todayWorkout != nil ? 4 : 16)
                 }
             }
             .mainTabScrollBottomClearance()
@@ -72,18 +92,23 @@ struct WorkoutListView: View {
         }
     }
 
-    private var coachAdjustedBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 12, weight: .semibold))
-            Text("Coach has adjusted today's workout")
-                .font(.system(size: 12, weight: .semibold))
+    private var workoutsHeader: some View {
+        HStack(spacing: 10) {
+            Text("WORKOUTS")
+                .font(WarmInstrument.monoLabel(12))
+                .tracking(1.4)
+                .foregroundColor(WarmInstrument.ink)
+
+            Spacer(minLength: 0)
+
+            Text(Date().formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                .font(WarmInstrument.monoLabel(9))
+                .tracking(1.0)
+                .foregroundColor(WarmInstrument.inkFaint)
         }
-        .foregroundColor(WarmInstrument.sportColor(.badminton))
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(WarmInstrument.sportColor(.badminton).opacity(0.08))
+        .padding(.horizontal, 22)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 
     private func workoutGroup(
@@ -263,5 +288,83 @@ private struct FlowLayout: Layout {
         }
 
         return (CGSize(width: maxWidth, height: y + rowHeight), positions)
+    }
+}
+
+// MARK: - Today workout hero card
+
+/// Prominent full-width card shown at the top of Workouts when Coach has a session
+/// prepared for today. Tapping navigates to WorkoutOverview.
+struct TodayWorkoutHero: View {
+    let workout: Workout
+    let onTap: () -> Void
+
+    private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Accent top strip + TODAY badge
+                HStack(spacing: 8) {
+                    Text("TODAY")
+                        .font(WarmInstrument.monoLabel(9))
+                        .kerning(1.2)
+                        .foregroundColor(WarmInstrument.paper)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(accent)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                    Text(Theme.workoutLabel(for: workout.workoutType))
+                        .font(WarmInstrument.monoLabel(9))
+                        .kerning(1.1)
+                        .foregroundColor(accent)
+
+                    Spacer(minLength: 0)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+
+                // Title + subtitle
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(workout.title)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(Theme.ink)
+                        .lineLimit(2)
+                    Text(workout.subtitle)
+                        .font(.system(size: 13))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 18)
+
+                // Stats row
+                HStack(spacing: 14) {
+                    Label("\(workout.estimatedDurationMins)M", systemImage: "clock")
+                    Label("\(workout.exerciseCount) EX", systemImage: "figure.strengthtraining.functional")
+                    Label("\(workout.setCount) SETS", systemImage: "repeat")
+                }
+                .font(WarmInstrument.figures(10))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .labelStyle(.titleAndIcon)
+                .padding(.horizontal, 18)
+                .padding(.top, 10)
+                .padding(.bottom, 18)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(WarmInstrument.paper)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(accent.opacity(0.25), lineWidth: 1.5)
+            )
+            .shadow(color: accent.opacity(0.12), radius: 16, x: 0, y: 6)
+        }
+        .buttonStyle(CardPressButtonStyle())
     }
 }

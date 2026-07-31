@@ -16,11 +16,15 @@ enum HomeRoute: Hashable {
 struct WarmInstrumentHomeView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var store: WidgetSnapshotStore
+    @EnvironmentObject var syncManager: HealthKitSyncManager
 
     @State private var toast: Toast?
     @State private var isEditingLayout = false
     @State private var navigationPath: [HomeRoute] = []
     @State private var badmintonShowsRanked = false
+
+    @AppStorage("engineOverlayDismissed") private var engineOverlayDismissed = false
+    @State private var enginePulse: Bool = false
 
     @AppStorage("wiEngineSize") private var engineSize = "M"
     @AppStorage("wiQuestSize") private var questSize = "M"
@@ -29,7 +33,7 @@ struct WarmInstrumentHomeView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
-                LazyVStack(spacing: 14) {
+                VStack(spacing: 14) {
                     if let snapshots = store.snapshots {
                         CompactInstrumentHeader(phase: snapshots.home.phase)
 
@@ -40,9 +44,7 @@ struct WarmInstrumentHomeView: View {
                         widgetColumn(for: snapshots)
                             .transition(.opacity)
                     } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, minHeight: 320)
-                            .padding(.top, 80)
+                        HomeSkeletonView()
                     } else if authManager.selectedRepo == nil {
                         repoNotConfiguredState
                     } else {
@@ -91,6 +93,16 @@ struct WarmInstrumentHomeView: View {
                 Haptics.error()
                 toast = Toast(kind: .error, message: UserFacingError.friendlyAPIError(newError))
             }
+            .onChange(of: syncManager.lastSyncResult) { _, result in
+                guard let result, case .synced(let n) = result.outcome, n > 0 else { return }
+                toast = Toast(kind: .success, message: syncToastMessage(n: n))
+                enginePulse = true
+                Task { try? await Task.sleep(for: .seconds(0.55)); enginePulse = false }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                guard store.isConfigured else { return }
+                Task { await store.refresh(showSpinner: false) }
+            }
             .overlay(alignment: .topTrailing) {
                 if isEditingLayout {
                     doneButton
@@ -118,6 +130,18 @@ struct WarmInstrumentHomeView: View {
             }
             .buttonStyle(.plain)
         }
+        .scaleEffect(enginePulse ? 1.02 : 1)
+        .animation(.spring(duration: 0.45, bounce: 0.35), value: enginePulse)
+        .staggerReveal(delay: 0.30)
+        .overlay {
+            if !engineOverlayDismissed {
+                EngineFirstVisitOverlay {
+                    withAnimation(.easeOut(duration: 0.25)) { engineOverlayDismissed = true }
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: engineOverlayDismissed)
 
         // Sport commitment quartet strip
         EditableWidget(isEditing: $isEditingLayout, sizeBinding: $commitmentsSize, sizeOptions: ["S", "M"], jigglePhase: 0.05) {
@@ -127,9 +151,11 @@ struct WarmInstrumentHomeView: View {
                 showingRanked: $badmintonShowsRanked
             )
         }
+        .staggerReveal(delay: 0.40)
 
         // Weekly plan — chip drag owns long-press; not wrapped in jiggle editor.
         WeeklyPlanWidget(plan: home.plan, compact: true)
+            .staggerReveal(delay: 0.50)
 
         // Calories + main quest side-by-side
         HStack(spacing: 14) {
@@ -140,10 +166,12 @@ struct WarmInstrumentHomeView: View {
                 QuestWidget(size: WidgetSize(rawValue: questSize) ?? .m, home: home.quest, small: snapshots.sizes.quest.S, compact: true)
             }
         }
+        .staggerReveal(delay: 0.60)
 
         EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.25) {
             BuildPhaseWidget(phase: home.phase)
         }
+        .staggerReveal(delay: 0.70)
 
         EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
             RecentSessionsWidget(
@@ -159,9 +187,20 @@ struct WarmInstrumentHomeView: View {
                 }
             )
         }
+        .staggerReveal(delay: 0.80)
     }
 
     // MARK: - Header / states
+
+    private func syncToastMessage(n: Int) -> String {
+        let rounds = syncManager.lastRoundSynced
+        if rounds.count == 1, let (sportType, _) = rounds.first {
+            let label = Theme.sportBadge(for: sportType).label.capitalized
+            return "\(label) session synced — Coach is on it"
+        }
+        let word = n == 1 ? "session" : "sessions"
+        return "\(n) \(word) synced — Coach is on it"
+    }
 
     /// Re-triggers the Home fetch once GitHub profile + repo discovery finish.
     private var homeFetchToken: String {
@@ -216,6 +255,39 @@ struct WarmInstrumentHomeView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 100)
+    }
+}
+
+// MARK: - Engine first-visit overlay
+
+private struct EngineFirstVisitOverlay: View {
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                .fill(WarmInstrument.ink.opacity(0.88))
+            VStack(spacing: 10) {
+                Text("This is your weekly load")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                Text("Coach uses your training dose score to calibrate what's next. Tap the Engine any time for the full breakdown.")
+                    .font(WarmInstrument.coachVoice(13))
+                    .foregroundColor(.white.opacity(0.88))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+                Text("TAP TO DISMISS")
+                    .font(WarmInstrument.monoLabel(9))
+                    .tracking(0.8)
+                    .foregroundColor(.white.opacity(0.45))
+            }
+            .padding(20)
+        }
+        .onTapGesture {
+            Haptics.tap()
+            onDismiss()
+        }
+        .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
     }
 }
 
@@ -397,19 +469,21 @@ private struct EngineWidget: View {
     let size: WidgetSize
     let sizes: EngineSizes
 
+    @State private var bandProgress: Double = 0
+
     var body: some View {
         WarmCard(padding: size == .m ? 20 : 18, fill: WarmInstrument.accent) {
             VStack(alignment: .leading, spacing: 14) {
                 switch size {
                 case .s:
                     header(weekLabel: sizes.S.weekLabel, signal: sizes.S.signal)
-                    readout(load: sizes.S.load, verdict: sizes.S.compactVerdict)
+                    readout(load: sizes.S.load * bandProgress, verdict: sizes.S.compactVerdict)
                     bandStrip(load: sizes.S.load, bandLow: sizes.S.bandLow, bandHigh: sizes.S.bandHigh)
                 case .m:
                     mobileHeader(weekLabel: sizes.M.weekLabel, signal: sizes.M.signal)
                     HStack(alignment: .top, spacing: 16) {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(numberString(sizes.M.load))
+                            Text(numberString(sizes.M.load * bandProgress))
                                 .font(.system(size: 46, weight: .medium, design: .default))
                                 .tracking(-2)
                                 .foregroundColor(.white)
@@ -436,7 +510,7 @@ private struct EngineWidget: View {
                         }
                 case .l:
                     header(weekLabel: sizes.L.weekLabel, signal: sizes.L.signal)
-                    readout(load: sizes.L.load, verdict: sizes.L.verdict)
+                    readout(load: sizes.L.load * bandProgress, verdict: sizes.L.verdict)
                     bandStrip(load: sizes.L.load, bandLow: sizes.L.bandLow, bandHigh: sizes.L.bandHigh)
                     trendSparkline(sizes.L.trend)
                     mixBar(sizes.L.mix, totalHours: sizes.L.totalHours)
@@ -447,6 +521,15 @@ private struct EngineWidget: View {
             }
         }
         .shadow(color: WarmInstrument.engineShadow, radius: size == .m ? 24 : 20, x: 0, y: size == .m ? 12 : 10)
+        .onChange(of: sizes.M.load) { _, _ in
+            // Don't reset — only animate to 1.0 if the initial task hasn't finished yet.
+            // Resetting on every foreground refresh caused a jarring count-from-zero on each return.
+            withAnimation(.spring(duration: 0.7, bounce: 0.1).delay(0.05)) { bandProgress = 1.0 }
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(0.30))
+            withAnimation(.spring(duration: 0.7, bounce: 0.1)) { bandProgress = 1.0 }
+        }
     }
 
     private func header(weekLabel: String, signal: String) -> some View {
@@ -504,12 +587,12 @@ private struct EngineWidget: View {
                 Capsule().fill(Color.white.opacity(0.18)).frame(height: 6)
                 Capsule()
                     .fill(Color.white.opacity(0.55))
-                    .frame(width: max(10, xHigh - xLow), height: 10)
-                    .offset(x: xLow)
+                    .frame(width: max(1, xHigh - xLow) * bandProgress, height: 10)
+                    .offset(x: xLow * bandProgress)
                 Circle()
                     .fill(Color.white)
                     .frame(width: 10, height: 10)
-                    .offset(x: xLoad - 5)
+                    .offset(x: max(0, xLoad * bandProgress - 5))
             }
         }
         .frame(height: 12)
@@ -1638,6 +1721,45 @@ private struct EngineDetailGauge: View {
                     .position(x: width, y: 48)
             }
         }
+    }
+}
+
+// MARK: - Home skeleton loading
+
+/// Shimmer placeholder cards that match the visual weight of the actual widget column —
+/// shown while the snapshot fetch is in-flight so the screen never opens empty.
+private struct HomeSkeletonView: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            HomeSkeletonCard(height: 172)
+            HomeSkeletonCard(height: 78)
+            HomeSkeletonCard(height: 96)
+            HStack(spacing: 14) {
+                HomeSkeletonCard(height: 148)
+                HomeSkeletonCard(height: 148)
+            }
+            HomeSkeletonCard(height: 112)
+            HomeSkeletonCard(height: 138)
+        }
+    }
+}
+
+private struct HomeSkeletonCard: View {
+    let height: CGFloat
+    @State private var pulsing = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+            .fill(WarmInstrument.surfaceMuted)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .overlay(
+                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                    .strokeBorder(WarmInstrument.border, lineWidth: 1)
+            )
+            .opacity(pulsing ? 0.45 : 0.85)
+            .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulsing)
+            .onAppear { pulsing = true }
     }
 }
 
