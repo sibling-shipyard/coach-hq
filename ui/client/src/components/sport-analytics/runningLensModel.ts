@@ -297,7 +297,7 @@ export interface BenchmarkTrendPoint {
   label: string;
   paceSecPerKm: number;
   elapsedTime: number;
-  activityId: number;
+  activityId: number | string;
 }
 
 export interface BenchmarkSnapshot {
@@ -458,7 +458,7 @@ export interface PaceTrendPoint {
   paceSecPerKm: number;
   rollingPaceSecPerKm: number | null;
   distanceKm: number;
-  activityId: number;
+  activityId: number | string;
 }
 
 export interface PaceTrendSnapshot {

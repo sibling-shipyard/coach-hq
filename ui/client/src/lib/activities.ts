@@ -11,7 +11,7 @@ export interface HrZone {
 }
 
 export interface Activity {
-  id: number;
+  id: number | string;
   name: string;
   sport_type: string;
   start_date_local: string;

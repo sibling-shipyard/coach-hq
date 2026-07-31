@@ -68,7 +68,27 @@ sequenceDiagram
    - Fetches heart-rate samples for the workout window, computes avg/max HR and zone 1-5 time
      distribution.
    - `ActivityNamer` assigns the sequential name (e.g. "Calisthenics #30") and the filename —
-     `hk_YYYY-MM-DD_slug_n.json`, the `hk_` prefix distinguishing it from Strava-sourced files.
+     `hk_YYYY-MM-DD_<uuid>.json`, where `<uuid>` is the `HKWorkout.uuid`. The `hk_` prefix
+     distinguishes it from Strava-sourced files; the `YYYY-MM-DD` prefix is kept for browsability
+     and the pipeline's date-prefilter.
+
+### Canonical id — HKWorkout uuid
+
+Each HealthKit activity carries a **stable canonical id** = its `HKWorkout.uuid`, written in two
+places:
+
+- **In the JSON** — `id` and `id_str` fields (`ActivityMapper` sets both from `workout.uuid`).
+  `Activity` decodes `id` flexibly (String *or* Int) so legacy Strava history files, which store
+  `id` as a JSON number, still decode when the app reads them (cache warming).
+- **In the filename** — `hk_<date>_<uuid>.json`. Because the uuid is deterministic, re-syncing the
+  same workout produces the exact same filename, so dedup is a pure filename check (two guards:
+  exact-name match, plus a `_<uuid>.json` substring guard right before commit). No file contents
+  are read for dedup, keeping sync cheap.
+
+**Accepted gap — no migration.** Pre-existing slug-named files (`hk_<date>_<category>_<n>.json`)
+are **not** migrated: they keep their slug filenames and have no `id`/`id_str`. This is fine
+because sync only moves forward from the `hk_last_synced` watermark and nothing looks activities up
+by uuid — the old files are never re-examined.
 5. **Commit** — `GitHubAPIClient.commitFiles()` batches the new activity file(s) plus the updated
    `sync_state.json` into **one atomic commit** using GitHub's Git Data API (create blobs → read
    HEAD → build tree → create commit → move the branch ref), retried against a fresh HEAD on a
@@ -111,7 +131,7 @@ Not referenced in the iOS codebase. `AGENTS.md` no longer documents it as a phon
 
 | File | Written by | Notes |
 |---|---|---|
-| `user_data/activities/hist/hk_*.json` | `HealthKitSyncManager` | one per new HealthKit workout |
+| `user_data/activities/hist/hk_<date>_<uuid>.json` | `HealthKitSyncManager` | one per new HealthKit workout; filename + JSON `id`/`id_str` = HKWorkout uuid |
 | `user_data/activities/sync_state.json` | `HealthKitSyncManager` | `hk_last_synced` + naming counters |
 
 That's the entire write set for the sync action itself — much shorter than Strava's, because

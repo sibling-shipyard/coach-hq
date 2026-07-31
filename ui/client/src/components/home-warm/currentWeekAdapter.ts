@@ -118,14 +118,9 @@ function mapStatus(session: RuntimeSession): SessionStatus {
   }
 }
 
-/** completion_activity_ids are qualified strings (`source:localId`); the widget keys on numeric ids. */
-function numericCompletionIds(ids: string[]): number[] {
-  return ids
-    .map((id) => {
-      const suffix = id.includes(":") ? id.slice(id.lastIndexOf(":") + 1) : id;
-      return Number(suffix);
-    })
-    .filter((value) => Number.isFinite(value));
+/** completion_activity_ids are qualified strings (`source:localId`); return the bare local ids for matching. */
+function completionLocalIds(ids: string[]): string[] {
+  return ids.map((id) => (id.includes(":") ? id.slice(id.lastIndexOf(":") + 1) : id));
 }
 
 function mapCoachRead(read: RuntimeCoachRead): CurrentWeekContract["coach_read"] {
@@ -171,7 +166,7 @@ function mapPlannedSession(session: RuntimeSession): CurrentWeekSession {
     template_id: session.template_id,
     session_file: session.session_file,
     coach_note: session.coach_note,
-    completion_activity_ids: numericCompletionIds(session.completion_activity_ids),
+    completion_activity_ids: completionLocalIds(session.completion_activity_ids),
   };
 }
 
@@ -190,7 +185,7 @@ function overlaySession(activity: Activity): CurrentWeekSession {
     template_id: null,
     session_file: null,
     coach_note: null,
-    completion_activity_ids: [activity.id],
+    completion_activity_ids: [String(activity.id)],
   };
 }
 
@@ -208,10 +203,10 @@ export function adaptCurrentWeek(
   availability: CurrentWeekAvailability,
   activities: Activity[],
 ): CurrentWeekContract {
-  const claimedActivityIds = new Set<number>();
+  const claimedActivityIds = new Set<string>();
   for (const day of runtime.days) {
     for (const session of day.sessions) {
-      for (const id of numericCompletionIds(session.completion_activity_ids)) {
+      for (const id of completionLocalIds(session.completion_activity_ids)) {
         claimedActivityIds.add(id);
       }
     }
@@ -221,7 +216,7 @@ export function adaptCurrentWeek(
   const weekEndExclusive = new Date(weekStart.getTime() + 7 * DAY_MS);
   const unclaimedByDate = new Map<string, Activity[]>();
   for (const activity of activities) {
-    if (claimedActivityIds.has(activity.id)) continue;
+    if (claimedActivityIds.has(String(activity.id))) continue;
     const when = parseLocal(activity.start_date_local);
     if (when < weekStart || when >= weekEndExclusive) continue;
     const dateKey = activity.start_date_local.slice(0, 10);

@@ -13,7 +13,8 @@ Usage:
     python query_history.py --has-description              # only sessions with descriptions
     python query_history.py --search "friendlies"         # text search in title + description
     python query_history.py --sport Badminton --detail    # full detail per activity
-    python query_history.py --id 12345678901              # single activity by ID
+    python query_history.py --id 12345678901              # single activity by numeric Strava ID
+    python query_history.py --id 8F3A-... (uuid)          # single activity by HealthKit uuid
     python query_history.py --list-sports                 # list all sport types with counts
 """
 
@@ -175,9 +176,11 @@ def filter_activities(activities, args):
             if needle not in title and needle not in desc:
                 continue
 
-        # ID filter
+        # ID filter — compare as strings so both numeric Strava ids and
+        # HealthKit uuid strings match; skip activities with no id.
         if args.id:
-            if a.get("id") != args.id:
+            aid = a.get("id")
+            if aid is None or str(aid) != args.id:
                 continue
 
         result.append(a)
@@ -322,7 +325,8 @@ def update_activity(activities, args):
     """Append notes or set RPE on an activity JSON file."""
     target = None
     for a in activities:
-        if a.get("id") == args.id:
+        aid = a.get("id")
+        if aid is not None and str(aid) == args.id:
             target = a
             break
     if not target:
@@ -372,7 +376,7 @@ def main():
     parser.add_argument("--has-photos", action="store_true", help="Only activities with photos")
     parser.add_argument("--has-description", action="store_true", help="Only activities with descriptions")
     parser.add_argument("--search", type=str, help="Text search in title and description")
-    parser.add_argument("--id", type=int, help="Single activity by ID")
+    parser.add_argument("--id", type=str, help="Single activity by ID (numeric Strava id or HealthKit uuid string)")
     parser.add_argument("--summary", action="store_true", help="Show aggregate stats instead of table")
     parser.add_argument("--detail", action="store_true", help="Show full detail per activity")
     parser.add_argument("--list-sports", action="store_true", help="List all sport types with counts")

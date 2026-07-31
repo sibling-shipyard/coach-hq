@@ -68,7 +68,9 @@ struct ActivityMapper {
             averageSpeed: averageSpeed,
             maxSpeed: 0, // Not available from HealthKit
             deviceName: workout.device?.name,
-            source: "healthkit"
+            source: "healthkit",
+            activityId: workout.uuid.uuidString,
+            idStr: workout.uuid.uuidString
         )
     }
 

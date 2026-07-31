@@ -87,7 +87,7 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
           template_id: null,
           session_file: null,
           coach_note: null,
-          completion_activity_ids: [activity.id],
+          completion_activity_ids: [String(activity.id)],
         };
       }),
     };

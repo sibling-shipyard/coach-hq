@@ -39,7 +39,7 @@ export interface CurrentWeekSession {
   template_id: string | null;
   session_file: string | null;
   coach_note: string | null;
-  completion_activity_ids: number[];
+  completion_activity_ids: string[];
 }
 
 export interface CurrentWeekDay {

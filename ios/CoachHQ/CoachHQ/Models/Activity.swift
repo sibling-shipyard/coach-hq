@@ -3,7 +3,10 @@ import Foundation
 /// Represents a single activity in the coach-phelps system.
 /// Schema matches the JSON expected by the dashboard's Activity TypeScript interface.
 struct Activity: Codable, Identifiable, Hashable {
-    var id: String { "\(startDateLocal)_\(sportType)" }
+    /// Identifiable conformance only — NOT encoded. Prefers the stored canonical
+    /// id (HKWorkout uuid) when present, else falls back to a synthetic key so
+    /// legacy files (no stored id) still get a stable-enough identity in lists.
+    var id: String { activityId ?? "\(startDateLocal)_\(sportType)" }
 
     let name: String
     let sportType: String
@@ -25,7 +28,18 @@ struct Activity: Codable, Identifiable, Hashable {
     let source: String            // "healthkit" or "strava"
     var preMentalState: PreMentalState? = nil // absent from older history files; optional keeps decoding safe
 
+    /// Canonical stable id persisted to JSON `"id"`. For HealthKit activities this
+    /// is the `HKWorkout.uuid`. Optional (default nil) so legacy files (no id, or a
+    /// numeric Strava id) still decode — see the custom `init(from:)` below — and so
+    /// existing memberwise-init call sites that don't set it still compile.
+    /// Declared last so these two params come last in the synthesized memberwise init.
+    var activityId: String? = nil
+    /// Persisted to JSON `"id_str"` (string form of the id). Same source as `activityId`.
+    var idStr: String? = nil
+
     enum CodingKeys: String, CodingKey {
+        case activityId = "id"
+        case idStr = "id_str"
         case name
         case sportType = "sport_type"
         case startDateLocal = "start_date_local"
@@ -45,6 +59,48 @@ struct Activity: Codable, Identifiable, Hashable {
         case deviceName = "device_name"
         case source
         case preMentalState = "pre_mental_state"
+    }
+}
+
+extension Activity {
+    /// Custom decode kept in an extension so the synthesized memberwise
+    /// initializer is preserved. Everything mirrors synthesized behavior except
+    /// `id`/`id_str`, which accept either a String or an Int: legacy Strava
+    /// history files store `"id"` as a JSON number (e.g. 19143374603), which a
+    /// plain `String?` decode would throw on. Encoding stays synthesized —
+    /// optionals use `encodeIfPresent`, so nil `id`/`id_str` are omitted and
+    /// present ones are written as strings.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Flexible String-or-Int id decode; missing → nil.
+        func flexibleString(_ key: CodingKeys) -> String? {
+            if let s = try? c.decode(String.self, forKey: key) { return s }
+            if let i = try? c.decode(Int.self, forKey: key) { return String(i) }
+            return nil
+        }
+        self.activityId = flexibleString(.activityId)
+        self.idStr = flexibleString(.idStr)
+
+        self.name = try c.decode(String.self, forKey: .name)
+        self.sportType = try c.decode(String.self, forKey: .sportType)
+        self.startDateLocal = try c.decode(String.self, forKey: .startDateLocal)
+        self.elapsedTime = try c.decode(Int.self, forKey: .elapsedTime)
+        self.movingTime = try c.decode(Int.self, forKey: .movingTime)
+        self.calories = try c.decodeIfPresent(Int.self, forKey: .calories)
+        self.distance = try c.decode(Double.self, forKey: .distance)
+        self.totalElevationGain = try c.decode(Double.self, forKey: .totalElevationGain)
+        self.averageHeartrate = try c.decodeIfPresent(Double.self, forKey: .averageHeartrate)
+        self.maxHeartrate = try c.decodeIfPresent(Double.self, forKey: .maxHeartrate)
+        self.hasHeartrate = try c.decode(Bool.self, forKey: .hasHeartrate)
+        self.hrZones = try c.decodeIfPresent([String: HRZoneEntry].self, forKey: .hrZones)
+        self.description = try c.decodeIfPresent(String.self, forKey: .description)
+        self.totalPhotoCount = try c.decode(Int.self, forKey: .totalPhotoCount)
+        self.averageSpeed = try c.decode(Double.self, forKey: .averageSpeed)
+        self.maxSpeed = try c.decode(Double.self, forKey: .maxSpeed)
+        self.deviceName = try c.decodeIfPresent(String.self, forKey: .deviceName)
+        self.source = try c.decode(String.self, forKey: .source)
+        self.preMentalState = try c.decodeIfPresent(PreMentalState.self, forKey: .preMentalState)
     }
 }
 
