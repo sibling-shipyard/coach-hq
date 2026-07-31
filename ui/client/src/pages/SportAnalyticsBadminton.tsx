@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
+import { Redirect } from "wouter";
 import { RepoDataGate } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import type { Activity } from "@/lib/activities";
 import type { ChallengeV2 } from "@/lib/challenge";
+import { isBadmintonAnalyticsAvailable } from "@/lib/plugins";
 import { parseCurrentWeek } from "@/lib/currentWeek";
 import { adaptCurrentWeek } from "@/components/home-warm/currentWeekAdapter";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
@@ -44,6 +46,10 @@ function SportAnalyticsBadmintonContent({ data }: { data: RepoData }) {
   const [mode, setMode] = useState<BadmintonMode>("all");
 
   const lens = useMemo(() => buildBadmintonLensModel(activities, mode), [activities, mode]);
+
+  if (!isBadmintonAnalyticsAvailable(data)) {
+    return <Redirect to="/404" />;
+  }
 
   return (
     <div className="wi-shell">

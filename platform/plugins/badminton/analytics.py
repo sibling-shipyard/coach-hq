@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Generate user_data/activities/badminton_analytics_snapshot.json from activity history.
 
-Reads user_data/activities/hist/*.json and platform/plugins/badminton/data/badminton_match_data.json,
-computes match analytics, and writes a compact snapshot for Coach Phelps.
+Reads user_data/activities/match_history.json (canonical, ADR 0013) and
+user_data/activities/hist/*.json, computes match analytics, and writes a compact
+snapshot for Coach Phelps and the dashboard.
 
 Usage:
     python platform/plugins/badminton/analytics.py
+    python engine/plugins/badminton/analytics.py
     python platform/plugins/badminton/generate_analytics_snapshot.py  # thin wrapper
 """
 
@@ -672,8 +674,8 @@ def main():
     print(f"[analytics] Built {len(sessions)} sessions with game data", file=sys.stderr)
 
     if not sessions:
-        print("[analytics] No sessions with game data found", file=sys.stderr)
-        sys.exit(1)
+        print("[analytics] No sessions with game data found — skipping snapshot", file=sys.stderr)
+        return
 
     # Data range
     dates = [s["date"] for s in sessions]

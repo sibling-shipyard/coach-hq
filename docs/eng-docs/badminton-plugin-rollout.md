@@ -33,13 +33,12 @@ flowchart TB
 
 ## PR stack (merge order)
 
-| # | Branch | Delivers |
-|---|---|---|
-| 1 | `core/plugins-json-gate` | `plugins.json` schema + greenfield default `{ "enabled": [] }`; read helper in pipeline/UI |
-| 2 | `feat/90-plugin-provision-pack` | `provision-user.sh --plugins badminton`; copy `platform/plugins/` → `engine/plugins/`; seed `reference/badminton.md` |
-| 3 | `feat/90-pipeline-step-7` | Restore analytics step in `engine/scripts/run_sync_pipeline.py`; skip when plugin dir absent |
-| 4 | `core/soul-badminton-plugin` | Layer B block (done in `B_engine.md` §10); `compose-soul.mjs` |
-| 5 | `ui/plugin-nav-gating` | Hide `/analytics/badminton` + header glyph unless plugin on or snapshot present |
+| # | Branch | Delivers | Status |
+|---|---|---|---|
+| 1–5 | `feat/90-badminton-plugin-stack` | Gate, provision, pipeline step, UI gating | **This PR** |
+| — | `core/badminton-plugin-soul-rollout` (#154) | SOUL Layer B §10 | ✅ merged |
+
+Implemented in one PR (stack items 1, 2, 3, 5). SOUL (#154) already merged separately.
 
 ## Done when
 

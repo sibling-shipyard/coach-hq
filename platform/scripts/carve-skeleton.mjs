@@ -110,6 +110,10 @@ const CHALLENGE_V2_TEMPLATE = {
   ],
 };
 
+const PLUGINS_TEMPLATE = {
+  enabled: [],
+};
+
 const CURRENT_WEEK_TEMPLATE = {
   schema_version: null,
   data_status: "unavailable",
@@ -494,6 +498,7 @@ function carve(outDir, sha) {
 
   // user_data — post-init band
   writeJson(outDir, "user_data/ledger/challenge_v2.json", CHALLENGE_V2_TEMPLATE);
+  writeJson(outDir, "user_data/ledger/plugins.json", PLUGINS_TEMPLATE);
   writeJson(outDir, "user_data/ledger/current_week.json", CURRENT_WEEK_TEMPLATE);
 
   // gen band placeholders
