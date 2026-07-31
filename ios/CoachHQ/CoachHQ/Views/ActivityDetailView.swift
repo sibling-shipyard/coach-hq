@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Shows a synced activity's stats and lets the user paste raw match scores,
 /// previewing the parsed/formatted result live, then commits both the activity
-/// file and `ebadders_history.json` to GitHub in one atomic commit.
+/// file and `user_data/activities/match_history.json` to GitHub in one atomic commit.
 ///
 /// Warm Instrument layout — inline back + title meta on desk, hero stats card,
 /// quiet zone breakdown, coach's-read description treatment.
@@ -396,10 +396,15 @@ struct ActivityDetailView: View {
                             .font(.system(size: 13, design: .monospaced))
                             .foregroundColor(WarmInstrument.inkMuted)
                     } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Paste scores above to see a preview.")
-                            .font(WarmInstrument.coachVoice(13))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                            .italic()
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Paste scores above to see a preview. Format:")
+                                .font(WarmInstrument.coachVoice(13))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                                .italic()
+                            Text("Doubles: Partner me vs Opp1/Opp2 21-18\nSingles: me vs Opponent 21-18")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                        }
                     } else {
                         Text("No games recognized yet — keep typing or check the format.")
                             .font(WarmInstrument.coachVoice(13))
@@ -452,9 +457,15 @@ struct ActivityDetailView: View {
         }
     }
 
-    private func readEbaddersHistoryWithPropagationRetry() async throws -> [EbaddersEntry] {
-        try await withPropagationRetry(operation: "Reading match history") {
-            try await apiClient.readEbaddersHistory()
+    /// Loads match history for save, retrying transient 404s. A missing file (greenfield)
+    /// becomes an empty v1 document — not an error.
+    private func readMatchHistoryForSave() async throws -> MatchHistory {
+        do {
+            return try await withPropagationRetry(operation: "Reading match history") {
+                try await apiClient.readMatchHistory()
+            }
+        } catch GitHubAPIError.notFound {
+            return MatchHistory(version: 1, sessions: [])
         }
     }
 
@@ -523,48 +534,31 @@ struct ActivityDetailView: View {
                 preMentalState: parsed.preMentalState.map { PreMentalState(score: $0.score, word: $0.word) } ?? currentActivity.preMentalState
             )
 
-            // Dedupe ebadders_history.json by date (not activity_id — HealthKit
+            // Dedupe match_history.json by date (not activity_id — HealthKit
             // activities have no Strava id, so activity_id is always nil here).
             let dateStr = String(currentActivity.startDateLocal.prefix(10))
             let newEntry = DescriptionParser.buildStructuredEntry(parsed, date: dateStr, activityId: nil)
 
-            // Must not silently swallow errors here: on any failure (network blip,
-            // auth hiccup, etc.) falling back to `[]` would commit a fresh
-            // ebadders_history.json containing only this one entry, destroying
-            // every prior match record. Let real failures abort the save instead.
-            // Same propagation-delay risk as the activity read: on a freshly
-            // reset branch this file can briefly 404 even though it exists at
-            // HEAD. Retry a couple of times before giving up — and never fall
-            // back to [] (that would wipe all prior match records on commit).
-            var history = try await readEbaddersHistoryWithPropagationRetry()
-            history.removeAll { $0.date == dateStr }
-            history.append(newEntry)
-            history.sort { $0.date > $1.date }
+            // Retry transient 404s (Contents API propagation). If the file is still
+            // missing after retries, treat as greenfield empty history — not a wipe
+            // of existing data. Non-404 errors still abort the save.
+            let history = try await readMatchHistoryForSave()
+            var sessions = history.sessions
+            sessions.removeAll { $0.date == dateStr }
+            sessions.append(newEntry)
+            sessions.sort { $0.date > $1.date }
+            let updatedHistory = MatchHistory(version: 1, sessions: sessions)
 
-            // Both files use .sortedKeys. Previously this file used a plain
-            // JSONEncoder (no .sortedKeys) for ebadders_history.json, on the
-            // assumption that EbaddersEntry/EbaddersMatch's custom encode(to:)
-            // would make JSONEncoder emit keys in that same call order, matching
-            // the Python pipeline's insertion order. That assumption is wrong:
-            // Foundation's JSONEncoder does NOT guarantee call-order preservation
-            // without .sortedKeys — its internal storage is unordered, and the
-            // emitted key order follows Swift's hash-seeded Dictionary iteration,
-            // which is randomized *per process launch*. Verified live: decoding
-            // the real file and re-encoding without .sortedKeys produced a key
-            // order matching neither alphabetical nor the declared field order.
-            // That means every fresh app launch could scramble the whole file
-            // into a *different* order on save — strictly worse than the
-            // original .sortedKeys behavior, which is at least a one-time,
-            // deterministic, stable-thereafter reorder. Using it for both files.
+            // Both files use .sortedKeys.
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let activityData = try encoder.encode(updatedActivity)
-            let historyData = try encoder.encode(history)
+            let historyData = try encoder.encode(updatedHistory)
 
             try await apiClient.commitFiles(
                 [
                     (path: "user_data/activities/hist/\(entry.fileName)", data: activityData),
-                    (path: "training/ebadders_history.json", data: historyData),
+                    (path: "user_data/activities/match_history.json", data: historyData),
                 ],
                 message: "ios: add scores for \(currentActivity.name)"
             )

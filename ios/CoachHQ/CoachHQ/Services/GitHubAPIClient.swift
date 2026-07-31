@@ -198,11 +198,11 @@ class GitHubAPIClient {
         }
     }
 
-    /// Reads the full badminton match history from `training/ebadders_history.json`.
-    func readEbaddersHistory() async throws -> [EbaddersEntry] {
-        let data = try await readFile(path: "training/ebadders_history.json")
+    /// Reads the full badminton match history from `user_data/activities/match_history.json`.
+    func readMatchHistory() async throws -> MatchHistory {
+        let data = try await readFile(path: "user_data/activities/match_history.json")
         do {
-            return try JSONDecoder().decode([EbaddersEntry].self, from: data)
+            return try JSONDecoder().decode(MatchHistory.self, from: data)
         } catch {
             throw GitHubAPIError.decodingFailed(operation: "Parsing match history")
         }
