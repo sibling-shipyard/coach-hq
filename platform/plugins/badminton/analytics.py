@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate user_data/activities/badminton_analytics_snapshot.json from activity history.
+"""Generate gen/badminton_analytics_snapshot.json from activity history.
 
 Reads user_data/activities/match_history.json (canonical, ADR 0013) and
 user_data/activities/hist/*.json, computes match analytics, and writes a compact
@@ -23,7 +23,7 @@ _ENGINE = Path(__file__).resolve().parents[3] / "engine"
 sys.path.insert(0, str(_ENGINE / "lib"))
 sys.path.insert(0, str(_ENGINE))
 
-from repo_layout import activities_dir, hist_dir, repo_root_from_here  # noqa: E402
+from repo_layout import activities_dir, gen_dir, hist_dir, repo_root_from_here  # noqa: E402
 from core.taxonomy import BADMINTON_CATEGORIES, get_training_category
 
 REPO_DIR = repo_root_from_here(__file__)
@@ -32,7 +32,7 @@ HISTORY_DIR = hist_dir(REPO_DIR)
 CANONICAL_MATCH_HISTORY_PATH = ACTIVITIES_DIR / "match_history.json"
 LEGACY_MATCH_DATA_PATH = Path(__file__).resolve().parent / "data" / "badminton_match_data.json"
 ROOT_MATCH_DATA_PATH = REPO_DIR / "badminton_match_data.json"
-OUTPUT_PATH = ACTIVITIES_DIR / "badminton_analytics_snapshot.json"
+OUTPUT_PATH = gen_dir(REPO_DIR) / "badminton_analytics_snapshot.json"
 
 
 def load_match_history() -> dict[str, dict]:

@@ -35,9 +35,10 @@ class TestPlugins(unittest.TestCase):
     def test_legacy_snapshot_without_plugins_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
-            activities = repo / "user_data" / "activities"
-            activities.mkdir(parents=True)
-            (activities / "badminton_analytics_snapshot.json").write_text("{}")
+            (repo / "user_data").mkdir()
+            gen = repo / "gen"
+            gen.mkdir(parents=True)
+            (gen / "badminton_analytics_snapshot.json").write_text("{}")
             self.assertTrue(badminton_analytics_available(repo))
 
 
