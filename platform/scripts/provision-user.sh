@@ -139,6 +139,9 @@ apply_legacy_overlay() {
   copy_tree "training/activities/quest_history.json" "gen/quest_history.json"
   copy_tree "data/aggregate.json" "gen/aggregate.json"
 
+  copy_tree "training/ebadders_history.json" "training/ebadders_history.json"
+  copy_tree "plugins/badminton/data/badminton_match_data.json" "user_data/activities/badminton_match_data.json"
+
   # Remove skeleton seed placeholders when hist/ has real files
   if [[ -d "${target_root}/user_data/activities/hist" ]]; then
     find "${target_root}/user_data/activities/hist" -name '.gitkeep' -delete 2>/dev/null || true
@@ -152,6 +155,11 @@ regenerate_gen() {
   hq_root="$(cd "$(dirname "$0")/.." && pwd)"
   command -v python3 >/dev/null || die "python3 required for gen/ regeneration"
   command -v node >/dev/null || die "node required for gen/ regeneration"
+
+  # Run badminton match history migration if legacy match data exists
+  if [[ -f "${hq_root}/platform/scripts/migrate_match_history.py" ]]; then
+    (cd "$target_root" && python3 "${hq_root}/platform/scripts/migrate_match_history.py") || warn "Match history migration skipped or failed"
+  fi
 
   # Skeleton may lag HQ engine fixes — sync layout helpers before regen.
   if [[ -f "${hq_root}/engine/lib/repo_layout.py" ]]; then
