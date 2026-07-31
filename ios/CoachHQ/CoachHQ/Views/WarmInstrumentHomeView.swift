@@ -556,6 +556,10 @@ private struct EngineWidget: View {
             bandProgress = 0
             withAnimation(.spring(duration: 0.7, bounce: 0.1).delay(0.05)) { bandProgress = 1.0 }
         }
+        .task {
+            try? await Task.sleep(for: .seconds(0.15))
+            withAnimation(.spring(duration: 0.7, bounce: 0.1)) { bandProgress = 1.0 }
+        }
     }
 
     private func header(weekLabel: String, signal: String) -> some View {
@@ -622,10 +626,6 @@ private struct EngineWidget: View {
             }
         }
         .frame(height: 12)
-        .task {
-            try? await Task.sleep(for: .seconds(0.15))
-            withAnimation(.spring(duration: 0.7, bounce: 0.1)) { bandProgress = 1.0 }
-        }
     }
 
     private func trendSparkline(_ points: [TrendPointSnapshot]) -> some View {

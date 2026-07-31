@@ -403,7 +403,7 @@ struct CoachChatView: View {
                 clearThreadState()
                 return
             }
-            errorMessage = error.errorDescription ?? "Couldn't load conversations"
+            errorMessage = UserFacingError.friendlyMessage(for: error)
         } catch {
             errorMessage = "Couldn't load conversations"
         }
@@ -503,7 +503,7 @@ struct CoachChatView: View {
                 authManager.sessionExpired = true
                 clearThreadState()
             } else {
-                errorMessage = error.errorDescription ?? "Coach didn't reply — try again"
+                errorMessage = UserFacingError.friendlyMessage(for: error)
             }
             draft = trimmed
         } catch {

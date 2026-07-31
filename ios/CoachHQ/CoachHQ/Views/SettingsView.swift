@@ -376,7 +376,7 @@ struct SettingsView: View {
             try await testMode.resetTestBranch(authManager: authManager)
             resetResult = "✓ Test branch reset to main HEAD"
         } catch {
-            resetResult = "✗ \(error.localizedDescription)"
+            resetResult = "✗ \(UserFacingError.friendlyMessage(for: error))"
         }
     }
 }

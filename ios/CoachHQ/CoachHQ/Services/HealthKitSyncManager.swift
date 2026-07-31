@@ -239,9 +239,15 @@ class HealthKitSyncManager: ObservableObject {
             // failure; stay quiet instead of showing a scary "cancelled" error.
         } catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
             // Same: URLSession-level cancellation, not a sync failure.
+        } catch let apiError as GitHubAPIError where {
+            if case .sessionNotReady = apiError { return true }
+            return false
+        }() {
+            // Session not ready yet — silently ignore, same as WidgetSnapshotStore.
         } catch {
-            syncError = error.localizedDescription
-            lastSyncResult = SyncResult(outcome: .failed(error.localizedDescription), id: UUID())
+            let friendly = UserFacingError.friendlyMessage(for: error)
+            syncError = friendly
+            lastSyncResult = SyncResult(outcome: .failed(friendly), id: UUID())
         }
 
         isSyncing = false

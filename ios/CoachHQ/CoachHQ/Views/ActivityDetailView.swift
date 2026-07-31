@@ -438,7 +438,7 @@ struct ActivityDetailView: View {
             activity = fetched
             SyncCache.updateStats(fileName: entry.fileName, activity: fetched)
         } catch {
-            errorMessage = "Could not load activity: \(error.localizedDescription)"
+            errorMessage = UserFacingError.friendlyMessage(for: error)
         }
     }
 
@@ -579,7 +579,7 @@ struct ActivityDetailView: View {
             }
             Haptics.success()
         } catch {
-            errorMessage = "Save failed: \(error.localizedDescription)"
+            errorMessage = UserFacingError.friendlyMessage(for: error)
             Haptics.error()
         }
     }
