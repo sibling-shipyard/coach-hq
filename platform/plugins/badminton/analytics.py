@@ -27,105 +27,43 @@ from core.taxonomy import BADMINTON_CATEGORIES, get_training_category
 REPO_DIR = repo_root_from_here(__file__)
 ACTIVITIES_DIR = activities_dir(REPO_DIR)
 HISTORY_DIR = hist_dir(REPO_DIR)
-MATCH_DATA_PATH = Path(__file__).resolve().parent / "data" / "badminton_match_data.json"
+CANONICAL_MATCH_HISTORY_PATH = ACTIVITIES_DIR / "match_history.json"
+LEGACY_MATCH_DATA_PATH = Path(__file__).resolve().parent / "data" / "badminton_match_data.json"
+ROOT_MATCH_DATA_PATH = REPO_DIR / "badminton_match_data.json"
 OUTPUT_PATH = ACTIVITIES_DIR / "badminton_analytics_snapshot.json"
 
-# ─── Description parsing (formatted descriptions) ───────────────────────
 
-GAME_LINE_RE = re.compile(
-    r"^([WL])\s+(\d+)-(\d+)\s+w/\s+(.+?)\s+vs\s+(.+)$"
-)
+def load_match_history() -> dict[str, dict]:
+    """Load match history from canonical match_history.json or legacy fallbacks, keyed by YYYY-MM-DD."""
+    history_file = None
+    if CANONICAL_MATCH_HISTORY_PATH.exists():
+        history_file = CANONICAL_MATCH_HISTORY_PATH
+    elif ROOT_MATCH_DATA_PATH.exists():
+        history_file = ROOT_MATCH_DATA_PATH
+    elif LEGACY_MATCH_DATA_PATH.exists():
+        history_file = LEGACY_MATCH_DATA_PATH
 
-
-def parse_formatted_description(desc: str) -> Optional[dict]:
-    """Parse a formatted Strava description into ranked and friendly game lists.
-
-    Returns dict with keys: ranked, friendlies, notes
-    or None if no games found.
-    """
-    if not desc or "Games:" not in desc:
-        return None
-
-    ranked_games = []
-    friendly_games = []
-    in_games = False
-    in_friendlies = False
-    notes_lines = []
-
-    for line in desc.strip().splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if line == "Games:":
-            in_games = True
-            in_friendlies = False
-            continue
-        if line == "Friendlies:":
-            in_friendlies = True
-            in_games = False
-            continue
-
-        if in_games or in_friendlies:
-            m = GAME_LINE_RE.match(line)
-            if m:
-                won = m.group(1) == "W"
-                s1 = int(m.group(2))
-                s2 = int(m.group(3))
-                # Score format varies by source; use W/L prefix
-                # as ground truth and assign scores accordingly.
-                if won:
-                    our_score = max(s1, s2)
-                    their_score = min(s1, s2)
-                else:
-                    our_score = min(s1, s2)
-                    their_score = max(s1, s2)
-                game = {
-                    "won": won,
-                    "our_score": our_score,
-                    "their_score": their_score,
-                    "partner": m.group(4).strip(),
-                    "opponents": [o.strip() for o in m.group(5).split("+")],
-                }
-                if in_friendlies:
-                    friendly_games.append(game)
-                else:
-                    ranked_games.append(game)
-        elif not in_games and not in_friendlies:
-            # Lines before "Games:" — could be notes or summary line
-            # Skip the W-L summary line
-            if re.match(r"^\d+W-\d+L", line):
-                continue
-            if line.startswith("Rank:") or "| Rank:" in line:
-                continue
-            notes_lines.append(line)
-
-    all_games = ranked_games + friendly_games
-    if not all_games:
-        return None
-
-    return {
-        "ranked": ranked_games,
-        "friendlies": friendly_games,
-        "notes": "\n".join(notes_lines).strip() or None,
-    }
-
-
-# ─── Match data loading ─────────────────────────────────────────────────
-
-def load_match_data() -> dict:
-    """Load badminton_match_data.json, keyed by date string."""
-    if not MATCH_DATA_PATH.exists():
+    if not history_file:
         return {}
-    data = json.loads(MATCH_DATA_PATH.read_text())
+
+    try:
+        raw_data = json.loads(history_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
     by_date = {}
-    for entry in data:
-        date = entry.get("date", "")
-        if date:
-            by_date[date] = entry
+    if isinstance(raw_data, dict) and "sessions" in raw_data:
+        for s in raw_data["sessions"]:
+            date = s.get("date")
+            if date:
+                by_date[date] = s
+    elif isinstance(raw_data, list):
+        for s in raw_data:
+            date = s.get("date")
+            if date:
+                by_date[date] = s
     return by_date
 
-
-# ─── Activity loading ───────────────────────────────────────────────────
 
 def load_badminton_activities() -> list[dict]:
     """Load all badminton activities from history, sorted by date ascending."""
@@ -150,100 +88,98 @@ def load_badminton_activities() -> list[dict]:
     return activities
 
 
-# ─── Session parsing — description + match data fallback ────────────────
-
 def build_sessions(
-    activities: list[dict], match_data: dict
+    activities: list[dict], match_history_map: dict[str, dict]
 ) -> list[dict]:
-    """Build session records with ranked/all game lists.
+    """Build session records with ranked/all game lists from structured match_history.json.
 
-    For each badminton activity:
-    1. Try parsing the formatted description (has Games:/Friendlies: sections)
-    2. Fall back to badminton_match_data.json (ranked games only)
-    3. Skip if neither source has game data
-
-    Returns list of session dicts sorted by date ascending.
+    Falls back to description parsing if no structured match history is available for an activity date.
     """
     sessions = []
+    activities_by_date = {act["_date"]: act for act in activities}
+    all_dates = sorted(set(activities_by_date.keys()) | set(match_history_map.keys()))
 
-    for act in activities:
-        date = act["_date"]
-        category = act["_category"]
-        desc = act.get("description") or ""
+    for date in all_dates:
+        act = activities_by_date.get(date, {})
+        category = act.get("_category", "Badminton")
         avg_hr = act.get("average_heartrate")
+        act_name = act.get("name", "Badminton Session")
 
-        parsed = parse_formatted_description(desc)
+        match_entry = match_history_map.get(date)
+        ranked_games = []
+        friendly_games = []
 
-        if parsed:
-            # Description has game-level data
-            ranked_games = parsed["ranked"]
-            friendly_games = parsed["friendlies"]
-        elif date in match_data:
-            # Fall back to structured match data (ranked games only)
-            eb = match_data[date]
-            ranked_games = []
-            for m in eb.get("matches", []):
+        if match_entry and "games" in match_entry:
+            for g in match_entry["games"]:
+                res = g.get("result")
+                won = res == "W" if res is not None else (g.get("scoreFor", 0) > g.get("scoreAgainst", 0))
+                game_obj = {
+                    "won": won,
+                    "our_score": g.get("scoreFor", 0),
+                    "their_score": g.get("scoreAgainst", 0),
+                    "partner": g.get("partner"),
+                    "opponents": g.get("opponents", []),
+                    "format": g.get("format", "singles" if not g.get("partner") else "doubles"),
+                    "category": g.get("category", "ranked"),
+                }
+                if game_obj["category"] == "friendly":
+                    friendly_games.append(game_obj)
+                else:
+                    ranked_games.append(game_obj)
+        elif match_entry and "matches" in match_entry:
+            # Legacy format fallback
+            for m in match_entry.get("matches", []):
                 score = m.get("score", "0-0")
                 parts = score.split("-")
                 s1 = int(parts[0]) if len(parts) == 2 else 0
                 s2 = int(parts[1]) if len(parts) == 2 else 0
-                won = m.get("akash_won", s1 > s2)
-                if won:
-                    our_score, their_score = max(s1, s2), min(s1, s2)
-                else:
-                    our_score, their_score = min(s1, s2), max(s1, s2)
-                partner = m.get("partner", ["Unknown"])
+                akash_won = m.get("akashWon") if "akashWon" in m else m.get("akash_won")
+                won = m.get("result") == "W" if "result" in m else (akash_won if akash_won is not None else s1 > s2)
+                our_score = max(s1, s2) if won else min(s1, s2)
+                their_score = min(s1, s2) if won else max(s1, s2)
+                partner = m.get("partner")
                 if isinstance(partner, list):
-                    partner = partner[0] if partner else "Unknown"
-                vs = m.get("vs", [])
-                ranked_games.append({
+                    partner = partner[0] if partner else None
+                if partner == "Solo":
+                    partner = None
+                fmt = m.get("format") or ("singles" if not partner else "doubles")
+                cat = m.get("category", "ranked")
+                game_obj = {
                     "won": won,
                     "our_score": our_score,
                     "their_score": their_score,
                     "partner": partner,
-                    "opponents": vs,
-                })
-            friendly_games = []
+                    "opponents": m.get("vs", []),
+                    "format": fmt,
+                    "category": cat,
+                }
+                if cat == "friendly":
+                    friendly_games.append(game_obj)
+                else:
+                    ranked_games.append(game_obj)
         else:
-            continue  # No game data
+            # Fall back to description parsing
+            desc = act.get("description") or ""
+            parsed = parse_formatted_description(desc)
+            if parsed:
+                ranked_games = parsed["ranked"]
+                friendly_games = parsed["friendlies"]
 
         all_games = ranked_games + friendly_games
         if not all_games:
             continue
 
-        # For activities categorized as friendly/casual with no separator,
-        # all games go into "all" but none into "ranked"
-        if category in ("badminton_friendly", "badminton_casual") and not parsed:
-            ranked_games = []
-        elif category in ("badminton_friendly", "badminton_casual") and parsed:
-            # If description was parsed but no Friendlies: separator exists,
-            # and category is friendly — treat all as non-ranked
-            if not parsed["friendlies"]:
-                # All games are in "ranked" list but activity is friendly category
-                # Move them to friendly
-                friendly_games = ranked_games + friendly_games
-                ranked_games = []
-
-        ranked_wins = sum(1 for g in ranked_games if g["won"])
-        ranked_losses = len(ranked_games) - ranked_wins
-        all_wins = sum(1 for g in all_games if g["won"])
-        all_losses = len(all_games) - all_wins
-
         sessions.append({
             "date": date,
-            "name": act.get("name", ""),
+            "name": act_name,
             "category": category,
-            "avg_hr": round(avg_hr) if avg_hr else None,
+            "avg_hr": avg_hr,
             "ranked_games": ranked_games,
             "friendly_games": friendly_games,
             "all_games": all_games,
-            "ranked_wins": ranked_wins,
-            "ranked_losses": ranked_losses,
-            "all_wins": all_wins,
-            "all_losses": all_losses,
         })
 
-    return sessions
+    return sorted(sessions, key=lambda s: s["date"])
 
 
 # ─── Analytics computation ───────────────────────────────────────────────
@@ -449,11 +385,12 @@ def compute_partner_stats(
     # Aggregate by partner
     partner_stats = defaultdict(lambda: {"wins": 0, "total": 0, "score_diffs": []})
     for g in games:
-        p = g["partner"]
-        partner_stats[p]["total"] += 1
-        if g["won"]:
-            partner_stats[p]["wins"] += 1
-        partner_stats[p]["score_diffs"].append(g["our_score"] - g["their_score"])
+        p = g.get("partner")
+        if p and g.get("format") != "singles":
+            partner_stats[p]["total"] += 1
+            if g["won"]:
+                partner_stats[p]["wins"] += 1
+            partner_stats[p]["score_diffs"].append(g["our_score"] - g["their_score"])
 
     # Aggregate by opponent
     opponent_stats = defaultdict(lambda: {"wins": 0, "total": 0, "score_diffs": []})
@@ -470,10 +407,11 @@ def compute_partner_stats(
     recent_partner_stats = defaultdict(lambda: {"wins": 0, "total": 0})
     recent_opponent_stats = defaultdict(lambda: {"wins": 0, "total": 0})
     for g in recent_games:
-        p = g["partner"]
-        recent_partner_stats[p]["total"] += 1
-        if g["won"]:
-            recent_partner_stats[p]["wins"] += 1
+        p = g.get("partner")
+        if p and g.get("format") != "singles":
+            recent_partner_stats[p]["total"] += 1
+            if g["won"]:
+                recent_partner_stats[p]["wins"] += 1
         for opp in g["opponents"]:
             recent_opponent_stats[opp]["total"] += 1
             if g["won"]:
@@ -727,10 +665,10 @@ def main():
     activities = load_badminton_activities()
     print(f"[analytics] Found {len(activities)} badminton activities", file=sys.stderr)
 
-    match_data = load_match_data()
-    print(f"[analytics] Loaded {len(match_data)} match-data sessions", file=sys.stderr)
+    match_history = load_match_history()
+    print(f"[analytics] Loaded {len(match_history)} match-history sessions", file=sys.stderr)
 
-    sessions = build_sessions(activities, match_data)
+    sessions = build_sessions(activities, match_history)
     print(f"[analytics] Built {len(sessions)} sessions with game data", file=sys.stderr)
 
     if not sessions:
@@ -759,7 +697,7 @@ def main():
         "all_games": all_section,
     }
 
-    TRAINING_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(json.dumps(snapshot, indent=2) + "\n")
     print(f"[analytics] Written to {OUTPUT_PATH}", file=sys.stderr)
     print(f"[analytics] Ranked: {ranked_section['overall']['total_games']} games, "
