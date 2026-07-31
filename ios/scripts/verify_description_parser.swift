@@ -173,14 +173,20 @@ struct Verify {
             t.check("test_09_partner_with_space", out.contains("w/ Dom L vs Kean + Harry S"))
         }
 
-        // ── Test 10: Single opponent (singles) ─────────────────────────────
+        // ── Test 10: Singles Grammar ───────────────────────────────────────
         do {
-            let raw = "Ivor me vs Alston 21-18"
+            let raw = "me vs Alston 21-18"
             let parsed = DescriptionParser.parseRawDescription(raw)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
-            t.check("test_10_singles: contains line", out.contains("W 21-18 w/ Ivor vs Alston"))
+            t.check("test_10_singles: contains formatted output without w/", out.contains("W 21-18 vs Alston"))
             let afterGames = out.components(separatedBy: "Games:").last ?? ""
             t.check("test_10_singles: no '+' after Games:", !afterGames.contains("+"))
+            
+            // Partner prefix means doubles, NOT singles
+            let rawDoubles = "Ivor me vs Alston 21-18"
+            let parsedDoubles = DescriptionParser.parseRawDescription(rawDoubles)
+            let outDoubles = parsedDoubles.map { DescriptionParser.formatDescription($0) } ?? ""
+            t.check("test_10_doubles: partner treated as doubles", outDoubles.contains("W 21-18 w/ Ivor vs Alston"))
         }
 
         // ── Test 11: Malformed line — missing score ────────────────────────
@@ -325,15 +331,13 @@ struct Verify {
             if let parsed = parsed {
                 let entry = DescriptionParser.buildStructuredEntry(parsed, date: "2026-03-27", activityId: 12345678)
                 t.check("test_structured_entry: date", entry.date == "2026-03-27")
-                t.check("test_structured_entry: activity_id", entry.activityId == 12345678)
-                t.check("test_structured_entry: source", entry.source == "manual")
-                t.check("test_structured_entry: wins", entry.wins == 1)
-                t.check("test_structured_entry: losses", entry.losses == 1)
-                t.check("test_structured_entry: total", entry.total == 2)
-                t.check("test_structured_entry: win_pct", entry.winPct == 50)
-                t.check("test_structured_entry: 2 matches", entry.matches.count == 2)
-                t.check("test_structured_entry: match[0] won", entry.matches[0].result == "W")
-                t.check("test_structured_entry: match[1] lost", entry.matches[1].result == "L")
+                t.check("test_structured_entry: activityId", entry.activityId == 12345678)
+                t.check("test_structured_entry: wins", entry.summary.wins == 1)
+                t.check("test_structured_entry: losses", entry.summary.losses == 1)
+                t.check("test_structured_entry: winPct", entry.summary.winPct == 50)
+                t.check("test_structured_entry: 2 matches", entry.games.count == 2)
+                t.check("test_structured_entry: match[0] won", entry.games[0].result == "W")
+                t.check("test_structured_entry: match[1] lost", entry.games[1].result == "L")
             }
         }
 
@@ -350,47 +354,42 @@ struct Verify {
         }
 
         // ── Bonus: Format B (eBadders table) sanity checks ──────────────────
-        // Not present in the Python test file, but the format is part of the spec
-        // (see parse_match_description.py docstring) — added for extra confidence.
         do {
             let raw = [
                 "Winners\tScore\tOpponents",
                 "Mui + Akash\t21-14\tFrankiee + Maggie",
                 "Frankiee + Maggie\t21-19\tMui + Akash",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, athleteName: "Akash")
             t.check("bonus_ebadders_table: parsed not nil", parsed != nil)
             if let parsed = parsed {
                 t.check("bonus_ebadders_table: 2 ranked games", parsed.ranked.count == 2)
-                // Table is newest-first (row 1 = most recent game), so after the parser's
-                // reversal, row 2 (older) becomes ranked[0] and row 1 (newer) becomes ranked[1].
-                t.check("bonus_ebadders_table: game 1 (oldest, row 2) is a loss", parsed.ranked.first?.akashWon == false)
+                t.check("bonus_ebadders_table: game 1 (oldest, row 2) is a loss", parsed.ranked.first?.won == false)
                 t.check("bonus_ebadders_table: game 1 partner is Mui", parsed.ranked.first?.partner == "Mui")
                 t.check("bonus_ebadders_table: game 1 score flipped to 19-21", parsed.ranked.first?.score == "19-21")
-                t.check("bonus_ebadders_table: game 2 (newest, row 1) is a win", parsed.ranked.last?.akashWon == true)
+                t.check("bonus_ebadders_table: game 2 (newest, row 1) is a win", parsed.ranked.last?.won == true)
                 t.check("bonus_ebadders_table: game 2 score is 21-14", parsed.ranked.last?.score == "21-14")
             }
         }
 
         do {
-            // Singles row (no partner) -> "Solo"
+            // Singles row (no partner)
             let raw = [
                 "Winners\tScore\tOpponents",
                 "Akash\t21-14\tFrankiee",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, athleteName: "Akash")
             t.check("bonus_ebadders_solo: parsed not nil", parsed != nil)
-            t.check("bonus_ebadders_solo: partner is empty", parsed?.ranked.first?.partner == "")
+            t.check("bonus_ebadders_solo: partner is empty or nil", parsed?.ranked.first?.partner == nil)
         }
 
         do {
-            // Row without Akash on either side should be skipped (no games -> nil overall
-            // if it's the only row).
+            // Row without Akash on either side should be skipped (no games -> nil overall if it's the only row).
             let raw = [
                 "Winners\tScore\tOpponents",
                 "Frankiee + Maggie\t21-14\tSomeone + Else",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, athleteName: "Akash")
             t.check("bonus_ebadders_no_akash: nil (no games)", parsed == nil)
         }
 
