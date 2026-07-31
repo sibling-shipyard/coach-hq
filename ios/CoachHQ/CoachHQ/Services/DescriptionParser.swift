@@ -59,7 +59,6 @@ struct EbaddersMatch: Codable, Equatable {
     var partner: String
     var vs: [String]
     var score: String
-    var akashWon: Bool
     var preNote: String?
     var postNote: String?
     var format: String
@@ -67,6 +66,8 @@ struct EbaddersMatch: Codable, Equatable {
     var scoreFor: Int
     var scoreAgainst: Int
     var result: String
+
+    var won: Bool { return result == "W" }
 
     // Set only when decoded from the legacy eBadders array shape (see
     // init(from:)). Preserved so encode(to:) round-trips these entries back
@@ -91,7 +92,6 @@ struct EbaddersMatch: Codable, Equatable {
         case partner
         case vs
         case score
-        case akashWon = "akash_won"
         case preNote = "pre_note"
         case postNote = "post_note"
         case winners
@@ -102,20 +102,20 @@ struct EbaddersMatch: Codable, Equatable {
         case scoreFor = "scoreFor"
         case scoreAgainst = "scoreAgainst"
         case result
+        case legacyAkashWon = "akash_won"
     }
 
-    init(partner: String, vs: [String], score: String, akashWon: Bool, preNote: String? = nil, postNote: String? = nil, format: String, category: String, scoreFor: Int, scoreAgainst: Int, result: String) {
+    init(partner: String, vs: [String], score: String, result: String, preNote: String? = nil, postNote: String? = nil, format: String, category: String, scoreFor: Int, scoreAgainst: Int) {
         self.partner = partner
         self.vs = vs
         self.score = score
-        self.akashWon = akashWon
+        self.result = result
         self.preNote = preNote
         self.postNote = postNote
         self.format = format
         self.category = category
         self.scoreFor = scoreFor
         self.scoreAgainst = scoreAgainst
-        self.result = result
         self.rawPartnerArray = nil
         self.rawWinners = nil
         self.rawOpponents = nil
@@ -138,14 +138,14 @@ struct EbaddersMatch: Codable, Equatable {
         }
         vs = try container.decode([String].self, forKey: .vs)
         score = try container.decode(String.self, forKey: .score)
-        akashWon = try container.decode(Bool.self, forKey: .akashWon)
         preNote = try container.decodeIfPresent(String.self, forKey: .preNote)
         postNote = try container.decodeIfPresent(String.self, forKey: .postNote)
         format = try container.decodeIfPresent(String.self, forKey: .format) ?? "doubles"
         category = try container.decodeIfPresent(String.self, forKey: .category) ?? "ranked"
         scoreFor = try container.decodeIfPresent(Int.self, forKey: .scoreFor) ?? 0
         scoreAgainst = try container.decodeIfPresent(Int.self, forKey: .scoreAgainst) ?? 0
-        result = try container.decodeIfPresent(String.self, forKey: .result) ?? (akashWon ? "W" : "L")
+        let legacyAkashWon = try container.decodeIfPresent(Bool.self, forKey: .legacyAkashWon)
+        result = try container.decodeIfPresent(String.self, forKey: .result) ?? (legacyAkashWon == true ? "W" : "L")
         rawWinners = try container.decodeIfPresent([String].self, forKey: .winners)
         rawOpponents = try container.decodeIfPresent([String].self, forKey: .opponents)
         rawAkashTeam = try container.decodeIfPresent(String.self, forKey: .akashTeam)
@@ -160,7 +160,6 @@ struct EbaddersMatch: Codable, Equatable {
         }
         try container.encode(vs, forKey: .vs)
         try container.encode(score, forKey: .score)
-        try container.encode(akashWon, forKey: .akashWon)
         try container.encodeIfPresent(preNote, forKey: .preNote)
         try container.encodeIfPresent(postNote, forKey: .postNote)
         try container.encode(format, forKey: .format)
@@ -545,14 +544,14 @@ enum DescriptionParser {
             let scoreFor = Int(parts.first ?? "0") ?? 0
             let scoreAgainst = Int(parts.last ?? "0") ?? 0
             let result = g.akashWon ? "W" : "L"
-            matches.append(EbaddersMatch(partner: g.partner, vs: g.vs, score: g.score, akashWon: g.akashWon, preNote: g.preNote, postNote: g.postNote, format: g.format, category: "ranked", scoreFor: scoreFor, scoreAgainst: scoreAgainst, result: result))
+            matches.append(EbaddersMatch(partner: g.partner, vs: g.vs, score: g.score, result: result, preNote: g.preNote, postNote: g.postNote, format: g.format, category: "ranked", scoreFor: scoreFor, scoreAgainst: scoreAgainst))
         }
         for g in parsed.friendlies {
             let parts = g.score.components(separatedBy: "-")
             let scoreFor = Int(parts.first ?? "0") ?? 0
             let scoreAgainst = Int(parts.last ?? "0") ?? 0
             let result = g.akashWon ? "W" : "L"
-            matches.append(EbaddersMatch(partner: g.partner, vs: g.vs, score: g.score, akashWon: g.akashWon, preNote: g.preNote, postNote: g.postNote, format: g.format, category: "friendly", scoreFor: scoreFor, scoreAgainst: scoreAgainst, result: result))
+            matches.append(EbaddersMatch(partner: g.partner, vs: g.vs, score: g.score, result: result, preNote: g.preNote, postNote: g.postNote, format: g.format, category: "friendly", scoreFor: scoreFor, scoreAgainst: scoreAgainst))
         }
 
         return EbaddersEntry(

@@ -332,8 +332,8 @@ struct Verify {
                 t.check("test_structured_entry: total", entry.total == 2)
                 t.check("test_structured_entry: win_pct", entry.winPct == 50)
                 t.check("test_structured_entry: 2 matches", entry.matches.count == 2)
-                t.check("test_structured_entry: match[0] won", entry.matches[0].akashWon == true)
-                t.check("test_structured_entry: match[1] lost", entry.matches[1].akashWon == false)
+                t.check("test_structured_entry: match[0] won", entry.matches[0].result == "W")
+                t.check("test_structured_entry: match[1] lost", entry.matches[1].result == "L")
             }
         }
 
