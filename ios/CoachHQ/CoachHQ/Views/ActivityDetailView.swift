@@ -564,7 +564,7 @@ struct ActivityDetailView: View {
             try await apiClient.commitFiles(
                 [
                     (path: "user_data/activities/hist/\(entry.fileName)", data: activityData),
-                    (path: "training/ebadders_history.json", data: historyData),
+                    (path: "user_data/activities/match_history.json", data: historyData),
                 ],
                 message: "ios: add scores for \(currentActivity.name)"
             )

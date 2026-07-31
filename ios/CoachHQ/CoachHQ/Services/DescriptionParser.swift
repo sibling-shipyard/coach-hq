@@ -34,6 +34,8 @@ struct ParsedGame: Equatable {
     var akashWon: Bool
     var preNote: String?
     var postNote: String?
+    var isSingles: Bool
+    var format: String { return isSingles ? "singles" : "doubles" }
 }
 
 struct ParsedPreMentalState: Equatable {
@@ -60,6 +62,11 @@ struct EbaddersMatch: Codable, Equatable {
     var akashWon: Bool
     var preNote: String?
     var postNote: String?
+    var format: String
+    var category: String
+    var scoreFor: Int
+    var scoreAgainst: Int
+    var result: String
 
     // Set only when decoded from the legacy eBadders array shape (see
     // init(from:)). Preserved so encode(to:) round-trips these entries back
@@ -90,15 +97,25 @@ struct EbaddersMatch: Codable, Equatable {
         case winners
         case opponents
         case akashTeam = "akash_team"
+        case format
+        case category
+        case scoreFor = "scoreFor"
+        case scoreAgainst = "scoreAgainst"
+        case result
     }
 
-    init(partner: String, vs: [String], score: String, akashWon: Bool, preNote: String? = nil, postNote: String? = nil) {
+    init(partner: String, vs: [String], score: String, akashWon: Bool, preNote: String? = nil, postNote: String? = nil, format: String, category: String, scoreFor: Int, scoreAgainst: Int, result: String) {
         self.partner = partner
         self.vs = vs
         self.score = score
         self.akashWon = akashWon
         self.preNote = preNote
         self.postNote = postNote
+        self.format = format
+        self.category = category
+        self.scoreFor = scoreFor
+        self.scoreAgainst = scoreAgainst
+        self.result = result
         self.rawPartnerArray = nil
         self.rawWinners = nil
         self.rawOpponents = nil
@@ -124,6 +141,11 @@ struct EbaddersMatch: Codable, Equatable {
         akashWon = try container.decode(Bool.self, forKey: .akashWon)
         preNote = try container.decodeIfPresent(String.self, forKey: .preNote)
         postNote = try container.decodeIfPresent(String.self, forKey: .postNote)
+        format = try container.decodeIfPresent(String.self, forKey: .format) ?? "doubles"
+        category = try container.decodeIfPresent(String.self, forKey: .category) ?? "ranked"
+        scoreFor = try container.decodeIfPresent(Int.self, forKey: .scoreFor) ?? 0
+        scoreAgainst = try container.decodeIfPresent(Int.self, forKey: .scoreAgainst) ?? 0
+        result = try container.decodeIfPresent(String.self, forKey: .result) ?? (akashWon ? "W" : "L")
         rawWinners = try container.decodeIfPresent([String].self, forKey: .winners)
         rawOpponents = try container.decodeIfPresent([String].self, forKey: .opponents)
         rawAkashTeam = try container.decodeIfPresent(String.self, forKey: .akashTeam)
@@ -141,6 +163,11 @@ struct EbaddersMatch: Codable, Equatable {
         try container.encode(akashWon, forKey: .akashWon)
         try container.encodeIfPresent(preNote, forKey: .preNote)
         try container.encodeIfPresent(postNote, forKey: .postNote)
+        try container.encode(format, forKey: .format)
+        try container.encode(category, forKey: .category)
+        try container.encode(scoreFor, forKey: .scoreFor)
+        try container.encode(scoreAgainst, forKey: .scoreAgainst)
+        try container.encode(result, forKey: .result)
         try container.encodeIfPresent(rawWinners, forKey: .winners)
         try container.encodeIfPresent(rawOpponents, forKey: .opponents)
         try container.encodeIfPresent(rawAkashTeam, forKey: .akashTeam)
@@ -278,7 +305,7 @@ enum DescriptionParser {
 
     // Format A: `{partner} me vs {opponents} {score}`
     private static let gameRegex = try! NSRegularExpression(
-        pattern: #"^(.+?)\s+me\s+vs\s+(.+?)\s+(\d+-\d+)$"#,
+        pattern: #"^(?:(.+?)\s+)?me\s+vs\s+(.+?)\s+(\d+-\d+)$"#,
         options: [.caseInsensitive]
     )
 
@@ -480,7 +507,11 @@ enum DescriptionParser {
         func fmtGame(_ g: ParsedGame) -> String {
             let result = g.akashWon ? "W" : "L"
             let oppStr = g.vs.joined(separator: " + ")
-            return "\(result) \(g.score) w/ \(g.partner) vs \(oppStr)"
+            if g.isSingles {
+                return "\(result) \(g.score) vs \(oppStr)"
+            } else {
+                return "\(result) \(g.score) w/ \(g.partner) vs \(oppStr)"
+            }
         }
 
         // Ranked / main games
@@ -508,8 +539,20 @@ enum DescriptionParser {
         let total = allGames.count
         let pct = total > 0 ? Int((Double(wins) / Double(total) * 100).rounded()) : 0
 
-        let matches = allGames.map { g in
-            EbaddersMatch(partner: g.partner, vs: g.vs, score: g.score, akashWon: g.akashWon, preNote: g.preNote, postNote: g.postNote)
+        var matches: [EbaddersMatch] = []
+        for g in parsed.ranked {
+            let parts = g.score.components(separatedBy: "-")
+            let scoreFor = Int(parts.first ?? "0") ?? 0
+            let scoreAgainst = Int(parts.last ?? "0") ?? 0
+            let result = g.akashWon ? "W" : "L"
+            matches.append(EbaddersMatch(partner: g.partner, vs: g.vs, score: g.score, akashWon: g.akashWon, preNote: g.preNote, postNote: g.postNote, format: g.format, category: "ranked", scoreFor: scoreFor, scoreAgainst: scoreAgainst, result: result))
+        }
+        for g in parsed.friendlies {
+            let parts = g.score.components(separatedBy: "-")
+            let scoreFor = Int(parts.first ?? "0") ?? 0
+            let scoreAgainst = Int(parts.last ?? "0") ?? 0
+            let result = g.akashWon ? "W" : "L"
+            matches.append(EbaddersMatch(partner: g.partner, vs: g.vs, score: g.score, akashWon: g.akashWon, preNote: g.preNote, postNote: g.postNote, format: g.format, category: "friendly", scoreFor: scoreFor, scoreAgainst: scoreAgainst, result: result))
         }
 
         return EbaddersEntry(
@@ -544,13 +587,14 @@ enum DescriptionParser {
         }
 
         guard let m = firstMatch(gameRegex, in: lineClean),
-              let partnerRaw = group(m, 1, in: lineClean),
               let opponentsRaw = group(m, 2, in: lineClean),
               let scoreRaw = group(m, 3, in: lineClean) else {
             return nil
         }
 
-        let partner = partnerRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let partnerRaw = group(m, 1, in: lineClean)
+        let partner = partnerRaw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let isSingles = partner.isEmpty
         let opponentsStr = opponentsRaw.trimmingCharacters(in: .whitespacesAndNewlines)
         let score = scoreRaw.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -561,7 +605,7 @@ enum DescriptionParser {
         }
         let won = our > theirs
 
-        return ParsedGame(partner: partner, vs: opponents, score: score, akashWon: won, preNote: preNote, postNote: postNote)
+        return ParsedGame(partner: partner, vs: opponents, score: score, akashWon: won, preNote: preNote, postNote: postNote, isSingles: isSingles)
     }
 
     /// Parses a single eBadders table row (tab-separated).
@@ -623,9 +667,11 @@ enum DescriptionParser {
             }
         }
 
-        let partner = partnerList.first ?? "Solo"
+        let rawPartner = partnerList.first ?? "Solo"
+        let isSingles = rawPartner == "Solo"
+        let partner = isSingles ? "" : rawPartner
 
-        return ParsedGame(partner: partner, vs: opponents, score: scoreRaw, akashWon: akashWon, preNote: preNote, postNote: postNote)
+        return ParsedGame(partner: partner, vs: opponents, score: scoreRaw, akashWon: akashWon, preNote: preNote, postNote: postNote, isSingles: isSingles)
     }
 
     private static func stripCrownCharacters(_ s: String) -> String {

@@ -380,7 +380,7 @@ struct Verify {
             ].joined(separator: "\n")
             let parsed = DescriptionParser.parseRawDescription(raw)
             t.check("bonus_ebadders_solo: parsed not nil", parsed != nil)
-            t.check("bonus_ebadders_solo: partner is Solo", parsed?.ranked.first?.partner == "Solo")
+            t.check("bonus_ebadders_solo: partner is empty", parsed?.ranked.first?.partner == "")
         }
 
         do {
