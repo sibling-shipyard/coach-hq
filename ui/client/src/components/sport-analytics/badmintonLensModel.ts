@@ -102,7 +102,7 @@ export interface WinRateTrendPoint {
   label: string;
   sessionWinPct: number;
   rollingWinPct: number | null;
-  activityId: number;
+  activityId: number | string;
   timestamp: number;
 }
 
@@ -150,7 +150,7 @@ function buildWinRate(sessions: BadmintonSession[], mode: BadmintonMode, now: nu
   const points: Array<{
     timestamp: number;
     label: string;
-    activityId: number;
+    activityId: number | string;
     wins: number;
     losses: number;
     rolling: number | null;
