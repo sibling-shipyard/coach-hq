@@ -18,41 +18,41 @@ extension View {
 }
 
 enum AppTab: Hashable, CaseIterable {
-    case home, workouts, chat, more
+    case home, chat, workouts, you
 
     var outlineIcon: String {
         switch self {
         case .home: return "house"
-        case .workouts: return "dumbbell"
         case .chat: return "bubble.left.and.bubble.right"
-        case .more: return "ellipsis.circle"
+        case .workouts: return "dumbbell"
+        case .you: return "person.circle"
         }
     }
 
     var filledIcon: String {
         switch self {
         case .home: return "house.fill"
-        case .workouts: return "dumbbell.fill"
         case .chat: return "bubble.left.and.bubble.right.fill"
-        case .more: return "ellipsis.circle.fill"
+        case .workouts: return "dumbbell.fill"
+        case .you: return "person.circle.fill"
         }
     }
 
     var accessibilityLabel: String {
         switch self {
         case .home: return "Home"
-        case .workouts: return "Workouts"
         case .chat: return "Coach Chat"
-        case .more: return "More"
+        case .workouts: return "Workouts"
+        case .you: return "You"
         }
     }
 
     var labelText: String {
         switch self {
         case .home: return "Home"
-        case .workouts: return "Train"
         case .chat: return "Coach"
-        case .more: return "More"
+        case .workouts: return "Train"
+        case .you: return "You"
         }
     }
 }
@@ -66,6 +66,9 @@ struct MainTabView: View {
     @State private var tabBarHidden = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
+    @AppStorage("personalizeShown") private var personalizeShown = false
+    // Read from UserDefaults at init so the overlay is present on the very first frame.
+    @State private var welcomeVisible = !UserDefaults.standard.bool(forKey: "personalizeShown")
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -73,15 +76,15 @@ struct MainTabView: View {
                 tabRoot(.home) {
                     WarmInstrumentHomeView()
                 }
-                tabRoot(.workouts) {
-                    WorkoutListView()
-                        .environmentObject(workoutService)
-                }
                 tabRoot(.chat) {
                     CoachChatView()
                         .environmentObject(authManager)
                 }
-                tabRoot(.more) {
+                tabRoot(.workouts) {
+                    WorkoutListView()
+                        .environmentObject(workoutService)
+                }
+                tabRoot(.you) {
                     SettingsView()
                 }
             }
@@ -89,6 +92,21 @@ struct MainTabView: View {
 
             if !tabBarHidden && !authManager.sessionExpired {
                 bottomDockContent
+            }
+
+            // First-launch splash — shows logo + "Coach HQ" while Chat tab loads underneath.
+            // On exit: navigates to Chat so Coach's intro is the first thing the user sees.
+            if welcomeVisible {
+                SplashView {
+                    selectedTab = .chat
+                    personalizeShown = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        welcomeVisible = false
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+                .zIndex(100)
             }
         }
         .overlay {

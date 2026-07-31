@@ -663,18 +663,46 @@ struct CoachChatHistorySheet: View {
 // MARK: - First-time welcome intro
 
 struct CoachChatWelcomeIntro: View {
+    @State private var bubble1Visible = false
+    @State private var bubble2Visible = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             CoachChatDayDivider(label: "DAY ONE")
-            CoachChatCoachBubble(
-                paragraphs: [
-                    "I'm Coach Phelps. I keep your training honest — not easy, honest.",
-                    "Tell me what you're working toward and I'll watch your numbers from here.",
-                ],
-                showSignature: true
-            )
+
+            if bubble1Visible {
+                HStack {
+                    CoachChatCoachBubble(
+                        paragraphs: ["Hey. I'm Coach Phelps."],
+                        showSignature: false
+                    )
+                    Spacer(minLength: 40)
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
+            if bubble2Visible {
+                HStack {
+                    CoachChatCoachBubble(
+                        paragraphs: ["What should I call you?"],
+                        showSignature: false
+                    )
+                    Spacer(minLength: 40)
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
         .padding(.top, 12)
+        .animation(PremiumMotion.state, value: bubble1Visible)
+        .animation(PremiumMotion.state, value: bubble2Visible)
+        .task { await revealSequence() }
+    }
+
+    private func revealSequence() async {
+        try? await Task.sleep(for: .seconds(0.55))
+        bubble1Visible = true
+        try? await Task.sleep(for: .seconds(1.1))
+        bubble2Visible = true
     }
 }
 

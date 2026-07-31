@@ -35,6 +35,7 @@ struct CoachHQApp: App {
     @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
     @AppStorage("hkPrePromptShown") private var hkPrePromptShown = false
+    @AppStorage("personalizeShown") private var personalizeShown = false
     @State private var showHKPrePrompt = false
 
     var body: some Scene {
@@ -51,18 +52,25 @@ struct CoachHQApp: App {
                         .environmentObject(widgetStore)
                         .environmentObject(bottomDock)
                         .task {
-                            let apiClient = GitHubAPIClient(authManager: authManager)
-                            syncManager.configure(apiClient: apiClient, widgetStore: widgetStore)
-                            workoutService.configure(apiClient: apiClient)
-                            widgetStore.configure(apiClient: apiClient)
-                            if hkPrePromptShown {
+                            let client = GitHubAPIClient(authManager: authManager)
+                            syncManager.configure(apiClient: client, widgetStore: widgetStore)
+                            workoutService.configure(apiClient: client)
+                            widgetStore.configure(apiClient: client)
+                            // If welcome overlay is still pending, wait for it (onChange handles HK).
+                            guard personalizeShown else { return }
+                            if !hkPrePromptShown {
+                                showHKPrePrompt = true
+                            } else {
                                 try? await syncManager.requestAuthorization()
                                 await syncManager.requestNotificationPermission()
                                 syncManager.enableBackgroundDelivery()
                                 syncManager.setupWorkoutObserver()
-                            } else {
-                                showHKPrePrompt = true
                             }
+                        }
+                        // When MainTabView's WelcomeOverlay sets personalizeShown=true, trigger HK.
+                        .onChange(of: personalizeShown) { _, shown in
+                            guard shown, !hkPrePromptShown else { return }
+                            showHKPrePrompt = true
                         }
                         .fullScreenCover(isPresented: $showHKPrePrompt) {
                             HealthKitPrePromptView(

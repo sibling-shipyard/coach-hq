@@ -6,6 +6,7 @@ struct SettingsView: View {
     @ObservedObject var testMode = TestModeManager.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
     @AppStorage(UserFacingError.devModeKey) private var devModeEnabled = false
+    @AppStorage("preferredName") private var preferredName = ""
     @AppStorage(HRZoneConfig.zone1UpperKey) private var zone1Upper = HRZoneConfig.defaultZone1Upper
     @AppStorage(HRZoneConfig.zone2UpperKey) private var zone2Upper = HRZoneConfig.defaultZone2Upper
     @AppStorage(HRZoneConfig.zone3UpperKey) private var zone3Upper = HRZoneConfig.defaultZone3Upper
@@ -16,20 +17,35 @@ struct SettingsView: View {
     @State private var hrZonesExpanded = false
     @State private var cacheCleared = false
     @State private var toast: Toast?
+    @State private var devTapCount = 0
+    @State private var isEditingName = false
+    @State private var nameDraft = ""
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    accountSection
-                    appearanceSection
+                    SettingsProfileHeader(
+                        user: authManager.user,
+                        preferredName: preferredName,
+                        repo: authManager.selectedRepo
+                    )
+                    .padding(.bottom, 4)
+
+                    trainingSection
                     syncSection
-                    developerSection
-                    hrZonesSection
+                    appearanceSection
+                    accountSection
                     aboutSection
+
+                    if devModeEnabled || testMode.isEnabled {
+                        developerSection
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
+                .animation(PremiumMotion.state, value: devModeEnabled || testMode.isEnabled)
             }
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()
@@ -53,65 +69,52 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Account
+    // MARK: - Training (HR Zones)
 
-    private var accountSection: some View {
-        WarmSettingsSection(title: "Account") {
-            if let user = authManager.user {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(WarmInstrument.surfaceMuted)
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(WarmInstrument.inkMuted)
-                    }
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(user.login)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(Theme.ink)
-                        if let repo = authManager.selectedRepo {
-                            Text(repo)
-                                .font(WarmInstrument.figures(11))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                        }
-                    }
-                }
-
-                WarmSettingsDivider()
-            }
-
+    private var trainingSection: some View {
+        WarmSettingsSection(title: "Training") {
             Button {
-                authManager.signOut()
+                withAnimation(.spring(duration: 0.3, bounce: 0.1)) {
+                    hrZonesExpanded.toggle()
+                }
             } label: {
-                Text("Sign Out")
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundColor(WarmInstrument.accent)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(WarmInstrument.paper)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                HStack(spacing: 10) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(Theme.heartRateColor)
+
+                    Text("Heart Rate Zones")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Theme.ink)
+
+                    Spacer(minLength: 8)
+
+                    Text("\(zone1Upper)/\(zone2Upper)/\(zone3Upper)/\(zone4Upper)")
+                        .font(WarmInstrument.figures(11))
+                        .foregroundColor(WarmInstrument.inkFaint)
+
+                    Image(systemName: hrZonesExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
             }
-            .buttonStyle(TimerWarmPressStyle())
-        }
-    }
+            .buttonStyle(.plain)
 
-    // MARK: - Appearance
+            if hrZonesExpanded {
+                WarmSettingsDivider()
 
-    private var appearanceSection: some View {
-        WarmSettingsSection(title: "Appearance") {
-            WarmSettingsToggleRow(
-                title: "Dark Mode",
-                icon: darkModeEnabled ? "moon.fill" : "sun.max.fill",
-                iconColor: darkModeEnabled ? WarmInstrument.alarmFg : WorkoutTimerWarm.amber,
-                isOn: $darkModeEnabled
-            )
+                VStack(spacing: 12) {
+                    WarmZoneStepper(label: "Zone 1 upper", value: $zone1Upper, range: 100...160)
+                    WarmZoneStepper(label: "Zone 2 upper", value: $zone2Upper, range: 120...170)
+                    WarmZoneStepper(label: "Zone 3 upper", value: $zone3Upper, range: 140...180)
+                    WarmZoneStepper(label: "Zone 4 upper", value: $zone4Upper, range: 150...200)
+
+                    Text("Zone 5: above \(zone4Upper) bpm")
+                        .font(WarmInstrument.monoLabel(10))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
         }
     }
 
@@ -217,7 +220,110 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Developer
+    // MARK: - Appearance
+
+    private var appearanceSection: some View {
+        WarmSettingsSection(title: "Appearance") {
+            WarmSettingsToggleRow(
+                title: "Dark Mode",
+                icon: darkModeEnabled ? "moon.fill" : "sun.max.fill",
+                iconColor: darkModeEnabled ? WarmInstrument.alarmFg : WorkoutTimerWarm.amber,
+                isOn: $darkModeEnabled
+            )
+        }
+    }
+
+    // MARK: - Account
+
+    private var accountSection: some View {
+        WarmSettingsSection(title: "Account") {
+            HStack(spacing: 12) {
+                Image(systemName: "person.text.rectangle")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .frame(width: 22)
+
+                Text("Name")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Theme.ink)
+
+                Spacer(minLength: 8)
+
+                if isEditingName {
+                    TextField("Sky", text: $nameDraft)
+                        .font(.system(size: 14))
+                        .foregroundColor(WarmInstrument.ink)
+                        .multilineTextAlignment(.trailing)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.words)
+                        .submitLabel(.done)
+                        .onSubmit { commitNameEdit() }
+                        .frame(maxWidth: 140)
+                } else {
+                    Button {
+                        nameDraft = preferredName
+                        isEditingName = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(preferredName.isEmpty ? (authManager.user?.login ?? "—") : preferredName)
+                                .font(.system(size: 14))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                            Image(systemName: "pencil")
+                                .font(.system(size: 11))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            WarmSettingsDivider()
+
+            Button {
+                authManager.signOut()
+            } label: {
+                Text("Sign Out")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundColor(WarmInstrument.accent)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(WarmInstrument.paper)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(WarmInstrument.headerRule, lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(TimerWarmPressStyle())
+        }
+    }
+
+    // MARK: - About
+
+    private var aboutSection: some View {
+        WarmSettingsSection(title: "About") {
+            // 5 taps on the version number unlocks the developer section.
+            Button {
+                devTapCount += 1
+                if devTapCount >= 5 {
+                    devTapCount = 0
+                    if !devModeEnabled {
+                        devModeEnabled = true
+                        Haptics.success()
+                        toast = Toast(kind: .info, message: "Developer mode unlocked")
+                    }
+                }
+            } label: {
+                WarmSettingsInfoRow(label: "Version", value: appVersion)
+            }
+            .buttonStyle(.plain)
+
+            WarmSettingsDivider()
+            WarmSettingsInfoRow(label: "Developers", value: "Sibling Shipyard")
+        }
+    }
+
+    // MARK: - Developer (hidden; unlocked by 5-tapping the version number)
 
     private var developerSection: some View {
         WarmSettingsSection(title: "Developer") {
@@ -322,68 +428,16 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Heart rate zones
+    // MARK: - Helpers
 
-    private var hrZonesSection: some View {
-        WarmSettingsSection(title: "Heart Rate Zones") {
-            Button {
-                withAnimation(.spring(duration: 0.3, bounce: 0.1)) {
-                    hrZonesExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.heartRateColor)
-
-                    Text("Heart Rate Zones")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Theme.ink)
-
-                    Spacer(minLength: 8)
-
-                    Text("\(zone1Upper)/\(zone2Upper)/\(zone3Upper)/\(zone4Upper)")
-                        .font(WarmInstrument.figures(11))
-                        .foregroundColor(WarmInstrument.inkFaint)
-
-                    Image(systemName: hrZonesExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                }
-            }
-            .buttonStyle(.plain)
-
-            if hrZonesExpanded {
-                WarmSettingsDivider()
-
-                VStack(spacing: 12) {
-                    WarmZoneStepper(label: "Zone 1 upper", value: $zone1Upper, range: 100...160)
-                    WarmZoneStepper(label: "Zone 2 upper", value: $zone2Upper, range: 120...170)
-                    WarmZoneStepper(label: "Zone 3 upper", value: $zone3Upper, range: 140...180)
-                    WarmZoneStepper(label: "Zone 4 upper", value: $zone4Upper, range: 150...200)
-
-                    Text("Zone 5: above \(zone4Upper) bpm")
-                        .font(WarmInstrument.monoLabel(10))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-    }
-
-    // MARK: - About
-
-    private var aboutSection: some View {
-        WarmSettingsSection(title: "About") {
-            WarmSettingsInfoRow(label: "Version", value: appVersion)
-            WarmSettingsDivider()
-            WarmSettingsInfoRow(label: "Developers", value: "Sibling Shipyard")
-        }
-    }
-
-    /// Reads the marketing version from the bundle — matches what TestFlight shows as "Version."
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    }
+
+    private func commitNameEdit() {
+        let name = nameDraft.trimmingCharacters(in: .whitespaces)
+        preferredName = name
+        isEditingName = false
     }
 
     private func resetTestBranch() async {
@@ -396,6 +450,76 @@ struct SettingsView: View {
             resetResult = "✓ Test branch reset to main HEAD"
         } catch {
             resetResult = "✗ \(UserFacingError.friendlyMessage(for: error))"
+        }
+    }
+}
+
+// MARK: - Profile header
+
+private struct SettingsProfileHeader: View {
+    let user: GitHubUser?
+    let preferredName: String
+    let repo: String?
+
+    var displayName: String {
+        if !preferredName.isEmpty { return preferredName }
+        return user?.login ?? "Athlete"
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            avatarView
+                .frame(width: 60, height: 60)
+                .clipShape(Circle())
+                .overlay(Circle().strokeBorder(WarmInstrument.border, lineWidth: 1))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayName)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(WarmInstrument.ink)
+
+                if let login = user?.login {
+                    Text("@\(login)")
+                        .font(WarmInstrument.figures(11))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                }
+
+                if let repo {
+                    Text(repo)
+                        .font(WarmInstrument.figures(10))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 6)
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var avatarView: some View {
+        if let avatarUrl = user?.avatarUrl, let url = URL(string: avatarUrl) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().aspectRatio(contentMode: .fill)
+                default:
+                    placeholderAvatar
+                }
+            }
+        } else {
+            placeholderAvatar
+        }
+    }
+
+    private var placeholderAvatar: some View {
+        ZStack {
+            Circle().fill(WarmInstrument.surfaceMuted)
+            Image(systemName: "person.fill")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundColor(WarmInstrument.inkMuted)
         }
     }
 }

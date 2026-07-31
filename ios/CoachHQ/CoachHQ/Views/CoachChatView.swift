@@ -26,6 +26,7 @@ struct CoachChatView: View {
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingWorkoutType") private var pendingWorkoutType = ""
     @AppStorage("chatWelcomeShown") private var chatWelcomeShown = false
+    @AppStorage("preferredName") private var preferredName = ""
 
     /// Until wired: preview header from mock. Replace with snapshot/challenge_v2 read.
     @State private var headerContext = CoachChatHeaderContext.preview
@@ -156,6 +157,8 @@ struct CoachChatView: View {
     }
 
     private var composerPlaceholder: String {
+        // Waiting for name during welcome intro
+        if usingPreviewShell && !chatWelcomeShown { return "Your name…" }
         let hour = Calendar.current.component(.hour, from: Date())
         if !isViewingToday { return "Reply to Coach…" }
         switch hour {
@@ -217,7 +220,6 @@ struct CoachChatView: View {
                 )
             } else if displayThread.messages.isEmpty, isViewingToday, usingPreviewShell, !chatWelcomeShown {
                 CoachChatWelcomeIntro()
-                    .onAppear { chatWelcomeShown = true }
             } else {
                 ForEach(displayThread.messages) { message in
                     messageRow(message)
@@ -345,6 +347,16 @@ struct CoachChatView: View {
         errorMessage = nil
     }
 
+    private func writeProfile(name: String) async {
+        let client = GitHubAPIClient(authManager: authManager)
+        let content = "# Athlete Profile\n\nname: \(name)\n"
+        guard let data = content.data(using: .utf8) else { return }
+        try? await client.commitFiles(
+            [(path: "user/profile.md", data: data)],
+            message: "profile: set preferred name"
+        )
+    }
+
     private func selectTodayThread() {
         activeThreadId = todayThread?.id
     }
@@ -470,6 +482,14 @@ struct CoachChatView: View {
         guard let apiClient else { return }
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !sending else { return }
+
+        // First message from a new user — treat it as their name.
+        if preferredName.isEmpty {
+            let name = String(trimmed.prefix(30))
+            preferredName = name
+            Task { await writeProfile(name: name) }
+        }
+        if !chatWelcomeShown { chatWelcomeShown = true }
 
         let priorMessages = priorMessagesForSend(targetId: targetId)
         draft = ""
