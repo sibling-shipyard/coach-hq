@@ -77,7 +77,7 @@ struct CoachChatCoachBubble: View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
                 Text(paragraph)
-                    .font(WarmInstrument.coachVoice(16.5))
+                    .font(WarmInstrument.coachVoice(15))
                     .foregroundStyle(WarmInstrument.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(3)

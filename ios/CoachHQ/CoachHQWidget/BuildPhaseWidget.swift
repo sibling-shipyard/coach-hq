@@ -35,8 +35,6 @@ struct BuildPhaseWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: BuildPhaseEntry
 
-    private let railCount = 4
-
     var body: some View {
         Group {
             if let phase = entry.phase {
@@ -119,9 +117,22 @@ struct BuildPhaseWidgetView: View {
 
     private var rail: some View {
         HStack(spacing: 3) {
-            ForEach(0..<railCount, id: \.self) { _ in
-                Capsule().fill(WarmInstrument.border).frame(height: 4)
-            }
+            // Block 1 — active
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(WarmInstrument.accent)
+                .frame(height: 4)
+            // Deload
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(Color(red: 0xe0 / 255, green: 0xb0 / 255, blue: 0x6e / 255))
+                .frame(height: 4)
+            // Block 2 — upcoming
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .strokeBorder(Color(red: 0xc9 / 255, green: 0xc2 / 255, blue: 0xb2 / 255), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .frame(height: 4)
+            // Test week
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .strokeBorder(WarmInstrument.accent.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .frame(height: 4)
         }
     }
 }

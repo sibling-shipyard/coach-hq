@@ -61,7 +61,7 @@ struct Vo2WidgetView: View {
                 .font(WarmInstrument.figures(24, weight: .bold))
                 .foregroundColor(WarmInstrument.ink)
             if let delta = vo2.delta {
-                Text("▲ \(String(format: "%.1f", delta))")
+                Text("\(delta >= 0 ? "▲" : "▼") \(String(format: "%.1f", abs(delta)))")
                     .font(.system(size: 10))
                     .foregroundColor(WarmInstrument.inkMuted)
             }
@@ -86,7 +86,7 @@ struct Vo2WidgetView: View {
                     .font(WarmInstrument.figures(22, weight: .bold))
                     .foregroundColor(WarmInstrument.ink)
                 if let delta = vo2.delta {
-                    Text("ml/kg/min · ▲ \(String(format: "%.1f", delta))")
+                    Text("ml/kg/min · \(delta >= 0 ? "▲" : "▼") \(String(format: "%.1f", abs(delta)))")
                         .font(.system(size: 9))
                         .foregroundColor(WarmInstrument.inkMuted)
                 }
