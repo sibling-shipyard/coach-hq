@@ -1,13 +1,11 @@
 /**
- * matchParser.ts - Parse match descriptions from Strava activity descriptions.
+ * matchParser.ts — Parse formatted badminton match descriptions from activity JSON.
  *
- * Handles two description formats:
- * 1. Enriched descriptions (from strava-enrichment pipeline)
- * 2. eBadders structured data (fallback)
+ * Reads the display-layer description written by iOS DescriptionParser (ADR 0013).
+ * Doubles: `W 21-18 w/ Partner vs Opp1 + Opp2`
+ * Singles:  `W 21-18 vs Opponent`
  *
- * Score convention: scores are always winner-loser in ranked (ebadders) descriptions,
- * and player's-score-first in friendly descriptions. We use the W/L result to determine
- * myScore vs oppScore universally: W → myScore = max, L → myScore = min.
+ * W/L on each line determines myScore vs oppScore: W → max, L → min.
  */
 
 import type { Activity } from "./activities";
@@ -17,14 +15,15 @@ import { normalizeName } from "./nameAliases";
 
 export interface ParsedGame {
   result: "W" | "L";
-  score: string;           // "21-18"
-  myScore: number;         // player's score
-  oppScore: number;        // Opponent's score
-  margin: number;          // positive for wins, negative for losses
-  partner: string;
+  score: string;
+  myScore: number;
+  oppScore: number;
+  margin: number;
+  partner: string | null;
   opponents: string[];
-  gameNumber: number;      // 1-indexed position in session (across games + friendlies)
-  isFriendly: boolean;     // true if in the "Friendlies:" section
+  gameNumber: number;
+  isFriendly: boolean;
+  format: "singles" | "doubles";
 }
 
 export interface ParsedMatch {
@@ -39,7 +38,7 @@ export interface ParsedMatch {
 // ─── Description Parser ─────────────────────────────────────────────────────
 
 const WL_SUMMARY_RE = /(\d+)W[–-](\d+)L\s*\((\d+)%?\)/;
-const GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+w\/\s+(.+?)\s+vs\s+(.+)$/i;
+const GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+(?:w\/\s+(.+?)\s+)?vs\s+(.+)$/i;
 
 function parseGameLine(line: string, gameNumber: number, isFriendly: boolean): ParsedGame | null {
   const m = line.trim().match(GAME_LINE_RE);
@@ -48,13 +47,14 @@ function parseGameLine(line: string, gameNumber: number, isFriendly: boolean): P
   const result = m[1].toUpperCase() as "W" | "L";
   const s1 = parseInt(m[2], 10);
   const s2 = parseInt(m[3], 10);
-  const partner = normalizeName(m[4].trim());
+  const partnerRaw = m[4]?.trim();
+  const partner = partnerRaw ? normalizeName(partnerRaw) : null;
+  const format = partner ? "doubles" : "singles";
   const opponents = m[5].split(/\s*\+\s*/).map((s) => normalizeName(s.trim())).filter(Boolean);
 
-  // Determine Sky's score vs opponent's score from result
   const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
   const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
-  const margin = myScore - oppScore; // positive for wins, negative for losses
+  const margin = myScore - oppScore;
 
   return {
     result,
@@ -66,6 +66,7 @@ function parseGameLine(line: string, gameNumber: number, isFriendly: boolean): P
     opponents,
     gameNumber,
     isFriendly,
+    format,
   };
 }
 
@@ -74,7 +75,6 @@ export function parseDescription(description: string | null): ParsedMatch | null
 
   const lines = description.split("\n").map((l) => l.trim());
 
-  // Find the W-L summary line
   let summaryIdx = -1;
   let summaryWins = 0;
   let summaryLosses = 0;
@@ -93,11 +93,9 @@ export function parseDescription(description: string | null): ParsedMatch | null
 
   if (summaryIdx === -1) return null;
 
-  // Extract comment (free text before the W-L line)
   const commentLines = lines.slice(0, summaryIdx).filter((l) => l.length > 0);
   const comment = commentLines.length > 0 ? commentLines.join("\n") : null;
 
-  // Find "Games:" marker
   let gamesStartIdx = -1;
   for (let i = summaryIdx + 1; i < lines.length; i++) {
     if (/^Games:/i.test(lines[i])) {
@@ -106,7 +104,6 @@ export function parseDescription(description: string | null): ParsedMatch | null
     }
   }
 
-  // If no "Games:" section, return summary-only result
   if (gamesStartIdx === -1) {
     return {
       wins: summaryWins,
@@ -118,7 +115,6 @@ export function parseDescription(description: string | null): ParsedMatch | null
     };
   }
 
-  // Parse game lines, splitting at "Friendlies:" separator
   const games: ParsedGame[] = [];
   const friendlies: ParsedGame[] = [];
   let inFriendlies = false;
@@ -144,7 +140,6 @@ export function parseDescription(description: string | null): ParsedMatch | null
     }
   }
 
-  // Compute actual wins/losses from parsed games (may differ from summary if friendlies included)
   const allGames = [...games, ...friendlies];
   const actualWins = allGames.filter((g) => g.result === "W").length;
   const actualLosses = allGames.filter((g) => g.result === "L").length;
@@ -160,98 +155,9 @@ export function parseDescription(description: string | null): ParsedMatch | null
   };
 }
 
-// ─── eBadders Fallback Parser ───────────────────────────────────────────────
-
-interface EbaddersMatch {
-  player_won: boolean;
-  score: string;
-  partner: string[];
-  vs: string[];
+export function parseMatch(activity: Activity): ParsedMatch | null {
+  return parseDescription(activity.description);
 }
-
-interface EbaddersData {
-  wins: number;
-  losses: number;
-  total: number;
-  win_pct: number;
-  matches: EbaddersMatch[];
-}
-
-export function parseEbadders(ebadders: EbaddersData): ParsedMatch | null {
-  if (!ebadders?.matches?.length) return null;
-
-  const games: ParsedGame[] = [];
-  let gameNumber = 1;
-
-  for (const match of ebadders.matches) {
-    const result: "W" | "L" = match.player_won ? "W" : "L";
-    const scoreParts = match.score.split(/[–-]/).map((s) => parseInt(s.trim(), 10));
-    if (scoreParts.length !== 2 || isNaN(scoreParts[0]) || isNaN(scoreParts[1])) continue;
-
-    const [s1, s2] = scoreParts;
-    const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
-    const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
-
-    games.push({
-      result,
-      score: match.score,
-      myScore,
-      oppScore,
-      margin: myScore - oppScore,
-      partner: normalizeName(match.partner?.[0] ?? "Unknown"),
-      opponents: (match.vs ?? []).map((v: string) => normalizeName(v)),
-      gameNumber,
-      isFriendly: false,
-    });
-    gameNumber++;
-  }
-
-  const wins = games.filter((g) => g.result === "W").length;
-  const losses = games.filter((g) => g.result === "L").length;
-  const total = wins + losses;
-
-  return {
-    wins,
-    losses,
-    winPct: total > 0 ? Math.round((wins / total) * 100) : 0,
-    comment: null,
-    games,
-    friendlies: [],
-  };
-}
-
-// ─── Main Entry Point ───────────────────────────────────────────────────────
-
-export function parseMatch(activity: Activity & { ebadders?: EbaddersData }): ParsedMatch | null {
-  // Try description first
-  const fromDesc = parseDescription(activity.description);
-  if (fromDesc && (fromDesc.games.length > 0 || fromDesc.friendlies.length > 0)) {
-    return fromDesc;
-  }
-
-  // Summary-only description (has W-L but no game lines) - still useful
-  if (fromDesc) {
-    // Try ebadders for full game data
-    if (activity.ebadders) {
-      const fromEb = parseEbadders(activity.ebadders);
-      if (fromEb && fromEb.games.length > 0) {
-        // Preserve the comment from description
-        fromEb.comment = fromDesc.comment;
-        return fromEb;
-      }
-    }
-    return fromDesc;
-  }
-
-  // No description match - try ebadders fallback
-  if (activity.ebadders) {
-    return parseEbadders(activity.ebadders);
-  }
-
-  return null;
-}
-
-// ─── Utility: Get all games from a parsed match ─────────────────────────────
 
 export function getAllGames(match: ParsedMatch): ParsedGame[] {
   return [...match.games, ...match.friendlies];
