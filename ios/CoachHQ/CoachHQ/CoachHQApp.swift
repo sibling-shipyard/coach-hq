@@ -36,7 +36,9 @@ struct CoachHQApp: App {
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
     @AppStorage("hkPrePromptShown") private var hkPrePromptShown = false
     @AppStorage("personalizeShown") private var personalizeShown = false
+    @AppStorage("onboardingRevealShown") private var onboardingRevealShown = false
     @State private var showHKPrePrompt = false
+    @State private var showOnboardingReveal = false
 
     var body: some Scene {
         WindowGroup {
@@ -82,6 +84,10 @@ struct CoachHQApp: App {
                                         await syncManager.requestNotificationPermission()
                                         syncManager.enableBackgroundDelivery()
                                         syncManager.setupWorkoutObserver()
+                                        if !onboardingRevealShown {
+                                            try? await Task.sleep(nanoseconds: 300_000_000)
+                                            showOnboardingReveal = true
+                                        }
                                     }
                                 },
                                 onSkip: {
@@ -89,6 +95,13 @@ struct CoachHQApp: App {
                                     hkPrePromptShown = true
                                 }
                             )
+                        }
+                        .fullScreenCover(isPresented: $showOnboardingReveal) {
+                            OnboardingRevealFlow(onComplete: {
+                                showOnboardingReveal = false
+                            })
+                            .environmentObject(authManager)
+                            .environmentObject(syncManager)
                         }
                 } else if authManager.pendingSetupLogin != nil {
                     SetupView()
