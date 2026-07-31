@@ -5,6 +5,8 @@ struct WorkoutCompleteView: View {
     let elapsed: Int
     let onDismiss: () -> Void
 
+    @AppStorage("pendingWorkoutType") private var pendingWorkoutType = ""
+
     private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
 
     var body: some View {
@@ -140,11 +142,7 @@ struct WorkoutCompleteView: View {
     private var ctaButtons: some View {
         VStack(spacing: 12) {
             Button {
-                NotificationCenter.default.post(
-                    name: .postWorkoutChatOpen,
-                    object: nil,
-                    userInfo: ["workoutType": workout.workoutType.rawValue]
-                )
+                pendingWorkoutType = workout.workoutType.rawValue
                 NotificationCenter.default.post(name: .navigateToChat, object: nil)
                 Haptics.tap()
                 onDismiss()

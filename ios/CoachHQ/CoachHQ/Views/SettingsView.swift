@@ -177,6 +177,25 @@ struct SettingsView: View {
             .disabled(syncManager.isSyncing)
             .opacity(syncManager.isSyncing ? 0.6 : 1)
 
+            if !syncManager.isHKObserverActive {
+                Button {
+                    Task { await syncManager.connectHealthKit() }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Connect Health")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundColor(WarmInstrument.paper)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Theme.heartRateColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(TimerWarmPressStyle())
+            }
+
             Text("Pull down on Home to refresh your dashboard. Sync Now pushes new workouts from HealthKit to GitHub.")
                 .font(.system(size: 12))
                 .foregroundColor(WarmInstrument.inkFaint)

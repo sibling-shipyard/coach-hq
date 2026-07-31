@@ -522,7 +522,8 @@ private struct EngineWidget: View {
         }
         .shadow(color: WarmInstrument.engineShadow, radius: size == .m ? 24 : 20, x: 0, y: size == .m ? 12 : 10)
         .onChange(of: sizes.M.load) { _, _ in
-            bandProgress = 0
+            // Don't reset — only animate to 1.0 if the initial task hasn't finished yet.
+            // Resetting on every foreground refresh caused a jarring count-from-zero on each return.
             withAnimation(.spring(duration: 0.7, bounce: 0.1).delay(0.05)) { bandProgress = 1.0 }
         }
         .task {

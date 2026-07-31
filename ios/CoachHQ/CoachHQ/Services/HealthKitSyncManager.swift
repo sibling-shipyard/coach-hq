@@ -26,9 +26,12 @@ class HealthKitSyncManager: ObservableObject {
         let id: UUID
     }
 
+    @Published var isHKObserverActive = false
+
     private let healthStore = HKHealthStore()
     private var apiClient: GitHubAPIClient?
     private var widgetStore: WidgetSnapshotStore?
+    private var observerRegistered = false
 
     // HealthKit data types we request access to
     private var readTypes: Set<HKObjectType> {
@@ -80,9 +83,22 @@ class HealthKitSyncManager: ObservableObject {
         }
     }
 
+    /// Authorizes HK, enables background delivery, and registers the observer in one shot.
+    /// Safe to call from Settings when the user enables HealthKit after initially skipping.
+    func connectHealthKit() async {
+        try? await requestAuthorization()
+        await requestNotificationPermission()
+        enableBackgroundDelivery()
+        setupWorkoutObserver()
+    }
+
     /// Registers an HKObserverQuery that fires whenever new workouts arrive in HealthKit,
     /// syncs them, and posts a local notification so the user knows Coach is aware.
+    /// Guard prevents duplicate queries accumulating across cold launches.
     func setupWorkoutObserver() {
+        guard !observerRegistered else { return }
+        observerRegistered = true
+        isHKObserverActive = true
         let workoutType = HKObjectType.workoutType()
         let query = HKObserverQuery(sampleType: workoutType, predicate: nil) { [weak self] _, completionHandler, error in
             guard error == nil else { completionHandler(); return }
@@ -110,7 +126,7 @@ class HealthKitSyncManager: ObservableObject {
         content.sound = .default
         content.userInfo = ["navigateTo": "chat"]
         let request = UNNotificationRequest(
-            identifier: "hk-sync-\(UUID().uuidString)",
+            identifier: "hk-sync-latest",
             content: content,
             trigger: nil
         )

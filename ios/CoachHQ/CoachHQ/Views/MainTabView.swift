@@ -65,6 +65,7 @@ struct MainTabView: View {
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
+    @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -101,6 +102,12 @@ struct MainTabView: View {
         .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
         .animation(PremiumMotion.dock, value: tabBarHidden)
         .background(WarmInstrument.desk.ignoresSafeArea())
+        .onAppear {
+            if pendingChatNavigation {
+                pendingChatNavigation = false
+                selectedTab = .chat
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { _ in
             withAnimation(PremiumMotion.state) { selectedTab = .chat }
         }

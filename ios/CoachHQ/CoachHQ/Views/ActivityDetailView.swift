@@ -30,6 +30,8 @@ struct ActivityDetailView: View {
         _activity = State(initialValue: cached)
         // Cached entries render at full opacity immediately — no fade on every push.
         _statsRevealed = State(initialValue: cached != nil)
+        // Skip count-up for cache hits so stats never flash zero.
+        _statsProgress = State(initialValue: cached != nil ? 1.0 : 0)
     }
 
     /// The saved description on the server (nil/empty until scored).
@@ -422,10 +424,9 @@ struct ActivityDetailView: View {
     /// succeeds.
     private func loadExistingActivity() async {
         // 1. Cache hit — render instantly, no spinner, no network.
+        // statsProgress is already 1.0 from init, so no animation needed.
         if let cached = entry.activity {
             activity = cached
-            try? await Task.sleep(for: .seconds(0.15))
-            withAnimation(.spring(duration: 0.7, bounce: 0.1)) { statsProgress = 1.0 }
             return
         }
 

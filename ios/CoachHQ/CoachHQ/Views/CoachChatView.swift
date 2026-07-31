@@ -24,6 +24,8 @@ struct CoachChatView: View {
     @State private var keyboardVisible = false
     @State private var postWorkoutChips: [String]? = nil
     @AppStorage("chatHasUnread") private var chatHasUnread = false
+    @AppStorage("pendingWorkoutType") private var pendingWorkoutType = ""
+    @AppStorage("chatWelcomeShown") private var chatWelcomeShown = false
 
     /// Until wired: preview header from mock. Replace with snapshot/challenge_v2 read.
     @State private var headerContext = CoachChatHeaderContext.preview
@@ -97,6 +99,10 @@ struct CoachChatView: View {
             guard authManager.selectedRepo != nil else { return }
             apiClient = CoachChatAPIClient(authManager: authManager)
             await loadThreads()
+            if !pendingWorkoutType.isEmpty {
+                postWorkoutChips = Self.chips(forWorkoutType: pendingWorkoutType)
+                pendingWorkoutType = ""
+            }
         }
         .sheet(isPresented: $showHistorySheet) {
             CoachChatHistorySheet(
@@ -138,9 +144,10 @@ struct CoachChatView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             keyboardVisible = false
         }
-        .onReceive(NotificationCenter.default.publisher(for: .postWorkoutChatOpen)) { notification in
-            let type = notification.userInfo?["workoutType"] as? String ?? ""
+        .onChange(of: pendingWorkoutType) { _, type in
+            guard !type.isEmpty else { return }
             postWorkoutChips = Self.chips(forWorkoutType: type)
+            pendingWorkoutType = ""
         }
     }
 
@@ -208,8 +215,9 @@ struct CoachChatView: View {
                     threadTitle: displayThread.title,
                     onBackToToday: { selectTodayThread() }
                 )
-            } else if displayThread.messages.isEmpty, isViewingToday, usingPreviewShell {
+            } else if displayThread.messages.isEmpty, isViewingToday, usingPreviewShell, !chatWelcomeShown {
                 CoachChatWelcomeIntro()
+                    .onAppear { chatWelcomeShown = true }
             } else {
                 ForEach(displayThread.messages) { message in
                     messageRow(message)
@@ -387,9 +395,6 @@ struct CoachChatView: View {
             if !threads.filter({ $0.status != .deleted }).isEmpty,
                let repo = authManager.repoFullName {
                 CoachSetupState.markComplete(repoFullName: repo)
-            }
-            if let today = todayThread, today.messages.contains(where: { $0.role == .coach }) {
-                chatHasUnread = true
             }
             // Wireup: prefer API today's thread; preview shell when empty.
             if let today = todayThread {
