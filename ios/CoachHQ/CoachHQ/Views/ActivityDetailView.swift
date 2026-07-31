@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Shows a synced activity's stats and lets the user paste raw match scores,
 /// previewing the parsed/formatted result live, then commits both the activity
-/// file and `ebadders_history.json` to GitHub in one atomic commit.
+/// file and `user_data/activities/match_history.json` to GitHub in one atomic commit.
 ///
 /// Warm Instrument layout — inline back + title meta on desk, hero stats card,
 /// quiet zone breakdown, coach's-read description treatment.
@@ -11,6 +11,7 @@ struct ActivityDetailView: View {
 
     @EnvironmentObject var authManager: GitHubAuthManager
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("preferredName") private var preferredName = ""
 
     @State private var activity: Activity?
     @State private var descriptionText: String = ""
@@ -51,8 +52,15 @@ struct ActivityDetailView: View {
         Theme.sportBadge(for: entry.sportType)
     }
 
+    /// Display name for eBadders table rows (Format A uses `me vs` and ignores this).
+    private var matchParserAthleteName: String {
+        if !preferredName.isEmpty { return preferredName }
+        if let login = authManager.user?.login, !login.isEmpty { return login }
+        return "me"
+    }
+
     private var parsed: ParsedDescription? {
-        DescriptionParser.parseRawDescription(descriptionText, athleteName: authManager.user?.login ?? "me")
+        DescriptionParser.parseRawDescription(descriptionText, athleteName: matchParserAthleteName)
     }
 
     var body: some View {
@@ -457,9 +465,15 @@ struct ActivityDetailView: View {
         }
     }
 
-    private func readEbaddersHistoryWithPropagationRetry() async throws -> MatchHistory {
-        try await withPropagationRetry(operation: "Reading match history") {
-            try await apiClient.readMatchHistory()
+    /// Loads match history for save, retrying transient 404s. A missing file (greenfield)
+    /// becomes an empty v1 document — not an error.
+    private func readMatchHistoryForSave() async throws -> MatchHistory {
+        do {
+            return try await withPropagationRetry(operation: "Reading match history") {
+                try await apiClient.readMatchHistory()
+            }
+        } catch GitHubAPIError.notFound {
+            return MatchHistory(version: 1, sessions: [])
         }
     }
 
@@ -533,15 +547,10 @@ struct ActivityDetailView: View {
             let dateStr = String(currentActivity.startDateLocal.prefix(10))
             let newEntry = DescriptionParser.buildStructuredEntry(parsed, date: dateStr, activityId: nil)
 
-            // Must not silently swallow errors here: on any failure (network blip,
-            // auth hiccup, etc.) falling back to `[]` would commit a fresh
-            // match_history.json containing only this one entry, destroying
-            // every prior match record. Let real failures abort the save instead.
-            // Same propagation-delay risk as the activity read: on a freshly
-            // reset branch this file can briefly 404 even though it exists at
-            // HEAD. Retry a couple of times before giving up — and never fall
-            // back to [] (that would wipe all prior match records on commit).
-            let history = try await readEbaddersHistoryWithPropagationRetry()
+            // Retry transient 404s (Contents API propagation). If the file is still
+            // missing after retries, treat as greenfield empty history — not a wipe
+            // of existing data. Non-404 errors still abort the save.
+            let history = try await readMatchHistoryForSave()
             var sessions = history.sessions
             sessions.removeAll { $0.date == dateStr }
             sessions.append(newEntry)

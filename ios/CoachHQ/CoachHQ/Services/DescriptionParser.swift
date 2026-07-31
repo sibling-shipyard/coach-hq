@@ -1,6 +1,6 @@
 import Foundation
 
-/// Pure Swift port of `scripts/parse_match_description.py`.
+/// Canonical badminton match parser (ADR 0013). Parses raw scores pasted on-device
 ///
 /// Parses raw badminton match descriptions (pasted into the description field on-device)
 /// and produces:
