@@ -136,6 +136,13 @@ enum Theme {
             return ("OTHER", otherColor)
         }
     }
+
+    /// Whether this sport supports in-app score entry via the ebadders pipeline.
+    /// Only Badminton has structured score parsing + history tracking — all other
+    /// sports never show the score section on ActivityDetailView.
+    static func sportSupportsScoreEntry(for sportType: String) -> Bool {
+        sportType == "Badminton"
+    }
 }
 
 // MARK: - Warm Instrument (Home surface)
