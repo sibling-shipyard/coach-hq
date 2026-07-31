@@ -30,6 +30,8 @@ export interface RepoData {
   sync_status: unknown;
   sleep_log: unknown[];
   quest_history: unknown;
+  plugins?: { enabled?: string[] };
+  badminton_analytics_available?: boolean;
   // Optional - not every repo's build pipeline populates a coach-authored current-week
   // plan. Absent for a repo with no user_data/ledger/current_week.json.
   current_week?: unknown;
@@ -44,6 +46,8 @@ const LOCAL_DATA: RepoData = {
   sleep_log: sleepLogRaw as unknown[],
   quest_history: questHistoryRaw,
   current_week: currentWeekRaw,
+  plugins: { enabled: ["badminton"] },
+  badminton_analytics_available: true,
 };
 
 // Bump when the aggregate shape changes in a way old dashboards can't render

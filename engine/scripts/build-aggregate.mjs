@@ -24,6 +24,7 @@ import {
   syncStatusPath,
   templatesDir,
 } from "../lib/repo-layout.mjs";
+import { badmintonAnalyticsAvailable, loadPlugins } from "../lib/plugins.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(__dirname);
@@ -158,6 +159,9 @@ function buildAggregate() {
   result.quest_history = fs.existsSync(questHistoryFile)
     ? JSON.parse(fs.readFileSync(questHistoryFile, "utf-8"))
     : { generated_at: "", quests: {} };
+
+  result.plugins = loadPlugins(REPO_ROOT);
+  result.badminton_analytics_available = badmintonAnalyticsAvailable(REPO_ROOT);
 
   result.schema_version = SCHEMA_VERSION;
   result.generated_at = new Date().toISOString();

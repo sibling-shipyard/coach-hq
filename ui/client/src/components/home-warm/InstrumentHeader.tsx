@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "wouter";
+import { Link, Redirect } from "wouter";
 import { Dumbbell, Home, LogOut, Menu, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRepoData } from "@/hooks/useRepoData";
+import { filterSportAnalyticsLinks } from "@/lib/plugins";
 import { ActivityGlyph } from "./ActivityGlyph";
 import type { SportAnalyticsNavLink } from "./snapshots";
 
@@ -220,7 +222,12 @@ export function InstrumentHeader({
   currentRoute?: string;
 }) {
   const auth = useAuth();
+  const { data } = useRepoData();
   const showAccountActions = auth.status === "authenticated";
+  const resolvedSportLinks = filterSportAnalyticsLinks(
+    sportAnalyticsLinks ?? DEFAULT_SPORT_ANALYTICS_LINKS,
+    data,
+  );
 
   return (
     <header className="wi-instrument-header">
@@ -269,7 +276,7 @@ export function InstrumentHeader({
           homeHref={homeHref}
           login={auth.login}
           showAccountActions={showAccountActions}
-          sportAnalyticsLinks={sportAnalyticsLinks}
+          sportAnalyticsLinks={resolvedSportLinks}
           syncHealthy={syncHealthy}
           syncLabel={syncLabel}
           workoutsHref={workoutsHref}

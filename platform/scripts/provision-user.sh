@@ -24,6 +24,7 @@ Options:
   --skip-secrets          Do not set GitHub Actions secrets
   --skip-push             Clone and migrate locally only (for inspection)
   --skip-regenerate       Copy legacy gen/ only; skip pipeline regen (not recommended)
+  --plugins LIST          Comma-separated plugins to enable (e.g. badminton)
   -h, --help              Show this help
 
 Secrets (optional — set when env vars are present):
@@ -32,7 +33,7 @@ Secrets (optional — set when env vars are present):
 Examples:
   platform/scripts/provision-user.sh --greenfield --repo akash-suresh/coach-akash --dry-run
   PAT_TOKEN=ghp_... platform/scripts/provision-user.sh --migrate \
-    --repo skanda-2003/coach-skanda --legacy skanda-2003/coach-phelps
+    --repo skanda-2003/coach-skanda --legacy skanda-2003/coach-phelps --plugins badminton
 EOF
 }
 
@@ -47,6 +48,7 @@ DRY_RUN=0
 SKIP_SECRETS=0
 SKIP_PUSH=0
 SKIP_REGENERATE=0
+PROVISION_PLUGINS=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -58,6 +60,7 @@ while [[ $# -gt 0 ]]; do
     --skip-secrets) SKIP_SECRETS=1 ;;
     --skip-push) SKIP_PUSH=1 ;;
     --skip-regenerate) SKIP_REGENERATE=1 ;;
+    --plugins) PROVISION_PLUGINS="${2:?}"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1 (try --help)" ;;
   esac
@@ -148,6 +151,68 @@ apply_legacy_overlay() {
   fi
 }
 
+# Copy enabled plugin packs from HQ and write user_data/ledger/plugins.json.
+install_provision_plugins() {
+  local target_root="$1"
+  local hq_root="$2"
+  local plugins_csv="$3"
+
+  [[ -n "$plugins_csv" ]] || return 0
+
+  local -a enabled=()
+  local -a names=()
+  IFS=',' read -r -a names <<< "$plugins_csv"
+
+  for raw in "${names[@]}"; do
+    local name
+    name="$(echo "$raw" | xargs)"
+    [[ -n "$name" ]] || continue
+
+    case "$name" in
+      badminton)
+        mkdir -p "${target_root}/engine/plugins"
+        rm -rf "${target_root}/engine/plugins/badminton"
+        cp -R "${hq_root}/platform/plugins/badminton" "${target_root}/engine/plugins/badminton"
+        log "  installed engine/plugins/badminton/"
+        mkdir -p "${target_root}/user_data/coach/reference"
+        cp "${hq_root}/platform/skeleton-templates/reference/badminton.md" \
+          "${target_root}/user_data/coach/reference/badminton.md"
+        log "  seeded user_data/coach/reference/badminton.md"
+        enabled+=("badminton")
+        ;;
+      *)
+        warn "Unknown plugin '${name}' — skipped"
+        ;;
+    esac
+  done
+
+  if [[ ${#enabled[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  local plugins_json="${target_root}/user_data/ledger/plugins.json"
+  mkdir -p "$(dirname "$plugins_json")"
+  PROVISION_PLUGINS_JSON="$plugins_json" PROVISION_PLUGINS_ENABLED="${enabled[*]}" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+path = Path(os.environ["PROVISION_PLUGINS_JSON"])
+enabled = [s for s in os.environ.get("PROVISION_PLUGINS_ENABLED", "").split() if s]
+path.write_text(json.dumps({"enabled": enabled}, indent=2) + "\n")
+PY
+  log "  wrote user_data/ledger/plugins.json → enabled: ${enabled[*]}"
+}
+
+legacy_wants_badminton_plugin() {
+  local target_root="$1"
+  [[ -f "${target_root}/training/ebadders_history.json" ]] && return 0
+  [[ -f "${target_root}/user_data/activities/badminton_analytics_snapshot.json" ]] && return 0
+  [[ -f "${target_root}/user_data/activities/badminton_match_data.json" ]] && return 0
+  [[ -f "${target_root}/user_data/activities/match_history.json" ]] && return 0
+  return 1
+}
+
 # Rebuild gen/ from migrated user_data/ (quest_log, quest_history, aggregate).
 regenerate_gen() {
   local target_root="$1"
@@ -165,10 +230,14 @@ regenerate_gen() {
   if [[ -f "${hq_root}/engine/lib/repo_layout.py" ]]; then
     cp "${hq_root}/engine/lib/repo_layout.py" "${target_root}/engine/lib/repo_layout.py"
     cp "${hq_root}/engine/lib/repo-layout.mjs" "${target_root}/engine/lib/repo-layout.mjs"
+    cp "${hq_root}/engine/lib/plugins.py" "${target_root}/engine/lib/plugins.py"
+    cp "${hq_root}/engine/lib/plugins.mjs" "${target_root}/engine/lib/plugins.mjs"
     cp "${hq_root}/engine/lib/challenge_schema.py" "${target_root}/engine/lib/challenge_schema.py"
     cp "${hq_root}/engine/lib/current-week.mts" "${target_root}/engine/lib/current-week.mts"
     cp "${hq_root}/engine/scripts/generate_quest_log.py" "${target_root}/engine/scripts/generate_quest_log.py"
     cp "${hq_root}/engine/scripts/generate_quest_history.py" "${target_root}/engine/scripts/generate_quest_history.py"
+    cp "${hq_root}/engine/scripts/regenerate_derived.py" "${target_root}/engine/scripts/regenerate_derived.py"
+    cp "${hq_root}/engine/scripts/build-aggregate.mjs" "${target_root}/engine/scripts/build-aggregate.mjs"
     cp "${hq_root}/engine/scripts/validate-current-week.mts" "${target_root}/engine/scripts/validate-current-week.mts"
     cp "${hq_root}/engine/scripts/validate-current-week" "${target_root}/engine/scripts/validate-current-week"
     chmod +x "${target_root}/engine/scripts/validate-current-week"
@@ -337,6 +406,12 @@ if [[ "$MODE" == "migrate" || "$SKIP_PUSH" -eq 1 ]]; then
     else
       clone_to_workdir "https://github.com/${LEGACY_REPO}.git" "${WORKDIR}/legacy"
       apply_legacy_overlay "${WORKDIR}/legacy" "${WORKDIR}/target"
+      if [[ -z "$PROVISION_PLUGINS" ]] && legacy_wants_badminton_plugin "${WORKDIR}/target"; then
+        PROVISION_PLUGINS="badminton"
+        log "Legacy badminton match data detected — enabling badminton plugin"
+      fi
+      hq_root="$(cd "$(dirname "$0")/.." && pwd)"
+      install_provision_plugins "${WORKDIR}/target" "$hq_root" "$PROVISION_PLUGINS"
       if [[ "$SKIP_REGENERATE" -eq 0 ]]; then
         regenerate_gen "${WORKDIR}/target"
       else

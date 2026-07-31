@@ -18,6 +18,7 @@ from typing import Optional
 _BOOT = Path(__file__).resolve().parent
 _LIB = _BOOT.parent / "lib"
 sys.path.insert(0, str(_LIB))
+from plugins import badminton_analytics_script, is_plugin_enabled  # noqa: E402
 from repo_layout import gen_dir, p, repo_root_from_here, sync_status_path  # noqa: E402
 
 REPO = repo_root_from_here(__file__)
@@ -37,6 +38,28 @@ def run(script: str) -> None:
     )
     if result.returncode != 0:
         raise RuntimeError(f"{script} failed:\n{result.stderr}")
+    if result.stderr:
+        log(result.stderr.strip())
+
+
+def maybe_run_badminton_analytics() -> None:
+    if not is_plugin_enabled(REPO, "badminton"):
+        log("Badminton plugin not enabled — skipping analytics snapshot")
+        return
+    script = badminton_analytics_script(REPO)
+    if script is None:
+        log("Badminton plugin code absent — skipping analytics snapshot")
+        return
+    log("Generating badminton_analytics_snapshot.json...")
+    result = subprocess.run(
+        [sys.executable, str(script)],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        timeout=TIMEOUT,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"badminton analytics failed:\n{result.stderr}")
     if result.stderr:
         log(result.stderr.strip())
 
@@ -64,6 +87,7 @@ def main() -> None:
         run("generate_quest_log.py")
         log("Generating quest_history.json...")
         run("generate_quest_history.py")
+        maybe_run_badminton_analytics()
         write_sync_status()
         log("Done.")
     except Exception as e:

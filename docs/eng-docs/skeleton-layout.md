@@ -95,6 +95,7 @@ coach-skeleton/  (= coach-user after fork)
     │   └── reference/
     └── ledger/
         ├── challenge_v2.json        # repo marker for GitHub App
+        ├── plugins.json             # optional sport plugins gate
         └── current_week.json
 ```
 
