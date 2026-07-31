@@ -217,7 +217,7 @@ legacy_wants_badminton_plugin() {
 regenerate_gen() {
   local target_root="$1"
   local hq_root
-  hq_root="$(cd "$(dirname "$0")/.." && pwd)"
+  hq_root="$(cd "$(dirname "$0")/../.." && pwd)"
   command -v python3 >/dev/null || die "python3 required for gen/ regeneration"
   command -v node >/dev/null || die "node required for gen/ regeneration"
 
@@ -410,7 +410,7 @@ if [[ "$MODE" == "migrate" || "$SKIP_PUSH" -eq 1 ]]; then
         PROVISION_PLUGINS="badminton"
         log "Legacy badminton match data detected — enabling badminton plugin"
       fi
-      hq_root="$(cd "$(dirname "$0")/.." && pwd)"
+      hq_root="$(cd "$(dirname "$0")/../.." && pwd)"
       install_provision_plugins "${WORKDIR}/target" "$hq_root" "$PROVISION_PLUGINS"
       if [[ "$SKIP_REGENERATE" -eq 0 ]]; then
         regenerate_gen "${WORKDIR}/target"

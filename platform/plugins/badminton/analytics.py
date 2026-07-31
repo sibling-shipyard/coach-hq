@@ -95,7 +95,7 @@ def build_sessions(
 ) -> list[dict]:
     """Build session records with ranked/all game lists from structured match_history.json.
 
-    Falls back to description parsing if no structured match history is available for an activity date.
+    Dates without structured games (canonical or legacy matches) are skipped.
     """
     sessions = []
     activities_by_date = {act["_date"]: act for act in activities}
@@ -159,13 +159,8 @@ def build_sessions(
                     friendly_games.append(game_obj)
                 else:
                     ranked_games.append(game_obj)
-        else:
-            # Fall back to description parsing
-            desc = act.get("description") or ""
-            parsed = parse_formatted_description(desc)
-            if parsed:
-                ranked_games = parsed["ranked"]
-                friendly_games = parsed["friendlies"]
+        # No structured match history for this date — skip (ADR 0013:
+        # analytics reads match_history.json only; description text is display).
 
         all_games = ranked_games + friendly_games
         if not all_games:

@@ -46,5 +46,18 @@ class TestBadmintonAnalytics(unittest.TestCase):
         self.assertTrue(session["ranked_games"][0]["won"])
         self.assertEqual(session["ranked_games"][0]["format"], "singles")
 
+    def test_build_sessions_skips_activity_without_structured_history(self):
+        activities = [
+            {
+                "_date": "2026-07-24",
+                "_category": "Badminton",
+                "name": "Badminton",
+                "description": "W 21-18 vs Alston",
+                "average_heartrate": 140,
+            }
+        ]
+        sessions = build_sessions(activities, {})
+        self.assertEqual(sessions, [])
+
 if __name__ == "__main__":
     unittest.main()
