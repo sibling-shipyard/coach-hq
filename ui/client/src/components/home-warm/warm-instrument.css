@@ -1244,6 +1244,111 @@ button.wi-commitment-card:hover {
 }
 
 .wi-training-card > p,
+.wi-training-card__compact-read {
+  margin: 0;
+  color: var(--wi-ink-soft);
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 14.5px;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+/* Compact (M / marketing) — one month, streak hero, no paging */
+.wi-training-card--compact {
+  display: flex;
+  height: 100%;
+  min-height: 430px;
+  flex-direction: column;
+  padding: 28px 30px;
+  border-color: #d8d2c6;
+  background: var(--wi-page);
+  box-shadow: 0 16px 36px rgba(57, 52, 42, 0.1);
+}
+
+.wi-training-card__streak {
+  margin-top: 12px;
+}
+
+.wi-training-card__streak strong {
+  display: block;
+  font-family: "Space Mono", monospace;
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--wi-ink);
+}
+
+.wi-training-card__streak span {
+  display: block;
+  margin-top: 4px;
+  color: #75746b;
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.wi-activity-month--compact {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin-top: 20px;
+  min-height: 0;
+}
+
+.wi-activity-month__grid--compact {
+  flex: 1;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  align-content: start;
+  margin-top: 8px;
+}
+
+.wi-activity-month__grid--compact i {
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 3px;
+}
+
+.wi-activity-month--compact .wi-activity-month__days {
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 8px;
+}
+
+.wi-training-card__legend--compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 14px;
+  overflow: visible;
+  font-size: 8.5px;
+}
+
+.wi-training-card__compact-caption {
+  margin-top: 12px;
+  color: #8a8b81;
+  font-family: "Space Mono", monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.wi-training-card__compact-read {
+  margin-top: auto;
+  padding-top: 14px;
+}
+
+.welcome-hl-card__widget--consistency .wi-training-card--compact {
+  width: 100%;
+  min-height: 430px;
+}
+
+.welcome-hl-card__widget--consistency .wi-training-card--compact:hover {
+  transform: none;
+  box-shadow: 0 16px 36px rgba(57, 52, 42, 0.1);
+}
 .wi-vo2-card > p,
 .wi-build-card > p {
   margin: 16px 0 0;

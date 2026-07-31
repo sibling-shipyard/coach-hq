@@ -201,6 +201,35 @@
       "read": "Dates assume 4 plan-true weeks — every missed bar day slides them right."
     },
     "activityEvidence": [],
+    "amIImproving": {
+      "available": true,
+      "rows": [
+        {
+          "label": "WIN RATE",
+          "fiftyTwoWeek": "49%",
+          "recent": "51%",
+          "improved": true
+        },
+        {
+          "label": "CLOSE GAMES WON",
+          "fiftyTwoWeek": "47%",
+          "recent": "40%",
+          "improved": false
+        },
+        {
+          "label": "AVG MARGIN",
+          "fiftyTwoWeek": "+0.1",
+          "recent": "+0.5",
+          "improved": true
+        },
+        {
+          "label": "FADE POINT",
+          "fiftyTwoWeek": "GAME 2",
+          "recent": "GAME 2",
+          "improved": null
+        }
+      ]
+    },
     "sync": {
       "label": "Synced 2h ago",
       "healthy": true,

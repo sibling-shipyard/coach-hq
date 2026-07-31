@@ -6,6 +6,7 @@ import {
   type Activity,
   type TrainingCategory,
 } from "@/lib/activities";
+import { buildBadmintonLensModel } from "@/components/sport-analytics/badmintonLensModel";
 import type { SessionDiscipline } from "./currentWeek.fixture";
 import { formatMinutesLabel } from "./formatUtils";
 import type {
@@ -726,6 +727,7 @@ export function buildWarmHomeSnapshots(
     vo2: buildVo2Snapshot(),
     sessions: buildRecentSessions(activityEvidence),
     phase: buildPhaseSnapshot(challengeData, dataMode),
+    amIImproving: buildBadmintonLensModel(activities, "ranked").amIImproving,
     activityEvidence,
     sync: {
       label: model.syncLabel,

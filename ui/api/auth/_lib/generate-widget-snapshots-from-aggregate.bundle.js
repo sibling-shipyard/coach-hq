@@ -186,6 +186,561 @@ function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new 
   };
 }
 
+// client/src/lib/nameAliases.ts
+var NAME_ALIASES = {
+  johndoe: "John Doe"
+};
+var UNICODE_DECORATIONS = /[\u2654-\u265F\u2660-\u2667\u2668-\u2671\u2672-\u267F\u2680-\u269F\u26A0-\u26FF\u2700-\u27BF\u{1F300}-\u{1F9FF}]/gu;
+function normalizeName(name) {
+  let cleaned = name.replace(UNICODE_DECORATIONS, "").trim();
+  const key = cleaned.toLowerCase();
+  if (NAME_ALIASES[key]) {
+    return NAME_ALIASES[key];
+  }
+  return cleaned;
+}
+
+// client/src/lib/matchParser.ts
+var WL_SUMMARY_RE = /(\d+)W[–-](\d+)L\s*\((\d+)%?\)/;
+var GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+w\/\s+(.+?)\s+vs\s+(.+)$/i;
+function parseGameLine(line, gameNumber, isFriendly) {
+  const m = line.trim().match(GAME_LINE_RE);
+  if (!m) return null;
+  const result = m[1].toUpperCase();
+  const s1 = parseInt(m[2], 10);
+  const s2 = parseInt(m[3], 10);
+  const partner = normalizeName(m[4].trim());
+  const opponents = m[5].split(/\s*\+\s*/).map((s) => normalizeName(s.trim())).filter(Boolean);
+  const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
+  const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
+  const margin = myScore - oppScore;
+  return {
+    result,
+    score: `${s1}-${s2}`,
+    myScore,
+    oppScore,
+    margin,
+    partner,
+    opponents,
+    gameNumber,
+    isFriendly
+  };
+}
+function parseDescription(description) {
+  if (!description) return null;
+  const lines = description.split("\n").map((l) => l.trim());
+  let summaryIdx = -1;
+  let summaryWins = 0;
+  let summaryLosses = 0;
+  let summaryPct = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(WL_SUMMARY_RE);
+    if (m) {
+      summaryIdx = i;
+      summaryWins = parseInt(m[1], 10);
+      summaryLosses = parseInt(m[2], 10);
+      summaryPct = parseInt(m[3], 10);
+      break;
+    }
+  }
+  if (summaryIdx === -1) return null;
+  const commentLines = lines.slice(0, summaryIdx).filter((l) => l.length > 0);
+  const comment = commentLines.length > 0 ? commentLines.join("\n") : null;
+  let gamesStartIdx = -1;
+  for (let i = summaryIdx + 1; i < lines.length; i++) {
+    if (/^Games:/i.test(lines[i])) {
+      gamesStartIdx = i + 1;
+      break;
+    }
+  }
+  if (gamesStartIdx === -1) {
+    return {
+      wins: summaryWins,
+      losses: summaryLosses,
+      winPct: summaryPct,
+      comment,
+      games: [],
+      friendlies: []
+    };
+  }
+  const games = [];
+  const friendlies = [];
+  let inFriendlies = false;
+  let gameNumber = 1;
+  for (let i = gamesStartIdx; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+    if (/^Friendlies:/i.test(line)) {
+      inFriendlies = true;
+      continue;
+    }
+    const game = parseGameLine(line, gameNumber, inFriendlies);
+    if (game) {
+      if (inFriendlies) {
+        friendlies.push(game);
+      } else {
+        games.push(game);
+      }
+      gameNumber++;
+    }
+  }
+  const allGames = [...games, ...friendlies];
+  const actualWins = allGames.filter((g) => g.result === "W").length;
+  const actualLosses = allGames.filter((g) => g.result === "L").length;
+  const total = actualWins + actualLosses;
+  return {
+    wins: allGames.length > 0 ? actualWins : summaryWins,
+    losses: allGames.length > 0 ? actualLosses : summaryLosses,
+    winPct: total > 0 ? Math.round(actualWins / total * 100) : summaryPct,
+    comment,
+    games,
+    friendlies
+  };
+}
+function parseEbadders(ebadders) {
+  if (!ebadders?.matches?.length) return null;
+  const games = [];
+  let gameNumber = 1;
+  for (const match of ebadders.matches) {
+    const result = match.player_won ? "W" : "L";
+    const scoreParts = match.score.split(/[–-]/).map((s) => parseInt(s.trim(), 10));
+    if (scoreParts.length !== 2 || isNaN(scoreParts[0]) || isNaN(scoreParts[1])) continue;
+    const [s1, s2] = scoreParts;
+    const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
+    const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);
+    games.push({
+      result,
+      score: match.score,
+      myScore,
+      oppScore,
+      margin: myScore - oppScore,
+      partner: normalizeName(match.partner?.[0] ?? "Unknown"),
+      opponents: (match.vs ?? []).map((v) => normalizeName(v)),
+      gameNumber,
+      isFriendly: false
+    });
+    gameNumber++;
+  }
+  const wins = games.filter((g) => g.result === "W").length;
+  const losses = games.filter((g) => g.result === "L").length;
+  const total = wins + losses;
+  return {
+    wins,
+    losses,
+    winPct: total > 0 ? Math.round(wins / total * 100) : 0,
+    comment: null,
+    games,
+    friendlies: []
+  };
+}
+function parseMatch(activity) {
+  const fromDesc = parseDescription(activity.description);
+  if (fromDesc && (fromDesc.games.length > 0 || fromDesc.friendlies.length > 0)) {
+    return fromDesc;
+  }
+  if (fromDesc) {
+    if (activity.ebadders) {
+      const fromEb = parseEbadders(activity.ebadders);
+      if (fromEb && fromEb.games.length > 0) {
+        fromEb.comment = fromDesc.comment;
+        return fromEb;
+      }
+    }
+    return fromDesc;
+  }
+  if (activity.ebadders) {
+    return parseEbadders(activity.ebadders);
+  }
+  return null;
+}
+function getAllGames(match) {
+  return [...match.games, ...match.friendlies];
+}
+function getRankedGames(match) {
+  return match.games;
+}
+
+// client/src/components/sport-analytics/badmintonLensModel.ts
+var ALL_CATEGORIES = /* @__PURE__ */ new Set([
+  "badminton_ranked",
+  "badminton_league",
+  "badminton_friendly",
+  "badminton_casual"
+]);
+var EIGHT_WEEKS_MS = 56 * 24 * 60 * 60 * 1e3;
+var FIFTY_TWO_WEEKS_MS = 52 * 7 * 24 * 60 * 60 * 1e3;
+var MIN_POSITION_SAMPLES = 5;
+var MIN_OPPONENT_GAMES = 3;
+var MIN_MONTH_SESSIONS = 3;
+function buildSessions(activities) {
+  const result = [];
+  for (const activity of activities) {
+    const category = getTrainingCategory(activity);
+    if (!ALL_CATEGORIES.has(category)) continue;
+    const parsed = parseMatch(activity);
+    if (!parsed || parsed.games.length === 0 && parsed.friendlies.length === 0) continue;
+    result.push({
+      activity,
+      parsed,
+      dateKey: activity.start_date_local.slice(0, 10),
+      timestamp: parseLocal(activity.start_date_local).getTime()
+    });
+  }
+  result.sort((a, b) => a.timestamp - b.timestamp);
+  return result;
+}
+function gamesForMode(session, mode) {
+  return mode === "ranked" ? getRankedGames(session.parsed) : getAllGames(session.parsed);
+}
+function winPct(wins, losses) {
+  const total = wins + losses;
+  return total > 0 ? Math.round(wins / total * 100) : 0;
+}
+function percentile(sorted, p) {
+  if (sorted.length === 0) return 0;
+  const index = (sorted.length - 1) * p;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower];
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+}
+function buildHeaderStats(activities, sessions) {
+  const totalSessions = activities.filter((a) => ALL_CATEGORIES.has(getTrainingCategory(a))).length;
+  let rankedGameCount = 0;
+  let allGameCount = 0;
+  for (const session of sessions) {
+    rankedGameCount += getRankedGames(session.parsed).length;
+    allGameCount += getAllGames(session.parsed).length;
+  }
+  return {
+    totalSessions,
+    sessionsWithMatchData: sessions.length,
+    rankedGameCount,
+    allGameCount
+  };
+}
+function verdictForWindow(pct, low, high, hasGames) {
+  if (!hasGames) return "no games logged in this window";
+  if (pct > high) return "above the band \u2014 improving";
+  if (pct < low) return "below the band";
+  return "in the band";
+}
+function formatMonthYear(timestamp) {
+  return new Date(timestamp).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }).toUpperCase().replace(" ", " '");
+}
+function buildWinRate(sessions, mode, now) {
+  const points = sessions.map((session) => {
+    const games = gamesForMode(session, mode);
+    const wins = games.filter((g) => g.result === "W").length;
+    const losses = games.filter((g) => g.result === "L").length;
+    const date = parseLocal(session.activity.start_date_local);
+    return {
+      timestamp: session.timestamp,
+      label: date.toLocaleDateString("en-GB", { day: "numeric", month: "short" }).toUpperCase(),
+      activityId: session.activity.id,
+      wins,
+      losses,
+      rolling: null
+    };
+  });
+  for (let i = 0; i < points.length; i++) {
+    const cutoff = points[i].timestamp - 28 * 24 * 60 * 60 * 1e3;
+    const window = points.filter((p, j) => j <= i && p.timestamp >= cutoff);
+    const totalWins = window.reduce((sum, p) => sum + p.wins, 0);
+    const totalGames = window.reduce((sum, p) => sum + p.wins + p.losses, 0);
+    points[i].rolling = window.length >= 2 && totalGames > 0 ? Math.round(totalWins / totalGames * 100) : null;
+  }
+  const rollingValues = points.map((p) => p.rolling).filter((v) => v !== null).sort((a, b) => a - b);
+  const hasBand = rollingValues.length >= 4;
+  const bandLow = hasBand ? Math.round(percentile(rollingValues, 0.25)) : 0;
+  const bandHigh = hasBand ? Math.round(percentile(rollingValues, 0.75)) : 100;
+  function windowForRange(start, end) {
+    const inWindow = points.filter((p) => (start === null || p.timestamp >= start) && p.timestamp < end);
+    const wins = inWindow.reduce((sum, p) => sum + p.wins, 0);
+    const losses = inWindow.reduce((sum, p) => sum + p.losses, 0);
+    const pct = winPct(wins, losses);
+    return {
+      winPct: pct,
+      wins,
+      losses,
+      games: wins + losses,
+      verdict: hasBand ? verdictForWindow(pct, bandLow, bandHigh, wins + losses > 0) : "not enough history for a band yet",
+      trend: inWindow.map((p) => ({
+        label: p.label,
+        sessionWinPct: winPct(p.wins, p.losses),
+        rollingWinPct: p.rolling,
+        activityId: p.activityId,
+        timestamp: p.timestamp
+      }))
+    };
+  }
+  const eightWeek = windowForRange(now - EIGHT_WEEKS_MS, now + 1);
+  const yearWindows = [];
+  if (points.length > 0) {
+    const earliest = points[0].timestamp;
+    const pageCount = Math.max(1, Math.ceil((now - earliest) / FIFTY_TWO_WEEKS_MS));
+    for (let page = 0; page < pageCount; page++) {
+      const end = now - page * FIFTY_TWO_WEEKS_MS;
+      const start = end - FIFTY_TWO_WEEKS_MS;
+      yearWindows.push({
+        rangeLabel: `${formatMonthYear(start)} \u2013 ${formatMonthYear(end)}`,
+        window: windowForRange(start, end)
+      });
+    }
+  }
+  return {
+    available: points.length > 0,
+    bandLow,
+    bandHigh,
+    eightWeek,
+    yearWindows
+  };
+}
+function buildSessionShapeRead(points) {
+  const withPct = points.filter((point) => point.fiftyTwoWeekWinPct !== null);
+  if (withPct.length < 3) return "Shape emerges once more games stack at each position.";
+  const third = Math.max(1, Math.ceil(withPct.length / 3));
+  const early = withPct.slice(0, third);
+  const late = withPct.slice(-third);
+  const avgEarly = early.reduce((sum, point) => sum + (point.fiftyTwoWeekWinPct ?? 0), 0) / early.length;
+  const avgLate = late.reduce((sum, point) => sum + (point.fiftyTwoWeekWinPct ?? 0), 0) / late.length;
+  const delta = Math.round(avgLate - avgEarly);
+  if (delta <= -8) return `Win rate fades late \u2014 down ${Math.abs(delta)} pts from early to late games.`;
+  if (delta >= 8) return `You finish strong \u2014 up ${delta} pts from early to late games.`;
+  return "Win rate holds steady across the session \u2014 no clear fatigue curve.";
+}
+function buildSessionShape(sessions, mode, now) {
+  const byPosition52w = /* @__PURE__ */ new Map();
+  const byPosition8w = /* @__PURE__ */ new Map();
+  const cutoff52 = now - FIFTY_TWO_WEEKS_MS;
+  const cutoff8 = now - EIGHT_WEEKS_MS;
+  for (const session of sessions) {
+    if (session.timestamp < cutoff52) continue;
+    const games = gamesForMode(session, mode);
+    games.forEach((game, index) => {
+      const position = index + 1;
+      if (!byPosition52w.has(position)) byPosition52w.set(position, []);
+      byPosition52w.get(position).push(game);
+      if (session.timestamp >= cutoff8) {
+        if (!byPosition8w.has(position)) byPosition8w.set(position, []);
+        byPosition8w.get(position).push(game);
+      }
+    });
+  }
+  const positions = Array.from(byPosition52w.keys()).sort((a, b) => a - b);
+  const points = positions.map((position) => {
+    const windowGames = byPosition52w.get(position) ?? [];
+    const recentGames = byPosition8w.get(position) ?? [];
+    const windowPct = windowGames.length >= MIN_POSITION_SAMPLES ? winPct(windowGames.filter((g) => g.result === "W").length, windowGames.filter((g) => g.result === "L").length) : null;
+    const recentPct = recentGames.length >= 3 ? winPct(recentGames.filter((g) => g.result === "W").length, recentGames.filter((g) => g.result === "L").length) : null;
+    return {
+      gameNumber: position,
+      label: `GAME ${position}`,
+      fiftyTwoWeekWinPct: windowPct,
+      eightWeekWinPct: recentPct,
+      sampleCount: windowGames.length
+    };
+  }).filter((point) => point.fiftyTwoWeekWinPct !== null || point.eightWeekWinPct !== null);
+  return { available: points.length >= 3, points, read: buildSessionShapeRead(points) };
+}
+function buildBestMonth(sessions, mode) {
+  const byMonth = /* @__PURE__ */ new Map();
+  for (const session of sessions) {
+    const date = parseLocal(session.activity.start_date_local);
+    const key = `${date.getFullYear()}-${date.getMonth()}`;
+    const games = gamesForMode(session, mode);
+    if (games.length === 0) continue;
+    const entry = byMonth.get(key) ?? {
+      sessions: 0,
+      wins: 0,
+      losses: 0,
+      label: date.toLocaleDateString("en-GB", { month: "short", year: "2-digit" }).toUpperCase().replace(" ", " '")
+    };
+    entry.sessions += 1;
+    entry.wins += games.filter((g) => g.result === "W").length;
+    entry.losses += games.filter((g) => g.result === "L").length;
+    byMonth.set(key, entry);
+  }
+  const months = Array.from(byMonth.values());
+  const qualifying = months.filter((m) => m.sessions >= MIN_MONTH_SESSIONS);
+  if (qualifying.length === 0) return { available: false, label: "", winPct: 0, sessionCount: 0, isHighestVolume: false };
+  qualifying.sort((a, b) => {
+    const pctDiff = winPct(b.wins, b.losses) - winPct(a.wins, a.losses);
+    return pctDiff !== 0 ? pctDiff : b.sessions - a.sessions;
+  });
+  const best = qualifying[0];
+  const maxSessions = Math.max(...months.map((m) => m.sessions));
+  return {
+    available: true,
+    label: best.label,
+    winPct: winPct(best.wins, best.losses),
+    sessionCount: best.sessions,
+    isHighestVolume: best.sessions === maxSessions
+  };
+}
+function buildHeadToHead(sessions, mode, now) {
+  const cutoff52 = now - FIFTY_TWO_WEEKS_MS;
+  const cutoff8 = now - EIGHT_WEEKS_MS;
+  const byOpponent = /* @__PURE__ */ new Map();
+  const byOpponentRecent = /* @__PURE__ */ new Map();
+  for (const session of sessions) {
+    if (session.timestamp < cutoff52) continue;
+    const games = gamesForMode(session, mode);
+    for (const game of games) {
+      for (const opponent of game.opponents) {
+        if (!byOpponent.has(opponent)) byOpponent.set(opponent, []);
+        byOpponent.get(opponent).push(game);
+        if (session.timestamp >= cutoff8) {
+          if (!byOpponentRecent.has(opponent)) byOpponentRecent.set(opponent, []);
+          byOpponentRecent.get(opponent).push(game);
+        }
+      }
+    }
+  }
+  const rows = [];
+  Array.from(byOpponent.entries()).forEach(([name, games]) => {
+    if (games.length < MIN_OPPONENT_GAMES) return;
+    const wins = games.filter((g) => g.result === "W").length;
+    const losses = games.filter((g) => g.result === "L").length;
+    const windowPct = winPct(wins, losses);
+    const recent = byOpponentRecent.get(name) ?? [];
+    const recentWins = recent.filter((g) => g.result === "W").length;
+    const recentLosses = recent.filter((g) => g.result === "L").length;
+    let direction = "steady rivalry";
+    let tone = "flat";
+    if (recent.length >= 2) {
+      const recentPct = winPct(recentWins, recentLosses);
+      if (recentPct - windowPct >= 15) {
+        direction = "closing the gap";
+        tone = "up";
+      } else if (recentPct - windowPct <= -15) {
+        direction = "his pace, not yours";
+        tone = "down";
+      } else if (recentPct >= 50) {
+        direction = "edge holding";
+        tone = "up";
+      } else {
+        direction = "steady rivalry";
+        tone = "flat";
+      }
+    } else {
+      direction = "no recent meetings";
+      tone = "flat";
+    }
+    rows.push({
+      name,
+      fiftyTwoWeekRecord: `${wins}W\u2013${losses}L`,
+      fiftyTwoWeekWinPct: windowPct,
+      fiftyTwoWeekGames: games.length,
+      recentRecord: recent.length > 0 ? `${recentWins}W\u2013${recentLosses}L` : "\u2014",
+      recentGames: recent.length,
+      direction,
+      tone
+    });
+  });
+  rows.sort((a, b) => b.fiftyTwoWeekGames - a.fiftyTwoWeekGames);
+  return { available: rows.length > 0, rows };
+}
+function closeGamesWinPct(games) {
+  const close = games.filter((g) => Math.abs(g.margin) <= 3);
+  if (close.length === 0) return null;
+  return winPct(close.filter((g) => g.result === "W").length, close.filter((g) => g.result === "L").length);
+}
+function avgMargin(games) {
+  if (games.length === 0) return null;
+  return Math.round(games.reduce((sum, g) => sum + g.margin, 0) / games.length * 10) / 10;
+}
+function fadePoint(shape, key) {
+  const drop = shape.find((p) => (p[key] ?? 100) < 50);
+  return drop ? `GAME ${drop.gameNumber}` : "\u2014";
+}
+function buildAmIImproving(sessions, mode, now, shape) {
+  const cutoff8 = now - EIGHT_WEEKS_MS;
+  const cutoff52 = now - FIFTY_TWO_WEEKS_MS;
+  const windowGames = sessions.filter((s) => s.timestamp >= cutoff52).flatMap((s) => gamesForMode(s, mode));
+  const recentGames = sessions.filter((s) => s.timestamp >= cutoff8).flatMap((s) => gamesForMode(s, mode));
+  if (recentGames.length < 6) return { available: false, rows: [] };
+  const windowWinPct = winPct(windowGames.filter((g) => g.result === "W").length, windowGames.filter((g) => g.result === "L").length);
+  const recentWinPct = winPct(recentGames.filter((g) => g.result === "W").length, recentGames.filter((g) => g.result === "L").length);
+  const windowClose = closeGamesWinPct(windowGames);
+  const recentClose = closeGamesWinPct(recentGames);
+  const windowAvgMargin = avgMargin(windowGames);
+  const recentAvgMargin = avgMargin(recentGames);
+  const windowFade = fadePoint(shape.points, "fiftyTwoWeekWinPct");
+  const recentFade = fadePoint(shape.points, "eightWeekWinPct");
+  const rows = [
+    {
+      label: "WIN RATE",
+      fiftyTwoWeek: `${windowWinPct}%`,
+      recent: `${recentWinPct}%`,
+      improved: recentWinPct === windowWinPct ? null : recentWinPct > windowWinPct
+    }
+  ];
+  if (windowClose !== null && recentClose !== null) {
+    rows.push({
+      label: "CLOSE GAMES WON",
+      fiftyTwoWeek: `${windowClose}%`,
+      recent: `${recentClose}%`,
+      improved: recentClose === windowClose ? null : recentClose > windowClose
+    });
+  }
+  if (windowAvgMargin !== null && recentAvgMargin !== null) {
+    rows.push({
+      label: "AVG MARGIN",
+      fiftyTwoWeek: windowAvgMargin > 0 ? `+${windowAvgMargin}` : `${windowAvgMargin}`,
+      recent: recentAvgMargin > 0 ? `+${recentAvgMargin}` : `${recentAvgMargin}`,
+      improved: recentAvgMargin === windowAvgMargin ? null : recentAvgMargin > windowAvgMargin
+    });
+  }
+  if (windowFade !== "\u2014" || recentFade !== "\u2014") {
+    const windowNum = windowFade === "\u2014" ? null : Number(windowFade.replace("GAME ", ""));
+    const recentNum = recentFade === "\u2014" ? null : Number(recentFade.replace("GAME ", ""));
+    rows.push({
+      label: "FADE POINT",
+      fiftyTwoWeek: windowFade,
+      recent: recentFade,
+      improved: windowNum === null || recentNum === null || recentNum === windowNum ? null : recentNum > windowNum
+    });
+  }
+  return { available: true, rows };
+}
+var ZONE_COLORS = ["#adc2b7", "#315a4a", "#a8702c", "#7f3728", "#4a241a"];
+function buildEffort(sessions) {
+  const totals = [0, 0, 0, 0, 0];
+  let anyZones = false;
+  for (const session of sessions) {
+    const zones = session.activity.hr_zones;
+    if (!zones) continue;
+    anyZones = true;
+    for (let z = 1; z <= 5; z++) {
+      totals[z - 1] += Math.max(0, Number(zones[`Zone ${z}`]?.seconds) || 0);
+    }
+  }
+  const totalSeconds = totals.reduce((sum, v) => sum + v, 0);
+  if (!anyZones || totalSeconds === 0) return { available: false, zones: [] };
+  return {
+    available: true,
+    zones: totals.map((seconds, index) => ({
+      label: `Z${index + 1}`,
+      percent: Math.round(seconds / totalSeconds * 100),
+      color: ZONE_COLORS[index]
+    }))
+  };
+}
+function buildBadmintonLensModel(activities, mode, now = Date.now()) {
+  const sessions = buildSessions(activities);
+  const shape = buildSessionShape(sessions, mode, now);
+  return {
+    header: buildHeaderStats(activities, sessions),
+    winRate: buildWinRate(sessions, mode, now),
+    sessionShape: shape,
+    bestMonth: buildBestMonth(sessions, mode),
+    headToHead: buildHeadToHead(sessions, mode, now),
+    amIImproving: buildAmIImproving(sessions, mode, now, shape),
+    effort: buildEffort(sessions)
+  };
+}
+
 // client/src/components/home-warm/formatUtils.ts
 function formatMinutesLabel(value) {
   const minutes = Math.round(value);
@@ -1017,6 +1572,7 @@ function buildWarmHomeSnapshots(activities, challengeData, syncStatus, contract,
     vo2: buildVo2Snapshot(),
     sessions: buildRecentSessions(activityEvidence),
     phase: buildPhaseSnapshot(challengeData, dataMode),
+    amIImproving: buildBadmintonLensModel(activities, "ranked").amIImproving,
     activityEvidence,
     sync: {
       label: model.syncLabel,
