@@ -1,3 +1,9 @@
 {
-  "entries": []
+  "entries": [
+    {
+      "email": "waitlist-test+1785518745@example.com",
+      "created_at": "2026-07-31T17:25:45.704Z",
+      "source": "welcome"
+    }
+  ]
 }
