@@ -1,11 +1,7 @@
 import SwiftUI
 
-/// Shows a synced activity's stats and lets the user paste raw match scores,
-/// previewing the parsed/formatted result live, then commits both the activity
-/// file and `user_data/activities/match_history.json` to GitHub in one atomic commit.
-///
-/// Warm Instrument layout — inline back + title meta on desk, hero stats card,
-/// quiet zone breakdown, coach's-read description treatment.
+/// Shows a synced activity's stats and (for Badminton) lets the user log match scores.
+/// Layout: headerBar (full-bleed) → hero stats → zone donut → HR context → zone breakdown → mental state → scores.
 struct ActivityDetailView: View {
     let entry: SyncCacheEntry
 
@@ -17,33 +13,29 @@ struct ActivityDetailView: View {
     @State private var isLoading = false
     @State private var isSaving = false
     @State private var errorMessage: String?
-    @State private var saveSucceeded = false
-    @State private var saveCheckScale: CGFloat = 0.6
-    @State private var isEditing = false
     @State private var statsRevealed: Bool
     @State private var statsProgress: Double = 0
-    @FocusState private var editorFocused: Bool
+    @State private var showingScoreSheet = false
+    @State private var toast: Toast?
 
     init(entry: SyncCacheEntry) {
         self.entry = entry
         let cached = entry.activity
         _activity = State(initialValue: cached)
-        // Cached entries render at full opacity immediately — no fade on every push.
         _statsRevealed = State(initialValue: cached != nil)
-        // Skip count-up for cache hits so stats never flash zero.
         _statsProgress = State(initialValue: cached != nil ? 1.0 : 0)
     }
 
-    /// The saved description on the server (nil/empty until scored).
     private var savedDescription: String? {
         guard let desc = activity?.description, !desc.isEmpty else { return nil }
         return desc
     }
 
+    private var supportsScoreEntry: Bool {
+        Theme.sportSupportsScoreEntry(for: entry.sportType)
+    }
+
     private var apiClient: GitHubAPIClient {
-        // targetBranch is a computed property governed by TestModeManager —
-        // don't override it here. Previously this forced "main" unconditionally,
-        // which would have silently bypassed test mode for this exact save flow.
         GitHubAPIClient(authManager: authManager)
     }
 
@@ -55,74 +47,51 @@ struct ActivityDetailView: View {
         DescriptionParser.parseRawDescription(descriptionText)
     }
 
+    private var hrZoneTotal: Double {
+        guard let zones = activity?.hrZones else { return 0 }
+        let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+        return order.reduce(0) { $0 + (zones[$1]?.seconds ?? 0) }
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                metaHeader
-                statsCard
-                zoneBreakdownSection
+            VStack(spacing: 0) {
+                headerBar
 
-                Group {
-                    if isEditing {
-                        editorSection
-                        previewSection
-                    } else {
-                        descriptionSection
+                VStack(alignment: .leading, spacing: 14) {
+                    heroCard
+                    zoneDonutSection
+                    hrContextSection
+                    zoneBreakdownSection
+                    mentalStateSection
+                    if supportsScoreEntry { scoreSection }
+                    if let errorMessage {
+                        Text(errorMessage)
+                            .font(.caption)
+                            .foregroundColor(WarmInstrument.accent)
+                            .padding(.horizontal, 4)
                     }
                 }
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98)),
-                    removal: .opacity.combined(with: .scale(scale: 0.98))
-                ))
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundColor(WarmInstrument.accent)
-                }
-
-                if isEditing {
-                    WarmPrimaryCTA(title: isSaving ? "Saving…" : "Save & Sync") {
-                        Task { await saveAndSync() }
-                    }
-                    .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .opacity(descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
-                    .overlay {
-                        if isSaving {
-                            ProgressView()
-                                .tint(WarmInstrument.paper)
-                        }
-                    }
-                }
-
-                if saveSucceeded {
-                    Label("Saved and synced to GitHub", systemImage: "checkmark.circle.fill")
-                        .font(.footnote.weight(.medium))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .scaleEffect(saveCheckScale)
-                        .transition(.scale.combined(with: .opacity))
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 32)
+                .safeAreaPadding(.bottom, 8)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 24)
-            .safeAreaPadding(.bottom, 8)
-            .animation(PremiumMotion.state, value: isEditing)
-            .animation(PremiumMotion.reveal, value: saveSucceeded)
         }
         .scrollClipDisabled()
         .background(WarmInstrument.desk.ignoresSafeArea())
-        .scrollDismissesKeyboard(.interactively)
         .toolbar(.hidden, for: .navigationBar)
         .hidesMainTabBar()
         .edgeBackSwipe { dismiss() }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { editorFocused = false }
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(Theme.ink)
-            }
+        .toast($toast)
+        .sheet(isPresented: $showingScoreSheet) {
+            ScoreEntrySheet(
+                entry: entry,
+                descriptionText: $descriptionText,
+                isSaving: $isSaving,
+                errorMessage: $errorMessage,
+                onSave: { await saveAndSync() }
+            )
         }
         .task { await loadExistingActivity() }
         .onChange(of: isLoading) { _, loading in
@@ -130,19 +99,12 @@ struct ActivityDetailView: View {
             withAnimation(PremiumMotion.statsLoad) { statsRevealed = true }
             withAnimation(.spring(duration: 0.7, bounce: 0.1).delay(0.1)) { statsProgress = 1.0 }
         }
-        .onChange(of: saveSucceeded) { _, success in
-            guard success else { return }
-            saveCheckScale = 0.6
-            withAnimation(.spring(duration: 0.35, bounce: 0.22)) {
-                saveCheckScale = 1
-            }
-        }
     }
 
-    // MARK: - Inline meta header (WorkoutOverview-style)
+    // MARK: - Header bar (full-bleed, matches EngineDetailView)
 
-    private var metaHeader: some View {
-        HStack(alignment: .top, spacing: 10) {
+    private var headerBar: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Button {
                 Haptics.tap()
                 dismiss()
@@ -150,270 +112,334 @@ struct ActivityDetailView: View {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(WarmInstrument.inkMuted)
-                    .padding(.top, 4)
             }
             .buttonStyle(.plain)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.name)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 5) {
-                    MonoLabel(badge.label, size: 10, color: badge.color)
-                    Text("·")
-                        .font(.system(size: 10))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                    Text(formattedDate)
-                        .font(.system(size: 11))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                }
-            }
+            Text(entry.name)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(WarmInstrument.ink)
+                .lineLimit(1)
 
             Spacer(minLength: 8)
 
             if isLoading {
-                ProgressView()
-                    .controlSize(.small)
-                    .padding(.top, 4)
+                ProgressView().controlSize(.small)
+            } else {
+                Text(badge.label)
+                    .font(WarmInstrument.monoLabel(10))
+                    .tracking(1.0)
+                    .foregroundColor(badge.color)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(badge.color.opacity(0.4), lineWidth: 1)
+                    )
             }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(WarmInstrument.headerRule).frame(height: 1)
         }
     }
 
-    // MARK: - Hero stats card
+    // MARK: - Hero card (stats)
 
-    private var statsCard: some View {
+    private var heroCard: some View {
         WarmCard(padding: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 5) {
-                        MonoLabel(badge.label, size: 10, color: badge.color)
-                        Text("·")
-                            .font(.system(size: 10))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                        Text(formattedDate)
-                            .font(.system(size: 11))
-                            .foregroundColor(WarmInstrument.inkMuted)
+            VStack(spacing: 0) {
+                badge.color
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 4)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        MonoLabel("ACTIVITY")
                         Spacer()
+                        MonoLabel(formattedDate, size: 9, color: WarmInstrument.inkFaint)
                     }
+                    .padding(.bottom, 12)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(durationString)
+                            .font(.system(size: 38, weight: .bold, design: .monospaced))
+                            .foregroundColor(Theme.ink)
+                            .contentTransition(.numericText())
+                            .opacity(statsRevealed ? 1 : 0.9)
+                        MonoLabel("Duration", size: 9)
+                    }
+                    .padding(.bottom, 16)
+
+                    WarmInstrument.border
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 1)
 
                     HStack(spacing: 0) {
-                        HeroStat(value: durationString, label: "DURATION")
                         if isLoading && activity == nil {
-                            HeroStat(value: "420", label: "CAL")
-                            HeroStat(value: "142", label: "AVG HR")
-                            HeroStat(value: "171", label: "PEAK")
+                            SupportingStatCell(value: "—", label: "CAL")
+                            SupportingStatCell(value: "—", label: "AVG HR")
+                            SupportingStatCell(value: "—", label: "PEAK")
                         } else {
                             if let cal = activity?.calories {
-                                HeroStat(value: "\(Int(Double(cal) * statsProgress))", label: "CAL")
+                                SupportingStatCell(value: "\(Int(Double(cal) * statsProgress))", label: "CAL")
                             }
                             if let hr = activity?.averageHeartrate {
-                                HeroStat(value: "\(Int(hr * statsProgress))", label: "AVG HR")
+                                SupportingStatCell(value: "\(Int(hr * statsProgress))", label: "AVG HR")
                             }
                             if let peak = activity?.maxHeartrate {
-                                HeroStat(value: "\(Int(peak * statsProgress))", label: "PEAK")
+                                SupportingStatCell(value: "\(Int(peak * statsProgress))", label: "PEAK")
                             }
                             if let dist = activity?.distance, dist > 0 {
-                                HeroStat(value: String(format: "%.1f", (dist / 1000) * statsProgress), label: "KM")
+                                SupportingStatCell(
+                                    value: String(format: "%.1f", (dist / 1000) * statsProgress),
+                                    label: "KM"
+                                )
                             }
                         }
                     }
                     .skeleton(isLoading && activity == nil)
-                    .opacity(statsRevealed ? 1 : 0.9)
+                    .padding(.vertical, 12)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .padding(.bottom, 12)
+            }
+        }
+        .staggerReveal(delay: 0.05)
+    }
 
-                if activity?.hrZones != nil, hrZoneTotal > 0 {
-                    CompactZoneBar(
-                        zones: activity?.hrZones,
-                        height: 4,
-                        rounded: false,
-                        animateEntrance: entry.activity == nil
-                    )
-                }
+    // MARK: - Widget A: Zone Donut
 
-                if let mental = activity?.preMentalState {
-                    MentalStateChip(score: mental.score, word: mental.word)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
+    @ViewBuilder
+    private var zoneDonutSection: some View {
+        if let zones = activity?.hrZones, hrZoneTotal > 0 {
+            let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+            let names = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
+            let vals = order.map { zones[$0]?.seconds ?? 0 }
+            let total = vals.reduce(0, +)
+            let fracs = vals.map { $0 / total }
+            let sortedIndices = fracs.indices
+                .filter { fracs[$0] > 0.01 }
+                .sorted { fracs[$0] > fracs[$1] }
+                .prefix(4)
+                .map { $0 }
+
+            WarmCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    MonoLabel("ZONE DISTRIBUTION")
+
+                    HStack(spacing: 20) {
+                        ZoneDonut(fractions: fracs)
+                            .frame(width: 110, height: 110)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(sortedIndices, id: \.self) { i in
+                                HStack(spacing: 8) {
+                                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                        .fill(Theme.hrZoneColors[i])
+                                        .frame(width: 8, height: 8)
+                                    Text(names[i])
+                                        .font(.system(size: 12.5, weight: .medium))
+                                        .foregroundColor(WarmInstrument.ink)
+                                    Spacer(minLength: 4)
+                                    Text("\(Int((fracs[i] * 100).rounded()))%")
+                                        .font(WarmInstrument.figures(11))
+                                        .foregroundColor(Theme.hrZoneColors[i])
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
                 }
+            }
+            .staggerReveal(delay: 0.10)
+        }
+    }
+
+    // MARK: - Widget B: HR Context Bar
+
+    @ViewBuilder
+    private var hrContextSection: some View {
+        if let zones = activity?.hrZones,
+           let avg = activity?.averageHeartrate,
+           let peak = activity?.maxHeartrate,
+           hrZoneTotal > 0 {
+            HRContextCard(zones: zones, avgHR: avg, peakHR: peak)
+                .staggerReveal(delay: 0.15)
+        }
+    }
+
+    // MARK: - Widget C: HR Zone breakdown
+
+    @ViewBuilder
+    private var zoneBreakdownSection: some View {
+        if let zones = activity?.hrZones {
+            let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+            let labels = ["Z1", "Z2", "Z3", "Z4", "Z5"]
+            let names = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
+            let vals = order.map { zones[$0]?.seconds ?? 0 }
+            let total = vals.reduce(0, +)
+            if total > 0 {
+                WarmCard(padding: 0) {
+                    VStack(spacing: 0) {
+                        CompactZoneBar(
+                            zones: zones,
+                            height: 10,
+                            rounded: false,
+                            animateEntrance: entry.activity == nil
+                        )
+
+                        VStack(alignment: .leading, spacing: 14) {
+                            MonoLabel("TIME IN ZONE")
+                            VStack(spacing: 10) {
+                                ForEach(vals.indices, id: \.self) { i in
+                                    ZoneBreakdownRow(
+                                        label: labels[i],
+                                        name: names[i],
+                                        color: Theme.hrZoneColors[i],
+                                        fraction: vals[i] / total,
+                                        seconds: Int(vals[i]),
+                                        animateEntrance: entry.activity == nil
+                                    )
+                                }
+                            }
+                        }
+                        .padding(16)
+                    }
+                }
+                .staggerReveal(delay: 0.20)
             }
         }
     }
 
-    private var hrZoneTotal: Double {
-        guard let zones = activity?.hrZones else { return 0 }
-        let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-        return order.reduce(0) { $0 + (zones[$1]?.seconds ?? 0) }
+    // MARK: - Mental state section
+
+    @ViewBuilder
+    private var mentalStateSection: some View {
+        if let mental = activity?.preMentalState {
+            WarmCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    MonoLabel("PRE-SESSION")
+
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .stroke(mentalScoreColor(mental.score).opacity(0.12), lineWidth: 5)
+                            Circle()
+                                .trim(from: 0, to: CGFloat(mental.score) / 10.0)
+                                .stroke(
+                                    mentalScoreColor(mental.score),
+                                    style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                            Text("\(mental.score)")
+                                .font(WarmInstrument.figures(16, weight: .bold))
+                                .foregroundColor(mentalScoreColor(mental.score))
+                        }
+                        .frame(width: 48, height: 48)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(mental.word.prefix(1).uppercased() + mental.word.dropFirst())
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(WarmInstrument.ink)
+                            Text("Mental readiness before the session")
+                                .font(.system(size: 11))
+                                .foregroundColor(WarmInstrument.inkMuted)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .staggerReveal(delay: 0.25)
+        }
     }
+
+    private func mentalScoreColor(_ score: Int) -> Color {
+        switch score {
+        case 8...10: return Theme.accentGreen
+        case 5...7:  return Theme.attentionOrange
+        default:     return WarmInstrument.accent
+        }
+    }
+
+    // MARK: - Score section (Badminton only)
+
+    private var scoreSection: some View {
+        Group {
+            if let desc = savedDescription {
+                Button { openScoreSheet() } label: {
+                    WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                MonoLabel("MATCH SCORES")
+                                Spacer()
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(WarmInstrument.inkFaint)
+                            }
+                            Text(desc)
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundColor(WarmInstrument.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .buttonStyle(TimerWarmPressStyle())
+            } else {
+                Button { openScoreSheet() } label: {
+                    WarmCard(padding: 16, dashed: true) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            MonoLabel("MATCH SCORES")
+                            HStack(spacing: 12) {
+                                Image(systemName: "figure.badminton")
+                                    .font(.system(size: 22, weight: .medium))
+                                    .foregroundColor(badge.color)
+                                    .frame(width: 30)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Log match scores")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(Theme.ink)
+                                    Text("Paste your results from this session")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(WarmInstrument.inkMuted)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(WarmInstrument.inkFaint)
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(TimerWarmPressStyle())
+            }
+        }
+        .staggerReveal(delay: 0.30)
+    }
+
+    private func openScoreSheet() {
+        Haptics.tap()
+        descriptionText = savedDescription ?? ""
+        errorMessage = nil
+        showingScoreSheet = true
+    }
+
+    // MARK: - Helpers
 
     private var formattedDate: String {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
         f.timeZone = .current
         guard let date = f.date(from: entry.startDateLocal) else { return entry.startDateLocal }
-        return date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute())
+        let df = DateFormatter()
+        df.dateFormat = "d MMM"
+        return df.string(from: date).uppercased()
     }
 
     private var durationString: String {
         let hours = entry.elapsedTime / 3600
         let minutes = (entry.elapsedTime % 3600) / 60
         return hours > 0 ? String(format: "%dh %02dm", hours, minutes) : String(format: "%dm", minutes)
-    }
-
-    // MARK: - Description (read mode — coach's read)
-
-    private var descriptionSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                MonoLabel("Description")
-                Spacer()
-                Button {
-                    startEditing()
-                } label: {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                }
-                .buttonStyle(TimerWarmPressStyle())
-                .accessibilityLabel(savedDescription == nil ? "Add description" : "Edit description")
-            }
-
-            WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
-                if let desc = savedDescription {
-                    Text(desc)
-                        .font(descriptionFont(for: desc))
-                        .foregroundColor(WarmInstrument.ink)
-                        .lineSpacing(descriptionLineSpacing(for: desc))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    Text(emptyDescriptionPlaceholder)
-                        .font(WarmInstrument.coachVoice(14.5))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .italic()
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 4)
-                }
-            }
-        }
-    }
-
-    private var emptyDescriptionPlaceholder: String {
-        if isLoading { return "Loading session notes…" }
-        if entry.sportType == "Badminton" {
-            return "No scores logged yet — tap the pencil to paste match results."
-        }
-        return "Nothing written down for this session yet."
-    }
-
-    private func descriptionFont(for text: String) -> Font {
-        if DescriptionParser.isAlreadyFormatted(text) || text.contains(where: { $0.isNumber }) {
-            return .system(size: 13, design: .monospaced)
-        }
-        return WarmInstrument.coachVoice(14.5)
-    }
-
-    private func descriptionLineSpacing(for text: String) -> CGFloat {
-        DescriptionParser.isAlreadyFormatted(text) ? 0 : 3
-    }
-
-    private func startEditing() {
-        Haptics.tap()
-        descriptionText = savedDescription ?? ""
-        saveSucceeded = false
-        errorMessage = nil
-        withAnimation(PremiumMotion.state) {
-            isEditing = true
-        }
-        editorFocused = true
-    }
-
-    // MARK: - Description editor (edit mode)
-
-    private var editorSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                MonoLabel("Description — paste scores")
-                Spacer()
-                Button {
-                    withAnimation(PremiumMotion.state) {
-                        editorFocused = false
-                        isEditing = false
-                        errorMessage = nil
-                    }
-                } label: {
-                    Text("Cancel")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                }
-            }
-
-            WarmCard(padding: 0) {
-                TextEditor(text: $descriptionText)
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundColor(Theme.ink)
-                    .frame(minHeight: 150)
-                    .padding(12)
-                    .scrollContentBackground(.hidden)
-                    .focused($editorFocused)
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
-                    .stroke(editorFocused ? WarmInstrument.ink : WarmInstrument.border, lineWidth: 1)
-            )
-        }
-    }
-
-    // MARK: - Preview
-
-    @ViewBuilder
-    private var previewSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            MonoLabel("Live preview")
-
-            WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
-                Group {
-                    if let parsed {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(DescriptionParser.formatDescription(parsed))
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundColor(Theme.ink)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            ForEach(parsed.warnings, id: \.self) { warning in
-                                Label(warning, systemImage: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundColor(Theme.attentionOrange)
-                            }
-                        }
-                    } else if DescriptionParser.isAlreadyFormatted(descriptionText) {
-                        Text(descriptionText)
-                            .font(.system(size: 13, design: .monospaced))
-                            .foregroundColor(WarmInstrument.inkMuted)
-                    } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Paste scores above to see a preview. Format:")
-                                .font(WarmInstrument.coachVoice(13))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                                .italic()
-                            Text("Doubles: Partner me vs Opp1/Opp2 21-18\nSingles: me vs Opponent 21-18")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                        }
-                    } else {
-                        Text("No games recognized yet — keep typing or check the format.")
-                            .font(WarmInstrument.coachVoice(13))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                            .italic()
-                    }
-                }
-            }
-        }
     }
 
     // MARK: - Data
@@ -428,15 +454,10 @@ struct ActivityDetailView: View {
     /// fallback for legacy cache entries, and refreshes the cached copy when it
     /// succeeds.
     private func loadExistingActivity() async {
-        // 1. Cache hit — render instantly, no spinner, no network.
-        // statsProgress is already 1.0 from init, so no animation needed.
         if let cached = entry.activity {
             activity = cached
             return
         }
-
-        // 2. Legacy entry without a payload — fall back to the network, with a
-        //    short retry for the propagation-delay window.
         isLoading = true
         defer { isLoading = false }
         do {
@@ -448,9 +469,6 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// Reads the activity from GitHub, retrying 404s twice with a short delay —
-    /// a freshly-written file on a freshly-reset branch can 404 briefly even
-    /// though the commit succeeded (Contents API propagation delay).
     private func readActivityWithPropagationRetry() async throws -> Activity {
         try await withPropagationRetry(operation: "Reading \(entry.fileName)") {
             try await apiClient.readActivity(fileName: entry.fileName)
@@ -494,15 +512,10 @@ struct ActivityDetailView: View {
 
         isSaving = true
         errorMessage = nil
-        saveSucceeded = false
         defer { isSaving = false }
 
         do {
             let formatted = DescriptionParser.formatDescription(parsed)
-            // Priority: in-memory (already loaded) → local cache payload →
-            // network with propagation retry. The cache path is what makes
-            // saving work immediately after a first sync on a fresh branch
-            // (issue #131) — no Contents API read required at all.
             let currentActivity: Activity
             if let activity {
                 currentActivity = activity
@@ -531,25 +544,20 @@ struct ActivityDetailView: View {
                 maxSpeed: currentActivity.maxSpeed,
                 deviceName: currentActivity.deviceName,
                 source: currentActivity.source,
-                preMentalState: parsed.preMentalState.map { PreMentalState(score: $0.score, word: $0.word) } ?? currentActivity.preMentalState
+                preMentalState: parsed.preMentalState.map {
+                    PreMentalState(score: $0.score, word: $0.word)
+                } ?? currentActivity.preMentalState
             )
 
-            // Dedupe match_history.json by date (not activity_id — HealthKit
-            // activities have no Strava id, so activity_id is always nil here).
             let dateStr = String(currentActivity.startDateLocal.prefix(10))
             let newEntry = DescriptionParser.buildStructuredEntry(parsed, date: dateStr, activityId: nil)
 
-            // Retry transient 404s (Contents API propagation). If the file is still
-            // missing after retries, treat as greenfield empty history — not a wipe
-            // of existing data. Non-404 errors still abort the save.
             let history = try await readMatchHistoryForSave()
             var sessions = history.sessions
             sessions.removeAll { $0.date == dateStr }
             sessions.append(newEntry)
             sessions.sort { $0.date > $1.date }
             let updatedHistory = MatchHistory(version: 1, sessions: sessions)
-
-            // Both files use .sortedKeys.
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let activityData = try encoder.encode(updatedActivity)
@@ -563,47 +571,153 @@ struct ActivityDetailView: View {
                 message: "ios: add scores for \(currentActivity.name)"
             )
 
-            // Persist the updated payload locally so the cache stays the source
-            // of truth (also flips hasDescription) while GitHub catches up.
             SyncCache.updateActivity(fileName: entry.fileName, activity: updatedActivity)
             activity = updatedActivity
-            saveSucceeded = true
-            withAnimation(PremiumMotion.state) {
-                editorFocused = false
-                isEditing = false
-            }
+            showingScoreSheet = false
+            toast = Toast(kind: .success, message: "Saved and synced to GitHub")
             Haptics.success()
         } catch {
             errorMessage = UserFacingError.friendlyMessage(for: error)
             Haptics.error()
         }
     }
+}
 
-    // MARK: - HR Zone Breakdown
+// MARK: - Score entry sheet
 
-    /// Quiet hairline bars showing time distribution across HR zones.
+private struct ScoreEntrySheet: View {
+    let entry: SyncCacheEntry
+    @Binding var descriptionText: String
+    @Binding var isSaving: Bool
+    @Binding var errorMessage: String?
+    let onSave: () async -> Void
+
+    @FocusState private var editorFocused: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    private var badge: (label: String, color: Color) {
+        Theme.sportBadge(for: entry.sportType)
+    }
+
+    private var parsed: ParsedDescription? {
+        DescriptionParser.parseRawDescription(descriptionText)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                sheetHeader
+                editorSection
+                previewSection
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(WarmInstrument.accent)
+                        .padding(.horizontal, 4)
+                }
+                WarmPrimaryCTA(title: isSaving ? "Saving…" : "Save & Sync") {
+                    Task { await onSave() }
+                }
+                .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
+                .overlay {
+                    if isSaving { ProgressView().tint(WarmInstrument.paper) }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 24)
+            .padding(.bottom, 32)
+        }
+        .background(WarmInstrument.desk.ignoresSafeArea())
+        .scrollDismissesKeyboard(.interactively)
+        .presentationDragIndicator(.visible)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { editorFocused = false }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(Theme.ink)
+            }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { editorFocused = true }
+        }
+    }
+
+    private var sheetHeader: some View {
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Log Match Scores")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(Theme.ink)
+                HStack(spacing: 5) {
+                    MonoLabel(badge.label, size: 9, color: badge.color)
+                    Text("·").font(.system(size: 9)).foregroundColor(WarmInstrument.inkFaint)
+                    Text(entry.name).font(.system(size: 11)).foregroundColor(WarmInstrument.inkMuted).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 12)
+            Button { Haptics.tap(); dismiss() } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 22))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundColor(WarmInstrument.inkMuted)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var editorSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            MonoLabel("Paste scores")
+            WarmCard(padding: 0) {
+                TextEditor(text: $descriptionText)
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundColor(Theme.ink)
+                    .frame(minHeight: 160)
+                    .padding(12)
+                    .scrollContentBackground(.hidden)
+                    .focused($editorFocused)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                    .stroke(editorFocused ? WarmInstrument.ink : WarmInstrument.border, lineWidth: 1)
+            )
+        }
+    }
+
     @ViewBuilder
-    private var zoneBreakdownSection: some View {
-        if let zones = activity?.hrZones {
-            let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-            let labels = ["Z1", "Z2", "Z3", "Z4", "Z5"]
-            let vals = order.map { zones[$0]?.seconds ?? 0 }
-            let total = vals.reduce(0, +)
-            if total > 0 {
-                VStack(alignment: .leading, spacing: 6) {
-                    CardKicker(label: "Heart rate zones")
-                    WarmCard {
-                        VStack(spacing: 10) {
-                            ForEach(vals.indices, id: \.self) { i in
-                                ZoneBreakdownRow(
-                                    label: labels[i],
-                                    color: Theme.hrZoneColors[i],
-                                    fraction: vals[i] / total,
-                                    seconds: Int(vals[i]),
-                                    animateEntrance: entry.activity == nil
-                                )
+    private var previewSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            MonoLabel("Live preview")
+            WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
+                Group {
+                    if let parsed {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(DescriptionParser.formatDescription(parsed))
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundColor(Theme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                            ForEach(parsed.warnings, id: \.self) { warning in
+                                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundColor(Theme.attentionOrange)
                             }
                         }
+                    } else if DescriptionParser.isAlreadyFormatted(descriptionText) {
+                        Text(descriptionText)
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                    } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("Paste scores above to see a preview.")
+                            .font(WarmInstrument.coachVoice(13))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .italic()
+                    } else {
+                        Text("No games recognized yet — keep typing or check the format.")
+                            .font(WarmInstrument.coachVoice(13))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .italic()
                     }
                 }
             }
@@ -611,24 +725,196 @@ struct ActivityDetailView: View {
     }
 }
 
-// MARK: - Zone Breakdown Row
+// MARK: - Widget A: Zone Donut
+
+/// Animated donut ring where each zone is an arc segment, staggered on appear.
+private struct ZoneDonut: View {
+    let fractions: [Double]
+
+    @State private var appeared = false
+
+    private var arcs: [(start: Double, end: Double)] {
+        var result: [(Double, Double)] = []
+        var cursor: Double = 0
+        for f in fractions {
+            result.append((cursor, cursor + f))
+            cursor += f
+        }
+        return result
+    }
+
+    private var dominantIndex: Int {
+        fractions.enumerated().max(by: { $0.element < $1.element })?.offset ?? 0
+    }
+
+    private let names = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(WarmInstrument.surfaceMuted, lineWidth: 18)
+
+            ForEach(arcs.indices, id: \.self) { i in
+                let f = fractions[i]
+                if f > 0.005 {
+                    let gap = min(0.012, f * 0.15)
+                    Circle()
+                        .trim(
+                            from: CGFloat(arcs[i].start + gap),
+                            to: CGFloat(appeared ? arcs[i].end - gap : arcs[i].start + gap)
+                        )
+                        .stroke(
+                            Theme.hrZoneColors[i],
+                            style: StrokeStyle(lineWidth: 18, lineCap: .butt)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .animation(
+                            .spring(duration: 0.55, bounce: 0.08).delay(Double(i) * 0.06),
+                            value: appeared
+                        )
+                }
+            }
+
+            VStack(spacing: 2) {
+                Text(names[dominantIndex])
+                    .font(WarmInstrument.monoLabel(9))
+                    .foregroundColor(Theme.hrZoneColors[dominantIndex])
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                MonoLabel("dominant", size: 7)
+            }
+            .frame(width: 68)
+        }
+        .onAppear { appeared = true }
+    }
+}
+
+// MARK: - Widget B: HR Context Card
+
+/// Full-width colored zone bar showing where avg and peak HR fall within the zone scale.
+private struct HRContextCard: View {
+    let zones: [String: HRZoneEntry]
+    let avgHR: Double
+    let peakHR: Double
+
+    private let displayMin: Double = 90
+    private let displayMax: Double = 200
+    private let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+
+    private var zoneFractions: [Double] {
+        order.enumerated().map { i, key in
+            let entry = zones[key]
+            let lo: Double = i == 0 ? displayMin : Double(entry?.low ?? Int(displayMin))
+            let hi: Double = i == 4 ? displayMax : Double(entry?.high ?? Int(displayMax))
+            return max(0, min(hi, displayMax) - max(lo, displayMin)) / (displayMax - displayMin)
+        }
+    }
+
+    private func barFraction(for bpm: Double) -> Double {
+        max(0, min(1, (bpm - displayMin) / (displayMax - displayMin)))
+    }
+
+    private func zoneIndex(for bpm: Double) -> Int {
+        for (i, key) in order.enumerated() {
+            if let entry = zones[key] {
+                if let high = entry.high { if bpm <= Double(high) { return i } }
+                else { return i }
+            }
+        }
+        return 4
+    }
+
+    var body: some View {
+        WarmCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    MonoLabel("HEART RATE RANGE")
+                    Spacer()
+                    Text("\(Int(avgHR))→\(Int(peakHR)) BPM")
+                        .font(WarmInstrument.monoLabel(9, weight: .regular))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
+
+                GeometryReader { geo in
+                    let w = geo.size.width
+                    ZStack(alignment: .leading) {
+                        HStack(spacing: 0) {
+                            ForEach(zoneFractions.indices, id: \.self) { i in
+                                Theme.hrZoneColors[i]
+                                    .frame(width: max(1, w * CGFloat(zoneFractions[i])))
+                            }
+                        }
+                        .frame(height: 22)
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
+                        Capsule()
+                            .fill(WarmInstrument.paper)
+                            .frame(width: 2, height: 26)
+                            .offset(x: w * CGFloat(barFraction(for: avgHR)) - 1)
+
+                        Capsule()
+                            .fill(WarmInstrument.paper)
+                            .frame(width: 2, height: 26)
+                            .offset(x: w * CGFloat(barFraction(for: peakHR)) - 1)
+                    }
+                }
+                .frame(height: 26)
+
+                HStack(spacing: 20) {
+                    HRMarkerLabel(
+                        title: "Avg",
+                        bpm: Int(avgHR),
+                        color: Theme.hrZoneColors[zoneIndex(for: avgHR)]
+                    )
+                    HRMarkerLabel(
+                        title: "Peak",
+                        bpm: Int(peakHR),
+                        color: Theme.hrZoneColors[zoneIndex(for: peakHR)]
+                    )
+                    Spacer()
+                }
+            }
+        }
+    }
+}
+
+private struct HRMarkerLabel: View {
+    let title: String
+    let bpm: Int
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(color)
+                .frame(width: 2, height: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title.uppercased())
+                    .font(WarmInstrument.monoLabel(8, weight: .regular))
+                    .foregroundColor(WarmInstrument.inkFaint)
+                Text("\(bpm) bpm")
+                    .font(WarmInstrument.figures(12, weight: .semibold))
+                    .foregroundColor(color)
+            }
+        }
+    }
+}
+
+// MARK: - Zone breakdown row
 
 private struct ZoneBreakdownRow: View {
     let label: String
+    let name: String
     let color: Color
     let fraction: Double
     let seconds: Int
     var animateEntrance: Bool = true
     @State private var appeared: Bool
 
-    init(
-        label: String,
-        color: Color,
-        fraction: Double,
-        seconds: Int,
-        animateEntrance: Bool = true
-    ) {
+    init(label: String, name: String, color: Color, fraction: Double, seconds: Int, animateEntrance: Bool = true) {
         self.label = label
+        self.name = name
         self.color = color
         self.fraction = fraction
         self.seconds = seconds
@@ -650,69 +936,49 @@ private struct ZoneBreakdownRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            MonoLabel(label, size: 9, color: color)
-                .frame(width: 20, alignment: .leading)
+            HStack(spacing: 5) {
+                MonoLabel(label, size: 9, color: color)
+                    .frame(width: 20, alignment: .leading)
+                Text(name)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
+            .frame(width: 82, alignment: .leading)
 
             HairlineProgress(
                 fraction: appeared ? fraction : 0,
                 tint: color,
                 track: color.opacity(0.12),
-                height: 3
+                height: 6
             )
             .animation(PremiumMotion.statsLoad, value: appeared)
 
-            Text("\(Int(fraction * 100))%")
-                .font(WarmInstrument.figures(10))
-                .foregroundColor(WarmInstrument.inkMuted)
-                .frame(width: 28, alignment: .trailing)
-
-            Text(timeString)
-                .font(WarmInstrument.figures(10))
-                .foregroundColor(WarmInstrument.inkFaint)
-                .frame(width: 48, alignment: .trailing)
+            HStack(spacing: 0) {
+                Text("\(Int(fraction * 100))%")
+                    .font(WarmInstrument.figures(10))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .frame(width: 32, alignment: .trailing)
+                Text(timeString)
+                    .font(WarmInstrument.figures(10))
+                    .foregroundColor(WarmInstrument.inkFaint)
+                    .frame(width: 50, alignment: .trailing)
+            }
         }
-        .onAppear {
-            guard animateEntrance else { return }
-            appeared = true
-        }
-        .onDisappear {
-            guard animateEntrance else { return }
-            appeared = false
-        }
+        .onAppear { guard animateEntrance else { return }; appeared = true }
+        .onDisappear { guard animateEntrance else { return }; appeared = false }
     }
 }
 
-// MARK: - Mental State Chip
+// MARK: - Supporting stat cell
 
-private struct MentalStateChip: View {
-    let score: Int
-    let word: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            MonoLabel("Pre-session", size: 8)
-            Text("\(score) · \(word)")
-                .font(WarmInstrument.coachVoice(12.5))
-                .foregroundColor(WarmInstrument.ink)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(WarmInstrument.surfaceMuted)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
-// MARK: - Hero Stat
-
-private struct HeroStat: View {
+private struct SupportingStatCell: View {
     let value: String
     let label: String
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             Text(value)
-                .font(.system(size: 17, weight: .bold, design: .monospaced))
+                .font(WarmInstrument.figures(15, weight: .semibold))
                 .foregroundColor(Theme.ink)
                 .contentTransition(.numericText())
             MonoLabel(label, size: 8)
