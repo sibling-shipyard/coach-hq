@@ -96,13 +96,17 @@ struct CoachHQApp: App {
                                 }
                             )
                         }
-                        .fullScreenCover(isPresented: $showOnboardingReveal) {
-                            OnboardingRevealFlow(onComplete: {
-                                showOnboardingReveal = false
-                            })
-                            .environmentObject(authManager)
-                            .environmentObject(syncManager)
-                        }
+                        // Chain on a background EmptyView to avoid the two-covers-on-same-view
+                        // SwiftUI bug where the second modifier is silently dropped on iOS < 16.4.
+                        .background(
+                            EmptyView().fullScreenCover(isPresented: $showOnboardingReveal) {
+                                OnboardingRevealFlow(onComplete: {
+                                    showOnboardingReveal = false
+                                })
+                                .environmentObject(authManager)
+                                .environmentObject(syncManager)
+                            }
+                        )
                 } else if authManager.pendingSetupLogin != nil {
                     SetupView()
                         .environmentObject(authManager)

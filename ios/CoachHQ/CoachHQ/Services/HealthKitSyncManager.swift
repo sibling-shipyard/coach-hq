@@ -367,10 +367,11 @@ class HealthKitSyncManager: ObservableObject {
         let calendar = Calendar.current
         let now = Date()
 
-        // Anchor to the Monday of the week 52 weeks ago
-        var comps = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
-        comps.weekOfYear = (comps.weekOfYear ?? 1) - 52
-        let windowStart = calendar.date(from: comps) ?? calendar.date(byAdding: .day, value: -364, to: now)!
+        // Subtract 52 weeks, then snap to the Monday of that week so indices are stable.
+        let anchor = calendar.date(byAdding: .weekOfYear, value: -52, to: now)!
+        let windowStart = calendar.date(
+            from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchor)
+        ) ?? calendar.date(byAdding: .day, value: -364, to: now)!
 
         let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: now, options: .strictStartDate)
         let sortDescriptor = SortDescriptor(\HKWorkout.startDate, order: .forward)
@@ -388,8 +389,10 @@ class HealthKitSyncManager: ObservableObject {
             sportCounts[sport, default: 0] += 1
             totalSeconds += workout.duration
 
-            let weeksDiff = calendar.dateComponents([.weekOfYear], from: windowStart, to: workout.startDate).weekOfYear ?? 0
-            let weekIndex = min(max(weeksDiff, 0), 51)
+            // Use elapsed days / 7 — dateComponents(.weekOfYear) returns the field (0–53),
+            // not a difference, so it breaks when the window spans two calendar years.
+            let daysElapsed = calendar.dateComponents([.day], from: windowStart, to: workout.startDate).day ?? 0
+            let weekIndex = min(max(daysElapsed / 7, 0), 51)
             // weekday: 1=Sun…7=Sat; map Mon=0 … Sun=6
             let rawWeekday = calendar.component(.weekday, from: workout.startDate)
             let dayIndex = (rawWeekday + 5) % 7

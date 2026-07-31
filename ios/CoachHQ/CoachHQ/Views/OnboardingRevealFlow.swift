@@ -24,9 +24,27 @@ struct OnboardingRevealFlow: View {
             WarmInstrument.desk.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                OnboardingProgressDots(step: step)
-                    .padding(.top, 20)
-                    .padding(.bottom, 4)
+                HStack(alignment: .center) {
+                    // Invisible spacer mirrors the dismiss button width so dots stay centered
+                    Color.clear.frame(width: 36, height: 36)
+
+                    Spacer()
+
+                    OnboardingProgressDots(step: step)
+
+                    Spacer()
+
+                    Button(action: handleComplete) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 4)
 
                 ZStack {
                     if step == .reveal {
@@ -155,27 +173,35 @@ private struct RevealStepView: View {
                 }
                 .padding(.horizontal, 28)
                 .padding(.bottom, 40)
+                .skeleton(isLoading)
                 .onboardingReveal(index: 1)
 
-                // 52-column bar strip
-                HStack(alignment: .bottom, spacing: 1) {
-                    ForEach(0..<52, id: \.self) { i in
-                        let density = i < summary.weeklyDensity.count ? summary.weeklyDensity[i] : 0
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(density == 0
-                                  ? WarmInstrument.inkFaint.opacity(0.18)
-                                  : WarmInstrument.accent.opacity(0.55 + 0.45 * Double(density) / 7.0))
-                            .frame(width: 5, height: max(barHeights[i], 3))
+                // 52-column bar strip — GeometryReader fills the available width exactly
+                GeometryReader { geo in
+                    let gap: CGFloat = 1
+                    let barW = max((geo.size.width - gap * 51) / 52, 2)
+                    HStack(alignment: .bottom, spacing: gap) {
+                        ForEach(0..<52, id: \.self) { i in
+                            let density = i < summary.weeklyDensity.count ? summary.weeklyDensity[i] : 0
+                            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                .fill(density == 0
+                                      ? WarmInstrument.inkFaint.opacity(0.18)
+                                      : WarmInstrument.accent.opacity(0.55 + 0.45 * Double(density) / 7.0))
+                                .frame(width: barW, height: max(barHeights[i], 3))
+                        }
                     }
+                    .frame(width: geo.size.width, height: 54, alignment: .bottom)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 54, alignment: .bottom)
+                .frame(height: 54)
                 .padding(.horizontal, 28)
                 .padding(.bottom, 28)
+                .skeleton(isLoading)
                 .onboardingReveal(index: 2)
 
                 if coachVisible {
-                    Text("This is what you've built.\nI'll work around it.")
+                    Text(summary.sessions == 0
+                         ? "Nothing logged yet —\nthat changes now."
+                         : "This is what you've built.\nI'll work around it.")
                         .font(WarmInstrument.coachVoice(17))
                         .foregroundColor(WarmInstrument.inkMuted)
                         .lineSpacing(3)
@@ -246,7 +272,7 @@ private struct RhythmsStepView: View {
     let summary: YearSummary
 
     private static let dotSize: CGFloat = 5
-    private static let dotGap: CGFloat = 2
+    private static let dotGap: CGFloat = 1.5  // 52*5 + 51*1.5 = 336.5pt — fits all iPhones
     private static let heatmapHeight: CGFloat = 7 * dotSize + 6 * dotGap
 
     @State private var colsRevealed: [Bool] = [Bool](repeating: false, count: 52)
@@ -403,7 +429,7 @@ private struct SeasonStepView: View {
                     HStack(spacing: 8) {
                         if isSaving {
                             ProgressView()
-                                .tint(WarmInstrument.desk)
+                                .tint(WarmInstrument.paper)
                                 .scaleEffect(0.85)
                         }
                         Text(isSaving ? "Saving…" : "Let's go")
@@ -411,8 +437,8 @@ private struct SeasonStepView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
-                    .background(WarmInstrument.ink)
-                    .foregroundColor(WarmInstrument.desk)
+                    .background(WarmInstrument.accent)
+                    .foregroundColor(WarmInstrument.paper)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
                 }
                 .buttonStyle(CardPressButtonStyle())
