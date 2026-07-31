@@ -1,11 +1,24 @@
-import { useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useState } from "react";
 import type { EngineSnapshot, TrendPointSnapshot } from "@/components/home-warm/WarmInstrumentWidgets";
-import { clamp } from "@/components/home-warm/formatUtils";
 
 const TREND_WIDTH = 420;
 const TREND_HEIGHT = 150;
 const BAND_TOP = 40;
 const BAND_HEIGHT = 66;
+
+/** Coach verdict copy keyed by trend week index (WK 24 → WK 29). */
+const WEEK_VERDICTS = [
+  "Building back — easy does it.",
+  "Climbing into the band.",
+  "Inside the band now.",
+  "Steady — right where you want it.",
+  "Holding the upper band.",
+  "Optimal engine — hold here.",
+] as const;
+
+function verdictForWeek(index: number): string {
+  return WEEK_VERDICTS[index] ?? WEEK_VERDICTS.at(-1)!;
+}
 
 function buildTrendSeries(points: EngineSnapshot["trend"]) {
   const trend: TrendPointSnapshot[] =
@@ -30,19 +43,23 @@ export function WelcomeEngineHero({ engine }: { engine: EngineSnapshot }) {
   const displayValue = activePoint?.value ?? engine.load;
   const displayWeek = activePoint?.weekLabel ?? engine.weekLabel;
   const displayVerdict =
-    scrubIndex === null ? engine.verdict : `Week ${displayWeek.replace("WK ", "")} — ${displayValue} load.`;
+    scrubIndex === null ? engine.verdict : verdictForWeek(scrubIndex);
 
   const { trend, coordinates } = buildTrendSeries(engine.trend);
   const polyline = coordinates.map((point) => `${point.x},${point.y}`).join(" ");
   const last = coordinates.at(-1) ?? { x: TREND_WIDTH, y: BAND_TOP };
   const scrubCoordinate = scrubIndex === null ? null : coordinates[scrubIndex];
   const scrubPoint = scrubIndex === null ? null : trend[scrubIndex];
+  const dotCoordinate = scrubCoordinate ?? last;
 
-  function handleScrub(event: ReactMouseEvent<SVGSVGElement>) {
+  function handleZoneEnter(index: number) {
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const fraction = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width), 0, 1);
-    setScrubIndex(Math.round(fraction * (trend.length - 1)));
+    setScrubIndex(index);
+  }
+
+  function handleZoneTap(index: number) {
+    if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    setScrubIndex((current) => (current === index ? null : index));
   }
 
   return (
@@ -53,23 +70,24 @@ export function WelcomeEngineHero({ engine }: { engine: EngineSnapshot }) {
       </div>
       <div className="welcome-engine-hero__value">{displayValue}</div>
       <p className="welcome-engine-hero__verdict">{displayVerdict}</p>
-      <div className="welcome-engine-hero__trend-wrap">
+      <div
+        className="welcome-engine-hero__trend-wrap"
+        onMouseLeave={() => setScrubIndex(null)}
+      >
         <svg
           aria-label="Six-week load trend. Hover to inspect each week."
-          className="welcome-engine-hero__trend wi-trend-scrub"
-          onMouseLeave={() => setScrubIndex(null)}
-          onMouseMove={handleScrub}
+          className="welcome-engine-hero__trend"
           role="img"
           viewBox={`0 0 ${TREND_WIDTH} ${TREND_HEIGHT}`}
           preserveAspectRatio="none"
         >
           <rect x="0" y={BAND_TOP} width={TREND_WIDTH} height={BAND_HEIGHT} rx="12" />
-          <polyline points={polyline} />
+          <polyline className="welcome-engine-hero__trend-line" points={polyline} />
           <circle
-            cx={scrubCoordinate?.x ?? last.x}
-            cy={scrubCoordinate?.y ?? last.y}
-            r="5.5"
             className="welcome-engine-hero__trend-dot"
+            cx={dotCoordinate.x}
+            cy={dotCoordinate.y}
+            r="5.5"
           />
           {scrubCoordinate && scrubPoint ? (
             <g aria-hidden="true">
@@ -94,10 +112,20 @@ export function WelcomeEngineHero({ engine }: { engine: EngineSnapshot }) {
             {trend.at(-1)?.label.toUpperCase()}
           </text>
         </svg>
+        <div className="welcome-engine-hero__trend-zones" aria-hidden="true">
+          {trend.map((_, index) => (
+            <div
+              key={index}
+              className="welcome-engine-hero__trend-zone"
+              data-i={index}
+              onMouseEnter={() => handleZoneEnter(index)}
+              onClick={() => handleZoneTap(index)}
+            />
+          ))}
+        </div>
       </div>
       <blockquote className="welcome-engine-hero__quote">
-        &ldquo;The engine is warm and the band is holding.&rdquo;{" "}
-        <span className="welcome-engine-hero__quote-sign">— PHELPS</span>
+        &ldquo;The engine is warm and the band is holding.&rdquo;
       </blockquote>
       <p className="welcome-engine-hero__hint">HOVER THE TREND — READ ANY WEEK</p>
     </aside>

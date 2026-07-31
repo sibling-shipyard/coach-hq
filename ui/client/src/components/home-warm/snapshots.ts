@@ -1,4 +1,5 @@
 import type { ActivityGlyphKind } from "./ActivityGlyph";
+import type { AmIImprovingSnapshot } from "@/components/sport-analytics/badmintonLensModel";
 
 export type SportAnalyticsNavLink = {
   glyph: Extract<ActivityGlyphKind, "badminton" | "run" | "calisthenics">;
@@ -255,6 +256,7 @@ export interface WarmHomeSnapshots {
   vo2: Vo2Snapshot;
   sessions: RecentSessionSnapshot[];
   phase: BuildPhaseSnapshot;
+  amIImproving: AmIImprovingSnapshot;
   activityEvidence: ActivityInspectionSnapshot[];
   sync: {
     label: string;

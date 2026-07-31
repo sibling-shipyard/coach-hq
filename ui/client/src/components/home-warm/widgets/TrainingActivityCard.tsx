@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ActivityCellState, TrainingActivitySnapshot } from "../snapshots";
 
 const ACTIVITY_LEGEND: Array<{ state: ActivityCellState; label: string }> = [
@@ -18,7 +18,77 @@ const ACTIVITY_LEGEND: Array<{ state: ActivityCellState; label: string }> = [
   { state: "planned-missed", label: "PLANNED · MISSED" },
 ];
 
-export function TrainingActivityCard({ activity }: { activity: TrainingActivitySnapshot }) {
+function legendForCells(cells: ActivityCellState[]) {
+  const used = new Set(cells.filter((cell) => cell !== "empty"));
+  return ACTIVITY_LEGEND.filter((item) => used.has(item.state));
+}
+
+function TrainingActivityCardCompact({
+  activity,
+  staggerCells = false,
+}: {
+  activity: TrainingActivitySnapshot;
+  staggerCells?: boolean;
+}) {
+  const month = activity.months.at(-1);
+  const cells = month?.cells.slice(0, 28) ?? [];
+  const legend = useMemo(() => legendForCells(cells), [cells]);
+
+  return (
+    <section className="wi-training-card wi-training-card--compact">
+      <span className="wi-card-label">1% · COMPOUNDING</span>
+      <div className="wi-training-card__streak">
+        <strong>{activity.activeDays}D</strong>
+        <span>SINCE THE FIRST REP</span>
+      </div>
+      {month ? (
+        <div className="wi-activity-month wi-activity-month--compact">
+          <strong>{month.label}</strong>
+          <div className="wi-activity-month__days">
+            {Array.from("MTWTFSS").map((day, index) => (
+              <span key={`${day}-${index}`}>{day}</span>
+            ))}
+          </div>
+          <div className="wi-activity-month__grid wi-activity-month__grid--compact">
+            {cells.map((cell, index) => (
+              <i
+                className={`is-${cell}`}
+                key={`${month.label}-${index}`}
+                {...(staggerCells ? { "data-pop": true } : {})}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {legend.length > 0 ? (
+        <div className="wi-training-card__legend wi-training-card__legend--compact">
+          {legend.map((item) => (
+            <span key={item.state}>
+              <i className={`is-${item.state}`} />
+              {item.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <span className="wi-training-card__compact-caption">EVERY SQUARE IS A DAY YOU SHOWED UP</span>
+      <p className="wi-training-card__compact-read">{activity.read}</p>
+    </section>
+  );
+}
+
+export function TrainingActivityCard({
+  activity,
+  compact = false,
+  staggerCells = false,
+}: {
+  activity: TrainingActivitySnapshot;
+  compact?: boolean;
+  staggerCells?: boolean;
+}) {
+  if (compact) {
+    return <TrainingActivityCardCompact activity={activity} staggerCells={staggerCells} />;
+  }
+
   const visibleCount = Math.min(4, activity.months.length);
   const latestStart = Math.max(0, activity.months.length - visibleCount);
   const [windowStart, setWindowStart] = useState(latestStart);
@@ -37,7 +107,10 @@ export function TrainingActivityCard({ activity }: { activity: TrainingActivityS
         <div className="wi-training-card__header-tools">
           <div className="wi-training-card__legend">
             {ACTIVITY_LEGEND.map((item) => (
-              <span key={item.state}><i className={`is-${item.state}`} />{item.label}</span>
+              <span key={item.state}>
+                <i className={`is-${item.state}`} />
+                {item.label}
+              </span>
             ))}
           </div>
           <div className="wi-training-card__paging" aria-label="Training activity month window">
@@ -46,13 +119,17 @@ export function TrainingActivityCard({ activity }: { activity: TrainingActivityS
               disabled={windowStart === 0}
               onClick={() => setWindowStart((current) => Math.max(0, current - visibleCount))}
               type="button"
-            >←</button>
+            >
+              ←
+            </button>
             <button
               aria-label="Show next four months"
               disabled={windowStart >= latestStart}
               onClick={() => setWindowStart((current) => Math.min(latestStart, current + visibleCount))}
               type="button"
-            >→</button>
+            >
+              →
+            </button>
           </div>
         </div>
       </div>
@@ -62,7 +139,9 @@ export function TrainingActivityCard({ activity }: { activity: TrainingActivityS
             <div className="wi-activity-month" key={month.label}>
               <strong>{month.label}</strong>
               <div className="wi-activity-month__days">
-                {Array.from("MTWTFSS").map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
+                {Array.from("MTWTFSS").map((day, index) => (
+                  <span key={`${day}-${index}`}>{day}</span>
+                ))}
               </div>
               <div className="wi-activity-month__grid">
                 {month.cells.slice(0, 28).map((cell, index) => (
@@ -73,9 +152,20 @@ export function TrainingActivityCard({ activity }: { activity: TrainingActivityS
           ))}
         </div>
         <div className="wi-training-card__stats">
-          <div><strong>{activity.longestBlock}D</strong><span>LONGEST BLOCK</span></div>
-          <div><strong>{activity.planTruePercent === null ? "—" : `${activity.planTruePercent}%`}</strong><span>PLAN-TRUE</span></div>
-          <div><strong>{activity.gapCount}</strong><span>GAPS · WORST {activity.worstGap}D</span></div>
+          <div>
+            <strong>{activity.longestBlock}D</strong>
+            <span>LONGEST BLOCK</span>
+          </div>
+          <div>
+            <strong>{activity.planTruePercent === null ? "—" : `${activity.planTruePercent}%`}</strong>
+            <span>PLAN-TRUE</span>
+          </div>
+          <div>
+            <strong>{activity.gapCount}</strong>
+            <span>
+              GAPS · WORST {activity.worstGap}D
+            </span>
+          </div>
         </div>
       </div>
       <p>{activity.read}</p>

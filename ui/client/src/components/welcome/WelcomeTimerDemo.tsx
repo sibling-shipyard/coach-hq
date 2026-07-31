@@ -1,11 +1,55 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const TOTAL_SECONDS = 45;
 const INITIAL_SECONDS = 32;
 
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  return reduced;
+}
+
 export function WelcomeTimerDemo() {
+  const gridRef = useRef<HTMLDivElement>(null);
   const [remaining, setRemaining] = useState(INITIAL_SECONDS);
-  const [running, setRunning] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [enterPulse, setEnterPulse] = useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  useEffect(() => {
+    const root = gridRef.current;
+    if (!root) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setInView(entry.isIntersecting);
+      },
+      { threshold: 0.35 },
+    );
+
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!inView || prefersReducedMotion) {
+      setRunning(false);
+      return;
+    }
+    setRunning(true);
+    setEnterPulse(true);
+    const pulseTimer = window.setTimeout(() => setEnterPulse(false), 900);
+    return () => window.clearTimeout(pulseTimer);
+  }, [inView, prefersReducedMotion]);
 
   useEffect(() => {
     if (!running) return;
@@ -18,17 +62,21 @@ export function WelcomeTimerDemo() {
   const progress = Math.round(((TOTAL_SECONDS - remaining) / TOTAL_SECONDS) * 100);
   const timeStr = `0:${String(remaining).padStart(2, "0")}`;
   const runLabel = running ? "❚❚  Pause" : "▶  Resume";
+  const enterPulseClass = enterPulse ? " is-enter-pulse" : "";
 
   return (
-    <div className="welcome-timer-grid">
+    <div className="welcome-timer-grid" ref={gridRef}>
       <div className="welcome-timer-card" data-reveal>
         <div className="welcome-timer-card__head">
           <span className="welcome-timer-card__set">SET 3 / 5 · TEMPO</span>
           <span className="welcome-timer-card__sport">CALISTHENICS · LOWER</span>
-          <span className="welcome-timer-card__pulse" aria-hidden="true" />
+          <span
+            className={`welcome-timer-card__pulse${running ? " is-live" : ""}`}
+            aria-hidden="true"
+          />
         </div>
         <div className="welcome-timer-card__main">
-          <div className="welcome-timer-card__time">{timeStr}</div>
+          <div className={`welcome-timer-card__time${enterPulseClass}`}>{timeStr}</div>
           <div className="welcome-timer-card__exercise">
             <div className="welcome-timer-card__name">Tempo goblet squat</div>
             <div className="welcome-timer-card__cue">3s DOWN · 1s HOLD · DRIVE UP</div>
@@ -66,7 +114,7 @@ export function WelcomeTimerDemo() {
             <span aria-hidden="true">♪</span>
           </div>
           <div className="welcome-phone__timer-body">
-            <div className="welcome-phone__timer-time">{timeStr}</div>
+            <div className={`welcome-phone__timer-time${enterPulseClass}`}>{timeStr}</div>
             <div className="welcome-phone__timer-name">Tempo goblet squat</div>
             <div className="welcome-phone__timer-sub">3s DOWN · 1s HOLD</div>
             <div className="welcome-phone__timer-bar">

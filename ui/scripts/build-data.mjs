@@ -184,6 +184,13 @@ function copyGoldenToOutDir() {
   const widgetSrc = path.join(REPO_ROOT, "shared/golden-dataset/widget_snapshots.json");
   if (fs.existsSync(widgetSrc)) {
     fs.copyFileSync(widgetSrc, path.join(OUT_DIR, "widget_snapshots.json"));
+    const iosGolden = path.join(
+      REPO_ROOT,
+      "ios/CoachHQ/CoachHQ/Resources/golden_widget_snapshots.json",
+    );
+    fs.mkdirSync(path.dirname(iosGolden), { recursive: true });
+    fs.copyFileSync(widgetSrc, iosGolden);
+    console.log("✓ widget_snapshots.json → ios/CoachHQ/Resources/");
   }
   console.log("✓ HQ golden dataset → ui/client/src/data/");
 }
