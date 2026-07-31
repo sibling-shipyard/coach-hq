@@ -27,15 +27,13 @@ struct LoginView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .onboardingReveal(index: 2)
 
-                    Text(
-                        "A coach that reads your training, your match scores, and your heart-rate trends — then builds the week around your goals."
-                    )
-                    .font(WarmInstrument.coachVoice(15))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .lineSpacing(3)
-                    .onboardingReveal(index: 3)
+                    Text("Every workout read. Every week planned around your goals.")
+                        .font(WarmInstrument.coachVoice(15))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineSpacing(3)
+                        .onboardingReveal(index: 3)
                 }
                 .padding(.horizontal, 32)
             }
