@@ -142,6 +142,18 @@ struct CoachChatView: View {
         composerFocused || keyboardVisible
     }
 
+    private var composerPlaceholder: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if !isViewingToday { return "Reply to Coach…" }
+        switch hour {
+        case 5..<10:  return "How are you feeling today?"
+        case 10..<14: return "What's on your mind?"
+        case 14..<18: return "How did training go?"
+        case 18..<22: return "How did it feel?"
+        default:      return "Message Coach…"
+        }
+    }
+
     // MARK: - Continuous landing
 
     private var continuousLandingView: some View {
@@ -190,6 +202,8 @@ struct CoachChatView: View {
                     threadTitle: displayThread.title,
                     onBackToToday: { selectTodayThread() }
                 )
+            } else if displayThread.messages.isEmpty, isViewingToday, usingPreviewShell {
+                CoachChatWelcomeIntro()
             } else {
                 ForEach(displayThread.messages) { message in
                     messageRow(message)
@@ -242,7 +256,7 @@ struct CoachChatView: View {
             CoachChatComposer(
                 draft: $draft,
                 isFocused: $composerFocused,
-                placeholder: sending ? "Coach is replying…" : "Message Coach…",
+                placeholder: sending ? "Coach is replying…" : composerPlaceholder,
                 isSending: sending
             ) {
                 Task { await send(from: resolvedSendThreadId()) }

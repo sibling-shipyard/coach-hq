@@ -31,7 +31,10 @@ struct WarmInstrumentHomeView: View {
             ScrollView {
                 LazyVStack(spacing: 14) {
                     if let snapshots = store.snapshots {
-                        CompactInstrumentHeader(phase: snapshots.home.phase)
+                        HomeGreetingHeader(
+                            phase: snapshots.home.phase,
+                            login: authManager.user?.login
+                        )
 
                         if !snapshots.home.sync.healthy {
                             SyncWarningBanner(sync: snapshots.home.sync)
@@ -40,9 +43,8 @@ struct WarmInstrumentHomeView: View {
                         widgetColumn(for: snapshots)
                             .transition(.opacity)
                     } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, minHeight: 320)
-                            .padding(.top, 80)
+                        HomeGreetingHeader(phase: nil, login: authManager.user?.login)
+                        HomeSkeletonView()
                     } else if authManager.selectedRepo == nil {
                         repoNotConfiguredState
                     } else {
@@ -118,7 +120,7 @@ struct WarmInstrumentHomeView: View {
             }
             .buttonStyle(.plain)
         }
-        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 0))
+        .staggerReveal(delay: 0.05)
 
         // Sport commitment quartet strip
         EditableWidget(isEditing: $isEditingLayout, sizeBinding: $commitmentsSize, sizeOptions: ["S", "M"], jigglePhase: 0.05) {
@@ -128,11 +130,11 @@ struct WarmInstrumentHomeView: View {
                 showingRanked: $badmintonShowsRanked
             )
         }
-        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 1))
+        .staggerReveal(delay: 0.10)
 
         // Weekly plan — chip drag owns long-press; not wrapped in jiggle editor.
         WeeklyPlanWidget(plan: home.plan, compact: true)
-            .staggerReveal(delay: PremiumMotion.staggerDelay(index: 2))
+            .staggerReveal(delay: 0.15)
 
         // Calories + main quest side-by-side
         HStack(spacing: 14) {
@@ -143,12 +145,12 @@ struct WarmInstrumentHomeView: View {
                 QuestWidget(size: WidgetSize(rawValue: questSize) ?? .m, home: home.quest, small: snapshots.sizes.quest.S, compact: true)
             }
         }
-        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 3))
+        .staggerReveal(delay: 0.20)
 
         EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.25) {
             BuildPhaseWidget(phase: home.phase)
         }
-        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 4))
+        .staggerReveal(delay: 0.25)
 
         EditableWidget(isEditing: $isEditingLayout, jigglePhase: 0.30) {
             RecentSessionsWidget(
@@ -164,7 +166,7 @@ struct WarmInstrumentHomeView: View {
                 }
             )
         }
-        .staggerReveal(delay: PremiumMotion.staggerDelay(index: 5))
+        .staggerReveal(delay: 0.30)
     }
 
     // MARK: - Header / states
@@ -1644,6 +1646,95 @@ private struct EngineDetailGauge: View {
                     .position(x: width, y: 48)
             }
         }
+    }
+}
+
+// MARK: - Home greeting header
+
+/// Replaces the static "HQ · BUILD" wordmark with a time-of-day greeting + phase badge.
+private struct HomeGreetingHeader: View {
+    let phase: BuildPhaseSnapshot?
+    let login: String?
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:  return "GOOD MORNING"
+        case 12..<17: return "GOOD AFTERNOON"
+        case 17..<21: return "GOOD EVENING"
+        default:      return "GOOD NIGHT"
+        }
+    }
+
+    private var displayName: String {
+        guard let login, !login.isEmpty else { return "" }
+        return ", " + login.uppercased()
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(greeting + displayName)
+                .font(WarmInstrument.monoLabel(11))
+                .tracking(1.2)
+                .foregroundColor(WarmInstrument.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Spacer(minLength: 0)
+
+            if let phase {
+                Text("BUILD · \(phase.weekLabel.uppercased())")
+                    .font(WarmInstrument.monoLabel(9))
+                    .tracking(1.0)
+                    .foregroundColor(WarmInstrument.paper)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(WarmInstrument.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.top, 2)
+        .padding(.bottom, 4)
+    }
+}
+
+// MARK: - Home skeleton loading
+
+/// Shimmer placeholder cards that match the visual weight of the actual widget column —
+/// shown while the snapshot fetch is in-flight so the screen never opens empty.
+private struct HomeSkeletonView: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            HomeSkeletonCard(height: 172)
+            HomeSkeletonCard(height: 78)
+            HomeSkeletonCard(height: 96)
+            HStack(spacing: 14) {
+                HomeSkeletonCard(height: 148)
+                HomeSkeletonCard(height: 148)
+            }
+            HomeSkeletonCard(height: 112)
+            HomeSkeletonCard(height: 138)
+        }
+    }
+}
+
+private struct HomeSkeletonCard: View {
+    let height: CGFloat
+    @State private var pulsing = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+            .fill(WarmInstrument.surfaceMuted)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
+            .overlay(
+                RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous)
+                    .strokeBorder(WarmInstrument.border, lineWidth: 1)
+            )
+            .opacity(pulsing ? 0.45 : 0.85)
+            .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulsing)
+            .onAppear { pulsing = true }
     }
 }
 

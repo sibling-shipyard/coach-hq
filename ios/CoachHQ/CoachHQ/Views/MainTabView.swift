@@ -45,6 +45,15 @@ enum AppTab: Hashable, CaseIterable {
         case .more: return "More"
         }
     }
+
+    var labelText: String {
+        switch self {
+        case .home: return "Home"
+        case .workouts: return "Train"
+        case .chat: return "Coach"
+        case .more: return "More"
+        }
+    }
 }
 
 struct MainTabView: View {
@@ -198,15 +207,22 @@ private struct WarmTabBar: View {
                         .shadow(color: WarmInstrument.cardShadow.opacity(0.35), radius: 4, y: 2)
                 }
 
-                Image(systemName: selected ? tab.filledIcon : tab.outlineIcon)
-                    .font(.system(size: 20, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
-                    .scaleEffect(selected ? 1.05 : 1)
-                    .offset(y: selected ? -1.5 : 0)
-                    .animation(.spring(duration: 0.38, bounce: 0.2), value: selected)
+                VStack(spacing: 2) {
+                    Image(systemName: selected ? tab.filledIcon : tab.outlineIcon)
+                        .font(.system(size: 18, weight: selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
+                        .scaleEffect(selected ? 1.04 : 1)
+                        .offset(y: selected ? -1 : 0)
+
+                    Text(tab.labelText)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .tracking(0.4)
+                        .foregroundStyle(selected ? WarmInstrument.ink : WarmInstrument.inkFaint)
+                }
+                .animation(.spring(duration: 0.38, bounce: 0.2), value: selected)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: 50)
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(TabBarPressStyle())

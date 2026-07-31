@@ -1,7 +1,29 @@
 import SwiftUI
+import UserNotifications
+
+// MARK: - Notification delegate — routes "navigateTo=chat" taps to MainTabView
+
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if (response.notification.request.content.userInfo["navigateTo"] as? String) == "chat" {
+            NotificationCenter.default.post(name: .navigateToChat, object: nil)
+        }
+        completionHandler()
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+}
 
 @main
 struct CoachHQApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var authManager = GitHubAuthManager()
     @StateObject private var syncManager = HealthKitSyncManager()
     @StateObject private var workoutService = WorkoutService()
@@ -29,6 +51,9 @@ struct CoachHQApp: App {
                             workoutService.configure(apiClient: apiClient)
                             widgetStore.configure(apiClient: apiClient)
                             try? await syncManager.requestAuthorization()
+                            await syncManager.requestNotificationPermission()
+                            syncManager.enableBackgroundDelivery()
+                            syncManager.setupWorkoutObserver()
                         }
                 } else if authManager.pendingSetupLogin != nil {
                     SetupView()

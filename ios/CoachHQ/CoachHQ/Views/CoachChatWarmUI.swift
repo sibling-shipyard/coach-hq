@@ -121,6 +121,7 @@ struct CoachChatCoachBubble: View {
             )
             .strokeBorder(Color(red: 0xec / 255, green: 0xe2 / 255, blue: 0xcf / 255), lineWidth: 1)
         )
+        .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
     }
 }
 
@@ -656,6 +657,24 @@ struct CoachChatHistorySheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - First-time welcome intro
+
+struct CoachChatWelcomeIntro: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            CoachChatDayDivider(label: "DAY ONE")
+            CoachChatCoachBubble(
+                paragraphs: [
+                    "I'm Coach Phelps. I keep your training honest — not easy, honest.",
+                    "Tell me what you're working toward and I'll watch your numbers from here.",
+                ],
+                showSignature: true
+            )
+        }
+        .padding(.top, 12)
     }
 }
 

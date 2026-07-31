@@ -702,7 +702,7 @@ enum PremiumMotion {
 
 /// Floating main-tab dock geometry — keep scroll clearance in sync with `MainTabView`.
 enum WarmMainDockLayout {
-    static let pillHeight: CGFloat = 52
+    static let pillHeight: CGFloat = 58
     static let topPadding: CGFloat = 2
     /// Gap between the last scroll row and the dock pill.
     static let scrollBottomBreathingRoom: CGFloat = 16

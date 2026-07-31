@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import HealthKit
+import UserNotifications
 
 /// Manages HealthKit data access, background delivery, and sync to GitHub.
 @MainActor
@@ -77,6 +78,43 @@ class HealthKitSyncManager: ObservableObject {
                 print("Background delivery registration failed: \(error)")
             }
         }
+    }
+
+    /// Registers an HKObserverQuery that fires whenever new workouts arrive in HealthKit,
+    /// syncs them, and posts a local notification so the user knows Coach is aware.
+    func setupWorkoutObserver() {
+        let workoutType = HKObjectType.workoutType()
+        let query = HKObserverQuery(sampleType: workoutType, predicate: nil) { [weak self] _, completionHandler, error in
+            guard error == nil else { completionHandler(); return }
+            Task { @MainActor [weak self] in
+                guard let self else { completionHandler(); return }
+                await self.syncNewWorkouts()
+                if case .synced(let n) = self.lastSyncResult?.outcome, n > 0 {
+                    await self.postSyncNotification(count: n)
+                }
+                completionHandler()
+            }
+        }
+        healthStore.execute(query)
+    }
+
+    /// Requests notification permission the first time the app runs (no-ops on subsequent launches).
+    func requestNotificationPermission() async {
+        _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+    }
+
+    private func postSyncNotification(count: Int) async {
+        let content = UNMutableNotificationContent()
+        content.title = count == 1 ? "Session logged" : "\(count) sessions logged"
+        content.body = "Coach is reviewing your latest workout."
+        content.sound = .default
+        content.userInfo = ["navigateTo": "chat"]
+        let request = UNNotificationRequest(
+            identifier: "hk-sync-\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+        try? await UNUserNotificationCenter.current().add(request)
     }
 
     // MARK: - Sync

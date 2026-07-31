@@ -45,9 +45,9 @@ enum CoachChatPreviewData {
     static let previewYesterdayThreadId = "preview-yesterday"
 
     static let starterPrompts = [
-        "Warm the bar tonight",
-        "Review my week",
-        "Plan Thursday's match",
+        "How's my week looking?",
+        "Felt strong today",
+        "Struggling lately",
     ]
 
     static let morningReadSignature = "— PHELPS"
