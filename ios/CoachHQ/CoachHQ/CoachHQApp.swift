@@ -39,7 +39,11 @@ struct CoachHQApp: App {
         WindowGroup {
             Group {
                 switch router.state {
-                case .bootstrapping, .active:
+                case .bootstrapping:
+                    // Blank background while the stored token is verified — prevents the
+                    // empty home skeleton from flashing before routing settles.
+                    WarmInstrument.desk.ignoresSafeArea()
+                case .active:
                     MainTabView()
                         .environmentObject(router.authManager)
                         .environmentObject(syncManager)

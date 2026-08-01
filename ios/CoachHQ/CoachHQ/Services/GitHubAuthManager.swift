@@ -63,10 +63,15 @@ class GitHubAuthManager: ObservableObject {
         guard var components = URLComponents(string: Secrets.dashboardBaseURL + "/api/auth/install-redirect") else {
             throw AuthError.invalidBaseURL
         }
-        var query = [URLQueryItem(name: "platform", value: "ios")]
-        if let userId = user?.id {
-            query.append(URLQueryItem(name: "suggested_target_id", value: String(userId)))
-        }
+        // Always send suggested_target_id so install-redirect.ts uses /installations/new/permissions
+        // (the combined OAuth+install endpoint that returns `code`). The needs_setup=1 callback
+        // doesn't issue a token so user?.id may be nil — "0" is an invalid ID that GitHub
+        // ignores, showing the normal account picker rather than pre-selecting an account.
+        let targetId = user?.id.map(String.init) ?? "0"
+        let query = [
+            URLQueryItem(name: "platform", value: "ios"),
+            URLQueryItem(name: "suggested_target_id", value: targetId),
+        ]
         components.queryItems = query
         guard let authURL = components.url else {
             throw AuthError.invalidBaseURL
