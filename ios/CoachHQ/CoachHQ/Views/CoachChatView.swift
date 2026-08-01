@@ -4,12 +4,12 @@ import SwiftUI
 ///
 /// **Wireup checklist (Skanda):**
 /// 1. `loadThreads()` — API returns seeded today thread on new-day open; drop preview fallback.
-/// 2. `headerContext` — populate from `challenge_v2` / widget snapshots for today's landing only.
 /// 3. `chips(for:)` — map coach message metadata from API instead of `CoachChatPreviewData.chipsByMessageId`.
 /// 4. `showSignature(for:)` — server flag on unprompted morning-read messages only.
 /// 5. `historyThreads` — enforce 7-day window server-side; client already groups by `dayOffset`.
 struct CoachChatView: View {
     @EnvironmentObject private var authManager: GitHubAuthManager
+    @EnvironmentObject private var widgetStore: WidgetSnapshotStore
 
     @State private var apiClient: CoachChatAPIClient?
     @State private var threads: [ChatThread] = []
@@ -28,8 +28,42 @@ struct CoachChatView: View {
     @AppStorage("chatWelcomeShown") private var chatWelcomeShown = false
     @AppStorage("preferredName") private var preferredName = ""
 
-    /// Until wired: preview header from mock. Replace with snapshot/challenge_v2 read.
-    @State private var headerContext = CoachChatHeaderContext.preview
+    /// Real challenge day, fetched once per session from challenge_v2.json (see loadHeaderContext()
+    /// below) - nil until that fetch resolves, at which point headerContext below reflects it.
+    @State private var liveDayNumber: Int?
+
+    /// Day label comes from a live fetch of challenge_v2.json's start_date (same math as web's
+    /// challengeDayNumber() in coachChatModel.ts); week label reuses the same engine.weekLabel
+    /// the Home tab already shows, via widgetStore - no second fetch needed for that half. Falls
+    /// back to the preview constant only until the real day number resolves.
+    private var headerContext: CoachChatHeaderContext {
+        CoachChatHeaderContext(
+            dayLabel: liveDayNumber.map { "D-\($0)" } ?? CoachChatHeaderContext.preview.dayLabel,
+            weekLabel: widgetStore.snapshots?.home.engine.weekLabel ?? CoachChatHeaderContext.preview.weekLabel,
+            statusSuffix: nil
+        )
+    }
+
+    private static func challengeDayNumber(startDate: String) -> Int? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        guard let start = formatter.date(from: startDate) else { return nil }
+        let calendar = Calendar.current
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: start),
+            to: calendar.startOfDay(for: Date())
+        ).day ?? 0
+        return max(1, days + 1)
+    }
+
+    private func loadHeaderContext() async {
+        guard liveDayNumber == nil else { return } // fetched once per session, not on every re-trigger
+        let client = GitHubAPIClient(authManager: authManager)
+        guard let startDate = try? await client.readChallengeStartDate() else { return }
+        liveDayNumber = Self.challengeDayNumber(startDate: startDate)
+    }
 
     private var usingPreviewShell: Bool {
         !threadsLoading && threads.filter { $0.status != .deleted }.isEmpty
@@ -59,8 +93,12 @@ struct CoachChatView: View {
         threads.first { $0.dayOffset == 0 && $0.status != .deleted }
     }
 
+    // Despite the name (kept for minimal diff against existing call sites), this is not
+    // strictly "yesterday" - matches web's pickupThread and the doc's stated rule: the newest
+    // still-open thread from any prior day, not just dayOffset == 1. threads is newest-first
+    // (per the API), so .first(where:) already picks the most recent match.
     private var yesterdayThread: ChatThread? {
-        if let live = threads.first(where: { $0.dayOffset == 1 && $0.status != .deleted }) {
+        if let live = threads.first(where: { $0.dayOffset > 0 && $0.status == .active && !$0.messages.isEmpty }) {
             return live
         }
         if usingPreviewShell {
@@ -100,6 +138,7 @@ struct CoachChatView: View {
             guard authManager.selectedRepo != nil else { return }
             apiClient = CoachChatAPIClient(authManager: authManager)
             await loadThreads()
+            await loadHeaderContext()
             if !pendingWorkoutType.isEmpty {
                 postWorkoutChips = Self.chips(forWorkoutType: pendingWorkoutType)
                 pendingWorkoutType = ""
@@ -109,6 +148,7 @@ struct CoachChatView: View {
             CoachChatHistorySheet(
                 threads: historyThreads,
                 todayThreadId: todayThread?.id,
+                headerContext: headerContext,
                 onSelect: { thread in
                     if thread.messages.isEmpty, thread.dayOffset != 0 {
                         selectTodayThread()
@@ -332,14 +372,19 @@ struct CoachChatView: View {
         }
     }
 
-    /// Wireup: replace preview map with API-provided chip payloads on coach messages.
+    /// Wireup: replace preview map with API-provided chip payloads on coach messages. No backend
+    /// data exists for this yet (Gemini's response schema has no chips field) - deferred, see
+    /// issue tracking coach chat's remaining gaps.
     private func chips(for message: ChatMessage) -> [CoachChatInlineChip] {
         CoachChatPreviewData.chipsByMessageId[message.id] ?? []
     }
 
-    /// Wireup: server should flag unprompted morning-read messages only.
+    /// Sign only the most recent coach reply in the displayed thread, not every bubble -
+    /// matches web's CoachChatWidgets.tsx fix. Previously matched against a hardcoded preview
+    /// message id that no real message ever has, so the signature never appeared for any real
+    /// athlete.
     private func showSignature(for message: ChatMessage) -> Bool {
-        CoachChatPreviewData.signatureMessageIds.contains(message.id)
+        message.id == displayThread.messages.last(where: { $0.role == .coach })?.id
     }
 
     private func dismissErrorDialog() {
@@ -412,7 +457,6 @@ struct CoachChatView: View {
             if let today = todayThread {
                 activeThreadId = today.id
             }
-            // Wireup: headerContext = await CoachChatHeaderLoader.load(...)
         } catch let error as GitHubAPIError {
             if case .sessionNotReady = error { return }
             if case .notAuthenticated = error {
