@@ -1,7 +1,17 @@
 import Foundation
+import Security
 
 /// Tracks whether the athlete finished first-session Coach intake for a repo.
 /// Until true, the app opens Chat — not Home — after GitHub setup completes.
+///
+/// Backed by Keychain, not UserDefaults - UserDefaults is wiped on app delete/reinstall, which
+/// is exactly when shouldOpenChatFirst() below needs this most (it only ever runs on the first
+/// launch after an install). Keychain items survive a same-device reinstall, so a returning
+/// athlete reinstalling the app gets recognized instantly, no network round trip needed - same
+/// kSecAttrAccessibleWhenUnlockedThisDeviceOnly pattern as GitHubAuthManager's token storage
+/// (not synced via iCloud Keychain, so a genuinely new physical device still falls through to
+/// shouldOpenChatFirst()'s network check below, which is unavoidable - that device has never
+/// stored anything about this athlete before).
 enum CoachSetupState {
     private static func storageKey(repoFullName: String) -> String {
         "coachSetupComplete.\(repoFullName.replacingOccurrences(of: "/", with: "_"))"
@@ -9,11 +19,23 @@ enum CoachSetupState {
 
     static func isComplete(repoFullName: String?) -> Bool {
         guard let repoFullName, !repoFullName.isEmpty else { return false }
-        return UserDefaults.standard.bool(forKey: storageKey(repoFullName: repoFullName))
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: storageKey(repoFullName: repoFullName)
+        ]
+        return SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess
     }
 
     static func markComplete(repoFullName: String) {
-        UserDefaults.standard.set(true, forKey: storageKey(repoFullName: repoFullName))
+        let key = storageKey(repoFullName: repoFullName)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: Data([1]),
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+        SecItemDelete(query as CFDictionary) // Remove existing, mirrors GitHubAuthManager's save pattern
+        SecItemAdd(query as CFDictionary, nil)
     }
 }
 
