@@ -116,7 +116,8 @@ first time it's launched after install — a genuinely new athlete (no thread hi
 Chat; a returning athlete (real history exists) lands on Home. The "already set up" flag is
 Keychain-backed (survives a same-device reinstall, unlike `UserDefaults`), so this resolves
 instantly without a network call for the common case; a genuinely new device still needs one
-network check, bounded to 5s before falling back to Home.
+network check, bounded to 5s before falling back to Home. Ships in #181 (open at time of
+writing).
 
 ## Done when
 
