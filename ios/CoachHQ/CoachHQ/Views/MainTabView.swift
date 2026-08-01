@@ -94,7 +94,9 @@ struct MainTabView: View {
                 bottomDockContent
             }
 
-            // First-launch splash — shows logo + "Coach HQ" while Chat tab loads underneath.
+            // First-launch splash — shows logo + "Coach HQ" while either tab loads underneath
+            // (selectedTab defaults to .home, but shouldOpenChatFirst() below may switch it to
+            // .chat before the splash fades - not always Chat loading under here anymore).
             // On exit: lands on Chat for a genuinely new athlete (Coach's intro is the first
             // thing they see) or Home for an existing athlete reopening the app fresh (new
             // device/reinstall) who already has real chat history - shouldOpenChatFirst() makes
