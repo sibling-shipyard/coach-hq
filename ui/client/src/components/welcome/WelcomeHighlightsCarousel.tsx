@@ -191,7 +191,7 @@ export function WelcomeHighlightsCarousel() {
 
   return (
     <section className="welcome-highlights" id="highlights">
-      <div className="welcome-section__intro welcome-highlights__intro" data-reveal>
+      <div className="welcome-section__intro welcome-section__intro--compact welcome-highlights__intro" data-reveal>
         <span className="welcome-kicker">LIVE WIDGETS</span>
         <h2 className="welcome-section__title">Get the highlights.</h2>
       </div>

@@ -1552,9 +1552,9 @@ button.welcome-adapt__scenario.is-active {
 /* ─── Highlights carousel ─────────────────────────────────────────────────── */
 
 .welcome-highlights {
-  padding: 80px 0 72px;
+  padding: 0 0 72px;
   border-top: 1px solid #ded7ca;
-  background: var(--wi-surface);
+  background: var(--wi-page);
 }
 
 .welcome-highlights__intro {
