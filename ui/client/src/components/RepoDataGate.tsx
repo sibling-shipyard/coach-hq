@@ -23,6 +23,32 @@ const RECOVERY_ACTIONS = (
   </div>
 );
 
+/** Shared "sign in again" card for a revoked/expired GitHub session - used both by this gate's
+ * own accessRevoked branch (repo-file.ts 401) and directly by pages with a second, independent
+ * data source that can 401 on its own (e.g. CoachChat.tsx's /api/coach-chat fetch). */
+export function AccessRevokedCard() {
+  return (
+    <div className="wi-shell">
+      <AuthPageHeader action={{ label: "Sign out", href: "/api/auth/logout" }} />
+      <div className="auth-card-shell">
+        <div className="auth-card">
+          <h2 className="auth-card__heading">Your GitHub access expired</h2>
+          <p className="auth-card__body">
+            Your session is still active, but GitHub access was revoked or expired - this
+            happens if you uninstalled the App or removed its access on GitHub's side. Sign in
+            again to reconnect.
+          </p>
+          <div className="auth-card__buttons">
+            <GitHubAuthButton className="auth-card__button auth-card__button--primary">
+              Sign in again
+            </GitHubAuthButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Loading/error/schema-mismatch/not-onboarded states shared by every page reading useRepoData(). */
 export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, accessRevoked, children }: Props) {
   if (loading) {
@@ -76,26 +102,7 @@ export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, 
   }
 
   if (error && accessRevoked) {
-    return (
-      <div className="wi-shell">
-        <AuthPageHeader action={{ label: "Sign out", href: "/api/auth/logout" }} />
-        <div className="auth-card-shell">
-          <div className="auth-card">
-            <h2 className="auth-card__heading">Your GitHub access expired</h2>
-            <p className="auth-card__body">
-              Your session is still active, but GitHub access was revoked or expired - this
-              happens if you uninstalled the App or removed its access on GitHub's side. Sign
-              in again to reconnect.
-            </p>
-            <div className="auth-card__buttons">
-              <GitHubAuthButton className="auth-card__button auth-card__button--primary">
-                Sign in again
-              </GitHubAuthButton>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <AccessRevokedCard />;
   }
 
   if (error) {

@@ -176,7 +176,7 @@ function MessageList({ messages, pending }: { messages: ChatMessage[]; pending?:
 
   return (
     <div className="cc-messages" role="log" aria-live="polite" aria-relevant="additions">
-      {messages.map((message) => {
+      {messages.map((message, messageIndex) => {
         if (message.role === "divider") {
           return (
             <div className="cc-divider" key={message.id}>
@@ -191,6 +191,9 @@ function MessageList({ messages, pending }: { messages: ChatMessage[]; pending?:
             </div>
           );
         }
+        // Sign only the most recent reply, not every bubble - a real conversation doesn't
+        // re-sign every line, and it read as noisy repeated on every turn.
+        const isLastMessage = messageIndex === messages.length - 1;
         return (
           <div className="cc-coach-wrap" key={message.id}>
             <div className="cc-bubble cc-bubble--coach">
@@ -200,7 +203,7 @@ function MessageList({ messages, pending }: { messages: ChatMessage[]; pending?:
                   {index === 0 && message.chips ? <CoachChips chips={message.chips} /> : null}
                 </div>
               ))}
-              <div className="cc-signature">— PHELPS</div>
+              {isLastMessage ? <div className="cc-signature">— PHELPS</div> : null}
             </div>
           </div>
         );
