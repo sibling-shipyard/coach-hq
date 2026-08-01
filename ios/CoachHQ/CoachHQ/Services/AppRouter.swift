@@ -123,12 +123,21 @@ final class AppRouter: ObservableObject {
     }
 
     private func deriveState() {
+        let previousState = state
         guard authManager.isSessionReady else { state = .bootstrapping; return }
         // pendingSetupLogin is set by the needs_setup=1 callback branch, which does NOT set
         // isAuthenticated — check it before the auth guard so SetupView renders correctly.
         if let login = authManager.pendingSetupLogin { state = .needsSetup(login: login); return }
         guard authManager.isAuthenticated else { state = .unauthenticated; return }
-        if authManager.selectedRepo != nil { state = .active; return }
+        if authManager.selectedRepo != nil {
+            state = .active
+            // Skip the splash when arriving from SetupView — the user just finished the setup
+            // wizard, jumping straight to the HK prompt is less jarring than showing tabs first.
+            if case .needsSetup = previousState, onboardingPhase == .notStarted {
+                advance(.splashDismissed)
+            }
+            return
+        }
         // isSessionReady + isAuthenticated + no repo + no pendingSetupLogin:
         // zombie-token path — bootstrapSession() should have called signOut(), but guard here.
         state = .unauthenticated
