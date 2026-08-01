@@ -180,12 +180,17 @@ class HealthKitSyncManager: ObservableObject {
                     .replacingOccurrences(of: ":", with: "")
                 if existingFiles.contains(where: { $0.name.hasPrefix("\(datePart)_\(timePart)_") }) { continue }
 
-                // Fetch HR samples and compute stats + zones
+                // Fetch HR samples and compute stats + zones + stream
                 let hrSamples = (try? await fetchHeartRateSamples(for: workout)) ?? []
                 let hrStats = ActivityMapper.computeHRStats(samples: hrSamples)
                 let hrZones = hrSamples.isEmpty ? nil : ActivityMapper.computeHRZones(
-                    samples: hrSamples, config: .current, duration: workout.duration
+                    samples: hrSamples, workoutEnd: workout.endDate, config: .current
                 )
+                let isoFormatter = ISO8601DateFormatter()
+                let hrStream: [HRSample]? = hrSamples.isEmpty ? nil :
+                    ActivityMapper.downsample(samples: hrSamples).map {
+                        HRSample(timestamp: isoFormatter.string(from: $0.0), bpm: $0.1)
+                    }
 
                 let withHR = Activity(
                     name: base.name,
@@ -205,7 +210,9 @@ class HealthKitSyncManager: ObservableObject {
                     averageSpeed: base.averageSpeed,
                     maxSpeed: base.maxSpeed,
                     deviceName: base.deviceName,
-                    source: base.source
+                    source: base.source,
+                    preMentalState: nil,
+                    hrStream: hrStream
                 )
 
                 let named = ActivityNamer.assignName(activity: withHR, counters: &counters)
@@ -332,8 +339,8 @@ class HealthKitSyncManager: ObservableObject {
         return try await descriptor.result(for: healthStore)
     }
 
-    /// Fetches heart rate samples for a specific workout.
-    func fetchHeartRateSamples(for workout: HKWorkout) async throws -> [Double] {
+    /// Fetches heart rate samples for a specific workout, returning (timestamp, bpm) pairs.
+    func fetchHeartRateSamples(for workout: HKWorkout) async throws -> [(Date, Double)] {
         let hrType = HKQuantityType(.heartRate)
         let predicate = HKQuery.predicateForSamples(
             withStart: workout.startDate,
@@ -352,7 +359,7 @@ class HealthKitSyncManager: ObservableObject {
                     continuation.resume(throwing: error)
                 } else {
                     let hrValues = (samples as? [HKQuantitySample])?.map {
-                        $0.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                        ($0.startDate, $0.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())))
                     } ?? []
                     continuation.resume(returning: hrValues)
                 }

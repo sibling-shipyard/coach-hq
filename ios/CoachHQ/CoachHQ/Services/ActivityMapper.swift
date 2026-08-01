@@ -72,25 +72,26 @@ struct ActivityMapper {
         )
     }
 
-    /// Computes HR zone distribution from raw heart rate samples.
-    static func computeHRZones(samples: [Double], config: HRZoneConfig, duration: TimeInterval) -> [String: HRZoneEntry] {
-        let timePerSample = duration / Double(samples.count)
-
+    /// Computes HR zone distribution using actual sample timestamps for precise zone time.
+    /// Uses midpoint integration: each sample owns the interval from the midpoint before it
+    /// to the midpoint after it, with the last sample extending to `workoutEnd`.
+    static func computeHRZones(samples: [(Date, Double)], workoutEnd: Date, config: HRZoneConfig) -> [String: HRZoneEntry] {
+        guard !samples.isEmpty else { return [:] }
         var z1: Double = 0, z2: Double = 0, z3: Double = 0, z4: Double = 0, z5: Double = 0
 
-        for hr in samples {
-            let bpm = Int(hr)
-            if bpm <= config.zone1Upper {
-                z1 += timePerSample
-            } else if bpm <= config.zone2Upper {
-                z2 += timePerSample
-            } else if bpm <= config.zone3Upper {
-                z3 += timePerSample
-            } else if bpm <= config.zone4Upper {
-                z4 += timePerSample
-            } else {
-                z5 += timePerSample
-            }
+        for i in 0..<samples.count {
+            let t = samples[i].0
+            let bpm = samples[i].1
+            let segStart: Date = i == 0 ? t : Date(timeIntervalSince1970: (samples[i-1].0.timeIntervalSince1970 + t.timeIntervalSince1970) / 2)
+            let segEnd: Date = i == samples.count - 1 ? workoutEnd : Date(timeIntervalSince1970: (t.timeIntervalSince1970 + samples[i+1].0.timeIntervalSince1970) / 2)
+            let duration = max(0, segEnd.timeIntervalSince(segStart))
+
+            let hrInt = Int(bpm)
+            if hrInt <= config.zone1Upper { z1 += duration }
+            else if hrInt <= config.zone2Upper { z2 += duration }
+            else if hrInt <= config.zone3Upper { z3 += duration }
+            else if hrInt <= config.zone4Upper { z4 += duration }
+            else { z5 += duration }
         }
 
         return [
@@ -102,11 +103,18 @@ struct ActivityMapper {
         ]
     }
 
-    /// Computes average and max HR from samples.
-    static func computeHRStats(samples: [Double]) -> (average: Double?, max: Double?) {
+    /// Computes average and max HR from timestamped samples.
+    static func computeHRStats(samples: [(Date, Double)]) -> (average: Double?, max: Double?) {
         guard !samples.isEmpty else { return (nil, nil) }
-        let avg = samples.reduce(0, +) / Double(samples.count)
-        let max = samples.max()
-        return (avg.rounded(), max?.rounded())
+        let values = samples.map(\.1)
+        let avg = values.reduce(0, +) / Double(values.count)
+        return (avg.rounded(), values.max()?.rounded())
+    }
+
+    /// Downsamples a time series to at most `maxCount` points, preserving first and last.
+    static func downsample(samples: [(Date, Double)], maxCount: Int = 200) -> [(Date, Double)] {
+        guard samples.count > maxCount else { return samples }
+        let stride = Double(samples.count - 1) / Double(maxCount - 1)
+        return (0..<maxCount).map { i in samples[Int((Double(i) * stride).rounded())] }
     }
 }
