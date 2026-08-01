@@ -64,6 +64,11 @@ struct MainTabView: View {
     @EnvironmentObject var bottomDock: BottomDockState
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
+    // Set alongside clearing pendingChatNavigation in onAppear below - can't just re-check
+    // pendingChatNavigation later, since onAppear already clears it long before the splash's
+    // async shouldOpenChatFirst() decision resolves. Lets that decision know a notification tap
+    // already claimed the tab, so it doesn't silently overwrite a real user action.
+    @State private var chatClaimedByNotification = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
     @AppStorage("personalizeShown") private var personalizeShown = false
@@ -106,7 +111,11 @@ struct MainTabView: View {
                 SplashView {
                     personalizeShown = true
                     Task {
-                        selectedTab = await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) ? .chat : .home
+                        // A notification tap already claimed the tab (onAppear, below) - don't
+                        // spend a network round trip on a decision that's moot.
+                        if !chatClaimedByNotification {
+                            selectedTab = await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) ? .chat : .home
+                        }
                         try? await Task.sleep(for: .seconds(0.5))
                         welcomeVisible = false
                     }
@@ -130,6 +139,7 @@ struct MainTabView: View {
         .onAppear {
             if pendingChatNavigation {
                 pendingChatNavigation = false
+                chatClaimedByNotification = true
                 selectedTab = .chat
             }
         }
