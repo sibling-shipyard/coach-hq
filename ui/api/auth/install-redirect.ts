@@ -31,10 +31,12 @@ export default {
 
     const redirectUri = `${url.origin}/api/auth/callback`;
 
+    // Always use /permissions so GitHub runs the combined OAuth+install flow and returns
+    // `code` in the callback. The plain /installations/new endpoint only returns
+    // `installation_id`, which callback.ts can't handle (it requires `code` to exchange
+    // for a token). suggested_target_id is an optional account pre-selection hint.
     const suggestedTargetId = url.searchParams.get("suggested_target_id");
-    const installUrl = suggestedTargetId
-      ? new URL(`https://github.com/apps/${APP_SLUG}/installations/new/permissions`)
-      : new URL(`https://github.com/apps/${APP_SLUG}/installations/new`);
+    const installUrl = new URL(`https://github.com/apps/${APP_SLUG}/installations/new/permissions`);
     if (suggestedTargetId) {
       installUrl.searchParams.set("suggested_target_id", suggestedTargetId);
       installUrl.searchParams.set("target_type", "User");
