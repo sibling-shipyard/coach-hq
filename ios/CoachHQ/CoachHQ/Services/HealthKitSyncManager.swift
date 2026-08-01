@@ -180,13 +180,14 @@ class HealthKitSyncManager: ObservableObject {
                     .replacingOccurrences(of: ":", with: "")
                 if existingFiles.contains(where: { $0.name.hasPrefix("\(datePart)_\(timePart)_") }) { continue }
 
-                // Fetch HR samples + daily recovery signals concurrently
+                // Fetch HR samples + daily recovery signals + fitness estimate concurrently
                 async let rawHRSamples = fetchHeartRateSamples(for: workout)
                 async let restingHR = fetchRestingHeartRate(on: workout.startDate)
                 async let hrvValue = fetchHRV(on: workout.startDate)
                 async let sleepHours = fetchSleepHours(nightBefore: workout.startDate)
+                async let vo2 = fetchVO2Max(on: workout.startDate)
                 let hrSamples = (try? await rawHRSamples) ?? []
-                let (resting, hrv, sleep) = await (restingHR, hrvValue, sleepHours)
+                let (resting, hrv, sleep, vo2Max) = await (restingHR, hrvValue, sleepHours, vo2)
 
                 let hrStats = ActivityMapper.computeHRStats(samples: hrSamples)
                 let hrZones = hrSamples.isEmpty ? nil : ActivityMapper.computeHRZones(
@@ -221,7 +222,8 @@ class HealthKitSyncManager: ObservableObject {
                     hrStream: hrStream,
                     restingHeartRate: resting,
                     hrv: hrv,
-                    sleepHoursPrior: sleep
+                    sleepHoursPrior: sleep,
+                    vo2Max: vo2Max
                 )
 
                 let named = ActivityNamer.assignName(activity: withHR, counters: &counters)
@@ -390,6 +392,26 @@ class HealthKitSyncManager: ObservableObject {
                 continuation.resume(returning: value.map { $0.rounded() })
             }
             healthStore.execute(query)
+        }
+    }
+
+    /// Fetches the most recent estimated VO₂ Max (mL/kg/min) recorded on or before `date`.
+    private func fetchVO2Max(on date: Date) async -> Double? {
+        let type = HKQuantityType(.vo2Max)
+        let predicate = HKQuery.predicateForSamples(withStart: .distantPast, end: date, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)]
+            ) { _, samples, _ in
+                let value = (samples?.first as? HKQuantitySample)?
+                    .quantity.doubleValue(for: HKUnit(from: "mL/kg*min"))
+                continuation.resume(returning: value.map { ($0 * 10).rounded() / 10 })
+            }
+            self.healthStore.execute(query)
         }
     }
 

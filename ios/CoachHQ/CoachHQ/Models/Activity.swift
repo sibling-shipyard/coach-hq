@@ -28,6 +28,7 @@ struct Activity: Codable, Identifiable, Hashable {
     var restingHeartRate: Double? = nil         // daily resting HR (bpm) on the day of the session
     var hrv: Double? = nil                      // daily HRV SDNN (ms) on the day of the session
     var sleepHoursPrior: Double? = nil          // hours of sleep the night before the session (9pm–8am window)
+    var vo2Max: Double? = nil                   // estimated VO₂ Max (mL/kg/min) most recent on or before the session
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -53,6 +54,7 @@ struct Activity: Codable, Identifiable, Hashable {
         case restingHeartRate = "resting_heart_rate"
         case hrv = "hrv"
         case sleepHoursPrior = "sleep_hours_prior"
+        case vo2Max = "vo2_max"
     }
 }
 
