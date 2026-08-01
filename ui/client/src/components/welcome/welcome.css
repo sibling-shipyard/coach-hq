@@ -4,6 +4,14 @@
  */
 
 .welcome-page {
+  /* Elevation and easing values below are named copies of the recipes already used
+     across this file (card shadow, hero shadow, dark shadow, reveal-on-scroll easing) —
+     not new design-system values, just given one name so they stop drifting apart. */
+  --welcome-shadow-card: 0 16px 36px rgba(57, 52, 42, 0.1);
+  --welcome-shadow-hero: 0 24px 52px rgba(101, 43, 32, 0.32);
+  --welcome-shadow-dark: 0 26px 52px rgba(43, 45, 41, 0.3);
+  --welcome-ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+
   overflow-x: hidden;
   color: var(--wi-ink);
   background: var(--wi-page);
@@ -162,7 +170,7 @@
 }
 
 .welcome-nav__cta:hover {
-  background: #1c1d1a;
+  background: var(--wi-ink);
   color: var(--wi-surface) !important;
 }
 
@@ -237,7 +245,7 @@
 }
 
 .welcome-btn--primary:hover {
-  background: #652b20;
+  background: var(--wi-rust-dark);
   color: var(--wi-surface) !important;
 }
 
@@ -274,7 +282,7 @@
   background:
     linear-gradient(150deg, rgba(255, 255, 255, 0.07), transparent 45%),
     var(--wi-rust);
-  box-shadow: 0 24px 52px rgba(101, 43, 32, 0.32);
+  box-shadow: var(--welcome-shadow-hero);
 }
 
 .welcome-engine-hero__top {
@@ -509,7 +517,7 @@
   border: 1px solid #d8d2c6;
   border-radius: 24px;
   background: var(--wi-page);
-  box-shadow: 0 14px 30px rgba(43, 45, 41, 0.1);
+  box-shadow: var(--welcome-shadow-card);
 }
 
 .welcome-feature__card--coach {
@@ -681,8 +689,8 @@
   margin: 0 auto;
   padding: 10px;
   border-radius: 44px;
-  background: #1c1d1a;
-  box-shadow: 0 26px 52px rgba(43, 45, 41, 0.3);
+  background: var(--wi-ink);
+  box-shadow: var(--welcome-shadow-dark);
 }
 
 .welcome-phone--timer {
@@ -714,7 +722,7 @@
   border: 1px solid rgba(84, 76, 65, 0.16);
   border-radius: 26px;
   background: var(--wi-surface);
-  box-shadow: 0 16px 34px rgba(57, 52, 42, 0.1);
+  box-shadow: var(--welcome-shadow-card);
 }
 
 .welcome-timer-card__head {
@@ -752,7 +760,7 @@
 
 .welcome-timer-card__time.is-enter-pulse,
 .welcome-phone__timer-time.is-enter-pulse {
-  animation: welcome-timer-enter 820ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: welcome-timer-enter 820ms var(--welcome-ease);
 }
 
 @keyframes welcome-timer-enter {
@@ -810,7 +818,7 @@
   height: 100%;
   border-radius: 5px;
   background: var(--wi-rust);
-  transition: width 0.9s linear;
+  transition: width 0.9s var(--welcome-ease);
 }
 
 .welcome-timer-card__panels {
@@ -885,7 +893,7 @@ button.welcome-timer-card__run {
 }
 
 button.welcome-timer-card__run:hover {
-  background: #1c1d1a;
+  background: var(--wi-ink);
 }
 
 .welcome-timer-card__next {
@@ -973,7 +981,7 @@ button.welcome-timer-card__run:hover {
   height: 100%;
   border-radius: 5px;
   background: var(--wi-rust);
-  transition: width 0.9s linear;
+  transition: width 0.9s var(--welcome-ease);
 }
 
 .welcome-phone__timer-coach {
@@ -1003,19 +1011,13 @@ button.welcome-phone__timer-btn {
 
 /* ─── CTA / invite ────────────────────────────────────────────────────────── */
 
-.welcome-cta {
-  background:
-    radial-gradient(circle at 50% 120%, rgba(127, 55, 40, 0.14), transparent 40rem),
-    var(--wi-page);
-}
-
 .welcome-cta__inner {
   display: flex;
   max-width: 760px;
   flex-direction: column;
   align-items: center;
   margin: 0 auto;
-  padding: 130px 40px;
+  padding: 120px 40px;
   text-align: center;
 }
 
@@ -1042,7 +1044,7 @@ button.welcome-phone__timer-btn {
   max-width: 520px;
   gap: 14px;
   margin-top: 36px;
-  transition: max-width 900ms cubic-bezier(0.2, 0.6, 0.2, 1);
+  transition: max-width 900ms var(--welcome-ease);
 }
 
 .welcome-cta__actions.is-expanded {
@@ -1052,7 +1054,7 @@ button.welcome-phone__timer-btn {
 .welcome-cta__primary-slot {
   flex: 1 1 50%;
   min-width: 0;
-  transition: flex 900ms cubic-bezier(0.2, 0.6, 0.2, 1);
+  transition: flex 900ms var(--welcome-ease);
 }
 
 .welcome-cta__actions.is-expanded .welcome-cta__primary-slot {
@@ -1074,7 +1076,7 @@ button.welcome-cta__primary {
 }
 
 button.welcome-cta__primary:hover {
-  background: #652b20;
+  background: var(--wi-rust-dark);
 }
 
 button.welcome-cta__peek {
@@ -1094,9 +1096,9 @@ button.welcome-cta__peek {
   font-weight: 600;
   cursor: pointer;
   transition:
-    flex 900ms cubic-bezier(0.2, 0.6, 0.2, 1),
-    width 900ms cubic-bezier(0.2, 0.6, 0.2, 1),
-    padding 900ms cubic-bezier(0.2, 0.6, 0.2, 1),
+    flex 900ms var(--welcome-ease),
+    width 900ms var(--welcome-ease),
+    padding 900ms var(--welcome-ease),
     background 160ms ease;
 }
 
@@ -1110,9 +1112,9 @@ button.welcome-cta__peek:hover {
   white-space: nowrap;
   opacity: 1;
   transition:
-    max-width 900ms cubic-bezier(0.2, 0.6, 0.2, 1),
+    max-width 900ms var(--welcome-ease),
     opacity 700ms ease,
-    margin 900ms cubic-bezier(0.2, 0.6, 0.2, 1);
+    margin 900ms var(--welcome-ease);
 }
 
 .welcome-cta__peek-icon {
@@ -1144,7 +1146,7 @@ button.welcome-cta__peek:hover {
   display: flex;
   width: 100%;
   gap: 10px;
-  animation: welcome-cta-expand 900ms cubic-bezier(0.2, 0.6, 0.2, 1);
+  animation: welcome-cta-expand 900ms var(--welcome-ease);
 }
 
 @keyframes welcome-cta-expand {
@@ -1163,7 +1165,7 @@ input.welcome-cta__input {
   flex: 1;
   min-width: 0;
   padding: 16px 18px;
-  border: 1px solid #d4cdbf;
+  border: 1px solid #c7c0b2;
   border-radius: 12px;
   color: var(--wi-ink);
   background: var(--wi-surface);
@@ -1196,7 +1198,7 @@ button.welcome-cta__submit {
 }
 
 button.welcome-cta__submit:hover {
-  background: #652b20;
+  background: var(--wi-rust-dark);
 }
 
 .welcome-cta__success {
@@ -1282,7 +1284,7 @@ button.welcome-cta__submit:hover {
   flex-direction: column;
   align-items: center;
   margin: 0 auto;
-  padding: 120px 40px 140px;
+  padding: 120px 40px;
   text-align: center;
 }
 
@@ -1300,7 +1302,7 @@ button.welcome-cta__submit:hover {
 }
 
 .welcome-coach-voice__quote {
-  animation: welcome-coach-in 620ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: welcome-coach-in 620ms var(--welcome-ease);
 }
 
 @keyframes welcome-coach-in {
@@ -1391,16 +1393,18 @@ button.welcome-adapt__scenario {
   gap: 12px;
   padding: 20px 18px;
   border: 1.5px solid #d8d2c6;
-  border-radius: 18px;
+  border-radius: 16px;
   color: var(--wi-ink);
   background: var(--wi-page);
+  box-shadow: var(--welcome-shadow-card);
   text-align: left;
   cursor: pointer;
   transition:
-    background 200ms ease,
-    color 200ms ease,
-    border-color 200ms ease,
-    transform 160ms ease;
+    background 200ms var(--welcome-ease),
+    color 200ms var(--welcome-ease),
+    border-color 200ms var(--welcome-ease),
+    box-shadow 200ms var(--welcome-ease),
+    transform 160ms var(--welcome-ease);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1410,7 +1414,7 @@ button.welcome-adapt__scenario {
 }
 
 button.welcome-adapt__scenario.is-active {
-  border-color: #652b20;
+  border-color: var(--wi-rust-dark);
   color: var(--wi-surface);
   background: var(--wi-rust);
 }
@@ -1443,7 +1447,7 @@ button.welcome-adapt__scenario.is-active {
   flex: 1;
   flex-direction: column;
   gap: 18px;
-  animation: welcome-adapt-in 620ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: welcome-adapt-in 620ms var(--welcome-ease);
 }
 
 @keyframes welcome-adapt-in {
@@ -1517,7 +1521,7 @@ button.welcome-adapt__scenario.is-active {
   inset: 0 auto 0 0;
   border-radius: 5px;
   background: var(--wi-rust);
-  transition: width 620ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: width 620ms var(--welcome-ease);
 }
 
 .welcome-adapt__chips {
@@ -1752,15 +1756,16 @@ button.welcome-adapt__scenario.is-active {
 .welcome-hl-card__widget--wi > .wi-training-card {
   width: 100%;
   margin: 0;
+  box-shadow: var(--welcome-shadow-card);
 }
 
 .welcome-hl-card__widget--wi .sa-card {
   width: 100%;
   height: 100%;
   margin: 0;
-  border: none;
+  border: 1px solid rgba(84, 76, 65, 0.14);
   border-radius: 26px;
-  box-shadow: none;
+  box-shadow: var(--welcome-shadow-card);
 }
 
 .welcome-hl-card__widget--wi .sa-card:hover {
@@ -1869,7 +1874,7 @@ button.welcome-highlights__dot {
   background: #cfc7b8;
   cursor: pointer;
   transition:
-    width 300ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    width 300ms var(--welcome-ease),
     background 300ms ease;
 }
 
@@ -1893,7 +1898,7 @@ button.welcome-highlights__dot.is-active {
   align-items: end;
   gap: 60px;
   margin: 0 auto;
-  padding: 96px 40px;
+  padding: 120px 40px;
   grid-template-columns: 1fr 300px;
 }
 
