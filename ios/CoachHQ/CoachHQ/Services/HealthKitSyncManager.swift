@@ -180,8 +180,13 @@ class HealthKitSyncManager: ObservableObject {
                     .replacingOccurrences(of: ":", with: "")
                 if existingFiles.contains(where: { $0.name.hasPrefix("\(datePart)_\(timePart)_") }) { continue }
 
-                // Fetch HR samples and compute stats + zones + stream
-                let hrSamples = (try? await fetchHeartRateSamples(for: workout)) ?? []
+                // Fetch HR samples + daily recovery signals concurrently
+                async let rawHRSamples = fetchHeartRateSamples(for: workout)
+                async let restingHR = fetchRestingHeartRate(on: workout.startDate)
+                async let hrvValue = fetchHRV(on: workout.startDate)
+                let hrSamples = (try? await rawHRSamples) ?? []
+                let (resting, hrv) = await (restingHR, hrvValue)
+
                 let hrStats = ActivityMapper.computeHRStats(samples: hrSamples)
                 let hrZones = hrSamples.isEmpty ? nil : ActivityMapper.computeHRZones(
                     samples: hrSamples, workoutEnd: workout.endDate, config: .current
@@ -212,7 +217,9 @@ class HealthKitSyncManager: ObservableObject {
                     deviceName: base.deviceName,
                     source: base.source,
                     preMentalState: nil,
-                    hrStream: hrStream
+                    hrStream: hrStream,
+                    restingHeartRate: resting,
+                    hrv: hrv
                 )
 
                 let named = ActivityNamer.assignName(activity: withHR, counters: &counters)
@@ -365,6 +372,39 @@ class HealthKitSyncManager: ObservableObject {
                 }
             }
             self.healthStore.execute(query)
+        }
+    }
+
+    /// Fetches the daily resting heart rate for the day containing `date`.
+    private func fetchRestingHeartRate(on date: Date) async -> Double? {
+        let type = HKQuantityType(.restingHeartRate)
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: endOfDay, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .discreteAverage) { _, stats, _ in
+                let value = stats?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                continuation.resume(returning: value.map { $0.rounded() })
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Fetches the daily HRV SDNN (ms) for the day containing `date`.
+    private func fetchHRV(on date: Date) async -> Double? {
+        let type = HKQuantityType(.heartRateVariabilitySDNN)
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        let predicate = HKQuery.predicateForSamples(withStart: startOfDay, end: endOfDay, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            // HealthKit stores HRV in seconds; convert to ms for display
+            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .discreteAverage) { _, stats, _ in
+                let value = stats?.averageQuantity()?.doubleValue(for: .second())
+                continuation.resume(returning: value.map { ($0 * 1000).rounded() })
+            }
+            healthStore.execute(query)
         }
     }
 

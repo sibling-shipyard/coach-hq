@@ -23,8 +23,10 @@ struct Activity: Codable, Identifiable, Hashable {
     let maxSpeed: Double          // m/s
     let deviceName: String?
     let source: String            // "healthkit" or "strava"
-    var preMentalState: PreMentalState? = nil // absent from older history files; optional keeps decoding safe
-    var hrStream: [HRSample]? = nil           // downsampled timestamped HR curve (≤200 pts); nil for older records
+    var preMentalState: PreMentalState? = nil   // absent from older history files; optional keeps decoding safe
+    var hrStream: [HRSample]? = nil             // downsampled timestamped HR curve (≤200 pts); nil for older records
+    var restingHeartRate: Double? = nil         // daily resting HR (bpm) on the day of the session
+    var hrv: Double? = nil                      // daily HRV SDNN (ms) on the day of the session
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -47,6 +49,8 @@ struct Activity: Codable, Identifiable, Hashable {
         case source
         case preMentalState = "pre_mental_state"
         case hrStream = "hr_stream"
+        case restingHeartRate = "resting_heart_rate"
+        case hrv = "hrv"
     }
 }
 
