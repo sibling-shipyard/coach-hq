@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { RepoDataGate } from "@/components/RepoDataGate";
-import { GitHubAuthButton } from "@/components/login/GitHubAuthButton";
+import { RepoDataGate, AccessRevokedCard } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import type { Activity } from "@/lib/activities";
 import type { ChallengeV2 } from "@/lib/challenge";
@@ -207,6 +206,32 @@ function CoachChatContent({ data }: { data: RepoData }) {
     const now = Date.now();
     const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
 
+    // Echo the athlete's own message immediately, matching iOS - don't make them wait for the
+    // full Gemini round trip just to see what they typed. newThreadId is only set when this
+    // send started a brand-new conversation, so a failure can roll back the whole thread rather
+    // than just the message.
+    let newThreadId: string | null = null;
+    if (targetId) {
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === targetId ? { ...thread, messages: [...thread.messages, userMsg] } : thread,
+        ),
+      );
+    } else {
+      newThreadId = `local-${now}`;
+      const created: ChatThread = {
+        id: newThreadId,
+        dayOffset: 0,
+        title: trimmed.length > 28 ? `${trimmed.slice(0, 28)}…` : trimmed,
+        preview: trimmed.slice(0, 80),
+        ageLabel: "NOW",
+        status: "active",
+        messages: [{ id: `d-${now}`, role: "divider", label: "TODAY" }, userMsg],
+      };
+      setThreads((prev) => [created, ...prev]);
+      setActiveId(newThreadId);
+    }
+
     try {
       const result = await sendMessage(targetId, priorMessages, trimmed);
 
@@ -216,39 +241,38 @@ function CoachChatContent({ data }: { data: RepoData }) {
         return;
       }
 
-      const coachMsg: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [result.reply] };
-
-      if (targetId) {
+      const activeThreadId = targetId ?? newThreadId;
+      const coachMsg: ChatMessage = { id: `c-${Date.now()}`, role: "coach", paragraphs: [result.reply] };
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === activeThreadId
+            ? {
+                ...thread,
+                preview: result.reply.slice(0, 80),
+                ageLabel: "NOW",
+                status: "active" as const,
+                archivedAt: undefined,
+                deletedAt: undefined,
+                messages: [...thread.messages, coachMsg],
+              }
+            : thread,
+        ),
+      );
+    } catch (err: unknown) {
+      // Roll back the optimistic echo - either drop the message from an existing thread, or
+      // drop the whole thread if this send was what created it.
+      if (newThreadId) {
+        setThreads((prev) => prev.filter((thread) => thread.id !== newThreadId));
+        setActiveId(null);
+      } else if (targetId) {
         setThreads((prev) =>
           prev.map((thread) =>
             thread.id === targetId
-              ? {
-                  ...thread,
-                  preview: result.reply.slice(0, 80),
-                  ageLabel: "NOW",
-                  status: "active" as const,
-                  archivedAt: undefined,
-                  deletedAt: undefined,
-                  messages: [...thread.messages, userMsg, coachMsg],
-                }
+              ? { ...thread, messages: thread.messages.filter((m) => m.id !== userMsg.id) }
               : thread,
           ),
         );
-      } else {
-        const id = `local-${now}`;
-        const created: ChatThread = {
-          id,
-          dayOffset: 0,
-          title: trimmed.length > 28 ? `${trimmed.slice(0, 28)}…` : trimmed,
-          preview: result.reply.slice(0, 80),
-          ageLabel: "NOW",
-          status: "active",
-          messages: [{ id: `d-${now}`, role: "divider", label: "TODAY" }, userMsg, coachMsg],
-        };
-        setThreads((prev) => [created, ...prev]);
-        setActiveId(id);
       }
-    } catch (err: unknown) {
       if (err instanceof CoachChatAccessRevokedError) {
         setThreadsAccessRevoked(true);
       } else {
@@ -272,6 +296,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
     onDeleteForever: deleteForever,
   };
 
+  if (threadsAccessRevoked) {
+    return <AccessRevokedCard />;
+  }
+
   return (
     <div className="wi-shell">
       <div className="wi-board">
@@ -284,23 +312,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
           currentRoute="/coach-chat"
         />
 
-        {threadsAccessRevoked ? (
-          <div className="auth-card-shell">
-            <div className="auth-card">
-              <h2 className="auth-card__heading">Your GitHub access expired</h2>
-              <p className="auth-card__body">
-                Your session is still active, but GitHub access was revoked or expired - this
-                happens if you uninstalled the App or removed its access on GitHub's side. Sign
-                in again to reconnect Coach Chat.
-              </p>
-              <div className="auth-card__buttons">
-                <GitHubAuthButton className="auth-card__button auth-card__button--primary">
-                  Sign in again
-                </GitHubAuthButton>
-              </div>
-            </div>
-          </div>
-        ) : threadsError ? (
+        {threadsError ? (
           <div className="auth-card-shell">
             <div className="auth-card">
               <h2 className="auth-card__heading">Couldn't load Coach Chat</h2>
