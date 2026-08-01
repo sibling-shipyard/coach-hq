@@ -42,6 +42,32 @@ enum CoachSetupState {
 /// Resolves whether a fresh app launch should open Chat or Home. Defers the decision until
 /// chat history is loaded so existing athletes are not sent to Chat after upgrade.
 enum CoachSetupBootstrap {
+    /// Splash-appropriate cap on the network fallback below - CoachChatAPIClient has no
+    /// per-request timeout override anywhere (URLSession.shared's default is 60s), and a stalled
+    /// connection here would leave the splash screen static with no progress indicator for up to
+    /// a full minute. 5s is generous for a same-region API call; on a timeout this falls back to
+    /// Home, same as the existing "couldn't determine, don't assume new athlete" fallback below -
+    /// not a new failure mode, just a bounded one.
+    private static let networkCheckTimeoutSeconds: Double = 5
+
+    /// Races `operation` against a timeout; whichever finishes first wins, the other is
+    /// cancelled. Returns nil on timeout or if `operation` itself returns nil.
+    private static func withTimeout<T: Sendable>(
+        seconds: Double,
+        operation: @escaping @Sendable () async -> T?
+    ) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask { await operation() }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                return nil
+            }
+            let result = await group.next() ?? nil
+            group.cancelAll()
+            return result
+        }
+    }
+
     /// `true` → open Chat first (new athlete, no history). `false` → Home (intake done or history exists).
     @MainActor
     static func shouldOpenChatFirst(authManager: GitHubAuthManager) async -> Bool {
@@ -53,7 +79,10 @@ enum CoachSetupBootstrap {
         }
 
         let client = CoachChatAPIClient(authManager: authManager)
-        if let threads = try? await client.fetchThreads() {
+        let threads = await withTimeout(seconds: networkCheckTimeoutSeconds) {
+            try? await client.fetchThreads()
+        }
+        if let threads {
             let active = threads.filter { $0.status != .deleted }
             if !active.isEmpty {
                 CoachSetupState.markComplete(repoFullName: repo)
