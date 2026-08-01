@@ -205,7 +205,7 @@ class GitHubAPIClient {
         let data = try await readFile(path: "user_data/ledger/challenge_v2.json")
         do {
             let summary = try JSONDecoder().decode(ChallengeV2Summary.self, from: data)
-            return summary.challenge.startDate
+            return summary.challenge?.startDate
         } catch {
             throw GitHubAPIError.decodingFailed(operation: "Parsing challenge_v2.json")
         }
@@ -565,7 +565,13 @@ struct ChallengeV2Summary: Codable {
             case startDate = "start_date"
         }
     }
-    let challenge: Challenge
+    // Optional to mirror ui/client/src/lib/challenge.ts's ChallengeV2.challenge?: - the
+    // season/phase-model schema variant (shared/golden-dataset/repo-data/challenge_v2.json,
+    // ADR 0006 migration in progress) omits this key entirely. Without `?` here, decoding
+    // throws keyNotFound for that whole schema variant and the header silently stays on the
+    // fake .preview fallback forever - the exact bug this read exists to fix, just for a
+    // different data shape.
+    let challenge: Challenge?
 }
 
 private struct GitRef: Decodable, Sendable {
