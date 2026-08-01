@@ -225,13 +225,14 @@ function buildCategoryConfig(configs) {
   return merged;
 }
 var CATEGORY_CONFIG = buildCategoryConfig(loadedCategories);
-function getTrainingCategory(activity) {
+function getTrainingCategory(activity, config) {
   if (activity.category) {
     return activity.category;
   }
-  const hasCategoriesConfig = Array.isArray(loadedCategories) ? loadedCategories.length > 0 : Object.keys(loadedCategories).length > 0;
+  const categoriesConfig = config ?? loadedCategories;
+  const hasCategoriesConfig = Array.isArray(categoriesConfig) ? categoriesConfig.length > 0 : Object.keys(categoriesConfig).length > 0;
   if (hasCategoriesConfig) {
-    return resolveCategory(activity.sport_type, activity.elapsed_time, activity.start_date_local, loadedCategories);
+    return resolveCategory(activity.sport_type, activity.elapsed_time, activity.start_date_local, categoriesConfig);
   }
   if (activity.sport_type === "WeightTraining") {
     return activity.elapsed_time < 1500 ? "foundation" : "calisthenics";
@@ -297,8 +298,8 @@ function localDateKey(date) {
     String(date.getDate()).padStart(2, "0")
   ].join("-");
 }
-function disciplineFor(category) {
-  const sport = getSportForCategory(category);
+function disciplineFor(category, config) {
+  const sport = getSportForCategory(category, config);
   return sport || "other";
 }
 function intentFor(categories) {
@@ -308,24 +309,24 @@ function intentFor(categories) {
   }
   return "train";
 }
-function recordedDays(activities, monday) {
+function recordedDays(activities, monday, config) {
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(monday.getTime() + index * DAY_MS);
     const dateKey2 = localDateKey(date);
     const matches = activities.filter((activity) => activity.start_date_local.slice(0, 10) === dateKey2).sort(
       (left, right) => parseLocal(left.start_date_local).getTime() - parseLocal(right.start_date_local).getTime()
     );
-    const categories = matches.map(getTrainingCategory);
+    const categories = matches.map((a) => getTrainingCategory(a, config));
     return {
       date: dateKey2,
       day: date.toLocaleDateString("en-GB", { weekday: "long" }),
       intent: intentFor(categories),
       coach_note: null,
       sessions: matches.map((activity) => {
-        const category = getTrainingCategory(activity);
+        const category = getTrainingCategory(activity, config);
         return {
           id: `activity-${activity.id}`,
-          discipline: disciplineFor(category),
+          discipline: disciplineFor(category, config),
           kind: category,
           title: activity.name,
           priority: "support",
@@ -341,27 +342,24 @@ function recordedDays(activities, monday) {
     };
   });
 }
-function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new Date()) {
+function buildLiveWeekContract(activities, challenge, config) {
+  const now = /* @__PURE__ */ new Date();
   const monday = getMonday(now);
   const sunday = new Date(monday.getTime() + 6 * DAY_MS);
   const startDate = localDateKey(monday);
   const endDate = localDateKey(sunday);
   const weekActivities = activities.filter((activity) => {
-    const date = parseLocal(activity.start_date_local);
-    return date >= monday && date < new Date(monday.getTime() + 7 * DAY_MS);
+    const dateStr = activity.start_date_local.slice(0, 10);
+    return dateStr >= startDate && dateStr <= endDate;
   });
-  const activeDays = new Set(
-    weekActivities.map((activity) => activity.start_date_local.slice(0, 10))
-  ).size;
-  const totalMinutes = weekActivities.reduce(
-    (sum, activity) => sum + Math.max(0, activity.elapsed_time) / 60,
-    0
+  const activeDays = new Set(weekActivities.map((a) => a.start_date_local.slice(0, 10))).size;
+  const totalMinutes = Math.round(
+    weekActivities.reduce((sum, a) => sum + (a.elapsed_time ?? 0), 0) / 60
   );
-  const disciplines = new Set(
-    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity)))
-  ).size;
-  const evidenceRefs = weekActivities.map((activity) => `activity:${activity.id}`);
-  const latestTimestamp = weekActivities.map((activity) => activity.start_date_local).sort().at(-1) ?? `${startDate}T00:00:00`;
+  const disciplines = new Set(weekActivities.map((a) => disciplineFor(getTrainingCategory(a, config), config))).size;
+  const latestActivity = weekActivities[0];
+  const latestTimestamp = latestActivity ? latestActivity.start_date_local : (/* @__PURE__ */ new Date()).toISOString();
+  const evidenceRefs = weekActivities.map((a) => `activity:${a.id}`);
   return {
     schema_version: 1,
     data_status: "live",
@@ -384,7 +382,7 @@ function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new 
       valid_from: startDate,
       valid_until: endDate
     },
-    days: recordedDays(weekActivities, monday),
+    days: recordedDays(weekActivities, monday, config),
     coach_comments: [],
     updated_at: latestTimestamp,
     updated_by: "activity-log-adapter"
@@ -1223,8 +1221,8 @@ function isoWeek(date = /* @__PURE__ */ new Date()) {
   const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
   return Math.ceil(((utc.getTime() - yearStart.getTime()) / DAY_MS3 + 1) / 7);
 }
-function categoryToSport(category) {
-  const sport = getSportForCategory(category);
+function categoryToSport(category, categories) {
+  const sport = getSportForCategory(category, categories);
   if (sport === "recovery" || sport === "realign") return "foundation";
   return sport || "other";
 }
@@ -1248,11 +1246,11 @@ function disciplineToSport(discipline) {
 function formatSessionTitle(name) {
   return name.replace(/:\s*/, " \xB7 ");
 }
-function buildActivityEvidenceSnapshots(activities) {
+function buildActivityEvidenceSnapshots(activities, categoriesConfig) {
   return [...activities].sort(
     (left, right) => parseLocal(right.start_date_local).getTime() - parseLocal(left.start_date_local).getTime()
   ).map((activity, index) => {
-    const category = getTrainingCategory(activity);
+    const category = getTrainingCategory(activity, categoriesConfig);
     const date = parseLocal(activity.start_date_local);
     const calories = Number(activity.calories) || 0;
     const distance = Number(activity.distance) || 0;
@@ -1266,7 +1264,7 @@ function buildActivityEvidenceSnapshots(activities) {
         month: "short"
       }).toUpperCase(),
       title: formatSessionTitle(activity.name),
-      sport: categoryToSport(category),
+      sport: categoryToSport(category, categoriesConfig),
       ranked: category === "badminton_ranked",
       durationMinutes: Math.max(0, activity.elapsed_time ?? 0) / 60,
       calories: calories > 0 ? Math.round(calories) : null,
@@ -1516,7 +1514,7 @@ function buildCaloriesSnapshot(activities, dataMode) {
   };
 }
 function dominantActivityState(categories) {
-  const states = categories.map(categoryToSport);
+  const states = categories.map((c) => categoryToSport(c));
   if (states.includes("badminton")) return "badminton";
   if (states.includes("calisthenics")) return "calisthenics";
   if (states.includes("run")) return "run";
@@ -1703,9 +1701,9 @@ function buildCoachReadSnapshot(model, engine, quest, dataMode) {
     ]
   };
 }
-function buildWarmHomeSnapshots(activities, challengeData, syncStatus, contract, dataMode = "live") {
+function buildWarmHomeSnapshots(activities, challengeData, syncStatus, contract, dataMode = "live", categoriesConfig) {
   const model = buildWarmHomeModel(activities, challengeData, syncStatus, contract);
-  const activityEvidence = buildActivityEvidenceSnapshots(activities);
+  const activityEvidence = buildActivityEvidenceSnapshots(activities, categoriesConfig);
   const engine = buildEngineSnapshot(activities, model.engine);
   const quest = buildQuestSnapshot(challengeData, model.quest);
   return {
@@ -1749,13 +1747,14 @@ function questSnapshotS(quest) {
     progressPercent
   };
 }
-function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contract, dataMode = "live") {
+function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contract, dataMode = "live", categoriesConfig) {
   const home = buildWarmHomeSnapshots(
     activities,
     challengeData,
     syncStatus,
     contract,
-    dataMode
+    dataMode,
+    categoriesConfig
   );
   return {
     schema_version: 1,
@@ -1802,8 +1801,9 @@ function generateWidgetSnapshotsFromAggregate(aggregate) {
     timestamp: null,
     warnings: []
   };
-  const contract = isUnavailableWeek(aggregate.current_week) ? buildLiveWeekContract(activities, challenge) : aggregate.current_week;
-  return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live");
+  const categories = aggregate.categories;
+  const contract = isUnavailableWeek(aggregate.current_week) ? buildLiveWeekContract(activities, challenge, categories) : aggregate.current_week;
+  return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live", categories);
 }
 export {
   generateWidgetSnapshotsFromAggregate

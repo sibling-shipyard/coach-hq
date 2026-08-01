@@ -30,10 +30,17 @@ function localDateKey(date: Date) {
   ].join("-");
 }
 
-import { getSportForCategory } from "@/lib/categoryResolver";
+function isoWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
 
-function disciplineFor(category: TrainingCategory): SessionDiscipline {
-  const sport = getSportForCategory(category);
+import { CategoryConfigInput, getSportForCategory } from "@/lib/categoryResolver";
+
+function disciplineFor(category: TrainingCategory, config?: CategoryConfigInput): SessionDiscipline {
+  const sport = getSportForCategory(category, config);
   return (sport as SessionDiscipline) || "other";
 }
 
@@ -45,7 +52,7 @@ function intentFor(categories: TrainingCategory[]): PlanIntent {
   return "train";
 }
 
-function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
+function recordedDays(activities: Activity[], monday: Date, config?: CategoryConfigInput): CurrentWeekDay[] {
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(monday.getTime() + index * DAY_MS);
     const dateKey = localDateKey(date);
@@ -55,7 +62,7 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
         (left, right) =>
           parseLocal(left.start_date_local).getTime() - parseLocal(right.start_date_local).getTime(),
       );
-    const categories = matches.map(getTrainingCategory);
+    const categories = matches.map((a) => getTrainingCategory(a, config));
 
     return {
       date: dateKey,
@@ -63,10 +70,10 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
       intent: intentFor(categories),
       coach_note: null,
       sessions: matches.map((activity) => {
-        const category = getTrainingCategory(activity);
+        const category = getTrainingCategory(activity, config);
         return {
           id: `activity-${activity.id}`,
-          discipline: disciplineFor(category),
+          discipline: disciplineFor(category, config),
           kind: category,
           title: activity.name,
           priority: "support" as const,
@@ -86,31 +93,32 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
 export function buildLiveWeekContract(
   activities: Activity[],
   challenge: ChallengeV2,
-  now = new Date(),
+  config?: CategoryConfigInput,
 ): CurrentWeekContract {
+  const now = new Date();
   const monday = getMonday(now);
   const sunday = new Date(monday.getTime() + 6 * DAY_MS);
+
   const startDate = localDateKey(monday);
   const endDate = localDateKey(sunday);
+
   const weekActivities = activities.filter((activity) => {
-    const date = parseLocal(activity.start_date_local);
-    return date >= monday && date < new Date(monday.getTime() + 7 * DAY_MS);
+    const dateStr = activity.start_date_local.slice(0, 10);
+    return dateStr >= startDate && dateStr <= endDate;
   });
-  const activeDays = new Set(
-    weekActivities.map((activity) => activity.start_date_local.slice(0, 10)),
-  ).size;
-  const totalMinutes = weekActivities.reduce(
-    (sum, activity) => sum + Math.max(0, activity.elapsed_time) / 60,
-    0,
+
+  const activeDays = new Set(weekActivities.map((a) => a.start_date_local.slice(0, 10))).size;
+  const totalMinutes = Math.round(
+    weekActivities.reduce((sum, a) => sum + (a.elapsed_time ?? 0), 0) / 60,
   );
-  const disciplines = new Set(
-    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity))),
-  ).size;
-  const evidenceRefs = weekActivities.map((activity) => `activity:${activity.id}`);
-  const latestTimestamp = weekActivities
-    .map((activity) => activity.start_date_local)
-    .sort()
-    .at(-1) ?? `${startDate}T00:00:00`;
+  const disciplines = new Set(weekActivities.map((a) => disciplineFor(getTrainingCategory(a, config), config))).size;
+
+  const latestActivity = weekActivities[0];
+  const latestTimestamp = latestActivity
+    ? latestActivity.start_date_local
+    : new Date().toISOString();
+
+  const evidenceRefs = weekActivities.map((a) => `activity:${a.id}`);
 
   return {
     schema_version: 1,
@@ -134,7 +142,7 @@ export function buildLiveWeekContract(
       valid_from: startDate,
       valid_until: endDate,
     },
-    days: recordedDays(weekActivities, monday),
+    days: recordedDays(weekActivities, monday, config),
     coach_comments: [],
     updated_at: latestTimestamp,
     updated_by: "activity-log-adapter",

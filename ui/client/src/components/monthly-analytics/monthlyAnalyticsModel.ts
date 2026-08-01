@@ -25,7 +25,7 @@ const SPORT_ROWS: Array<{
     color: "var(--wi-foundation)",
     match: (category) => {
       const sport = getSportForCategory(category);
-      return sport === "foundation" || sport === "recovery" || sport === "realign";
+      return sport === "foundation" || sport === "recovery";
     },
   },
   {

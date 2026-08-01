@@ -22,6 +22,7 @@ import workoutsData from "@golden/repo-data/workouts.json";
 import sleepLogRaw from "@golden/repo-data/sleep_log.json";
 import questHistoryRaw from "@golden/repo-data/quest_history.json";
 import currentWeekRaw from "@golden/repo-data/current_week.json";
+import categoriesDataRaw from "@/data/categories.json";
 
 export interface RepoData {
   activities: unknown[];
@@ -30,6 +31,7 @@ export interface RepoData {
   sync_status: unknown;
   sleep_log: unknown[];
   quest_history: unknown;
+  categories?: unknown;
   plugins?: { enabled?: string[] };
   badminton_analytics_available?: boolean;
   // Optional - not every repo's build pipeline populates a coach-authored current-week
@@ -46,6 +48,7 @@ const LOCAL_DATA: RepoData = {
   sleep_log: sleepLogRaw as unknown[],
   quest_history: questHistoryRaw,
   current_week: currentWeekRaw,
+  categories: categoriesDataRaw,
   plugins: { enabled: ["badminton"] },
   badminton_analytics_available: true,
 };
