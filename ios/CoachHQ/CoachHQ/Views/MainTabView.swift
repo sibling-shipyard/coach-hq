@@ -64,6 +64,11 @@ struct MainTabView: View {
     @EnvironmentObject var bottomDock: BottomDockState
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
+    // Set alongside clearing pendingChatNavigation in onAppear below - can't just re-check
+    // pendingChatNavigation later, since onAppear already clears it long before the splash's
+    // async shouldOpenChatFirst() decision resolves. Lets that decision know a notification tap
+    // already claimed the tab, so it doesn't silently overwrite a real user action.
+    @State private var chatClaimedByNotification = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
     @AppStorage("personalizeShown") private var personalizeShown = false
@@ -94,13 +99,24 @@ struct MainTabView: View {
                 bottomDockContent
             }
 
-            // First-launch splash — shows logo + "Coach HQ" while Chat tab loads underneath.
-            // On exit: navigates to Chat so Coach's intro is the first thing the user sees.
+            // First-launch splash — shows logo + "Coach HQ" while either tab loads underneath
+            // (selectedTab defaults to .home, but shouldOpenChatFirst() below may switch it to
+            // .chat before the splash fades - not always Chat loading under here anymore).
+            // On exit: lands on Chat for a genuinely new athlete (Coach's intro is the first
+            // thing they see) or Home for an existing athlete reopening the app fresh (new
+            // device/reinstall) who already has real chat history - shouldOpenChatFirst() makes
+            // that call. Splash doesn't fade until the decision has actually landed, so there's
+            // no visible flash of the wrong tab underneath.
             if welcomeVisible {
                 SplashView {
-                    selectedTab = .chat
                     personalizeShown = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    Task {
+                        // A notification tap already claimed the tab (onAppear, below) - don't
+                        // spend a network round trip on a decision that's moot.
+                        if !chatClaimedByNotification {
+                            selectedTab = await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) ? .chat : .home
+                        }
+                        try? await Task.sleep(for: .seconds(0.5))
                         welcomeVisible = false
                     }
                 }
@@ -123,6 +139,7 @@ struct MainTabView: View {
         .onAppear {
             if pendingChatNavigation {
                 pendingChatNavigation = false
+                chatClaimedByNotification = true
                 selectedTab = .chat
             }
         }
