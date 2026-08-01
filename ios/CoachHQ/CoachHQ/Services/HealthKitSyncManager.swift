@@ -162,6 +162,7 @@ class HealthKitSyncManager: ObservableObject {
             if let ts = syncState.hkLastSynced, let date = ISO8601DateFormatter().date(from: ts) {
                 since = date
             } else {
+                // First sync — pull the last week of history.
                 since = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
             }
 

@@ -61,7 +61,9 @@ struct MainTabView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var syncManager: HealthKitSyncManager
     @EnvironmentObject var workoutService: WorkoutService
+    @EnvironmentObject var widgetStore: WidgetSnapshotStore
     @EnvironmentObject var bottomDock: BottomDockState
+    @EnvironmentObject var router: AppRouter
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
     // Set alongside clearing pendingChatNavigation in onAppear below - can't just re-check
@@ -71,9 +73,6 @@ struct MainTabView: View {
     @State private var chatClaimedByNotification = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
-    @AppStorage("personalizeShown") private var personalizeShown = false
-    // Read from UserDefaults at init so the overlay is present on the very first frame.
-    @State private var welcomeVisible = !UserDefaults.standard.bool(forKey: "personalizeShown")
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -99,25 +98,22 @@ struct MainTabView: View {
                 bottomDockContent
             }
 
-            // First-launch splash — shows logo + "Coach HQ" while either tab loads underneath
-            // (selectedTab defaults to .home, but shouldOpenChatFirst() below may switch it to
-            // .chat before the splash fades - not always Chat loading under here anymore).
-            // On exit: lands on Chat for a genuinely new athlete (Coach's intro is the first
-            // thing they see) or Home for an existing athlete reopening the app fresh (new
-            // device/reinstall) who already has real chat history - shouldOpenChatFirst() makes
-            // that call. Splash doesn't fade until the decision has actually landed, so there's
-            // no visible flash of the wrong tab underneath.
-            if welcomeVisible {
+            // First-launch splash — shows logo + "Coach HQ" while a tab loads underneath.
+            // effectivePhase (.notStarted) means onboarding hasn't started; if sessionExpired
+            // fires during the timed sequence, effectivePhase returns .complete so this overlay
+            // never renders — phase stays .notStarted and replays correctly after re-auth.
+            // On exit: Chat for new athletes (Coach's intro first); Home for reinstalls with
+            // existing history (shouldOpenChatFirst() makes that call).
+            if router.effectivePhase == .notStarted {
                 SplashView {
-                    personalizeShown = true
                     Task {
-                        // A notification tap already claimed the tab (onAppear, below) - don't
+                        // A notification tap already claimed the tab (onAppear, below) — don't
                         // spend a network round trip on a decision that's moot.
                         if !chatClaimedByNotification {
                             selectedTab = await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) ? .chat : .home
                         }
                         try? await Task.sleep(for: .seconds(0.5))
-                        welcomeVisible = false
+                        router.advance(.splashDismissed)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -155,6 +151,52 @@ struct MainTabView: View {
         .onChange(of: chatHasUnread) { _, hasUnread in
             if hasUnread && selectedTab == .chat { chatHasUnread = false }
             Task { try? await UNUserNotificationCenter.current().setBadgeCount(hasUnread ? 1 : 0) }
+        }
+        // HK pre-prompt — full screen, no swipe-to-dismiss.
+        // Driven by effectivePhase so the expired screen wins if a 401 fires mid-onboarding.
+        .fullScreenCover(isPresented: Binding(
+            get: { router.effectivePhase == .hkPrompt },
+            set: { _ in }
+        )) {
+            HealthKitPrePromptView(
+                onConnect: {
+                    Task {
+                        await syncManager.connectHealthKit()
+                        router.advance(.hkConnected)
+                    }
+                },
+                onSkip: {
+                    router.advance(.hkSkipped)
+                }
+            )
+            .interactiveDismissDisabled()
+        }
+        // Onboarding reveal — full screen, no swipe-to-dismiss.
+        .fullScreenCover(isPresented: Binding(
+            get: { router.effectivePhase == .reveal },
+            set: { _ in }
+        )) {
+            OnboardingRevealFlow(onComplete: {
+                router.advance(.revealComplete)
+            })
+            .environmentObject(authManager)
+            .environmentObject(syncManager)
+            .interactiveDismissDisabled()
+        }
+        // Service configuration + HK observer setup.
+        // Runs once when MainTabView first mounts (covers both .bootstrapping and .active).
+        // HK setup is guarded on onboardingPhase (not effectivePhase) so a mid-onboarding
+        // 401 never fires system permission dialogs over the session-expired screen.
+        .task {
+            let client = GitHubAPIClient(authManager: authManager)
+            syncManager.configure(apiClient: client, widgetStore: widgetStore)
+            workoutService.configure(apiClient: client)
+            widgetStore.configure(apiClient: client)
+            guard router.onboardingPhase == .complete else { return }
+            try? await syncManager.requestAuthorization()
+            await syncManager.requestNotificationPermission()
+            syncManager.enableBackgroundDelivery()
+            syncManager.setupWorkoutObserver()
         }
     }
 

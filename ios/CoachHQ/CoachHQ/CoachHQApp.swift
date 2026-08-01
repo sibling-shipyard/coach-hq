@@ -27,93 +27,36 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 @main
 struct CoachHQApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var authManager = GitHubAuthManager()
+    @StateObject private var router = AppRouter()
     @StateObject private var syncManager = HealthKitSyncManager()
     @StateObject private var workoutService = WorkoutService()
     @StateObject private var widgetStore = WidgetSnapshotStore()
     @StateObject private var bottomDock = BottomDockState()
     @ObservedObject private var webAuth = WebAuthPresenter.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
-    @AppStorage("hkPrePromptShown") private var hkPrePromptShown = false
-    @AppStorage("personalizeShown") private var personalizeShown = false
-    @AppStorage("onboardingRevealShown") private var onboardingRevealShown = false
-    @State private var showHKPrePrompt = false
-    @State private var showOnboardingReveal = false
 
     var body: some Scene {
         WindowGroup {
             Group {
-                // !isSessionReady: still resolving (cold launch) - let MainTabView's own
-                // gating show the loading state. Once isSessionReady flips true with no repo
-                // resolved, pendingSetupLogin routes to SetupView instead.
-                if authManager.isAuthenticated && (authManager.selectedRepo != nil || !authManager.isSessionReady) {
+                switch router.state {
+                case .bootstrapping:
+                    // Blank background while the stored token is verified — prevents the
+                    // empty home skeleton from flashing before routing settles.
+                    WarmInstrument.desk.ignoresSafeArea()
+                case .active:
                     MainTabView()
-                        .environmentObject(authManager)
+                        .environmentObject(router.authManager)
                         .environmentObject(syncManager)
                         .environmentObject(workoutService)
                         .environmentObject(widgetStore)
                         .environmentObject(bottomDock)
-                        .task {
-                            let client = GitHubAPIClient(authManager: authManager)
-                            syncManager.configure(apiClient: client, widgetStore: widgetStore)
-                            workoutService.configure(apiClient: client)
-                            widgetStore.configure(apiClient: client)
-                            // If welcome overlay is still pending, wait for it (onChange handles HK).
-                            guard personalizeShown else { return }
-                            if !hkPrePromptShown {
-                                showHKPrePrompt = true
-                            } else {
-                                try? await syncManager.requestAuthorization()
-                                await syncManager.requestNotificationPermission()
-                                syncManager.enableBackgroundDelivery()
-                                syncManager.setupWorkoutObserver()
-                            }
-                        }
-                        // When MainTabView's WelcomeOverlay sets personalizeShown=true, trigger HK.
-                        .onChange(of: personalizeShown) { _, shown in
-                            guard shown, !hkPrePromptShown else { return }
-                            showHKPrePrompt = true
-                        }
-                        .fullScreenCover(isPresented: $showHKPrePrompt) {
-                            HealthKitPrePromptView(
-                                onConnect: {
-                                    showHKPrePrompt = false
-                                    hkPrePromptShown = true
-                                    Task {
-                                        try? await syncManager.requestAuthorization()
-                                        await syncManager.requestNotificationPermission()
-                                        syncManager.enableBackgroundDelivery()
-                                        syncManager.setupWorkoutObserver()
-                                        syncManager.hkAuthorizationGranted = true
-                                        if !onboardingRevealShown {
-                                            try? await Task.sleep(nanoseconds: 300_000_000)
-                                            showOnboardingReveal = true
-                                        }
-                                    }
-                                },
-                                onSkip: {
-                                    showHKPrePrompt = false
-                                    hkPrePromptShown = true
-                                }
-                            )
-                        }
-                        // Chain on a background EmptyView to avoid the two-covers-on-same-view
-                        // SwiftUI bug where the second modifier is silently dropped on iOS < 16.4.
-                        .background(
-                            EmptyView().fullScreenCover(isPresented: $showOnboardingReveal) {
-                                OnboardingRevealFlow(onComplete: {
-                                    showOnboardingReveal = false
-                                })
-                                .environmentObject(authManager)
-                                .environmentObject(syncManager)
-                            }
-                        )
-                } else if authManager.pendingSetupLogin != nil {
-                    SetupView()
-                        .environmentObject(authManager)
-                } else {
+                        .environmentObject(router)
+                case .needsSetup(let login):
+                    SetupView(login: login)
+                        .environmentObject(router.authManager)
+                case .unauthenticated:
                     LoginView()
-                        .environmentObject(authManager)
+                        .environmentObject(router.authManager)
                 }
             }
             .tint(Theme.ink)

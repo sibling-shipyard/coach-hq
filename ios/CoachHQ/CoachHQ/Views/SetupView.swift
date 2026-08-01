@@ -3,6 +3,7 @@ import SwiftUI
 /// Native equivalent of Setup.tsx's wizard. Shown when pendingSetupLogin is set - signed in
 /// but no installation yet. Both steps use the shared in-app WKWebView cookie jar from sign-in.
 struct SetupView: View {
+    let login: String
     @EnvironmentObject var authManager: GitHubAuthManager
     @AppStorage(UserFacingError.devModeKey) private var devModeEnabled = false
 
@@ -11,10 +12,7 @@ struct SetupView: View {
     @State private var isCheckingRepo = true
     @State private var errorMessage: String?
 
-    private var login: String? { authManager.pendingSetupLogin }
-
     private var generateURL: URL? {
-        guard let login else { return nil }
         var components = URLComponents(string: "https://github.com/new")!
         components.queryItems = [
             URLQueryItem(name: "template_owner", value: "sibling-shipyard"),
@@ -46,7 +44,7 @@ struct SetupView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .onboardingReveal(index: 2)
 
-                    Text("You're signed in\(login.map { " as \($0)" } ?? ""). After this, you'll meet Coach in chat — your dashboard fills in from that first conversation.")
+                    Text("You're signed in as \(login). After this, you'll meet Coach in chat — your dashboard fills in from that first conversation.")
                         .font(WarmInstrument.coachVoice(15))
                         .foregroundColor(WarmInstrument.inkMuted)
                         .multilineTextAlignment(.center)
@@ -127,7 +125,7 @@ struct SetupView: View {
         VStack(spacing: 12) {
             if repoStepComplete {
                 Text(
-                    "The next screen links your private training log — this isn't another sign-in.\n\nWhen GitHub asks which repositories to share, choose **Only select repositories** and pick **coach-\(login ?? "yours")**. Don't grant access to everything else."
+                    "The next screen links your private training log — this isn't another sign-in.\n\nWhen GitHub asks which repositories to share, choose **Only select repositories** and pick **coach-\(login)**. Don't grant access to everything else."
                 )
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(WarmInstrument.inkMuted)
@@ -194,10 +192,6 @@ struct SetupView: View {
     // MARK: - Actions
 
     private func refreshRepoStatus() async {
-        guard let login else {
-            isCheckingRepo = false
-            return
-        }
         isCheckingRepo = true
         defer { isCheckingRepo = false }
 
@@ -225,7 +219,7 @@ struct SetupView: View {
     }
 
     private func openCreateRepo() {
-        guard let generateURL, let login else { return }
+        guard let generateURL else { return }
         guard !repoStepComplete else { return }
 
         WebAuthPresenter.shared.presentBrowse(

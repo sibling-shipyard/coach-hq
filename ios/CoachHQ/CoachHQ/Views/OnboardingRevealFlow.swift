@@ -11,7 +11,6 @@ enum OnboardingRevealStep: Int, CaseIterable {
 struct OnboardingRevealFlow: View {
     @EnvironmentObject private var syncManager: HealthKitSyncManager
     @EnvironmentObject private var authManager: GitHubAuthManager
-    @AppStorage("onboardingRevealShown") private var onboardingRevealShown = false
 
     let onComplete: () -> Void
 
@@ -105,7 +104,6 @@ struct OnboardingRevealFlow: View {
     }
 
     private func handleComplete() {
-        onboardingRevealShown = true
         onComplete()
     }
 }

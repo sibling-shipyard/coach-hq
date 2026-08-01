@@ -191,6 +191,13 @@ class GitHubAuthManager: ObservableObject {
         if selectedRepo == nil {
             pendingSetupLogin = user?.login
         }
+        // Token present but user and repo both unresolvable — stale or revoked token.
+        // signOut() clears the keychain so the next launch gets a clean LoginView
+        // instead of looping on the same failure.
+        if selectedRepo == nil && pendingSetupLogin == nil {
+            signOut()
+            return
+        }
         isSessionReady = true
     }
 
