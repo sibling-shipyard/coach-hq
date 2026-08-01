@@ -174,6 +174,15 @@ function MessageList({ messages, pending }: { messages: ChatMessage[]; pending?:
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages, pending]);
 
+  // Index of the last *coach* message, not the last array item - the optimistic user-message
+  // echo (CoachChat.tsx's appendUserMessage) can land as the newest item before the reply
+  // arrives, which would otherwise make the previous coach bubble's signature flicker off then
+  // back on once the reply lands.
+  let lastCoachIndex = -1;
+  messages.forEach((message, index) => {
+    if (message.role === "coach") lastCoachIndex = index;
+  });
+
   return (
     <div className="cc-messages" role="log" aria-live="polite" aria-relevant="additions">
       {messages.map((message, messageIndex) => {
@@ -193,7 +202,7 @@ function MessageList({ messages, pending }: { messages: ChatMessage[]; pending?:
         }
         // Sign only the most recent reply, not every bubble - a real conversation doesn't
         // re-sign every line, and it read as noisy repeated on every turn.
-        const isLastMessage = messageIndex === messages.length - 1;
+        const isLastMessage = messageIndex === lastCoachIndex;
         return (
           <div className="cc-coach-wrap" key={message.id}>
             <div className="cc-bubble cc-bubble--coach">
