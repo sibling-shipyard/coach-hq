@@ -21,6 +21,7 @@ struct SettingsView: View {
     @State private var devTapCount = 0
     @State private var isEditingName = false
     @State private var nameDraft = ""
+    @State private var showDiagHelp = false
 
     var body: some View {
         NavigationStack {
@@ -440,6 +441,18 @@ struct SettingsView: View {
                 MonoLabel("DIAGNOSTICS", size: 9, color: WarmInstrument.inkFaint, tracking: 1.2)
                 Spacer()
                 Button {
+                    showDiagHelp = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                }
+                .buttonStyle(.plain)
+                .sheet(isPresented: $showDiagHelp) {
+                    DiagnosticsHelpSheet()
+                }
+
+                Button {
                     UIPasteboard.general.string = diagnosticsText
                     Haptics.tap()
                 } label: {
@@ -672,6 +685,130 @@ private struct DiagRow: View {
                 .font(WarmInstrument.figures(11, weight: .bold))
                 .foregroundColor(WarmInstrument.ink)
                 .lineLimit(1)
+        }
+    }
+}
+
+private struct DiagnosticsHelpSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    private struct Field {
+        let key: String
+        let description: String
+        let values: [(String, String)]
+    }
+
+    private let fields: [Field] = [
+        Field(
+            key: "appState",
+            description: "Top-level screen the app is showing.",
+            values: [
+                ("bootstrapping",     "Just launched — checking for a saved login"),
+                ("unauthenticated",   "Not signed in — Login screen showing"),
+                ("needsSetup(name)",  "Signed in but GitHub App not installed yet — Setup wizard showing"),
+                ("active",            "Fully signed in — main tabs showing"),
+            ]
+        ),
+        Field(
+            key: "onboardingPhase",
+            description: "Where you are in the first-run flow. Saved to disk.",
+            values: [
+                ("notStarted", "Splash screen showing (or not seen yet)"),
+                ("hkPrompt",   "On the HealthKit connect screen"),
+                ("reveal",     "On the intro reveal screen"),
+                ("complete",   "All onboarding done — normal app"),
+            ]
+        ),
+        Field(
+            key: "effectivePhase",
+            description: "Same as onboardingPhase, except returns 'complete' if sessionExpired is true — prevents onboarding modals from covering the re-auth screen.",
+            values: []
+        ),
+        Field(
+            key: "sessionReady",
+            description: "True once the app has finished checking for a saved login on launch. Nothing knows if you're signed in until this is true.",
+            values: []
+        ),
+        Field(
+            key: "sessionExpired",
+            description: "True if the server returned a 401. The 'session expired' overlay is showing.",
+            values: []
+        ),
+        Field(
+            key: "hkGranted",
+            description: "True if you've tapped 'Connect Health' at any point. Does not confirm iOS granted access — just that you tapped the button.",
+            values: []
+        ),
+        Field(
+            key: "repo",
+            description: "The GitHub repo being synced to.",
+            values: []
+        ),
+        Field(
+            key: "login",
+            description: "Your signed-in GitHub username.",
+            values: []
+        ),
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Paste the copied diagnostics text when reporting a bug — it gives a full snapshot of the app's state.")
+                        .font(.system(size: 13))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                        .padding(.bottom, 4)
+
+                    ForEach(fields, id: \.key) { field in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(field.key)
+                                .font(WarmInstrument.monoLabel(12))
+                                .foregroundColor(WarmInstrument.ink)
+
+                            Text(field.description)
+                                .font(.system(size: 13))
+                                .foregroundColor(WarmInstrument.inkMuted)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            if !field.values.isEmpty {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    ForEach(field.values, id: \.0) { value, meaning in
+                                        HStack(alignment: .top, spacing: 8) {
+                                            Text(value)
+                                                .font(WarmInstrument.figures(11, weight: .bold))
+                                                .foregroundColor(WarmInstrument.accent)
+                                                .frame(minWidth: 110, alignment: .leading)
+                                            Text(meaning)
+                                                .font(.system(size: 12))
+                                                .foregroundColor(WarmInstrument.inkFaint)
+                                                .fixedSize(horizontal: false, vertical: true)
+                                        }
+                                    }
+                                }
+                                .padding(10)
+                                .background(WarmInstrument.desk)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            }
+                        }
+
+                        Rectangle()
+                            .fill(WarmInstrument.headerRule)
+                            .frame(height: 1)
+                    }
+                }
+                .padding(20)
+            }
+            .background(WarmInstrument.paper.ignoresSafeArea())
+            .navigationTitle("Diagnostics Guide")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(WarmInstrument.accent)
+                }
+            }
         }
     }
 }
