@@ -85,6 +85,26 @@ function cleanCommitMessage(message: string): string {
   return message.replace(/^\s*coach:?\s*[-—]*\s*/i, "").trim();
 }
 
+// Neither the Gemini call nor the GitHub reads had an explicit cutoff - a stalled upstream call
+// left "Coach is thinking" spinning indefinitely instead of failing visibly. 25s leaves headroom
+// under Vercel's function timeout while still being well past any real response time.
+const UPSTREAM_TIMEOUT_MS = 25_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = UPSTREAM_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw Object.assign(new Error(`Request to ${new URL(url).hostname} timed out`), { status: 504 });
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
   Accept: "application/vnd.github.raw+json",
@@ -125,7 +145,7 @@ function isTransientReadFailure(err: unknown): boolean {
 async function getFileRaw(repo: string, path: string, token: string, attempts = 3): Promise<string | null> {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
+      const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/contents/${path}`, {
         headers: GH_HEADERS_RAW(token),
       });
       if (res.status === 404) return null;
@@ -268,7 +288,7 @@ async function askGemini(
     { role: "user", parts: [{ text: userMessage }] },
   ];
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
     {
       method: "POST",
