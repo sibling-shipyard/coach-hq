@@ -1757,17 +1757,15 @@ button.welcome-adapt__scenario.is-active {
 .welcome-hl-card__widget--wi > .wi-training-card {
   width: 100%;
   margin: 0;
-  border-color: #d8d2c6;
-  box-shadow: var(--welcome-shadow-widget);
 }
 
 .welcome-hl-card__widget--wi .sa-card {
   width: 100%;
   height: 100%;
   margin: 0;
-  border: 1px solid #d8d2c6;
+  border: none;
   border-radius: 26px;
-  box-shadow: var(--welcome-shadow-widget);
+  box-shadow: none;
 }
 
 .welcome-hl-card__widget--wi .sa-card:hover {
