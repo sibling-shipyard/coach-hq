@@ -11,7 +11,7 @@
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type AuthStatus = "loading" | "local" | "unauthenticated" | "onboarding" | "authenticated";
+export type AuthStatus = "loading" | "local" | "unauthenticated" | "authenticated";
 
 interface AuthState {
   status: AuthStatus;
@@ -46,7 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const data = await res.json();
         if (!data.repo_full_name) {
-          setState({ status: "onboarding", login: data.login });
+          // No repo yet - setup now happens in the iOS app only, so there's no web
+          // onboarding flow to route into. Fall back to the login screen.
+          setState({ status: "unauthenticated" });
         } else {
           setState({ status: "authenticated", login: data.login, repoFullName: data.repo_full_name });
         }

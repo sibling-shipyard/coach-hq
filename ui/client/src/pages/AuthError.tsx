@@ -3,9 +3,26 @@ import "@/components/login/login.css";
 import { AuthPageHeader } from "@/components/login/AuthPageHeader";
 import { GitHubAuthButton } from "@/components/login/GitHubAuthButton";
 
-// not_installed used to live here but callback.ts now routes that case straight into
-// pages/Setup.tsx's wizard instead of a dead-end error page - see ui/api/auth/callback.ts.
-const MESSAGES: Record<string, { heading: string; body: string; cta: string; href: string }> = {
+interface AuthErrorMessage {
+  heading: string;
+  body: string;
+  cta: string;
+  href: string;
+  /** Plain navigation link instead of GitHubAuthButton's OAuth-popup trigger. */
+  isLink?: boolean;
+}
+
+const MESSAGES: Record<string, AuthErrorMessage> = {
+  // First-time setup (repo creation + first session) moved to iOS only - see issue #164.
+  // TODO(#164): fill in the real App Store name/link once the app has a name and the
+  // developer license comes through.
+  needs_ios_setup: {
+    heading: "Set up on iOS first",
+    body: "Coach Phelps setup - creating your repo and running your first session - now happens in the iOS app. Download it from the App Store (link coming soon), finish setup there, then come back here to log in.",
+    cta: "Back to welcome",
+    href: "/welcome",
+    isLink: true,
+  },
   lookup_failed: {
     heading: "Something went wrong",
     body: "Couldn't check your GitHub installation just now - this is usually a transient GitHub API hiccup. Try again.",
@@ -76,9 +93,15 @@ export default function AuthError({ type }: { type: string }) {
           <h1 className="auth-card__heading">{msg.heading}</h1>
           <p className="auth-card__body">{msg.body}</p>
           <div className="auth-card__buttons">
-            <GitHubAuthButton href={msg.href} className="auth-card__button auth-card__button--primary">
-              {msg.cta}
-            </GitHubAuthButton>
+            {msg.isLink ? (
+              <a href={msg.href} className="auth-card__button auth-card__button--primary">
+                {msg.cta}
+              </a>
+            ) : (
+              <GitHubAuthButton href={msg.href} className="auth-card__button auth-card__button--primary">
+                {msg.cta}
+              </GitHubAuthButton>
+            )}
           </div>
         </div>
       </div>
