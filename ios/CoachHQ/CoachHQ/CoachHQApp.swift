@@ -84,6 +84,7 @@ struct CoachHQApp: App {
                                         await syncManager.requestNotificationPermission()
                                         syncManager.enableBackgroundDelivery()
                                         syncManager.setupWorkoutObserver()
+                                        syncManager.hkAuthorizationGranted = true
                                         if !onboardingRevealShown {
                                             try? await Task.sleep(nanoseconds: 300_000_000)
                                             showOnboardingReveal = true
