@@ -148,6 +148,7 @@ struct CoachChatView: View {
             CoachChatHistorySheet(
                 threads: historyThreads,
                 todayThreadId: todayThread?.id,
+                headerContext: headerContext,
                 onSelect: { thread in
                     if thread.messages.isEmpty, thread.dayOffset != 0 {
                         selectTodayThread()
@@ -371,14 +372,19 @@ struct CoachChatView: View {
         }
     }
 
-    /// Wireup: replace preview map with API-provided chip payloads on coach messages.
+    /// Wireup: replace preview map with API-provided chip payloads on coach messages. No backend
+    /// data exists for this yet (Gemini's response schema has no chips field) - deferred, see
+    /// issue tracking coach chat's remaining gaps.
     private func chips(for message: ChatMessage) -> [CoachChatInlineChip] {
         CoachChatPreviewData.chipsByMessageId[message.id] ?? []
     }
 
-    /// Wireup: server should flag unprompted morning-read messages only.
+    /// Sign only the most recent coach reply in the displayed thread, not every bubble -
+    /// matches web's CoachChatWidgets.tsx fix. Previously matched against a hardcoded preview
+    /// message id that no real message ever has, so the signature never appeared for any real
+    /// athlete.
     private func showSignature(for message: ChatMessage) -> Bool {
-        CoachChatPreviewData.signatureMessageIds.contains(message.id)
+        message.id == displayThread.messages.last(where: { $0.role == .coach })?.id
     }
 
     private func dismissErrorDialog() {

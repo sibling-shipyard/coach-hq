@@ -529,6 +529,11 @@ private final class GrowingTextView: UITextView {
 struct CoachChatHistorySheet: View {
     let threads: [ChatThread]
     let todayThreadId: String?
+    /// Real day number for the current landing thread - historyRow() derives each row's own
+    /// day label from this via headerContext.dayLabel(offset:), same as the header/composer do.
+    /// Was hardcoded to a literal 143 here (same bug the header used to have, just never
+    /// reached when that one was fixed).
+    let headerContext: CoachChatHeaderContext
     let onSelect: (ChatThread) -> Void
     let onNew: () -> Void
     @Environment(\.dismiss) private var dismiss
@@ -634,7 +639,7 @@ struct CoachChatHistorySheet: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text("D-\(143 - thread.dayOffset)")
+                    Text(headerContext.dayLabel(offset: thread.dayOffset))
                         .font(WarmInstrument.monoLabel(9.5))
                         .foregroundStyle(isToday ? WarmInstrument.accent : Color(red: 0xa8 / 255, green: 0x95 / 255, blue: 0x6a / 255))
                     Text(thread.title)

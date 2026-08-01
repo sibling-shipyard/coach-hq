@@ -117,9 +117,6 @@ enum CoachChatPreviewData {
         ),
     ]
 
-    /// Message ids that should show the `— PHELPS` signature (unprompted read only).
-    static let signatureMessageIds: Set<String> = ["preview-coach-read"]
-
     /// Message ids that render inline chips until API carries chip payloads.
     static let chipsByMessageId: [String: [CoachChatInlineChip]] = [
         "preview-coach-read": morningReadChips,
