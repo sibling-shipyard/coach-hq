@@ -440,17 +440,13 @@ struct SettingsView: View {
             HStack {
                 MonoLabel("DIAGNOSTICS", size: 9, color: WarmInstrument.inkFaint, tracking: 1.2)
                 Spacer()
-                Button {
-                    showDiagHelp = true
-                } label: {
+                Button { showDiagHelp = true } label: {
                     Image(systemName: "info.circle")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(WarmInstrument.inkMuted)
                 }
                 .buttonStyle(.plain)
-                .sheet(isPresented: $showDiagHelp) {
-                    DiagnosticsHelpSheet()
-                }
+                .sheet(isPresented: $showDiagHelp) { DiagnosticsHelpSheet() }
 
                 Button {
                     UIPasteboard.general.string = diagnosticsText
@@ -463,20 +459,64 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                DiagRow(key: "appState",        value: appStateLabel)
-                DiagRow(key: "onboardingPhase", value: "\(router.onboardingPhase)")
-                DiagRow(key: "effectivePhase",  value: "\(router.effectivePhase)")
-                DiagRow(key: "sessionReady",    value: "\(authManager.isSessionReady)")
-                DiagRow(key: "sessionExpired",  value: "\(authManager.sessionExpired)")
-                DiagRow(key: "hkGranted",       value: "\(syncManager.hkAuthorizationGranted)")
-                DiagRow(key: "repo",            value: authManager.selectedRepo ?? "nil")
-                DiagRow(key: "login",           value: authManager.user?.login ?? "nil")
+            VStack(spacing: 0) {
+                DiagGroup(
+                    title: "ROUTING",
+                    summary: "\(appStateLabel) · \(router.onboardingPhase)",
+                    hasWarning: router.effectivePhase != router.onboardingPhase,
+                    rows: [
+                        ("appState",        appStateLabel),
+                        ("onboardingPhase", "\(router.onboardingPhase)"),
+                        ("effectivePhase",  "\(router.effectivePhase)"),
+                    ]
+                )
+                diagDivider
+                DiagGroup(
+                    title: "AUTH",
+                    summary: authManager.user?.login ?? "not signed in",
+                    hasWarning: authManager.sessionExpired,
+                    rows: [
+                        ("sessionReady",   "\(authManager.isSessionReady)"),
+                        ("sessionExpired", "\(authManager.sessionExpired)"),
+                        ("login",          authManager.user?.login ?? "nil"),
+                        ("lastLogin",      UserDefaults.standard.string(forKey: "lastOnboardingLogin") ?? "nil"),
+                    ]
+                )
+                diagDivider
+                DiagGroup(
+                    title: "SYNC",
+                    summary: authManager.selectedRepo ?? "no repo",
+                    hasWarning: syncManager.syncError != nil,
+                    rows: [
+                        ("repo",       authManager.selectedRepo ?? "nil"),
+                        ("hkGranted",  "\(syncManager.hkAuthorizationGranted)"),
+                        ("lastSync",   syncManager.lastSyncDate.map { $0.formatted(.relative(presentation: .named)) } ?? "never"),
+                        ("syncError",  syncManager.syncError ?? "none"),
+                    ]
+                )
+                diagDivider
+                DiagGroup(
+                    title: "DEVICE",
+                    summary: "iOS \(UIDevice.current.systemVersion) · build \(buildNumber)",
+                    hasWarning: false,
+                    rows: [
+                        ("iOS",     UIDevice.current.systemVersion),
+                        ("version", appVersion),
+                        ("build",   buildNumber),
+                    ]
+                )
             }
             .padding(10)
             .background(WarmInstrument.desk)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
+    }
+
+    private var diagDivider: some View {
+        Rectangle()
+            .fill(WarmInstrument.headerRule)
+            .frame(height: 1)
+            .padding(.leading, 18)
     }
 
     private var appStateLabel: String {
@@ -488,6 +528,10 @@ struct SettingsView: View {
         }
     }
 
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+    }
+
     private var diagnosticsText: String {
         """
         appState:        \(appStateLabel)
@@ -495,10 +539,15 @@ struct SettingsView: View {
         effectivePhase:  \(router.effectivePhase)
         sessionReady:    \(authManager.isSessionReady)
         sessionExpired:  \(authManager.sessionExpired)
-        hkGranted:       \(syncManager.hkAuthorizationGranted)
-        repo:            \(authManager.selectedRepo ?? "nil")
         login:           \(authManager.user?.login ?? "nil")
-        appVersion:      \(appVersion)
+        lastLogin:       \(UserDefaults.standard.string(forKey: "lastOnboardingLogin") ?? "nil")
+        repo:            \(authManager.selectedRepo ?? "nil")
+        hkGranted:       \(syncManager.hkAuthorizationGranted)
+        lastSync:        \(syncManager.lastSyncDate.map { $0.formatted() } ?? "never")
+        syncError:       \(syncManager.syncError ?? "none")
+        iOS:             \(UIDevice.current.systemVersion)
+        version:         \(appVersion)
+        build:           \(buildNumber)
         """
     }
 
@@ -671,6 +720,59 @@ private struct WarmSettingsInfoRow: View {
     }
 }
 
+private struct DiagGroup: View {
+    let title: String
+    let summary: String
+    let hasWarning: Bool
+    let rows: [(String, String)]
+
+    @State private var isExpanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.spring(duration: 0.25, bounce: 0.1)) { isExpanded.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                        .frame(width: 12)
+                    Text(title)
+                        .font(WarmInstrument.monoLabel(10))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                    if hasWarning {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(WorkoutTimerWarm.amber)
+                    }
+                    Spacer()
+                    if !isExpanded {
+                        Text(summary)
+                            .font(WarmInstrument.figures(10))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(rows, id: \.0) { key, value in
+                        DiagRow(key: key, value: value)
+                    }
+                }
+                .padding(.leading, 18)
+                .padding(.bottom, 8)
+            }
+        }
+    }
+}
+
 private struct DiagRow: View {
     let key: String
     let value: String
@@ -680,11 +782,11 @@ private struct DiagRow: View {
             Text(key)
                 .font(WarmInstrument.monoLabel(10))
                 .foregroundColor(WarmInstrument.inkFaint)
-                .frame(width: 120, alignment: .leading)
+                .frame(width: 110, alignment: .leading)
             Text(value)
                 .font(WarmInstrument.figures(11, weight: .bold))
                 .foregroundColor(WarmInstrument.ink)
-                .lineLimit(1)
+                .lineLimit(2)
         }
     }
 }
