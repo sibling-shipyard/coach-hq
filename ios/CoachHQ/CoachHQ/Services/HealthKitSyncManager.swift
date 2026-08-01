@@ -184,8 +184,9 @@ class HealthKitSyncManager: ObservableObject {
                 async let rawHRSamples = fetchHeartRateSamples(for: workout)
                 async let restingHR = fetchRestingHeartRate(on: workout.startDate)
                 async let hrvValue = fetchHRV(on: workout.startDate)
+                async let sleepHours = fetchSleepHours(nightBefore: workout.startDate)
                 let hrSamples = (try? await rawHRSamples) ?? []
-                let (resting, hrv) = await (restingHR, hrvValue)
+                let (resting, hrv, sleep) = await (restingHR, hrvValue, sleepHours)
 
                 let hrStats = ActivityMapper.computeHRStats(samples: hrSamples)
                 let hrZones = hrSamples.isEmpty ? nil : ActivityMapper.computeHRZones(
@@ -219,7 +220,8 @@ class HealthKitSyncManager: ObservableObject {
                     preMentalState: nil,
                     hrStream: hrStream,
                     restingHeartRate: resting,
-                    hrv: hrv
+                    hrv: hrv,
+                    sleepHoursPrior: sleep
                 )
 
                 let named = ActivityNamer.assignName(activity: withHR, counters: &counters)
@@ -388,6 +390,41 @@ class HealthKitSyncManager: ObservableObject {
                 continuation.resume(returning: value.map { $0.rounded() })
             }
             healthStore.execute(query)
+        }
+    }
+
+    /// Fetches hours of sleep in the 9pm–8am window before `date` (the session day).
+    /// Sums all asleep states (unspecified, core, deep, REM) from Apple Watch/Health.
+    private func fetchSleepHours(nightBefore date: Date) async -> Double? {
+        let type = HKCategoryType(.sleepAnalysis)
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        guard let prevDay = calendar.date(byAdding: .day, value: -1, to: startOfDay),
+              let windowStart = calendar.date(bySettingHour: 21, minute: 0, second: 0, of: prevDay),
+              let windowEnd = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: startOfDay) else {
+            return nil
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: windowEnd, options: .strictStartDate)
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: type, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, _ in
+                guard let categorySamples = samples as? [HKCategorySample] else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let asleepStates: Set<Int> = [
+                    HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue,
+                    HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+                    HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+                    HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+                ]
+                let totalSeconds = categorySamples
+                    .filter { asleepStates.contains($0.value) }
+                    .reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
+                let hours = totalSeconds > 0 ? ((totalSeconds / 3600.0) * 10).rounded() / 10 : nil as Double?
+                continuation.resume(returning: hours)
+            }
+            self.healthStore.execute(query)
         }
     }
 
