@@ -261,7 +261,10 @@ class GitHubAuthManager: ObservableObject {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
-            kSecValueData as String: data
+            kSecValueData as String: data,
+            // These are GitHub auth tokens (incl. a 6-month refresh token) - keep them off
+            // iCloud Keychain sync/backup entirely, not just behind device passcode.
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         ]
         SecItemDelete(query as CFDictionary) // Remove existing
         SecItemAdd(query as CFDictionary, nil)
