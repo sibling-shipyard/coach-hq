@@ -95,12 +95,17 @@ struct MainTabView: View {
             }
 
             // First-launch splash — shows logo + "Coach HQ" while Chat tab loads underneath.
-            // On exit: navigates to Chat so Coach's intro is the first thing the user sees.
+            // On exit: lands on Chat for a genuinely new athlete (Coach's intro is the first
+            // thing they see) or Home for an existing athlete reopening the app fresh (new
+            // device/reinstall) who already has real chat history - shouldOpenChatFirst() makes
+            // that call. Splash doesn't fade until the decision has actually landed, so there's
+            // no visible flash of the wrong tab underneath.
             if welcomeVisible {
                 SplashView {
-                    selectedTab = .chat
                     personalizeShown = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    Task {
+                        selectedTab = await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) ? .chat : .home
+                        try? await Task.sleep(for: .seconds(0.5))
                         welcomeVisible = false
                     }
                 }
