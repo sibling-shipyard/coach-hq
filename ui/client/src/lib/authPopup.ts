@@ -7,7 +7,6 @@
  */
 export interface AuthPopupResult {
   ok: boolean;
-  needsSetup?: boolean;
   login?: string;
   error?: string;
 }
@@ -39,7 +38,6 @@ export function openAuthPopup(url: string): Promise<AuthPopupResult> {
       if (!data || data.type !== "coach-auth-complete") return;
       finish({
         ok: !!data.ok,
-        needsSetup: !!data.needsSetup,
         login: data.login,
         error: data.error,
       });
