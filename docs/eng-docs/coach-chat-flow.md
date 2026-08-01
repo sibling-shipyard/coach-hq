@@ -36,6 +36,25 @@ unwrapped conversation, so the server stays stateless per turn until a close sig
 
 ## What a turn does, in order
 
+```mermaid
+sequenceDiagram
+    participant C as Client (web or iOS)
+    participant A as coach-chat.ts
+    participant G as Gemini
+    participant GH as GitHub API
+    C->>A: POST { threadId, messages, message }
+    A->>GH: read SOUL.md, state.md, quest_log.md (25s timeout each)
+    A->>G: generateContent(systemInstruction, contents, JSON schema)
+    G-->>A: { reply, file_updates?, commit_message? }
+    alt ordinary turn
+        A-->>C: { reply, closed: false } — no repo write
+    else close-session turn
+        A->>GH: commitFilesAtomic(file_updates + chat_history.json)
+        GH-->>A: one commit, pushed to main
+        A-->>C: { reply, closed: true, threadId, threads }
+    end
+```
+
 1. **Context read** — `askGemini()` fetches `propagated/SOUL.md`, `user_data/coach/state.md`,
    `gen/quest_log.md` fresh from GitHub every turn (no caching, each wrapped in a 25s timeout so
    a stalled GitHub/Gemini call fails visibly instead of leaving "Coach is thinking" spinning
