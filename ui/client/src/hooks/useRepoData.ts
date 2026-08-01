@@ -70,11 +70,19 @@ export interface UseRepoDataResult {
 
 let cachedData: RepoData | null = null;
 
+import { setGlobalCategoryConfig, type CategoryConfigInput } from "@/lib/categoryResolver";
+
 function initialState(): UseRepoDataResult {
   if (import.meta.env.DEV) {
+    if (LOCAL_DATA.categories) {
+      setGlobalCategoryConfig(LOCAL_DATA.categories as CategoryConfigInput);
+    }
     return { data: LOCAL_DATA, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
   }
   if (cachedData) {
+    if (cachedData.categories) {
+      setGlobalCategoryConfig(cachedData.categories as CategoryConfigInput);
+    }
     return { data: cachedData, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
   }
   return { data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false };
@@ -111,6 +119,10 @@ export function useRepoData(): UseRepoDataResult {
         ) {
           setState({ data: null, loading: false, error: null, schemaUnsupported: true, accessRevoked: false });
           return;
+        }
+
+        if (aggregate.categories) {
+          setGlobalCategoryConfig(aggregate.categories as CategoryConfigInput);
         }
 
         cachedData = aggregate;

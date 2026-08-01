@@ -160,15 +160,17 @@ export const GROUP_CONFIG: Record<string, { label: string; color: string; catego
   ride:         { label: "RIDES",        color: "#c47a20", categories: ["ride", "RDE"] },
 };
 
+import { type CategoryConfigInput, type SportConfig, getGlobalCategoryConfig, resolveCategory } from "./categoryResolver";
+
 export function getTrainingCategory(activity: Activity, config?: CategoryConfigInput): TrainingCategory {
   if (activity.category) {
     return activity.category;
   }
 
-  const categoriesConfig = config ?? loadedCategories;
-  const hasCategoriesConfig = Array.isArray(categoriesConfig) ? categoriesConfig.length > 0 : Object.keys(categoriesConfig).length > 0;
+  const categoriesConfig = config ?? getGlobalCategoryConfig() ?? (loadedCategories.length > 0 ? loadedCategories : undefined);
+  const hasCategoriesConfig = categoriesConfig && (Array.isArray(categoriesConfig) ? categoriesConfig.length > 0 : Object.keys(categoriesConfig).length > 0);
   if (hasCategoriesConfig) {
-    return resolveCategory(activity.sport_type, activity.elapsed_time, activity.start_date_local, categoriesConfig);
+    return resolveCategory(activity.sport_type, activity.elapsed_time, activity.start_date_local, categoriesConfig!);
   }
 
   // Ultimate fallback if no config

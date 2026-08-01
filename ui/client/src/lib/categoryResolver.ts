@@ -101,6 +101,16 @@ export function buildCategoryLookup(config: CategoryConfigInput): Record<string,
   return lookup;
 }
 
+let activeCategoryConfig: CategoryConfigInput | undefined = undefined;
+
+export function setGlobalCategoryConfig(config?: CategoryConfigInput) {
+  activeCategoryConfig = config;
+}
+
+export function getGlobalCategoryConfig(): CategoryConfigInput | undefined {
+  return activeCategoryConfig;
+}
+
 const defaultCategoryLookup = buildCategoryLookup(categoriesJson as CategoryConfigInput);
 
 /**
@@ -111,7 +121,8 @@ export function getSportForCategory(category: string, config?: CategoryConfigInp
   const cat = (category || "").trim();
   if (!cat) return "other";
 
-  const lookup = config ? buildCategoryLookup(config) : defaultCategoryLookup;
+  const effectiveConfig = config ?? activeCategoryConfig;
+  const lookup = effectiveConfig ? buildCategoryLookup(effectiveConfig) : defaultCategoryLookup;
   
   // Direct code lookup (exact match or uppercase match)
   const entry = lookup[cat] || lookup[cat.toUpperCase()];

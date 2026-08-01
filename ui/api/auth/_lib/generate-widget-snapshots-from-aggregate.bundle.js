@@ -108,11 +108,19 @@ function buildCategoryLookup(config) {
   }
   return lookup;
 }
+var activeCategoryConfig = void 0;
+function setGlobalCategoryConfig(config) {
+  activeCategoryConfig = config;
+}
+function getGlobalCategoryConfig() {
+  return activeCategoryConfig;
+}
 var defaultCategoryLookup = buildCategoryLookup(categories_default);
 function getSportForCategory(category, config) {
   const cat = (category || "").trim();
   if (!cat) return "other";
-  const lookup = config ? buildCategoryLookup(config) : defaultCategoryLookup;
+  const effectiveConfig = config ?? activeCategoryConfig;
+  const lookup = effectiveConfig ? buildCategoryLookup(effectiveConfig) : defaultCategoryLookup;
   const entry = lookup[cat] || lookup[cat.toUpperCase()];
   if (entry) {
     const labelLower = (entry.label || "").toLowerCase();
@@ -229,8 +237,8 @@ function getTrainingCategory(activity, config) {
   if (activity.category) {
     return activity.category;
   }
-  const categoriesConfig = config ?? loadedCategories;
-  const hasCategoriesConfig = Array.isArray(categoriesConfig) ? categoriesConfig.length > 0 : Object.keys(categoriesConfig).length > 0;
+  const categoriesConfig = config ?? getGlobalCategoryConfig() ?? (loadedCategories.length > 0 ? loadedCategories : void 0);
+  const hasCategoriesConfig = categoriesConfig && (Array.isArray(categoriesConfig) ? categoriesConfig.length > 0 : Object.keys(categoriesConfig).length > 0);
   if (hasCategoriesConfig) {
     return resolveCategory(activity.sport_type, activity.elapsed_time, activity.start_date_local, categoriesConfig);
   }
@@ -342,24 +350,27 @@ function recordedDays(activities, monday, config) {
     };
   });
 }
-function buildLiveWeekContract(activities, challenge, config) {
-  const now = /* @__PURE__ */ new Date();
+function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new Date(), config) {
   const monday = getMonday(now);
   const sunday = new Date(monday.getTime() + 6 * DAY_MS);
   const startDate = localDateKey(monday);
   const endDate = localDateKey(sunday);
   const weekActivities = activities.filter((activity) => {
-    const dateStr = activity.start_date_local.slice(0, 10);
-    return dateStr >= startDate && dateStr <= endDate;
+    const date = parseLocal(activity.start_date_local);
+    return date >= monday && date < new Date(monday.getTime() + 7 * DAY_MS);
   });
-  const activeDays = new Set(weekActivities.map((a) => a.start_date_local.slice(0, 10))).size;
-  const totalMinutes = Math.round(
-    weekActivities.reduce((sum, a) => sum + (a.elapsed_time ?? 0), 0) / 60
+  const activeDays = new Set(
+    weekActivities.map((activity) => activity.start_date_local.slice(0, 10))
+  ).size;
+  const totalMinutes = weekActivities.reduce(
+    (sum, activity) => sum + Math.max(0, activity.elapsed_time) / 60,
+    0
   );
-  const disciplines = new Set(weekActivities.map((a) => disciplineFor(getTrainingCategory(a, config), config))).size;
-  const latestActivity = weekActivities[0];
-  const latestTimestamp = latestActivity ? latestActivity.start_date_local : (/* @__PURE__ */ new Date()).toISOString();
-  const evidenceRefs = weekActivities.map((a) => `activity:${a.id}`);
+  const disciplines = new Set(
+    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity, config), config))
+  ).size;
+  const evidenceRefs = weekActivities.map((activity) => `activity:${activity.id}`);
+  const latestTimestamp = weekActivities.map((activity) => activity.start_date_local).sort().at(-1) ?? `${startDate}T00:00:00`;
   return {
     schema_version: 1,
     data_status: "live",
@@ -1802,6 +1813,9 @@ function generateWidgetSnapshotsFromAggregate(aggregate) {
     warnings: []
   };
   const categories = aggregate.categories;
+  if (categories) {
+    setGlobalCategoryConfig(categories);
+  }
   const contract = isUnavailableWeek(aggregate.current_week) ? buildLiveWeekContract(activities, challenge, categories) : aggregate.current_week;
   return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live", categories);
 }

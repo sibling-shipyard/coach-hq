@@ -25,6 +25,8 @@ function isUnavailableWeek(
   return !week || week.data_status === "unavailable";
 }
 
+import { setGlobalCategoryConfig, type CategoryConfigInput } from "../../../client/src/lib/categoryResolver.js";
+
 export function generateWidgetSnapshotsFromAggregate(
   aggregate: RepoAggregateInput,
 ): WidgetSnapshotsFile | null {
@@ -38,6 +40,9 @@ export function generateWidgetSnapshotsFromAggregate(
     warnings: [],
   };
   const categories = aggregate.categories;
+  if (categories) {
+    setGlobalCategoryConfig(categories);
+  }
 
   const contract = isUnavailableWeek(aggregate.current_week)
     ? buildLiveWeekContract(activities, challenge, categories)
