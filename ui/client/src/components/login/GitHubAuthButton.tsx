@@ -7,7 +7,6 @@ interface GitHubAuthButtonProps {
   className?: string;
   disabled?: boolean;
   children: ReactNode;
-  onNeedsSetup?: (login: string) => void;
   onSuccess?: () => void;
 }
 
@@ -22,7 +21,6 @@ export function GitHubAuthButton({
   className,
   disabled,
   children,
-  onNeedsSetup,
   onSuccess,
 }: GitHubAuthButtonProps) {
   async function handleClick() {
@@ -35,12 +33,6 @@ export function GitHubAuthButton({
     }
     if (result.error === "popup_closed") {
       return; // athlete cancelled - stay put, no error needed
-    }
-    if (result.needsSetup) {
-      const login = result.login ?? "";
-      if (onNeedsSetup) onNeedsSetup(login);
-      else window.location.href = `/setup?login=${encodeURIComponent(login)}`;
-      return;
     }
     if (result.ok) {
       if (onSuccess) onSuccess();

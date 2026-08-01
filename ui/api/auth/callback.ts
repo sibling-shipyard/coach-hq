@@ -1,14 +1,11 @@
 import {
   encryptSession,
-  encryptSetupToken,
   buildCookie,
   clearCookie,
   parseCookies,
   SESSION_COOKIE,
   SESSION_MAX_AGE_SEC,
   OAUTH_STATE_COOKIE,
-  SETUP_TOKEN_COOKIE,
-  SETUP_TOKEN_MAX_AGE_SEC,
 } from "./_lib/session.js";
 import {
   resolveInstallationId,
@@ -48,37 +45,27 @@ function errorRedirect(
   return new Response(null, { status: 302, headers });
 }
 
-// Sends a first-time user into the Setup wizard (Setup.tsx / SetupView.swift) instead of a
-// dead-end error - GitHub App tokens can't create repos on a personal account (confirmed via
-// 404/403 on /repos/{template}/generate and /user/repos), so this can't provision one itself.
-async function setupRedirect(
+// iOS still handles first-time setup natively (SetupView.swift) since GitHub App tokens can't
+// create repos on a personal account (confirmed via 404/403 on /repos/{template}/generate and
+// /user/repos) - it has to be a GitHub-native step. Web no longer has an equivalent wizard:
+// setup only happens in the iOS app now, so a web user with no install just gets sent to
+// AuthError's needs_ios_setup message instead.
+function setupRedirect(
   origin: string,
   login: string,
-  ghToken: string,
   platform: "web" | "ios" = "web",
   popup = false,
-): Promise<Response> {
+): Response {
   const headers = new Headers();
   headers.set(
     "Location",
     platform === "ios"
       ? `coachhq://callback?needs_setup=1&login=${encodeURIComponent(login)}`
       : popup
-        ? `${origin}/auth/popup-complete?needs_setup=1&login=${encodeURIComponent(login)}`
-        : `${origin}/setup?login=${encodeURIComponent(login)}`,
+        ? `${origin}/auth/popup-complete?error=needs_ios_setup`
+        : `${origin}/?auth_error=needs_ios_setup`,
   );
   headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
-  if (platform === "web") {
-    // Setup.tsx's popup-based repo-create step (check-repo-exists.ts) needs a token but there's
-    // no real session yet (no installation_id) - this short-lived cookie is the only thing
-    // standing in for one until step 2 completes and a real session gets created. JWE-encrypted
-    // like the real session cookie (encryptSession) - a raw gh_token sitting in a plaintext
-    // cookie for up to SETUP_TOKEN_MAX_AGE_SEC is exactly the risk that encryption exists to
-    // close, short TTL or not. login travels inside the encrypted payload too, not as a query
-    // param, so check-repo-exists.ts can't be pointed at an arbitrary login using this token.
-    const setupToken = await encryptSetupToken({ gh_token: ghToken, login });
-    headers.append("Set-Cookie", buildCookie(SETUP_TOKEN_COOKIE, setupToken, SETUP_TOKEN_MAX_AGE_SEC));
-  }
   return new Response(null, { status: 302, headers });
 }
 
@@ -183,7 +170,7 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
     }
 
     if (!installationId) {
-      return await setupRedirect(url.origin, user.login as string, ghToken, platform, popup);
+      return setupRedirect(url.origin, user.login as string, platform, popup);
     }
 
     // iOS has no shared cookie jar, so it gets the raw token back on the redirect (see
@@ -218,9 +205,6 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
     headers.set("Location", popup ? `${url.origin}/auth/popup-complete?ok=1` : "/");
     headers.append("Set-Cookie", buildCookie(SESSION_COOKIE, session, SESSION_MAX_AGE_SEC));
     headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
-    // Only ever set by setupRedirect (Setup.tsx's popup-based repo-create polling) - a real
-    // session now exists, so this short-lived stand-in is no longer needed.
-    headers.append("Set-Cookie", clearCookie(SETUP_TOKEN_COOKIE));
 
   return new Response(null, { status: 302, headers });
 }

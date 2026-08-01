@@ -2,8 +2,8 @@ import { useEffect } from "react";
 
 /**
  * Landed on only inside the popup window GitHubAuthButton opens (never in a normal tab) -
- * callback.ts redirects here instead of "/" or "/setup" whenever the OAuth round trip started
- * in popup mode. Posts the outcome back to window.opener and closes itself; the opener's
+ * callback.ts redirects here instead of "/" whenever the OAuth round trip started in popup
+ * mode. Posts the outcome back to window.opener and closes itself; the opener's
  * lib/authPopup.ts is what's actually listening. No design needed - this is on screen for a
  * single frame at most.
  */
@@ -13,7 +13,6 @@ export default function AuthPopupComplete() {
     const result = {
       type: "coach-auth-complete" as const,
       ok: params.get("ok") === "1",
-      needsSetup: params.get("needs_setup") === "1",
       login: params.get("login") ?? undefined,
       error: params.get("error") ?? undefined,
     };
@@ -26,11 +25,7 @@ export default function AuthPopupComplete() {
       // window.open() itself succeeded. lib/authPopup.ts's popup.closed poll below still
       // resolves once this tab is closed manually, so redirect somewhere useful instead of
       // leaving a dead end.
-      window.location.href = result.needsSetup
-        ? `/setup?login=${encodeURIComponent(result.login ?? "")}`
-        : result.ok
-          ? "/"
-          : `/?auth_error=${encodeURIComponent(result.error ?? "unknown")}`;
+      window.location.href = result.ok ? "/" : `/?auth_error=${encodeURIComponent(result.error ?? "unknown")}`;
     }
   }, []);
 

@@ -7,7 +7,6 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Home from "./pages/Home";
-import Onboarding from "./pages/Onboarding";
 import AuthError from "./pages/AuthError";
 import Workouts from "./pages/Workouts";
 import WorkoutTimer from "./pages/workout-timer";
@@ -18,14 +17,12 @@ import SportAnalyticsCalisthenics from "./pages/SportAnalyticsCalisthenics";
 import CoachChat from "./pages/CoachChat";
 import WidgetGallery from "./pages/WidgetGallery";
 import Welcome from "./pages/Welcome";
-import Setup from "./pages/Setup";
 import AuthPopupComplete from "./pages/AuthPopupComplete";
 
 function Router() {
   return (
     <Switch>
       <Route path="/welcome" component={Welcome} />
-      <Route path="/setup" component={Setup} />
       <Route path="/auth/popup-complete" component={AuthPopupComplete} />
       <Route path={"/"} component={Home} />
       <Route path="/workouts" component={Workouts} />
@@ -52,15 +49,9 @@ function Gate({ children }: { children: ReactNode }) {
   const params = new URLSearchParams(window.location.search);
   const authError = params.get("auth_error");
 
-  // /setup is reached mid-flow, between the two GitHub-native steps (create-from-template,
-  // then install) - there's no session yet at that point, so it must render regardless of
-  // auth.status instead of being swallowed by the unauthenticated -> Welcome fallback below.
-  if (window.location.pathname === "/setup") return <>{children}</>;
-
   if (authError) return <AuthError type={authError} />;
   if (auth.status === "loading") return null;
   if (auth.status === "unauthenticated") return <Welcome />;
-  if (auth.status === "onboarding") return <Onboarding />;
   return <>{children}</>;
 }
 

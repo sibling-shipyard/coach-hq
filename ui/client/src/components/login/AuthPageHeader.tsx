@@ -1,7 +1,7 @@
 /**
- * Shared header for the sign-in/setup flow (Setup.tsx, AuthError.tsx, Onboarding.tsx,
- * RepoDataGate.tsx's non-content states). `action` is the one thing that varies per screen -
- * "Cancel" pre-session, "Sign out" once there's a session to clear.
+ * Shared header for the sign-in flow (AuthError.tsx, RepoDataGate.tsx's non-content states).
+ * `action` is the one thing that varies per screen - "Cancel" pre-session, "Sign out" once
+ * there's a session to clear.
  */
 interface AuthPageHeaderProps {
   action?: { label: string; href: string };
