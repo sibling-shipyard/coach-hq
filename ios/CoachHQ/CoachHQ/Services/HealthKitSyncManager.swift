@@ -162,7 +162,8 @@ class HealthKitSyncManager: ObservableObject {
             if let ts = syncState.hkLastSynced, let date = ISO8601DateFormatter().date(from: ts) {
                 since = date
             } else {
-                since = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+                // First sync — pull a full year of history.
+                since = Calendar.current.date(byAdding: .year, value: -1, to: Date())!
             }
 
             let workouts = try await fetchWorkouts(since: since)
