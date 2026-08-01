@@ -148,6 +148,16 @@ class GitHubAuthManager: ObservableObject {
         }
 
         if value("needs_setup") == "1" {
+            // Server now includes the GitHub token so we can fetch user.id before the
+            // install step. isAuthenticated stays false — no coach-phelps installation yet.
+            if let token = value("token") {
+                saveToken(token)
+                if let rt = value("refresh_token"), let expiresAtRaw = value("expires_at"),
+                   let expiresAtMs = Double(expiresAtRaw) {
+                    saveRefreshToken(rt, expiresAt: Date(timeIntervalSince1970: expiresAtMs / 1000))
+                }
+                await fetchUser()
+            }
             pendingSetupLogin = value("login")
             isSessionReady = true
             return

@@ -31,10 +31,11 @@ export default {
 
     const redirectUri = `${url.origin}/api/auth/callback`;
 
-    // Always use /permissions so GitHub runs the combined OAuth+install flow and returns
-    // `code` in the callback. The plain /installations/new endpoint only returns
-    // `installation_id`, which callback.ts can't handle (it requires `code` to exchange
-    // for a token). suggested_target_id is an optional account pre-selection hint.
+    // /installations/new/permissions runs the combined OAuth+install flow and returns
+    // `code` in the callback; callback.ts requires `code` to exchange for a token.
+    // suggested_target_id pre-selects the account and is required for this endpoint —
+    // GitHub 404s without it. iOS always provides a valid user ID now (callback.ts
+    // includes the token in the needs_setup=1 redirect so the client can call fetchUser).
     const suggestedTargetId = url.searchParams.get("suggested_target_id");
     const installUrl = new URL(`https://github.com/apps/${APP_SLUG}/installations/new/permissions`);
     if (suggestedTargetId) {
