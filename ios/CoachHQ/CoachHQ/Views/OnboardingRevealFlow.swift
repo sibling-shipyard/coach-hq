@@ -98,6 +98,9 @@ struct OnboardingRevealFlow: View {
             }
         }
         .task {
+            // Kick off HK→GitHub sync while the user reads their stats — the 7-day
+            // initial sync runs concurrently so the commit lands before they finish.
+            Task { await syncManager.syncNewWorkouts() }
             summary = await syncManager.fetchYearSummary()
             isLoading = false
         }
