@@ -9,6 +9,7 @@ struct Activity: Codable, Identifiable, Hashable {
     var id: String { activityId ?? "\(startDateLocal)_\(sportType)" }
 
     let name: String
+    var category: String? = nil
     let sportType: String
     let startDateLocal: String
     let elapsedTime: Int          // seconds
@@ -41,6 +42,7 @@ struct Activity: Codable, Identifiable, Hashable {
         case activityId = "id"
         case idStr = "id_str"
         case name
+        case category
         case sportType = "sport_type"
         case startDateLocal = "start_date_local"
         case elapsedTime = "elapsed_time"

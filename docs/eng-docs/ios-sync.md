@@ -67,10 +67,10 @@ sequenceDiagram
      twice.
    - Fetches heart-rate samples for the workout window, computes avg/max HR and zone 1-5 time
      distribution.
-   - `ActivityNamer` assigns the sequential name (e.g. "Calisthenics #30") and the filename —
+   - `ActivityNamer` assigns the sequential name (e.g. "WeightTraining #30") and the filename —
      `hk_YYYY-MM-DD_<uuid>.json`, where `<uuid>` is the `HKWorkout.uuid`. The `hk_` prefix
-     distinguishes it from Strava-sourced files; the `YYYY-MM-DD` prefix is kept for browsability
-     and the pipeline's date-prefilter.
+     distinguishes it from Strava-sourced files.
+   - It derives a 3-letter `category` code (e.g., "FDN", "RNK") based on `categories.json` in the athlete repo, using `sport_type` and ordered first-match rules for workout metadata (duration, weekday).
 
 ### Canonical id — HKWorkout uuid
 

@@ -267,7 +267,7 @@ One or two questions at a time. Follow up naturally. Don't accept vague goals �
 - What do you want to call your daily habits? (e.g., morning routine, cold shower, nutrition target)
 - How long do you want the challenge to run? (default: 60 days)
 
-Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start today), `count_pattern` matching their activity naming, and their chosen side quests.
+Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start today), `count_category` matching their activity category, and their chosen side quests.
 
 **Step 6 — Commit both files.** `user_data/coach/state.md` + `user_data/ledger/challenge_v2.json` together in one commit: `git add user_data/coach/state.md user_data/ledger/challenge_v2.json && git commit -m "coach-notes: first session — intake complete, quests configured"`
 
@@ -354,7 +354,7 @@ The **Sync pipeline** (iOS app commit → GitHub Actions push trigger) handles f
 5. Append workout notes using `python3 engine/core/query_history.py --id ACTIVITY_ID --add-notes "RPE: X. Notes: ..."`.
 6. **Reconcile the matching session in `user_data/ledger/current_week.json` now — don't defer it to the Sunday review.** Mark the outcome accurately and add a reliable source-qualified completion ID when one exists. If the completed session was unplanned, add it under the correct date using the contract. Do not write measured actual load into this file. **Why it's time-sensitive:** the dashboard weekly widget renders this plan live. Any synced activity you haven't linked to a planned session shows up beside the plan as an unreviewed "logged" overlay entry — and a session the athlete has already done still reads as `planned` until you reconcile it. Linking the completion ID (or adding the unplanned session) folds that overlay into the real `done` session. Keep the plan current every time a session is logged, not just weekly.
 7. Update `injury_flags[]` / Active Injury Flags in `user_data/coach/state.md` if anything changed.
-8. **Check the auto-name.** iOS names activities at commit time (see `ActivityNamer.swift`); if it's genuinely wrong, edit the `name` field directly in the activity's JSON under `user_data/activities/hist/` — there's no separate rename script anymore.
+8. **Check the auto-name.** iOS names activities at commit time to a generic `{Sport} #{N}` format. `category` handles machine classification. No naming config is needed at onboarding. If it's genuinely wrong, edit the `name` field directly in the activity's JSON under `user_data/activities/hist/` — there's no separate rename script anymore.
 
 ### Tracking Side Quests
 All quest data lives in `user_data/ledger/challenge_v2.json`. The auto-generated `gen/quest_log.md` shows computed streaks, rates, and progress — do not compute these manually.

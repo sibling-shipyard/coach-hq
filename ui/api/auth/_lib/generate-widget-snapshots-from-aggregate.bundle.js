@@ -1,32 +1,20 @@
 // client/src/lib/activities.ts
 function getTrainingCategory(activity) {
-  const name = activity.name;
-  if (/^Run\s*#/i.test(name)) return "run";
-  if (/^Foundation\s*#/i.test(name)) return "foundation";
-  if (/^Strength\s+(A|B)/i.test(name)) return "strength";
-  if (/^Weight Training\s*#/i.test(name)) return "weight_training";
-  if (/^Calisthenics\s*#/i.test(name)) return "calisthenics";
-  if (/^Recovery\s*#/i.test(name)) return "recovery";
-  if (/^Realign\s*#/i.test(name)) return "realign";
-  if (/^Badminton: Ranked\s*#/i.test(name)) return "badminton_ranked";
-  if (/^Badminton: League\s*#/i.test(name)) return "badminton_league";
-  if (/^Badminton: Friendly\s*#/i.test(name)) return "badminton_friendly";
-  if (/^Badminton: Casual\s*#/i.test(name)) return "badminton_casual";
-  if (/^Swim\s*#/i.test(name)) return "swim";
-  if (/cricket/i.test(name)) return "cricket";
-  if (activity.sport_type === "Badminton") return "badminton_casual";
-  if (activity.sport_type === "Hike") return "hike";
-  if (activity.sport_type === "Walk") return "walk";
-  if (activity.sport_type === "Swim") return "swim";
-  if (activity.sport_type === "Soccer") return "football";
-  if (activity.sport_type === "Workout") return "workout";
-  if (activity.sport_type === "Ride" || activity.sport_type === "EBikeRide") return "ride";
-  if (activity.sport_type === "Run") return "run";
-  if (activity.sport_type === "WeightTraining") {
-    if (activity.elapsed_time < 1800) return "foundation";
-    return "weight_training";
+  if (activity.category) {
+    return activity.category;
   }
-  return "other";
+  if (activity.sport_type === "WeightTraining") {
+    return activity.elapsed_time < 1500 ? "foundation" : "calisthenics";
+  }
+  if (activity.sport_type === "Yoga") {
+    const d = parseLocal(activity.start_date_local);
+    return d.getDay() === 0 ? "realign" : "recovery";
+  }
+  if (activity.sport_type === "Badminton") return "badminton";
+  if (activity.sport_type === "Run") return "run";
+  if (activity.sport_type === "Ride") return "ride";
+  if (activity.sport_type === "Swim") return "swim";
+  return activity.sport_type.toLowerCase();
 }
 function parseLocal(dateStr) {
   return new Date(dateStr.replace(/Z$/, ""));
@@ -823,8 +811,8 @@ function formatDistanceKm(metres) {
 }
 function calisthenicsFocus(activities) {
   const focuses = activities.map((activity) => {
-    const match = activity.name.match(/Calisthenics\s*#\d+:\s*(.+)/i);
-    return match ? match[1].trim() : null;
+    const parts = activity.name.split(":");
+    return parts.length > 1 ? parts.slice(1).join(":").trim() : activity.name;
   }).filter((value) => Boolean(value));
   return focuses.at(-1) ?? "No session yet";
 }

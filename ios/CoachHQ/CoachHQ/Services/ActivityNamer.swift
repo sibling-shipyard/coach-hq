@@ -1,130 +1,20 @@
 import Foundation
 
-/// Assigns sequential names to activities based on sport type, weekday, and existing counters.
-/// Mirrors the logic in `engine/core/rename_core.py` — classify_activity + generate_name.
+/// Assigns sequential names to activities based on sport type.
 struct ActivityNamer {
 
-    /// Classification result: category + counter key + optional detail
-    struct Classification {
-        let category: String       // e.g., "hitrun_ranked", "foundation", "badminton_casual"
-        let counterKey: String?    // e.g., "hitrun", "foundation" — nil means no counter
-        let detail: String?        // e.g., "Ranked", opponent name
-    }
-
-    // MARK: - Classification (mirrors rename_core.py classify_activity)
-
-    static let foundationMaxMinutes: Double = 25
-
-    /// Classifies an activity based on sport type, weekday, and duration.
-    static func classify(sportType: String, startDateLocal: String, elapsedTime: Int) -> Classification {
-        let dow = weekday(from: startDateLocal) // 0=Mon, 6=Sun
-
-        // Badminton
-        if sportType == "Badminton" {
-            if dow == 0 { // Monday = Ranked
-                return Classification(category: "hitrun_ranked", counterKey: "hitrun", detail: nil)
-            }
-            if dow == 3 { // Thursday = Friendly
-                return Classification(category: "hitrun_friendly", counterKey: "hitrun", detail: nil)
-            }
-            // All other days = casual (no counter)
-            return Classification(category: "badminton_casual", counterKey: nil, detail: nil)
-        }
-
-        // Yoga
-        if sportType == "Yoga" {
-            if dow == 6 { // Sunday = Realign
-                return Classification(category: "realign", counterKey: "realign", detail: nil)
-            }
-            return Classification(category: "recovery", counterKey: "recovery", detail: nil)
-        }
-
-        // WeightTraining / Foundation
-        // ActivityMapper pre-classifies WeightTraining < foundationMaxMinutes as "Foundation"
-        if sportType == "Foundation" {
-            return Classification(category: "foundation", counterKey: "foundation", detail: nil)
-        }
-        if sportType == "WeightTraining" {
-            return Classification(category: "calisthenics", counterKey: "calisthenics", detail: nil)
-        }
-
-        // Ride, Run, Walk — kept as-is with simple counter
-        if sportType == "Ride" {
-            return Classification(category: "ride", counterKey: "ride", detail: nil)
-        }
-        if sportType == "Run" {
-            return Classification(category: "run", counterKey: "run", detail: nil)
-        }
-
-        return Classification(category: "other", counterKey: "other", detail: nil)
-    }
-
-    // MARK: - Name Generation (mirrors rename_core.py generate_name)
-
-    /// Generates the display name for an activity given its classification and counter.
-    static func generateName(classification: Classification, counter: Int) -> String {
-        switch classification.category {
-        case "foundation":
-            let suffix = counter <= 9 ? "Core" : "Kickstart"
-            return "Foundation #\(counter): \(suffix)"
-        case "calisthenics":
-            return "Calisthenics #\(counter): General"
-        case "recovery":
-            return "Recovery #\(counter)"
-        case "realign":
-            return "Realign #\(counter)"
-        case "hitrun_ranked":
-            return "Hit & Run #\(counter): Ranked"
-        case "hitrun_friendly":
-            return "Hit & Run #\(counter): Friendly"
-        case "drills":
-            return "Badminton Drills #\(counter)"
-        case "league":
-            if let detail = classification.detail, !detail.isEmpty {
-                return "League #\(counter): vs \(detail)"
-            }
-            return "League #\(counter)"
-        case "ride":
-            return "Ride #\(counter)"
-        case "run":
-            return "Run #\(counter)"
-        default:
-            return "Other #\(counter)"
-        }
-    }
-
-    /// Generates a casual badminton name (no counter, weekday-based).
-    static func generateCasualBadmintonName(startDateLocal: String) -> String {
-        let dow = weekday(from: startDateLocal)
-        let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        let day = dow >= 0 && dow < 7 ? dayNames[dow] : "Unknown"
-        return "Badminton: \(day) session"
-    }
-
-    // MARK: - Public API
-
-    /// Assigns a name to an activity using the shared counters from sync_state.json.
-    /// Mutates `counters` so sequential calls in the same sync run number correctly.
-    static func assignName(activity: Activity, counters: inout [String: Int]) -> Activity {
-        let classification = classify(
-            sportType: activity.sportType,
-            startDateLocal: activity.startDateLocal,
-            elapsedTime: activity.elapsedTime
-        )
-
-        let name: String
-        if classification.category == "badminton_casual" {
-            // Casual badminton: no counter, weekday-based name
-            name = generateCasualBadmintonName(startDateLocal: activity.startDateLocal)
-        } else if let key = classification.counterKey {
-            counters[key] = (counters[key] ?? 0) + 1
-            name = generateName(classification: classification, counter: counters[key]!)
-        } else {
-            name = activity.sportType
-        }
-
+    /// Assigns a generic sequential name and derives category.
+    static func assignName(activity: Activity, counters: inout [String: Int], container: CategoriesConfigContainer) -> Activity {
+        let category = CategoryConfig.resolve(sportType: activity.sportType, elapsedTime: activity.elapsedTime, startDateLocal: activity.startDateLocal, container: container)
+        let counterKey = activity.sportType.lowercased()
+        
+        counters[counterKey] = (counters[counterKey] ?? 0) + 1
+        let count = counters[counterKey]!
+        let name = "\(activity.sportType) #\(count)"
+        
         return Activity(
             name: name,
+            category: category,
             sportType: activity.sportType,
             startDateLocal: activity.startDateLocal,
             elapsedTime: activity.elapsedTime,
@@ -143,11 +33,13 @@ struct ActivityNamer {
             deviceName: activity.deviceName,
             source: activity.source,
             activityId: activity.activityId,
-            idStr: activity.idStr
+            idStr: activity.idStr,
+            preMentalState: activity.preMentalState
         )
     }
 
     /// Generates the file name for an activity.
+<<<<<<< HEAD
     /// Format: `hk_YYYY-MM-DD_<uuid>.json`, where `<uuid>` is the HKWorkout uuid
     /// (`activity.activityId`). The `YYYY-MM-DD` prefix is kept for browsability
     /// and the pipeline's date-prefilter. The uuid makes the filename
@@ -186,6 +78,16 @@ struct ActivityNamer {
         }
 
         return "hk_\(date)_\(fileCategory)_\(number).json"
+=======
+    /// Format: `hk_YYYY-MM-DD_HHMMSS_<UUID>.json` or similar unique string.
+    static func fileName(for activity: Activity) -> String {
+        let date = String(activity.startDateLocal.prefix(10)) // YYYY-MM-DD
+        let time = String(activity.startDateLocal.dropFirst(11).prefix(8))
+            .replacingOccurrences(of: ":", with: "")
+        let idPart = UUID().uuidString.prefix(8).lowercased()
+        
+        return "hk_\(date)_\(time)_\(idPart).json"
+>>>>>>> df6a543 (core: generic naming + category field (fixes #143))
     }
 
     // MARK: - Helpers
@@ -204,3 +106,4 @@ struct ActivityNamer {
         return (calendarWeekday + 5) % 7 // Convert: Sun(1)→6, Mon(2)→0, ..., Sat(7)→5
     }
 }
+

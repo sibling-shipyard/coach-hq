@@ -12,6 +12,7 @@ export interface HrZone {
 
 export interface Activity {
   id: number | string;
+  category?: string;
   name: string;
   sport_type: string;
   start_date_local: string;
@@ -52,6 +53,7 @@ export type TrainingCategory =
   | "badminton_league"
   | "badminton_friendly"
   | "badminton_casual"
+  | "badminton"
   | "hike"
   | "walk"
   | "cricket"
@@ -60,7 +62,8 @@ export type TrainingCategory =
   | "swim"
   | "ride"
   | "run"
-  | "other";
+  | "other"
+  | string;
 
 export interface CategoryConfig {
   label: string;
@@ -80,6 +83,7 @@ export const CATEGORY_CONFIG: Record<TrainingCategory, CategoryConfig> = {
   badminton_league:   { label: "LEAGUE",   shortLabel: "LGE", color: "#7c3aed", group: "badminton" },
   badminton_friendly: { label: "FRIENDLY", shortLabel: "FRN", color: "#2563eb", group: "badminton" },
   badminton_casual:   { label: "CASUAL",   shortLabel: "CAS", color: "#6b7280", group: "badminton" },
+  badminton:          { label: "BADMINTON", shortLabel: "BAD", color: "#2d8a4e", group: "badminton" },
   hike:             { label: "HIKE",         shortLabel: "HIK",  color: "#8b6f47", group: "hike" },
   walk:             { label: "WALK",         shortLabel: "WLK",  color: "#a8a29e", group: "other" },
   cricket:          { label: "CRICKET",      shortLabel: "CRK",  color: "#2dd4bf", group: "other" },
@@ -98,70 +102,36 @@ export const GROUP_CONFIG: Record<string, { label: string; color: string; catego
   calisthenics:  { label: "CALISTHENICS", color: "#f59e0b", categories: ["calisthenics"] },
   run:          { label: "RUN",          color: "#c44020", categories: ["run"] },
   hike:         { label: "HIKE",         color: "#8b6f47", categories: ["hike"] },
-  badminton:    { label: "BADMINTON",    color: "#2d8a4e", categories: ["badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual"] },
+  badminton:    { label: "BADMINTON",    color: "#2d8a4e", categories: ["badminton", "badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual"] },
   swim:         { label: "SWIM",         color: "#0ea5e9", categories: ["swim"] },
   weight_training: { label: "WEIGHTS",       color: "#3b4a6b", categories: ["weight_training"] },
   ride:         { label: "RIDES",        color: "#c47a20", categories: ["ride"] },
 };
 
 export function getTrainingCategory(activity: Activity): TrainingCategory {
-  const name = activity.name;
-
-  // Run
-  if (/^Run\s*#/i.test(name)) return "run";
-
-  // Foundation
-  if (/^Foundation\s*#/i.test(name)) return "foundation";
-
-  // Strength
-  if (/^Strength\s+(A|B)/i.test(name)) return "strength";
-
-  // Weight Training
-  if (/^Weight Training\s*#/i.test(name)) return "weight_training";
-
-  // Calisthenics
-  if (/^Calisthenics\s*#/i.test(name)) return "calisthenics";
-
-  // Recovery
-  if (/^Recovery\s*#/i.test(name)) return "recovery";
-
-  // Realign
-  if (/^Realign\s*#/i.test(name)) return "realign";
-
-  // Badminton sub-categories
-  if (/^Badminton: Ranked\s*#/i.test(name))   return "badminton_ranked";
-  if (/^Badminton: League\s*#/i.test(name))   return "badminton_league";
-  if (/^Badminton: Friendly\s*#/i.test(name)) return "badminton_friendly";
-  if (/^Badminton: Casual\s*#/i.test(name))   return "badminton_casual";
-
-  // Swim (numbered, e.g. "Swim #3")
-  if (/^Swim\s*#/i.test(name)) return "swim";
-
-  // Cricket — logged with sport_type "Workout" but "Cricket" in the name, so check by
-  // name before the generic Workout fallback below
-  if (/cricket/i.test(name)) return "cricket";
-
-  // Sport type fallback
-  if (activity.sport_type === "Badminton") return "badminton_casual";
-  if (activity.sport_type === "Hike") return "hike";
-  if (activity.sport_type === "Walk") return "walk";
-  if (activity.sport_type === "Swim") return "swim";
-  if (activity.sport_type === "Soccer") return "football";
-  if (activity.sport_type === "Workout") return "workout";
-  if (activity.sport_type === "Ride" || activity.sport_type === "EBikeRide") return "ride";
-  if (activity.sport_type === "Run") return "run";
-
-  // WeightTraining without renamed name — use duration heuristic
-  if (activity.sport_type === "WeightTraining") {
-    if (activity.elapsed_time < 1800) return "foundation"; // <30 min
-    return "weight_training"; // >=30 min
+  if (activity.category) {
+    return activity.category;
   }
 
-  return "other";
+  if (activity.sport_type === "WeightTraining") {
+    return activity.elapsed_time < 1500 ? "foundation" : "calisthenics";
+  }
+
+  if (activity.sport_type === "Yoga") {
+    const d = parseLocal(activity.start_date_local);
+    return d.getDay() === 0 ? "realign" : "recovery";
+  }
+
+  if (activity.sport_type === "Badminton") return "badminton";
+  if (activity.sport_type === "Run") return "run";
+  if (activity.sport_type === "Ride") return "ride";
+  if (activity.sport_type === "Swim") return "swim";
+
+  return activity.sport_type.toLowerCase();
 }
 
 export function getCategoryConfig(activity: Activity): CategoryConfig {
-  return CATEGORY_CONFIG[getTrainingCategory(activity)];
+  return CATEGORY_CONFIG[getTrainingCategory(activity)] || CATEGORY_CONFIG.other;
 }
 
 // ─── Legacy Sport Grouping (kept for backward compat) ───────────────────────

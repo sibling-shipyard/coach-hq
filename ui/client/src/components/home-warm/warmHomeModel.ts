@@ -271,8 +271,8 @@ function formatDistanceKm(metres: number): string {
 function calisthenicsFocus(activities: Activity[]): string {
   const focuses = activities
     .map((activity) => {
-      const match = activity.name.match(/Calisthenics\s*#\d+:\s*(.+)/i);
-      return match ? match[1].trim() : null;
+      const parts = activity.name.split(":");
+      return parts.length > 1 ? parts.slice(1).join(":").trim() : activity.name;
     })
     .filter((value): value is string => Boolean(value));
   return focuses.at(-1) ?? "No session yet";

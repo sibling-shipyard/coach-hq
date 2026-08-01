@@ -236,8 +236,10 @@ def count_main_quest(main_quest: dict, activities: list[dict], challenge_start: 
     """Count activities matching the main quest rule."""
     count = 0
     pattern = main_quest.get("count_pattern", "")
+    category_target = main_quest.get("count_category", "")
     for a in activities:
         name = a.get("name", "")
+        cat = a.get("category", "")
         act_date_str = a.get("start_date_local", "")[:10]
         if not act_date_str:
             continue
@@ -245,8 +247,12 @@ def count_main_quest(main_quest: dict, activities: list[dict], challenge_start: 
             act_date = parse_date(act_date_str)
         except ValueError:
             continue
-        if act_date >= challenge_start and pattern and re.match(pattern, name):
-            count += 1
+        if act_date >= challenge_start:
+            if category_target:
+                if cat == category_target:
+                    count += 1
+            elif pattern and re.match(pattern, name):
+                count += 1
     return count
 
 

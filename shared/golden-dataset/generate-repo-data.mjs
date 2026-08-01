@@ -149,14 +149,13 @@ function badmintonDescription(rw, rl) {
 // ─── Activities ─────────────────────────────────────────────────────────────
 // ~26 weeks of history ending yesterday, so the training-activity heatmap, monthly
 // analytics, and VO2 trend all have real depth to work with — not just the most recent week.
-// Naming follows the exact patterns getTrainingCategory() matches on.
+// Naming: generic {Sport} #{N} with a structured category field (ADR-0013).
 
 let nextId = 900000;
-let badmintonRankedN = 40;
-let badmintonFriendlyN = 60;
-let foundationN = 120;
-let calisthenicsN = 45;
-let runN = 20;
+let badmintonN = 0;
+let weightTrainingN = 0;
+let rideN = 0;
+let runN = 0;
 
 const activities = [];
 
@@ -195,9 +194,10 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     if (isBlackout(date)) continue;
     if (random() < 0.55) continue;
     const seconds = 900 + Math.round(random() * 300);
-    foundationN++;
+    weightTrainingN++;
     pushActivity({
-      name: `Foundation #${foundationN}`,
+      name: `WeightTraining #${weightTrainingN}`,
+      category: "foundation",
       sport_type: "WeightTraining",
       start_date_local: localTimestamp(date, 7, 15),
       elapsed_time: seconds,
@@ -215,11 +215,12 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
   if (weekStart <= NOW && !isBlackout(weekStart) && random() < 0.55) {
     const date = new Date(weekStart);
     const seconds = 6300 + Math.round(random() * 900);
-    badmintonRankedN++;
+    badmintonN++;
     const rw = 2 + Math.round(random() * 3);
     const rl = 1 + Math.round(random() * 3);
     pushActivity({
-      name: `Badminton: Ranked #${badmintonRankedN}`,
+      name: `Badminton #${badmintonN}`,
+      category: "badminton",
       sport_type: "Badminton",
       start_date_local: localTimestamp(date, 19, 0),
       elapsed_time: seconds,
@@ -239,11 +240,12 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     date.setDate(date.getDate() + 3);
     if (date <= NOW && !isBlackout(date) && random() < 0.35) {
       const seconds = 5400 + Math.round(random() * 900);
-      badmintonFriendlyN++;
+      badmintonN++;
       const rw = 1 + Math.round(random() * 2);
       const rl = Math.round(random() * 2);
       pushActivity({
-        name: `Badminton: Friendly #${badmintonFriendlyN}`,
+        name: `Badminton #${badmintonN}`,
+        category: "badminton",
         sport_type: "Badminton",
         start_date_local: localTimestamp(date, 19, 30),
         elapsed_time: seconds,
@@ -273,9 +275,10 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     if (date > NOW) continue;
     if (isBlackout(date)) continue;
     const seconds = 2700 + Math.round(random() * 900);
-    calisthenicsN++;
+    weightTrainingN++;
     pushActivity({
-      name: `Calisthenics #${calisthenicsN}`,
+      name: `WeightTraining #${weightTrainingN}`,
+      category: "calisthenics",
       sport_type: "WeightTraining",
       start_date_local: localTimestamp(date, 18, 0),
       elapsed_time: seconds,
@@ -294,8 +297,10 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     date.setDate(date.getDate() + 5);
     if (date <= NOW && !isBlackout(date) && random() < 0.4) {
       const seconds = 2200 + Math.round(random() * 600);
+      rideN++;
       pushActivity({
-        name: "Easy Loop Ride",
+        name: `Ride #${rideN}`,
+        category: "ride",
         sport_type: "Ride",
         start_date_local: localTimestamp(date, 9, 0),
         elapsed_time: seconds,
@@ -333,7 +338,8 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
       const seconds = Math.round((distance / 1000) * pace);
       runN++;
       pushActivity({
-        name: isTimeTrial ? "5K Time Trial" : "River Loop",
+        name: `Run #${runN}`,
+        category: "run",
         sport_type: "Run",
         start_date_local: localTimestamp(date, 8, 30),
         elapsed_time: seconds,
@@ -369,7 +375,7 @@ blockEnd.setDate(blockEnd.getDate() + 14);
 // rate from this, so trimming it to the last two weeks would make every earlier month look
 // like a 0% miss streak even though foundation activities exist for it.
 const foundationDates = activities
-  .filter((a) => a.name.startsWith("Foundation #"))
+  .filter((a) => a.category === "foundation")
   .map((a) => a.start_date_local.slice(0, 10));
 
 // A second, recently-started daily_streak quest. Any month before its start date has zero
@@ -405,13 +411,13 @@ const challengeV2 = {
     skill_weight: 0.4,
     skill_cap: 5,
     sessions: activities
-      .filter((a) => a.name.startsWith("Badminton:") || a.name.startsWith("Calisthenics #"))
+      .filter((a) => a.category === "badminton" || a.category === "calisthenics")
       .slice(-6)
       .map((a) => ({
         date: a.start_date_local.slice(0, 10),
         label: a.name,
-        kind: a.name.startsWith("Badminton: Ranked") ? "loaded" : "skill",
-        weight: a.name.startsWith("Badminton: Ranked") ? 1 : 0.5,
+        kind: a.category === "badminton" && new Date(a.start_date_local.replace(/Z$/, "")).getDay() === 1 ? "loaded" : "skill",
+        weight: a.category === "badminton" && new Date(a.start_date_local.replace(/Z$/, "")).getDay() === 1 ? 1 : 0.5,
       })),
   },
   quests: [

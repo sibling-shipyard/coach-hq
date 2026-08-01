@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import Final
 
 # Sport type
@@ -29,21 +28,34 @@ BADMINTON_CATEGORIES = {
 }
 
 
+from datetime import datetime
+
 def get_training_category(activity: dict) -> str:
     """Classify activity into a training category (Python port of dashboard TS logic)."""
-    name = activity.get("name", "")
-    sport = activity.get("sport_type", activity.get("type", ""))
+    cat = activity.get("category")
+    if cat:
+        return BADMINTON_CASUAL if cat == "badminton" else cat
 
-    if re.match(r"^League\s*#", name, re.IGNORECASE):
-        return BADMINTON_LEAGUE
-    if re.match(r"^Hit\s*&\s*Run\s*#", name, re.IGNORECASE):
-        if re.search(r"ranked", name, re.IGNORECASE):
-            return BADMINTON_RANKED
-        if re.search(r"friendly", name, re.IGNORECASE):
-            return BADMINTON_FRIENDLY
-        return BADMINTON_RANKED  # default H&R to ranked
-    if re.match(r"^Badminton:", name, re.IGNORECASE):
+    sport = activity.get("sport_type", activity.get("type", ""))
+    start = activity.get("start_date_local", "")
+    if start:
+        dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    else:
+        dt = datetime.now()
+    dow = dt.weekday()
+    dur_sec = activity.get("elapsed_time", 0)
+
+    if sport == "WeightTraining":
+        return "foundation" if dur_sec < 1500 else "calisthenics"
+    elif sport == "Yoga":
+        return "realign" if dow == 6 else "recovery"
+    elif sport == "Badminton":
         return BADMINTON_CASUAL
-    if sport == BADMINTON_SPORT:
-        return BADMINTON_CASUAL
-    return "other"
+    elif sport == "Run":
+        return "run"
+    elif sport == "Ride":
+        return "ride"
+    elif sport == "Swim":
+        return "swim"
+    
+    return sport.lower() if sport else "other"
