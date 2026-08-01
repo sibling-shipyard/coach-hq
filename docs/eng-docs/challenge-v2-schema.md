@@ -63,7 +63,8 @@ One file, one version number, one validator.
     // count_target:
     "target": 20,
     "count_from": "strava",
-    "count_pattern": "^Strength\\s*#",
+    "count_pattern": "^Strength\\s*#", // optional regex pattern
+    "count_category": "FDN",           // optional 3-letter category tag filter (ADR-0015)
     // weekly_sessions:
     "weekly_floor": 2.5,
     "loaded_floor": 1.5,
@@ -84,7 +85,7 @@ The primary planning window. A "60-day challenge" is a **season** (~60 days), no
 
 | Type | When | Key fields |
 |---|---|---|
-| **`count_target`** | Strava/count goals (e.g. N strength sessions) | `target`, `count_from`, `count_pattern` |
+| **`count_target`** | Strava/count goals (e.g. N strength sessions) | `target`, `count_from`, `count_pattern`, `count_category` |
 | **`weekly_sessions`** | Structured session floor (calisthenics/skills) | `weekly_floor`, `sessions[]`, optional floors/weights |
 
 Exactly **one** main quest active per file; type discriminates optional fields.

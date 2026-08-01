@@ -502,7 +502,7 @@ function buildEffort(activities: Activity[]): EffortSnapshot {
   const totals = [0, 0, 0, 0, 0];
   let anyZones = false;
   for (const activity of activities) {
-    if (getTrainingCategory(activity) !== "run") continue;
+    if (!isRunActivity(activity)) continue;
     const zones = activity.hr_zones;
     if (!zones) continue;
     anyZones = true;
@@ -598,7 +598,7 @@ export function buildRunningActivityHeatmap(
   let sessionCount52w = 0;
 
   for (const activity of activities) {
-    if (getTrainingCategory(activity) !== "run") continue;
+    if (!isRunActivity(activity)) continue;
     const date = parseLocal(activity.start_date_local);
     const timestamp = date.getTime();
     const key = localDateKey(date);

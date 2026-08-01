@@ -39,23 +39,11 @@ function localDateKey(date: Date): string {
   ].join("-");
 }
 
+import { getSportForCategory } from "@/lib/categoryResolver";
+
 function disciplineFor(category: TrainingCategory): SessionDiscipline {
-  const cat = (category || "").toUpperCase();
-  if (["RNK", "FRN", "CAS", "LGE", "BADMINTON"].includes(cat) || category.startsWith("badminton")) return "badminton";
-  if (cat === "CAL" || category === "calisthenics") return "calisthenics";
-  if (cat === "RDE" || category === "ride") return "cycling";
-  if (cat === "FDN" || category === "foundation") return "foundation";
-  if (["REC", "RLN", "RECOVERY", "REALIGN"].includes(cat)) return "recovery";
-  if (["LNG", "SPR", "EZR", "RUN"].includes(cat) || category === "run") return "run";
-  if (cat === "STR" || category === "strength") return "strength";
-  if (cat === "WGT" || category === "weight_training") return "weight_training";
-  if (cat === "HIK" || category === "hike") return "hike";
-  if (cat === "WLK" || category === "walk") return "walk";
-  if (cat === "CRK" || category === "cricket") return "cricket";
-  if (cat === "FBL" || category === "football") return "football";
-  if (cat === "WKT" || category === "workout") return "workout";
-  if (cat === "SWM" || category === "swim") return "swim";
-  return "other";
+  const sport = getSportForCategory(category);
+  return (sport as SessionDiscipline) || "other";
 }
 
 /** Runtime discipline is a free string; collapse it onto the widget's enum. */

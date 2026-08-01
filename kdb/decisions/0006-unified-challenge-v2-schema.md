@@ -9,4 +9,6 @@
 
 **Migration:** v2/v3 → v4 at provision, carve, and a one-shot script for live repos. `challenge_schema.py` reads legacy during transition; writes v4 only after cutover. `validate-data.yml` enforces v4.
 
+**Amendment (2026-08-01 per ADR-0015):** Added optional `count_category` field to `count_target` main quests and side quests to support 3-letter category tag filtering without schema version bump.
+
 **Supersedes:** informal "v2 template vs v3 live" split in `docs/eng-docs/soul-C-schema.md` § HQ template vs Sky live.

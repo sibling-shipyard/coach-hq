@@ -3,6 +3,7 @@ import { getTrainingCategory, parseLocal, totalCalories } from "@/lib/activities
 import type { ChallengeV2, Quest } from "@/lib/challenge";
 import { getActivityZoneLoad } from "@/components/home-warm/warmHomeModel";
 import type { WarmSportId } from "@/components/home-warm/WarmInstrumentWidgets";
+import { getSportForCategory } from "@/lib/categoryResolver";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -16,86 +17,88 @@ const SPORT_ROWS: Array<{
     id: "badminton",
     label: "BADMINTON",
     color: "var(--wi-badminton)",
-    match: (category) => category.startsWith("badminton"),
+    match: (category) => getSportForCategory(category) === "badminton",
   },
   {
     id: "foundation",
     label: "FOUNDATION",
     color: "var(--wi-foundation)",
-    match: (category) =>
-      category === "foundation" || category === "recovery" || category === "realign",
+    match: (category) => {
+      const sport = getSportForCategory(category);
+      return sport === "foundation" || sport === "recovery" || sport === "realign";
+    },
   },
   {
     id: "cycling",
     label: "RIDE",
     color: "var(--wi-cycling)",
-    match: (category) => category === "ride",
+    match: (category) => getSportForCategory(category) === "cycling",
   },
   {
     id: "calisthenics",
     label: "CALISTHENICS",
     color: "var(--wi-calisthenics)",
-    match: (category) => category === "calisthenics",
+    match: (category) => getSportForCategory(category) === "calisthenics",
   },
   {
     id: "run",
     label: "RUN",
     color: "#c44020",
-    match: (category) => category === "run",
+    match: (category) => getSportForCategory(category) === "run",
   },
   {
     id: "strength",
     label: "STRENGTH",
     color: "#111111",
-    match: (category) => category === "strength",
+    match: (category) => getSportForCategory(category) === "strength",
   },
   {
     id: "weight_training",
     label: "WEIGHTS",
     color: "#3b4a6b",
-    match: (category) => category === "weight_training",
+    match: (category) => getSportForCategory(category) === "weight_training",
   },
   {
     id: "hike",
     label: "HIKE",
     color: "#8b6f47",
-    match: (category) => category === "hike",
+    match: (category) => getSportForCategory(category) === "hike",
   },
   {
     id: "walk",
     label: "WALK",
     color: "#a8a29e",
-    match: (category) => category === "walk",
+    match: (category) => getSportForCategory(category) === "walk",
   },
   {
     id: "cricket",
     label: "CRICKET",
     color: "#2dd4bf",
-    match: (category) => category === "cricket",
+    match: (category) => getSportForCategory(category) === "cricket",
   },
   {
     id: "football",
     label: "FOOTBALL",
     color: "#e11d48",
-    match: (category) => category === "football",
+    match: (category) => getSportForCategory(category) === "football",
   },
   {
     id: "workout",
     label: "WORKOUT",
     color: "#6b7280",
-    match: (category) => category === "workout",
+    match: (category) => getSportForCategory(category) === "workout",
   },
   {
     id: "swim",
     label: "SWIM",
     color: "#0ea5e9",
-    match: (category) => category === "swim",
+    match: (category) => getSportForCategory(category) === "swim",
   },
   {
     id: "other",
     label: "OTHER",
     color: "#9a9b90",
-    match: (category) => category === "other",
+    match: (category) => getSportForCategory(category) === "other",
   },
 ];
 

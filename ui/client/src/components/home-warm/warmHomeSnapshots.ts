@@ -54,22 +54,12 @@ function isoWeek(date = new Date()) {
   return Math.ceil((((utc.getTime() - yearStart.getTime()) / DAY_MS) + 1) / 7);
 }
 
+import { getSportForCategory } from "@/lib/categoryResolver";
+
 export function categoryToSport(category: TrainingCategory): WarmSportId {
-  const cat = (category || "").toUpperCase();
-  if (["RNK", "FRN", "CAS", "LGE", "BADMINTON"].includes(cat) || category.startsWith("badminton")) return "badminton";
-  if (cat === "CAL" || category === "calisthenics") return "calisthenics";
-  if (["FDN", "REC", "RLN", "FOUNDATION", "RECOVERY", "REALIGN"].includes(cat)) return "foundation";
-  if (cat === "RDE" || category === "ride") return "cycling";
-  if (["LNG", "SPR", "EZR", "RUN"].includes(cat) || category === "run") return "run";
-  if (cat === "STR" || category === "strength") return "strength";
-  if (cat === "WGT" || category === "weight_training") return "weight_training";
-  if (cat === "HIK" || category === "hike") return "hike";
-  if (cat === "WLK" || category === "walk") return "walk";
-  if (cat === "CRK" || category === "cricket") return "cricket";
-  if (cat === "FBL" || category === "football") return "football";
-  if (cat === "WKT" || category === "workout") return "workout";
-  if (cat === "SWM" || category === "swim") return "swim";
-  return "other";
+  const sport = getSportForCategory(category);
+  if (sport === "recovery" || sport === "realign") return "foundation";
+  return (sport as WarmSportId) || "other";
 }
 
 function disciplineToSport(discipline: SessionDiscipline): WarmSportId | "recovery" {

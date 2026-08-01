@@ -209,6 +209,8 @@ if (isHqMonorepo(REPO_ROOT)) {
   process.exit(0);
 }
 
+const aggregate = buildAggregate();
+
 const catPath = categoriesPath(REPO_ROOT);
 if (fs.existsSync(catPath)) {
   fs.copyFileSync(catPath, path.join(OUT_DIR, "categories.json"));

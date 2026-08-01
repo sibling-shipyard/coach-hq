@@ -156,11 +156,13 @@ export interface CalisthenicsHeaderStats {
   blockMeta: string;
 }
 
+function isCalisthenicsActivity(activity: Activity): boolean {
+  const cat = getTrainingCategory(activity);
+  return cat === "calisthenics" || cat === "CAL" || activity.sport_type === "Calisthenics";
+}
+
 function buildHeaderStats(activities: Activity[], challenge: ChallengeV2): CalisthenicsHeaderStats {
-  const sessions = activities.filter((a) => {
-    const cat = getTrainingCategory(a);
-    return cat === "calisthenics" || cat === "CAL";
-  });
+  const sessions = activities.filter(isCalisthenicsActivity);
   return {
     totalSessions: sessions.length,
     metaLine: `${sessions.length} sessions`,
@@ -461,7 +463,7 @@ export interface ConsistencySnapshot {
 }
 
 function buildConsistency(activities: Activity[], now: number): ConsistencySnapshot {
-  const calSessions = activities.filter((a) => getTrainingCategory(a) === "calisthenics");
+  const calSessions = activities.filter(isCalisthenicsActivity);
   if (calSessions.length === 0) {
     return {
       available: false,
@@ -575,7 +577,7 @@ export function buildCalisthenicsActivityHeatmap(
   let sessionCount52w = 0;
 
   for (const activity of activities) {
-    if (getTrainingCategory(activity) !== "calisthenics") continue;
+    if (!isCalisthenicsActivity(activity)) continue;
     const date = parseLocal(activity.start_date_local);
     const timestamp = date.getTime();
     const key = localDateKey(date);

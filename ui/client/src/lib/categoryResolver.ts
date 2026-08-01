@@ -1,3 +1,5 @@
+import categoriesJson from "@/data/categories.json";
+
 export interface CategoryRule {
   duration_lt?: number;
   duration_gte?: number;
@@ -98,3 +100,55 @@ export function buildCategoryLookup(config: CategoryConfigInput): Record<string,
 
   return lookup;
 }
+
+const defaultCategoryLookup = buildCategoryLookup(categoriesJson as CategoryConfigInput);
+
+/**
+ * Derives the sport / discipline identifier (e.g. "badminton", "run", "calisthenics", "foundation", "cycling", "recovery", etc.)
+ * for a given category code or category string using the category lookup config.
+ */
+export function getSportForCategory(category: string, config?: CategoryConfigInput): string {
+  const cat = (category || "").trim();
+  if (!cat) return "other";
+
+  const lookup = config ? buildCategoryLookup(config) : defaultCategoryLookup;
+  
+  // Direct code lookup (exact match or uppercase match)
+  const entry = lookup[cat] || lookup[cat.toUpperCase()];
+  if (entry) {
+    const labelLower = (entry.label || "").toLowerCase();
+    if (labelLower === "foundation") return "foundation";
+    if (labelLower === "calisthenics") return "calisthenics";
+    if (labelLower === "realign" || labelLower === "recovery") return "recovery";
+
+    const sportLower = (entry.sport || "").toLowerCase();
+    if (sportLower === "ride" || sportLower === "cycling" || sportLower === "bike") return "cycling";
+    if (sportLower === "yoga") return "recovery";
+    if (sportLower === "weighttraining" || sportLower === "weight_training" || sportLower === "strength") {
+      return labelLower.includes("strength") ? "strength" : "weight_training";
+    }
+    if (["badminton", "run", "calisthenics", "foundation", "recovery", "hike", "walk", "cricket", "football", "workout", "swim"].includes(sportLower)) {
+      return sportLower;
+    }
+  }
+
+  // Fallback pattern / name matching for full category strings or direct sport names
+  const lower = cat.toLowerCase();
+  if (lower.startsWith("badminton")) return "badminton";
+  if (lower === "calisthenics" || lower === "calisthenic") return "calisthenics";
+  if (lower === "ride" || lower === "cycling" || lower === "bike") return "cycling";
+  if (lower === "foundation") return "foundation";
+  if (lower === "recovery" || lower === "realign" || lower === "mobility") return "recovery";
+  if (lower === "run" || lower === "running") return "run";
+  if (lower === "strength") return "strength";
+  if (lower === "weight_training" || lower === "weights" || lower === "weighttraining") return "weight_training";
+  if (lower === "hike") return "hike";
+  if (lower === "walk") return "walk";
+  if (lower === "cricket") return "cricket";
+  if (lower === "football") return "football";
+  if (lower === "workout") return "workout";
+  if (lower === "swim") return "swim";
+
+  return "other";
+}
+

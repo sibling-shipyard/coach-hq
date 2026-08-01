@@ -14,31 +14,47 @@ flowchart LR
     Act -->|read| Quest["Quest engine\ncount_category: 'FDN'"]
 ```
 
-## Config file — `user_data/categories.json`
+## Config file — `user_data/categories.json` (Canonical Array Format)
 
 ```json
-{
-  "Badminton": {
-    "RNK": { "label": "Ranked" },
-    "FRN": { "label": "Friendly" },
-    "LGE": { "label": "League" }
+[
+  {
+    "sport": "Badminton",
+    "categories": [
+      { "code": "RNK", "label": "Ranked", "rule": { "weekday": "Mon" } },
+      { "code": "FRN", "label": "Friendly", "rule": { "weekday": "Thu" } },
+      { "code": "CAS", "label": "Casual" }
+    ]
   },
-  "WeightTraining": {
-    "FDN": { "label": "Foundation", "rule": { "duration_lt": 1500 } },
-    "CAL": { "label": "Calisthenics", "rule": { "duration_gte": 1500 } }
+  {
+    "sport": "WeightTraining",
+    "categories": [
+      { "code": "FDN", "label": "Foundation", "rule": { "duration_lt": 1500 } },
+      { "code": "CAL", "label": "Calisthenics" }
+    ]
   },
-  "Run": {
-    "LNG": { "label": "Long Run", "rule": { "duration_gte": 2400 } },
-    "SPR": { "label": "Sprint", "rule": { "duration_lt": 1200 } },
-    "EZR": { "label": "Easy Run" }
+  {
+    "sport": "Run",
+    "categories": [
+      { "code": "LNG", "label": "Long Run", "rule": { "duration_gte": 2400 } },
+      { "code": "SPR", "label": "Sprint", "rule": { "duration_lt": 1200 } },
+      { "code": "EZR", "label": "Easy Run" }
+    ]
   },
-  "Ride": {
-    "RDE": { "label": "Ride" }
+  {
+    "sport": "Ride",
+    "categories": [
+      { "code": "RDE", "label": "Ride" }
+    ]
   },
-  "Yoga": {
-    "REC": { "label": "Recovery" }
+  {
+    "sport": "Yoga",
+    "categories": [
+      { "code": "RLN", "label": "Realign", "rule": { "weekday": "Sun" } },
+      { "code": "REC", "label": "Recovery" }
+    ]
   }
-}
+]
 ```
 
 **Constraints:** max 3 codes per sport. Each code is exactly 3 uppercase letters. Rules are first-match; last entry without a `rule` is the default.
