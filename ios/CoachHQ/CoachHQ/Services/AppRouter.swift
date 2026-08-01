@@ -124,8 +124,10 @@ final class AppRouter: ObservableObject {
 
     private func deriveState() {
         guard authManager.isSessionReady else { state = .bootstrapping; return }
-        guard authManager.isAuthenticated else { state = .unauthenticated; return }
+        // pendingSetupLogin is set by the needs_setup=1 callback branch, which does NOT set
+        // isAuthenticated — check it before the auth guard so SetupView renders correctly.
         if let login = authManager.pendingSetupLogin { state = .needsSetup(login: login); return }
+        guard authManager.isAuthenticated else { state = .unauthenticated; return }
         if authManager.selectedRepo != nil { state = .active; return }
         // isSessionReady + isAuthenticated + no repo + no pendingSetupLogin:
         // zombie-token path — bootstrapSession() should have called signOut(), but guard here.
