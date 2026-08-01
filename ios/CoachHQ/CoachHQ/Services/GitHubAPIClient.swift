@@ -198,6 +198,19 @@ class GitHubAPIClient {
         }
     }
 
+    /// Reads just `challenge.start_date` from `user_data/ledger/challenge_v2.json` - used by
+    /// Coach Chat's header day label (mirrors web's `challengeDayNumber()` in coachChatModel.ts).
+    /// Not the full challenge model - nothing else on iOS needs the rest of this file yet.
+    func readChallengeStartDate() async throws -> String? {
+        let data = try await readFile(path: "user_data/ledger/challenge_v2.json")
+        do {
+            let summary = try JSONDecoder().decode(ChallengeV2Summary.self, from: data)
+            return summary.challenge.startDate
+        } catch {
+            throw GitHubAPIError.decodingFailed(operation: "Parsing challenge_v2.json")
+        }
+    }
+
     /// Reads the full badminton match history from `user_data/activities/match_history.json`.
     func readMatchHistory() async throws -> MatchHistory {
         let data = try await readFile(path: "user_data/activities/match_history.json")
@@ -542,6 +555,17 @@ struct GitHubFileContent: Codable {
     let content: String?
     let sha: String?
     let encoding: String?
+}
+
+struct ChallengeV2Summary: Codable {
+    struct Challenge: Codable {
+        let startDate: String?
+
+        enum CodingKeys: String, CodingKey {
+            case startDate = "start_date"
+        }
+    }
+    let challenge: Challenge
 }
 
 private struct GitRef: Decodable, Sendable {
