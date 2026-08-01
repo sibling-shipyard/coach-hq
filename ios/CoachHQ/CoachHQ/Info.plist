@@ -4,6 +4,8 @@
 <dict>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Coach HQ needs access to your health data to sync workouts, heart rate, and recovery metrics to your coaching dashboard.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Coach HQ writes workout data to HealthKit so your training is reflected across all your health apps.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

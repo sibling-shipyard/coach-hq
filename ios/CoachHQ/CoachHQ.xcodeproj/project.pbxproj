@@ -398,7 +398,7 @@
 				CODE_SIGN_ENTITLEMENTS = CoachHQ/CoachHQ.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q9S8XL6SS8;
+				DEVELOPMENT_TEAM = Z642PXCYBK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CoachHQ/Info.plist;
@@ -413,7 +413,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq;
+				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -437,7 +437,7 @@
 				CODE_SIGN_ENTITLEMENTS = CoachHQ/CoachHQ.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q9S8XL6SS8;
+				DEVELOPMENT_TEAM = Z642PXCYBK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CoachHQ/Info.plist;
@@ -452,7 +452,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq;
+				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -475,7 +475,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q9S8XL6SS8;
+				DEVELOPMENT_TEAM = Z642PXCYBK;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CoachHQWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Coach HQ";
@@ -486,7 +486,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.CoachHQWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.app.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -505,7 +505,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Q9S8XL6SS8;
+				DEVELOPMENT_TEAM = Z642PXCYBK;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CoachHQWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Coach HQ";
@@ -516,7 +516,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 0.2.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.CoachHQWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.app.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
