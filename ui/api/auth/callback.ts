@@ -170,6 +170,22 @@ async function handleCallback(req: Request, url: URL): Promise<Response> {
     }
 
     if (!installationId) {
+      // iOS: include the token so GitHubAuthManager can call fetchUser() and populate
+      // user.id before the install step. install-redirect.ts requires a valid
+      // suggested_target_id for /installations/new/permissions; without user.id that
+      // parameter is absent and GitHub returns 404.
+      if (platform === "ios") {
+        const headers = new Headers();
+        headers.set(
+          "Location",
+          `coachhq://callback?needs_setup=1&login=${encodeURIComponent(user.login as string)}` +
+            `&token=${encodeURIComponent(ghToken)}` +
+            `&refresh_token=${encodeURIComponent(ghRefreshToken)}` +
+            `&expires_at=${ghTokenExpiresAt}`,
+        );
+        headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
+        return new Response(null, { status: 302, headers });
+      }
       return setupRedirect(url.origin, user.login as string, platform, popup);
     }
 
