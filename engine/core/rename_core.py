@@ -42,6 +42,7 @@ def is_already_renamed(name: str) -> bool:
 
 def classify_activity(
     data: dict,
+    config: Optional[list[dict]] = None
 ) -> Tuple[str, Optional[str], Optional[str]]:
     """Classify an activity and attach the 'category' to the dictionary.
     
@@ -51,29 +52,23 @@ def classify_activity(
     if sport in SKIP_SPORTS:
         return ("skip", None, None)
 
-    start = data.get("start_date_local", "")
-    if start:
-        dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
-    else:
-        dt = datetime.now()
-    dow = dt.weekday()  # 0=Mon, 6=Sun
-    dur_sec = data.get("elapsed_time", 0)
+    if config is None:
+        try:
+            import os
+            from .category_resolver import load_config
+            # Try to resolve default path assuming engine/core location
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            default_config_path = os.path.join(os.path.dirname(os.path.dirname(current_dir)), "shared", "golden-dataset", "categories.json")
+            config = load_config(default_config_path)
+        except Exception:
+            config = []
 
-    if sport == "WeightTraining":
-        category = "foundation" if dur_sec < 1500 else "calisthenics"
-    elif sport == "Yoga":
-        category = "realign" if dow == 6 else "recovery"
-    elif sport == "Badminton":
-        category = "badminton"
-    elif sport == "Run":
-        category = "run"
-    elif sport == "Ride":
-        category = "ride"
-    elif sport == "Swim":
-        category = "swim"
-    else:
-        category = sport.lower()
-
+    try:
+        from .category_resolver import resolve_from_activity
+    except ImportError:
+        from category_resolver import resolve_from_activity
+        
+    category = resolve_from_activity(data, config)
     data["category"] = category
     return (category, sport, sport)
 

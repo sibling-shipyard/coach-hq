@@ -19,7 +19,7 @@ const ACTIVITY_LEGEND: Array<{ state: Exclude<ActivityCellState, "empty">; label
 ];
 
 function legendForCells(cells: ActivityCellState[]) {
-  const used = new Set(cells.filter((cell) => cell !== "empty"));
+  const used = new Set(cells.filter((cell): cell is Exclude<ActivityCellState, "empty"> => cell !== "empty"));
   return ACTIVITY_LEGEND.filter((item) => used.has(item.state));
 }
 

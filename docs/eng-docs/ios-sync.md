@@ -70,7 +70,7 @@ sequenceDiagram
    - `ActivityNamer` assigns the sequential name (e.g. "WeightTraining #30") and the filename —
      `hk_YYYY-MM-DD_<uuid>.json`, where `<uuid>` is the `HKWorkout.uuid`. The `hk_` prefix
      distinguishes it from Strava-sourced files.
-   - It derives a 3-letter `category` code (e.g., "FDN", "RNK") based on `categories.json` in the athlete repo, using `sport_type` and ordered first-match rules for workout metadata (duration, weekday).
+   - It derives a 3-letter `category` code (e.g., "FDN", "RNK") based on the `categories.json` config file in the athlete repo, using `sport_type` and ordered first-match rules for workout metadata (duration, weekday). This handles machine classification without regex parsing names, writing it to the activity file.
 
 ### Canonical id — HKWorkout uuid
 

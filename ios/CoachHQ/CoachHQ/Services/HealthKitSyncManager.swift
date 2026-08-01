@@ -214,6 +214,12 @@ class HealthKitSyncManager: ObservableObject {
             var existingFileNames = Set(existingFiles.map { $0.name })
             var counters = syncState.counters ?? [:]
 
+            var configContainer: CategoriesConfigContainer = .array([])
+            if let configData = try? await apiClient.readFile(path: "user_data/activities/categories.json"),
+               let parsedContainer = CategoryConfig.decodeContainer(from: configData) {
+                configContainer = parsedContainer
+            }
+
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             var filesToCommit: [(path: String, data: Data)] = []
@@ -258,14 +264,13 @@ class HealthKitSyncManager: ObservableObject {
                     idStr: base.idStr
                 )
 
-                let named = ActivityNamer.assignName(activity: withHR, counters: &counters)
+                let named = ActivityNamer.assignName(activity: withHR, counters: &counters, container: configContainer)
 
                 // Cheap uuid-filename dedup: the uuid filename is deterministic,
                 // so if this workout's uuid already appears in any committed
                 // filename, it's already synced. Filename-only (no file reads).
                 if let uuid = named.activityId,
                    existingFiles.contains(where: { $0.name.contains("_\(uuid).json") }) { continue }
-
                 let fileName = ActivityNamer.fileName(for: named)
                 if existingFileNames.contains(fileName) { continue }
 

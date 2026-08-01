@@ -8,40 +8,30 @@ from pathlib import Path
 
 _here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_here.parent / "lib"))
+sys.path.insert(0, str(_here.parent / "core"))
 from repo_layout import hist_dir, repo_root_from_here
+try:
+    from category_resolver import load_config, resolve_from_activity
+except ImportError:
+    pass
 
-def derive_category(activity: dict) -> str:
-    sport = activity.get("sport_type", activity.get("type", ""))
-    start = activity.get("start_date_local", "")
-    if start:
-        dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
-    else:
-        dt = datetime.now()
-    dow = dt.weekday()
-    dur_sec = activity.get("elapsed_time", 0)
 
-    if sport == "WeightTraining":
-        return "foundation" if dur_sec < 1500 else "calisthenics"
-    elif sport == "Yoga":
-        return "realign" if dow == 6 else "recovery"
-    elif sport == "Badminton":
-        return "badminton"
-    elif sport == "Run":
-        return "run"
-    elif sport == "Ride":
-        return "ride"
-    elif sport == "Swim":
-        return "swim"
-    
-    return sport.lower()
 
 def main():
     parser = argparse.ArgumentParser(description="Backfill category on existing activities.")
     parser.add_argument("--dry-run", action="store_true", help="Print what would change without writing")
+    parser.add_argument("--force", action="store_true", help="Re-derive category even if already present")
+    parser.add_argument("--config", help="Path to categories.json config file")
     args = parser.parse_args()
 
     root = repo_root_from_here(__file__)
     h_dir = hist_dir(root)
+    
+    config_path = args.config
+    if not config_path:
+        config_path = root / "shared" / "golden-dataset" / "categories.json"
+        
+    config = load_config(str(config_path))
     
     changed_count = 0
     skipped_count = 0
@@ -51,11 +41,11 @@ def main():
             with open(fp, "r") as f:
                 data = json.load(f)
             
-            if "category" in data:
+            if "category" in data and not args.force:
                 skipped_count += 1
                 continue
             
-            cat = derive_category(data)
+            cat = resolve_from_activity(data, config)
             
             if args.dry_run:
                 print(f"[Dry Run] Would set category='{cat}' in {Path(fp).name}")

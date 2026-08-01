@@ -3,6 +3,7 @@ import Foundation
 /// Assigns sequential names to activities based on sport type.
 struct ActivityNamer {
 
+    // MARK: - Public API
     /// Assigns a generic sequential name and derives category.
     static func assignName(activity: Activity, counters: inout [String: Int], container: CategoriesConfigContainer) -> Activity {
         let category = CategoryConfig.resolve(sportType: activity.sportType, elapsedTime: activity.elapsedTime, startDateLocal: activity.startDateLocal, container: container)
@@ -91,19 +92,5 @@ struct ActivityNamer {
     }
 
     // MARK: - Helpers
-
-    /// Returns weekday from ISO date string (0=Monday, 6=Sunday) to match Python's weekday().
-    private static func weekday(from dateString: String) -> Int {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        formatter.timeZone = .current
-
-        guard let date = formatter.date(from: dateString) else { return -1 }
-
-        // Calendar weekday: 1=Sunday, 2=Monday, ..., 7=Saturday
-        // Python weekday: 0=Monday, ..., 6=Sunday
-        let calendarWeekday = Calendar.current.component(.weekday, from: date)
-        return (calendarWeekday + 5) % 7 // Convert: Sun(1)→6, Mon(2)→0, ..., Sat(7)→5
-    }
 }
 

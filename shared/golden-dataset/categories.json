@@ -1,0 +1,26 @@
+{
+  "Badminton": {
+    "RNK": { "label": "Ranked", "rule": { "weekday": "Mon" } },
+    "FRN": { "label": "Friendly", "rule": { "weekday": "Thu" } },
+    "CAS": { "label": "Casual" }
+  },
+  "WeightTraining": {
+    "FDN": { "label": "Foundation", "rule": { "duration_lt": 1500 } },
+    "CAL": { "label": "Calisthenics" }
+  },
+  "Run": {
+    "LNG": { "label": "Long Run", "rule": { "duration_gte": 2400 } },
+    "SPR": { "label": "Sprint", "rule": { "duration_lt": 1200 } },
+    "EZR": { "label": "Easy Run" }
+  },
+  "Ride": {
+    "RDE": { "label": "Ride" }
+  },
+  "Yoga": {
+    "RLN": { "label": "Realign", "rule": { "weekday": "Sun" } },
+    "REC": { "label": "Recovery" }
+  },
+  "Swim": {
+    "SWM": { "label": "Swim" }
+  }
+}

@@ -29,10 +29,21 @@ BADMINTON_CATEGORIES = {
 
 
 from datetime import datetime
+from typing import Optional, List, Dict
 
-def get_training_category(activity: dict) -> str:
+def get_training_category(activity: dict, config: Optional[List[Dict]] = None) -> str:
     """Classify activity into a training category (Python port of dashboard TS logic)."""
     cat = activity.get("category")
+    if cat and len(cat) == 3 and cat.isupper():
+        return cat
+        
+    if config is not None:
+        try:
+            from .category_resolver import resolve_from_activity
+        except ImportError:
+            from category_resolver import resolve_from_activity
+        return resolve_from_activity(activity, config)
+        
     if cat:
         return BADMINTON_CASUAL if cat == "badminton" else cat
 
