@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var syncManager: HealthKitSyncManager
+    @EnvironmentObject var router: AppRouter
     @ObservedObject var testMode = TestModeManager.shared
     @AppStorage(Theme.darkModeKey) private var darkModeEnabled = false
     @AppStorage(UserFacingError.devModeKey) private var devModeEnabled = false
@@ -425,7 +426,67 @@ struct SettingsView: View {
                     .font(.system(size: 12))
                     .foregroundColor(WarmInstrument.inkFaint)
             }
+
+            WarmSettingsDivider()
+            diagnosticsSection
         }
+    }
+
+    // MARK: - Diagnostics
+
+    private var diagnosticsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                MonoLabel("DIAGNOSTICS", size: 9, color: WarmInstrument.inkFaint, tracking: 1.2)
+                Spacer()
+                Button {
+                    UIPasteboard.general.string = diagnosticsText
+                    Haptics.tap()
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                }
+                .buttonStyle(.plain)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                DiagRow(key: "appState",        value: appStateLabel)
+                DiagRow(key: "onboardingPhase", value: "\(router.onboardingPhase)")
+                DiagRow(key: "effectivePhase",  value: "\(router.effectivePhase)")
+                DiagRow(key: "sessionReady",    value: "\(authManager.isSessionReady)")
+                DiagRow(key: "sessionExpired",  value: "\(authManager.sessionExpired)")
+                DiagRow(key: "hkGranted",       value: "\(syncManager.hkAuthorizationGranted)")
+                DiagRow(key: "repo",            value: authManager.selectedRepo ?? "nil")
+                DiagRow(key: "login",           value: authManager.user?.login ?? "nil")
+            }
+            .padding(10)
+            .background(WarmInstrument.desk)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+    }
+
+    private var appStateLabel: String {
+        switch router.state {
+        case .bootstrapping:          return "bootstrapping"
+        case .unauthenticated:        return "unauthenticated"
+        case .needsSetup(let login):  return "needsSetup(\(login))"
+        case .active:                 return "active"
+        }
+    }
+
+    private var diagnosticsText: String {
+        """
+        appState:        \(appStateLabel)
+        onboardingPhase: \(router.onboardingPhase)
+        effectivePhase:  \(router.effectivePhase)
+        sessionReady:    \(authManager.isSessionReady)
+        sessionExpired:  \(authManager.sessionExpired)
+        hkGranted:       \(syncManager.hkAuthorizationGranted)
+        repo:            \(authManager.selectedRepo ?? "nil")
+        login:           \(authManager.user?.login ?? "nil")
+        appVersion:      \(appVersion)
+        """
     }
 
     // MARK: - Helpers
@@ -593,6 +654,24 @@ private struct WarmSettingsInfoRow: View {
                 .font(WarmInstrument.figures(12, weight: valueWeight))
                 .foregroundColor(valueColor)
                 .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
+private struct DiagRow: View {
+    let key: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(key)
+                .font(WarmInstrument.monoLabel(10))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .frame(width: 120, alignment: .leading)
+            Text(value)
+                .font(WarmInstrument.figures(11, weight: .bold))
+                .foregroundColor(WarmInstrument.ink)
+                .lineLimit(1)
         }
     }
 }
