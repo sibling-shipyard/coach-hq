@@ -147,16 +147,33 @@ export async function commitFilesAtomic(
       parents: [headSha],
     });
 
-    const res = await fetch(`${GH_API}/repos/${ctx.repo}/git/refs/heads/${ctx.branch}`, {
-      method: "PATCH",
-      headers: jsonHeaders(ctx.token),
-      body: JSON.stringify({ sha: commit.sha }),
-    });
-    if (!res.ok) {
-      const detail = await res.text();
-      const status = res.status === 422 ? 409 : res.status; // 422 non-FF => retryable, same as iOS
-      const err = new Error(`Failed to update ref heads/${ctx.branch} (${status}): ${detail}`);
-      (err as any).status = status;
+    try {
+      const res = await fetch(`${GH_API}/repos/${ctx.repo}/git/refs/heads/${ctx.branch}`, {
+        method: "PATCH",
+        headers: jsonHeaders(ctx.token),
+        body: JSON.stringify({ sha: commit.sha }),
+      });
+      if (!res.ok) {
+        const detail = await res.text();
+        const status = res.status === 422 ? 409 : res.status; // 422 non-FF => retryable, same as iOS
+        const err = new Error(`Failed to update ref heads/${ctx.branch} (${status}): ${detail}`);
+        (err as any).status = status;
+        throw err;
+      }
+    } catch (err) {
+      // A network-level failure here (fetch() itself threw - timeout, connection reset) means
+      // we genuinely don't know whether the ref move landed before the response was lost. The
+      // withRetry wrapper would otherwise redo blob/tree/commit/ref from scratch on the
+      // assumption nothing happened - but if the PATCH above actually succeeded server-side,
+      // that would double-commit. Check first: if the ref already points at the commit we just
+      // tried to move it to, our write landed - treat it as success instead of retrying.
+      const status = (err as { status?: number }).status;
+      if (status == null) {
+        const recheck = await ghGet(`/git/ref/heads/${ctx.branch}`, ctx).catch(() => null);
+        if (recheck?.object?.sha === commit.sha) {
+          return { commitSha: commit.sha as string };
+        }
+      }
       throw err;
     }
 
