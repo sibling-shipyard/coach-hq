@@ -193,7 +193,7 @@ function badmintonDescription(rw, rl) {
 // ─── Activities ─────────────────────────────────────────────────────────────
 // ~26 weeks of history ending yesterday, so the training-activity heatmap, monthly
 // analytics, and VO2 trend all have real depth to work with — not just the most recent week.
-// Naming: generic {Sport} #{N} with a structured category field (ADR-0013).
+// Naming: generic {Sport} #{N} with a structured category field (ADR-0015).
 
 let nextId = 900000;
 let badmintonN = 0;

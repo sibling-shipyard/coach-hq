@@ -74,12 +74,12 @@ const CHALLENGE_V2_TEMPLATE = {
   },
   main_quest: {
     id: "main",
-    name: "20 Strength Sessions",
+    name: "20 Foundation Sessions",
     type: "count_target",
     target: 20,
     count_from: "strava",
-    count_pattern: "^Strength\\s*#",
-    notes: "Regex matched against Strava activity names from challenge start date",
+    count_category: "FDN",
+    notes: "Matched against FDN category activities from challenge start date",
   },
   quests: [
     {
@@ -492,6 +492,11 @@ function carve(outDir, sha) {
   writeText(outDir, "user_data/coach/reference/.gitkeep", "");
   writeText(outDir, "user_data/activities/hist/.gitkeep", "");
   writeJson(outDir, "user_data/activities/sync_state.json", SYNC_STATE_TEMPLATE);
+  writeJson(
+    outDir,
+    "user_data/categories.json",
+    JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "shared/golden-dataset/categories.json"), "utf-8"))
+  );
 
   for (const tpl of WORKOUT_TEMPLATES) {
     copyEngineTemplate(outDir, tpl);

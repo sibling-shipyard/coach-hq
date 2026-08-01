@@ -157,7 +157,10 @@ export interface CalisthenicsHeaderStats {
 }
 
 function buildHeaderStats(activities: Activity[], challenge: ChallengeV2): CalisthenicsHeaderStats {
-  const sessions = activities.filter((a) => getTrainingCategory(a) === "calisthenics");
+  const sessions = activities.filter((a) => {
+    const cat = getTrainingCategory(a);
+    return cat === "calisthenics" || cat === "CAL";
+  });
   return {
     totalSessions: sessions.length,
     metaLine: `${sessions.length} sessions`,

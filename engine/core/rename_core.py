@@ -42,7 +42,7 @@ def is_already_renamed(name: str) -> bool:
 
 def classify_activity(
     data: dict,
-    config: Optional[list[dict]] = None
+    config: Optional[Union[dict, list]] = None
 ) -> Tuple[str, Optional[str], Optional[str]]:
     """Classify an activity and attach the 'category' to the dictionary.
     
@@ -54,12 +54,11 @@ def classify_activity(
 
     if config is None:
         try:
-            import os
+            from repo_layout import categories_path, repo_root_from_here
             from .category_resolver import load_config
-            # Try to resolve default path assuming engine/core location
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            default_config_path = os.path.join(os.path.dirname(os.path.dirname(current_dir)), "shared", "golden-dataset", "categories.json")
-            config = load_config(default_config_path)
+            root = repo_root_from_here(__file__)
+            cfg_path = categories_path(root)
+            config = load_config(str(cfg_path)) if cfg_path.is_file() else []
         except Exception:
             config = []
 

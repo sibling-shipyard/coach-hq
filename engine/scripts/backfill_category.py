@@ -9,12 +9,8 @@ from pathlib import Path
 _here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_here.parent / "lib"))
 sys.path.insert(0, str(_here.parent / "core"))
-from repo_layout import hist_dir, repo_root_from_here
-try:
-    from category_resolver import load_config, resolve_from_activity
-except ImportError:
-    pass
-
+from repo_layout import categories_path, hist_dir, repo_root_from_here
+from category_resolver import load_config, resolve_from_activity
 
 
 def main():
@@ -27,9 +23,10 @@ def main():
     root = repo_root_from_here(__file__)
     h_dir = hist_dir(root)
     
-    config_path = args.config
-    if not config_path:
-        config_path = root / "shared" / "golden-dataset" / "categories.json"
+    config_path = Path(args.config) if args.config else categories_path(root)
+    if not config_path.is_file():
+        print(f"Error: Categories config not found at {config_path}", file=sys.stderr)
+        sys.exit(1)
         
     config = load_config(str(config_path))
     

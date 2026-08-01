@@ -215,8 +215,8 @@ class HealthKitSyncManager: ObservableObject {
             var counters = syncState.counters ?? [:]
 
             var configContainer: CategoriesConfigContainer = .array([])
-            if let configData = try? await apiClient.readFile(path: "user_data/activities/categories.json"),
-               let parsedContainer = CategoryConfig.decodeContainer(from: configData) {
+            let configData = (try? await apiClient.readFile(path: "user_data/categories.json")) ?? (try? await apiClient.readFile(path: "user_data/activities/categories.json"))
+            if let data = configData, let parsedContainer = CategoryConfig.decodeContainer(from: data) {
                 configContainer = parsedContainer
             }
 

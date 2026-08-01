@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   aggregatePath,
+  categoriesPath,
   goldenRepoDataDir,
   histDir,
   isHqMonorepo,
@@ -208,7 +209,11 @@ if (isHqMonorepo(REPO_ROOT)) {
   process.exit(0);
 }
 
-const aggregate = buildAggregate();
+const catPath = categoriesPath(REPO_ROOT);
+if (fs.existsSync(catPath)) {
+  fs.copyFileSync(catPath, path.join(OUT_DIR, "categories.json"));
+  console.log("✓ categories.json loaded");
+}
 
 fs.writeFileSync(path.join(OUT_DIR, "activities.json"), JSON.stringify(aggregate.activities, null, 0));
 if (aggregate.challenge_v2) {

@@ -281,16 +281,17 @@ function calisthenicsFocus(activities: Activity[]): string {
 function buildCommitments(activities: Activity[]): CommitmentModel[] {
   const thisWeek = getThisWeekActivities(activities);
   const rides = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "ride",
+    (activity) => ["ride", "RDE"].includes(getTrainingCategory(activity)),
   );
   const foundation = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "foundation",
+    (activity) => ["foundation", "FDN"].includes(getTrainingCategory(activity)),
   );
   const badminton = thisWeek.filter((activity) =>
+    ["badminton", "badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual", "RNK", "FRN", "CAS", "LGE"].includes(getTrainingCategory(activity)) ||
     getTrainingCategory(activity).startsWith("badminton"),
   );
   const calisthenics = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "calisthenics",
+    (activity) => ["calisthenics", "CAL"].includes(getTrainingCategory(activity)),
   );
 
   let rankedWins = 0;
@@ -303,7 +304,7 @@ function buildCommitments(activities: Activity[]): CommitmentModel[] {
     const category = getTrainingCategory(activity);
     allWins += record.all.wins;
     allLosses += record.all.losses;
-    if (category === "badminton_ranked" || category === "badminton_league") {
+    if (["badminton_ranked", "badminton_league", "RNK", "LGE"].includes(category)) {
       rankedWins += record.ranked.wins;
       rankedLosses += record.ranked.losses;
     }

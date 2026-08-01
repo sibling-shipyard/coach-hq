@@ -40,7 +40,6 @@ struct ActivityNamer {
     }
 
     /// Generates the file name for an activity.
-<<<<<<< HEAD
     /// Format: `hk_YYYY-MM-DD_<uuid>.json`, where `<uuid>` is the HKWorkout uuid
     /// (`activity.activityId`). The `YYYY-MM-DD` prefix is kept for browsability
     /// and the pipeline's date-prefilter. The uuid makes the filename
@@ -79,16 +78,6 @@ struct ActivityNamer {
         }
 
         return "hk_\(date)_\(fileCategory)_\(number).json"
-=======
-    /// Format: `hk_YYYY-MM-DD_HHMMSS_<UUID>.json` or similar unique string.
-    static func fileName(for activity: Activity) -> String {
-        let date = String(activity.startDateLocal.prefix(10)) // YYYY-MM-DD
-        let time = String(activity.startDateLocal.dropFirst(11).prefix(8))
-            .replacingOccurrences(of: ":", with: "")
-        let idPart = UUID().uuidString.prefix(8).lowercased()
-        
-        return "hk_\(date)_\(time)_\(idPart).json"
->>>>>>> df6a543 (core: generic naming + category field (fixes #143))
     }
 
     // MARK: - Helpers

@@ -50,6 +50,14 @@ def golden_repo_data_dir(repo: Path) -> Path:
     return repo / "shared" / "golden-dataset" / "repo-data"
 
 
+def categories_path(repo: Path) -> Path:
+    if is_hq_monorepo(repo):
+        return repo / "shared" / "golden-dataset" / "categories.json"
+    if uses_new_layout(repo):
+        return repo / "user_data" / "categories.json"
+    return repo / "training" / "categories.json"
+
+
 def engine_root(repo: Path) -> Path:
     eng = repo / "engine"
     return eng if eng.is_dir() else repo

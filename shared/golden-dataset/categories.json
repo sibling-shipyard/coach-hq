@@ -1,26 +1,44 @@
-{
-  "Badminton": {
-    "RNK": { "label": "Ranked", "rule": { "weekday": "Mon" } },
-    "FRN": { "label": "Friendly", "rule": { "weekday": "Thu" } },
-    "CAS": { "label": "Casual" }
+[
+  {
+    "sport": "Badminton",
+    "categories": [
+      { "code": "RNK", "label": "Ranked", "rule": { "weekday": "Mon" } },
+      { "code": "FRN", "label": "Friendly", "rule": { "weekday": "Thu" } },
+      { "code": "CAS", "label": "Casual" }
+    ]
   },
-  "WeightTraining": {
-    "FDN": { "label": "Foundation", "rule": { "duration_lt": 1500 } },
-    "CAL": { "label": "Calisthenics" }
+  {
+    "sport": "WeightTraining",
+    "categories": [
+      { "code": "FDN", "label": "Foundation", "rule": { "duration_lt": 1500 } },
+      { "code": "CAL", "label": "Calisthenics" }
+    ]
   },
-  "Run": {
-    "LNG": { "label": "Long Run", "rule": { "duration_gte": 2400 } },
-    "SPR": { "label": "Sprint", "rule": { "duration_lt": 1200 } },
-    "EZR": { "label": "Easy Run" }
+  {
+    "sport": "Run",
+    "categories": [
+      { "code": "LNG", "label": "Long Run", "rule": { "duration_gte": 2400 } },
+      { "code": "SPR", "label": "Sprint", "rule": { "duration_lt": 1200 } },
+      { "code": "EZR", "label": "Easy Run" }
+    ]
   },
-  "Ride": {
-    "RDE": { "label": "Ride" }
+  {
+    "sport": "Ride",
+    "categories": [
+      { "code": "RDE", "label": "Ride" }
+    ]
   },
-  "Yoga": {
-    "RLN": { "label": "Realign", "rule": { "weekday": "Sun" } },
-    "REC": { "label": "Recovery" }
+  {
+    "sport": "Yoga",
+    "categories": [
+      { "code": "RLN", "label": "Realign", "rule": { "weekday": "Sun" } },
+      { "code": "REC", "label": "Recovery" }
+    ]
   },
-  "Swim": {
-    "SWM": { "label": "Swim" }
+  {
+    "sport": "Swim",
+    "categories": [
+      { "code": "SWM", "label": "Swim" }
+    ]
   }
-}
+]

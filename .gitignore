@@ -8,10 +8,7 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
-node_modules/
-scratch/
-training/
-badminton_match_data.json
+ui/node_modules/
 ui/dist/
 ui/client/src/data/
 shared/golden-dataset/repo-data/

@@ -57,6 +57,15 @@ export function goldenRepoDataDir(repoRootPath) {
   return path.join(repoRootPath, "shared/golden-dataset/repo-data");
 }
 
+export function categoriesPath(repoRootPath) {
+  if (isHqMonorepo(repoRootPath)) {
+    return path.join(repoRootPath, "shared", "golden-dataset", "categories.json");
+  }
+  return usesNewLayout(repoRootPath)
+    ? path.join(repoRootPath, "user_data", "categories.json")
+    : path.join(repoRootPath, "training", "categories.json");
+}
+
 export function soulDir(repoRootPath) {
   const inPlatform = path.join(repoRootPath, "platform", "soul");
   if (fs.existsSync(inPlatform)) return inPlatform;

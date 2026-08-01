@@ -42,11 +42,10 @@ export interface Activity {
 // ─── Training Category Classification ───────────────────────────────────────
 // Based on activity name patterns from the enrichment pipeline.
 
+import categoriesJson from "@/data/categories.json";
 import { type CategoryConfigInput, resolveCategory } from "./categoryResolver";
 
-const catModules = import.meta.glob("@/data/categories.json", { eager: true });
-const catValues = Object.values(catModules);
-const loadedCategories: CategoryConfigInput = catValues.length > 0 ? (catValues[0] as any).default : {};
+const loadedCategories: CategoryConfigInput = (categoriesJson as any) ?? [];
 
 export type TrainingCategory = string;
 
