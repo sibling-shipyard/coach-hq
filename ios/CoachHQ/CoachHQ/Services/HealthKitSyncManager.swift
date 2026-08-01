@@ -28,6 +28,17 @@ class HealthKitSyncManager: ObservableObject {
 
     @Published var isHKObserverActive = false
 
+    /// Persisted flag set only when the user explicitly connects HealthKit (pre-prompt
+    /// "Connect Health" or Settings button). Distinct from `isHKObserverActive`, which
+    /// is also set when we silently re-attempt authorization on launch for skipped users.
+    var hkAuthorizationGranted: Bool {
+        get { UserDefaults.standard.bool(forKey: "hkAuthorizationGranted") }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue, forKey: "hkAuthorizationGranted")
+        }
+    }
+
     private let healthStore = HKHealthStore()
     private var apiClient: GitHubAPIClient?
     private var widgetStore: WidgetSnapshotStore?
@@ -90,6 +101,7 @@ class HealthKitSyncManager: ObservableObject {
         await requestNotificationPermission()
         enableBackgroundDelivery()
         setupWorkoutObserver()
+        hkAuthorizationGranted = true
     }
 
     /// Registers an HKObserverQuery that fires whenever new workouts arrive in HealthKit,

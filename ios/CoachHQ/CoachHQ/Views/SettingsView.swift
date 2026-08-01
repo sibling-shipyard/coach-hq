@@ -180,7 +180,7 @@ struct SettingsView: View {
             .disabled(syncManager.isSyncing)
             .opacity(syncManager.isSyncing ? 0.6 : 1)
 
-            if !syncManager.isHKObserverActive {
+            if !syncManager.hkAuthorizationGranted {
                 Button {
                     Task { await syncManager.connectHealthKit() }
                 } label: {
