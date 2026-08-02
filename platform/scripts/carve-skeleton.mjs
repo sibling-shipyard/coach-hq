@@ -26,9 +26,7 @@ const SKELETON_SCRIPT_FILES = [
   "scripts/build-aggregate.mjs",
   "scripts/generate_quest_log.py",
   "scripts/generate_quest_history.py",
-  "scripts/migrate_activity_naming.py",
   "scripts/backfill_category.py",
-  "scripts/presets",
   "scripts/validate-current-week.mts",
 ];
 
