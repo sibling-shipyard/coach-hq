@@ -14,6 +14,6 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["client/src/**/*.{test,spec}.{ts,tsx}", "api/**/*.{test,spec}.{ts,tsx}"],
+    include: ["client/src/**/*.{test,spec}.{ts,tsx}", "api/**/_tests/*.{test,spec}.{ts,tsx}"],
   },
 });

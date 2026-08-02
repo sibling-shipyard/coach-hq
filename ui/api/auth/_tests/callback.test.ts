@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { OAUTH_STATE_COOKIE, decryptSession, SESSION_COOKIE } from "./_lib/session.js";
+import { OAUTH_STATE_COOKIE, decryptSession, SESSION_COOKIE } from "../_lib/session.js";
 
 process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 process.env.GITHUB_APP_CLIENT_ID ??= "test-client-id";
 process.env.GITHUB_APP_CLIENT_SECRET ??= "test-client-secret";
 
-const { default: handler } = await import("./callback.js");
+const { default: handler } = await import("../callback.js");
 
 function ghUrl(path: string): string {
   return `https://api.github.com${path}`;
