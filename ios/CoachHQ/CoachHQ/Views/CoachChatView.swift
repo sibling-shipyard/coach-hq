@@ -517,6 +517,13 @@ struct CoachChatView: View {
             id: "d-\(Int(now))",
             label: "TODAY · \(headerContext.dayLabel(offset: 0))"
         )
+        var initialMessages: [ChatMessage] = [divider]
+        if !chatWelcomeShown {
+            let greeting = preferredName.isEmpty
+                ? "Hey. I'm Coach Phelps."
+                : "Hey, \(preferredName). I'm Coach Phelps."
+            initialMessages.append(ChatMessage.coach(id: "welcome-coach", paragraphs: [greeting]))
+        }
         let created = ChatThread(
             id: id,
             dayOffset: 0,
