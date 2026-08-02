@@ -60,3 +60,5 @@ Friends will use **Sign up on the shared site → connect Claude to the same rep
 - [ ] **`platform/tests/*.py` have no test runner wired up** — 3 real `unittest.TestCase` suites (match-history migration, badminton analytics, plugins) exist but there's no `pytest.ini`/requirements file/CI step anywhere, despite `platform/README.md` calling them "HQ pytest." Needs actual Python test infra + a CI workflow, not just docs.
 
 - [ ] **No iOS test target exists** — `ios/` has zero XCTest files or test target. Scope iOS test infra whenever iOS work picks up again.
+
+- [ ] **Enforce one repo per GitHub account** (#203) — no ADR backs this today, just hedged comments. Web lets 2+ repos proceed via a picker, iOS silently blocks with no explanation. Full file-by-file plan in the issue.
