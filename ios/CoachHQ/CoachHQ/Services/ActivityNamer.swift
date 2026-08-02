@@ -74,9 +74,9 @@ struct ActivityNamer {
             maxSpeed: activity.maxSpeed,
             deviceName: activity.deviceName,
             source: activity.source,
+            preMentalState: activity.preMentalState,
             activityId: activity.activityId,
-            idStr: activity.idStr,
-            preMentalState: activity.preMentalState
+            idStr: activity.idStr
         )
     }
 
