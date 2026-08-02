@@ -16,6 +16,12 @@ on:
 permissions:
   contents: write
 
+# Serialize runs so two Sync jobs never race each other's push to main.
+# cancel-in-progress:false — let an in-flight regen finish; queue the next.
+concurrency:
+  group: sync-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -24,6 +30,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -55,5 +63,18 @@ jobs:
           else
             MSG=$(python3 -c "import json; print(json.load(open('gen/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: sync pipeline run [skip ci]")
             git commit -m "$MSG"
-            git push
+            # main may have advanced (e.g. an iOS hist/ push) between checkout and
+            # now — rebase our single gen/ commit on top and retry before giving up.
+            for attempt in 1 2 3 4 5; do
+              if git push; then
+                echo "pushed on attempt $attempt"
+                break
+              fi
+              if [ "$attempt" -eq 5 ]; then
+                echo "push still rejected after $attempt attempts" >&2
+                exit 1
+              fi
+              echo "push rejected — rebasing on origin/main (attempt $attempt)"
+              git pull --rebase --autostash origin main
+            done
           fi
