@@ -45,3 +45,14 @@
   send-message request itself (added for resilience) turned out to be unsafe on a raw
   network-level failure — the commit could have already landed before the response was lost — so
   that retry now only fires on a confirmed 5xx/429 response, never a network throw.
+- **Amendment (2026-08-02):** As part of a ground-up coach chat redesign, the archive tier is
+  removed entirely. `ChatThreadStatus` is now `active | deleted` only — deleting a thread is
+  immediate and permanent (a single PATCH, no Restore, no second "Delete Forever" confirmation).
+  The count cap now applies to every thread in the file, since deleted threads no longer persist
+  at all (they're filtered out of the array on the same write that deletes them, not soft-marked
+  and kept around). This simplifies the original "cap applies to active+archived, deleted passes
+  through untouched" rule down to `threads.slice(0, 7)`. Rationale: the archive tier and
+  restore/delete-forever flow added UI surface and server logic the athlete never asked for and
+  didn't want ("no archive option anywhere" — direct instruction); a flat 7-slot cap with
+  immediate delete is simpler to reason about and matches how the athlete actually described
+  wanting to browse recent conversations.

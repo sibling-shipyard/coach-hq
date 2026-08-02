@@ -1,9 +1,10 @@
 import type { ChallengeV2 } from "@/lib/challenge";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-// ADR 0012: retention is a count cap (newest 7 active/archived threads), enforced server-side
-// in ui/api/coach-chat.ts. Nothing to purge client-side any more - the server never returns
-// more than 7 live threads to begin with.
+// ADR 0012 (amended): retention is a count cap (newest 7 active threads, no archive tier),
+// enforced server-side in ui/api/coach-chat.ts. Nothing to purge client-side any more - the
+// server never returns more than 7 threads to begin with, and deleting one is immediate and
+// permanent (no restore).
 export const MAX_RETAINED_THREADS = 7;
 
 export type ChatRole = "user" | "coach" | "divider";
@@ -24,7 +25,7 @@ export type ChatMessage =
       highlights?: Record<string, { text: string; color: string }>;
     };
 
-export type ChatThreadStatus = "active" | "archived" | "deleted";
+export type ChatThreadStatus = "active" | "deleted";
 
 export type ChatThread = {
   id: string;
@@ -34,12 +35,6 @@ export type ChatThread = {
   ageLabel: string;
   statusLabel?: string;
   status?: ChatThreadStatus;
-  /** @deprecated Prefer `status`. Kept for older localStorage payloads. */
-  archived?: boolean;
-  /** Epoch ms when moved to archived. */
-  archivedAt?: number;
-  /** Epoch ms when soft-deleted. */
-  deletedAt?: number;
   messages: ChatMessage[];
 };
 
@@ -70,18 +65,11 @@ export const CHAT_STARTERS: ChatStarter[] = [
 ];
 
 export function threadStatus(thread: ChatThread): ChatThreadStatus {
-  if (thread.status) return thread.status;
-  if (thread.archived) return "archived";
-  return "active";
+  return thread.status ?? "active";
 }
 
 export function normalizeThread(thread: ChatThread): ChatThread {
-  const status = threadStatus(thread);
-  return {
-    ...thread,
-    status,
-    archived: status === "archived",
-  };
+  return { ...thread, status: threadStatus(thread) };
 }
 
 /** Thrown instead of a plain Error on a 401 from /api/coach-chat - the session cookie is
@@ -134,12 +122,23 @@ export async function fetchThreads(): Promise<ChatThread[]> {
   return body.threads.map(normalizeThread);
 }
 
+// A5: last repoSha seen per thread, kept purely client-side (module-level, not React state -
+// nothing needs to re-render off it). Sent back as knownSha on the next message in that thread
+// so the server can detect "the repo changed since I last saw it" (e.g. a session was wrapped
+// on another device) without any lock. No entry yet for a thread means no comparison happens -
+// same as before A5 existed.
+const lastKnownSha = new Map<string, string>();
+
+export function rememberRepoSha(threadId: string | null | undefined, sha: string | null | undefined): void {
+  if (threadId && sha) lastKnownSha.set(threadId, sha);
+}
+
 // Nothing is persisted server-side until the athlete says wrap/close - the server is stateless
 // per turn, so the client sends its own in-memory running history with every message. Only a
 // `closed: true` response means an actual commit happened and `threads` reflects real repo state;
 // otherwise the caller is responsible for appending the reply to its own local thread.
 export type SendMessageResult =
-  | { closed: false; reply: string }
+  | { closed: false; reply: string; stale?: boolean }
   | { closed: true; reply: string; threadId: string; threads: ChatThread[] };
 
 export async function sendMessage(
@@ -147,12 +146,13 @@ export async function sendMessage(
   priorMessages: ChatMessage[],
   message: string,
 ): Promise<SendMessageResult> {
+  const knownSha = threadId ? lastKnownSha.get(threadId) : undefined;
   const res = await fetchWithRetry(
     "/api/coach-chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message }),
+      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message, knownSha }),
     },
     3,
     false,
@@ -162,8 +162,40 @@ export async function sendMessage(
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
   }
-  const body = (await res.json()) as SendMessageResult;
+  const body = (await res.json()) as SendMessageResult & { repoSha?: string };
+  const effectiveThreadId = body.closed ? body.threadId : threadId;
+  rememberRepoSha(effectiveThreadId, body.repoSha);
   if (!body.closed) return body;
+  return { ...body, threads: body.threads.map(normalizeThread) };
+}
+
+// A4: coach speaks first. Called on landing on "new conversation" - no athlete message yet.
+// The server either reuses today's still-unanswered greeting thread or creates + commits a new
+// one with just Coach's opening line (see coach-chat.ts's handleGreet).
+export interface GreetResult {
+  reply: string;
+  threadId: string;
+  threads: ChatThread[];
+}
+
+export async function greet(): Promise<GreetResult> {
+  const res = await fetchWithRetry(
+    "/api/coach-chat",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "greet" }),
+    },
+    3,
+    false,
+  );
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
+  }
+  const body = (await res.json()) as GreetResult & { repoSha?: string };
+  rememberRepoSha(body.threadId, body.repoSha);
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
 

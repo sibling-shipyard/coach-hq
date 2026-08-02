@@ -181,6 +181,9 @@ struct MainTabView: View {
             syncManager.configure(apiClient: client, widgetStore: widgetStore)
             workoutService.configure(apiClient: client)
             widgetStore.configure(apiClient: client)
+            // A3: warm coach-chat's context cache as soon as the app is active with a valid
+            // session, regardless of whether the athlete ever opens the Chat tab this launch.
+            Task { await CoachChatAPIClient(authManager: authManager).prefetchContext() }
             guard router.onboardingPhase == .complete else { return }
             syncManager.syncNotificationsEnabled = true
             try? await syncManager.requestAuthorization()
