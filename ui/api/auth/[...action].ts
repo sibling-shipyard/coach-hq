@@ -150,6 +150,25 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
 // AuthPopupComplete.tsx, which posts the result back to window.opener and closes itself - the
 // popup never shows AuthError.tsx/Setup.tsx/the dashboard directly, the *opener* tab does.
 // ============================================================================
+// Decode platform from the state payload WITHOUT verifying the HMAC so that error
+// redirects go to the right destination (coachhq://… for iOS) even when verification
+// fails and tempData is not yet available. Safe because platform only affects routing,
+// not any privileged action.
+function extractPlatformFromState(stateParam: string | null): "web" | "ios" {
+  if (!stateParam) return "web";
+  try {
+    const dot = stateParam.lastIndexOf(".");
+    if (dot === -1) return "web";
+    const payloadB64 = stateParam.slice(0, dot);
+    const base64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const d = JSON.parse(atob(padded)) as Record<string, unknown>;
+    return d.platform === "ios" ? "ios" : "web";
+  } catch {
+    return "web";
+  }
+}
+
 function callbackErrorRedirect(
   origin: string,
   type: string,
@@ -193,12 +212,10 @@ function callbackSetupRedirect(
 
 export async function handleCallback(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  // Web redirect regardless of platform - an uncaught throw here is rare enough that an iOS
-  // session seeing a web error page instead of a native one is an acceptable degrade.
   try {
     return await callbackImpl(req, url);
   } catch {
-    return callbackErrorRedirect(url.origin, "network_error", "web");
+    return callbackErrorRedirect(url.origin, "network_error", extractPlatformFromState(url.searchParams.get("state")));
   }
 }
 
@@ -212,16 +229,18 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
 
   const code = url.searchParams.get("code");
   const stateParam = url.searchParams.get("state");
+  // Extract platform before HMAC verification so error redirects go to the right destination.
+  const unverifiedPlatform = extractPlatformFromState(stateParam);
 
   if (!code || !stateParam) {
-    return callbackErrorRedirect(url.origin, "missing_params", "web", false);
+    return callbackErrorRedirect(url.origin, "missing_params", unverifiedPlatform, false);
   }
 
   // State is HMAC-signed (set by handleStart/handleInstallRedirect) — no cookie needed.
   const sessionSecret = process.env.SESSION_SECRET ?? "";
   const tempData = await verifyOAuthState(stateParam, sessionSecret);
   if (!tempData) {
-    return callbackErrorRedirect(url.origin, "corrupt_oauth_session", "web", false);
+    return callbackErrorRedirect(url.origin, "corrupt_oauth_session", unverifiedPlatform, false);
   }
 
   const platform: "web" | "ios" = tempData.platform;
