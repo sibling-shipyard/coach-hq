@@ -156,7 +156,14 @@ class HealthKitSyncManager: ObservableObject {
         syncError = nil
 
         do {
-            var syncState = try await apiClient.readSyncState()
+            // sync_state.json doesn't exist on a fresh repo — treat .notFound as first sync.
+            var syncState: SyncState
+            do {
+                syncState = try await apiClient.readSyncState()
+            } catch let e as GitHubAPIError {
+                guard case .notFound = e else { throw e }
+                syncState = SyncState()
+            }
 
             let since: Date
             if let ts = syncState.hkLastSynced, let date = ISO8601DateFormatter().date(from: ts) {

@@ -167,9 +167,6 @@ struct MainTabView: View {
                 onConnect: {
                     Task {
                         await syncManager.connectHealthKit()
-                        // HKObserverQuery doesn't fire for pre-existing workouts on first
-                        // registration — kick off the initial 7-day sync explicitly here.
-                        Task { await syncManager.syncNewWorkouts() }
                         router.advance(.hkConnected)
                     }
                 },

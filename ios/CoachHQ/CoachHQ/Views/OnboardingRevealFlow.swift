@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Step enum
 
 enum OnboardingRevealStep: Int, CaseIterable {
-    case reveal, rhythms, season
+    case reveal, sync, rhythms, season
 }
 
 // MARK: - Coordinator
@@ -17,7 +17,6 @@ struct OnboardingRevealFlow: View {
     @State private var step: OnboardingRevealStep = .reveal
     @State private var summary: YearSummary = .empty
     @State private var isLoading = true
-    @State private var syncToast: Toast?
 
     var body: some View {
         ZStack {
@@ -53,6 +52,14 @@ struct OnboardingRevealFlow: View {
                                 insertion: .move(edge: .trailing),
                                 removal: .move(edge: .leading)
                             ))
+                    } else if step == .sync {
+                        SyncStepView {
+                            withAnimation(PremiumMotion.state) { step = .rhythms }
+                        }
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing),
+                            removal: .move(edge: .leading)
+                        ))
                     } else if step == .rhythms {
                         RhythmsStepView(summary: summary)
                             .transition(.asymmetric(
@@ -69,12 +76,13 @@ struct OnboardingRevealFlow: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if step != .season {
+                if step != .season && step != .sync {
                     Button {
                         Haptics.tap()
                         withAnimation(PremiumMotion.state) {
                             switch step {
-                            case .reveal:  step = .rhythms
+                            case .reveal:  step = .sync
+                            case .sync:    break
                             case .rhythms: step = .season
                             case .season:  break
                             }
@@ -98,22 +106,7 @@ struct OnboardingRevealFlow: View {
                 }
             }
         }
-        .toast($syncToast)
-        .onChange(of: syncManager.lastSyncResult) { _, result in
-            guard let result else { return }
-            switch result.outcome {
-            case .synced(let n):
-                syncToast = Toast(kind: .success, message: "\(n) workout\(n == 1 ? "" : "s") saved to GitHub")
-            case .nothingNew:
-                syncToast = Toast(kind: .info, message: "No new workouts in the last 7 days")
-            case .failed(let msg):
-                syncToast = Toast(kind: .error, message: msg)
-            }
-        }
         .task {
-            // Kick off HK→GitHub sync while the user reads their stats — the 7-day
-            // initial sync runs concurrently so the commit lands before they finish.
-            Task { await syncManager.syncNewWorkouts() }
             summary = await syncManager.fetchYearSummary()
             isLoading = false
         }
@@ -121,6 +114,145 @@ struct OnboardingRevealFlow: View {
 
     private func handleComplete() {
         onComplete()
+    }
+}
+
+// MARK: - Sync step
+
+private struct SyncStepView: View {
+    @EnvironmentObject private var syncManager: HealthKitSyncManager
+
+    let onComplete: () -> Void
+
+    @State private var started = false
+    @State private var progress: Double = 0
+    @State private var statusText = ""
+    @State private var failed = false
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Sync your log.")
+                    .font(WarmInstrument.coachVoice(30))
+                    .foregroundColor(WarmInstrument.ink)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 12)
+                    .onboardingReveal(index: 0)
+
+                Text("We'll upload your recent workouts to your GitHub log. This may take a moment.")
+                    .font(.system(size: 16))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .lineSpacing(4)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 48)
+                    .onboardingReveal(index: 1)
+
+                if started {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(WarmInstrument.inkFaint.opacity(0.12))
+                                .frame(height: 4)
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .fill(failed ? WarmInstrument.alarmFg : WarmInstrument.accent)
+                                    .frame(width: geo.size.width * progress, height: 4)
+                            }
+                            .frame(height: 4)
+                            .animation(.easeOut(duration: 0.5), value: progress)
+                        }
+
+                        if !statusText.isEmpty {
+                            Text(statusText)
+                                .font(WarmInstrument.monoLabel(11))
+                                .foregroundColor(failed ? WarmInstrument.alarmFg : WarmInstrument.inkFaint)
+                                .kerning(0.5)
+                        }
+                    }
+                    .padding(.horizontal, 28)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+            }
+            .padding(.top, 24)
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 12) {
+                if !started {
+                    Button {
+                        Haptics.tap()
+                        withAnimation(PremiumMotion.state) { started = true }
+                        Task { await syncManager.syncNewWorkouts() }
+                        Task { await warmProgress() }
+                    } label: {
+                        Text("Proceed")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(WarmInstrument.ink)
+                            .foregroundColor(WarmInstrument.desk)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+                    }
+                    .buttonStyle(CardPressButtonStyle())
+                    .transition(.opacity)
+                }
+                if failed {
+                    Button {
+                        Haptics.tap()
+                        onComplete()
+                    } label: {
+                        Text("Skip for now")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 36)
+            .animation(PremiumMotion.state, value: started)
+            .animation(PremiumMotion.state, value: failed)
+        }
+        .onChange(of: syncManager.lastSyncResult) { _, result in
+            guard started, let result else { return }
+            switch result.outcome {
+            case .synced(let n):
+                statusText = "\(n) workout\(n == 1 ? "" : "s") saved to GitHub"
+                withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    onComplete()
+                }
+            case .nothingNew:
+                statusText = "Already up to date"
+                withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
+                Task {
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    onComplete()
+                }
+            case .failed(let msg):
+                failed = true
+                statusText = msg
+            }
+        }
+        .animation(PremiumMotion.state, value: started)
+    }
+
+    // Fills the bar from 0 → 0.82 over ~5 seconds. Stops when sync completes
+    // (progress is already at 1.0 by then) or view is torn down.
+    private func warmProgress() async {
+        let steps = 60
+        let duration = 5.0
+        let stepDuration = duration / Double(steps)
+        for i in 1...steps {
+            guard progress < 1.0 else { break }
+            let t = Double(i) / Double(steps)
+            let eased = 1.0 - pow(1.0 - t, 2.5)
+            withAnimation(.linear(duration: stepDuration)) {
+                progress = max(progress, 0.82 * eased)
+            }
+            try? await Task.sleep(nanoseconds: UInt64(stepDuration * 1_000_000_000))
+        }
     }
 }
 
