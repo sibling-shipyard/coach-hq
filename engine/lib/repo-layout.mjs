@@ -168,6 +168,14 @@ export function activitiesDir(repoRootPath) {
     : path.join(repoRootPath, "training", "activities");
 }
 
+/** Athlete category config — HQ golden dataset; athlete repos: user_data/categories.json */
+export function categoriesPath(repoRootPath) {
+  if (isHqMonorepo(repoRootPath)) {
+    return path.join(repoRootPath, "shared", "golden-dataset", "categories.json");
+  }
+  return path.join(repoRootPath, "user_data", "categories.json");
+}
+
 /** Composed SOUL path — HQ: platform/SOUL.md; athlete repos: propagated/SOUL.md. */
 export function soulFilePath(repoRootPath) {
   if (isHqMonorepo(repoRootPath)) {
