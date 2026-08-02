@@ -67,6 +67,92 @@ backend gives for free: auth scoping, session/token lifecycle, atomic multi-row 
 concurrency control, unique-key dedup. That's the real cost: constant hand-rolled plumbing,
 not dollars.
 
+## Current flow (GitHub-as-datastore)
+
+```mermaid
+flowchart TB
+    subgraph Clients
+        Web["Web (React, Vercel)"]
+        iOS["iOS (SwiftUI)"]
+    end
+
+    subgraph VercelAPI["ui/api/* (Vercel serverless)"]
+        RepoFile["repo-file.ts"]
+        CoachChat["coach-chat.ts"]
+        Auth["auth/start, callback, refresh"]
+    end
+
+    subgraph GH["GitHub"]
+        UserRepo["coach-&lt;user&gt; repo\n(user_data/*, gen/*)"]
+        Actions["sync.user.yml\n(regenerate gen/aggregate.json)"]
+    end
+
+    Gemini["Gemini API"]
+
+    Web -- "fetch /api/repo-file" --> RepoFile
+    RepoFile -- "GET contents/gen/aggregate.json\n(~2.8MB, every session)" --> UserRepo
+
+    Web -- "chat turn" --> CoachChat
+    iOS -- "chat turn" --> CoachChat
+    CoachChat -- "read SOUL.md, state.md, quest_log.md" --> UserRepo
+    CoachChat -- "call LLM" --> Gemini
+    CoachChat -- "close: atomic commit\n(blob→tree→commit→ref)" --> UserRepo
+
+    iOS -- "HealthKit sync:\ndirect Git Data API commit" --> UserRepo
+    Web -- "OAuth/PKCE relay" --> Auth
+    Auth -- "token exchange" --> GH
+
+    UserRepo -- "push triggers" --> Actions
+    Actions -- "commits gen/* back" --> UserRepo
+```
+
+Every read is a live GitHub API call; every write is a git commit (with hand-rolled
+atomicity/retry/dedup); a background Action regenerates the one big derived file the
+dashboard depends on.
+
+## Proposed flow (Supabase)
+
+```mermaid
+flowchart TB
+    subgraph Clients
+        Web["Web (React, Vercel)"]
+        iOS["iOS (SwiftUI)"]
+    end
+
+    subgraph VercelAPI["ui/api/* (Vercel serverless, secrets only)"]
+        CoachChat["coach-chat.ts"]
+    end
+
+    subgraph SB["Supabase"]
+        PG["Postgres\n(activities, challenge_v2,\nchat_threads/messages,\ncoach_state, sleep_log, sync_state)"]
+        SBAuth["Auth\n(session/JWT + refresh)"]
+        Realtime["Realtime\n(row-change events)"]
+    end
+
+    Gemini["Gemini API"]
+
+    Web -- "supabase-js:\nselect/insert/update (RLS-scoped)" --> PG
+    iOS -- "supabase-swift:\nupsert activities" --> PG
+    Web -- "sign in" --> SBAuth
+    iOS -- "sign in" --> SBAuth
+    SBAuth -- "issues session" --> Web
+    SBAuth -- "issues session" --> iOS
+
+    Web -- "chat turn" --> CoachChat
+    iOS -- "chat turn" --> CoachChat
+    CoachChat -- "SELECT coach_state, challenge_v2" --> PG
+    CoachChat -- "call LLM" --> Gemini
+    CoachChat -- "close: one transaction\n(UPDATE + INSERT, atomic)" --> PG
+
+    PG -- "row changes" --> Realtime
+    Realtime -- "push to open clients" --> Web
+    Realtime -- "push to open clients" --> iOS
+```
+
+Ordinary reads/writes go client → Supabase directly (RLS replaces the per-repo token
+isolation); only the Gemini-calling chat endpoint still needs a server hop, because the LLM
+key can't ship to the client. No background regeneration job — derived views update live.
+
 ## How each current feature actually works today, in full
 
 I read the real code (`ui/api/coach-chat.ts`, `ui/api/_lib/githubGitData.ts`,
@@ -151,63 +237,102 @@ narrowing rather than widening.
 
 ### Schema (Postgres tables, one shared schema for all users — continues ADR 0006's direction)
 
+```mermaid
+erDiagram
+    USERS ||--o| PROFILES : has
+    USERS ||--|| COACH_STATE : has
+    USERS ||--o{ ACTIVITIES : has
+    USERS ||--|| SYNC_STATE : has
+    USERS ||--o{ CHALLENGE_V2 : has
+    USERS ||--o{ WORKOUT_SESSIONS : has
+    USERS ||--o{ SLEEP_LOG : has
+    USERS ||--o{ CHAT_THREADS : has
+    CHAT_THREADS ||--o{ CHAT_MESSAGES : contains
+
+    USERS {
+        uuid id PK
+        text github_login "optional, if kept as auth provider"
+        timestamptz created_at
+    }
+    PROFILES {
+        uuid user_id PK_FK
+        text timezone
+        text onboarding_phase
+    }
+    COACH_STATE {
+        uuid user_id PK_FK
+        text state_md
+        text coach_notes_md
+        text roadmap_md
+        timestamptz updated_at
+    }
+    ACTIVITIES {
+        uuid id PK
+        uuid user_id FK
+        text hk_uuid "UNIQUE(user_id, hk_uuid) - replaces ADR 0014 filename dedup"
+        text sport_type
+        text name
+        timestamptz start_date_local
+        int elapsed_time
+        int moving_time
+        float distance
+        int calories
+        int average_heartrate
+        int max_heartrate
+        jsonb hr_zones
+        timestamptz created_at
+    }
+    SYNC_STATE {
+        uuid user_id PK_FK
+        timestamptz hk_last_synced
+        jsonb name_counters
+    }
+    CHALLENGE_V2 {
+        int id PK
+        uuid user_id FK
+        text season
+        text phase
+        jsonb main_quest
+        jsonb quests "or normalize into quest_completions rows"
+        jsonb milestones
+    }
+    WORKOUT_SESSIONS {
+        int id PK
+        uuid user_id FK "nullable for shared templates"
+        date session_date
+        text based_on_template
+        jsonb phases
+    }
+    SLEEP_LOG {
+        int id PK
+        uuid user_id FK
+        date date
+        float hours
+        text quality
+    }
+    CHAT_THREADS {
+        uuid id PK
+        uuid user_id FK
+        text title
+        text preview
+        text status "active / archived / deleted"
+        timestamptz archived_at
+        timestamptz deleted_at
+        timestamptz last_activity_at
+    }
+    CHAT_MESSAGES {
+        uuid id PK
+        uuid thread_id FK
+        text role
+        text text
+        jsonb paragraphs
+        timestamptz created_at
+    }
 ```
-users                  -- Supabase Auth's own auth.users, extended via a profiles table
-  id (uuid, pk)         -- = auth.uid()
-  github_login          -- optional, only if keeping GitHub sign-in as an auth *provider*
-  created_at
 
-profiles
-  user_id (uuid, fk -> users, pk)
-  timezone
-  onboarding_phase
-  ...  -- replaces most of `state.md`'s structured fields
-
-coach_state              -- one row per user, replaces state.md/coach_notes.md/roadmap.md
-  user_id (pk, fk)
-  state_md (text)         -- keep as free text if you don't want to normalize it yet
-  coach_notes_md (text)
-  roadmap_md (text)
-  updated_at
-
-activities
-  id (uuid, pk, default gen_random_uuid())
-  user_id (fk, indexed)
-  hk_uuid (text, unique per user)     -- replaces filename-based dedup (ADR 0014) w/ a real
-                                        -- UNIQUE(user_id, hk_uuid) constraint + ON CONFLICT
-  sport_type, name, start_date_local, elapsed_time, moving_time, distance,
-  calories, average_heartrate, max_heartrate, hr_zones (jsonb), ...
-  created_at
-
-sync_state
-  user_id (pk, fk)
-  hk_last_synced (timestamptz)
-  name_counters (jsonb)
-
-challenge_v2              -- one row per active season per user; still v4 shape (ADR 0006)
-  id (pk)
-  user_id (fk)
-  season, phase, main_quest (jsonb), quests (jsonb), milestones (jsonb)
-  -- OR: normalize quests/completed_dates into a child table if streak queries get heavy
-  -- (a `quest_completions(user_id, quest_id, date)` table turns "is this a streak" into a
-  -- SQL window-function query instead of an in-app date-array scan)
-
-workout_sessions / workout_templates
-  user_id (fk, nullable for shared templates), session_date, based_on_template, phases (jsonb)
-
-sleep_log
-  user_id (fk), date, hours, quality
-
-chat_threads
-  id (pk), user_id (fk), title, preview, status (active/archived/deleted),
-  archived_at, deleted_at, last_activity_at
-
-chat_messages
-  id (pk), thread_id (fk), role, text, paragraphs (jsonb), created_at
-  -- retention (ADR 0012's 7-thread cap) becomes a scheduled/edge-function job:
-  -- DELETE FROM chat_threads WHERE user_id = ? AND status != 'deleted'
-  --   AND id NOT IN (SELECT id FROM chat_threads ... ORDER BY last_activity_at DESC LIMIT 7)
-```
+Retention (ADR 0012's 7-thread cap) becomes a scheduled job or trigger:
+`DELETE FROM chat_threads WHERE user_id = ? AND status != 'deleted' AND id NOT IN (SELECT id
+FROM chat_threads ... ORDER BY last_activity_at DESC LIMIT 7)`.
 
 `SOUL.md` and the engine files stay exactly where they are — those are *product/code*, not
 per-user data, and were never meant to be per-user anyway (they're a committed copy fanned
