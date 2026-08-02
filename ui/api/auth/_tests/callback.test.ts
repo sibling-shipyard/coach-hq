@@ -25,6 +25,51 @@ async function makeCallbackUrl(
   return `https://example.com/api/auth/callback?code=${code}&state=${encodeURIComponent(state)}`;
 }
 
+describe("callback.ts iOS error routing", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("redirects corrupt_oauth_session to coachhq:// for iOS, not to the web homepage", async () => {
+    // Sign the state with a WRONG secret so verifyOAuthState returns null,
+    // but the payload still contains platform=ios.
+    const wrongSecret = "wrong-secret";
+    const state = await signOAuthState(
+      { nonce: "n", codeVerifier: "v", platform: "ios", popup: false },
+      wrongSecret,
+    );
+    const url = `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`;
+    const res = await handler.fetch(new Request(url));
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    // Must go to coachhq:// so the iOS WKWebView delegate can intercept it.
+    expect(location).toMatch(/^coachhq:\/\/callback\?error=corrupt_oauth_session/);
+    // Must NOT redirect to the web app homepage.
+    expect(location).not.toMatch(/^\//);
+    expect(location).not.toMatch(/auth_error/);
+  });
+
+  it("redirects missing_params to coachhq:// for iOS when state carries platform=ios", async () => {
+    // No code param, but state encodes platform=ios.
+    const state = await signOAuthState(
+      { nonce: "n", codeVerifier: "v", platform: "ios", popup: false },
+      SESSION_SECRET,
+    );
+    const url = `https://example.com/api/auth/callback?state=${encodeURIComponent(state)}`;
+    const res = await handler.fetch(new Request(url));
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    expect(location).toMatch(/^coachhq:\/\/callback\?error=missing_params/);
+  });
+});
+
 describe("callback.ts web branch", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
