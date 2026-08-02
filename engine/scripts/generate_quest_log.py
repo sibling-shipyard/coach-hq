@@ -433,24 +433,28 @@ def compute_weekly_counts(activities: list[dict], data: dict, today: date) -> di
             continue
         name = a.get("name", "")
         sport = a.get("sport_type", "")
+        cat = a.get("category", "")
         for label, cfg in weekly_targets.items():
             if not isinstance(cfg, dict):
                 continue
             source = cfg.get("source", "")
-            category_target = cfg.get("count_category", "")
-            cat = a.get("category", "")
-            if category_target:
-                if cat == category_target:
-                    counts[label] += 1
-            elif source == "strava_pattern":
+            if source == "strava_pattern":
+                category_target = cfg.get("count_category", "")
                 pattern = cfg.get("pattern", "")
-                if pattern and re.match(pattern, name):
+                if category_target:
+                    if cat == category_target:
+                        counts[label] += 1
+                elif pattern and re.match(pattern, name):
                     counts[label] += 1
             elif source == "strava_sport":
+                category_target = cfg.get("count_category", "")
                 sport_match = cfg.get("sport_type") and sport == cfg["sport_type"]
                 pattern = cfg.get("pattern", "")
                 name_match = pattern and re.match(pattern, name)
-                if sport_match or name_match:
+                if category_target:
+                    if cat == category_target:
+                        counts[label] += 1
+                elif sport_match or name_match:
                     counts[label] += 1
 
     return counts
