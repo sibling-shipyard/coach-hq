@@ -18,7 +18,9 @@ export default function RepoPicker({ candidates }: { candidates: string[] }) {
     setPending(repo);
     setError(null);
     try {
-      const res = await fetch(`/api/auth/list-my-repos?select=${encodeURIComponent(repo)}`);
+      const res = await fetch(`/api/auth/list-my-repos?select=${encodeURIComponent(repo)}`, {
+        method: "POST",
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         setError(body?.error ?? "Couldn't select that repo - try again.");
