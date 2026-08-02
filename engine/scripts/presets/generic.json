@@ -1,0 +1,10 @@
+{
+  "description": "Minimal preset — generic sport counters, empty category unless name matches a numbered prefix",
+  "name_rules": [
+    { "pattern": "^Foundation #\\d+", "category": "FDN" },
+    { "pattern": "^Calisthenics #\\d+", "category": "CAL" },
+    { "pattern": "^Recovery #\\d+", "category": "REC" },
+    { "pattern": "^Realign #\\d+", "category": "RLN" }
+  ],
+  "sport_defaults": {}
+}

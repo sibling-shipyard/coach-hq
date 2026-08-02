@@ -1,0 +1,29 @@
+{
+  "description": "Akash (Sky) legacy ActivityNamer name → 3-letter category codes",
+  "name_rules": [
+    { "pattern": "^Hit & Run #\\d+: Ranked", "category": "RNK" },
+    { "pattern": "^Hit & Run #\\d+: Friendly", "category": "FRN" },
+    { "pattern": "^Badminton: Ranked #\\d+", "category": "RNK" },
+    { "pattern": "^Badminton: Friendly #\\d+", "category": "FRN" },
+    { "pattern": "^Badminton: League #\\d+", "category": "FRN" },
+    { "pattern": "^League #\\d+", "category": "FRN" },
+    { "pattern": "^Badminton Drills #\\d+", "category": "CAS" },
+    { "pattern": "^Badminton:", "category": "CAS" },
+    { "pattern": "^Foundation #\\d+", "category": "FDN" },
+    { "pattern": "^Calisthenics #\\d+", "category": "CAL" },
+    { "pattern": "^Weight Training #\\d+", "category": "CAL" },
+    { "pattern": "^Recovery #\\d+", "category": "REC" },
+    { "pattern": "^Realign #\\d+", "category": "RLN" },
+    { "pattern": "^Swim #\\d+", "category": "SWM" },
+    { "pattern": "^Ride #\\d+", "category": "RDE" }
+  ],
+  "sport_defaults": {
+    "Badminton": "CAS",
+    "WeightTraining": "CAL",
+    "Foundation": "FDN",
+    "Yoga": "REC",
+    "Run": "",
+    "Ride": "RDE",
+    "Swim": "SWM"
+  }
+}
