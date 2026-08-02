@@ -60,21 +60,28 @@ jobs:
           git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
           if git diff --cached --quiet; then
             echo "No changes"
-          else
-            MSG=$(python3 -c "import json; print(json.load(open('gen/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: sync pipeline run [skip ci]")
-            git commit -m "$MSG"
-            # main may have advanced (e.g. an iOS hist/ push) between checkout and
-            # now — rebase our single gen/ commit on top and retry before giving up.
-            for attempt in 1 2 3 4 5; do
-              if git push; then
-                echo "pushed on attempt $attempt"
-                break
-              fi
-              if [ "$attempt" -eq 5 ]; then
-                echo "push still rejected after $attempt attempts" >&2
-                exit 1
-              fi
-              echo "push rejected — rebasing on origin/main (attempt $attempt)"
-              git pull --rebase --autostash origin main
-            done
+            exit 0
           fi
+          MSG=$(python3 -c "import json; print(json.load(open('gen/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: regenerate derived data [skip ci]")
+          git commit -m "$MSG"
+          # Retry loop: on non-fast-forward, reset to origin/main and re-run the full
+          # pipeline rather than rebasing — gen files are deterministic from activity
+          # data, so regenerating on the new HEAD always produces a conflict-free commit.
+          for attempt in 1 2 3; do
+            git push && exit 0
+            echo "push rejected — re-running pipeline on origin/main (attempt $attempt)"
+            git fetch origin main
+            git reset --hard origin/main
+            python3 engine/scripts/regenerate_derived.py
+            node engine/scripts/build-aggregate.mjs --aggregate
+            git add -f gen/aggregate.json
+            git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
+            if git diff --cached --quiet; then
+              echo "No changes after re-run"
+              exit 0
+            fi
+            MSG=$(python3 -c "import json; print(json.load(open('gen/sync_status.json'))['commit_message'])" 2>/dev/null || echo "core: regenerate derived data [skip ci]")
+            git commit -m "$MSG"
+          done
+          echo "All push attempts failed"
+          exit 1
