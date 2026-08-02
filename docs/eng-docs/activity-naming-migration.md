@@ -7,7 +7,7 @@ One-time operator script to retag historical activities when an athlete repo sti
 | Repo | Preset | When |
 |------|--------|------|
 | `akash-suresh/coach-akash` | `--preset sky` | Once, after phase 1 merge + before next iOS sync |
-| `skanda-2003/coach-skanda` | `--preset generic` | Once, if hist files use non-standard names |
+| `skanda-2003/coach-skanda` | `--preset skanda` | Once, after phase 1 merge + before next iOS sync |
 
 Do **not** re-run after migration unless `--force` is intentional — it renumbers all activities.
 
@@ -32,8 +32,8 @@ python3 engine/scripts/migrate_activity_naming.py --dry-run --preset sky
 # Apply — Akash
 python3 engine/scripts/migrate_activity_naming.py --preset sky
 
-# Apply — Skanda (minimal category mapping)
-python3 engine/scripts/migrate_activity_naming.py --preset generic
+# Apply — Skanda (club badminton + Strava defaults)
+python3 engine/scripts/migrate_activity_naming.py --preset skanda
 ```
 
 Commit the hist + `user_data/activities/sync_state.json` changes. Regenerate derived data (`regenerate_derived.py`) if the repo uses it.

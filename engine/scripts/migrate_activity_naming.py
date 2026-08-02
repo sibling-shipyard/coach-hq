@@ -70,7 +70,10 @@ def is_generic_name(name: str, sport_type: str) -> bool:
 
 def parse_start_date(data: dict[str, Any]) -> datetime:
     start = data.get("start_date_local", "")
-    return datetime.fromisoformat(start.replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    if dt.tzinfo is not None:
+        dt = dt.replace(tzinfo=None)
+    return dt
 
 
 def load_sync_state(path: Path) -> dict[str, Any]:
@@ -86,7 +89,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--preset",
-        choices=["sky", "generic"],
+        choices=["sky", "skanda", "generic"],
         default="generic",
         help="Regex preset for old-name → category mapping (default: generic)",
     )

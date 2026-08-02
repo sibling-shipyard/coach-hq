@@ -1,0 +1,21 @@
+{
+  "description": "Skanda legacy Strava names — club badminton, numbered strength, time-of-day walks",
+  "name_rules": [
+    { "pattern": "^Badminton: Club", "category": "CLB" },
+    { "pattern": "^Badminton: Casual", "category": "CAS" },
+    { "pattern": "^Badminton: Drills", "category": "CAS" },
+    { "pattern": "^Badminton:", "category": "CAS" },
+    { "pattern": "^Foundation #\\d+", "category": "FDN" },
+    { "pattern": "^Calisthenics #\\d+", "category": "CAL" },
+    { "pattern": "^Weight Training #\\d+", "category": "CAL" },
+    { "pattern": "^Recovery #\\d+", "category": "REC" },
+    { "pattern": "^Realign #\\d+", "category": "RLN" },
+    { "pattern": "^Swim #\\d+", "category": "SWM" },
+    { "pattern": "^Run #\\d+", "category": "RUN" }
+  ],
+  "sport_defaults": {
+    "Badminton": "CAS",
+    "WeightTraining": "CAL",
+    "Workout": "WKT"
+  }
+}
