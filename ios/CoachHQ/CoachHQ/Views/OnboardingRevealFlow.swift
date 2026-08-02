@@ -563,8 +563,6 @@ private struct SeasonStepView: View {
     ]
 
     @State private var selectedSports: Set<String> = []
-    @State private var goal = ""
-    @FocusState private var goalFocused: Bool
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -585,30 +583,7 @@ private struct SeasonStepView: View {
                     .padding(.bottom, 36)
                     .onboardingReveal(index: 2)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("GOAL")
-                        .font(WarmInstrument.monoLabel(10))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                        .kerning(1.5)
-
-                    TextField("What are you working toward?", text: $goal, axis: .vertical)
-                        .font(.system(size: 16))
-                        .foregroundColor(WarmInstrument.ink)
-                        .lineLimit(3)
-                        .focused($goalFocused)
-                        .padding(.bottom, 10)
-                        .overlay(alignment: .bottom) {
-                            Rectangle()
-                                .fill(goalFocused ? WarmInstrument.ink : WarmInstrument.border)
-                                .frame(height: goalFocused ? 1.5 : 1)
-                                .animation(PremiumMotion.state, value: goalFocused)
-                        }
-                }
-                .padding(.bottom, 40)
-                .onboardingReveal(index: 3)
-
                 Button {
-                    goalFocused = false
                     save()
                 } label: {
                     Text("Next")
@@ -620,7 +595,7 @@ private struct SeasonStepView: View {
                         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
                 }
                 .buttonStyle(CardPressButtonStyle())
-                .onboardingReveal(index: 4)
+                .onboardingReveal(index: 3)
                 .padding(.bottom, 36)
             }
             .padding(.horizontal, 28)
@@ -650,7 +625,6 @@ private struct SeasonStepView: View {
 # Athlete Profile
 name: \(name)
 sports: \(sportsLine)
-goal: \(goal)
 sessions_last_year: \(summary.sessions)
 hours_last_year: \(String(format: "%.1f", summary.hours))
 top_sport: \(displaySportName(summary.topSport))
