@@ -46,8 +46,8 @@ Branch: `coach-chat-redesign-part-a` (Part A, current). Part B will be its own b
 ### A5. ✅ Cross-device conflict — no hard lock, commit-based staleness detection
 - No proactive lock. `getHeadSha()` added to `ui/api/_lib/coachChatFiles.ts` (cheap, always-fresh, uncached — a single `GET /git/ref/heads/main`).
 - Every ordinary-turn/close response includes `repoSha` (current HEAD sha, or the post-commit sha on close). The client (`coachChatModel.ts`'s `lastKnownSha` map, `CoachChatAPIClient.swift`'s equivalent static dict) remembers it per thread and sends it back as `knownSha` on the next message in that thread.
-- If `knownSha` doesn't match the actual current HEAD at request time, `coach-chat.ts` sets `stale: true` on the response and forces `loadCoachContext(..., { fresh: true })` to bypass the 60s cache, so Gemini's context reflects whatever changed. Web surfaces this with a toast ("Coach caught up on changes from your other device"); iOS tracks/sends the SHA correctly but doesn't yet surface a toast for it (see cleanup debt below — skipped touching iOS's `Toast` state machine without a compiler to verify against).
-- Files: `ui/api/coach-chat.ts`, `ui/api/_lib/coachChatFiles.ts` (`getHeadSha`), `ui/client/src/components/coach-chat/coachChatModel.ts`, `ui/client/src/pages/CoachChat.tsx`, `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift`, `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift`.
+- If `knownSha` doesn't match the actual current HEAD at request time, `coach-chat.ts` sets `stale: true` on the response and forces `loadCoachContext(..., { fresh: true })` to bypass the 60s cache, so Gemini's context reflects whatever changed. Both web (`toast.info`) and iOS (`Toast(kind: .info, ...)` via the existing `Theme.swift` toast component) surface this with the same message ("Coach caught up on changes from your other device").
+- Files: `ui/api/coach-chat.ts`, `ui/api/_lib/coachChatFiles.ts` (`getHeadSha`), `ui/client/src/components/coach-chat/coachChatModel.ts`, `ui/client/src/pages/CoachChat.tsx`, `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift`, `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift`, `ios/CoachHQ/CoachHQ/Views/CoachChatView.swift`.
 
 ### A6. ✅ Close-session keywords + side-quest follow-up dedup
 - `CLOSE_SESSION_PATTERN` expanded with "bye coach," "see you tomorrow," "catch you later," and a fixed "that's it/all for today/now" alternation.
@@ -93,7 +93,6 @@ Branch: `coach-chat-redesign-part-a` (Part A, current). Part B will be its own b
 ## Known cleanup debt (non-blocking)
 - `EmptyChatPane`, `CHAT_STARTERS`/`ChatStarter`, and their supporting icon components in `CoachChatWidgets.tsx` / `coachChatModel.ts` are now dead code (unused since A4 retired the canned-greeting landing view). Left in place to limit blast radius while the rest of Part A lands; safe to delete in a follow-up pass once A5-A7 are done and the diff is reviewed.
 - iOS's `chatWelcomeShown`/`preferredName` AppStorage flags and the `"welcome-coach"` message-id filter in `CoachChatView.swift` are now vestigial (their real job moved server-side in A4) but harmless — left alone rather than risk unverified Swift surgery without a local Xcode toolchain to compile-check against.
-- iOS doesn't yet surface a toast for A5's `stale` flag (web does). `CoachChatView.swift` has no `Toast` state wired up today (other views like `ActivityListView.swift` do); adding one here means new `@State`/`.toast()` modifier plumbing that's safer to do with an Xcode build available to verify, rather than blind in this environment.
 
 ## Open implementation-time details (not blocking, flag during build)
 - Exact JSON merge-patch implementation (hand-rolled vs a small dependency) — decide during A7.

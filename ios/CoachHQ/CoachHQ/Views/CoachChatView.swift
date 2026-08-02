@@ -20,6 +20,11 @@ struct CoachChatView: View {
     @State private var errorMessage: String?
     @State private var showErrorDialog = false
     @State private var showHistorySheet = false
+    // A5: shown when the server detected this thread's repo state changed since we last saw it
+    // (most likely a session was wrapped on another device) - mirrors web's toast.info() in
+    // CoachChat.tsx. The context refresh itself already happened server-side by the time this
+    // fires; this is purely the "here's why" explanation web athletes already get.
+    @State private var toast: Toast?
     @FocusState private var composerFocused: Bool
     @State private var keyboardVisible = false
     @State private var postWorkoutChips: [String]? = nil
@@ -131,6 +136,7 @@ struct CoachChatView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WarmInstrument.desk.ignoresSafeArea())
+        .toast($toast)
         .task(id: chatFetchToken) {
             guard authManager.isAuthenticated, authManager.isSessionReady else { return }
             guard authManager.selectedRepo != nil else { return }
@@ -568,6 +574,13 @@ struct CoachChatView: View {
                     CoachSetupState.markComplete(repoFullName: repo)
                 }
                 return
+            }
+
+            // A5: the server detected this thread's repo state changed since we last saw it
+            // (most likely a session was wrapped on another device) and already re-read fresh
+            // context before replying - explain why Coach's answer might reference something new.
+            if result.stale == true {
+                toast = Toast(kind: .info, message: "Coach caught up on changes from your other device")
             }
 
             let coachMsg = ChatMessage.coach(id: "c-\(now)", paragraphs: [result.reply])
