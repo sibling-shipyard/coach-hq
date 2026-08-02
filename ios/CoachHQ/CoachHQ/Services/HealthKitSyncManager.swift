@@ -182,7 +182,14 @@ class HealthKitSyncManager: ObservableObject {
                 return
             }
 
-            let existingFiles = try await apiClient.listFiles(path: "user_data/activities/hist")
+            // hist/ directory doesn't exist until the first commit — treat 404 as empty.
+            let existingFiles: [GitHubFileEntry]
+            do {
+                existingFiles = try await apiClient.listFiles(path: "user_data/activities/hist")
+            } catch let e as GitHubAPIError {
+                guard case .notFound = e else { throw e }
+                existingFiles = []
+            }
             var existingFileNames = Set(existingFiles.map { $0.name })
             var counters = syncState.counters ?? [:]
 
