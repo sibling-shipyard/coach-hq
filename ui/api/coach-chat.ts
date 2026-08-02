@@ -47,9 +47,35 @@ function isCoachWritable(path: string): boolean {
 // the direct equivalent: pull the IANA zone out of state.md's Athlete Profile line
 // (`- **Timezone:** Asia/Kolkata (IST, UTC+5:30)`) and format "today" in it, falling back to
 // UTC the same way SOUL.md's own boot sequence does when the field isn't set yet.
-function todayContextLine(stateMd: string): string {
+function extractTimezone(stateMd: string): string {
   const match = stateMd.match(/\*\*Timezone:\*\*\s*([A-Za-z_]+\/[A-Za-z_]+)/);
-  const timezone = match?.[1] ?? "UTC";
+  return match?.[1] ?? "UTC";
+}
+
+// Calendar-day difference between a thread's createdAt and "today," both resolved in the
+// athlete's own timezone (state.md's Timezone field) rather than UTC - a thread created at
+// 11pm IST shouldn't already read as "yesterday" just because UTC has rolled over. Falls back
+// to 0 (same behavior as before this existed) if the timezone can't be resolved.
+function computeDayOffset(createdAt: number, stateMd: string): number {
+  const timezone = extractTimezone(stateMd);
+  try {
+    const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }); // YYYY-MM-DD, sortable
+    const createdDay = dayFormatter.format(new Date(createdAt));
+    const todayDay = dayFormatter.format(new Date());
+    const createdUTC = Date.parse(`${createdDay}T00:00:00Z`);
+    const todayUTC = Date.parse(`${todayDay}T00:00:00Z`);
+    return Math.max(0, Math.round((todayUTC - createdUTC) / 86_400_000));
+  } catch {
+    return 0;
+  }
+}
+
+function withComputedDayOffsets(threads: ChatThread[], stateMd: string): ChatThread[] {
+  return threads.map((t) => ({ ...t, dayOffset: computeDayOffset(t.createdAt ?? Date.now(), stateMd) }));
+}
+
+function todayContextLine(stateMd: string): string {
+  const timezone = extractTimezone(stateMd);
   try {
     const formatted = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
@@ -121,6 +147,10 @@ type ChatThreadStatus = "active" | "archived" | "deleted";
 interface ChatThread {
   id: string;
   dayOffset: number;
+  // Set once when the thread is first created, never overwritten - dayOffset above is
+  // recomputed from this on every read (see withComputedDayOffsets) rather than persisted
+  // statically, so it stays correct as real time passes instead of freezing at creation.
+  createdAt?: number;
   title: string;
   preview: string;
   ageLabel: string;
@@ -213,6 +243,11 @@ interface GeminiReply {
   reply: string;
   file_updates?: { path: string; content: string }[];
   commit_message?: string;
+  // Only meaningful on a closing=true turn (see askGemini) - the athlete's keyword match is
+  // just a trigger to ask Gemini to consider closing, not a guarantee it actually did. Gemini
+  // sets this false when it's asking a clarifying question instead of closing (see prompt),
+  // and the server must not commit/report closed:true unless this comes back true.
+  session_closed?: boolean;
 }
 
 async function askGemini(
@@ -256,6 +291,10 @@ async function askGemini(
           "**Never say something is saved, logged, locked, or committed unless it is genuinely present",
           "in file_updates in this exact response.** If there is truly nothing concrete to save this",
           "session, say so honestly instead of pretending to close one out.",
+          "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
+          "response (asking for missing info instead does NOT count - set it false in that case, even",
+          "though this turn was triggered by a close-session phrase). The athlete will simply see your",
+          "question and reply normally; you'll get another chance to close once they answer.",
         ].join("\n")
       : [
           "\nWhen this turn genuinely warrants updating the athlete's files (a workout logged, a",
@@ -266,6 +305,7 @@ async function askGemini(
           "should NOT touch any files - only do this for the same moments a real session would close",
           "with a commit. Never say something is saved or committed unless it's genuinely in",
           "file_updates this turn.",
+          "\nSet session_closed to false - this isn't a close-session turn.",
         ].join("\n"),
     "\nWhen you include a file in file_updates, reproduce its entire existing content exactly,",
     "character-for-character, except for the specific lines you are adding or changing. Never",
@@ -306,6 +346,7 @@ async function askGemini(
             type: "object",
             properties: {
               reply: { type: "string" },
+              session_closed: { type: "boolean" },
               commit_message: { type: "string" },
               file_updates: {
                 type: "array",
@@ -348,11 +389,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     const token = auth.gh_token;
 
     if (req.method === "GET") {
-      const history = await loadChatHistory(repo, token);
+      const [history, stateMd] = await Promise.all([loadChatHistory(repo, token), getFileRaw(repo, STATE_FILE_PATH, token)]);
       // Retention is enforced on write (POST/PATCH), not here - a GET must never rewrite the
       // file just because it was read. Deleted threads are still returned so the sidebar's
       // Restore / Delete Forever actions have something to act on.
-      return Response.json({ threads: history.threads });
+      return Response.json({ threads: withComputedDayOffsets(history.threads, stateMd ?? "") });
     }
 
     if (req.method === "PATCH") {
@@ -375,17 +416,27 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           // against fresh state each attempt, same as the merge itself.
           const target = fresh.threads.find((t) => t.id === threadId);
           const isHardDelete = status === "deleted" && target?.status === "deleted";
-          const threads = isHardDelete
-            ? fresh.threads.filter((t) => t.id !== threadId)
-            : fresh.threads.map((thread) => {
-                if (thread.id !== threadId) return thread;
-                return {
-                  ...thread,
-                  status,
-                  archivedAt: status === "archived" ? now : undefined,
-                  deletedAt: status === "deleted" ? now : undefined,
-                };
-              });
+          let threads: ChatThread[];
+          if (isHardDelete) {
+            threads = fresh.threads.filter((t) => t.id !== threadId);
+          } else if (target && status === "active") {
+            // Restore: retention's cap keeps only the newest-first N live threads (see
+            // applyRetention), so a restored thread has to move back to the front of the array,
+            // not just flip status in place - otherwise it can land back outside the cap and get
+            // silently dropped again on this very write.
+            const updated: ChatThread = { ...target, status, archivedAt: undefined, deletedAt: undefined };
+            threads = mergeThreadToFront(fresh.threads, updated);
+          } else {
+            threads = fresh.threads.map((thread) => {
+              if (thread.id !== threadId) return thread;
+              return {
+                ...thread,
+                status,
+                archivedAt: status === "archived" ? now : undefined,
+                deletedAt: status === "deleted" ? now : undefined,
+              };
+            });
+          }
           const retained = applyRetention(threads);
           latestThreads = retained;
           return JSON.stringify({ threads: retained }, null, 2);
@@ -393,7 +444,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       };
 
       await commitFilesAtomic([chatWrite], `coach: chat — ${status} thread`, { repo, branch: "main", token });
-      return Response.json({ threads: latestThreads });
+      const stateMdForOffset = await getFileRaw(repo, STATE_FILE_PATH, token);
+      return Response.json({ threads: withComputedDayOffsets(latestThreads, stateMdForOffset ?? "") });
     }
 
     if (req.method === "POST") {
@@ -419,13 +471,16 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
       const priorMessages = messages ?? [];
-      const closing = isCloseSignal(trimmed);
+      // Keyword match is only a trigger to ASK Gemini to consider closing - it is not itself
+      // the close decision. Gemini reports back via reply.session_closed whether it actually
+      // closed this turn (it may instead ask a clarifying question) - see closing below.
+      const closeIntent = isCloseSignal(trimmed);
       const now = Date.now();
       const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
 
       let reply: GeminiReply;
       try {
-        reply = await askGemini(apiKey, soul, stateMd ?? "", questLog ?? "", priorMessages, trimmed, closing);
+        reply = await askGemini(apiKey, soul, stateMd ?? "", questLog ?? "", priorMessages, trimmed, closeIntent);
       } catch (err: unknown) {
         const status = (err as { status?: number }).status ?? 500;
         const errMessage = err instanceof Error ? err.message : String(err);
@@ -433,10 +488,13 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       }
 
       const coachMsg: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [reply.reply] };
+      const closing = closeIntent && reply.session_closed === true;
 
       if (!closing) {
         // No repo write at all for an ordinary turn - the client just appends both messages
-        // to its own in-memory thread. Losing this on a refresh before wrap is accepted.
+        // to its own in-memory thread. Losing this on a refresh before wrap is accepted. This
+        // also covers a close-intent turn where Gemini asked a clarifying question instead of
+        // actually closing (session_closed came back false) - no premature commit.
         return Response.json({ reply: reply.reply, closed: false });
       }
 
@@ -475,7 +533,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
           const thread: ChatThread = {
             id: finalThreadId,
-            dayOffset: existing?.dayOffset ?? 0,
+            dayOffset: existing?.dayOffset ?? 0, // stored value is stale by design - recomputed from createdAt below on every response
+            createdAt: existing?.createdAt ?? now,
             title: existing?.title ?? computedTitle,
             preview: previewText,
             ageLabel: "NOW",
@@ -517,7 +576,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         reply: reply.reply,
         closed: true,
         threadId: finalThreadId,
-        threads: latestThreads,
+        threads: withComputedDayOffsets(latestThreads, stateMd ?? ""),
       });
     }
 

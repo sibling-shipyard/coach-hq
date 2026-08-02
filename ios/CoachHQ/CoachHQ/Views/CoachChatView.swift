@@ -540,6 +540,11 @@ struct CoachChatView: View {
 
         let now = Date().timeIntervalSince1970 * 1000
         let userMsg = ChatMessage.user(id: "u-\(now)", text: trimmed)
+        // Track whether this send is what created the thread, so a failure can roll back the
+        // whole thread (not just the message) for a brand-new conversation - matching web's
+        // CoachChat.tsx, which drops the whole optimistic thread on a failed first send instead
+        // of leaving an empty, message-less thread pinned in the sidebar.
+        let threadExistedBefore = targetId != nil && threads.contains(where: { $0.id == targetId })
         let liveThreadId = materializeThreadIfNeeded(for: targetId)
         appendUserMessage(userMsg, to: liveThreadId)
 
@@ -567,7 +572,7 @@ struct CoachChatView: View {
                 activeThreadId = liveThreadId
             }
         } catch let error as GitHubAPIError {
-            removeUserMessage(userMsg, from: liveThreadId)
+            rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
             if case .notAuthenticated = error {
                 authManager.sessionExpired = true
                 clearThreadState()
@@ -576,9 +581,18 @@ struct CoachChatView: View {
             }
             draft = trimmed
         } catch {
-            removeUserMessage(userMsg, from: liveThreadId)
+            rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
             errorMessage = "Coach didn't reply — try again"
             draft = trimmed
+        }
+    }
+
+    private func rollbackFailedSend(_ message: ChatMessage, threadId: String, threadExistedBefore: Bool) {
+        if threadExistedBefore {
+            removeUserMessage(message, from: threadId)
+        } else {
+            threads.removeAll { $0.id == threadId }
+            if activeThreadId == threadId { activeThreadId = nil }
         }
     }
 }
