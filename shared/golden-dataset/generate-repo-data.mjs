@@ -378,8 +378,14 @@ const foundationDates = activities
 const coldPlungeStart = daysAgo(21);
 const coldPlungeMissed = [toLocalDateStr(daysAgo(4)), toLocalDateStr(daysAgo(11))];
 
+// ADR 0018: coach_since seeded well before season.start_date, so local dev demonstrates a real
+// athlete's day number NOT resetting when a new season starts (unlike season.start_date, which
+// this fixture already rotates every so often as WEEKS_OF_HISTORY history rolls forward).
+const coachSinceDate = daysAgo(WEEKS_OF_HISTORY * 7 + 90);
+
 const challengeV2 = {
   version: 4,
+  coach_since: toLocalDateStr(coachSinceDate),
   season: {
     name: "Build Season",
     start_date: toLocalDateStr(seasonStart),

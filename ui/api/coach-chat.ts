@@ -131,10 +131,9 @@ function todayContextLine(stateMd: string): string {
 
 // A divider message's label was a bare "TODAY" before this - inconsistent with the richer
 // "TODAY · D-143 · 6:58" format iOS's own preview/mock data models (CoachChatPreviewData.swift).
-// Day number isn't available server-side (it's computed client-side from challenge_v2.json's
-// start_date, which coach-chat.ts doesn't read), but the time-of-day is - include at least that,
-// applied identically everywhere a divider gets created (greet and close) so they never disagree
-// with each other.
+// Day number isn't threaded into the divider label (that's still computed client-side from
+// challenge_v2.json), but the time-of-day is - include at least that, applied identically
+// everywhere a divider gets created (greet and close) so they never disagree with each other.
 function todayDividerLabel(stateMd: string): string {
   const timezone = extractTimezone(stateMd);
   try {
@@ -144,6 +143,47 @@ function todayDividerLabel(stateMd: string): string {
     return `TODAY · ${time}`;
   } catch {
     return "TODAY";
+  }
+}
+
+// Today's date as YYYY-MM-DD in the athlete's own timezone (state.md's Timezone field) - used
+// to stamp coach_since (ADR 0018), so the date matches what the athlete would call "today" even
+// close to midnight, not whatever day it is in the server's UTC clock.
+function todayDateString(stateMd: string, now: Date): string {
+  const timezone = extractTimezone(stateMd);
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(now);
+  } catch {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "UTC" }).format(now);
+  }
+}
+
+// ADR 0018: coach_since is a durable, write-once anchor - "days since this athlete started using
+// Coach at all," independent of season/challenge resets. Falls back to season.start_date, then
+// challenge.start_date, for repos that haven't been stamped yet (pre-existing athletes awaiting
+// manual backfill, or a session mid-First-Session-Protocol before coach_since exists). Returns
+// null if none of the three are present, rather than inventing a day number from nothing.
+export function coachDayNumber(challengeJson: string | null | undefined, stateMd: string, now: Date): number | null {
+  if (!challengeJson) return null;
+  let parsed: { coach_since?: string; season?: { start_date?: string }; challenge?: { start_date?: string } };
+  try {
+    parsed = JSON.parse(challengeJson);
+  } catch {
+    return null;
+  }
+  const startRaw = parsed.coach_since ?? parsed.season?.start_date ?? parsed.challenge?.start_date;
+  if (!startRaw) return null;
+  const timezone = extractTimezone(stateMd);
+  try {
+    const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
+    const startDay = dayFormatter.format(new Date(`${startRaw}T00:00:00Z`));
+    const todayDay = dayFormatter.format(now);
+    const startUTC = Date.parse(`${startDay}T00:00:00Z`);
+    const todayUTC = Date.parse(`${todayDay}T00:00:00Z`);
+    if (Number.isNaN(startUTC) || Number.isNaN(todayUTC)) return null;
+    return Math.max(1, Math.round((todayUTC - startUTC) / 86_400_000) + 1);
+  } catch {
+    return null;
   }
 }
 
@@ -530,6 +570,42 @@ export function resolveFileUpdate(
   return { path: update.path, content: update.content };
 }
 
+// ADR 0018: coach_since is set automatically, server-side, the moment the false→true
+// profileComplete transition happens - i.e. the turn that genuinely finishes the First Session
+// Protocol - never at repo-provisioning time (an infra timestamp, not real usage; the same
+// failure mode already rejected for repo.created_at). Defense in depth, same as the rest of A7:
+// never relies on Gemini remembering to propose this field itself. Write-once - if coach_since
+// is already present (e.g. this repo was manually backfilled per issue #199, or a retry of a
+// turn that already stamped it), this is a no-op. Merges onto whatever challenge_v2.json write
+// Gemini already proposed this turn (First Session Protocol also writes the season/quests here),
+// so both land in the same commit rather than two separate writes.
+export function injectCoachSinceIfNeeded(
+  validUpdates: { path: string; content: string }[],
+  closingFiles: ClosingFileContext | undefined,
+  wasProfileComplete: boolean,
+  isProfileCompleteNow: boolean,
+  stateMd: string,
+): { path: string; content: string }[] {
+  if (wasProfileComplete || !isProfileCompleteNow || !closingFiles) return validUpdates;
+  const existing = validUpdates.find((u) => u.path === CHALLENGE_V2_PATH);
+  const baseContent = existing?.content ?? closingFiles.challengeV2;
+  try {
+    const parsed = baseContent ? JSON.parse(baseContent) : {};
+    if (parsed.coach_since) return validUpdates; // already stamped - never overwritten
+  } catch {
+    console.warn("[coach-chat] challenge_v2.json unparsable - skipping coach_since stamp");
+    return validUpdates;
+  }
+  const patch = JSON.stringify({ coach_since: todayDateString(stateMd, new Date()) });
+  const result = applyJsonMergePatch(baseContent ?? null, patch);
+  if (!result.ok) {
+    console.warn(`[coach-chat] coach_since stamp failed - ${result.error}`);
+    return validUpdates;
+  }
+  const rest = validUpdates.filter((u) => u.path !== CHALLENGE_V2_PATH);
+  return [...rest, { path: CHALLENGE_V2_PATH, content: result.content }];
+}
+
 // B4: sport(s)/goal collected in iOS's native onboarding (season step), passed through on the
 // very first greet() call for a brand-new athlete so the First Session Protocol can reflect them
 // back for confirmation instead of asking cold - see platform/soul/B_engine.md §10's "Onboarding
@@ -779,6 +855,14 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         const [history, files] = await Promise.all([loadChatHistory(repo, token), loadClosingFileContext(repo, token)]);
         extraContext = todaysOtherThreadsSummary(history.threads, stateMd ?? "", threadId ?? "");
         closingFiles = files;
+        const dayNumber = coachDayNumber(closingFiles.challengeV2, stateMd ?? "", new Date());
+        const dayNumberLine =
+          dayNumber != null
+            ? `Today is day ${dayNumber} since this athlete started with Coach. If commit_message includes a ` +
+              `day-N reference, use exactly ${dayNumber} - never guess or increment from a previous message.`
+            : "No coach_since or season start date is available yet to compute a day number - omit any day-N " +
+              "reference from commit_message rather than inventing one.";
+        extraContext = extraContext ? `${extraContext}\n\n${dayNumberLine}` : dayNumberLine;
       }
 
       let reply: GeminiReply;
@@ -890,9 +974,18 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         dedupedFileUpdates.set(update.path, update);
       }
 
-      const validUpdates = [...dedupedFileUpdates.values()]
+      const resolvedUpdates = [...dedupedFileUpdates.values()]
         .map((f) => resolveFileUpdate(f, currentContentByPath[f.path]))
         .filter((f): f is { path: string; content: string } => f !== null);
+
+      // B2/ADR 0018: detect the false→true profileComplete transition against what's actually
+      // about to be committed (not the pre-turn snapshot alone) - a close-turn that finishes the
+      // intake writes state.md this same turn and coach_since must key off that fresh value.
+      const wasProfileComplete = isAthleteProfileComplete(stateMd ?? "");
+      const committedStateMd = resolvedUpdates.find((u) => u.path === STATE_FILE_PATH)?.content ?? stateMd ?? "";
+      const profileComplete = isAthleteProfileComplete(committedStateMd);
+      const validUpdates = injectCoachSinceIfNeeded(resolvedUpdates, closingFiles, wasProfileComplete, profileComplete, stateMd ?? "");
+
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
 
       // ADR 0012: every file_update plus the updated chat_history.json lands in ONE atomic
@@ -914,13 +1007,6 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         }
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}` }, { status: 502 });
       }
-
-      // B2: First Session Protocol completion. If state.md was written this turn, check the
-      // content that actually just got committed, not the pre-turn snapshot - a close-turn that
-      // finishes the intake writes state.md and needs the caller to see the up-to-date answer
-      // immediately, not one call behind.
-      const committedStateMd = validUpdates.find((u) => u.path === STATE_FILE_PATH)?.content ?? stateMd ?? "";
-      const profileComplete = isAthleteProfileComplete(committedStateMd);
 
       return Response.json({
         reply: reply.reply,
