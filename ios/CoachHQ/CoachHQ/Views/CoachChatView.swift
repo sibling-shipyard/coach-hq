@@ -472,7 +472,11 @@ struct CoachChatView: View {
     /// conversation" (the server's reuse-vs-create logic handles both cases correctly).
     private func greetNow(apiClient: CoachChatAPIClient) async {
         do {
-            let result = try await apiClient.greet()
+            // B4: only relevant for a brand-new athlete's very first greet (harmless to pass
+            // otherwise - the server ignores it whenever the reuse-existing-thread path applies,
+            // or once state.md's Athlete Profile is already filled in and there's nothing left
+            // to reflect back).
+            let result = try await apiClient.greet(onboardingHints: OnboardingHints.load())
             threads = result.threads
             activeThreadId = result.threadId
         } catch let error as GitHubAPIError {

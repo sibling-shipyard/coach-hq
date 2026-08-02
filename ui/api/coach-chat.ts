@@ -512,12 +512,34 @@ export function resolveFileUpdate(
   return { path: update.path, content: update.content };
 }
 
+// B4: sport(s)/goal collected in iOS's native onboarding (season step), passed through on the
+// very first greet() call for a brand-new athlete so the First Session Protocol can reflect them
+// back for confirmation instead of asking cold - see platform/soul/B_engine.md §10's "Onboarding
+// hints" note. Absent for web-only athletes or once the hint's already been used once.
+export interface OnboardingHints {
+  sports: string[];
+  goal: string;
+}
+
+export function onboardingHintsContext(hints: OnboardingHints | undefined): string | undefined {
+  if (!hints || (hints.sports.length === 0 && !hints.goal.trim())) return undefined;
+  const lines = ["Onboarding hints from the athlete's native app setup (see B_engine.md §10):"];
+  if (hints.sports.length > 0) lines.push(`- Sport(s) selected: ${hints.sports.join(", ")}`);
+  if (hints.goal.trim()) lines.push(`- Goal entered: ${hints.goal.trim()}`);
+  return lines.join("\n");
+}
+
 // A4: coach speaks first. Landing on "new conversation" (no active unengaged thread already
 // sitting there today) creates a thread whose only message is Coach's own opening line, before
 // the athlete has typed anything. Reuses an existing same-day thread that's still just an
 // unanswered greeting instead of creating a new one every time the athlete reopens the tab
 // without engaging - otherwise that would burn through the 7-slot retention cap for nothing.
-async function handleGreet(repo: string, token: string, apiKey: string): Promise<Response> {
+async function handleGreet(
+  repo: string,
+  token: string,
+  apiKey: string,
+  onboardingHints?: OnboardingHints,
+): Promise<Response> {
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
   const { soul, state: stateMd, questLog } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
@@ -543,7 +565,16 @@ async function handleGreet(repo: string, token: string, apiKey: string): Promise
 
   let reply: GeminiReply;
   try {
-    reply = await askGemini(apiKey, soul, stateMd ?? "", questLog ?? "", [], "", "greeting");
+    reply = await askGemini(
+      apiKey,
+      soul,
+      stateMd ?? "",
+      questLog ?? "",
+      [],
+      "",
+      "greeting",
+      onboardingHintsContext(onboardingHints),
+    );
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const errMessage = err instanceof Error ? err.message : String(err);
@@ -642,7 +673,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // `messages` is the client's own running history for this thread (nothing persisted
       // server-side for an unwrapped conversation) - the server only ever reads the repo's
       // chat_history.json at the moment a thread actually closes, below.
-      const { threadId, messages, message, action, knownSha } = (await req.json()) as {
+      const { threadId, messages, message, action, knownSha, onboardingHints } = (await req.json()) as {
         threadId?: string;
         messages?: ChatMessage[];
         message?: string;
@@ -651,12 +682,14 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         // the server detect "another device wrapped a session (or otherwise wrote to this repo)
         // since I last saw it" without any lock.
         knownSha?: string;
+        // B4: only meaningful alongside action: "greet" - see onboardingHintsContext().
+        onboardingHints?: OnboardingHints;
       };
 
       // A4: coach speaks first. Landing on "new conversation" calls this instead of sending a
       // message - the athlete hasn't typed anything yet.
       if (action === "greet") {
-        return handleGreet(repo, token, apiKey);
+        return handleGreet(repo, token, apiKey, onboardingHints);
       }
 
       const trimmed = (message ?? "").trim();

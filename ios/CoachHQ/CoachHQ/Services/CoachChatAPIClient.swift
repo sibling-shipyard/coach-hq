@@ -135,9 +135,19 @@ final class CoachChatAPIClient {
     /// A4: coach speaks first. Call on landing on "new conversation" - no athlete message yet.
     /// Server either reuses today's still-unanswered greeting thread or creates + commits a
     /// new one with just Coach's opening line (mirrors coachChatModel.ts's greet()).
-    func greet() async throws -> ChatGreetResponse {
+    ///
+    /// B4: pass `onboardingHints` (from OnboardingHints.load()) on a brand-new athlete's very
+    /// first greet - the server folds them into the greeting turn's prompt so the First Session
+    /// Protocol can reflect the athlete's native sport/goal picks back instead of asking cold.
+    /// Only meaningful the server-side reuse path doesn't apply to, i.e. genuinely creating a
+    /// new thread - harmless to pass on a reuse hit too, the server just ignores it there.
+    func greet(onboardingHints: (sports: [String], goal: String)? = nil) async throws -> ChatGreetResponse {
         let auth = try await requireAuth()
-        let req = try request("POST", body: ["action": "greet"], auth: auth)
+        var body: [String: Any] = ["action": "greet"]
+        if let onboardingHints {
+            body["onboardingHints"] = ["sports": onboardingHints.sports, "goal": onboardingHints.goal]
+        }
+        let req = try request("POST", body: body, auth: auth)
         let data = try await send(req, operation: "Starting conversation", retryNetworkFailures: false)
         let decoded = try JSONDecoder().decode(ChatGreetResponse.self, from: data)
         rememberRepoSha(decoded.threadId, decoded.repoSha)
