@@ -212,7 +212,13 @@ class HealthKitSyncManager: ObservableObject {
                 existingFiles = []
             }
             var existingFileNames = Set(existingFiles.map { $0.name })
-            var counters = syncState.counters ?? [:]
+            let counterReferenceYear = syncState.counterYear
+                ?? Self.year(fromISO8601: syncState.hkLastSynced)
+                ?? Calendar.current.component(.year, from: Date())
+            var counters = ActivityNamer.expandCounters(
+                syncState.counters ?? [:],
+                referenceYear: counterReferenceYear
+            )
 
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -289,7 +295,9 @@ class HealthKitSyncManager: ObservableObject {
             }
 
             // Include updated sync_state and any extra files in the same commit
-            syncState.counters = counters
+            let flattened = ActivityNamer.flattenCounters(counters)
+            syncState.counters = flattened.flat
+            syncState.counterYear = flattened.latestYear
             syncState.hkLastSynced = ISO8601DateFormatter().string(from: Date())
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
             filesToCommit.append(contentsOf: extraFiles)
@@ -373,6 +381,11 @@ class HealthKitSyncManager: ObservableObject {
                 hasDescription: !(activity.description ?? "").isEmpty
             ))
         }
+    }
+
+    private static func year(fromISO8601 string: String?) -> Int? {
+        guard let string, let date = ISO8601DateFormatter().date(from: string) else { return nil }
+        return Calendar.current.component(.year, from: date)
     }
 
     /// Extracts the `YYYY-MM-DD` embedded in a history filename — works for both

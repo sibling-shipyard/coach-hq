@@ -531,6 +531,9 @@ struct SyncState: Codable {
     var since: String?
     var lastRun: String?
     var counters: [String: Int]?
+    /// Calendar year that flat `counters` represent (latest year in hist). Optional for
+    /// repos migrated before this field existed — iOS falls back to `hk_last_synced` year.
+    var counterYear: Int?
     var hkLastSynced: String?
 
     enum CodingKeys: String, CodingKey {
@@ -540,6 +543,7 @@ struct SyncState: Codable {
         case since
         case lastRun = "last_run"
         case counters
+        case counterYear = "counter_year"
         case hkLastSynced = "hk_last_synced"
     }
 }
