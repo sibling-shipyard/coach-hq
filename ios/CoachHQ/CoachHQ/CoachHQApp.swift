@@ -28,6 +28,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 struct CoachHQApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var router = AppRouter()
+
+    init() {
+        // UserDefaults is wiped on app deletion; Keychain is not. Clear any stale
+        // keychain credentials on the first launch after a reinstall so the user
+        // always starts from a clean LoginView rather than a broken session.
+        let installedKey = "com.siblingshipyard.coachhq.hasLaunched"
+        if !UserDefaults.standard.bool(forKey: installedKey) {
+            GitHubAuthManager.clearKeychainOnFreshInstall()
+            UserDefaults.standard.set(true, forKey: installedKey)
+        }
+    }
     @StateObject private var syncManager = HealthKitSyncManager()
     @StateObject private var workoutService = WorkoutService()
     @StateObject private var widgetStore = WidgetSnapshotStore()
