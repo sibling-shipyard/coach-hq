@@ -259,9 +259,9 @@ struct SetupView: View {
 
 /// Shown once before the system HealthKit dialog — explains in plain language what Coach
 /// reads and why, so the user isn't met cold by an OS permission sheet.
+/// Health access is required; there is no skip option.
 struct HealthKitPrePromptView: View {
     let onConnect: () -> Void
-    let onSkip: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -297,17 +297,12 @@ struct HealthKitPrePromptView: View {
                 .buttonStyle(WarmSetupButtonStyle(primary: true))
                 .onboardingReveal(index: 2)
 
-                Button {
-                    Haptics.tap()
-                    onSkip()
-                } label: {
-                    Text("Not right now")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .frame(height: 44)
-                }
-                .buttonStyle(.plain)
-                .onboardingReveal(index: 3)
+                Text("Health access is required for Coach to work.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(WarmInstrument.inkFaint)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+                    .onboardingReveal(index: 3)
             }
             .padding(.horizontal, 24)
             .safeAreaPadding(.bottom, 12)

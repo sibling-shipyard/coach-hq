@@ -24,7 +24,6 @@ enum OnboardingPhase: Int {
 enum OnboardingEvent {
     case splashDismissed
     case hkConnected
-    case hkSkipped
     case revealComplete
 }
 
@@ -49,10 +48,6 @@ final class AppRouter: ObservableObject {
     }
 
     private var cancellables = Set<AnyCancellable>()
-    // Survives the intermediate .bootstrapping state that handleCallback() creates while
-    // fetching the user after install — previousState alone can't track needsSetup→active.
-    private var skipSplashOnNextActive = false
-
     private let phaseKey     = "onboardingPhase"
     private let lastLoginKey = "lastOnboardingLogin"
 
@@ -126,12 +121,7 @@ final class AppRouter: ObservableObject {
     }
 
     private func deriveState() {
-        let previousState = state
         guard authManager.isSessionReady else {
-            // handleCallback() sets isSessionReady=false while fetching the user after install,
-            // creating a .bootstrapping interlude that breaks the needsSetup→active check.
-            // Capture the flag here so it survives that intermediate state.
-            if case .needsSetup = state { skipSplashOnNextActive = true }
             state = .bootstrapping
             return
         }
@@ -141,17 +131,8 @@ final class AppRouter: ObservableObject {
         guard authManager.isAuthenticated else { state = .unauthenticated; return }
         if authManager.selectedRepo != nil {
             state = .active
-            // Skip the splash when arriving from SetupView (direct or via bootstrapping interlude).
-            let fromSetup: Bool
-            if case .needsSetup = previousState { fromSetup = true }
-            else { fromSetup = skipSplashOnNextActive }
-            skipSplashOnNextActive = false
-            if fromSetup && onboardingPhase == .notStarted {
-                advance(.splashDismissed)
-            }
             return
         }
-        skipSplashOnNextActive = false
         // isSessionReady + isAuthenticated + no repo + no pendingSetupLogin:
         // zombie-token path — bootstrapSession() should have called signOut(), but guard here.
         state = .unauthenticated
@@ -181,7 +162,6 @@ final class AppRouter: ObservableObject {
         switch event {
         case .splashDismissed: persistPhase(.hkPrompt)
         case .hkConnected:     persistPhase(.reveal)
-        case .hkSkipped:       persistPhase(.complete)
         case .revealComplete:  persistPhase(.complete)
         }
     }

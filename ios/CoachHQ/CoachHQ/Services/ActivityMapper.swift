@@ -13,6 +13,12 @@ struct ActivityMapper {
         case .running: return "Run"
         case .walking: return "Walk"
         case .yoga, .flexibility: return "Yoga"
+        case .swimming: return "Swimming"
+        case .hiking: return "Hiking"
+        case .rowing: return "Rowing"
+        case .tennis: return "Tennis"
+        case .soccer: return "Football"
+        case .basketball: return "Basketball"
         default: return "Other"
         }
     }

@@ -156,7 +156,9 @@ class HealthKitSyncManager: ObservableObject {
     // MARK: - Sync
 
     /// Fetches new workouts since last sync and commits them to GitHub in a single commit.
-    func syncNewWorkouts() async {
+    /// Pass `extraFiles` to fold additional files (e.g. user_data/profile.md) into the same commit.
+    /// If there are no new workouts but `extraFiles` is non-empty, commits those files alone.
+    func syncNewWorkouts(extraFiles: [(path: String, data: Data)] = []) async {
         guard let apiClient = apiClient else { return }
         guard !isSyncing else { return }
 
@@ -186,7 +188,12 @@ class HealthKitSyncManager: ObservableObject {
 
             let workouts = try await fetchWorkouts(since: since)
             guard !workouts.isEmpty else {
-                syncProgressText = ""
+                if !extraFiles.isEmpty {
+                    // No new workouts but extra files need committing (e.g. profile on first sync).
+                    syncProgressText = "Saving profile…"
+                    try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
+                    syncProgressText = ""
+                }
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
@@ -268,7 +275,12 @@ class HealthKitSyncManager: ObservableObject {
             }
 
             guard !filesToCommit.isEmpty else {
-                syncProgressText = ""
+                if !extraFiles.isEmpty {
+                    // All workouts were deduped but extra files still need committing.
+                    syncProgressText = "Saving profile…"
+                    try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
+                    syncProgressText = ""
+                }
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
@@ -276,12 +288,13 @@ class HealthKitSyncManager: ObservableObject {
                 return
             }
 
-            // Include updated sync_state in the same commit
+            // Include updated sync_state and any extra files in the same commit
             syncState.counters = counters
             syncState.hkLastSynced = ISO8601DateFormatter().string(from: Date())
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
+            filesToCommit.append(contentsOf: extraFiles)
 
-            let n = filesToCommit.count - 1
+            let n = filesToCommit.count - 1 - extraFiles.count
             syncProgressText = "Pushing \(n) activit\(n == 1 ? "y" : "ies") to GitHub…"
             let commitFinishedAt = Date()
             try await apiClient.commitFiles(filesToCommit, message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")")

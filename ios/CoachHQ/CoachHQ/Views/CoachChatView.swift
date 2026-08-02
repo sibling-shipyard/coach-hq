@@ -197,8 +197,6 @@ struct CoachChatView: View {
     }
 
     private var composerPlaceholder: String {
-        // Waiting for name during welcome intro
-        if usingPreviewShell && !chatWelcomeShown { return "Your name…" }
         let hour = Calendar.current.component(.hour, from: Date())
         if !isViewingToday { return "Reply to Coach…" }
         switch hour {
@@ -392,16 +390,6 @@ struct CoachChatView: View {
         errorMessage = nil
     }
 
-    private func writeProfile(name: String) async {
-        let client = GitHubAPIClient(authManager: authManager)
-        let content = "# Athlete Profile\n\nname: \(name)\n"
-        guard let data = content.data(using: .utf8) else { return }
-        try? await client.commitFiles(
-            [(path: "user/profile.md", data: data)],
-            message: "profile: set preferred name"
-        )
-    }
-
     private func selectTodayThread() {
         activeThreadId = todayThread?.id
     }
@@ -470,16 +458,17 @@ struct CoachChatView: View {
         }
     }
 
-    /// Live thread messages only — never include preview shell content in API context.
+    /// Live thread messages only — never include preview shell content or local welcome messages in API context.
     private func priorMessagesForSend(targetId: String?) -> [ChatMessage] {
         guard let targetId,
               let thread = threads.first(where: { $0.id == targetId }) else {
             return []
         }
-        return thread.messages
+        return thread.messages.filter { $0.id != "welcome-coach" }
     }
 
     /// Ensures a mutable live thread exists before optimistic UI update. Never inserts preview seed data.
+    /// On first send, pre-populates the Coach welcome message so it persists in the thread.
     @discardableResult
     private func materializeThreadIfNeeded(for targetId: String?) -> String {
         if let targetId, threads.contains(where: { $0.id == targetId }) {
@@ -496,6 +485,13 @@ struct CoachChatView: View {
             id: "d-\(Int(now))",
             label: "TODAY · \(headerContext.dayLabel(offset: 0))"
         )
+        var initialMessages: [ChatMessage] = [divider]
+        if !chatWelcomeShown {
+            let greeting = preferredName.isEmpty
+                ? "Hey. I'm Coach Phelps."
+                : "Hey, \(preferredName). I'm Coach Phelps."
+            initialMessages.append(ChatMessage.coach(id: "welcome-coach", paragraphs: [greeting]))
+        }
         let created = ChatThread(
             id: id,
             dayOffset: 0,
@@ -505,7 +501,7 @@ struct CoachChatView: View {
             status: .active,
             archivedAt: nil,
             deletedAt: nil,
-            messages: [divider]
+            messages: initialMessages
         )
         threads.insert(created, at: 0)
         activeThreadId = id
@@ -527,12 +523,6 @@ struct CoachChatView: View {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !sending else { return }
 
-        // First message from a new user — treat it as their name.
-        if preferredName.isEmpty {
-            let name = String(trimmed.prefix(30))
-            preferredName = name
-            Task { await writeProfile(name: name) }
-        }
         if !chatWelcomeShown { chatWelcomeShown = true }
 
         let priorMessages = priorMessagesForSend(targetId: targetId)

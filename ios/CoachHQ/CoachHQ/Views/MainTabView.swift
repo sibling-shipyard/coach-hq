@@ -66,11 +66,6 @@ struct MainTabView: View {
     @EnvironmentObject var router: AppRouter
     @State private var selectedTab: AppTab = .home
     @State private var tabBarHidden = false
-    // Set alongside clearing pendingChatNavigation in onAppear below - can't just re-check
-    // pendingChatNavigation later, since onAppear already clears it long before the splash's
-    // async shouldOpenChatFirst() decision resolves. Lets that decision know a notification tap
-    // already claimed the tab, so it doesn't silently overwrite a real user action.
-    @State private var chatClaimedByNotification = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
 
@@ -103,23 +98,13 @@ struct MainTabView: View {
                 bottomDockContent
             }
 
-            // First-launch splash — shows logo + "Coach HQ" while a tab loads underneath.
-            // effectivePhase (.notStarted) means onboarding hasn't started; if sessionExpired
-            // fires during the timed sequence, effectivePhase returns .complete so this overlay
-            // never renders — phase stays .notStarted and replays correctly after re-auth.
-            // On exit: Chat for new athletes (Coach's intro first); Home for reinstalls with
-            // existing history (shouldOpenChatFirst() makes that call).
+            // Name prompt — first step of onboarding. Collects the athlete's preferred name
+            // before HealthKit permission. effectivePhase returns .complete when sessionExpired
+            // so this overlay never renders over the expired screen.
             if router.effectivePhase == .notStarted {
-                SplashView {
-                    Task {
-                        // A notification tap already claimed the tab (onAppear, below) — don't
-                        // spend a network round trip on a decision that's moot.
-                        if !chatClaimedByNotification {
-                            selectedTab = await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) ? .chat : .home
-                        }
-                        try? await Task.sleep(for: .seconds(0.5))
-                        router.advance(.splashDismissed)
-                    }
+                NamePromptView {
+                    selectedTab = .chat
+                    router.advance(.splashDismissed)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
@@ -140,7 +125,6 @@ struct MainTabView: View {
         .onAppear {
             if pendingChatNavigation {
                 pendingChatNavigation = false
-                chatClaimedByNotification = true
                 selectedTab = .chat
             }
         }
@@ -152,6 +136,9 @@ struct MainTabView: View {
         }
         .onChange(of: selectedTab) { _, newTab in
             if newTab == .chat { chatHasUnread = false }
+            if newTab == .home, widgetStore.shouldRefresh {
+                Task { await widgetStore.refresh(showSpinner: false) }
+            }
         }
         .onChange(of: chatHasUnread) { _, hasUnread in
             if hasUnread && selectedTab == .chat { chatHasUnread = false }
@@ -169,9 +156,6 @@ struct MainTabView: View {
                         await syncManager.connectHealthKit()
                         router.advance(.hkConnected)
                     }
-                },
-                onSkip: {
-                    router.advance(.hkSkipped)
                 }
             )
             .interactiveDismissDisabled()
