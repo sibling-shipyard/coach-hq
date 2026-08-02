@@ -24,7 +24,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/welcome" component={Welcome} />
-      <Route path="/auth/popup-complete" component={AuthPopupComplete} />
       <Route path={"/"} component={Home} />
       <Route path="/workouts" component={Workouts} />
       <Route path="/workouts/:id" component={WorkoutTimer} />
@@ -59,6 +58,20 @@ function Gate({ children }: { children: ReactNode }) {
 }
 
 function App() {
+  // /auth/popup-complete is a no-UI transit page (see AuthPopupComplete.tsx) that must post
+  // its result and close itself regardless of auth state - it never gets a session cookie on
+  // the needs_ios_setup path, so gating it behind Gate/AuthProvider (which resolves to
+  // "unauthenticated" with no cookie) meant it never mounted and the popup never closed
+  // (issue #201). Bypass the whole auth stack for this one route instead of teaching
+  // AuthContext about routing concerns.
+  if (window.location.pathname === "/auth/popup-complete") {
+    return (
+      <ErrorBoundary>
+        <AuthPopupComplete />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
