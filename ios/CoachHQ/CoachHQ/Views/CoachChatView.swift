@@ -298,21 +298,6 @@ struct CoachChatView: View {
 
     private var composerDock: some View {
         VStack(spacing: 8) {
-            if isViewingToday && (chatWelcomeShown || !usingPreviewShell) {
-                CoachChatStarterChips(
-                    prompts: postWorkoutChips ?? CoachChatPreviewData.starterPrompts,
-                    isDisabled: sending
-                ) { prompt in
-                    postWorkoutChips = nil
-                    draft = prompt
-                    Task { await send(from: resolvedSendThreadId()) }
-                }
-                .opacity(composerChromeHidden ? 0 : 1)
-                .frame(height: composerChromeHidden ? 0 : nil)
-                .clipped()
-                .allowsHitTesting(!composerChromeHidden)
-            }
-
             CoachChatComposer(
                 draft: $draft,
                 isFocused: $composerFocused,
@@ -517,6 +502,13 @@ struct CoachChatView: View {
             id: "d-\(Int(now))",
             label: "TODAY · \(headerContext.dayLabel(offset: 0))"
         )
+        var initialMessages: [ChatMessage] = [divider]
+        if !chatWelcomeShown {
+            let greeting = preferredName.isEmpty
+                ? "Hey. I'm Coach Phelps."
+                : "Hey, \(preferredName). I'm Coach Phelps."
+            initialMessages.append(ChatMessage.coach(id: "welcome-coach", paragraphs: [greeting]))
+        }
         let created = ChatThread(
             id: id,
             dayOffset: 0,
