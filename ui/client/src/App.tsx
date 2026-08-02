@@ -65,7 +65,11 @@ function App() {
   // (issue #201). Bypass the whole auth stack for this one route instead of teaching
   // AuthContext about routing concerns.
   if (window.location.pathname === "/auth/popup-complete") {
-    return <AuthPopupComplete />;
+    return (
+      <ErrorBoundary>
+        <AuthPopupComplete />
+      </ErrorBoundary>
+    );
   }
 
   return (
