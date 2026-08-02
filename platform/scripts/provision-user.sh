@@ -27,12 +27,13 @@ Options:
   --plugins LIST          Comma-separated plugins to enable (e.g. badminton)
   -h, --help              Show this help
 
-Secrets (optional — set when env vars are present):
-  PAT_TOKEN               Required for sync workflow
+Secrets:
+  None required. Sync and Apply Coach Patch run under the built-in GITHUB_TOKEN
+  (contents: write). Strava athletes may set Strava secrets separately if needed.
 
 Examples:
   platform/scripts/provision-user.sh --greenfield --repo akash-suresh/coach-akash --dry-run
-  PAT_TOKEN=ghp_... platform/scripts/provision-user.sh --migrate \
+  platform/scripts/provision-user.sh --migrate \
     --repo skanda-2003/coach-skanda --legacy skanda-2003/coach-phelps --plugins badminton
 EOF
 }
@@ -339,22 +340,9 @@ clone_to_workdir() {
 set_repo_secrets() {
   [[ "$SKIP_SECRETS" -eq 1 ]] && { log "Skipping secrets (--skip-secrets)"; return 0; }
 
-  set_one_secret() {
-    local name="$1"
-    local value="${2:-}"
-    if [[ -z "$value" ]]; then
-      warn "Secret ${name} not set in env — athlete must add manually (see SETUP.md)"
-      return 0
-    fi
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      log "[dry-run] gh secret set ${name} --repo ${TARGET_REPO}"
-    else
-      printf '%s' "$value" | gh secret set "$name" --repo "$TARGET_REPO"
-      log "Set secret ${name} on ${TARGET_REPO}"
-    fi
-  }
-
-  set_one_secret "PAT_TOKEN" "${PAT_TOKEN:-}"
+  # Sync and Apply Coach Patch run under the built-in GITHUB_TOKEN (contents: write) —
+  # no PAT or repo secret required. Strava secrets, if ever needed, are set separately.
+  log "No repo secrets required (workflows use the built-in GITHUB_TOKEN)."
 }
 
 print_next_steps() {
@@ -365,7 +353,8 @@ print_next_steps() {
 Next steps (operator + athlete):
   1. Athlete installs GitHub App: ${APP_INSTALL_URL}
      (select repo: ${TARGET_REPO})
-  2. Confirm secrets: PAT_TOKEN
+  2. No secrets to set — workflows use the built-in GITHUB_TOKEN.
+     Confirm Settings → Actions → General → Workflow permissions = Read and write.
   3. Validation (docs/eng-docs/m1-plan.md §7):
      - validate-data.yml green on first push
      - Shared site login → repo resolves

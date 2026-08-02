@@ -6,7 +6,7 @@ Friends will use **Sign up on the shared site → connect Claude to the same rep
 
 **Authority:** [`docs/eng-docs/user-3-onboarding-gate.md`](user-3-onboarding-gate.md)
 
-- [ ] **PAT-free Sync** — skeleton `sync.yml` uses `GITHUB_TOKEN` (+ permissions) instead of athlete-created `PAT_TOKEN`
+- [x] **PAT-free Sync** — skeleton `sync.yml` + `apply-coach-patch.yml` use `GITHUB_TOKEN` (+ `contents: write`) instead of athlete-created `PAT_TOKEN` (#189)
 - [ ] **Auto repo on sign-up** — website creates `coach-<user>` from skeleton (App Administration perm or equivalent)
 - [ ] **Sign-up → working Sync** — exit test: dashboard login, Sync button, push-triggered Sync all green without operator
 - [ ] **SETUP.md** — athlete path is shared-site sign-up; remove manual PAT steps from friend-facing docs
