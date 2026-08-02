@@ -241,14 +241,11 @@ private struct SyncStepView: View {
         withAnimation(.easeOut(duration: 0.3)) { progress = 0.02 }
 
         if syncManager.isSyncing {
-            // Background sync running — wait for it via .task(id:), then commit profile.
-            needsProfileCommit = true
+            // Background sync already running — wait for it via .task(id:) above.
             return
         }
 
-        // Start sync with profile as extra file — handles new workouts + profile in one commit.
-        // If a background sync already ran, workouts will be empty but profile still commits.
-        Task { await syncManager.syncNewWorkouts(extraFiles: profileExtraFiles) }
+        Task { await syncManager.syncNewWorkouts() }
     }
 
     private func handleResult(_ result: HealthKitSyncManager.SyncResult) {
