@@ -8,7 +8,6 @@ struct WorkoutListView: View {
     /// Re-fetch once repo discovery finishes (same pattern as WarmInstrumentHomeView).
     private var workoutFetchToken: String {
         [
-            workoutService.templates.isEmpty ? "templates-pending" : "templates-ready",
             authManager.isSessionReady ? "ready" : "boot",
             authManager.repoFullName ?? "",
         ].joined(separator: "|")
@@ -69,16 +68,20 @@ struct WorkoutListView: View {
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()
             .refreshable {
+                await workoutService.fetchTemplates()
                 await workoutService.fetchTodaySessions()
             }
             .task(id: workoutFetchToken) {
                 guard authManager.isSessionReady else { return }
                 guard authManager.repoFullName != nil else { return }
+                await workoutService.fetchTemplates()
                 await workoutService.fetchTodaySessions()
             }
             .overlay {
-                if workoutService.isLoading && workoutService.templates.isEmpty {
+                if workoutService.isLoading {
                     ProgressView()
+                } else if workoutService.templates.isEmpty {
+                    emptyState
                 }
             }
             .onChange(of: workoutService.fetchError) { _, newError in
@@ -90,6 +93,22 @@ struct WorkoutListView: View {
                 WorkoutOverviewView(workout: workout)
             }
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "dumbbell")
+                .font(.system(size: 36))
+                .foregroundColor(WarmInstrument.inkFaint)
+            Text("No workouts yet")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(WarmInstrument.ink)
+            Text("Ask your coach to set up a training plan.")
+                .font(.system(size: 14))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 40)
     }
 
     private var workoutsHeader: some View {
