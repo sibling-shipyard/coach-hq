@@ -93,6 +93,11 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Hide tab content while onboarding fullScreenCovers are active so neither the
+            // initial HK prompt appearance nor the gap between HK prompt dismissal and reveal
+            // presentation exposes a flash of the home tab underneath.
+            .opacity(router.effectivePhase == .hkPrompt || router.effectivePhase == .reveal ? 0 : 1)
+            .allowsHitTesting(router.effectivePhase == .complete || router.effectivePhase == .notStarted)
 
             if !tabBarHidden && !authManager.sessionExpired {
                 bottomDockContent
@@ -193,6 +198,7 @@ struct MainTabView: View {
             workoutService.configure(apiClient: client)
             widgetStore.configure(apiClient: client)
             guard router.onboardingPhase == .complete else { return }
+            syncManager.syncNotificationsEnabled = true
             try? await syncManager.requestAuthorization()
             await syncManager.requestNotificationPermission()
             syncManager.enableBackgroundDelivery()

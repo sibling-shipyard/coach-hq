@@ -27,6 +27,9 @@ class HealthKitSyncManager: ObservableObject {
     }
 
     @Published var isHKObserverActive = false
+    /// Human-readable description of the current sync stage, for display in SyncStepView.
+    /// Empty when not syncing.
+    @Published var syncProgressText: String = ""
 
     /// Persisted flag set only when the user explicitly connects HealthKit (pre-prompt
     /// "Connect Health" or Settings button). Distinct from `isHKObserverActive`, which
@@ -94,11 +97,15 @@ class HealthKitSyncManager: ObservableObject {
         }
     }
 
+    /// Set to true once onboarding completes so background sync notifications fire normally.
+    /// Kept false during onboarding to avoid "N activities synced" interrupting the flow.
+    var syncNotificationsEnabled = false
+
     /// Authorizes HK, enables background delivery, and registers the observer in one shot.
     /// Safe to call from Settings when the user enables HealthKit after initially skipping.
+    /// Note: notification permission is NOT requested here — it's deferred to after onboarding.
     func connectHealthKit() async {
         try? await requestAuthorization()
-        await requestNotificationPermission()
         enableBackgroundDelivery()
         setupWorkoutObserver()
         hkAuthorizationGranted = true
@@ -117,7 +124,8 @@ class HealthKitSyncManager: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { completionHandler(); return }
                 await self.syncNewWorkouts()
-                if case .synced(let n) = self.lastSyncResult?.outcome, n > 0 {
+                if case .synced(let n) = self.lastSyncResult?.outcome, n > 0,
+                   self.syncNotificationsEnabled {
                     await self.postSyncNotification(count: n)
                 }
                 completionHandler()
@@ -156,7 +164,14 @@ class HealthKitSyncManager: ObservableObject {
         syncError = nil
 
         do {
-            var syncState = try await apiClient.readSyncState()
+            // sync_state.json doesn't exist on a fresh repo — treat .notFound as first sync.
+            var syncState: SyncState
+            do {
+                syncState = try await apiClient.readSyncState()
+            } catch let e as GitHubAPIError {
+                guard case .notFound = e else { throw e }
+                syncState = SyncState()
+            }
 
             let since: Date
             if let ts = syncState.hkLastSynced, let date = ISO8601DateFormatter().date(from: ts) {
@@ -166,8 +181,12 @@ class HealthKitSyncManager: ObservableObject {
                 since = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
             }
 
+            let lookbackDays = max(1, Calendar.current.dateComponents([.day], from: since, to: Date()).day ?? 7)
+            syncProgressText = "Gathering activities — last \(lookbackDays) day\(lookbackDays == 1 ? "" : "s")"
+
             let workouts = try await fetchWorkouts(since: since)
             guard !workouts.isEmpty else {
+                syncProgressText = ""
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
@@ -175,7 +194,16 @@ class HealthKitSyncManager: ObservableObject {
                 return
             }
 
-            let existingFiles = try await apiClient.listFiles(path: "user_data/activities/hist")
+            syncProgressText = "Building commit (\(workouts.count) workout\(workouts.count == 1 ? "" : "s") found)"
+
+            // hist/ directory doesn't exist until the first commit — treat 404 as empty.
+            let existingFiles: [GitHubFileEntry]
+            do {
+                existingFiles = try await apiClient.listFiles(path: "user_data/activities/hist")
+            } catch let e as GitHubAPIError {
+                guard case .notFound = e else { throw e }
+                existingFiles = []
+            }
             var existingFileNames = Set(existingFiles.map { $0.name })
             var counters = syncState.counters ?? [:]
 
@@ -240,6 +268,7 @@ class HealthKitSyncManager: ObservableObject {
             }
 
             guard !filesToCommit.isEmpty else {
+                syncProgressText = ""
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
@@ -253,6 +282,7 @@ class HealthKitSyncManager: ObservableObject {
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
 
             let n = filesToCommit.count - 1
+            syncProgressText = "Pushing \(n) activit\(n == 1 ? "y" : "ies") to GitHub…"
             let commitFinishedAt = Date()
             try await apiClient.commitFiles(filesToCommit, message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")")
 
@@ -266,12 +296,17 @@ class HealthKitSyncManager: ObservableObject {
 
             self.syncState = syncState
             lastSyncDate = Date()
+            syncProgressText = "Commit pushed — \(n) activit\(n == 1 ? "y" : "ies") saved"
             lastSyncResult = SyncResult(outcome: .synced(n), id: UUID())
+            // Release the lock before the post-commit refresh so a second syncNewWorkouts()
+            // call (e.g. from SyncStepView tapping Proceed) isn't blocked for up to 5 min.
+            isSyncing = false
 
             // Home reads live snapshots from aggregate.json; the user-repo sync workflow
-            // regenerates that file ~30s after this commit. Poll until pipeline timestamp
-            // catches up so we don't cache a stale pre-pipeline snapshot for 5 minutes.
-            await widgetStore?.refreshAfterSync(since: commitFinishedAt)
+            // regenerates that file ~30s after this commit. Run in background — don't hold
+            // isSyncing for this; it only affects the widget home cache, not the sync flow.
+            let ws = widgetStore
+            Task { await ws?.refreshAfterSync(since: commitFinishedAt) }
         } catch is CancellationError {
             // Task was cancelled (e.g. view torn down mid-sync) — not a real
             // failure; stay quiet instead of showing a scary "cancelled" error.
@@ -285,6 +320,7 @@ class HealthKitSyncManager: ObservableObject {
         } catch {
             let friendly = UserFacingError.friendlyMessage(for: error)
             syncError = friendly
+            syncProgressText = ""
             lastSyncResult = SyncResult(outcome: .failed(friendly), id: UUID())
         }
 

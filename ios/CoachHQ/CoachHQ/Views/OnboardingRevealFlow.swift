@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Step enum
 
 enum OnboardingRevealStep: Int, CaseIterable {
-    case reveal, rhythms, season
+    case reveal, sync, rhythms, season
 }
 
 // MARK: - Coordinator
@@ -52,6 +52,14 @@ struct OnboardingRevealFlow: View {
                                 insertion: .move(edge: .trailing),
                                 removal: .move(edge: .leading)
                             ))
+                    } else if step == .sync {
+                        SyncStepView {
+                            withAnimation(PremiumMotion.state) { step = .rhythms }
+                        }
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing),
+                            removal: .move(edge: .leading)
+                        ))
                     } else if step == .rhythms {
                         RhythmsStepView(summary: summary)
                             .transition(.asymmetric(
@@ -68,12 +76,13 @@ struct OnboardingRevealFlow: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if step != .season {
+                if step != .season && step != .sync {
                     Button {
                         Haptics.tap()
                         withAnimation(PremiumMotion.state) {
                             switch step {
-                            case .reveal:  step = .rhythms
+                            case .reveal:  step = .sync
+                            case .sync:    break
                             case .rhythms: step = .season
                             case .season:  break
                             }
@@ -104,7 +113,188 @@ struct OnboardingRevealFlow: View {
     }
 
     private func handleComplete() {
+        // Request notification permission now — after the user has finished the full
+        // onboarding flow. Doing it here avoids interrupting the HK permission step and
+        // prevents the "N activities synced" notification from firing mid-onboarding.
+        Task { await syncManager.requestNotificationPermission() }
+        syncManager.syncNotificationsEnabled = true
         onComplete()
+    }
+}
+
+// MARK: - Sync step
+
+private struct SyncStepView: View {
+    @EnvironmentObject private var syncManager: HealthKitSyncManager
+
+    let onComplete: () -> Void
+
+    @State private var started = false
+    @State private var progress: Double = 0
+    @State private var completionText = ""
+    @State private var failed = false
+    @State private var completionHandled = false
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Sync your log.")
+                    .font(WarmInstrument.coachVoice(30))
+                    .foregroundColor(WarmInstrument.ink)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 12)
+                    .onboardingReveal(index: 0)
+
+                Text("We'll upload your recent workouts to your GitHub log. This may take a moment.")
+                    .font(.system(size: 16))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .lineSpacing(4)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 48)
+                    .onboardingReveal(index: 1)
+
+                if started {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(WarmInstrument.inkFaint.opacity(0.12))
+                                .frame(height: 4)
+                            GeometryReader { geo in
+                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                    .fill(failed ? WarmInstrument.alarmFg : WarmInstrument.accent)
+                                    .frame(width: geo.size.width * progress, height: 4)
+                            }
+                            .frame(height: 4)
+                            .animation(.easeOut(duration: 0.5), value: progress)
+                        }
+
+                        let displayText = completionText.isEmpty ? syncManager.syncProgressText : completionText
+                        if !displayText.isEmpty {
+                            Text(displayText)
+                                .font(WarmInstrument.monoLabel(11))
+                                .foregroundColor(failed ? WarmInstrument.alarmFg : WarmInstrument.inkFaint)
+                                .kerning(0.5)
+                                .animation(.easeInOut(duration: 0.2), value: displayText)
+                        }
+                    }
+                    .padding(.horizontal, 28)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+            }
+            .padding(.top, 24)
+        }
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 12) {
+                if !started {
+                    Button {
+                        Haptics.tap()
+                        beginSync()
+                    } label: {
+                        Text("Proceed")
+                            .font(.system(size: 16, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(WarmInstrument.ink)
+                            .foregroundColor(WarmInstrument.desk)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+                    }
+                    .buttonStyle(CardPressButtonStyle())
+                    .transition(.opacity)
+                }
+                if failed {
+                    Button {
+                        Haptics.tap()
+                        onComplete()
+                    } label: {
+                        Text("Skip for now")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 36)
+            .animation(PremiumMotion.state, value: started)
+            .animation(PremiumMotion.state, value: failed)
+        }
+        // .task(id:) re-runs whenever lastSyncResult.id changes — more reliable than
+        // onChange which can miss a result if SwiftUI batches the render cycle.
+        .task(id: syncManager.lastSyncResult?.id) {
+            guard started, let result = syncManager.lastSyncResult else { return }
+            handleResult(result)
+        }
+        .animation(PremiumMotion.state, value: started)
+    }
+
+    private func beginSync() {
+        // Always clear stale text from a background observer sync that ran earlier.
+        syncManager.syncProgressText = ""
+        withAnimation(PremiumMotion.state) { started = true }
+
+        // Case A: HK observer already completed a sync (ran during the reveal screen).
+        // Use that result — calling syncNewWorkouts() again would just return .nothingNew.
+        if let existing = syncManager.lastSyncResult, !syncManager.isSyncing {
+            Task {
+                // Brief animation so the bar doesn't just sit at 0 → complete.
+                withAnimation(.easeOut(duration: 0.6)) { progress = 0.9 }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                handleResult(existing)
+            }
+            return
+        }
+
+        // Case B: Sync currently running in background — wait for .task(id:) to fire.
+        if syncManager.isSyncing {
+            Task { await warmProgress() }
+            return
+        }
+
+        // Case C: No sync has run yet — start one.
+        Task { await syncManager.syncNewWorkouts() }
+        Task { await warmProgress() }
+    }
+
+    private func handleResult(_ result: HealthKitSyncManager.SyncResult) {
+        guard !completionHandled else { return }
+        completionHandled = true
+        switch result.outcome {
+        case .synced(let n):
+            completionText = "\(n) workout\(n == 1 ? "" : "s") saved to GitHub"
+            withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                onComplete()
+            }
+        case .nothingNew:
+            completionText = "Already up to date"
+            withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
+            Task {
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                onComplete()
+            }
+        case .failed(let msg):
+            failed = true
+            completionText = msg
+        }
+    }
+
+    // Fills the bar from 0 → 0.82 over ~5 seconds. Stops when result arrives
+    // (completionHandled = true) or view is torn down.
+    private func warmProgress() async {
+        let steps = 60
+        let duration = 5.0
+        let stepDuration = duration / Double(steps)
+        for i in 1...steps {
+            guard !completionHandled else { break }
+            let t = Double(i) / Double(steps)
+            let eased = 1.0 - pow(1.0 - t, 2.5)
+            withAnimation(.linear(duration: stepDuration)) {
+                progress = max(progress, 0.82 * eased)
+            }
+            try? await Task.sleep(nanoseconds: UInt64(stepDuration * 1_000_000_000))
+        }
     }
 }
 

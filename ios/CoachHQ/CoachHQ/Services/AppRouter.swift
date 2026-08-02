@@ -49,6 +49,9 @@ final class AppRouter: ObservableObject {
     }
 
     private var cancellables = Set<AnyCancellable>()
+    // Survives the intermediate .bootstrapping state that handleCallback() creates while
+    // fetching the user after install — previousState alone can't track needsSetup→active.
+    private var skipSplashOnNextActive = false
 
     private let phaseKey     = "onboardingPhase"
     private let lastLoginKey = "lastOnboardingLogin"
@@ -124,20 +127,31 @@ final class AppRouter: ObservableObject {
 
     private func deriveState() {
         let previousState = state
-        guard authManager.isSessionReady else { state = .bootstrapping; return }
+        guard authManager.isSessionReady else {
+            // handleCallback() sets isSessionReady=false while fetching the user after install,
+            // creating a .bootstrapping interlude that breaks the needsSetup→active check.
+            // Capture the flag here so it survives that intermediate state.
+            if case .needsSetup = state { skipSplashOnNextActive = true }
+            state = .bootstrapping
+            return
+        }
         // pendingSetupLogin is set by the needs_setup=1 callback branch, which does NOT set
         // isAuthenticated — check it before the auth guard so SetupView renders correctly.
         if let login = authManager.pendingSetupLogin { state = .needsSetup(login: login); return }
         guard authManager.isAuthenticated else { state = .unauthenticated; return }
         if authManager.selectedRepo != nil {
             state = .active
-            // Skip the splash when arriving from SetupView — the user just finished the setup
-            // wizard, jumping straight to the HK prompt is less jarring than showing tabs first.
-            if case .needsSetup = previousState, onboardingPhase == .notStarted {
+            // Skip the splash when arriving from SetupView (direct or via bootstrapping interlude).
+            let fromSetup: Bool
+            if case .needsSetup = previousState { fromSetup = true }
+            else { fromSetup = skipSplashOnNextActive }
+            skipSplashOnNextActive = false
+            if fromSetup && onboardingPhase == .notStarted {
                 advance(.splashDismissed)
             }
             return
         }
+        skipSplashOnNextActive = false
         // isSessionReady + isAuthenticated + no repo + no pendingSetupLogin:
         // zombie-token path — bootstrapSession() should have called signOut(), but guard here.
         state = .unauthenticated
