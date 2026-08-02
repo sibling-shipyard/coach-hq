@@ -183,9 +183,7 @@ private struct SyncStepView: View {
                 if !started {
                     Button {
                         Haptics.tap()
-                        withAnimation(PremiumMotion.state) { started = true }
-                        Task { await syncManager.syncNewWorkouts() }
-                        Task { await warmProgress() }
+                        beginSync()
                     } label: {
                         Text("Proceed")
                             .font(.system(size: 16, weight: .semibold))
@@ -223,6 +221,34 @@ private struct SyncStepView: View {
             handleResult(result)
         }
         .animation(PremiumMotion.state, value: started)
+    }
+
+    private func beginSync() {
+        // Always clear stale text from a background observer sync that ran earlier.
+        syncManager.syncProgressText = ""
+        withAnimation(PremiumMotion.state) { started = true }
+
+        // Case A: HK observer already completed a sync (ran during the reveal screen).
+        // Use that result — calling syncNewWorkouts() again would just return .nothingNew.
+        if let existing = syncManager.lastSyncResult, !syncManager.isSyncing {
+            Task {
+                // Brief animation so the bar doesn't just sit at 0 → complete.
+                withAnimation(.easeOut(duration: 0.6)) { progress = 0.9 }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                handleResult(existing)
+            }
+            return
+        }
+
+        // Case B: Sync currently running in background — wait for .task(id:) to fire.
+        if syncManager.isSyncing {
+            Task { await warmProgress() }
+            return
+        }
+
+        // Case C: No sync has run yet — start one.
+        Task { await syncManager.syncNewWorkouts() }
+        Task { await warmProgress() }
     }
 
     private func handleResult(_ result: HealthKitSyncManager.SyncResult) {

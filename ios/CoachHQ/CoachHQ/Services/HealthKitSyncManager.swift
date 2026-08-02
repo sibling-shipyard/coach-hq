@@ -293,11 +293,15 @@ class HealthKitSyncManager: ObservableObject {
             lastSyncDate = Date()
             syncProgressText = "Commit pushed — \(n) activit\(n == 1 ? "y" : "ies") saved"
             lastSyncResult = SyncResult(outcome: .synced(n), id: UUID())
+            // Release the lock before the post-commit refresh so a second syncNewWorkouts()
+            // call (e.g. from SyncStepView tapping Proceed) isn't blocked for up to 5 min.
+            isSyncing = false
 
             // Home reads live snapshots from aggregate.json; the user-repo sync workflow
-            // regenerates that file ~30s after this commit. Poll until pipeline timestamp
-            // catches up so we don't cache a stale pre-pipeline snapshot for 5 minutes.
-            await widgetStore?.refreshAfterSync(since: commitFinishedAt)
+            // regenerates that file ~30s after this commit. Run in background — don't hold
+            // isSyncing for this; it only affects the widget home cache, not the sync flow.
+            let ws = widgetStore
+            Task { await ws?.refreshAfterSync(since: commitFinishedAt) }
         } catch is CancellationError {
             // Task was cancelled (e.g. view torn down mid-sync) — not a real
             // failure; stay quiet instead of showing a scary "cancelled" error.
