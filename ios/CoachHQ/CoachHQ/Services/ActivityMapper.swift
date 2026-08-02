@@ -25,10 +25,7 @@ struct ActivityMapper {
 
     /// Converts an HKWorkout into our Activity model (without name — that's assigned by ActivityNamer).
     static func map(workout: HKWorkout) -> Activity {
-        var sport = sportType(for: workout.workoutActivityType)
-        if sport == "WeightTraining" && workout.duration < ActivityNamer.foundationMaxMinutes * 60 {
-            sport = "Foundation"
-        }
+        let sport = sportType(for: workout.workoutActivityType)
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"

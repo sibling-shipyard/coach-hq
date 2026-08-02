@@ -12,6 +12,8 @@ export interface HrZone {
 
 export interface Activity {
   id: number | string;
+  /** Optional machine category — when present, used by getTrainingCategory before name-regex fallbacks. */
+  category?: string;
   name: string;
   sport_type: string;
   start_date_local: string;
@@ -105,6 +107,10 @@ export const GROUP_CONFIG: Record<string, { label: string; color: string; catego
 };
 
 export function getTrainingCategory(activity: Activity): TrainingCategory {
+  if (activity.category) {
+    return activity.category as TrainingCategory;
+  }
+
   const name = activity.name;
 
   // Run
