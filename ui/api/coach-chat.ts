@@ -128,6 +128,24 @@ function todayContextLine(stateMd: string): string {
   }
 }
 
+// A divider message's label was a bare "TODAY" before this - inconsistent with the richer
+// "TODAY · D-143 · 6:58" format iOS's own preview/mock data models (CoachChatPreviewData.swift).
+// Day number isn't available server-side (it's computed client-side from challenge_v2.json's
+// start_date, which coach-chat.ts doesn't read), but the time-of-day is - include at least that,
+// applied identically everywhere a divider gets created (greet and close) so they never disagree
+// with each other.
+function todayDividerLabel(stateMd: string): string {
+  const timezone = extractTimezone(stateMd);
+  try {
+    const time = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" }).format(
+      new Date(),
+    );
+    return `TODAY · ${time}`;
+  } catch {
+    return "TODAY";
+  }
+}
+
 // Deliberately simple keyword match, not asking Gemini to self-detect intent - the whole point
 // is one deterministic, reliable trigger for the close-out turn instead of hoping the model
 // notices a session-ending signal buried in a 370-line SOUL.md dump on its own. False negatives
@@ -215,7 +233,7 @@ function applyRetention(threads: ChatThread[]): ChatThread[] {
 
 // A7: file_updates entries carry exactly one of these, chosen by which set the path falls in
 // (MARKDOWN_EDIT_FILES / JSON_MERGE_FILES / session files) - see coach-chat.ts's apply logic.
-interface GeminiFileUpdate {
+export interface GeminiFileUpdate {
   path: string;
   /** Markdown files: one or more exact-match edits. */
   edits?: StringEdit[];
@@ -459,7 +477,7 @@ async function loadClosingFileContext(repo: string, token: string): Promise<Clos
 // this handler already accepts; only chat_history.json gets the resolve-fresh-on-retry
 // treatment, since it's the one file every turn contends on). Returns null if the update
 // should be dropped (wrong file, failed edit, invalid patch, blank content).
-function resolveFileUpdate(
+export function resolveFileUpdate(
   update: GeminiFileUpdate,
   currentContent: string | null,
 ): { path: string; content: string } | null {
@@ -467,11 +485,15 @@ function resolveFileUpdate(
 
   if (MARKDOWN_EDIT_FILES.has(update.path)) {
     if (!update.edits || update.edits.length === 0) return null;
-    const { content, failed } = applyStringEdits(currentContent ?? "", update.edits);
+    const before = currentContent ?? "";
+    const { content, failed } = applyStringEdits(before, update.edits);
     if (failed.length > 0) {
       console.warn(`[coach-chat] ${update.path}: ${failed.length} edit(s) didn't match and were skipped`);
     }
-    return content.trim().length > 0 ? { path: update.path, content } : null;
+    // If every edit failed, content is identical to before - drop it rather than committing a
+    // no-op write (and never commit a wipe-to-blank, same guard as before A7).
+    if (content === before || content.trim().length === 0) return null;
+    return { path: update.path, content };
   }
 
   if (JSON_MERGE_FILES.has(update.path)) {
@@ -530,7 +552,7 @@ async function handleGreet(repo: string, token: string, apiKey: string): Promise
   const now = Date.now();
   const finalThreadId = `t-${now}`;
   const coachMsg: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [reply.reply] };
-  const messages: ChatMessage[] = [{ id: `d-${now}`, role: "divider", label: "TODAY" }, coachMsg];
+  const messages: ChatMessage[] = [{ id: `d-${now}`, role: "divider", label: todayDividerLabel(stateMd ?? "") }, coachMsg];
 
   let latestThreads: ChatThread[] = [];
   const chatWrite: FileEntry = {
@@ -704,7 +726,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // message list and merge it into whatever's already committed for this repo.
       const allMessages: ChatMessage[] = priorMessages.length
         ? [...priorMessages, userMsg, coachMsg]
-        : [{ id: `d-${now}`, role: "divider", label: "TODAY" }, userMsg, coachMsg];
+        : [{ id: `d-${now}`, role: "divider", label: todayDividerLabel(stateMd ?? "") }, userMsg, coachMsg];
 
       // Fixed once outside the retry loop so the id/title/preview this response reports stay
       // stable across attempts, even though the merge against fresh state below can run more
