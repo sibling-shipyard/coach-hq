@@ -22,6 +22,7 @@ import {
   fetchWithTimeout,
   getFileRaw,
   getHeadSha,
+  isAthleteProfileComplete,
   loadCoachContext,
 } from "./_lib/coachChatFiles.js";
 import { applyJsonMergePatch, applyStringEdits, type StringEdit } from "./_lib/fileEdits.js";
@@ -808,12 +809,20 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}` }, { status: 502 });
       }
 
+      // B2: First Session Protocol completion. If state.md was written this turn, check the
+      // content that actually just got committed, not the pre-turn snapshot - a close-turn that
+      // finishes the intake writes state.md and needs the caller to see the up-to-date answer
+      // immediately, not one call behind.
+      const committedStateMd = validUpdates.find((u) => u.path === STATE_FILE_PATH)?.content ?? stateMd ?? "";
+      const profileComplete = isAthleteProfileComplete(committedStateMd);
+
       return Response.json({
         reply: reply.reply,
         closed: true,
         threadId: finalThreadId,
         threads: withComputedDayOffsets(latestThreads, stateMd ?? ""),
         repoSha,
+        profileComplete,
       });
     }
 

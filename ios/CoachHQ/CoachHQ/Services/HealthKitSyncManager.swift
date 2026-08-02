@@ -156,8 +156,9 @@ class HealthKitSyncManager: ObservableObject {
     // MARK: - Sync
 
     /// Fetches new workouts since last sync and commits them to GitHub in a single commit.
-    /// Pass `extraFiles` to fold additional files (e.g. user_data/profile.md) into the same commit.
-    /// If there are no new workouts but `extraFiles` is non-empty, commits those files alone.
+    /// Pass `extraFiles` to fold additional files into the same commit (no current caller does -
+    /// onboarding used to via a now-removed user_data/profile.md write, see B1). If there are no
+    /// new workouts but `extraFiles` is non-empty, commits those files alone.
     func syncNewWorkouts(extraFiles: [(path: String, data: Data)] = []) async {
         guard let apiClient = apiClient else { return }
         guard !isSyncing else { return }

@@ -116,3 +116,39 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
   return value;
 }
+
+// B2: First Session Protocol completion check. carve-skeleton.mjs ships every new athlete repo
+// with this exact blank template (STATE_MD_TEMPLATE):
+//
+//   ## Athlete Profile
+//   *(Filled in during First Session)*
+//   - **Name:**
+//   - **Sport(s) / Activities:**
+//   - **Goal:**
+//   - **Timeline / Upcoming events:**
+//   - **Coaching style preference:**
+//   - **Timezone:**
+//
+// platform/soul/B_engine.md's boot sequence already treats "only template headings, no data" as
+// the trigger for the First Session Protocol - this is the same check, just made programmatic
+// (and callable without a shell) so iOS can poll it instead of relying on the
+// thread-existence heuristic it used to (dead shouldOpenChatFirst(), see B3).
+//
+// Deliberately generic rather than hardcoding the six field names above: any `- **Label:**` line
+// found inside the Athlete Profile section must have non-blank content after the colon for the
+// profile to count as complete, and the section must contain at least one such line at all (an
+// entirely missing section, e.g. a malformed state.md, is not "complete" either).
+export function isAthleteProfileComplete(stateMd: string): boolean {
+  // (?![\s\S]) asserts true end-of-string regardless of the /m flag - a plain $ here would
+  // match at the end of the SECTION'S OWN FIRST LINE too (since /m makes $ match every line
+  // ending, not just the string's end), truncating the captured section to just its first line.
+  const sectionMatch = stateMd.match(/^## Athlete Profile\s*\n([\s\S]*?)(?=\n## |(?![\s\S]))/m);
+  if (!sectionMatch) return false;
+  const section = sectionMatch[1];
+  const fieldLines = section.match(/^- \*\*[^*]+:\*\*.*$/gm) ?? [];
+  if (fieldLines.length === 0) return false;
+  return fieldLines.every((line) => {
+    const afterColon = line.replace(/^- \*\*[^*]+:\*\*/, "");
+    return afterColon.trim().length > 0;
+  });
+}

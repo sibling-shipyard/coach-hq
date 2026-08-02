@@ -144,6 +144,17 @@ final class CoachChatAPIClient {
         return decoded
     }
 
+    /// B2/B3: has this athlete finished the First Session Protocol? Backs
+    /// CoachSetupBootstrap.shouldOpenChatFirst() - a live server check instead of the old
+    /// thread-existence heuristic, since a thread existing has never meant the intake actually
+    /// finished.
+    func profileStatus() async throws -> Bool {
+        let auth = try await requireAuth()
+        let req = try request("GET", path: "/api/coach-chat-profile-status", auth: auth)
+        let data = try await send(req, operation: "Checking profile status")
+        return try JSONDecoder().decode(ChatProfileStatusResponse.self, from: data).profileComplete
+    }
+
     func fetchThreads() async throws -> [ChatThread] {
         let auth = try await requireAuth()
         let req = try request("GET", auth: auth)

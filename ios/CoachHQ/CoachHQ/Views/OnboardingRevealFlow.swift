@@ -17,7 +17,6 @@ struct OnboardingRevealFlow: View {
     @State private var step: OnboardingRevealStep = .reveal
     @State private var summary: YearSummary = .empty
     @State private var isLoading = true
-    @State private var profileContent: String = ""
 
     var body: some View {
         ZStack {
@@ -60,8 +59,7 @@ struct OnboardingRevealFlow: View {
                                 removal: .move(edge: .leading)
                             ))
                     } else if step == .season {
-                        SeasonStepView(summary: summary) { content in
-                            profileContent = content
+                        SeasonStepView(summary: summary) {
                             withAnimation(PremiumMotion.state) { step = .sync }
                         }
                         .transition(.asymmetric(
@@ -69,7 +67,7 @@ struct OnboardingRevealFlow: View {
                             removal: .move(edge: .leading)
                         ))
                     } else {
-                        SyncStepView(profileContent: profileContent, onComplete: handleComplete)
+                        SyncStepView(onComplete: handleComplete)
                             .transition(.asymmetric(
                                 insertion: .move(edge: .trailing),
                                 removal: .move(edge: .leading)
@@ -129,7 +127,6 @@ struct OnboardingRevealFlow: View {
 private struct SyncStepView: View {
     @EnvironmentObject private var syncManager: HealthKitSyncManager
 
-    let profileContent: String
     let onComplete: () -> Void
 
     @State private var started = false
@@ -137,12 +134,6 @@ private struct SyncStepView: View {
     @State private var completionText = ""
     @State private var failed = false
     @State private var completionHandled = false
-    @State private var needsProfileCommit = false
-
-    private var profileExtraFiles: [(path: String, data: Data)] {
-        guard !profileContent.isEmpty, let data = profileContent.data(using: .utf8) else { return [] }
-        return [("user_data/profile.md", data)]
-    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -232,13 +223,6 @@ private struct SyncStepView: View {
         // onChange which can miss a result if SwiftUI batches the render cycle.
         .task(id: syncManager.lastSyncResult?.id) {
             guard started, let result = syncManager.lastSyncResult else { return }
-            // If a background sync finished before our Proceed-triggered sync, we still need
-            // to commit the profile. Kick off syncNewWorkouts(extraFiles:) and wait for next result.
-            if needsProfileCommit {
-                needsProfileCommit = false
-                Task { await syncManager.syncNewWorkouts(extraFiles: profileExtraFiles) }
-                return
-            }
             handleResult(result)
         }
         .animation(PremiumMotion.state, value: started)
@@ -250,15 +234,12 @@ private struct SyncStepView: View {
         withAnimation(PremiumMotion.state) { started = true }
 
         if syncManager.isSyncing {
-            // Background sync running — wait for it via .task(id:), then commit profile.
-            needsProfileCommit = true
+            // Background sync already running — just wait for it via .task(id:) above.
             Task { await warmProgress() }
             return
         }
 
-        // Start sync with profile as extra file — handles new workouts + profile in one commit.
-        // If a background sync already ran, workouts will be empty but profile still commits.
-        Task { await syncManager.syncNewWorkouts(extraFiles: profileExtraFiles) }
+        Task { await syncManager.syncNewWorkouts() }
         Task { await warmProgress() }
     }
 
@@ -551,10 +532,7 @@ private struct RhythmsStepView: View {
 
 private struct SeasonStepView: View {
     let summary: YearSummary
-    /// Called with the profile markdown string; sync step commits it alongside workouts.
-    let onComplete: (String) -> Void
-
-    @AppStorage("preferredName") private var preferredName = ""
+    let onComplete: () -> Void
 
     private static let allSports = [
         "Running", "Cycling", "Swimming", "Strength",
@@ -644,19 +622,12 @@ private struct SeasonStepView: View {
     }
 
     private func save() {
-        let sportsLine = selectedSports.sorted().joined(separator: ", ")
-        let name = preferredName.isEmpty ? "Athlete" : preferredName
-        let content = """
-# Athlete Profile
-name: \(name)
-sports: \(sportsLine)
-goal: \(goal)
-sessions_last_year: \(summary.sessions)
-hours_last_year: \(String(format: "%.1f", summary.hours))
-top_sport: \(displaySportName(summary.topSport))
-"""
+        // B1: cached locally only (OnboardingHints), never committed to the repo - the real
+        // Athlete Profile gets written by Coach during the chat-based First Session Protocol,
+        // which reflects these back for confirmation instead of asking cold (see B4).
+        OnboardingHints.save(sports: selectedSports.sorted(), goal: goal)
         Haptics.success()
-        onComplete(content)
+        onComplete()
     }
 
     static func mapToDisplay(_ hkSport: String) -> String {

@@ -441,11 +441,12 @@ struct CoachChatView: View {
         defer { threadsLoading = false }
 
         do {
+            // B3: completion is decided ONLY by CoachSetupBootstrap.shouldOpenChatFirst()'s live
+            // profileComplete check (MainTabView.swift's .task) - never inferred from thread
+            // existence here. That used to be the premature-completion bug, and A4's coach-
+            // speaks-first design made it worse: a greeting thread now exists the instant this
+            // view loads, before the athlete has said anything at all.
             threads = try await apiClient.fetchThreads()
-            if !threads.filter({ $0.status != .deleted }).isEmpty,
-               let repo = authManager.repoFullName {
-                CoachSetupState.markComplete(repoFullName: repo)
-            }
             if let today = todayThread {
                 activeThreadId = today.id
             } else {
@@ -570,8 +571,13 @@ struct CoachChatView: View {
             if result.closed, let newThreads = result.threads {
                 threads = newThreads
                 activeThreadId = result.threadId
-                if let repo = authManager.repoFullName {
+                // B3: only the real signal - this close-turn's committed state.md actually has a
+                // filled-in Athlete Profile. Every prior close (day-to-day chat, or an earlier
+                // First Session turn that wasn't actually the finishing one) must NOT mark
+                // complete - that was the premature-completion bug B3 replaces.
+                if result.profileComplete == true, let repo = authManager.repoFullName {
                     CoachSetupState.markComplete(repoFullName: repo)
+                    OnboardingHints.clear()
                 }
                 return
             }
