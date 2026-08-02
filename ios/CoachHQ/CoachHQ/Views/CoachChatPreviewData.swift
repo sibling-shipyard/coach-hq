@@ -59,8 +59,6 @@ enum CoachChatPreviewData {
         preview: "Load's dead center — the bar's the only cold thing…",
         ageLabel: "6:58",
         status: .active,
-        archivedAt: nil,
-        deletedAt: nil,
         messages: [
             .divider(id: "preview-divider-today", label: "TODAY · D-143 · 6:58"),
             .coach(id: "preview-coach-read", paragraphs: [
@@ -82,9 +80,7 @@ enum CoachChatPreviewData {
             title: "Bar felt cold",
             preview: "Two missed bar days doesn't undo a block…",
             ageLabel: "1D",
-            status: .archived,
-            archivedAt: nil,
-            deletedAt: nil,
+            status: .active,
             messages: [
                 .divider(id: "preview-divider-yesterday", label: "YESTERDAY · D-142"),
                 .coach(id: "preview-coach-y", paragraphs: [
@@ -99,9 +95,7 @@ enum CoachChatPreviewData {
             title: "Marcus rematch",
             preview: "Your net game is what turned it…",
             ageLabel: "2D",
-            status: .archived,
-            archivedAt: nil,
-            deletedAt: nil,
+            status: .active,
             messages: []
         ),
         ChatThread(
@@ -110,9 +104,7 @@ enum CoachChatPreviewData {
             title: "Sleep & easy days",
             preview: "Easy volume is doing the work you…",
             ageLabel: "4D",
-            status: .archived,
-            archivedAt: nil,
-            deletedAt: nil,
+            status: .active,
             messages: []
         ),
     ]

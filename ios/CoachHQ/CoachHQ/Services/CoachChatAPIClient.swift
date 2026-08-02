@@ -27,8 +27,8 @@ final class CoachChatAPIClient {
         return AuthContext(token: token, repoFull: repoFull)
     }
 
-    private func request(_ method: String, body: [String: Any]? = nil, auth: AuthContext) throws -> URLRequest {
-        guard let url = URL(string: "\(Secrets.dashboardBaseURL)/api/coach-chat") else {
+    private func request(_ method: String, path: String = "/api/coach-chat", body: [String: Any]? = nil, auth: AuthContext) throws -> URLRequest {
+        guard let url = URL(string: "\(Secrets.dashboardBaseURL)\(path)") else {
             throw GitHubAPIError.decodingFailed(operation: "Coach chat URL")
         }
         var req = URLRequest(url: url)
@@ -108,6 +108,28 @@ final class CoachChatAPIClient {
             }
             return data
         }
+    }
+
+    /// A3: warm the server's context read-through cache (SOUL.md/state.md/quest_log.md, 60s
+    /// TTL - ui/api/_lib/coachChatFiles.ts) as soon as the app becomes active, so the eventual
+    /// greeting turn / first message doesn't pay a fresh GitHub round-trip on top of the Gemini
+    /// call. Best-effort - a failure here just means the real turn pays full latency, same as
+    /// before this existed, so callers should fire-and-forget rather than surface errors.
+    func prefetchContext() async {
+        guard let auth = try? await requireAuth(), let req = try? request("GET", path: "/api/coach-chat-context", auth: auth) else {
+            return
+        }
+        _ = try? await send(req, operation: "Warming coach chat context")
+    }
+
+    /// A4: coach speaks first. Call on landing on "new conversation" - no athlete message yet.
+    /// Server either reuses today's still-unanswered greeting thread or creates + commits a
+    /// new one with just Coach's opening line (mirrors coachChatModel.ts's greet()).
+    func greet() async throws -> ChatGreetResponse {
+        let auth = try await requireAuth()
+        let req = try request("POST", body: ["action": "greet"], auth: auth)
+        let data = try await send(req, operation: "Starting conversation", retryNetworkFailures: false)
+        return try JSONDecoder().decode(ChatGreetResponse.self, from: data)
     }
 
     func fetchThreads() async throws -> [ChatThread] {

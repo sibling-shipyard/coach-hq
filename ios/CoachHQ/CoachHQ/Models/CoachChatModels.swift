@@ -31,8 +31,11 @@ struct ChatMessage: Codable, Identifiable, Equatable {
     }
 }
 
+/// No archive tier (ADR 0012 amendment, 2026-08-02) - a thread is active until deleted, which
+/// is immediate and permanent. `.deleted` never actually persists in chat_history.json; it's
+/// only the PATCH request shape (send once, thread is gone).
 enum ChatThreadStatus: String, Codable {
-    case active, archived, deleted
+    case active, deleted
 }
 
 struct ChatThread: Codable, Identifiable, Equatable {
@@ -42,8 +45,6 @@ struct ChatThread: Codable, Identifiable, Equatable {
     var preview: String
     var ageLabel: String
     var status: ChatThreadStatus
-    var archivedAt: Double?
-    var deletedAt: Double?
     var messages: [ChatMessage]
 }
 
@@ -62,4 +63,12 @@ struct ChatSendResponse: Decodable {
 
 struct ChatAPIErrorBody: Decodable {
     let error: String?
+}
+
+/// POST {action: "greet"} response (A4) - always creates or reuses a real thread, unlike
+/// ChatSendResponse's ordinary-turn case, so threadId/threads are never optional here.
+struct ChatGreetResponse: Decodable {
+    let reply: String
+    let threadId: String
+    let threads: [ChatThread]
 }

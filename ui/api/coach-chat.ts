@@ -3,21 +3,29 @@
  * Full design/flow: docs/eng-docs/coach-chat-flow.md. Commit + retention design: ADR 0012.
  *
  * GET                        → load already-wrapped/committed threads
+ * POST {action: "greet"}     → start a new conversation with Coach speaking first (A4) - no
+ *                               athlete message. Creates + commits a thread with just Coach's
+ *                               opening line, or reuses today's still-unanswered greeting
+ *                               thread if one already exists.
  * POST {threadId?, messages, message} → send a message, get a real coach reply.
  *                               No repo write unless this message closes the
  *                               session, in which case the whole thread (plus
  *                               any file_updates) commits in one batch.
- * PATCH {threadId, status}   → archive / unarchive / delete / restore an
- *                               already-committed thread
+ * PATCH {threadId, status: "deleted"} → delete an already-committed thread,
+ *                               immediately and permanently. No archive tier, no restore.
  */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
+import {
+  STATE_FILE_PATH,
+  fetchWithTimeout,
+  getFileRaw,
+  getHeadSha,
+  loadCoachContext,
+} from "./_lib/coachChatFiles.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
-const SOUL_FILE_PATH = "propagated/SOUL.md";
-const STATE_FILE_PATH = "user_data/coach/state.md";
-const QUEST_LOG_PATH = "gen/quest_log.md";
 
 const SESSIONS_PREFIX = "user_data/activities/workout_plans/sessions/";
 
@@ -111,38 +119,16 @@ function cleanCommitMessage(message: string): string {
   return message.replace(/^\s*coach:?\s*[-—]*\s*/i, "").trim();
 }
 
-// Neither the Gemini call nor the GitHub reads had an explicit cutoff - a stalled upstream call
-// left "Coach is thinking" spinning indefinitely instead of failing visibly. 25s leaves headroom
-// under Vercel's function timeout while still being well past any real response time.
-const UPSTREAM_TIMEOUT_MS = 25_000;
-
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = UPSTREAM_TIMEOUT_MS): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw Object.assign(new Error(`Request to ${new URL(url).hostname} timed out`), { status: 504 });
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-const GH_HEADERS_RAW = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-  Accept: "application/vnd.github.raw+json",
-  "X-GitHub-Api-Version": "2022-11-28",
-});
-
 type ChatMessage =
   | { id: string; role: "divider"; label: string }
   | { id: string; role: "user"; text: string }
   | { id: string; role: "coach"; paragraphs: string[] };
 
-type ChatThreadStatus = "active" | "archived" | "deleted";
+// No archive state: a thread is "active" until the athlete deletes it, which is immediate and
+// permanent (ADR 0012 amendment - see below). "deleted" never actually persists in
+// chat_history.json; it exists only as the PATCH request shape (status: "deleted" in ⇒ thread
+// removed from the array, never written back with that status).
+type ChatThreadStatus = "active" | "deleted";
 
 interface ChatThread {
   id: string;
@@ -155,43 +141,11 @@ interface ChatThread {
   preview: string;
   ageLabel: string;
   status: ChatThreadStatus;
-  archivedAt?: number;
-  deletedAt?: number;
   messages: ChatMessage[];
 }
 
 interface ChatHistoryFile {
   threads: ChatThread[];
-}
-
-// A pure read - safe to retry on any transient failure including a raw network error, unlike
-// the POST commit path where a lost response after a successful write makes blind retry unsafe.
-function isTransientReadFailure(err: unknown): boolean {
-  const status = (err as { status?: number }).status;
-  if (status == null) return true; // network-level failure
-  return status >= 500 || status === 429;
-}
-
-async function getFileRaw(repo: string, path: string, token: string, attempts = 3): Promise<string | null> {
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/contents/${path}`, {
-        headers: GH_HEADERS_RAW(token),
-      });
-      if (res.status === 404) return null;
-      if (!res.ok) {
-        // Tagged with .status so the top-level handler can tell an expired/invalid token (401)
-        // apart from any other failure and respond 401 instead of a generic 500 - iOS's Bearer
-        // auth has no cookie-refresh equivalent, so this is the only signal it gets to re-auth.
-        throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), { status: res.status });
-      }
-      return await res.text();
-    } catch (err) {
-      if (!isTransientReadFailure(err) || attempt === attempts - 1) throw err;
-      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
-    }
-  }
-  throw new Error(`Failed to fetch ${path} - unreachable`); // keeps TS happy, loop always returns/throws
 }
 
 async function loadChatHistory(repo: string, token: string): Promise<ChatHistoryFile> {
@@ -213,26 +167,16 @@ function mergeThreadToFront(threads: ChatThread[], thread: ChatThread): ChatThre
   return [thread, ...threads.filter((t) => t.id !== thread.id)];
 }
 
-// ADR 0012: count-based retention, not calendar-based. Cap applies only to active + archived
-// threads (the 7 most-recently-active survive; the 8th evicts the oldest). Threads the athlete
-// explicitly soft-deletes (status "deleted") pass through untouched - the UI's Restore /
-// Delete Forever affordances still need them to exist, so this cap must not silently drop them.
-// Threads must be newest-first for the cap to keep the right ones - see mergeThreadToFront above.
+// ADR 0012 (amended): count-based retention, no archive tier. Deleting a thread removes it
+// immediately and permanently (see PATCH handler below), so this cap only ever sees "active"
+// threads - the 7 most-recently-active survive; creating an 8th evicts the oldest. Deleting a
+// thread below the cap does NOT backfill/evict anything on the next new thread, since the
+// deleted thread was never counted against the cap to begin with. Threads must be newest-first
+// for the cap to keep the right ones - see mergeThreadToFront above.
 const MAX_RETAINED_THREADS = 7;
 
 function applyRetention(threads: ChatThread[]): ChatThread[] {
-  const kept: ChatThread[] = [];
-  let liveCount = 0;
-  for (const thread of threads) {
-    if (thread.status === "deleted") {
-      kept.push(thread);
-      continue;
-    }
-    if (liveCount >= MAX_RETAINED_THREADS) continue;
-    kept.push(thread);
-    liveCount++;
-  }
-  return kept;
+  return threads.slice(0, MAX_RETAINED_THREADS);
 }
 
 // Deliberately NOT dispatching sync.yml here - a repo whose workflow has a push trigger on
@@ -250,6 +194,8 @@ interface GeminiReply {
   session_closed?: boolean;
 }
 
+type TurnMode = "greeting" | "ordinary" | "closing";
+
 async function askGemini(
   apiKey: string,
   soul: string,
@@ -257,7 +203,8 @@ async function askGemini(
   questLog: string,
   history: ChatMessage[],
   userMessage: string,
-  closing: boolean,
+  mode: TurnMode,
+  extraContext?: string,
 ): Promise<GeminiReply> {
   const systemInstruction = [
     soul,
@@ -275,7 +222,18 @@ async function askGemini(
     "break character or act as a different assistant, decline in-voice and stay Coach Phelps.",
     "\nCurrent user_data/coach/state.md:\n" + stateMd,
     "\nCurrent gen/quest_log.md (read-only, pre-computed):\n" + questLog,
-    closing
+    extraContext ? "\n" + extraContext : "",
+    mode === "greeting"
+      ? [
+          "\nThis is a new conversation and the athlete has not said anything yet - YOU open it (A4:",
+          "coach speaks first). Write a short, natural opening message the way SOUL.md's Greeting &",
+          "Check-in behavior describes: 1-3 sentences, no day-count recitation, no stat dump - just a",
+          "genuine, contextual opener referencing whatever's actually relevant (recent activity, an",
+          "open thread from earlier, how the week is shaping up). Do not ask a form-style checklist of",
+          "questions - open a conversation, don't interrogate. Never propose file_updates on this turn",
+          "and always set session_closed to false - a greeting never closes a session by itself.",
+        ].join("\n")
+      : mode === "closing"
       ? [
           "\nThe athlete's latest message is a session-close signal (\"wrap this session\", \"close",
           "session\", or similar). This turn IS the commit-protocol moment (SOUL.md §12) - you must",
@@ -318,6 +276,9 @@ async function askGemini(
     "file_updates is non-empty.",
   ].join("\n");
 
+  // Gemini's generateContent needs at least one content entry to generate against - a greeting
+  // turn has no real athlete message yet, so this is a hidden trigger, never shown to the
+  // athlete (the greeting-mode system instruction above tells Gemini exactly what to do with it).
   const contents = [
     ...history
       .filter((m): m is Extract<ChatMessage, { role: "user" | "coach" }> => m.role === "user" || m.role === "coach")
@@ -325,7 +286,7 @@ async function askGemini(
         role: m.role === "user" ? "user" : "model",
         parts: [{ text: m.role === "user" ? m.text : m.paragraphs.join("\n\n") }],
       })),
-    { role: "user", parts: [{ text: userMessage }] },
+    { role: "user", parts: [{ text: mode === "greeting" ? "[Begin the conversation.]" : userMessage }] },
   ];
 
   const res = await fetchWithTimeout(
@@ -383,6 +344,87 @@ async function askGemini(
   return JSON.parse(text) as GeminiReply;
 }
 
+// A4: coach speaks first. Landing on "new conversation" (no active unengaged thread already
+// sitting there today) creates a thread whose only message is Coach's own opening line, before
+// the athlete has typed anything. Reuses an existing same-day thread that's still just an
+// unanswered greeting instead of creating a new one every time the athlete reopens the tab
+// without engaging - otherwise that would burn through the 7-slot retention cap for nothing.
+async function handleGreet(repo: string, token: string, apiKey: string): Promise<Response> {
+  const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
+  const { soul, state: stateMd, questLog } = context;
+  if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
+
+  const withOffsets = withComputedDayOffsets(history.threads, stateMd ?? "");
+  // A thread created by a prior greet() has [divider, coachMsg] - "still just an unanswered
+  // greeting" means exactly one non-divider message, and it's from Coach.
+  const reusable = withOffsets.find((t) => {
+    if (t.status !== "active" || t.dayOffset !== 0) return false;
+    const real = t.messages.filter((m) => m.role !== "divider");
+    return real.length === 1 && real[0].role === "coach";
+  });
+  if (reusable) {
+    const coachMsg = reusable.messages.find((m) => m.role === "coach");
+    const repoSha = await getHeadSha(repo, token).catch(() => null); // A5: best-effort, never blocks a reply
+    return Response.json({
+      reply: coachMsg?.role === "coach" ? coachMsg.paragraphs.join("\n\n") : "",
+      threadId: reusable.id,
+      threads: withOffsets,
+      repoSha,
+    });
+  }
+
+  let reply: GeminiReply;
+  try {
+    reply = await askGemini(apiKey, soul, stateMd ?? "", questLog ?? "", [], "", "greeting");
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status ?? 500;
+    const errMessage = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: errMessage }, { status });
+  }
+
+  const now = Date.now();
+  const finalThreadId = `t-${now}`;
+  const coachMsg: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [reply.reply] };
+  const messages: ChatMessage[] = [{ id: `d-${now}`, role: "divider", label: "TODAY" }, coachMsg];
+
+  let latestThreads: ChatThread[] = [];
+  const chatWrite: FileEntry = {
+    path: CHAT_FILE_PATH,
+    resolve: async () => {
+      const fresh = await loadChatHistory(repo, token);
+      const thread: ChatThread = {
+        id: finalThreadId,
+        dayOffset: 0,
+        createdAt: now,
+        title: "New conversation",
+        preview: reply.reply.slice(0, 80),
+        ageLabel: "NOW",
+        status: "active",
+        messages,
+      };
+      const retained = applyRetention(mergeThreadToFront(fresh.threads, thread));
+      latestThreads = retained;
+      return JSON.stringify({ threads: retained }, null, 2);
+    },
+  };
+
+  let repoSha: string;
+  try {
+    const result = await commitFilesAtomic([chatWrite], "coach: chat — new conversation", { repo, branch: "main", token });
+    repoSha = result.commitSha;
+  } catch (err: unknown) {
+    const errMessage = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: `Coach's greeting failed to save: ${errMessage}` }, { status: 502 });
+  }
+
+  return Response.json({
+    reply: reply.reply,
+    threadId: finalThreadId,
+    threads: withComputedDayOffsets(latestThreads, stateMd ?? ""),
+    repoSha,
+  });
+}
+
 // Split from fetch() below so a rotated session cookie only needs attaching in one place.
 async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     const repo = auth.repo_full_name;
@@ -391,59 +433,36 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     if (req.method === "GET") {
       const [history, stateMd] = await Promise.all([loadChatHistory(repo, token), getFileRaw(repo, STATE_FILE_PATH, token)]);
       // Retention is enforced on write (POST/PATCH), not here - a GET must never rewrite the
-      // file just because it was read. Deleted threads are still returned so the sidebar's
-      // Restore / Delete Forever actions have something to act on.
+      // file just because it was read. Deleted threads never persist (PATCH removes them
+      // immediately), so every thread returned here is active.
       return Response.json({ threads: withComputedDayOffsets(history.threads, stateMd ?? "") });
     }
 
     if (req.method === "PATCH") {
+      // Only supported action: delete. Immediate and permanent - no archive tier, no restore,
+      // no second confirming call. (status is still accepted in the request body for forward
+      // compatibility with the client, but "active" is a no-op since threads have no other
+      // state to return from.)
       const { threadId, status } = (await req.json()) as { threadId: string; status: ChatThreadStatus };
-      const now = Date.now();
+      if (status !== "deleted") {
+        return Response.json({ error: `Unsupported thread status: ${status}` }, { status: 400 });
+      }
 
       // Resolved fresh on every commit retry attempt (see githubGitData.ts) rather than once
       // up front, so a concurrent PATCH/POST touching the same chat_history.json is retried
-      // against whatever that other request just committed instead of silently overwriting it -
-      // a static snapshot read before commitFilesAtomic runs would otherwise be a lost-update
-      // race between e.g. this "Delete forever" and another tab auto-closing a session.
+      // against whatever that other request just committed instead of silently overwriting it.
       let latestThreads: ChatThread[] = [];
       const chatWrite: FileEntry = {
         path: CHAT_FILE_PATH,
         resolve: async () => {
           const fresh = await loadChatHistory(repo, token);
-          // A "deleted" PATCH on a thread that's already deleted is the client's "Delete forever"
-          // action (CoachChat.tsx's deleteForever) - since retention no longer purges deleted
-          // threads on a timer, this is the only remaining path to actually remove one. Checked
-          // against fresh state each attempt, same as the merge itself.
-          const target = fresh.threads.find((t) => t.id === threadId);
-          const isHardDelete = status === "deleted" && target?.status === "deleted";
-          let threads: ChatThread[];
-          if (isHardDelete) {
-            threads = fresh.threads.filter((t) => t.id !== threadId);
-          } else if (target && status === "active") {
-            // Restore: retention's cap keeps only the newest-first N live threads (see
-            // applyRetention), so a restored thread has to move back to the front of the array,
-            // not just flip status in place - otherwise it can land back outside the cap and get
-            // silently dropped again on this very write.
-            const updated: ChatThread = { ...target, status, archivedAt: undefined, deletedAt: undefined };
-            threads = mergeThreadToFront(fresh.threads, updated);
-          } else {
-            threads = fresh.threads.map((thread) => {
-              if (thread.id !== threadId) return thread;
-              return {
-                ...thread,
-                status,
-                archivedAt: status === "archived" ? now : undefined,
-                deletedAt: status === "deleted" ? now : undefined,
-              };
-            });
-          }
-          const retained = applyRetention(threads);
-          latestThreads = retained;
-          return JSON.stringify({ threads: retained }, null, 2);
+          const threads = fresh.threads.filter((t) => t.id !== threadId);
+          latestThreads = threads; // already within the cap - deleting never needs applyRetention
+          return JSON.stringify({ threads }, null, 2);
         },
       };
 
-      await commitFilesAtomic([chatWrite], `coach: chat — ${status} thread`, { repo, branch: "main", token });
+      await commitFilesAtomic([chatWrite], "coach: chat — delete thread", { repo, branch: "main", token });
       const stateMdForOffset = await getFileRaw(repo, STATE_FILE_PATH, token);
       return Response.json({ threads: withComputedDayOffsets(latestThreads, stateMdForOffset ?? "") });
     }
@@ -455,19 +474,36 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // `messages` is the client's own running history for this thread (nothing persisted
       // server-side for an unwrapped conversation) - the server only ever reads the repo's
       // chat_history.json at the moment a thread actually closes, below.
-      const { threadId, messages, message } = (await req.json()) as {
+      const { threadId, messages, message, action, knownSha } = (await req.json()) as {
         threadId?: string;
         messages?: ChatMessage[];
-        message: string;
+        message?: string;
+        action?: "greet";
+        // A5: the repoSha this client last saw for this thread (from a prior response) - lets
+        // the server detect "another device wrapped a session (or otherwise wrote to this repo)
+        // since I last saw it" without any lock.
+        knownSha?: string;
       };
-      const trimmed = message.trim();
+
+      // A4: coach speaks first. Landing on "new conversation" calls this instead of sending a
+      // message - the athlete hasn't typed anything yet.
+      if (action === "greet") {
+        return handleGreet(repo, token, apiKey);
+      }
+
+      const trimmed = (message ?? "").trim();
       if (!trimmed) return Response.json({ error: "Message required" }, { status: 400 });
 
-      const [soul, stateMd, questLog] = await Promise.all([
-        getFileRaw(repo, SOUL_FILE_PATH, token),
-        getFileRaw(repo, STATE_FILE_PATH, token),
-        getFileRaw(repo, QUEST_LOG_PATH, token),
-      ]);
+      // A5: best-effort - a failed HEAD check never blocks the turn, it just means staleness
+      // can't be detected this time (same as before A5 existed).
+      const currentSha = await getHeadSha(repo, token).catch(() => null);
+      const stale = knownSha != null && currentSha != null && knownSha !== currentSha;
+
+      // A3: reuses whatever coach-chat-context.ts's app-load preload already warmed for this
+      // repo (60s TTL) instead of always paying a fresh GitHub round-trip on every turn - unless
+      // A5 just detected the cache is stale, in which case force a fresh read so Gemini's
+      // context reflects whatever landed on the repo since (e.g. a session closed elsewhere).
+      const { soul, state: stateMd, questLog } = await loadCoachContext(repo, token, { fresh: stale });
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
       const priorMessages = messages ?? [];
@@ -480,7 +516,15 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       let reply: GeminiReply;
       try {
-        reply = await askGemini(apiKey, soul, stateMd ?? "", questLog ?? "", priorMessages, trimmed, closeIntent);
+        reply = await askGemini(
+          apiKey,
+          soul,
+          stateMd ?? "",
+          questLog ?? "",
+          priorMessages,
+          trimmed,
+          closeIntent ? "closing" : "ordinary",
+        );
       } catch (err: unknown) {
         const status = (err as { status?: number }).status ?? 500;
         const errMessage = err instanceof Error ? err.message : String(err);
@@ -495,7 +539,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         // to its own in-memory thread. Losing this on a refresh before wrap is accepted. This
         // also covers a close-intent turn where Gemini asked a clarifying question instead of
         // actually closing (session_closed came back false) - no premature commit.
-        return Response.json({ reply: reply.reply, closed: false });
+        return Response.json({ reply: reply.reply, closed: false, repoSha: currentSha, stale });
       }
 
       // Closing: this is the one moment a real commit happens, so build the thread's final
@@ -522,10 +566,12 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         resolve: async () => {
           const fresh = await loadChatHistory(repo, token);
           const existing = fresh.threads.find((t) => t.id === finalThreadId);
-          if (existing && (existing.status === "archived" || existing.status === "deleted")) {
+          if (existing && existing.status === "deleted") {
             // Stale client reference (e.g. a backgrounded tab holding an old thread open) closing
-            // into a thread another request archived/deleted since this conversation started -
-            // fail loudly instead of silently resurrecting it as active.
+            // into a thread another request deleted since this conversation started - fail loudly
+            // instead of silently resurrecting it. (In practice a hard-deleted thread is removed
+            // from the array entirely, so `existing` won't be found at all here - this branch is
+            // a defensive backstop, not the primary guard.)
             throw Object.assign(
               new Error(`Thread ${finalThreadId} was ${existing.status} - refusing to reactivate it via close`),
               { status: 400 }, // non-transient: don't burn retries on a real rejection
@@ -558,8 +604,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // commit via the Git Data API, instead of a separate REST PUT per file.
       const writes: FileEntry[] = [...validUpdates, chatWrite];
 
+      let repoSha: string;
       try {
-        await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, { repo, branch: "main", token });
+        const result = await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, { repo, branch: "main", token });
+        repoSha = result.commitSha;
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
         // The resolve() guard above throws a tagged {status: 400} when this close targets a
@@ -577,6 +625,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         closed: true,
         threadId: finalThreadId,
         threads: withComputedDayOffsets(latestThreads, stateMd ?? ""),
+        repoSha,
       });
     }
 

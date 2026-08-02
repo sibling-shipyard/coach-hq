@@ -129,19 +129,6 @@
   letter-spacing: 0.08em;
 }
 
-.cc-shell button.cc-thread-row.is-archived,
-.cc-mobile-list button.cc-thread-row.is-archived,
-.cc-shell button.cc-thread-row.is-deleted,
-.cc-mobile-list button.cc-thread-row.is-deleted {
-  opacity: 0.72;
-}
-
-.cc-shell button.cc-thread-row.is-deleted .cc-thread-row__title,
-.cc-mobile-list button.cc-thread-row.is-deleted .cc-thread-row__title {
-  text-decoration: line-through;
-  text-decoration-color: rgba(84, 76, 65, 0.35);
-}
-
 .cc-ctx {
   position: fixed;
   z-index: 80;

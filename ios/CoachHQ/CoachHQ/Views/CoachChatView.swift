@@ -78,8 +78,6 @@ struct CoachChatView: View {
             preview: "",
             ageLabel: "NOW",
             status: .active,
-            archivedAt: nil,
-            deletedAt: nil,
             messages: []
         )
     }
@@ -157,8 +155,9 @@ struct CoachChatView: View {
                     }
                 },
                 onNew: {
-                    activeThreadId = nil
                     draft = ""
+                    guard let apiClient else { return }
+                    Task { await greetNow(apiClient: apiClient) }
                 }
             )
         }
@@ -441,9 +440,10 @@ struct CoachChatView: View {
                let repo = authManager.repoFullName {
                 CoachSetupState.markComplete(repoFullName: repo)
             }
-            // Wireup: prefer API today's thread; preview shell when empty.
             if let today = todayThread {
                 activeThreadId = today.id
+            } else {
+                await greetNow(apiClient: apiClient)
             }
         } catch let error as GitHubAPIError {
             if case .sessionNotReady = error { return }
@@ -458,6 +458,29 @@ struct CoachChatView: View {
         }
     }
 
+    /// A4: coach speaks first. Creates (or reuses today's still-unanswered greeting thread)
+    /// via /api/coach-chat's greet action, so landing on Chat always shows Coach having already
+    /// opened the conversation, never an empty composer waiting on the athlete to type first.
+    /// Called both when today has no thread yet (loadThreads) and explicitly from "New
+    /// conversation" (the server's reuse-vs-create logic handles both cases correctly).
+    private func greetNow(apiClient: CoachChatAPIClient) async {
+        do {
+            let result = try await apiClient.greet()
+            threads = result.threads
+            activeThreadId = result.threadId
+        } catch let error as GitHubAPIError {
+            if case .sessionNotReady = error { return }
+            if case .notAuthenticated = error {
+                authManager.sessionExpired = true
+                clearThreadState()
+                return
+            }
+            errorMessage = UserFacingError.friendlyMessage(for: error)
+        } catch {
+            errorMessage = "Coach couldn't start a conversation"
+        }
+    }
+
     /// Live thread messages only — never include preview shell content or local welcome messages in API context.
     private func priorMessagesForSend(targetId: String?) -> [ChatMessage] {
         guard let targetId,
@@ -467,8 +490,11 @@ struct CoachChatView: View {
         return thread.messages.filter { $0.id != "welcome-coach" }
     }
 
-    /// Ensures a mutable live thread exists before optimistic UI update. Never inserts preview seed data.
-    /// On first send, pre-populates the Coach welcome message so it persists in the thread.
+    /// Defensive fallback only (A4: coach speaks first) - by the time the athlete can type,
+    /// greetNow() should already have created today's real, server-committed thread with
+    /// Coach's opening line. This only fires if that failed and the athlete typed anyway; it
+    /// creates a bare local thread with no synthetic greeting text (no longer fabricates one
+    /// client-side - that's Gemini's job now, not a hardcoded string).
     @discardableResult
     private func materializeThreadIfNeeded(for targetId: String?) -> String {
         if let targetId, threads.contains(where: { $0.id == targetId }) {
@@ -485,13 +511,6 @@ struct CoachChatView: View {
             id: "d-\(Int(now))",
             label: "TODAY · \(headerContext.dayLabel(offset: 0))"
         )
-        var initialMessages: [ChatMessage] = [divider]
-        if !chatWelcomeShown {
-            let greeting = preferredName.isEmpty
-                ? "Hey. I'm Coach Phelps."
-                : "Hey, \(preferredName). I'm Coach Phelps."
-            initialMessages.append(ChatMessage.coach(id: "welcome-coach", paragraphs: [greeting]))
-        }
         let created = ChatThread(
             id: id,
             dayOffset: 0,
@@ -499,9 +518,7 @@ struct CoachChatView: View {
             preview: "",
             ageLabel: "NOW",
             status: .active,
-            archivedAt: nil,
-            deletedAt: nil,
-            messages: initialMessages
+            messages: [divider]
         )
         threads.insert(created, at: 0)
         activeThreadId = id

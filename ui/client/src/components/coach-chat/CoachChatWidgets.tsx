@@ -284,19 +284,11 @@ function Composer({
 function ThreadContextMenu({
   menu,
   onClose,
-  onArchive,
-  onUnarchive,
   onDelete,
-  onRestore,
-  onDeleteForever,
 }: {
   menu: ThreadMenuState;
   onClose: () => void;
-  onArchive: (id: string) => void;
-  onUnarchive: (id: string) => void;
   onDelete: (id: string) => void;
-  onRestore: (id: string) => void;
-  onDeleteForever: (id: string) => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -345,71 +337,17 @@ function ThreadContextMenu({
       aria-label="Conversation actions"
       style={{ left: menu.x, top: menu.y }}
     >
-      {menu.status === "deleted" ? (
-        <>
-          <button
-            className="cc-ctx__item"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              onRestore(menu.threadId);
-              onClose();
-            }}
-          >
-            Restore
-          </button>
-          <button
-            className="cc-ctx__item cc-ctx__item--danger"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              onDeleteForever(menu.threadId);
-              onClose();
-            }}
-          >
-            Delete forever
-          </button>
-        </>
-      ) : (
-        <>
-          {menu.status === "archived" ? (
-            <button
-              className="cc-ctx__item"
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                onUnarchive(menu.threadId);
-                onClose();
-              }}
-            >
-              Unarchive
-            </button>
-          ) : (
-            <button
-              className="cc-ctx__item"
-              role="menuitem"
-              type="button"
-              onClick={() => {
-                onArchive(menu.threadId);
-                onClose();
-              }}
-            >
-              Archive
-            </button>
-          )}
-          <button
-            className="cc-ctx__item cc-ctx__item--danger"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              onDelete(menu.threadId);
-              onClose();
-            }}
-          >
-            Delete
-          </button>
-        </>
-      )}
+      <button
+        className="cc-ctx__item cc-ctx__item--danger"
+        role="menuitem"
+        type="button"
+        onClick={() => {
+          onDelete(menu.threadId);
+          onClose();
+        }}
+      >
+        Delete
+      </button>
     </div>
   );
 }
@@ -499,30 +437,23 @@ function ThreadSections({
   threads,
   activeId,
   onSelect,
-  onArchive,
-  onUnarchive,
   onDelete,
-  onRestore,
-  onDeleteForever,
 }: {
   dayNumber: number;
   threads: ChatThread[];
   activeId: string | null;
   onSelect: (id: string) => void;
-  onArchive: (id: string) => void;
-  onUnarchive: (id: string) => void;
   onDelete: (id: string) => void;
-  onRestore: (id: string) => void;
-  onDeleteForever: (id: string) => void;
 }) {
   const [menu, setMenu] = useState<ThreadMenuState | null>(null);
+  // Every thread returned by the server is active - deleting one removes it immediately and
+  // permanently (ADR 0012 amendment), so there's no separate archived/deleted section any more.
   const recent = threads.filter((thread) => threadStatus(thread) === "active");
-  const archived = threads.filter((thread) => threadStatus(thread) === "archived");
-  const deleted = threads.filter((thread) => threadStatus(thread) === "deleted");
 
   return (
     <>
       <div className="cc-sidebar__section">RECENT</div>
+      <div className="cc-sidebar__hint">Newest {MAX_RETAINED_THREADS} kept — oldest drop off automatically</div>
       {recent.length === 0 ? (
         <div className="cc-thread-empty">No open conversations</div>
       ) : (
@@ -537,49 +468,7 @@ function ThreadSections({
           />
         ))
       )}
-      {archived.length > 0 ? (
-        <>
-          <div className="cc-sidebar__section cc-sidebar__section--spaced">ARCHIVED</div>
-          <div className="cc-sidebar__hint">Newest {MAX_RETAINED_THREADS} kept — oldest drop off automatically</div>
-          {archived.map((thread) => (
-            <ThreadRow
-              key={thread.id}
-              dayNumber={dayNumber}
-              thread={thread}
-              active={thread.id === activeId}
-              onSelect={onSelect}
-              onOpenMenu={setMenu}
-            />
-          ))}
-        </>
-      ) : null}
-      {deleted.length > 0 ? (
-        <>
-          <div className="cc-sidebar__section cc-sidebar__section--spaced">DELETED</div>
-          <div className="cc-sidebar__hint">Restore, or delete forever</div>
-          {deleted.map((thread) => (
-            <ThreadRow
-              key={thread.id}
-              dayNumber={dayNumber}
-              thread={thread}
-              active={thread.id === activeId}
-              onSelect={onSelect}
-              onOpenMenu={setMenu}
-            />
-          ))}
-        </>
-      ) : null}
-      {menu ? (
-        <ThreadContextMenu
-          menu={menu}
-          onClose={() => setMenu(null)}
-          onArchive={onArchive}
-          onUnarchive={onUnarchive}
-          onDelete={onDelete}
-          onRestore={onRestore}
-          onDeleteForever={onDeleteForever}
-        />
-      ) : null}
+      {menu ? <ThreadContextMenu menu={menu} onClose={() => setMenu(null)} onDelete={onDelete} /> : null}
     </>
   );
 }
@@ -590,22 +479,14 @@ export function ThreadSidebar({
   activeId,
   onSelect,
   onNew,
-  onArchive,
-  onUnarchive,
   onDelete,
-  onRestore,
-  onDeleteForever,
 }: {
   dayNumber: number;
   threads: ChatThread[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onArchive: (id: string) => void;
-  onUnarchive: (id: string) => void;
   onDelete: (id: string) => void;
-  onRestore: (id: string) => void;
-  onDeleteForever: (id: string) => void;
 }) {
   return (
     <aside className="cc-sidebar" aria-label="Conversations">
@@ -620,17 +501,7 @@ export function ThreadSidebar({
         </button>
       </div>
       <div className="cc-sidebar__list">
-        <ThreadSections
-          dayNumber={dayNumber}
-          threads={threads}
-          activeId={activeId}
-          onSelect={onSelect}
-          onArchive={onArchive}
-          onUnarchive={onUnarchive}
-          onDelete={onDelete}
-          onRestore={onRestore}
-          onDeleteForever={onDeleteForever}
-        />
+        <ThreadSections dayNumber={dayNumber} threads={threads} activeId={activeId} onSelect={onSelect} onDelete={onDelete} />
       </div>
     </aside>
   );
@@ -810,22 +681,14 @@ export function MobileThreadList({
   activeId,
   onSelect,
   onNew,
-  onArchive,
-  onUnarchive,
   onDelete,
-  onRestore,
-  onDeleteForever,
 }: {
   dayNumber: number;
   threads: ChatThread[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onArchive: (id: string) => void;
-  onUnarchive: (id: string) => void;
   onDelete: (id: string) => void;
-  onRestore: (id: string) => void;
-  onDeleteForever: (id: string) => void;
 }) {
   return (
     <section className="cc-mobile-list" aria-label="Conversations">
@@ -842,17 +705,7 @@ export function MobileThreadList({
         <PlusIcon />
         New conversation
       </button>
-      <ThreadSections
-        dayNumber={dayNumber}
-        threads={threads}
-        activeId={activeId}
-        onSelect={onSelect}
-        onArchive={onArchive}
-        onUnarchive={onUnarchive}
-        onDelete={onDelete}
-        onRestore={onRestore}
-        onDeleteForever={onDeleteForever}
-      />
+      <ThreadSections dayNumber={dayNumber} threads={threads} activeId={activeId} onSelect={onSelect} onDelete={onDelete} />
     </section>
   );
 }

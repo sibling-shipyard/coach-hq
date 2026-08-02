@@ -2,29 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RepoDataGate, AccessRevokedCard } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
-import type { Activity } from "@/lib/activities";
 import type { ChallengeV2 } from "@/lib/challenge";
-import { parseCurrentWeek } from "@/lib/currentWeek";
-import { adaptCurrentWeek } from "@/components/home-warm/currentWeekAdapter";
-import { buildLiveWeekContract } from "@/components/home-warm/liveWeekContract";
-import { buildWarmHomeModel, type SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
-import { buildEngineSnapshot } from "@/components/home-warm/WarmInstrumentHome";
+import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
-import {
-  ConversationPane,
-  EmptyChatPane,
-  MobileThreadList,
-  ThreadSidebar,
-} from "@/components/coach-chat/CoachChatWidgets";
+import { ConversationPane, MobileThreadList, ThreadSidebar } from "@/components/coach-chat/CoachChatWidgets";
 import {
   CoachChatAccessRevokedError,
   challengeDayNumber,
   fetchThreads,
+  greet,
   sendMessage,
   setThreadStatus as patchThreadStatus,
   threadStatus,
   type ChatMessage,
-  type ChatStarter,
   type ChatThread,
 } from "@/components/coach-chat/coachChatModel";
 import "@/components/home-warm/warm-instrument.css";
@@ -43,23 +33,10 @@ export default function CoachChat() {
 }
 
 function CoachChatContent({ data }: { data: RepoData }) {
-  const activities = data.activities as Activity[];
   const challengeData = data.challenge_v2 as unknown as ChallengeV2;
   const syncStatusData = data.sync_status as SyncStatusPayload;
 
-  const currentWeekRt = parseCurrentWeek(data.current_week);
-  const currentWeek =
-    currentWeekRt.availability.available && currentWeekRt.data
-      ? adaptCurrentWeek(currentWeekRt.data, currentWeekRt.availability, activities)
-      : undefined;
-
   const dayNumber = useMemo(() => challengeDayNumber(challengeData), [challengeData]);
-
-  const engineLoad = useMemo(() => {
-    const contract = currentWeek ?? buildLiveWeekContract(activities, challengeData);
-    const model = buildWarmHomeModel(activities, challengeData, syncStatusData, contract);
-    return buildEngineSnapshot(activities, model.engine).load;
-  }, [activities, challengeData, currentWeek, syncStatusData]);
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
@@ -70,14 +47,39 @@ function CoachChatContent({ data }: { data: RepoData }) {
   const [mobileView, setMobileView] = useState<MobileView>("new");
   const [sending, setSending] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  // A4: coach speaks first - true while a greeting turn is in flight (either landing on the
+  // page with no today-thread yet, or explicitly starting a new conversation).
+  const [greeting, setGreeting] = useState(false);
 
   const activeThread = threads.find((thread) => thread.id === activeId) ?? null;
-  // Most recent still-open (active, non-today) thread - offered as a shortcut on the new-
-  // conversation screen so a still-unwrapped prior day's chat isn't just left behind once
-  // "today" starts. Threads come back newest-first, so the first match is the most recent one.
-  const pickupThread = threads.find(
-    (thread) => thread.dayOffset > 0 && threadStatus(thread) === "active" && thread.messages.length > 0,
-  );
+
+  // A4: land on today's thread with Coach already having spoken first - never an empty
+  // composer waiting on the athlete to type. Creates (or reuses) it via greet() if today
+  // doesn't already have one. list is whatever's already known client-side (avoids a stale
+  // closure over `threads` from a prior render).
+  async function ensureTodayThread(list: ChatThread[]) {
+    const today = list.find((thread) => thread.dayOffset === 0 && threadStatus(thread) === "active");
+    if (today) {
+      setActiveId(today.id);
+      setMobileView((v) => (v === "new" ? "thread" : v));
+      return;
+    }
+    setGreeting(true);
+    try {
+      const result = await greet();
+      setThreads(result.threads);
+      setActiveId(result.threadId);
+      setMobileView((v) => (v === "new" ? "thread" : v));
+    } catch (err: unknown) {
+      if (err instanceof CoachChatAccessRevokedError) {
+        setThreadsAccessRevoked(true);
+        return;
+      }
+      toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
+    } finally {
+      setGreeting(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +90,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
       .then((loaded) => {
         if (cancelled) return;
         setThreads(loaded);
-        setActiveId(loaded.find((thread) => threadStatus(thread) === "active")?.id ?? null);
+        void ensureTodayThread(loaded);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -119,68 +121,55 @@ function CoachChatContent({ data }: { data: RepoData }) {
     return list.find((thread) => threadStatus(thread) === "active" && thread.id !== excludeId)?.id ?? null;
   }
 
-  async function updateStatus(id: string, status: ChatThread["status"]) {
+  // Delete is immediate and permanent - no archive tier, no restore (ADR 0012 amendment).
+  async function deleteThread(id: string) {
     const wasActive = activeId === id;
-    if (wasActive && status !== "active") {
+    if (wasActive) {
       setActiveId(firstActiveId(threads, id));
       setDraft("");
       setMobileView("list");
     }
 
     // A thread that hasn't been wrapped yet only exists in local state - nothing's committed
-    // for the server's PATCH to find. Calling it anyway would return the server's committed
-    // thread list, silently dropping this local-only thread out of view. Handle it purely
-    // client-side instead: delete removes it (nothing was ever saved to lose), archive just
-    // hides it from the active list for this session.
+    // for the server's PATCH to find. Just drop it client-side.
     if (id.startsWith("local-")) {
-      if (status === "deleted") {
-        setThreads((prev) => prev.filter((thread) => thread.id !== id));
-      } else {
-        setThreads((prev) =>
-          prev.map((thread) => (thread.id === id ? { ...thread, status: status ?? "active" } : thread)),
-        );
-      }
+      setThreads((prev) => prev.filter((thread) => thread.id !== id));
       return;
     }
 
     try {
-      const next = await patchThreadStatus(id, status ?? "active");
+      const next = await patchThreadStatus(id, "deleted");
       setThreads(next);
     } catch (err: unknown) {
       if (err instanceof CoachChatAccessRevokedError) {
         setThreadsAccessRevoked(true);
         return;
       }
-      toast.error(err instanceof Error ? err.message : "Failed to update conversation");
+      toast.error(err instanceof Error ? err.message : "Failed to delete conversation");
     }
   }
 
-  function archiveThread(id: string) {
-    void updateStatus(id, "archived");
-  }
-
-  function unarchiveThread(id: string) {
-    void updateStatus(id, "active");
-  }
-
-  function deleteThread(id: string) {
-    void updateStatus(id, "deleted");
-  }
-
-  function restoreThread(id: string) {
-    void updateStatus(id, "active");
-  }
-
-  function deleteForever(id: string) {
-    // Sending "deleted" again on an already-deleted thread is how the server (ADR 0012)
-    // distinguishes a real hard delete from an ordinary soft-delete.
-    void updateStatus(id, "deleted");
-  }
-
   function startNewConversation() {
+    // Not "new" (an empty composer waiting on the athlete) any more - Coach speaks first (A4).
+    // greet() reuses today's still-unanswered greeting thread if one exists, or creates a
+    // genuinely new one (evicting the oldest of the 7 if already at the cap).
     setActiveId(null);
     setDraft("");
-    setMobileView("new");
+    setMobileView("thread");
+    setGreeting(true);
+    greet()
+      .then((result) => {
+        setThreads(result.threads);
+        setActiveId(result.threadId);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof CoachChatAccessRevokedError) {
+          setThreadsAccessRevoked(true);
+          return;
+        }
+        toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
+      })
+      .finally(() => setGreeting(false));
   }
 
   function selectThread(id: string) {
@@ -251,8 +240,6 @@ function CoachChatContent({ data }: { data: RepoData }) {
                 preview: result.reply.slice(0, 80),
                 ageLabel: "NOW",
                 status: "active" as const,
-                archivedAt: undefined,
-                deletedAt: undefined,
                 messages: [...thread.messages, coachMsg],
               }
             : thread,
@@ -284,16 +271,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
     }
   }
 
-  function handleStarter(starter: ChatStarter) {
-    void appendUserMessage(starter.label, null);
-  }
-
   const threadActions = {
-    onArchive: archiveThread,
-    onUnarchive: unarchiveThread,
-    onDelete: deleteThread,
-    onRestore: restoreThread,
-    onDeleteForever: deleteForever,
+    onDelete: (id: string) => void deleteThread(id),
   };
 
   if (threadsAccessRevoked) {
@@ -357,17 +336,20 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   pending={sending}
                 />
               ) : (
-                <EmptyChatPane
-                  dayNumber={dayNumber}
-                  engineLoad={engineLoad}
-                  draft={draft}
-                  onDraftChange={setDraft}
-                  onSend={() => void appendUserMessage(draft, null)}
-                  onStarter={handleStarter}
-                  pending={sending}
-                  pickupThread={pickupThread}
-                  onPickup={selectThread}
-                />
+                <section className="cc-pane cc-pane--empty cc-loading" aria-label="Starting conversation">
+                  {greeting || threadsLoading ? (
+                    <>
+                      <span className="cc-loading__spinner" aria-hidden="true" />
+                      Coach is opening the conversation…
+                    </>
+                  ) : (
+                    // greeting failed (already toasted) and left no active thread - give the
+                    // athlete a way out instead of a permanent silent loading state.
+                    <button type="button" className="cc-new-btn" onClick={startNewConversation}>
+                      Try again
+                    </button>
+                  )}
+                </section>
               )}
             </div>
 
@@ -400,20 +382,19 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   onBack={() => setMobileView("list")}
                 />
               ) : null}
-              {mobileView === "new" ? (
-                <EmptyChatPane
-                  dayNumber={dayNumber}
-                  engineLoad={engineLoad}
-                  draft={draft}
-                  onDraftChange={setDraft}
-                  onSend={() => void appendUserMessage(draft, null)}
-                  onStarter={handleStarter}
-                  pending={sending}
-                  showBack
-                  onBack={() => setMobileView("list")}
-                  pickupThread={pickupThread}
-                  onPickup={selectThread}
-                />
+              {mobileView === "new" || (mobileView === "thread" && !activeThread) ? (
+                <section className="cc-mobile-list cc-loading" aria-label="Starting conversation">
+                  {greeting || threadsLoading ? (
+                    <>
+                      <span className="cc-loading__spinner" aria-hidden="true" />
+                      Coach is opening the conversation…
+                    </>
+                  ) : (
+                    <button type="button" className="cc-new-btn" onClick={startNewConversation}>
+                      Try again
+                    </button>
+                  )}
+                </section>
               ) : null}
             </div>
           </div>
