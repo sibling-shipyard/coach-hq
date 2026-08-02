@@ -136,6 +136,9 @@ struct MainTabView: View {
         }
         .onChange(of: selectedTab) { _, newTab in
             if newTab == .chat { chatHasUnread = false }
+            if newTab == .home, widgetStore.shouldRefresh {
+                Task { await widgetStore.refresh(showSpinner: false) }
+            }
         }
         .onChange(of: chatHasUnread) { _, hasUnread in
             if hasUnread && selectedTab == .chat { chatHasUnread = false }

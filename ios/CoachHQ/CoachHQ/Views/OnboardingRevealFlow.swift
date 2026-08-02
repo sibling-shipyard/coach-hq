@@ -559,7 +559,7 @@ private struct SeasonStepView: View {
     private static let allSports = [
         "Running", "Cycling", "Swimming", "Strength",
         "Yoga", "Hiking", "Rowing", "Tennis",
-        "Football", "Basketball", "Other"
+        "Football", "Basketball", "Badminton", "Other"
     ]
 
     @State private var selectedSports: Set<String> = []
@@ -666,6 +666,13 @@ top_sport: \(displaySportName(summary.topSport))
         case "WeightTraining", "Foundation": return "Strength"
         case "Yoga":      return "Yoga"
         case "Walk":      return "Walking"
+        case "Swimming":  return "Swimming"
+        case "Hiking":    return "Hiking"
+        case "Rowing":    return "Rowing"
+        case "Tennis":    return "Tennis"
+        case "Football":  return "Football"
+        case "Basketball": return "Basketball"
+        case "Badminton": return "Badminton"
         default:          return "Other"
         }
     }
