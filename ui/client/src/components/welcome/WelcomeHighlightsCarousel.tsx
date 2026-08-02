@@ -86,8 +86,8 @@ export function WelcomeHighlightsCarousel() {
   const railRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const animatingRef = useRef(false);
-  const scrollTimerRef = useRef<number>();
-  const rafRef = useRef<number>();
+  const scrollTimerRef = useRef<number | undefined>(undefined);
+  const rafRef = useRef<number | undefined>(undefined);
   const reducedMotion = useReducedMotion();
   const cardPitch = useCardPitch(railRef);
 

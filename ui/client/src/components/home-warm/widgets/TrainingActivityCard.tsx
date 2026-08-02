@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ActivityCellState, TrainingActivitySnapshot } from "../snapshots";
 
-const ACTIVITY_LEGEND: Array<{ state: ActivityCellState; label: string }> = [
+const ACTIVITY_LEGEND: Array<{ state: Exclude<ActivityCellState, "empty">; label: string }> = [
   { state: "badminton", label: "BDM" },
   { state: "calisthenics", label: "CAL" },
   { state: "foundation", label: "FDN" },
