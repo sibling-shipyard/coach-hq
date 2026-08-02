@@ -157,10 +157,11 @@ final class CoachChatAPIClient {
     /// B2/B3: has this athlete finished the First Session Protocol? Backs
     /// CoachSetupBootstrap.shouldOpenChatFirst() - a live server check instead of the old
     /// thread-existence heuristic, since a thread existing has never meant the intake actually
-    /// finished.
+    /// finished. Query-param on the main coach-chat route rather than its own endpoint - Vercel
+    /// Hobby caps a deployment at 12 serverless functions and this repo is already at that cap.
     func profileStatus() async throws -> Bool {
         let auth = try await requireAuth()
-        let req = try request("GET", path: "/api/coach-chat-profile-status", auth: auth)
+        let req = try request("GET", path: "/api/coach-chat?profileStatus=1", auth: auth)
         let data = try await send(req, operation: "Checking profile status")
         return try JSONDecoder().decode(ChatProfileStatusResponse.self, from: data).profileComplete
     }
