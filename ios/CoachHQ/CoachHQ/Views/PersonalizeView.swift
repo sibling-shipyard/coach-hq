@@ -1,39 +1,80 @@
 import SwiftUI
 
-/// Minimal brand splash shown once on first launch — logo + wordmark, no form.
-/// Fades out to reveal the Chat tab (which has been loading underneath).
-/// Name collection happens conversationally inside the Coach chat intro.
-struct SplashView: View {
+/// Name collection step — shown once before HealthKit permission. Saves to AppStorage
+/// so Coach can greet the user by name throughout the app.
+struct NamePromptView: View {
     let onComplete: () -> Void
 
-    @State private var logoOpacity: Double = 0
-    @State private var wordmarkOpacity: Double = 0
-    @State private var isExiting = false
+    @AppStorage("preferredName") private var preferredName = ""
+    @State private var name = ""
+    @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 14) {
-            OnboardingLogo(size: 68)
-                .opacity(logoOpacity)
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                Text("Hey. I'm\nCoach Phelps.")
+                    .font(.system(size: 36, weight: .semibold, design: .serif))
+                    .italic()
+                    .foregroundColor(WarmInstrument.ink)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onboardingReveal(index: 0)
+                    .padding(.bottom, 20)
 
-            Text("Coach HQ")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundColor(WarmInstrument.ink)
-                .opacity(wordmarkOpacity)
+                Text("What should I call you?")
+                    .font(WarmInstrument.coachVoice(18))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .multilineTextAlignment(.center)
+                    .onboardingReveal(index: 1)
+                    .padding(.bottom, 44)
+
+                TextField("Your name", text: $name)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(WarmInstrument.ink)
+                    .multilineTextAlignment(.center)
+                    .autocorrectionDisabled()
+                    .textContentType(.givenName)
+                    .submitLabel(.done)
+                    .focused($fieldFocused)
+                    .onSubmit { submit() }
+                    .padding(.bottom, 10)
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(fieldFocused ? WarmInstrument.ink : WarmInstrument.border)
+                            .frame(height: fieldFocused ? 1.5 : 1)
+                            .animation(PremiumMotion.state, value: fieldFocused)
+                    }
+                    .onboardingReveal(index: 2)
+            }
+            .padding(.horizontal, 40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            VStack(spacing: 12) {
+                Button {
+                    Haptics.tap()
+                    submit()
+                } label: {
+                    Text("Let's go")
+                }
+                .buttonStyle(WarmSetupButtonStyle(primary: true))
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .onboardingReveal(index: 3)
+            }
+            .padding(.horizontal, 24)
+            .safeAreaPadding(.bottom, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WarmInstrument.desk.ignoresSafeArea())
-        .opacity(isExiting ? 0 : 1)
-        .animation(.easeIn(duration: 0.42), value: isExiting)
-        .task { await runSequence() }
+        .onAppear {
+            if !preferredName.isEmpty { name = preferredName }
+            fieldFocused = true
+        }
     }
 
-    private func runSequence() async {
-        withAnimation(.spring(duration: 0.55, bounce: 0.12)) { logoOpacity = 1 }
-        try? await Task.sleep(for: .seconds(0.28))
-        withAnimation(.easeOut(duration: 0.42)) { wordmarkOpacity = 1 }
-        try? await Task.sleep(for: .seconds(1.9))
-        isExiting = true
-        try? await Task.sleep(for: .seconds(0.45))
+    private func submit() {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        preferredName = trimmed
         onComplete()
     }
 }

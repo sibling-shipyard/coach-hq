@@ -684,28 +684,23 @@ struct CoachChatHistorySheet: View {
 // MARK: - First-time welcome intro
 
 struct CoachChatWelcomeIntro: View {
-    @State private var bubble1Visible = false
-    @State private var bubble2Visible = false
+    @AppStorage("preferredName") private var preferredName = ""
+    @State private var bubbleVisible = false
+
+    private var greeting: String {
+        preferredName.isEmpty
+            ? "Hey. I'm Coach Phelps."
+            : "Hey, \(preferredName). I'm Coach Phelps."
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             CoachChatDayDivider(label: "DAY ONE")
 
-            if bubble1Visible {
+            if bubbleVisible {
                 HStack {
                     CoachChatCoachBubble(
-                        paragraphs: ["Hey. I'm Coach Phelps."],
-                        showSignature: false
-                    )
-                    Spacer(minLength: 40)
-                }
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-
-            if bubble2Visible {
-                HStack {
-                    CoachChatCoachBubble(
-                        paragraphs: ["What should I call you?"],
+                        paragraphs: [greeting],
                         showSignature: false
                     )
                     Spacer(minLength: 40)
@@ -714,16 +709,13 @@ struct CoachChatWelcomeIntro: View {
             }
         }
         .padding(.top, 12)
-        .animation(PremiumMotion.state, value: bubble1Visible)
-        .animation(PremiumMotion.state, value: bubble2Visible)
+        .animation(PremiumMotion.state, value: bubbleVisible)
         .task { await revealSequence() }
     }
 
     private func revealSequence() async {
         try? await Task.sleep(for: .seconds(0.55))
-        bubble1Visible = true
-        try? await Task.sleep(for: .seconds(1.1))
-        bubble2Visible = true
+        bubbleVisible = true
     }
 }
 
