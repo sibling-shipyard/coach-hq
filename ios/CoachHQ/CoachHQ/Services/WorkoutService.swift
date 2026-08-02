@@ -10,9 +10,7 @@ class WorkoutService: ObservableObject {
 
     private var apiClient: GitHubAPIClient?
 
-    init() {
-        loadBundled()
-    }
+    init() {}
 
     func configure(apiClient: GitHubAPIClient) {
         self.apiClient = apiClient
@@ -25,6 +23,40 @@ class WorkoutService: ObservableObject {
     }
 
     // MARK: - GitHub fetch
+
+    func fetchTemplates() async {
+        guard let apiClient else { return }
+        isLoading = true
+        fetchError = nil
+        defer { isLoading = false }
+
+        let entries: [GitHubFileEntry]
+        do {
+            entries = try await apiClient.listFiles(path: "user_data/activities/workout_plans/templates")
+        } catch let e as GitHubAPIError {
+            guard case .notFound = e else {
+                fetchError = "Couldn't load workout templates"
+                return
+            }
+            templates = []
+            return
+        } catch {
+            fetchError = "Couldn't load workout templates"
+            return
+        }
+
+        let decoder = JSONDecoder()
+        var loaded: [Workout] = []
+        for entry in entries where entry.type == "file" && entry.name.hasSuffix(".json") {
+            do {
+                let data = try await apiClient.readFile(path: entry.path)
+                loaded.append(try decoder.decode(Workout.self, from: data))
+            } catch {
+                print("fetchTemplates: skipping \(entry.name): \(error)")
+            }
+        }
+        templates = loaded
+    }
 
     func fetchTodaySessions() async {
         guard let apiClient else { return }
@@ -71,15 +103,4 @@ class WorkoutService: ObservableObject {
         return formatter.string(from: date)
     }
 
-    // MARK: - Bundle load
-
-    private func loadBundled() {
-        let decoder = JSONDecoder()
-        templates = BundledTemplates.displayOrder.compactMap { id in
-            guard let json = BundledTemplates.json(for: id),
-                  let data = json.data(using: .utf8),
-                  let workout = try? decoder.decode(Workout.self, from: data) else { return nil }
-            return workout
-        }
-    }
 }
