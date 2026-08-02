@@ -2,8 +2,9 @@
 """One-time migration: legacy activity names → generic {Sport} #{N} + category field.
 
 Reads user_data/activities/hist/*.json, derives category from the old display name via
-preset regex rules, renames to {sport_type} #{N} (per-sport counters), and updates
-sync_state.json counters so the next iOS sync continues numbering correctly.
+preset regex rules, renames to {sport_type} #{N} (per-sport counters reset each calendar
+year), and updates sync_state.json counters for the latest year so the next iOS sync
+continues numbering correctly.
 
 Run once per athlete repo after phase 1 (generic naming) lands. Use --preset sky for
 coach-akash; --preset generic for greenfield or unknown naming schemes.
@@ -57,6 +58,10 @@ def derive_category(
         if pattern.search(old_name):
             return category
     return sport_defaults.get(sport_type, "")
+
+
+def activity_year(data: dict[str, Any]) -> int:
+    return parse_start_date(data).year
 
 
 def counter_key(sport_type: str) -> str:
@@ -127,7 +132,8 @@ def main() -> None:
 
     activities.sort(key=lambda item: parse_start_date(item[1]))
 
-    counters: dict[str, int] = {}
+    # Per sport + calendar year — counters reset each Jan 1 (matches legacy naming).
+    year_counters: dict[tuple[str, int], int] = {}
     changed = 0
     skipped = 0
 
@@ -140,11 +146,13 @@ def main() -> None:
             continue
 
         key = counter_key(sport_type)
+        year = activity_year(data)
+        year_key = (key, year)
 
         if is_generic_name(old_name, sport_type) and not args.force:
             m = GENERIC_NAME_RE.match(old_name)
             assert m is not None
-            counters[key] = max(counters.get(key, 0), int(m.group(2)))
+            year_counters[year_key] = max(year_counters.get(year_key, 0), int(m.group(2)))
             if data.get("category"):
                 skipped += 1
                 continue
@@ -155,8 +163,8 @@ def main() -> None:
                 continue
         else:
             category = derive_category(old_name, sport_type, rules, sport_defaults)
-            counters[key] = counters.get(key, 0) + 1
-            new_name = f"{sport_type} #{counters[key]}"
+            year_counters[year_key] = year_counters.get(year_key, 0) + 1
+            new_name = f"{sport_type} #{year_counters[year_key]}"
 
         if args.dry_run:
             print(
@@ -175,6 +183,13 @@ def main() -> None:
             print(f"Updated {path.name}: {old_name!r} → {new_name!r}, category={category!r}")
 
         changed += 1
+
+    # sync_state counters = max #N per sport for the latest year in hist (for next iOS sync).
+    latest_year = max((y for (_, y) in year_counters.keys()), default=datetime.now().year)
+    counters: dict[str, int] = {}
+    for (sport_key, year), count in year_counters.items():
+        if year == latest_year:
+            counters[sport_key] = max(counters.get(sport_key, 0), count)
 
     sync_state = load_sync_state(state_path)
     existing = sync_state.get("counters") or {}
