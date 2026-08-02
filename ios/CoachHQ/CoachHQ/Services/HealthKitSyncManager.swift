@@ -179,8 +179,8 @@ class HealthKitSyncManager: ObservableObject {
             if let ts = syncState.hkLastSynced, let date = ISO8601DateFormatter().date(from: ts) {
                 since = date
             } else {
-                // First sync — pull the last week of history.
-                since = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+                // First sync — pull the last year of history.
+                since = Calendar.current.date(byAdding: .day, value: -365, to: Date())!
             }
 
             let lookbackDays = max(1, Calendar.current.dateComponents([.day], from: since, to: Date()).day ?? 7)

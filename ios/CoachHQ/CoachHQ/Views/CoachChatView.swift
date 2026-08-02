@@ -298,21 +298,6 @@ struct CoachChatView: View {
 
     private var composerDock: some View {
         VStack(spacing: 8) {
-            if isViewingToday && (chatWelcomeShown || !usingPreviewShell) {
-                CoachChatStarterChips(
-                    prompts: postWorkoutChips ?? CoachChatPreviewData.starterPrompts,
-                    isDisabled: sending
-                ) { prompt in
-                    postWorkoutChips = nil
-                    draft = prompt
-                    Task { await send(from: resolvedSendThreadId()) }
-                }
-                .opacity(composerChromeHidden ? 0 : 1)
-                .frame(height: composerChromeHidden ? 0 : nil)
-                .clipped()
-                .allowsHitTesting(!composerChromeHidden)
-            }
-
             CoachChatComposer(
                 draft: $draft,
                 isFocused: $composerFocused,
