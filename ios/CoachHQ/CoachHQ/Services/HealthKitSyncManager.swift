@@ -225,7 +225,8 @@ class HealthKitSyncManager: ObservableObject {
             var filesToCommit: [(path: String, data: Data)] = []
             var syncedForCache: [(fileName: String, activity: Activity)] = []
 
-            for workout in workouts {
+            for (index, workout) in workouts.enumerated() {
+                syncProgressText = "Processing \(index + 1) of \(workouts.count)…"
                 let base = ActivityMapper.map(workout: workout)
 
                 // Dedup against Strava files (YYYY-MM-DD_HHMMSS_<id>.json)
