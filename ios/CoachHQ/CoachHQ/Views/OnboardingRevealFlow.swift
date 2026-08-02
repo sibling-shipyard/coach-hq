@@ -541,8 +541,6 @@ private struct SeasonStepView: View {
     ]
 
     @State private var selectedSports: Set<String> = []
-    @State private var goal = ""
-    @FocusState private var goalFocused: Bool
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -563,30 +561,7 @@ private struct SeasonStepView: View {
                     .padding(.bottom, 36)
                     .onboardingReveal(index: 2)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("GOAL")
-                        .font(WarmInstrument.monoLabel(10))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                        .kerning(1.5)
-
-                    TextField("What are you working toward?", text: $goal, axis: .vertical)
-                        .font(.system(size: 16))
-                        .foregroundColor(WarmInstrument.ink)
-                        .lineLimit(3)
-                        .focused($goalFocused)
-                        .padding(.bottom, 10)
-                        .overlay(alignment: .bottom) {
-                            Rectangle()
-                                .fill(goalFocused ? WarmInstrument.ink : WarmInstrument.border)
-                                .frame(height: goalFocused ? 1.5 : 1)
-                                .animation(PremiumMotion.state, value: goalFocused)
-                        }
-                }
-                .padding(.bottom, 40)
-                .onboardingReveal(index: 3)
-
                 Button {
-                    goalFocused = false
                     save()
                 } label: {
                     Text("Next")
@@ -598,7 +573,7 @@ private struct SeasonStepView: View {
                         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
                 }
                 .buttonStyle(CardPressButtonStyle())
-                .onboardingReveal(index: 4)
+                .onboardingReveal(index: 3)
                 .padding(.bottom, 36)
             }
             .padding(.horizontal, 28)
@@ -624,8 +599,10 @@ private struct SeasonStepView: View {
     private func save() {
         // B1: cached locally only (OnboardingHints), never committed to the repo - the real
         // Athlete Profile gets written by Coach during the chat-based First Session Protocol,
-        // which reflects these back for confirmation instead of asking cold (see B4).
-        OnboardingHints.save(sports: selectedSports.sorted(), goal: goal)
+        // which reflects these back for confirmation instead of asking cold (see B4). Goal is no
+        // longer collected in native onboarding (removed upstream, #208) - Coach asks for it
+        // fresh during the chat intake, same as if no hints were present at all.
+        OnboardingHints.save(sports: selectedSports.sorted(), goal: "")
         Haptics.success()
         onComplete()
     }
