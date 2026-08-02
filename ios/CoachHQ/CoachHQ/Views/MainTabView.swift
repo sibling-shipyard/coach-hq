@@ -189,8 +189,11 @@ struct MainTabView: View {
             // chat intake is - live-check every launch until CoachSetupState is genuinely
             // complete (see CoachSetupBootstrap's doc comment for why this replaced the old
             // thread-existence heuristic). Only routes forward to Chat; never fights the athlete
-            // back out of wherever they already navigated to.
-            if await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) {
+            // back out of wherever they already navigated to - shouldOpenChatFirst() awaits a
+            // real network call (up to 5s), so capture the tab as it was when the check started
+            // and only apply the result if the athlete hasn't since tapped away on their own.
+            let tabBeforeCheck = selectedTab
+            if await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager), selectedTab == tabBeforeCheck {
                 selectedTab = .chat
             }
             syncManager.syncNotificationsEnabled = true

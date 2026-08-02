@@ -31,7 +31,6 @@ struct CoachChatView: View {
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingWorkoutType") private var pendingWorkoutType = ""
     @AppStorage("chatWelcomeShown") private var chatWelcomeShown = false
-    @AppStorage("preferredName") private var preferredName = ""
 
     /// Real challenge day, fetched once per session from challenge_v2.json (see loadHeaderContext()
     /// below) - nil until that fetch resolves, at which point headerContext below reflects it.

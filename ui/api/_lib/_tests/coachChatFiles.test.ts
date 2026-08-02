@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { isAthleteProfileComplete } from "../coachChatFiles.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { isAthleteProfileComplete, loadCoachContext } from "../coachChatFiles.js";
 
 // B2: matches carve-skeleton.mjs's STATE_MD_TEMPLATE exactly - the blank template every new
 // athlete repo ships with.
@@ -88,5 +88,42 @@ whatever
 ## Current Season
 `;
     expect(isAthleteProfileComplete(whitespaceOnly)).toBe(false);
+  });
+});
+
+// Audit fix: concurrent cache-miss callers for the same repo used to each independently hit
+// GitHub for the same three files - now they share one in-flight fetch.
+describe("loadCoachContext in-flight de-dup", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn(async () => new Response("content", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shares one round-trip across concurrent cache-miss calls for the same repo", async () => {
+    const repo = `owner/repo-concurrent-${Date.now()}`; // unique per test - module cache persists across tests
+    const [a, b] = await Promise.all([
+      loadCoachContext(repo, "token"),
+      loadCoachContext(repo, "token"),
+    ]);
+    expect(a).toEqual(b);
+    // 3 files (SOUL.md, state.md, quest_log.md) fetched once, not once per caller.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("a fresh:true call never shares the in-flight de-dup, even if one is already pending", async () => {
+    const repo = `owner/repo-fresh-${Date.now()}`;
+    const [cached, fresh] = await Promise.all([
+      loadCoachContext(repo, "token"),
+      loadCoachContext(repo, "token", { fresh: true }),
+    ]);
+    expect(cached).toEqual(fresh);
+    // Each call does its own independent 3-file fetch since one of them demanded freshness.
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 });

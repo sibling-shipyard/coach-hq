@@ -478,11 +478,29 @@ async function loadClosingFileContext(repo: string, token: string): Promise<Clos
 // this handler already accepts; only chat_history.json gets the resolve-fresh-on-retry
 // treatment, since it's the one file every turn contends on). Returns null if the update
 // should be dropped (wrong file, failed edit, invalid patch, blank content).
+//
+// currentContent distinguishes three states, not two:
+//   - a string: fetched this turn, has real content
+//   - null: fetched this turn, file genuinely doesn't exist yet (legitimate - first write)
+//   - undefined: NOT fetched this turn at all (an ordinary turn never fetches coach_notes.md/
+//     challenge_v2.json/current_week.json/sleep_log.json - only closing turns do). An edit/patch
+//     proposed for a path in this state is Gemini disobeying its own turn-mode instructions -
+//     applying it anyway would mean editing/patching against content we never actually saw,
+//     which for a merge patch means silently replacing the whole file with just the patch's
+//     keys. Reject outright rather than guessing.
 export function resolveFileUpdate(
   update: GeminiFileUpdate,
-  currentContent: string | null,
+  currentContent: string | null | undefined,
 ): { path: string; content: string } | null {
   if (!isCoachWritable(update.path)) return null;
+
+  // Session files never look at currentContent (full-content replacement, always) - only
+  // markdown-edit and JSON-merge-patch files need to have actually been fetched this turn.
+  const needsFetchedContent = MARKDOWN_EDIT_FILES.has(update.path) || JSON_MERGE_FILES.has(update.path);
+  if (needsFetchedContent && currentContent === undefined) {
+    console.warn(`[coach-chat] ${update.path}: proposed without its current content having been fetched this turn - dropped`);
+    return null;
+  }
 
   if (MARKDOWN_EDIT_FILES.has(update.path)) {
     if (!update.edits || update.edits.length === 0) return null;
@@ -499,7 +517,7 @@ export function resolveFileUpdate(
 
   if (JSON_MERGE_FILES.has(update.path)) {
     if (!update.merge_patch) return null;
-    const result = applyJsonMergePatch(currentContent, update.merge_patch);
+    const result = applyJsonMergePatch(currentContent ?? null, update.merge_patch);
     if (!result.ok) {
       console.warn(`[coach-chat] ${update.path}: merge patch rejected - ${result.error}`);
       return null;
@@ -809,16 +827,34 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // A7: resolve each proposed update (edits/merge_patch/content, depending on file type)
       // against whatever current content this turn actually had for that path - drops anything
-      // unwritable, unresolvable (edit didn't match, patch invalid), or blank.
-      const currentContentByPath: Record<string, string | null> = {
+      // unwritable, unresolvable (edit didn't match, patch invalid), or blank. `undefined` here
+      // means "not fetched this turn at all" (distinct from `null`, "fetched, doesn't exist yet")
+      // - coach_notes.md/challenge_v2.json/current_week.json/sleep_log.json are only fetched on
+      // closing turns, so on an ordinary turn they're `undefined` and resolveFileUpdate rejects
+      // any proposed edit/patch against them rather than guessing at unseen content.
+      const currentContentByPath: Record<string, string | null | undefined> = {
         [STATE_FILE_PATH]: stateMd ?? null,
-        [COACH_NOTES_PATH]: closingFiles?.coachNotes ?? null,
-        [CHALLENGE_V2_PATH]: closingFiles?.challengeV2 ?? null,
-        [CURRENT_WEEK_PATH]: closingFiles?.currentWeek ?? null,
-        [SLEEP_LOG_PATH]: closingFiles?.sleepLog ?? null,
+        [COACH_NOTES_PATH]: closingFiles ? closingFiles.coachNotes : undefined,
+        [CHALLENGE_V2_PATH]: closingFiles ? closingFiles.challengeV2 : undefined,
+        [CURRENT_WEEK_PATH]: closingFiles ? closingFiles.currentWeek : undefined,
+        [SLEEP_LOG_PATH]: closingFiles ? closingFiles.sleepLog : undefined,
       };
-      const validUpdates = (reply.file_updates ?? [])
-        .map((f) => resolveFileUpdate(f, currentContentByPath[f.path] ?? null))
+
+      // Dedup by path before resolving - two file_updates entries for the same path would
+      // otherwise both resolve against the same stale snapshot and land as two blob entries at
+      // the same tree path in one commit (githubGitData.ts's tree builder has no defined
+      // precedence for that). Last one in Gemini's response wins, matching what the underlying
+      // Git Data API would silently do anyway - but now it's an explicit, logged choice.
+      const dedupedFileUpdates = new Map<string, GeminiFileUpdate>();
+      for (const update of reply.file_updates ?? []) {
+        if (dedupedFileUpdates.has(update.path)) {
+          console.warn(`[coach-chat] duplicate file_updates entry for ${update.path} in one turn - using the last one`);
+        }
+        dedupedFileUpdates.set(update.path, update);
+      }
+
+      const validUpdates = [...dedupedFileUpdates.values()]
+        .map((f) => resolveFileUpdate(f, currentContentByPath[f.path]))
         .filter((f): f is { path: string; content: string } => f !== null);
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
 

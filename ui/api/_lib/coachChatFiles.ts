@@ -102,19 +102,43 @@ export async function getHeadSha(repo: string, token: string, branch = "main"): 
 const CONTEXT_CACHE_TTL_MS = 60_000;
 const contextCache = new Map<string, { value: CoachContext; expiresAt: number }>();
 
+// In-flight de-dup: several concurrent cache-miss callers for the same repo (e.g. the web
+// preload firing at the same moment as an iOS greet(), or two devices opening Chat together)
+// would otherwise each independently hit GitHub for the same three files. Share one fetch
+// instead - not a correctness fix, just avoids wasted round-trips.
+const inFlight = new Map<string, Promise<CoachContext>>();
+
 export async function loadCoachContext(repo: string, token: string, opts?: { fresh?: boolean }): Promise<CoachContext> {
   const cached = contextCache.get(repo);
   if (!opts?.fresh && cached && cached.expiresAt > Date.now()) {
     return cached.value;
   }
-  const [soul, state, questLog] = await Promise.all([
-    getFileRaw(repo, SOUL_FILE_PATH, token),
-    getFileRaw(repo, STATE_FILE_PATH, token),
-    getFileRaw(repo, QUEST_LOG_PATH, token),
-  ]);
-  const value: CoachContext = { soul, state, questLog };
-  contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
-  return value;
+
+  // A `fresh: true` caller (A5 staleness recovery) always wants its own real fetch, never a
+  // stale in-flight one it might end up sharing with a `fresh: false` caller that started
+  // moments earlier - skip the dedup for that case.
+  if (!opts?.fresh) {
+    const pending = inFlight.get(repo);
+    if (pending) return pending;
+  }
+
+  const promise = (async (): Promise<CoachContext> => {
+    const [soul, state, questLog] = await Promise.all([
+      getFileRaw(repo, SOUL_FILE_PATH, token),
+      getFileRaw(repo, STATE_FILE_PATH, token),
+      getFileRaw(repo, QUEST_LOG_PATH, token),
+    ]);
+    const value: CoachContext = { soul, state, questLog };
+    contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
+    return value;
+  })();
+
+  if (!opts?.fresh) inFlight.set(repo, promise);
+  try {
+    return await promise;
+  } finally {
+    if (!opts?.fresh) inFlight.delete(repo);
+  }
 }
 
 // B2: First Session Protocol completion check. carve-skeleton.mjs ships every new athlete repo
