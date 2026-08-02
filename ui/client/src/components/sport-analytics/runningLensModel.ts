@@ -95,10 +95,15 @@ function normalizeRouteName(name: string): string {
   return name.toLowerCase().replace(/[^\w\s]/g, "").trim();
 }
 
+function isRunActivity(activity: Activity): boolean {
+  const cat = getTrainingCategory(activity);
+  return ["run", "LNG", "SPR", "EZR"].includes(cat) || activity.sport_type === "Run";
+}
+
 function buildSessions(activities: Activity[]): RunSession[] {
   const result: RunSession[] = [];
   for (const activity of activities) {
-    if (getTrainingCategory(activity) !== "run") continue;
+    if (!isRunActivity(activity)) continue;
     const distance = Number(activity.distance) || 0;
     if (distance <= 0) continue;
     const distanceKm = distance / 1000;
@@ -153,7 +158,7 @@ export interface RunningHeaderStats {
 }
 
 function buildHeaderStats(activities: Activity[], sessions: RunSession[]): RunningHeaderStats {
-  const allRuns = activities.filter((a) => getTrainingCategory(a) === "run");
+  const allRuns = activities.filter(isRunActivity);
   const withGps = allRuns.filter((a) => (Number(a.distance) || 0) > 0).length;
   const withHr = allRuns.filter(
     (a) => a.has_heartrate || (a.hr_zones && Object.values(a.hr_zones).some((z) => z.seconds > 0)),
@@ -497,7 +502,7 @@ function buildEffort(activities: Activity[]): EffortSnapshot {
   const totals = [0, 0, 0, 0, 0];
   let anyZones = false;
   for (const activity of activities) {
-    if (getTrainingCategory(activity) !== "run") continue;
+    if (!isRunActivity(activity)) continue;
     const zones = activity.hr_zones;
     if (!zones) continue;
     anyZones = true;
@@ -593,7 +598,7 @@ export function buildRunningActivityHeatmap(
   let sessionCount52w = 0;
 
   for (const activity of activities) {
-    if (getTrainingCategory(activity) !== "run") continue;
+    if (!isRunActivity(activity)) continue;
     const date = parseLocal(activity.start_date_local);
     const timestamp = date.getTime();
     const key = localDateKey(date);

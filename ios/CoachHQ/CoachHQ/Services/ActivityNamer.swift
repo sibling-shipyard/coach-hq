@@ -45,8 +45,49 @@ struct ActivityNamer {
         return (flat, latestYear)
     }
 
-    /// Assigns a generic sequential name `{SportType} #{N}`. Category is left nil —
-    /// manual tagging only in Phase 1; auto-assignment deferred to Phase 3.
+    /// Assigns `{SportType} #{N}` and optional category from athlete `categories.json`.
+    static func assignName(
+        activity: Activity,
+        counters: inout [String: Int],
+        container: CategoriesConfigContainer
+    ) -> Activity {
+        var named = assignName(activity: activity, counters: &counters)
+        guard hasCategoryConfig(container) else { return named }
+
+        let category = CategoryConfig.resolve(
+            sportType: activity.sportType,
+            elapsedTime: activity.elapsedTime,
+            startDateLocal: activity.startDateLocal,
+            container: container
+        )
+        return Activity(
+            name: named.name,
+            category: category,
+            sportType: named.sportType,
+            startDateLocal: named.startDateLocal,
+            elapsedTime: named.elapsedTime,
+            movingTime: named.movingTime,
+            calories: named.calories,
+            distance: named.distance,
+            totalElevationGain: named.totalElevationGain,
+            averageHeartrate: named.averageHeartrate,
+            maxHeartrate: named.maxHeartrate,
+            hasHeartrate: named.hasHeartrate,
+            hrZones: named.hrZones,
+            description: named.description,
+            totalPhotoCount: named.totalPhotoCount,
+            averageSpeed: named.averageSpeed,
+            maxSpeed: named.maxSpeed,
+            deviceName: named.deviceName,
+            source: named.source,
+            activityId: named.activityId,
+            idStr: named.idStr,
+            preMentalState: named.preMentalState
+        )
+    }
+
+    /// Assigns a generic sequential name `{SportType} #{N}`. Category is left nil when
+    /// no `categories.json` config is available at sync time.
     static func assignName(activity: Activity, counters: inout [String: Int]) -> Activity {
         let year = year(from: activity.startDateLocal)
         let counterKey = yearScopedKey(sport: activity.sportType, year: year)
@@ -122,6 +163,13 @@ struct ActivityNamer {
     }
 
     // MARK: - Private
+
+    private static func hasCategoryConfig(_ container: CategoriesConfigContainer) -> Bool {
+        switch container {
+        case .array(let list): return !list.isEmpty
+        case .dict(let map): return !map.isEmpty
+        }
+    }
 
     private static func yearScopedKey(sport: String, year: Int) -> String {
         "\(sport.lowercased())\(yearCounterSeparator)\(year)"

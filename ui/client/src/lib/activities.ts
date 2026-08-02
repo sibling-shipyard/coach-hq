@@ -12,7 +12,7 @@ export interface HrZone {
 
 export interface Activity {
   id: number | string;
-  /** Optional machine category — when present, used by getTrainingCategory before name-regex fallbacks. */
+  /** Optional machine category — when present, used by getTrainingCategory before config/rules. */
   category?: string;
   name: string;
   sport_type: string;
@@ -43,35 +43,25 @@ export interface Activity {
 // ─── Training Category Classification ───────────────────────────────────────
 // Based on activity name patterns from the enrichment pipeline.
 
-export type TrainingCategory =
-  | "foundation"
-  | "strength"
-  | "weight_training"
-  | "calisthenics"
-  | "recovery"
-  | "realign"
-  | "badminton_ranked"
-  | "badminton_league"
-  | "badminton_friendly"
-  | "badminton_casual"
-  | "hike"
-  | "walk"
-  | "cricket"
-  | "football"
-  | "workout"
-  | "swim"
-  | "ride"
-  | "run"
-  | "other";
+import categoriesJson from "@/data/categories.json";
+import {
+  type CategoryConfigInput,
+  getGlobalCategoryConfig,
+  resolveCategory,
+} from "./categoryResolver";
+
+const loadedCategories: CategoryConfigInput = (categoriesJson as any) ?? [];
+
+export type TrainingCategory = string;
 
 export interface CategoryConfig {
   label: string;
   shortLabel: string;
   color: string;
-  group: "foundation" | "strength" | "weight_training" | "calisthenics" | "badminton" | "hike" | "ride" | "other";
+  group: string;
 }
 
-export const CATEGORY_CONFIG: Record<TrainingCategory, CategoryConfig> = {
+export const DEFAULT_CATEGORY_CONFIG: Record<string, CategoryConfig> = {
   foundation:       { label: "FOUNDATION",   shortLabel: "FDN",  color: "#60a5fa", group: "foundation" },
   strength:         { label: "STRENGTH",     shortLabel: "STR",  color: "#111111", group: "strength" },
   weight_training:  { label: "WEIGHTS",      shortLabel: "WGT",  color: "#3b4a6b", group: "weight_training" },
@@ -82,6 +72,7 @@ export const CATEGORY_CONFIG: Record<TrainingCategory, CategoryConfig> = {
   badminton_league:   { label: "LEAGUE",   shortLabel: "LGE", color: "#7c3aed", group: "badminton" },
   badminton_friendly: { label: "FRIENDLY", shortLabel: "FRN", color: "#2563eb", group: "badminton" },
   badminton_casual:   { label: "CASUAL",   shortLabel: "CAS", color: "#6b7280", group: "badminton" },
+  badminton:          { label: "BADMINTON", shortLabel: "BAD", color: "#2d8a4e", group: "badminton" },
   hike:             { label: "HIKE",         shortLabel: "HIK",  color: "#8b6f47", group: "hike" },
   walk:             { label: "WALK",         shortLabel: "WLK",  color: "#a8a29e", group: "other" },
   cricket:          { label: "CRICKET",      shortLabel: "CRK",  color: "#2dd4bf", group: "other" },
@@ -92,83 +83,6 @@ export const CATEGORY_CONFIG: Record<TrainingCategory, CategoryConfig> = {
   run:              { label: "RUN",          shortLabel: "RUN",  color: "#c44020", group: "other" },
   other:            { label: "OTHER",        shortLabel: "OTH",  color: "#777",    group: "other" },
 };
-
-// Group-level config for summary cards
-export const GROUP_CONFIG: Record<string, { label: string; color: string; categories: TrainingCategory[] }> = {
-  foundation:    { label: "FOUNDATION",   color: "#60a5fa", categories: ["foundation"] },
-  strength:      { label: "STRENGTH",     color: "#111111", categories: ["strength"] },
-  calisthenics:  { label: "CALISTHENICS", color: "#f59e0b", categories: ["calisthenics"] },
-  run:          { label: "RUN",          color: "#c44020", categories: ["run"] },
-  hike:         { label: "HIKE",         color: "#8b6f47", categories: ["hike"] },
-  badminton:    { label: "BADMINTON",    color: "#2d8a4e", categories: ["badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual"] },
-  swim:         { label: "SWIM",         color: "#0ea5e9", categories: ["swim"] },
-  weight_training: { label: "WEIGHTS",       color: "#3b4a6b", categories: ["weight_training"] },
-  ride:         { label: "RIDES",        color: "#c47a20", categories: ["ride"] },
-};
-
-export function getTrainingCategory(activity: Activity): TrainingCategory {
-  if (activity.category) {
-    return activity.category as TrainingCategory;
-  }
-
-  const name = activity.name;
-
-  // Run
-  if (/^Run\s*#/i.test(name)) return "run";
-
-  // Foundation
-  if (/^Foundation\s*#/i.test(name)) return "foundation";
-
-  // Strength
-  if (/^Strength\s+(A|B)/i.test(name)) return "strength";
-
-  // Weight Training
-  if (/^Weight Training\s*#/i.test(name)) return "weight_training";
-
-  // Calisthenics
-  if (/^Calisthenics\s*#/i.test(name)) return "calisthenics";
-
-  // Recovery
-  if (/^Recovery\s*#/i.test(name)) return "recovery";
-
-  // Realign
-  if (/^Realign\s*#/i.test(name)) return "realign";
-
-  // Badminton sub-categories
-  if (/^Badminton: Ranked\s*#/i.test(name))   return "badminton_ranked";
-  if (/^Badminton: League\s*#/i.test(name))   return "badminton_league";
-  if (/^Badminton: Friendly\s*#/i.test(name)) return "badminton_friendly";
-  if (/^Badminton: Casual\s*#/i.test(name))   return "badminton_casual";
-
-  // Swim (numbered, e.g. "Swim #3")
-  if (/^Swim\s*#/i.test(name)) return "swim";
-
-  // Cricket — logged with sport_type "Workout" but "Cricket" in the name, so check by
-  // name before the generic Workout fallback below
-  if (/cricket/i.test(name)) return "cricket";
-
-  // Sport type fallback
-  if (activity.sport_type === "Badminton") return "badminton_casual";
-  if (activity.sport_type === "Hike") return "hike";
-  if (activity.sport_type === "Walk") return "walk";
-  if (activity.sport_type === "Swim") return "swim";
-  if (activity.sport_type === "Soccer") return "football";
-  if (activity.sport_type === "Workout") return "workout";
-  if (activity.sport_type === "Ride" || activity.sport_type === "EBikeRide") return "ride";
-  if (activity.sport_type === "Run") return "run";
-
-  // WeightTraining without renamed name — use duration heuristic
-  if (activity.sport_type === "WeightTraining") {
-    if (activity.elapsed_time < 1800) return "foundation"; // <30 min
-    return "weight_training"; // >=30 min
-  }
-
-  return "other";
-}
-
-export function getCategoryConfig(activity: Activity): CategoryConfig {
-  return CATEGORY_CONFIG[getTrainingCategory(activity)];
-}
 
 // ─── Legacy Sport Grouping (kept for backward compat) ───────────────────────
 
@@ -199,6 +113,90 @@ export function getSportGroup(sportType: string): string {
 export function getSportConfig(sportType: string) {
   const group = getSportGroup(sportType);
   return SPORT_CONFIG[group] || { label: "OTHERS", color: "#777", cssClass: "" };
+}
+
+export function buildCategoryConfig(configs: CategoryConfigInput): Record<string, CategoryConfig> {
+  const merged = { ...DEFAULT_CATEGORY_CONFIG };
+
+  if (Array.isArray(configs)) {
+    for (const sport of configs) {
+      const sportGroup = getSportGroup(sport.sport);
+      const sportColor = getSportConfig(sport.sport).color;
+      for (const cat of sport.categories) {
+        merged[cat.code] = {
+          label: cat.label.toUpperCase(),
+          shortLabel: cat.code,
+          color: sportColor,
+          group: sportGroup.toLowerCase()
+        };
+      }
+    }
+    return merged;
+  }
+
+  for (const [sport, categories] of Object.entries(configs)) {
+    const sportGroup = getSportGroup(sport);
+    const sportColor = getSportConfig(sport).color;
+    for (const [code, info] of Object.entries(categories)) {
+      merged[code] = {
+        label: info.label.toUpperCase(),
+        shortLabel: code,
+        color: sportColor,
+        group: sportGroup.toLowerCase()
+      };
+    }
+  }
+
+  return merged;
+}
+
+export const CATEGORY_CONFIG = buildCategoryConfig(loadedCategories);
+
+// Group-level config for summary cards
+export const GROUP_CONFIG: Record<string, { label: string; color: string; categories: TrainingCategory[] }> = {
+  foundation:    { label: "FOUNDATION",   color: "#60a5fa", categories: ["foundation", "FDN"] },
+  strength:      { label: "STRENGTH",     color: "#111111", categories: ["strength", "STR"] },
+  calisthenics:  { label: "CALISTHENICS", color: "#f59e0b", categories: ["calisthenics", "CAL"] },
+  run:          { label: "RUN",          color: "#c44020", categories: ["run", "LNG", "SPR", "EZR"] },
+  hike:         { label: "HIKE",         color: "#8b6f47", categories: ["hike", "HIK"] },
+  badminton:    { label: "BADMINTON",    color: "#2d8a4e", categories: ["badminton", "badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual", "RNK", "FRN", "CAS"] },
+  swim:         { label: "SWIM",         color: "#0ea5e9", categories: ["swim", "SWM"] },
+  weight_training: { label: "WEIGHTS",       color: "#3b4a6b", categories: ["weight_training", "WGT"] },
+  ride:         { label: "RIDES",        color: "#c47a20", categories: ["ride", "RDE"] },
+};
+
+
+export function getTrainingCategory(activity: Activity, config?: CategoryConfigInput): TrainingCategory {
+  if (activity.category) {
+    return activity.category;
+  }
+
+  const categoriesConfig = config ?? getGlobalCategoryConfig() ?? (loadedCategories.length > 0 ? loadedCategories : undefined);
+  const hasCategoriesConfig = categoriesConfig && (Array.isArray(categoriesConfig) ? categoriesConfig.length > 0 : Object.keys(categoriesConfig).length > 0);
+  if (hasCategoriesConfig) {
+    return resolveCategory(activity.sport_type, activity.elapsed_time, activity.start_date_local, categoriesConfig!);
+  }
+
+  // Ultimate fallback if no config
+  if (activity.sport_type === "WeightTraining") {
+    return activity.elapsed_time < 1500 ? "foundation" : "calisthenics";
+  }
+
+  if (activity.sport_type === "Yoga") {
+    const d = parseLocal(activity.start_date_local);
+    return d.getDay() === 0 ? "realign" : "recovery";
+  }
+
+  if (activity.sport_type === "Badminton") return "badminton";
+  if (activity.sport_type === "Run") return "run";
+  if (activity.sport_type === "Ride") return "ride";
+  if (activity.sport_type === "Swim") return "swim";
+
+  return activity.sport_type.substring(0, 3).toUpperCase();
+}
+
+export function getCategoryConfig(activity: Activity): CategoryConfig {
+  return CATEGORY_CONFIG[getTrainingCategory(activity)] || CATEGORY_CONFIG.other;
 }
 
 export const DISPLAY_SPORT_TYPES = ["Badminton", "Ride", "WeightTraining", "Run", "Others"] as const;
@@ -438,7 +436,10 @@ export function computeFoundationStreak(
   // Get all foundation activity dates
   const foundationDates = new Set<string>();
   for (const a of activities) {
-    if (getTrainingCategory(a) === "foundation") {
+    const cat = getTrainingCategory(a);
+    // Hardcoded check against FDN (the quest target for Sky).
+    // TODO: Map features dynamically from Quest configurations.
+    if (cat === "foundation" || cat === "FDN") {
       foundationDates.add(a.start_date_local.slice(0, 10));
     }
   }
