@@ -63,7 +63,8 @@ One file, one version number, one validator.
     // count_target:
     "target": 20,
     "count_from": "strava",
-    "count_pattern": "^Strength\\s*#",
+    "count_pattern": "^Strength\\s*#", // optional regex pattern
+    "count_category": "FDN",           // optional 3-letter category tag filter (ADR-0015)
     // weekly_sessions:
     "weekly_floor": 2.5,
     "loaded_floor": 1.5,
@@ -84,7 +85,7 @@ The primary planning window. A "60-day challenge" is a **season** (~60 days), no
 
 | Type | When | Key fields |
 |---|---|---|
-| **`count_target`** | Strava/count goals (e.g. N strength sessions) | `target`, `count_from`, `count_pattern` |
+| **`count_target`** | Strava/count goals (e.g. N strength sessions) | `target`, `count_from`, `count_pattern`, `count_category` |
 | **`weekly_sessions`** | Structured session floor (calisthenics/skills) | `weekly_floor`, `sessions[]`, optional floors/weights |
 
 Exactly **one** main quest active per file; type discriminates optional fields.
@@ -103,6 +104,8 @@ Side quests — `daily_streak`, `progress`, etc. Same types as today. SOUL §8 r
 | **`milestones[]`** | Block test targets + optional `progress` scalar |
 | **`weekly_targets`** | Sport/category quotas (badminton, run, …) — config-driven, keys vary by athlete |
 | **`graduated[]`** | Retired quests kept for history |
+
+Each `weekly_targets` entry is `{ "target": N, "source": "...", ... }`. For activity-backed sources (`strava_pattern`, `strava_sport`), optional **`count_category`** (3-letter code, ADR-0015) matches the activity's `category` field; when absent, the engine falls back to `pattern` / `sport_type` name matching.
 
 Omit blocks entirely when unused — do not null-fill.
 

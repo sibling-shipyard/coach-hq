@@ -15,12 +15,17 @@ import {
 
 export type BadmintonMode = "ranked" | "all";
 
-const RANKED_CATEGORIES = new Set(["badminton_ranked", "badminton_league"]);
+const RANKED_CATEGORIES = new Set(["badminton_ranked", "badminton_league", "RNK", "LGE"]);
 const ALL_CATEGORIES = new Set([
   "badminton_ranked",
   "badminton_league",
   "badminton_friendly",
   "badminton_casual",
+  "badminton",
+  "RNK",
+  "LGE",
+  "FRN",
+  "CAS",
 ]);
 const EIGHT_WEEKS_MS = 56 * 24 * 60 * 60 * 1000;
 const FIFTY_TWO_WEEKS_MS = 52 * 7 * 24 * 60 * 60 * 1000;

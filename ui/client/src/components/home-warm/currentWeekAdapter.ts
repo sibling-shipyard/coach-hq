@@ -39,22 +39,11 @@ function localDateKey(date: Date): string {
   ].join("-");
 }
 
+import { getSportForCategory } from "@/lib/categoryResolver";
+
 function disciplineFor(category: TrainingCategory): SessionDiscipline {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "ride") return "cycling";
-  if (category === "foundation") return "foundation";
-  if (category === "recovery" || category === "realign") return "recovery";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
+  const sport = getSportForCategory(category);
+  return (sport as SessionDiscipline) || "other";
 }
 
 /** Runtime discipline is a free string; collapse it onto the widget's enum. */

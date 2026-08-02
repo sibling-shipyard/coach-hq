@@ -155,6 +155,13 @@ def activities_dir(repo: Path) -> Path:
     return repo / "training" / "activities"
 
 
+def categories_path(repo: Path) -> Path:
+    """Athlete category config — HQ golden dataset; athlete repos: user_data/categories.json."""
+    if is_hq_monorepo(repo):
+        return repo / "shared" / "golden-dataset" / "categories.json"
+    return repo / "user_data" / "categories.json"
+
+
 def soul_file_path(repo: Path) -> Path:
     """Composed SOUL — HQ: platform/SOUL.md; athlete repos: propagated/SOUL.md."""
     if is_hq_monorepo(repo):

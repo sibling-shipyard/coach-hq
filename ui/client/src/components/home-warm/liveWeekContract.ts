@@ -30,22 +30,11 @@ function localDateKey(date: Date) {
   ].join("-");
 }
 
-function disciplineFor(category: TrainingCategory): SessionDiscipline {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "ride") return "cycling";
-  if (category === "foundation") return "foundation";
-  if (category === "recovery" || category === "realign") return "recovery";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
+import { CategoryConfigInput, getSportForCategory } from "@/lib/categoryResolver";
+
+function disciplineFor(category: TrainingCategory, config?: CategoryConfigInput): SessionDiscipline {
+  const sport = getSportForCategory(category, config);
+  return (sport as SessionDiscipline) || "other";
 }
 
 function intentFor(categories: TrainingCategory[]): PlanIntent {
@@ -56,7 +45,7 @@ function intentFor(categories: TrainingCategory[]): PlanIntent {
   return "train";
 }
 
-function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
+function recordedDays(activities: Activity[], monday: Date, config?: CategoryConfigInput): CurrentWeekDay[] {
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(monday.getTime() + index * DAY_MS);
     const dateKey = localDateKey(date);
@@ -66,7 +55,7 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
         (left, right) =>
           parseLocal(left.start_date_local).getTime() - parseLocal(right.start_date_local).getTime(),
       );
-    const categories = matches.map(getTrainingCategory);
+    const categories = matches.map((a) => getTrainingCategory(a, config));
 
     return {
       date: dateKey,
@@ -74,10 +63,10 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
       intent: intentFor(categories),
       coach_note: null,
       sessions: matches.map((activity) => {
-        const category = getTrainingCategory(activity);
+        const category = getTrainingCategory(activity, config);
         return {
           id: `activity-${activity.id}`,
-          discipline: disciplineFor(category),
+          discipline: disciplineFor(category, config),
           kind: category,
           title: activity.name,
           priority: "support" as const,
@@ -98,6 +87,7 @@ export function buildLiveWeekContract(
   activities: Activity[],
   challenge: ChallengeV2,
   now = new Date(),
+  config?: CategoryConfigInput,
 ): CurrentWeekContract {
   const monday = getMonday(now);
   const sunday = new Date(monday.getTime() + 6 * DAY_MS);
@@ -115,7 +105,7 @@ export function buildLiveWeekContract(
     0,
   );
   const disciplines = new Set(
-    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity))),
+    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity, config), config)),
   ).size;
   const evidenceRefs = weekActivities.map((activity) => `activity:${activity.id}`);
   const latestTimestamp = weekActivities
@@ -145,7 +135,7 @@ export function buildLiveWeekContract(
       valid_from: startDate,
       valid_until: endDate,
     },
-    days: recordedDays(weekActivities, monday),
+    days: recordedDays(weekActivities, monday, config),
     coach_comments: [],
     updated_at: latestTimestamp,
     updated_by: "activity-log-adapter",

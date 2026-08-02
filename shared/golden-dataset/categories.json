@@ -1,0 +1,44 @@
+[
+  {
+    "sport": "Badminton",
+    "categories": [
+      { "code": "RNK", "label": "Ranked", "rule": { "weekday": "Mon" } },
+      { "code": "FRN", "label": "Friendly", "rule": { "weekday": "Thu" } },
+      { "code": "CAS", "label": "Casual" }
+    ]
+  },
+  {
+    "sport": "WeightTraining",
+    "categories": [
+      { "code": "FDN", "label": "Foundation", "rule": { "duration_lt": 1500 } },
+      { "code": "CAL", "label": "Calisthenics" }
+    ]
+  },
+  {
+    "sport": "Run",
+    "categories": [
+      { "code": "LNG", "label": "Long Run", "rule": { "duration_gte": 2400 } },
+      { "code": "SPR", "label": "Sprint", "rule": { "duration_lt": 1200 } },
+      { "code": "EZR", "label": "Easy Run" }
+    ]
+  },
+  {
+    "sport": "Ride",
+    "categories": [
+      { "code": "RDE", "label": "Ride" }
+    ]
+  },
+  {
+    "sport": "Yoga",
+    "categories": [
+      { "code": "RLN", "label": "Realign", "rule": { "weekday": "Sun" } },
+      { "code": "REC", "label": "Recovery" }
+    ]
+  },
+  {
+    "sport": "Swim",
+    "categories": [
+      { "code": "SWM", "label": "Swim" }
+    ]
+  }
+]

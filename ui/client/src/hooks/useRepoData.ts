@@ -22,6 +22,7 @@ import workoutsData from "@golden/repo-data/workouts.json";
 import sleepLogRaw from "@golden/repo-data/sleep_log.json";
 import questHistoryRaw from "@golden/repo-data/quest_history.json";
 import currentWeekRaw from "@golden/repo-data/current_week.json";
+import categoriesDataRaw from "@/data/categories.json";
 
 export interface RepoData {
   activities: unknown[];
@@ -30,6 +31,7 @@ export interface RepoData {
   sync_status: unknown;
   sleep_log: unknown[];
   quest_history: unknown;
+  categories?: unknown;
   plugins?: { enabled?: string[] };
   badminton_analytics_available?: boolean;
   // Optional - not every repo's build pipeline populates a coach-authored current-week
@@ -46,6 +48,7 @@ const LOCAL_DATA: RepoData = {
   sleep_log: sleepLogRaw as unknown[],
   quest_history: questHistoryRaw,
   current_week: currentWeekRaw,
+  categories: categoriesDataRaw,
   plugins: { enabled: ["badminton"] },
   badminton_analytics_available: true,
 };
@@ -67,11 +70,19 @@ export interface UseRepoDataResult {
 
 let cachedData: RepoData | null = null;
 
+import { setGlobalCategoryConfig, type CategoryConfigInput } from "@/lib/categoryResolver";
+
 function initialState(): UseRepoDataResult {
   if (import.meta.env.DEV) {
+    if (LOCAL_DATA.categories) {
+      setGlobalCategoryConfig(LOCAL_DATA.categories as CategoryConfigInput);
+    }
     return { data: LOCAL_DATA, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
   }
   if (cachedData) {
+    if (cachedData.categories) {
+      setGlobalCategoryConfig(cachedData.categories as CategoryConfigInput);
+    }
     return { data: cachedData, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
   }
   return { data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false };
@@ -108,6 +119,10 @@ export function useRepoData(): UseRepoDataResult {
         ) {
           setState({ data: null, loading: false, error: null, schemaUnsupported: true, accessRevoked: false });
           return;
+        }
+
+        if (aggregate.categories) {
+          setGlobalCategoryConfig(aggregate.categories as CategoryConfigInput);
         }
 
         cachedData = aggregate;

@@ -54,23 +54,12 @@ function isoWeek(date = new Date()) {
   return Math.ceil((((utc.getTime() - yearStart.getTime()) / DAY_MS) + 1) / 7);
 }
 
-export function categoryToSport(category: TrainingCategory): WarmSportId {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "foundation" || category === "recovery" || category === "realign") {
-    return "foundation";
-  }
-  if (category === "ride") return "cycling";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
+import { CategoryConfigInput, getSportForCategory } from "@/lib/categoryResolver";
+
+export function categoryToSport(category: TrainingCategory, categories?: CategoryConfigInput): WarmSportId {
+  const sport = getSportForCategory(category, categories);
+  if (sport === "recovery" || sport === "realign") return "foundation";
+  return (sport as WarmSportId) || "other";
 }
 
 function disciplineToSport(discipline: SessionDiscipline): WarmSportId | "recovery" {
@@ -97,6 +86,7 @@ function formatSessionTitle(name: string) {
 
 export function buildActivityEvidenceSnapshots(
   activities: Activity[],
+  categoriesConfig?: CategoryConfigInput,
 ): ActivityInspectionSnapshot[] {
   return [...activities]
     .sort(
@@ -104,7 +94,7 @@ export function buildActivityEvidenceSnapshots(
         parseLocal(right.start_date_local).getTime() - parseLocal(left.start_date_local).getTime(),
     )
     .map((activity, index) => {
-      const category = getTrainingCategory(activity);
+      const category = getTrainingCategory(activity, categoriesConfig);
       const date = parseLocal(activity.start_date_local);
       const calories = Number(activity.calories) || 0;
       const distance = Number(activity.distance) || 0;
@@ -120,7 +110,7 @@ export function buildActivityEvidenceSnapshots(
           month: "short",
         }).toUpperCase(),
         title: formatSessionTitle(activity.name),
-        sport: categoryToSport(category),
+        sport: categoryToSport(category, categoriesConfig),
         ranked: category === "badminton_ranked",
         durationMinutes: Math.max(0, activity.elapsed_time ?? 0) / 60,
         calories: calories > 0 ? Math.round(calories) : null,
@@ -475,7 +465,7 @@ function buildCaloriesSnapshot(
 }
 
 function dominantActivityState(categories: TrainingCategory[]): ActivityCellState {
-  const states = categories.map(categoryToSport);
+  const states = categories.map((c) => categoryToSport(c));
   if (states.includes("badminton")) return "badminton";
   if (states.includes("calisthenics")) return "calisthenics";
   if (states.includes("run")) return "run";
@@ -710,9 +700,10 @@ export function buildWarmHomeSnapshots(
   syncStatus: SyncStatusPayload,
   contract: CurrentWeekContract,
   dataMode: "reference" | "live" = "live",
+  categoriesConfig?: CategoryConfigInput,
 ): WarmHomeSnapshots {
   const model = buildWarmHomeModel(activities, challengeData, syncStatus, contract);
-  const activityEvidence = buildActivityEvidenceSnapshots(activities);
+  const activityEvidence = buildActivityEvidenceSnapshots(activities, categoriesConfig);
   const engine = buildEngineSnapshot(activities, model.engine);
   const quest = buildQuestSnapshot(challengeData, model.quest);
 
@@ -768,6 +759,7 @@ export function buildWidgetSnapshotsFile(
   syncStatus: SyncStatusPayload,
   contract: CurrentWeekContract,
   dataMode: "reference" | "live" = "live",
+  categoriesConfig?: CategoryConfigInput,
 ): WidgetSnapshotsFile {
   const home = buildWarmHomeSnapshots(
     activities,
@@ -775,6 +767,7 @@ export function buildWidgetSnapshotsFile(
     syncStatus,
     contract,
     dataMode,
+    categoriesConfig,
   );
 
   return {

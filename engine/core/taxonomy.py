@@ -1,49 +1,33 @@
-"""Badminton activity taxonomy — single source for rename + analytics."""
+"""Activity category classification via category_resolver."""
 
 from __future__ import annotations
 
-import re
-from typing import Final
+from typing import Final, Optional, Union, List, Dict
 
 # Sport type
 BADMINTON_SPORT: Final = "Badminton"
 
-# Rename categories (rename_core.py classify_activity, same directory)
-RENAME_LEAGUE: Final = "league"
-RENAME_DRILLS: Final = "drills"
-RENAME_HITRUN_RANKED: Final = "hitrun_ranked"
-RENAME_HITRUN_FRIENDLY: Final = "hitrun_friendly"
-RENAME_BADMINTON_CASUAL: Final = "badminton_casual"
-
-# Analytics categories (plugins/badminton/analytics.py)
-BADMINTON_LEAGUE: Final = "badminton_league"
-BADMINTON_RANKED: Final = "badminton_ranked"
-BADMINTON_FRIENDLY: Final = "badminton_friendly"
-BADMINTON_CASUAL: Final = "badminton_casual"
-
-BADMINTON_CATEGORIES = {
-    BADMINTON_RANKED,
-    BADMINTON_LEAGUE,
-    BADMINTON_FRIENDLY,
-    BADMINTON_CASUAL,
-}
 
 
-def get_training_category(activity: dict) -> str:
-    """Classify activity into a training category (Python port of dashboard TS logic)."""
-    name = activity.get("name", "")
-    sport = activity.get("sport_type", activity.get("type", ""))
+def get_training_category(activity: dict, config: Optional[Union[Dict, List]] = None) -> str:
+    """Classify activity into a training category code via category_resolver."""
+    cat = activity.get("category")
+    if cat:
+        return cat
 
-    if re.match(r"^League\s*#", name, re.IGNORECASE):
-        return BADMINTON_LEAGUE
-    if re.match(r"^Hit\s*&\s*Run\s*#", name, re.IGNORECASE):
-        if re.search(r"ranked", name, re.IGNORECASE):
-            return BADMINTON_RANKED
-        if re.search(r"friendly", name, re.IGNORECASE):
-            return BADMINTON_FRIENDLY
-        return BADMINTON_RANKED  # default H&R to ranked
-    if re.match(r"^Badminton:", name, re.IGNORECASE):
-        return BADMINTON_CASUAL
-    if sport == BADMINTON_SPORT:
-        return BADMINTON_CASUAL
-    return "other"
+    try:
+        from .category_resolver import resolve_from_activity
+    except ImportError:
+        from category_resolver import resolve_from_activity
+
+    if config is None:
+        try:
+            from repo_layout import categories_path, repo_root_from_here
+            from .category_resolver import load_config
+            root = repo_root_from_here(__file__)
+            cfg_path = categories_path(root)
+            config = load_config(str(cfg_path)) if cfg_path.is_file() else []
+        except Exception:
+            config = []
+
+    return resolve_from_activity(activity, config)

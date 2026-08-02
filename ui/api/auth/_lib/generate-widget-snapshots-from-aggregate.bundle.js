@@ -1,32 +1,259 @@
-// client/src/lib/activities.ts
-function getTrainingCategory(activity) {
-  const name = activity.name;
-  if (/^Run\s*#/i.test(name)) return "run";
-  if (/^Foundation\s*#/i.test(name)) return "foundation";
-  if (/^Strength\s+(A|B)/i.test(name)) return "strength";
-  if (/^Weight Training\s*#/i.test(name)) return "weight_training";
-  if (/^Calisthenics\s*#/i.test(name)) return "calisthenics";
-  if (/^Recovery\s*#/i.test(name)) return "recovery";
-  if (/^Realign\s*#/i.test(name)) return "realign";
-  if (/^Badminton: Ranked\s*#/i.test(name)) return "badminton_ranked";
-  if (/^Badminton: League\s*#/i.test(name)) return "badminton_league";
-  if (/^Badminton: Friendly\s*#/i.test(name)) return "badminton_friendly";
-  if (/^Badminton: Casual\s*#/i.test(name)) return "badminton_casual";
-  if (/^Swim\s*#/i.test(name)) return "swim";
-  if (/cricket/i.test(name)) return "cricket";
-  if (activity.sport_type === "Badminton") return "badminton_casual";
-  if (activity.sport_type === "Hike") return "hike";
-  if (activity.sport_type === "Walk") return "walk";
-  if (activity.sport_type === "Swim") return "swim";
-  if (activity.sport_type === "Soccer") return "football";
-  if (activity.sport_type === "Workout") return "workout";
-  if (activity.sport_type === "Ride" || activity.sport_type === "EBikeRide") return "ride";
-  if (activity.sport_type === "Run") return "run";
-  if (activity.sport_type === "WeightTraining") {
-    if (activity.elapsed_time < 1800) return "foundation";
-    return "weight_training";
+// client/src/data/categories.json
+var categories_default = [
+  {
+    sport: "Badminton",
+    categories: [
+      { code: "RNK", label: "Ranked", rule: { weekday: "Mon" } },
+      { code: "FRN", label: "Friendly", rule: { weekday: "Thu" } },
+      { code: "CAS", label: "Casual" }
+    ]
+  },
+  {
+    sport: "WeightTraining",
+    categories: [
+      { code: "FDN", label: "Foundation", rule: { duration_lt: 1500 } },
+      { code: "CAL", label: "Calisthenics" }
+    ]
+  },
+  {
+    sport: "Run",
+    categories: [
+      { code: "LNG", label: "Long Run", rule: { duration_gte: 2400 } },
+      { code: "SPR", label: "Sprint", rule: { duration_lt: 1200 } },
+      { code: "EZR", label: "Easy Run" }
+    ]
+  },
+  {
+    sport: "Ride",
+    categories: [
+      { code: "RDE", label: "Ride" }
+    ]
+  },
+  {
+    sport: "Yoga",
+    categories: [
+      { code: "RLN", label: "Realign", rule: { weekday: "Sun" } },
+      { code: "REC", label: "Recovery" }
+    ]
+  },
+  {
+    sport: "Swim",
+    categories: [
+      { code: "SWM", label: "Swim" }
+    ]
   }
+];
+
+// client/src/lib/categoryResolver.ts
+function resolveCategory(sportType, elapsedTime, startDateLocal, config) {
+  const d = new Date(startDateLocal.replace(/Z$/, ""));
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const weekday = days[d.getDay()];
+  if (Array.isArray(config)) {
+    const sportConfig = config.find((c) => c.sport === sportType);
+    if (!sportConfig) {
+      return sportType.substring(0, 3).toUpperCase();
+    }
+    for (const entry of sportConfig.categories) {
+      if (!entry.rule) return entry.code;
+      let pass = true;
+      if (entry.rule.duration_lt !== void 0 && elapsedTime >= entry.rule.duration_lt) {
+        pass = false;
+      }
+      if (entry.rule.duration_gte !== void 0 && elapsedTime < entry.rule.duration_gte) {
+        pass = false;
+      }
+      if (entry.rule.weekday !== void 0 && entry.rule.weekday !== weekday) {
+        pass = false;
+      }
+      if (pass) return entry.code;
+    }
+    return sportConfig.categories[0].code;
+  }
+  const sportMap = config[sportType];
+  if (!sportMap || Object.keys(sportMap).length === 0) {
+    return sportType.substring(0, 3).toUpperCase();
+  }
+  const codes = Object.keys(sportMap);
+  for (const [code, info] of Object.entries(sportMap)) {
+    if (!info.rule) return code;
+    let pass = true;
+    if (info.rule.duration_lt !== void 0 && elapsedTime >= info.rule.duration_lt) {
+      pass = false;
+    }
+    if (info.rule.duration_gte !== void 0 && elapsedTime < info.rule.duration_gte) {
+      pass = false;
+    }
+    if (info.rule.weekday !== void 0 && info.rule.weekday !== weekday) {
+      pass = false;
+    }
+    if (pass) return code;
+  }
+  return codes[0];
+}
+function buildCategoryLookup(config) {
+  const lookup = {};
+  if (Array.isArray(config)) {
+    for (const sport of config) {
+      for (const cat of sport.categories) {
+        lookup[cat.code] = { label: cat.label, sport: sport.sport };
+      }
+    }
+    return lookup;
+  }
+  for (const [sport, categories] of Object.entries(config)) {
+    for (const [code, info] of Object.entries(categories)) {
+      lookup[code] = { label: info.label, sport };
+    }
+  }
+  return lookup;
+}
+var activeCategoryConfig = void 0;
+function setGlobalCategoryConfig(config) {
+  activeCategoryConfig = config;
+}
+function getGlobalCategoryConfig() {
+  return activeCategoryConfig;
+}
+var defaultCategoryLookup = buildCategoryLookup(categories_default);
+function getSportForCategory(category, config) {
+  const cat = (category || "").trim();
+  if (!cat) return "other";
+  const effectiveConfig = config ?? activeCategoryConfig;
+  const lookup = effectiveConfig ? buildCategoryLookup(effectiveConfig) : defaultCategoryLookup;
+  const entry = lookup[cat] || lookup[cat.toUpperCase()];
+  if (entry) {
+    const labelLower = (entry.label || "").toLowerCase();
+    if (labelLower === "foundation") return "foundation";
+    if (labelLower === "calisthenics") return "calisthenics";
+    if (labelLower === "realign" || labelLower === "recovery") return "recovery";
+    const sportLower = (entry.sport || "").toLowerCase();
+    if (sportLower === "ride" || sportLower === "cycling" || sportLower === "bike") return "cycling";
+    if (sportLower === "yoga") return "recovery";
+    if (sportLower === "weighttraining" || sportLower === "weight_training" || sportLower === "strength") {
+      return labelLower.includes("strength") ? "strength" : "weight_training";
+    }
+    if (["badminton", "run", "calisthenics", "foundation", "recovery", "hike", "walk", "cricket", "football", "workout", "swim"].includes(sportLower)) {
+      return sportLower;
+    }
+  }
+  const lower = cat.toLowerCase();
+  if (lower.startsWith("badminton")) return "badminton";
+  if (lower === "calisthenics" || lower === "calisthenic") return "calisthenics";
+  if (lower === "ride" || lower === "cycling" || lower === "bike") return "cycling";
+  if (lower === "foundation") return "foundation";
+  if (lower === "recovery" || lower === "realign" || lower === "mobility") return "recovery";
+  if (lower === "run" || lower === "running") return "run";
+  if (lower === "strength") return "strength";
+  if (lower === "weight_training" || lower === "weights" || lower === "weighttraining") return "weight_training";
+  if (lower === "hike") return "hike";
+  if (lower === "walk") return "walk";
+  if (lower === "cricket") return "cricket";
+  if (lower === "football") return "football";
+  if (lower === "workout") return "workout";
+  if (lower === "swim") return "swim";
   return "other";
+}
+
+// client/src/lib/activities.ts
+var loadedCategories = categories_default ?? [];
+var DEFAULT_CATEGORY_CONFIG = {
+  foundation: { label: "FOUNDATION", shortLabel: "FDN", color: "#60a5fa", group: "foundation" },
+  strength: { label: "STRENGTH", shortLabel: "STR", color: "#111111", group: "strength" },
+  weight_training: { label: "WEIGHTS", shortLabel: "WGT", color: "#3b4a6b", group: "weight_training" },
+  calisthenics: { label: "CALISTHENICS", shortLabel: "CAL", color: "#f59e0b", group: "calisthenics" },
+  recovery: { label: "RECOVERY", shortLabel: "REC", color: "#7c3aed", group: "other" },
+  realign: { label: "REALIGN", shortLabel: "RLN", color: "#a78bfa", group: "other" },
+  badminton_ranked: { label: "RANKED", shortLabel: "RNK", color: "#dc2626", group: "badminton" },
+  badminton_league: { label: "LEAGUE", shortLabel: "LGE", color: "#7c3aed", group: "badminton" },
+  badminton_friendly: { label: "FRIENDLY", shortLabel: "FRN", color: "#2563eb", group: "badminton" },
+  badminton_casual: { label: "CASUAL", shortLabel: "CAS", color: "#6b7280", group: "badminton" },
+  badminton: { label: "BADMINTON", shortLabel: "BAD", color: "#2d8a4e", group: "badminton" },
+  hike: { label: "HIKE", shortLabel: "HIK", color: "#8b6f47", group: "hike" },
+  walk: { label: "WALK", shortLabel: "WLK", color: "#a8a29e", group: "other" },
+  cricket: { label: "CRICKET", shortLabel: "CRK", color: "#2dd4bf", group: "other" },
+  football: { label: "FOOTBALL", shortLabel: "FBL", color: "#e11d48", group: "other" },
+  workout: { label: "WORKOUT", shortLabel: "WKT", color: "#6b7280", group: "other" },
+  swim: { label: "SWIM", shortLabel: "SWM", color: "#0ea5e9", group: "other" },
+  ride: { label: "RIDE", shortLabel: "RDE", color: "#c47a20", group: "ride" },
+  run: { label: "RUN", shortLabel: "RUN", color: "#c44020", group: "other" },
+  other: { label: "OTHER", shortLabel: "OTH", color: "#777", group: "other" }
+};
+var CORE_SPORTS = ["Badminton", "WeightTraining", "Ride", "Run", "Workout", "Swim", "Walk"];
+var SPORT_TYPE_ALIASES = {
+  Foundation: "WeightTraining"
+};
+var SPORT_CONFIG = {
+  Badminton: { label: "BADMINTON", color: "#2d8a4e", cssClass: "sport-bar-badminton" },
+  WeightTraining: { label: "WEIGHTS", color: "#3b4a6b", cssClass: "sport-bar-weights" },
+  Ride: { label: "RIDE", color: "#c47a20", cssClass: "sport-bar-ride" },
+  Run: { label: "RUN", color: "#c44020", cssClass: "sport-bar-run" },
+  Workout: { label: "WORKOUT", color: "#6b7280", cssClass: "sport-bar-workout" },
+  Swim: { label: "SWIM", color: "#0ea5e9", cssClass: "sport-bar-swim" },
+  Walk: { label: "WALK", color: "#a8a29e", cssClass: "sport-bar-walk" },
+  Others: { label: "OTHERS", color: "#777", cssClass: "sport-bar-others" }
+};
+function getSportGroup(sportType) {
+  const resolved = SPORT_TYPE_ALIASES[sportType] ?? sportType;
+  return CORE_SPORTS.includes(resolved) ? resolved : "Others";
+}
+function getSportConfig(sportType) {
+  const group = getSportGroup(sportType);
+  return SPORT_CONFIG[group] || { label: "OTHERS", color: "#777", cssClass: "" };
+}
+function buildCategoryConfig(configs) {
+  const merged = { ...DEFAULT_CATEGORY_CONFIG };
+  if (Array.isArray(configs)) {
+    for (const sport of configs) {
+      const sportGroup = getSportGroup(sport.sport);
+      const sportColor = getSportConfig(sport.sport).color;
+      for (const cat of sport.categories) {
+        merged[cat.code] = {
+          label: cat.label.toUpperCase(),
+          shortLabel: cat.code,
+          color: sportColor,
+          group: sportGroup.toLowerCase()
+        };
+      }
+    }
+    return merged;
+  }
+  for (const [sport, categories] of Object.entries(configs)) {
+    const sportGroup = getSportGroup(sport);
+    const sportColor = getSportConfig(sport).color;
+    for (const [code, info] of Object.entries(categories)) {
+      merged[code] = {
+        label: info.label.toUpperCase(),
+        shortLabel: code,
+        color: sportColor,
+        group: sportGroup.toLowerCase()
+      };
+    }
+  }
+  return merged;
+}
+var CATEGORY_CONFIG = buildCategoryConfig(loadedCategories);
+function getTrainingCategory(activity, config) {
+  if (activity.category) {
+    return activity.category;
+  }
+  const categoriesConfig = config ?? getGlobalCategoryConfig() ?? (loadedCategories.length > 0 ? loadedCategories : void 0);
+  const hasCategoriesConfig = categoriesConfig && (Array.isArray(categoriesConfig) ? categoriesConfig.length > 0 : Object.keys(categoriesConfig).length > 0);
+  if (hasCategoriesConfig) {
+    return resolveCategory(activity.sport_type, activity.elapsed_time, activity.start_date_local, categoriesConfig);
+  }
+  if (activity.sport_type === "WeightTraining") {
+    return activity.elapsed_time < 1500 ? "foundation" : "calisthenics";
+  }
+  if (activity.sport_type === "Yoga") {
+    const d = parseLocal(activity.start_date_local);
+    return d.getDay() === 0 ? "realign" : "recovery";
+  }
+  if (activity.sport_type === "Badminton") return "badminton";
+  if (activity.sport_type === "Run") return "run";
+  if (activity.sport_type === "Ride") return "ride";
+  if (activity.sport_type === "Swim") return "swim";
+  return activity.sport_type.substring(0, 3).toUpperCase();
 }
 function parseLocal(dateStr) {
   return new Date(dateStr.replace(/Z$/, ""));
@@ -79,22 +306,9 @@ function localDateKey(date) {
     String(date.getDate()).padStart(2, "0")
   ].join("-");
 }
-function disciplineFor(category) {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "ride") return "cycling";
-  if (category === "foundation") return "foundation";
-  if (category === "recovery" || category === "realign") return "recovery";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
+function disciplineFor(category, config) {
+  const sport = getSportForCategory(category, config);
+  return sport || "other";
 }
 function intentFor(categories) {
   if (categories.length === 0) return "open";
@@ -103,24 +317,24 @@ function intentFor(categories) {
   }
   return "train";
 }
-function recordedDays(activities, monday) {
+function recordedDays(activities, monday, config) {
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(monday.getTime() + index * DAY_MS);
     const dateKey2 = localDateKey(date);
     const matches = activities.filter((activity) => activity.start_date_local.slice(0, 10) === dateKey2).sort(
       (left, right) => parseLocal(left.start_date_local).getTime() - parseLocal(right.start_date_local).getTime()
     );
-    const categories = matches.map(getTrainingCategory);
+    const categories = matches.map((a) => getTrainingCategory(a, config));
     return {
       date: dateKey2,
       day: date.toLocaleDateString("en-GB", { weekday: "long" }),
       intent: intentFor(categories),
       coach_note: null,
       sessions: matches.map((activity) => {
-        const category = getTrainingCategory(activity);
+        const category = getTrainingCategory(activity, config);
         return {
           id: `activity-${activity.id}`,
-          discipline: disciplineFor(category),
+          discipline: disciplineFor(category, config),
           kind: category,
           title: activity.name,
           priority: "support",
@@ -130,13 +344,13 @@ function recordedDays(activities, monday) {
           template_id: null,
           session_file: null,
           coach_note: null,
-          completion_activity_ids: [activity.id]
+          completion_activity_ids: [String(activity.id)]
         };
       })
     };
   });
 }
-function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new Date()) {
+function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new Date(), config) {
   const monday = getMonday(now);
   const sunday = new Date(monday.getTime() + 6 * DAY_MS);
   const startDate = localDateKey(monday);
@@ -153,7 +367,7 @@ function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new 
     0
   );
   const disciplines = new Set(
-    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity)))
+    weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity, config), config))
   ).size;
   const evidenceRefs = weekActivities.map((activity) => `activity:${activity.id}`);
   const latestTimestamp = weekActivities.map((activity) => activity.start_date_local).sort().at(-1) ?? `${startDate}T00:00:00`;
@@ -179,7 +393,7 @@ function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new 
       valid_from: startDate,
       valid_until: endDate
     },
-    days: recordedDays(weekActivities, monday),
+    days: recordedDays(weekActivities, monday, config),
     coach_comments: [],
     updated_at: latestTimestamp,
     updated_by: "activity-log-adapter"
@@ -315,7 +529,12 @@ var ALL_CATEGORIES = /* @__PURE__ */ new Set([
   "badminton_ranked",
   "badminton_league",
   "badminton_friendly",
-  "badminton_casual"
+  "badminton_casual",
+  "badminton",
+  "RNK",
+  "LGE",
+  "FRN",
+  "CAS"
 ]);
 var EIGHT_WEEKS_MS = 56 * 24 * 60 * 60 * 1e3;
 var FIFTY_TWO_WEEKS_MS = 52 * 7 * 24 * 60 * 60 * 1e3;
@@ -823,24 +1042,24 @@ function formatDistanceKm(metres) {
 }
 function calisthenicsFocus(activities) {
   const focuses = activities.map((activity) => {
-    const match = activity.name.match(/Calisthenics\s*#\d+:\s*(.+)/i);
-    return match ? match[1].trim() : null;
+    const parts = activity.name.split(":");
+    return parts.length > 1 ? parts.slice(1).join(":").trim() : activity.name;
   }).filter((value) => Boolean(value));
   return focuses.at(-1) ?? "No session yet";
 }
 function buildCommitments(activities) {
   const thisWeek = getThisWeekActivities(activities);
   const rides = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "ride"
+    (activity) => ["ride", "RDE"].includes(getTrainingCategory(activity))
   );
   const foundation = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "foundation"
+    (activity) => ["foundation", "FDN"].includes(getTrainingCategory(activity))
   );
   const badminton = thisWeek.filter(
-    (activity) => getTrainingCategory(activity).startsWith("badminton")
+    (activity) => ["badminton", "badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual", "RNK", "FRN", "CAS", "LGE"].includes(getTrainingCategory(activity)) || getTrainingCategory(activity).startsWith("badminton")
   );
   const calisthenics = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "calisthenics"
+    (activity) => ["calisthenics", "CAL"].includes(getTrainingCategory(activity))
   );
   let rankedWins = 0;
   let rankedLosses = 0;
@@ -852,7 +1071,7 @@ function buildCommitments(activities) {
     const category = getTrainingCategory(activity);
     allWins += record.all.wins;
     allLosses += record.all.losses;
-    if (category === "badminton_ranked" || category === "badminton_league") {
+    if (["badminton_ranked", "badminton_league", "RNK", "LGE"].includes(category)) {
       rankedWins += record.ranked.wins;
       rankedLosses += record.ranked.losses;
     }
@@ -1013,23 +1232,10 @@ function isoWeek(date = /* @__PURE__ */ new Date()) {
   const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
   return Math.ceil(((utc.getTime() - yearStart.getTime()) / DAY_MS3 + 1) / 7);
 }
-function categoryToSport(category) {
-  if (category.startsWith("badminton")) return "badminton";
-  if (category === "calisthenics") return "calisthenics";
-  if (category === "foundation" || category === "recovery" || category === "realign") {
-    return "foundation";
-  }
-  if (category === "ride") return "cycling";
-  if (category === "run") return "run";
-  if (category === "strength") return "strength";
-  if (category === "weight_training") return "weight_training";
-  if (category === "hike") return "hike";
-  if (category === "walk") return "walk";
-  if (category === "cricket") return "cricket";
-  if (category === "football") return "football";
-  if (category === "workout") return "workout";
-  if (category === "swim") return "swim";
-  return "other";
+function categoryToSport(category, categories) {
+  const sport = getSportForCategory(category, categories);
+  if (sport === "recovery" || sport === "realign") return "foundation";
+  return sport || "other";
 }
 function disciplineToSport(discipline) {
   if (discipline === "cycling") return "cycling";
@@ -1051,11 +1257,11 @@ function disciplineToSport(discipline) {
 function formatSessionTitle(name) {
   return name.replace(/:\s*/, " \xB7 ");
 }
-function buildActivityEvidenceSnapshots(activities) {
+function buildActivityEvidenceSnapshots(activities, categoriesConfig) {
   return [...activities].sort(
     (left, right) => parseLocal(right.start_date_local).getTime() - parseLocal(left.start_date_local).getTime()
   ).map((activity, index) => {
-    const category = getTrainingCategory(activity);
+    const category = getTrainingCategory(activity, categoriesConfig);
     const date = parseLocal(activity.start_date_local);
     const calories = Number(activity.calories) || 0;
     const distance = Number(activity.distance) || 0;
@@ -1069,7 +1275,7 @@ function buildActivityEvidenceSnapshots(activities) {
         month: "short"
       }).toUpperCase(),
       title: formatSessionTitle(activity.name),
-      sport: categoryToSport(category),
+      sport: categoryToSport(category, categoriesConfig),
       ranked: category === "badminton_ranked",
       durationMinutes: Math.max(0, activity.elapsed_time ?? 0) / 60,
       calories: calories > 0 ? Math.round(calories) : null,
@@ -1319,7 +1525,7 @@ function buildCaloriesSnapshot(activities, dataMode) {
   };
 }
 function dominantActivityState(categories) {
-  const states = categories.map(categoryToSport);
+  const states = categories.map((c) => categoryToSport(c));
   if (states.includes("badminton")) return "badminton";
   if (states.includes("calisthenics")) return "calisthenics";
   if (states.includes("run")) return "run";
@@ -1506,9 +1712,9 @@ function buildCoachReadSnapshot(model, engine, quest, dataMode) {
     ]
   };
 }
-function buildWarmHomeSnapshots(activities, challengeData, syncStatus, contract, dataMode = "live") {
+function buildWarmHomeSnapshots(activities, challengeData, syncStatus, contract, dataMode = "live", categoriesConfig) {
   const model = buildWarmHomeModel(activities, challengeData, syncStatus, contract);
-  const activityEvidence = buildActivityEvidenceSnapshots(activities);
+  const activityEvidence = buildActivityEvidenceSnapshots(activities, categoriesConfig);
   const engine = buildEngineSnapshot(activities, model.engine);
   const quest = buildQuestSnapshot(challengeData, model.quest);
   return {
@@ -1552,13 +1758,14 @@ function questSnapshotS(quest) {
     progressPercent
   };
 }
-function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contract, dataMode = "live") {
+function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contract, dataMode = "live", categoriesConfig) {
   const home = buildWarmHomeSnapshots(
     activities,
     challengeData,
     syncStatus,
     contract,
-    dataMode
+    dataMode,
+    categoriesConfig
   );
   return {
     schema_version: 1,
@@ -1605,8 +1812,12 @@ function generateWidgetSnapshotsFromAggregate(aggregate) {
     timestamp: null,
     warnings: []
   };
-  const contract = isUnavailableWeek(aggregate.current_week) ? buildLiveWeekContract(activities, challenge) : aggregate.current_week;
-  return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live");
+  const categories = aggregate.categories;
+  if (categories) {
+    setGlobalCategoryConfig(categories);
+  }
+  const contract = isUnavailableWeek(aggregate.current_week) ? buildLiveWeekContract(activities, challenge, categories) : aggregate.current_week;
+  return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live", categories);
 }
 export {
   generateWidgetSnapshotsFromAggregate

@@ -22,6 +22,7 @@ export interface MainQuest {
   target?: number;
   count_from?: string;
   count_pattern?: string;
+  count_category?: string;
   unit_label?: string;
   event_date?: string;
   notes?: string;
