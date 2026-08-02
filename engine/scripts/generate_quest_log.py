@@ -392,8 +392,8 @@ def compute_weekly_counts(activities: list[dict], data: dict, today: date) -> di
 
     Driven entirely by the weekly_targets config in challenge_v2.json:
       - source "quest": derives count from a daily_streak quest's missed/excused dates
-      - source "strava_pattern": matches Strava activity name against a regex pattern
-      - source "strava_sport": matches Strava sport_type field (optionally also name pattern)
+      - source "strava_pattern": matches activity category (count_category) or name regex (pattern)
+      - source "strava_sport": matches sport_type / name pattern, or category when count_category set
     """
     week_start = iso_week_start(today)
     week_end = week_start + timedelta(days=6)
@@ -437,7 +437,12 @@ def compute_weekly_counts(activities: list[dict], data: dict, today: date) -> di
             if not isinstance(cfg, dict):
                 continue
             source = cfg.get("source", "")
-            if source == "strava_pattern":
+            category_target = cfg.get("count_category", "")
+            cat = a.get("category", "")
+            if category_target:
+                if cat == category_target:
+                    counts[label] += 1
+            elif source == "strava_pattern":
                 pattern = cfg.get("pattern", "")
                 if pattern and re.match(pattern, name):
                     counts[label] += 1

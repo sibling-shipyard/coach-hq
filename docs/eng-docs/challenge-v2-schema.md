@@ -105,6 +105,8 @@ Side quests — `daily_streak`, `progress`, etc. Same types as today. SOUL §8 r
 | **`weekly_targets`** | Sport/category quotas (badminton, run, …) — config-driven, keys vary by athlete |
 | **`graduated[]`** | Retired quests kept for history |
 
+Each `weekly_targets` entry is `{ "target": N, "source": "...", ... }`. For activity-backed sources (`strava_pattern`, `strava_sport`), optional **`count_category`** (3-letter code, ADR-0015) matches the activity's `category` field; when absent, the engine falls back to `pattern` / `sport_type` name matching.
+
 Omit blocks entirely when unused — do not null-fill.
 
 ---

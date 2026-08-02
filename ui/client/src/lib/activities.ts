@@ -43,7 +43,11 @@ export interface Activity {
 // Based on activity name patterns from the enrichment pipeline.
 
 import categoriesJson from "@/data/categories.json";
-import { type CategoryConfigInput, resolveCategory } from "./categoryResolver";
+import {
+  type CategoryConfigInput,
+  getGlobalCategoryConfig,
+  resolveCategory,
+} from "./categoryResolver";
 
 const loadedCategories: CategoryConfigInput = (categoriesJson as any) ?? [];
 
@@ -160,7 +164,6 @@ export const GROUP_CONFIG: Record<string, { label: string; color: string; catego
   ride:         { label: "RIDES",        color: "#c47a20", categories: ["ride", "RDE"] },
 };
 
-import { type CategoryConfigInput, type SportConfig, getGlobalCategoryConfig, resolveCategory } from "./categoryResolver";
 
 export function getTrainingCategory(activity: Activity, config?: CategoryConfigInput): TrainingCategory {
   if (activity.category) {

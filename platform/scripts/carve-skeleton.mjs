@@ -63,7 +63,7 @@ const CHALLENGE_V2_TEMPLATE = {
     "Strength Training": {
       target: 2,
       source: "strava_pattern",
-      pattern: "^Strength\\s*#",
+      count_category: "CAL",
     },
     Sport: {
       target: 2,
