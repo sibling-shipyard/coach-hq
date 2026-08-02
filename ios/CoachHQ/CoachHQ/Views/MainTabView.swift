@@ -93,6 +93,11 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Hide tab content while onboarding fullScreenCovers are active so neither the
+            // initial HK prompt appearance nor the gap between HK prompt dismissal and reveal
+            // presentation exposes a flash of the home tab underneath.
+            .opacity(router.effectivePhase == .hkPrompt || router.effectivePhase == .reveal ? 0 : 1)
+            .allowsHitTesting(router.effectivePhase == .complete || router.effectivePhase == .notStarted)
 
             if !tabBarHidden && !authManager.sessionExpired {
                 bottomDockContent
@@ -162,6 +167,9 @@ struct MainTabView: View {
                 onConnect: {
                     Task {
                         await syncManager.connectHealthKit()
+                        // HKObserverQuery doesn't fire for pre-existing workouts on first
+                        // registration — kick off the initial 7-day sync explicitly here.
+                        Task { await syncManager.syncNewWorkouts() }
                         router.advance(.hkConnected)
                     }
                 },

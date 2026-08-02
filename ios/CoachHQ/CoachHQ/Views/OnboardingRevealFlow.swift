@@ -17,6 +17,7 @@ struct OnboardingRevealFlow: View {
     @State private var step: OnboardingRevealStep = .reveal
     @State private var summary: YearSummary = .empty
     @State private var isLoading = true
+    @State private var syncToast: Toast?
 
     var body: some View {
         ZStack {
@@ -95,6 +96,18 @@ struct OnboardingRevealFlow: View {
                     .padding(.horizontal, 24)
                     .padding(.bottom, 36)
                 }
+            }
+        }
+        .toast($syncToast)
+        .onChange(of: syncManager.lastSyncResult) { _, result in
+            guard let result else { return }
+            switch result.outcome {
+            case .synced(let n):
+                syncToast = Toast(kind: .success, message: "\(n) workout\(n == 1 ? "" : "s") saved to GitHub")
+            case .nothingNew:
+                syncToast = Toast(kind: .info, message: "No new workouts in the last 7 days")
+            case .failed(let msg):
+                syncToast = Toast(kind: .error, message: msg)
             }
         }
         .task {
