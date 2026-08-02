@@ -27,6 +27,9 @@ class HealthKitSyncManager: ObservableObject {
     }
 
     @Published var isHKObserverActive = false
+    /// Human-readable description of the current sync stage, for display in SyncStepView.
+    /// Empty when not syncing.
+    @Published var syncProgressText: String = ""
 
     /// Persisted flag set only when the user explicitly connects HealthKit (pre-prompt
     /// "Connect Health" or Settings button). Distinct from `isHKObserverActive`, which
@@ -173,14 +176,20 @@ class HealthKitSyncManager: ObservableObject {
                 since = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
             }
 
+            let lookbackDays = max(1, Calendar.current.dateComponents([.day], from: since, to: Date()).day ?? 7)
+            syncProgressText = "Gathering activities — last \(lookbackDays) day\(lookbackDays == 1 ? "" : "s")"
+
             let workouts = try await fetchWorkouts(since: since)
             guard !workouts.isEmpty else {
+                syncProgressText = ""
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
                 isSyncing = false
                 return
             }
+
+            syncProgressText = "Building commit (\(workouts.count) workout\(workouts.count == 1 ? "" : "s") found)"
 
             // hist/ directory doesn't exist until the first commit — treat 404 as empty.
             let existingFiles: [GitHubFileEntry]
@@ -254,6 +263,7 @@ class HealthKitSyncManager: ObservableObject {
             }
 
             guard !filesToCommit.isEmpty else {
+                syncProgressText = ""
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
@@ -267,6 +277,7 @@ class HealthKitSyncManager: ObservableObject {
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
 
             let n = filesToCommit.count - 1
+            syncProgressText = "Pushing \(n) activit\(n == 1 ? "y" : "ies") to GitHub…"
             let commitFinishedAt = Date()
             try await apiClient.commitFiles(filesToCommit, message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")")
 
@@ -280,6 +291,7 @@ class HealthKitSyncManager: ObservableObject {
 
             self.syncState = syncState
             lastSyncDate = Date()
+            syncProgressText = "Commit pushed — \(n) activit\(n == 1 ? "y" : "ies") saved"
             lastSyncResult = SyncResult(outcome: .synced(n), id: UUID())
 
             // Home reads live snapshots from aggregate.json; the user-repo sync workflow
@@ -299,6 +311,7 @@ class HealthKitSyncManager: ObservableObject {
         } catch {
             let friendly = UserFacingError.friendlyMessage(for: error)
             syncError = friendly
+            syncProgressText = ""
             lastSyncResult = SyncResult(outcome: .failed(friendly), id: UUID())
         }
 

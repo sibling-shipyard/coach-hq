@@ -126,8 +126,9 @@ private struct SyncStepView: View {
 
     @State private var started = false
     @State private var progress: Double = 0
-    @State private var statusText = ""
+    @State private var completionText = ""
     @State private var failed = false
+    @State private var completionHandled = false
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -162,11 +163,13 @@ private struct SyncStepView: View {
                             .animation(.easeOut(duration: 0.5), value: progress)
                         }
 
-                        if !statusText.isEmpty {
-                            Text(statusText)
+                        let displayText = completionText.isEmpty ? syncManager.syncProgressText : completionText
+                        if !displayText.isEmpty {
+                            Text(displayText)
                                 .font(WarmInstrument.monoLabel(11))
                                 .foregroundColor(failed ? WarmInstrument.alarmFg : WarmInstrument.inkFaint)
                                 .kerning(0.5)
+                                .animation(.easeInOut(duration: 0.2), value: displayText)
                         }
                     }
                     .padding(.horizontal, 28)
@@ -213,39 +216,47 @@ private struct SyncStepView: View {
             .animation(PremiumMotion.state, value: started)
             .animation(PremiumMotion.state, value: failed)
         }
-        .onChange(of: syncManager.lastSyncResult) { _, result in
-            guard started, let result else { return }
-            switch result.outcome {
-            case .synced(let n):
-                statusText = "\(n) workout\(n == 1 ? "" : "s") saved to GitHub"
-                withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
-                Task {
-                    try? await Task.sleep(nanoseconds: 1_500_000_000)
-                    onComplete()
-                }
-            case .nothingNew:
-                statusText = "Already up to date"
-                withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
-                Task {
-                    try? await Task.sleep(nanoseconds: 800_000_000)
-                    onComplete()
-                }
-            case .failed(let msg):
-                failed = true
-                statusText = msg
-            }
+        // .task(id:) re-runs whenever lastSyncResult.id changes — more reliable than
+        // onChange which can miss a result if SwiftUI batches the render cycle.
+        .task(id: syncManager.lastSyncResult?.id) {
+            guard started, let result = syncManager.lastSyncResult else { return }
+            handleResult(result)
         }
         .animation(PremiumMotion.state, value: started)
     }
 
-    // Fills the bar from 0 → 0.82 over ~5 seconds. Stops when sync completes
-    // (progress is already at 1.0 by then) or view is torn down.
+    private func handleResult(_ result: HealthKitSyncManager.SyncResult) {
+        guard !completionHandled else { return }
+        completionHandled = true
+        switch result.outcome {
+        case .synced(let n):
+            completionText = "\(n) workout\(n == 1 ? "" : "s") saved to GitHub"
+            withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                onComplete()
+            }
+        case .nothingNew:
+            completionText = "Already up to date"
+            withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
+            Task {
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                onComplete()
+            }
+        case .failed(let msg):
+            failed = true
+            completionText = msg
+        }
+    }
+
+    // Fills the bar from 0 → 0.82 over ~5 seconds. Stops when result arrives
+    // (completionHandled = true) or view is torn down.
     private func warmProgress() async {
         let steps = 60
         let duration = 5.0
         let stepDuration = duration / Double(steps)
         for i in 1...steps {
-            guard progress < 1.0 else { break }
+            guard !completionHandled else { break }
             let t = Double(i) / Double(steps)
             let eased = 1.0 - pow(1.0 - t, 2.5)
             withAnimation(.linear(duration: stepDuration)) {
