@@ -261,12 +261,16 @@ struct CoachChatEmptyThreadPrompt: View {
 }
 
 struct CoachChatThinkingBubble: View {
+    @State private var activeDot: Int = 0
+
     var body: some View {
         HStack(spacing: 5) {
-            ForEach(0..<3, id: \.self) { _ in
+            ForEach(0..<3, id: \.self) { index in
                 Circle()
                     .frame(width: 6, height: 6)
                     .foregroundStyle(WarmInstrument.inkFaint)
+                    .offset(y: activeDot == index ? -4 : 0)
+                    .animation(.easeInOut(duration: 0.25), value: activeDot)
             }
         }
         .padding(.horizontal, 15)
@@ -282,6 +286,15 @@ struct CoachChatThinkingBubble: View {
             )
         )
         .accessibilityLabel("Coach is thinking")
+        .task {
+            while !Task.isCancelled {
+                for i in 0..<3 {
+                    activeDot = i
+                    try? await Task.sleep(for: .milliseconds(300))
+                }
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+        }
     }
 }
 
@@ -595,7 +608,10 @@ struct CoachChatHistorySheet: View {
                 .padding(.horizontal, 12)
             }
 
-            Button(action: onNew) {
+            Button {
+                onNew()
+                dismiss()
+            } label: {
                 Text("New conversation")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(WarmInstrument.paper)
