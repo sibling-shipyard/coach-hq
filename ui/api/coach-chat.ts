@@ -3,11 +3,6 @@
  * Full design/flow: docs/eng-docs/coach-chat-flow.md. Commit + retention design: ADR 0012.
  *
  * GET                        → load already-wrapped/committed threads
- * GET  ?profileStatus=1      → B2: {profileComplete} - live First Session Protocol completion
- *                               check, no chat turn required. Kept on this route (query-param
- *                               dispatch) rather than its own file - Vercel Hobby caps a
- *                               deployment at 12 serverless functions and this repo sits at
- *                               that cap; every extra endpoint has to fold into an existing route.
  * POST {action: "greet"}     → start a new conversation with Coach speaking first (A4) - no
  *                               athlete message. Creates + commits a thread with just Coach's
  *                               opening line, or reuses today's still-unanswered greeting
@@ -635,18 +630,6 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     const token = auth.gh_token;
 
     if (req.method === "GET") {
-      const url = new URL(req.url);
-
-      // B2: `?profileStatus=1` - a lightweight live check iOS polls on every launch, kept on
-      // this same route (query-param dispatch) instead of its own file - Vercel's Hobby plan
-      // caps a deployment at 12 serverless functions, one per top-level api/*.ts file, and this
-      // repo is already sitting at that cap (see ADR/plan notes). Every extra genuine endpoint
-      // has to fold into an existing route rather than adding a new file.
-      if (url.searchParams.has("profileStatus")) {
-        const stateMd = await getFileRaw(repo, STATE_FILE_PATH, token);
-        return Response.json({ profileComplete: isAthleteProfileComplete(stateMd ?? "") });
-      }
-
       const [history, stateMd] = await Promise.all([loadChatHistory(repo, token), getFileRaw(repo, STATE_FILE_PATH, token)]);
       // Retention is enforced on write (POST/PATCH), not here - a GET must never rewrite the
       // file just because it was read. Deleted threads never persist (PATCH removes them
