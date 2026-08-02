@@ -255,12 +255,12 @@ erDiagram
         timestamptz created_at
     }
     PROFILES {
-        uuid user_id PK_FK
+        uuid user_id PK, FK
         text timezone
         text onboarding_phase
     }
     COACH_STATE {
-        uuid user_id PK_FK
+        uuid user_id PK, FK
         text state_md
         text coach_notes_md
         text roadmap_md
@@ -283,7 +283,7 @@ erDiagram
         timestamptz created_at
     }
     SYNC_STATE {
-        uuid user_id PK_FK
+        uuid user_id PK, FK
         timestamptz hk_last_synced
         jsonb name_counters
     }
