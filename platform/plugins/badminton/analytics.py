@@ -24,7 +24,16 @@ sys.path.insert(0, str(_ENGINE / "lib"))
 sys.path.insert(0, str(_ENGINE))
 
 from repo_layout import activities_dir, gen_dir, hist_dir, repo_root_from_here  # noqa: E402
-from core.taxonomy import BADMINTON_CATEGORIES, get_training_category
+from core.taxonomy import BADMINTON_SPORT, get_training_category
+
+_BADMINTON_CATEGORY_CODES = frozenset({"RNK", "FRN", "CAS", "LGE"})
+_LEGACY_BADMINTON_CATEGORIES = frozenset({
+    "badminton",
+    "badminton_ranked",
+    "badminton_league",
+    "badminton_friendly",
+    "badminton_casual",
+})
 
 REPO_DIR = repo_root_from_here(__file__)
 ACTIVITIES_DIR = activities_dir(REPO_DIR)
@@ -80,7 +89,8 @@ def load_badminton_activities() -> list[dict]:
             continue
 
         category = get_training_category(data)
-        if category not in BADMINTON_CATEGORIES:
+        sport = data.get("sport_type") or data.get("type", "")
+        if sport != BADMINTON_SPORT and category not in _BADMINTON_CATEGORY_CODES and category not in _LEGACY_BADMINTON_CATEGORIES and not category.startswith("badminton"):
             continue
 
         data["_category"] = category

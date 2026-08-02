@@ -236,8 +236,10 @@ def count_main_quest(main_quest: dict, activities: list[dict], challenge_start: 
     """Count activities matching the main quest rule."""
     count = 0
     pattern = main_quest.get("count_pattern", "")
+    category_target = main_quest.get("count_category", "")
     for a in activities:
         name = a.get("name", "")
+        cat = a.get("category", "")
         act_date_str = a.get("start_date_local", "")[:10]
         if not act_date_str:
             continue
@@ -245,8 +247,12 @@ def count_main_quest(main_quest: dict, activities: list[dict], challenge_start: 
             act_date = parse_date(act_date_str)
         except ValueError:
             continue
-        if act_date >= challenge_start and pattern and re.match(pattern, name):
-            count += 1
+        if act_date >= challenge_start:
+            if category_target:
+                if cat == category_target:
+                    count += 1
+            elif pattern and re.match(pattern, name):
+                count += 1
     return count
 
 
@@ -386,8 +392,8 @@ def compute_weekly_counts(activities: list[dict], data: dict, today: date) -> di
 
     Driven entirely by the weekly_targets config in challenge_v2.json:
       - source "quest": derives count from a daily_streak quest's missed/excused dates
-      - source "strava_pattern": matches Strava activity name against a regex pattern
-      - source "strava_sport": matches Strava sport_type field (optionally also name pattern)
+      - source "strava_pattern": matches activity category (count_category) or name regex (pattern)
+      - source "strava_sport": matches sport_type / name pattern, or category when count_category set
     """
     week_start = iso_week_start(today)
     week_end = week_start + timedelta(days=6)
@@ -427,19 +433,28 @@ def compute_weekly_counts(activities: list[dict], data: dict, today: date) -> di
             continue
         name = a.get("name", "")
         sport = a.get("sport_type", "")
+        cat = a.get("category", "")
         for label, cfg in weekly_targets.items():
             if not isinstance(cfg, dict):
                 continue
             source = cfg.get("source", "")
             if source == "strava_pattern":
+                category_target = cfg.get("count_category", "")
                 pattern = cfg.get("pattern", "")
-                if pattern and re.match(pattern, name):
+                if category_target:
+                    if cat == category_target:
+                        counts[label] += 1
+                elif pattern and re.match(pattern, name):
                     counts[label] += 1
             elif source == "strava_sport":
+                category_target = cfg.get("count_category", "")
                 sport_match = cfg.get("sport_type") and sport == cfg["sport_type"]
                 pattern = cfg.get("pattern", "")
                 name_match = pattern and re.match(pattern, name)
-                if sport_match or name_match:
+                if category_target:
+                    if cat == category_target:
+                        counts[label] += 1
+                elif sport_match or name_match:
                     counts[label] += 1
 
     return counts

@@ -20,12 +20,56 @@
  * exercised locally, not just the all-green path. See shared/golden-dataset/README.md,
  * ADR-0005, ADR-0007.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, copyFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, "repo-data");
+
+// Read categories config
+const CATEGORIES_CONFIG = JSON.parse(
+  readFileSync(path.join(__dirname, "categories.json"), "utf-8")
+);
+
+function resolveCategory(sportType, elapsedTime, startDateLocal) {
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const date = new Date(startDateLocal.replace(/Z$/, ""));
+  const dayName = DAYS[date.getDay()];
+
+  if (Array.isArray(CATEGORIES_CONFIG)) {
+    const sportConfig = CATEGORIES_CONFIG.find(s => s.sport === sportType);
+    if (!sportConfig) return sportType.slice(0, 3).toUpperCase();
+    for (const entry of sportConfig.categories) {
+      if (!entry.rule) return entry.code;
+      const r = entry.rule;
+      let match = true;
+      if (r.duration_lt != null && !(elapsedTime < r.duration_lt)) match = false;
+      if (r.duration_gte != null && !(elapsedTime >= r.duration_gte)) match = false;
+      if (r.weekday != null && dayName !== r.weekday) match = false;
+      if (match) return entry.code;
+    }
+    return sportConfig.categories[0].code;
+  }
+
+  const sportMap = CATEGORIES_CONFIG[sportType];
+  if (!sportMap || Object.keys(sportMap).length === 0) {
+    return sportType.slice(0, 3).toUpperCase();
+  }
+
+  const codes = Object.keys(sportMap);
+  for (const [code, info] of Object.entries(sportMap)) {
+    if (!info.rule) return code;
+    const r = info.rule;
+    let match = true;
+    if (r.duration_lt != null && !(elapsedTime < r.duration_lt)) match = false;
+    if (r.duration_gte != null && !(elapsedTime >= r.duration_gte)) match = false;
+    if (r.weekday != null && dayName !== r.weekday) match = false;
+    if (match) return code;
+  }
+
+  return codes[0];
+}
 
 const NOW = new Date();
 
@@ -149,14 +193,13 @@ function badmintonDescription(rw, rl) {
 // ─── Activities ─────────────────────────────────────────────────────────────
 // ~26 weeks of history ending yesterday, so the training-activity heatmap, monthly
 // analytics, and VO2 trend all have real depth to work with — not just the most recent week.
-// Naming follows the exact patterns getTrainingCategory() matches on.
+// Naming: generic {Sport} #{N} with a structured category field (ADR-0015).
 
 let nextId = 900000;
-let badmintonRankedN = 40;
-let badmintonFriendlyN = 60;
-let foundationN = 120;
-let calisthenicsN = 45;
-let runN = 20;
+let badmintonN = 0;
+let weightTrainingN = 0;
+let rideN = 0;
+let runN = 0;
 
 const activities = [];
 
@@ -195,9 +238,10 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     if (isBlackout(date)) continue;
     if (random() < 0.55) continue;
     const seconds = 900 + Math.round(random() * 300);
-    foundationN++;
+    weightTrainingN++;
     pushActivity({
-      name: `Foundation #${foundationN}`,
+      name: `WeightTraining #${weightTrainingN}`,
+      category: resolveCategory("WeightTraining", seconds, localTimestamp(date, 7, 15)),
       sport_type: "WeightTraining",
       start_date_local: localTimestamp(date, 7, 15),
       elapsed_time: seconds,
@@ -215,11 +259,12 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
   if (weekStart <= NOW && !isBlackout(weekStart) && random() < 0.55) {
     const date = new Date(weekStart);
     const seconds = 6300 + Math.round(random() * 900);
-    badmintonRankedN++;
+    badmintonN++;
     const rw = 2 + Math.round(random() * 3);
     const rl = 1 + Math.round(random() * 3);
     pushActivity({
-      name: `Badminton: Ranked #${badmintonRankedN}`,
+      name: `Badminton #${badmintonN}`,
+      category: resolveCategory("Badminton", seconds, localTimestamp(date, 19, 0)),
       sport_type: "Badminton",
       start_date_local: localTimestamp(date, 19, 0),
       elapsed_time: seconds,
@@ -239,11 +284,12 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     date.setDate(date.getDate() + 3);
     if (date <= NOW && !isBlackout(date) && random() < 0.35) {
       const seconds = 5400 + Math.round(random() * 900);
-      badmintonFriendlyN++;
+      badmintonN++;
       const rw = 1 + Math.round(random() * 2);
       const rl = Math.round(random() * 2);
       pushActivity({
-        name: `Badminton: Friendly #${badmintonFriendlyN}`,
+        name: `Badminton #${badmintonN}`,
+        category: resolveCategory("Badminton", seconds, localTimestamp(date, 19, 30)),
         sport_type: "Badminton",
         start_date_local: localTimestamp(date, 19, 30),
         elapsed_time: seconds,
@@ -273,9 +319,10 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     if (date > NOW) continue;
     if (isBlackout(date)) continue;
     const seconds = 2700 + Math.round(random() * 900);
-    calisthenicsN++;
+    weightTrainingN++;
     pushActivity({
-      name: `Calisthenics #${calisthenicsN}`,
+      name: `WeightTraining #${weightTrainingN}`,
+      category: resolveCategory("WeightTraining", seconds, localTimestamp(date, 18, 0)),
       sport_type: "WeightTraining",
       start_date_local: localTimestamp(date, 18, 0),
       elapsed_time: seconds,
@@ -294,8 +341,10 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
     date.setDate(date.getDate() + 5);
     if (date <= NOW && !isBlackout(date) && random() < 0.4) {
       const seconds = 2200 + Math.round(random() * 600);
+      rideN++;
       pushActivity({
-        name: "Easy Loop Ride",
+        name: `Ride #${rideN}`,
+        category: resolveCategory("Ride", seconds, localTimestamp(date, 9, 0)),
         sport_type: "Ride",
         start_date_local: localTimestamp(date, 9, 0),
         elapsed_time: seconds,
@@ -333,7 +382,8 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
       const seconds = Math.round((distance / 1000) * pace);
       runN++;
       pushActivity({
-        name: isTimeTrial ? "5K Time Trial" : "River Loop",
+        name: `Run #${runN}`,
+        category: resolveCategory("Run", seconds, localTimestamp(date, 8, 30)),
         sport_type: "Run",
         start_date_local: localTimestamp(date, 8, 30),
         elapsed_time: seconds,
@@ -369,7 +419,7 @@ blockEnd.setDate(blockEnd.getDate() + 14);
 // rate from this, so trimming it to the last two weeks would make every earlier month look
 // like a 0% miss streak even though foundation activities exist for it.
 const foundationDates = activities
-  .filter((a) => a.name.startsWith("Foundation #"))
+  .filter((a) => a.category === "FDN")
   .map((a) => a.start_date_local.slice(0, 10));
 
 // A second, recently-started daily_streak quest. Any month before its start date has zero
@@ -405,13 +455,13 @@ const challengeV2 = {
     skill_weight: 0.4,
     skill_cap: 5,
     sessions: activities
-      .filter((a) => a.name.startsWith("Badminton:") || a.name.startsWith("Calisthenics #"))
+      .filter((a) => a.category === "RNK" || a.category === "FRN" || a.category === "CAL")
       .slice(-6)
       .map((a) => ({
         date: a.start_date_local.slice(0, 10),
         label: a.name,
-        kind: a.name.startsWith("Badminton: Ranked") ? "loaded" : "skill",
-        weight: a.name.startsWith("Badminton: Ranked") ? 1 : 0.5,
+        kind: a.sport_type === "Badminton" && new Date(a.start_date_local.replace(/Z$/, "")).getDay() === 1 ? "loaded" : "skill",
+        weight: a.sport_type === "Badminton" && new Date(a.start_date_local.replace(/Z$/, "")).getDay() === 1 ? 1 : 0.5,
       })),
   },
   quests: [
@@ -760,4 +810,11 @@ const files = {
 for (const [name, content] of Object.entries(files)) {
   writeFileSync(path.join(OUT_DIR, name), JSON.stringify(content, null, 2) + "\n");
 }
+
+// Copy categories config to repo-data
+copyFileSync(
+  path.join(__dirname, "categories.json"),
+  path.join(OUT_DIR, "categories.json")
+);
+
 console.log(`✓ golden repo-data written (${activities.length} activities) → ${OUT_DIR}`);

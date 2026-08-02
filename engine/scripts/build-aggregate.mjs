@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   aggregatePath,
+  categoriesPath,
   histDir,
   ledgerDir,
   questHistoryPath,
@@ -78,6 +79,16 @@ function buildAggregate() {
   } else {
     console.warn(`⚠ No challenge_v2.json found at ${challengeSrc}`);
     result.challenge_v2 = null;
+  }
+
+  const catPath = categoriesPath(REPO_ROOT);
+  if (fs.existsSync(catPath)) {
+    try {
+      result.categories = JSON.parse(fs.readFileSync(catPath, "utf-8"));
+      console.log("✓ categories loaded");
+    } catch (e) {
+      console.warn(`⚠ Invalid categories.json: ${e.message}`);
+    }
   }
 
   const currentWeekSrc = path.join(ledgerDir(REPO_ROOT), "current_week.json");
