@@ -22,6 +22,7 @@ struct SettingsView: View {
     @State private var isEditingName = false
     @State private var nameDraft = ""
     @State private var showDiagHelp = false
+    @State private var showSignOutConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -68,6 +69,22 @@ struct SettingsView: View {
                     toast = Toast(kind: .error, message: message)
                 }
             }
+            .overlay {
+                if showSignOutConfirmation {
+                    WarmDialog(
+                        title: "Sign Out?",
+                        message: "You'll need to sign in again to access your training data.",
+                        primaryTitle: "Sign Out",
+                        primaryAction: { authManager.signOut() },
+                        secondaryTitle: "Cancel",
+                        secondaryAction: { showSignOutConfirmation = false },
+                        primaryColor: WorkoutTimerWarm.rust,
+                        onBackdropTap: { showSignOutConfirmation = false }
+                    )
+                    .transition(.opacity)
+                }
+            }
+            .animation(.spring(duration: 0.25, bounce: 0), value: showSignOutConfirmation)
         }
     }
 
@@ -282,7 +299,7 @@ struct SettingsView: View {
             WarmSettingsDivider()
 
             Button {
-                authManager.signOut()
+                showSignOutConfirmation = true
             } label: {
                 Text("Sign Out")
                     .font(.system(size: 13.5, weight: .semibold))
