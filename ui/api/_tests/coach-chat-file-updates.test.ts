@@ -75,4 +75,44 @@ describe("resolveFileUpdate", () => {
     );
     expect(result).toBeNull();
   });
+
+  // Audit fix: currentContent === undefined means "not fetched this turn at all" (e.g. an
+  // ordinary turn never fetches challenge_v2.json), distinct from null ("fetched, file doesn't
+  // exist yet"). A merge_patch/edits proposal against unfetched content must be rejected, not
+  // silently applied against an assumed-empty file.
+  it("drops a JSON merge_patch proposed when the current content was never fetched this turn (undefined, not null)", () => {
+    const result = resolveFileUpdate(
+      { path: "user_data/ledger/challenge_v2.json", merge_patch: '{"phase":"peak"}' },
+      undefined,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("still allows a JSON merge_patch when the file was fetched and genuinely doesn't exist yet (null)", () => {
+    const result = resolveFileUpdate(
+      { path: "user_data/coach/sleep_log.json", merge_patch: '{"hours":7.5}' },
+      null,
+    );
+    expect(result).not.toBeNull();
+    expect(JSON.parse(result!.content)).toEqual({ hours: 7.5 });
+  });
+
+  it("drops a markdown edit proposed when the current content was never fetched this turn (undefined, not null)", () => {
+    const result = resolveFileUpdate(
+      { path: "user_data/coach/coach_notes.md", edits: [{ old_string: "x", new_string: "y" }] },
+      undefined,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("session files ignore currentContent entirely, even when undefined", () => {
+    const result = resolveFileUpdate(
+      { path: "user_data/activities/workout_plans/sessions/2026-08-02.json", content: '{"logged":true}' },
+      undefined,
+    );
+    expect(result).toEqual({
+      path: "user_data/activities/workout_plans/sessions/2026-08-02.json",
+      content: '{"logged":true}',
+    });
+  });
 });

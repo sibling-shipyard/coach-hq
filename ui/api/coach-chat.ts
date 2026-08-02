@@ -478,11 +478,29 @@ async function loadClosingFileContext(repo: string, token: string): Promise<Clos
 // this handler already accepts; only chat_history.json gets the resolve-fresh-on-retry
 // treatment, since it's the one file every turn contends on). Returns null if the update
 // should be dropped (wrong file, failed edit, invalid patch, blank content).
+//
+// currentContent distinguishes three states, not two:
+//   - a string: fetched this turn, has real content
+//   - null: fetched this turn, file genuinely doesn't exist yet (legitimate - first write)
+//   - undefined: NOT fetched this turn at all (an ordinary turn never fetches coach_notes.md/
+//     challenge_v2.json/current_week.json/sleep_log.json - only closing turns do). An edit/patch
+//     proposed for a path in this state is Gemini disobeying its own turn-mode instructions -
+//     applying it anyway would mean editing/patching against content we never actually saw,
+//     which for a merge patch means silently replacing the whole file with just the patch's
+//     keys. Reject outright rather than guessing.
 export function resolveFileUpdate(
   update: GeminiFileUpdate,
-  currentContent: string | null,
+  currentContent: string | null | undefined,
 ): { path: string; content: string } | null {
   if (!isCoachWritable(update.path)) return null;
+
+  // Session files never look at currentContent (full-content replacement, always) - only
+  // markdown-edit and JSON-merge-patch files need to have actually been fetched this turn.
+  const needsFetchedContent = MARKDOWN_EDIT_FILES.has(update.path) || JSON_MERGE_FILES.has(update.path);
+  if (needsFetchedContent && currentContent === undefined) {
+    console.warn(`[coach-chat] ${update.path}: proposed without its current content having been fetched this turn - dropped`);
+    return null;
+  }
 
   if (MARKDOWN_EDIT_FILES.has(update.path)) {
     if (!update.edits || update.edits.length === 0) return null;
@@ -499,7 +517,7 @@ export function resolveFileUpdate(
 
   if (JSON_MERGE_FILES.has(update.path)) {
     if (!update.merge_patch) return null;
-    const result = applyJsonMergePatch(currentContent, update.merge_patch);
+    const result = applyJsonMergePatch(currentContent ?? null, update.merge_patch);
     if (!result.ok) {
       console.warn(`[coach-chat] ${update.path}: merge patch rejected - ${result.error}`);
       return null;
@@ -529,6 +547,27 @@ export function onboardingHintsContext(hints: OnboardingHints | undefined): stri
   return lines.join("\n");
 }
 
+// A thread created by a prior greet() has [divider, coachMsg] - "still just an unanswered
+// greeting" means exactly one non-divider message, and it's from Coach. Shared by handleGreet's
+// up-front check and its commit-time recheck (see below) - both need the exact same definition.
+function findReusableGreetingThread(threadsWithOffsets: ChatThread[]): ChatThread | undefined {
+  return threadsWithOffsets.find((t) => {
+    if (t.status !== "active" || t.dayOffset !== 0) return false;
+    const real = t.messages.filter((m) => m.role !== "divider");
+    return real.length === 1 && real[0].role === "coach";
+  });
+}
+
+function reusableThreadResponse(reusable: ChatThread, threads: ChatThread[], repoSha: string | null) {
+  const coachMsg = reusable.messages.find((m) => m.role === "coach");
+  return Response.json({
+    reply: coachMsg?.role === "coach" ? coachMsg.paragraphs.join("\n\n") : "",
+    threadId: reusable.id,
+    threads,
+    repoSha,
+  });
+}
+
 // A4: coach speaks first. Landing on "new conversation" (no active unengaged thread already
 // sitting there today) creates a thread whose only message is Coach's own opening line, before
 // the athlete has typed anything. Reuses an existing same-day thread that's still just an
@@ -545,22 +584,10 @@ async function handleGreet(
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
   const withOffsets = withComputedDayOffsets(history.threads, stateMd ?? "");
-  // A thread created by a prior greet() has [divider, coachMsg] - "still just an unanswered
-  // greeting" means exactly one non-divider message, and it's from Coach.
-  const reusable = withOffsets.find((t) => {
-    if (t.status !== "active" || t.dayOffset !== 0) return false;
-    const real = t.messages.filter((m) => m.role !== "divider");
-    return real.length === 1 && real[0].role === "coach";
-  });
+  const reusable = findReusableGreetingThread(withOffsets);
   if (reusable) {
-    const coachMsg = reusable.messages.find((m) => m.role === "coach");
     const repoSha = await getHeadSha(repo, token).catch(() => null); // A5: best-effort, never blocks a reply
-    return Response.json({
-      reply: coachMsg?.role === "coach" ? coachMsg.paragraphs.join("\n\n") : "",
-      threadId: reusable.id,
-      threads: withOffsets,
-      repoSha,
-    });
+    return reusableThreadResponse(reusable, withOffsets, repoSha);
   }
 
   let reply: GeminiReply;
@@ -591,6 +618,24 @@ async function handleGreet(
     path: CHAT_FILE_PATH,
     resolve: async () => {
       const fresh = await loadChatHistory(repo, token);
+      // Race narrowing: the up-front check above can't see a greeting thread a concurrent
+      // request commits while this one is mid-Gemini-call. Re-check here, right before this
+      // request's own commit, against the freshest possible read - doesn't fully eliminate the
+      // race (there's still the small window between this read and the ref actually moving,
+      // same as any optimistic check), but shrinks it from "the whole Gemini round-trip" down
+      // to just this commit's own read-tree-commit-ref sequence.
+      const freshWithOffsets = withComputedDayOffsets(fresh.threads, stateMd ?? "");
+      const reusable = findReusableGreetingThread(freshWithOffsets);
+      if (reusable) {
+        // Tagged {status: 400} so commitFilesAtomic's isTransient() doesn't retry this (an
+        // undefined/other status is treated as transient and would just loop back here again,
+        // finding the same reusable thread every time) - caught below, converted into reusing
+        // that thread's reply instead of erroring or duplicating it.
+        throw Object.assign(new Error("Another request already created today's greeting thread"), {
+          status: 400,
+          reusableThreadId: reusable.id,
+        });
+      }
       const thread: ChatThread = {
         id: finalThreadId,
         dayOffset: 0,
@@ -612,6 +657,16 @@ async function handleGreet(
     const result = await commitFilesAtomic([chatWrite], "coach: chat — new conversation", { repo, branch: "main", token });
     repoSha = result.commitSha;
   } catch (err: unknown) {
+    const reusableThreadId = (err as { reusableThreadId?: string }).reusableThreadId;
+    if (reusableThreadId) {
+      const fresh = await loadChatHistory(repo, token);
+      const freshWithOffsets = withComputedDayOffsets(fresh.threads, stateMd ?? "");
+      const existing = freshWithOffsets.find((t) => t.id === reusableThreadId);
+      const freshRepoSha = await getHeadSha(repo, token).catch(() => null);
+      if (existing) return reusableThreadResponse(existing, freshWithOffsets, freshRepoSha);
+      // Vanishingly unlikely (would need the thread deleted in the instant between the two
+      // reads) - fall through to the generic error below rather than crash on a missing thread.
+    }
     const errMessage = err instanceof Error ? err.message : String(err);
     return Response.json({ error: `Coach's greeting failed to save: ${errMessage}` }, { status: 502 });
   }
@@ -809,16 +864,34 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // A7: resolve each proposed update (edits/merge_patch/content, depending on file type)
       // against whatever current content this turn actually had for that path - drops anything
-      // unwritable, unresolvable (edit didn't match, patch invalid), or blank.
-      const currentContentByPath: Record<string, string | null> = {
+      // unwritable, unresolvable (edit didn't match, patch invalid), or blank. `undefined` here
+      // means "not fetched this turn at all" (distinct from `null`, "fetched, doesn't exist yet")
+      // - coach_notes.md/challenge_v2.json/current_week.json/sleep_log.json are only fetched on
+      // closing turns, so on an ordinary turn they're `undefined` and resolveFileUpdate rejects
+      // any proposed edit/patch against them rather than guessing at unseen content.
+      const currentContentByPath: Record<string, string | null | undefined> = {
         [STATE_FILE_PATH]: stateMd ?? null,
-        [COACH_NOTES_PATH]: closingFiles?.coachNotes ?? null,
-        [CHALLENGE_V2_PATH]: closingFiles?.challengeV2 ?? null,
-        [CURRENT_WEEK_PATH]: closingFiles?.currentWeek ?? null,
-        [SLEEP_LOG_PATH]: closingFiles?.sleepLog ?? null,
+        [COACH_NOTES_PATH]: closingFiles ? closingFiles.coachNotes : undefined,
+        [CHALLENGE_V2_PATH]: closingFiles ? closingFiles.challengeV2 : undefined,
+        [CURRENT_WEEK_PATH]: closingFiles ? closingFiles.currentWeek : undefined,
+        [SLEEP_LOG_PATH]: closingFiles ? closingFiles.sleepLog : undefined,
       };
-      const validUpdates = (reply.file_updates ?? [])
-        .map((f) => resolveFileUpdate(f, currentContentByPath[f.path] ?? null))
+
+      // Dedup by path before resolving - two file_updates entries for the same path would
+      // otherwise both resolve against the same stale snapshot and land as two blob entries at
+      // the same tree path in one commit (githubGitData.ts's tree builder has no defined
+      // precedence for that). Last one in Gemini's response wins, matching what the underlying
+      // Git Data API would silently do anyway - but now it's an explicit, logged choice.
+      const dedupedFileUpdates = new Map<string, GeminiFileUpdate>();
+      for (const update of reply.file_updates ?? []) {
+        if (dedupedFileUpdates.has(update.path)) {
+          console.warn(`[coach-chat] duplicate file_updates entry for ${update.path} in one turn - using the last one`);
+        }
+        dedupedFileUpdates.set(update.path, update);
+      }
+
+      const validUpdates = [...dedupedFileUpdates.values()]
+        .map((f) => resolveFileUpdate(f, currentContentByPath[f.path]))
         .filter((f): f is { path: string; content: string } => f !== null);
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
 

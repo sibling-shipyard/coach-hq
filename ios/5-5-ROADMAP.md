@@ -47,7 +47,7 @@ open the app, feel celebrated, see what changed, and talk to Coach — all in un
 **Architecture:** Replace chained `fullScreenCover`s with a single `OnboardingFlowView` coordinator.
 Holds all collected state, commits one atomic `user/state.md` write at the end of step 5.
 
-- [x] Step 1 — Name: Coach asks what to call you (`PersonalizeView`) — preferred name stored in AppStorage + `user/profile.md` committed
+- [x] Step 1 — Name: Coach asks what to call you (`PersonalizeView`) — preferred name stored in AppStorage. (Note: no longer committed to `user/profile.md` — that write was removed entirely; sport/goal hints from onboarding are now cached locally via `OnboardingHints` and reflected back by Coach during the chat-based First Session Protocol instead. See ADR-adjacent coach-chat-redesign-plan.md.)
 - [ ] Step 2 — The Reveal: "Look what you built last year" — HK year summary (session count, hours, top sport, most active month) with count-up animations and a 52-week activity bar strip (column-by-column wave animation)
 - [ ] Step 3 — Your Rhythms: Full-bleed dot heatmap (52 × 7 GitHub-style grid), dots animate in left-to-right, sport colors blended. Coach voice: *"I can see when you push, when you rest, and when life gets in the way. I'll plan around all three."* No data collected — pure trust-building.
 - [ ] Step 4 — Your Season: Sport multi-select chips (pre-checked from HK history) + free-text goal field. Seeds quest widget and Coach's first conversation.

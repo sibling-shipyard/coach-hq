@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RepoDataGate, AccessRevokedCard } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
@@ -16,6 +16,7 @@ import {
   threadStatus,
   type ChatMessage,
   type ChatThread,
+  type GreetResult,
 } from "@/components/coach-chat/coachChatModel";
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
@@ -45,13 +46,30 @@ function CoachChatContent({ data }: { data: RepoData }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [mobileView, setMobileView] = useState<MobileView>("new");
-  const [sending, setSending] = useState(false);
+  // Audit fix: scoped per-thread (was a single global boolean) - sending in one thread must not
+  // disable the composer of a different, unrelated thread the athlete has switched to.
+  const [sendingThreadIds, setSendingThreadIds] = useState<Set<string>>(new Set());
   const [loadAttempt, setLoadAttempt] = useState(0);
   // A4: coach speaks first - true while a greeting turn is in flight (either landing on the
   // page with no today-thread yet, or explicitly starting a new conversation).
   const [greeting, setGreeting] = useState(false);
 
   const activeThread = threads.find((thread) => thread.id === activeId) ?? null;
+
+  // Audit fix: ensureTodayThread (on mount) and startNewConversation (on click) can both fire
+  // greet() independently - e.g. clicking "New conversation" before the mount effect's own
+  // greet() has resolved. Without sharing the in-flight call, whichever response lands last
+  // silently wins and can revert whatever the other one already put on screen. A second caller
+  // while one is already in flight now awaits the SAME promise instead of starting a new one.
+  const greetInFlightRef = useRef<Promise<GreetResult> | null>(null);
+  function greetShared(): Promise<GreetResult> {
+    if (greetInFlightRef.current) return greetInFlightRef.current;
+    const promise = greet().finally(() => {
+      greetInFlightRef.current = null;
+    });
+    greetInFlightRef.current = promise;
+    return promise;
+  }
 
   // A4: land on today's thread with Coach already having spoken first - never an empty
   // composer waiting on the athlete to type. Creates (or reuses) it via greet() if today
@@ -66,7 +84,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     }
     setGreeting(true);
     try {
-      const result = await greet();
+      const result = await greetShared();
       setThreads(result.threads);
       setActiveId(result.threadId);
       setMobileView((v) => (v === "new" ? "thread" : v));
@@ -157,7 +175,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setDraft("");
     setMobileView("thread");
     setGreeting(true);
-    greet()
+    greetShared()
       .then((result) => {
         setThreads(result.threads);
         setActiveId(result.threadId);
@@ -180,7 +198,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
 
   async function appendUserMessage(text: string, targetId: string | null) {
     const trimmed = text.trim();
-    if (!trimmed || sending) return;
+    // Audit fix: `sending` used to be one global flag, so sending in thread A left every OTHER
+    // thread's composer disabled with "Coach is replying…" too, until A's request settled -
+    // scoped to the specific thread being sent to instead, via sendingThreadIds below.
+    if (!trimmed || (targetId && sendingThreadIds.has(targetId))) return;
 
     // Nothing is persisted server-side until the athlete says wrap/close - the server is
     // stateless per turn, so the client is the only place holding an in-progress conversation.
@@ -191,7 +212,6 @@ function CoachChatContent({ data }: { data: RepoData }) {
 
     setDraft("");
     setMobileView("thread");
-    setSending(true);
     const now = Date.now();
     const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
 
@@ -221,12 +241,18 @@ function CoachChatContent({ data }: { data: RepoData }) {
       setActiveId(newThreadId);
     }
 
+    const sendKey = targetId ?? newThreadId!;
+    setSendingThreadIds((prev) => new Set(prev).add(sendKey));
+
     try {
       const result = await sendMessage(targetId, priorMessages, trimmed);
 
       if (result.closed) {
         setThreads(result.threads);
-        setActiveId(result.threadId);
+        // Only jump to the newly-closed/reused thread if the athlete is still looking at the
+        // thread this send belonged to - if they've since switched away (or deleted it), leave
+        // their current view alone instead of silently snapping them back.
+        setActiveId((prevActiveId) => (prevActiveId === sendKey ? result.threadId : prevActiveId));
         return;
       }
 
@@ -254,10 +280,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
       );
     } catch (err: unknown) {
       // Roll back the optimistic echo - either drop the message from an existing thread, or
-      // drop the whole thread if this send was what created it.
+      // drop the whole thread if this send was what created it. Only clear activeId if the
+      // athlete is still looking at the thread that just failed - same "don't hijack navigation"
+      // rule as the success path above.
       if (newThreadId) {
         setThreads((prev) => prev.filter((thread) => thread.id !== newThreadId));
-        setActiveId(null);
+        setActiveId((prevActiveId) => (prevActiveId === newThreadId ? null : prevActiveId));
       } else if (targetId) {
         setThreads((prev) =>
           prev.map((thread) =>
@@ -274,7 +302,11 @@ function CoachChatContent({ data }: { data: RepoData }) {
       }
       setDraft(trimmed);
     } finally {
-      setSending(false);
+      setSendingThreadIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sendKey);
+        return next;
+      });
     }
   }
 
@@ -340,7 +372,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   draft={draft}
                   onDraftChange={setDraft}
                   onSend={() => void appendUserMessage(draft, activeId)}
-                  pending={sending}
+                  pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
                 />
               ) : (
                 <section className="cc-pane cc-pane--empty cc-loading" aria-label="Starting conversation">
@@ -384,7 +416,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   draft={draft}
                   onDraftChange={setDraft}
                   onSend={() => void appendUserMessage(draft, activeId)}
-                  pending={sending}
+                  pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
                   showBack
                   onBack={() => setMobileView("list")}
                 />
