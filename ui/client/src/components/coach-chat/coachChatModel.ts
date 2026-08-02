@@ -122,12 +122,23 @@ export async function fetchThreads(): Promise<ChatThread[]> {
   return body.threads.map(normalizeThread);
 }
 
+// A5: last repoSha seen per thread, kept purely client-side (module-level, not React state -
+// nothing needs to re-render off it). Sent back as knownSha on the next message in that thread
+// so the server can detect "the repo changed since I last saw it" (e.g. a session was wrapped
+// on another device) without any lock. No entry yet for a thread means no comparison happens -
+// same as before A5 existed.
+const lastKnownSha = new Map<string, string>();
+
+export function rememberRepoSha(threadId: string | null | undefined, sha: string | null | undefined): void {
+  if (threadId && sha) lastKnownSha.set(threadId, sha);
+}
+
 // Nothing is persisted server-side until the athlete says wrap/close - the server is stateless
 // per turn, so the client sends its own in-memory running history with every message. Only a
 // `closed: true` response means an actual commit happened and `threads` reflects real repo state;
 // otherwise the caller is responsible for appending the reply to its own local thread.
 export type SendMessageResult =
-  | { closed: false; reply: string }
+  | { closed: false; reply: string; stale?: boolean }
   | { closed: true; reply: string; threadId: string; threads: ChatThread[] };
 
 export async function sendMessage(
@@ -135,12 +146,13 @@ export async function sendMessage(
   priorMessages: ChatMessage[],
   message: string,
 ): Promise<SendMessageResult> {
+  const knownSha = threadId ? lastKnownSha.get(threadId) : undefined;
   const res = await fetchWithRetry(
     "/api/coach-chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message }),
+      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message, knownSha }),
     },
     3,
     false,
@@ -150,7 +162,9 @@ export async function sendMessage(
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
   }
-  const body = (await res.json()) as SendMessageResult;
+  const body = (await res.json()) as SendMessageResult & { repoSha?: string };
+  const effectiveThreadId = body.closed ? body.threadId : threadId;
+  rememberRepoSha(effectiveThreadId, body.repoSha);
   if (!body.closed) return body;
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
@@ -180,7 +194,8 @@ export async function greet(): Promise<GreetResult> {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
   }
-  const body = (await res.json()) as GreetResult;
+  const body = (await res.json()) as GreetResult & { repoSha?: string };
+  rememberRepoSha(body.threadId, body.repoSha);
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
 

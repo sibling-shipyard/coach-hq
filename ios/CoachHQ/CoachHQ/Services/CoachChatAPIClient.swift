@@ -12,6 +12,16 @@ final class CoachChatAPIClient {
         self.authManager = authManager
     }
 
+    /// A5: last repoSha seen per thread - mirrors coachChatModel.ts's lastKnownSha. Sent back
+    /// as knownSha on the next message in that thread so the server can detect the repo
+    /// changed since (e.g. a session wrapped on the web app) without any lock.
+    private static var lastKnownSha: [String: String] = [:]
+
+    private func rememberRepoSha(_ threadId: String?, _ sha: String?) {
+        guard let threadId, let sha else { return }
+        Self.lastKnownSha[threadId] = sha
+    }
+
     private struct AuthContext {
         let token: String
         let repoFull: String
@@ -129,7 +139,9 @@ final class CoachChatAPIClient {
         let auth = try await requireAuth()
         let req = try request("POST", body: ["action": "greet"], auth: auth)
         let data = try await send(req, operation: "Starting conversation", retryNetworkFailures: false)
-        return try JSONDecoder().decode(ChatGreetResponse.self, from: data)
+        let decoded = try JSONDecoder().decode(ChatGreetResponse.self, from: data)
+        rememberRepoSha(decoded.threadId, decoded.repoSha)
+        return decoded
     }
 
     func fetchThreads() async throws -> [ChatThread] {
@@ -148,10 +160,15 @@ final class CoachChatAPIClient {
             return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
         }
         var body: [String: Any] = ["messages": messagesJSON, "message": message]
-        if let threadId { body["threadId"] = threadId }
+        if let threadId {
+            body["threadId"] = threadId
+            if let knownSha = Self.lastKnownSha[threadId] { body["knownSha"] = knownSha }
+        }
         let req = try request("POST", body: body, auth: auth)
         let data = try await send(req, operation: "Sending message", retryNetworkFailures: false)
-        return try JSONDecoder().decode(ChatSendResponse.self, from: data)
+        let decoded = try JSONDecoder().decode(ChatSendResponse.self, from: data)
+        rememberRepoSha(decoded.closed ? decoded.threadId : threadId, decoded.repoSha)
+        return decoded
     }
 
     func setThreadStatus(threadId: String, status: ChatThreadStatus) async throws -> [ChatThread] {

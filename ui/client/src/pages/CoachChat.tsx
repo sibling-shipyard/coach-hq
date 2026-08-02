@@ -230,6 +230,13 @@ function CoachChatContent({ data }: { data: RepoData }) {
         return;
       }
 
+      // A5: the server detected this thread's repo state changed since we last saw it (most
+      // likely a session was wrapped on another device) and re-read fresh context before
+      // replying - let the athlete know why Coach's answer might reference something new.
+      if (result.stale) {
+        toast.info("Coach caught up on changes from your other device");
+      }
+
       const activeThreadId = targetId ?? newThreadId;
       const coachMsg: ChatMessage = { id: `c-${Date.now()}`, role: "coach", paragraphs: [result.reply] };
       setThreads((prev) =>
