@@ -39,6 +39,11 @@ import { generateRandomString, generateCodeChallenge, signOAuthState, verifyOAut
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
+// HMAC key for the stateless OAuth state parameter. SESSION_SECRET is preferred but
+// CLIENT_SECRET is a valid fallback — it's already a non-empty confidential value that's
+// consistent across all function invocations, and the state HMAC only needs to prevent
+// tampering in transit, not provide session confidentiality.
+const OAUTH_HMAC_SECRET = process.env.SESSION_SECRET || CLIENT_SECRET;
 
 // ============================================================================
 // start.ts — single "Log in with GitHub" entry point for both new and returning users -
@@ -74,8 +79,7 @@ export async function handleStart(req: Request): Promise<Response> {
   // State is HMAC-signed and embedded in the OAuth `state` parameter so GitHub echoes it
   // back in the callback URL. This avoids a Set-Cookie on the 302, which WKWebView
   // (iOS in-app browser) silently drops, breaking the auth flow.
-  const sessionSecret = process.env.SESSION_SECRET ?? "";
-  const state = await signOAuthState({ nonce, codeVerifier, platform, popup }, sessionSecret);
+  const state = await signOAuthState({ nonce, codeVerifier, platform, popup }, OAUTH_HMAC_SECRET);
 
   const authorizeUrl = new URL("https://github.com/login/oauth/authorize");
   authorizeUrl.searchParams.set("client_id", CLIENT_ID);
@@ -117,8 +121,7 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
 
   const redirectUri = `${url.origin}/api/auth/callback`;
 
-  const sessionSecret = process.env.SESSION_SECRET ?? "";
-  const state = await signOAuthState({ nonce, codeVerifier, platform, popup }, sessionSecret);
+  const state = await signOAuthState({ nonce, codeVerifier, platform, popup }, OAUTH_HMAC_SECRET);
 
   // /installations/new/permissions runs the combined OAuth+install flow and returns
   // `code` in the callback; handleCallback requires `code` to exchange for a token.
@@ -237,8 +240,7 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
   }
 
   // State is HMAC-signed (set by handleStart/handleInstallRedirect) — no cookie needed.
-  const sessionSecret = process.env.SESSION_SECRET ?? "";
-  const tempData = await verifyOAuthState(stateParam, sessionSecret);
+  const tempData = await verifyOAuthState(stateParam, OAUTH_HMAC_SECRET);
   if (!tempData) {
     return callbackErrorRedirect(url.origin, "corrupt_oauth_session", unverifiedPlatform, false);
   }
