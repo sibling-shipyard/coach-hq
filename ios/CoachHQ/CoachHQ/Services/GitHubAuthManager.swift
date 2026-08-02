@@ -383,6 +383,23 @@ class GitHubAuthManager: ObservableObject {
         lastNetworkError = nil
         sessionExpired = false
     }
+
+    /// Called once on first launch after a fresh install. UserDefaults is cleared on app
+    /// deletion but Keychain is not, so a reinstall would otherwise inherit a stale token.
+    static func clearKeychainOnFreshInstall() {
+        let keys = [
+            "com.siblingshipyard.coachhq.github.token",
+            "com.siblingshipyard.coachhq.github.refresh_token",
+            "com.siblingshipyard.coachhq.github.expires_at",
+        ]
+        for key in keys {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrAccount as String: key,
+            ]
+            SecItemDelete(query as CFDictionary)
+        }
+    }
 }
 
 // MARK: - Supporting Types

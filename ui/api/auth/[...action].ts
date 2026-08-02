@@ -22,7 +22,6 @@ import {
   parseCookies,
   SESSION_COOKIE,
   SESSION_MAX_AGE_SEC,
-  OAUTH_STATE_COOKIE,
   ensureFreshSession,
   withSessionCookie,
   type SessionPayload,
@@ -35,12 +34,11 @@ import {
   InstallationLookupFailedError,
   MarkerLookupFailedError,
 } from "./_lib/repo-resolution.js";
-import { generateRandomString, generateCodeChallenge } from "./_lib/pkce.js";
+import { generateRandomString, generateCodeChallenge, signOAuthState, verifyOAuthState } from "./_lib/pkce.js";
 
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
 const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
-const OAUTH_STATE_MAX_AGE_SEC = 600; // 10 min - just needs to survive the redirect round trip
 
 // ============================================================================
 // start.ts — single "Log in with GitHub" entry point for both new and returning users -
@@ -67,11 +65,17 @@ export async function handleStart(req: Request): Promise<Response> {
     return new Response(null, { status: 302, headers });
   }
 
-  const state = generateRandomString(24);
+  const nonce = generateRandomString(24);
   const codeVerifier = generateRandomString(48);
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
   const redirectUri = `${url.origin}/api/auth/callback`;
+
+  // State is HMAC-signed and embedded in the OAuth `state` parameter so GitHub echoes it
+  // back in the callback URL. This avoids a Set-Cookie on the 302, which WKWebView
+  // (iOS in-app browser) silently drops, breaking the auth flow.
+  const sessionSecret = process.env.SESSION_SECRET ?? "";
+  const state = await signOAuthState({ nonce, codeVerifier, platform, popup }, sessionSecret);
 
   const authorizeUrl = new URL("https://github.com/login/oauth/authorize");
   authorizeUrl.searchParams.set("client_id", CLIENT_ID);
@@ -80,12 +84,8 @@ export async function handleStart(req: Request): Promise<Response> {
   authorizeUrl.searchParams.set("code_challenge", codeChallenge);
   authorizeUrl.searchParams.set("code_challenge_method", "S256");
 
-  const tempValue = JSON.stringify({ state, codeVerifier, platform, popup });
-
   const headers = new Headers();
   headers.set("Location", authorizeUrl.toString());
-  headers.append("Set-Cookie", buildCookie(OAUTH_STATE_COOKIE, tempValue, OAUTH_STATE_MAX_AGE_SEC));
-
   return new Response(null, { status: 302, headers });
 }
 
@@ -111,11 +111,14 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
     return new Response(null, { status: 302, headers });
   }
 
-  const state = generateRandomString(24);
+  const nonce = generateRandomString(24);
   const codeVerifier = generateRandomString(48);
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
   const redirectUri = `${url.origin}/api/auth/callback`;
+
+  const sessionSecret = process.env.SESSION_SECRET ?? "";
+  const state = await signOAuthState({ nonce, codeVerifier, platform, popup }, sessionSecret);
 
   // /installations/new/permissions runs the combined OAuth+install flow and returns
   // `code` in the callback; handleCallback requires `code` to exchange for a token.
@@ -134,12 +137,8 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
   installUrl.searchParams.set("code_challenge", codeChallenge);
   installUrl.searchParams.set("code_challenge_method", "S256");
 
-  const tempValue = JSON.stringify({ state, codeVerifier, platform, popup });
-
   const headers = new Headers();
   headers.set("Location", installUrl.toString());
-  headers.append("Set-Cookie", buildCookie(OAUTH_STATE_COOKIE, tempValue, OAUTH_STATE_MAX_AGE_SEC));
-
   return new Response(null, { status: 302, headers });
 }
 
@@ -155,7 +154,6 @@ function callbackErrorRedirect(
   origin: string,
   type: string,
   platform: "web" | "ios" = "web",
-  clearOauthCookie = true,
   popup = false,
 ): Response {
   const headers = new Headers();
@@ -167,9 +165,6 @@ function callbackErrorRedirect(
         ? `${origin}/auth/popup-complete?error=${type}`
         : `${origin}/?auth_error=${type}`,
   );
-  if (clearOauthCookie) {
-    headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
-  }
   return new Response(null, { status: 302, headers });
 }
 
@@ -193,7 +188,6 @@ function callbackSetupRedirect(
         ? `${origin}/auth/popup-complete?error=needs_ios_setup`
         : `${origin}/?auth_error=needs_ios_setup`,
   );
-  headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
   return new Response(null, { status: 302, headers });
 }
 
@@ -217,31 +211,21 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
   }
 
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
+  const stateParam = url.searchParams.get("state");
 
-  if (!code || !state) {
+  if (!code || !stateParam) {
     return callbackErrorRedirect(url.origin, "missing_params", "web", false);
   }
 
-  const cookies = parseCookies(req);
-  const tempRaw = cookies[OAUTH_STATE_COOKIE];
-  if (!tempRaw) {
-    return callbackErrorRedirect(url.origin, "missing_oauth_session", "web", false);
+  // State is HMAC-signed (set by handleStart/handleInstallRedirect) — no cookie needed.
+  const sessionSecret = process.env.SESSION_SECRET ?? "";
+  const tempData = await verifyOAuthState(stateParam, sessionSecret);
+  if (!tempData) {
+    return callbackErrorRedirect(url.origin, "corrupt_oauth_session", "web", false);
   }
 
-  let tempData: { state: string; codeVerifier: string; platform?: "web" | "ios"; popup?: boolean };
-  try {
-    tempData = JSON.parse(tempRaw);
-  } catch {
-    return callbackErrorRedirect(url.origin, "corrupt_oauth_session");
-  }
-
-  const platform: "web" | "ios" = tempData.platform === "ios" ? "ios" : "web";
-  const popup = platform === "web" && tempData.popup === true;
-
-  if (tempData.state !== state) {
-    return callbackErrorRedirect(url.origin, "state_mismatch", platform, true, popup);
-  }
+  const platform: "web" | "ios" = tempData.platform;
+  const popup = platform === "web" && tempData.popup;
 
   const redirectUri = `${url.origin}/api/auth/callback`;
 
@@ -259,12 +243,12 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
 
   const tokenBody = await tokenRes.json();
   if (!tokenRes.ok || tokenBody.error || !tokenBody.access_token) {
-    return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, true, popup);
+    return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, popup);
   }
   // refresh_token/expires_in are always present - "expire user authorization tokens" is
   // opted in on the GitHub App. ensureFreshSession / iOS's refresh logic need both to rotate.
   if (!tokenBody.refresh_token || !tokenBody.expires_in) {
-    return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, true, popup);
+    return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, popup);
   }
 
   const ghToken = tokenBody.access_token as string;
@@ -280,7 +264,7 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
   });
 
   if (!userRes.ok) {
-    return callbackErrorRedirect(url.origin, "user_fetch_failed", platform, true, popup);
+    return callbackErrorRedirect(url.origin, "user_fetch_failed", platform, popup);
   }
 
   const user = await userRes.json();
@@ -290,7 +274,7 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
     installationId = await resolveInstallationId(ghToken, user.login as string, APP_SLUG);
   } catch (e) {
     if (e instanceof InstallationLookupFailedError) {
-      return callbackErrorRedirect(url.origin, "lookup_failed", platform, true, popup);
+      return callbackErrorRedirect(url.origin, "lookup_failed", platform, popup);
     }
     throw e;
   }
@@ -309,7 +293,6 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
           `&refresh_token=${encodeURIComponent(ghRefreshToken)}` +
           `&expires_at=${ghTokenExpiresAt}`,
       );
-      headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
       return new Response(null, { status: 302, headers });
     }
     return callbackSetupRedirect(url.origin, user.login as string, platform, popup);
@@ -330,7 +313,6 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
         `&expires_at=${ghTokenExpiresAt}` +
         `&login=${encodeURIComponent(user.login as string)}${repoParam}`,
     );
-    headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
     return new Response(null, { status: 302, headers });
   }
 
@@ -346,7 +328,6 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
   const headers = new Headers();
   headers.set("Location", popup ? `${url.origin}/auth/popup-complete?ok=1` : "/");
   headers.append("Set-Cookie", buildCookie(SESSION_COOKIE, session, SESSION_MAX_AGE_SEC));
-  headers.append("Set-Cookie", clearCookie(OAUTH_STATE_COOKIE));
 
   return new Response(null, { status: 302, headers });
 }

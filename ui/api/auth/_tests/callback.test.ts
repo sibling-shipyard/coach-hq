@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { OAUTH_STATE_COOKIE, decryptSession, SESSION_COOKIE } from "../_lib/session.js";
+import { decryptSession, SESSION_COOKIE } from "../_lib/session.js";
+import { signOAuthState } from "../_lib/pkce.js";
 
 process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 process.env.GITHUB_APP_CLIENT_ID ??= "test-client-id";
@@ -7,12 +8,21 @@ process.env.GITHUB_APP_CLIENT_SECRET ??= "test-client-secret";
 
 const { default: handler } = await import("../[...action].js");
 
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
 function ghUrl(path: string): string {
   return `https://api.github.com${path}`;
 }
 
-function oauthStateCookie(data: Record<string, unknown>): string {
-  return `${OAUTH_STATE_COOKIE}=${encodeURIComponent(JSON.stringify(data))}`;
+async function makeCallbackUrl(
+  code: string,
+  data: { nonce?: string; codeVerifier: string; platform: "web" | "ios"; popup: boolean },
+): Promise<string> {
+  const state = await signOAuthState(
+    { nonce: data.nonce ?? "test-nonce", codeVerifier: data.codeVerifier, platform: data.platform, popup: data.popup },
+    SESSION_SECRET,
+  );
+  return `https://example.com/api/auth/callback?code=${code}&state=${encodeURIComponent(state)}`;
 }
 
 describe("callback.ts web branch", () => {
@@ -48,12 +58,7 @@ describe("callback.ts web branch", () => {
     });
 
     const req = new Request(
-      "https://example.com/api/auth/callback?code=abc&state=xyz",
-      {
-        headers: {
-          cookie: oauthStateCookie({ state: "xyz", codeVerifier: "verifier", platform: "web", popup: true }),
-        },
-      },
+      await makeCallbackUrl("abc", { codeVerifier: "verifier", platform: "web", popup: true }),
     );
 
     const res = await handler.fetch(req);
@@ -93,12 +98,7 @@ describe("callback.ts web branch", () => {
     });
 
     const req = new Request(
-      "https://example.com/api/auth/callback?code=abc&state=xyz",
-      {
-        headers: {
-          cookie: oauthStateCookie({ state: "xyz", codeVerifier: "verifier", platform: "web", popup: true }),
-        },
-      },
+      await makeCallbackUrl("abc", { codeVerifier: "verifier", platform: "web", popup: true }),
     );
 
     const res = await handler.fetch(req);

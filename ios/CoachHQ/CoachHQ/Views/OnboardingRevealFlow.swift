@@ -145,7 +145,7 @@ private struct SyncStepView: View {
                     .padding(.bottom, 12)
                     .onboardingReveal(index: 0)
 
-                Text("We'll upload your recent workouts to your GitHub log. This may take a moment.")
+                Text("Coach reads every session to build your training picture. Keep the app open — first-time syncs can take a few minutes.")
                     .font(.system(size: 16))
                     .foregroundColor(WarmInstrument.inkMuted)
                     .lineSpacing(4)
@@ -225,6 +225,10 @@ private struct SyncStepView: View {
             guard started, let result = syncManager.lastSyncResult else { return }
             handleResult(result)
         }
+        .onChange(of: syncManager.syncProgress) { _, p in
+            guard !completionHandled else { return }
+            withAnimation(.easeOut(duration: 0.4)) { progress = max(progress, p) }
+        }
         .animation(PremiumMotion.state, value: started)
     }
 
@@ -232,15 +236,16 @@ private struct SyncStepView: View {
         // Always clear stale text from a background observer sync that ran earlier.
         syncManager.syncProgressText = ""
         withAnimation(PremiumMotion.state) { started = true }
+        // Eager nudge so the bar moves the instant Proceed is tapped, before the first
+        // network round-trip back from HealthKitSyncManager sets syncProgress.
+        withAnimation(.easeOut(duration: 0.3)) { progress = 0.02 }
 
         if syncManager.isSyncing {
-            // Background sync already running — just wait for it via .task(id:) above.
-            Task { await warmProgress() }
+            // Background sync already running — wait for it via .task(id:) above.
             return
         }
 
         Task { await syncManager.syncNewWorkouts() }
-        Task { await warmProgress() }
     }
 
     private func handleResult(_ result: HealthKitSyncManager.SyncResult) {
@@ -248,7 +253,7 @@ private struct SyncStepView: View {
         completionHandled = true
         switch result.outcome {
         case .synced(let n):
-            completionText = "\(n) workout\(n == 1 ? "" : "s") saved to GitHub"
+            completionText = "\(n) workout\(n == 1 ? "" : "s") saved to Coach"
             withAnimation(.easeOut(duration: 0.4)) { progress = 1.0 }
             Task {
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -267,22 +272,6 @@ private struct SyncStepView: View {
         }
     }
 
-    // Fills the bar from 0 → 0.82 over ~5 seconds. Stops when result arrives
-    // (completionHandled = true) or view is torn down.
-    private func warmProgress() async {
-        let steps = 60
-        let duration = 5.0
-        let stepDuration = duration / Double(steps)
-        for i in 1...steps {
-            guard !completionHandled else { break }
-            let t = Double(i) / Double(steps)
-            let eased = 1.0 - pow(1.0 - t, 2.5)
-            withAnimation(.linear(duration: stepDuration)) {
-                progress = max(progress, 0.82 * eased)
-            }
-            try? await Task.sleep(nanoseconds: UInt64(stepDuration * 1_000_000_000))
-        }
-    }
 }
 
 // MARK: - Progress dots

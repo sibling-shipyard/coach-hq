@@ -30,6 +30,9 @@ class HealthKitSyncManager: ObservableObject {
     /// Human-readable description of the current sync stage, for display in SyncStepView.
     /// Empty when not syncing.
     @Published var syncProgressText: String = ""
+    /// 0.0 → 1.0 real progress fraction for the onboarding sync bar.
+    /// Updated at key checkpoints so the bar tracks actual work, not a timer.
+    @Published var syncProgress: Double = 0
 
     /// Persisted flag set only when the user explicitly connects HealthKit (pre-prompt
     /// "Connect Health" or Settings button). Distinct from `isHKObserverActive`, which
@@ -165,6 +168,7 @@ class HealthKitSyncManager: ObservableObject {
 
         isSyncing = true
         syncError = nil
+        syncProgress = 0.02
 
         do {
             // sync_state.json doesn't exist on a fresh repo — treat .notFound as first sync.
@@ -185,7 +189,11 @@ class HealthKitSyncManager: ObservableObject {
             }
 
             let lookbackDays = max(1, Calendar.current.dateComponents([.day], from: since, to: Date()).day ?? 7)
-            syncProgressText = "Gathering activities — last \(lookbackDays) day\(lookbackDays == 1 ? "" : "s")"
+            let isFirstSync = lookbackDays > 30
+            syncProgressText = isFirstSync
+                ? "Scanning a year of HealthKit data…"
+                : "Checking for new workouts…"
+            syncProgress = 0.05
 
             let workouts = try await fetchWorkouts(since: since)
             guard !workouts.isEmpty else {
@@ -195,6 +203,7 @@ class HealthKitSyncManager: ObservableObject {
                     try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
                     syncProgressText = ""
                 }
+                syncProgress = 0
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
@@ -202,7 +211,8 @@ class HealthKitSyncManager: ObservableObject {
                 return
             }
 
-            syncProgressText = "Building commit (\(workouts.count) workout\(workouts.count == 1 ? "" : "s") found)"
+            syncProgress = 0.08
+            syncProgressText = "\(workouts.count) workout\(workouts.count == 1 ? "" : "s") found — reading HR data…"
 
             // hist/ directory doesn't exist until the first commit — treat 404 as empty.
             let existingFiles: [GitHubFileEntry]
@@ -226,7 +236,10 @@ class HealthKitSyncManager: ObservableObject {
             var filesToCommit: [(path: String, data: Data)] = []
             var syncedForCache: [(fileName: String, activity: Activity)] = []
 
-            for workout in workouts {
+            let total = workouts.count
+            for (index, workout) in workouts.enumerated() {
+                syncProgress = 0.08 + 0.82 * Double(index + 1) / Double(total)
+                syncProgressText = "Reading workout \(index + 1) of \(total)…"
                 let base = ActivityMapper.map(workout: workout)
 
                 // Dedup against Strava files (YYYY-MM-DD_HHMMSS_<id>.json)
@@ -304,7 +317,8 @@ class HealthKitSyncManager: ObservableObject {
             filesToCommit.append(contentsOf: extraFiles)
 
             let n = filesToCommit.count - 1 - extraFiles.count
-            syncProgressText = "Pushing \(n) activit\(n == 1 ? "y" : "ies") to GitHub…"
+            syncProgressText = "Uploading \(n) workout\(n == 1 ? "" : "s") to GitHub…"
+            syncProgress = 0.93
             let commitFinishedAt = Date()
             try await apiClient.commitFiles(filesToCommit, message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")")
 
@@ -318,7 +332,8 @@ class HealthKitSyncManager: ObservableObject {
 
             self.syncState = syncState
             lastSyncDate = Date()
-            syncProgressText = "Commit pushed — \(n) activit\(n == 1 ? "y" : "ies") saved"
+            syncProgressText = ""
+            syncProgress = 0.97
             lastSyncResult = SyncResult(outcome: .synced(n), id: UUID())
             // Release the lock before the post-commit refresh so a second syncNewWorkouts()
             // call (e.g. from SyncStepView tapping Proceed) isn't blocked for up to 5 min.
