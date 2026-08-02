@@ -50,7 +50,11 @@ async function hmacKey(secret: string, usage: "sign" | "verify"): Promise<Crypto
 }
 
 function fromBase64Url(b64: string): Uint8Array {
-  return Uint8Array.from(atob(b64.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  // atob (both Edge runtime and browsers) requires standard base64 with = padding.
+  // toBase64Url strips trailing '=' — add them back before decoding.
+  const base64 = b64.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
 }
 
 /** Encodes and HMAC-signs an OAuth state payload. */
