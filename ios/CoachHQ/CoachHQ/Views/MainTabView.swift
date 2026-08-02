@@ -185,6 +185,14 @@ struct MainTabView: View {
             // session, regardless of whether the athlete ever opens the Chat tab this launch.
             Task { await CoachChatAPIClient(authManager: authManager).prefetchContext() }
             guard router.onboardingPhase == .complete else { return }
+            // B3: native onboarding is done, but that doesn't mean the First Session Protocol
+            // chat intake is - live-check every launch until CoachSetupState is genuinely
+            // complete (see CoachSetupBootstrap's doc comment for why this replaced the old
+            // thread-existence heuristic). Only routes forward to Chat; never fights the athlete
+            // back out of wherever they already navigated to.
+            if await CoachSetupBootstrap.shouldOpenChatFirst(authManager: authManager) {
+                selectedTab = .chat
+            }
             syncManager.syncNotificationsEnabled = true
             try? await syncManager.requestAuthorization()
             await syncManager.requestNotificationPermission()

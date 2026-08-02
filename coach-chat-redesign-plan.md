@@ -65,23 +65,29 @@ Branch: `coach-chat-redesign-part-a` (Part A, current). Part B will be its own b
 
 ## Part B — First Session Protocol wiring fix
 
-### B1. ⬜ Native onboarding stops writing the dead `user_data/profile.md`
-- Remove the commit in `OnboardingRevealFlow.swift` / `HealthKitSyncManager.swift`'s `extraFiles` plumbing for this write — confirmed zero consumers anywhere in the repo.
-- Sport(s) + goal answers cached locally only (UserDefaults, no TTL) as onboarding hints for the first chat turn. If absent (reinstall, web-only), First Session Protocol just asks fresh.
+### B1. ✅ Native onboarding stops writing the dead `user_data/profile.md`
+- `OnboardingRevealFlow.swift`'s `SeasonStepView.save()` no longer builds/commits a markdown blob — confirmed zero consumers anywhere in the repo. Removed `SyncStepView`'s `profileContent`/`profileExtraFiles`/`needsProfileCommit` plumbing entirely; sync calls are now plain `syncManager.syncNewWorkouts()`.
+- New `OnboardingHints` (UserDefaults, no TTL) caches sport(s) + goal locally instead, for B4 to pass into the first chat turn. Cleared once the real profile is written (see B3).
+- `HealthKitSyncManager.swift`'s `extraFiles` parameter itself is left in place (generic mechanism, default `[]`, no current caller uses it) — only the profile.md call site was removed.
 
-### B2. ⬜ Backend computes and exposes `profileComplete`
-- After any close-turn commits `state.md`, parse the `## Athlete Profile` section and check each required field is non-blank. Include `profileComplete: boolean` in the close-turn response.
-- New lightweight `GET /api/coach-chat/profile-status` for iOS to poll on launch without a chat turn.
+### B2. ✅ Backend computes and exposes `profileComplete`
+- `isAthleteProfileComplete()` in `ui/api/_lib/coachChatFiles.ts` parses the `## Athlete Profile` section generically (any `- **Label:**` line found must be non-blank; section must exist and contain at least one such line) rather than hardcoding the six field names, so it stays correct if the template's fields ever change. Included in every close-turn response as `profileComplete`, computed from whatever `state.md` content that turn actually just committed (not a stale pre-turn snapshot).
+- `GET /api/coach-chat-profile-status` — its own file. Vercel's Hobby plan caps a deployment at 12 serverless functions (one per top-level `api/*.ts`), and this repo sat exactly at that cap after Part A merged, so this endpoint briefly broke the build. First fix was a `?profileStatus=1` query param folded into `coach-chat.ts` (works, but doesn't scale and mixes concerns); superseded by the real fix — see ADR [0017](kdb/decisions/0017-vercel-function-count-catch-all-routes.md): `ui/api/auth/`'s 7 thin route files consolidated into one Vercel catch-all (`ui/api/auth/[...action].ts`), which Vercel counts as a single function regardless of how many logical sub-paths it dispatches. That dropped the count from 12 to 6, giving `coach-chat-profile-status.ts` room to be its own clean file again (final count: 7).
+- Test coverage (`coachChatFiles.test.ts`) caught a real regex bug before ship: `$` with the `/m` flag matches at *every* line ending, not just true end-of-string, so the section-extraction regex was silently truncating after the section's first line. Fixed with `(?![\s\S])` instead of `$`.
 
-### B3. ⬜ Fix routing: live server check drives Chat-vs-Home, every launch, until complete
-- Replace the dead `shouldOpenChatFirst()` heuristic with a live `profile-status` check on every launch while the Keychain flag is false; flip the flag and go Home once `profileComplete: true`.
-- Files: `CoachSetupState.swift`, `MainTabView.swift` (actually wire the call site — currently missing entirely).
+### B3. ✅ Fix routing: live server check drives Chat-vs-Home, every launch, until complete
+- `CoachSetupBootstrap.shouldOpenChatFirst()` rewritten to call the new profile-status endpoint instead of inferring completion from thread existence. Fallback on network failure/timeout is explicitly Home (matches the function's own pre-existing doc comment, which the old code's logic actually contradicted — a latent bug fixed as a side effect).
+- Wired into `MainTabView.swift`'s existing `.task` block, right after the `onboardingPhase == .complete` guard — this call site never existed before (confirmed dead code pre-change).
+- Removed two premature-completion sites in `CoachChatView.swift` that used to infer "setup done" from the wrong signal: `loadThreads()` marked complete the instant *any* thread existed (which, post-A4, is always true the moment Chat opens, greeting or not), and the message-send success handler marked complete on *any* session close (day-to-day chat included). Both now do nothing — completion is decided exclusively by the live check above and by `ChatSendResponse.profileComplete` on a close-turn that genuinely finishes the intake.
 
-### B4. ⬜ SOUL.md First Session Protocol edits
-- `platform/soul/B_engine.md` §10: accept native onboarding hints (sport/goal) as pre-filled context, reflect back for confirmation instead of re-asking cold. Recompose `platform/SOUL.md` via `compose-soul.mjs` after editing the layer.
+### B4. ✅ SOUL.md First Session Protocol edits
+- `platform/soul/B_engine.md` §10: added an "Onboarding hints" note plus skip-markers on the sport and goal intake questions — when hints are present, Coach reflects them back for confirmation instead of asking cold; when absent (web, reinstall), asks fresh as originally written. Recomposed via `compose-soul.mjs`, drift check (`--check`) passes.
+- Backend: new `OnboardingHints` type + `onboardingHintsContext()` (tested, 7 cases) formats sport/goal into an extra prompt-context block, threaded through `handleGreet()` only (greeting turns are the only ones that could possibly be a brand-new athlete's first-ever turn).
+- iOS: `CoachChatAPIClient.greet(onboardingHints:)` sends `OnboardingHints.load()`'s cached values on every greet call — harmless to send when irrelevant (server ignores it once the thread-reuse path applies, or once the profile's already filled in).
 
-### B5. ⬜ Resumability
-- Falls out of B2 + B3 + A4 combined: an unclosed thread + `profileComplete: false` routes back into the same thread on every relaunch. No separate mechanism needed.
+### B5. ✅ Resumability — verified, no new code needed
+- Traced the full chain: a brand-new athlete's first-ever session is already routed to Chat by the pre-existing `NamePromptView` completion callback (unaffected by this work, happens before HK permission even). B3's live check specifically covers the *relaunch* case: athlete answers a few intake questions, kills the app, relaunches — `MainTabView`'s `.task` re-runs fresh (new view instance per app launch), `shouldOpenChatFirst()` sees `profileComplete: false`, routes to Chat; `CoachChatView.loadThreads()` finds the still-active `todayThread` (dayOffset 0, not deleted — the thread never closed, so `session_closed` never went true) and selects it directly rather than calling `greetNow()` again — full message history intact, Coach continues naturally, no re-asking.
+- Confirms B2 + B3 + A4 combine exactly as designed; nothing further to build.
 
 ---
 

@@ -20,6 +20,7 @@
 | 0014 | Use HealthKit workout UUID as stable canonical id | cross-cutting |
 | 0015 | iOS app-launch state machine | ios |
 | 0016 | Names display only, category is machine field | cross-cutting |
+| 0017 | Group related API endpoints behind Vercel catch-all routes, not query-param folding | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.

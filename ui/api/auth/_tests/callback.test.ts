@@ -5,7 +5,7 @@ process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 process.env.GITHUB_APP_CLIENT_ID ??= "test-client-id";
 process.env.GITHUB_APP_CLIENT_SECRET ??= "test-client-secret";
 
-const { default: handler } = await import("../callback.js");
+const { default: handler } = await import("../[...action].js");
 
 function ghUrl(path: string): string {
   return `https://api.github.com${path}`;

@@ -3,7 +3,7 @@ import { encryptSession, buildCookie, SESSION_COOKIE, type SessionPayload } from
 
 process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 
-const { default: handler } = await import("../list-my-repos.js");
+const { default: handler } = await import("../[...action].js");
 
 function ghUrl(path: string): string {
   return `https://api.github.com${path}`;

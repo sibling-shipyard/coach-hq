@@ -426,11 +426,12 @@ struct CoachChatView: View {
         defer { threadsLoading = false }
 
         do {
+            // B3: completion is decided ONLY by CoachSetupBootstrap.shouldOpenChatFirst()'s live
+            // profileComplete check (MainTabView.swift's .task) - never inferred from thread
+            // existence here. That used to be the premature-completion bug, and A4's coach-
+            // speaks-first design made it worse: a greeting thread now exists the instant this
+            // view loads, before the athlete has said anything at all.
             threads = try await apiClient.fetchThreads()
-            if !threads.filter({ $0.status != .deleted }).isEmpty,
-               let repo = authManager.repoFullName {
-                CoachSetupState.markComplete(repoFullName: repo)
-            }
             if let today = todayThread {
                 activeThreadId = today.id
             } else {
@@ -456,7 +457,11 @@ struct CoachChatView: View {
     /// conversation" (the server's reuse-vs-create logic handles both cases correctly).
     private func greetNow(apiClient: CoachChatAPIClient) async {
         do {
-            let result = try await apiClient.greet()
+            // B4: only relevant for a brand-new athlete's very first greet (harmless to pass
+            // otherwise - the server ignores it whenever the reuse-existing-thread path applies,
+            // or once state.md's Athlete Profile is already filled in and there's nothing left
+            // to reflect back).
+            let result = try await apiClient.greet(onboardingHints: OnboardingHints.load())
             threads = result.threads
             activeThreadId = result.threadId
         } catch let error as GitHubAPIError {
@@ -502,13 +507,6 @@ struct CoachChatView: View {
             id: "d-\(Int(now))",
             label: "TODAY · \(headerContext.dayLabel(offset: 0))"
         )
-        var initialMessages: [ChatMessage] = [divider]
-        if !chatWelcomeShown {
-            let greeting = preferredName.isEmpty
-                ? "Hey. I'm Coach Phelps."
-                : "Hey, \(preferredName). I'm Coach Phelps."
-            initialMessages.append(ChatMessage.coach(id: "welcome-coach", paragraphs: [greeting]))
-        }
         let created = ChatThread(
             id: id,
             dayOffset: 0,
@@ -562,8 +560,13 @@ struct CoachChatView: View {
             if result.closed, let newThreads = result.threads {
                 threads = newThreads
                 activeThreadId = result.threadId
-                if let repo = authManager.repoFullName {
+                // B3: only the real signal - this close-turn's committed state.md actually has a
+                // filled-in Athlete Profile. Every prior close (day-to-day chat, or an earlier
+                // First Session turn that wasn't actually the finishing one) must NOT mark
+                // complete - that was the premature-completion bug B3 replaces.
+                if result.profileComplete == true, let repo = authManager.repoFullName {
                     CoachSetupState.markComplete(repoFullName: repo)
+                    OnboardingHints.clear()
                 }
                 return
             }

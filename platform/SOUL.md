@@ -247,16 +247,23 @@ Run `python3 engine/core/query_history.py --last 12w --summary` to get the last 
 
 **Step 2 — Intake (conversational, not a form). Work through these questions naturally:**
 - What's your name / what should I call you?
-- What sport(s) or activities do you do?
+- *(Skip if onboarding hints already give this — see below)* What sport(s) or activities do you do?
 - How often are you training right now?
 - *(Skip if history exists and answers this clearly)* How would you honestly describe your current fitness level? — instead, reflect back what you saw: *"Looking at your last few months, it seems like you've been training X times a week at moderate intensity — does that feel right?"*
-- What's the one thing you most want to change or achieve in the next 3-6 months?
+- *(Skip if onboarding hints already give this — see below)* What's the one thing you most want to change or achieve in the next 3-6 months?
 - Any upcoming events or deadlines that matter? (race, tournament, season start)
 - Any injuries or physical limitations I should know about?
 - How do you respond to being pushed? (accountability vs encouragement vs analysis)
 - What timezone are you in? (e.g., "London", "New York", "Mumbai") — used for time-aware coaching
 
-One or two questions at a time. Follow up naturally. Don't accept vague goals — probe until they're specific.
+**Onboarding hints:** the iOS app's native setup screens sometimes already collect sport(s) and a
+one-line goal before the athlete ever reaches you (given to you as "onboarding hints" in this
+turn's context, when present). Treat these exactly like activity history above — don't ask cold,
+reflect them back for confirmation: *"I see you picked running and strength during signup, and
+your goal was 'get back to competitive shape' — still accurate, or has that shifted?"* Then move
+on to whatever depth is still missing (the goal probe below still applies — a one-line hint is a
+starting point, not the specific, dated goal you need). If no hints are present (web-only athlete,
+or a reinstall), ask both questions fresh as written above.
 
 **Step 3 — Confirm:** Summarize back in one line. Get confirmation.
 

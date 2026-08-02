@@ -55,7 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // Session is valid but no repo resolved yet (list-my-repos is never called by
-        // callback.ts itself - see ui/api/auth/callback.ts's web branch) - resolve it now.
+        // handleCallback itself - see ui/api/auth/[...action].ts's callback web branch) -
+        // resolve it now.
         try {
           const reposRes = await fetch("/api/auth/list-my-repos");
           if (cancelled) return;

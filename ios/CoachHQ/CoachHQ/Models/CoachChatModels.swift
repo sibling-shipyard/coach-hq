@@ -54,7 +54,9 @@ struct ChatThreadsResponse: Decodable {
 
 /// POST /api/coach-chat response - `closed: false` means nothing was written server-side
 /// (see coach-chat-flow.md "ordinary turn"), so `threadId`/`threads` are absent that turn.
-/// `repoSha`/`stale` are A5 (cross-device staleness detection) - see CoachChatAPIClient.
+/// `repoSha`/`stale` are A5 (cross-device staleness detection). `profileComplete` is B2 - only
+/// meaningful when `closed` is true, computed from whatever state.md content this close-turn
+/// actually just committed.
 struct ChatSendResponse: Decodable {
     let reply: String
     let closed: Bool
@@ -62,6 +64,7 @@ struct ChatSendResponse: Decodable {
     let threads: [ChatThread]?
     let repoSha: String?
     let stale: Bool?
+    let profileComplete: Bool?
 }
 
 struct ChatAPIErrorBody: Decodable {
@@ -75,4 +78,9 @@ struct ChatGreetResponse: Decodable {
     let threadId: String
     let threads: [ChatThread]
     let repoSha: String?
+}
+
+/// GET /api/coach-chat-profile-status response (B2).
+struct ChatProfileStatusResponse: Decodable {
+    let profileComplete: Bool
 }
