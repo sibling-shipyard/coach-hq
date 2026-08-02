@@ -7,33 +7,41 @@ One-time operator script to retag historical activities when an athlete repo sti
 | Repo | Preset | When |
 |------|--------|------|
 | `akash-suresh/coach-akash` | `--preset sky` | Once, after phase 1 merge + before next iOS sync |
-| `skanda-2003/coach-skanda` | `--preset generic` | Once, if hist files use non-standard names |
+| `skanda-2003/coach-skanda` | `--preset skanda` | Once, after phase 1 merge + before next iOS sync |
 
 Do **not** re-run after migration unless `--force` is intentional — it renumbers all activities.
+
+**Do not re-run on already-migrated repos.** Legacy display names are replaced with
+`Sport #N`; category regex rules only match the old names. A second run mis-tags
+categories (e.g. RNK → CAS). To fix a bad migration, reset hist + sync_state to
+pre-migration git state, then run once.
 
 ## Flow
 
 ```mermaid
 flowchart LR
     Hist["hist/*.json\nlegacy names"] --> Script["migrate_activity_naming.py"]
-    Preset["presets/sky.json\nor generic.json"] --> Script
+    Preset["presets/sky.json\nor skanda.json"] --> Script
     Script --> Out["name: Sport #N\ncategory: RNK/FDN/…"]
     Script --> State["sync_state.json\ncounters updated"]
 ```
 
 ## Commands
 
-Clone the athlete repo, then from repo root:
+Run from HQ, pointing at the athlete repo:
 
 ```bash
 # Preview (no writes)
-python3 engine/scripts/migrate_activity_naming.py --dry-run --preset sky
+python3 engine/scripts/migrate_activity_naming.py --dry-run --preset sky \
+  --repo /path/to/coach-akash
 
 # Apply — Akash
-python3 engine/scripts/migrate_activity_naming.py --preset sky
+python3 engine/scripts/migrate_activity_naming.py --preset sky \
+  --repo /path/to/coach-akash
 
-# Apply — Skanda (minimal category mapping)
-python3 engine/scripts/migrate_activity_naming.py --preset generic
+# Apply — Skanda (club badminton, cricket, Strava defaults)
+python3 engine/scripts/migrate_activity_naming.py --preset skanda \
+  --repo /path/to/coach-skanda
 ```
 
 Commit the hist + `user_data/activities/sync_state.json` changes. Regenerate derived data (`regenerate_derived.py`) if the repo uses it.
@@ -41,7 +49,7 @@ Commit the hist + `user_data/activities/sync_state.json` changes. Regenerate der
 ## Done when
 
 - Every hist file has `name` matching `{sport_type} #{N}` and a `category` code (or empty for unknown runs).
-- `sync_state.json` counters match the highest `#N` per sport so the next HealthKit sync continues cleanly.
+- `sync_state.json` counters match the highest `#N` per sport for the latest calendar year so the next HealthKit sync continues cleanly.
 
 ## Deferred
 

@@ -2,15 +2,16 @@
 """One-time migration: legacy activity names → generic {Sport} #{N} + category field.
 
 Reads user_data/activities/hist/*.json, derives category from the old display name via
-preset regex rules, renames to {sport_type} #{N} (per-sport counters), and updates
-sync_state.json counters so the next iOS sync continues numbering correctly.
+preset regex rules, renames to {sport_type} #{N} (per-sport counters reset each calendar
+year), and updates sync_state.json counters for the latest year so the next iOS sync
+continues numbering correctly.
 
-Run once per athlete repo after phase 1 (generic naming) lands. Use --preset sky for
-coach-akash; --preset generic for greenfield or unknown naming schemes.
+Run once per athlete repo after phase 1 (generic naming) lands. **Do not re-run** after
+migration — legacy names are gone and category rules will mis-tag (e.g. RNK → CAS).
 
 Usage:
-  python3 engine/scripts/migrate_activity_naming.py --dry-run --preset sky
-  python3 engine/scripts/migrate_activity_naming.py --preset sky --force
+  python3 engine/scripts/migrate_activity_naming.py --dry-run --preset sky --repo /path/to/coach-akash
+  python3 engine/scripts/migrate_activity_naming.py --preset sky --repo /path/to/coach-akash
 """
 
 from __future__ import annotations
@@ -59,6 +60,31 @@ def derive_category(
     return sport_defaults.get(sport_type, "")
 
 
+def resolve_effective_sport(
+    old_name: str,
+    sport_type: str,
+    preset: dict[str, Any],
+) -> tuple[str, str | None]:
+    """Override sport (and optional category) when name matches sport_from_name_rules."""
+    for entry in preset.get("sport_from_name_rules", []):
+        if re.search(entry["pattern"], old_name, re.IGNORECASE):
+            return entry["sport"], entry.get("category")
+    return sport_type, None
+
+
+def migration_repo_root(script_file: str | Path, repo_arg: str | None) -> Path:
+    if repo_arg:
+        root = Path(repo_arg).resolve()
+        if not (root / "user_data" / "activities" / "hist").is_dir():
+            raise FileNotFoundError(f"No activity hist dir under {root}")
+        return root
+    return repo_root_from_here(script_file)
+
+
+def activity_year(data: dict[str, Any]) -> int:
+    return parse_start_date(data).year
+
+
 def counter_key(sport_type: str) -> str:
     return sport_type.lower()
 
@@ -70,7 +96,10 @@ def is_generic_name(name: str, sport_type: str) -> bool:
 
 def parse_start_date(data: dict[str, Any]) -> datetime:
     start = data.get("start_date_local", "")
-    return datetime.fromisoformat(start.replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    if dt.tzinfo is not None:
+        dt = dt.replace(tzinfo=None)
+    return dt
 
 
 def load_sync_state(path: Path) -> dict[str, Any]:
@@ -86,9 +115,14 @@ def main() -> None:
     )
     parser.add_argument(
         "--preset",
-        choices=["sky", "generic"],
+        choices=["sky", "skanda", "generic"],
         default="generic",
         help="Regex preset for old-name → category mapping (default: generic)",
+    )
+    parser.add_argument(
+        "--repo",
+        metavar="PATH",
+        help="Athlete repo root (default: repo containing this script)",
     )
     parser.add_argument(
         "--dry-run",
@@ -98,11 +132,11 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Re-migrate activities already in generic {Sport} #{N} format",
+        help="Unsafe: re-number already-migrated names (destroys category tags — avoid)",
     )
     args = parser.parse_args()
 
-    root = repo_root_from_here(__file__)
+    root = migration_repo_root(__file__, args.repo)
     h_dir = hist_dir(root)
     state_path = sync_state_path(root)
 
@@ -124,7 +158,8 @@ def main() -> None:
 
     activities.sort(key=lambda item: parse_start_date(item[1]))
 
-    counters: dict[str, int] = {}
+    # Per sport + calendar year — counters reset each Jan 1 (matches legacy naming).
+    year_counters: dict[tuple[str, int], int] = {}
     changed = 0
     skipped = 0
 
@@ -136,24 +171,31 @@ def main() -> None:
             skipped += 1
             continue
 
-        key = counter_key(sport_type)
+        effective_sport, sport_category = resolve_effective_sport(old_name, sport_type, preset)
+        key = counter_key(effective_sport)
+        year = activity_year(data)
+        year_key = (key, year)
 
-        if is_generic_name(old_name, sport_type) and not args.force:
+        if is_generic_name(old_name, effective_sport) and not args.force:
             m = GENERIC_NAME_RE.match(old_name)
             assert m is not None
-            counters[key] = max(counters.get(key, 0), int(m.group(2)))
+            year_counters[year_key] = max(year_counters.get(year_key, 0), int(m.group(2)))
             if data.get("category"):
                 skipped += 1
                 continue
-            category = sport_defaults.get(sport_type, "")
+            category = sport_defaults.get(effective_sport, "")
             new_name = old_name
             if not category:
                 skipped += 1
                 continue
         else:
-            category = derive_category(old_name, sport_type, rules, sport_defaults)
-            counters[key] = counters.get(key, 0) + 1
-            new_name = f"{sport_type} #{counters[key]}"
+            category = sport_category or derive_category(
+                old_name, effective_sport, rules, sport_defaults
+            )
+            year_counters[year_key] = year_counters.get(year_key, 0) + 1
+            new_name = f"{effective_sport} #{year_counters[year_key]}"
+            if effective_sport != sport_type:
+                data["sport_type"] = effective_sport
 
         if args.dry_run:
             print(
@@ -173,21 +215,23 @@ def main() -> None:
 
         changed += 1
 
-    sync_state = load_sync_state(state_path)
-    existing = sync_state.get("counters") or {}
-    merged = {**existing, **counters}
-    for k, v in counters.items():
-        merged[k] = max(merged.get(k, 0), v)
+    # sync_state counters = max #N per sport for the latest year in hist (for next iOS sync).
+    latest_year = max((y for (_, y) in year_counters.keys()), default=datetime.now().year)
+    counters: dict[str, int] = {}
+    for (sport_key, year), count in year_counters.items():
+        if year == latest_year:
+            counters[sport_key] = max(counters.get(sport_key, 0), count)
 
+    sync_state = load_sync_state(state_path)
     if args.dry_run:
-        print(f"\n[dry-run] Would set sync_state counters: {json.dumps(merged, sort_keys=True)}")
+        print(f"\n[dry-run] Would set sync_state counters: {json.dumps(counters, sort_keys=True)}")
     else:
-        sync_state["counters"] = merged
+        sync_state["counters"] = counters
         state_path.parent.mkdir(parents=True, exist_ok=True)
         with open(state_path, "w", encoding="utf-8") as f:
             json.dump(sync_state, f, indent=2, ensure_ascii=False)
             f.write("\n")
-        print(f"\nUpdated {state_path} counters: {json.dumps(merged, sort_keys=True)}")
+        print(f"\nUpdated {state_path} counters: {json.dumps(counters, sort_keys=True)}")
 
     print(f"\nDone. Changed: {changed}, Skipped: {skipped}")
 
