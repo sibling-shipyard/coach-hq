@@ -9,6 +9,8 @@ struct Activity: Codable, Identifiable, Hashable {
     var id: String { activityId ?? "\(startDateLocal)_\(sportType)" }
 
     let name: String
+    /// Optional machine category (e.g. "foundation", "RNK"). Nil on new HealthKit sync — manual tagging only until Phase 3 auto-rules.
+    var category: String? = nil
     let sportType: String
     let startDateLocal: String
     let elapsedTime: Int          // seconds
@@ -41,6 +43,7 @@ struct Activity: Codable, Identifiable, Hashable {
         case activityId = "id"
         case idStr = "id_str"
         case name
+        case category
         case sportType = "sport_type"
         case startDateLocal = "start_date_local"
         case elapsedTime = "elapsed_time"
@@ -83,6 +86,7 @@ extension Activity {
         self.idStr = flexibleString(.idStr)
 
         self.name = try c.decode(String.self, forKey: .name)
+        self.category = try c.decodeIfPresent(String.self, forKey: .category)
         self.sportType = try c.decode(String.self, forKey: .sportType)
         self.startDateLocal = try c.decode(String.self, forKey: .startDateLocal)
         self.elapsedTime = try c.decode(Int.self, forKey: .elapsedTime)
