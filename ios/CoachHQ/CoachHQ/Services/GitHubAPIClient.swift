@@ -198,14 +198,17 @@ class GitHubAPIClient {
         }
     }
 
-    /// Reads just `challenge.start_date` from `user_data/ledger/challenge_v2.json` - used by
+    /// Reads the day-number anchor date from `user_data/ledger/challenge_v2.json` - used by
     /// Coach Chat's header day label (mirrors web's `challengeDayNumber()` in coachChatModel.ts).
-    /// Not the full challenge model - nothing else on iOS needs the rest of this file yet.
-    func readChallengeStartDate() async throws -> String? {
+    /// ADR 0016: prefers `coach_since` (durable, never resets) over `season.start_date` then
+    /// legacy `challenge.start_date` (both reset every cycle - fallback only for repos not yet
+    /// backfilled). Not the full challenge model - nothing else on iOS needs the rest of this
+    /// file yet.
+    func readCoachDayAnchorDate() async throws -> String? {
         let data = try await readFile(path: "user_data/ledger/challenge_v2.json")
         do {
             let summary = try JSONDecoder().decode(ChallengeV2Summary.self, from: data)
-            return summary.challenge?.startDate
+            return summary.coachSince ?? summary.season?.startDate ?? summary.challenge?.startDate
         } catch {
             throw GitHubAPIError.decodingFailed(operation: "Parsing challenge_v2.json")
         }
@@ -565,6 +568,13 @@ struct ChallengeV2Summary: Codable {
             case startDate = "start_date"
         }
     }
+    struct Season: Codable {
+        let startDate: String?
+
+        enum CodingKeys: String, CodingKey {
+            case startDate = "start_date"
+        }
+    }
     // Optional to mirror ui/client/src/lib/challenge.ts's ChallengeV2.challenge?: - the
     // season/phase-model schema variant (shared/golden-dataset/repo-data/challenge_v2.json,
     // ADR 0006 migration in progress) omits this key entirely. Without `?` here, decoding
@@ -572,6 +582,16 @@ struct ChallengeV2Summary: Codable {
     // fake .preview fallback forever - the exact bug this read exists to fix, just for a
     // different data shape.
     let challenge: Challenge?
+    let season: Season?
+    // ADR 0016: the durable day-number anchor - "days since this athlete started using Coach
+    // at all," independent of season/challenge (which reset every cycle). Optional until a
+    // repo is backfilled; readCoachDayAnchorDate() below prefers this over season/challenge.
+    let coachSince: String?
+
+    enum CodingKeys: String, CodingKey {
+        case challenge, season
+        case coachSince = "coach_since"
+    }
 }
 
 private struct GitRef: Decodable, Sendable {

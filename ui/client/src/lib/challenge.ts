@@ -131,6 +131,10 @@ export interface WeeklyTargets {
 
 export interface ChallengeV2 {
   version: number;
+  // Optional until a repo is backfilled (ADR 0016) - top-level and independent of
+  // season/challenge on purpose, since those reset per cycle and this must never reset.
+  // "Days since this athlete started using Coach at all," used for Coach Chat's D-N header.
+  coach_since?: string;
   // Optional - some repos' coaching model has no single "the challenge" concept
   // (e.g. a season/phase/block progression instead). Components must guard on its
   // presence rather than assume it's always there.

@@ -19,6 +19,7 @@
 | 0013 | Canonical match history: iOS parses once, consumers read JSON | cross-cutting |
 | 0014 | Use HealthKit workout UUID as stable canonical id | cross-cutting |
 | 0015 | iOS app-launch state machine | ios |
+| 0016 | `coach_since`: a durable day-number anchor, independent of season/challenge | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.

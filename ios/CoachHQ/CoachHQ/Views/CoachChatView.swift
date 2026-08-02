@@ -61,7 +61,7 @@ struct CoachChatView: View {
     private func loadHeaderContext() async {
         guard liveDayNumber == nil else { return } // fetched once per session, not on every re-trigger
         let client = GitHubAPIClient(authManager: authManager)
-        guard let startDate = try? await client.readChallengeStartDate() else { return }
+        guard let startDate = try? await client.readCoachDayAnchorDate() else { return }
         liveDayNumber = Self.challengeDayNumber(startDate: startDate)
     }
 

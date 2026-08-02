@@ -39,6 +39,7 @@ One file, one version number, one validator.
 | Side quests | **`quests[]`** required (may be empty `[]`) |
 | Milestones | Optional `milestones[]` — see [`docs/ref-docs/milestone-schema.md`](../ref-docs/milestone-schema.md) |
 | Legacy v2/v3 | Read via adapter during migration; **must convert to v4** |
+| Day-number anchor | **`coach_since`** (top-level, ADR [0016](../../kdb/decisions/0016-coach-since-day-number.md)) — written once at provisioning, never overwritten; optional until a repo is backfilled |
 
 ---
 
@@ -49,6 +50,8 @@ One file, one version number, one validator.
   "version": 4,
   "last_updated_by": "coach",
   "last_updated_at": "YYYY-MM-DD",
+  "coach_since": "YYYY-MM-DD",   // optional until backfilled - see ADR 0016. Top-level and
+                                  // sibling to season/phase on purpose - never resets.
 
   "season": {
     "name": "string",

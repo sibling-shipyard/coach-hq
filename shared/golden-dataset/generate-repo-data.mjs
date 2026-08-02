@@ -380,6 +380,9 @@ const coldPlungeMissed = [toLocalDateStr(daysAgo(4)), toLocalDateStr(daysAgo(11)
 
 const challengeV2 = {
   version: 4,
+  // ADR 0016: durable day-number anchor, deliberately well before season.start_date to prove
+  // Coach Chat's D-N doesn't reset with the season (that was the whole bug this field fixes).
+  coach_since: toLocalDateStr(daysAgo(WEEKS_OF_HISTORY * 7 + 90)),
   season: {
     name: "Build Season",
     start_date: toLocalDateStr(seasonStart),

@@ -48,6 +48,9 @@ const CHALLENGE_V2_TEMPLATE = {
   version: 2,
   last_updated_by: "coach",
   last_updated_at: "2026-01-01",
+  // Placeholder - provision-user.sh stamps the real value once at provisioning time (ADR 0016),
+  // never overwritten again. This template value only matters if provisioning is skipped.
+  coach_since: "2026-01-01",
   challenge: {
     name: "My 60-Day Challenge",
     start_date: "2026-01-01",

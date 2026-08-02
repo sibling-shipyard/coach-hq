@@ -18,6 +18,7 @@ const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 const SOUL_FILE_PATH = "propagated/SOUL.md";
 const STATE_FILE_PATH = "user_data/coach/state.md";
 const QUEST_LOG_PATH = "gen/quest_log.md";
+const CHALLENGE_FILE_PATH = "user_data/ledger/challenge_v2.json";
 
 const SESSIONS_PREFIX = "user_data/activities/workout_plans/sessions/";
 
@@ -41,6 +42,28 @@ const COACH_WRITABLE_FILES = new Set([
 ]);
 function isCoachWritable(path: string): boolean {
   return COACH_WRITABLE_FILES.has(path) || path.startsWith(SESSIONS_PREFIX);
+}
+
+// ADR 0016: day since this athlete started using Coach at all (1-indexed, never resets) -
+// mirrors ui/client/src/components/coach-chat/coachChatModel.ts's challengeDayNumber() exactly
+// (kept as a small local duplicate rather than a shared import, same precedent as ADR 0012's
+// per-platform Git Data API implementations - not worth a shared-module layer for one formula).
+// coach_since is the durable anchor; season/challenge start_date are fallbacks for repos not
+// yet backfilled, since those reset every season/challenge cycle.
+function coachDayNumber(challengeJson: string | null, now = new Date()): number | null {
+  if (!challengeJson) return null;
+  let parsed: { coach_since?: string; season?: { start_date?: string }; challenge?: { start_date?: string } };
+  try {
+    parsed = JSON.parse(challengeJson);
+  } catch {
+    return null;
+  }
+  const startRaw = parsed.coach_since ?? parsed.season?.start_date ?? parsed.challenge?.start_date;
+  if (!startRaw) return null;
+  const start = new Date(`${startRaw}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.max(1, Math.floor((today.getTime() - start.getTime()) / 86_400_000) + 1);
 }
 
 // Matches SOUL.md §1 step 6's `TZ=<timezone> date` - the web chat has no shell, so this is
@@ -223,11 +246,15 @@ async function askGemini(
   history: ChatMessage[],
   userMessage: string,
   closing: boolean,
+  dayNumber: number | null,
 ): Promise<GeminiReply> {
   const systemInstruction = [
     soul,
     "\n---\n",
     todayContextLine(stateMd),
+    dayNumber != null
+      ? `This is day ${dayNumber} since this athlete started with Coach Phelps (coach_since) - use ${dayNumber} verbatim anywhere a day number is needed, e.g. a "day-${dayNumber}" commit message. Never guess or increment your own count.`
+      : "This repo has no coach_since/season start date to compute a day number from yet - do not invent a \"day-N\" number; omit it from commit_message rather than guessing.",
     "You are Coach Phelps, running in a web chat session instead of a local Claude Code session.",
     "You are mid-conversation already, not booting a fresh session - skip SOUL.md's Boot Sequence",
     "entirely, you're past it. You have NO shell or tool access: you cannot run `git pull`, cannot",
@@ -411,10 +438,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const trimmed = message.trim();
       if (!trimmed) return Response.json({ error: "Message required" }, { status: 400 });
 
-      const [soul, stateMd, questLog] = await Promise.all([
+      const [soul, stateMd, questLog, challengeJson] = await Promise.all([
         getFileRaw(repo, SOUL_FILE_PATH, token),
         getFileRaw(repo, STATE_FILE_PATH, token),
         getFileRaw(repo, QUEST_LOG_PATH, token),
+        getFileRaw(repo, CHALLENGE_FILE_PATH, token),
       ]);
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
@@ -422,10 +450,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const closing = isCloseSignal(trimmed);
       const now = Date.now();
       const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
+      const dayNumber = coachDayNumber(challengeJson);
 
       let reply: GeminiReply;
       try {
-        reply = await askGemini(apiKey, soul, stateMd ?? "", questLog ?? "", priorMessages, trimmed, closing);
+        reply = await askGemini(apiKey, soul, stateMd ?? "", questLog ?? "", priorMessages, trimmed, closing, dayNumber);
       } catch (err: unknown) {
         const status = (err as { status?: number }).status ?? 500;
         const errMessage = err instanceof Error ? err.message : String(err);

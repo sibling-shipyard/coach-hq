@@ -25,6 +25,10 @@ Options:
   --skip-push             Clone and migrate locally only (for inspection)
   --skip-regenerate       Copy legacy gen/ only; skip pipeline regen (not recommended)
   --plugins LIST          Comma-separated plugins to enable (e.g. badminton)
+  --coach-since DATE      Backdate coach_since to DATE (YYYY-MM-DD) instead of today - use for
+                           --migrate when the athlete has real coaching history predating this
+                           repo (ADR 0016). Ignored if the target already has coach_since set -
+                           it is written once and never overwritten.
   -h, --help              Show this help
 
 Secrets:
@@ -50,6 +54,7 @@ SKIP_SECRETS=0
 SKIP_PUSH=0
 SKIP_REGENERATE=0
 PROVISION_PLUGINS=""
+COACH_SINCE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -62,6 +67,7 @@ while [[ $# -gt 0 ]]; do
     --skip-push) SKIP_PUSH=1 ;;
     --skip-regenerate) SKIP_REGENERATE=1 ;;
     --plugins) PROVISION_PLUGINS="${2:?}"; shift ;;
+    --coach-since) COACH_SINCE="${2:?}"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1 (try --help)" ;;
   esac
@@ -259,6 +265,37 @@ regenerate_gen() {
   log "  gen/ regenerated (aggregate + best-effort quest files)"
 }
 
+# Write coach_since once (ADR 0016) - never overwrites an existing value, so re-running
+# provisioning (e.g. --skip-push for inspection, then a real run) can't clobber a real date.
+# Defaults to today for a --greenfield repo (that IS the day this athlete started); --migrate
+# should pass --coach-since with the athlete's real history start, since the target repo is new
+# even though their coaching history isn't.
+stamp_coach_since() {
+  local target_root="$1"
+  local challenge="${target_root}/user_data/ledger/challenge_v2.json"
+  [[ -f "$challenge" ]] || { warn "No challenge_v2.json to stamp coach_since into"; return 0; }
+
+  local value="${COACH_SINCE:-$(date -u +%F)}"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    log "[dry-run] would stamp coach_since=${value} into ${challenge} (only if unset)"
+    return 0
+  fi
+  python3 - "$challenge" "$value" <<'PY'
+import json, sys
+path, value = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    data = json.load(f)
+if not data.get("coach_since"):
+    data["coach_since"] = value
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    print(f"  coach_since set to {value}")
+else:
+    print(f"  coach_since already set ({data['coach_since']}) - left untouched")
+PY
+}
+
 # Fail fast if overlay left skeleton seeds in place.
 verify_migration() {
   local target_root="$1"
@@ -377,6 +414,16 @@ WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 if [[ "$MODE" == "greenfield" && "$SKIP_PUSH" -eq 0 && "$DRY_RUN" -eq 0 ]]; then
+  # --template already copied the skeleton as-is - clone back just to stamp coach_since
+  # (ADR 0016), since that's the one field that has to be real per-athlete data, not a
+  # skeleton placeholder, from the moment this repo exists.
+  clone_to_workdir "https://github.com/${TARGET_REPO}.git" "${WORKDIR}/target"
+  stamp_coach_since "${WORKDIR}/target"
+  if ! git -C "${WORKDIR}/target" diff --quiet -- user_data/ledger/challenge_v2.json; then
+    git -C "${WORKDIR}/target" add user_data/ledger/challenge_v2.json
+    git -C "${WORKDIR}/target" commit -m "core: stamp coach_since (ADR 0016)"
+    git -C "${WORKDIR}/target" push origin main
+  fi
   set_repo_secrets
   print_next_steps
   exit 0
@@ -408,6 +455,7 @@ if [[ "$MODE" == "migrate" || "$SKIP_PUSH" -eq 1 ]]; then
         warn "Skipping gen/ regeneration (--skip-regenerate)"
       fi
       verify_migration "${WORKDIR}/target"
+      stamp_coach_since "${WORKDIR}/target"
     fi
   fi
 

@@ -49,9 +49,13 @@ export type ChatStarter = {
   icon: "week" | "cold" | "match";
 };
 
-/** Challenge day since start (1-indexed). Falls back to 1 if dates are missing. */
+/**
+ * Day since the athlete started using Coach (1-indexed, never resets). ADR 0016:
+ * coach_since is the durable anchor - season/challenge start_date reset every cycle, so
+ * they're only a fallback for repos not yet backfilled with coach_since.
+ */
 export function challengeDayNumber(challenge: ChallengeV2, now = new Date()): number {
-  const startRaw = challenge.challenge?.start_date;
+  const startRaw = challenge.coach_since ?? challenge.season?.start_date ?? challenge.challenge?.start_date;
   if (!startRaw) return 1;
   const start = new Date(`${startRaw}T00:00:00`);
   if (Number.isNaN(start.getTime())) return 1;
