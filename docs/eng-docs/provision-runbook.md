@@ -25,8 +25,9 @@ Legacy repos stay as backup — do not archive in M1.
 
 1. **gh auth** as operator (or athlete account owner for private repo create).
 2. **Skeleton live** — ~50 files at https://github.com/sibling-shipyard/coach-skeleton.
-3. **Secrets ready** (cannot read from legacy via API):
-   - `PAT_TOKEN` — fine-grained PAT, Contents + Workflows write on target repo.
+3. **No repo secrets needed** — Sync and Apply Coach Patch run under the built-in
+   `GITHUB_TOKEN` (`contents: write`). Just ensure the target repo's
+   Settings → Actions → General → Workflow permissions = Read and write.
 
 ---
 
@@ -49,7 +50,7 @@ platform/scripts/provision-user.sh --migrate \
 ### Greenfield (new athlete)
 
 ```bash
-PAT_TOKEN=ghp_... platform/scripts/provision-user.sh \
+platform/scripts/provision-user.sh \
   --greenfield --repo OWNER/coach-name
 ```
 
@@ -58,7 +59,6 @@ PAT_TOKEN=ghp_... platform/scripts/provision-user.sh \
 **Important:** `--greenfield` or template-only create leaves skeleton **placeholder** ledger/gen. Athletes need `--migrate`.
 
 ```bash
-PAT_TOKEN=ghp_... \
 platform/scripts/provision-user.sh --migrate \
   --repo skanda-2003/coach-skanda \
   --legacy skanda-2003/coach-phelps

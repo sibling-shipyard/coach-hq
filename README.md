@@ -16,7 +16,7 @@ The quick version, if you've done this kind of thing before:
 2. Install the iOS app and sign in to sync your Apple Health activity history - see `ios/README.md`. Activities land in `user_data/activities/hist/` automatically, no manual fetch step.
 3. Start your first session with `claude` (Claude Code) or by uploading `SOUL.md` + `user_data/coach/state.md` to Claude.ai. Coach Phelps detects the blank `user_data/coach/state.md` and runs intake automatically.
 4. Generate your quest log: `python3 engine/scripts/generate_quest_log.py`.
-5. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables, and add `PAT_TOKEN` as a GitHub repo secret so the sync workflow can run.
+5. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables. The sync workflow needs no repo secret — it runs under the built-in `GITHUB_TOKEN`.
 
 ---
 

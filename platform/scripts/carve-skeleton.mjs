@@ -277,13 +277,15 @@ cd coach-YOUR_NAME
 
 ---
 
-## 2. Add GitHub secrets
+## 2. GitHub secrets
 
-Go to your repo → **Settings → Secrets and variables → Actions → New repository secret**.
+**None required.** The Sync and Apply Coach Patch workflows run under the
+built-in \`GITHUB_TOKEN\` (granted \`contents: write\`), which GitHub provisions
+automatically for every Actions run. You do **not** need to create a \`PAT_TOKEN\`
+or any other secret to push sync output and coach commits.
 
-| Secret | Required | Notes |
-|---|---|---|
-| \`PAT_TOKEN\` | **Yes** | Fine-grained PAT with **Contents: Read and write** and **Workflows: Read and write** on this repo. Lets CI push sync output and coach commits. |
+> Strava athletes only: add your Strava API secrets if your operator asks — that
+> is a separate, optional integration.
 
 ---
 
@@ -328,7 +330,7 @@ After sync, \`gen/quest_log.md\` and \`gen/aggregate.json\` reflect your challen
 
 ## Troubleshooting
 
-- **Sync workflow fails:** check \`PAT_TOKEN\` is set correctly.
+- **Sync workflow fails:** open **Actions → Sync** and read the failed run's log. The workflow uses the built-in \`GITHUB_TOKEN\` (no secret to set); if pushes are rejected, confirm the repo's **Settings → Actions → General → Workflow permissions** is set to **Read and write**.
 - **Coach can't push from mobile:** use **Actions → Apply Coach Patch** with the \`===FILE===\` payload from your session.
 `;
 
