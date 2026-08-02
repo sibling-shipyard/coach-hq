@@ -131,6 +131,11 @@ export interface WeeklyTargets {
 
 export interface ChallengeV2 {
   version: number;
+  // ADR 0018: durable day-number anchor - "days since this athlete started using Coach at all,"
+  // set once (server-side, on First Session Protocol completion) and never reset by a new
+  // season/challenge. Absent until that first stamp; see coachChatModel.ts's challengeDayNumber
+  // for the fallback chain.
+  coach_since?: string;
   // Optional - some repos' coaching model has no single "the challenge" concept
   // (e.g. a season/phase/block progression instead). Components must guard on its
   // presence rather than assume it's always there.

@@ -25,6 +25,13 @@ Options:
   --skip-push             Clone and migrate locally only (for inspection)
   --skip-regenerate       Copy legacy gen/ only; skip pipeline regen (not recommended)
   --plugins LIST          Comma-separated plugins to enable (e.g. badminton)
+  --coach-since DATE      Manual operator escape hatch (ADR 0018): stamp coach_since=DATE
+                          (YYYY-MM-DD) into challenge_v2.json for --migrate only. New
+                          (--greenfield) athletes get this set automatically, server-side, the
+                          moment they finish the First Session Protocol — never use this flag for
+                          them. Only for backfilling an athlete whose real start predates that
+                          mechanism (e.g. issue #199) — confirm the date with the athlete first,
+                          never guess it.
   -h, --help              Show this help
 
 Secrets:
@@ -50,6 +57,7 @@ SKIP_SECRETS=0
 SKIP_PUSH=0
 SKIP_REGENERATE=0
 PROVISION_PLUGINS=""
+COACH_SINCE_DATE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -62,6 +70,7 @@ while [[ $# -gt 0 ]]; do
     --skip-push) SKIP_PUSH=1 ;;
     --skip-regenerate) SKIP_REGENERATE=1 ;;
     --plugins) PROVISION_PLUGINS="${2:?}"; shift ;;
+    --coach-since) COACH_SINCE_DATE="${2:?}"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1 (try --help)" ;;
   esac
@@ -71,6 +80,10 @@ done
 [[ -n "$MODE" ]] || die "Specify --greenfield or --migrate"
 [[ -n "$TARGET_REPO" ]] || die "--repo OWNER/NAME is required"
 [[ "$TARGET_REPO" == */* ]] || die "--repo must be OWNER/NAME"
+if [[ -n "$COACH_SINCE_DATE" ]]; then
+  [[ "$MODE" == "migrate" ]] || die "--coach-since is only for --migrate (see --help) — greenfield athletes get it stamped automatically"
+  [[ "$COACH_SINCE_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || die "--coach-since must be YYYY-MM-DD"
+fi
 if [[ "$MODE" == "migrate" ]]; then
   [[ -n "$LEGACY_REPO" ]] || die "--legacy OWNER/NAME is required for --migrate"
   [[ "$LEGACY_REPO" == */* ]] || die "--legacy must be OWNER/NAME"
@@ -293,6 +306,30 @@ verify_migration() {
   fi
 }
 
+# ADR 0018: manual, operator-invoked backfill only — never auto-called during provisioning.
+# Write-once in spirit: refuses to overwrite an already-present coach_since rather than silently
+# clobbering a value set some other way (e.g. a prior run of this same flag).
+stamp_coach_since() {
+  local target_root="$1"
+  local date="$2"
+  local challenge="${target_root}/user_data/ledger/challenge_v2.json"
+  [[ -f "$challenge" ]] || die "Cannot stamp coach_since — missing ${challenge}"
+  python3 - "$challenge" "$date" <<'PYEOF'
+import json, sys
+path, date = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    data = json.load(f)
+if data.get("coach_since"):
+    print(f"  coach_since already set ({data['coach_since']}) — not overwriting", file=sys.stderr)
+    sys.exit(1)
+data["coach_since"] = date
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PYEOF
+  log "  coach_since stamped: ${date}"
+}
+
 ensure_target_repo() {
   if gh repo view "$TARGET_REPO" >/dev/null 2>&1; then
     log "Target repo exists: https://github.com/${TARGET_REPO}"
@@ -408,6 +445,9 @@ if [[ "$MODE" == "migrate" || "$SKIP_PUSH" -eq 1 ]]; then
         warn "Skipping gen/ regeneration (--skip-regenerate)"
       fi
       verify_migration "${WORKDIR}/target"
+      if [[ -n "$COACH_SINCE_DATE" ]]; then
+        stamp_coach_since "${WORKDIR}/target" "$COACH_SINCE_DATE"
+      fi
     fi
   fi
 

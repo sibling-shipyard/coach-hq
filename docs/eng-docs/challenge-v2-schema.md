@@ -49,6 +49,7 @@ One file, one version number, one validator.
   "version": 4,
   "last_updated_by": "coach",
   "last_updated_at": "YYYY-MM-DD",
+  "coach_since": "YYYY-MM-DD",
 
   "season": {
     "name": "string",
@@ -75,6 +76,18 @@ One file, one version number, one validator.
   "quests": []
 }
 ```
+
+### `coach_since`
+
+Optional top-level field (ADR 0018) — the durable day-number anchor: "days since this athlete
+started using Coach at all," independent of `season`/`challenge` and never reset when either
+rolls over. Absent until it's set. For new athletes, `coach-chat.ts` stamps it automatically,
+server-side, the moment the First Session Protocol genuinely completes — never guessed, never set
+at repo-provisioning time. Pre-existing athletes who completed intake before this field existed
+are backfilled once, manually, with the athlete's confirmation (`provision-user.sh --coach-since`,
+see issue #199). Day-number displays (web, iOS, Claude Code boot) fall back to `season.start_date`
+then `challenge.start_date` when `coach_since` isn't set yet. Write-once: once present, never
+overwritten.
 
 ### `season`
 
