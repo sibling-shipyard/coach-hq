@@ -1,6 +1,6 @@
 /**
  * ui/api/auth/[...action].ts — every OAuth/session auth endpoint, consolidated into one
- * Vercel catch-all route. See kdb/decisions/0016-vercel-function-count-catch-all-routes.md.
+ * Vercel catch-all route. See kdb/decisions/0017-vercel-function-count-catch-all-routes.md.
  *
  * Vercel's Hobby plan caps a deployment at 12 serverless functions, one per top-level
  * api/*.ts file. This used to be 7 separate files (start.ts, install-redirect.ts, callback.ts,
