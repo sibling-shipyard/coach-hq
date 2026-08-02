@@ -547,6 +547,27 @@ export function onboardingHintsContext(hints: OnboardingHints | undefined): stri
   return lines.join("\n");
 }
 
+// A thread created by a prior greet() has [divider, coachMsg] - "still just an unanswered
+// greeting" means exactly one non-divider message, and it's from Coach. Shared by handleGreet's
+// up-front check and its commit-time recheck (see below) - both need the exact same definition.
+function findReusableGreetingThread(threadsWithOffsets: ChatThread[]): ChatThread | undefined {
+  return threadsWithOffsets.find((t) => {
+    if (t.status !== "active" || t.dayOffset !== 0) return false;
+    const real = t.messages.filter((m) => m.role !== "divider");
+    return real.length === 1 && real[0].role === "coach";
+  });
+}
+
+function reusableThreadResponse(reusable: ChatThread, threads: ChatThread[], repoSha: string | null) {
+  const coachMsg = reusable.messages.find((m) => m.role === "coach");
+  return Response.json({
+    reply: coachMsg?.role === "coach" ? coachMsg.paragraphs.join("\n\n") : "",
+    threadId: reusable.id,
+    threads,
+    repoSha,
+  });
+}
+
 // A4: coach speaks first. Landing on "new conversation" (no active unengaged thread already
 // sitting there today) creates a thread whose only message is Coach's own opening line, before
 // the athlete has typed anything. Reuses an existing same-day thread that's still just an
@@ -563,22 +584,10 @@ async function handleGreet(
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
   const withOffsets = withComputedDayOffsets(history.threads, stateMd ?? "");
-  // A thread created by a prior greet() has [divider, coachMsg] - "still just an unanswered
-  // greeting" means exactly one non-divider message, and it's from Coach.
-  const reusable = withOffsets.find((t) => {
-    if (t.status !== "active" || t.dayOffset !== 0) return false;
-    const real = t.messages.filter((m) => m.role !== "divider");
-    return real.length === 1 && real[0].role === "coach";
-  });
+  const reusable = findReusableGreetingThread(withOffsets);
   if (reusable) {
-    const coachMsg = reusable.messages.find((m) => m.role === "coach");
     const repoSha = await getHeadSha(repo, token).catch(() => null); // A5: best-effort, never blocks a reply
-    return Response.json({
-      reply: coachMsg?.role === "coach" ? coachMsg.paragraphs.join("\n\n") : "",
-      threadId: reusable.id,
-      threads: withOffsets,
-      repoSha,
-    });
+    return reusableThreadResponse(reusable, withOffsets, repoSha);
   }
 
   let reply: GeminiReply;
@@ -609,6 +618,24 @@ async function handleGreet(
     path: CHAT_FILE_PATH,
     resolve: async () => {
       const fresh = await loadChatHistory(repo, token);
+      // Race narrowing: the up-front check above can't see a greeting thread a concurrent
+      // request commits while this one is mid-Gemini-call. Re-check here, right before this
+      // request's own commit, against the freshest possible read - doesn't fully eliminate the
+      // race (there's still the small window between this read and the ref actually moving,
+      // same as any optimistic check), but shrinks it from "the whole Gemini round-trip" down
+      // to just this commit's own read-tree-commit-ref sequence.
+      const freshWithOffsets = withComputedDayOffsets(fresh.threads, stateMd ?? "");
+      const reusable = findReusableGreetingThread(freshWithOffsets);
+      if (reusable) {
+        // Tagged {status: 400} so commitFilesAtomic's isTransient() doesn't retry this (an
+        // undefined/other status is treated as transient and would just loop back here again,
+        // finding the same reusable thread every time) - caught below, converted into reusing
+        // that thread's reply instead of erroring or duplicating it.
+        throw Object.assign(new Error("Another request already created today's greeting thread"), {
+          status: 400,
+          reusableThreadId: reusable.id,
+        });
+      }
       const thread: ChatThread = {
         id: finalThreadId,
         dayOffset: 0,
@@ -630,6 +657,16 @@ async function handleGreet(
     const result = await commitFilesAtomic([chatWrite], "coach: chat — new conversation", { repo, branch: "main", token });
     repoSha = result.commitSha;
   } catch (err: unknown) {
+    const reusableThreadId = (err as { reusableThreadId?: string }).reusableThreadId;
+    if (reusableThreadId) {
+      const fresh = await loadChatHistory(repo, token);
+      const freshWithOffsets = withComputedDayOffsets(fresh.threads, stateMd ?? "");
+      const existing = freshWithOffsets.find((t) => t.id === reusableThreadId);
+      const freshRepoSha = await getHeadSha(repo, token).catch(() => null);
+      if (existing) return reusableThreadResponse(existing, freshWithOffsets, freshRepoSha);
+      // Vanishingly unlikely (would need the thread deleted in the instant between the two
+      // reads) - fall through to the generic error below rather than crash on a missing thread.
+    }
     const errMessage = err instanceof Error ? err.message : String(err);
     return Response.json({ error: `Coach's greeting failed to save: ${errMessage}` }, { status: 502 });
   }

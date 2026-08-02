@@ -119,6 +119,7 @@ export async function fetchThreads(): Promise<ChatThread[]> {
   if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) throw new Error(`Failed to load coach chat (${res.status})`);
   const body = (await res.json()) as { threads: ChatThread[] };
+  pruneRepoSha(body.threads.map((t) => t.id));
   return body.threads.map(normalizeThread);
 }
 
@@ -131,6 +132,17 @@ const lastKnownSha = new Map<string, string>();
 
 export function rememberRepoSha(threadId: string | null | undefined, sha: string | null | undefined): void {
   if (threadId && sha) lastKnownSha.set(threadId, sha);
+}
+
+// Audit fix: lastKnownSha never had anything removing an entry once its thread was deleted or
+// aged out of the server's 7-thread retention cap - harmless in practice (a handful of small
+// string entries for as long as the tab stays open), but unbounded. Every call that returns a
+// full, authoritative thread list is a natural point to drop anything no longer in it.
+function pruneRepoSha(currentThreadIds: readonly string[]): void {
+  const keep = new Set(currentThreadIds);
+  for (const id of lastKnownSha.keys()) {
+    if (!keep.has(id)) lastKnownSha.delete(id);
+  }
 }
 
 // Nothing is persisted server-side until the athlete says wrap/close - the server is stateless
@@ -166,6 +178,7 @@ export async function sendMessage(
   const effectiveThreadId = body.closed ? body.threadId : threadId;
   rememberRepoSha(effectiveThreadId, body.repoSha);
   if (!body.closed) return body;
+  pruneRepoSha(body.threads.map((t) => t.id));
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
 
@@ -196,6 +209,7 @@ export async function greet(): Promise<GreetResult> {
   }
   const body = (await res.json()) as GreetResult & { repoSha?: string };
   rememberRepoSha(body.threadId, body.repoSha);
+  pruneRepoSha(body.threads.map((t) => t.id));
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
 
@@ -208,5 +222,6 @@ export async function setThreadStatus(threadId: string, status: ChatThreadStatus
   if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) throw new Error(`Failed to update thread (${res.status})`);
   const body = (await res.json()) as { threads: ChatThread[] };
+  pruneRepoSha(body.threads.map((t) => t.id));
   return body.threads.map(normalizeThread);
 }
