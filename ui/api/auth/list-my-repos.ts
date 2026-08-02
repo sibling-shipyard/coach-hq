@@ -9,7 +9,9 @@
  * callback.ts already includes `repo` in its redirect for the common single-candidate case.
  *
  * GET                          → list/confirm candidates, auto-select if exactly one.
- * GET ?select=<owner>/<name>   → confirm and persist a specific pick (2+ case).
+ * POST ?select=<owner>/<name>  → confirm and persist a specific pick (2+ case). POST because
+ *                                 this mutates the session cookie - a GET would be reachable
+ *                                 via link prefetching/CSRF from a plain browser tab.
  */
 import {
   encryptSession,
@@ -121,8 +123,16 @@ async function handle(req: Request, ctx: AuthContext): Promise<Response> {
     const url = new URL(req.url);
     const selected = url.searchParams.get("select");
 
-    // Explicit pick from a 2+ candidate list.
+    // Explicit pick from a 2+ candidate list - mutates the session, so only POST accepts it.
+    // A GET here would be reachable via link prefetching/CSRF now that RepoPicker.tsx calls
+    // this from a plain browser tab (previously only iOS's bearer-token flow used this route).
     if (selected) {
+      if (req.method !== "POST") {
+        return withSessionCookie(
+          Response.json({ error: "Use POST to select a repo" }, { status: 405 }),
+          ctx.rotatedCookie,
+        );
+      }
       if (!isOwnedBy(selected, ctx.login)) {
         return withSessionCookie(
           Response.json({ error: "You can only select a repo you own" }, { status: 403 }),

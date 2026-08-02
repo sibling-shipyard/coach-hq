@@ -29,6 +29,20 @@ const MESSAGES: Record<string, AuthErrorMessage> = {
     cta: "Try logging in again",
     href: "/api/auth/start",
   },
+  no_owned_repos: {
+    heading: "Set up on iOS first",
+    body: "Your GitHub App install doesn't include any repo you own yet. Coach Phelps setup happens in the iOS app - finish it there, then come back here to log in.",
+    cta: "Back to welcome",
+    href: "/welcome",
+    isLink: true,
+  },
+  no_marker_match: {
+    heading: "Set up on iOS first",
+    body: "None of the repos you've granted access to look like a coach-phelps repo yet. Finish setup in the iOS app, then come back here to log in.",
+    cta: "Back to welcome",
+    href: "/welcome",
+    isLink: true,
+  },
   state_mismatch: {
     heading: "Sign-in expired",
     body: "That sign-in link looks stale, or you may have had more than one sign-in tab open at once - only the most recent one works. Close any other sign-in tabs and try again.",

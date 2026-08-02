@@ -18,6 +18,7 @@ import CoachChat from "./pages/CoachChat";
 import WidgetGallery from "./pages/WidgetGallery";
 import Welcome from "./pages/Welcome";
 import AuthPopupComplete from "./pages/AuthPopupComplete";
+import RepoPicker from "./pages/RepoPicker";
 
 function Router() {
   return (
@@ -52,6 +53,8 @@ function Gate({ children }: { children: ReactNode }) {
   if (authError) return <AuthError type={authError} />;
   if (auth.status === "loading") return null;
   if (auth.status === "unauthenticated") return <Welcome />;
+  if (auth.status === "auth_error") return <AuthError type={auth.errorType ?? "lookup_failed"} />;
+  if (auth.status === "repo_picker") return <RepoPicker candidates={auth.candidates ?? []} />;
   return <>{children}</>;
 }
 
