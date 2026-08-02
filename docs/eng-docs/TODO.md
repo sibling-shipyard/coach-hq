@@ -56,3 +56,7 @@ Friends will use **Sign up on the shared site → connect Claude to the same rep
 - [ ] **Readiness score** — daily 1-100 score derived from sleep, soreness, PRE, and streak data. Helps Coach calibrate session intensity without asking every time.
 
 - [ ] **Real opponent-name aliases (`ui/client/src/lib/nameAliases.ts`)** — Akash's personal repo has real badminton opponent-name mappings (e.g. "joe" → "Joe Chung", "richard t" → "Rich Tan"); the shared site currently only has a placeholder entry. Discuss with Akash whether/how to bring his real aliases in — deliberately left untouched during the UI v2 migration since it's his data, not something to port without him.
+
+- [ ] **`platform/tests/*.py` have no test runner wired up** — 3 real `unittest.TestCase` suites (match-history migration, badminton analytics, plugins) exist but there's no `pytest.ini`/requirements file/CI step anywhere, despite `platform/README.md` calling them "HQ pytest." Needs actual Python test infra + a CI workflow, not just docs.
+
+- [ ] **No iOS test target exists** — `ios/` has zero XCTest files or test target. Scope iOS test infra whenever iOS work picks up again.
