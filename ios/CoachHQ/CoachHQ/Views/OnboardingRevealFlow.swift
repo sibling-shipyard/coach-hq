@@ -113,6 +113,11 @@ struct OnboardingRevealFlow: View {
     }
 
     private func handleComplete() {
+        // Request notification permission now — after the user has finished the full
+        // onboarding flow. Doing it here avoids interrupting the HK permission step and
+        // prevents the "N activities synced" notification from firing mid-onboarding.
+        Task { await syncManager.requestNotificationPermission() }
+        syncManager.syncNotificationsEnabled = true
         onComplete()
     }
 }

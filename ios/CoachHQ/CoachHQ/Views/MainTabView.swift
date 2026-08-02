@@ -198,6 +198,7 @@ struct MainTabView: View {
             workoutService.configure(apiClient: client)
             widgetStore.configure(apiClient: client)
             guard router.onboardingPhase == .complete else { return }
+            syncManager.syncNotificationsEnabled = true
             try? await syncManager.requestAuthorization()
             await syncManager.requestNotificationPermission()
             syncManager.enableBackgroundDelivery()

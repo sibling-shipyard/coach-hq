@@ -97,11 +97,15 @@ class HealthKitSyncManager: ObservableObject {
         }
     }
 
+    /// Set to true once onboarding completes so background sync notifications fire normally.
+    /// Kept false during onboarding to avoid "N activities synced" interrupting the flow.
+    var syncNotificationsEnabled = false
+
     /// Authorizes HK, enables background delivery, and registers the observer in one shot.
     /// Safe to call from Settings when the user enables HealthKit after initially skipping.
+    /// Note: notification permission is NOT requested here — it's deferred to after onboarding.
     func connectHealthKit() async {
         try? await requestAuthorization()
-        await requestNotificationPermission()
         enableBackgroundDelivery()
         setupWorkoutObserver()
         hkAuthorizationGranted = true
@@ -120,7 +124,8 @@ class HealthKitSyncManager: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { completionHandler(); return }
                 await self.syncNewWorkouts()
-                if case .synced(let n) = self.lastSyncResult?.outcome, n > 0 {
+                if case .synced(let n) = self.lastSyncResult?.outcome, n > 0,
+                   self.syncNotificationsEnabled {
                     await self.postSyncNotification(count: n)
                 }
                 completionHandler()
