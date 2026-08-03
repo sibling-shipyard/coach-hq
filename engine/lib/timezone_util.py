@@ -6,6 +6,11 @@ which can disagree with the athlete's own wall-clock day by several hours right 
 UTC rollover. current_week.json's `timezone` field is a required, schema-validated field
 (engine/lib/current-week.mts's REQUIRED_FIELDS + validateTimeZone) - already the same
 source of truth the dashboard and Coach's own boot sequence use.
+
+Depends on the host having IANA tz data available for zoneinfo.ZoneInfo to resolve names
+against - true by default on the sync workflow's ubuntu-latest runner (system tzdata at
+/usr/share/zoneinfo), but would need the `tzdata` PyPI package if this ever runs on a
+minimal/Alpine-based image instead.
 """
 from __future__ import annotations
 

@@ -19,7 +19,13 @@ def parse_local_start(start: str) -> datetime:
     """start_date_local is already wall-clock local time despite the misleading trailing
     "Z" (issue #45) - relabeling it as "+00:00" silently shifts activities near a day/year
     boundary onto the wrong calendar day. Strip the "Z" and parse naive instead, matching
-    the client-side parseLocal fix this mirrors."""
+    the client-side parseLocal fix this mirrors.
+
+    Only legacy/Strava-era hist/*.json entries actually carry the "Z" suffix (Strava's API
+    used that misleading convention) - current HealthKit-sourced activities
+    (ActivityMapper.swift) format start_date_local with no trailing Z/offset at all, so this
+    is a no-op for them either way. If a future ingestion source ever emits a genuinely-UTC
+    Z-suffixed timestamp meant to be read as real UTC, this assumption would need revisiting."""
     naive = start[:-1] if start.endswith("Z") else start
     return datetime.fromisoformat(naive)
 
