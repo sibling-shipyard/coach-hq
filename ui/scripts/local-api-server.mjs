@@ -56,8 +56,28 @@ const server = createServer(async (nodeReq, nodeRes) => {
     body: nodeReq.method === "GET" || nodeReq.method === "HEAD" ? undefined : body,
   });
 
-  const response = await handler.fetch(request);
-  nodeRes.writeHead(response.status, Object.fromEntries(response.headers));
+  let response;
+  try {
+    response = await handler.fetch(request);
+  } catch (err) {
+    console.error(`[local-api-server] ${url.pathname} threw:`, err);
+    nodeRes.writeHead(500, { "content-type": "application/json" });
+    nodeRes.end(JSON.stringify({ error: "local-api-server: handler threw", message: String(err) }));
+    return;
+  }
+
+  // Object.fromEntries would comma-join repeated headers (e.g. two Set-Cookies) into one,
+  // which browsers can't parse as separate cookies - none of today's handlers ever emit two,
+  // but write them out individually via appendHeader so that stays true if one ever does.
+  const headers = {};
+  for (const [key, value] of response.headers) {
+    if (key.toLowerCase() === "set-cookie") continue;
+    headers[key] = value;
+  }
+  nodeRes.writeHead(response.status, headers);
+  for (const cookie of response.headers.getSetCookie()) {
+    nodeRes.appendHeader("set-cookie", cookie);
+  }
   nodeRes.end(response.body ? Buffer.from(await response.arrayBuffer()) : undefined);
 });
 
