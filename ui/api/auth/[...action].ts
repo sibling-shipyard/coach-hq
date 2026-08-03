@@ -44,6 +44,10 @@ const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
 // consistent across all function invocations, and the state HMAC only needs to prevent
 // tampering in transit, not provide session confidentiality.
 const OAUTH_HMAC_SECRET = process.env.SESSION_SECRET || CLIENT_SECRET;
+console.log(
+  `[auth-debug] module init: CLIENT_ID=${CLIENT_ID ? "set" : "MISSING"} CLIENT_SECRET=${CLIENT_SECRET ? "set" : "MISSING"} ` +
+    `SESSION_SECRET=${process.env.SESSION_SECRET ? "set" : "MISSING"} usingHmacSecretFrom=${process.env.SESSION_SECRET ? "SESSION_SECRET" : "CLIENT_SECRET"}`,
+);
 
 // ============================================================================
 // start.ts — single "Log in with GitHub" entry point for both new and returning users -
@@ -59,8 +63,10 @@ export async function handleStart(req: Request): Promise<Response> {
   // ?popup=1 - opened via GitHubAuthButton's window.open() instead of a full-page nav;
   // handleCallback routes back to a self-closing page instead of redirecting this whole tab.
   const popup = platform === "web" && url.searchParams.get("popup") === "1";
+  console.log(`[auth-debug] handleStart rawPlatformParam=${url.searchParams.get("platform")} resolvedPlatform=${platform}`);
 
   if (!CLIENT_ID) {
+    console.log("[auth-debug] handleStart: CLIENT_ID missing, redirecting to config_error");
     // Redirect rather than bare JSON - reached by direct navigation, not fetch().
     const headers = new Headers();
     headers.set(
@@ -178,6 +184,7 @@ function callbackErrorRedirect(
   platform: "web" | "ios" = "web",
   popup = false,
 ): Response {
+  console.log(`[auth-debug] callbackErrorRedirect type=${type} platform=${platform} popup=${popup}`);
   const headers = new Headers();
   headers.set(
     "Location",
@@ -201,6 +208,7 @@ function callbackSetupRedirect(
   platform: "web" | "ios" = "web",
   popup = false,
 ): Response {
+  console.log(`[auth-debug] callbackSetupRedirect login=${login} platform=${platform} popup=${popup}`);
   const headers = new Headers();
   headers.set(
     "Location",
@@ -217,7 +225,8 @@ export async function handleCallback(req: Request): Promise<Response> {
   const url = new URL(req.url);
   try {
     return await callbackImpl(req, url);
-  } catch {
+  } catch (err) {
+    console.error("[auth-debug] callbackImpl threw:", err);
     return callbackErrorRedirect(url.origin, "network_error", extractPlatformFromState(url.searchParams.get("state")));
   }
 }
@@ -227,6 +236,7 @@ export async function handleCallback(req: Request): Promise<Response> {
 // 500 page.
 async function callbackImpl(req: Request, url: URL): Promise<Response> {
   if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.log("[auth-debug] callbackImpl: CLIENT_ID/CLIENT_SECRET missing, hardcoded web config_error redirect");
     return callbackErrorRedirect(url.origin, "config_error", "web", false);
   }
 
@@ -239,14 +249,18 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
     return callbackErrorRedirect(url.origin, "missing_params", unverifiedPlatform, false);
   }
 
+  console.log(`[auth-debug] callbackImpl: code=${code ? "present" : "MISSING"} unverifiedPlatform=${unverifiedPlatform}`);
+
   // State is HMAC-signed (set by handleStart/handleInstallRedirect) — no cookie needed.
   const tempData = await verifyOAuthState(stateParam, OAUTH_HMAC_SECRET);
   if (!tempData) {
+    console.log("[auth-debug] callbackImpl: verifyOAuthState returned null (HMAC mismatch or decode failure)");
     return callbackErrorRedirect(url.origin, "corrupt_oauth_session", unverifiedPlatform, false);
   }
 
   const platform: "web" | "ios" = tempData.platform;
   const popup = platform === "web" && tempData.popup;
+  console.log(`[auth-debug] callbackImpl: state verified, platform=${platform} popup=${popup}`);
 
   const redirectUri = `${url.origin}/api/auth/callback`;
 
@@ -306,6 +320,7 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
     // suggested_target_id for /installations/new/permissions; without user.id that
     // parameter is absent and GitHub returns 404.
     if (platform === "ios") {
+      console.log(`[auth-debug] callbackImpl: iOS needs_setup, login=${user.login}`);
       const headers = new Headers();
       headers.set(
         "Location",
@@ -326,6 +341,7 @@ async function callbackImpl(req: Request, url: URL): Promise<Response> {
   if (platform === "ios") {
     const confirmed = await resolveOwnedRepos(installationId, ghToken, user.login as string);
     const repoParam = confirmed.length === 1 ? `&repo=${encodeURIComponent(confirmed[0])}` : "";
+    console.log(`[auth-debug] callbackImpl: iOS success, login=${user.login} repoResolved=${confirmed.length === 1}`);
     const headers = new Headers();
     headers.set(
       "Location",
