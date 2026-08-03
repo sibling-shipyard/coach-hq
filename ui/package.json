@@ -7,6 +7,7 @@
     "prebuild": "node scripts/build-data.mjs && node scripts/bundle-widget-snapshots-api.mjs",
     "predev": "node scripts/build-data.mjs && node scripts/bundle-widget-snapshots-api.mjs",
     "dev": "vite --host",
+    "dev:api": "tsx scripts/local-api-server.mjs",
     "build": "vite build",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",

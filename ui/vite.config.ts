@@ -23,6 +23,12 @@ export default defineConfig({
     fs: {
       allow: [path.resolve(import.meta.dirname, "..")],
     },
+    // Only hit when VITE_FORCE_HOSTED_AUTH=true routes real fetches through - see
+    // ui/scripts/local-api-server.mjs and #61/#63. Harmless when that server isn't running,
+    // since nothing calls /api/* locally unless the flag is set.
+    proxy: {
+      "/api": "http://localhost:3001",
+    },
   },
   preview: {
     allowedHosts: true,
