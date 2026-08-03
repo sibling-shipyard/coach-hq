@@ -30,6 +30,10 @@ class GitHubAuthManager: ObservableObject {
     /// CoachHQApp routes to SetupView while this is set (the native equivalent of
     /// pages/Setup.tsx). Cleared once continueToInstall() resolves a repo.
     @Published var pendingSetupLogin: String?
+    /// True when list-my-repos came back 409 `multiple_repos_granted` (ADR 0019) - the account
+    /// granted access to 2+ owned repos, which the app doesn't support. LoginView shows a
+    /// blocking "remove access to the extra repos" message instead of routing to Setup.
+    @Published var multipleReposDetected = false
     /// Surfaced by LoginView/SetupView so a network blip during sign-in doesn't leave
     /// `user`/`selectedRepo` silently unset with no signal to the person looking at the screen.
     @Published var lastNetworkError: String?
@@ -196,6 +200,12 @@ class GitHubAuthManager: ObservableObject {
         normalizeSelectedRepo()
         await resolveRepoIfNeeded()
         normalizeSelectedRepo()
+        // 2+ repos granted (ADR 0019) - block with a distinct message, never fall into Setup;
+        // the account already has a coach-phelps repo, it just also has extras.
+        if multipleReposDetected {
+            isSessionReady = true
+            return
+        }
         // Couldn't resolve a repo at all - route back into Setup instead of leaving
         // CoachHQApp stuck on a broken MainTabView with no repo.
         if selectedRepo == nil {
@@ -220,7 +230,13 @@ class GitHubAuthManager: ObservableObject {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 409,
+               let result = try? JSONDecoder().decode(RepoResolution.self, from: data),
+               result.reason == "multiple_repos_granted" {
+                multipleReposDetected = true
+                return
+            }
             if let result = try? JSONDecoder().decode(RepoResolution.self, from: data) {
                 selectedRepo = result.repoFullName
                 normalizeSelectedRepo()
@@ -418,9 +434,13 @@ struct GitHubUser: Codable {
 
 private struct RepoResolution: Codable {
     let repoFullName: String?
+    /// Set to "multiple_repos_granted" on the 409 case (ADR 0019) - distinguishes "2+ repos
+    /// granted, blocked" from "no repo yet, needs setup" so the app can show the right message.
+    let reason: String?
 
     enum CodingKeys: String, CodingKey {
         case repoFullName = "repo_full_name"
+        case reason
     }
 }
 

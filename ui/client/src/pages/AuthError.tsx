@@ -36,6 +36,13 @@ const MESSAGES: Record<string, AuthErrorMessage> = {
     href: "/welcome",
     isLink: true,
   },
+  multiple_repos_granted: {
+    heading: "Remove access to the extra repos",
+    body: "Your GitHub App install grants access to more than one repo you own, and Coach Phelps only supports one repo per account. Go to GitHub's installation settings, open the Coach Phelps app, and deselect all but one repo, then come back and log in again.",
+    cta: "Open GitHub settings",
+    href: "https://github.com/settings/installations",
+    isLink: true,
+  },
   no_marker_match: {
     heading: "Set up on iOS first",
     body: "None of the repos you've granted access to look like a coach-phelps repo yet. Finish setup in the iOS app, then come back here to log in.",

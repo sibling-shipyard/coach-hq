@@ -328,8 +328,9 @@ async function callbackImpl(url: URL): Promise<Response> {
 
   // iOS has no shared cookie jar, so it gets the raw token back on the redirect (see
   // resolve-auth.ts) plus `repo` when there's exactly one owned+confirmed candidate - true
-  // for every install going forward since installs are single-repo by design. Otherwise
-  // GitHubAuthManager.swift falls back to /api/auth/list-my-repos for the picker flow.
+  // for every install going forward since installs are single-repo by design (ADR 0019).
+  // Otherwise GitHubAuthManager.swift falls back to /api/auth/list-my-repos, which blocks
+  // outright on 2+ candidates.
   if (platform === "ios") {
     const confirmed = await resolveOwnedRepos(installationId, ghToken, user.login as string);
     const repoParam = confirmed.length === 1 ? `&repo=${encodeURIComponent(confirmed[0])}` : "";
@@ -442,18 +443,15 @@ export async function handleRefresh(req: Request): Promise<Response> {
 
 // ============================================================================
 // list-my-repos.ts — repo resolution: find the signed-in user's coach-phelps repo and
-// remember it in their session. Almost always resolves to exactly one candidate (installs
-// are single-repo by design), but keeps the marker-file check and picker path for accounts
-// installed before that convention.
+// remember it in their session. Installs are single-repo by design (ADR 0019, enforced here):
+// exactly one candidate auto-selects, 2+ candidates blocks with `multiple_repos_granted`
+// instead of offering a pick.
 //
 // Auth: session cookie (web) or Authorization: Bearer <github_token> (iOS, before it has a
 // resolved repo for X-Coach-Repo). This is iOS's fallback for the 0-or-2+ candidate case;
 // handleCallback already includes `repo` in its redirect for the common single-candidate case.
 //
-// GET                          → list/confirm candidates, auto-select if exactly one.
-// POST ?select=<owner>/<name>  → confirm and persist a specific pick (2+ case). POST because
-//                                 this mutates the session cookie - a GET would be reachable
-//                                 via link prefetching/CSRF from a plain browser tab.
+// GET → list/confirm candidates, auto-select if exactly one, 409 `multiple_repos_granted` if 2+.
 // ============================================================================
 interface ListMyReposAuthContext {
   login: string;
@@ -539,43 +537,6 @@ export async function handleListMyRepos(req: Request): Promise<Response> {
 }
 
 async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promise<Response> {
-  const url = new URL(req.url);
-  const selected = url.searchParams.get("select");
-
-  // Explicit pick from a 2+ candidate list - mutates the session, so only POST accepts it.
-  // A GET here would be reachable via link prefetching/CSRF now that RepoPicker.tsx calls
-  // this from a plain browser tab (previously only iOS's bearer-token flow used this route).
-  if (selected) {
-    if (req.method !== "POST") {
-      return withSessionCookie(
-        Response.json({ error: "Use POST to select a repo" }, { status: 405 }),
-        ctx.rotatedCookie,
-      );
-    }
-    if (!isOwnedBy(selected, ctx.login)) {
-      return withSessionCookie(
-        Response.json({ error: "You can only select a repo you own" }, { status: 403 }),
-        ctx.rotatedCookie,
-      );
-    }
-    const ok = await hasMarkerFile(selected, ctx.gh_token);
-    if (!ok) {
-      return withSessionCookie(
-        Response.json(
-          { error: "That repo doesn't look like a coach-phelps repo (no user_data/ledger/challenge_v2.json)" },
-          { status: 400 }
-        ),
-        ctx.rotatedCookie,
-      );
-    }
-    if (ctx.via === "bearer") {
-      return Response.json({ repo_full_name: selected });
-    }
-    // fullSession already carries any rotation - this Set-Cookie supersedes it.
-    const newSession = await encryptSession({ ...ctx.fullSession!, repo_full_name: selected });
-    return withUpdatedSession({ repo_full_name: selected }, newSession);
-  }
-
   // Re-confirm an already-resolved repo still exists and is owned by this account before
   // trusting it. Bearer auth never has a cached repo_full_name.
   if (ctx.repo_full_name) {
@@ -630,8 +591,13 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
     return withSessionCookie(Response.json({ candidates: [], reason }), ctx.rotatedCookie);
   }
 
-  // 2+ candidates - client renders the picker.
-  return withSessionCookie(Response.json({ candidates: confirmed }), ctx.rotatedCookie);
+  // 2+ candidates - installs are single-repo by design (ADR 0019), so this is never a pick,
+  // it's a block: the athlete has to remove access to the extra repos in GitHub's own
+  // settings and retry. Same shape for both cookie (web) and bearer (iOS) callers.
+  return withSessionCookie(
+    Response.json({ error: "multiple_repos_granted" }, { status: 409 }),
+    ctx.rotatedCookie,
+  );
 }
 
 // ============================================================================

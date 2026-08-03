@@ -68,6 +68,9 @@ struct CoachHQApp: App {
                 case .unauthenticated:
                     LoginView()
                         .environmentObject(router.authManager)
+                case .multipleReposGranted:
+                    LoginView()
+                        .environmentObject(router.authManager)
                 }
             }
             .tint(Theme.ink)

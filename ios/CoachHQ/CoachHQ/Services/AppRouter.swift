@@ -7,6 +7,7 @@ enum AppState: Equatable {
     case bootstrapping
     case unauthenticated
     case needsSetup(login: String)
+    case multipleReposGranted
     case active
 }
 
@@ -102,6 +103,11 @@ final class AppRouter: ObservableObject {
         .sink { [weak self] _, _, _, _ in self?.deriveState() }
         .store(in: &cancellables)
 
+        authManager.$multipleReposDetected
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.deriveState() }
+            .store(in: &cancellables)
+
         // Account-switch check — runs each time session becomes ready (false → true).
         authManager.$isSessionReady
             .filter { $0 }
@@ -128,6 +134,9 @@ final class AppRouter: ObservableObject {
         // pendingSetupLogin is set by the needs_setup=1 callback branch, which does NOT set
         // isAuthenticated — check it before the auth guard so SetupView renders correctly.
         if let login = authManager.pendingSetupLogin { state = .needsSetup(login: login); return }
+        // 2+ repos granted (ADR 0019) - block before the auth guard, same as pendingSetupLogin,
+        // since isAuthenticated is true here (the account does have a working repo, just extras).
+        if authManager.multipleReposDetected { state = .multipleReposGranted; return }
         guard authManager.isAuthenticated else { state = .unauthenticated; return }
         if authManager.selectedRepo != nil {
             state = .active

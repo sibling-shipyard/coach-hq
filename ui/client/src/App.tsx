@@ -18,7 +18,6 @@ import CoachChat from "./pages/CoachChat";
 import WidgetGallery from "./pages/WidgetGallery";
 import Welcome from "./pages/Welcome";
 import AuthPopupComplete from "./pages/AuthPopupComplete";
-import RepoPicker from "./pages/RepoPicker";
 import { prefetchCoachContext } from "./lib/prefetchCoachContext";
 
 function Router() {
@@ -54,7 +53,6 @@ function Gate({ children }: { children: ReactNode }) {
   if (auth.status === "loading") return null;
   if (auth.status === "unauthenticated") return <Welcome />;
   if (auth.status === "auth_error") return <AuthError type={auth.errorType ?? "lookup_failed"} />;
-  if (auth.status === "repo_picker") return <RepoPicker candidates={auth.candidates ?? []} />;
   // Kick off the coach-chat context warm-up as soon as auth resolves and a repo is known -
   // in parallel with whatever page renders, not gated on the athlete ever opening Coach Chat.
   prefetchCoachContext();
