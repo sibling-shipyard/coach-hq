@@ -25,6 +25,7 @@ import {
   templatesDir,
 } from "../lib/repo-layout.mjs";
 import { badmintonAnalyticsAvailable, loadPlugins } from "../lib/plugins.mjs";
+import { projectActivity } from "../lib/projectActivity.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(__dirname);
@@ -55,7 +56,8 @@ function buildAggregate() {
       const activities = [];
       for (const file of files) {
         try {
-          activities.push(JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8")));
+          const raw = JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8"));
+          activities.push(projectActivity(raw));
         } catch (e) {
           console.warn(`⚠ Skipping ${file}: ${e.message}`);
         }

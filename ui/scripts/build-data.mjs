@@ -24,6 +24,7 @@ import {
   syncStatusPath,
   templatesDir,
 } from "../../engine/lib/repo-layout.mjs";
+import { projectActivity } from "../../engine/lib/projectActivity.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(path.join(__dirname, ".."));
@@ -59,7 +60,8 @@ function buildAggregate() {
       const activities = [];
       for (const file of files) {
         try {
-          activities.push(JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8")));
+          const raw = JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8"));
+          activities.push(projectActivity(raw));
         } catch (e) {
           console.warn(`⚠ Skipping ${file}: ${e.message}`);
         }

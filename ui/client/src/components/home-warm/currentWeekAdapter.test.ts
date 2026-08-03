@@ -87,12 +87,8 @@ describe("currentWeekAdapter completion matching", () => {
         has_heartrate: true,
         hr_zones: null,
         description: null,
-        total_photo_count: 0,
-        average_speed: 2.7,
         max_speed: 4.0,
         device_name: "Apple Watch",
-        average_cadence: null,
-        best_efforts: null,
       },
     ];
 
@@ -123,12 +119,8 @@ describe("currentWeekAdapter completion matching", () => {
         has_heartrate: true,
         hr_zones: null,
         description: null,
-        total_photo_count: 0,
-        average_speed: 0,
         max_speed: 0,
         device_name: "Garmin",
-        average_cadence: null,
-        best_efforts: null,
       },
     ];
 
