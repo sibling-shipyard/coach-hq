@@ -8,6 +8,9 @@ describe("Activity allowlist", () => {
     const srcPath = path.join(__dirname, "activities.ts");
     const src = fs.readFileSync(srcPath, "utf-8");
     
+    // Note: The regex `\{([^}]+)\}` stops at the first `}`.
+    // If nested object types are ever added to the Activity interface, this capture will truncate,
+    // which would silently weaken this superset check.
     const interfaceMatch = src.match(/export interface Activity\s*\{([^}]+)\}/);
     expect(interfaceMatch).toBeTruthy();
     
