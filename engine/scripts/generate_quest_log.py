@@ -23,6 +23,7 @@ _here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_here.parent / "lib"))
 from repo_layout import hist_dir, ledger_dir, quest_log_path, repo_root_from_here  # noqa: E402
 from challenge_schema import challenge_window  # noqa: E402
+from timezone_util import resolve_athlete_timezone, today_in_timezone  # noqa: E402
 
 ROOT = repo_root_from_here(__file__)
 CHALLENGE_FILE = ledger_dir(ROOT) / "challenge_v2.json"
@@ -555,7 +556,7 @@ def main():
                         help="Validate challenge_v2.json schema and exit")
     args = parser.parse_args()
 
-    today = parse_date(args.date) if args.date else date.today()
+    today = parse_date(args.date) if args.date else today_in_timezone(resolve_athlete_timezone(ROOT))
 
     # Load and validate challenge data
     data = load_challenge()

@@ -22,12 +22,13 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 _BOOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(_BOOT.parent / "lib"))
 from repo_layout import hist_dir, repo_root_from_here  # noqa: E402
+from timezone_util import now_in_timezone, resolve_athlete_timezone  # noqa: E402
 
 REPO_DIR = repo_root_from_here(__file__)
 HISTORY_DIR = hist_dir(REPO_DIR)
@@ -63,10 +64,14 @@ def load_all_activities():
 
 
 def parse_start(activity):
-    """Parse start_date_local into a datetime."""
+    """Parse start_date_local into a datetime. start_date_local is already wall-clock
+    local time despite the misleading trailing "Z" (issue #45) - relabeling it as
+    "+00:00" would mislabel it as UTC. Strip the "Z" and parse naive instead, matching
+    the same fix in engine/core/rename_core.py's parse_local_start()."""
     raw = activity.get("start_date_local", "")
+    naive = raw[:-1] if raw.endswith("Z") else raw
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return datetime.fromisoformat(naive)
     except Exception:
         return None
 
@@ -120,14 +125,18 @@ def filter_activities(activities, args):
     date_from = None
     date_to = None
 
+    # Issue #45: start_date_local (what parse_start() returns) is naive local time, not
+    # UTC - these boundaries must be naive local too, or comparisons below throw. --from/
+    # --to are plain YYYY-MM-DD with no timezone semantics of their own, so parsed naive
+    # as-is; --last is relative to "now," which does need the athlete's own timezone.
     if getattr(args, "from_date", None):
-        date_from = datetime.strptime(args.from_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        date_from = datetime.strptime(args.from_date, "%Y-%m-%d")
     if args.to:
-        date_to = datetime.strptime(args.to, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
+        date_to = datetime.strptime(args.to, "%Y-%m-%d") + timedelta(days=1)
     if args.last:
         delta = parse_relative_time(args.last)
         if delta:
-            date_from = datetime.now(timezone.utc) - delta
+            date_from = now_in_timezone(resolve_athlete_timezone(REPO_DIR)) - delta
 
     for a in activities:
         dt = parse_start(a)

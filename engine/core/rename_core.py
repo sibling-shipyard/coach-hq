@@ -15,10 +15,25 @@ from datetime import datetime
 from typing import Optional, Tuple
 
 
+def parse_local_start(start: str) -> datetime:
+    """start_date_local is already wall-clock local time despite the misleading trailing
+    "Z" (issue #45) - relabeling it as "+00:00" silently shifts activities near a day/year
+    boundary onto the wrong calendar day. Strip the "Z" and parse naive instead, matching
+    the client-side parseLocal fix this mirrors.
+
+    Only legacy/Strava-era hist/*.json entries actually carry the "Z" suffix (Strava's API
+    used that misleading convention) - current HealthKit-sourced activities
+    (ActivityMapper.swift) format start_date_local with no trailing Z/offset at all, so this
+    is a no-op for them either way. If a future ingestion source ever emits a genuinely-UTC
+    Z-suffixed timestamp meant to be read as real UTC, this assumption would need revisiting."""
+    naive = start[:-1] if start.endswith("Z") else start
+    return datetime.fromisoformat(naive)
+
+
 def get_activity_year(data: dict) -> int:
     """Extract the calendar year an activity happened in, from start_date_local."""
     start = data.get("start_date_local", "")
-    return datetime.fromisoformat(start.replace("Z", "+00:00")).year
+    return parse_local_start(start).year
 
 # Patterns that indicate an activity has already been renamed
 RENAMED_PATTERNS = [
@@ -75,7 +90,7 @@ def classify_activity(
     name = data.get("name", "")
     desc = (data.get("description") or "").lower()
     start = data.get("start_date_local", "")
-    dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    dt = parse_local_start(start)
     dow = dt.weekday()  # 0=Mon, 6=Sun
     dur_min = data.get("elapsed_time", 0) / 60
     name_lower = name.lower()

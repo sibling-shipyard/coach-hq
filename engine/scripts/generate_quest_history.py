@@ -27,8 +27,10 @@ _here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_here.parent / "lib"))
 from repo_layout import ledger_dir, quest_history_path, repo_root_from_here, seasons_dir  # noqa: E402
 from challenge_schema import challenge_window, season_start_date  # noqa: E402
+from timezone_util import resolve_athlete_timezone, today_in_timezone  # noqa: E402
 
 REPO_DIR = repo_root_from_here(__file__)
+TODAY = today_in_timezone(resolve_athlete_timezone(REPO_DIR))
 
 
 def resolve_output_path() -> Path:
@@ -63,7 +65,7 @@ def process_season(data: dict, is_current: bool, quests_out: dict) -> None:
         completed = set(quest.get("completed_dates", []))
 
         if is_current:
-            end = date.today().isoformat()
+            end = TODAY.isoformat()
         else:
             # Cap at the last date actually logged — no fake entries after tracking stopped
             all_logged = missed | excused | completed
@@ -113,7 +115,7 @@ def main():
         process_season(data, is_current=True, quests_out=quests_out)
 
     output = {
-        "generated_at": date.today().isoformat(),
+        "generated_at": TODAY.isoformat(),
         "quests": quests_out,
     }
 
