@@ -27,6 +27,9 @@ function waitlistConfig(): { repo: string; token: string } | null {
   const token = process.env.WAITLIST_GITHUB_TOKEN ?? process.env.GITHUB_PAT ?? "";
   const repo = process.env.WAITLIST_GITHUB_REPO ?? DEFAULT_REPO;
   if (!token) return null;
+  if (!process.env.WAITLIST_GITHUB_REPO) {
+    console.warn(`[waitlist] WAITLIST_GITHUB_REPO is unset — falling back to default repo ${DEFAULT_REPO}`);
+  }
   return { repo, token };
 }
 
