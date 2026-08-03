@@ -16,10 +16,10 @@ function ghUrl(path: string): string {
 
 async function makeCallbackUrl(
   code: string,
-  data: { nonce?: string; codeVerifier: string; platform: "web" | "ios"; popup: boolean },
+  data: { codeVerifier: string; platform: "web" | "ios"; popup: boolean },
 ): Promise<string> {
   const state = await signOAuthState(
-    { nonce: data.nonce ?? "test-nonce", codeVerifier: data.codeVerifier, platform: data.platform, popup: data.popup },
+    { codeVerifier: data.codeVerifier, platform: data.platform, popup: data.popup },
     SESSION_SECRET,
   );
   return `https://example.com/api/auth/callback?code=${code}&state=${encodeURIComponent(state)}`;
@@ -42,7 +42,7 @@ describe("callback.ts iOS error routing", () => {
     // but the payload still contains platform=ios.
     const wrongSecret = "wrong-secret";
     const state = await signOAuthState(
-      { nonce: "n", codeVerifier: "v", platform: "ios", popup: false },
+      { codeVerifier: "v", platform: "ios", popup: false },
       wrongSecret,
     );
     const url = `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`;
@@ -59,7 +59,7 @@ describe("callback.ts iOS error routing", () => {
   it("redirects missing_params to coachhq:// for iOS when state carries platform=ios", async () => {
     // No code param, but state encodes platform=ios.
     const state = await signOAuthState(
-      { nonce: "n", codeVerifier: "v", platform: "ios", popup: false },
+      { codeVerifier: "v", platform: "ios", popup: false },
       SESSION_SECRET,
     );
     const url = `https://example.com/api/auth/callback?state=${encodeURIComponent(state)}`;
@@ -151,5 +151,150 @@ describe("callback.ts web branch", () => {
     expect(res.headers.get("location")).toBe(
       "https://example.com/auth/popup-complete?error=needs_ios_setup",
     );
+  });
+});
+
+describe("callback.ts iOS success/setup branches", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("redirects to coachhq://callback with a token and the resolved repo on success", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+      }
+      if (url === ghUrl("/user")) {
+        return Response.json({ id: 3, login: "ios-user" });
+      }
+      if (url === ghUrl("/user/installations")) {
+        return Response.json({
+          installations: [{ id: 99, app_slug: "coach-phelps", account: { login: "ios-user" } }],
+        });
+      }
+      if (url === ghUrl("/user/installations/99/repositories?per_page=100")) {
+        return Response.json({
+          repositories: [{ full_name: "ios-user/coach-ios-user", name: "coach-ios-user", owner: { login: "ios-user" } }],
+        });
+      }
+      if (url === ghUrl("/repos/ios-user/coach-ios-user/contents/user_data/ledger/challenge_v2.json")) {
+        return new Response(null, { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const req = new Request(
+      await makeCallbackUrl("abc", { codeVerifier: "verifier", platform: "ios", popup: false }),
+    );
+
+    const res = await handler.fetch(req);
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    expect(location).toMatch(/^coachhq:\/\/callback\?token=gh-token/);
+    expect(location).toContain("login=ios-user");
+    expect(location).toContain(`repo=${encodeURIComponent("ios-user/coach-ios-user")}`);
+  });
+
+  it("redirects to coachhq://callback?needs_setup=1 with a token when there's no installation yet", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+      }
+      if (url === ghUrl("/user")) {
+        return Response.json({ id: 4, login: "brandnew-ios" });
+      }
+      if (url === ghUrl("/user/installations")) {
+        return Response.json({ installations: [] });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const req = new Request(
+      await makeCallbackUrl("abc", { codeVerifier: "verifier", platform: "ios", popup: false }),
+    );
+
+    const res = await handler.fetch(req);
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    expect(location).toMatch(/^coachhq:\/\/callback\?needs_setup=1/);
+    expect(location).toContain("login=brandnew-ios");
+    expect(location).toContain("token=gh-token");
+  });
+});
+
+describe("handleStart -> handleCallback round trip", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("signs state in handleStart with the same secret handleCallback verifies it with", async () => {
+    const startReq = new Request("https://example.com/api/auth/start?platform=ios");
+    const startRes = await handler.fetch(startReq);
+    expect(startRes.status).toBe(302);
+    const authorizeUrl = new URL(startRes.headers.get("location")!);
+    expect(authorizeUrl.origin).toBe("https://github.com");
+    const state = authorizeUrl.searchParams.get("state")!;
+    expect(state).toBeTruthy();
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+      }
+      if (url === ghUrl("/user")) {
+        return Response.json({ id: 5, login: "roundtrip-user" });
+      }
+      if (url === ghUrl("/user/installations")) {
+        return Response.json({ installations: [] });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const callbackReq = new Request(
+      `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`,
+    );
+    const callbackRes = await handler.fetch(callbackReq);
+    expect(callbackRes.status).toBe(302);
+    const location = callbackRes.headers.get("location") ?? "";
+    // A mismatch in handleStart's state generation vs handleCallback's verification would
+    // produce a corrupt_oauth_session redirect instead of reaching this branch.
+    expect(location).toMatch(/^coachhq:\/\/callback\?needs_setup=1/);
+  });
+});
+
+describe("callback.ts config_error routing", () => {
+  it("routes iOS to coachhq:// (not the web homepage) when CLIENT_ID/CLIENT_SECRET are unset", async () => {
+    vi.resetModules();
+    const prevId = process.env.GITHUB_APP_CLIENT_ID;
+    const prevSecret = process.env.GITHUB_APP_CLIENT_SECRET;
+    delete process.env.GITHUB_APP_CLIENT_ID;
+    delete process.env.GITHUB_APP_CLIENT_SECRET;
+    try {
+      const { default: misconfiguredHandler } = await import("../[...action].js");
+      const state = await signOAuthState({ codeVerifier: "v", platform: "ios", popup: false }, SESSION_SECRET);
+      const req = new Request(
+        `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`,
+      );
+      const res = await misconfiguredHandler.fetch(req);
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("coachhq://callback?error=config_error");
+    } finally {
+      process.env.GITHUB_APP_CLIENT_ID = prevId;
+      process.env.GITHUB_APP_CLIENT_SECRET = prevSecret;
+      vi.resetModules();
+    }
   });
 });

@@ -34,7 +34,13 @@ import {
   InstallationLookupFailedError,
   MarkerLookupFailedError,
 } from "./_lib/repo-resolution.js";
-import { generateRandomString, generateCodeChallenge, signOAuthState, verifyOAuthState } from "./_lib/pkce.js";
+import {
+  generateRandomString,
+  generateCodeChallenge,
+  signOAuthState,
+  verifyOAuthState,
+  fromBase64Url,
+} from "./_lib/pkce.js";
 
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
@@ -44,6 +50,9 @@ const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
 // consistent across all function invocations, and the state HMAC only needs to prevent
 // tampering in transit, not provide session confidentiality.
 const OAUTH_HMAC_SECRET = process.env.SESSION_SECRET || CLIENT_SECRET;
+if (!process.env.SESSION_SECRET) {
+  console.warn("[auth] SESSION_SECRET is unset — falling back to CLIENT_SECRET for OAuth state HMAC");
+}
 
 // ============================================================================
 // start.ts — single "Log in with GitHub" entry point for both new and returning users -
@@ -70,7 +79,6 @@ export async function handleStart(req: Request): Promise<Response> {
     return new Response(null, { status: 302, headers });
   }
 
-  const nonce = generateRandomString(24);
   const codeVerifier = generateRandomString(48);
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
@@ -79,7 +87,7 @@ export async function handleStart(req: Request): Promise<Response> {
   // State is HMAC-signed and embedded in the OAuth `state` parameter so GitHub echoes it
   // back in the callback URL. This avoids a Set-Cookie on the 302, which WKWebView
   // (iOS in-app browser) silently drops, breaking the auth flow.
-  const state = await signOAuthState({ nonce, codeVerifier, platform, popup }, OAUTH_HMAC_SECRET);
+  const state = await signOAuthState({ codeVerifier, platform, popup }, OAUTH_HMAC_SECRET);
 
   const authorizeUrl = new URL("https://github.com/login/oauth/authorize");
   authorizeUrl.searchParams.set("client_id", CLIENT_ID);
@@ -115,13 +123,12 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
     return new Response(null, { status: 302, headers });
   }
 
-  const nonce = generateRandomString(24);
   const codeVerifier = generateRandomString(48);
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
   const redirectUri = `${url.origin}/api/auth/callback`;
 
-  const state = await signOAuthState({ nonce, codeVerifier, platform, popup }, OAUTH_HMAC_SECRET);
+  const state = await signOAuthState({ codeVerifier, platform, popup }, OAUTH_HMAC_SECRET);
 
   // /installations/new/permissions runs the combined OAuth+install flow and returns
   // `code` in the callback; handleCallback requires `code` to exchange for a token.
@@ -162,10 +169,8 @@ function extractPlatformFromState(stateParam: string | null): "web" | "ios" {
   try {
     const dot = stateParam.lastIndexOf(".");
     if (dot === -1) return "web";
-    const payloadB64 = stateParam.slice(0, dot);
-    const base64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-    const d = JSON.parse(atob(padded)) as Record<string, unknown>;
+    const json = new TextDecoder().decode(fromBase64Url(stateParam.slice(0, dot)));
+    const d = JSON.parse(json) as Record<string, unknown>;
     return d.platform === "ios" ? "ios" : "web";
   } catch {
     return "web";
@@ -216,7 +221,7 @@ function callbackSetupRedirect(
 export async function handleCallback(req: Request): Promise<Response> {
   const url = new URL(req.url);
   try {
-    return await callbackImpl(req, url);
+    return await callbackImpl(url);
   } catch {
     return callbackErrorRedirect(url.origin, "network_error", extractPlatformFromState(url.searchParams.get("state")));
   }
@@ -225,15 +230,17 @@ export async function handleCallback(req: Request): Promise<Response> {
 // GitHub API calls below aren't individually try/caught - a thrown exception (DNS blip, timeout)
 // is caught by handleCallback's wrapper above instead of falling through to Vercel's generic
 // 500 page.
-async function callbackImpl(req: Request, url: URL): Promise<Response> {
+async function callbackImpl(url: URL): Promise<Response> {
+  // Extract platform before any other check so even the config_error bailout routes iOS
+  // to coachhq:// instead of the web homepage - see extractPlatformFromState's doc comment.
+  const unverifiedPlatform = extractPlatformFromState(url.searchParams.get("state"));
+
   if (!CLIENT_ID || !CLIENT_SECRET) {
-    return callbackErrorRedirect(url.origin, "config_error", "web", false);
+    return callbackErrorRedirect(url.origin, "config_error", unverifiedPlatform, false);
   }
 
   const code = url.searchParams.get("code");
   const stateParam = url.searchParams.get("state");
-  // Extract platform before HMAC verification so error redirects go to the right destination.
-  const unverifiedPlatform = extractPlatformFromState(stateParam);
 
   if (!code || !stateParam) {
     return callbackErrorRedirect(url.origin, "missing_params", unverifiedPlatform, false);

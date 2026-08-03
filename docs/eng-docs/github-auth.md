@@ -25,28 +25,43 @@ flowchart TD
 ```
 
 - Single entry point (`/api/auth/start`) for both new and returning users — identical whether
-  the person is new or returning; `callback.ts` is what branches.
-- `callback.ts` branches on `platform` (`web`/`ios`), carried through `coach_oauth_state` since
-  `start.ts`. `popup` is a third flag web sets when `GitHubAuthButton` opened the flow via
-  `window.open()` instead of a full nav — every terminal redirect then goes to
-  `/auth/popup-complete` instead of `/` or `/?auth_error=`.
+  the person is new or returning; the callback handler is what branches.
+- The callback handler branches on `platform` (`web`/`ios`), carried in an HMAC-signed `state`
+  URL param GitHub echoes back verbatim — not a cookie. A `coach_oauth_state` cookie was tried
+  first but WKWebView (iOS's in-app browser) silently drops `Set-Cookie` on redirects, so the
+  whole state payload (`codeVerifier`, `platform`, `popup`, `iat`) travels signed in the URL
+  instead; see `_lib/pkce.ts`'s `signOAuthState`/`verifyOAuthState`. `popup` is a third flag web
+  sets when `GitHubAuthButton` opened the flow via `window.open()` instead of a full nav — every
+  terminal redirect then goes to `/auth/popup-complete` instead of `/` or `/?auth_error=`.
 - **iOS** still can't provision a repo via API (GitHub App tokens can't create personal repos —
   confirmed 404/403 on `/repos/{template}/generate` and `/user/repos`), so `SetupView.swift`
   still walks a first-timer through creating the repo from `sibling-shipyard/coach-skeleton`
   then installing the App — unchanged by #164, out of scope for web.
 
-## Shared backend — `ui/api/auth/`
+## Shared backend — `ui/api/auth/[...action].ts`
 
-| File | Role |
-|---|---|
-| `start.ts` | Entry point. Builds PKCE state, redirects to GitHub's authorize endpoint. |
-| `callback.ts` | Token exchange, `GET /user`, installation lookup. Web: session or `AuthError`. iOS: `coachhq://callback` (token, or `needs_setup=1` into `SetupView`). |
-| `install-redirect.ts` | iOS-only in practice now — `SetupView`'s "continue to install" step. `?platform=ios`. |
-| `list-my-repos.ts` | Repo picker, dual auth (session cookie or Bearer). iOS-only in practice now — its fallback for the rare not-exactly-one-candidate case. |
-| `me.ts` / `logout.ts` | Web session read / clear. |
-| `refresh.ts` | iOS-only — confidential half of the refresh-token exchange (iOS has no `client_secret`). |
-| `_lib/session.ts` | JWE session cookie helpers, `ensureFreshSession()` (refresh-token rotation, ADR 0009). |
-| `_lib/repo-resolution.ts` | Single source of truth for installation + owned-repo lookup, shared by `callback.ts` and `list-my-repos.ts`. |
+All auth endpoints live in one Vercel catch-all function (ADR 0017 — Hobby plan caps a
+deployment at 12 functions), dispatching on the URL's dynamic segment. Each handler below is a
+named export in that one file:
+
+| Handler | Route | Role |
+|---|---|---|
+| `handleStart` | `/api/auth/start` | Entry point. Builds PKCE + signed state, redirects to GitHub's authorize endpoint. |
+| `handleCallback` | `/api/auth/callback` | Token exchange, `GET /user`, installation lookup. Web: session or `AuthError`. iOS: `coachhq://callback` (token, or `needs_setup=1` into `SetupView`). |
+| `handleInstallRedirect` | `/api/auth/install-redirect` | iOS-only in practice now — `SetupView`'s "continue to install" step. `?platform=ios`. |
+| `handleListMyRepos` | `/api/auth/list-my-repos` | Repo picker, dual auth (session cookie or Bearer). iOS-only in practice now — its fallback for the rare not-exactly-one-candidate case. |
+| `handleMe` / `handleLogout` | `/api/auth/me` / `/api/auth/logout` | Web session read / clear. |
+| `handleRefresh` | `/api/auth/refresh` | iOS-only — confidential half of the refresh-token exchange (iOS has no `client_secret`). |
+| `_lib/session.ts` | — | JWE session cookie helpers, `ensureFreshSession()` (refresh-token rotation, ADR 0009). |
+| `_lib/pkce.ts` | — | PKCE verifier/challenge + the signed-state helpers above. |
+| `_lib/repo-resolution.ts` | — | Single source of truth for installation + owned-repo lookup, shared by `handleCallback` and `handleListMyRepos`. |
+
+**Gotcha:** `ui/vercel.json`'s SPA fallback rewrite must stay scoped to exclude `/api/`
+(`"source": "/((?!api/).*)"`). A plain `"/(.*)"` rewrite competes with this file's own wildcard
+route (`/api/auth/*`) since both are dynamic patterns — Vercel reliably prefers a real function
+over a rewrite for a *literal* path (`/api/waitlist`), but not reliably between two wildcards.
+This took down GitHub sign-in on web and iOS simultaneously for several hours with no server-side
+error to find, because the request never reached this file at all.
 
 ## Session mechanics (ADR 0009)
 
@@ -78,16 +93,12 @@ flow unaffected.
 | `ui/client/src/pages/AuthError.tsx` | Renders `auth_error` types, incl. `needs_ios_setup` |
 | `ui/client/src/components/RepoDataGate.tsx` | Loading/error/revoked states for `useRepoData()` pages |
 | `ui/client/src/contexts/AuthContext.tsx` | Client-side auth state gate (`loading`/`local`/`unauthenticated`/`authenticated`) |
-| `ui/api/auth/start.ts` | Sign-in entry point (both platforms) |
-| `ui/api/auth/callback.ts` | Shared OAuth callback, platform + popup branch |
-| `ui/api/auth/install-redirect.ts` | iOS setup step 2 |
-| `ui/api/auth/refresh.ts` | iOS-only refresh_token exchange |
-| `ui/api/auth/me.ts` / `logout.ts` | Web session read / clear |
-| `ui/api/auth/list-my-repos.ts` | Repo resolution/picker, dual auth |
+| `ui/api/auth/[...action].ts` | All auth handlers (`handleStart`, `handleCallback`, `handleInstallRedirect`, `handleRefresh`, `handleMe`, `handleLogout`, `handleListMyRepos`) — one catch-all function, see ADR 0017 |
 | `ui/api/auth/_lib/session.ts` | Cookie helpers, JWE encrypt/decrypt, `ensureFreshSession()` |
-| `ui/api/auth/_lib/pkce.ts` | PKCE verifier/challenge generation |
+| `ui/api/auth/_lib/pkce.ts` | PKCE verifier/challenge generation + signed OAuth state (`signOAuthState`/`verifyOAuthState`) |
 | `ui/api/auth/_lib/repo-resolution.ts` | Shared installation/repo lookup logic |
 | `ui/api/auth/_lib/resolve-auth.ts` | Per-request auth for repo-scoped endpoints (cookie or Bearer+X-Coach-Repo) |
+| `ui/vercel.json` | Rewrites/headers — SPA fallback rewrite must exclude `/api/` (see Gotcha above) |
 | `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | iOS sign-in, Keychain, repo resolution, token refresh |
 | `ios/CoachHQ/CoachHQ/Views/SetupView.swift` | iOS native Setup wizard |
 | `ios/CoachHQ/CoachHQ/Views/LoginView.swift` | iOS sign-in screen |

@@ -1,0 +1,27 @@
+# Vercel environment variables
+
+## Context
+
+No file in this repo ever listed every env var the `ui/api/*` functions need — each just read
+`process.env.X` with its own silent fallback. That gap is why `SESSION_SECRET` being unset
+went unnoticed until `ui/api/auth/[...action].ts` needed a `CLIENT_SECRET` fallback to keep
+iOS sign-in working. This is the canonical list — check it against the Vercel dashboard
+(Project → Settings → Environment Variables) when something silently misbehaves.
+
+## Required
+
+| Var | Used by | What breaks if unset |
+|---|---|---|
+| `GITHUB_APP_CLIENT_ID` | `ui/api/auth/[...action].ts` | Sign-in redirects to `?auth_error=config_error` instead of GitHub — every user blocked. |
+| `GITHUB_APP_CLIENT_SECRET` | `ui/api/auth/[...action].ts` | Same as above. Also silently becomes the OAuth-state HMAC key if `SESSION_SECRET` is unset (see below). |
+| `SESSION_SECRET` | `ui/api/auth/_lib/session.ts`, `ui/api/auth/[...action].ts` | `session.ts` throws outright for web sessions (must be 32 random bytes, base64-encoded). For the OAuth `state` HMAC specifically, falls back to `CLIENT_SECRET` instead of throwing — logs a `[auth]` warning on cold start if this happens. |
+| `GITHUB_APP_SLUG` | `ui/api/auth/[...action].ts` | Falls back to `"coach-phelps"` — only matters if the App is ever renamed. |
+| `GEMINI_API_KEY` | `ui/api/coach-chat.ts` | Every POST request (including `action: "greet"`) fails with a clean 500 — checked once at the top of the handler before any branch. |
+| `WAITLIST_GITHUB_TOKEN` (or `GITHUB_PAT`) | `ui/api/waitlist.ts` | Waitlist signups fail (`waitlistConfig()` returns null). |
+| `WAITLIST_GITHUB_REPO` | `ui/api/waitlist.ts` | Falls back to `sibling-shipyard/coach-phelps-hq` — logs a `[waitlist]` warning on first use if unset. Only matters if the waitlist should write elsewhere. |
+
+## Rule
+
+Every new `process.env.X` read in `ui/api/*` should either throw/error visibly if required, or
+log a `console.warn` if it silently falls back to a default — see `[auth]`/`[waitlist]` warnings
+above for the pattern. A default with no log line is how `SESSION_SECRET` went unnoticed.
