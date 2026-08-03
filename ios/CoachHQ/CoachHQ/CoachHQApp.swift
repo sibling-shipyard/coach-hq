@@ -69,6 +69,9 @@ struct CoachHQApp: App {
                     LoginView()
                         .environmentObject(router.authManager)
                 case .multipleReposGranted:
+                    // Same view as .unauthenticated - LoginView reads
+                    // authManager.multipleReposDetected itself and swaps in the blocked
+                    // state (message + retry) instead of the sign-in button.
                     LoginView()
                         .environmentObject(router.authManager)
                 }

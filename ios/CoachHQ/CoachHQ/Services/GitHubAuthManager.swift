@@ -398,6 +398,15 @@ class GitHubAuthManager: ObservableObject {
         pendingSetupLogin = nil
         lastNetworkError = nil
         sessionExpired = false
+        multipleReposDetected = false
+    }
+
+    /// Called from the blocked screen after the athlete says they've removed access to the
+    /// extra repos in GitHub's settings - re-resolves instead of leaving them stuck on the
+    /// same screen with no way back in short of force-quitting the app.
+    func retryAfterMultipleRepos() async {
+        multipleReposDetected = false
+        await bootstrapSession()
     }
 
     /// Called once on first launch after a fresh install. UserDefaults is cleared on app

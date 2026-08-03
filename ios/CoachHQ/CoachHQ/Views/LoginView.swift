@@ -6,6 +6,7 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var devErrorDetail: String?
+    @State private var isRetryingMultipleRepos = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -69,6 +70,23 @@ struct LoginView: View {
                     .frame(height: 54)
                     .background(Theme.ink)
                     .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
+
+                // Without this, the athlete has no way back in after fixing their install
+                // short of force-quitting the app so bootstrapSession() reruns on cold start.
+                Button {
+                    Haptics.tap()
+                    retryAfterMultipleRepos()
+                } label: {
+                    HStack(spacing: 8) {
+                        if isRetryingMultipleRepos {
+                            ProgressView().scaleEffect(0.85)
+                        }
+                        Text(isRetryingMultipleRepos ? "Checking…" : "I've removed access - try again")
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                }
+                .disabled(isRetryingMultipleRepos)
             } else {
                 if let error = errorMessage ?? authManager.lastNetworkError {
                     Text(error)
@@ -128,6 +146,14 @@ struct LoginView: View {
                 Haptics.error()
             }
             isLoading = false
+        }
+    }
+
+    private func retryAfterMultipleRepos() {
+        isRetryingMultipleRepos = true
+        Task {
+            await authManager.retryAfterMultipleRepos()
+            isRetryingMultipleRepos = false
         }
     }
 }
