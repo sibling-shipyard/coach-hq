@@ -34,3 +34,4 @@ One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`.
 - `selectedRepo` may be `owner/repo` (list-my-repos) or short repo name (OAuth callback) — always use `GitHubAuthManager.repoFullName` for GitHub API URLs and `X-Coach-Repo`; never concatenate `user.login + selectedRepo` blindly.
 - Workouts session fetch must wait for `isSessionReady` + `repoFullName` — fetching in `configure()` races bootstrap and fails silently, leaving no TODAY badge until pull-to-refresh.
 - Same bootstrap race applies anywhere that hits GitHub on first paint — gate on `isSessionReady` + `repoFullName` (Activities backfill, Workouts sessions, Home snapshots).
+- GitHub passkey 2FA fails silently in the in-app `WKWebView` login (TOTP/push/recovery code all work fine) — plain `WKWebView` can't surface native WebAuthn prompts without iOS 17.4+ delegate support + associated domains, which the app doesn't have. Tracked as #238, P2, not fixed.
