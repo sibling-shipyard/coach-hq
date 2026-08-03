@@ -541,6 +541,7 @@ struct SettingsView: View {
         case .bootstrapping:          return "bootstrapping"
         case .unauthenticated:        return "unauthenticated"
         case .needsSetup(let login):  return "needsSetup(\(login))"
+        case .multipleReposGranted:   return "multipleReposGranted"
         case .active:                 return "active"
         }
     }
