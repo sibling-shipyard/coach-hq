@@ -100,7 +100,7 @@ describe("list-my-repos", () => {
     expect(body).toEqual({ candidates: [], reason: "no_marker_match" });
   });
 
-  it("returns candidates without mutating the session when there are 2+ matches", async () => {
+  it("blocks with multiple_repos_granted when there are 2+ matches (ADR 0019) - no picker", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === ghUrl("/user/installations/42/repositories?per_page=100")) {
         return Response.json(
@@ -117,13 +117,17 @@ describe("list-my-repos", () => {
     });
 
     const res = await handler.fetch(await sessionRequest());
+    expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.candidates.sort()).toEqual(["alice/coach-a", "alice/coach-b"]);
+    expect(body).toEqual({ error: "multiple_repos_granted" });
     expect(res.headers.get("set-cookie")).toBeNull();
   });
 
-  it("persists an explicit ?select= pick via POST after confirming ownership + marker file", async () => {
+  it("ignores a stray ?select= param - the picker path is gone, so it's just a normal resolve", async () => {
     fetchMock.mockImplementation(async (url: string) => {
+      if (url === ghUrl("/user/installations/42/repositories?per_page=100")) {
+        return Response.json(mockRepoList([{ full_name: "alice/coach-alice", owner: "alice" }]));
+      }
       if (url.includes("/contents/user_data/ledger/challenge_v2.json")) {
         return new Response(null, { status: 200 });
       }
@@ -133,19 +137,6 @@ describe("list-my-repos", () => {
     const res = await handler.fetch(await sessionRequest({}, "?select=alice%2Fcoach-b", "POST"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ repo_full_name: "alice/coach-b" });
-    expect(res.headers.get("set-cookie")).toMatch(/^coach_session=/);
-  });
-
-  it("rejects a ?select= pick for a repo the caller doesn't own", async () => {
-    const res = await handler.fetch(await sessionRequest({}, "?select=bob%2Fcoach-bob", "POST"));
-    expect(res.status).toBe(403);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects a GET with ?select= - mutating the session requires POST", async () => {
-    const res = await handler.fetch(await sessionRequest({}, "?select=alice%2Fcoach-b", "GET"));
-    expect(res.status).toBe(405);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(body).toEqual({ repo_full_name: "alice/coach-alice" });
   });
 });

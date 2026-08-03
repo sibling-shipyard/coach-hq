@@ -6,6 +6,7 @@ struct LoginView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var devErrorDetail: String?
+    @State private var isRetryingMultipleRepos = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,45 +54,80 @@ struct LoginView: View {
 
     private var authSection: some View {
         VStack(spacing: 12) {
-            if let error = errorMessage ?? authManager.lastNetworkError {
-                Text(error)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(WarmInstrument.alarmFg)
+            if authManager.multipleReposDetected {
+                // 2+ repos granted (ADR 0019) - block, don't let the athlete sign in again
+                // until they've removed access to the extras in GitHub's own settings.
+                Text("Your GitHub App install grants access to more than one repo you own, and Coach Phelps only supports one repo per account. Open GitHub's installation settings, deselect all but one repo, then come back and sign in again.")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(WarmInstrument.ink)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 4)
-                if devModeEnabled, let devErrorDetail {
-                    Text(devErrorDetail)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                        .multilineTextAlignment(.center)
-                }
-            }
 
-            Button {
-                Haptics.tap()
-                signIn()
-            } label: {
-                HStack(spacing: 10) {
-                    if isLoading {
-                        ProgressView()
-                            .tint(WarmInstrument.paper)
-                            .scaleEffect(0.85)
-                            .transition(.scale.combined(with: .opacity))
-                    } else {
-                        Image("GitHubMark")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 18, height: 18)
-                            .transition(.scale.combined(with: .opacity))
+                Link("Open GitHub settings", destination: URL(string: "https://github.com/settings/installations")!)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(WarmInstrument.paper)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(Theme.ink)
+                    .clipShape(RoundedRectangle(cornerRadius: WarmInstrument.cardRadius, style: .continuous))
+
+                // Without this, the athlete has no way back in after fixing their install
+                // short of force-quitting the app so bootstrapSession() reruns on cold start.
+                Button {
+                    Haptics.tap()
+                    retryAfterMultipleRepos()
+                } label: {
+                    HStack(spacing: 8) {
+                        if isRetryingMultipleRepos {
+                            ProgressView().scaleEffect(0.85)
+                        }
+                        Text(isRetryingMultipleRepos ? "Checking…" : "I've removed access - try again")
                     }
-                    Text(isLoading ? "Signing in…" : "Sign in with GitHub")
-                        .contentTransition(.opacity)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(WarmInstrument.inkMuted)
                 }
-                .animation(PremiumMotion.press, value: isLoading)
+                .disabled(isRetryingMultipleRepos)
+            } else {
+                if let error = errorMessage ?? authManager.lastNetworkError {
+                    Text(error)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(WarmInstrument.alarmFg)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 4)
+                    if devModeEnabled, let devErrorDetail {
+                        Text(devErrorDetail)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+
+                Button {
+                    Haptics.tap()
+                    signIn()
+                } label: {
+                    HStack(spacing: 10) {
+                        if isLoading {
+                            ProgressView()
+                                .tint(WarmInstrument.paper)
+                                .scaleEffect(0.85)
+                                .transition(.scale.combined(with: .opacity))
+                        } else {
+                            Image("GitHubMark")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 18, height: 18)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                        Text(isLoading ? "Signing in…" : "Sign in with GitHub")
+                            .contentTransition(.opacity)
+                    }
+                    .animation(PremiumMotion.press, value: isLoading)
+                }
+                .buttonStyle(WarmLoginButtonStyle())
+                .disabled(isLoading)
+                .onboardingReveal(index: 4)
             }
-            .buttonStyle(WarmLoginButtonStyle())
-            .disabled(isLoading)
-            .onboardingReveal(index: 4)
         }
     }
 
@@ -110,6 +146,14 @@ struct LoginView: View {
                 Haptics.error()
             }
             isLoading = false
+        }
+    }
+
+    private func retryAfterMultipleRepos() {
+        isRetryingMultipleRepos = true
+        Task {
+            await authManager.retryAfterMultipleRepos()
+            isRetryingMultipleRepos = false
         }
     }
 }
