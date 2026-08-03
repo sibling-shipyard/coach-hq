@@ -10,9 +10,3 @@
 **Migration:** v2/v3 → v4 at provision, carve, and a one-shot script for live repos. `challenge_schema.py` reads legacy during transition; writes v4 only after cutover. `validate-data.yml` enforces v4.
 
 **Supersedes:** informal "v2 template vs v3 live" split in `docs/eng-docs/soul-C-schema.md` § HQ template vs Sky live.
-
-## Aggregate Data Schema & Projection
-
-- **Aggregate Slimming:** The `gen/aggregate.json` file produced by `engine/scripts/build-aggregate.mjs` contains an `activities` array. 
-- **Scalars vs. Time-Series Rule:** Activities injected into the aggregate payload are projected down to a strict allowlist of scalar fields (e.g., `id`, `name`, `distance`, `moving_time`, `average_heartrate`).
-- **Why:** Time-series arrays (`best_efforts`, `average_cadence`, `average_speed`, `total_photo_count`, etc.) bloat the aggregate payload significantly. The UI loads the full aggregate on boot, so it must be slim. High-fidelity time-series data or heavy arrays remain in `hist/*.json` and should be fetched individually per activity when required (e.g., in a detail view).

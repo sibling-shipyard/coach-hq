@@ -29,6 +29,9 @@ export interface Activity {
   description: string | null;
   max_speed: number;
   device_name: string | null;
+  id_str?: string;
+  source?: string;
+  pre_mental_state?: string;
 }
 
 // ─── Training Category Classification ───────────────────────────────────────
