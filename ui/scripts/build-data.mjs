@@ -24,6 +24,7 @@ import {
   syncStatusPath,
   templatesDir,
 } from "../../engine/lib/repo-layout.mjs";
+import { projectActivity } from "../../engine/lib/projectActivity.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(path.join(__dirname, ".."));
@@ -51,15 +52,17 @@ function buildAggregate() {
   if (fs.existsSync(historyDir)) {
     const files = fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"));
     if (files.length === 0) {
-      result.activities = fs.existsSync(existingActivitiesPath)
+      const rawActivities = fs.existsSync(existingActivitiesPath)
         ? JSON.parse(fs.readFileSync(existingActivitiesPath, "utf-8"))
         : [];
+      result.activities = rawActivities.map((a) => projectActivity(a));
       console.log("✓ activities — no local history files, keeping committed version");
     } else {
       const activities = [];
       for (const file of files) {
         try {
-          activities.push(JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8")));
+          const raw = JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8"));
+          activities.push(projectActivity(raw));
         } catch (e) {
           console.warn(`⚠ Skipping ${file}: ${e.message}`);
         }

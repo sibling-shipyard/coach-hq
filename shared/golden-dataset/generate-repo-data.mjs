@@ -171,12 +171,8 @@ function pushActivity(a) {
     has_heartrate: false,
     hr_zones: null,
     description: null,
-    total_photo_count: 0,
-    average_speed: 0,
-    average_cadence: null,
     max_speed: 0,
     device_name: "Golden Dataset",
-    best_efforts: null,
     ...a,
   });
 }
@@ -305,7 +301,6 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
         average_heartrate: 122,
         max_heartrate: 148,
         has_heartrate: true,
-        average_speed: 5.8,
         max_speed: 11.2,
         hr_zones: hrZones(seconds),
       });
@@ -343,12 +338,8 @@ for (let w = WEEKS_OF_HISTORY; w >= 0; w--) {
         average_heartrate: isTimeTrial ? 168 : 152,
         max_heartrate: isTimeTrial ? 182 : 174,
         has_heartrate: true,
-        average_speed: 2.8,
         max_speed: 4.1,
         hr_zones: hrZones(seconds),
-        best_efforts: [
-          { name: "5K", moving_time: seconds, start_date_local: localTimestamp(date, 8, 30), pr_rank: null },
-        ],
       });
     }
   }

@@ -27,17 +27,8 @@ export interface Activity {
   has_heartrate: boolean;
   hr_zones: Record<string, HrZone> | null;
   description: string | null;
-  total_photo_count: number;
-  average_speed: number;
-  average_cadence: number | null;
   max_speed: number;
   device_name: string | null;
-  best_efforts: Array<{
-    name: string;
-    moving_time: number;
-    start_date_local: string;
-    pr_rank: number | null;
-  }> | null;
 }
 
 // ─── Training Category Classification ───────────────────────────────────────
