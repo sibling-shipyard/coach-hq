@@ -31,15 +31,24 @@ function localDateKey(date: Date): string {
 // A "placeholder" week is the real value the ledger ships when the coach planned a week - it's
 // only stale, not inherently wrong, so we only force a live recompute when its stored
 // start_date/end_date no longer brackets today. A currently-accurate placeholder is left as-is.
-function isPlaceholderWeekStale(week: CurrentWeekContract): boolean {
+//
+// This layer's own type contract has already proven unreliable at runtime once - the real
+// coach-skanda ledger shipped `coach_read: null` despite CurrentWeekContract declaring it
+// required (see PR #240's null-guard). So treat `week.week.start_date`/`end_date` the same way:
+// don't trust the cast, check the shape. A malformed placeholder is itself a reason to recompute
+// live, not a reason to throw and 500 all of Home.
+function isPlaceholderWeekStale(week: { week?: { start_date?: unknown; end_date?: unknown } }): boolean {
+  const startDate = week.week?.start_date;
+  const endDate = week.week?.end_date;
+  if (typeof startDate !== "string" || typeof endDate !== "string") return true;
   const today = localDateKey(new Date());
-  return today < week.week.start_date || today > week.week.end_date;
+  return today < startDate || today > endDate;
 }
 
 export function needsLiveRecomputation(week: RepoAggregateInput["current_week"]): boolean {
   if (!week || week.data_status === "unavailable") return true;
   if (week.data_status === "placeholder") {
-    return isPlaceholderWeekStale(week as CurrentWeekContract);
+    return isPlaceholderWeekStale(week as { week?: { start_date?: unknown; end_date?: unknown } });
   }
   return false;
 }

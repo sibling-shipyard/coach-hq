@@ -134,7 +134,6 @@ function CoachChatContent({ data }: { data: RepoData }) {
     }
   }, [threads, activeId]);
 
-
   function startNewConversation() {
     // Not "new" (an empty composer waiting on the athlete) any more - Coach speaks first (A4).
     // greet() reuses today's still-unanswered greeting thread if one exists, or creates a
