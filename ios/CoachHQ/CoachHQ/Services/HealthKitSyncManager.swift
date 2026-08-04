@@ -444,7 +444,9 @@ class HealthKitSyncManager: ObservableObject {
                 accepted.append(candidate)
             }
         }
-        return accepted
+        // Re-sort by startDate so ActivityNamer assigns counters in chronological order,
+        // matching the invariant in engine/scripts/migrate_activity_naming.py.
+        return accepted.sorted { $0.startDate < $1.startDate }
     }
 
     private static func areDuplicateWorkouts(_ a: HKWorkout, _ b: HKWorkout) -> Bool {
