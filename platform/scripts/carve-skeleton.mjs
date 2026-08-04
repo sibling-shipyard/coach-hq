@@ -174,14 +174,35 @@ const STATE_MD_TEMPLATE = `# Coach Phelps: state.md (Living Memory)
 - **Coaching style preference:**
 - **Timezone:**
 
+## Equipment
+*(Filled in during First Session — update as equipment changes)*
+
 ## Current Season
 *(Defined during First Session)*
 - **Season name:**
 - **Phase:**
 - **Phase dates:**
 
+## Current Phase / Block Context
+*(Optional — only if this athlete's coaching model uses phases/blocks within a season. Leave empty otherwise.)*
+
 ## Recent Session Notes *(rolling — last 3 sessions)*
 *(Empty — first session will populate this)*
+
+## Fitness Baseline
+*(Coach builds this over time — starts empty)*
+
+## RPE Calibration
+*(Individual anchors so "RPE 7" means the same thing every session — starts empty)*
+
+| RPE | Anchor |
+|-----|--------|
+
+## Sleep Log (rolling 7 days)
+*(Rolling 7-day window. Drop oldest when adding new — starts empty)*
+
+| Date | Sleep | Resting HR | Notes |
+|------|-------|------------|-------|
 
 ## Active Injury Flags
 *(None — update if injuries arise)*
@@ -189,12 +210,29 @@ const STATE_MD_TEMPLATE = `# Coach Phelps: state.md (Living Memory)
 ## Current Week Plan
 *(Set during first weekly planning session)*
 
+## Coaching Priorities
+*(Coach builds this over time — starts empty)*
+
 ## Learned Patterns
+**Training:**
+*(Coach builds this over time — starts empty)*
+
+**Nutrition:**
+*(Coach builds this over time — starts empty)*
+
+**Mental / Performance:**
 *(Coach builds this over time — starts empty)*
 `;
 
 const COACH_NOTES_TEMPLATE = `# Coach Notes
 *Coach's private working memory. Append observations, analysis, accountability data points, and anything worth remembering long-term. Append-only.*
+`;
+
+// SOUL's closing-ritual (platform/soul/B_engine.md "Closing a phase") writes a
+// retrospective here whenever a phase/block closes — scaffolded so every athlete has
+// somewhere for it to land, whether or not their coaching model actually uses phases.
+const ARCHIVE_PHASES_TEMPLATE = `# Archived Phases & Blocks
+*(Empty — populated when a phase/block closes.)*
 `;
 
 const QUEST_LOG_STARTER = `# Quest Log
@@ -478,6 +516,7 @@ function carve(outDir, sha) {
   writeJson(outDir, "user_data/coach/sleep_log.json", []);
   writeJson(outDir, "user_data/coach/chat_history.json", []);
   writeText(outDir, "user_data/coach/reference/.gitkeep", "");
+  writeText(outDir, "user_data/coach/archive/phases.md", ARCHIVE_PHASES_TEMPLATE);
   writeText(outDir, "user_data/activities/hist/.gitkeep", "");
   writeJson(outDir, "user_data/activities/sync_state.json", SYNC_STATE_TEMPLATE);
 
