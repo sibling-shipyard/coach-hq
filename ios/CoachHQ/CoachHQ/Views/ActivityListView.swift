@@ -146,12 +146,7 @@ struct ActivityListView: View {
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Theme.ink)
 
-            Text("Every entry earns its load — nothing invented.")
-                .font(WarmInstrument.coachVoice(14))
-                .foregroundColor(WarmInstrument.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
-
-            MonoLabel("LAST 7 DAYS · PULL TO SYNC", size: 10, tracking: 1.5)
+            MonoLabel("LAST 7 DAYS", size: 10, tracking: 1.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)

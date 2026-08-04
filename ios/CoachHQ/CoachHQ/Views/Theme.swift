@@ -143,6 +143,29 @@ enum Theme {
     static func sportSupportsScoreEntry(for sportType: String) -> Bool {
         sportType == "Badminton"
     }
+
+    // MARK: - Activity categories
+
+    struct ActivityCategory {
+        let code: String
+        let label: String
+    }
+
+    /// Predefined category options for a sport type. Returns nil for sports with no taxonomy (Other).
+    static func categoryOptions(for sportType: String) -> [ActivityCategory]? {
+        switch sportType {
+        case "Badminton":
+            return [.init(code: "RNK", label: "Ranking"), .init(code: "TRN", label: "Training"), .init(code: "REC", label: "Recreational")]
+        case "WeightTraining", "Foundation", "TraditionalStrengthTraining", "FunctionalStrengthTraining":
+            return [.init(code: "FDN", label: "Foundation"), .init(code: "HYP", label: "Hypertrophy"), .init(code: "STR", label: "Strength")]
+        case "Run", "Running":
+            return [.init(code: "EZY", label: "Easy"), .init(code: "TMP", label: "Tempo"), .init(code: "INT", label: "Intervals")]
+        case "Ride", "EBikeRide", "Cycling":
+            return [.init(code: "EZY", label: "Easy"), .init(code: "TMP", label: "Tempo"), .init(code: "CLB", label: "Climb")]
+        default:
+            return nil
+        }
+    }
 }
 
 // MARK: - Warm Instrument (Home surface)
