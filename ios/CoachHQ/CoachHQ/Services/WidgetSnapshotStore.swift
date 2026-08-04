@@ -18,29 +18,44 @@ class WidgetSnapshotStore: ObservableObject {
 
     private static let cacheKey = "widget_snapshots_cache"
     private static let cacheFetchedAtKey = "widget_snapshots_cache_fetched_at"
+    /// Account (`repoFullName`) the on-disk cache was written for. The cache key itself
+    /// isn't scoped per account — instead we store who it belongs to and refuse to load
+    /// it for anyone else. Without this, the previous signed-in account's cached Home
+    /// snapshot paints instantly on cold launch / account switch and only gets overwritten
+    /// once the real fetch lands ~5s later.
+    private static let cacheAccountKey = "widget_snapshots_cache_account"
 
     init() {
-        loadCached()
+        // Cache load is deferred to `configure(apiClient:)` — before the signed-in account
+        // is known, loading would risk rendering a previous account's snapshot.
     }
 
     func configure(apiClient: GitHubAPIClient) {
         self.apiClient = apiClient
         isConfigured = true
+        loadCached()
     }
 
     /// Drops in-memory and on-disk snapshot data so a stale account's Home can never
-    /// survive a sign-out.
+    /// survive a sign-out or account switch.
     func reset() {
         snapshots = nil
         lastFetchedAt = nil
         lastError = nil
         UserDefaults.standard.removeObject(forKey: Self.cacheKey)
         UserDefaults.standard.removeObject(forKey: Self.cacheFetchedAtKey)
+        UserDefaults.standard.removeObject(forKey: Self.cacheAccountKey)
     }
 
     // MARK: - Cache
 
     private func loadCached() {
+        // Never render a cache written for a different (or no longer known) account.
+        let cachedAccount = UserDefaults.standard.string(forKey: Self.cacheAccountKey)
+        guard let currentAccount = apiClient?.repoFullName, cachedAccount == currentAccount else {
+            if cachedAccount != nil { clearCacheStorage() }
+            return
+        }
         guard let data = UserDefaults.standard.data(forKey: Self.cacheKey) else { return }
         do {
             snapshots = try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
@@ -48,20 +63,28 @@ class WidgetSnapshotStore: ObservableObject {
         } catch {
             // Drop corrupt cache — e.g. schema drift or a partial placeholder file that
             // decoded before `sizes` was required. A fresh GitHub fetch will repopulate.
-            UserDefaults.standard.removeObject(forKey: Self.cacheKey)
-            UserDefaults.standard.removeObject(forKey: Self.cacheFetchedAtKey)
+            clearCacheStorage()
         }
     }
 
-    /// Persists the last good snapshot locally (in-app cache) and mirrors it into the App
-    /// Group shared container for the WidgetKit extension, then nudges WidgetKit to redraw
-    /// the S-size home screen widgets against the fresh data instead of waiting out their
-    /// own timeline policy.
+    private func clearCacheStorage() {
+        UserDefaults.standard.removeObject(forKey: Self.cacheKey)
+        UserDefaults.standard.removeObject(forKey: Self.cacheFetchedAtKey)
+        UserDefaults.standard.removeObject(forKey: Self.cacheAccountKey)
+    }
+
+    /// Persists the last good snapshot locally (in-app cache, tagged with the account it
+    /// belongs to) and mirrors it into the App Group shared container for the WidgetKit
+    /// extension, then nudges WidgetKit to redraw the S-size home screen widgets against
+    /// the fresh data instead of waiting out their own timeline policy.
     func persist(_ file: WidgetSnapshotsFile) {
         guard let data = try? JSONEncoder().encode(file) else { return }
         UserDefaults.standard.set(data, forKey: Self.cacheKey)
         let now = Date()
         UserDefaults.standard.set(now, forKey: Self.cacheFetchedAtKey)
+        if let account = apiClient?.repoFullName {
+            UserDefaults.standard.set(account, forKey: Self.cacheAccountKey)
+        }
         lastFetchedAt = now
 
         AppGroupSnapshotBridge.write(file)

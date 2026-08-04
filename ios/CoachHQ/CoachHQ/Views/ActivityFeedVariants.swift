@@ -284,6 +284,15 @@ struct ActivityFeedView: View {
     let onSelect: (SyncCacheEntry) -> Void
     /// When false, rows appear instantly — use for embedded pushes from Home.
     var animateEntrance: Bool = true
+    /// Label shown in the ledger card's top-left kicker. Defaults to the 7-day framing;
+    /// full-history views (e.g. "All activity") pass something else in.
+    var kickerLabel: String = "LAST 7 DAYS"
+    /// The week-summary strip above the ledger only makes sense for a 7-day window —
+    /// a full-history paginated list skips it.
+    var showWeekSummary: Bool = true
+    /// Extra content appended after the last row inside the ledger card — used for a
+    /// "Load more" control in paginated views.
+    var footer: AnyView? = nil
 
     private var sessionLabel: String {
         entries.count == 1 ? "1 SESSION" : "\(entries.count) SESSIONS"
@@ -291,7 +300,7 @@ struct ActivityFeedView: View {
 
     var body: some View {
         LazyVStack(spacing: 0) {
-            weekSummary
+            if showWeekSummary { weekSummary }
             ledgerCard
             Color.clear.frame(height: 12)
         }
@@ -314,7 +323,7 @@ struct ActivityFeedView: View {
     private var ledgerCard: some View {
         let card = WarmCard {
             VStack(alignment: .leading, spacing: 0) {
-                CardKicker(label: "LAST 7 DAYS", trailing: sessionLabel)
+                CardKicker(label: kickerLabel, trailing: sessionLabel)
                     .padding(.bottom, 12)
 
                 ForEach(Array(grouped.enumerated()), id: \.element.id) { groupIndex, group in
@@ -338,6 +347,11 @@ struct ActivityFeedView: View {
                                 .overlay(WarmInstrument.headerRule)
                         }
                     }
+                }
+
+                if let footer {
+                    footer
+                        .padding(.top, 12)
                 }
             }
         }

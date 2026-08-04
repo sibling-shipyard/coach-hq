@@ -77,8 +77,9 @@ struct WarmInstrumentHomeView: View {
                         )
                     }
                 case .activities:
-                    ActivityListView(
-                        embedded: true,
+                    // Full paginated history, not the 7-day widget cache — see
+                    // AllActivitiesListView's doc comment for why it's a separate view.
+                    AllActivitiesListView(
                         onSelectEntry: { entry in navigationPath.append(.activity(entry)) }
                     )
                 case .activity(let entry):
