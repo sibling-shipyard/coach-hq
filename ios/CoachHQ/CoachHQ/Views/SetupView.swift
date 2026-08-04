@@ -24,44 +24,25 @@ struct SetupView: View {
         return components.url
     }
 
-    private var currentStep: Int { repoStepComplete ? 2 : 1 }
-    private var progressFraction: Double { repoStepComplete ? 1.0 : 0.5 }
-
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 28) {
-                OnboardingLogo()
-                    .onboardingReveal(index: 0)
-
-                VStack(spacing: 16) {
-                    progressSection
-                        .onboardingReveal(index: 1)
-
-                    Text("Setting up your coach")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(WarmInstrument.ink)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .onboardingReveal(index: 2)
-
-                    Text("You're signed in as \(login). After this, you'll meet Coach in chat — your dashboard fills in from that first conversation.")
-                        .font(WarmInstrument.coachVoice(15))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineSpacing(3)
-                        .onboardingReveal(index: 3)
-
-                    if repoStepComplete {
-                        repoReadyHint
-                            .onboardingReveal(index: 4)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+            ZStack {
+                if repoStepComplete {
+                    step2Content
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+                } else {
+                    step1Content
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
                 }
-                .padding(.horizontal, 32)
-                .animation(PremiumMotion.state, value: repoStepComplete)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(PremiumMotion.state, value: repoStepComplete)
 
             actionSection
                 .padding(.horizontal, 24)
@@ -87,35 +68,84 @@ struct SetupView: View {
         }
     }
 
-    private var progressSection: some View {
-        VStack(spacing: 8) {
-            HStack {
-                MonoLabel("Step \(currentStep) of 2", size: 9, tracking: 1.0)
-                Spacer(minLength: 0)
-                if isCheckingRepo {
-                    ProgressView()
-                        .scaleEffect(0.65)
-                        .tint(WarmInstrument.inkMuted)
-                }
-            }
+    // MARK: - Step content
 
-            HairlineProgress(
-                fraction: progressFraction,
-                tint: WarmInstrument.ink,
-                height: 4
-            )
-            .animation(PremiumMotion.state, value: progressFraction)
+    private var step1Content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Wiring up your\nGitHub repo.")
+                .font(WarmInstrument.coachVoice(30))
+                .foregroundColor(WarmInstrument.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .onboardingReveal(index: 0)
+                .padding(.bottom, 28)
+
+            VStack(alignment: .leading, spacing: 14) {
+                stepBullet("Create your training log once")
+                stepBullet("All your workouts in one private place")
+                stepBullet("Coach reads it — you never re-explain")
+            }
+            .onboardingReveal(index: 1)
+
+            if isCheckingRepo {
+                ProgressView()
+                    .scaleEffect(0.65)
+                    .tint(WarmInstrument.inkMuted)
+                    .padding(.top, 24)
+                    .onboardingReveal(index: 2)
+            }
+        }
+        .padding(.horizontal, 32)
+    }
+
+    private var step2Content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Connect Coach\nto your repo.")
+                .font(WarmInstrument.coachVoice(30))
+                .foregroundColor(WarmInstrument.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .onboardingReveal(index: 0)
+                .padding(.bottom, 28)
+
+            VStack(alignment: .leading, spacing: 18) {
+                numberedStep(1,
+                    prefix: "When GitHub asks which repositories to share, choose ",
+                    bold: "Only select repositories",
+                    suffix: ".")
+                numberedStep(2,
+                    prefix: "Pick ",
+                    bold: "coach-\(login)",
+                    suffix: ". Don't grant access to everything.")
+            }
+            .onboardingReveal(index: 1)
+        }
+        .padding(.horizontal, 32)
+    }
+
+    @ViewBuilder
+    private func stepBullet(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("—")
+                .font(WarmInstrument.monoLabel(12))
+                .foregroundColor(WarmInstrument.inkFaint)
+            Text(text)
+                .font(WarmInstrument.monoLabel(12))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var repoReadyHint: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(WarmInstrument.inkMuted)
-            Text("Your training log is ready")
-                .font(.system(size: 12, weight: .medium))
+    @ViewBuilder
+    private func numberedStep(_ n: Int, prefix: String, bold: String, suffix: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text("\(n)")
+                .font(WarmInstrument.monoLabel(13))
                 .foregroundColor(WarmInstrument.inkFaint)
+                .frame(width: 16, alignment: .center)
+            Text("\(prefix)\(Text(bold).fontWeight(.semibold))\(suffix)")
+                .font(.system(size: 14))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(3)
         }
     }
 
@@ -123,17 +153,6 @@ struct SetupView: View {
 
     private var actionSection: some View {
         VStack(spacing: 12) {
-            if repoStepComplete {
-                Text(
-                    "The next screen links your private training log — this isn't another sign-in.\n\nWhen GitHub asks which repositories to share, choose **Only select repositories** and pick **coach-\(login)**. Don't grant access to everything else."
-                )
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
-
             if let error = errorMessage ?? authManager.lastNetworkError {
                 Text(UserFacingError.friendlyAPIError(error))
                     .font(.system(size: 12, weight: .medium))
@@ -265,27 +284,36 @@ struct HealthKitPrePromptView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 0) {
-                // Large pull-quote serif headline — the visual anchor
-                Text("I read every\nworkout you do.")
-                    .font(.system(size: 36, weight: .semibold, design: .serif))
-                    .italic()
-                    .foregroundColor(WarmInstrument.ink)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+            // Matches OnboardingRevealFlow header so dots sit at the same position
+            HStack {
+                Color.clear.frame(width: 36, height: 36)
+                Spacer()
+                OnboardingDots(step: 0, total: 5)
                     .onboardingReveal(index: 0)
-                    .padding(.bottom, 28)
+                Spacer()
+                Color.clear.frame(width: 36, height: 36)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 4)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("I read every\nworkout you do.")
+                    .font(WarmInstrument.coachVoice(30))
+                    .foregroundColor(WarmInstrument.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onboardingReveal(index: 1)
+                    .padding(.bottom, 20)
 
                 Text("Duration, heart rate, sport type — that's how I learn your patterns and give you real feedback instead of generic advice.")
-                    .font(WarmInstrument.coachVoice(16))
+                    .font(.system(size: 15))
                     .foregroundColor(WarmInstrument.inkMuted)
-                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(4)
-                    .onboardingReveal(index: 1)
+                    .onboardingReveal(index: 2)
             }
             .padding(.horizontal, 32)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
 
             VStack(spacing: 12) {
                 Button {
@@ -295,14 +323,14 @@ struct HealthKitPrePromptView: View {
                     Text("Connect Health")
                 }
                 .buttonStyle(WarmSetupButtonStyle(primary: true))
-                .onboardingReveal(index: 2)
+                .onboardingReveal(index: 3)
 
                 Text("Health access is required for Coach to work.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(WarmInstrument.inkFaint)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
-                    .onboardingReveal(index: 3)
+                    .onboardingReveal(index: 4)
             }
             .padding(.horizontal, 24)
             .safeAreaPadding(.bottom, 12)

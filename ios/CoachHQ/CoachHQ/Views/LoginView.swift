@@ -15,28 +15,13 @@ struct LoginView: View {
                     .onboardingReveal(index: 0)
 
                 VStack(spacing: 16) {
-                    Text("AI PERSONAL TRAINER")
-                        .font(WarmInstrument.monoLabel(10))
+                    Text("Coach HQ")
+                        .font(WarmInstrument.monoLabel(30))
                         .tracking(1.6)
-                        .foregroundColor(WarmInstrument.inkFaint)
+                        .foregroundColor(WarmInstrument.ink)
                         .onboardingReveal(index: 1)
 
-                    Text("Train the process.\nThe outcome follows.")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(WarmInstrument.ink)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .onboardingReveal(index: 2)
 
-                    Text(
-                        "A coach that reads your training, your match scores, and your heart-rate trends — then builds the week around your goals."
-                    )
-                    .font(WarmInstrument.coachVoice(15))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .lineSpacing(3)
-                    .onboardingReveal(index: 3)
                 }
                 .padding(.horizontal, 32)
             }
@@ -107,6 +92,8 @@ struct LoginView: View {
                     signIn()
                 } label: {
                     HStack(spacing: 10) {
+                        Text(isLoading ? "Signing in…" : "Continue with GitHub")
+                            .contentTransition(.opacity)
                         if isLoading {
                             ProgressView()
                                 .tint(WarmInstrument.paper)
@@ -119,8 +106,6 @@ struct LoginView: View {
                                 .frame(width: 18, height: 18)
                                 .transition(.scale.combined(with: .opacity))
                         }
-                        Text(isLoading ? "Signing in…" : "Sign in with GitHub")
-                            .contentTransition(.opacity)
                     }
                     .animation(PremiumMotion.press, value: isLoading)
                 }

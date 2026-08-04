@@ -483,6 +483,9 @@ class HealthKitSyncManager: ObservableObject {
         var weeklyDensity = [Int](repeating: 0, count: 52)
         var dailyActivity = [[Bool]](repeating: [Bool](repeating: false, count: 7), count: 52)
         var dailySport = [[String?]](repeating: [String?](repeating: nil, count: 7), count: 52)
+        var sportHours: [String: Double] = [:]
+        var monthlySecs = [Double](repeating: 0, count: 12)
+        var monthlySportCounts = [[String: Int]](repeating: [:], count: 12)
 
         for workout in workouts {
             let sport = ActivityMapper.sportType(for: workout.workoutActivityType)
@@ -500,9 +503,45 @@ class HealthKitSyncManager: ObservableObject {
             weeklyDensity[weekIndex] = min(weeklyDensity[weekIndex] + 1, 7)
             dailyActivity[weekIndex][dayIndex] = true
             if dailySport[weekIndex][dayIndex] == nil { dailySport[weekIndex][dayIndex] = sport }
+
+            sportHours[sport, default: 0] += workout.duration / 3600.0
+            let monthIndex = min(11, max(0, calendar.dateComponents([.month], from: windowStart, to: workout.startDate).month ?? 0))
+            monthlySecs[monthIndex] += workout.duration
+            monthlySportCounts[monthIndex][sport, default: 0] += 1
         }
 
         let topSport = sportCounts.max(by: { $0.value < $1.value })?.key ?? "Other"
+
+        let monthlyHours: [MonthStat] = (0..<12).map { i in
+            MonthStat(
+                hours: monthlySecs[i] / 3600.0,
+                topSport: monthlySportCounts[i].max(by: { $0.value < $1.value })?.key
+            )
+        }
+
+        var longestStreak = 0
+        var currentStreak = 0
+        for week in 0..<52 {
+            for day in 0..<7 {
+                if dailyActivity[week][day] {
+                    currentStreak += 1
+                    longestStreak = max(longestStreak, currentStreak)
+                } else {
+                    currentStreak = 0
+                }
+            }
+        }
+
+        var dayTotals = [Int](repeating: 0, count: 7)
+        for week in 0..<52 {
+            for day in 0..<7 {
+                if dailyActivity[week][day] { dayTotals[day] += 1 }
+            }
+        }
+        let mostActiveDayOfWeek: Int = dayTotals.allSatisfy({ $0 == 0 })
+            ? -1
+            : (dayTotals.indices.max(by: { dayTotals[$0] < dayTotals[$1] }) ?? -1)
+
         return YearSummary(
             sessions: workouts.count,
             hours: totalSeconds / 3600,
@@ -510,12 +549,21 @@ class HealthKitSyncManager: ObservableObject {
             weeklyDensity: weeklyDensity,
             dailyActivity: dailyActivity,
             dailySport: dailySport,
-            sportCounts: sportCounts
+            sportCounts: sportCounts,
+            sportHours: sportHours,
+            monthlyHours: monthlyHours,
+            longestStreak: longestStreak,
+            mostActiveDayOfWeek: mostActiveDayOfWeek
         )
     }
 }
 
 // MARK: - Year Summary
+
+struct MonthStat {
+    let hours: Double
+    let topSport: String?
+}
 
 struct YearSummary {
     let sessions: Int
@@ -525,13 +573,21 @@ struct YearSummary {
     let dailyActivity: [[Bool]]     // 52 weeks × 7 days
     let dailySport: [[String?]]     // 52 weeks × 7 days (sport type string)
     let sportCounts: [String: Int]  // raw counts for pre-selecting chips
+    let sportHours: [String: Double]        // hours per sport type
+    let monthlyHours: [MonthStat]           // 12 months, oldest first
+    let longestStreak: Int                  // consecutive active days
+    let mostActiveDayOfWeek: Int            // 0=Mon…6=Sun, -1 if no data
 
     static let empty = YearSummary(
         sessions: 0, hours: 0, topSport: "Other",
         weeklyDensity: [Int](repeating: 0, count: 52),
         dailyActivity: [[Bool]](repeating: [Bool](repeating: false, count: 7), count: 52),
         dailySport: [[String?]](repeating: [String?](repeating: nil, count: 7), count: 52),
-        sportCounts: [:]
+        sportCounts: [:],
+        sportHours: [:],
+        monthlyHours: [MonthStat](repeating: MonthStat(hours: 0, topSport: nil), count: 12),
+        longestStreak: 0,
+        mostActiveDayOfWeek: -1
     )
 }
 
