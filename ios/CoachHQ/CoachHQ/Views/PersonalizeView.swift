@@ -81,33 +81,38 @@ struct NamePromptView: View {
             .animation(PremiumMotion.state, value: showSecondBubble)
             .animation(PremiumMotion.state, value: showTyping2)
 
-            // User reply bubble (right-aligned) + inline send button
+            // User reply bubble (right-aligned) with send button inside, matching chat page
             if showInputBubble {
-                HStack(alignment: .bottom, spacing: 8) {
+                HStack(alignment: .bottom, spacing: 0) {
                     Spacer(minLength: 40)
                     NameChatBubble(isCoach: false) {
-                        TextField("", text: $name)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(WarmInstrument.ink)
-                            .multilineTextAlignment(.trailing)
-                            .autocorrectionDisabled()
-                            .textContentType(.givenName)
-                            .submitLabel(.done)
-                            .focused($fieldFocused)
-                            .onSubmit { submit() }
-                            .frame(minWidth: 100)
+                        let canSend = !name.trimmingCharacters(in: .whitespaces).isEmpty
+                        HStack(spacing: 8) {
+                            TextField("", text: $name)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(WarmInstrument.ink)
+                                .multilineTextAlignment(.leading)
+                                .autocorrectionDisabled()
+                                .textContentType(.givenName)
+                                .submitLabel(.done)
+                                .focused($fieldFocused)
+                                .onSubmit { submit() }
+                                .frame(minWidth: 80)
+                            Button {
+                                Haptics.tap()
+                                submit()
+                            } label: {
+                                Image(systemName: "arrow.up")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(WarmInstrument.paper)
+                                    .frame(width: 28, height: 28)
+                                    .background(canSend ? WarmInstrument.accent : WarmInstrument.inkFaint)
+                                    .clipShape(Circle())
+                            }
+                            .disabled(!canSend)
+                            .animation(PremiumMotion.state, value: canSend)
+                        }
                     }
-                    let canSend = !name.trimmingCharacters(in: .whitespaces).isEmpty
-                    Button {
-                        Haptics.tap()
-                        submit()
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(canSend ? WarmInstrument.ink : WarmInstrument.inkFaint)
-                    }
-                    .disabled(!canSend)
-                    .animation(PremiumMotion.state, value: canSend)
                 }
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.85, anchor: .bottomTrailing).combined(with: .opacity),

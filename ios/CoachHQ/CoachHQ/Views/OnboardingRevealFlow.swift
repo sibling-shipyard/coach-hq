@@ -90,12 +90,8 @@ struct OnboardingRevealFlow: View {
                             }
                         }
                     } label: {
-                        HStack(spacing: 6) {
-                            Text("Next")
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 14, weight: .semibold))
-                        }
-                        .font(.system(size: 16, weight: .semibold))
+                        Text("Next")
+                            .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
                         .background(WarmInstrument.ink)
