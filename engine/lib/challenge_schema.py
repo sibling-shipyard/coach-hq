@@ -1,4 +1,7 @@
-"""Normalize challenge_v2.json v2 (challenge) and v3 (season) shapes."""
+"""Normalize challenge_v2.json v2 (legacy 'challenge' block) and v3/v4 ('season' block,
+ADR 0006) shapes. v3 and v4 use the same 'season' key structurally, so no separate branch
+is needed for v4 — only the version number and weekly_targets shape differ (see
+docs/eng-docs/challenge-v2-schema.md)."""
 from __future__ import annotations
 
 from datetime import date, datetime

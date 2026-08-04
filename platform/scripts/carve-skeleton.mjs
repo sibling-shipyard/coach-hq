@@ -45,32 +45,33 @@ const PROPAGATED_DOCS = [
 ];
 
 const CHALLENGE_V2_TEMPLATE = {
-  version: 2,
+  // Canonical shape per ADR 0006 — season block (not challenge), weekly_targets as
+  // flat numbers (not source-config objects; nothing in the dashboard/iOS consumes
+  // the richer shape — see docs/eng-docs/challenge-v2-schema.md).
+  version: 4,
   last_updated_by: "coach",
   last_updated_at: "2026-01-01",
-  challenge: {
+  season: {
     name: "My 60-Day Challenge",
     start_date: "2026-01-01",
-    duration_days: 60,
     end_date: "2026-03-01",
   },
+  // Populated with real example content, like main_quest below, rather than omitted —
+  // every athlete's coaching model gets a phase/block from day one.
+  phase: {
+    name: "Block 1",
+    start_date: "2026-01-01",
+    current_block: {
+      id: "block_1",
+      name: "Block 1",
+      start_date: "2026-01-01",
+      end_date: "2026-01-28",
+      note: "First training block of the season.",
+    },
+  },
   weekly_targets: {
-    "Morning Routine": {
-      target: 7,
-      source: "quest",
-      quest_id: "morning_routine",
-    },
-    "Strength Training": {
-      target: 2,
-      source: "strava_pattern",
-      pattern: "^Strength\\s*#",
-    },
-    Sport: {
-      target: 2,
-      source: "strava_sport",
-      sport_type: "Badminton",
-      pattern: "^(Session|Training|Match)",
-    },
+    strength: 2,
+    cardio: 1,
   },
   main_quest: {
     id: "main",
@@ -156,6 +157,9 @@ const SYNC_STATE_TEMPLATE = {
   total_activities: 0,
   since: null,
   last_run: null,
+  counter_year: null,
+  counters: {},
+  hk_last_synced: null,
 };
 
 const SYNC_STATUS_TEMPLATE = {
@@ -186,14 +190,35 @@ const STATE_MD_TEMPLATE = `# Coach Phelps: state.md (Living Memory)
 - **Coaching style preference:**
 - **Timezone:**
 
+## Equipment
+*(Filled in during First Session — update as equipment changes)*
+
 ## Current Season
 *(Defined during First Session)*
 - **Season name:**
 - **Phase:**
 - **Phase dates:**
 
+## Current Phase / Block Context
+*(Optional — only if this athlete's coaching model uses phases/blocks within a season. Leave empty otherwise.)*
+
 ## Recent Session Notes *(rolling — last 3 sessions)*
 *(Empty — first session will populate this)*
+
+## Fitness Baseline
+*(Coach builds this over time — starts empty)*
+
+## RPE Calibration
+*(Individual anchors so "RPE 7" means the same thing every session — starts empty)*
+
+| RPE | Anchor |
+|-----|--------|
+
+## Sleep Log (rolling 7 days)
+*(Rolling 7-day window. Drop oldest when adding new — starts empty)*
+
+| Date | Sleep | Resting HR | Notes |
+|------|-------|------------|-------|
 
 ## Active Injury Flags
 *(None — update if injuries arise)*
@@ -201,12 +226,35 @@ const STATE_MD_TEMPLATE = `# Coach Phelps: state.md (Living Memory)
 ## Current Week Plan
 *(Set during first weekly planning session)*
 
+## Coaching Priorities
+*(Coach builds this over time — starts empty)*
+
 ## Learned Patterns
+**Training:**
+*(Coach builds this over time — starts empty)*
+
+**Nutrition:**
+*(Coach builds this over time — starts empty)*
+
+**Mental / Performance:**
 *(Coach builds this over time — starts empty)*
 `;
 
 const COACH_NOTES_TEMPLATE = `# Coach Notes
 *Coach's private working memory. Append observations, analysis, accountability data points, and anything worth remembering long-term. Append-only.*
+`;
+
+// SOUL's closing-ritual (platform/soul/B_engine.md "Closing a phase") writes a
+// retrospective here whenever a phase/block closes — scaffolded so every athlete has
+// somewhere for it to land, whether or not their coaching model actually uses phases.
+const ARCHIVE_PHASES_TEMPLATE = `# Archived Phases & Blocks
+*(Empty — populated when a phase/block closes.)*
+`;
+
+// Named alongside archive/phases.md in B_engine.md's closing-ritual commit list —
+// closed-week history, distinct from the phase-level retrospective above.
+const ARCHIVE_WEEK_PLANS_TEMPLATE = `# Archived Week Plans
+*(Empty — populated as weeks close.)*
 `;
 
 const QUEST_LOG_STARTER = `# Quest Log
@@ -488,8 +536,10 @@ function carve(outDir, sha) {
   writeText(outDir, "user_data/coach/state.md", STATE_MD_TEMPLATE);
   writeText(outDir, "user_data/coach/coach_notes.md", COACH_NOTES_TEMPLATE);
   writeJson(outDir, "user_data/coach/sleep_log.json", []);
-  writeJson(outDir, "user_data/coach/chat_history.json", []);
+  writeJson(outDir, "user_data/coach/chat_history.json", { threads: [] });
   writeText(outDir, "user_data/coach/reference/.gitkeep", "");
+  writeText(outDir, "user_data/coach/archive/phases.md", ARCHIVE_PHASES_TEMPLATE);
+  writeText(outDir, "user_data/coach/archive/week_plans.md", ARCHIVE_WEEK_PLANS_TEMPLATE);
   writeText(outDir, "user_data/activities/hist/.gitkeep", "");
   writeJson(outDir, "user_data/activities/sync_state.json", SYNC_STATE_TEMPLATE);
 
