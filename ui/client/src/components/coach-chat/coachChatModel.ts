@@ -218,15 +218,3 @@ export async function greet(): Promise<GreetResult> {
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
 
-export async function setThreadStatus(threadId: string, status: ChatThreadStatus): Promise<ChatThread[]> {
-  const res = await fetchWithRetry("/api/coach-chat", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ threadId, status }),
-  });
-  if (res.status === 401) throw new CoachChatAccessRevokedError();
-  if (!res.ok) throw new Error(`Failed to update thread (${res.status})`);
-  const body = (await res.json()) as { threads: ChatThread[] };
-  pruneRepoSha(body.threads.map((t) => t.id));
-  return body.threads.map(normalizeThread);
-}

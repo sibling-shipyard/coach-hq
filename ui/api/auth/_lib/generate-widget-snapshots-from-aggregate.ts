@@ -17,10 +17,31 @@ export interface RepoAggregateInput {
   sync_status?: SyncStatusPayload;
 }
 
-function isUnavailableWeek(
-  week: RepoAggregateInput["current_week"],
-): week is { data_status: "unavailable" } | undefined {
-  return !week || week.data_status === "unavailable";
+// Same "local calendar day" format buildLiveWeekContract itself uses for start_date/end_date
+// (see liveWeekContract.ts's localDateKey) - comparing today against a stored week's range only
+// makes sense if both sides are formatted the same way.
+function localDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+// A "placeholder" week is the real value the ledger ships when the coach planned a week - it's
+// only stale, not inherently wrong, so we only force a live recompute when its stored
+// start_date/end_date no longer brackets today. A currently-accurate placeholder is left as-is.
+function isPlaceholderWeekStale(week: CurrentWeekContract): boolean {
+  const today = localDateKey(new Date());
+  return today < week.week.start_date || today > week.week.end_date;
+}
+
+export function needsLiveRecomputation(week: RepoAggregateInput["current_week"]): boolean {
+  if (!week || week.data_status === "unavailable") return true;
+  if (week.data_status === "placeholder") {
+    return isPlaceholderWeekStale(week as CurrentWeekContract);
+  }
+  return false;
 }
 
 export function generateWidgetSnapshotsFromAggregate(
@@ -36,7 +57,7 @@ export function generateWidgetSnapshotsFromAggregate(
     warnings: [],
   };
 
-  const contract = isUnavailableWeek(aggregate.current_week)
+  const contract = needsLiveRecomputation(aggregate.current_week)
     ? buildLiveWeekContract(activities, challenge)
     : (aggregate.current_week as CurrentWeekContract);
 

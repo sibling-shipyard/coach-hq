@@ -11,8 +11,9 @@
  *                               No repo write unless this message closes the
  *                               session, in which case the whole thread (plus
  *                               any file_updates) commits in one batch.
- * PATCH {threadId, status: "deleted"} → delete an already-committed thread,
- *                               immediately and permanently. No archive tier, no restore.
+ *
+ * No delete endpoint - retention is fully automatic (ADR 0012 amendment): the 7 most recent
+ * threads are kept, oldest evicted on write. There's no user-facing delete control.
  */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
@@ -94,8 +95,19 @@ function computeDayOffset(createdAt: number, stateMd: string): number {
   }
 }
 
-function withComputedDayOffsets(threads: ChatThread[], stateMd: string): ChatThread[] {
-  return threads.map((t) => ({ ...t, dayOffset: computeDayOffset(t.createdAt ?? Date.now(), stateMd) }));
+// ageLabel is only ever written once, at thread-creation/close time (both call sites just set
+// "NOW"), so without this it freezes there forever - an old thread would say "NOW" for good.
+// Recompute it here from the freshly-computed dayOffset instead of trusting the stored value.
+// Matches threadDayLabel's "D-N" convention (coachChatModel.ts) rather than inventing new copy.
+function ageLabelFor(dayOffset: number): string {
+  return dayOffset === 0 ? "NOW" : `D-${dayOffset}`;
+}
+
+export function withComputedDayOffsets(threads: ChatThread[], stateMd: string): ChatThread[] {
+  return threads.map((t) => {
+    const dayOffset = computeDayOffset(t.createdAt ?? Date.now(), stateMd);
+    return { ...t, dayOffset, ageLabel: ageLabelFor(dayOffset) };
+  });
 }
 
 // A6: side-quest follow-up dedup. No structural field exists anywhere for "what topics were
@@ -226,7 +238,7 @@ type ChatMessage =
 // removed from the array, never written back with that status).
 type ChatThreadStatus = "active" | "deleted";
 
-interface ChatThread {
+export interface ChatThread {
   id: string;
   dayOffset: number;
   // Set once when the thread is first created, never overwritten - dayOffset above is
@@ -782,39 +794,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
     if (req.method === "GET") {
       const [history, stateMd] = await Promise.all([loadChatHistory(repo, token), getFileRaw(repo, STATE_FILE_PATH, token)]);
-      // Retention is enforced on write (POST/PATCH), not here - a GET must never rewrite the
-      // file just because it was read. Deleted threads never persist (PATCH removes them
-      // immediately), so every thread returned here is active.
+      // Retention is enforced on write (POST), not here - a GET must never rewrite the file
+      // just because it was read. Every thread returned here is active - retention (ADR 0012
+      // amendment) drops the oldest automatically, no user-facing delete exists any more.
       return Response.json({ threads: withComputedDayOffsets(history.threads, stateMd ?? "") });
-    }
-
-    if (req.method === "PATCH") {
-      // Only supported action: delete. Immediate and permanent - no archive tier, no restore,
-      // no second confirming call. (status is still accepted in the request body for forward
-      // compatibility with the client, but "active" is a no-op since threads have no other
-      // state to return from.)
-      const { threadId, status } = (await req.json()) as { threadId: string; status: ChatThreadStatus };
-      if (status !== "deleted") {
-        return Response.json({ error: `Unsupported thread status: ${status}` }, { status: 400 });
-      }
-
-      // Resolved fresh on every commit retry attempt (see githubGitData.ts) rather than once
-      // up front, so a concurrent PATCH/POST touching the same chat_history.json is retried
-      // against whatever that other request just committed instead of silently overwriting it.
-      let latestThreads: ChatThread[] = [];
-      const chatWrite: FileEntry = {
-        path: CHAT_FILE_PATH,
-        resolve: async () => {
-          const fresh = await loadChatHistory(repo, token);
-          const threads = fresh.threads.filter((t) => t.id !== threadId);
-          latestThreads = threads; // already within the cap - deleting never needs applyRetention
-          return JSON.stringify({ threads }, null, 2);
-        },
-      };
-
-      await commitFilesAtomic([chatWrite], "coach: chat — delete thread", { repo, branch: "main", token });
-      const stateMdForOffset = await getFileRaw(repo, STATE_FILE_PATH, token);
-      return Response.json({ threads: withComputedDayOffsets(latestThreads, stateMdForOffset ?? "") });
     }
 
     if (req.method === "POST") {
