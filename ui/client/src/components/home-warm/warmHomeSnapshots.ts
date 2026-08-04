@@ -689,7 +689,7 @@ function buildCoachReadSnapshot(
       month: "short",
       day: "numeric",
     }).toUpperCase(),
-    body: [model.coachRead.headline, model.coachRead.body]
+    body: [model.coachRead?.headline, model.coachRead?.body]
       .filter(Boolean)
       .join(" "),
     eyebrow: dataMode === "live" ? "LOG" : undefined,

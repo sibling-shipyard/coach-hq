@@ -399,6 +399,11 @@ class GitHubAuthManager: ObservableObject {
         lastNetworkError = nil
         sessionExpired = false
         multipleReposDetected = false
+
+        // Forces a real GitHub login on the next sign-in instead of a silent re-auth via
+        // the shared WKWebView's surviving session cookie. Temporary, for multi-account
+        // testing - see issue #239 to restore the normal silent-reauth behavior after.
+        Task { await WebAuthBrowserStore.clearGitHubSession() }
     }
 
     /// Called from the blocked screen after the athlete says they've removed access to the

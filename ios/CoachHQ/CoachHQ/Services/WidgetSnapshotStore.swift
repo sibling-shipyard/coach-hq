@@ -28,6 +28,16 @@ class WidgetSnapshotStore: ObservableObject {
         isConfigured = true
     }
 
+    /// Drops in-memory and on-disk snapshot data so a stale account's Home can never
+    /// survive a sign-out.
+    func reset() {
+        snapshots = nil
+        lastFetchedAt = nil
+        lastError = nil
+        UserDefaults.standard.removeObject(forKey: Self.cacheKey)
+        UserDefaults.standard.removeObject(forKey: Self.cacheFetchedAtKey)
+    }
+
     // MARK: - Cache
 
     private func loadCached() {
