@@ -14,7 +14,7 @@
  * to swap `const x = xData as Type` for `const x = data.x as Type` behind a
  * loading/error check - not a rewrite of page logic.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import activitiesData from "@golden/repo-data/activities.json";
 import challengeDataRaw from "@golden/repo-data/challenge_v2.json";
 import syncStatusData from "@golden/repo-data/sync_status.json";
@@ -127,10 +127,15 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
 
 export function useRepoData(): UseRepoDataResult {
   const [state, setState] = useState<UseRepoDataResult>(initialState);
+  // Tracks the in-flight fetch's cancel closure across both effects below, so a pageshow-
+  // triggered refetch cancels any still-pending request the same way the mount effect's own
+  // cleanup does - not just discarded and left to resolve into a stale setState.
+  const cancelRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (import.meta.env.DEV || cachedData) return;
-    return fetchRepoData(setState);
+    cancelRef.current = fetchRepoData(setState);
+    return () => cancelRef.current?.();
   }, []);
 
   useEffect(() => {
@@ -145,13 +150,17 @@ export function useRepoData(): UseRepoDataResult {
     // when the page was frozen.
     function handlePageShow(event: PageTransitionEvent) {
       if (!event.persisted) return;
+      cancelRef.current?.();
       cachedData = null;
       setState({ data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false });
-      fetchRepoData(setState);
+      cancelRef.current = fetchRepoData(setState);
     }
 
     window.addEventListener("pageshow", handlePageShow);
-    return () => window.removeEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+      cancelRef.current?.();
+    };
   }, []);
 
   return state;
