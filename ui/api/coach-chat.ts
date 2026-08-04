@@ -57,14 +57,12 @@ const GEMINI_MODEL = "gemini-flash-latest";
 // list, so the two can't drift out of sync.
 const COACH_WRITABLE_FILES = new Set([...MARKDOWN_EDIT_FILES, ...JSON_MERGE_FILES]);
 
-// Sized for the tightest surface it renders in: iOS's `historyRow` (CoachChatWarmUI.swift)
-// shows the title at 14.5pt semibold alongside a day-label chip, an "OPEN"/age-label chip, and
-// padding - roughly 230-250pt of the ~370pt of usable width on the narrowest supported phone.
-// At that size/weight, ~40-44 characters is the largest that reliably stays on one line without
-// the row wrapping or the trailing chip getting pushed off. 42 splits the difference. iOS still
-// applies its own lineLimit(1) + truncation as a defensive backstop (see #244 follow-up), this
-// is just the budget Gemini is asked to write within so truncation is rarely actually hit.
-const THREAD_TITLE_MAX_CHARS = 42;
+// Kept short by design, not just to fit the tightest surface (iOS's `historyRow` in
+// CoachChatWarmUI.swift, 14.5pt semibold sharing a row with a day-label chip and an "OPEN"/
+// age-label chip) - a short title reads faster in a list than a longer one, even where there'd
+// be room for more. iOS still applies its own lineLimit(1) + truncation as a defensive backstop
+// (see #244 follow-up) in case a response ever ignores this budget.
+const THREAD_TITLE_MAX_CHARS = 28;
 function isCoachWritable(path: string): boolean {
   return COACH_WRITABLE_FILES.has(path) || path.startsWith(SESSIONS_PREFIX);
 }
