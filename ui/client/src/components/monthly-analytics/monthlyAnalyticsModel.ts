@@ -451,6 +451,12 @@ export interface QuestHistoryEntry {
 
 export interface QuestHistoryQuest {
   name: string;
+  // Earliest start_date seen for this quest id across every season, and null while it's still
+  // active (present in the current/live season) or the date it was last processed through once
+  // retired. Not currently used for the show/hide gate below (that's driven by entries directly)
+  // - available for any consumer that wants the window without scanning entries.
+  start_date: string;
+  end_date: string | null;
   entries: QuestHistoryEntry[];
 }
 
@@ -497,8 +503,14 @@ export function buildSideQuests(
   const prevYear = month === 0 ? year - 1 : year;
   const prevMonthKey = monthKeyFor(prevYear, prevMonth);
 
-  const quests: SideQuestMonthRow[] = Object.entries(questHistory.quests ?? {}).map(
-    ([id, quest]) => {
+  // A quest only appears in a given month's view if it actually has entries that month - a
+  // quest that finished in May doesn't show up as a permanent empty row every month after
+  // (issue flagged in PR #253's own review: buildSideQuests used to list every quest id
+  // quest_history.json had ever seen). A month with real entries but zero "done" still shows
+  // (a genuine 0%, not "not applicable") - the gate is entries-existence, not the rate.
+  const quests: SideQuestMonthRow[] = Object.entries(questHistory.quests ?? {})
+    .filter(([, quest]) => quest.entries.some((e) => e.date.startsWith(monthKey)))
+    .map(([id, quest]) => {
       const stats = questHistoryMonthStats(quest.entries, monthKey);
       const prevStats = questHistoryMonthStats(quest.entries, prevMonthKey);
       const rate = questRate(stats);

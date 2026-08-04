@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSideQuests, type QuestHistory } from "./monthlyAnalyticsModel";
+import { buildSideQuests, type QuestHistory, type QuestHistoryQuest } from "./monthlyAnalyticsModel";
 
 // Regression coverage for issue #93 (future days counted as done/miss) and the missing
 // archived-season data: buildSideQuests now reads pre-computed gen/quest_history.json entries
@@ -9,14 +9,17 @@ import { buildSideQuests, type QuestHistory } from "./monthlyAnalyticsModel";
 // clamp, because future days and old-season boundaries never enter this data at all. Ported
 // from the legacy pre-Warm-Instrument dashboard's QuestSummaryCard.tsx (monthRate).
 describe("buildSideQuests", () => {
+  function quest(overrides: Partial<QuestHistoryQuest> = {}): QuestHistoryQuest {
+    return { name: "Cold Shower", start_date: "2026-01-01", end_date: null, entries: [], ...overrides };
+  }
+
   function history(quests: QuestHistory["quests"]): QuestHistory {
     return { generated_at: "2026-08-04", quests };
   }
 
   it("only counts entries within the queried month, never a full unclamped range", () => {
     const questHistory = history({
-      cold_shower: {
-        name: "Cold Shower",
+      cold_shower: quest({
         entries: [
           { date: "2026-07-30", status: "done" },
           { date: "2026-07-31", status: "missed" },
@@ -25,7 +28,7 @@ describe("buildSideQuests", () => {
           { date: "2026-08-03", status: "missed" },
           { date: "2026-08-04", status: "done" },
         ],
-      },
+      }),
     });
     // month is 0-indexed - 7 = August
     const result = buildSideQuests(questHistory, 2026, 7);
@@ -42,8 +45,7 @@ describe("buildSideQuests", () => {
     // landing mid-month (e.g. old season ends 2026-06-07, new one starts 2026-06-18) just means
     // some June days have no entry at all, which the month-key filter handles by construction.
     const questHistory = history({
-      cold_shower: {
-        name: "Cold Shower",
+      cold_shower: quest({
         entries: [
           { date: "2026-06-05", status: "done" }, // archived season
           { date: "2026-06-06", status: "done" }, // archived season
@@ -52,7 +54,7 @@ describe("buildSideQuests", () => {
           { date: "2026-06-18", status: "done" }, // new season starts
           { date: "2026-06-19", status: "done" }, // new season
         ],
-      },
+      }),
     });
     const result = buildSideQuests(questHistory, 2026, 5); // June (0-indexed)
     const row = result.quests[0];
@@ -62,14 +64,13 @@ describe("buildSideQuests", () => {
 
   it("computes rateDeltaVsPrevious against the prior calendar month, handling year rollover", () => {
     const questHistory = history({
-      cold_shower: {
-        name: "Cold Shower",
+      cold_shower: quest({
         entries: [
           { date: "2025-12-31", status: "done" },
           { date: "2026-01-01", status: "done" },
           { date: "2026-01-02", status: "missed" },
         ],
-      },
+      }),
     });
     const result = buildSideQuests(questHistory, 2026, 0); // January (0-indexed)
     const row = result.quests[0];
@@ -78,12 +79,44 @@ describe("buildSideQuests", () => {
     expect(row.rateDeltaVsPrevious).toBe(-50);
   });
 
-  it("a quest with no entries this month has a null rate, not a crash", () => {
+  // Regression coverage for PR #253's own review finding: buildSideQuests used to list every
+  // quest id quest_history.json had ever seen, so a retired quest became a permanent empty row
+  // in every future month. Now a quest only appears in a month's view if it actually has
+  // entries that month.
+  it("a quest retired in an earlier month is absent from a later month entirely, not shown with a null rate", () => {
     const questHistory = history({
-      cold_shower: { name: "Cold Shower", entries: [] },
+      foundation: quest({
+        name: "Morning Kickstart",
+        start_date: "2026-03-18",
+        end_date: "2026-06-15",
+        entries: [
+          { date: "2026-06-01", status: "done" },
+          { date: "2026-06-15", status: "excused" },
+        ],
+      }),
+    });
+    const result = buildSideQuests(questHistory, 2026, 7); // August - well after retirement
+    expect(result.quests).toHaveLength(0);
+  });
+
+  it("a still-open quest (end_date null) with a real zero-done month shows rate 0, not hidden", () => {
+    const questHistory = history({
+      cold_shower: quest({
+        end_date: null,
+        entries: [
+          { date: "2026-08-01", status: "missed" },
+          { date: "2026-08-02", status: "missed" },
+        ],
+      }),
     });
     const result = buildSideQuests(questHistory, 2026, 7);
-    expect(result.quests[0].rate).toBeNull();
-    expect(result.quests[0].done).toBe(0);
+    expect(result.quests).toHaveLength(1);
+    expect(result.quests[0].rate).toBe(0);
+  });
+
+  it("a quest with zero entries anywhere never appears in any month", () => {
+    const questHistory = history({ cold_shower: quest({ entries: [] }) });
+    const result = buildSideQuests(questHistory, 2026, 7);
+    expect(result.quests).toHaveLength(0);
   });
 });
