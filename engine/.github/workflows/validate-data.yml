@@ -97,7 +97,12 @@ jobs:
               if not isinstance(q, dict) or q.get("type") != "daily_streak":
                   continue
               prefix = f"quests[{i}] ({q.get('id', '?')})"
-              polarity = q.get("polarity", "default_done")
+              # default_not_done matches generate_quest_log.py/generate_quest_history.py/
+              # warmHomeSnapshots.ts/monthlyAnalyticsModel.ts's default for an absent polarity -
+              # this was the one file still disagreeing (defaulted to default_done), which would
+              # fail carve-skeleton.mjs's own scaffold (completed_dates+excused_dates, no
+              # missed_dates) against this exact check.
+              polarity = q.get("polarity", "default_not_done")
               required_fields = ["excused_dates"]
               required_fields.append("missed_dates" if polarity == "default_done" else "completed_dates")
               for field in required_fields:
