@@ -78,9 +78,8 @@ const CHALLENGE_V2_TEMPLATE = {
     name: "20 Strength Sessions",
     type: "count_target",
     target: 20,
-    count_from: "strava",
-    count_pattern: "^Strength\\s*#",
-    notes: "Regex matched against Strava activity names from challenge start date",
+    count_pattern: "^WeightTraining\\s*#",
+    notes: "Regex (case-insensitive) matched against synced activity names from the season start date. Update the pattern to match this athlete's actual naming — check gen/aggregate.json for real activity names, don't assume this example matches.",
   },
   quests: [
     {
@@ -90,11 +89,11 @@ const CHALLENGE_V2_TEMPLATE = {
       category: "side",
       start_date: "2026-01-01",
       status: "active",
-      polarity: "default_done",
+      polarity: "default_not_done",
       tracking: "manual",
-      missed_dates: [],
+      completed_dates: [],
       excused_dates: [],
-      notes: "Daily morning routine — skips are excused on rest days",
+      notes: "Daily morning routine — logged days go in completed_dates, rest/travel days in excused_dates",
     },
     {
       id: "example_progress",

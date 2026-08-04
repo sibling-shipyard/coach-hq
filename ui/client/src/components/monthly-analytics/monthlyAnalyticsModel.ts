@@ -459,23 +459,26 @@ function questEligibleDates(quest: Quest, year: number, month: number): string[]
   return monthDates.filter((date) => date >= questStart && date <= questEnd);
 }
 
-function questMonthStats(quest: Quest, year: number, month: number) {
+export function questMonthStats(quest: Quest, year: number, month: number) {
   const eligible = questEligibleDates(quest, year, month);
   const completed = new Set(quest.completed_dates ?? []);
   const missed = new Set(quest.missed_dates ?? []);
   const excused = new Set(quest.excused_dates ?? []);
 
-  if (quest.type === "daily_streak" && quest.polarity === "default_not_done") {
+  if (quest.type === "daily_streak") {
+    // default_not_done is the schema-wide default (unified challenge_v2 shape) for an absent
+    // polarity - must match generate_quest_log.py/generate_quest_history.py's default and
+    // warmHomeSnapshots.ts's buildQuestSnapshot. Falling through to the progress-quest fallback
+    // below for a polarity-less daily_streak quest would silently render it as 0/0/0.
+    if (quest.polarity === "default_done") {
+      const miss = eligible.filter((date) => missed.has(date)).length;
+      const exc = eligible.filter((date) => excused.has(date)).length;
+      const done = Math.max(0, eligible.length - miss - exc);
+      return { done, miss, excused: exc };
+    }
     const done = eligible.filter((date) => completed.has(date)).length;
     const exc = eligible.filter((date) => excused.has(date)).length;
     const miss = Math.max(0, eligible.length - done - exc);
-    return { done, miss, excused: exc };
-  }
-
-  if (quest.type === "daily_streak" && quest.polarity === "default_done") {
-    const miss = eligible.filter((date) => missed.has(date)).length;
-    const exc = eligible.filter((date) => excused.has(date)).length;
-    const done = Math.max(0, eligible.length - miss - exc);
     return { done, miss, excused: exc };
   }
 

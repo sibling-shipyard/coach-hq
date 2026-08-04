@@ -418,9 +418,9 @@ function buildPlanDays(contract: CurrentWeekContract): PlanDayModel[] {
 
 function buildQuest(mainQuest: MainQuest): QuestModel {
   const monday = getMonday();
-  // weekly_floor/loaded_floor/skill_weight/skill_cap/sessions are Akash's weekly-session-floor
-  // model only - a classic-model main quest (target/count_from) has none of these, so this
-  // widget just shows an empty/zeroed quest bar rather than crashing.
+  // weekly_floor/loaded_floor/skill_weight/skill_cap/sessions - the weekly-session-floor main
+  // quest model (mainQuest.type === "weekly_sessions"). See buildCountTargetQuest below for the
+  // other model (mainQuest.type === "count_target").
   const sessions = (mainQuest.sessions ?? []).filter(
     (session) => new Date(`${session.date}T00:00:00`) >= monday,
   );
@@ -440,6 +440,36 @@ function buildQuest(mainQuest: MainQuest): QuestModel {
     floor,
     loaded,
     skill,
+    percent: floor > 0 ? Math.min(100, (completed / floor) * 100) : 0,
+  };
+}
+
+// count_target model: count activities matching a name pattern since the season/challenge
+// started, against a season-long target. Case-insensitive, matches the legacy
+// SideQuestTracker.tsx's MainQuestCard (pre-Warm-Instrument dashboard) this was ported from -
+// not Strava-specific despite the field's "count_from" label, it's a generic name match that
+// works the same way against HealthKit-sourced activity names.
+export function buildCountTargetQuest(
+  mainQuest: MainQuest,
+  activities: Activity[],
+  challenge: ChallengeV2,
+): QuestModel {
+  const sinceRaw = challenge.season?.start_date ?? challenge.challenge?.start_date;
+  const since = sinceRaw ?? "0000-01-01";
+  const pattern = mainQuest.count_pattern ? new RegExp(mainQuest.count_pattern, "i") : null;
+  const completed = pattern
+    ? activities.filter(
+        (a) => a.start_date_local.slice(0, 10) >= since && pattern.test(a.name),
+      ).length
+    : 0;
+  const floor = mainQuest.target ?? 0;
+
+  return {
+    name: mainQuest.name,
+    completed,
+    floor,
+    loaded: 0,
+    skill: 0,
     percent: floor > 0 ? Math.min(100, (completed / floor) * 100) : 0,
   };
 }
@@ -471,6 +501,9 @@ export function buildWarmHomeModel(
     coachRead: contract.coach_read,
     commitments: buildCommitments(activities),
     planDays: buildPlanDays(contract),
-    quest: buildQuest(challenge.main_quest),
+    quest:
+      challenge.main_quest.type === "count_target"
+        ? buildCountTargetQuest(challenge.main_quest, activities, challenge)
+        : buildQuest(challenge.main_quest),
   };
 }
