@@ -10,21 +10,29 @@ import Foundation
 //   4. 7-day thread window (no search)
 
 /// Header mono line — no "Coach" title per mock Turn 1.
+///
+/// Day-only now (week label was dropped - see issue #244): `secondaryLabel` is only used when
+/// browsing an older thread, where it carries that thread's title (e.g. `D-142 · Bar felt cold`),
+/// not a week indicator.
 struct CoachChatHeaderContext: Equatable {
     var dayLabel: String
-    var weekLabel: String
+    var secondaryLabel: String?
     var statusSuffix: String?
 
     var formatted: String {
-        if let statusSuffix, !statusSuffix.isEmpty {
-            return "\(dayLabel) · \(weekLabel) · \(statusSuffix)"
+        var parts = [dayLabel]
+        if let secondaryLabel, !secondaryLabel.isEmpty {
+            parts.append(secondaryLabel)
         }
-        return "\(dayLabel) · \(weekLabel)"
+        if let statusSuffix, !statusSuffix.isEmpty {
+            parts.append(statusSuffix)
+        }
+        return parts.joined(separator: " · ")
     }
 
     static let preview = CoachChatHeaderContext(
         dayLabel: "D-143",
-        weekLabel: "WK 4/4",
+        secondaryLabel: nil,
         statusSuffix: nil
     )
 }

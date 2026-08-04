@@ -9,7 +9,6 @@ import SwiftUI
 /// 5. `historyThreads` — enforce 7-day window server-side; client already groups by `dayOffset`.
 struct CoachChatView: View {
     @EnvironmentObject private var authManager: GitHubAuthManager
-    @EnvironmentObject private var widgetStore: WidgetSnapshotStore
 
     @State private var apiClient: CoachChatAPIClient?
     @State private var threads: [ChatThread] = []
@@ -37,13 +36,14 @@ struct CoachChatView: View {
     @State private var liveDayNumber: Int?
 
     /// Day label comes from a live fetch of challenge_v2.json's start_date (same math as web's
-    /// challengeDayNumber() in coachChatModel.ts); week label reuses the same engine.weekLabel
-    /// the Home tab already shows, via widgetStore - no second fetch needed for that half. Falls
-    /// back to the preview constant only until the real day number resolves.
+    /// challengeDayNumber() in coachChatModel.ts). Day-only header now (week label dropped, see
+    /// issue #244). `liveDayNumber == nil` genuinely means no anchor has resolved yet (pre-FSP,
+    /// per ADR 0018's coach_since ?? season.start ?? challenge.start chain) - shows D-0 honestly
+    /// instead of falling through to the stale preview constant.
     private var headerContext: CoachChatHeaderContext {
         CoachChatHeaderContext(
-            dayLabel: liveDayNumber.map { "D-\($0)" } ?? CoachChatHeaderContext.preview.dayLabel,
-            weekLabel: widgetStore.snapshots?.home.engine.weekLabel ?? CoachChatHeaderContext.preview.weekLabel,
+            dayLabel: liveDayNumber.map { "D-\($0)" } ?? "D-0",
+            secondaryLabel: nil,
             statusSuffix: nil
         )
     }
@@ -269,7 +269,10 @@ struct CoachChatView: View {
                 }
             }
 
-            if isViewingToday, let yesterday = yesterdayThread {
+            // Gate on today's thread having no messages yet, in addition to yesterdayThread's own
+            // condition - once the athlete sends their first message of the day, the pick-up
+            // banner should disappear (issue #244), not just fade with the rest of the composer chrome.
+            if isViewingToday, displayThread.messages.isEmpty, let yesterday = yesterdayThread {
                 CoachChatPickUpRow(
                     dayLabel: headerContext.dayLabel(offset: yesterday.dayOffset),
                     title: "Pick up \"\(yesterday.title)\""
@@ -430,7 +433,8 @@ struct CoachChatView: View {
             // existence here. That used to be the premature-completion bug, and A4's coach-
             // speaks-first design made it worse: a greeting thread now exists the instant this
             // view loads, before the athlete has said anything at all.
-            threads = try await apiClient.fetchThreads()
+            let fetched = try await apiClient.fetchThreads()
+            threads = authManager.repoFullName.map { CoachChatLocalCache.restoring(fetched, repoFullName: $0) } ?? fetched
             if let today = todayThread {
                 activeThreadId = today.id
             } else {
@@ -523,6 +527,15 @@ struct CoachChatView: View {
     private func appendUserMessage(_ message: ChatMessage, to threadId: String) {
         guard let idx = threads.firstIndex(where: { $0.id == threadId }) else { return }
         threads[idx].messages.append(message)
+        cacheThreadLocally(threads[idx])
+    }
+
+    /// Local-cache resumability (issue #244): the server only commits `chat_history.json` when
+    /// a thread closes, so every append in between is at risk of a force-quit. Mirror it to
+    /// UserDefaults immediately so `loadThreads()` can restore it on relaunch.
+    private func cacheThreadLocally(_ thread: ChatThread) {
+        guard let repoFullName = authManager.repoFullName else { return }
+        CoachChatLocalCache.save(messages: thread.messages, repoFullName: repoFullName, threadId: thread.id)
     }
 
     private func removeUserMessage(_ message: ChatMessage, from threadId: String) {
@@ -559,6 +572,11 @@ struct CoachChatView: View {
             if result.closed, let newThreads = result.threads {
                 threads = newThreads
                 activeThreadId = result.threadId
+                // The close-commit just landed server-side, so the server copy is now the
+                // truth - drop the local cache for this thread (issue #244 resumability).
+                if let repo = authManager.repoFullName {
+                    CoachChatLocalCache.clear(repoFullName: repo, threadId: liveThreadId)
+                }
                 // B3: only the real signal - this close-turn's committed state.md actually has a
                 // filled-in Athlete Profile. Every prior close (day-to-day chat, or an earlier
                 // First Session turn that wasn't actually the finishing one) must NOT mark
@@ -584,6 +602,7 @@ struct CoachChatView: View {
                 threads[idx].ageLabel = "NOW"
                 threads[idx].status = .active
                 activeThreadId = liveThreadId
+                cacheThreadLocally(threads[idx])
             }
         } catch let error as GitHubAPIError {
             rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
@@ -604,9 +623,15 @@ struct CoachChatView: View {
     private func rollbackFailedSend(_ message: ChatMessage, threadId: String, threadExistedBefore: Bool) {
         if threadExistedBefore {
             removeUserMessage(message, from: threadId)
+            if let idx = threads.firstIndex(where: { $0.id == threadId }) {
+                cacheThreadLocally(threads[idx])
+            }
         } else {
             threads.removeAll { $0.id == threadId }
             if activeThreadId == threadId { activeThreadId = nil }
+            if let repo = authManager.repoFullName {
+                CoachChatLocalCache.clear(repoFullName: repo, threadId: threadId)
+            }
         }
     }
 }
@@ -620,14 +645,14 @@ extension CoachChatHeaderContext {
         return "D-\(max(0, base - offset))"
     }
 
-    /// Today → block position (`D-143 · WK 4/4`). Older threads → day + title (`D-142 · Bar felt cold`).
+    /// Today → day only (`D-143`). Older threads → day + title (`D-142 · Bar felt cold`).
     func forDisplayThread(_ thread: ChatThread) -> CoachChatHeaderContext {
         if thread.dayOffset == 0 {
-            return CoachChatHeaderContext(dayLabel: dayLabel, weekLabel: weekLabel, statusSuffix: nil)
+            return CoachChatHeaderContext(dayLabel: dayLabel, secondaryLabel: nil, statusSuffix: nil)
         }
         return CoachChatHeaderContext(
             dayLabel: dayLabel(offset: thread.dayOffset),
-            weekLabel: thread.title,
+            secondaryLabel: thread.title,
             statusSuffix: nil
         )
     }
