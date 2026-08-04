@@ -142,7 +142,8 @@ Run `python3 engine/core/query_history.py --last 12w --summary` to get the last 
 - Any upcoming events or deadlines that matter? (race, tournament, season start)
 - Any injuries or physical limitations I should know about?
 - How do you respond to being pushed? (accountability vs encouragement vs analysis)
-- What timezone are you in? (e.g., "London", "New York", "Mumbai") — used for time-aware coaching
+- Age, height, and weight — useful context for how I calibrate training
+- Which city or country are you based in? — infer their timezone from this yourself and write the actual timezone (not the city name) into the Athlete Profile; don't ask for a timezone directly
 
 **Onboarding hints:** the iOS app's native setup screens sometimes already collect sport(s) and a
 one-line goal before the athlete ever reaches you (given to you as "onboarding hints" in this
