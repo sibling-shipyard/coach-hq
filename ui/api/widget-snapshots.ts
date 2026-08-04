@@ -48,7 +48,11 @@ export default {
 
       const headers = new Headers({
         "Content-Type": "application/json",
-        "Cache-Control": "private, max-age=180",
+        // See repo-file.ts's identical fix for why this is no-store, not max-age=180: "private"
+        // alone doesn't stop the browser's own HTTP cache from reusing a same-URL response
+        // across a different account's session with no Vary header to scope it - a real
+        // cross-account data leak, not a hypothetical one.
+        "Cache-Control": "private, no-store",
       });
       if (auth.setCookie) headers.append("Set-Cookie", auth.setCookie);
 

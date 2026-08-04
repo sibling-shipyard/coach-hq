@@ -74,8 +74,13 @@ export default {
 
     const headers = new Headers({
       "Content-Type": "application/json",
-      // Data changes at most once/day, on sync - short cache is plenty.
-      "Cache-Control": "private, max-age=180",
+      // Was "private, max-age=180" - but "private" only stops shared/CDN caches, not the
+      // browser's own HTTP cache, and there's no Vary header to scope it by session. A same-URL
+      // fetch() within that window could be served the PREVIOUS signed-in account's cached
+      // response, even after a full page reload with a fresh session cookie - real cross-account
+      // data leak, confirmed live. no-store closes it; the perf cost (no free reload-window
+      // cache) is a minor tradeoff against that.
+      "Cache-Control": "private, no-store",
     });
     if (setCookie) headers.append("Set-Cookie", setCookie);
 

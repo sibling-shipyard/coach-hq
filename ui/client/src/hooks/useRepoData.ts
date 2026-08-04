@@ -77,57 +77,81 @@ function initialState(): UseRepoDataResult {
   return { data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false };
 }
 
+function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void {
+  let cancelled = false;
+
+  fetch("/api/repo-file")
+    .then(async (res) => {
+      if (cancelled) return;
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setState({
+          data: null,
+          loading: false,
+          error: body.error ?? "Failed to load your data",
+          schemaUnsupported: false,
+          accessRevoked: res.status === 401,
+        });
+        return;
+      }
+
+      const aggregate = (await res.json()) as RepoData;
+      if (
+        typeof aggregate.schema_version === "number" &&
+        aggregate.schema_version > SUPPORTED_SCHEMA_VERSION
+      ) {
+        setState({ data: null, loading: false, error: null, schemaUnsupported: true, accessRevoked: false });
+        return;
+      }
+
+      cachedData = aggregate;
+      setState({ data: aggregate, loading: false, error: null, schemaUnsupported: false, accessRevoked: false });
+    })
+    .catch(() => {
+      if (!cancelled) {
+        setState({
+          data: null,
+          loading: false,
+          error: "Failed to load your data",
+          schemaUnsupported: false,
+          accessRevoked: false,
+        });
+      }
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}
+
 export function useRepoData(): UseRepoDataResult {
   const [state, setState] = useState<UseRepoDataResult>(initialState);
 
   useEffect(() => {
     if (import.meta.env.DEV || cachedData) return;
+    return fetchRepoData(setState);
+  }, []);
 
-    let cancelled = false;
+  useEffect(() => {
+    if (import.meta.env.DEV) return;
 
-    fetch("/api/repo-file")
-      .then(async (res) => {
-        if (cancelled) return;
+    // Bfcache (the browser's back/forward cache) can restore this whole page - including this
+    // module's live cachedData - without a real reload or network request. repo-file.ts's
+    // response is no-store specifically so a fresh fetch() can't be served stale cross-account
+    // data, but bfcache bypasses fetch() entirely, so it's the one path that fix doesn't cover.
+    // event.persisted === true means "restored from bfcache, not a fresh load" - force a real
+    // refetch in that case rather than trusting whatever account's data happened to be cached
+    // when the page was frozen.
+    function handlePageShow(event: PageTransitionEvent) {
+      if (!event.persisted) return;
+      cachedData = null;
+      setState({ data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false });
+      fetchRepoData(setState);
+    }
 
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          setState({
-            data: null,
-            loading: false,
-            error: body.error ?? "Failed to load your data",
-            schemaUnsupported: false,
-            accessRevoked: res.status === 401,
-          });
-          return;
-        }
-
-        const aggregate = (await res.json()) as RepoData;
-        if (
-          typeof aggregate.schema_version === "number" &&
-          aggregate.schema_version > SUPPORTED_SCHEMA_VERSION
-        ) {
-          setState({ data: null, loading: false, error: null, schemaUnsupported: true, accessRevoked: false });
-          return;
-        }
-
-        cachedData = aggregate;
-        setState({ data: aggregate, loading: false, error: null, schemaUnsupported: false, accessRevoked: false });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState({
-            data: null,
-            loading: false,
-            error: "Failed to load your data",
-            schemaUnsupported: false,
-            accessRevoked: false,
-          });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
 
   return state;
