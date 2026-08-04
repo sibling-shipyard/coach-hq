@@ -51,6 +51,9 @@ final class AppRouter: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let phaseKey     = "onboardingPhase"
     private let lastLoginKey = "lastOnboardingLogin"
+    // True once this session has passed through .needsSetup — used to reset the onboarding
+    // phase when state first reaches .active so the intro flow always shows after setup.
+    private var hasBeenInSetup = false
 
     init() {
         authManager = GitHubAuthManager()
@@ -127,6 +130,10 @@ final class AppRouter: ObservableObject {
     }
 
     private func deriveState() {
+        // Capture setup-visited flag before any state mutation.
+        if case .needsSetup = state { hasBeenInSetup = true }
+        let wasActive = state == .active
+
         guard authManager.isSessionReady else {
             state = .bootstrapping
             return
@@ -140,6 +147,15 @@ final class AppRouter: ObservableObject {
         guard authManager.isAuthenticated else { state = .unauthenticated; return }
         if authManager.selectedRepo != nil {
             state = .active
+            // After setup completion, always reset the onboarding phase to .notStarted so the
+            // user sees the full Coach intro flow, regardless of any prior run that left the
+            // phase at .complete (checkAccountSwitch won't reset for the same login).
+            // Published properties are set sequentially so deriveState fires multiple times —
+            // hasBeenInSetup captures the setup context across those intermediate calls.
+            if !wasActive && hasBeenInSetup {
+                persistPhase(.notStarted)
+                hasBeenInSetup = false
+            }
             return
         }
         // isSessionReady + isAuthenticated + no repo + no pendingSetupLogin:

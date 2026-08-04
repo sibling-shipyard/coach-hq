@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Step enum
 
@@ -29,7 +30,8 @@ struct OnboardingRevealFlow: View {
 
                     Spacer()
 
-                    OnboardingProgressDots(step: step)
+                    // HK is step 0, reveal=1, rhythms=2, season=3, sync=4
+                    OnboardingDots(step: step.rawValue + 1, total: 5)
 
                     Spacer()
 
@@ -88,12 +90,8 @@ struct OnboardingRevealFlow: View {
                             }
                         }
                     } label: {
-                        HStack(spacing: 6) {
-                            Text("Next")
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 14, weight: .semibold))
-                        }
-                        .font(.system(size: 16, weight: .semibold))
+                        Text("Next")
+                            .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)
                         .background(WarmInstrument.ink)
@@ -113,9 +111,6 @@ struct OnboardingRevealFlow: View {
     }
 
     private func handleComplete() {
-        // Request notification permission now — after the user has finished the full
-        // onboarding flow. Doing it here avoids interrupting the HK permission step and
-        // prevents the "N activities synced" notification from firing mid-onboarding.
         Task { await syncManager.requestNotificationPermission() }
         syncManager.syncNotificationsEnabled = true
         onComplete()
@@ -145,7 +140,7 @@ private struct SyncStepView: View {
                     .padding(.bottom, 12)
                     .onboardingReveal(index: 0)
 
-                Text("Coach reads every session to build your training picture. Keep the app open — first-time syncs can take a few minutes.")
+                Text("Coach reads every session to build your training picture. Keep the app open, first-time syncs can take a few minutes.")
                     .font(.system(size: 16))
                     .foregroundColor(WarmInstrument.inkMuted)
                     .lineSpacing(4)
@@ -155,24 +150,33 @@ private struct SyncStepView: View {
 
                 if started {
                     VStack(alignment: .leading, spacing: 10) {
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(WarmInstrument.inkFaint.opacity(0.12))
-                                .frame(height: 4)
-                            GeometryReader { geo in
+                        HStack(spacing: 8) {
+                            ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                    .fill(failed ? WarmInstrument.alarmFg : WarmInstrument.accent)
-                                    .frame(width: geo.size.width * progress, height: 4)
+                                    .fill(WarmInstrument.inkFaint.opacity(0.12))
+                                    .frame(height: 4)
+                                GeometryReader { geo in
+                                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                        .fill(failed ? WarmInstrument.alarmFg : WarmInstrument.accent)
+                                        .frame(width: geo.size.width * progress, height: 4)
+                                }
+                                .frame(height: 4)
+                                .animation(.easeOut(duration: 0.5), value: progress)
                             }
-                            .frame(height: 4)
-                            .animation(.easeOut(duration: 0.5), value: progress)
+
+                            Text(String(format: "%d%%", Int(progress * 100)))
+                                .font(WarmInstrument.monoLabel(11))
+                                .foregroundColor(WarmInstrument.inkMuted)
+                                .frame(width: 36, alignment: .trailing)
+                                .contentTransition(.numericText())
+                                .animation(.easeOut(duration: 0.3), value: progress)
                         }
 
                         let displayText = completionText.isEmpty ? syncManager.syncProgressText : completionText
                         if !displayText.isEmpty {
                             Text(displayText)
-                                .font(WarmInstrument.monoLabel(11))
-                                .foregroundColor(failed ? WarmInstrument.alarmFg : WarmInstrument.inkFaint)
+                                .font(WarmInstrument.monoLabel(12))
+                                .foregroundColor(failed ? WarmInstrument.alarmFg : WarmInstrument.inkMuted)
                                 .kerning(0.5)
                                 .animation(.easeInOut(duration: 0.2), value: displayText)
                         }
@@ -219,8 +223,6 @@ private struct SyncStepView: View {
             .animation(PremiumMotion.state, value: started)
             .animation(PremiumMotion.state, value: failed)
         }
-        // .task(id:) re-runs whenever lastSyncResult.id changes — more reliable than
-        // onChange which can miss a result if SwiftUI batches the render cycle.
         .task(id: syncManager.lastSyncResult?.id) {
             guard started, let result = syncManager.lastSyncResult else { return }
             handleResult(result)
@@ -229,22 +231,37 @@ private struct SyncStepView: View {
             guard !completionHandled else { return }
             withAnimation(.easeOut(duration: 0.4)) { progress = max(progress, p) }
         }
+        .onChange(of: syncManager.isSyncing) { _, syncing in
+            UIApplication.shared.isIdleTimerDisabled = syncing
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
         .animation(PremiumMotion.state, value: started)
     }
 
     private func beginSync() {
-        // Always clear stale text from a background observer sync that ran earlier.
-        syncManager.syncProgressText = ""
+        // Show immediate text so the bar never looks frozen during the GitHub API call
+        syncManager.syncProgressText = "Connecting to GitHub…"
         withAnimation(PremiumMotion.state) { started = true }
-        // Eager nudge so the bar moves the instant Proceed is tapped, before the first
-        // network round-trip back from HealthKitSyncManager sets syncProgress.
         withAnimation(.easeOut(duration: 0.3)) { progress = 0.02 }
 
-        if syncManager.isSyncing {
-            // Background sync already running — wait for it via .task(id:) above.
-            return
+        // Fake ticker: creeps 2%→18% over ~30s so the bar shows movement during the
+        // initial readSyncState network call (overridden whenever real progress arrives)
+        Task {
+            var fake = 0.02
+            while !completionHandled && fake < 0.18 {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                fake = min(fake + 0.001, 0.18)
+                if !completionHandled {
+                    withAnimation(.easeOut(duration: 0.5)) {
+                        progress = max(progress, fake)
+                    }
+                }
+            }
         }
 
+        if syncManager.isSyncing { return }
         Task { await syncManager.syncNewWorkouts() }
     }
 
@@ -271,41 +288,73 @@ private struct SyncStepView: View {
             completionText = msg
         }
     }
-
 }
 
-// MARK: - Progress dots
+// MARK: - Progress dots (accessible to SetupView for the HK pre-prompt)
 
-private struct OnboardingProgressDots: View {
-    let step: OnboardingRevealStep
+struct OnboardingDots: View {
+    let step: Int   // 0-based current step index
+    let total: Int  // total number of steps
 
     var body: some View {
         HStack(spacing: 7) {
-            ForEach(OnboardingRevealStep.allCases, id: \.rawValue) { s in
+            ForEach(0..<total, id: \.self) { i in
                 Capsule()
-                    .fill(s == step ? WarmInstrument.ink : WarmInstrument.inkFaint.opacity(0.35))
-                    .frame(width: s == step ? 22 : 7, height: 7)
+                    .fill(i == step ? WarmInstrument.ink : WarmInstrument.inkFaint.opacity(0.35))
+                    .frame(width: i == step ? 22 : 7, height: 7)
             }
         }
         .animation(PremiumMotion.state, value: step)
     }
 }
 
-// MARK: - Shared helper
+// MARK: - Sport helpers (shared across reveal and rhythms steps)
 
-private func displaySportName(_ hkSport: String) -> String {
-    switch hkSport {
-    case "Run":       return "Running"
-    case "Ride":      return "Cycling"
-    case "WeightTraining", "Foundation": return "Strength"
-    case "Yoga":      return "Yoga"
-    case "Badminton": return "Badminton"
-    case "Walk":      return "Walking"
-    default:          return "Other"
+private func sportColor(_ sport: String?) -> Color {
+    guard let sport else { return WarmInstrument.accent }
+    return sportDisplayInfo(sport).color
+}
+
+private func sportDisplayInfo(_ sport: String) -> (name: String, symbol: String, color: Color) {
+    switch sport {
+    case "Run":
+        return ("Running",    "figure.run",                   WarmInstrument.Sport.run)
+    case "Ride":
+        return ("Cycling",    "figure.outdoor.cycle",         WarmInstrument.Sport.cycling)
+    case "WeightTraining", "Foundation":
+        return ("Strength",   "dumbbell.fill",                WarmInstrument.Sport.strength)
+    case "Walk":
+        return ("Walking",    "figure.walk",                  WarmInstrument.Sport.walk)
+    case "Yoga":
+        return ("Yoga",       "figure.flexibility",           Color(red: 0.53, green: 0.40, blue: 0.62))
+    case "Swimming":
+        return ("Swimming",   "figure.pool.swim",             WarmInstrument.Sport.swim)
+    case "Hiking":
+        return ("Hiking",     "figure.hiking",                WarmInstrument.Sport.hike)
+    case "Tennis":
+        return ("Tennis",     "figure.tennis",                WarmInstrument.Sport.tennis)
+    case "Football":
+        return ("Football",   "soccerball",                   WarmInstrument.Sport.football)
+    case "Basketball":
+        return ("Basketball", "figure.basketball",            WarmInstrument.Sport.other)
+    case "Badminton":
+        return ("Badminton",  "figure.badminton",             WarmInstrument.Sport.badminton)
+    default:
+        return ("Training",   "figure.mixed.cardio",          WarmInstrument.Sport.other)
     }
 }
 
-// MARK: - Step 2: The Reveal
+private func displaySportName(_ hkSport: String) -> String {
+    sportDisplayInfo(hkSport).name
+}
+
+private func dayOfWeekName(_ index: Int) -> String {
+    let days = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"]
+    guard index >= 0, index < days.count else { return "" }
+    return days[index]
+}
+
+// MARK: - Step 1: The Reveal
 
 private struct RevealStepView: View {
     let summary: YearSummary
@@ -313,8 +362,16 @@ private struct RevealStepView: View {
 
     @State private var displaySessions: Int = 0
     @State private var displayHours: Double = 0
-    @State private var barHeights: [CGFloat] = [CGFloat](repeating: 0, count: 52)
+    @State private var monthBarHeights: [CGFloat] = [CGFloat](repeating: 0, count: 12)
+    @State private var sportTilesVisible = false
     @State private var coachVisible = false
+
+    private var top3Sports: [(sport: String, hours: Double)] {
+        summary.sportHours
+            .sorted { $0.value > $1.value }
+            .prefix(3)
+            .map { (sport: $0.key, hours: $0.value) }
+    }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -327,36 +384,66 @@ private struct RevealStepView: View {
                     .padding(.bottom, 36)
                     .onboardingReveal(index: 0)
 
+                // Stats: sessions · hours · streak
                 HStack(alignment: .top, spacing: 0) {
                     BigStat(value: "\(displaySessions)", label: "sessions")
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    Rectangle()
+                        .fill(WarmInstrument.inkFaint.opacity(0.22))
+                        .frame(width: 1, height: 42)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 2)
                     BigStat(value: String(format: "%.0f", displayHours), label: "hours")
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    BigStat(value: displaySportName(summary.topSport), label: "top sport")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Rectangle()
+                        .fill(WarmInstrument.inkFaint.opacity(0.22))
+                        .frame(width: 1, height: 42)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 2)
+                    BigStat(
+                        value: summary.longestStreak > 0 ? "\(summary.longestStreak)" : "—",
+                        label: "day streak"
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal, 28)
-                .padding(.bottom, 40)
+                .padding(.bottom, 28)
                 .skeleton(isLoading)
                 .onboardingReveal(index: 1)
 
-                // 52-column bar strip — GeometryReader fills the available width exactly
-                GeometryReader { geo in
-                    let gap: CGFloat = 1
-                    let barW = max((geo.size.width - gap * 51) / 52, 2)
-                    HStack(alignment: .bottom, spacing: gap) {
-                        ForEach(0..<52, id: \.self) { i in
-                            let density = i < summary.weeklyDensity.count ? summary.weeklyDensity[i] : 0
-                            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .fill(density == 0
-                                      ? WarmInstrument.inkFaint.opacity(0.18)
-                                      : WarmInstrument.accent.opacity(0.55 + 0.45 * Double(density) / 7.0))
-                                .frame(width: barW, height: max(barHeights[i], 3))
+                // Top 3 sports by hours
+                if sportTilesVisible && !top3Sports.isEmpty {
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(top3Sports, id: \.sport) { item in
+                            SportHoursTile(sport: item.sport, hours: item.hours)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
-                    .frame(width: geo.size.width, height: 54, alignment: .bottom)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 32)
+                    .skeleton(isLoading)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-                .frame(height: 54)
+
+                // 12-bar monthly hours chart
+                GeometryReader { geo in
+                    let gap: CGFloat = 3
+                    let barW = max((geo.size.width - gap * 11) / 12, 4)
+                    HStack(alignment: .bottom, spacing: gap) {
+                        ForEach(0..<12, id: \.self) { i in
+                            let stat = i < summary.monthlyHours.count
+                                ? summary.monthlyHours[i]
+                                : MonthStat(hours: 0, topSport: nil)
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(stat.hours == 0
+                                      ? WarmInstrument.inkFaint.opacity(0.18)
+                                      : sportColor(stat.topSport).opacity(0.78))
+                                .frame(width: barW, height: max(monthBarHeights[i], 3))
+                        }
+                    }
+                    .frame(width: geo.size.width, height: 90, alignment: .bottom)
+                }
+                .frame(height: 90)
                 .padding(.horizontal, 28)
                 .padding(.bottom, 28)
                 .skeleton(isLoading)
@@ -365,7 +452,7 @@ private struct RevealStepView: View {
                 if coachVisible {
                     Text(summary.sessions == 0
                          ? "Nothing logged yet —\nthat changes now."
-                         : "This is what you've built.\nI'll work around it.")
+                         : "This is impressive.\nExcited for our journey.")
                         .font(WarmInstrument.coachVoice(17))
                         .foregroundColor(WarmInstrument.inkMuted)
                         .lineSpacing(3)
@@ -396,17 +483,23 @@ private struct RevealStepView: View {
         displaySessions = summary.sessions
         displayHours = summary.hours
 
-        try? await Task.sleep(nanoseconds: 150_000_000)
-        for col in 0..<52 {
-            let density = col < summary.weeklyDensity.count ? summary.weeklyDensity[col] : 0
-            let target: CGFloat = density == 0 ? 3 : 54 * CGFloat(density) / 7.0
-            withAnimation(.spring(duration: 0.3, bounce: 0.1)) {
-                barHeights[col] = target
+        // Sport tiles
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        withAnimation(PremiumMotion.reveal) { sportTilesVisible = true }
+
+        // Monthly bars grow left-to-right
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        let maxHours = summary.monthlyHours.map(\.hours).max() ?? 1
+        for col in 0..<12 {
+            let h = col < summary.monthlyHours.count ? summary.monthlyHours[col].hours : 0
+            let target: CGFloat = h == 0 ? 3 : 90 * CGFloat(h) / CGFloat(maxHours)
+            withAnimation(.spring(duration: 0.45, bounce: 0.12)) {
+                monthBarHeights[col] = target
             }
-            try? await Task.sleep(nanoseconds: UInt64(0.018 * 1_000_000_000))
+            try? await Task.sleep(nanoseconds: UInt64(0.05 * 1_000_000_000))
         }
 
-        try? await Task.sleep(nanoseconds: 300_000_000)
+        try? await Task.sleep(nanoseconds: 350_000_000)
         withAnimation(PremiumMotion.reveal) { coachVisible = true }
     }
 }
@@ -430,13 +523,39 @@ private struct BigStat: View {
     }
 }
 
-// MARK: - Step 3: Your Rhythms
+private struct SportHoursTile: View {
+    let sport: String
+    let hours: Double
+
+    private var info: (name: String, symbol: String, color: Color) {
+        sportDisplayInfo(sport)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: info.symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(info.color)
+            Text(String(format: "%.0fh", hours))
+                .font(.system(size: 24, weight: .bold).monospacedDigit())
+                .foregroundColor(WarmInstrument.ink)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            Text(info.name.uppercased())
+                .font(WarmInstrument.monoLabel(8))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .kerning(1.0)
+        }
+    }
+}
+
+// MARK: - Step 2: Your Rhythms
 
 private struct RhythmsStepView: View {
     let summary: YearSummary
 
     private static let dotSize: CGFloat = 5
-    private static let dotGap: CGFloat = 1.5  // 52*5 + 51*1.5 = 336.5pt — fits all iPhones
+    private static let dotGap: CGFloat = 1.5
     private static let heatmapHeight: CGFloat = 7 * dotSize + 6 * dotGap
 
     @State private var colsRevealed: [Bool] = [Bool](repeating: false, count: 52)
@@ -457,12 +576,24 @@ private struct RhythmsStepView: View {
                     .padding(.bottom, 28)
 
                 if coachVisible {
-                    Text("I can see when you push, when you rest,\nand when life gets in the way.\nI'll plan around all three.")
-                        .font(WarmInstrument.coachVoice(17))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                        .lineSpacing(3)
-                        .padding(.horizontal, 28)
-                        .staggerReveal(delay: 0.1, offset: 8)
+                    VStack(alignment: .leading, spacing: 16) {
+                        let insight = insightText
+                        if !insight.isEmpty {
+                            Text(insight)
+                                .font(WarmInstrument.monoLabel(11))
+                                .foregroundColor(WarmInstrument.inkMuted)
+                                .lineSpacing(3)
+                                .padding(.horizontal, 28)
+                                .staggerReveal(delay: 0.05, offset: 6)
+                        }
+
+                        Text("I can see when you push, when you rest,\nand when life gets in the way.\nI'll plan around all three.")
+                            .font(WarmInstrument.coachVoice(17))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                            .lineSpacing(3)
+                            .padding(.horizontal, 28)
+                            .staggerReveal(delay: 0.2, offset: 8)
+                    }
                 }
             }
             .padding(.top, 24)
@@ -481,6 +612,17 @@ private struct RhythmsStepView: View {
         }
     }
 
+    private var insightText: String {
+        var parts: [String] = []
+        if summary.longestStreak > 1 {
+            parts.append("\(summary.longestStreak)-day longest streak")
+        }
+        if summary.mostActiveDayOfWeek >= 0 {
+            parts.append("most active on \(dayOfWeekName(summary.mostActiveDayOfWeek))")
+        }
+        return parts.joined(separator: "  ·  ")
+    }
+
     private var heatmapGrid: some View {
         HStack(alignment: .top, spacing: Self.dotGap) {
             ForEach(0..<52, id: \.self) { col in
@@ -493,7 +635,7 @@ private struct RhythmsStepView: View {
                             && row < summary.dailySport[col].count
                             ? summary.dailySport[col][row] : nil
                         RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                            .fill(active ? heatmapColor(sport) : WarmInstrument.inkFaint.opacity(0.13))
+                            .fill(active ? sportColor(sport) : WarmInstrument.inkFaint.opacity(0.13))
                             .frame(width: Self.dotSize, height: Self.dotSize)
                     }
                 }
@@ -503,21 +645,9 @@ private struct RhythmsStepView: View {
         }
         .frame(height: Self.heatmapHeight)
     }
-
-    private func heatmapColor(_ sport: String?) -> Color {
-        switch sport {
-        case "Run":       return WarmInstrument.Sport.run
-        case "Ride":      return WarmInstrument.Sport.cycling
-        case "WeightTraining", "Foundation": return WarmInstrument.Sport.strength
-        case "Yoga":      return Color(red: 0.53, green: 0.40, blue: 0.62)
-        case "Badminton": return WarmInstrument.Sport.badminton
-        case "Walk":      return WarmInstrument.Sport.walk
-        default:          return WarmInstrument.accent
-        }
-    }
 }
 
-// MARK: - Step 4: Your Season
+// MARK: - Step 3: Your Season
 
 private struct SeasonStepView: View {
     let summary: YearSummary
@@ -525,7 +655,7 @@ private struct SeasonStepView: View {
 
     private static let allSports = [
         "Running", "Cycling", "Swimming", "Strength",
-        "Yoga", "Hiking", "Rowing", "Tennis",
+        "Yoga", "Hiking", "Tennis",
         "Football", "Basketball", "Badminton", "Other"
     ]
 
@@ -547,26 +677,27 @@ private struct SeasonStepView: View {
                     .onboardingReveal(index: 1)
 
                 SportChipGrid(sports: Self.allSports, selected: $selectedSports)
-                    .padding(.bottom, 36)
+                    .padding(.bottom, 16)
                     .onboardingReveal(index: 2)
-
-                Button {
-                    save()
-                } label: {
-                    Text("Next")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
-                        .background(WarmInstrument.accent)
-                        .foregroundColor(WarmInstrument.paper)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-                }
-                .buttonStyle(CardPressButtonStyle())
-                .onboardingReveal(index: 3)
-                .padding(.bottom, 36)
             }
             .padding(.horizontal, 28)
             .padding(.top, 24)
+        }
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                save()
+            } label: {
+                Text("Next")
+                    .font(.system(size: 16, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+                .background(WarmInstrument.ink)
+                .foregroundColor(WarmInstrument.desk)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+            }
+            .buttonStyle(CardPressButtonStyle())
+            .padding(.horizontal, 24)
+            .padding(.bottom, 36)
         }
         .onAppear { preSelectSports() }
     }
@@ -586,11 +717,6 @@ private struct SeasonStepView: View {
     }
 
     private func save() {
-        // B1: cached locally only (OnboardingHints), never committed to the repo - the real
-        // Athlete Profile gets written by Coach during the chat-based First Session Protocol,
-        // which reflects these back for confirmation instead of asking cold (see B4). Goal is no
-        // longer collected in native onboarding (removed upstream, #208) - Coach asks for it
-        // fresh during the chat intake, same as if no hints were present at all.
         OnboardingHints.save(sports: selectedSports.sorted(), goal: "")
         Haptics.success()
         onComplete()
@@ -605,7 +731,6 @@ private struct SeasonStepView: View {
         case "Walk":      return "Walking"
         case "Swimming":  return "Swimming"
         case "Hiking":    return "Hiking"
-        case "Rowing":    return "Rowing"
         case "Tennis":    return "Tennis"
         case "Football":  return "Football"
         case "Basketball": return "Basketball"
@@ -618,6 +743,23 @@ private struct SeasonStepView: View {
 private struct SportChipGrid: View {
     let sports: [String]
     @Binding var selected: Set<String>
+
+    private func glyph(for sport: String) -> String {
+        switch sport {
+        case "Running":    return "figure.run"
+        case "Cycling":    return "figure.outdoor.cycle"
+        case "Swimming":   return "figure.pool.swim"
+        case "Strength":   return "dumbbell.fill"
+        case "Yoga":       return "figure.flexibility"
+        case "Hiking":     return "figure.hiking"
+        case "Tennis":     return "figure.tennis"
+        case "Football":   return "soccerball"
+        case "Basketball": return "figure.basketball"
+        case "Badminton":  return "figure.badminton"
+        case "Walking":    return "figure.walk"
+        default:           return "figure.mixed.cardio"
+        }
+    }
 
     var body: some View {
         FlowLayout(spacing: 8) {
@@ -633,20 +775,25 @@ private struct SportChipGrid: View {
                     }
                 } label: {
                     let isOn = selected.contains(sport)
-                    Text(sport)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(isOn ? WarmInstrument.desk : WarmInstrument.ink)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
-                        .background(
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(isOn ? WarmInstrument.ink : WarmInstrument.paper)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .strokeBorder(isOn ? Color.clear : WarmInstrument.border, lineWidth: 1)
-                        )
-                        .animation(PremiumMotion.state, value: isOn)
+                    HStack(spacing: 5) {
+                        Image(systemName: glyph(for: sport))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(isOn ? WarmInstrument.desk.opacity(0.9) : WarmInstrument.inkMuted)
+                        Text(sport)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(isOn ? WarmInstrument.desk : WarmInstrument.ink)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(isOn ? WarmInstrument.ink : WarmInstrument.paper)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(isOn ? Color.clear : WarmInstrument.border, lineWidth: 1)
+                    )
+                    .animation(PremiumMotion.state, value: isOn)
                 }
                 .buttonStyle(CardPressButtonStyle())
             }
