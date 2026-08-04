@@ -306,7 +306,8 @@ def main_quest_stats(mq: dict, activities: list[dict], ch_start: date, ch_end: d
 def compute_daily_streak_stats(quest: dict, today: date) -> dict:
     """Compute completed, eligible, streak, rate for a daily_streak quest.
 
-    Polarity semantics:
+    Polarity semantics (default_not_done if the field is absent - the unified challenge_v2
+    default, matching warmHomeSnapshots.ts's buildQuestSnapshot):
       - default_done: every day counts unless in missed_dates (unexcused) or excused_dates.
         excused_dates don't break streak, missed_dates (not excused) do.
       - default_not_done: only days in completed_dates count.
@@ -323,7 +324,13 @@ def compute_daily_streak_stats(quest: dict, today: date) -> dict:
 
     eligible = (effective_end - start).days + 1
 
-    polarity = quest.get("polarity", "default_done")
+    # default_not_done is the schema-wide default (unified challenge_v2 shape - every quest
+    # going forward omits polarity or sets it explicitly to default_not_done; default_done stays
+    # supported but is opt-in). Must match warmHomeSnapshots.ts's buildQuestSnapshot, which falls
+    # into its default_not_done branch for an absent polarity - two different defaults here would
+    # silently disagree on a quest that omits the field, same class of drift validate-data.yml's
+    # quest-shape check exists to catch.
+    polarity = quest.get("polarity", "default_not_done")
     missed = set(quest.get("missed_dates", []))
     excused = set(quest.get("excused_dates", []))
     completed_dates = set(quest.get("completed_dates", []))
@@ -408,7 +415,9 @@ def compute_weekly_counts(activities: list[dict], data: dict, today: date) -> di
                 eff_start = max(q_start, week_start)
                 eff_end = min(today, week_end)
                 if eff_start <= eff_end:
-                    polarity = q.get("polarity", "default_done")
+                    # Same default as compute_daily_streak_stats above - default_not_done,
+                    # matching warmHomeSnapshots.ts.
+                    polarity = q.get("polarity", "default_not_done")
                     if polarity == "default_not_done":
                         # Only completed_dates counts - the eligible/missed math below is
                         # default_done-specific (it assumes every day counts unless marked
