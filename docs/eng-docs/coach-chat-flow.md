@@ -263,12 +263,27 @@ described above instead of trying to run anything.
 ### 4. Resumability
 
 If the athlete answers a few intake questions and kills the app, the thread never closed
-(`session_closed` never went `true`), so it's still `active` with `dayOffset: 0`. On relaunch,
-`shouldOpenChatFirst()` sees `profileComplete: false` again, routes back to Chat, and
-`CoachChatView.loadThreads()` finds that same thread (`todayThread`) and selects it directly
-rather than calling `greetNow()` again — full message history intact, Coach continues naturally,
-nothing re-asked. No dedicated resumability mechanism exists beyond this — it falls out of the
-routing check + the thread-reuse logic combined.
+(`session_closed` never went `true`), so it's still `active` with `dayOffset: 0`. Server-side,
+`handleGreet()` only commits `chat_history.json` at open (line ~733) and ordinary POST turns never
+call `commitFilesAtomic` until close — so the server's copy of that thread stops at the opener;
+everything the athlete and Coach said after that is server-invisible until a close-turn lands
+(issue #244, confirmed against current code — a prior version of this doc claimed "full message
+history intact" here, which was not accurate).
+
+What actually restores the conversation is a client-side cache, not the server: as messages are
+appended, `CoachChatView` mirrors the thread's message array to `CoachChatLocalCache`
+(`ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift`), keyed by repo + thread id, in
+`UserDefaults`. On relaunch, `loadThreads()` fetches the server-committed threads and calls
+`CoachChatLocalCache.restoring(_:repoFullName:)`, which swaps in the local copy for any thread
+where the cache has more messages than the server does. `shouldOpenChatFirst()` still sees
+`profileComplete: false` and routes back to Chat, and `todayThread` is still selected directly
+rather than calling `greetNow()` again — but the message history it shows now comes from the
+local cache, not the server. The cache for a thread is dropped once its close-commit actually
+lands (server copy becomes truth) or the thread comes back `.deleted`.
+
+This is single-device only, by design — it does not sync the in-progress window across devices;
+that stays a known gap (issue #222 §D). A relaunch on a *different* device mid-conversation still
+only sees the server's last committed state (the opener), same as before this fix.
 
 ### 5. Completion signal
 

@@ -76,7 +76,7 @@ struct CoachChatCoachBubble: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
-                Text(paragraph)
+                Text(CoachChatMarkdown.attributed(paragraph))
                     .font(WarmInstrument.coachVoice(15))
                     .foregroundStyle(WarmInstrument.ink)
                     .fixedSize(horizontal: false, vertical: true)
@@ -130,7 +130,7 @@ struct CoachChatUserBubble: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 14.5))
+            .font(.system(size: 14))
             .foregroundStyle(Color(red: 0xf6 / 255, green: 0xf2 / 255, blue: 0xe8 / 255))
             .padding(.horizontal, 15)
             .padding(.vertical, 12)
@@ -430,7 +430,7 @@ struct CoachChatMessageField: UIViewRepresentable {
         }
         view.delegate = context.coordinator
         view.backgroundColor = .clear
-        view.font = .systemFont(ofSize: 14.5)
+        view.font = .systemFont(ofSize: 14)
         view.textColor = UIColor(WarmInstrument.ink)
         view.tintColor = UIColor(WarmInstrument.accent)
         view.textContainerInset = .zero
@@ -480,7 +480,10 @@ struct CoachChatMessageField: UIViewRepresentable {
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: textView.leadingAnchor),
             label.trailingAnchor.constraint(equalTo: textView.trailingAnchor),
-            label.topAnchor.constraint(equalTo: textView.topAnchor),
+            // Placeholder only shows while the composer is single-line (hidden once any text is
+            // typed), so centering it against the text view's full bounds reads as vertically
+            // centered inside the input box instead of pinned to the top.
+            label.centerYAnchor.constraint(equalTo: textView.centerYAnchor),
         ])
         return label
     }
