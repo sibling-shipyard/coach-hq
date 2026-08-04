@@ -76,11 +76,26 @@ class GitHubAuthManager: ObservableObject {
             throw AuthError.invalidBaseURL
         }
 
-        let callbackURL = try await WebAuthPresenter.shared.start(
-            url: authURL,
-            callbackScheme: callbackScheme
-        )
-        try await handleCallback(callbackURL)
+        do {
+            let callbackURL = try await WebAuthPresenter.shared.start(
+                url: authURL,
+                callbackScheme: callbackScheme
+            )
+            try await handleCallback(callbackURL)
+        } catch WebAuthError.cancelled {
+            // The user dismissed the WebView (GitHub's post-install redirect may not have
+            // produced a coachhq:// callback). Try bootstrapSession() — if the installation
+            // completed on GitHub's side, resolveRepoIfNeeded() will find the repo and
+            // clear pendingSetupLogin, routing the app forward without the callback URL.
+            await bootstrapSession()
+            if pendingSetupLogin != nil {
+                // Session is still in setup state — installation didn't complete yet.
+                throw AuthError.missingCallback
+            }
+            // Repo resolved — bootstrapSession() doesn't set isAuthenticated, so set it
+            // now so deriveState() routes to .active instead of .unauthenticated.
+            isAuthenticated = true
+        }
     }
 
     /// Whether `coach-<login>` exists on GitHub (repo created, install may still be pending).

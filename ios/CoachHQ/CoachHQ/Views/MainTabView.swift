@@ -144,33 +144,30 @@ struct MainTabView: View {
             if hasUnread && selectedTab == .chat { chatHasUnread = false }
             Task { try? await UNUserNotificationCenter.current().setBadgeCount(hasUnread ? 1 : 0) }
         }
-        // HK pre-prompt — full screen, no swipe-to-dismiss.
-        // Driven by effectivePhase so the expired screen wins if a 401 fires mid-onboarding.
+        // HK pre-prompt → reveal — single cover stays open across the phase transition so the
+        // home tab never flashes in the gap between two separate covers dismissing/presenting.
         .fullScreenCover(isPresented: Binding(
-            get: { router.effectivePhase == .hkPrompt },
+            get: { router.effectivePhase == .hkPrompt || router.effectivePhase == .reveal },
             set: { _ in }
         )) {
-            HealthKitPrePromptView(
-                onConnect: {
-                    Task {
-                        await syncManager.connectHealthKit()
-                        router.advance(.hkConnected)
+            if router.effectivePhase == .hkPrompt {
+                HealthKitPrePromptView(
+                    onConnect: {
+                        Task {
+                            await syncManager.connectHealthKit()
+                            router.advance(.hkConnected)
+                        }
                     }
-                }
-            )
-            .interactiveDismissDisabled()
-        }
-        // Onboarding reveal — full screen, no swipe-to-dismiss.
-        .fullScreenCover(isPresented: Binding(
-            get: { router.effectivePhase == .reveal },
-            set: { _ in }
-        )) {
-            OnboardingRevealFlow(onComplete: {
-                router.advance(.revealComplete)
-            })
-            .environmentObject(authManager)
-            .environmentObject(syncManager)
-            .interactiveDismissDisabled()
+                )
+                .interactiveDismissDisabled()
+            } else {
+                OnboardingRevealFlow(onComplete: {
+                    router.advance(.revealComplete)
+                })
+                .environmentObject(authManager)
+                .environmentObject(syncManager)
+                .interactiveDismissDisabled()
+            }
         }
         // Service configuration + HK observer setup.
         // Runs once when MainTabView first mounts (covers both .bootstrapping and .active).

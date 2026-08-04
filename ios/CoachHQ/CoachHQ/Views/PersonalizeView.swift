@@ -21,25 +21,10 @@ struct NamePromptView: View {
                 Spacer()
                 chatArea
                     .padding(.horizontal, 20)
-                // Two spacers below push chat into upper portion; button pinned via safeAreaInset
+                // Two spacers below push chat into upper portion
                 Spacer()
                 Spacer()
             }
-        }
-        .safeAreaInset(edge: .bottom) {
-            Button {
-                Haptics.tap()
-                submit()
-            } label: {
-                Text("Let's go")
-            }
-            .buttonStyle(WarmSetupButtonStyle(primary: true))
-            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
-            .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.45 : 1)
-            .animation(PremiumMotion.state, value: name.isEmpty)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 16)
-            .background(WarmInstrument.desk)
         }
         .task {
             await runChatEntrance()
@@ -96,10 +81,10 @@ struct NamePromptView: View {
             .animation(PremiumMotion.state, value: showSecondBubble)
             .animation(PremiumMotion.state, value: showTyping2)
 
-            // User reply bubble (right-aligned)
+            // User reply bubble (right-aligned) + inline send button
             if showInputBubble {
-                HStack(alignment: .bottom, spacing: 0) {
-                    Spacer(minLength: 64)
+                HStack(alignment: .bottom, spacing: 8) {
+                    Spacer(minLength: 40)
                     NameChatBubble(isCoach: false) {
                         TextField("", text: $name)
                             .font(.system(size: 16, weight: .medium))
@@ -112,6 +97,17 @@ struct NamePromptView: View {
                             .onSubmit { submit() }
                             .frame(minWidth: 100)
                     }
+                    let canSend = !name.trimmingCharacters(in: .whitespaces).isEmpty
+                    Button {
+                        Haptics.tap()
+                        submit()
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundStyle(canSend ? WarmInstrument.ink : WarmInstrument.inkFaint)
+                    }
+                    .disabled(!canSend)
+                    .animation(PremiumMotion.state, value: canSend)
                 }
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.85, anchor: .bottomTrailing).combined(with: .opacity),

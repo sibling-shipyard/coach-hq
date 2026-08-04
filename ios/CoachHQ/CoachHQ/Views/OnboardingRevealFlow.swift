@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Step enum
 
@@ -234,6 +235,12 @@ private struct SyncStepView: View {
             guard !completionHandled else { return }
             withAnimation(.easeOut(duration: 0.4)) { progress = max(progress, p) }
         }
+        .onChange(of: syncManager.isSyncing) { _, syncing in
+            UIApplication.shared.isIdleTimerDisabled = syncing
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
         .animation(PremiumMotion.state, value: started)
     }
 
@@ -451,7 +458,7 @@ private struct RevealStepView: View {
                 if coachVisible {
                     Text(summary.sessions == 0
                          ? "Nothing logged yet —\nthat changes now."
-                         : "This is what you've built.\nI'll work around it.")
+                         : "This is impressive.\nExcited for our journey.")
                         .font(WarmInstrument.coachVoice(17))
                         .foregroundColor(WarmInstrument.inkMuted)
                         .lineSpacing(3)
