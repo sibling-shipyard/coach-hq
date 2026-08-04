@@ -17,10 +17,40 @@ export interface RepoAggregateInput {
   sync_status?: SyncStatusPayload;
 }
 
-function isUnavailableWeek(
-  week: RepoAggregateInput["current_week"],
-): week is { data_status: "unavailable" } | undefined {
-  return !week || week.data_status === "unavailable";
+// Same "local calendar day" format buildLiveWeekContract itself uses for start_date/end_date
+// (see liveWeekContract.ts's localDateKey) - comparing today against a stored week's range only
+// makes sense if both sides are formatted the same way.
+function localDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+// A "placeholder" week is the real value the ledger ships when the coach planned a week - it's
+// only stale, not inherently wrong, so we only force a live recompute when its stored
+// start_date/end_date no longer brackets today. A currently-accurate placeholder is left as-is.
+//
+// This layer's own type contract has already proven unreliable at runtime once - the real
+// coach-skanda ledger shipped `coach_read: null` despite CurrentWeekContract declaring it
+// required (see PR #240's null-guard). So treat `week.week.start_date`/`end_date` the same way:
+// don't trust the cast, check the shape. A malformed placeholder is itself a reason to recompute
+// live, not a reason to throw and 500 all of Home.
+function isPlaceholderWeekStale(week: { week?: { start_date?: unknown; end_date?: unknown } }): boolean {
+  const startDate = week.week?.start_date;
+  const endDate = week.week?.end_date;
+  if (typeof startDate !== "string" || typeof endDate !== "string") return true;
+  const today = localDateKey(new Date());
+  return today < startDate || today > endDate;
+}
+
+export function needsLiveRecomputation(week: RepoAggregateInput["current_week"]): boolean {
+  if (!week || week.data_status === "unavailable") return true;
+  if (week.data_status === "placeholder") {
+    return isPlaceholderWeekStale(week as { week?: { start_date?: unknown; end_date?: unknown } });
+  }
+  return false;
 }
 
 export function generateWidgetSnapshotsFromAggregate(
@@ -36,7 +66,7 @@ export function generateWidgetSnapshotsFromAggregate(
     warnings: [],
   };
 
-  const contract = isUnavailableWeek(aggregate.current_week)
+  const contract = needsLiveRecomputation(aggregate.current_week)
     ? buildLiveWeekContract(activities, challenge)
     : (aggregate.current_week as CurrentWeekContract);
 

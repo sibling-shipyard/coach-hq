@@ -1,13 +1,10 @@
 import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useEffect,
   useId,
   useRef,
-  useState,
 } from "react";
 import { Link } from "wouter";
 import {
@@ -16,18 +13,11 @@ import {
   type ChatMessage,
   type ChatStarter,
   type ChatThread,
-  type ChatThreadStatus,
   type CoachChip,
   threadDayLabel,
   threadStatus,
 } from "./coachChatModel";
 
-type ThreadMenuState = {
-  threadId: string;
-  status: ChatThreadStatus;
-  x: number;
-  y: number;
-};
 function PlusIcon() {
   return (
     <svg aria-hidden="true" fill="none" height="15" viewBox="0 0 24 24" width="15">
@@ -281,143 +271,23 @@ function Composer({
   );
 }
 
-function ThreadContextMenu({
-  menu,
-  onClose,
-  onDelete,
-}: {
-  menu: ThreadMenuState;
-  onClose: () => void;
-  onDelete: (id: string) => void;
-}) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handlePointerDown(event: PointerEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) onClose();
-    }
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    function handleScroll() {
-      onClose();
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKey);
-    window.addEventListener("scroll", handleScroll, true);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKey);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [onClose]);
-
-  useEffect(() => {
-    const node = menuRef.current;
-    if (!node) return;
-    const rect = node.getBoundingClientRect();
-    const pad = 8;
-    let left = menu.x;
-    let top = menu.y;
-    if (left + rect.width > window.innerWidth - pad) {
-      left = Math.max(pad, window.innerWidth - rect.width - pad);
-    }
-    if (top + rect.height > window.innerHeight - pad) {
-      top = Math.max(pad, window.innerHeight - rect.height - pad);
-    }
-    node.style.left = `${left}px`;
-    node.style.top = `${top}px`;
-  }, [menu.x, menu.y]);
-
-  return (
-    <div
-      ref={menuRef}
-      className="cc-ctx"
-      role="menu"
-      aria-label="Conversation actions"
-      style={{ left: menu.x, top: menu.y }}
-    >
-      <button
-        className="cc-ctx__item cc-ctx__item--danger"
-        role="menuitem"
-        type="button"
-        onClick={() => {
-          onDelete(menu.threadId);
-          onClose();
-        }}
-      >
-        Delete
-      </button>
-    </div>
-  );
-}
-
 function ThreadRow({
   dayNumber,
   thread,
   active,
   onSelect,
-  onOpenMenu,
 }: {
   dayNumber: number;
   thread: ChatThread;
   active: boolean;
   onSelect: (id: string) => void;
-  onOpenMenu: (state: ThreadMenuState) => void;
 }) {
-  const longPressTimer = useRef<number | null>(null);
-  const longPressFired = useRef(false);
   const status = threadStatus(thread);
-
-  function clearLongPress() {
-    if (longPressTimer.current !== null) {
-      window.clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }
-
-  function openMenu(x: number, y: number) {
-    onOpenMenu({
-      threadId: thread.id,
-      status,
-      x,
-      y,
-    });
-  }
-
-  function handleContextMenu(event: ReactMouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    openMenu(event.clientX, event.clientY);
-  }
-
-  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (event.pointerType === "mouse") return;
-    longPressFired.current = false;
-    clearLongPress();
-    const { clientX, clientY } = event;
-    longPressTimer.current = window.setTimeout(() => {
-      longPressFired.current = true;
-      openMenu(clientX, clientY);
-    }, 520);
-  }
-
-  function handleClick() {
-    if (longPressFired.current) {
-      longPressFired.current = false;
-      return;
-    }
-    onSelect(thread.id);
-  }
 
   return (
     <button
       className={`cc-thread-row ${active ? "is-active" : ""} ${status !== "active" ? `is-${status}` : ""}`}
-      onClick={handleClick}
-      onContextMenu={handleContextMenu}
-      onPointerDown={handlePointerDown}
-      onPointerUp={clearLongPress}
-      onPointerCancel={clearLongPress}
-      onPointerLeave={clearLongPress}
+      onClick={() => onSelect(thread.id)}
       type="button"
     >
       <div className="cc-thread-row__top">
@@ -437,17 +307,14 @@ function ThreadSections({
   threads,
   activeId,
   onSelect,
-  onDelete,
 }: {
   dayNumber: number;
   threads: ChatThread[];
   activeId: string | null;
   onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
 }) {
-  const [menu, setMenu] = useState<ThreadMenuState | null>(null);
-  // Every thread returned by the server is active - deleting one removes it immediately and
-  // permanently (ADR 0012 amendment), so there's no separate archived/deleted section any more.
+  // Every thread returned by the server is active - retention (ADR 0012 amendment) drops the
+  // oldest automatically once past MAX_RETAINED_THREADS, so there's no separate archived section.
   const recent = threads.filter((thread) => threadStatus(thread) === "active");
 
   return (
@@ -464,11 +331,9 @@ function ThreadSections({
             thread={thread}
             active={thread.id === activeId}
             onSelect={onSelect}
-            onOpenMenu={setMenu}
           />
         ))
       )}
-      {menu ? <ThreadContextMenu menu={menu} onClose={() => setMenu(null)} onDelete={onDelete} /> : null}
     </>
   );
 }
@@ -479,14 +344,12 @@ export function ThreadSidebar({
   activeId,
   onSelect,
   onNew,
-  onDelete,
 }: {
   dayNumber: number;
   threads: ChatThread[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onDelete: (id: string) => void;
 }) {
   return (
     <aside className="cc-sidebar" aria-label="Conversations">
@@ -501,7 +364,7 @@ export function ThreadSidebar({
         </button>
       </div>
       <div className="cc-sidebar__list">
-        <ThreadSections dayNumber={dayNumber} threads={threads} activeId={activeId} onSelect={onSelect} onDelete={onDelete} />
+        <ThreadSections dayNumber={dayNumber} threads={threads} activeId={activeId} onSelect={onSelect} />
       </div>
     </aside>
   );
@@ -681,14 +544,12 @@ export function MobileThreadList({
   activeId,
   onSelect,
   onNew,
-  onDelete,
 }: {
   dayNumber: number;
   threads: ChatThread[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onDelete: (id: string) => void;
 }) {
   return (
     <section className="cc-mobile-list" aria-label="Conversations">
@@ -705,7 +566,7 @@ export function MobileThreadList({
         <PlusIcon />
         New conversation
       </button>
-      <ThreadSections dayNumber={dayNumber} threads={threads} activeId={activeId} onSelect={onSelect} onDelete={onDelete} />
+      <ThreadSections dayNumber={dayNumber} threads={threads} activeId={activeId} onSelect={onSelect} />
     </section>
   );
 }

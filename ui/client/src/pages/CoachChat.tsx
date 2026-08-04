@@ -12,7 +12,6 @@ import {
   fetchThreads,
   greet,
   sendMessage,
-  setThreadStatus as patchThreadStatus,
   threadStatus,
   type ChatMessage,
   type ChatThread,
@@ -134,38 +133,6 @@ function CoachChatContent({ data }: { data: RepoData }) {
       setActiveId(threads.find((thread) => threadStatus(thread) === "active")?.id ?? null);
     }
   }, [threads, activeId]);
-
-  function firstActiveId(list: ChatThread[], excludeId?: string): string | null {
-    return list.find((thread) => threadStatus(thread) === "active" && thread.id !== excludeId)?.id ?? null;
-  }
-
-  // Delete is immediate and permanent - no archive tier, no restore (ADR 0012 amendment).
-  async function deleteThread(id: string) {
-    const wasActive = activeId === id;
-    if (wasActive) {
-      setActiveId(firstActiveId(threads, id));
-      setDraft("");
-      setMobileView("list");
-    }
-
-    // A thread that hasn't been wrapped yet only exists in local state - nothing's committed
-    // for the server's PATCH to find. Just drop it client-side.
-    if (id.startsWith("local-")) {
-      setThreads((prev) => prev.filter((thread) => thread.id !== id));
-      return;
-    }
-
-    try {
-      const next = await patchThreadStatus(id, "deleted");
-      setThreads(next);
-    } catch (err: unknown) {
-      if (err instanceof CoachChatAccessRevokedError) {
-        setThreadsAccessRevoked(true);
-        return;
-      }
-      toast.error(err instanceof Error ? err.message : "Failed to delete conversation");
-    }
-  }
 
   function startNewConversation() {
     // Not "new" (an empty composer waiting on the athlete) any more - Coach speaks first (A4).
@@ -310,10 +277,6 @@ function CoachChatContent({ data }: { data: RepoData }) {
     }
   }
 
-  const threadActions = {
-    onDelete: (id: string) => void deleteThread(id),
-  };
-
   if (threadsAccessRevoked) {
     return <AccessRevokedCard />;
   }
@@ -362,7 +325,6 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   activeId={activeId}
                   onSelect={selectThread}
                   onNew={startNewConversation}
-                  {...threadActions}
                 />
               )}
               {activeThread ? (
@@ -406,7 +368,6 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   activeId={activeId}
                   onSelect={selectThread}
                   onNew={startNewConversation}
-                  {...threadActions}
                 />
               ) : null}
               {mobileView === "thread" && activeThread ? (
