@@ -144,7 +144,7 @@ private struct SyncStepView: View {
                     .padding(.bottom, 12)
                     .onboardingReveal(index: 0)
 
-                Text("Coach reads every session to build your training picture. Keep the app open — first-time syncs can take a few minutes.")
+                Text("Coach reads every session to build your training picture. Keep the app open, first-time syncs can take a few minutes.")
                     .font(.system(size: 16))
                     .foregroundColor(WarmInstrument.inkMuted)
                     .lineSpacing(4)
@@ -335,8 +335,6 @@ private func sportDisplayInfo(_ sport: String) -> (name: String, symbol: String,
         return ("Swimming",   "figure.pool.swim",             WarmInstrument.Sport.swim)
     case "Hiking":
         return ("Hiking",     "figure.hiking",                WarmInstrument.Sport.hike)
-    case "Rowing":
-        return ("Rowing",     "figure.rowing",                WarmInstrument.Sport.other)
     case "Tennis":
         return ("Tennis",     "figure.tennis",                WarmInstrument.Sport.tennis)
     case "Football":
@@ -661,7 +659,7 @@ private struct SeasonStepView: View {
 
     private static let allSports = [
         "Running", "Cycling", "Swimming", "Strength",
-        "Yoga", "Hiking", "Rowing", "Tennis",
+        "Yoga", "Hiking", "Tennis",
         "Football", "Basketball", "Badminton", "Other"
     ]
 
@@ -741,7 +739,6 @@ private struct SeasonStepView: View {
         case "Walk":      return "Walking"
         case "Swimming":  return "Swimming"
         case "Hiking":    return "Hiking"
-        case "Rowing":    return "Rowing"
         case "Tennis":    return "Tennis"
         case "Football":  return "Football"
         case "Basketball": return "Basketball"
@@ -763,7 +760,6 @@ private struct SportChipGrid: View {
         case "Strength":   return "dumbbell.fill"
         case "Yoga":       return "figure.flexibility"
         case "Hiking":     return "figure.hiking"
-        case "Rowing":     return "figure.rowing"
         case "Tennis":     return "figure.tennis"
         case "Football":   return "soccerball"
         case "Basketball": return "figure.basketball"

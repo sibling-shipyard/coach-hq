@@ -20,7 +20,16 @@ struct LoginView: View {
                         .tracking(1.6)
                         .foregroundColor(WarmInstrument.ink)
                         .onboardingReveal(index: 1)
-
+                
+                    Text(
+                        "Train the process. \nThe outcome follows."
+                    )
+                    .font(WarmInstrument.coachVoice(15))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(3)
+                    .onboardingReveal(index: 2)
 
                 }
                 .padding(.horizontal, 32)
@@ -92,8 +101,6 @@ struct LoginView: View {
                     signIn()
                 } label: {
                     HStack(spacing: 10) {
-                        Text(isLoading ? "Signing in…" : "Continue with GitHub")
-                            .contentTransition(.opacity)
                         if isLoading {
                             ProgressView()
                                 .tint(WarmInstrument.paper)
@@ -106,6 +113,8 @@ struct LoginView: View {
                                 .frame(width: 18, height: 18)
                                 .transition(.scale.combined(with: .opacity))
                         }
+                        Text(isLoading ? "Signing in…" : "Continue with GitHub")
+                            .contentTransition(.opacity)
                     }
                     .animation(PremiumMotion.press, value: isLoading)
                 }

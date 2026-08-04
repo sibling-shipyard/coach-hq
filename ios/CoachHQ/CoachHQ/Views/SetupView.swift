@@ -82,7 +82,7 @@ struct SetupView: View {
             VStack(alignment: .leading, spacing: 14) {
                 stepBullet("Create your training log once")
                 stepBullet("All your workouts in one private place")
-                stepBullet("Coach reads it — you never re-explain")
+                stepBullet("Coach reads it, you never re-explain")
             }
             .onboardingReveal(index: 1)
 
@@ -125,11 +125,11 @@ struct SetupView: View {
     private func stepBullet(_ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("—")
-                .font(WarmInstrument.monoLabel(12))
+                .font(WarmInstrument.monoLabel(13))
                 .foregroundColor(WarmInstrument.inkFaint)
             Text(text)
-                .font(WarmInstrument.monoLabel(12))
-                .foregroundColor(WarmInstrument.inkFaint)
+                .font(.system(size: 14))
+                .foregroundColor(WarmInstrument.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -305,8 +305,8 @@ struct HealthKitPrePromptView: View {
                     .onboardingReveal(index: 1)
                     .padding(.bottom, 20)
 
-                Text("Duration, heart rate, sport type — that's how I learn your patterns and give you real feedback instead of generic advice.")
-                    .font(.system(size: 15))
+                Text("Duration, heart rate, sport type. That's how I learn your patterns and give you real feedback instead of generic advice.")
+                    .font(WarmInstrument.coachVoice(15))
                     .foregroundColor(WarmInstrument.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineSpacing(4)
