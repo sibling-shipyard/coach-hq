@@ -51,6 +51,49 @@ jobs:
           print(f"Validated {checked} JSON file(s) — all parse cleanly.")
           PY
 
+      - name: Validate challenge_v2.json shape
+        run: |
+          python3 - <<'PY'
+          import json, sys
+
+          path = "user_data/ledger/challenge_v2.json"
+          try:
+              with open(path) as fh:
+                  data = json.load(fh)
+          except FileNotFoundError:
+              print(f"::notice::{path} not found — skipping shape check")
+              sys.exit(0)
+          except json.JSONDecodeError:
+              sys.exit(0)  # already caught by the JSON-parse step above
+
+          errors = []
+          if data.get("version") != 4:
+              errors.append(f"version must be 4 (ADR 0006), got {data.get('version')!r}")
+          if "challenge" in data:
+              errors.append("legacy top-level 'challenge' block found — use 'season' (v4)")
+          if "season" not in data:
+              errors.append("missing required 'season' block")
+          if "main_quest" not in data:
+              errors.append("missing required 'main_quest' block")
+          if "quests" not in data:
+              errors.append("missing required 'quests' list")
+
+          weekly_targets = data.get("weekly_targets")
+          if weekly_targets is not None:
+              bad_keys = [k for k, v in weekly_targets.items() if not isinstance(v, (int, float))]
+              if bad_keys:
+                  errors.append(
+                      f"weekly_targets must be plain numbers, not config objects: {', '.join(bad_keys)}"
+                  )
+
+          if errors:
+              print(f"::error::{path} does not match the canonical v4 schema:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          print(f"Validated {path} — v4 shape OK.")
+          PY
+
       - name: Validate widget_snapshots.json
         run: |
           python3 - <<'PY'

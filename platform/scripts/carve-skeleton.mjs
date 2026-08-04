@@ -45,32 +45,20 @@ const PROPAGATED_DOCS = [
 ];
 
 const CHALLENGE_V2_TEMPLATE = {
-  version: 2,
+  // Canonical shape per ADR 0006 — season block (not challenge), weekly_targets as
+  // flat numbers (not source-config objects; nothing in the dashboard/iOS consumes
+  // the richer shape — see docs/eng-docs/challenge-v2-schema.md).
+  version: 4,
   last_updated_by: "coach",
   last_updated_at: "2026-01-01",
-  challenge: {
+  season: {
     name: "My 60-Day Challenge",
     start_date: "2026-01-01",
-    duration_days: 60,
     end_date: "2026-03-01",
   },
   weekly_targets: {
-    "Morning Routine": {
-      target: 7,
-      source: "quest",
-      quest_id: "morning_routine",
-    },
-    "Strength Training": {
-      target: 2,
-      source: "strava_pattern",
-      pattern: "^Strength\\s*#",
-    },
-    Sport: {
-      target: 2,
-      source: "strava_sport",
-      sport_type: "Badminton",
-      pattern: "^(Session|Training|Match)",
-    },
+    strength: 2,
+    cardio: 1,
   },
   main_quest: {
     id: "main",
