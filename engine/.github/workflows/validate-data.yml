@@ -86,6 +86,27 @@ jobs:
                       f"weekly_targets must be plain numbers, not config objects: {', '.join(bad_keys)}"
                   )
 
+          # The standard quest shape going forward (unified across skeleton/athlete repos):
+          # daily_streak + default_not_done, tracked via completed_dates + excused_dates - both
+          # arrays must be present (even empty) so a quest doesn't silently fall back to reading
+          # the wrong fields. This is the exact class of drift that caused Main Quest/side quests
+          # to render as zero on a live dashboard. default_done/missed_dates is still a valid
+          # polarity (generate_quest_log.py and the web dashboard both support it) - it needs
+          # missed_dates instead of completed_dates, excused_dates either way.
+          for i, q in enumerate(data.get("quests", []) or []):
+              if not isinstance(q, dict) or q.get("type") != "daily_streak":
+                  continue
+              prefix = f"quests[{i}] ({q.get('id', '?')})"
+              polarity = q.get("polarity", "default_done")
+              required_fields = ["excused_dates"]
+              required_fields.append("missed_dates" if polarity == "default_done" else "completed_dates")
+              for field in required_fields:
+                  value = q.get(field)
+                  if value is None:
+                      errors.append(f"{prefix} missing required field: {field} (use [] if empty)")
+                  elif not isinstance(value, list):
+                      errors.append(f"{prefix} {field} must be an array")
+
           if errors:
               print(f"::error::{path} does not match the canonical v4 schema:")
               for e in errors:

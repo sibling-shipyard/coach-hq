@@ -408,13 +408,22 @@ def compute_weekly_counts(activities: list[dict], data: dict, today: date) -> di
                 eff_start = max(q_start, week_start)
                 eff_end = min(today, week_end)
                 if eff_start <= eff_end:
-                    missed = set(q.get("missed_dates", []))
-                    excused = set(q.get("excused_dates", []))
-                    all_missed = missed | excused
-                    eligible = (eff_end - eff_start).days + 1
-                    missed_wk = len([m for m in all_missed
-                                     if eff_start <= parse_date(m) <= eff_end])
-                    counts[label] = eligible - missed_wk
+                    polarity = q.get("polarity", "default_done")
+                    if polarity == "default_not_done":
+                        # Only completed_dates counts - the eligible/missed math below is
+                        # default_done-specific (it assumes every day counts unless marked
+                        # missed, which is backwards for a quest tracked by completion instead).
+                        completed = set(q.get("completed_dates", []))
+                        counts[label] = len([c for c in completed
+                                             if eff_start <= parse_date(c) <= eff_end])
+                    else:
+                        missed = set(q.get("missed_dates", []))
+                        excused = set(q.get("excused_dates", []))
+                        all_missed = missed | excused
+                        eligible = (eff_end - eff_start).days + 1
+                        missed_wk = len([m for m in all_missed
+                                         if eff_start <= parse_date(m) <= eff_end])
+                        counts[label] = eligible - missed_wk
 
     for a in activities:
         act_date_str = a.get("start_date_local", "")[:10]

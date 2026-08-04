@@ -262,15 +262,54 @@ export function buildEngineSnapshot(
   };
 }
 
-function buildQuestSnapshot(
+// Eligible days for a daily_streak quest: start_date through today, or through its own
+// end_date if that's already passed - mirrors generate_quest_log.py's
+// compute_daily_streak_stats "effective_end = min(end_date ?? today, today)".
+function eligibleDaysSince(startDate: string, endDate: string | undefined, today: Date): number {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = endDate ? new Date(`${endDate}T00:00:00`) : today;
+  const effectiveEnd = end.getTime() < today.getTime() ? end : today;
+  if (effectiveEnd < start) return 0;
+  return Math.floor((effectiveEnd.getTime() - start.getTime()) / DAY_MS) + 1;
+}
+
+export function buildQuestSnapshot(
   challenge: ChallengeV2,
   quest: WarmHomeModel["quest"],
 ): QuestSnapshot {
   const palette = ["#7c6f9e", "#a8702c"];
+  const today = new Date();
   const sideQuests = challenge.quests.slice(0, 2).map((item, index) => {
-    const completedDates = item.completed_dates?.length ?? 0;
-    const value = item.current ?? completedDates;
-    const target = item.target ?? Math.max(value, 1);
+    let value: number;
+    let target: number;
+    if (item.type === "daily_streak") {
+      // Cumulative since the quest's own start_date, not this-week/this-month - matches the
+      // legacy SideQuestTracker.tsx's computeQuestProgress this was ported from.
+      const eligible = eligibleDaysSince(item.start_date, item.end_date, today);
+      if (item.polarity === "default_done") {
+        // Every day counts unless missed or excused (both reduce the completed count the same
+        // way - excused only protects the *streak*, a separate concept this widget doesn't
+        // render). Kept for parity with generate_quest_log.py; no live quest uses this polarity
+        // any more after the challenge_v2 unification, but the formula stays correct if one does.
+        const missed = item.missed_dates?.length ?? 0;
+        const excused = item.excused_dates?.length ?? 0;
+        value = Math.max(0, eligible - missed - excused);
+        target = eligible;
+      } else {
+        // default_not_done (also the polarity-absent default, matching
+        // generate_quest_log.py's compute_daily_streak_stats) - the standard shape for every
+        // quest going forward. Only completed_dates counts; excused_dates is tracked for
+        // monthly analytics but doesn't move this ratio.
+        value = item.completed_dates?.length ?? 0;
+        target = eligible;
+      }
+    } else {
+      // "progress" quests (e.g. a chapters-read counter) read current/target directly - no
+      // polarity/streak concept.
+      const completedDates = item.completed_dates?.length ?? 0;
+      value = item.current ?? completedDates;
+      target = item.target ?? Math.max(value, 1);
+    }
     return {
       id: item.id,
       name: item.name,
