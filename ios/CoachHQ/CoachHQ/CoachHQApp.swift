@@ -104,6 +104,11 @@ struct CoachHQApp: App {
                     widgetStore.reset()
                 }
             }
+            .onAppear {
+                // Lets AppRouter.checkAccountSwitch() reset these on an account switch
+                // (not just the explicit sign-out path above).
+                router.bindAccountScopedServices(workoutService: workoutService, widgetStore: widgetStore)
+            }
         }
     }
 }

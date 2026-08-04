@@ -352,7 +352,10 @@ struct CoachChatComposer: View {
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 9) {
+        // .center (not .bottom) so the placeholder/text reads vertically centered against
+        // the fixed 32pt send button at the default single-line height (22pt) — bottom
+        // alignment left ~10pt of dead space above the field before the button.
+        HStack(alignment: .center, spacing: 9) {
             CoachChatMessageField(
                 text: $draft,
                 height: $fieldHeight,
@@ -570,7 +573,7 @@ struct CoachChatHistorySheet: View {
             HStack {
                 Text("Conversations")
                     .font(.system(size: 17, weight: .semibold))
-                Text("LAST 7 DAYS")
+                Text("LAST 7 THREADS")
                     .font(WarmInstrument.monoLabel(8.5))
                     .tracking(1)
                     .foregroundStyle(WarmInstrument.inkFaint)
@@ -604,7 +607,7 @@ struct CoachChatHistorySheet: View {
                             historyRow(thread, isToday: false)
                         }
                     }
-                    Text("COACH KEEPS THE WEEK, NOT THE ARCHIVE.\nTHREADS CLEAR AFTER 7 DAYS.")
+                    Text("COACH KEEPS YOUR 7 MOST RECENT CONVERSATIONS.\nOLDER ONES CLEAR AUTOMATICALLY.")
                         .font(WarmInstrument.monoLabel(8.5))
                         .tracking(0.6)
                         .foregroundStyle(Color(red: 0xb3 / 255, green: 0xb0 / 255, blue: 0xa1 / 255))

@@ -13,6 +13,11 @@ class GitHubAPIClient {
         self.authManager = authManager
     }
 
+    /// The signed-in account's `owner/repo`, when known. Exposed so per-account caches
+    /// (e.g. `WidgetSnapshotStore`) can scope their local storage to the account they
+    /// were fetched for, instead of leaking across a sign-out/account switch.
+    var repoFullName: String? { authManager.repoFullName }
+
     private var baseURL: String {
         get throws {
             guard authManager.loadToken() != nil else {

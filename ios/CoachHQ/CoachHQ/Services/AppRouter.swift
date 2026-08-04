@@ -40,6 +40,19 @@ final class AppRouter: ObservableObject {
 
     let authManager: GitHubAuthManager
 
+    // Account-scoped services reset from `checkAccountSwitch()` when the signed-in login
+    // changes. Weak: these are app-lifetime `@StateObject`s owned by `CoachHQApp`, bound in
+    // once via `bindAccountScopedServices` shortly after launch.
+    private weak var workoutService: WorkoutService?
+    private weak var widgetStore: WidgetSnapshotStore?
+
+    /// Called once from `CoachHQApp` so `checkAccountSwitch()` can reset these stores when
+    /// it detects a different GitHub login signed in — not just on the explicit sign-out path.
+    func bindAccountScopedServices(workoutService: WorkoutService, widgetStore: WidgetSnapshotStore) {
+        self.workoutService = workoutService
+        self.widgetStore = widgetStore
+    }
+
     /// Returns .complete when sessionExpired so fullScreenCovers never render above the
     /// session-expired overlay. Use for overlay rendering only — not for the HK-setup
     /// .task guard (which uses onboardingPhase directly to avoid firing system dialogs
@@ -174,10 +187,14 @@ final class AppRouter: ObservableObject {
             defaults.set(login, forKey: lastLoginKey)
             Task { await skipOnboardingIfAlreadyComplete() }
         } else if stored != login {
-            // Different account — reset onboarding so the new user gets the full flow.
+            // Different account — reset onboarding so the new user gets the full flow, and
+            // drop any previous account's cached workouts/Home data so it can't flash on
+            // screen before the new account's fetch lands.
             persistPhase(.notStarted)
             defaults.set(false, forKey: "hkAuthorizationGranted")
             defaults.set(login, forKey: lastLoginKey)
+            workoutService?.reset()
+            widgetStore?.reset()
         }
         // Same login — no action.
     }
