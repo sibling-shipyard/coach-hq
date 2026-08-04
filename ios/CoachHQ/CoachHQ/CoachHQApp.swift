@@ -89,6 +89,14 @@ struct CoachHQApp: App {
                     )
                 }
             }
+            .onChange(of: router.authManager.isAuthenticated) { _, isAuthenticated in
+                // Sign-out must not leave a previous account's data on screen for the
+                // next athlete to sign in on this device.
+                if !isAuthenticated {
+                    workoutService.reset()
+                    widgetStore.reset()
+                }
+            }
         }
     }
 }

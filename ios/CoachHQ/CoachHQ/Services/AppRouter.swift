@@ -156,6 +156,7 @@ final class AppRouter: ObservableObject {
         if stored == nil {
             // Absent: first resolve after install or migration — adopt silently, never reset.
             defaults.set(login, forKey: lastLoginKey)
+            Task { await skipOnboardingIfAlreadyComplete() }
         } else if stored != login {
             // Different account — reset onboarding so the new user gets the full flow.
             persistPhase(.notStarted)
@@ -163,6 +164,25 @@ final class AppRouter: ObservableObject {
             defaults.set(login, forKey: lastLoginKey)
         }
         // Same login — no action.
+    }
+
+    /// New device or reinstall: `onboardingPhase` defaults to `.notStarted` locally, but the
+    /// athlete may have already finished First Session Protocol elsewhere. Checks the fast
+    /// local Keychain flag first (survives same-device reinstall), then falls back to the
+    /// server (same `/api/coach-chat-profile-status` signal `CoachSetupBootstrap` uses) for a
+    /// genuinely new device, so a returning athlete never re-runs the name/HK/reveal onboarding.
+    private func skipOnboardingIfAlreadyComplete() async {
+        guard onboardingPhase == .notStarted else { return }
+        guard let repo = authManager.repoFullName else { return }
+        if CoachSetupState.isComplete(repoFullName: repo) {
+            persistPhase(.complete)
+            return
+        }
+        let client = CoachChatAPIClient(authManager: authManager)
+        if let complete = try? await client.profileStatus(), complete {
+            CoachSetupState.markComplete(repoFullName: repo)
+            persistPhase(.complete)
+        }
     }
 
     // MARK: - Onboarding events

@@ -16,6 +16,13 @@ class WorkoutService: ObservableObject {
         self.apiClient = apiClient
     }
 
+    /// Drops any fetched data so a stale account's workouts can never survive a sign-out.
+    func reset() {
+        templates = []
+        todaySessions = [:]
+        fetchError = nil
+    }
+
     // MARK: - Display helpers
 
     func displayWorkout(for id: String) -> Workout? {
@@ -36,12 +43,14 @@ class WorkoutService: ObservableObject {
         } catch let e as GitHubAPIError {
             guard case .notFound = e else {
                 fetchError = "Couldn't load workout templates"
+                templates = []
                 return
             }
             templates = []
             return
         } catch {
             fetchError = "Couldn't load workout templates"
+            templates = []
             return
         }
 
