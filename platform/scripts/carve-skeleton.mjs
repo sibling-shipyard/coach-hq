@@ -56,6 +56,19 @@ const CHALLENGE_V2_TEMPLATE = {
     start_date: "2026-01-01",
     end_date: "2026-03-01",
   },
+  // Populated with real example content, like main_quest below, rather than omitted —
+  // every athlete's coaching model gets a phase/block from day one.
+  phase: {
+    name: "Block 1",
+    start_date: "2026-01-01",
+    current_block: {
+      id: "block_1",
+      name: "Block 1",
+      start_date: "2026-01-01",
+      end_date: "2026-01-28",
+      note: "First training block of the season.",
+    },
+  },
   weekly_targets: {
     strength: 2,
     cardio: 1,
@@ -144,6 +157,9 @@ const SYNC_STATE_TEMPLATE = {
   total_activities: 0,
   since: null,
   last_run: null,
+  counter_year: null,
+  counters: {},
+  hk_last_synced: null,
 };
 
 const SYNC_STATUS_TEMPLATE = {
@@ -233,6 +249,12 @@ const COACH_NOTES_TEMPLATE = `# Coach Notes
 // somewhere for it to land, whether or not their coaching model actually uses phases.
 const ARCHIVE_PHASES_TEMPLATE = `# Archived Phases & Blocks
 *(Empty — populated when a phase/block closes.)*
+`;
+
+// Named alongside archive/phases.md in B_engine.md's closing-ritual commit list —
+// closed-week history, distinct from the phase-level retrospective above.
+const ARCHIVE_WEEK_PLANS_TEMPLATE = `# Archived Week Plans
+*(Empty — populated as weeks close.)*
 `;
 
 const QUEST_LOG_STARTER = `# Quest Log
@@ -514,9 +536,10 @@ function carve(outDir, sha) {
   writeText(outDir, "user_data/coach/state.md", STATE_MD_TEMPLATE);
   writeText(outDir, "user_data/coach/coach_notes.md", COACH_NOTES_TEMPLATE);
   writeJson(outDir, "user_data/coach/sleep_log.json", []);
-  writeJson(outDir, "user_data/coach/chat_history.json", []);
+  writeJson(outDir, "user_data/coach/chat_history.json", { threads: [] });
   writeText(outDir, "user_data/coach/reference/.gitkeep", "");
   writeText(outDir, "user_data/coach/archive/phases.md", ARCHIVE_PHASES_TEMPLATE);
+  writeText(outDir, "user_data/coach/archive/week_plans.md", ARCHIVE_WEEK_PLANS_TEMPLATE);
   writeText(outDir, "user_data/activities/hist/.gitkeep", "");
   writeJson(outDir, "user_data/activities/sync_state.json", SYNC_STATE_TEMPLATE);
 
