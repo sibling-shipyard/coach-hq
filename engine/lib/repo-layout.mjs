@@ -154,10 +154,12 @@ export function chatHistoryPath(repoRootPath) {
     : path.join(repoRootPath, "training", "chat_history.json");
 }
 
-/** Archive seasons — HQ legacy path; new layout uses user_data/ledger/seasons. */
+/** Archive seasons - grouped with the rest of the coach's archived material (archive/phases.md,
+ * archive/week_plans.md), not the live ledger/ - a closed season's challenge_v2.json is a
+ * retrospective, not current data. Old layout uses training/seasons. */
 export function seasonsDir(repoRootPath) {
   return usesNewLayout(repoRootPath)
-    ? path.join(repoRootPath, "user_data", "ledger", "seasons")
+    ? path.join(repoRootPath, "user_data", "coach", "archive", "seasons")
     : path.join(repoRootPath, "training", "seasons");
 }
 

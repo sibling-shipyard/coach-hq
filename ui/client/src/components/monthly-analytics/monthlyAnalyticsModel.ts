@@ -1,6 +1,5 @@
 import type { Activity, TrainingCategory } from "@/lib/activities";
 import { getTrainingCategory, parseLocal, totalCalories } from "@/lib/activities";
-import type { ChallengeV2, Quest } from "@/lib/challenge";
 import { getActivityZoneLoad } from "@/components/home-warm/warmHomeModel";
 import type { WarmSportId } from "@/components/home-warm/WarmInstrumentWidgets";
 
@@ -441,48 +440,51 @@ function buildWorkoutBreakdown(
   };
 }
 
-function datesInMonth(year: number, month: number): string[] {
-  const { start, end } = monthBounds(year, month);
-  const dates: string[] = [];
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    dates.push(localDateKey(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return dates;
+// gen/quest_history.json's shape (built by engine/scripts/generate_quest_history.py, which
+// walks every archived season directory plus the current one and caps entries at "today" for
+// the live season - so unlike recomputing from challenge_v2.json's raw date arrays, future days
+// and old-season boundaries never enter this data in the first place).
+export interface QuestHistoryEntry {
+  date: string;
+  status: "done" | "missed" | "excused";
 }
 
-function questEligibleDates(quest: Quest, year: number, month: number): string[] {
-  const monthDates = datesInMonth(year, month);
-  const questStart = quest.start_date;
-  const questEnd = quest.end_date ?? "9999-12-31";
-  return monthDates.filter((date) => date >= questStart && date <= questEnd);
+export interface QuestHistoryQuest {
+  name: string;
+  // Earliest start_date seen for this quest id across every season, and null while it's still
+  // active (present in the current/live season) or the date it was last processed through once
+  // retired. Not currently used for the show/hide gate below (that's driven by entries directly)
+  // - available for any consumer that wants the window without scanning entries.
+  start_date: string;
+  end_date: string | null;
+  entries: QuestHistoryEntry[];
 }
 
-export function questMonthStats(quest: Quest, year: number, month: number) {
-  const eligible = questEligibleDates(quest, year, month);
-  const completed = new Set(quest.completed_dates ?? []);
-  const missed = new Set(quest.missed_dates ?? []);
-  const excused = new Set(quest.excused_dates ?? []);
+export interface QuestHistory {
+  generated_at: string;
+  quests: Record<string, QuestHistoryQuest>;
+}
 
-  if (quest.type === "daily_streak") {
-    // default_not_done is the schema-wide default (unified challenge_v2 shape) for an absent
-    // polarity - must match generate_quest_log.py/generate_quest_history.py's default and
-    // warmHomeSnapshots.ts's buildQuestSnapshot. Falling through to the progress-quest fallback
-    // below for a polarity-less daily_streak quest would silently render it as 0/0/0.
-    if (quest.polarity === "default_done") {
-      const miss = eligible.filter((date) => missed.has(date)).length;
-      const exc = eligible.filter((date) => excused.has(date)).length;
-      const done = Math.max(0, eligible.length - miss - exc);
-      return { done, miss, excused: exc };
-    }
-    const done = eligible.filter((date) => completed.has(date)).length;
-    const exc = eligible.filter((date) => excused.has(date)).length;
-    const miss = Math.max(0, eligible.length - done - exc);
-    return { done, miss, excused: exc };
-  }
+// Ported from the legacy pre-Warm-Instrument dashboard's QuestSummaryCard.tsx (monthRate +
+// row-building) - filtering pre-computed entries by a "YYYY-MM" prefix instead of recomputing
+// from date-range math is what avoids issue #93 (future days counted as done) and makes
+// archived-season data show up at all (challenge_v2.json's quests[] only ever has the live
+// season's quests; quest_history.json already has all of them).
+function questHistoryMonthStats(
+  entries: QuestHistoryEntry[],
+  monthKey: string,
+): { done: number; miss: number; excused: number } {
+  const monthEntries = entries.filter((e) => e.date.startsWith(monthKey));
+  const done = monthEntries.filter((e) => e.status === "done").length;
+  const miss = monthEntries.filter((e) => e.status === "missed").length;
+  const excused = monthEntries.filter((e) => e.status === "excused").length;
+  return { done, miss, excused };
+}
 
-  return { done: quest.current ?? 0, miss: 0, excused: 0 };
+function monthKeyFor(year: number, month: number): string {
+  // month is 0-indexed (JS Date convention) - quest_history.json's dates are real calendar
+  // dates, so the key needs a 1-indexed month.
+  return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
 function questRate(stats: { done: number; miss: number }): number | null {
@@ -491,31 +493,41 @@ function questRate(stats: { done: number; miss: number }): number | null {
   return Math.round((stats.done / denominator) * 100);
 }
 
-function buildSideQuests(
-  challenge: ChallengeV2,
+export function buildSideQuests(
+  questHistory: QuestHistory,
   year: number,
   month: number,
 ): SideQuestsModel {
+  const monthKey = monthKeyFor(year, month);
   const prevMonth = month === 0 ? 11 : month - 1;
   const prevYear = month === 0 ? year - 1 : year;
+  const prevMonthKey = monthKeyFor(prevYear, prevMonth);
 
-  const quests: SideQuestMonthRow[] = challenge.quests.map((quest) => {
-    const stats = questMonthStats(quest, year, month);
-    const prevStats = questMonthStats(quest, prevYear, prevMonth);
-    const rate = questRate(stats);
-    const prevRate = questRate(prevStats);
-    return {
-      id: quest.id,
-      name: quest.name,
-      done: stats.done,
-      miss: stats.miss,
-      excused: stats.excused,
-      rate,
-      rateDeltaVsPrevious:
-        rate !== null && prevRate !== null ? rate - prevRate : null,
-      color: QUEST_COLORS[quest.id] ?? "#7c6f9e",
-    };
-  });
+  // A quest only appears in a given month's view if it actually has entries that month - a
+  // quest that finished in May doesn't show up as a permanent empty row every month after
+  // (issue flagged in PR #253's own review: buildSideQuests used to list every quest id
+  // quest_history.json had ever seen). A month with real entries but zero "done" still shows
+  // (a genuine 0%, not "not applicable") - the gate is entries-existence, not the rate.
+  const quests: SideQuestMonthRow[] = Object.entries(questHistory.quests ?? {})
+    .filter(([, quest]) => quest.entries.some((e) => e.date.startsWith(monthKey)))
+    .map(([id, quest]) => {
+      const stats = questHistoryMonthStats(quest.entries, monthKey);
+      const prevStats = questHistoryMonthStats(quest.entries, prevMonthKey);
+      const rate = questRate(stats);
+      const prevRate = questRate(prevStats);
+      return {
+        id,
+        name: quest.name,
+        done: stats.done,
+        miss: stats.miss,
+        excused: stats.excused,
+        rate,
+        rateDeltaVsPrevious:
+          rate !== null && prevRate !== null ? rate - prevRate : null,
+        color: QUEST_COLORS[id] ?? "#7c6f9e",
+      };
+    },
+  );
 
   const activeQuest = quests.find((quest) => quest.done + quest.miss > 0) ?? quests[0];
   let coachRead = "Side quests only count when you log them — no invented progress.";
@@ -569,7 +581,7 @@ function formatHours(hours: number): string {
 
 export function buildMonthlyAnalyticsModel(
   activities: Activity[],
-  challenge: ChallengeV2,
+  questHistory: QuestHistory,
   scope: { year: number; month: number },
 ): MonthlyAnalyticsModel {
   const now = new Date();
@@ -609,7 +621,7 @@ export function buildMonthlyAnalyticsModel(
       hasData: false,
     },
     breakdown,
-    sideQuests: buildSideQuests(challenge, year, month),
+    sideQuests: buildSideQuests(questHistory, year, month),
   };
 }
 

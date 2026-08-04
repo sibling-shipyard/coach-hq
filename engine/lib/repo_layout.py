@@ -144,8 +144,11 @@ def chat_history_path(repo: Path) -> Path:
 
 
 def seasons_dir(repo: Path) -> Path:
+    # Grouped with the rest of the coach's archived material (archive/phases.md,
+    # archive/week_plans.md), not the live ledger/ - a closed season's challenge_v2.json is a
+    # retrospective, not current data.
     if uses_new_layout(repo):
-        return repo / "user_data" / "ledger" / "seasons"
+        return repo / "user_data" / "coach" / "archive" / "seasons"
     return repo / "training" / "seasons"
 
 

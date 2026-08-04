@@ -13,6 +13,11 @@ Output path:
 Status values: "done", "missed", "excused"
 Gaps (e.g., Jun 7-17 between seasons) are omitted — no entry means no data.
 
+Each quest also carries start_date (earliest seen across every season) and end_date (null while
+still active - i.e. present in the current/live season - otherwise the date it was last
+processed through) so a consumer can tell a still-open quest from a retired one without scanning
+entries.
+
 Usage:
   python3 scripts/generate_quest_history.py
 """
@@ -49,6 +54,17 @@ def date_range(start: str, end: str):
 
 
 def process_season(data: dict, is_current: bool, quests_out: dict) -> None:
+    """Appends this season's daily_streak quest entries into quests_out.
+
+    A quest tracked continuously across a season transition (same id, same start_date carried
+    forward rather than reset) means the just-archived season and the new live season can cover
+    an overlapping date range - the transition renames the season/phase without giving the quest
+    a fresh start_date. quests_out[qid]["entries"] is keyed by date (not a plain list) during
+    processing specifically to absorb that overlap: a later-processed season's status for a date
+    wins over an earlier one's (archives are processed in start_date order, current season last,
+    so "later" here means "more current" - the live season's status for a shared date is more
+    likely to reflect any post-hoc correction than the frozen archive's).
+    """
     season_end = challenge_window(data)["end_date"]
 
     for quest in data.get("quests", []):
@@ -77,7 +93,17 @@ def process_season(data: dict, is_current: bool, quests_out: dict) -> None:
             end = max(all_logged)
 
         if qid not in quests_out:
-            quests_out[qid] = {"name": qname, "entries": []}
+            quests_out[qid] = {"name": qname, "start_date": start, "end_date": None, "entries": {}}
+
+        # start_date: earliest seen across every season processed for this id. end_date: null
+        # while the quest is still active (seen in the current/live season), otherwise the last
+        # date it was actually processed through. Seasons are processed oldest-first, current
+        # season last (see main()), so a quest's current-season write - when there is one - is
+        # always the final one for that id, which is what makes "just overwrite end_date on every
+        # call" correct: a still-active quest ends up null, a fully-retired one ends up with its
+        # real closing date, no separate bookkeeping needed.
+        quests_out[qid]["start_date"] = min(quests_out[qid]["start_date"], start)
+        quests_out[qid]["end_date"] = None if is_current else end
 
         for d in date_range(start, end):
             if polarity == "default_done":
@@ -95,7 +121,7 @@ def process_season(data: dict, is_current: bool, quests_out: dict) -> None:
                 else:
                     status = "missed"
 
-            quests_out[qid]["entries"].append({"date": d, "status": status})
+            quests_out[qid]["entries"][d] = status
 
 
 def main():
@@ -116,6 +142,14 @@ def main():
     if current_path.exists():
         data = json.loads(current_path.read_text())
         process_season(data, is_current=True, quests_out=quests_out)
+
+    # Flatten each quest's date-keyed dict (built that way to absorb season-transition overlap,
+    # see process_season's docstring) into the sorted {date, status} list format the rest of the
+    # pipeline (and QuestSummaryCard's monthKey prefix filter) expects.
+    for quest in quests_out.values():
+        quest["entries"] = [
+            {"date": d, "status": status} for d, status in sorted(quest["entries"].items())
+        ]
 
     output = {
         "generated_at": TODAY.isoformat(),

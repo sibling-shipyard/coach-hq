@@ -9,6 +9,7 @@ import type { ChallengeV2 } from "@/lib/challenge";
 import {
   buildMonthlyAnalyticsModel,
   clampMonthlyScope,
+  type QuestHistory,
 } from "@/components/monthly-analytics/monthlyAnalyticsModel";
 import {
   MonthOverviewGrid,
@@ -52,6 +53,12 @@ function MonthlyAnalyticsContent({ data }: { data: RepoData }) {
   const activities = data.activities as Activity[];
   const challengeData = data.challenge_v2 as unknown as ChallengeV2;
   const syncStatusData = data.sync_status as SyncStatusPayload;
+  // Fallback matches build-aggregate.mjs's own default for a repo that never ran
+  // generate_quest_history.py.
+  const questHistory = (data.quest_history as QuestHistory | undefined) ?? {
+    generated_at: "",
+    quests: {},
+  };
 
   const now = new Date();
   const [scope, setScope] = useState(() =>
@@ -59,8 +66,8 @@ function MonthlyAnalyticsContent({ data }: { data: RepoData }) {
   );
 
   const model = useMemo(
-    () => buildMonthlyAnalyticsModel(activities, challengeData, scope),
-    [activities, challengeData, scope],
+    () => buildMonthlyAnalyticsModel(activities, questHistory, scope),
+    [activities, questHistory, scope],
   );
 
   const phaseLabel = buildPhaseLabel(activities, challengeData, syncStatusData);
