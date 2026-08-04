@@ -4,6 +4,17 @@ import HealthKit
 /// Maps HealthKit HKWorkout objects to the Activity schema.
 struct ActivityMapper {
 
+    /// Priority score for a HealthKit source app bundle ID.
+    /// Higher score = preferred when deduplicating same-activity duplicates.
+    /// apple native > garmin > strava > unknown
+    static func sourcePriority(bundleId: String?) -> Int {
+        guard let id = bundleId?.lowercased() else { return 0 }
+        if id.hasPrefix("com.apple.") { return 3 }
+        if id.hasPrefix("com.garmin.") { return 2 }
+        if id.hasPrefix("com.strava.") { return 1 }
+        return 0
+    }
+
     /// Maps a HealthKit workout type to our sport_type classification.
     static func sportType(for activityType: HKWorkoutActivityType) -> String {
         switch activityType {
@@ -52,6 +63,13 @@ struct ActivityMapper {
         let elapsedTime = Int(workout.duration)
         let averageSpeed = elapsedTime > 0 ? distance / Double(elapsedTime) : 0
 
+        let totalElevationGain: Double = {
+            guard let qty = workout.metadata?[HKMetadataKeyElevationAscended] as? HKQuantity else { return 0 }
+            return qty.doubleValue(for: .meter())
+        }()
+
+        let sourceApp = workout.sourceRevision.source.bundleIdentifier
+
         return Activity(
             name: "", // Assigned by ActivityNamer
             sportType: sport,
@@ -60,7 +78,7 @@ struct ActivityMapper {
             movingTime: elapsedTime, // HealthKit doesn't distinguish moving vs elapsed
             calories: calories,
             distance: distance,
-            totalElevationGain: 0, // Not available from HealthKit workout summary
+            totalElevationGain: totalElevationGain,
             averageHeartrate: nil, // Populated after HR sample fetch
             maxHeartrate: nil,
             hasHeartrate: false, // Updated after HR fetch
@@ -68,9 +86,10 @@ struct ActivityMapper {
             description: nil,
             totalPhotoCount: 0,
             averageSpeed: averageSpeed,
-            maxSpeed: 0, // Not available from HealthKit
+            maxSpeed: 0,
             deviceName: workout.device?.name,
             source: "healthkit",
+            sourceApp: sourceApp,
             activityId: workout.uuid.uuidString,
             idStr: workout.uuid.uuidString
         )

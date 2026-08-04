@@ -195,7 +195,8 @@ class HealthKitSyncManager: ObservableObject {
                 : "Checking for new workouts…"
             syncProgress = 0.05
 
-            let workouts = try await fetchWorkouts(since: since)
+            let rawWorkouts = try await fetchWorkouts(since: since)
+            let workouts = Self.deduplicate(rawWorkouts)
             guard !workouts.isEmpty else {
                 if !extraFiles.isEmpty {
                     // No new workouts but extra files need committing (e.g. profile on first sync).
@@ -222,6 +223,15 @@ class HealthKitSyncManager: ObservableObject {
                 guard case .notFound = e else { throw e }
                 existingFiles = []
             }
+            // Narrow the dedup working set to files within the sync window.
+            // listFiles returns the full hist/ directory; we only need recent files
+            // since fetchWorkouts only returns workouts since `since`.
+            let dedupeWindowStart = Calendar.current.date(byAdding: .day, value: -2, to: since) ?? since
+            let recentFiles = existingFiles.filter {
+                Self.date(fromHistoryFileName: $0.name).map { $0 >= dedupeWindowStart } ?? true
+            }
+
+            // existingFileNames uses the full list to avoid overwriting any committed file.
             var existingFileNames = Set(existingFiles.map { $0.name })
             let counterReferenceYear = syncState.counterYear
                 ?? Self.year(fromISO8601: syncState.hkLastSynced)
@@ -246,7 +256,7 @@ class HealthKitSyncManager: ObservableObject {
                 let datePart = String(base.startDateLocal.prefix(10))
                 let timePart = base.startDateLocal.dropFirst(11).prefix(8)
                     .replacingOccurrences(of: ":", with: "")
-                if existingFiles.contains(where: { $0.name.hasPrefix("\(datePart)_\(timePart)_") }) { continue }
+                if recentFiles.contains(where: { $0.name.hasPrefix("\(datePart)_\(timePart)_") }) { continue }
 
                 // Fetch HR samples and compute stats + zones
                 let hrSamples = (try? await fetchHeartRateSamples(for: workout)) ?? []
@@ -274,6 +284,7 @@ class HealthKitSyncManager: ObservableObject {
                     maxSpeed: base.maxSpeed,
                     deviceName: base.deviceName,
                     source: base.source,
+                    sourceApp: base.sourceApp,
                     activityId: base.activityId,
                     idStr: base.idStr
                 )
@@ -284,7 +295,7 @@ class HealthKitSyncManager: ObservableObject {
                 // so if this workout's uuid already appears in any committed
                 // filename, it's already synced. Filename-only (no file reads).
                 if let uuid = named.activityId,
-                   existingFiles.contains(where: { $0.name.contains("_\(uuid).json") }) { continue }
+                   recentFiles.contains(where: { $0.name.contains("_\(uuid).json") }) { continue }
 
                 let fileName = ActivityNamer.fileName(for: named)
                 if existingFileNames.contains(fileName) { continue }
@@ -415,6 +426,51 @@ class HealthKitSyncManager: ObservableObject {
         return formatter.date(from: String(fileName[range]))
     }
 
+    // MARK: - Multi-source dedup
+
+    /// Removes lower-priority duplicates from a batch of HKWorkouts.
+    /// Two workouts are duplicates if they share the same loose activity group and their
+    /// time windows overlap by ≥50% of the shorter workout's duration.
+    /// When a duplicate pair is found, the higher-priority source wins
+    /// (apple native > garmin > strava > unknown). Ties keep the first encountered.
+    static func deduplicate(_ workouts: [HKWorkout]) -> [HKWorkout] {
+        let sorted = workouts.sorted {
+            ActivityMapper.sourcePriority(bundleId: $0.sourceRevision.source.bundleIdentifier) >
+            ActivityMapper.sourcePriority(bundleId: $1.sourceRevision.source.bundleIdentifier)
+        }
+        var accepted: [HKWorkout] = []
+        for candidate in sorted {
+            if !accepted.contains(where: { areDuplicateWorkouts(candidate, $0) }) {
+                accepted.append(candidate)
+            }
+        }
+        // Re-sort by startDate so ActivityNamer assigns counters in chronological order,
+        // matching the invariant in engine/scripts/migrate_activity_naming.py.
+        return accepted.sorted { $0.startDate < $1.startDate }
+    }
+
+    private static func areDuplicateWorkouts(_ a: HKWorkout, _ b: HKWorkout) -> Bool {
+        let sportA = ActivityMapper.sportType(for: a.workoutActivityType)
+        let sportB = ActivityMapper.sportType(for: b.workoutActivityType)
+        guard sameActivityGroup(sportA, sportB) else { return false }
+
+        let overlapStart = max(a.startDate, b.startDate)
+        let overlapEnd = min(a.endDate, b.endDate)
+        guard overlapEnd > overlapStart else { return false }
+
+        let overlap = overlapEnd.timeIntervalSince(overlapStart)
+        let shorter = min(a.duration, b.duration)
+        return shorter > 0 && overlap / shorter >= 0.5
+    }
+
+    /// Walk and Hiking are treated as the same activity group for dedup purposes
+    /// since different apps commonly disagree on the type for the same outdoor session.
+    private static func sameActivityGroup(_ a: String, _ b: String) -> Bool {
+        if a == b { return true }
+        let walkHike: Set<String> = ["Walk", "Hiking"]
+        return walkHike.contains(a) && walkHike.contains(b)
+    }
+
     // MARK: - HealthKit Queries
 
     /// Fetches all workouts completed since a given date.
@@ -476,7 +532,8 @@ class HealthKitSyncManager: ObservableObject {
         let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: now, options: .strictStartDate)
         let sortDescriptor = SortDescriptor(\HKWorkout.startDate, order: .forward)
         let descriptor = HKSampleQueryDescriptor(predicates: [.workout(predicate)], sortDescriptors: [sortDescriptor])
-        let workouts = (try? await descriptor.result(for: healthStore)) ?? []
+        let rawWorkouts = (try? await descriptor.result(for: healthStore)) ?? []
+        let workouts = Self.deduplicate(rawWorkouts)
 
         var sportCounts: [String: Int] = [:]
         var totalSeconds: Double = 0

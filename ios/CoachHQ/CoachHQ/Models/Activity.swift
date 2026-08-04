@@ -28,6 +28,7 @@ struct Activity: Codable, Identifiable, Hashable {
     let maxSpeed: Double          // m/s
     let deviceName: String?
     let source: String            // "healthkit" or "strava"
+    var sourceApp: String? = nil  // bundle ID of the app that wrote the HKWorkout (e.g. "com.garmin.connect2")
     var preMentalState: PreMentalState? = nil // absent from older history files; optional keeps decoding safe
 
     /// Canonical stable id persisted to JSON `"id"`. For HealthKit activities this
@@ -61,6 +62,7 @@ struct Activity: Codable, Identifiable, Hashable {
         case maxSpeed = "max_speed"
         case deviceName = "device_name"
         case source
+        case sourceApp = "source_app"
         case preMentalState = "pre_mental_state"
     }
 }
@@ -104,6 +106,7 @@ extension Activity {
         self.maxSpeed = try c.decode(Double.self, forKey: .maxSpeed)
         self.deviceName = try c.decodeIfPresent(String.self, forKey: .deviceName)
         self.source = try c.decode(String.self, forKey: .source)
+        self.sourceApp = try c.decodeIfPresent(String.self, forKey: .sourceApp)
         self.preMentalState = try c.decodeIfPresent(PreMentalState.self, forKey: .preMentalState)
     }
 }
