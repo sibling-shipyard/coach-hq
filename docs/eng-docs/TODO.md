@@ -53,6 +53,10 @@ Friends will use **Sign up on the shared site → connect Claude to the same rep
 
 - [ ] **Travel/bodyweight mode** — Coach detects travel context and switches to a bodyweight-only plan. Return protocol to ramp back up. Define in `soul/B_engine.md`.
 
+- [ ] **FSP: equipment/environment access question** — ask home vs gym vs travel access during intake, it'd meaningfully improve the coach's first plan. Pairs naturally with travel/bodyweight mode above — a natural follow-on once that's built.
+
+- [ ] **FSP: age/height/weight → BMR/HR-zone-informed coaching** — age/height/weight are now collected during intake (added alongside the timezone-via-location change), but nothing reads them yet. Follow-up: use them to inform BMR estimates or HR zone calibration where relevant. Don't wire this up speculatively, wait until it's actually needed for a coaching decision.
+
 - [ ] **Readiness score** — daily 1-100 score derived from sleep, soreness, PRE, and streak data. Helps Coach calibrate session intensity without asking every time.
 
 - [ ] **Real opponent-name aliases (`ui/client/src/lib/nameAliases.ts`)** — Akash's personal repo has real badminton opponent-name mappings (e.g. "joe" → "Joe Chung", "richard t" → "Rich Tan"); the shared site currently only has a placeholder entry. Discuss with Akash whether/how to bring his real aliases in — deliberately left untouched during the UI v2 migration since it's his data, not something to port without him.
