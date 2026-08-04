@@ -25,6 +25,8 @@ struct CoachChatHeaderBar: View {
                 .tracking(1.4)
                 .foregroundStyle(Color(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255))
                 .frame(maxWidth: .infinity, alignment: showsBack ? .leading : .leading)
+                .lineLimit(1)
+                .truncationMode(.tail)
 
             if let onHistory {
                 Button(action: onHistory) {
@@ -207,6 +209,8 @@ struct CoachChatPickUpRow: View {
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color(red: 0x4a / 255, green: 0x4c / 255, blue: 0x46 / 255))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
@@ -236,6 +240,7 @@ struct CoachChatEmptyThreadPrompt: View {
                 .font(WarmInstrument.monoLabel(9.5))
                 .tracking(1)
                 .foregroundStyle(WarmInstrument.inkFaint)
+                .lineLimit(2)
             Text("No messages in this thread.")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(WarmInstrument.ink)
@@ -664,6 +669,8 @@ struct CoachChatHistorySheet: View {
                     Text(thread.title)
                         .font(.system(size: 14.5, weight: .semibold))
                         .foregroundStyle(WarmInstrument.ink)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     Spacer(minLength: 0)
                     Text(isToday && thread.id == todayThreadId ? "OPEN" : thread.ageLabel)
                         .font(WarmInstrument.monoLabel(8.5))

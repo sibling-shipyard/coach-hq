@@ -56,6 +56,15 @@ const GEMINI_MODEL = "gemini-flash-latest";
 // Derived from MARKDOWN_EDIT_FILES + JSON_MERGE_FILES above rather than a separate literal
 // list, so the two can't drift out of sync.
 const COACH_WRITABLE_FILES = new Set([...MARKDOWN_EDIT_FILES, ...JSON_MERGE_FILES]);
+
+// Sized for the tightest surface it renders in: iOS's `historyRow` (CoachChatWarmUI.swift)
+// shows the title at 14.5pt semibold alongside a day-label chip, an "OPEN"/age-label chip, and
+// padding - roughly 230-250pt of the ~370pt of usable width on the narrowest supported phone.
+// At that size/weight, ~40-44 characters is the largest that reliably stays on one line without
+// the row wrapping or the trailing chip getting pushed off. 42 splits the difference. iOS still
+// applies its own lineLimit(1) + truncation as a defensive backstop (see #244 follow-up), this
+// is just the budget Gemini is asked to write within so truncation is rarely actually hit.
+const THREAD_TITLE_MAX_CHARS = 42;
 function isCoachWritable(path: string): boolean {
   return COACH_WRITABLE_FILES.has(path) || path.startsWith(SESSIONS_PREFIX);
 }
@@ -293,6 +302,10 @@ interface GeminiReply {
   // sets this false when it's asking a clarifying question instead of closing (see prompt),
   // and the server must not commit/report closed:true unless this comes back true.
   session_closed?: boolean;
+  // Only meaningful on a closing=true turn - a short, descriptive summary of what this specific
+  // conversation was actually about, replacing the old "truncate the athlete's first message"
+  // title. See THREAD_TITLE_MAX_CHARS for the length budget and why.
+  title?: string;
 }
 
 type TurnMode = "greeting" | "ordinary" | "closing";
@@ -378,6 +391,14 @@ async function askGemini(
           "response (asking for missing info instead does NOT count - set it false in that case, even",
           "though this turn was triggered by a close-session phrase). The athlete will simply see your",
           "question and reply normally; you'll get another chance to close once they answer.",
+          `\nIf session_closed is true, also set title: a short, specific, human-readable summary of`,
+          `what THIS conversation was actually about (e.g. "Sore shoulder, modified Tuesday session"`,
+          `or "Planned taper week before the 10K"), not a generic label like "Check-in" or "Training`,
+          `talk". Write it like a chat-app conversation title: descriptive enough that the athlete`,
+          `recognizes this specific conversation in a list of past days, not just its topic category.`,
+          `Max ${THREAD_TITLE_MAX_CHARS} characters - if the natural phrasing runs longer, cut it down`,
+          `to the most specific/important part rather than a generic fallback. Omit title entirely if`,
+          `session_closed is false.`,
         ].join("\n")
       : [
           "\nThis is an ordinary turn, not a close-out - you were not given the current contents of",
@@ -452,6 +473,7 @@ async function askGemini(
               reply: { type: "string" },
               session_closed: { type: "boolean" },
               commit_message: { type: "string" },
+              title: { type: "string" },
               file_updates: {
                 type: "array",
                 items: {
@@ -905,8 +927,23 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // stable across attempts, even though the merge against fresh state below can run more
       // than once.
       const finalThreadId = threadId ?? `t-${now}`;
+      // Prefer Gemini's contextual title (set alongside session_closed: true, see askGemini's
+      // closing-turn prompt) - it actually reflects what the conversation was about, not just
+      // whatever the athlete happened to type first. Truncate defensively in case it ignores the
+      // character budget it was given; fall back to the old truncated-first-message behavior only
+      // if Gemini omitted title (e.g. an older/misbehaving response).
+      const geminiTitle = reply.title?.trim();
       const firstUserText = allMessages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user")?.text ?? trimmed;
-      const computedTitle = firstUserText.length > 28 ? `${firstUserText.slice(0, 28)}…` : firstUserText;
+      const fallbackTitle =
+        firstUserText.length > THREAD_TITLE_MAX_CHARS
+          ? `${firstUserText.slice(0, THREAD_TITLE_MAX_CHARS)}…`
+          : firstUserText;
+      const computedTitle =
+        geminiTitle && geminiTitle.length > 0
+          ? geminiTitle.length > THREAD_TITLE_MAX_CHARS
+            ? `${geminiTitle.slice(0, THREAD_TITLE_MAX_CHARS)}…`
+            : geminiTitle
+          : fallbackTitle;
       const previewText = reply.reply.slice(0, 80);
 
       // Resolved fresh on every commit retry attempt (see githubGitData.ts), not from a
