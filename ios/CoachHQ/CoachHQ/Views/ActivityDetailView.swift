@@ -21,6 +21,7 @@ struct ActivityDetailView: View {
     @State private var statsProgress: Double = 0
     @State private var showingScoreSheet = false
     @State private var toast: Toast?
+    @State private var isSavingCategory = false
 
     init(entry: SyncCacheEntry) {
         self.entry = entry
@@ -130,16 +131,7 @@ struct ActivityDetailView: View {
             if isLoading {
                 ProgressView().controlSize(.small)
             } else {
-                Text(badge.label)
-                    .font(WarmInstrument.monoLabel(10))
-                    .tracking(1.0)
-                    .foregroundColor(badge.color)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .strokeBorder(badge.color.opacity(0.4), lineWidth: 1)
-                    )
+                categoryMenuChip
             }
         }
         .padding(.horizontal, 16)
@@ -156,11 +148,11 @@ struct ActivityDetailView: View {
             VStack(spacing: 0) {
                 badge.color
                     .frame(maxWidth: .infinity)
-                    .frame(height: 4)
+                    .frame(height: 6)
 
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
-                        MonoLabel("ACTIVITY")
+                        MonoLabel(badge.label)
                         Spacer()
                         MonoLabel(formattedDate, size: 9, color: WarmInstrument.inkFaint)
                     }
@@ -424,6 +416,122 @@ struct ActivityDetailView: View {
         showingScoreSheet = true
     }
 
+    // MARK: - Category
+
+    @ViewBuilder
+    private var categoryMenuChip: some View {
+        if let options = Theme.categoryOptions(for: entry.sportType) {
+            let current = activity?.category
+            Menu {
+                ForEach(options, id: \.code) { opt in
+                    Button {
+                        Haptics.tap()
+                        Task { await saveCategory(opt.code) }
+                    } label: {
+                        if current == opt.code {
+                            Label(opt.label, systemImage: "checkmark")
+                        } else {
+                            Text(opt.label)
+                        }
+                    }
+                }
+                if current != nil {
+                    Divider()
+                    Button(role: .destructive) {
+                        Haptics.tap()
+                        Task { await saveCategory(nil) }
+                    } label: {
+                        Label("Remove tag", systemImage: "xmark")
+                    }
+                }
+            } label: {
+                categoryChipLabel(current: current)
+            }
+            .disabled(isSavingCategory || activity == nil)
+        }
+    }
+
+    @ViewBuilder
+    private func categoryChipLabel(current: String?) -> some View {
+        if let current {
+            Text(current)
+                .font(WarmInstrument.monoLabel(10))
+                .tracking(1.0)
+                .foregroundColor(WarmInstrument.inkMuted)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(WarmInstrument.border, lineWidth: 1)
+                )
+                .opacity(isSavingCategory ? 0.5 : 1)
+        } else {
+            Image(systemName: "tag")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(WarmInstrument.inkFaint)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .strokeBorder(WarmInstrument.inkFaint.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                )
+        }
+    }
+
+    private func saveCategory(_ code: String?) async {
+        isSavingCategory = true
+        defer { isSavingCategory = false }
+        do {
+            let currentActivity: Activity
+            if let activity {
+                currentActivity = activity
+            } else if let cached = entry.activity {
+                currentActivity = cached
+            } else {
+                currentActivity = try await readActivityWithPropagationRetry()
+            }
+            let updatedActivity = Activity(
+                name: currentActivity.name,
+                category: code,
+                sportType: currentActivity.sportType,
+                startDateLocal: currentActivity.startDateLocal,
+                elapsedTime: currentActivity.elapsedTime,
+                movingTime: currentActivity.movingTime,
+                calories: currentActivity.calories,
+                distance: currentActivity.distance,
+                totalElevationGain: currentActivity.totalElevationGain,
+                averageHeartrate: currentActivity.averageHeartrate,
+                maxHeartrate: currentActivity.maxHeartrate,
+                hasHeartrate: currentActivity.hasHeartrate,
+                hrZones: currentActivity.hrZones,
+                description: currentActivity.description,
+                totalPhotoCount: currentActivity.totalPhotoCount,
+                averageSpeed: currentActivity.averageSpeed,
+                maxSpeed: currentActivity.maxSpeed,
+                deviceName: currentActivity.deviceName,
+                source: currentActivity.source,
+                sourceApp: currentActivity.sourceApp,
+                preMentalState: currentActivity.preMentalState,
+                activityId: currentActivity.activityId,
+                idStr: currentActivity.idStr
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(updatedActivity)
+            try await apiClient.commitFiles(
+                [(path: "user_data/activities/hist/\(entry.fileName)", data: data)],
+                message: code.map { "ios: tag \(currentActivity.name) [\($0)]" } ?? "ios: remove category from \(currentActivity.name)"
+            )
+            SyncCache.updateActivity(fileName: entry.fileName, activity: updatedActivity)
+            activity = updatedActivity
+            toast = Toast(kind: .success, message: code.map { "Tagged \($0)" } ?? "Category removed")
+            Haptics.success()
+        } catch {
+            errorMessage = UserFacingError.friendlyMessage(for: error)
+            Haptics.error()
+        }
+    }
+
     // MARK: - Helpers
 
     private var formattedDate: String {
@@ -440,7 +548,7 @@ struct ActivityDetailView: View {
 
     private static let shortDateFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "d MMM"
+        f.dateFormat = "E · d MMM"
         return f
     }()
 
@@ -537,6 +645,7 @@ struct ActivityDetailView: View {
 
             let updatedActivity = Activity(
                 name: currentActivity.name,
+                category: currentActivity.category,
                 sportType: currentActivity.sportType,
                 startDateLocal: currentActivity.startDateLocal,
                 elapsedTime: currentActivity.elapsedTime,
@@ -554,6 +663,7 @@ struct ActivityDetailView: View {
                 maxSpeed: currentActivity.maxSpeed,
                 deviceName: currentActivity.deviceName,
                 source: currentActivity.source,
+                sourceApp: currentActivity.sourceApp,
                 preMentalState: parsed.preMentalState.map {
                     PreMentalState(score: $0.score, word: $0.word)
                 } ?? currentActivity.preMentalState,

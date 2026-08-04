@@ -102,7 +102,7 @@ struct AllActivitiesListView: View {
                     .foregroundColor(WarmInstrument.ink)
             }
 
-            Text("The full ledger")
+            Text("Activity ledger")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(Theme.ink)
 
@@ -110,8 +110,6 @@ struct AllActivitiesListView: View {
                 .font(WarmInstrument.coachVoice(14))
                 .foregroundColor(WarmInstrument.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
-
-            MonoLabel("ALL ACTIVITY", size: 10, tracking: 1.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)

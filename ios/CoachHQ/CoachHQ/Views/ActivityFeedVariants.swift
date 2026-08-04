@@ -217,16 +217,6 @@ struct ActivityLedgerRow: View {
 
     private var sportColor: Color { Theme.sportBadge(for: entry.sportType).color }
 
-    private var timeString: String {
-        guard let d = _inputFmt.date(from: entry.startDateLocal) else { return "" }
-        return d.formatted(date: .omitted, time: .shortened)
-    }
-
-    private var monoTimeLabel: String {
-        guard let d = _inputFmt.date(from: entry.startDateLocal) else { return "" }
-        return d.formatted(date: .omitted, time: .shortened).uppercased()
-    }
-
     private var calories: Int? { entry.activity?.calories ?? entry.calories }
 
     private var trailingValue: String {
@@ -237,30 +227,22 @@ struct ActivityLedgerRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            MonoLabel(monoTimeLabel, size: 9, color: WarmInstrument.inkFaint, tracking: 0.6)
-                .frame(width: 46, alignment: .leading)
+            ZStack {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(sportColor.opacity(0.12))
+                    .frame(width: 28, height: 28)
+                Image(systemName: Theme.sportIcon(for: entry.sportType))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(sportColor)
+            }
 
-            RoundedRectangle(cornerRadius: 2)
-                .fill(sportColor)
-                .frame(width: 3, height: 30)
-
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(WarmInstrument.ink)
                     .lineLimit(1)
 
-                HStack(spacing: 6) {
-                    Text(timeString)
-                        .font(.system(size: 11))
-                        .foregroundColor(WarmInstrument.inkMuted)
-                    if let zones = entry.activity?.hrZones {
-                        ZoneDots(zones: zones)
-                    }
-                    if entry.sportType == "Badminton" && !entry.hasDescription {
-                        Circle().fill(Theme.attentionOrange).frame(width: 5, height: 5)
-                    }
-                }
+                subtitleRow
             }
 
             Spacer(minLength: 8)
@@ -272,6 +254,26 @@ struct ActivityLedgerRow: View {
         }
         .padding(.vertical, 8)
         .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var subtitleRow: some View {
+        let category = entry.activity?.category
+        let zones = entry.activity?.hrZones
+        let needsScores = entry.sportType == "Badminton" && !entry.hasDescription
+        if category != nil || zones != nil || needsScores {
+            HStack(spacing: 6) {
+                if let category {
+                    MonoLabel(category, size: 9, color: sportColor, tracking: 0.5)
+                }
+                if let zones {
+                    ZoneDots(zones: zones)
+                }
+                if needsScores {
+                    Circle().fill(Theme.attentionOrange).frame(width: 5, height: 5)
+                }
+            }
+        }
     }
 }
 
