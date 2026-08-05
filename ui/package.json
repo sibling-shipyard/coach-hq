@@ -4,9 +4,10 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "prebuild": "node scripts/build-data.mjs && node scripts/bundle-widget-snapshots-api.mjs",
-    "predev": "node scripts/build-data.mjs && node scripts/bundle-widget-snapshots-api.mjs",
+    "prebuild": "node scripts/build-data.mjs && node scripts/build-soul.mjs && node scripts/bundle-widget-snapshots-api.mjs",
+    "predev": "node scripts/build-data.mjs && node scripts/build-soul.mjs && node scripts/bundle-widget-snapshots-api.mjs",
     "dev": "vite --host",
+    "predev:api": "node scripts/build-soul.mjs",
     "dev:api": "tsx scripts/local-api-server.mjs",
     "build": "vite build",
     "preview": "vite preview --host",
@@ -15,6 +16,7 @@
     "build-data": "node scripts/build-data.mjs",
     "generate-tokens": "node scripts/generate-wi-tokens.mjs",
     "generate-snapshots": "tsx --tsconfig tsconfig.json scripts/generate-widget-snapshots.ts",
+    "pretest": "node scripts/build-soul.mjs",
     "test": "vitest run"
   },
   "dependencies": {
