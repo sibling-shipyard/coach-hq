@@ -579,7 +579,10 @@ export async function askGemini(
   );
 
   if (res.status === 429) {
-    throw Object.assign(new Error("Gemini free-tier quota exceeded"), { status: 429 });
+    // Not necessarily free-tier - Tier 1 has its own (much higher) ceilings too. Both clients now
+    // handle 429 as its own case with a proper "wait and retry" message rather than surfacing
+    // this string directly, but keep it accurate for any caller/log that does read it raw.
+    throw Object.assign(new Error("Gemini rate limit exceeded - try again shortly"), { status: 429 });
   }
   if (!res.ok) {
     const detail = await res.text();

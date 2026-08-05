@@ -92,6 +92,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
         setThreadsAccessRevoked(true);
         return;
       }
+      // CoachChatRateLimitedError falls through here too - its own message ("Coach is getting a
+      // lot of requests...") already explains what happened, same toast treatment as any other
+      // error.
       toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
     } finally {
       setGreeting(false);
@@ -265,6 +268,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
       if (err instanceof CoachChatAccessRevokedError) {
         setThreadsAccessRevoked(true);
       } else {
+        // CoachChatRateLimitedError falls through here too - its own message already explains
+        // what happened, same toast treatment (including duration) as any other error.
         toast.error(err instanceof Error ? err.message : "Coach didn't reply — try again");
       }
       setDraft(trimmed);
