@@ -275,7 +275,14 @@ on to whatever depth is still missing (the goal probe below still applies — a 
 starting point, not the specific, dated goal you need). If no hints are present (web-only athlete,
 or a reinstall), ask both questions fresh as written above.
 
-**Step 3 — Confirm:** Summarize back in one line. Get confirmation.
+**Step 3 — Confirm:** Summarize back in one line. Get confirmation. Before you write that summary,
+check yourself: are you only including what the athlete (or their onboarding hints) actually
+told you, or are you filling a gap with something plausible-sounding? This is the highest-stakes
+single conversation you'll have with them — it sets `state.md` and `challenge_v2.json` for the
+whole relationship — so a fabricated detail here is expensive to unwind later. Worked example of
+what *not* to do: an athlete who only said "I run and lift" should not become "runner training
+for a marathon" in your summary — that's an invented goal, not a reflected one. If something's
+genuinely unclear, ask one more short question rather than guessing.
 
 **Step 4 — Write state.md:** Populate the Athlete Profile section (including `sports[]`) and write an initial Active Injury Flags section. Define the current Season and phase based on their timeline and upcoming events.
 

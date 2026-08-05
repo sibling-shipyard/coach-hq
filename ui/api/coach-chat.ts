@@ -64,7 +64,7 @@ const COACH_WRITABLE_FILES = new Set([...MARKDOWN_EDIT_FILES, ...JSON_MERGE_FILE
 // be room for more. iOS still applies its own lineLimit(1) + truncation as a defensive backstop
 // (see #244 follow-up) in case a response ever ignores this budget.
 const THREAD_TITLE_MAX_CHARS = 28;
-function isCoachWritable(path: string): boolean {
+export function isCoachWritable(path: string): boolean {
   return COACH_WRITABLE_FILES.has(path) || path.startsWith(SESSIONS_PREFIX);
 }
 
@@ -227,7 +227,7 @@ function cleanCommitMessage(message: string): string {
   return message.replace(/^\s*coach:?\s*[-—]*\s*/i, "").trim();
 }
 
-type ChatMessage =
+export type ChatMessage =
   | { id: string; role: "divider"; label: string }
   | { id: string; role: "user"; text: string }
   | { id: string; role: "coach"; paragraphs: string[] };
@@ -332,7 +332,7 @@ interface GeminiReply {
   title?: string;
 }
 
-type TurnMode = "greeting" | "ordinary" | "closing";
+export type TurnMode = "greeting" | "ordinary" | "closing";
 
 // A7: current content of the other coach-writable files, fetched only on closing turns (the
 // only turns file_updates realistically needs this for - see the "ordinary" prompt block below).
