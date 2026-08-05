@@ -31,7 +31,7 @@ final class CoachChatAPIClient {
         guard let token = await authManager.validToken() else {
             throw GitHubAPIError.notAuthenticated
         }
-        guard let repoFull = authManager.repoFullName else {
+        guard let repoFull = await authManager.repoFullName else {
             throw GitHubAPIError.sessionNotReady
         }
         return AuthContext(token: token, repoFull: repoFull)

@@ -28,6 +28,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Provide Secrets.swift
+        # Secrets.swift is gitignored (real config, not committed) - the .example template
+        # has production defaults that are enough to compile with.
+        run: cp CoachHQ/Secrets.swift.example CoachHQ/Secrets.swift
+
       - name: Build ${{ matrix.scheme }} for iOS Simulator
         run: |
           xcodebuild build \
