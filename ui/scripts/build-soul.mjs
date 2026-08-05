@@ -8,7 +8,11 @@
  * already uses for ui/client/src/data/.
  *
  * Run before dev/build (wired into predev/prebuild in package.json). Fails loudly if
- * platform/SOUL.md is missing rather than silently shipping a stale/empty bundle.
+ * platform/SOUL.md is missing rather than silently shipping a stale/empty bundle - but it
+ * trusts platform/SOUL.md is *fresh* (i.e. compose-soul.mjs has been re-run after any edit to
+ * platform/soul/*.md). It does not itself check that; CI's own drift check
+ * (`compose-soul.mjs --check`, see AGENTS.md) is what catches a forgotten recompose - if that
+ * check is passing, what this script bundles is guaranteed current.
  */
 import fs from "node:fs";
 import path from "node:path";
