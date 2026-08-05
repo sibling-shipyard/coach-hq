@@ -31,7 +31,10 @@ jobs:
       - name: Select Xcode 26
         # Deployment target is iOS 26.x, which needs Swift 6.2 (SWIFT_DEFAULT_ACTOR_ISOLATION
         # etc.) - the runner's default xcode-select points at an older 16.4, even though a
-        # 26.x install exists alongside it.
+        # 26.x install exists alongside it. If this step starts failing (path not found),
+        # GitHub has bumped the macos-15 image - run `ls /Applications | grep Xcode` in a
+        # throwaway step to find the current path and update it here (see #260/7c85ca2 for
+        # how this was originally diagnosed).
         run: sudo xcode-select -s /Applications/Xcode_26.3.app
 
       - name: Provide Secrets.swift
