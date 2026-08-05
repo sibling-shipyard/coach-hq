@@ -61,7 +61,8 @@ flowchart LR
 ### 1. Preload (A3)
 
 `ui/api/coach-chat-context.ts` warms `loadCoachContext()`'s 60-second in-memory server cache
-(`ui/api/_lib/coachChatFiles.ts`) for SOUL.md, state.md, and quest_log.md. Web fires this once
+(`ui/api/_lib/coachChatFiles.ts`) for state.md and quest_log.md — SOUL.md is no longer fetched
+from the athlete's repo at all (see below). Web fires this once
 per app load from `App.tsx`'s `Gate` component (`ui/client/src/lib/prefetchCoachContext.ts`,
 fire-and-forget); iOS fires it from `MainTabView.swift`'s `.task` block as soon as the app is
 active with a valid session (`CoachChatAPIClient.prefetchContext()`). Neither call runs Gemini —
@@ -91,6 +92,27 @@ Gemini in `"ordinary"` mode only ever sees `state.md`/`quest_log.md` (not `coach
 `challenge_v2.json`/`current_week.json`/`sleep_log.json` — those are only fetched on a closing
 turn, see below), so it's told it may only propose edits to `state.md` mid-conversation; anything
 else waits for the close-out.
+
+### 3a. Prompt construction (`askGemini()`, `coach-chat.ts`)
+
+`systemInstruction` is built as an ordered array, deliberately structured for Gemini's implicit
+prompt caching (automatic, on by default for 2.5+ models — caches only the longest
+byte-identical prefix): persona (`<persona>` SOUL.md) → fixed instructions (`<instructions>`,
+including the hidden-reasoning cue below) → 3 worked few-shot examples (`<examples>`) → current
+`<state>` (state.md + quest_log.md + closing-turn files) → mode-specific block → file-edit-format
+instructions → commit-message instructions → `todayContextLine()` (the one per-minute-changing
+value, deliberately *last* so it can't invalidate everything before it). See
+`docs/eng-docs/llm-provider-current.md`'s Caching section for the numbers this ordering unlocks.
+
+The model fills a `reasoning` field before `reply` in its structured JSON response — a brief
+self-check (is this genuinely a close, is every file edit backed by real content shown this
+turn) that's never shown to the athlete; `askGemini()` deletes it before returning. See
+`docs/eng-docs/llm-provider-future.md`'s Cost minimization section for the research behind this.
+
+SOUL.md itself is bundled from `platform/SOUL.md` at build time (`ui/scripts/build-soul.mjs`,
+wired into `predev`/`prebuild`) rather than fetched from the athlete's own repo — it's 100%
+generic, no per-athlete substitution happens anywhere in the carve process, so re-fetching it per
+athlete per turn was pure waste. See the ADR amending 0011 for the full rationale.
 
 ### 4. Cross-device staleness (A5)
 

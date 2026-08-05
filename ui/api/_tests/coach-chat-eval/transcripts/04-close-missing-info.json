@@ -1,0 +1,19 @@
+{
+  "name": "close-missing-info",
+  "description": "Close signal with nothing concrete discussed - must ask for missing info, never fabricate a save.",
+  "mode": "closing",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "history": [],
+  "userMessage": "wrap session",
+  "closingFiles": {
+    "coachNotes": null,
+    "challengeV2": "{\"season\":{\"start_date\":\"2026-07-01\"},\"main_quest\":{\"id\":\"sub45_10k\"},\"quests\":[{\"id\":\"cold_shower\",\"completed_dates\":[]}]}",
+    "currentWeek": null,
+    "sleepLog": "{}"
+  },
+  "expect": {
+    "sessionClosed": false,
+    "noFabricatedSaveLanguage": true
+  }
+}
