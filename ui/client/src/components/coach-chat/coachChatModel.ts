@@ -100,6 +100,11 @@ export class CoachChatRateLimitedError extends Error {
   }
 }
 
+// Longer than sonner's default toast duration - a rate-limit message that vanishes in a few
+// seconds is easy to miss mid-conversation and reads as "nothing happened" instead of "wait and
+// retry." One shared constant so CoachChat.tsx's three call sites can't drift from each other.
+export const RATE_LIMIT_TOAST_DURATION_MS = 8000;
+
 // Mirrors githubGitData.ts's isTransient: retry a network failure or 5xx/429, never a 4xx
 // rejection (400/401/etc are real answers, not blips to paper over).
 function isTransientStatus(status: number): boolean {

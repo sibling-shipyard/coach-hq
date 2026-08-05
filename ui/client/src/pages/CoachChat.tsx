@@ -9,6 +9,7 @@ import { ConversationPane, MobileThreadList, ThreadSidebar } from "@/components/
 import {
   CoachChatAccessRevokedError,
   CoachChatRateLimitedError,
+  RATE_LIMIT_TOAST_DURATION_MS,
   challengeDayNumber,
   fetchThreads,
   greet,
@@ -97,7 +98,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
         // Longer duration than the default toast - a rate-limit message that vanishes in a few
         // seconds is easy to miss mid-conversation and reads as "nothing happened" instead of
         // "wait and retry" (see the investigation behind this fix).
-        toast.error(err.message, { duration: 8000 });
+        toast.error(err.message, { duration: RATE_LIMIT_TOAST_DURATION_MS });
         return;
       }
       toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
@@ -161,7 +162,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
           return;
         }
         if (err instanceof CoachChatRateLimitedError) {
-          toast.error(err.message, { duration: 8000 });
+          toast.error(err.message, { duration: RATE_LIMIT_TOAST_DURATION_MS });
           return;
         }
         toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
@@ -281,7 +282,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
         // happened" instead of "wait and retry," which is exactly the confusing experience this
         // fix is for (an athlete's close-session message silently rolling back with no clear
         // explanation of why).
-        toast.error(err.message, { duration: 8000 });
+        toast.error(err.message, { duration: RATE_LIMIT_TOAST_DURATION_MS });
       } else {
         toast.error(err instanceof Error ? err.message : "Coach didn't reply — try again");
       }
