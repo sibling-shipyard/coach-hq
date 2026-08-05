@@ -22,15 +22,52 @@ switch, not a plan purchase, and it moves the key off the free-tier RPD ceiling 
 
 ## Free-tier landscape (dev/testing, not production)
 
+**Gemini free tier — confirmed from this project's own AI Studio dashboard** (Coach Phelps
+project, Aug 2026): **Gemini 3.6 Flash and Gemini 2.5 Flash are both 5 RPM / 250K TPM / 20 RPD.**
+That's the real ceiling for this account, not a generic figure — some public guides quote
+10 RPM/1,500 RPD for "the Gemini free tier," but that's not what this project actually gets.
+20 requests a day is why FSP testing broke on 2026-08-03/04 with real conversations.
+
 | Provider | What's free | Good for | Not good for |
 |---|---|---|---|
-| Gemini (current) | Flash/Flash-Lite only since Apr 2026 (Pro models dropped off free tier); roughly single-digit RPM and low-tens RPD per model, tightens over time | Quick manual testing | Any real session volume — this is what just broke FSP testing |
+| Gemini (current) | 5 RPM / 250K TPM / 20 RPD per Flash model (this account, confirmed) | Quick manual testing | Any real session volume — this is what just broke FSP testing |
 | OpenRouter free tier | `:free` suffix models, aggregates many providers (including free Gemini/DeepSeek/Llama) behind one key | Trying several models fast without new accounts | Production — funded by your prompts, rate-capped per model |
 | Groq | Fast inference on OSS models (Llama family), generous free RPM | Latency-sensitive dev loops | Persona-heavy work — no persona-tuned model on offer |
 | Cerebras | ~1M tokens/day free on Llama-class models | Bulk/batch testing | Real-time chat UX, persona consistency |
 
 Free tiers are all usage-funded and capped by design — treat them as a dev safety net, not a
 plan for the live coach.
+
+## Architecture — what's actually being sent, verified against the code
+
+`coach-chat.ts` makes exactly **one Gemini call per turn** — greeting, ordinary reply, and
+session close all go through the same `askGemini()` (`coach-chat.ts:335-532`), a plain REST POST
+to `generateContent` with the API key as a query param, no SDK. There's no second, cheaper call
+for anything: close-session detection is a plain regex (`CLOSE_SESSION_PATTERN`,
+`coach-chat.ts:216-217`), not a model call — it only sets the prompt's `mode`, and the model's own
+`session_closed` field (returned in that same one response) is what actually gates a commit.
+
+**What's in every request:**
+- `systemInstruction` floor ≈ **13,000 input tokens on every single turn**: full `SOUL.md`
+  (49,716 bytes ≈ ~12,400 tokens) + `state.md` + `quest_log.md`, sent in full every time
+  (`coach-chat.ts:346-361`). Closing turns add four more full files on top
+  (`coach_notes.md`, `challenge_v2.json`, `current_week.json`, `sleep_log.json`,
+  `coach-chat.ts:362-371`). Only skeleton-template sizes were measurable here (state.md 1.7KB,
+  quest_log.md 260B) — a real athlete's files run larger (`docs/eng-docs/scaling-plan.md:231`
+  already flags a real `state.md` around 14KB).
+- `maxOutputTokens: 16384` (`coach-chat.ts:476-479`).
+- `contents` — **the entire prior conversation, unbounded** (`coach-chat.ts:456-464`). Nothing
+  caps message count within a thread; only *thread* count is capped (7 threads kept,
+  `MAX_RETAINED_THREADS`, `coach-chat.ts:284`). A long single conversation before close grows
+  every subsequent request linearly, stacked on top of the ~13K-token fixed prefix — this is real
+  and currently unaddressed, independent of which provider gets picked.
+- A 60-second, process-local, per-repo context cache (`CONTEXT_CACHE_TTL_MS`,
+  `coachChatFiles.ts:102-103`) avoids re-fetching SOUL/state/quest_log from GitHub on rapid
+  repeat calls, but it's a plain in-memory `Map` — only helps within one warm Vercel instance, not
+  a cross-instance or provider-level cache.
+
+iOS has no separate LLM logic at all — confirmed thin client of the same endpoint
+(`CoachChatAPIClient.swift:3-7`), same request/response shape, same unbounded history.
 
 ## Paid comparison (Aug 2026 pricing, $ per million tokens)
 
@@ -53,10 +90,63 @@ Kimi's K2 family is worth noting separately: it exposes both an OpenAI-compatibl
 Anthropic-compatible endpoint, so it can be trial-swapped into `coach-chat.ts` without a new
 client shape either way.
 
+## Rate limits — verified against each provider's own docs (Aug 2026), not estimated
+
+- **Gemini paid (Tier 1):** Google no longer publishes a static rate-limit table — confirmed on
+  `ai.google.dev/gemini-api/docs/rate-limits` itself: limits "depend on usage tier and can be
+  viewed in Google AI Studio" at `aistudio.google.com/rate-limit`. Any specific RPM/TPM figure
+  quoted for Gemini paid tier is a third-party guess, not an official number — check the live
+  dashboard after billing is on rather than trust a fixed table (including this doc's own, past a
+  few months).
+- **Claude Haiku 4.5 — officially confirmed** (`platform.claude.com/docs/en/api/rate-limits`,
+  Start tier): **1,000 RPM / 2,000,000 ITPM / 400,000 OTPM.** At this project's volume (a
+  handful of athletes, well under a thousand turns/month), Haiku isn't remotely close to being
+  rate-limit-constrained — headroom here is not a real concern.
+- **GPT-5 mini — officially confirmed** (OpenAI's own rate-limit increase announcement, Tier 1):
+  **500,000 TPM (5M batch).** RPM isn't published in static docs for this specific model —
+  check the platform dashboard rather than assume a number.
+
+## Cost minimization — techniques beyond "turn on caching"
+
+**The single most actionable finding: Gemini already has free, automatic prompt caching.**
+Confirmed via `developers.googleblog.com` and `ai.google.dev/gemini-api/docs/caching` — implicit
+caching has been on by default for every Gemini 2.5+ model since 2025: no opt-in, no code, a 90%
+discount on cached tokens, minimum cacheable prefix 1,024 tokens (well under the ~13K-token
+SOUL.md prefix here). The only reason it isn't paying off today is the `todayContextLine()` bug:
+the per-minute-changing "Today is ..." line sits between `soul` and `state.md`/`quest_log.md` in
+the prefix (`coach-chat.ts:346-361`), which breaks the cache on every single call, on any
+provider. **Fixing that one line's position unlocks ~90% off the fixed prefix on the current
+provider — zero migration, zero SDK swap, zero eval needed first.** That's a bigger and faster
+win than any provider switch discussed in this doc, and it should happen regardless of which
+model is running.
+
+**Caching mechanics differ by provider** — worth knowing before assuming "caching" means the same
+thing everywhere:
+- **Gemini:** automatic implicit caching, no code change, 90% discount on cache hits.
+- **Claude:** explicit `cache_control` breakpoints — a real code change, but cached tokens are
+  also excluded from the ITPM rate limit (not just billed cheaper), which raises effective
+  throughput on top of cost savings.
+- **OpenAI (GPT-5 family):** automatic for prompts over 1,024 tokens, no code change — same
+  "free" caching as Gemini.
+
+**Other techniques researched, and why most don't apply yet:**
+- **Context/history windowing** — the real gap in this codebase (see Architecture above): nothing
+  caps in-thread message history, so a long conversation before close grows every request
+  linearly. This is the one lever that's genuinely unaddressed today, independent of provider —
+  worth fixing alongside the caching-bug fix, not deferred to "after the provider decision."
+- **Model routing** (cheap model for easy turns, expensive model for hard ones) — doesn't cleanly
+  apply to this architecture as it stands: one call already does reply + structured file-updates
+  + commit message + title in a single shot. Splitting that into a cheap-classify/expensive-reply
+  pipeline is a real redesign, not a config change — worth a later look, not a near-term win.
+- **Batch API** (~50% off on all providers that offer it) — not applicable. This is real-time
+  interactive chat; nothing here is batchable.
+
 ## Recommendation
 
 **Now — unblock testing:** turn on Cloud Billing on the existing Gemini Cloud project. Small
-pay-as-you-go cost, zero code change, gets FSP testing unstuck today.
+pay-as-you-go cost, zero code change, gets FSP testing unstuck today. Do the `todayContextLine`
+prefix-ordering fix (see Cost minimization above) at the same time — it's free savings on
+whichever provider ends up running, so there's no reason to wait on the 2-week decision for it.
 
 **Production default — Claude Haiku 4.5.** Same reasoning as before, restated because it still
 holds:
