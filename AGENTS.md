@@ -25,11 +25,13 @@ the athlete's words clearly point to another role; if the signals genuinely conf
 AI coaching system for the athlete — data, training pipeline, Strava sync, and UI in a single monorepo.
 
 **Layered soul:** Coach identity, engine rules, and athlete schema live in `platform/soul/` as three source
-layers. At HQ, the composed artifact is `platform/SOUL.md` (regenerated via `node platform/scripts/compose-soul.mjs`; CI checks drift). Athlete repos and boot still use root `propagated/SOUL.md` + `user_data/coach/state.md`. To change
-coach behavior, edit the relevant `platform/soul/*.md` layer, run compose, commit both the layer edits and the
-regenerated `platform/SOUL.md`. Never hand-edit the composed SOUL.
+layers. The composed artifact is `platform/SOUL.md` (regenerated via `node platform/scripts/compose-soul.mjs`; CI checks drift). Every real athlete talks to Coach exclusively through the hosted coach-chat web/iOS
+app, which bundles `platform/SOUL.md` directly at build time (`ui/scripts/build-soul.mjs`) — there is no
+local/BYO Claude Code coaching mode and no per-athlete SOUL copy to keep in sync. To change coach behavior,
+edit the relevant `platform/soul/*.md` layer, run compose, commit both the layer edits and the regenerated
+`platform/SOUL.md`. Never hand-edit the composed SOUL.
 
-- `SOUL.md` — composed coach brain (HQ: `platform/SOUL.md`; athlete repos: `propagated/SOUL.md` — do not edit directly)
+- `SOUL.md` — composed coach brain, HQ-only (`platform/SOUL.md`); read directly by the coach-chat backend, never propagated to athlete repos
 - `engine/` — **skeleton source of truth** (carved into `coach-skeleton`; see `engine/README.md`)
 - `platform/soul/` — identity, engine rules, athlete schema layers
 - `user_data/` — athlete data (HQ keeps no instance band; lives in athlete repos at scale)
@@ -39,7 +41,6 @@ regenerated `platform/SOUL.md`. Never hand-edit the composed SOUL.
 - `.github/agents/` — multi-agent role docs (**HQ only**, not carved)
 - `kdb/` — engineering decisions (**HQ only**)
 - `docs/eng-docs/` — operator/architecture plans (**HQ only**)
-- `docs/ref-docs/` — coach skeleton carve source (5 files → athlete `propagated/docs/`)
 
 ## Knowledge Base — read on entry
 
