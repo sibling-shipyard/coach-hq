@@ -16,6 +16,7 @@
     "build-data": "node scripts/build-data.mjs",
     "generate-tokens": "node scripts/generate-wi-tokens.mjs",
     "generate-snapshots": "tsx --tsconfig tsconfig.json scripts/generate-widget-snapshots.ts",
+    "pretest": "node scripts/build-soul.mjs",
     "test": "vitest run"
   },
   "dependencies": {
