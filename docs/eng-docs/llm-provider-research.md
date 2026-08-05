@@ -1,56 +1,69 @@
-# Coach chat LLM provider — research
+# Coach chat LLM provider
 
 ## Context
 
-`coach-chat.ts` calls Gemini free tier (`gemini-flash-latest`) directly via raw `fetch`, no SDK.
-The athlete asked which paid API would work best if/when the free tier stops being enough —
-this is a recommendation for later, not a code change now.
+`coach-chat.ts` calls Gemini free tier (`gemini-flash-latest`) directly via raw `fetch`. Free-tier
+limits (10 RPM, 1,500 RPD) block real testing with just 4 athletes. Need to unblock now; the
+long-term provider call gets made in ~2 weeks once the system is robust enough to have real usage
+data and an eval to judge it by.
 
-## Current setup
+## Options
 
-Gemini free tier, `gemini-flash-latest` (Google's floating alias, chosen specifically because
-dated Gemini model IDs kept getting sunset early — see the comment at `coach-chat.ts:37-43`).
-Forces JSON output via `responseSchema` (`reply`/`commit_message`/`file_updates`),
-`maxOutputTokens: 32768` so a close-session turn can carry full file bodies. 429s are caught and
-surfaced as a quota-exceeded error. No prompt caching — `SOUL.md` + `state.md` + `quest_log.md`
-are refetched and resent as system-prompt context on every single turn.
+Baseline: 4 athletes, ~8 turns/athlete/day → ~960 turns/mo, ~15K input + ~1.5K output tokens/turn
+(SOUL.md + state.md + quest_log.md resent uncached every turn — see Caching below).
 
-## Comparison
+| Option | $/M in / out | Rate limit | Monthly cost (no cache) | With cache | Caching setup |
+|---|---|---|---|---|---|
+| Gemini free (today) | $0 | 10 RPM / 1,500 RPD | $0 | — | — |
+| Gemini paid | $1.50 / $7.50 | 150–300 RPM / 1M TPM | $32.40 | ~$19 | code change |
+| Claude Haiku 4.5 | $1.00 / $5.00 | ~50 RPM / 50K ITPM | $21.60 | ~$11 | code change (SDK swap) |
+| GPT-5 mini | $0.25 / $2.00 | 500K TPM (tier 1) | $6.48 | ~$5 | **automatic, no code** |
 
-| Model | Input / output per M tokens | Structured JSON output | Notes for this use case |
-|---|---|---|---|
-| Gemini 3 Flash (current) | $0.50 / $3.00 | Yes (`responseSchema`, already in use) | Cheapest; free tier available, rate-limited |
-| Claude Haiku 4.5 | $1 / $5 | Yes, GA since Feb 2026 (`output_config.format`) | Same JSON-schema pattern as today — near drop-in swap |
-| GPT-5 mini | $0.25 / $2 | Yes (JSON schema strict mode) | Cheapest paid option |
+DeepSeek deferred — cheapest on paper, but no published RPM/TPM (dynamic throttling, same
+unpredictability we're leaving Gemini free tier for) plus a data-residency question for athlete
+health data we haven't resolved. Not worth it at this volume regardless.
 
-## Recommendation
+At 4 users, every paid option costs single-digit-to-low-double-digit dollars/month — cost isn't the
+constraint. Rate-limit headroom and eventual model quality are.
 
-**Claude Haiku 4.5 over GPT-5-mini**, if/when Gemini free tier stops being enough — not the
-cheapest, but the better fit for this specific job:
+## Caching
 
-1. **Persona consistency.** `SOUL.md` is a large, identity-heavy system prompt re-sent whole
-   every turn, and the whole point of Coach Phelps is staying in character across a long
-   conversation. Claude models are generally stronger at sustained instruction-following/persona
-   adherence than GPT-5-mini at a comparable price tier.
-2. **Structured output fits the existing contract.** Haiku 4.5's structured outputs are GA and
-   schema-based — the same `reply`/`commit_message`/`file_updates` shape `coach-chat.ts` already
-   uses for Gemini. Swapping providers would be closer to a client-call change than a rewrite of
-   the response-handling logic.
-3. **Prompt caching.** Since the same `SOUL.md`/`state.md`/`quest_log.md` block gets resent every
-   turn, Claude's prompt caching could cut effective cost well below the raw per-token rate
-   suggests — this matters more here than GPT-5-mini's lower list price.
+Prompt caching bills a repeated prefix at a fraction of full price. All three paid options support
+it, but none of it works today because of one bug: `todayContextLine()` (`coach-chat.ts:133-149`,
+"Today is `<date/time>`") sits right after `soul` in the system-instruction prefix, ahead of
+`state.md`/`quest_log.md` — a value that changes every minute breaks any cache placed after it, on
+any provider. Fix: move it to the end of the prompt (or into the per-turn user message) so
+SOUL.md (+ state.md, which barely changes) stays a byte-identical, cacheable prefix.
 
-GPT-5-mini stays the cheapest option on paper ($0.25/$2 vs Haiku's $1/$5) and would be the
-better pick for a use case that's pure throughput with no persona requirement — that's not this
-one.
+Estimated ~1 day of work once we act on it — not required for the immediate unblock, since Gemini
+paid handles 4-user volume fine uncached. Worth doing before the 2-week provider decision either
+way, since it changes the cost story for whichever model wins.
+
+## Eval — how we actually pick, not vibes
+
+1. Build ~15–25 golden transcripts covering: greeting, ordinary check-in, close-session happy path,
+   close-session with missing info (must ask, not fabricate a save), quest completion, injury/sore
+   flag handling, false-positive close-signal.
+2. Rubric: voice/persona match to SOUL.md, never claims "saved" without real `file_updates`,
+   edits/merge-patches are schema-valid, doesn't touch files outside the turn-mode's allowed set.
+3. Run the same transcripts through whichever candidates are still live at the 2-week mark; score
+   with a mix of judges (not just one model family) plus a human spot-check, to avoid the
+   same self-preference risk that showed up in this doc's first draft.
 
 ## Done when
 
-Nothing to build — this is a reference doc. Re-open the comparison when Gemini free-tier limits
-actually become a blocker (watch for 429s surfaced in `coach-chat.ts`'s error path), not before.
+4 athletes can chat-test without hitting a rate ceiling, and we have eval scores + real usage data
+to make the long-term provider call.
+
+## Next steps
+
+1. Enable billing on the existing Gemini project — unblocks testing today, zero code change.
+2. Fix the `todayContextLine` prompt-ordering bug (small, provider-agnostic, do anytime).
+3. Build the eval harness above.
+4. Revisit provider choice in ~2 weeks against eval results + real usage numbers, not projections.
 
 ## Deferred
 
-- No provider-abstraction layer — `coach-chat.ts` stays a direct Gemini caller for now.
-- No code changes from this doc. Revisit pricing before committing to a switch — model pricing
-  moves fast and this table will go stale.
+- DeepSeek — revisit only if cost becomes decisive at real scale, and only after the rate-limit and
+  data-residency questions have real answers.
+- Committing to Haiku/GPT-5-mini/Gemini-paid long-term — decided after the eval, not now.
