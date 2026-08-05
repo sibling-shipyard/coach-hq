@@ -46,13 +46,13 @@ actually worth extra coverage.
 manual for now, not a GitHub Actions gate. Worth reconsidering once cost/rate-limit headroom is
 less of a concern (i.e., once billing is on, see #6).
 
-## 6. Enable Cloud Billing on the Gemini project (pending on the athlete)
+## 6. ~~Enable Cloud Billing on the Gemini project~~ — done, 2026-08-06
 
-Every code-side fix in this redesign (caching order, history cap, few-shot examples, SOUL
-bundling) is shipped, but the actual free-tier rate-limit block is still live until Cloud Billing
-is turned on. This needs the athlete's own Google Cloud console + Vercel dashboard access —
-nothing left here is committable from a PR. See `docs/eng-docs/llm-provider-current.md`'s Next
-Steps.
+Billing is live (Paid 1, $250 tier cap, Tier 1 confirmed on the AI Studio Rate Limit dashboard:
+1,000 RPM / 2,000,000 TPM / 10,000 RPD on 3.6 Flash). Every code-side fix in this redesign
+(caching order, history cap, few-shot examples, SOUL bundling) was already shipped ahead of this,
+so nothing's left blocking real testing. See `docs/eng-docs/llm-provider-current.md`'s Next Steps
+for the full numbers.
 
 ## 7. `roadmap.md` / `archive/*` files
 
