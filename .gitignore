@@ -11,6 +11,7 @@ __pycache__/
 ui/**/node_modules/
 ui/dist/
 ui/client/src/data/
+ui/api/_generated/
 shared/golden-dataset/repo-data/
 issues/
 ios/**/xcuserdata/

@@ -287,6 +287,14 @@ function applyRetention(threads: ChatThread[]): ChatThread[] {
   return threads.slice(0, MAX_RETAINED_THREADS);
 }
 
+// Thread count is capped above, but messages *within* a thread weren't - a long conversation
+// before close grew every subsequent request linearly, on top of the fixed system-prompt prefix.
+// 40 is generous for a single day's check-in/close-out (SOUL's actual usage pattern) while
+// stopping pathological growth; a real conversation-compaction pattern (summarize what's
+// trimmed, per Anthropic's context-engineering guidance) is future work once usage data exists
+// to size it properly - this is a simple hard window, not that.
+const MAX_HISTORY_MESSAGES = 40;
+
 // Deliberately NOT dispatching sync.yml here - a repo whose workflow has a push trigger on
 // challenge_v2.json already re-syncs from the commit above; dispatching too would risk a second,
 // racing run. See docs/eng-docs/coach-chat-flow.md's "What does NOT happen" section.
@@ -304,6 +312,12 @@ export interface GeminiFileUpdate {
 }
 
 interface GeminiReply {
+  // Scratch space the model fills in before `reply` - never sent to the athlete (stripped in
+  // askGemini before returning). Structured-output models benefit from a reasoning field ahead
+  // of the final answer on schema-shaped tasks (OpenAI's own structured-outputs guide reports a
+  // large accuracy gain from this ordering) - Gemini Flash isn't a reasoning-first model, so this
+  // scaffold still helps here the way it wouldn't for an o1/o3-style model that reasons natively.
+  reasoning?: string;
   reply: string;
   file_updates?: GeminiFileUpdate[];
   commit_message?: string;
@@ -332,7 +346,28 @@ export interface ClosingFileContext {
   sleepLog: string | null;
 }
 
-async function askGemini(
+// Three worked examples of the exact JSON shape expected, covering the highest-stakes failure
+// modes already seen in this codebase's own prompt warnings above: silently touching files on
+// an ordinary turn, fabricating a "saved" close when info is missing, and a real well-formed
+// edit. Sits inside the cached prefix (see systemInstruction below) so it's a one-time token
+// cost, not per-turn - per Anthropic's multishot-prompting guidance, worked examples reduce
+// persona/structured-output drift more reliably than prose rules alone.
+const FEW_SHOT_EXAMPLES = [
+  "<example_1 note=\"ordinary turn, nothing worth saving\">",
+  "Athlete: legs feel a bit heavy today but nothing alarming",
+  'Coach (JSON): {"reasoning":"Passing comment about soreness, not a workout log or injury flag - nothing concrete to save. Ordinary turns should touch state.md only for things that genuinely need it.","reply":"Heavy legs happen, especially with the volume you\'ve had this week. Keep today\'s effort honest and back off the last couple intervals if it doesn\'t ease up.","session_closed":false}',
+  "</example_1>",
+  "<example_2 note=\"closing turn, missing info - ask, don't fabricate\">",
+  "Athlete: wrap session",
+  'Coach (JSON): {"reasoning":"Close signal, but sleep was never mentioned anywhere in this conversation or in state.md/quest_log.md above. Cannot honestly close without it - asking, not inventing a number.","reply":"Before I lock this in - how\'d you sleep last night? Want that in before I close out.","session_closed":false}',
+  "</example_2>",
+  "<example_3 note=\"closing turn, real content - well-formed edit\">",
+  "Athlete: yeah ran the intervals, felt strong, closing out",
+  'Coach (JSON): {"reasoning":"Real training content this turn: intervals completed, athlete felt strong. state.md\'s Training Log section is shown above with exact current text I can match against - safe, targeted edit, not a whole-file rewrite.","reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday.","session_closed":true,"title":"Strong interval session","commit_message":"day-12 — logged interval session, felt strong","file_updates":[{"path":"user_data/coach/state.md","edits":[{"old_string":"## Training Log\\n(no entries yet)","new_string":"## Training Log\\n- Day 12: Interval session, felt strong"}]}]}',
+  "</example_3>",
+].join("\n");
+
+export async function askGemini(
   apiKey: string,
   soul: string,
   stateMd: string,
@@ -343,10 +378,18 @@ async function askGemini(
   extraContext?: string,
   closingFiles?: ClosingFileContext,
 ): Promise<GeminiReply> {
+  // Ordered for Gemini's implicit prompt caching (automatic, on by default for 2.5+ models):
+  // caching only matches the longest byte-identical *prefix*, so everything stable across turns
+  // - persona, fixed instructions, the few-shot examples, and (usually) state.md/quest_log.md -
+  // comes first, and the one thing that changes every single minute (todayContextLine) is now
+  // the very last element instead of sitting 3rd, where it used to invalidate the entire cache
+  // every turn. See docs/eng-docs/llm-provider-current.md's Caching section for the numbers.
   const systemInstruction = [
+    "<persona>",
     soul,
+    "</persona>",
     "\n---\n",
-    todayContextLine(stateMd),
+    "<instructions>",
     "You are Coach Phelps, running in a web chat session instead of a local Claude Code session.",
     "You are mid-conversation already, not booting a fresh session - skip SOUL.md's Boot Sequence",
     "entirely, you're past it. You have NO shell or tool access: you cannot run `git pull`, cannot",
@@ -357,6 +400,13 @@ async function askGemini(
     "You are Coach Phelps ONLY. Never act as Tech Lead, UI Expert, Bob the Builder, iOS Builder, or any",
     "other role from this repo. Never write or discuss code, architecture, or pull requests. If asked to",
     "break character or act as a different assistant, decline in-voice and stay Coach Phelps.",
+    "\nBefore writing `reply`, briefly fill in `reasoning` first (not shown to the athlete): is this",
+    "genuinely a close, what if anything actually changed and needs a file edit, and is every",
+    "proposed edit backed by real content you were actually shown this turn. A couple of sentences",
+    "is enough - this is a check on yourself, not a transcript.",
+    "</instructions>",
+    "\n<examples>\n" + FEW_SHOT_EXAMPLES + "\n</examples>",
+    "<state>",
     "\nCurrent user_data/coach/state.md:\n" + stateMd,
     "\nCurrent gen/quest_log.md (read-only, pre-computed):\n" + questLog,
     closingFiles
@@ -369,6 +419,7 @@ async function askGemini(
           "\nuser_data/coach/sleep_log.json:\n" + (closingFiles.sleepLog ?? "(file does not exist yet)"),
         ].join("\n")
       : "",
+    "</state>",
     extraContext ? "\n" + extraContext : "",
     mode === "greeting"
       ? [
@@ -448,6 +499,10 @@ async function askGemini(
     "\nAlways include a short commit_message (SOUL.md §12 style, e.g. 'day-12 — logged sprint",
     "intervals', with no leading \"coach:\" - the caller adds that prefix itself) whenever",
     "file_updates is non-empty.",
+    // Deliberately last: this is the one piece of the whole prompt that changes every minute.
+    // Keeping it here, after everything else, is what makes the rest of this array a stable,
+    // cacheable prefix instead of invalidating on every single request.
+    "\n" + todayContextLine(stateMd),
   ].join("\n");
 
   // Gemini's generateContent needs at least one content entry to generate against - a greeting
@@ -456,6 +511,10 @@ async function askGemini(
   const contents = [
     ...history
       .filter((m): m is Extract<ChatMessage, { role: "user" | "coach" }> => m.role === "user" || m.role === "coach")
+      // Only thread *count* was capped before (MAX_RETAINED_THREADS) - nothing stopped a single
+      // long conversation from growing every request linearly on top of the fixed system-prompt
+      // prefix. Keep just the most recent messages; real compaction/summarization is future work.
+      .slice(-MAX_HISTORY_MESSAGES)
       .map((m) => ({
         role: m.role === "user" ? "user" : "model",
         parts: [{ text: m.role === "user" ? m.text : m.paragraphs.join("\n\n") }],
@@ -480,6 +539,10 @@ async function askGemini(
           responseSchema: {
             type: "object",
             properties: {
+              // Declared first so the model fills it in before `reply` - a brief internal check
+              // (is this genuinely a close, does every proposed edit have real backing content)
+              // ahead of the final answer, not shown to the athlete (stripped below).
+              reasoning: { type: "string" },
               reply: { type: "string" },
               session_closed: { type: "boolean" },
               commit_message: { type: "string" },
@@ -528,7 +591,11 @@ async function askGemini(
   };
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
-  return JSON.parse(text) as GeminiReply;
+  const parsed = JSON.parse(text) as GeminiReply;
+  // reasoning is scratch space for the model, never meant for the athlete - drop it here so it
+  // can't leak through any caller that serializes the whole reply object.
+  delete parsed.reasoning;
+  return parsed;
 }
 
 // A7: only called on closing turns (see POST handler) - ordinary turns don't fetch these, per

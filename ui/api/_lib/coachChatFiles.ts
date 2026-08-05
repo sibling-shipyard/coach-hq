@@ -1,11 +1,18 @@
 /**
- * Shared read helpers for the three files coach-chat.ts injects into every Gemini call:
- * SOUL.md, state.md, quest_log.md. Extracted out of coach-chat.ts so coach-chat-context.ts
- * (the app-load preload endpoint, A3) can fetch the same files the same way without
- * duplicating the GitHub-read plumbing.
+ * Shared read helpers for the files coach-chat.ts injects into every Gemini call: state.md and
+ * quest_log.md come from the athlete's own repo; SOUL.md does not (see below). Extracted out of
+ * coach-chat.ts so coach-chat-context.ts (the app-load preload endpoint, A3) can fetch the same
+ * files the same way without duplicating the GitHub-read plumbing.
  */
+import { SOUL } from "../_generated/soul.js";
 
-export const SOUL_FILE_PATH = "propagated/SOUL.md";
+// SOUL.md is verified 100% generic - no per-athlete substitution happens anywhere in the carve
+// process (platform/scripts/carve-skeleton.mjs copies it byte-for-byte into every athlete's
+// propagated/SOUL.md). Re-fetching that constant from each athlete's own GitHub repo on every
+// single turn was a real cost (one GitHub API call/turn, times every athlete) and a real drift
+// risk (a coach-behavior change wouldn't reach an athlete's chat until their next carve). This
+// backend now reads it directly from its own deployment bundle instead - see
+// ui/scripts/build-soul.mjs and the ADR amending 0011 for the full rationale.
 export const STATE_FILE_PATH = "user_data/coach/state.md";
 export const QUEST_LOG_PATH = "gen/quest_log.md";
 
@@ -123,12 +130,11 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 
   const promise = (async (): Promise<CoachContext> => {
-    const [soul, state, questLog] = await Promise.all([
-      getFileRaw(repo, SOUL_FILE_PATH, token),
+    const [state, questLog] = await Promise.all([
       getFileRaw(repo, STATE_FILE_PATH, token),
       getFileRaw(repo, QUEST_LOG_PATH, token),
     ]);
-    const value: CoachContext = { soul, state, questLog };
+    const value: CoachContext = { soul: SOUL, state, questLog };
     contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
     return value;
   })();
