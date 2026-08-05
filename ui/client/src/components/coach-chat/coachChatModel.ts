@@ -88,6 +88,18 @@ export class CoachChatAccessRevokedError extends Error {
   }
 }
 
+/** Thrown instead of a plain Error on a 429 that survived all of fetchWithRetry's attempts -
+ * distinguished from a generic Error so CoachChat.tsx can show a message that actually explains
+ * what happened (rate-limited, try again shortly) instead of the raw, stale server string
+ * ("Gemini free-tier quota exceeded" even post-billing) or a generic "didn't reply" toast that
+ * gives no indication retrying immediately won't help either. */
+export class CoachChatRateLimitedError extends Error {
+  constructor() {
+    super("Coach is getting a lot of requests right now - wait a moment and try again");
+    this.name = "CoachChatRateLimitedError";
+  }
+}
+
 // Mirrors githubGitData.ts's isTransient: retry a network failure or 5xx/429, never a 4xx
 // rejection (400/401/etc are real answers, not blips to paper over).
 function isTransientStatus(status: number): boolean {
@@ -175,6 +187,7 @@ export async function sendMessage(
     false,
   );
   if (res.status === 401) throw new CoachChatAccessRevokedError();
+  if (res.status === 429) throw new CoachChatRateLimitedError();
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
@@ -208,6 +221,7 @@ export async function greet(): Promise<GreetResult> {
     false,
   );
   if (res.status === 401) throw new CoachChatAccessRevokedError();
+  if (res.status === 429) throw new CoachChatRateLimitedError();
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);

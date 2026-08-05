@@ -8,6 +8,7 @@ import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
 import { ConversationPane, MobileThreadList, ThreadSidebar } from "@/components/coach-chat/CoachChatWidgets";
 import {
   CoachChatAccessRevokedError,
+  CoachChatRateLimitedError,
   challengeDayNumber,
   fetchThreads,
   greet,
@@ -92,6 +93,13 @@ function CoachChatContent({ data }: { data: RepoData }) {
         setThreadsAccessRevoked(true);
         return;
       }
+      if (err instanceof CoachChatRateLimitedError) {
+        // Longer duration than the default toast - a rate-limit message that vanishes in a few
+        // seconds is easy to miss mid-conversation and reads as "nothing happened" instead of
+        // "wait and retry" (see the investigation behind this fix).
+        toast.error(err.message, { duration: 8000 });
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
     } finally {
       setGreeting(false);
@@ -150,6 +158,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
       .catch((err: unknown) => {
         if (err instanceof CoachChatAccessRevokedError) {
           setThreadsAccessRevoked(true);
+          return;
+        }
+        if (err instanceof CoachChatRateLimitedError) {
+          toast.error(err.message, { duration: 8000 });
           return;
         }
         toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
@@ -264,6 +276,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
       }
       if (err instanceof CoachChatAccessRevokedError) {
         setThreadsAccessRevoked(true);
+      } else if (err instanceof CoachChatRateLimitedError) {
+        // Longer duration - a rate-limit toast that vanishes in a few seconds reads as "nothing
+        // happened" instead of "wait and retry," which is exactly the confusing experience this
+        // fix is for (an athlete's close-session message silently rolling back with no clear
+        // explanation of why).
+        toast.error(err.message, { duration: 8000 });
       } else {
         toast.error(err instanceof Error ? err.message : "Coach didn't reply — try again");
       }

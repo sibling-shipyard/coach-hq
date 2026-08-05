@@ -35,6 +35,10 @@ enum UserFacingError {
                 case 404: return "Nothing to show yet — complete setup or your first Coach chat."
                 case 409: return "A conflict occurred — try again."
                 case 422: return "GitHub rejected the request — contact support if this persists."
+                // Coach chat's own 429 (Gemini rate-limited, not GitHub) - previously fell into
+                // the generic default case below, which gave no indication this was a rate limit
+                // or that an immediate retry wouldn't help.
+                case 429: return "Coach is getting a lot of requests right now — wait a moment and try again."
                 case 500...599: return "GitHub is having issues right now — try again shortly."
                 default: return "Something went wrong. Try again."
                 }
