@@ -1,0 +1,38 @@
+name: iOS Build
+
+# Compiles the CoachHQ app + CoachHQWidgetExtension on every ios/ change. Doesn't run tests
+# (no XCTest target exists yet - platform/tests/*.py has the same gap, see docs/eng-docs/TODO.md
+# P2) or need code signing (simulator build only) - it exists purely to catch compile errors like
+# the WorkoutType enum change in #256/#257, which had to be reviewed by hand since there's no
+# Mac in this dev loop otherwise.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+  pull_request:
+    paths:
+      - 'ios/**'
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios/CoachHQ
+    strategy:
+      matrix:
+        scheme: [CoachHQ, CoachHQWidgetExtension]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build ${{ matrix.scheme }} for iOS Simulator
+        run: |
+          xcodebuild build \
+            -project CoachHQ.xcodeproj \
+            -scheme ${{ matrix.scheme }} \
+            -destination 'generic/platform=iOS Simulator' \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO
