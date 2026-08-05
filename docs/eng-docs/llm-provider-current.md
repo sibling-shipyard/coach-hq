@@ -2,11 +2,13 @@
 
 ## Context
 
-`coach-chat.ts` calls Gemini free tier (`gemini-flash-latest`) directly via raw `fetch`. Free-tier
-limits (5 RPM, 20 RPD — confirmed from this project's own AI Studio dashboard, see Options below)
-block real testing with just 4 athletes. Need to unblock now; the
-long-term provider call gets made in ~2 weeks once the system is robust enough to have real usage
-data and an eval to judge it by.
+`coach-chat.ts` calls Gemini directly via raw `fetch` (`gemini-flash-latest`). **Unblocked:**
+Cloud Billing is live on the project (confirmed 2026-08-06, AI Studio Billing page shows "Paid 1
+· $250 Billing Account Tier Cap", ₹2,500 prepaid credit), and the Rate Limit dashboard confirms
+Tier 1 is active — real testing is no longer rate-limited at this account's scale. See Options
+below for the exact numbers. The long-term provider call still gets made in ~2 weeks once the
+system is robust enough to have real usage data and an eval to judge it by — billing doesn't
+close that question, it just removes the reason it was urgent.
 
 ## Options
 
@@ -18,15 +20,19 @@ several of the original numbers here were wrong or unverifiable and have been co
 
 | Option | $/M in / out | Rate limit (verified) | Monthly cost (no cache) | With cache | Caching setup |
 |---|---|---|---|---|---|
-| Gemini free (today) | $0 | **5 RPM / 250K TPM / 20 RPD** — confirmed from this project's own AI Studio dashboard, both 3.6 Flash and 2.5 Flash | $0 | — | — |
-| Gemini paid | $1.50 / $7.50 | No static table published anymore (Google's own docs point to the live `aistudio.google.com/rate-limit` dashboard, not a fixed number) — check there after billing is on | $32.40 | ~$3.24 | **automatic, no code** |
+| Gemini free (superseded) | $0 | 5 RPM / 250K TPM / 20 RPD, both 3.6 Flash and 2.5 Flash | $0 | — | — |
+| **Gemini paid (live now)** | $1.50 / $7.50 | **1,000 RPM / 2,000,000 TPM / 10,000 RPD** (3.6 Flash, Tier 1) · **1,000 RPM / 1,000,000 TPM / 10,000 RPD** (2.5 Flash, Tier 1) — confirmed from this project's own AI Studio Rate Limit dashboard, 2026-08-06 | $32.40 | ~$3.24 | **automatic, no code** |
 | Claude Haiku 4.5 | $1.00 / $5.00 | **1,000 RPM / 2,000,000 ITPM / 400,000 OTPM** (Start tier, officially confirmed) | $21.60 | ~$11 | code change (`cache_control` breakpoints) |
 | GPT-5 mini | $0.25 / $2.00 | **500,000 TPM** (Tier 1, officially confirmed; RPM not published — check console) | $6.48 | ~$5 | automatic, no code |
 
+At this account's actual volume (4 athletes, ~960 turns/mo, well under 10,000 RPD), Gemini paid
+now has enormous headroom on every dimension — RPM and TPM are effectively non-issues, RPD is
+~500x this project's daily turn count.
+
 Corrections from the first draft: the free-tier row was a generic figure, not this account's
-actual limit (20 RPD is the real ceiling, and the direct cause of Tuesday's/Wednesday's block).
-Haiku's rate limit was quoting pre-July-2026 numbers — Anthropic raised it since; at this
-project's volume Haiku has enormous headroom either way. Gemini paid's caching column was wrong —
+actual limit (20 RPD was the real ceiling, and the direct cause of the original block). Haiku's
+rate limit was quoting pre-July-2026 numbers — Anthropic raised it since; at this project's
+volume Haiku has enormous headroom either way. Gemini paid's caching column was wrong —
 Gemini's implicit caching is automatic and free, not a code change (see Caching below); that
 changes its "with cache" cost from ~$19 to ~$3.24.
 
@@ -99,20 +105,19 @@ allows, `session_closed` only true where expected.
 
 ## Done when
 
-4 athletes can chat-test without hitting a rate ceiling, and we have eval scores + real usage data
-to make the long-term provider call.
+~~4 athletes can chat-test without hitting a rate ceiling~~ — **done**, billing is live (see
+Context above). Eval scores + real usage data to make the long-term provider call are still
+pending — that's the one thing left before this doc's job is finished.
 
 ## Next steps
 
-1. **Pending on the athlete** — enable billing on the existing Gemini project. Needs Google
-   Cloud console + Vercel dashboard access; not something committable from a PR. Unblocks testing
-   today, zero code change beyond what's already shipped below.
+1. ~~Enable billing on the existing Gemini project~~ — **done**, 2026-08-06.
 2. ~~Fix the `todayContextLine` prompt-ordering bug~~ — **done.**
 3. ~~Cap/window in-thread conversation history~~ — **done** (hard cap; real
    compaction/summarization is still future work, see `FOLLOW-UP.md`).
 4. ~~Build the eval harness~~ — **done**, structural rubric only (see Eval above).
 5. Revisit provider choice in ~2 weeks against eval results + real usage numbers, not projections
-   — unchanged, still pending real usage.
+   — the only step left. Nothing else in this doc is blocking that anymore.
 
 ## Deferred
 

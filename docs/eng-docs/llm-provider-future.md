@@ -97,12 +97,13 @@ client shape either way.
 
 ## Rate limits — verified against each provider's own docs (Aug 2026), not estimated
 
-- **Gemini paid (Tier 1):** Google no longer publishes a static rate-limit table — confirmed on
-  `ai.google.dev/gemini-api/docs/rate-limits` itself: limits "depend on usage tier and can be
-  viewed in Google AI Studio" at `aistudio.google.com/rate-limit`. Any specific RPM/TPM figure
-  quoted for Gemini paid tier is a third-party guess, not an official number — check the live
-  dashboard after billing is on rather than trust a fixed table (including this doc's own, past a
-  few months).
+- **Gemini paid (Tier 1) — now live and confirmed from this project's own dashboard**
+  (2026-08-06): **1,000 RPM / 2,000,000 TPM / 10,000 RPD** (3.6 Flash) and **1,000 RPM /
+  1,000,000 TPM / 10,000 RPD** (2.5 Flash). Google doesn't publish these as a static table — they
+  came from `aistudio.google.com/rate-limit` after billing went on, not from docs, so re-check
+  there rather than trust this figure indefinitely (Google can raise/lower tiers without notice).
+  At this project's real volume (~960 turns/mo), none of RPM/TPM/RPD are remotely close to being
+  constrained.
 - **Claude Haiku 4.5 — officially confirmed** (`platform.claude.com/docs/en/api/rate-limits`,
   Start tier): **1,000 RPM / 2,000,000 ITPM / 400,000 OTPM.** At this project's volume (a
   handful of athletes, well under a thousand turns/month), Haiku isn't remotely close to being
@@ -151,12 +152,13 @@ thing everywhere:
 
 ## Recommendation
 
-**Now — unblock testing:** turn on Cloud Billing on the existing Gemini Cloud project. Small
-pay-as-you-go cost, zero code change, gets FSP testing unstuck today. The `todayContextLine`
-prefix-ordering fix, few-shot examples, history cap, and SOUL bundling (see Cost minimization and
-Architecture above) are already shipped — free savings on whichever provider ends up running,
-done ahead of the 2-week decision rather than waiting on it. Billing itself is the one remaining
-step and needs the athlete's own Google Cloud/Vercel access — not something committable from here.
+**Unblocked.** Cloud Billing went live on the existing Gemini Cloud project 2026-08-06 (₹2,500
+prepaid credit, Tier 1 confirmed on the Rate Limit dashboard) — testing is no longer
+rate-limited at this account's scale. The `todayContextLine` prefix-ordering fix, few-shot
+examples, history cap, and SOUL bundling (see Cost minimization and Architecture above) were
+already shipped ahead of this, so the current provider is running as cheaply as it can. Nothing
+left to unblock; the only open item is the 2-week provider re-decision itself, once real usage
+and eval data exist.
 
 **Production default — Claude Haiku 4.5.** Same reasoning as before, restated because it still
 holds:
