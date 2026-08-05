@@ -37,20 +37,22 @@ class WorkoutService: ObservableObject {
         fetchError = nil
         defer { isLoading = false }
 
+        // Only a confirmed 404 (no templates/ directory at all) means "genuinely no plan" —
+        // any other failure must leave `templates` as the last good fetch, or a transient
+        // hiccup on pull-to-refresh renders as a false "No workouts yet" (see fetchError below,
+        // which the view branches on to distinguish the two).
         let entries: [GitHubFileEntry]
         do {
             entries = try await apiClient.listFiles(path: "user_data/activities/workout_plans/templates")
         } catch let e as GitHubAPIError {
             guard case .notFound = e else {
                 fetchError = "Couldn't load workout templates"
-                templates = []
                 return
             }
             templates = []
             return
         } catch {
             fetchError = "Couldn't load workout templates"
-            templates = []
             return
         }
 
@@ -62,6 +64,9 @@ class WorkoutService: ObservableObject {
                 loaded.append(try decoder.decode(Workout.self, from: data))
             } catch {
                 print("fetchTemplates: skipping \(entry.name): \(error)")
+                if fetchError == nil {
+                    fetchError = "Some workout templates failed to load"
+                }
             }
         }
         templates = loaded
@@ -74,29 +79,42 @@ class WorkoutService: ObservableObject {
         defer { isLoading = false }
 
         let today = Self.localDateKey(from: Date())
+        let prefix = "\(today)_"
+
+        // List the sessions directory directly instead of only probing paths for known
+        // template ids — a one-off session for a workout type with no matching template
+        // (Coach gives a cali session to an athlete with no cali template) has a filename
+        // that would never get checked otherwise.
+        let entries: [GitHubFileEntry]
+        do {
+            entries = try await apiClient.listFiles(path: "user_data/activities/workout_plans/sessions")
+        } catch GitHubAPIError.notFound {
+            todaySessions = [:]
+            return
+        } catch GitHubAPIError.notAuthenticated {
+            if fetchError == nil {
+                fetchError = GitHubAPIError.notAuthenticated.errorDescription
+            }
+            return
+        } catch {
+            if fetchError == nil {
+                fetchError = "Couldn't load today's coach sessions"
+            }
+            return
+        }
 
         var sessions: [String: Workout] = [:]
-        for template in templates {
-            let path = "user_data/activities/workout_plans/sessions/\(today)_\(template.id).json"
+        for entry in entries
+        where entry.type == "file" && entry.name.hasSuffix(".json") && entry.name.hasPrefix(prefix) {
+            let sessionId = String(entry.name.dropFirst(prefix.count).dropLast(".json".count))
             do {
-                let data = try await apiClient.readFile(path: path)
-                let workout = try JSONDecoder().decode(Workout.self, from: data)
-                sessions[template.id] = workout
-            } catch GitHubAPIError.notFound {
-                // No coach session today for this template — expected
-            } catch GitHubAPIError.notAuthenticated {
-                // Distinct from the generic case below so callers can match "HTTP 401"/"Not
-                // authenticated" in fetchError and flag session expiry (see GitHubAuthManager.noteAPIError).
-                if fetchError == nil {
-                    fetchError = GitHubAPIError.notAuthenticated.errorDescription
-                }
-                print("fetchTodaySessions failed for \(path): not authenticated")
+                let data = try await apiClient.readFile(path: entry.path)
+                sessions[sessionId] = try JSONDecoder().decode(Workout.self, from: data)
             } catch {
-                // Keep bundled templates visible; surface the first failure for debugging.
+                print("fetchTodaySessions: skipping \(entry.name): \(error)")
                 if fetchError == nil {
                     fetchError = "Couldn't load today's coach sessions"
                 }
-                print("fetchTodaySessions failed for \(path): \(error)")
             }
         }
         todaySessions = sessions

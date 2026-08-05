@@ -1,7 +1,41 @@
 import Foundation
 
-enum WorkoutType: String, Codable, Hashable {
-    case foundation, calisthenics, recovery, realign
+/// Not a closed set of `String, Codable` cases on purpose — Coach's soul can introduce a new
+/// workout_type (rehab, mobility, etc.) without an app update. `.other` keeps decode from
+/// throwing and losing the whole file, mirroring web's `WORKOUT_TYPE_ACCENT[...] ?? RUST` fallback.
+enum WorkoutType: Hashable {
+    case foundation, calisthenics, recovery, realign, strength
+    case other(String)
+
+    var rawValue: String {
+        switch self {
+        case .foundation: return "foundation"
+        case .calisthenics: return "calisthenics"
+        case .recovery: return "recovery"
+        case .realign: return "realign"
+        case .strength: return "strength"
+        case .other(let raw): return raw
+        }
+    }
+}
+
+extension WorkoutType: Codable {
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        switch raw {
+        case "foundation": self = .foundation
+        case "calisthenics": self = .calisthenics
+        case "recovery": self = .recovery
+        case "realign": self = .realign
+        case "strength": self = .strength
+        default: self = .other(raw)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 enum ExerciseType: String, Codable, Hashable {

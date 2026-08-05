@@ -14,10 +14,18 @@ struct WorkoutListView: View {
     }
 
     private var allWorkouts: [(workout: Workout, isSession: Bool)] {
-        workoutService.templates.compactMap { template in
+        let templateIds = Set(workoutService.templates.map(\.id))
+        let templateEntries: [(workout: Workout, isSession: Bool)] = workoutService.templates.compactMap { template in
             guard let w = workoutService.displayWorkout(for: template.id) else { return nil }
             return (w, workoutService.todaySessions[template.id] != nil)
         }
+        // A one-off session for a workout type with no matching template (e.g. Coach gives a
+        // cali session to an athlete with no cali template) has no template entry to piggyback
+        // on above — surface it directly, always as "today's" (isSession: true).
+        let standaloneSessions: [(workout: Workout, isSession: Bool)] = workoutService.todaySessions
+            .filter { !templateIds.contains($0.key) }
+            .map { (_, workout) in (workout, true) }
+        return templateEntries + standaloneSessions
     }
 
     private var todayWorkout: Workout? {
@@ -25,11 +33,24 @@ struct WorkoutListView: View {
     }
 
     private var groupedWorkouts: [(type: WorkoutType, entries: [(workout: Workout, isSession: Bool)])] {
-        let order: [WorkoutType] = [.foundation, .calisthenics, .recovery, .realign]
-        return order.compactMap { type in
+        let order: [WorkoutType] = [.foundation, .strength, .calisthenics, .recovery, .realign]
+        let ordered = order.compactMap { type -> (type: WorkoutType, entries: [(workout: Workout, isSession: Bool)])? in
             let entries = allWorkouts.filter { $0.workout.workoutType == type }
             return entries.isEmpty ? nil : (type, entries)
         }
+        // Anything not in `order` (a future workout_type the app doesn't know how to place yet,
+        // decoded via WorkoutType.other) still gets its own section instead of vanishing.
+        let orderedTypes = Set(order)
+        var leftoverGroups: [WorkoutType: [(workout: Workout, isSession: Bool)]] = [:]
+        for entry in allWorkouts where !orderedTypes.contains(entry.workout.workoutType) {
+            leftoverGroups[entry.workout.workoutType, default: []].append(entry)
+        }
+        // Dictionary iteration order is unspecified — sort by rawValue so leftover sections
+        // stay in a stable order across renders/launches instead of shuffling.
+        let leftover = leftoverGroups
+            .map { (type: $0.key, entries: $0.value) }
+            .sorted { $0.type.rawValue < $1.type.rawValue }
+        return ordered + leftover
     }
 
     var body: some View {
@@ -78,9 +99,14 @@ struct WorkoutListView: View {
                 await workoutService.fetchTodaySessions()
             }
             .overlay {
-                if workoutService.isLoading {
+                if workoutService.isLoading && allWorkouts.isEmpty {
                     ProgressView()
-                } else if workoutService.templates.isEmpty {
+                } else if let error = workoutService.fetchError, allWorkouts.isEmpty {
+                    // A fetch failure must never look identical to "you genuinely have no
+                    // plan" — that false-empty state is what sent Skanda's real workouts
+                    // missing on refresh.
+                    errorState(error)
+                } else if allWorkouts.isEmpty {
                     emptyState
                 }
             }
@@ -107,6 +133,31 @@ struct WorkoutListView: View {
                 .font(.system(size: 14))
                 .foregroundColor(WarmInstrument.inkMuted)
                 .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 40)
+    }
+
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 36))
+                .foregroundColor(WarmInstrument.inkFaint)
+            Text("Couldn't load workouts")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(WarmInstrument.ink)
+            Text(message)
+                .font(.system(size: 14))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .multilineTextAlignment(.center)
+            Button("Retry") {
+                Task {
+                    await workoutService.fetchTemplates()
+                    await workoutService.fetchTodaySessions()
+                }
+            }
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(WarmInstrument.ink)
+            .padding(.top, 4)
         }
         .padding(.horizontal, 40)
     }

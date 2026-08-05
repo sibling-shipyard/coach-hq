@@ -84,6 +84,8 @@ enum Theme {
     static let calisthenicsTimerColor = Color(red: 0x7F / 255.0, green: 0x37 / 255.0, blue: 0x28 / 255.0)
     static let recoveryColor          = Color(red: 0x31 / 255.0, green: 0x5A / 255.0, blue: 0x4A / 255.0)
     static let realignColor           = Color(red: 0xA8 / 255.0, green: 0x70 / 255.0, blue: 0x2C / 255.0)
+    // Matches web's dedicated `strength: "#3b4a6b"` in WORKOUT_TYPE_ACCENT.
+    static let strengthColor          = Color(red: 0x3B / 255.0, green: 0x4A / 255.0, blue: 0x6B / 255.0)
 
     static func workoutColor(for type: WorkoutType?) -> Color {
         switch type {
@@ -91,17 +93,22 @@ enum Theme {
         case .calisthenics:  return calisthenicsTimerColor
         case .recovery:      return recoveryColor
         case .realign:       return realignColor
+        case .strength:      return strengthColor
+        // Same fallback web uses for an unrecognized type (WORKOUT_TYPE_ACCENT ?? RUST).
+        case .other:         return calisthenicsTimerColor
         case nil:            return foundationColor
         }
     }
 
     static func workoutLabel(for type: WorkoutType?) -> String {
         switch type {
-        case .foundation:   return "FOUNDATION"
-        case .calisthenics: return "CALISTHENICS"
-        case .recovery:     return "RECOVERY"
-        case .realign:      return "REALIGN"
-        case nil:           return "WORKOUT"
+        case .foundation:        return "FOUNDATION"
+        case .calisthenics:      return "CALISTHENICS"
+        case .recovery:          return "RECOVERY"
+        case .realign:           return "REALIGN"
+        case .strength:          return "STRENGTH"
+        case .other(let raw):    return raw.uppercased()
+        case nil:                return "WORKOUT"
         }
     }
 
