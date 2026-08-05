@@ -45,7 +45,12 @@ struct WorkoutListView: View {
         for entry in allWorkouts where !orderedTypes.contains(entry.workout.workoutType) {
             leftoverGroups[entry.workout.workoutType, default: []].append(entry)
         }
-        return ordered + leftoverGroups.map { (type: $0.key, entries: $0.value) }
+        // Dictionary iteration order is unspecified — sort by rawValue so leftover sections
+        // stay in a stable order across renders/launches instead of shuffling.
+        let leftover = leftoverGroups
+            .map { (type: $0.key, entries: $0.value) }
+            .sorted { $0.type.rawValue < $1.type.rawValue }
+        return ordered + leftover
     }
 
     var body: some View {
