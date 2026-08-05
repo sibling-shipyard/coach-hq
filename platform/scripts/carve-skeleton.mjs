@@ -10,7 +10,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { execSync, spawnSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,19 +30,10 @@ const SKELETON_SCRIPT_FILES = [
 ];
 
 /** Dirs carved into engine/ */
-const SKELETON_ENGINE_DIRS = ["lib", "core", "claude"];
+const SKELETON_ENGINE_DIRS = ["lib", "core"];
 
 /** Workout plan templates copied from platform/skeleton-templates/ → user_data/.../templates/ */
 const WORKOUT_TEMPLATES = ["foundation.json", "strength_a.json"];
-
-/** Reference docs copied from HQ → propagated/docs/ (SOUL on-demand reads) */
-const PROPAGATED_DOCS = [
-  "current-week-contract.md",
-  "timer-state-machine.md",
-  "phelps-voice-profile.md",
-  "soul-calibration.md",
-  "milestone-schema.md",
-];
 
 const CHALLENGE_V2_TEMPLATE = {
   // Canonical shape per ADR 0006 — season block (not challenge), weekly_targets as
@@ -277,7 +268,10 @@ __pycache__/
 
 const SKELETON_README = `# coach-skeleton
 
-Private fork template for \`coach-<user>\` repos. Carved from \`coach-phelps-hq\`.
+Private fork template for \`coach-<user>\` repos. Carved from \`coach-phelps-hq\`. This repo is a
+data/backing store for the hosted Coach Phelps web + iOS app — Coach Phelps's persona and
+coaching logic live once in HQ (\`coach-phelps-hq\`), not duplicated here; there is no local/BYO
+coaching mode.
 
 ## What's in this repo
 
@@ -286,7 +280,6 @@ Private fork template for \`coach-<user>\` repos. Carved from \`coach-phelps-hq\
 | **init** | \`user_data/coach/*\`, \`user_data/activities/hist/\` |
 | **post-init** | \`user_data/ledger/*\`, \`user_data/activities/workout_plans/sessions/\` |
 | **gen** | \`gen/aggregate.json\`, \`gen/quest_log.md\`, \`gen/sync_status.json\`, \`gen/widget_snapshots.json\` |
-| **propagated** | \`propagated/SOUL.md\` + \`propagated/docs/\` — HQ IP copy (not editable) |
 | **engine** | Runtime scripts, core, and shared naming/query logic — carved from HQ; coach must not edit |
 
 Dashboard: shared site reads \`gen/aggregate.json\`. iOS app pushes \`user_data/activities/hist/\` directly.
@@ -294,25 +287,11 @@ Dashboard: shared site reads \`gen/aggregate.json\`. iOS app pushes \`user_data/
 Pin: \`.coach-engine-version\` · Operator: \`coach-phelps-hq/platform/scripts/carve-skeleton.mjs\`
 `;
 
-function writeAthleteClaudeConfig(outDir) {
-  const athleteClaudeDir = path.join(REPO_ROOT, "engine/claude/athlete");
-  writeText(outDir, "CLAUDE.md", fs.readFileSync(path.join(athleteClaudeDir, "CLAUDE.md"), "utf8"));
-  writeText(
-    outDir,
-    ".claude/hooks/session-start.sh",
-    fs.readFileSync(path.join(athleteClaudeDir, "hooks/session-start.sh"), "utf8"),
-  );
-  fs.chmodSync(path.join(outDir, ".claude/hooks/session-start.sh"), 0o755);
-  writeText(
-    outDir,
-    ".claude/settings.json",
-    fs.readFileSync(path.join(athleteClaudeDir, "settings.json"), "utf8"),
-  );
-}
+const SETUP_MD = `# Setup — coach-<user> repo
 
-const SETUP_MD = `# Setup — Bring Your Own Claude
-
-One checklist to go from fork to first coaching session. Budget ~20 minutes.
+One checklist to go from fork to first coaching session. Budget ~10 minutes. This repo is a
+data/backing store for the hosted Coach Phelps web + iOS app — you never open a local coding
+tool against it; all coaching happens through the app.
 
 ---
 
@@ -329,41 +308,28 @@ cd coach-YOUR_NAME
 
 ## 2. GitHub secrets
 
-**None required.** The Sync and Apply Coach Patch workflows run under the
-built-in \`GITHUB_TOKEN\` (granted \`contents: write\`), which GitHub provisions
-automatically for every Actions run. You do **not** need to create a \`PAT_TOKEN\`
-or any other secret to push sync output and coach commits.
-
-> Strava athletes only: add your Strava API secrets if your operator asks — that
-> is a separate, optional integration.
+**None required.** The Sync workflow runs under the built-in \`GITHUB_TOKEN\` (granted
+\`contents: write\`), which GitHub provisions automatically for every Actions run. You do **not**
+need to create a \`PAT_TOKEN\` or any other secret to push sync output.
 
 ---
 
 ## 3. Install the GitHub App
 
-The shared Coach Phelps dashboard and Claude Code mobile need the **Coach Phelps GitHub App** installed on your repo.
+The Coach Phelps web dashboard and iOS app need the **Coach Phelps GitHub App** installed on
+your repo.
 
 1. Your operator sends you the app install link (or open the shared dashboard and sign in).
 2. Install the app on **this repo only** (or all repos if you prefer).
 3. Grant the permissions it requests (read repo contents, trigger workflows).
 
-Without the app, local Claude Code still works; the shared dashboard and mobile repo connector will not.
-
 ---
 
-## 4. Open Claude Code
+## 4. Open the Coach Phelps app
 
-**Recommended (local):**
-\`\`\`bash
-claude
-\`\`\`
-Run from the repo root. Requires a Claude Pro (or Max/Team/Enterprise) plan.
-
-**Claude.ai:** upload \`propagated/SOUL.md\` and \`user_data/coach/state.md\` as attachments.
-
-**Mobile:** Claude app → connect GitHub → Claude Code mode → select this repo.
-
-Coach detects the blank Athlete Profile in \`user_data/coach/state.md\` and runs the First Session intake automatically.
+Sign in on the web dashboard or the iOS app and connect this repo. Coach detects the blank
+Athlete Profile in \`user_data/coach/state.md\` and runs the First Session intake automatically
+the first time you open chat.
 
 ---
 
@@ -381,7 +347,6 @@ After sync, \`gen/quest_log.md\` and \`gen/aggregate.json\` reflect your challen
 ## Troubleshooting
 
 - **Sync workflow fails:** open **Actions → Sync** and read the failed run's log. The workflow uses the built-in \`GITHUB_TOKEN\` (no secret to set); if pushes are rejected, confirm the repo's **Settings → Actions → General → Workflow permissions** is set to **Read and write**.
-- **Coach can't push from mobile:** use **Actions → Apply Coach Patch** with the \`===FILE===\` payload from your session.
 `;
 
 function parseArgs(argv) {
@@ -470,45 +435,9 @@ function copyWorkflows(outDir) {
   }
 }
 
-function ensureComposedSoul() {
-  const compose = spawnSync("node", ["platform/scripts/compose-soul.mjs"], {
-    cwd: REPO_ROOT,
-    encoding: "utf-8",
-  });
-  if (compose.status !== 0) {
-    console.error(compose.stderr || compose.stdout);
-    throw new Error("platform/scripts/compose-soul.mjs failed before carve");
-  }
-}
-
-function copyPropagated(outDir) {
-  const soulSrc = path.join(REPO_ROOT, "platform", "SOUL.md");
-  if (!fs.existsSync(soulSrc)) {
-    throw new Error("Missing platform/SOUL.md — run compose-soul before carve");
-  }
-  fs.mkdirSync(path.join(outDir, "propagated", "docs"), { recursive: true });
-  fs.copyFileSync(soulSrc, path.join(outDir, "propagated", "SOUL.md"));
-
-  for (const doc of PROPAGATED_DOCS) {
-    const src = path.join(REPO_ROOT, "docs", "ref-docs", doc);
-    if (!fs.existsSync(src)) {
-      throw new Error(`Missing docs/ref-docs/${doc} for propagated bundle`);
-    }
-    fs.copyFileSync(src, path.join(outDir, "propagated", "docs", doc));
-  }
-
-  const pipelineTools = path.join(PLATFORM_DIR, "skills", "pipeline-tools.md");
-  if (!fs.existsSync(pipelineTools)) {
-    throw new Error("Missing platform/skills/pipeline-tools.md for propagated bundle");
-  }
-  fs.copyFileSync(pipelineTools, path.join(outDir, "propagated", "docs", "pipeline-tools.md"));
-}
-
 function carve(outDir, sha) {
   console.log(`Carving skeleton → ${outDir}`);
   console.log(`Pinned HQ SHA: ${sha}`);
-
-  ensureComposedSoul();
 
   if (fs.existsSync(outDir)) {
     fs.rmSync(outDir, { recursive: true, force: true });
@@ -523,11 +452,8 @@ function carve(outDir, sha) {
   }
   copyWorkflows(outDir);
 
-  copyPropagated(outDir);
-
   writeText(outDir, ".coach-engine-version", `hq_sha=${sha}`);
   writeText(outDir, "README.md", SKELETON_README);
-  writeAthleteClaudeConfig(outDir);
   writeText(outDir, "SETUP.md", SETUP_MD);
   writeText(outDir, ".gitignore", SKELETON_GITIGNORE);
   const validateWrapperSrc = path.join(REPO_ROOT, "engine/scripts/validate-current-week");

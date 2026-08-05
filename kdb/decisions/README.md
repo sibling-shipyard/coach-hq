@@ -24,6 +24,7 @@
 | 0018 | `coach_since`: a durable day-number anchor, set at First Session Protocol completion | cross-cutting (coach-chat backend, terminal SOUL.md, web, iOS) |
 | 0019 | Enforce one repo per GitHub account: block and instruct, no picker | cross-cutting (web auth, iOS auth) |
 | 0020 | Aggregate scalar projection boundary | cross-cutting |
+| 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.

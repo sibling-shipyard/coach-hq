@@ -11,20 +11,27 @@
 
 Authority: `platform/scripts/carve-skeleton.mjs`. Milestones: [`hq-restructure-plan.md`](../../docs/eng-docs/hq-restructure-plan.md).
 
+**Amended by [0021](0021-coach-chat-reads-soul-directly-terminal-mode-retired.md):** SOUL no
+longer propagates to athlete repos at all, and terminal/BYO-Claude coaching is retired from new
+carves — the `propagated/SOUL.md`, `propagated/docs/`, and `engine/claude/athlete/` rows below no
+longer apply to the skeleton template. They're kept here for historical/audit reference and
+because the two existing live athlete repos still carry those files pending 0021's tracked
+cleanup issue.
+
 | Source (HQ) | Skeleton destination | Band |
 |---|---|---|
 | `engine/scripts/` (5 runtime + validate wrapper) | `engine/scripts/` | `engine/` |
-| `engine/lib/`, `engine/core/`, `engine/claude/athlete/` | `engine/` + root Claude config | `engine/` |
+| `engine/lib/`, `engine/core/` | `engine/` | `engine/` |
 | `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
-| `platform/scripts/compose-soul.mjs` + `platform/soul/` | *(runs at carve)* → `propagated/SOUL.md` | `platform/` |
-| HQ composed artifact (pre-carve) | `platform/SOUL.md` | `platform/` |
-| `docs/ref-docs/` (5 refs) + `platform/skills/pipeline-tools.md` | `propagated/docs/` | `platform/` |
 | `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
 | `platform/scripts/carve-skeleton.mjs`, `provision-user.sh` | not copied | `platform/` |
 | `platform/plugins/` | not copied | `platform/` |
 | Generated init templates | `user_data/*`, `gen/*` placeholders | skeleton stamps only |
 | `user_data/`, `gen/` at HQ | **never copied** | R5 ✓ deleted from HQ |
 | `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |
+| ~~`engine/claude/athlete/` → root Claude config~~ | ~~`.claude/`, `CLAUDE.md`~~ | retired, see 0021 |
+| ~~`platform/scripts/compose-soul.mjs` + `platform/soul/`~~ | ~~`propagated/SOUL.md`~~ | retired, see 0021 |
+| ~~`docs/ref-docs/` (5 refs) + `platform/skills/pipeline-tools.md`~~ | ~~`propagated/docs/`~~ | retired, see 0021 |
 
 ## Deferred
 
