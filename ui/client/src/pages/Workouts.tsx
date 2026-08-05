@@ -40,7 +40,7 @@ function WorkoutCard({ workout, hasSession }: { workout: Workout; hasSession: bo
     >
       <div className="wtx-list-card__top">
         <div className="wtx-list-card__top-left">
-          <SportBadge label={TYPE_LABEL[workout.workout_type]} accent={accent} />
+          <SportBadge label={TYPE_LABEL[workout.workout_type] ?? workout.workout_type.toUpperCase()} accent={accent} />
           {hasSession ? <span className="wtx-list-card__today">TODAY</span> : null}
         </div>
         <span className="wtx-list-card__arrow">→</span>
@@ -89,21 +89,34 @@ function WorkoutsContent({ data }: { data: RepoData }) {
 
   const groups = useMemo(() => {
     const today = toLocalDateStr(new Date());
-    const cards = workoutsData.templates.map((template) => {
+    const templateIds = new Set(workoutsData.templates.map((t) => t.id));
+    const templateCards = workoutsData.templates.map((template) => {
       const todaySession = workoutsData.sessions.find(
         (s) => s.id === template.id && s.session_date === today,
       );
       return { workout: todaySession ?? template, hasSession: !!todaySession };
     });
+    // A one-off session for a workout type with no matching template (Coach gives a cali
+    // session to an athlete with no cali template) has no template card to piggyback on above.
+    const standaloneCards = workoutsData.sessions
+      .filter((s) => s.session_date === today && !templateIds.has(s.id))
+      .map((session) => ({ workout: session, hasSession: true }));
+    const cards = [...templateCards, ...standaloneCards];
     const byType: Record<string, typeof cards> = {};
     cards.forEach((card) => {
       const type = card.workout.workout_type;
       (byType[type] ??= []).push(card);
     });
-    return TYPE_ORDER.filter((type) => byType[type]?.length).map((type) => ({
+    const ordered = TYPE_ORDER.filter((type) => byType[type]?.length).map((type) => ({
       type,
       cards: byType[type],
     }));
+    // Any workout_type not in TYPE_ORDER (a future type — "rehab", etc. — the UI doesn't have
+    // a dedicated slot for yet) still gets its own section instead of silently disappearing.
+    const leftover = Object.keys(byType)
+      .filter((type) => !TYPE_ORDER.includes(type as WorkoutType))
+      .map((type) => ({ type: type as WorkoutType, cards: byType[type] }));
+    return [...ordered, ...leftover];
   }, [workoutsData]);
 
   const hasTodaySession = groups.some((group) => group.cards.some((card) => card.hasSession));
@@ -130,7 +143,7 @@ function WorkoutsContent({ data }: { data: RepoData }) {
         <div className="wtx-list-groups">
           {groups.map((group) => (
             <div key={group.type}>
-              <div className="wtx-list-group__label">{TYPE_LABEL[group.type]}</div>
+              <div className="wtx-list-group__label">{TYPE_LABEL[group.type] ?? group.type.toUpperCase()}</div>
               <div className="wtx-list-grid">
                 {group.cards.map((card) => (
                   <WorkoutCard key={card.workout.id} workout={card.workout} hasSession={card.hasSession} />
