@@ -169,6 +169,16 @@ function CoachChatContent({ data }: { data: RepoData }) {
           const firstDivider = messages.find((m) => m.role === "divider");
           const createdAt = firstDivider ? (epochMsFromMessageId(firstDivider.id) ?? undefined) : undefined;
           const dayOffset = createdAt !== undefined ? computeLocalDayOffset(createdAt) : 0;
+          // An unreplied greeting from a past day has nothing worth keeping - Coach spoke, the
+          // athlete never engaged, and a fresh greeting for today already supersedes it. Rather
+          // than let it linger forever as a single-message "ghost" thread (correctly dated by
+          // the fix above, but still shown), drop it here: clear its cache entry and don't
+          // materialize it at all. A same-day unreplied greeting is untouched by this - that's
+          // still "come back to what Coach just said," not clutter.
+          if (!firstUser && dayOffset > 0) {
+            clearThreadLocally(id);
+            return [];
+          }
           const thread: ChatThread = {
             id,
             dayOffset,
