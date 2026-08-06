@@ -15,21 +15,34 @@ final class CoachChatAPIClient {
     /// A5: last repoSha seen per thread - mirrors coachChatModel.ts's lastKnownSha. Sent back
     /// as knownSha on the next message in that thread so the server can detect the repo
     /// changed since (e.g. a session wrapped on the web app) without any lock.
-    private static var lastKnownSha: [String: String] = [:]
+    ///
+    /// Actor-isolated (not a bare `static var`) because CoachChatAPIClient instances are called
+    /// concurrently - e.g. a background fetchThreads() racing an in-flight sendMessage() - and an
+    /// unsynchronized static dict mutated from multiple Tasks is a real data race. Remember and
+    /// prune always happen as one atomic operation (rememberAndPrune) rather than two separate
+    /// calls: pruning with a thread list from an older/slower response that doesn't yet include
+    /// the id we just remembered would otherwise wipe that entry immediately after writing it -
+    /// the `keep.insert` below makes that impossible regardless of response ordering.
+    private actor ShaStore {
+        private var lastKnownSha: [String: String] = [:]
 
-    private func rememberRepoSha(_ threadId: String?, _ sha: String?) {
-        guard let threadId, let sha else { return }
-        Self.lastKnownSha[threadId] = sha
+        func sha(for threadId: String) -> String? { lastKnownSha[threadId] }
+
+        /// `currentThreadIds: nil` means "no authoritative thread list this response" (e.g. a
+        /// non-closing sendMessage) - remember only, skip pruning entirely rather than treating
+        /// a missing list as an empty one (which would wipe every other thread's entry).
+        func rememberAndPrune(threadId: String?, sha: String?, currentThreadIds: [String]?) {
+            if let threadId, let sha {
+                lastKnownSha[threadId] = sha
+            }
+            guard let currentThreadIds else { return }
+            var keep = Set(currentThreadIds)
+            if let threadId, sha != nil { keep.insert(threadId) }
+            lastKnownSha = lastKnownSha.filter { keep.contains($0.key) }
+        }
     }
 
-    /// Mirrors coachChatModel.ts's pruneRepoSha: drops entries for threads no longer present
-    /// once a full thread-list refresh gives us the authoritative current set - without this,
-    /// `lastKnownSha` only ever grows for the lifetime of the process (harmless at today's scale,
-    /// a handful of small strings, but unbounded).
-    private func pruneRepoSha(currentThreadIds: [String]) {
-        let keep = Set(currentThreadIds)
-        Self.lastKnownSha = Self.lastKnownSha.filter { keep.contains($0.key) }
-    }
+    private static let shaStore = ShaStore()
 
     private struct AuthContext {
         let token: String
@@ -159,8 +172,7 @@ final class CoachChatAPIClient {
         let req = try request("POST", body: body, auth: auth)
         let data = try await send(req, operation: "Starting conversation", retryNetworkFailures: false)
         let decoded = try JSONDecoder().decode(ChatGreetResponse.self, from: data)
-        rememberRepoSha(decoded.threadId, decoded.repoSha)
-        pruneRepoSha(currentThreadIds: decoded.threads.map(\.id))
+        await Self.shaStore.rememberAndPrune(threadId: decoded.threadId, sha: decoded.repoSha, currentThreadIds: decoded.threads.map(\.id))
         return decoded
     }
 
@@ -180,7 +192,7 @@ final class CoachChatAPIClient {
         let req = try request("GET", auth: auth)
         let data = try await send(req, operation: "Loading conversations")
         let threads = try JSONDecoder().decode(ChatThreadsResponse.self, from: data).threads
-        pruneRepoSha(currentThreadIds: threads.map(\.id))
+        await Self.shaStore.rememberAndPrune(threadId: nil, sha: nil, currentThreadIds: threads.map(\.id))
         return threads
     }
 
@@ -195,13 +207,16 @@ final class CoachChatAPIClient {
         var body: [String: Any] = ["messages": messagesJSON, "message": message]
         if let threadId {
             body["threadId"] = threadId
-            if let knownSha = Self.lastKnownSha[threadId] { body["knownSha"] = knownSha }
+            if let knownSha = await Self.shaStore.sha(for: threadId) { body["knownSha"] = knownSha }
         }
         let req = try request("POST", body: body, auth: auth)
         let data = try await send(req, operation: "Sending message", retryNetworkFailures: false)
         let decoded = try JSONDecoder().decode(ChatSendResponse.self, from: data)
-        rememberRepoSha(decoded.closed ? decoded.threadId : threadId, decoded.repoSha)
-        if let threads = decoded.threads { pruneRepoSha(currentThreadIds: threads.map(\.id)) }
+        await Self.shaStore.rememberAndPrune(
+            threadId: decoded.closed ? decoded.threadId : threadId,
+            sha: decoded.repoSha,
+            currentThreadIds: decoded.threads?.map(\.id),
+        )
         return decoded
     }
 
@@ -210,7 +225,7 @@ final class CoachChatAPIClient {
         let req = try request("PATCH", body: ["threadId": threadId, "status": status.rawValue], auth: auth)
         let data = try await send(req, operation: "Updating conversation")
         let threads = try JSONDecoder().decode(ChatThreadsResponse.self, from: data).threads
-        pruneRepoSha(currentThreadIds: threads.map(\.id))
+        await Self.shaStore.rememberAndPrune(threadId: nil, sha: nil, currentThreadIds: threads.map(\.id))
         return threads
     }
 }

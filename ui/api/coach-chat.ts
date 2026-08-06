@@ -27,7 +27,7 @@ import {
   loadCoachContext,
 } from "./_lib/coachChatFiles.js";
 import { applyJsonMergePatch, applyStringEdits, type StringEdit } from "./_lib/fileEdits.js";
-import { getCachedSoulName } from "./_lib/soulCache.js";
+import { getCachedSoulName, invalidateCachedSoulName } from "./_lib/soulCache.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 
@@ -368,6 +368,53 @@ const FEW_SHOT_EXAMPLES = [
   "</example_3>",
 ].join("\n");
 
+// Shared between the primary cached-or-not call and the stale-cache retry in askGemini - the
+// response shape Gemini should return doesn't depend on whether cachedContent was used.
+const GENERATION_CONFIG = {
+  responseMimeType: "application/json",
+  // A7: file_updates now carries targeted edits/patches instead of whole-file bodies, so this
+  // needs far less headroom than the old full-file-regen design did - kept generous anyway since
+  // a close-out turn can still propose several files at once.
+  maxOutputTokens: 16384,
+  responseSchema: {
+    type: "object",
+    properties: {
+      // Declared first so the model fills it in before `reply` - a brief internal check (is this
+      // genuinely a close, does every proposed edit have real backing content) ahead of the
+      // final answer, not shown to the athlete (stripped below).
+      reasoning: { type: "string" },
+      reply: { type: "string" },
+      session_closed: { type: "boolean" },
+      commit_message: { type: "string" },
+      title: { type: "string" },
+      file_updates: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            path: { type: "string" },
+            edits: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  old_string: { type: "string" },
+                  new_string: { type: "string" },
+                },
+                required: ["old_string", "new_string"],
+              },
+            },
+            merge_patch: { type: "string" },
+            content: { type: "string" },
+          },
+          required: ["path"],
+        },
+      },
+    },
+    required: ["reply"],
+  },
+} as const;
+
 // The truly static half of the prompt - byte-identical on every single call, for every athlete.
 // This is what gets uploaded once via Gemini's explicit-caching API (see soulCache.ts) instead
 // of being resent as text on every request. Kept separate from the per-turn dynamic block below
@@ -420,17 +467,31 @@ export async function askGemini(
   // section for the numbers.
   const staticText = staticSystemText(soul);
   const cachedName = await getCachedSoulName(apiKey, GEMINI_MODEL, staticText).catch(() => null);
-  const dynamicText = [
-    // When explicit caching is active, this whole block is injected as a synthetic turn (see
-    // `contents` below) rather than living in `systemInstruction` - Gemini's API rejects setting
-    // both on the same request. A plain instructions block dropped mid-conversation reads with
-    // less authority than a system instruction (measured: eval regressions on commit_message/
-    // session_closed when this framing line was missing), so it's spelled out explicitly here.
-    "[SYSTEM CONTEXT - not a message from the athlete. Everything below carries the same binding",
-    "authority as your system instructions above: follow every directive in it exactly, including",
-    "the commit_message and session_closed rules, even though it arrives as a turn rather than a",
-    "system field.]",
-    "<state>",
+  // Takes `useCache` as a parameter (rather than closing over `cachedName` directly) so the
+  // retry below can rebuild this as a plain no-cache request if the cache name Gemini was given
+  // turns out to be stale/expired at request time (a distinct failure mode from cache *creation*
+  // failing, which getCachedSoulName above already handles) - a call that dies because Gemini
+  // rejected an invalid cachedContent reference should never surface to the athlete as "coach
+  // didn't reply."
+  const buildDynamicText = (useCache: boolean) =>
+    [
+      // When explicit caching is active, this whole block is injected as a synthetic turn (see
+      // `contents` below) rather than living in `systemInstruction` - Gemini's API rejects setting
+      // both on the same request. A plain instructions block dropped mid-conversation reads with
+      // less authority than a system instruction (measured: eval regressions on commit_message/
+      // session_closed when this framing line was missing), so it's spelled out explicitly here.
+      // Only relevant - and only true - on the cached path: in the no-cache fallback, this text
+      // gets concatenated directly into systemInstruction itself (see `contents`/request body
+      // below), so a claim about "arriving as a turn instead of a system field" would be describing
+      // a mechanism that isn't happening. Omit it there rather than confuse the model with a false
+      // framing.
+      useCache
+        ? "[SYSTEM CONTEXT - not a message from the athlete. Everything below carries the same " +
+          "binding authority as your system instructions above: follow every directive in it " +
+          "exactly, including the commit_message and session_closed rules, even though it arrives " +
+          "as a turn rather than a system field.]"
+        : "",
+      "<state>",
     "\nCurrent user_data/coach/state.md:\n" + stateMd,
     "\nCurrent gen/quest_log.md (read-only, pre-computed):\n" + questLog,
     closingFiles
@@ -527,8 +588,8 @@ export async function askGemini(
     // Keeping it here, after everything else, is what makes this a stable-then-volatile block,
     // matching the same ordering rationale as the no-cache fallback's systemInstruction used to
     // rely on end-to-end.
-    "\n" + todayContextLine(stateMd),
-  ].join("\n");
+      "\n" + todayContextLine(stateMd),
+    ].join("\n");
 
   // Gemini's generateContent needs at least one content entry to generate against - a greeting
   // turn has no real athlete message yet, so this is a hidden trigger, never shown to the
@@ -548,77 +609,53 @@ export async function askGemini(
   // Gemini rejects a request that sets both `cachedContent` and `systemInstruction` - when a
   // cache is active, the dynamic block (state/instructions/timestamp) has nowhere else to go but
   // into `contents`, prepended as a synthetic user/model exchange ahead of the real
-  // conversation. When there's no cache (not configured, or creation failed this call), fall
-  // back to the pre-explicit-caching shape: everything in systemInstruction, nothing synthetic
-  // in contents. Either way Gemini sees the exact same information, just routed differently.
-  const contents = cachedName
-    ? [
-        { role: "user", parts: [{ text: dynamicText }] },
-        {
-          role: "model",
-          parts: [{ text: "Understood - I'll follow those instructions exactly, same as my system instructions." }],
-        },
-        ...historyContents,
-        finalTurn,
-      ]
-    : [...historyContents, finalTurn];
+  // conversation. When there's no cache (not configured, or creation failed this call, or the
+  // retry below discovered it was stale), fall back to the pre-explicit-caching shape: everything
+  // in systemInstruction, nothing synthetic in contents. Either way Gemini sees the exact same
+  // information, just routed differently.
+  const buildContents = (useCache: boolean) =>
+    useCache
+      ? [
+          { role: "user", parts: [{ text: buildDynamicText(true) }] },
+          {
+            role: "model",
+            parts: [{ text: "Understood - I'll follow those instructions exactly, same as my system instructions." }],
+          },
+          ...historyContents,
+          finalTurn,
+        ]
+      : [...historyContents, finalTurn];
 
-  const res = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
+  const buildRequestBody = (useCache: boolean) => ({
+    ...(useCache
+      ? { cachedContent: cachedName }
+      : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(false) }] } }),
+    contents: buildContents(useCache),
+    generationConfig: GENERATION_CONFIG,
+  });
+
+  const callGemini = (useCache: boolean) =>
+    fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...(cachedName ? { cachedContent: cachedName } : { systemInstruction: { parts: [{ text: staticText + "\n" + dynamicText }] } }),
-        contents,
-        generationConfig: {
-          responseMimeType: "application/json",
-          // A7: file_updates now carries targeted edits/patches instead of whole-file bodies,
-          // so this needs far less headroom than the old full-file-regen design did - kept
-          // generous anyway since a close-out turn can still propose several files at once.
-          maxOutputTokens: 16384,
-          responseSchema: {
-            type: "object",
-            properties: {
-              // Declared first so the model fills it in before `reply` - a brief internal check
-              // (is this genuinely a close, does every proposed edit have real backing content)
-              // ahead of the final answer, not shown to the athlete (stripped below).
-              reasoning: { type: "string" },
-              reply: { type: "string" },
-              session_closed: { type: "boolean" },
-              commit_message: { type: "string" },
-              title: { type: "string" },
-              file_updates: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    path: { type: "string" },
-                    edits: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          old_string: { type: "string" },
-                          new_string: { type: "string" },
-                        },
-                        required: ["old_string", "new_string"],
-                      },
-                    },
-                    merge_patch: { type: "string" },
-                    content: { type: "string" },
-                  },
-                  required: ["path"],
-                },
-              },
-            },
-            required: ["reply"],
-          },
-        },
-      }),
-    },
-  );
+      body: JSON.stringify(buildRequestBody(useCache)),
+    });
 
+  let res = await callGemini(!!cachedName);
+  // A stale/invalid cachedContent name (expired between getCachedSoulName's read and this actual
+  // call, or evicted server-side) is a distinct failure mode from cache *creation* failing - that
+  // case is already handled by getCachedSoulName falling back to null. This one only shows up
+  // here, at request time, as a 400 - retry once as a plain no-cache call so it never surfaces to
+  // the athlete as "coach didn't reply," and drop the bad record so the next request doesn't
+  // repeat this round-trip.
+  if (cachedName && res.status === 400) {
+    invalidateCachedSoulName().catch(() => {});
+    res = await callGemini(false);
+  }
+  return finishGeminiResponse(res);
+}
+
+async function finishGeminiResponse(res: Response): Promise<GeminiReply> {
   if (res.status === 429) {
     // Not necessarily free-tier - Tier 1 has its own (much higher) ceilings too. Both clients now
     // handle 429 as its own case with a proper "wait and retry" message rather than surfacing

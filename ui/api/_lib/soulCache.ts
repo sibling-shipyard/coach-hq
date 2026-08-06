@@ -27,6 +27,7 @@ interface CacheRecord {
   name: string;
   expiresAt: number; // epoch ms
   contentHash: string;
+  model: string;
 }
 
 // Cheap non-cryptographic hash - this only needs to detect "the static prefix text changed
@@ -48,6 +49,26 @@ async function readRecord(): Promise<CacheRecord | null> {
     // Edge Config unreachable - treat as cache miss.
     return null;
   }
+}
+
+/** Best-effort: drop the stored record so the next call recreates a cache instead of reusing a
+ * name Gemini just rejected. Never throws - a failed invalidation just means one more request
+ * pays the round-trip cost of hitting the same stale name before Edge Config's own TTL/next
+ * write clears it. */
+export async function invalidateCachedSoulName(): Promise<void> {
+  const configId = process.env.EDGE_CONFIG_ID;
+  const token = process.env.VERCEL_API_TOKEN;
+  if (!configId || !token) return;
+  const teamQuery = process.env.VERCEL_TEAM_ID ? `?teamId=${process.env.VERCEL_TEAM_ID}` : "";
+  await fetchWithTimeout(
+    `https://api.vercel.com/v1/edge-config/${configId}/items${teamQuery}`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ items: [{ operation: "delete", key: EDGE_CONFIG_KEY }] }),
+    },
+    10_000,
+  ).catch(() => {});
 }
 
 async function writeRecord(record: CacheRecord): Promise<void> {
@@ -98,15 +119,27 @@ async function createCache(apiKey: string, model: string, staticSystemText: stri
  * create call failed) - callers must fall back to inlining `staticSystemText` in
  * `systemInstruction` in that case, since Gemini rejects a request that sets both `cachedContent`
  * and `systemInstruction`.
+ *
+ * Known race, not fixed here (P2): read-then-write isn't atomic, so concurrent cold starts that
+ * all miss the cache at once can each call createCache and each write their own record, the last
+ * write winning. Harmless in practice - every created cache is independently valid, Gemini just
+ * ends up with a few short-lived orphaned entries instead of one, and they age out via their own
+ * TTL. Worth a proper compare-and-swap (or a lock) only if this is ever observed causing real
+ * cost/behavior problems, not speculatively.
  */
 export async function getCachedSoulName(apiKey: string, model: string, staticSystemText: string): Promise<string | null> {
   const hash = hashText(staticSystemText);
   const existing = await readRecord();
-  if (existing && existing.contentHash === hash && existing.expiresAt > Date.now()) {
+  // Model is checked alongside the content hash, not folded into it - a GEMINI_MODEL bump with
+  // SOUL text unchanged must still invalidate: a cachedContents/... name is only valid for the
+  // model it was created against, and reusing one across a model change gets rejected by Gemini
+  // (the request-time retry in askGemini covers that failure mode too, but there's no reason to
+  // pay that round-trip when it's knowable up front).
+  if (existing && existing.contentHash === hash && existing.model === model && existing.expiresAt > Date.now()) {
     return existing.name;
   }
   const name = await createCache(apiKey, model, staticSystemText);
   if (!name) return null;
-  await writeRecord({ name, expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000, contentHash: hash });
+  await writeRecord({ name, expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000, contentHash: hash, model });
   return name;
 }
