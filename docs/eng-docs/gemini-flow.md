@@ -71,6 +71,14 @@ The fallback path (no `systemInstruction`/`cachedContent` split) is exactly the 
 this project shipped before explicit caching existed — a broken or unconfigured cache degrades
 to that, it never blocks a reply.
 
+**Request-time staleness, distinct from cache-creation failure:** `getCachedSoulName()` can
+return a name that's since gone stale or been evicted server-side between its own read and the
+actual `generateContent` call — a different failure mode than *creating* a cache failing (which
+falls back to `null`/no-cache before the call even happens). If the actual call comes back `400`
+with a cache name set, `askGemini()` invalidates the stored record and retries once as a plain
+no-cache call, so this never surfaces to the athlete as a failed reply — it costs one extra
+round-trip, silently.
+
 ### Cache lifecycle (`soulCache.ts`)
 
 - Cache name + expiry + a content hash of the static text live in **Vercel Edge Config**
@@ -89,6 +97,18 @@ to that, it never blocks a reply.
 - **Setup required** (operator action, not code): create a Vercel Edge Config store, connect it
   to the project, and set `EDGE_CONFIG_ID`/`VERCEL_API_TOKEN` in Vercel's env vars (prod +
   preview) for writes to persist across cold starts. See `docs/eng-docs/env-vars.md`.
+- Cache validity checks the model alongside the content hash, not folded into it — a
+  `GEMINI_MODEL` bump with SOUL text unchanged still invalidates, since a `cachedContents/...`
+  name is only valid for the model it was created against (the request-time retry above would
+  also catch this, but checking up front avoids paying that round-trip when it's knowable
+  earlier).
+- Every reply logs `[coach-chat] Gemini usage: prompt=<n> cached=<n>` (`finishGeminiResponse`) —
+  the standing way to confirm caching is actually being hit on real traffic, not just configured.
+  See "Done when" below.
+- Known, accepted race (not fixed): `getCachedSoulName`'s read-then-write isn't atomic, so
+  concurrent cold starts that all miss the cache at once can each create and write their own
+  entry, last write winning. Harmless — every created cache is independently valid, Gemini just
+  ends up with a few short-lived orphaned entries that age out via their own TTL.
 
 ## Reasoning field
 
@@ -96,8 +116,16 @@ to that, it never blocks a reply.
 OpenAI's structured-outputs guide reports a large accuracy gain on schema-shaped tasks from a
 reasoning field ahead of the final answer, even for non-reasoning-first models like Flash. The
 model briefly checks itself — is this genuinely a close, is every proposed file edit backed by
-real content it was actually shown — before committing to `reply`. `askGemini()` deletes
-`reasoning` from the parsed response before returning; it never reaches the athlete.
+real content it was actually shown — before committing to `reply`.
+
+On a closing turn specifically, `finishGeminiResponse` logs the model's own `reasoning` text
+(`console.log("[coach-chat] closing-turn reasoning:", ...)`) before stripping it — added
+2026-08-06 after real closes were found landing with zero `file_updates` and no way to tell why.
+This is the only place `reasoning` is ever available: it's deleted from the object immediately
+after (not just omitted from responses — genuinely `delete`d, so `eval-coach-chat.ts`'s leak
+check (`"reasoning" in reply`) holds on `askGemini`'s actual return contract, not just on
+`coach-chat.ts`'s own `Response.json(...)` call sites, which all pick explicit fields and never
+spread the whole object anyway). It never reaches the athlete either way.
 
 ## Response schema
 
@@ -134,7 +162,10 @@ real content it was actually shown — before committing to `reply`. `askGemini(
 
 - `npm run eval:coach-chat` passes against a live key after any prompt-construction change.
 - A live call's `usageMetadata.cachedContentTokenCount` is nonzero on the second request in a
-  session, confirming explicit caching is actually hitting (not just configured).
+  session, confirming explicit caching is actually hitting (not just configured) — check the
+  standing `[coach-chat] Gemini usage: prompt=... cached=...` log line rather than a one-off
+  script; verified live 2026-08-06, same `cached` value reused across two real messages in one
+  session while `prompt` grew with history.
 
 ## Deferred
 
@@ -142,3 +173,9 @@ real content it was actually shown — before committing to `reply`. `askGemini(
   from the structured metadata fields.
 - P3: cache invalidation is TTL + content-hash only, no active push on SOUL redeploy — acceptable
   given deploy frequency vs. the 2h TTL, revisit if that ratio changes.
+- P3: `getCachedSoulName`'s read-then-write race under concurrent cold starts, documented above -
+  not fixed, harmless in practice.
+- Close-turn prompt reliability (does `session_closed: true` actually come with real
+  `file_updates`) is a genuine compliance gap, not something this file's caching/retry mechanics
+  can fix — see `coach-chat-flow.md`'s close-session detection section for the logging and prompt
+  reinforcement added 2026-08-06.
