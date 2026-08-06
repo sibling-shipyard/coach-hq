@@ -3,9 +3,9 @@
 ## Context
 
 Real Coach Phelps sessions from the browser and iOS, backed by Gemini. This doc traces what
-happens between the athlete opening the chat tab and anything landing on `main`. Ground-up
-redesign (Part A + Part B, 2026-08) replaced the old "athlete types first, Gemini regenerates
-whole files" design — this revision documents the current architecture, not the original one.
+happens between the athlete opening the chat tab and anything landing on `main` — it describes
+**how the system works today**, not its history. For what changed, when, and why, see
+[`coach-chat-design.md`](coach-chat-design.md)'s dated record.
 Companion to [`ios-sync.md`](ios-sync.md): that doc covers HealthKit ingestion, this one covers
 the coaching-conversation path. Commit/retention design: ADR 0012. Vercel function-count
 constraint that shapes the endpoint layout: ADR 0017.
@@ -27,7 +27,7 @@ separate systems.
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `ui/api/coach-chat.ts` | `GET` | Load committed threads (newest 7, always `status: "active"`) |
-| `ui/api/coach-chat.ts` | `POST {action: "greet"}` | Coach speaks first — create/reuse today's opening thread |
+| `ui/api/coach-chat.ts` | `POST {action: "greet"}` | Coach speaks first — reply only, no repo write (client materializes it locally) |
 | `ui/api/coach-chat.ts` | `POST {threadId?, messages, message}` | Send a message, get a real reply |
 | `ui/api/coach-chat.ts` | `PATCH {threadId, status: "deleted"}` | Delete a thread — immediate, permanent |
 | `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL.md/state.md/quest_log.md ahead of chat opening |
@@ -40,11 +40,9 @@ flowchart LR
     load["App/site loads"] --> warm["GET coach-chat-context.ts\n(warms 60s server cache)"]
     warm -.-> open["Athlete opens Coach Chat"]
     open --> greet["POST {action: greet}"]
-    greet --> reused{"Today's thread\nalready exists,\nunanswered?"}
-    reused -- yes --> showExisting["Return it as-is\n(no Gemini call)"]
-    reused -- no --> askGreeting["Gemini: greeting mode\n1-3 sentence opener"]
-    askGreeting --> commitGreet["commitFilesAtomic:\nchat_history.json only"]
-    commitGreet --> shown["Coach's opener shown\nbefore athlete types anything"]
+    greet --> askGreeting["Gemini: greeting mode\n1-3 sentence opener\n(every open, no server reuse check)"]
+    askGreeting --> local["Client materializes an\nuncommitted local thread\n- NO repo write"]
+    local --> shown["Coach's opener shown\nbefore athlete types anything"]
     shown --> typed["Athlete sends a message"]
     typed --> ordinary["POST {threadId, messages, message}"]
     ordinary --> stale{"knownSha !=\ncurrent HEAD?"}
@@ -54,7 +52,7 @@ flowchart LR
     cached --> turn["Gemini: ordinary or closing mode"]
     turn --> closeCheck{"Close-signal regex\nmatched AND\nsession_closed:true?"}
     closeCheck -- no --> noWrite["reply only, no repo write"]
-    closeCheck -- yes --> commitClose["commitFilesAtomic:\nfile_updates + chat_history.json"]
+    closeCheck -- yes --> commitClose["commitFilesAtomic:\nfile_updates + chat_history.json\n(greeting + full transcript,\nfirst write for this thread)"]
     commitClose --> done["closed:true, profileComplete,\nrepoSha returned"]
 ```
 
@@ -72,16 +70,27 @@ top of the Gemini call.
 ### 2. Coach speaks first (A4)
 
 Landing on the chat tab never shows an empty composer. The client calls
-`POST {action: "greet"}`, handled by `handleGreet()`:
+`POST {action: "greet"}`, handled by `handleGreet()`, which **does not write anything to the
+repo.** Every single call generates a fresh opener via Gemini (`"greeting"` mode: 1-3 sentence
+contextual opener, no day-count, no stat dump, never proposes `file_updates`, informed by
+current `state.md`/`quest_log.md`) and returns just `{reply, threadId, threads}` — `threadId` is
+a fresh, never-persisted id (kept in the response only for shape stability; neither web nor iOS
+reads it) and `threads` is the existing committed list, unchanged.
 
-- **Reuse check** — if today already has a thread whose only real message is an unanswered
-  Coach opener (`[divider, coachMsg]`, nothing from the athlete yet), return it as-is. No second
-  Gemini call, no new commit — otherwise repeatedly opening the tab without engaging would burn
-  through the 7-slot retention cap for nothing.
-- **Otherwise** — call Gemini in `"greeting"` mode (1-3 sentence contextual opener, no day-count,
-  no stat dump, never proposes `file_updates`), then commit a brand-new thread
-  (`[divider, coachMsg]`) via `commitFilesAtomic()`. This is the only greet-time write; nothing
-  else in the repo changes on a greet.
+The client materializes the greeting as an **uncommitted local thread** instead — web in
+`CoachChat.tsx` (`materializeGreeting()`), iOS in `CoachChatView.swift` (`greetNow()`) — using
+the same `local-<timestamp>` id convention both platforms use for a brand-new athlete-initiated
+thread. The greeting only actually lands in the repo if the athlete replies and that
+conversation later closes: its full message history, including the divider and Coach's opening
+line, rides along inside that eventual close-commit, exactly like an ordinary mid-conversation
+turn (nothing writes server-side until close).
+
+**Accepted edge case:** without a server-side reuse check, two tabs/devices opened at almost the
+exact same moment on a day with no thread yet each independently materialize their own local
+greeting, with no reconciliation. If the athlete replies in one, that becomes the real
+conversation; if they reply in both, that's two genuine conversations, no different from
+deliberately starting a second one via "New conversation." Worst case costs one redundant Gemini
+call for a greeting nobody reads.
 
 ### 3. Ordinary turns
 
@@ -154,6 +163,20 @@ On a genuine close:
 - The response includes `profileComplete` — computed from whatever `state.md` content this turn
   actually just committed (see First Session Protocol below).
 
+**Close-save observability:** nothing in code requires `session_closed: true` to actually carry
+non-empty `file_updates` — a genuinely content-free close ("just wanted to say hi, bye") is
+legitimate and the prompt allows it honestly, so this isn't a hard block, just visibility plus a
+stronger prompt:
+- A `console.warn` fires whenever a close lands with `validUpdates.length === 0`, logging the
+  athlete's closing message. The model's own `reasoning` for every closing turn is separately
+  logged in `finishGeminiResponse` before being stripped, correlatable by request time — see
+  `gemini-flow.md`'s Reasoning field section.
+- The closing-turn prompt asks for an explicit, mechanical self-check before deciding
+  `file_updates`: list every concrete fact the conversation contains that `state.md` doesn't
+  already reflect, one per line, and require each line to have either a `file_updates` entry or
+  an explicit reason it doesn't need one. Covers session-file (workout plan) proposals too, which
+  share the same underlying compliance question.
+
 **Thread title:** generated by Gemini, not derived from the transcript server-side. The same
 closing-turn response that carries `session_closed: true` also carries an optional `title` — a
 short, specific summary of that conversation (e.g. "Sore shoulder, modified session"), prompted
@@ -212,6 +235,24 @@ restore, no second "delete forever" confirmation. The cap (`MAX_RETAINED_THREADS
 Deleting a thread below the cap does **not** backfill/evict anything on the next new thread,
 since a deleted thread was never counted against the cap.
 
+Since greet no longer commits (see A4 above), an unengaged conversation never consumes a
+retention slot at all — only threads that actually got a real close-out ever reach this list.
+
+### Rendering
+
+- **Markdown**: coach replies render real bold/lists, on both platforms — the closing-turn
+  prompt encourages markdown for structured content (workout plans, multi-step advice). Web uses
+  `react-markdown` (`CoachChatWidgets.tsx`); iOS wraps `AttributedString` for inline bold/italic
+  (`CoachChatMarkdown.attributed`) plus a `CoachChatMarkdownBlock` that does a minimal
+  line-based split for `- `/`* `/`1. ` prefixed lines into indented bullet/numbered rows, since
+  `AttributedString` can't lay out block-level lists in SwiftUI `Text` on its own.
+- **Thread age labels**: the history list shows two distinct badges per thread — an *absolute*
+  day-count badge (`D-101`, from `challenge_v2.json`'s day count) and a *relative* age badge next
+  to it, which shows a real date ("5th AUG") rather than a `D-N` count, using `ChatThread.createdAt`
+  (raw epoch ms). The leading conversation-pane divider works the same way: "TODAY" for the
+  active same-day thread, otherwise the thread's real date, computed fresh from
+  `dayOffset`/`createdAt` at render time rather than a stored string — never a time-of-day.
+
 ## First Session Protocol flow
 
 Trigger: `state.md`'s `## Athlete Profile` section is still the blank template (headings only, no
@@ -232,7 +273,8 @@ sequenceDiagram
     App->>Server: POST {action: greet, onboardingHints}
     Server->>Gemini: greeting mode + onboarding hints context
     Gemini-->>Server: opener reflecting hints back
-    Server-->>App: thread created, shown
+    Server-->>App: reply only (no repo write)
+    App->>App: materialize local thread, shown
     loop intake conversation
         App->>Server: POST {threadId, messages, message}
         Server->>Gemini: ordinary mode
@@ -260,7 +302,9 @@ protocol asks fresh — graceful degradation either way.
 decides Chat vs Home on every launch while the local Keychain flag (`CoachSetupState`) is still
 false. It calls `GET coach-chat-profile-status` live — **not** "does any thread exist," which used
 to be the signal and was always wrong (a thread existing has never meant the intake actually
-finished, and got strictly worse once A4 made every chat-tab visit create a thread immediately).
+finished, and got strictly worse once A4 originally made every chat-tab visit create a thread
+immediately — since fixed, see A4 above, but `profileComplete` was already the correct signal
+regardless of that).
 Wired into `MainTabView.swift`'s `.task` block, right after the native-onboarding-complete guard
 — this call site didn't exist before (the function was dead code, never invoked). Network
 failure/timeout (5s cap) falls back to Home rather than trapping a returning athlete in Chat.
@@ -292,27 +336,38 @@ described above instead of trying to run anything.
 ### 4. Resumability
 
 If the athlete answers a few intake questions and kills the app, the thread never closed
-(`session_closed` never went `true`), so it's still `active` with `dayOffset: 0`. Server-side,
-`handleGreet()` only commits `chat_history.json` at open (line ~733) and ordinary POST turns never
-call `commitFilesAtomic` until close — so the server's copy of that thread stops at the opener;
-everything the athlete and Coach said after that is server-invisible until a close-turn lands
-(issue #244, confirmed against current code — a prior version of this doc claimed "full message
-history intact" here, which was not accurate).
+(`session_closed` never went `true`), and since greet doesn't commit either (see A4 above), the
+server has **no record of this thread at all**, not even the opener. Every in-progress
+conversation is purely client-side from the moment Coach speaks first until the moment it closes
+— neither an ordinary POST turn nor a greet ever calls `commitFilesAtomic`.
 
-What actually restores the conversation is a client-side cache, not the server: as messages are
-appended, `CoachChatView` mirrors the thread's message array to `CoachChatLocalCache`
-(`ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift`), keyed by repo + thread id, in
-`UserDefaults`. On relaunch, `loadThreads()` fetches the server-committed threads and calls
-`CoachChatLocalCache.restoring(_:repoFullName:)`, which swaps in the local copy for any thread
-where the cache has more messages than the server does. `shouldOpenChatFirst()` still sees
-`profileComplete: false` and routes back to Chat, and `todayThread` is still selected directly
-rather than calling `greetNow()` again — but the message history it shows now comes from the
-local cache, not the server. The cache for a thread is dropped once its close-commit actually
+What restores the conversation is a client-side cache, not the server, on **both platforms**:
+- **iOS**: `CoachChatView` mirrors the thread's message array to `CoachChatLocalCache`
+  (`ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift`), keyed by repo + thread id, in
+  `UserDefaults`, after every append.
+- **Web**: `CoachChat.tsx` does the same into `localStorage` (`coachChatModel.ts`'s
+  `saveThreadLocally`/`restoreThreadMessagesLocally`/`clearThreadLocally`), keyed by thread id
+  (web has no per-account namespacing the way iOS's key includes `repoFullName` — a browser's
+  `localStorage` is already scoped to one signed-in session at a time in practice).
+
+Since a fully local thread (the normal state until close) never has a server counterpart to
+match against, restore does two things on load, not just one:
+1. Overlay the local cache onto any *server-known* thread whose cache has more messages than the
+   server copy (a thread whose close-commit landed but a stray local cache entry is still lying
+   around).
+2. **Scan for orphaned local cache entries** — a thread id cached locally that never made it into
+   the server's list at all — and materialize each one as its own thread.
+   (`CoachChatLocalCache.restoring()`'s `orphanedThreadIds()` on iOS;
+   `findOrphanedLocalThreadIds()` in `coachChatModel.ts` on web.)
+
+`shouldOpenChatFirst()` still sees `profileComplete: false` and routes back to Chat on relaunch;
+`todayThread`/`ensureTodayThread` select the restored local thread directly rather than calling
+`greetNow()`/`greet()` again. The cache for a thread is dropped once its close-commit actually
 lands (server copy becomes truth) or the thread comes back `.deleted`.
 
 This is single-device only, by design — it does not sync the in-progress window across devices;
-that stays a known gap (issue #222 §D). A relaunch on a *different* device mid-conversation still
-only sees the server's last committed state (the opener), same as before this fix.
+that stays a known gap (issue #222 §D). A relaunch on a *different* device mid-conversation sees
+nothing for that thread at all until it closes.
 
 ### 5. Completion signal
 
@@ -360,8 +415,16 @@ thread on relaunch, never re-asked what they already answered.
 - P2: `EmptyChatPane`/`CHAT_STARTERS` in `CoachChatWidgets.tsx`/`coachChatModel.ts` are dead code
   since A4 retired the canned-greeting landing view — safe to delete, left in place to limit
   diff size while the redesign landed.
-- P3: day-number semantics (`D-N`) currently reset with each new challenge/season instead of
-  counting from when the athlete started using Coach at all — tracked in issue #179.
+- P3: the *absolute* day-number badge (`D-101`, left-side in the history sheet) still resets with
+  each new challenge/season instead of counting from when the athlete started using Coach at all
+  — tracked in issue #179. (Distinct from the *relative* age badge, which shows a real date — see
+  Rendering above.)
+- P1, real but not chasing without a reproduction: close-save reliability (see above) is a
+  prompt-compliance problem, not a code-guaranteed one — the logging lets a real occurrence be
+  diagnosed, but there's no guarantee Gemini follows the self-check every time.
+- P2: no server-side reuse/dedup when two tabs/devices greet at almost the same instant on an
+  empty day (see A4's "accepted edge case" note) — costs at most one redundant Gemini call, not
+  treated as worth a fix.
 
 ## Appendix — file/class reference
 
@@ -376,11 +439,13 @@ thread on relaunch, never re-asked what they already answered.
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API) |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |
 | `ui/client/src/components/coach-chat/CoachChatWidgets.tsx` | web presentational components |
-| `ui/client/src/components/coach-chat/coachChatModel.ts` | client fetch helpers, `greet()`, SHA tracking |
+| `ui/client/src/components/coach-chat/coachChatModel.ts` | client fetch helpers, `greet()`, SHA tracking, localStorage cache (`saveThreadLocally`/`findOrphanedLocalThreadIds`) |
 | `ui/client/src/lib/prefetchCoachContext.ts` | web A3 trigger (`App.tsx`'s `Gate`) |
 | `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift` | iOS client (Bearer + X-Coach-Repo) |
-| `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift` | Codable mirrors of the server's JSON |
+| `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift` | Codable mirrors of the server's JSON, `ChatThread.formattedDate`/`ageDisplay`/`dividerLabel` |
+| `ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift` | UserDefaults resumability cache, orphaned-local-thread restore |
 | `ios/CoachHQ/CoachHQ/Views/CoachChatView.swift` | iOS chat UI, greet/resume logic |
+| `ios/CoachHQ/CoachHQ/Views/CoachChatMarkdown.swift` | inline bold/italic (`AttributedString`) + list-aware block rendering |
 | `ios/CoachHQ/CoachHQ/Services/CoachSetupState.swift` | Keychain flag + `shouldOpenChatFirst()` |
 | `ios/CoachHQ/CoachHQ/Services/OnboardingHints.swift` | B1 locally-cached sport/goal hints |
 | `ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift` | native onboarding, season step |
