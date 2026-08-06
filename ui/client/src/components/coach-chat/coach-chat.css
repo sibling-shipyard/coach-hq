@@ -111,8 +111,21 @@
   margin-top: 10px;
 }
 
+/* "RECENT" + "LAST 7 THREADS" side by side, matching iOS's inline header layout instead of the
+   old stacked "RECENT" / explanatory-sentence-on-its-own-line arrangement. */
+.cc-sidebar__section-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px 6px;
+}
+
+.cc-sidebar__section-row .cc-sidebar__section {
+  padding: 0;
+}
+
 .cc-sidebar__hint {
-  padding: 0 12px 8px;
+  padding: 0;
   color: #b3b0a1;
   font-family: "Space Mono", monospace;
   font-size: 8.5px;
@@ -383,6 +396,31 @@
   font-size: 14px;
   font-style: normal;
   font-weight: 700;
+}
+
+/* react-markdown wraps every paragraph in its own <p> - reset default browser margins so it
+   matches .cc-coach-copy's own spacing (the +.cc-coach-copy rule above) instead of stacking. */
+.cc-md-p {
+  margin: 0;
+}
+
+.cc-md-list {
+  margin: 6px 0 0;
+  padding-left: 22px;
+}
+
+.cc-md-list-item {
+  margin-top: 4px;
+}
+
+.cc-md-strong {
+  font-style: normal;
+  font-weight: 700;
+}
+
+.cc-md-link {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .cc-chips {
