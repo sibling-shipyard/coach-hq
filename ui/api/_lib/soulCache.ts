@@ -41,12 +41,18 @@ function hashText(text: string): string {
 }
 
 async function readRecord(): Promise<CacheRecord | null> {
-  if (!edgeConfigClient) return null; // No GLOBAL_CONFIG env var - treat as cache miss.
+  if (!edgeConfigClient) {
+    console.warn("[soulCache] GLOBAL_CONFIG not set - explicit caching disabled, falling back to inline prompt every call.");
+    return null;
+  }
   try {
     const record = await edgeConfigClient.get<CacheRecord>(EDGE_CONFIG_KEY);
     return record ?? null;
-  } catch {
-    // Edge Config unreachable - treat as cache miss.
+  } catch (err) {
+    // Edge Config unreachable - treat as cache miss, but log why so a persistent failure (as
+    // opposed to a one-off blip) is actually diagnosable from Vercel's Runtime Logs instead of
+    // silently degrading to "every request recreates the cache" with no visible signal.
+    console.warn("[soulCache] Edge Config read failed:", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -74,9 +80,12 @@ export async function invalidateCachedSoulName(): Promise<void> {
 async function writeRecord(record: CacheRecord): Promise<void> {
   const configId = process.env.EDGE_CONFIG_ID;
   const token = process.env.VERCEL_API_TOKEN;
-  if (!configId || !token) return; // Not configured - this request still works (see getCachedSoulName), just won't persist.
+  if (!configId || !token) {
+    console.warn("[soulCache] EDGE_CONFIG_ID/VERCEL_API_TOKEN not set - cache name created but can't persist, every cold start will recreate it.");
+    return;
+  }
   const teamQuery = process.env.VERCEL_TEAM_ID ? `?teamId=${process.env.VERCEL_TEAM_ID}` : "";
-  await fetchWithTimeout(
+  const res = await fetchWithTimeout(
     `https://api.vercel.com/v1/edge-config/${configId}/items${teamQuery}`,
     {
       method: "PATCH",
@@ -84,9 +93,18 @@ async function writeRecord(record: CacheRecord): Promise<void> {
       body: JSON.stringify({ items: [{ operation: "upsert", key: EDGE_CONFIG_KEY, value: record }] }),
     },
     10_000,
-  ).catch(() => {
-    // Best-effort - a failed write just means the next cold instance recreates the cache.
+  ).catch((err) => {
+    console.warn("[soulCache] Edge Config write request failed:", err instanceof Error ? err.message : err);
+    return null;
   });
+  // Best-effort past this point too - a failed/rejected write just means the next call recreates
+  // the cache. But a non-2xx status (bad token, wrong config id, wrong scope) is silent
+  // otherwise - log the body so a persistent misconfiguration is diagnosable, not just "the
+  // store never gets an item and nobody knows why."
+  if (res && !res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.warn(`[soulCache] Edge Config write rejected (${res.status}):`, detail);
+  }
 }
 
 async function createCache(apiKey: string, model: string, staticSystemText: string): Promise<string | null> {
@@ -105,10 +123,15 @@ async function createCache(apiKey: string, model: string, staticSystemText: stri
       },
       10_000,
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.warn(`[soulCache] cachedContents create rejected (${res.status}):`, detail);
+      return null;
+    }
     const body = (await res.json()) as { name?: string };
     return body.name ?? null;
-  } catch {
+  } catch (err) {
+    console.warn("[soulCache] cachedContents create request failed:", err instanceof Error ? err.message : err);
     return null;
   }
 }
