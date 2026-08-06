@@ -882,6 +882,11 @@ async function handleGreet(
   const repoSha = await getHeadSha(repo, token).catch(() => null); // A5: best-effort, never blocks a reply
   return Response.json({
     reply: reply.reply,
+    // Neither client actually reads this - both web and iOS mint their own local id and
+    // materialize the greeting as an uncommitted thread client-side (see the comment above this
+    // function). Kept in the response on purpose, not a leftover: preserves the response shape
+    // exactly, so this backend change and the client-side follow-ups don't have to ship in
+    // lockstep.
     threadId: `t-${now}`,
     threads: withComputedDayOffsets(history.threads, stateMd ?? ""),
     repoSha,
