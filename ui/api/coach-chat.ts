@@ -682,7 +682,7 @@ export async function askGemini(
   // inheriting the file-read default.
   const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
 
-  const callGemini = (useCache: boolean) =>
+  const callGemini = (useCache: boolean): Promise<Response> =>
     fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
@@ -691,7 +691,17 @@ export async function askGemini(
         body: JSON.stringify(buildRequestBody(useCache)),
       },
       GEMINI_GENERATE_TIMEOUT_MS,
-    );
+    ).catch((err) => {
+      // fetchWithTimeout THROWS a 504-tagged Error on its own abort, it never resolves a Response
+      // for that case - so a bare `res.status === 504` check below would never see it. Convert it
+      // into a resolved 504 Response here so every call site (the retry logic below,
+      // finishGeminiResponse) can treat a timeout identically to a real 504 response without each
+      // needing its own try/catch. Any other thrown error (a genuine network failure with no
+      // status) still propagates.
+      const status = (err as { status?: number }).status;
+      if (status === 504) return new Response(null, { status: 504 });
+      throw err;
+    });
 
   let useCache = !!cachedName;
   let res = await callGemini(useCache);
