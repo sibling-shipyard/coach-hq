@@ -38,6 +38,28 @@ enum CoachChatLocalCache {
         UserDefaults.standard.removeObject(forKey: key(repoFullName: repoFullName, threadId: threadId))
     }
 
+    /// Parses the epoch-ms timestamp embedded in a message id (e.g. "d-1738798412345"). An
+    /// orphaned local thread (orphanedThreadIds below) never gets a server-computed `createdAt` -
+    /// the cache only ever stored `messages`, not thread metadata - so this recovers a real
+    /// creation time from the divider message's own id instead of the caller hardcoding "today."
+    /// Missing this was a real bug (found via code review): a stale unreplied greeting from days
+    /// ago would get restored as dayOffset 0, get picked up by `todayThread` as "today's" thread,
+    /// and permanently block the fresh greeting every open is supposed to get.
+    private static func epochMs(fromMessageId id: String) -> Double? {
+        guard let dashIndex = id.firstIndex(of: "-") else { return nil }
+        return Double(id[id.index(after: dashIndex)...])
+    }
+
+    /// Calendar-day difference (device's local timezone) between an epoch-ms timestamp and now -
+    /// mirrors coach-chat.ts's server-side computeDayOffset, but purely client-side since an
+    /// orphaned thread never had a server-computed dayOffset to begin with.
+    private static func dayOffset(fromCreatedAt createdAt: Double) -> Int {
+        let created = Date(timeIntervalSince1970: createdAt / 1000)
+        let calendar = Calendar.current
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: created), to: calendar.startOfDay(for: Date())).day ?? 0
+        return max(0, days)
+    }
+
     /// Thread ids cached locally that never made it into `serverThreads` at all - a genuinely
     /// uncommitted conversation (a materializeThreadIfNeeded "local-<ts>" thread, or a
     /// greetNow() greeting - neither commits server-side until a real close), not just a stale
@@ -88,13 +110,15 @@ enum CoachChatLocalCache {
             } else {
                 title = "New conversation"
             }
+            let createdAt = messages.first(where: { $0.role == .divider }).flatMap { epochMs(fromMessageId: $0.id) }
+            let offset = createdAt.map { dayOffset(fromCreatedAt: $0) } ?? 0
             return ChatThread(
                 id: id,
-                dayOffset: 0,
-                createdAt: nil,
+                dayOffset: offset,
+                createdAt: createdAt,
                 title: title,
                 preview: lastCoachText.map { String($0.prefix(80)) } ?? "",
-                ageLabel: "NOW",
+                ageLabel: offset == 0 ? "NOW" : "D-\(offset)",
                 status: .active,
                 messages: messages
             )

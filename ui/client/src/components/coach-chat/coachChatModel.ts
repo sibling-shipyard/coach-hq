@@ -333,3 +333,26 @@ export function findOrphanedLocalThreadIds(currentThreadIds: readonly string[]):
   return orphaned;
 }
 
+/** Parses the epoch-ms timestamp embedded in a message id (e.g. "d-1738798412345"). An orphaned
+ * local thread (findOrphanedLocalThreadIds above) never gets a server-computed `createdAt` - the
+ * cache only ever stored `messages`, not thread metadata - so this recovers a real creation time
+ * from the divider message's own id instead of the caller hardcoding "today." Missing this was a
+ * real bug (found via code review): a stale unreplied greeting from days ago would get restored
+ * as dayOffset 0, get picked up by ensureTodayThread as "today's" thread, and permanently block
+ * the fresh greeting every open is supposed to get. */
+export function epochMsFromMessageId(id: string): number | null {
+  const match = id.match(/^[a-z]-(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
+/** Calendar-day difference (browser's local timezone) between an epoch-ms timestamp and now -
+ * mirrors coach-chat.ts's server-side computeDayOffset, but purely client-side since an orphaned
+ * thread (see epochMsFromMessageId above) never had a server-computed dayOffset to begin with. */
+export function computeLocalDayOffset(createdAt: number): number {
+  const created = new Date(createdAt);
+  const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+  const today = new Date();
+  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.round((todayDay.getTime() - createdDay.getTime()) / 86_400_000));
+}
+
