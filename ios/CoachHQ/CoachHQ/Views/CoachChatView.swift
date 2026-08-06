@@ -476,6 +476,21 @@ struct CoachChatView: View {
             // or once state.md's Athlete Profile is already filled in and there's nothing left
             // to reflect back).
             let result = try await apiClient.greet(onboardingHints: OnboardingHints.load())
+            // Supersede any previous unreplied local greeting instead of accumulating orphans -
+            // repeated "New conversation" taps (or a retry after a failed first greet) would
+            // otherwise each leave their own local-cache entry that's never cleared (found via
+            // code review: nothing calls CoachChatLocalCache.clear for an unreplied greeting,
+            // only a real close does). Clearing here means at most one unreplied local greeting's
+            // cache entry can ever exist at a time.
+            if let repo = authManager.repoFullName {
+                threads.removeAll { existing in
+                    guard existing.id.hasPrefix("local-"), existing.dayOffset == 0 else { return false }
+                    let real = existing.messages.filter { $0.role != .divider }
+                    guard real.count == 1, real[0].role == .coach else { return false }
+                    CoachChatLocalCache.clear(repoFullName: repo, threadId: existing.id)
+                    return true
+                }
+            }
             let now = Date().timeIntervalSince1970 * 1000
             let localId = "local-\(Int(now))"
             let greeted = ChatThread(

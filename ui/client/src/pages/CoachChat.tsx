@@ -10,6 +10,8 @@ import {
   clearThreadLocally,
   CoachChatAccessRevokedError,
   challengeDayNumber,
+  computeLocalDayOffset,
+  epochMsFromMessageId,
   fetchThreads,
   findOrphanedLocalThreadIds,
   greet,
@@ -79,7 +81,17 @@ function CoachChatContent({ data }: { data: RepoData }) {
   // Materialize the greeting as a local-only thread here instead (same "local-" convention
   // appendUserMessage already uses for a brand-new athlete-initiated thread below), and cache it
   // immediately so a refresh before the athlete replies doesn't lose the opener they already saw.
-  function materializeGreeting(result: GreetResult): ChatThread {
+  function materializeGreeting(result: GreetResult, currentThreads: ChatThread[]): ChatThread {
+    // Supersede any previous unreplied local greeting instead of accumulating orphans - repeated
+    // "New conversation" clicks (or a retry after a failed first greet) would otherwise each
+    // leave their own local-storage entry that's never cleared (found via code review: nothing
+    // calls clearThreadLocally for an unreplied greeting, only a real close does). Clearing here
+    // means at most one unreplied local greeting's cache entry can ever exist at a time.
+    for (const thread of currentThreads) {
+      if (!thread.id.startsWith("local-") || thread.dayOffset !== 0) continue;
+      const real = thread.messages.filter((m) => m.role !== "divider");
+      if (real.length === 1 && real[0].role === "coach") clearThreadLocally(thread.id);
+    }
     const now = Date.now();
     const thread: ChatThread = {
       id: `local-${now}`,
@@ -112,7 +124,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setGreeting(true);
     try {
       const result = await greetShared();
-      const greeted = materializeGreeting(result);
+      const greeted = materializeGreeting(result, list);
       setThreads([greeted, ...result.threads]);
       setActiveId(greeted.id);
       setMobileView((v) => (v === "new" ? "thread" : v));
@@ -150,12 +162,20 @@ function CoachChatContent({ data }: { data: RepoData }) {
           const lastCoach = [...messages].reverse().find((m): m is Extract<ChatMessage, { role: "coach" }> => m.role === "coach");
           const firstUser = messages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user");
           const title = firstUser ? (firstUser.text.length > 28 ? `${firstUser.text.slice(0, 28)}…` : firstUser.text) : "New conversation";
+          // An orphaned thread never had a server-committed dayOffset - recover a real creation
+          // time from the divider message's own id instead of hardcoding "today" (a real bug,
+          // found via code review: a stale unreplied greeting from days ago would get treated as
+          // today's thread forever, permanently blocking the fresh greeting every open should get).
+          const firstDivider = messages.find((m) => m.role === "divider");
+          const createdAt = firstDivider ? (epochMsFromMessageId(firstDivider.id) ?? undefined) : undefined;
+          const dayOffset = createdAt !== undefined ? computeLocalDayOffset(createdAt) : 0;
           const thread: ChatThread = {
             id,
-            dayOffset: 0,
+            dayOffset,
+            createdAt,
             title,
             preview: lastCoach ? lastCoach.paragraphs.join(" ").slice(0, 80) : "",
-            ageLabel: "NOW",
+            ageLabel: dayOffset === 0 ? "NOW" : `D-${dayOffset}`,
             status: "active",
             messages,
           };
@@ -200,7 +220,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setGreeting(true);
     greetShared()
       .then((result) => {
-        const greeted = materializeGreeting(result);
+        const greeted = materializeGreeting(result, threads);
         setThreads([greeted, ...result.threads]);
         setActiveId(greeted.id);
       })
