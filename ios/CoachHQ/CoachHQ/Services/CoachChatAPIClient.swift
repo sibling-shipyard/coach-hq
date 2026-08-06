@@ -22,6 +22,15 @@ final class CoachChatAPIClient {
         Self.lastKnownSha[threadId] = sha
     }
 
+    /// Mirrors coachChatModel.ts's pruneRepoSha: drops entries for threads no longer present
+    /// once a full thread-list refresh gives us the authoritative current set - without this,
+    /// `lastKnownSha` only ever grows for the lifetime of the process (harmless at today's scale,
+    /// a handful of small strings, but unbounded).
+    private func pruneRepoSha(currentThreadIds: [String]) {
+        let keep = Set(currentThreadIds)
+        Self.lastKnownSha = Self.lastKnownSha.filter { keep.contains($0.key) }
+    }
+
     private struct AuthContext {
         let token: String
         let repoFull: String
@@ -151,6 +160,7 @@ final class CoachChatAPIClient {
         let data = try await send(req, operation: "Starting conversation", retryNetworkFailures: false)
         let decoded = try JSONDecoder().decode(ChatGreetResponse.self, from: data)
         rememberRepoSha(decoded.threadId, decoded.repoSha)
+        pruneRepoSha(currentThreadIds: decoded.threads.map(\.id))
         return decoded
     }
 
@@ -169,7 +179,9 @@ final class CoachChatAPIClient {
         let auth = try await requireAuth()
         let req = try request("GET", auth: auth)
         let data = try await send(req, operation: "Loading conversations")
-        return try JSONDecoder().decode(ChatThreadsResponse.self, from: data).threads
+        let threads = try JSONDecoder().decode(ChatThreadsResponse.self, from: data).threads
+        pruneRepoSha(currentThreadIds: threads.map(\.id))
+        return threads
     }
 
     /// Mirrors coachChatModel.ts's sendMessage(): the client owns the running thread history
@@ -189,6 +201,7 @@ final class CoachChatAPIClient {
         let data = try await send(req, operation: "Sending message", retryNetworkFailures: false)
         let decoded = try JSONDecoder().decode(ChatSendResponse.self, from: data)
         rememberRepoSha(decoded.closed ? decoded.threadId : threadId, decoded.repoSha)
+        if let threads = decoded.threads { pruneRepoSha(currentThreadIds: threads.map(\.id)) }
         return decoded
     }
 
@@ -196,6 +209,8 @@ final class CoachChatAPIClient {
         let auth = try await requireAuth()
         let req = try request("PATCH", body: ["threadId": threadId, "status": status.rawValue], auth: auth)
         let data = try await send(req, operation: "Updating conversation")
-        return try JSONDecoder().decode(ChatThreadsResponse.self, from: data).threads
+        let threads = try JSONDecoder().decode(ChatThreadsResponse.self, from: data).threads
+        pruneRepoSha(currentThreadIds: threads.map(\.id))
+        return threads
     }
 }

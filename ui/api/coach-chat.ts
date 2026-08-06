@@ -27,6 +27,7 @@ import {
   loadCoachContext,
 } from "./_lib/coachChatFiles.js";
 import { applyJsonMergePatch, applyStringEdits, type StringEdit } from "./_lib/fileEdits.js";
+import { getCachedSoulName } from "./_lib/soulCache.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 
@@ -367,24 +368,13 @@ const FEW_SHOT_EXAMPLES = [
   "</example_3>",
 ].join("\n");
 
-export async function askGemini(
-  apiKey: string,
-  soul: string,
-  stateMd: string,
-  questLog: string,
-  history: ChatMessage[],
-  userMessage: string,
-  mode: TurnMode,
-  extraContext?: string,
-  closingFiles?: ClosingFileContext,
-): Promise<GeminiReply> {
-  // Ordered for Gemini's implicit prompt caching (automatic, on by default for 2.5+ models):
-  // caching only matches the longest byte-identical *prefix*, so everything stable across turns
-  // - persona, fixed instructions, the few-shot examples, and (usually) state.md/quest_log.md -
-  // comes first, and the one thing that changes every single minute (todayContextLine) is now
-  // the very last element instead of sitting 3rd, where it used to invalidate the entire cache
-  // every turn. See docs/eng-docs/llm-provider-current.md's Caching section for the numbers.
-  const systemInstruction = [
+// The truly static half of the prompt - byte-identical on every single call, for every athlete.
+// This is what gets uploaded once via Gemini's explicit-caching API (see soulCache.ts) instead
+// of being resent as text on every request. Kept separate from the per-turn dynamic block below
+// because Gemini rejects a generateContent request that sets both `cachedContent` and
+// `systemInstruction` - when a cache is active, this text isn't sent at all, only referenced.
+function staticSystemText(soul: string): string {
+  return [
     "<persona>",
     soul,
     "</persona>",
@@ -406,6 +396,40 @@ export async function askGemini(
     "is enough - this is a check on yourself, not a transcript.",
     "</instructions>",
     "\n<examples>\n" + FEW_SHOT_EXAMPLES + "\n</examples>",
+  ].join("\n");
+}
+
+export async function askGemini(
+  apiKey: string,
+  soul: string,
+  stateMd: string,
+  questLog: string,
+  history: ChatMessage[],
+  userMessage: string,
+  mode: TurnMode,
+  extraContext?: string,
+  closingFiles?: ClosingFileContext,
+): Promise<GeminiReply> {
+  // Ordered for Gemini's implicit prompt caching (automatic, on by default for 2.5+ models) as
+  // a fallback path: caching only matches the longest byte-identical *prefix*, so everything
+  // stable across turns - persona, fixed instructions, the few-shot examples, and (usually)
+  // state.md/quest_log.md - comes first, and the one thing that changes every single minute
+  // (todayContextLine) is the very last element. When explicit caching (below) is active, only
+  // the dynamic block ships per request at all, so this ordering matters less, but it's kept as
+  // the correct shape for the no-cache fallback. See docs/eng-docs/gemini-flow.md's Caching
+  // section for the numbers.
+  const staticText = staticSystemText(soul);
+  const cachedName = await getCachedSoulName(apiKey, GEMINI_MODEL, staticText).catch(() => null);
+  const dynamicText = [
+    // When explicit caching is active, this whole block is injected as a synthetic turn (see
+    // `contents` below) rather than living in `systemInstruction` - Gemini's API rejects setting
+    // both on the same request. A plain instructions block dropped mid-conversation reads with
+    // less authority than a system instruction (measured: eval regressions on commit_message/
+    // session_closed when this framing line was missing), so it's spelled out explicitly here.
+    "[SYSTEM CONTEXT - not a message from the athlete. Everything below carries the same binding",
+    "authority as your system instructions above: follow every directive in it exactly, including",
+    "the commit_message and session_closed rules, even though it arrives as a turn rather than a",
+    "system field.]",
     "<state>",
     "\nCurrent user_data/coach/state.md:\n" + stateMd,
     "\nCurrent gen/quest_log.md (read-only, pre-computed):\n" + questLog,
@@ -500,27 +524,44 @@ export async function askGemini(
     "intervals', with no leading \"coach:\" - the caller adds that prefix itself) whenever",
     "file_updates is non-empty.",
     // Deliberately last: this is the one piece of the whole prompt that changes every minute.
-    // Keeping it here, after everything else, is what makes the rest of this array a stable,
-    // cacheable prefix instead of invalidating on every single request.
+    // Keeping it here, after everything else, is what makes this a stable-then-volatile block,
+    // matching the same ordering rationale as the no-cache fallback's systemInstruction used to
+    // rely on end-to-end.
     "\n" + todayContextLine(stateMd),
   ].join("\n");
 
   // Gemini's generateContent needs at least one content entry to generate against - a greeting
   // turn has no real athlete message yet, so this is a hidden trigger, never shown to the
-  // athlete (the greeting-mode system instruction above tells Gemini exactly what to do with it).
-  const contents = [
-    ...history
-      .filter((m): m is Extract<ChatMessage, { role: "user" | "coach" }> => m.role === "user" || m.role === "coach")
-      // Only thread *count* was capped before (MAX_RETAINED_THREADS) - nothing stopped a single
-      // long conversation from growing every request linearly on top of the fixed system-prompt
-      // prefix. Keep just the most recent messages; real compaction/summarization is future work.
-      .slice(-MAX_HISTORY_MESSAGES)
-      .map((m) => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.role === "user" ? m.text : m.paragraphs.join("\n\n") }],
-      })),
-    { role: "user", parts: [{ text: mode === "greeting" ? "[Begin the conversation.]" : userMessage }] },
-  ];
+  // athlete (the mode-specific instructions above tell Gemini exactly what to do with it).
+  const historyContents = history
+    .filter((m): m is Extract<ChatMessage, { role: "user" | "coach" }> => m.role === "user" || m.role === "coach")
+    // Only thread *count* was capped before (MAX_RETAINED_THREADS) - nothing stopped a single
+    // long conversation from growing every request linearly on top of the fixed system-prompt
+    // prefix. Keep just the most recent messages; real compaction/summarization is future work.
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((m) => ({
+      role: m.role === "user" ? "user" : "model",
+      parts: [{ text: m.role === "user" ? m.text : m.paragraphs.join("\n\n") }],
+    }));
+  const finalTurn = { role: "user", parts: [{ text: mode === "greeting" ? "[Begin the conversation.]" : userMessage }] };
+
+  // Gemini rejects a request that sets both `cachedContent` and `systemInstruction` - when a
+  // cache is active, the dynamic block (state/instructions/timestamp) has nowhere else to go but
+  // into `contents`, prepended as a synthetic user/model exchange ahead of the real
+  // conversation. When there's no cache (not configured, or creation failed this call), fall
+  // back to the pre-explicit-caching shape: everything in systemInstruction, nothing synthetic
+  // in contents. Either way Gemini sees the exact same information, just routed differently.
+  const contents = cachedName
+    ? [
+        { role: "user", parts: [{ text: dynamicText }] },
+        {
+          role: "model",
+          parts: [{ text: "Understood - I'll follow those instructions exactly, same as my system instructions." }],
+        },
+        ...historyContents,
+        finalTurn,
+      ]
+    : [...historyContents, finalTurn];
 
   const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
@@ -528,7 +569,7 @@ export async function askGemini(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemInstruction }] },
+        ...(cachedName ? { cachedContent: cachedName } : { systemInstruction: { parts: [{ text: staticText + "\n" + dynamicText }] } }),
         contents,
         generationConfig: {
           responseMimeType: "application/json",

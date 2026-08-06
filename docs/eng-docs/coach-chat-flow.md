@@ -95,19 +95,13 @@ else waits for the close-out.
 
 ### 3a. Prompt construction (`askGemini()`, `coach-chat.ts`)
 
-`systemInstruction` is built as an ordered array, deliberately structured for Gemini's implicit
-prompt caching (automatic, on by default for 2.5+ models — caches only the longest
-byte-identical prefix): persona (`<persona>` SOUL.md) → fixed instructions (`<instructions>`,
-including the hidden-reasoning cue below) → 3 worked few-shot examples (`<examples>`) → current
-`<state>` (state.md + quest_log.md + closing-turn files) → mode-specific block → file-edit-format
-instructions → commit-message instructions → `todayContextLine()` (the one per-minute-changing
-value, deliberately *last* so it can't invalidate everything before it). See
-`docs/eng-docs/llm-provider-current.md`'s Caching section for the numbers this ordering unlocks.
-
-The model fills a `reasoning` field before `reply` in its structured JSON response — a brief
-self-check (is this genuinely a close, is every file edit backed by real content shown this
-turn) that's never shown to the athlete; `askGemini()` deletes it before returning. See
-`docs/eng-docs/llm-provider-future.md`'s Cost minimization section for the research behind this.
+The prompt splits into a **static** half (persona, fixed instructions, few-shot examples — byte-
+identical for every athlete, every turn) and a **dynamic** half (current state.md/quest_log.md,
+mode-specific instructions, `todayContextLine()`). The static half is uploaded once via Gemini's
+explicit-caching API and referenced by name on every call instead of being resent; the dynamic
+half ships fresh every request. Full design, the caching mechanics, the response schema, and the
+`reasoning` field are covered in `docs/eng-docs/gemini-flow.md` — that's the one reference for
+everything Gemini-specific, this doc stays focused on the request lifecycle around it.
 
 SOUL.md itself is bundled from `platform/SOUL.md` at build time (`ui/scripts/build-soul.mjs`,
 wired into `predev`/`prebuild`) rather than fetched from the athlete's own repo — it's 100%
@@ -359,7 +353,8 @@ thread on relaunch, never re-asked what they already answered.
 
 ## Deferred
 
-- P2: no token-level streaming — replies arrive whole, not word-by-word.
+- P2: no token-level streaming — replies arrive whole, not word-by-word. Tracked in issue #270
+  (the structured-JSON response schema is the real complication, not just wiring SSE).
 - P2: inline chips/highlights ("engine load" pills) have no backend data — Gemini's response
   schema has no field for them. Unbuilt, needs product design.
 - P2: `EmptyChatPane`/`CHAT_STARTERS` in `CoachChatWidgets.tsx`/`coachChatModel.ts` are dead code
@@ -376,6 +371,7 @@ thread on relaunch, never re-asked what they already answered.
 | `ui/api/coach-chat-context.ts` | A3 preload endpoint |
 | `ui/api/coach-chat-profile-status.ts` | B2 First Session Protocol completion check |
 | `ui/api/_lib/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
+| `ui/api/_lib/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
 | `ui/api/_lib/fileEdits.ts` | A7 write strategies — `applyStringEdits`, `applyJsonMergePatch` |
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API) |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |
