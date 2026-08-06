@@ -7,14 +7,16 @@ import {
   useRef,
 } from "react";
 import { Link } from "wouter";
+import ReactMarkdown from "react-markdown";
 import {
   CHAT_STARTERS,
-  MAX_RETAINED_THREADS,
   type ChatMessage,
   type ChatStarter,
   type ChatThread,
   type CoachChip,
+  threadAgeDisplay,
   threadDayLabel,
+  threadDividerLabel,
   threadStatus,
 } from "./coachChatModel";
 
@@ -95,11 +97,15 @@ function StarterIcon({ icon }: { icon: ChatStarter["icon"] }) {
   );
 }
 
-function renderCoachText(
+// `highlights` (a {{token}} inline-styling scheme) is a type-level leftover - the Gemini response
+// schema (ui/api/coach-chat.ts) has no `highlights` field, so the server never actually populates
+// it. Kept as a defensive fallback only, in case that ever changes again - a coach message with
+// highlights renders with the old token-splitting behavior instead of markdown, rather than
+// silently losing the highlight styling by running both parsers against the same text.
+function renderCoachTextWithHighlights(
   text: string,
-  highlights?: Record<string, { text: string; color: string }>,
+  highlights: Record<string, { text: string; color: string }>,
 ): ReactNode {
-  if (!highlights) return text;
   const parts = text.split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
   return parts.map((part, index) => {
     const match = part.match(/^\{\{([a-zA-Z0-9_]+)\}\}$/);
@@ -116,6 +122,36 @@ function renderCoachText(
       </span>
     );
   });
+}
+
+// Coach replies can contain **bold**/lists (encouraged now for structured content like workout
+// plans, see coach-chat.ts's <instructions> block) - render real markdown instead of literal
+// asterisks/dashes. react-markdown builds a real React element tree (no dangerouslySetInnerHTML),
+// so this is safe under the existing strict CSP (script-src 'self'). Only a small allowlist of
+// block/inline elements is styled via cc-md-* classes in coach-chat.css - anything else falls
+// back to react-markdown's plain default rendering.
+function renderCoachText(text: string, highlights?: Record<string, { text: string; color: string }>): ReactNode {
+  if (highlights && Object.keys(highlights).length > 0) {
+    return renderCoachTextWithHighlights(text, highlights);
+  }
+  return (
+    <ReactMarkdown
+      components={{
+        p: ({ children }) => <p className="cc-md-p">{children}</p>,
+        ul: ({ children }) => <ul className="cc-md-list">{children}</ul>,
+        ol: ({ children }) => <ol className="cc-md-list">{children}</ol>,
+        li: ({ children }) => <li className="cc-md-list-item">{children}</li>,
+        strong: ({ children }) => <strong className="cc-md-strong">{children}</strong>,
+        a: ({ children, href }) => (
+          <a className="cc-md-link" href={href} rel="noreferrer" target="_blank">
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
 }
 
 function CoachChips({ chips }: { chips: CoachChip[] }) {
@@ -157,7 +193,8 @@ function ThinkingBubble() {
   );
 }
 
-function MessageList({ messages, pending }: { messages: ChatMessage[]; pending?: boolean }) {
+function MessageList({ thread, pending }: { thread: ChatThread; pending?: boolean }) {
+  const messages = thread.messages;
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -173,13 +210,22 @@ function MessageList({ messages, pending }: { messages: ChatMessage[]; pending?:
     if (message.role === "coach") lastCoachIndex = index;
   });
 
+  // Only the FIRST divider gets the dynamic label - a thread only ever has one in practice (the
+  // opener), but guarding by index rather than "every divider" avoids surprises if that ever
+  // changes.
+  const firstDividerIndex = messages.findIndex((m) => m.role === "divider");
+
   return (
     <div className="cc-messages" role="log" aria-live="polite" aria-relevant="additions">
       {messages.map((message, messageIndex) => {
         if (message.role === "divider") {
+          // The server stores this label frozen at creation time ("TODAY · 2:00 AM"), which
+          // reads as wrong forever once the thread is no longer from today - compute a fresh
+          // one from the thread's own dayOffset/createdAt instead of trusting the stored string.
+          const label = messageIndex === firstDividerIndex ? threadDividerLabel(thread) : message.label;
           return (
             <div className="cc-divider" key={message.id}>
-              {message.label}
+              {label}
             </div>
           );
         }
@@ -295,7 +341,7 @@ function ThreadRow({
           {threadDayLabel(dayNumber, thread.dayOffset)}
         </span>
         <span className="cc-thread-row__title">{thread.title}</span>
-        <span className="cc-thread-row__age">{thread.ageLabel}</span>
+        <span className="cc-thread-row__age">{threadAgeDisplay(thread)}</span>
       </div>
       <div className="cc-thread-row__preview">{thread.preview}</div>
     </button>
@@ -319,8 +365,10 @@ function ThreadSections({
 
   return (
     <>
-      <div className="cc-sidebar__section">RECENT</div>
-      <div className="cc-sidebar__hint">Newest {MAX_RETAINED_THREADS} kept — oldest drop off automatically</div>
+      <div className="cc-sidebar__section-row">
+        <span className="cc-sidebar__section">RECENT</span>
+        <span className="cc-sidebar__hint">LAST 7 THREADS</span>
+      </div>
       {recent.length === 0 ? (
         <div className="cc-thread-empty">No open conversations</div>
       ) : (
@@ -406,7 +454,7 @@ export function ConversationPane({
           </span>
         ) : null}
       </div>
-      <MessageList messages={thread.messages} pending={pending} />
+      <MessageList thread={thread} pending={pending} />
       <div className="cc-pane__footer">
         <Composer
           placeholder={pending ? "Coach is replying…" : "Ask Coach anything…"}

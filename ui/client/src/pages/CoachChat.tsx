@@ -7,10 +7,14 @@ import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
 import { ConversationPane, MobileThreadList, ThreadSidebar } from "@/components/coach-chat/CoachChatWidgets";
 import {
+  clearThreadLocally,
   CoachChatAccessRevokedError,
   challengeDayNumber,
   fetchThreads,
+  findOrphanedLocalThreadIds,
   greet,
+  restoreThreadMessagesLocally,
+  saveThreadLocally,
   sendMessage,
   threadStatus,
   type ChatMessage,
@@ -70,6 +74,30 @@ function CoachChatContent({ data }: { data: RepoData }) {
     return promise;
   }
 
+  // coach-chat.ts's handleGreet() no longer commits anything - the server-returned `threadId` is
+  // just a fresh, never-persisted id, and `threads` is the existing committed list unchanged.
+  // Materialize the greeting as a local-only thread here instead (same "local-" convention
+  // appendUserMessage already uses for a brand-new athlete-initiated thread below), and cache it
+  // immediately so a refresh before the athlete replies doesn't lose the opener they already saw.
+  function materializeGreeting(result: GreetResult): ChatThread {
+    const now = Date.now();
+    const thread: ChatThread = {
+      id: `local-${now}`,
+      dayOffset: 0,
+      createdAt: now,
+      title: "New conversation",
+      preview: result.reply.slice(0, 80),
+      ageLabel: "NOW",
+      status: "active",
+      messages: [
+        { id: `d-${now}`, role: "divider", label: "TODAY" },
+        { id: `c-${now}`, role: "coach", paragraphs: [result.reply] },
+      ],
+    };
+    saveThreadLocally(thread.id, thread.messages);
+    return thread;
+  }
+
   // A4: land on today's thread with Coach already having spoken first - never an empty
   // composer waiting on the athlete to type. Creates (or reuses) it via greet() if today
   // doesn't already have one. list is whatever's already known client-side (avoids a stale
@@ -84,8 +112,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setGreeting(true);
     try {
       const result = await greetShared();
-      setThreads(result.threads);
-      setActiveId(result.threadId);
+      const greeted = materializeGreeting(result);
+      setThreads([greeted, ...result.threads]);
+      setActiveId(greeted.id);
       setMobileView((v) => (v === "new" ? "thread" : v));
     } catch (err: unknown) {
       if (err instanceof CoachChatAccessRevokedError) {
@@ -109,8 +138,32 @@ function CoachChatContent({ data }: { data: RepoData }) {
     fetchThreads()
       .then((loaded) => {
         if (cancelled) return;
-        setThreads(loaded);
-        void ensureTodayThread(loaded);
+        // Restore any conversation that was never committed (nothing writes to the repo until a
+        // close - see coachChatModel.ts's saveThreadLocally doc comment) and so has no
+        // counterpart in `loaded` at all. Without this, a refresh mid-conversation loses
+        // everything the athlete typed, even though it was cached correctly the whole time -
+        // this scan is what actually finds it again.
+        const orphanedIds = findOrphanedLocalThreadIds(loaded.map((t) => t.id));
+        const restored: ChatThread[] = orphanedIds.flatMap((id) => {
+          const messages = restoreThreadMessagesLocally(id);
+          if (!messages || messages.length === 0) return [];
+          const lastCoach = [...messages].reverse().find((m): m is Extract<ChatMessage, { role: "coach" }> => m.role === "coach");
+          const firstUser = messages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user");
+          const title = firstUser ? (firstUser.text.length > 28 ? `${firstUser.text.slice(0, 28)}…` : firstUser.text) : "New conversation";
+          const thread: ChatThread = {
+            id,
+            dayOffset: 0,
+            title,
+            preview: lastCoach ? lastCoach.paragraphs.join(" ").slice(0, 80) : "",
+            ageLabel: "NOW",
+            status: "active",
+            messages,
+          };
+          return [thread];
+        });
+        const combined = [...restored, ...loaded];
+        setThreads(combined);
+        void ensureTodayThread(combined);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -147,8 +200,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setGreeting(true);
     greetShared()
       .then((result) => {
-        setThreads(result.threads);
-        setActiveId(result.threadId);
+        const greeted = materializeGreeting(result);
+        setThreads([greeted, ...result.threads]);
+        setActiveId(greeted.id);
       })
       .catch((err: unknown) => {
         if (err instanceof CoachChatAccessRevokedError) {
@@ -190,25 +244,32 @@ function CoachChatContent({ data }: { data: RepoData }) {
     // send started a brand-new conversation, so a failure can roll back the whole thread rather
     // than just the message.
     let newThreadId: string | null = null;
+    // Tracked explicitly rather than re-read from `threads` state later (that closure would be
+    // stale mid-async-call) - this is the exact message list saved locally and is also the base
+    // the eventual coach reply gets appended onto below.
+    const messagesBeforeReply = targetId ? [...priorMessages, userMsg] : [{ id: `d-${now}`, role: "divider" as const, label: "TODAY" }, userMsg];
     if (targetId) {
       setThreads((prev) =>
         prev.map((thread) =>
-          thread.id === targetId ? { ...thread, messages: [...thread.messages, userMsg] } : thread,
+          thread.id === targetId ? { ...thread, messages: messagesBeforeReply } : thread,
         ),
       );
+      saveThreadLocally(targetId, messagesBeforeReply);
     } else {
       newThreadId = `local-${now}`;
       const created: ChatThread = {
         id: newThreadId,
         dayOffset: 0,
+        createdAt: now,
         title: trimmed.length > 28 ? `${trimmed.slice(0, 28)}…` : trimmed,
         preview: trimmed.slice(0, 80),
         ageLabel: "NOW",
         status: "active",
-        messages: [{ id: `d-${now}`, role: "divider", label: "TODAY" }, userMsg],
+        messages: messagesBeforeReply,
       };
       setThreads((prev) => [created, ...prev]);
       setActiveId(newThreadId);
+      saveThreadLocally(newThreadId, messagesBeforeReply);
     }
 
     const sendKey = targetId ?? newThreadId!;
@@ -218,6 +279,11 @@ function CoachChatContent({ data }: { data: RepoData }) {
       const result = await sendMessage(targetId, priorMessages, trimmed);
 
       if (result.closed) {
+        // Now genuinely committed server-side - the local-only cache for this thread (keyed
+        // under its pre-close local id, which no longer means anything once the real committed
+        // thread is in result.threads) is done its job and would just be stale/orphaned clutter
+        // from here on.
+        clearThreadLocally(sendKey);
         setThreads(result.threads);
         // Only jump to the newly-closed/reused thread if the athlete is still looking at the
         // thread this send belonged to - if they've since switched away (or deleted it), leave
@@ -235,6 +301,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
 
       const activeThreadId = targetId ?? newThreadId;
       const coachMsg: ChatMessage = { id: `c-${Date.now()}`, role: "coach", paragraphs: [result.reply] };
+      const updatedMessages = [...messagesBeforeReply, coachMsg];
       setThreads((prev) =>
         prev.map((thread) =>
           thread.id === activeThreadId
@@ -243,11 +310,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
                 preview: result.reply.slice(0, 80),
                 ageLabel: "NOW",
                 status: "active" as const,
-                messages: [...thread.messages, coachMsg],
+                messages: updatedMessages,
               }
             : thread,
         ),
       );
+      if (activeThreadId) saveThreadLocally(activeThreadId, updatedMessages);
     } catch (err: unknown) {
       // Roll back the optimistic echo - either drop the message from an existing thread, or
       // drop the whole thread if this send was what created it. Only clear activeId if the
@@ -256,6 +324,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
       if (newThreadId) {
         setThreads((prev) => prev.filter((thread) => thread.id !== newThreadId));
         setActiveId((prevActiveId) => (prevActiveId === newThreadId ? null : prevActiveId));
+        clearThreadLocally(newThreadId);
       } else if (targetId) {
         setThreads((prev) =>
           prev.map((thread) =>
@@ -264,6 +333,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
               : thread,
           ),
         );
+        saveThreadLocally(targetId, priorMessages);
       }
       if (err instanceof CoachChatAccessRevokedError) {
         setThreadsAccessRevoked(true);

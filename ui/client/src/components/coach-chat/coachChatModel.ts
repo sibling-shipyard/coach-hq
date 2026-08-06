@@ -30,6 +30,9 @@ export type ChatThreadStatus = "active" | "deleted";
 export type ChatThread = {
   id: string;
   dayOffset: number;
+  /** Raw epoch ms the thread was first created - server has always sent this, client just
+   * didn't decode it until now (needed to replace the D-N relative age badge with a real date). */
+  createdAt?: number;
   title: string;
   preview: string;
   ageLabel: string;
@@ -61,6 +64,49 @@ export function challengeDayNumber(challenge: ChallengeV2, now = new Date()): nu
 
 export function threadDayLabel(dayNumber: number, dayOffset: number): string {
   return `D-${Math.max(1, dayNumber - dayOffset)}`;
+}
+
+// Replaces the relative "D-1"/"D-2"/"D-13" age badge (thread.ageLabel) - that number resets
+// meaning every time you look at it days later and was reported as "useless" in practice. A real
+// date reads the same regardless of when you look at it. "NOW" for the active same-day thread,
+// no time-of-day anywhere (also replaces the stale, frozen-at-creation-time "TODAY · 2:00 AM"
+// divider label - see threadDividerLabel below).
+function ordinal(day: number): string {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1:
+      return `${day}st`;
+    case 2:
+      return `${day}nd`;
+    case 3:
+      return `${day}rd`;
+    default:
+      return `${day}th`;
+  }
+}
+
+export function formatThreadDate(createdAt: number | undefined): string {
+  if (!createdAt) return "";
+  const date = new Date(createdAt);
+  const month = date.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+  return `${ordinal(date.getDate())} ${month}`;
+}
+
+/** Age badge for a thread row: "NOW" for today's active thread, otherwise a real date instead
+ * of the relative D-N count. Falls back to the relative label only if createdAt is somehow
+ * missing (shouldn't happen for anything the server sends, but keeps this from rendering blank). */
+export function threadAgeDisplay(thread: ChatThread): string {
+  if (thread.dayOffset === 0) return "NOW";
+  const formatted = formatThreadDate(thread.createdAt);
+  return formatted || thread.ageLabel;
+}
+
+/** Leading divider label for a conversation pane: "TODAY" for the active same-day thread,
+ * otherwise the thread's real date, never a time-of-day - replaces trusting the server's stored
+ * divider string, which is frozen at creation time and reads e.g. "TODAY · 2:00 AM" forever,
+ * even days later. */
+export function threadDividerLabel(thread: ChatThread): string {
+  return thread.dayOffset === 0 ? "TODAY" : formatThreadDate(thread.createdAt) || "TODAY";
 }
 
 export const CHAT_STARTERS: ChatStarter[] = [
@@ -230,5 +276,60 @@ export async function greet(): Promise<GreetResult> {
   rememberRepoSha(body.threadId, body.repoSha);
   pruneRepoSha(body.threads.map((t) => t.id));
   return { ...body, threads: body.threads.map(normalizeThread) };
+}
+
+// Mirrors iOS's CoachChatLocalCache: nothing is persisted server-side until a thread closes (see
+// sendMessage's doc comment above), so an in-progress conversation only ever exists in this tab's
+// React state - a refresh loses it completely. Saved after every append, restored on load,
+// cleared on a successful close. Web has no per-account namespacing the way iOS's cache key
+// includes repoFullName - acceptable simplification since a browser's localStorage is already
+// scoped to one signed-in session/account at a time in practice, unlike a phone that could
+// plausibly hold multiple accounts' Keychain-backed sessions.
+const LOCAL_CACHE_PREFIX = "coachChatLocalCache.";
+
+export function saveThreadLocally(threadId: string, messages: ChatMessage[]): void {
+  try {
+    localStorage.setItem(LOCAL_CACHE_PREFIX + threadId, JSON.stringify(messages));
+  } catch {
+    // Quota exceeded, private browsing, etc. - never let this block the actual conversation.
+  }
+}
+
+export function restoreThreadMessagesLocally(threadId: string): ChatMessage[] | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_CACHE_PREFIX + threadId);
+    return raw ? (JSON.parse(raw) as ChatMessage[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearThreadLocally(threadId: string): void {
+  try {
+    localStorage.removeItem(LOCAL_CACHE_PREFIX + threadId);
+  } catch {
+    // Not fatal - a leftover cache entry for an already-closed thread is harmless clutter, not a
+    // correctness problem (restore only ever adds messages on top of what the server already has
+    // for a thread id that exists server-side; it can't resurrect a closed thread's stale draft).
+  }
+}
+
+/** Thread ids cached locally that never made it into `currentThreadIds` (the server's committed
+ * list) - i.e. genuinely uncommitted conversations, not just a stale cache entry for something
+ * that already closed. Scan happens once on load, before the first render decides what to show. */
+export function findOrphanedLocalThreadIds(currentThreadIds: readonly string[]): string[] {
+  const known = new Set(currentThreadIds);
+  const orphaned: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(LOCAL_CACHE_PREFIX)) continue;
+      const threadId = key.slice(LOCAL_CACHE_PREFIX.length);
+      if (!known.has(threadId)) orphaned.push(threadId);
+    }
+  } catch {
+    return [];
+  }
+  return orphaned;
 }
 
