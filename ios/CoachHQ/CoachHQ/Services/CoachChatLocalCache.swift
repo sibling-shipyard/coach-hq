@@ -38,12 +38,32 @@ enum CoachChatLocalCache {
         UserDefaults.standard.removeObject(forKey: key(repoFullName: repoFullName, threadId: threadId))
     }
 
+    /// Thread ids cached locally that never made it into `serverThreads` at all - a genuinely
+    /// uncommitted conversation (a materializeThreadIfNeeded "local-<ts>" thread, or a
+    /// greetNow() greeting - neither commits server-side until a real close), not just a stale
+    /// cache entry for something that already closed elsewhere. Scans UserDefaults for this
+    /// repo's cache keys directly since there's no server-side list to check these ids against.
+    private static func orphanedThreadIds(repoFullName: String, knownThreadIds: Set<String>) -> [String] {
+        let prefix = "coachChatLocalCache.\(repoFullName)."
+        return UserDefaults.standard.dictionaryRepresentation().keys.compactMap { key -> String? in
+            guard key.hasPrefix(prefix) else { return nil }
+            let threadId = String(key.dropFirst(prefix.count))
+            return knownThreadIds.contains(threadId) ? nil : threadId
+        }
+    }
+
     /// Restores any thread in `serverThreads` whose local cache has strictly more messages than
     /// the server-committed copy - i.e. a mid-conversation window the server hasn't committed
     /// yet. Threads that come back `.deleted` have their cache dropped defensively so a stale
     /// local copy can't resurrect a thread the athlete removed on another device.
+    ///
+    /// Also materializes any orphaned local-only thread (see orphanedThreadIds above) that has
+    /// no server counterpart at all - previously invisible to restore entirely, since overlaying
+    /// only ever happens onto a thread the server already knows about. This is the actual
+    /// explanation for "a whole in-progress conversation vanished after force-quit/relaunch": it
+    /// was cached correctly the whole time, restore just never looked for it under its local id.
     static func restoring(_ serverThreads: [ChatThread], repoFullName: String) -> [ChatThread] {
-        serverThreads.map { thread in
+        let overlaid = serverThreads.map { thread -> ChatThread in
             if thread.status == .deleted {
                 clear(repoFullName: repoFullName, threadId: thread.id)
                 return thread
@@ -56,5 +76,30 @@ enum CoachChatLocalCache {
             restored.messages = cached
             return restored
         }
+
+        let knownIds = Set(serverThreads.map(\.id))
+        let orphaned = orphanedThreadIds(repoFullName: repoFullName, knownThreadIds: knownIds).compactMap { id -> ChatThread? in
+            guard let messages = load(repoFullName: repoFullName, threadId: id), !messages.isEmpty else { return nil }
+            let lastCoachText = messages.last(where: { $0.role == .coach })?.paragraphs?.joined(separator: " ")
+            let firstUserText = messages.first(where: { $0.role == .user })?.text
+            let title: String
+            if let firstUserText {
+                title = firstUserText.count > 28 ? String(firstUserText.prefix(28)) + "…" : firstUserText
+            } else {
+                title = "New conversation"
+            }
+            return ChatThread(
+                id: id,
+                dayOffset: 0,
+                createdAt: nil,
+                title: title,
+                preview: lastCoachText.map { String($0.prefix(80)) } ?? "",
+                ageLabel: "NOW",
+                status: .active,
+                messages: messages
+            )
+        }
+
+        return orphaned + overlaid
     }
 }

@@ -41,11 +41,56 @@ enum ChatThreadStatus: String, Codable {
 struct ChatThread: Codable, Identifiable, Equatable {
     let id: String
     var dayOffset: Int
+    /// Raw epoch ms the thread was first created - server has always sent this, client just
+    /// didn't decode it until now (needed to replace the D-N relative age badge with a real
+    /// date - see formattedDate below).
+    var createdAt: Double? = nil
     var title: String
     var preview: String
     var ageLabel: String
     var status: ChatThreadStatus
     var messages: [ChatMessage]
+}
+
+extension ChatThread {
+    /// Mirrors coachChatModel.ts's formatThreadDate - replaces the relative "D-1"/"D-2"/"D-13"
+    /// age badge (ageLabel), which resets meaning every time you look at it days later. A real
+    /// date reads the same regardless of when you look at it.
+    var formattedDate: String? {
+        guard let createdAt else { return nil }
+        let date = Date(timeIntervalSince1970: createdAt / 1000)
+        let day = Calendar.current.component(.day, from: date)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let month = formatter.string(from: date).uppercased()
+        return "\(Self.ordinal(day)) \(month)"
+    }
+
+    private static func ordinal(_ day: Int) -> String {
+        if (11...13).contains(day) { return "\(day)th" }
+        switch day % 10 {
+        case 1: return "\(day)st"
+        case 2: return "\(day)nd"
+        case 3: return "\(day)rd"
+        default: return "\(day)th"
+        }
+    }
+
+    /// Age badge for a history row: "NOW"/"OPEN" handled by the caller for today's active
+    /// thread, otherwise a real date instead of the relative D-N count - falls back to
+    /// ageLabel only if createdAt is somehow missing.
+    var ageDisplay: String {
+        formattedDate ?? ageLabel
+    }
+
+    /// Leading divider label: "TODAY" for the active same-day thread, otherwise the thread's
+    /// real date, never a time-of-day - replaces trusting the server's stored divider string,
+    /// which is frozen at creation time and reads e.g. "TODAY · 2:00 AM" forever, even days
+    /// later.
+    var dividerLabel: String {
+        dayOffset == 0 ? "TODAY" : (formattedDate ?? "TODAY")
+    }
 }
 
 struct ChatThreadsResponse: Decodable {
@@ -71,8 +116,10 @@ struct ChatAPIErrorBody: Decodable {
     let error: String?
 }
 
-/// POST {action: "greet"} response (A4) - always creates or reuses a real thread, unlike
-/// ChatSendResponse's ordinary-turn case, so threadId/threads are never optional here.
+/// POST {action: "greet"} response (A4). `threadId` is a fresh, never-committed id and `threads`
+/// is just the existing committed list unchanged - the server no longer commits anything on
+/// greet (see coach-chat.ts's handleGreet), so CoachChatView materializes the actual greeting as
+/// a local-only thread instead of trusting these fields to already represent it.
 struct ChatGreetResponse: Decodable {
     let reply: String
     let threadId: String

@@ -327,11 +327,19 @@ struct CoachChatView: View {
 
     // MARK: - Messages
 
+    /// The server stores a divider's label frozen at creation time ("TODAY · 2:00 AM"), which
+    /// reads as wrong forever once the thread is no longer from today. Only the FIRST divider
+    /// gets the dynamic replacement - a thread only ever has one in practice, but guarding by id
+    /// rather than "every divider" avoids surprises if that ever changes.
+    private var firstDividerId: String? {
+        displayThread.messages.first(where: { $0.role == .divider })?.id
+    }
+
     @ViewBuilder
     private func messageRow(_ message: ChatMessage) -> some View {
         switch message.role {
         case .divider:
-            CoachChatDayDivider(label: message.label ?? "")
+            CoachChatDayDivider(label: message.id == firstDividerId ? displayThread.dividerLabel : (message.label ?? ""))
                 .frame(maxWidth: .infinity)
 
         case .user:
@@ -453,11 +461,14 @@ struct CoachChatView: View {
         }
     }
 
-    /// A4: coach speaks first. Creates (or reuses today's still-unanswered greeting thread)
-    /// via /api/coach-chat's greet action, so landing on Chat always shows Coach having already
-    /// opened the conversation, never an empty composer waiting on the athlete to type first.
-    /// Called both when today has no thread yet (loadThreads) and explicitly from "New
-    /// conversation" (the server's reuse-vs-create logic handles both cases correctly).
+    /// A4: coach speaks first. coach-chat.ts's handleGreet() no longer commits anything
+    /// server-side (every open, not just the first, gets a fresh live Gemini greeting instead
+    /// of a stale reused one - see the ADR-linked comment in coach-chat.ts) - `result.threads`
+    /// is just the existing committed list unchanged, and `result.threadId` is a fresh, never
+    /// persisted id. Materialize the greeting as a local-only thread here instead (same
+    /// "local-<timestamp>" convention materializeThreadIfNeeded already uses below for a
+    /// brand-new athlete-initiated thread) and cache it immediately, so nothing is lost if the
+    /// athlete backgrounds the app before replying.
     private func greetNow(apiClient: CoachChatAPIClient) async {
         do {
             // B4: only relevant for a brand-new athlete's very first greet (harmless to pass
@@ -465,8 +476,24 @@ struct CoachChatView: View {
             // or once state.md's Athlete Profile is already filled in and there's nothing left
             // to reflect back).
             let result = try await apiClient.greet(onboardingHints: OnboardingHints.load())
-            threads = result.threads
-            activeThreadId = result.threadId
+            let now = Date().timeIntervalSince1970 * 1000
+            let localId = "local-\(Int(now))"
+            let greeted = ChatThread(
+                id: localId,
+                dayOffset: 0,
+                createdAt: now,
+                title: "New conversation",
+                preview: String(result.reply.prefix(80)),
+                ageLabel: "NOW",
+                status: .active,
+                messages: [
+                    ChatMessage.divider(id: "d-\(Int(now))", label: "TODAY"),
+                    ChatMessage.coach(id: "c-\(Int(now))", paragraphs: [result.reply]),
+                ]
+            )
+            threads = [greeted] + result.threads
+            activeThreadId = localId
+            cacheThreadLocally(greeted)
         } catch let error as GitHubAPIError {
             if case .sessionNotReady = error { return }
             if case .notAuthenticated = error {
@@ -513,6 +540,7 @@ struct CoachChatView: View {
         let created = ChatThread(
             id: id,
             dayOffset: 0,
+            createdAt: now,
             title: "Today's thread",
             preview: "",
             ageLabel: "NOW",
