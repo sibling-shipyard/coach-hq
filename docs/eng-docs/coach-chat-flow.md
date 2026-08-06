@@ -5,7 +5,7 @@
 Real Coach Phelps sessions from the browser and iOS, backed by Gemini. This doc traces what
 happens between the athlete opening the chat tab and anything landing on `main` — it describes
 **how the system works today**, not its history. For what changed, when, and why, see
-[`coach-chat-design.md`](coach-chat-design.md)'s dated record.
+[`coach-chat-design-history.md`](coach-chat-design-history.md)'s dated record.
 Companion to [`ios-sync.md`](ios-sync.md): that doc covers HealthKit ingestion, this one covers
 the coaching-conversation path. Commit/retention design: ADR 0012. Vercel function-count
 constraint that shapes the endpoint layout: ADR 0017.
