@@ -176,8 +176,41 @@ here).
 
 ---
 
+## 2026-08-06 — Orphan-restore day-offset bug + stale-greeting cleanup (PRs #280-#282)
+
+Filed a consolidated manual test checklist (issue #280, superseding #222 and #267) to work
+through everything shipped in the two passes above against real, live behavior rather than code
+review alone. Two independent code reviews of #276-278 (iOS Builder and UI Expert, working
+separately) each found the same real bug before manual testing even started.
+
+**The bug (PR #281):** the local cache introduced by #277/#278 only ever persisted a thread's
+`messages`, never a `createdAt` — so when restoring an orphaned (never-committed) thread, there
+was nothing to recover a real creation date from, and both platforms hardcoded `dayOffset: 0`.
+Concretely: greet on Day 1, don't reply, close the app; reopen on Day 3 — the stale Day-1
+greeting gets restored looking like "today's" thread, `ensureTodayThread`/`todayThread` picks it
+up before a fresh greet ever fires, and the athlete sees the same frozen Day-1 opener instead of
+a new one. Directly contradicted #276-278's own stated goal of a fresh greeting on every open.
+
+**Fix:** both platforms already embed an epoch-ms timestamp in message ids (`d-<ms>`/`c-<ms>`) —
+recover `createdAt` from the divider's own id on restore instead of hardcoding "today," and
+compute a real `dayOffset` from that (`epochMsFromMessageId`/`computeLocalDayOffset` on web,
+`epochMs`/`dayOffset` on iOS). Same reviews also caught a second, related bug: repeated "New
+conversation" taps each left their own orphaned cache entry with no cleanup, and which one won
+as "today's thread" on next restore was nondeterministic (dictionary/localStorage key iteration
+order) — fixed by clearing any previous unreplied local greeting before materializing a new one.
+
+**Follow-up (PR #282):** #281 correctly stopped a past-day unreplied greeting from masquerading
+as today, but left it *displayed*, correctly dated, forever — a permanent single-message "ghost"
+thread cluttering the sidebar/history. Since nothing worth keeping exists in an unreplied
+greeting once its day has passed, this drops it entirely at restore time instead: clear the
+cache entry, don't materialize a thread for it. A same-day unreplied greeting is untouched — only
+past-day orphans get dropped.
+
+---
+
 ## Superseded verification issues
 
 Manual test checklists have been filed and re-filed as the system changed underneath them
-(#222 for the original redesign, #267 for the caching/close-reliability pass) — see the current
-consolidated checklist issue for what's actually still unverified as of the latest pass.
+(#222 for the original redesign, #267 for the caching/close-reliability pass, #280 for the
+close-save-reliability/greet-materialization pass) — see the current consolidated checklist
+issue for what's actually still unverified as of the latest pass.

@@ -112,6 +112,16 @@ enum CoachChatLocalCache {
             }
             let createdAt = messages.first(where: { $0.role == .divider }).flatMap { epochMs(fromMessageId: $0.id) }
             let offset = createdAt.map { dayOffset(fromCreatedAt: $0) } ?? 0
+            // An unreplied greeting from a past day has nothing worth keeping - Coach spoke, the
+            // athlete never engaged, and a fresh greeting for today already supersedes it. Rather
+            // than let it linger forever as a single-message "ghost" thread (correctly dated by
+            // the fix above, but still shown), drop it here: clear its cache entry and don't
+            // materialize it at all. A same-day unreplied greeting is untouched by this - that's
+            // still "come back to what Coach just said," not clutter.
+            if firstUserText == nil, offset > 0 {
+                clear(repoFullName: repoFullName, threadId: id)
+                return nil
+            }
             return ChatThread(
                 id: id,
                 dayOffset: offset,

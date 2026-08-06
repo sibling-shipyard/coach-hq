@@ -85,6 +85,12 @@ conversation later closes: its full message history, including the divider and C
 line, rides along inside that eventual close-commit, exactly like an ordinary mid-conversation
 turn (nothing writes server-side until close).
 
+Before materializing a new greeting, both platforms clear the cache entry for any *previous
+unreplied* local greeting they find in current state (`materializeGreeting()`/`greetNow()`) — so
+repeatedly hitting "New conversation" without ever replying can't pile up multiple local-only
+cache entries for the same day. See Resumability below for the complementary restore-time fix
+(dropping a past-day unreplied greeting entirely, rather than just superseding a same-day one).
+
 **Accepted edge case:** without a server-side reuse check, two tabs/devices opened at almost the
 exact same moment on a day with no thread yet each independently materialize their own local
 greeting, with no reconciliation. If the athlete replies in one, that becomes the real
@@ -351,14 +357,24 @@ What restores the conversation is a client-side cache, not the server, on **both
   `localStorage` is already scoped to one signed-in session at a time in practice).
 
 Since a fully local thread (the normal state until close) never has a server counterpart to
-match against, restore does two things on load, not just one:
+match against, restore does three things on load, not just one:
 1. Overlay the local cache onto any *server-known* thread whose cache has more messages than the
    server copy (a thread whose close-commit landed but a stray local cache entry is still lying
    around).
 2. **Scan for orphaned local cache entries** — a thread id cached locally that never made it into
    the server's list at all — and materialize each one as its own thread.
    (`CoachChatLocalCache.restoring()`'s `orphanedThreadIds()` on iOS;
-   `findOrphanedLocalThreadIds()` in `coachChatModel.ts` on web.)
+   `findOrphanedLocalThreadIds()` in `coachChatModel.ts` on web.) An orphaned thread never had a
+   server-computed `createdAt`/`dayOffset` (nothing was ever committed for it) — both platforms
+   recover a real creation time from the divider message's own id (`d-<epoch-ms>`, already
+   embedded by construction) rather than defaulting to "today," and compute a real day offset
+   from that.
+3. **Drop a stale unreplied greeting** rather than restoring it: if an orphaned thread is still
+   just Coach's opener with no athlete reply, and its recovered day offset shows it's from a
+   *past* day, there's nothing in it worth keeping — the athlete never engaged, and a fresh
+   greeting for today already supersedes it. Its cache entry is cleared and it's simply not
+   materialized. A same-day unreplied greeting is untouched by this (still a legitimate "come
+   back to what Coach just said an hour ago" case).
 
 `shouldOpenChatFirst()` still sees `profileComplete: false` and routes back to Chat on relaunch;
 `todayThread`/`ensureTodayThread` select the restored local thread directly rather than calling
