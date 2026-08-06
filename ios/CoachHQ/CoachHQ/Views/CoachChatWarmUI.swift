@@ -78,11 +78,8 @@ struct CoachChatCoachBubble: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
-                Text(CoachChatMarkdown.attributed(paragraph))
-                    .font(WarmInstrument.coachVoice(15))
+                CoachChatMarkdownBlock(text: paragraph, font: WarmInstrument.coachVoice(15))
                     .foregroundStyle(WarmInstrument.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .lineSpacing(3)
             }
 
             if !chips.isEmpty {
@@ -675,7 +672,7 @@ struct CoachChatHistorySheet: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Spacer(minLength: 0)
-                    Text(isToday && thread.id == todayThreadId ? "OPEN" : thread.ageLabel)
+                    Text(isToday && thread.id == todayThreadId ? "OPEN" : thread.ageDisplay)
                         .font(WarmInstrument.monoLabel(8.5))
                         .foregroundStyle(WarmInstrument.inkFaint)
                 }
