@@ -67,7 +67,11 @@ export async function invalidateCachedSoulName(): Promise<void> {
   if (!configId || !token) return;
   const teamQuery = process.env.VERCEL_TEAM_ID ? `?teamId=${process.env.VERCEL_TEAM_ID}` : "";
   await fetchWithTimeout(
-    `https://api.vercel.com/v1/edge-config/${configId}/items${teamQuery}`,
+    // Vercel's REST path is /v1/global-config/... (not /v1/edge-config/...) as of the Aug 2026
+    // rebrand - the old path silently 404s on the item ("Edge Config Item not found") rather
+    // than 404ing the route itself, which made this look like a data problem instead of a URL
+    // one until logging was added.
+    `https://api.vercel.com/v1/global-config/${configId}/items${teamQuery}`,
     {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -86,7 +90,11 @@ async function writeRecord(record: CacheRecord): Promise<void> {
   }
   const teamQuery = process.env.VERCEL_TEAM_ID ? `?teamId=${process.env.VERCEL_TEAM_ID}` : "";
   const res = await fetchWithTimeout(
-    `https://api.vercel.com/v1/edge-config/${configId}/items${teamQuery}`,
+    // Vercel's REST path is /v1/global-config/... (not /v1/edge-config/...) as of the Aug 2026
+    // rebrand - the old path silently 404s on the item ("Edge Config Item not found") rather
+    // than 404ing the route itself, which made this look like a data problem instead of a URL
+    // one until logging was added.
+    `https://api.vercel.com/v1/global-config/${configId}/items${teamQuery}`,
     {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
