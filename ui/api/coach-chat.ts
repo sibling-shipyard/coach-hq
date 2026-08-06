@@ -530,6 +530,16 @@ export async function askGemini(
           "actually have what you need should you close - if this is the athlete's second time asking",
           "to close and you still don't have it, close anyway with what you have rather than stall",
           "forever.",
+          "\nBefore deciding file_updates, use `reasoning` to do this mechanically, not just describe",
+          "it: list every concrete fact this conversation contains (a workout done, how it felt, sleep",
+          "mentioned, an injury, a plan for tomorrow, a proposed session) that state.md/quest_log.md",
+          "above does NOT already reflect, one per line. Every line on that list needs either a",
+          "file_updates entry or an explicit reason it doesn't need saving - a real training",
+          "conversation that ends with file_updates empty is a mistake, not a valid outcome, unless",
+          "that list is genuinely empty too. This applies equally to proposing a new",
+          "user_data/activities/workout_plans/sessions/<name>.json when you and the athlete actually",
+          "settled on a plan for an upcoming session - don't just describe the plan in `reply` and",
+          "drop it; a session file that doesn't get created won't show up anywhere for the athlete.",
           "**Never say something is saved, logged, locked, or committed unless it is genuinely present",
           "in file_updates in this exact response.** If there is truly nothing concrete to save this",
           "session, say so honestly instead of pretending to close one out.",
@@ -652,10 +662,10 @@ export async function askGemini(
     invalidateCachedSoulName().catch(() => {});
     res = await callGemini(false);
   }
-  return finishGeminiResponse(res);
+  return finishGeminiResponse(res, mode);
 }
 
-async function finishGeminiResponse(res: Response): Promise<GeminiReply> {
+async function finishGeminiResponse(res: Response, mode: TurnMode): Promise<GeminiReply> {
   if (res.status === 429) {
     // Not necessarily free-tier - Tier 1 has its own (much higher) ceilings too. Both clients now
     // handle 429 as its own case with a proper "wait and retry" message rather than surfacing
@@ -681,8 +691,21 @@ async function finishGeminiResponse(res: Response): Promise<GeminiReply> {
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
   const parsed = JSON.parse(text) as GeminiReply;
-  // reasoning is scratch space for the model, never meant for the athlete - drop it here so it
-  // can't leak through any caller that serializes the whole reply object.
+  // On closing turns specifically, log the model's own stated reasoning before stripping it -
+  // this is the only place it's ever available (never persisted, never sent to the athlete), and
+  // it's exactly the diagnostic needed for a close that silently saves nothing: the model's own
+  // account of what it considered and why, correlatable by request time with the
+  // "zero file_updates" warning logged downstream once resolveFileUpdate/injectCoachSinceIfNeeded
+  // have run (this function doesn't know the eventual file_updates outcome, so it logs
+  // unconditionally for every close rather than only the empty ones).
+  if (mode === "closing") {
+    console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning);
+  }
+  // reasoning is scratch space for the model, never meant for the athlete - delete here (not just
+  // omit from responses) so it can never leak through any caller that spreads/serializes the
+  // whole reply object, now or in the future, and so eval-coach-chat.ts's leak check
+  // (`"reasoning" in reply`) holds on askGemini's actual return contract, not just this file's
+  // own Response.json call sites.
   delete parsed.reasoning;
   return parsed;
 }
@@ -811,32 +834,18 @@ export function onboardingHintsContext(hints: OnboardingHints | undefined): stri
   return lines.join("\n");
 }
 
-// A thread created by a prior greet() has [divider, coachMsg] - "still just an unanswered
-// greeting" means exactly one non-divider message, and it's from Coach. Shared by handleGreet's
-// up-front check and its commit-time recheck (see below) - both need the exact same definition.
-function findReusableGreetingThread(threadsWithOffsets: ChatThread[]): ChatThread | undefined {
-  return threadsWithOffsets.find((t) => {
-    if (t.status !== "active" || t.dayOffset !== 0) return false;
-    const real = t.messages.filter((m) => m.role !== "divider");
-    return real.length === 1 && real[0].role === "coach";
-  });
-}
-
-function reusableThreadResponse(reusable: ChatThread, threads: ChatThread[], repoSha: string | null) {
-  const coachMsg = reusable.messages.find((m) => m.role === "coach");
-  return Response.json({
-    reply: coachMsg?.role === "coach" ? coachMsg.paragraphs.join("\n\n") : "",
-    threadId: reusable.id,
-    threads,
-    repoSha,
-  });
-}
-
-// A4: coach speaks first. Landing on "new conversation" (no active unengaged thread already
-// sitting there today) creates a thread whose only message is Coach's own opening line, before
-// the athlete has typed anything. Reuses an existing same-day thread that's still just an
-// unanswered greeting instead of creating a new one every time the athlete reopens the tab
-// without engaging - otherwise that would burn through the 7-slot retention cap for nothing.
+// A4: coach speaks first. Every greet() call generates a fresh opener via Gemini (informed by
+// current state.md/quest_log.md) and hands back a not-yet-committed thread id - nothing is
+// written to the repo here. The greeting only actually lands in the repo if the athlete replies
+// and that conversation later closes (its full message history, greeting included, is what the
+// close-commit writes in one atomic commit - see the closing-turn path below). Before this, every
+// greet() committed a brand-new thread immediately, which meant opening the tab and not engaging
+// permanently ate one of the 7 retention slots and littered the repo with empty
+// "coach: chat — new conversation" commits - confirmed in real usage on both live athlete repos.
+// The close path already handles a client-supplied threadId that was never committed (treats it
+// as a brand-new thread, `coach-chat.ts`'s message-send handler: `threadId ?? \`t-${now}\``), so
+// this needs no special-casing there - it's the same mechanism ordinary mid-conversation turns
+// already rely on (nothing commits until close).
 async function handleGreet(
   repo: string,
   token: string,
@@ -846,13 +855,6 @@ async function handleGreet(
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
   const { soul, state: stateMd, questLog } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
-
-  const withOffsets = withComputedDayOffsets(history.threads, stateMd ?? "");
-  const reusable = findReusableGreetingThread(withOffsets);
-  if (reusable) {
-    const repoSha = await getHeadSha(repo, token).catch(() => null); // A5: best-effort, never blocks a reply
-    return reusableThreadResponse(reusable, withOffsets, repoSha);
-  }
 
   let reply: GeminiReply;
   try {
@@ -877,73 +879,11 @@ async function handleGreet(
   }
 
   const now = Date.now();
-  const finalThreadId = `t-${now}`;
-  const coachMsg: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [reply.reply] };
-  const messages: ChatMessage[] = [{ id: `d-${now}`, role: "divider", label: todayDividerLabel(stateMd ?? "") }, coachMsg];
-
-  let latestThreads: ChatThread[] = [];
-  const chatWrite: FileEntry = {
-    path: CHAT_FILE_PATH,
-    resolve: async () => {
-      const fresh = await loadChatHistory(repo, token);
-      // Race narrowing: the up-front check above can't see a greeting thread a concurrent
-      // request commits while this one is mid-Gemini-call. Re-check here, right before this
-      // request's own commit, against the freshest possible read - doesn't fully eliminate the
-      // race (there's still the small window between this read and the ref actually moving,
-      // same as any optimistic check), but shrinks it from "the whole Gemini round-trip" down
-      // to just this commit's own read-tree-commit-ref sequence.
-      const freshWithOffsets = withComputedDayOffsets(fresh.threads, stateMd ?? "");
-      const reusable = findReusableGreetingThread(freshWithOffsets);
-      if (reusable) {
-        // Tagged {status: 400} so commitFilesAtomic's isTransient() doesn't retry this (an
-        // undefined/other status is treated as transient and would just loop back here again,
-        // finding the same reusable thread every time) - caught below, converted into reusing
-        // that thread's reply instead of erroring or duplicating it.
-        throw Object.assign(new Error("Another request already created today's greeting thread"), {
-          status: 400,
-          reusableThreadId: reusable.id,
-        });
-      }
-      const thread: ChatThread = {
-        id: finalThreadId,
-        dayOffset: 0,
-        createdAt: now,
-        title: "New conversation",
-        preview: reply.reply.slice(0, 80),
-        ageLabel: "NOW",
-        status: "active",
-        messages,
-      };
-      const retained = applyRetention(mergeThreadToFront(fresh.threads, thread));
-      latestThreads = retained;
-      return JSON.stringify({ threads: retained }, null, 2);
-    },
-  };
-
-  let repoSha: string;
-  try {
-    const result = await commitFilesAtomic([chatWrite], "coach: chat — new conversation", { repo, branch: "main", token });
-    repoSha = result.commitSha;
-  } catch (err: unknown) {
-    const reusableThreadId = (err as { reusableThreadId?: string }).reusableThreadId;
-    if (reusableThreadId) {
-      const fresh = await loadChatHistory(repo, token);
-      const freshWithOffsets = withComputedDayOffsets(fresh.threads, stateMd ?? "");
-      const existing = freshWithOffsets.find((t) => t.id === reusableThreadId);
-      const freshRepoSha = await getHeadSha(repo, token).catch(() => null);
-      if (existing) return reusableThreadResponse(existing, freshWithOffsets, freshRepoSha);
-      // Vanishingly unlikely (would need the thread deleted in the instant between the two
-      // reads) - fall through to the generic error below rather than crash on a missing thread.
-    }
-    const errMessage = err instanceof Error ? err.message : String(err);
-    console.error("[coach-chat] greet commitFilesAtomic failed:", err);
-    return Response.json({ error: `Coach's greeting failed to save: ${errMessage}` }, { status: 502 });
-  }
-
+  const repoSha = await getHeadSha(repo, token).catch(() => null); // A5: best-effort, never blocks a reply
   return Response.json({
     reply: reply.reply,
-    threadId: finalThreadId,
-    threads: withComputedDayOffsets(latestThreads, stateMd ?? ""),
+    threadId: `t-${now}`,
+    threads: withComputedDayOffsets(history.threads, stateMd ?? ""),
     repoSha,
   });
 }
@@ -1165,6 +1105,18 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const committedStateMd = resolvedUpdates.find((u) => u.path === STATE_FILE_PATH)?.content ?? stateMd ?? "";
       const profileComplete = isAthleteProfileComplete(committedStateMd);
       const validUpdates = injectCoachSinceIfNeeded(resolvedUpdates, closingFiles, wasProfileComplete, profileComplete, stateMd ?? "");
+
+      // Nothing in code blocks a close from landing with zero file_updates - the prompt asks
+      // Gemini to always propose something on genuine content and to say so honestly when there's
+      // truly nothing, but compliance isn't enforced here. Without this, a close that silently
+      // saved nothing was completely invisible (found the hard way: real conversations with real
+      // training content closing with only chat_history.json touched, no way to tell from a commit
+      // history alone whether that was a deliberate empty close or a missed one). The model's own
+      // reasoning for this specific request was already logged in finishGeminiResponse (stripped
+      // from `reply` by the time it reaches here) - correlate by request time.
+      if (validUpdates.length === 0) {
+        console.warn("[coach-chat] close landed with zero file_updates.", { athleteMessage: trimmed });
+      }
 
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
 
