@@ -24,7 +24,7 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 
 | Var | Used by | What breaks if unset |
 |---|---|---|
-| `EDGE_CONFIG` | `ui/api/_lib/soulCache.ts` (via `@vercel/edge-config`) | Explicit-cache name/expiry can't be read back across cold starts — every request falls back to the pre-caching prompt shape (still correct, just no explicit-cache discount). See `docs/eng-docs/gemini-flow.md`. |
+| `GLOBAL_CONFIG` | `ui/api/_lib/soulCache.ts` (via `@vercel/edge-config`'s `createClient`) | Explicit-cache name/expiry can't be read back across cold starts — every request falls back to the pre-caching prompt shape (still correct, just no explicit-cache discount). Named `GLOBAL_CONFIG` because that's the default var name Vercel's "Connect Project" flow gives an Edge Config store (rebranded "Global Config" in the dashboard, Aug 2026) — not `EDGE_CONFIG`, the SDK's own default. See `docs/eng-docs/gemini-flow.md`. |
 | `EDGE_CONFIG_ID` | `ui/api/_lib/soulCache.ts` | Same fallback as above — a newly-created cache name can't be persisted, so it's only reused within the same warm instance. |
 | `VERCEL_API_TOKEN` | `ui/api/_lib/soulCache.ts` | Same fallback — needed alongside `EDGE_CONFIG_ID` because Edge Config has no write API of its own, only reads; writes go through the Vercel REST API. |
 | `VERCEL_TEAM_ID` | `ui/api/_lib/soulCache.ts` | Only needed if the Vercel project lives under a team account — omit for a personal-account project. |

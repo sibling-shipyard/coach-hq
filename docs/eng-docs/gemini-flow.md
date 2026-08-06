@@ -74,13 +74,16 @@ to that, it never blocks a reply.
 ### Cache lifecycle (`soulCache.ts`)
 
 - Cache name + expiry + a content hash of the static text live in **Vercel Edge Config**
-  (`EDGE_CONFIG` env var for reads via `@vercel/edge-config`; `EDGE_CONFIG_ID` +
-  `VERCEL_API_TOKEN` for writes, since Edge Config has no write API of its own — only the
-  Vercel REST API does).
+  (rebranded "Global Config" in the dashboard, Aug 2026 — same product). Read via
+  `@vercel/edge-config`'s `createClient(process.env.GLOBAL_CONFIG)` — `GLOBAL_CONFIG` because
+  that's the default env-var name Vercel's "Connect Project" flow gives the store, not
+  `EDGE_CONFIG` (the SDK's own hardcoded default, which would need a manual rename in that flow
+  to line up). `EDGE_CONFIG_ID` + `VERCEL_API_TOKEN` are for writes, since Edge Config has no
+  write API of its own — only the Vercel REST API does.
 - TTL is 2 hours, long enough to amortize a normal chat session, short enough not to go far
   stale after a SOUL redeploy (the content hash catches a change immediately regardless; TTL
   just bounds how long a stale-but-unhashed edge case could theoretically live).
-- Fails open at every step: no `EDGE_CONFIG` configured, a failed create call, a failed write —
+- Fails open at every step: no `GLOBAL_CONFIG` configured, a failed create call, a failed write —
   any of these just means this request (and until the next successful create) falls back to the
   no-cache shape above. Coaching never blocks on cache plumbing.
 - **Setup required** (operator action, not code): create a Vercel Edge Config store, connect it

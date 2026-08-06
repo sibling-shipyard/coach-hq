@@ -7,15 +7,18 @@
  *
  * The cache is not per-athlete - the static prefix is byte-identical for everyone, so one entry
  * (keyed by content hash, so a SOUL redeploy naturally invalidates it) serves every call. The
- * cache name + expiry live in Vercel Edge Config (EDGE_CONFIG env var for reads via the SDK,
- * EDGE_CONFIG_ID + VERCEL_API_TOKEN for writes via the Vercel REST API - Edge Config has no
- * write API of its own). If Edge Config isn't configured, or any step here fails, this fails
- * open: callers get `null` and coach-chat.ts falls back to inlining the text in
- * systemInstruction like before explicit caching existed - a broken/misconfigured cache should
- * never block a coaching reply.
+ * cache name + expiry live in Vercel's Edge Config product (rebranded "Global Config" in the
+ * dashboard as of Aug 2026 - same product, connection string var read here as GLOBAL_CONFIG
+ * since that's what "Connect Project" names it by default; EDGE_CONFIG_ID + VERCEL_API_TOKEN for
+ * writes via the Vercel REST API, since Edge Config/Global Config has no write API of its own).
+ * If it isn't configured, or any step here fails, this fails open: callers get `null` and
+ * coach-chat.ts falls back to inlining the text in systemInstruction like before explicit
+ * caching existed - a broken/misconfigured cache should never block a coaching reply.
  */
-import { get } from "@vercel/edge-config";
+import { createClient } from "@vercel/edge-config";
 import { fetchWithTimeout } from "./coachChatFiles.js";
+
+const edgeConfigClient = process.env.GLOBAL_CONFIG ? createClient(process.env.GLOBAL_CONFIG) : null;
 
 const EDGE_CONFIG_KEY = "gemini_soul_cache";
 const CACHE_TTL_SECONDS = 7200; // 2h - long enough to amortize a normal session, short enough not to go far stale after a SOUL redeploy.
@@ -37,11 +40,12 @@ function hashText(text: string): string {
 }
 
 async function readRecord(): Promise<CacheRecord | null> {
+  if (!edgeConfigClient) return null; // No GLOBAL_CONFIG env var - treat as cache miss.
   try {
-    const record = await get<CacheRecord>(EDGE_CONFIG_KEY);
+    const record = await edgeConfigClient.get<CacheRecord>(EDGE_CONFIG_KEY);
     return record ?? null;
   } catch {
-    // No EDGE_CONFIG env var, or Edge Config unreachable - treat as cache miss.
+    // Edge Config unreachable - treat as cache miss.
     return null;
   }
 }
