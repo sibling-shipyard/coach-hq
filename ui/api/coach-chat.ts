@@ -869,6 +869,10 @@ async function handleGreet(
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const errMessage = err instanceof Error ? err.message : String(err);
+    // This catch returns directly instead of re-throwing, so the outer handler's console.error
+    // never runs for it - without its own log line, an askGemini failure here is completely
+    // invisible in Runtime Logs (found the hard way: several real 500s had zero log output).
+    console.error("[coach-chat] greet askGemini failed:", err);
     return Response.json({ error: errMessage }, { status });
   }
 
@@ -932,6 +936,7 @@ async function handleGreet(
       // reads) - fall through to the generic error below rather than crash on a missing thread.
     }
     const errMessage = err instanceof Error ? err.message : String(err);
+    console.error("[coach-chat] greet commitFilesAtomic failed:", err);
     return Response.json({ error: `Coach's greeting failed to save: ${errMessage}` }, { status: 502 });
   }
 
@@ -1040,6 +1045,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       } catch (err: unknown) {
         const status = (err as { status?: number }).status ?? 500;
         const errMessage = err instanceof Error ? err.message : String(err);
+        console.error("[coach-chat] askGemini failed:", err);
         return Response.json({ error: errMessage }, { status });
       }
 
@@ -1179,6 +1185,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         if ((err as { status?: number }).status === 400) {
           return Response.json({ error: errMessage }, { status: 400 });
         }
+        console.error("[coach-chat] closing commitFilesAtomic failed:", err);
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}` }, { status: 502 });
       }
 
