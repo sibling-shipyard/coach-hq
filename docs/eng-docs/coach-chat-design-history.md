@@ -255,6 +255,19 @@ immunity.
   codepoint-safe `truncateTitle()` (`Array.from`-based). iOS's existing `String.prefix` was
   already grapheme-safe — no change needed there.
 
+**PR review follow-ups (same day, before merge):**
+- The 504-timeout retry was dead code: `fetchWithTimeout` *throws* a 504-tagged Error on its own
+  abort rather than resolving a Response, so the `res.status === 504` check could never actually
+  see it — only the genuine HTTP 503 branch ever fired. Fixed by converting a thrown 504 into a
+  resolved 504 `Response` inside `callGemini`, so the existing retry logic works for the exact
+  failure mode this PR set out to fix (skanda-2003 code review).
+- Worst-case latency could still stack past `maxDuration`: the 400 stale-cache retry and the
+  504/503 retry were independent `if`s, so an unlucky request could chain 3 full
+  `GEMINI_GENERATE_TIMEOUT_MS`-budget calls back to back (~135s) — Vercel kills the function
+  before that finishes, so the reliability fix wouldn't help in that combined-failure path. Capped
+  to one retry total (`if`/`else if`, mutually exclusive) and raised `maxDuration` to 120 to give
+  the now-bounded ~90s worst case real headroom (same reviewer).
+
 ---
 
 ## Superseded verification issues

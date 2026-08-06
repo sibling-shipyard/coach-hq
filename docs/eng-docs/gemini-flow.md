@@ -154,15 +154,23 @@ spread the whole object anyway). It never reaches the athlete either way.
   `coachChatFiles.ts`) — closing turns routinely carry the largest prompts in the system (full
   chat history + 5 extra files) and the hardest output (a structured close-out), so they're the
   turn most likely to legitimately need more than 25s. `ui/vercel.json` sets an explicit
-  `maxDuration: 60` for `api/coach-chat.ts` so the platform's own ceiling doesn't silently become
-  the real limit underneath this.
+  `maxDuration: 120` for `api/coach-chat.ts` so the platform's own ceiling doesn't silently become
+  the real limit underneath this — verify the account's Vercel plan actually supports a limit this
+  high before relying on it (Hobby historically capped lower than Pro; not confirmable from this
+  repo alone).
 - A 504 (our own timeout abort) or a genuine Gemini-side 503 ("model currently experiencing high
   demand") triggers exactly one retry with a short fixed backoff — both were previously fatal on
   the first hit. Confirmed via production Runtime Logs as the dominant cause of closing turns
   failing outright with nothing committed (the failure happens inside `askGemini`, before
   `commitFilesAtomic` is ever reached, so the athlete's close silently does nothing). This is
   additive to the existing stale-cache retry (a `400` when `cachedContent` has expired/was
-  evicted — see Cache lifecycle above), not a replacement for it.
+  evicted — see Cache lifecycle above) but capped at one retry **total**, not one per failure
+  kind — the 400-retry and the 504/503-retry are mutually exclusive branches (`if`/`else if`) on
+  the same call, not independent checks that can both fire. Letting both fire back to back would
+  allow a single unlucky request to chain 3 full 45s-budget calls (~135s), blowing through
+  `maxDuration` regardless of how generous it's set. Capped like this, the worst case for the
+  Gemini portion alone is 2 calls (~90s) — still real, but bounded and something `maxDuration` can
+  actually be sized against.
 - A 429 is surfaced as a typed error the client shows as "rate-limited, try again shortly" — see
   `coachChatModel.ts`'s `CoachChatRateLimitedError` / iOS's `UserFacingError.swift`. No
   server-side retry on the Gemini call itself (a 429 mid-generation isn't safely retryable the

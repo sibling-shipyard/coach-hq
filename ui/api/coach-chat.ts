@@ -705,6 +705,13 @@ export async function askGemini(
 
   let useCache = !!cachedName;
   let res = await callGemini(useCache);
+  // Capped at ONE retry total, not one per failure kind - a naive "retry the 400 case, then
+  // separately retry the 504/503 case" allows a genuinely unlucky request to chain 3 full
+  // GEMINI_GENERATE_TIMEOUT_MS-budget calls back to back (up to ~135s), which blows straight
+  // through ui/vercel.json's maxDuration regardless of how generous that's set - the function
+  // gets killed mid-request and the reliability fix doesn't help. Below, only ONE of the two
+  // branches can ever fire per call to askGemini.
+  //
   // A stale/invalid cachedContent name (expired between getCachedSoulName's read and this actual
   // call, or evicted server-side) is a distinct failure mode from cache *creation* failing - that
   // case is already handled by getCachedSoulName falling back to null. This one only shows up
@@ -715,13 +722,15 @@ export async function askGemini(
     invalidateCachedSoulName().catch(() => {});
     useCache = false;
     res = await callGemini(useCache);
-  }
-  // A timed-out request (504, our own fetchWithTimeout abort) or a genuine Gemini-side overload
-  // (503 UNAVAILABLE) are both transient and previously fatal on the first hit - confirmed in
-  // production Vercel logs as the dominant cause of closing turns failing outright with nothing
-  // committed. Retry once more; a short fixed backoff is enough since these aren't rate-limit
-  // errors (that's 429, handled separately in finishGeminiResponse and never retried here).
-  if (res.status === 504 || res.status === 503) {
+  } else if (res.status === 504 || res.status === 503) {
+    // A timed-out request (504, our own fetchWithTimeout abort) or a genuine Gemini-side overload
+    // (503 UNAVAILABLE) are both transient and previously fatal on the first hit - confirmed in
+    // production Vercel logs as the dominant cause of closing turns failing outright with nothing
+    // committed. Retry once more; a short fixed backoff is enough since these aren't rate-limit
+    // errors (that's 429, handled separately in finishGeminiResponse and never retried here). Note
+    // this branch is unreachable on the same call where the 400 branch above already fired - if
+    // the no-cache retry itself times out, that failure surfaces as-is rather than chaining a
+    // third attempt.
     await new Promise((resolve) => setTimeout(resolve, 500));
     res = await callGemini(useCache);
   }
