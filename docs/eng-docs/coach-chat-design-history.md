@@ -267,6 +267,16 @@ immunity.
   before that finishes, so the reliability fix wouldn't help in that combined-failure path. Capped
   to one retry total (`if`/`else if`, mutually exclusive) and raised `maxDuration` to 120 to give
   the now-bounded ~90s worst case real headroom (same reviewer).
+- Checked whether 120 (or even the bounded ~90s worst case) was actually safe on this account's
+  plan: confirmed via the live Vercel dashboard that Fluid Compute is enabled, which per Vercel's
+  own changelog raises Hobby's function-duration ceiling to the full 300s, not the 60s that
+  applies without it. Raised `maxDuration` to 300 (the actual confirmed ceiling) rather than
+  leaving it at a number picked before that was known — removes any need to keep re-deriving
+  worst-case arithmetic across every stage (file reads, Gemini retries, commit retries) by simply
+  using the real headroom available. This also meant the full "return fast, finish in background"
+  redesign considered the same day was no longer an urgent fix (the timeout problem it targeted is
+  already solved by the 300s ceiling) — captured instead as `ASYNC-CLOSE-PLAN.md` at the repo root
+  for optional future work, not implemented now.
 
 ---
 

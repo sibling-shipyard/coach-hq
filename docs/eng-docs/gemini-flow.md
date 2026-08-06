@@ -154,10 +154,10 @@ spread the whole object anyway). It never reaches the athlete either way.
   `coachChatFiles.ts`) — closing turns routinely carry the largest prompts in the system (full
   chat history + 5 extra files) and the hardest output (a structured close-out), so they're the
   turn most likely to legitimately need more than 25s. `ui/vercel.json` sets an explicit
-  `maxDuration: 120` for `api/coach-chat.ts` so the platform's own ceiling doesn't silently become
-  the real limit underneath this — verify the account's Vercel plan actually supports a limit this
-  high before relying on it (Hobby historically capped lower than Pro; not confirmable from this
-  repo alone).
+  `maxDuration: 300` for `api/coach-chat.ts` so the platform's own ceiling doesn't silently become
+  the real limit underneath this — confirmed against the live account (Fluid Compute is enabled),
+  which per Vercel's own changelog raises the Hobby plan's ceiling to the full 300s rather than
+  the 60s that applies without it.
 - A 504 (our own timeout abort) or a genuine Gemini-side 503 ("model currently experiencing high
   demand") triggers exactly one retry with a short fixed backoff — both were previously fatal on
   the first hit. Confirmed via production Runtime Logs as the dominant cause of closing turns
