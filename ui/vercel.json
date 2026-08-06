@@ -3,6 +3,9 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
+  "functions": {
+    "api/coach-chat.ts": { "maxDuration": 60 }
+  },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],

@@ -165,7 +165,12 @@ On a genuine close:
 - `resolveFileUpdate()` resolves each proposed update against real current content, drops
   anything unwritable/unresolvable/blank, and the survivors plus the updated `chat_history.json`
   land in **one** atomic commit (`commitFilesAtomic()`, ADR 0012 — blob → tree → commit → ref,
-  retried on a non-fast-forward conflict).
+  retried on a non-fast-forward conflict). Every GitHub call in this sequence goes through
+  `fetchWithTimeout` (25s default) rather than a bare `fetch()`, so a stalled write fails fast
+  into the retry instead of hanging until Vercel's platform ceiling kills the function; a timeout
+  on the ref-move step specifically is treated the same as a raw network error (re-check whether
+  the ref actually landed before deciding whether to retry — see the comment at that call site),
+  since either way the response was lost and blindly retrying risks a double-commit.
 - The response includes `profileComplete` — computed from whatever `state.md` content this turn
   actually just committed (see First Session Protocol below).
 
@@ -187,14 +192,27 @@ stronger prompt:
 closing-turn response that carries `session_closed: true` also carries an optional `title` — a
 short, specific summary of that conversation (e.g. "Sore shoulder, modified session"), prompted
 for once, at close, since that's the only moment a real commit happens (mid-conversation titles
-are never visible to begin with — see Resumability below). Capped at
+are never visible to begin with — see Resumability below). The prompt now explicitly asks for
+plain English only (no mixed scripts/languages) and the few-shot examples model a plain-English
+title alongside the rest of the expected JSON shape, after a real production title once came back
+with stray CJK characters mixed into otherwise-English text. As a fallback net, `sanitizeTitle()`
+strips anything outside printable ASCII from Gemini's `title` before it's used. Capped at
 `THREAD_TITLE_MAX_CHARS = 28`, applied three ways: the prompt tells Gemini the budget, the
 fallback (below) is truncated to it, and Gemini's own `title` is truncated to it again as a
-backstop in case a response ignores the instruction. If `title` is missing (an older/misbehaving
-response), falls back to the athlete's first message in the thread, truncated the same way — the
-original behavior before title generation existed, kept only as a safety net now. iOS applies its
-own `lineLimit`/truncation on every surface that renders a title (header, history list, pick-up
-banner), independent of this budget.
+backstop in case a response ignores the instruction — truncation uses `truncateTitle()`
+(codepoint-based, `Array.from`) rather than `.slice()`, so a multi-byte character never gets cut
+in half at the truncation point. If `title` is missing (an older/misbehaving response), falls
+back to the athlete's first message in the thread, truncated the same way — the original behavior
+before title generation existed, kept only as a safety net now. iOS applies its own
+`lineLimit`/truncation on every surface that renders a title (header, history list, pick-up
+banner), independent of this budget; iOS truncation is already grapheme-safe (Swift's
+`String.prefix` operates on `Character`, not UTF-16 code units), so no equivalent fix was needed
+there.
+
+Separately, a `checklist_covered: boolean` field on the closing response is logged (not enforced)
+alongside `reasoning` in `finishGeminiResponse` — purely diagnostic, so a report of "coach closed
+without asking about sleep" can be told apart from the prompt's own intentional "close anyway"
+escape hatch on a second close attempt (see below) instead of guessing from the reply text.
 
 ### Write strategy (A7)
 

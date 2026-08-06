@@ -7,6 +7,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // permanent (no restore).
 export const MAX_RETAINED_THREADS = 7;
 
+// .slice()/.substring() operate on UTF-16 code units, which can split a surrogate pair (e.g. an
+// emoji) in half and leave a corrupted lone-surrogate character dangling at the cut point.
+// Array.from splits on codepoints instead, so truncation always lands on a whole character.
+// Mirrors truncateTitle in ui/api/coach-chat.ts (server-side titles), used here for the
+// client-only fallback titles derived from the athlete's own typed text.
+export function truncateTitle(title: string, maxChars: number): string {
+  const chars = Array.from(title);
+  return chars.length > maxChars ? `${chars.slice(0, maxChars).join("")}…` : title;
+}
+
 export type ChatRole = "user" | "coach" | "divider";
 
 export type CoachChip =

@@ -136,6 +136,7 @@ spread the whole object anyway). It never reaches the athlete either way.
   "session_closed": "boolean",
   "commit_message": "string",
   "title": "string, only on session_closed:true",
+  "checklist_covered": "boolean, only meaningful on session_closed:true — diagnostic only, logged not enforced",
   "file_updates": [
     { "path": "string", "edits": [{ "old_string": "string", "new_string": "string" }], "merge_patch": "string", "content": "string" }
   ]
@@ -148,12 +149,26 @@ spread the whole object anyway). It never reaches the athlete either way.
 
 ## Retries, timeouts, rate limits
 
-- `fetchWithTimeout` wraps the Gemini call with a 25s abort (`UPSTREAM_TIMEOUT_MS`,
-  `coachChatFiles.ts`), sized to leave headroom under Vercel's function timeout.
+- The actual `generateContent` call uses its own longer timeout (`GEMINI_GENERATE_TIMEOUT_MS`,
+  45s, `coach-chat.ts`) rather than the shared file-read default (`UPSTREAM_TIMEOUT_MS`, 25s,
+  `coachChatFiles.ts`) — closing turns routinely carry the largest prompts in the system (full
+  chat history + 5 extra files) and the hardest output (a structured close-out), so they're the
+  turn most likely to legitimately need more than 25s. `ui/vercel.json` sets an explicit
+  `maxDuration: 60` for `api/coach-chat.ts` so the platform's own ceiling doesn't silently become
+  the real limit underneath this.
+- A 504 (our own timeout abort) or a genuine Gemini-side 503 ("model currently experiencing high
+  demand") triggers exactly one retry with a short fixed backoff — both were previously fatal on
+  the first hit. Confirmed via production Runtime Logs as the dominant cause of closing turns
+  failing outright with nothing committed (the failure happens inside `askGemini`, before
+  `commitFilesAtomic` is ever reached, so the athlete's close silently does nothing). This is
+  additive to the existing stale-cache retry (a `400` when `cachedContent` has expired/was
+  evicted — see Cache lifecycle above), not a replacement for it.
 - A 429 is surfaced as a typed error the client shows as "rate-limited, try again shortly" — see
   `coachChatModel.ts`'s `CoachChatRateLimitedError` / iOS's `UserFacingError.swift`. No
   server-side retry on the Gemini call itself (a 429 mid-generation isn't safely retryable the
   way a GitHub read is — the athlete just sees the message and tries again).
+- This is not a billing/quota issue — paid tier raises the requests/tokens-per-minute ceiling, it
+  doesn't change per-request generation latency or guarantee capacity during a model-side 503.
 - Current account tier, verified rate limits, and cost projections live in
   `docs/eng-docs/llm-provider-current.md` — this doc covers mechanics, that one covers the
   numbers for this account specifically.
