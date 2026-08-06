@@ -20,6 +20,15 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 | `WAITLIST_GITHUB_TOKEN` (or `GITHUB_PAT`) | `ui/api/waitlist.ts` | Waitlist signups fail (`waitlistConfig()` returns null). |
 | `WAITLIST_GITHUB_REPO` | `ui/api/waitlist.ts` | Falls back to `sibling-shipyard/coach-phelps-hq` — logs a `[waitlist]` warning on first use if unset. Only matters if the waitlist should write elsewhere. |
 
+## Optional (fails open)
+
+| Var | Used by | What breaks if unset |
+|---|---|---|
+| `GLOBAL_CONFIG` | `ui/api/_lib/soulCache.ts` (via `@vercel/edge-config`'s `createClient`) | Explicit-cache name/expiry can't be read back across cold starts — every request falls back to the pre-caching prompt shape (still correct, just no explicit-cache discount). Named `GLOBAL_CONFIG` because that's the default var name Vercel's "Connect Project" flow gives an Edge Config store (rebranded "Global Config" in the dashboard, Aug 2026) — not `EDGE_CONFIG`, the SDK's own default. See `docs/eng-docs/gemini-flow.md`. |
+| `EDGE_CONFIG_ID` | `ui/api/_lib/soulCache.ts` | Same fallback as above — a newly-created cache name can't be persisted, so it's only reused within the same warm instance. |
+| `VERCEL_API_TOKEN` | `ui/api/_lib/soulCache.ts` | Same fallback — needed alongside `EDGE_CONFIG_ID` because Edge Config has no write API of its own, only reads; writes go through the Vercel REST API. |
+| `VERCEL_TEAM_ID` | `ui/api/_lib/soulCache.ts` | Only needed if the Vercel project lives under a team account — omit for a personal-account project. |
+
 ## Rule
 
 Every new `process.env.X` read in `ui/api/*` should either throw/error visibly if required, or
