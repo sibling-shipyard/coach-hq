@@ -669,7 +669,15 @@ async function finishGeminiResponse(res: Response): Promise<GeminiReply> {
 
   const body = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
+    usageMetadata?: { promptTokenCount?: number; cachedContentTokenCount?: number };
   };
+  // Cheap, permanent visibility into whether explicit caching is actually being hit on real
+  // traffic - the whole point of soulCache.ts is this number being nonzero and close to
+  // promptTokenCount, so it's worth a standing log line rather than only checking ad hoc.
+  const usage = body.usageMetadata;
+  if (usage) {
+    console.log(`[coach-chat] Gemini usage: prompt=${usage.promptTokenCount ?? "?"} cached=${usage.cachedContentTokenCount ?? 0}`);
+  }
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
   const parsed = JSON.parse(text) as GeminiReply;
