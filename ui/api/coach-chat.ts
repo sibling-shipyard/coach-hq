@@ -65,6 +65,25 @@ const COACH_WRITABLE_FILES = new Set([...MARKDOWN_EDIT_FILES, ...JSON_MERGE_FILE
 // be room for more. iOS still applies its own lineLimit(1) + truncation as a defensive backstop
 // (see #244 follow-up) in case a response ever ignores this budget.
 const THREAD_TITLE_MAX_CHARS = 28;
+
+// Model-generated titles are meant to be short, plain-English summaries (see askGemini's closing
+// prompt, which now also says so explicitly and few-shots a plain-English example) - a stray
+// non-Latin token (observed in production: literal CJK characters mixed into otherwise-English
+// text) is a generation-quality slip. The prompt/few-shot fix targets the cause; this is a safety
+// net in case it doesn't fully catch it. Strips anything outside basic printable ASCII rather
+// than attempting real script/language detection.
+function sanitizeTitle(title: string): string {
+  return title.replace(/[^\x20-\x7E]/g, "").replace(/\s+/g, " ").trim();
+}
+
+// .slice()/.substring() operate on UTF-16 code units, which can split a surrogate pair (e.g. an
+// emoji) in half and leave a corrupted lone-surrogate character dangling at the cut point.
+// Array.from splits on codepoints instead, so truncation always lands on a whole character.
+function truncateTitle(title: string, maxChars: number): string {
+  const chars = Array.from(title);
+  return chars.length > maxChars ? `${chars.slice(0, maxChars).join("")}…` : title;
+}
+
 export function isCoachWritable(path: string): boolean {
   return COACH_WRITABLE_FILES.has(path) || path.startsWith(SESSIONS_PREFIX);
 }
@@ -331,6 +350,12 @@ interface GeminiReply {
   // conversation was actually about, replacing the old "truncate the athlete's first message"
   // title. See THREAD_TITLE_MAX_CHARS for the length budget and why.
   title?: string;
+  // Only meaningful on a closing=true turn - self-reported, not enforced (there's a deliberate
+  // "close anyway" escape hatch in the prompt for a second close attempt with info still
+  // missing). Purely diagnostic: logged in finishGeminiResponse so a real incident report ("coach
+  // closed without asking about sleep") can be told apart from "model legitimately used the
+  // escape hatch on a second ask" instead of guessing from the reply text alone.
+  checklist_covered?: boolean;
 }
 
 export type TurnMode = "greeting" | "ordinary" | "closing";
@@ -364,7 +389,7 @@ const FEW_SHOT_EXAMPLES = [
   "</example_2>",
   "<example_3 note=\"closing turn, real content - well-formed edit\">",
   "Athlete: yeah ran the intervals, felt strong, closing out",
-  'Coach (JSON): {"reasoning":"Real training content this turn: intervals completed, athlete felt strong. state.md\'s Training Log section is shown above with exact current text I can match against - safe, targeted edit, not a whole-file rewrite.","reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday.","session_closed":true,"title":"Strong interval session","commit_message":"day-12 — logged interval session, felt strong","file_updates":[{"path":"user_data/coach/state.md","edits":[{"old_string":"## Training Log\\n(no entries yet)","new_string":"## Training Log\\n- Day 12: Interval session, felt strong"}]}]}',
+  'Coach (JSON): {"reasoning":"Real training content this turn: intervals completed, athlete felt strong. state.md\'s Training Log section is shown above with exact current text I can match against - safe, targeted edit, not a whole-file rewrite.","reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday.","session_closed":true,"title":"Strong interval session","checklist_covered":true,"commit_message":"day-12 — logged interval session, felt strong","file_updates":[{"path":"user_data/coach/state.md","edits":[{"old_string":"## Training Log\\n(no entries yet)","new_string":"## Training Log\\n- Day 12: Interval session, felt strong"}]}]}',
   "</example_3>",
 ].join("\n");
 
@@ -387,6 +412,7 @@ const GENERATION_CONFIG = {
       session_closed: { type: "boolean" },
       commit_message: { type: "string" },
       title: { type: "string" },
+      checklist_covered: { type: "boolean" },
       file_updates: {
         type: "array",
         items: {
@@ -554,7 +580,12 @@ export async function askGemini(
           `recognizes this specific conversation in a list of past days, not just its topic category.`,
           `Max ${THREAD_TITLE_MAX_CHARS} characters - if the natural phrasing runs longer, cut it down`,
           `to the most specific/important part rather than a generic fallback. Omit title entirely if`,
-          `session_closed is false.`,
+          `session_closed is false. Write it in plain English only - no mixed scripts or other`,
+          `languages, even if the conversation itself touched on one.`,
+          `\nAlso set checklist_covered: true if sleep/side-quest/injury status genuinely got covered`,
+          `this conversation (or wasn't relevant), or false if you're closing via the "athlete asked`,
+          `twice, close anyway" escape hatch above without it. This is diagnostic only, not a gate -`,
+          `be honest about which case this is rather than defaulting to true.`,
         ].join("\n")
       : [
           "\nThis is an ordinary turn, not a close-out - you were not given the current contents of",
@@ -644,23 +675,64 @@ export async function askGemini(
     generationConfig: GENERATION_CONFIG,
   });
 
-  const callGemini = (useCache: boolean) =>
-    fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildRequestBody(useCache)),
+  // Closing turns routinely carry the largest prompts in the system (full chat history plus four
+  // extra files) and ask for the hardest output (a structured close-out summary), so they're the
+  // most likely turn to legitimately need more than the shared UPSTREAM_TIMEOUT_MS (25s, sized
+  // for plain file reads). Give the actual generateContent call its own longer budget rather than
+  // inheriting the file-read default.
+  const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
+
+  const callGemini = (useCache: boolean): Promise<Response> =>
+    fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildRequestBody(useCache)),
+      },
+      GEMINI_GENERATE_TIMEOUT_MS,
+    ).catch((err) => {
+      // fetchWithTimeout THROWS a 504-tagged Error on its own abort, it never resolves a Response
+      // for that case - so a bare `res.status === 504` check below would never see it. Convert it
+      // into a resolved 504 Response here so every call site (the retry logic below,
+      // finishGeminiResponse) can treat a timeout identically to a real 504 response without each
+      // needing its own try/catch. Any other thrown error (a genuine network failure with no
+      // status) still propagates.
+      const status = (err as { status?: number }).status;
+      if (status === 504) return new Response(null, { status: 504 });
+      throw err;
     });
 
-  let res = await callGemini(!!cachedName);
+  let useCache = !!cachedName;
+  let res = await callGemini(useCache);
+  // Capped at ONE retry total, not one per failure kind - a naive "retry the 400 case, then
+  // separately retry the 504/503 case" allows a genuinely unlucky request to chain 3 full
+  // GEMINI_GENERATE_TIMEOUT_MS-budget calls back to back (up to ~135s), which blows straight
+  // through ui/vercel.json's maxDuration regardless of how generous that's set - the function
+  // gets killed mid-request and the reliability fix doesn't help. Below, only ONE of the two
+  // branches can ever fire per call to askGemini.
+  //
   // A stale/invalid cachedContent name (expired between getCachedSoulName's read and this actual
   // call, or evicted server-side) is a distinct failure mode from cache *creation* failing - that
   // case is already handled by getCachedSoulName falling back to null. This one only shows up
   // here, at request time, as a 400 - retry once as a plain no-cache call so it never surfaces to
   // the athlete as "coach didn't reply," and drop the bad record so the next request doesn't
   // repeat this round-trip.
-  if (cachedName && res.status === 400) {
+  if (useCache && res.status === 400) {
     invalidateCachedSoulName().catch(() => {});
-    res = await callGemini(false);
+    useCache = false;
+    res = await callGemini(useCache);
+  } else if (res.status === 504 || res.status === 503) {
+    // A timed-out request (504, our own fetchWithTimeout abort) or a genuine Gemini-side overload
+    // (503 UNAVAILABLE) are both transient and previously fatal on the first hit - confirmed in
+    // production Vercel logs as the dominant cause of closing turns failing outright with nothing
+    // committed. Retry once more; a short fixed backoff is enough since these aren't rate-limit
+    // errors (that's 429, handled separately in finishGeminiResponse and never retried here). Note
+    // this branch is unreachable on the same call where the 400 branch above already fired - if
+    // the no-cache retry itself times out, that failure surfaces as-is rather than chaining a
+    // third attempt.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    res = await callGemini(useCache);
   }
   return finishGeminiResponse(res, mode);
 }
@@ -700,6 +772,7 @@ async function finishGeminiResponse(res: Response, mode: TurnMode): Promise<Gemi
   // unconditionally for every close rather than only the empty ones).
   if (mode === "closing") {
     console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning);
+    console.log("[coach-chat] closing-turn checklist_covered:", parsed.checklist_covered);
   }
   // reasoning is scratch space for the model, never meant for the athlete - delete here (not just
   // omit from responses) so it can never leak through any caller that spreads/serializes the
@@ -1020,18 +1093,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // whatever the athlete happened to type first. Truncate defensively in case it ignores the
       // character budget it was given; fall back to the old truncated-first-message behavior only
       // if Gemini omitted title (e.g. an older/misbehaving response).
-      const geminiTitle = reply.title?.trim();
+      const geminiTitle = sanitizeTitle(reply.title?.trim() ?? "");
       const firstUserText = allMessages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user")?.text ?? trimmed;
-      const fallbackTitle =
-        firstUserText.length > THREAD_TITLE_MAX_CHARS
-          ? `${firstUserText.slice(0, THREAD_TITLE_MAX_CHARS)}…`
-          : firstUserText;
-      const computedTitle =
-        geminiTitle && geminiTitle.length > 0
-          ? geminiTitle.length > THREAD_TITLE_MAX_CHARS
-            ? `${geminiTitle.slice(0, THREAD_TITLE_MAX_CHARS)}…`
-            : geminiTitle
-          : fallbackTitle;
+      const fallbackTitle = truncateTitle(firstUserText, THREAD_TITLE_MAX_CHARS);
+      const computedTitle = geminiTitle.length > 0 ? truncateTitle(geminiTitle, THREAD_TITLE_MAX_CHARS) : fallbackTitle;
       const previewText = reply.reply.slice(0, 80);
 
       // Resolved fresh on every commit retry attempt (see githubGitData.ts), not from a

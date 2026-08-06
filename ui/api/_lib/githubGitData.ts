@@ -6,6 +6,7 @@
  * the branch ref - retried against fresh HEAD on a non-fast-forward conflict) so every write
  * this repo makes lands in one commit instead of N. See ADR 0012.
  */
+import { fetchWithTimeout } from "./coachChatFiles.js";
 
 const GH_API = "https://api.github.com";
 
@@ -22,8 +23,12 @@ interface CommitContext {
   token: string;
 }
 
+// Previously plain fetch() with no timeout at all - a stalled GitHub write could hang the whole
+// function until Vercel's own platform ceiling killed it, with nothing here able to fail fast
+// into the withRetry handling below. fetchWithTimeout already tags a timeout as a 504, which
+// isTransient() below treats as retryable, so this is a drop-in swap, not new error handling.
 async function ghPost(path: string, ctx: CommitContext, body: unknown): Promise<any> {
-  const res = await fetch(`${GH_API}/repos/${ctx.repo}${path}`, {
+  const res = await fetchWithTimeout(`${GH_API}/repos/${ctx.repo}${path}`, {
     method: "POST",
     headers: jsonHeaders(ctx.token),
     body: JSON.stringify(body),
@@ -38,7 +43,7 @@ async function ghPost(path: string, ctx: CommitContext, body: unknown): Promise<
 }
 
 async function ghGet(path: string, ctx: CommitContext): Promise<any> {
-  const res = await fetch(`${GH_API}/repos/${ctx.repo}${path}`, {
+  const res = await fetchWithTimeout(`${GH_API}/repos/${ctx.repo}${path}`, {
     headers: jsonHeaders(ctx.token),
   });
   if (!res.ok) {
@@ -148,7 +153,7 @@ export async function commitFilesAtomic(
     });
 
     try {
-      const res = await fetch(`${GH_API}/repos/${ctx.repo}/git/refs/heads/${ctx.branch}`, {
+      const res = await fetchWithTimeout(`${GH_API}/repos/${ctx.repo}/git/refs/heads/${ctx.branch}`, {
         method: "PATCH",
         headers: jsonHeaders(ctx.token),
         body: JSON.stringify({ sha: commit.sha }),
@@ -167,8 +172,11 @@ export async function commitFilesAtomic(
       // assumption nothing happened - but if the PATCH above actually succeeded server-side,
       // that would double-commit. Check first: if the ref already points at the commit we just
       // tried to move it to, our write landed - treat it as success instead of retrying.
+      // A 504 here is fetchWithTimeout's own abort tag (see coachChatFiles.ts), not a real
+      // GitHub response - exactly the same "we don't know what happened" case as a raw network
+      // error (status == null), so it needs the same recheck rather than blindly retrying.
       const status = (err as { status?: number }).status;
-      if (status == null) {
+      if (status == null || status === 504) {
         const recheck = await ghGet(`/git/ref/heads/${ctx.branch}`, ctx).catch(() => null);
         if (recheck?.object?.sha === commit.sha) {
           return { commitSha: commit.sha as string };

@@ -19,6 +19,7 @@ import {
   saveThreadLocally,
   sendMessage,
   threadStatus,
+  truncateTitle,
   type ChatMessage,
   type ChatThread,
   type GreetResult,
@@ -161,7 +162,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
           if (!messages || messages.length === 0) return [];
           const lastCoach = [...messages].reverse().find((m): m is Extract<ChatMessage, { role: "coach" }> => m.role === "coach");
           const firstUser = messages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user");
-          const title = firstUser ? (firstUser.text.length > 28 ? `${firstUser.text.slice(0, 28)}…` : firstUser.text) : "New conversation";
+          const title = firstUser ? truncateTitle(firstUser.text, 28) : "New conversation";
           // An orphaned thread never had a server-committed dayOffset - recover a real creation
           // time from the divider message's own id instead of hardcoding "today" (a real bug,
           // found via code review: a stale unreplied greeting from days ago would get treated as
@@ -291,7 +292,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
         id: newThreadId,
         dayOffset: 0,
         createdAt: now,
-        title: trimmed.length > 28 ? `${trimmed.slice(0, 28)}…` : trimmed,
+        title: truncateTitle(trimmed, 28),
         preview: trimmed.slice(0, 80),
         ageLabel: "NOW",
         status: "active",

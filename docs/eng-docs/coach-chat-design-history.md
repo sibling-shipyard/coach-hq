@@ -208,6 +208,78 @@ past-day orphans get dropped.
 
 ---
 
+## 2026-08-06 — Closing-turn reliability: Gemini timeout/retry, unbounded commits, title corruption
+
+Real-world report (both athlete accounts, iOS and web): "bye"/"wrap" either did nothing at all
+(iOS showed the generic "GitHub is having issues" 500-class error, the typed message stuck unsent)
+or committed but skipped the mandated sleep/side-quest questions, plus one thread title came back
+with literal Chinese characters mixed into English text. Diagnosed against real production Vercel
+Runtime Logs rather than guessing — the logs showed the actual failures were `askGemini` itself
+throwing (`Request to generativelanguage.googleapis.com timed out`, and a couple of genuine Gemini
+503 "high demand" responses), not anything GitHub/commit-related; the "GitHub is having issues"
+message is a shared generic string in `UserFacingError.swift`'s 500-599 case, unrelated to the
+actual failing service.
+
+**Root cause:** the Gemini `generateContent` call shared the same flat 25s timeout
+(`UPSTREAM_TIMEOUT_MS`) as plain GitHub file reads, with no retry on either a timeout or a 503.
+Closing turns send the largest prompts in the system (54k-64k tokens seen in the log sample, vs
+~18-19k for ordinary turns — 5 extra files plus full chat history) and ask for the hardest
+generation (structured close-out JSON), making them the turn most likely to legitimately exceed
+25s. When it did, `askGemini` threw before `commitFilesAtomic` was ever reached — nothing
+committed, and the athlete just saw a generic failure. Confirmed this is not a billing/quota
+issue: paid tier raises the requests/tokens-per-minute ceiling, not per-request latency or 503
+immunity.
+
+**Fix:**
+- The `generateContent` call now uses its own 45s timeout (`GEMINI_GENERATE_TIMEOUT_MS`),
+  separate from the 25s file-read default. `ui/vercel.json` now sets an explicit
+  `maxDuration: 60` for `api/coach-chat.ts` so the platform ceiling isn't silently the real limit
+  underneath the raised in-code timeout.
+- A 504 (our own timeout) or 503 (Gemini overload) now triggers one retry with a short fixed
+  backoff — additive to the existing stale-cache-400 retry, not a replacement.
+- `commitFilesAtomic`'s GitHub calls (`ghGet`/`ghPost`/the ref-move `fetch`) had no timeout
+  wrapper at all — a stalled write could hang indefinitely. Now wrapped in `fetchWithTimeout`. The
+  existing "did the ref-move actually land before we retry" safety recheck (avoids a double-commit
+  after a lost response) now also fires on a `fetchWithTimeout` 504, not just a raw `status ==
+  null` network error, since a timeout is the same "we don't know what happened" case.
+- Added a diagnostic-only `checklist_covered` field to the closing response schema, logged
+  alongside `reasoning` — the prompt already has an intentional "close anyway" escape hatch on a
+  second close attempt with info still missing, so this lets a future report be told apart as
+  "legitimate escape hatch" vs. "silently skipped on a first close" instead of guessing.
+- Title corruption: primarily addressed at the source — the closing prompt now explicitly asks
+  for plain English only, and the few-shot examples model a plain-English `title` value alongside
+  the rest of the expected shape. `sanitizeTitle()` (strips non-ASCII) is a fallback safety net,
+  not the primary fix. Separately (unrelated to this specific report, but a latent risk found
+  while in this code): both server (`coach-chat.ts`) and web (`coachChatModel.ts`) title
+  truncation switched from `.slice()` (UTF-16 code units, can split a surrogate pair) to a
+  codepoint-safe `truncateTitle()` (`Array.from`-based). iOS's existing `String.prefix` was
+  already grapheme-safe — no change needed there.
+
+**PR review follow-ups (same day, before merge):**
+- The 504-timeout retry was dead code: `fetchWithTimeout` *throws* a 504-tagged Error on its own
+  abort rather than resolving a Response, so the `res.status === 504` check could never actually
+  see it — only the genuine HTTP 503 branch ever fired. Fixed by converting a thrown 504 into a
+  resolved 504 `Response` inside `callGemini`, so the existing retry logic works for the exact
+  failure mode this PR set out to fix (skanda-2003 code review).
+- Worst-case latency could still stack past `maxDuration`: the 400 stale-cache retry and the
+  504/503 retry were independent `if`s, so an unlucky request could chain 3 full
+  `GEMINI_GENERATE_TIMEOUT_MS`-budget calls back to back (~135s) — Vercel kills the function
+  before that finishes, so the reliability fix wouldn't help in that combined-failure path. Capped
+  to one retry total (`if`/`else if`, mutually exclusive) and raised `maxDuration` to 120 to give
+  the now-bounded ~90s worst case real headroom (same reviewer).
+- Checked whether 120 (or even the bounded ~90s worst case) was actually safe on this account's
+  plan: confirmed via the live Vercel dashboard that Fluid Compute is enabled, which per Vercel's
+  own changelog raises Hobby's function-duration ceiling to the full 300s, not the 60s that
+  applies without it. Raised `maxDuration` to 300 (the actual confirmed ceiling) rather than
+  leaving it at a number picked before that was known — removes any need to keep re-deriving
+  worst-case arithmetic across every stage (file reads, Gemini retries, commit retries) by simply
+  using the real headroom available. This also meant the full "return fast, finish in background"
+  redesign considered the same day was no longer an urgent fix (the timeout problem it targeted is
+  already solved by the 300s ceiling) — captured instead as `ASYNC-CLOSE-PLAN.md` at the repo root
+  for optional future work, not implemented now.
+
+---
+
 ## Superseded verification issues
 
 Manual test checklists have been filed and re-filed as the system changed underneath them
