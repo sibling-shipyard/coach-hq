@@ -233,10 +233,16 @@ export function coachDayNumber(challengeJson: string | null | undefined, stateMd
 // extra real save).
 // A6: added a few more natural sign-offs the athlete actually said in testing ("bye coach",
 // "that's all for now", "see you tomorrow", "catch you later") alongside the original set.
+// A8: the original pattern missed bare casual sign-offs an athlete actually typed in production
+// ("wrap" alone, with no trailing "session") - broadened to catch "wrap"/"wrapping up" without
+// requiring "session", and "that's it"/"that's all" without requiring "for today/now". Bare "done"
+// is deliberately still excluded - "done for today's hill reps" must not falsely trigger a close.
+// The bare-"wrap" end anchor tolerates trailing punctuation ("wrap.", "wrap!") since the message
+// is only .trim()'d before this check runs, not stripped of punctuation.
 const CLOSE_SESSION_PATTERN =
-  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap it up\b|done for (today|the day)|that'?s (it|all) for (today|now)|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
+  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|\bwrap\b[.!]?$|done for (today|the day)|that'?s (it|all)\b|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
 
-function isCloseSignal(message: string): boolean {
+export function isCloseSignal(message: string): boolean {
   return CLOSE_SESSION_PATTERN.test(message);
 }
 
@@ -404,15 +410,15 @@ const GENERATION_CONFIG = {
   responseSchema: {
     type: "object",
     properties: {
-      // Declared first so the model fills it in before `reply` - a brief internal check (is this
-      // genuinely a close, does every proposed edit have real backing content) ahead of the
-      // final answer, not shown to the athlete (stripped below).
+      // Field order matters: Gemini fills responseSchema properties roughly in declared order.
+      // `reasoning` comes first as a brief internal check (is this genuinely a close, does every
+      // proposed edit have real backing content), not shown to the athlete (stripped below).
+      // `file_updates` comes right after it - immediately after reasoning about what needs saving,
+      // the model has to commit to the actual edits, before it writes the athlete-facing `reply`
+      // describing what was saved. Previously `file_updates` was declared last and `reply` early,
+      // which let the model write a confident "saved" reply before (or without) ever populating
+      // file_updates to back it up - observed in production (A8).
       reasoning: { type: "string" },
-      reply: { type: "string" },
-      session_closed: { type: "boolean" },
-      commit_message: { type: "string" },
-      title: { type: "string" },
-      checklist_covered: { type: "boolean" },
       file_updates: {
         type: "array",
         items: {
@@ -436,6 +442,11 @@ const GENERATION_CONFIG = {
           required: ["path"],
         },
       },
+      checklist_covered: { type: "boolean" },
+      commit_message: { type: "string" },
+      title: { type: "string" },
+      session_closed: { type: "boolean" },
+      reply: { type: "string" },
     },
     required: ["reply"],
   },
