@@ -47,6 +47,21 @@ does today.
    `commitFilesAtomic` already takes `branch` as a parameter, so this is a one-line change plus an
    env read — `COACH_CHAT_BRANCH`, defaulting to `main`. Testing cannot otherwise avoid writing to a
    live athlete's `main`.
+3. **Emit one close-trace line per close.** Today's logs are scattered `console.warn`s with no way
+   to tie them to one close. Replace with a single structured line — `[coach-chat] close-trace`
+   plus a JSON object:
+
+   ```
+   { traceId, threadId, repo, emitted: [...], outcomes: [{path, result, reason}],
+     committed: [...], promptTokens, cachedTokens, ms }
+   ```
+
+   `emitted` is **what the model actually returned** — the fields and paths it proposed, before any
+   server processing. That is the missing piece: right now a close that proposed five unwritable
+   paths and a close that proposed nothing produce identical logs.
+
+   Surface `traceId` in the response and render it wherever a save error is shown. A non-technical
+   athlete can then say "it failed, trace abc123" instead of "chat is broken."
 
 ## Build
 
@@ -69,6 +84,8 @@ GitHub App vars in `docs/eng-docs/env-vars.md`. Set `COACH_CHAT_BRANCH` to a scr
 - Three consecutive real closes each append a dated entry to `coach_notes.md` on the test branch,
   each in one commit alongside `chat_history.json`. Three, not one — this is a reliability bug.
 - Every dropped update in the logs carries a named reason; no silent drops remain.
+- One `close-trace` line per close, showing what the model emitted and what happened to each item.
+  Grepping one `traceId` explains a failed close end to end, with no dashboard archaeology.
 - `npm run test` and `npm run eval:coach-chat` pass.
 
 ## Interface contract with Split 2

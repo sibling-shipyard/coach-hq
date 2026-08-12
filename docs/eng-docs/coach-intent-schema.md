@@ -30,6 +30,12 @@ flowchart LR
 | `quest_events` | `[{quest_id, date, status}]` | Apply per quest type, stamp `last_updated_*` |
 | `sleep` | `{date, hours}` | Write **both** files — pairing can't be half-done |
 
+Sleep lands in two files because the coach never reads `sleep_log.json` at boot — its context is
+`state.md` only (`B_engine.md` §1 step 4). `sleep_log.json` feeds the pipeline and UI instead
+(`B_engine.md` file-roles table). That is duplication, and the model has been half-doing it for
+exactly that reason. Server-side pairing removes the correctness risk now; P2 removes the
+duplication.
+
 No `old_string` anywhere. No merge patch anywhere. No field requires the model to have seen the
 file's current content.
 
@@ -64,6 +70,8 @@ prompt in the system.
 - P2 — `current_week.json` stays on `merge_patch`. Genuinely judgment-heavy (session identity,
   provenance, schema v1). Needs its own intent design, not a rushed field.
 - P2 — `injury_flags` stays free-form for now. Same reason.
+- P2 — kill the sleep duplication. One source of truth, coach reads it from generated context the
+  way it already reads `quest_log.md`. Falls out of the ledger split naturally.
 - P3 — Gemini function-calling so the coach reads data on demand instead of pre-loaded files.
   Attacks prompt size, costs round trips. Own ADR.
 
