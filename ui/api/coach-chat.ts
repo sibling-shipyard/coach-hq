@@ -28,21 +28,37 @@ import {
 } from "./_lib/coachChatFiles.js";
 import { applyJsonMergePatch, applyStringEdits, type StringEdit } from "./_lib/fileEdits.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./_lib/soulCache.js";
+// P1 (coach-intent-schema.md): types only, reused here so GeminiReply's quest_events/sleep
+// fields don't duplicate coachIntents.ts's shapes. The appliers themselves (applyCoachNote,
+// applySessionNote, applyQuestEvents, applySleepStateMd, applySleepLogJson) are deliberately NOT
+// imported/called here yet - wiring them into the close/commit path is P1 step 5, blocked on
+// Skanda's COACH_CHAT_BRANCH prerequisite (coach-commit-mvp.md). See the TODO near `writes`
+// below.
+import type { QuestEvent, SleepEntry } from "./_lib/coachIntents.js";
 
 const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 
 const SESSIONS_PREFIX = "user_data/activities/workout_plans/sessions/";
 
-const COACH_NOTES_PATH = "user_data/coach/coach_notes.md";
+// P1 (coach-intent-schema.md): coach_notes.md and sleep_log.json paths no longer appear as
+// consts here - the server-side write path for both moves to ui/api/_lib/coachIntents.ts's
+// appliers (coach_note / sleep facts) once step 5 wires them in, not this file's
+// MARKDOWN_EDIT_FILES/JSON_MERGE_FILES/edit-vs-patch dispatch.
 const CHALLENGE_V2_PATH = "user_data/ledger/challenge_v2.json";
 const CURRENT_WEEK_PATH = "user_data/ledger/current_week.json";
-const SLEEP_LOG_PATH = "user_data/coach/sleep_log.json";
 
 // A7: which write strategy applies to which coach-writable file. Markdown files get exact-match
 // string edits; JSON files get RFC 7396 merge patches (ui/api/_lib/fileEdits.ts); session files
 // (SESSIONS_PREFIX) are usually whole-new-file writes, so they keep full-content replacement.
-const MARKDOWN_EDIT_FILES = new Set([STATE_FILE_PATH, COACH_NOTES_PATH]);
-const JSON_MERGE_FILES = new Set([CHALLENGE_V2_PATH, CURRENT_WEEK_PATH, SLEEP_LOG_PATH]);
+//
+// P1 (coach-intent-schema.md): coach_notes.md, challenge_v2.json (quest events), and
+// sleep_log.json moved OFF this edit/patch path onto the plain-fact fields below (coach_note,
+// session_note, quest_events, sleep) - the server now owns their mechanics entirely, so Gemini
+// never needs their current content or an old_string/merge_patch for them. state.md
+// (Active Injury Flags) and current_week.json stay here - genuinely judgment-heavy content,
+// explicitly deferred to P2 per the design doc rather than rushed into a field.
+const MARKDOWN_EDIT_FILES = new Set([STATE_FILE_PATH]);
+const JSON_MERGE_FILES = new Set([CURRENT_WEEK_PATH]);
 
 // Dated model ids keep getting cut early without much notice - gemini-2.0-flash was deprecated,
 // then gemini-2.5-flash also started 404ing for free-tier keys ahead of its own announced
@@ -341,6 +357,24 @@ interface GeminiReply {
   reply: string;
   file_updates?: GeminiFileUpdate[];
   commit_message?: string;
+  // P1 (coach-intent-schema.md): plain facts, only meaningful on a closing=true turn - the model
+  // reports what happened, the server does all the mechanics (append/roll/apply/dual-write).
+  // None of these require the model to have seen the target file's current content, unlike
+  // file_updates above. Shapes are ui/api/_lib/coachIntents.ts's own QuestEvent/SleepEntry types
+  // (imported above), so the schema here can't drift from what the appliers actually expect.
+  //
+  // TODO: wire once step 5 (coach-intent-schema.md) lands - these four fields are requested from
+  // Gemini and typed here, but nothing in the close/commit path (~line 1199) consumes them yet.
+  // Blocked on Skanda's COACH_CHAT_BRANCH prerequisite (coach-commit-mvp.md) so end-to-end
+  // testing doesn't write to a live athlete's main. Out of scope for this change.
+  /** Short plain-English note of what happened this session - server appends a dated entry to coach_notes.md. */
+  coach_note?: string;
+  /** 2-3 bullets summarizing this session - server rolls it into state.md's Recent Session Notes (oldest drops). */
+  session_note?: string;
+  /** Quest completions/misses/progress this conversation covered - server applies to challenge_v2.json. */
+  quest_events?: QuestEvent[];
+  /** Sleep reported this session, if any - server writes both state.md's Sleep Log and sleep_log.json. */
+  sleep?: SleepEntry;
   // Only meaningful on a closing=true turn (see askGemini) - the athlete's keyword match is
   // just a trigger to ask Gemini to consider closing, not a guarantee it actually did. Gemini
   // sets this false when it's asking a clarifying question instead of closing (see prompt),
@@ -360,16 +394,22 @@ interface GeminiReply {
 
 export type TurnMode = "greeting" | "ordinary" | "closing";
 
-// A7: current content of the other coach-writable files, fetched only on closing turns (the
-// only turns file_updates realistically needs this for - see the "ordinary" prompt block below).
-// Gemini has to see a file's actual current content to produce a valid old_string match or a
-// sensible merge patch against it - it was never given these before A7 either, but that only
-// mattered when it was regenerating whole files from scratch; edits/patches need the real thing.
+// A7/P1: current content of the other coach-writable files, fetched only on closing turns.
+//
+// currentWeek is still fetched for Gemini's own benefit - it's the one remaining file_updates
+// target here (merge_patch, P2-deferred), and Gemini has to see a file's actual current content
+// to produce a sensible patch against it.
+//
+// challengeV2 is fetched too, but NOT for Gemini - P1 moved quest events off file_updates onto
+// the quest_events fact field, so the model is never shown this file's content anymore (see the
+// closingFiles prompt block below). It's still needed server-side, for two things unrelated to
+// the model's own proposed edits: injectCoachSinceIfNeeded's coach_since stamp, and
+// coachDayNumber's day-N lookup for commit_message. coach_notes.md and sleep_log.json dropped
+// out of ClosingFileContext entirely - nothing server-side needs their prior content anymore,
+// since coach_note/sleep are appends/dual-writes, never edits against what's there already.
 export interface ClosingFileContext {
-  coachNotes: string | null;
   challengeV2: string | null;
   currentWeek: string | null;
-  sleepLog: string | null;
 }
 
 // Three worked examples of the exact JSON shape expected, covering the highest-stakes failure
@@ -387,10 +427,14 @@ const FEW_SHOT_EXAMPLES = [
   "Athlete: wrap session",
   'Coach (JSON): {"reasoning":"Close signal, but sleep was never mentioned anywhere in this conversation or in state.md/quest_log.md above. Cannot honestly close without it - asking, not inventing a number.","reply":"Before I lock this in - how\'d you sleep last night? Want that in before I close out.","session_closed":false}',
   "</example_2>",
-  "<example_3 note=\"closing turn, real content - well-formed edit\">",
-  "Athlete: yeah ran the intervals, felt strong, closing out",
-  'Coach (JSON): {"reasoning":"Real training content this turn: intervals completed, athlete felt strong. state.md\'s Training Log section is shown above with exact current text I can match against - safe, targeted edit, not a whole-file rewrite.","reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday.","session_closed":true,"title":"Strong interval session","checklist_covered":true,"commit_message":"day-12 — logged interval session, felt strong","file_updates":[{"path":"user_data/coach/state.md","edits":[{"old_string":"## Training Log\\n(no entries yet)","new_string":"## Training Log\\n- Day 12: Interval session, felt strong"}]}]}',
+  "<example_3 note=\"closing turn, real content - injury flag edit plus fact fields\">",
+  "Athlete: yeah ran the intervals, felt strong, slept 7.5 hours, closing out",
+  'Coach (JSON): {"reasoning":"Real training content this turn: intervals completed, athlete felt strong, sleep reported. No injury flag to edit in state.md this time, so file_updates stays empty - the session itself is reported as facts instead.","reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday.","session_closed":true,"title":"Strong interval session","checklist_covered":true,"commit_message":"day-12 — logged interval session, felt strong","session_note":"- 6x800m intervals, hit all splits, felt strong throughout\\n- Slept 7.5 hours, feeling good\\n- Plan: easy day Thursday before next quality session","sleep":{"date":"2026-08-12","hours":7.5}}',
   "</example_3>",
+  "<example_4 note=\"closing turn, quest completion plus a real state.md edit\">",
+  "Athlete: did the cold shower this morning, also tweaked my left knee a bit on the run, closing out",
+  'Coach (JSON): {"reasoning":"Two separate things: a quest completion (cold_shower, id copied from gen/quest_log.md above) goes in quest_events, not file_updates. The knee tweak is a new injury flag, which state.md still handles via file_updates edits since that\'s explicitly kept on the edit path.","reply":"Got it - cold shower streak keeps going, and I\'ll keep an eye on that knee. Ease off anything that aggravates it and flag it again if it doesn\'t settle.","session_closed":true,"title":"Cold shower streak, new knee niggle","checklist_covered":true,"commit_message":"day-13 — cold shower quest, new knee flag","quest_events":[{"quest_id":"cold_shower","date":"2026-08-13","status":"completed"}],"file_updates":[{"path":"user_data/coach/state.md","edits":[{"old_string":"## Active Injury Flags\\n(none)","new_string":"## Active Injury Flags\\n- Left knee, mild, first noticed day 13"}]}]}',
+  "</example_4>",
 ].join("\n");
 
 // Shared between the primary cached-or-not call and the stale-cache retry in askGemini - the
@@ -435,6 +479,32 @@ const GENERATION_CONFIG = {
           },
           required: ["path"],
         },
+      },
+      // P1 (coach-intent-schema.md): plain facts, only meaningful on a closing=true turn - see
+      // GeminiReply's field comments and the closing-turn prompt above for what the server does
+      // with each. No old_string, no merge patch, no current-file-content requirement for any of
+      // these four, unlike file_updates above.
+      coach_note: { type: "string" },
+      session_note: { type: "string" },
+      quest_events: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            quest_id: { type: "string" },
+            date: { type: "string" },
+            status: { type: "string" },
+          },
+          required: ["quest_id", "date", "status"],
+        },
+      },
+      sleep: {
+        type: "object",
+        properties: {
+          date: { type: "string" },
+          hours: { type: "number" },
+        },
+        required: ["date", "hours"],
       },
     },
     required: ["reply"],
@@ -522,12 +592,9 @@ export async function askGemini(
     "\nCurrent gen/quest_log.md (read-only, pre-computed):\n" + questLog,
     closingFiles
       ? [
-          "\nCurrent contents of the other files you may need to edit this turn (only fetched on a",
+          "\nCurrent content of the other file you may need to edit this turn (only fetched on a",
           "close-out turn):",
-          "\nuser_data/coach/coach_notes.md:\n" + (closingFiles.coachNotes ?? "(file does not exist yet)"),
-          "\nuser_data/ledger/challenge_v2.json:\n" + (closingFiles.challengeV2 ?? "(file does not exist yet)"),
           "\nuser_data/ledger/current_week.json:\n" + (closingFiles.currentWeek ?? "(file does not exist yet)"),
-          "\nuser_data/coach/sleep_log.json:\n" + (closingFiles.sleepLog ?? "(file does not exist yet)"),
         ].join("\n")
       : "",
     "</state>",
@@ -545,30 +612,51 @@ export async function askGemini(
       : mode === "closing"
       ? [
           "\nThe athlete's latest message is a session-close signal (\"wrap this session\", \"close",
-          "session\", or similar). This turn IS the commit-protocol moment (SOUL.md §12) - you must",
-          "actually execute it now, not just acknowledge it: reflect on this whole conversation, and",
-          "propose edits for every file that genuinely changed via file_updates (state.md at minimum",
-          "if anything was discussed; coach_notes.md/challenge_v2.json/current_week.json/sleep_log.json",
-          "/user_data/activities/workout_plans/sessions/<name>.json if relevant - their current",
-          "contents are given to you above). If something the pre-commit checklist needs - today's",
+          "session\", or similar). This turn IS the session-close moment (SOUL.md §12: Reflect →",
+          "Report → Confirm) - you must actually execute it now, not just acknowledge it. You have no",
+          "shell or git access: reflect on this whole conversation, then REPORT what happened as plain",
+          "facts in the fields below - the server does all the file mechanics and the commit, not you.",
+          "\nReport these facts (omit any that don't apply - never invent content that didn't happen",
+          "this conversation):",
+          "\n- `coach_note`: a short plain-English note of what actually happened this session, worth",
+          "remembering long-term (a sentence or two is enough). The server appends this as a dated",
+          "entry to coach_notes.md - you never see or edit that file directly.",
+          "\n- `session_note`: 2-3 bullets summarizing this session (what was done, how it felt, what's",
+          "next). The server rolls it into state.md's Recent Session Notes, dropping the oldest of the",
+          "3 kept there - you don't manage that window yourself.",
+          "\n- `quest_events`: one {quest_id, date, status} per quest completion, miss, or progress",
+          "update this conversation actually covered. `quest_id` must be a real id copied from",
+          "gen/quest_log.md above (it's rendered next to each quest's name) - never invent or guess",
+          "one. `status` is \"completed\" or \"missed\". Omit entirely if no quest came up.",
+          "\n- `sleep`: {date, hours} if the athlete reported sleep hours anywhere this conversation.",
+          "Report it once - the server writes both state.md's Sleep Log table and sleep_log.json from",
+          "this single report, so they can never disagree. Omit if sleep was never mentioned; never",
+          "invent a number.",
+          "\nOnly state.md (Active Injury Flags) and current_week.json still go through file_updates",
+          "(edits / merge_patch respectively, format below) - genuinely judgment-heavy content, not",
+          "yet on the fact schema above. Never propose file_updates for coach_notes.md,",
+          "challenge_v2.json, or sleep_log.json - use the fact fields for those instead, they'll be",
+          "rejected as file_updates.",
+          "\nIf something the pre-commit checklist needs - today's",
           "sleep, side-quest status, injury flags - was never covered anywhere in this conversation or",
           "in the state.md/quest_log.md above, ask for it now instead of closing out. Only once you",
           "actually have what you need should you close - if this is the athlete's second time asking",
           "to close and you still don't have it, close anyway with what you have rather than stall",
           "forever.",
-          "\nBefore deciding file_updates, use `reasoning` to do this mechanically, not just describe",
+          "\nBefore deciding what to report, use `reasoning` to do this mechanically, not just describe",
           "it: list every concrete fact this conversation contains (a workout done, how it felt, sleep",
-          "mentioned, an injury, a plan for tomorrow, a proposed session) that state.md/quest_log.md",
-          "above does NOT already reflect, one per line. Every line on that list needs either a",
-          "file_updates entry or an explicit reason it doesn't need saving - a real training",
-          "conversation that ends with file_updates empty is a mistake, not a valid outcome, unless",
-          "that list is genuinely empty too. This applies equally to proposing a new",
+          "mentioned, an injury, a quest completed/missed, a plan for tomorrow, a proposed session)",
+          "that state.md/quest_log.md above does NOT already reflect, one per line. Every line on that",
+          "list needs either a fact field (coach_note/session_note/quest_events/sleep), a file_updates",
+          "entry (state.md/current_week.json only), or an explicit reason it doesn't need saving - a",
+          "real training conversation that ends with nothing reported is a mistake, not a valid",
+          "outcome, unless that list is genuinely empty too. This applies equally to proposing a new",
           "user_data/activities/workout_plans/sessions/<name>.json when you and the athlete actually",
           "settled on a plan for an upcoming session - don't just describe the plan in `reply` and",
           "drop it; a session file that doesn't get created won't show up anywhere for the athlete.",
           "**Never say something is saved, logged, locked, or committed unless it is genuinely present",
-          "in file_updates in this exact response.** If there is truly nothing concrete to save this",
-          "session, say so honestly instead of pretending to close one out.",
+          "in this exact response (a fact field, or file_updates).** If there is truly nothing concrete",
+          "to save this session, say so honestly instead of pretending to close one out.",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
           "response (asking for missing info instead does NOT count - set it false in that case, even",
           "though this turn was triggered by a close-session phrase). The athlete will simply see your",
@@ -588,34 +676,35 @@ export async function askGemini(
           `be honest about which case this is rather than defaulting to true.`,
         ].join("\n")
       : [
-          "\nThis is an ordinary turn, not a close-out - you were not given the current contents of",
-          "coach_notes.md/challenge_v2.json/current_week.json/sleep_log.json this turn (only state.md",
-          "and quest_log.md above), so you cannot safely propose edits to those files right now - you'd",
-          "be guessing at content you haven't actually seen. If something happened this turn that",
-          "genuinely needs saving (a workout logged, a check-in, a quest completion), you may propose",
-          "edits to state.md only (you do have its current content above) using the edits format below;",
-          "otherwise wait for the close-out turn, when you'll see everything and can do it properly.",
-          "Most turns should NOT touch any files at all.",
+          "\nThis is an ordinary turn, not a close-out - you were not given the current content of",
+          "current_week.json this turn (only state.md and quest_log.md above), so you cannot safely",
+          "propose a merge_patch for it right now - you'd be guessing at content you haven't actually",
+          "seen. If something happened this turn that genuinely needs saving (a workout logged, a",
+          "check-in, a quest completion), you may propose edits to state.md only (you do have its",
+          "current content above) using the edits format below; otherwise wait for the close-out turn,",
+          "when you'll see everything and can do it properly. The coach_note/session_note/quest_events/",
+          "sleep fact fields (see the closing-turn instructions) are only meaningful on a closing turn -",
+          "leave them out here even if something worth reporting came up; it'll be asked for again at",
+          "close. Most turns should NOT touch any files at all.",
           "\nSet session_closed to false - this isn't a close-session turn.",
         ].join("\n"),
     [
-      "\nHow to propose a file change in file_updates - use exactly ONE of these per file, matching",
-      "its type:",
-      "\n1. Markdown files (state.md, coach_notes.md) - `edits`: an array of {old_string, new_string}.",
-      "Each old_string must be copied EXACTLY, character-for-character, from the current content given",
-      "to you above, and must be long enough (include a line or two of surrounding context) to match",
-      "only ONE place in the file - an old_string that doesn't appear, or appears more than once, will",
-      "be rejected and that specific edit silently skipped. Never include a whole file's content here -",
-      "only the lines actually changing, plus enough surrounding text to pin the match uniquely.",
-      "\n2. JSON files (challenge_v2.json, current_week.json, sleep_log.json) - `merge_patch`: a JSON",
-      "MERGE PATCH (RFC 7396), encoded as a STRING (not a nested object). Only include the keys that",
-      "are actually changing - a merge patch is shallow-merged onto the current object, so omitted",
-      "keys are left untouched automatically (you do not need to repeat them). To delete a key, set",
-      "its value to null in the patch. To replace an array, provide the whole new array (arrays",
-      "replace wholesale, never merge element-by-element). Example patch string for adding a",
-      "completed date to a quest: '{\"quests\":[{\"id\":\"cold_shower\",\"completed_dates\":[\"2026-08-02\"]}]}'",
-      "- but only if that's really how the array should look after the change (you're replacing the",
-      "whole quests array's matching entry, so reproduce its other current fields you're not changing).",
+      "\nHow to propose a file change in file_updates - only state.md and current_week.json still go",
+      "through this path (coach_notes.md, challenge_v2.json, and sleep_log.json are handled via the",
+      "fact fields described in the closing-turn instructions instead - never propose file_updates for",
+      "those three, they'll be rejected). Use exactly ONE of these per file, matching its type:",
+      "\n1. user_data/coach/state.md - `edits`: an array of {old_string, new_string}. Each old_string",
+      "must be copied EXACTLY, character-for-character, from the current content given to you above,",
+      "and must be long enough (include a line or two of surrounding context) to match only ONE place",
+      "in the file - an old_string that doesn't appear, or appears more than once, will be rejected and",
+      "that specific edit silently skipped. Never include a whole file's content here - only the lines",
+      "actually changing, plus enough surrounding text to pin the match uniquely.",
+      "\n2. user_data/ledger/current_week.json - `merge_patch`: a JSON MERGE PATCH (RFC 7396), encoded",
+      "as a STRING (not a nested object). Only include the keys that are actually changing - a merge",
+      "patch is shallow-merged onto the current object, so omitted keys are left untouched",
+      "automatically (you do not need to repeat them). To delete a key, set its value to null in the",
+      "patch. To replace an array, provide the whole new array (arrays replace wholesale, never merge",
+      "element-by-element).",
       "\n3. Session files (user_data/activities/workout_plans/sessions/<name>.json) - `content`: the",
       "full new file content as a string, same as before - these are almost always whole-new-file",
       "writes, not edits to an existing one.",
@@ -783,17 +872,17 @@ async function finishGeminiResponse(res: Response, mode: TurnMode): Promise<Gemi
   return parsed;
 }
 
-// A7: only called on closing turns (see POST handler) - ordinary turns don't fetch these, per
-// the "ordinary" prompt block in askGemini above. All four best-effort/independent; a missing
-// file (never yet written) is a legitimate null, not an error.
+// A7/P1: only called on closing turns (see POST handler) - ordinary turns don't fetch these, per
+// the "ordinary" prompt block in askGemini above. Down to two files as of P1 (was four): see
+// ClosingFileContext's comment for why challengeV2 and currentWeek are still fetched even though
+// only currentWeek is actually shown to Gemini now. Both best-effort/independent; a missing file
+// (never yet written) is a legitimate null, not an error.
 async function loadClosingFileContext(repo: string, token: string): Promise<ClosingFileContext> {
-  const [coachNotes, challengeV2, currentWeek, sleepLog] = await Promise.all([
-    getFileRaw(repo, COACH_NOTES_PATH, token),
+  const [challengeV2, currentWeek] = await Promise.all([
     getFileRaw(repo, CHALLENGE_V2_PATH, token),
     getFileRaw(repo, CURRENT_WEEK_PATH, token),
-    getFileRaw(repo, SLEEP_LOG_PATH, token),
   ]);
-  return { coachNotes, challengeV2, currentWeek, sleepLog };
+  return { challengeV2, currentWeek };
 }
 
 // A7: resolves one Gemini-proposed file_update into final content using whichever strategy
@@ -806,12 +895,15 @@ async function loadClosingFileContext(repo: string, token: string): Promise<Clos
 // currentContent distinguishes three states, not two:
 //   - a string: fetched this turn, has real content
 //   - null: fetched this turn, file genuinely doesn't exist yet (legitimate - first write)
-//   - undefined: NOT fetched this turn at all (an ordinary turn never fetches coach_notes.md/
-//     challenge_v2.json/current_week.json/sleep_log.json - only closing turns do). An edit/patch
-//     proposed for a path in this state is Gemini disobeying its own turn-mode instructions -
-//     applying it anyway would mean editing/patching against content we never actually saw,
-//     which for a merge patch means silently replacing the whole file with just the patch's
-//     keys. Reject outright rather than guessing.
+//   - undefined: NOT fetched this turn at all. As of P1, that's only ever current_week.json on
+//     an ordinary turn (an ordinary turn never fetches it - only closing turns do; state.md is
+//     always fetched, every turn). coach_notes.md/challenge_v2.json/sleep_log.json can't reach
+//     this function with real content at all anymore - they're not in MARKDOWN_EDIT_FILES/
+//     JSON_MERGE_FILES, so isCoachWritable rejects them above before this check ever runs. An
+//     edit/patch proposed for a path genuinely in this undefined state is Gemini disobeying its
+//     own turn-mode instructions - applying it anyway would mean editing/patching against
+//     content we never actually saw, which for a merge patch means silently replacing the whole
+//     file with just the patch's keys. Reject outright rather than guessing.
 export function resolveFileUpdate(
   update: GeminiFileUpdate,
   currentContent: string | null | undefined,
@@ -1136,19 +1228,19 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         },
       };
 
-      // A7: resolve each proposed update (edits/merge_patch/content, depending on file type)
+      // A7/P1: resolve each proposed update (edits/merge_patch/content, depending on file type)
       // against whatever current content this turn actually had for that path - drops anything
       // unwritable, unresolvable (edit didn't match, patch invalid), or blank. `undefined` here
       // means "not fetched this turn at all" (distinct from `null`, "fetched, doesn't exist yet")
-      // - coach_notes.md/challenge_v2.json/current_week.json/sleep_log.json are only fetched on
-      // closing turns, so on an ordinary turn they're `undefined` and resolveFileUpdate rejects
-      // any proposed edit/patch against them rather than guessing at unseen content.
+      // - current_week.json is only fetched on closing turns, so on an ordinary turn it's
+      // `undefined` and resolveFileUpdate rejects any proposed merge_patch against it rather than
+      // guessing at unseen content. coach_notes.md/challenge_v2.json/sleep_log.json have no entry
+      // here at all as of P1 - they're no longer in MARKDOWN_EDIT_FILES/JSON_MERGE_FILES, so
+      // isCoachWritable rejects any file_updates entry for them before resolveFileUpdate would
+      // even look this map up.
       const currentContentByPath: Record<string, string | null | undefined> = {
         [STATE_FILE_PATH]: stateMd ?? null,
-        [COACH_NOTES_PATH]: closingFiles ? closingFiles.coachNotes : undefined,
-        [CHALLENGE_V2_PATH]: closingFiles ? closingFiles.challengeV2 : undefined,
         [CURRENT_WEEK_PATH]: closingFiles ? closingFiles.currentWeek : undefined,
-        [SLEEP_LOG_PATH]: closingFiles ? closingFiles.sleepLog : undefined,
       };
 
       // Dedup by path before resolving - two file_updates entries for the same path would
@@ -1189,6 +1281,14 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       }
 
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
+
+      // TODO: wire once ui/api/_lib/coachIntents.ts lands (P1 step 5, coach-intent-schema.md).
+      // reply.coach_note / reply.session_note / reply.quest_events / reply.sleep are requested
+      // from Gemini (see the closing-turn prompt above) and typed on GeminiReply, but nothing
+      // reads them here yet - they're not applied to any file and not included in `writes` below.
+      // Step 5 is explicitly blocked on Skanda's COACH_CHAT_BRANCH prerequisite
+      // (coach-commit-mvp.md) landing first, so end-to-end testing of the appliers doesn't write
+      // to a live athlete's main - out of scope for this change.
 
       // ADR 0012: every file_update plus the updated chat_history.json lands in ONE atomic
       // commit via the Git Data API, instead of a separate REST PUT per file.

@@ -21,15 +21,15 @@ describe("resolveFileUpdate", () => {
 
   it("drops a markdown update whose only edit fails to match", () => {
     const result = resolveFileUpdate(
-      { path: "user_data/coach/coach_notes.md", edits: [{ old_string: "not present", new_string: "x" }] },
+      { path: "user_data/coach/state.md", edits: [{ old_string: "not present", new_string: "x" }] },
       "totally different content",
     );
     expect(result).toBeNull();
   });
 
-  it("applies a merge patch to a JSON file (challenge_v2.json) against its current content", () => {
+  it("applies a merge patch to a JSON file (current_week.json) against its current content", () => {
     const result = resolveFileUpdate(
-      { path: "user_data/ledger/challenge_v2.json", merge_patch: '{"phase":"peak"}' },
+      { path: "user_data/ledger/current_week.json", merge_patch: '{"phase":"peak"}' },
       '{"phase":"base","other":1}',
     );
     expect(result).not.toBeNull();
@@ -37,16 +37,33 @@ describe("resolveFileUpdate", () => {
   });
 
   it("drops a JSON update with no merge_patch", () => {
-    const result = resolveFileUpdate({ path: "user_data/ledger/challenge_v2.json" }, "{}");
+    const result = resolveFileUpdate({ path: "user_data/ledger/current_week.json" }, "{}");
     expect(result).toBeNull();
   });
 
   it("drops a JSON update whose merge_patch is invalid JSON", () => {
     const result = resolveFileUpdate(
-      { path: "user_data/coach/sleep_log.json", merge_patch: "{not valid" },
+      { path: "user_data/ledger/current_week.json", merge_patch: "{not valid" },
       "{}",
     );
     expect(result).toBeNull();
+  });
+
+  // P1 (coach-intent-schema.md): coach_notes.md, challenge_v2.json, and sleep_log.json moved off
+  // file_updates entirely onto the plain-fact fields (coach_note/quest_events/sleep) - they must
+  // be rejected outright now, regardless of what's proposed or whether current content was
+  // fetched, the same as any other path outside the allowlist.
+  it("drops file_updates for coach_notes.md, challenge_v2.json, and sleep_log.json now that they're fact-only", () => {
+    expect(
+      resolveFileUpdate(
+        { path: "user_data/coach/coach_notes.md", edits: [{ old_string: "x", new_string: "y" }] },
+        "x",
+      ),
+    ).toBeNull();
+    expect(
+      resolveFileUpdate({ path: "user_data/ledger/challenge_v2.json", merge_patch: '{"phase":"peak"}' }, '{"phase":"base"}'),
+    ).toBeNull();
+    expect(resolveFileUpdate({ path: "user_data/coach/sleep_log.json", merge_patch: '{"hours":7.5}' }, "{}")).toBeNull();
   });
 
   it("keeps full-content replacement for session files", () => {
@@ -82,7 +99,7 @@ describe("resolveFileUpdate", () => {
   // silently applied against an assumed-empty file.
   it("drops a JSON merge_patch proposed when the current content was never fetched this turn (undefined, not null)", () => {
     const result = resolveFileUpdate(
-      { path: "user_data/ledger/challenge_v2.json", merge_patch: '{"phase":"peak"}' },
+      { path: "user_data/ledger/current_week.json", merge_patch: '{"phase":"peak"}' },
       undefined,
     );
     expect(result).toBeNull();
@@ -90,7 +107,7 @@ describe("resolveFileUpdate", () => {
 
   it("still allows a JSON merge_patch when the file was fetched and genuinely doesn't exist yet (null)", () => {
     const result = resolveFileUpdate(
-      { path: "user_data/coach/sleep_log.json", merge_patch: '{"hours":7.5}' },
+      { path: "user_data/ledger/current_week.json", merge_patch: '{"hours":7.5}' },
       null,
     );
     expect(result).not.toBeNull();
@@ -99,7 +116,7 @@ describe("resolveFileUpdate", () => {
 
   it("drops a markdown edit proposed when the current content was never fetched this turn (undefined, not null)", () => {
     const result = resolveFileUpdate(
-      { path: "user_data/coach/coach_notes.md", edits: [{ old_string: "x", new_string: "y" }] },
+      { path: "user_data/coach/state.md", edits: [{ old_string: "x", new_string: "y" }] },
       undefined,
     );
     expect(result).toBeNull();

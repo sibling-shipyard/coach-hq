@@ -48,10 +48,52 @@ interface Transcript {
     fileUpdatesPathsSubsetOf?: string[];
     hasCommitMessage?: boolean;
     noFabricatedSaveLanguage?: boolean;
+    // P1 (coach-intent-schema.md) additions - the model now reports coach_note/session_note/
+    // quest_events/sleep as plain facts instead of file_updates for those four fields, so the
+    // rubric needs its own checks for them rather than reusing the file_updates-shaped ones above.
+    /**
+     * Every quest_id listed here must appear in reply.quest_events. Independent of this list,
+     * EVERY quest_id the model returns (whether listed here or not) is checked against the ids
+     * actually rendered in the transcript's own questLog (the `` `id` `` tokens next to each
+     * quest) - a quest_id that isn't one of those is a fabricated id, not just a missed
+     * expectation, and fails the transcript even if this array is empty.
+     */
+    questEventsInclude?: string[];
+    /** reply.sleep must be present with a real date (YYYY-MM-DD) and a positive hours value. */
+    sleepReported?: boolean;
+    /**
+     * No file_updates entry may target coach_notes.md, challenge_v2.json, or sleep_log.json -
+     * P1 moved all three off the edit/merge_patch path entirely, so a proposal for any of them
+     * (in any field: edits, merge_patch, or content) means Gemini is still trying to write them
+     * the old way. Checked unconditionally below regardless of this flag - it's here so a
+     * transcript can label the check explicitly in its own expectations for readability, not to
+     * gate whether the check runs at all.
+     */
+    noMergePatchesForRemovedFiles?: boolean;
   };
 }
 
 const SAVE_CLAIM_PHRASES = ["saved", "logged it", "locked in", "committed", "noted it down", "recorded"];
+
+// P1: coach_notes.md/challenge_v2.json/sleep_log.json dropped out of MARKDOWN_EDIT_FILES/
+// JSON_MERGE_FILES in coach-chat.ts - isCoachWritable() already rejects file_updates for these
+// (caught below by the existing "non-writable path" check), but this list gives that specific
+// regression its own named, greppable failure message instead of folding into the generic one.
+const REMOVED_FROM_FILE_UPDATES = new Set([
+  "user_data/coach/coach_notes.md",
+  "user_data/ledger/challenge_v2.json",
+  "user_data/coach/sleep_log.json",
+]);
+
+// Pulls every `` `quest_id` `` token out of a transcript's questLog fixture text - mirrors how
+// gen/quest_log.md actually renders ids (backtick-wrapped, next to each quest's name/heading,
+// see engine/scripts/generate_quest_log.py). Used to catch a fabricated quest_id: one that isn't
+// anywhere in the quest log the model was actually shown this turn.
+function realQuestIds(questLog: string): Set<string> {
+  const ids = new Set<string>();
+  for (const m of questLog.matchAll(/`([a-zA-Z0-9_-]+)`/g)) ids.add(m[1]);
+  return ids;
+}
 
 function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemini>>): string[] {
   const failures: string[] = [];
@@ -102,6 +144,50 @@ function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemi
       fileUpdates.length === 0 && SAVE_CLAIM_PHRASES.some((phrase) => lowerReply.includes(phrase));
     if (hasFabricatedClaim) {
       failures.push(`reply claims something was saved with empty file_updates: "${reply.reply}"`);
+    }
+  }
+
+  // Unconditional, not gated by expect.noMergePatchesForRemovedFiles - a proposal for any of
+  // these three paths is always wrong post-P1, on every transcript, not just ones that opted in.
+  for (const update of fileUpdates) {
+    if (REMOVED_FROM_FILE_UPDATES.has(update.path)) {
+      failures.push(`file_updates proposed for ${update.path} - P1 moved this off edits/merge_patch onto plain facts`);
+    }
+  }
+
+  if (t.expect.questEventsInclude) {
+    const returnedIds = new Set((reply.quest_events ?? []).map((e) => e.quest_id));
+    for (const expectedId of t.expect.questEventsInclude) {
+      if (!returnedIds.has(expectedId)) {
+        failures.push(`expected quest_events to include quest_id "${expectedId}", got [${[...returnedIds].join(", ")}]`);
+      }
+    }
+  }
+
+  // Runs whenever quest_events came back at all, regardless of expect.questEventsInclude - a
+  // fabricated id is a failure on any transcript, not just ones asserting a specific completion.
+  if (reply.quest_events && reply.quest_events.length > 0) {
+    const validIds = realQuestIds(t.questLog);
+    for (const event of reply.quest_events) {
+      if (!event.quest_id || !validIds.has(event.quest_id)) {
+        failures.push(`quest_events entry has quest_id "${event.quest_id}" not found in this turn's questLog - likely fabricated`);
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(event.date)) {
+        failures.push(`quest_events entry for "${event.quest_id}" has a non-YYYY-MM-DD date: "${event.date}"`);
+      }
+    }
+  }
+
+  if (t.expect.sleepReported) {
+    if (!reply.sleep) {
+      failures.push("expected sleep to be reported, got none");
+    } else {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(reply.sleep.date)) {
+        failures.push(`sleep.date is not YYYY-MM-DD: "${reply.sleep.date}"`);
+      }
+      if (typeof reply.sleep.hours !== "number" || !(reply.sleep.hours > 0)) {
+        failures.push(`sleep.hours is not a real positive number: ${reply.sleep.hours}`);
+      }
     }
   }
 

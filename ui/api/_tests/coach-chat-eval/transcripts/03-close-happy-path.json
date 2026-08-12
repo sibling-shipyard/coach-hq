@@ -1,9 +1,9 @@
 {
   "name": "close-happy-path",
-  "description": "Genuine close-out with real content given - should close, propose a well-formed state.md edit, and include a commit_message.",
+  "description": "Genuine close-out with real content given - should close, propose a well-formed state.md edit, include a commit_message, and report the sleep mentioned in this conversation as a fact instead of a merge_patch.",
   "mode": "closing",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
-  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K (`sub45_10k`)\n- Side: Cold shower daily (`cold_shower`)\n",
   "history": [
     { "id": "1", "role": "coach", "paragraphs": ["Morning - how'd the intervals go?"] },
     { "id": "2", "role": "user", "text": "Ran 6x800m, felt strong throughout, hit all my splits." },
@@ -12,13 +12,13 @@
   ],
   "userMessage": "That's all for now, wrap this session.",
   "closingFiles": {
-    "coachNotes": null,
     "challengeV2": "{\"season\":{\"start_date\":\"2026-07-01\"},\"main_quest\":{\"id\":\"sub45_10k\"},\"quests\":[{\"id\":\"cold_shower\",\"completed_dates\":[]}]}",
-    "currentWeek": null,
-    "sleepLog": "{}"
+    "currentWeek": null
   },
   "expect": {
     "sessionClosed": true,
-    "hasCommitMessage": true
+    "hasCommitMessage": true,
+    "sleepReported": true,
+    "noMergePatchesForRemovedFiles": true
   }
 }
