@@ -8,6 +8,9 @@ Today the model must produce the write itself: an exact-match `old_string` copie
 character out of a 14KB `state.md`, or an RFC 7396 merge patch encoded as a JSON string. Both fail
 silently. Audit of `coach-skanda-2003`: 5 closes, 0 files saved.
 
+The commit itself is **not** broken — those 5 closes each committed `chat_history.json` fine.
+`commitFilesAtomic` works. Coach files are dropped before they ever reach it.
+
 P0 proves the fix on one file — the model says what happened, the server writes it. P1 applies the
 same move to every remaining coach file.
 
@@ -47,23 +50,45 @@ file's current content.
   server allowlist rejects (`roadmap.md`, `gen/quest_log.md`, `archive/**`) — dead since ADR 0021.
   Rewrite as: reflect, report, confirm. Recompose via `platform/scripts/compose-soul.mjs`.
 
-## Prerequisite
+## Build order
 
-`gen/quest_log.md` renders quest **names**, not ids (`engine/scripts/generate_quest_log.py:542`).
-`quest_events` needs ids. Add an id column there first — then the closing turn no longer needs
-`challenge_v2.json` in its prompt at all.
+Runs in parallel with P0. Only step 5 waits on Skanda.
 
-Closing fetch drops from 5 files to 2 (`state.md` + `quest_log.md`). That kills the
-`currentContent === undefined` drop path (`coach-chat.ts:823`) outright, and cuts the largest
-prompt in the system.
+**0 — Prerequisite: quest ids.** `gen/quest_log.md` renders quest **names**, not ids
+(`engine/scripts/generate_quest_log.py:542`). `quest_events` needs ids. Add an id column.
+→ *Verify:* regenerate a quest log, ids visible. Without this, step 2 has nothing to assert on.
+
+**1 — Appliers, in a new file.** `ui/api/_lib/coachIntents.ts`. One pure function per field:
+current content in, new content out. No imports from `coach-chat.ts` — Skanda is editing
+`resolveFileUpdate` (~819-855) and the commit call (~1199), so a new file means zero conflict.
+→ *Verify:* vitest, fixture in / string out. No GitHub, no Gemini.
+
+**2 — Schema + prompt.** Add the four fields to `responseSchema` (`coach-chat.ts:404`). Rewrite the
+closing-turn prompt to ask for facts, delete the file-edit-format block (`:602-624`).
+→ *Verify:* `npm run eval:coach-chat` against a live key. It calls `askGemini()` directly and never
+touches GitHub. Add golden transcripts asserting a real quest id comes back, a real sleep number,
+and no merge patches.
+
+**3 — SOUL §12 rewrite.** `platform/soul/B_engine.md`. Reflect, report, confirm. Drop the git
+commands and the 8 rejected paths. Recompose via `platform/scripts/compose-soul.mjs`, commit layer
++ composed together.
+→ *Verify:* evals still pass; closing prompt token count drops (`[coach-chat] Gemini usage:`).
+
+**4 — Drop the closing fetch from 5 files to 2.** Once the server owns the mutations, the model
+only needs `state.md` + `quest_log.md`. This kills the `currentContent === undefined` drop path
+(`coach-chat.ts:823`) outright.
+→ *Verify:* token count drops again; no `proposed without its current content` lines remain.
+
+**5 — Wire appliers into the close path.** ~5 lines. Needs Skanda's `COACH_CHAT_BRANCH` so
+end-to-end testing can't write to a live athlete's `main`.
+→ *Verify:* one real close writes all four files on a test branch.
 
 ## Done when
 
 - One close writes `state.md`, `challenge_v2.json`, `sleep_log.json`, `coach_notes.md` correctly.
-- A quest tick lands from `quest_events` alone — no merge patch in the response.
+- A quest tick lands from `quest_events` alone — no merge patch anywhere in the response.
 - Sleep reported once updates both files. Verified by grep, not by trusting the model.
-- Closing prompt token count drops measurably (`[coach-chat] Gemini usage:` log line).
-- `npm run test` and `npm run eval:coach-chat` pass. Golden transcripts updated to the new schema.
+- `npm run test` and `npm run eval:coach-chat` pass. Golden transcripts on the new schema.
 
 ## Deferred
 
