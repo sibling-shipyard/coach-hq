@@ -495,7 +495,7 @@ def render_quest_log(data: dict, activities: list[dict], today: date) -> str:
     lines.append(f"Day {min(ch_day, win['duration_days'])} of {win['duration_days']} | "
                  f"{min(ch_pct, 100)}% complete | Ends {win['end_date']}")
     lines.append("")
-    lines.append(f"## Main Quest: {mq['name']}")
+    lines.append(f"## Main Quest: {mq['name']} (`{mq['id']}`)")
     lines.append(mq_stats["progress_line"])
     lines.append(mq_stats["pace_line"])
     lines.append(f"Status: **{mq_stats['status']}**")
@@ -504,8 +504,8 @@ def render_quest_log(data: dict, activities: list[dict], today: date) -> str:
     # Side quests table
     lines.append("## Side Quests")
     lines.append("")
-    lines.append("| Quest | Type | Progress | Streak | Rate | Status |")
-    lines.append("|-------|------|----------|--------|------|--------|")
+    lines.append("| ID | Quest | Type | Progress | Streak | Rate | Status |")
+    lines.append("|----|-------|------|----------|--------|------|--------|")
 
     for q in data["quests"]:
         qtype = q["type"]
@@ -539,7 +539,7 @@ def render_quest_log(data: dict, activities: list[dict], today: date) -> str:
             streak = "—"
             rate = "—"
 
-        lines.append(f"| {q['name']} | {qtype.replace('_', ' ')} | "
+        lines.append(f"| `{q['id']}` | {q['name']} | {qtype.replace('_', ' ')} | "
                      f"{progress} | {streak} | {rate} | {status} |")
 
     lines.append("")
