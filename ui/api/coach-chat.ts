@@ -249,10 +249,25 @@ export function coachDayNumber(challengeJson: string | null | undefined, stateMd
 // extra real save).
 // A6: added a few more natural sign-offs the athlete actually said in testing ("bye coach",
 // "that's all for now", "see you tomorrow", "catch you later") alongside the original set.
+// A8: the original pattern missed bare casual sign-offs an athlete actually typed in production
+// ("wrap" alone, with no trailing "session") - broadened to catch "wrap"/"wrapping up" without
+// requiring "session". Bare "done" is deliberately still excluded - "done for today's hill reps"
+// must not falsely trigger a close.
+// Bare "wrap" requires the WHOLE (trimmed) message to be just "wrap" plus optional punctuation
+// (^wrap[.!]?$), not merely the last word of any message - an unanchored end-of-string match
+// spuriously fired on sentences like "I don't think we should wrap", where "wrap" is negated,
+// not a close signal. Detecting negation itself isn't worth the regex complexity (fights this
+// pattern's own "deliberately simple keyword match" design above) - restricting to short,
+// standalone "wrap"-only messages sidesteps it entirely, since that's how athletes actually type
+// this sign-off in practice.
+// "that's it"/"that's all" is anchored to the end of the message (optionally followed by a short
+// "for today/now/me" and trailing punctuation) rather than matching anywhere - an unanchored
+// version would false-positive on "that's all, actually one more thing about my shoulder", where
+// the athlete is clearly still talking, not closing.
 const CLOSE_SESSION_PATTERN =
-  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap it up\b|done for (today|the day)|that'?s (it|all) for (today|now)|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
+  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|^wrap[.!]?$|done for (today|the day)|that'?s (it|all)\b(\s+for (today|now|me))?[.!]?$|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
 
-function isCloseSignal(message: string): boolean {
+export function isCloseSignal(message: string): boolean {
   return CLOSE_SESSION_PATTERN.test(message);
 }
 
@@ -448,15 +463,15 @@ const GENERATION_CONFIG = {
   responseSchema: {
     type: "object",
     properties: {
-      // Declared first so the model fills it in before `reply` - a brief internal check (is this
-      // genuinely a close, does every proposed edit have real backing content) ahead of the
-      // final answer, not shown to the athlete (stripped below).
+      // Field order matters: Gemini fills responseSchema properties roughly in declared order.
+      // `reasoning` comes first as a brief internal check (is this genuinely a close, does every
+      // proposed edit have real backing content), not shown to the athlete (stripped below).
+      // `file_updates` comes right after it - immediately after reasoning about what needs saving,
+      // the model has to commit to the actual edits, before it writes the athlete-facing `reply`
+      // describing what was saved. Previously `file_updates` was declared last and `reply` early,
+      // which let the model write a confident "saved" reply before (or without) ever populating
+      // file_updates to back it up - observed in production (A8).
       reasoning: { type: "string" },
-      reply: { type: "string" },
-      session_closed: { type: "boolean" },
-      commit_message: { type: "string" },
-      title: { type: "string" },
-      checklist_covered: { type: "boolean" },
       file_updates: {
         type: "array",
         items: {
@@ -483,7 +498,9 @@ const GENERATION_CONFIG = {
       // P1 (coach-intent-schema.md): plain facts, only meaningful on a closing=true turn - see
       // GeminiReply's field comments and the closing-turn prompt above for what the server does
       // with each. No old_string, no merge patch, no current-file-content requirement for any of
-      // these four, unlike file_updates above.
+      // these four, unlike file_updates above. Declared right after file_updates for the same A8
+      // reason file_updates itself was moved up: the model commits to every fact it's reporting
+      // before it writes the athlete-facing `reply` describing what was saved.
       coach_note: { type: "string" },
       session_note: { type: "string" },
       quest_events: {
@@ -506,6 +523,11 @@ const GENERATION_CONFIG = {
         },
         required: ["date", "hours"],
       },
+      checklist_covered: { type: "boolean" },
+      commit_message: { type: "string" },
+      title: { type: "string" },
+      session_closed: { type: "boolean" },
+      reply: { type: "string" },
     },
     required: ["reply"],
   },
