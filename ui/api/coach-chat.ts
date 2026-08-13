@@ -235,12 +235,16 @@ export function coachDayNumber(challengeJson: string | null | undefined, stateMd
 // "that's all for now", "see you tomorrow", "catch you later") alongside the original set.
 // A8: the original pattern missed bare casual sign-offs an athlete actually typed in production
 // ("wrap" alone, with no trailing "session") - broadened to catch "wrap"/"wrapping up" without
-// requiring "session", and "that's it"/"that's all" without requiring "for today/now". Bare "done"
-// is deliberately still excluded - "done for today's hill reps" must not falsely trigger a close.
-// The bare-"wrap" end anchor tolerates trailing punctuation ("wrap.", "wrap!") since the message
-// is only .trim()'d before this check runs, not stripped of punctuation.
+// requiring "session". Bare "done" is deliberately still excluded - "done for today's hill reps"
+// must not falsely trigger a close. The bare-"wrap" end anchor tolerates trailing punctuation
+// ("wrap.", "wrap!") since the message is only .trim()'d before this check runs, not stripped of
+// punctuation.
+// "that's it"/"that's all" is anchored to the end of the message (optionally followed by a short
+// "for today/now/me" and trailing punctuation) rather than matching anywhere - an unanchored
+// version would false-positive on "that's all, actually one more thing about my shoulder", where
+// the athlete is clearly still talking, not closing.
 const CLOSE_SESSION_PATTERN =
-  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|\bwrap\b[.!]?$|done for (today|the day)|that'?s (it|all)\b|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
+  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|\bwrap\b[.!]?$|done for (today|the day)|that'?s (it|all)\b(\s+for (today|now|me))?[.!]?$|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
 
 export function isCloseSignal(message: string): boolean {
   return CLOSE_SESSION_PATTERN.test(message);

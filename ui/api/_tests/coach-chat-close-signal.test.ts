@@ -26,8 +26,18 @@ describe("isCloseSignal", () => {
     expect(isCloseSignal("wrapping up for today")).toBe(true);
   });
 
-  it("matches 'that's it for me' without a trailing 'for today/now'", () => {
+  it("matches 'that's it for me' (end-of-message sign-off)", () => {
     expect(isCloseSignal("that's it for me")).toBe(true);
+  });
+
+  it("matches 'that's all for now' and bare 'that's it.' at end of message", () => {
+    expect(isCloseSignal("that's all for now")).toBe(true);
+    expect(isCloseSignal("that's it.")).toBe(true);
+  });
+
+  it("does not match 'that's it/all' when more content follows it in the message", () => {
+    expect(isCloseSignal("that's all, actually one more thing about my shoulder")).toBe(false);
+    expect(isCloseSignal("that's it - also, how's the taper looking for next week?")).toBe(false);
   });
 
   it("does not match an ordinary training message with no sign-off language", () => {
