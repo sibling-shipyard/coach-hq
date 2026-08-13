@@ -43,4 +43,9 @@ describe("isCloseSignal", () => {
   it("does not match an ordinary training message with no sign-off language", () => {
     expect(isCloseSignal("felt strong on the intervals today, HR stayed under 160")).toBe(false);
   });
+
+  it("does not match a negated 'wrap' buried in a longer sentence", () => {
+    expect(isCloseSignal("I don't think we should wrap")).toBe(false);
+    expect(isCloseSignal("I dont think we should wrap")).toBe(false);
+  });
 });

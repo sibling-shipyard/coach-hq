@@ -236,15 +236,20 @@ export function coachDayNumber(challengeJson: string | null | undefined, stateMd
 // A8: the original pattern missed bare casual sign-offs an athlete actually typed in production
 // ("wrap" alone, with no trailing "session") - broadened to catch "wrap"/"wrapping up" without
 // requiring "session". Bare "done" is deliberately still excluded - "done for today's hill reps"
-// must not falsely trigger a close. The bare-"wrap" end anchor tolerates trailing punctuation
-// ("wrap.", "wrap!") since the message is only .trim()'d before this check runs, not stripped of
-// punctuation.
+// must not falsely trigger a close.
+// Bare "wrap" requires the WHOLE (trimmed) message to be just "wrap" plus optional punctuation
+// (^wrap[.!]?$), not merely the last word of any message - an unanchored end-of-string match
+// spuriously fired on sentences like "I don't think we should wrap", where "wrap" is negated,
+// not a close signal. Detecting negation itself isn't worth the regex complexity (fights this
+// pattern's own "deliberately simple keyword match" design above) - restricting to short,
+// standalone "wrap"-only messages sidesteps it entirely, since that's how athletes actually type
+// this sign-off in practice.
 // "that's it"/"that's all" is anchored to the end of the message (optionally followed by a short
 // "for today/now/me" and trailing punctuation) rather than matching anywhere - an unanchored
 // version would false-positive on "that's all, actually one more thing about my shoulder", where
 // the athlete is clearly still talking, not closing.
 const CLOSE_SESSION_PATTERN =
-  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|\bwrap\b[.!]?$|done for (today|the day)|that'?s (it|all)\b(\s+for (today|now|me))?[.!]?$|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
+  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|^wrap[.!]?$|done for (today|the day)|that'?s (it|all)\b(\s+for (today|now|me))?[.!]?$|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
 
 export function isCloseSignal(message: string): boolean {
   return CLOSE_SESSION_PATTERN.test(message);
