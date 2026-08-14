@@ -1,7 +1,9 @@
 # coach-chat closing follow-up (Part B — deferred)
 
-**Status:** not implemented. Revisit only if the Part A fix (schema reorder + broader close-trigger
-regex, shipped separately) doesn't reliably fix empty `file_updates` on closing turns in practice.
+**Status:** Implemented (B1 retry + B2 honesty guard). B3 confirmed no-op. Part A alone was
+confirmed insufficient by a live repro before this was built: a real closing turn against
+coach-akash-suresh (traceId `xuij2ft9`, 2026) logged `reasoning` explicitly describing a state.md
+edit while `file_updates` still came back empty.
 
 ## Background
 

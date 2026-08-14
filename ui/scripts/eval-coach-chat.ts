@@ -45,6 +45,10 @@ interface Transcript {
   expect: {
     sessionClosed?: boolean;
     fileUpdatesEmpty?: boolean;
+    // B1 regression coverage (docs/eng-docs/coach-chat-closing-followup.md): the inverse of
+    // fileUpdatesEmpty above - asserts file_updates actually landed non-empty, for a transcript
+    // whose whole point is "this conversation has real content, a close must not save nothing."
+    fileUpdatesNonEmpty?: boolean;
     fileUpdatesPathsSubsetOf?: string[];
     hasCommitMessage?: boolean;
     noFabricatedSaveLanguage?: boolean;
@@ -60,6 +64,13 @@ function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemi
   // reasoning must never leak into what the athlete sees - askGemini() already strips it before
   // returning, this is a belt-and-suspenders check against a regression in that stripping.
   if ("reasoning" in reply) failures.push("`reasoning` field leaked through into the returned reply");
+  // B1's internal-only mismatch flag (docs/eng-docs/coach-chat-closing-followup.md) is meant to
+  // be consumed and deleted by the HTTP handler's honesty guard one layer above askGemini - same
+  // leak check as `reasoning`, since askGemini itself deliberately does NOT strip this one (it
+  // has to survive that one extra layer).
+  if ("_unsavedContentSuspected" in reply) {
+    failures.push("`_unsavedContentSuspected` field leaked through into the returned reply");
+  }
 
   for (const update of fileUpdates) {
     if (!isCoachWritable(update.path)) {
@@ -81,6 +92,10 @@ function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemi
 
   if (t.expect.fileUpdatesEmpty && fileUpdates.length > 0) {
     failures.push(`expected no file_updates, got ${fileUpdates.length}`);
+  }
+
+  if (t.expect.fileUpdatesNonEmpty && fileUpdates.length === 0) {
+    failures.push("expected non-empty file_updates, got none");
   }
 
   if (t.expect.fileUpdatesPathsSubsetOf) {

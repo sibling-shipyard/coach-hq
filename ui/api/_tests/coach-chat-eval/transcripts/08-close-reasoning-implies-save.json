@@ -1,0 +1,26 @@
+{
+  "name": "close-reasoning-implies-save",
+  "description": "Regression for the live repro (2026-08-14, coach-akash-suresh, traceId xuij2ft9): a closing turn with real, concrete content (sleep, cold shower, protein, plan for tomorrow's strength session) must not close with empty file_updates. Modeled on the production transcript, not the exact wording. Part A (schema reorder + broader close-trigger regex, #284) alone was confirmed insufficient by this repro before B1's retry was built.",
+  "mode": "closing",
+  "stateMd": "## Athlete Profile\n- **Name:** Akash\n- **Sport(s) / Activities:** running, strength\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** Asia/Kolkata\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["Morning - how'd last night go, and how are you feeling today?"] },
+    { "id": "2", "role": "user", "text": "Slept about 7.5 hours, felt decent. Did my cold shower this morning too." },
+    { "id": "3", "role": "coach", "paragraphs": ["Good stuff - that's a solid start. Anything else on the plate today?"] },
+    { "id": "4", "role": "user", "text": "Made sure to get protein in at breakfast and lunch. No run today, just recovery. Want to do a strength session tomorrow - upper body plus core, 45 minutes." }
+  ],
+  "userMessage": "That's everything, let's wrap it up coach.",
+  "closingFiles": {
+    "coachNotes": null,
+    "challengeV2": "{\"season\":{\"start_date\":\"2026-07-01\"},\"main_quest\":{\"id\":\"sub45_10k\"},\"quests\":[{\"id\":\"cold_shower\",\"completed_dates\":[]}]}",
+    "currentWeek": null,
+    "sleepLog": "{}"
+  },
+  "expect": {
+    "sessionClosed": true,
+    "fileUpdatesNonEmpty": true,
+    "hasCommitMessage": true,
+    "noFabricatedSaveLanguage": true
+  }
+}

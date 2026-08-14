@@ -255,6 +255,38 @@ export function isCloseSignal(message: string): boolean {
   return CLOSE_SESSION_PATTERN.test(message);
 }
 
+// B1 (docs/eng-docs/coach-chat-closing-followup.md): heuristic for "reasoning describes real
+// content the model intends to save, but file_updates came back empty/absent anyway" - the exact
+// failure mode confirmed live (2026-08-14, coach-akash-suresh, traceId xuij2ft9): reasoning
+// explicitly described a state.md edit, file_updates was []. Part A (schema reorder + broader
+// close-trigger regex, #284) alone did not reliably prevent this in practice.
+// The 40-char length threshold is a plain judgment call, not a principled one - long enough to
+// skip empty/terse reasoning ("", "ok, nothing here") while still catching a real multi-fact
+// reasoning string; revisit if it proves too strict or too loose once B1's retry has run in
+// production for a while.
+const NOTHING_TO_SAVE_PATTERN =
+  /nothing (concrete|new|to save)|no (changes|updates) needed|already reflect(s|ed)|genuinely empty/i;
+
+export function hasUnsavedContentMismatch(
+  reasoning: string | undefined,
+  fileUpdates: GeminiFileUpdate[] | undefined,
+): boolean {
+  if (fileUpdates && fileUpdates.length > 0) return false;
+  const trimmed = reasoning?.trim() ?? "";
+  if (trimmed.length <= 40) return false;
+  if (NOTHING_TO_SAVE_PATTERN.test(trimmed)) return false;
+  return true;
+}
+
+// B1: the nudge sent back to Gemini, replaying its own prior turn verbatim, when the mismatch
+// heuristic above fires on a closing turn. Asks it to either genuinely populate file_updates to
+// match its own stated reasoning, or admit there's nothing to save and say so explicitly.
+const UNSAVED_CONTENT_RETRY_NUDGE =
+  "Your reasoning above described saving specific content, but file_updates was empty. Populate " +
+  "file_updates now with the exact edits your reasoning described (or, if there is truly nothing " +
+  "to save, say so explicitly in reasoning and leave file_updates empty). Also re-set " +
+  "checklist_covered and reply to match whatever you decide here — this is the final answer.";
+
 // The model's own commit_message sometimes already includes a "coach:"-style prefix, which
 // would otherwise stutter with the one the code adds below (observed in testing:
 // "coach: chat — coach: day-38 — ..."). Strip it defensively.
@@ -371,6 +403,13 @@ interface GeminiReply {
   // closed without asking about sleep") can be told apart from "model legitimately used the
   // escape hatch on a second ask" instead of guessing from the reply text alone.
   checklist_covered?: boolean;
+  // Internal-only, same treatment as `reasoning` above: never sent to the athlete, never meant to
+  // leak through any response shape. Unlike `reasoning` (stripped inside askGemini itself, never
+  // leaves this file), this one has to survive one layer higher - set by askGemini's B1 retry
+  // logic (docs/eng-docs/coach-chat-closing-followup.md) when a closing turn's file_updates still
+  // looks mismatched against its own reasoning after the retry, then read and stripped by the
+  // HTTP handler's honesty guard right after askGemini returns.
+  _unsavedContentSuspected?: boolean;
 }
 
 export type TurnMode = "greeting" | "ordinary" | "closing";
@@ -688,11 +727,16 @@ export async function askGemini(
         ]
       : [...historyContents, finalTurn];
 
-  const buildRequestBody = (useCache: boolean) => ({
+  // B1: optional `contentsOverride` lets a caller (the closing-turn mismatch retry below) reuse
+  // the exact same auth shape (cachedContent vs. systemInstruction) and generationConfig as
+  // whichever useCache value the original successful call ended up using, while swapping in a
+  // different `contents` array (the replayed prior turn + nudge) - only `contents` legitimately
+  // differs for that retry, nothing else about the request.
+  const buildRequestBody = (useCache: boolean, contentsOverride?: ReturnType<typeof buildContents>) => ({
     ...(useCache
       ? { cachedContent: cachedName }
       : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(false) }] } }),
-    contents: buildContents(useCache),
+    contents: contentsOverride ?? buildContents(useCache),
     generationConfig: GENERATION_CONFIG,
   });
 
@@ -703,13 +747,13 @@ export async function askGemini(
   // inheriting the file-read default.
   const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
 
-  const callGemini = (useCache: boolean): Promise<Response> =>
+  const callGemini = (useCache: boolean, contentsOverride?: ReturnType<typeof buildContents>): Promise<Response> =>
     fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildRequestBody(useCache)),
+        body: JSON.stringify(buildRequestBody(useCache, contentsOverride)),
       },
       GEMINI_GENERATE_TIMEOUT_MS,
     ).catch((err) => {
@@ -755,10 +799,67 @@ export async function askGemini(
     await new Promise((resolve) => setTimeout(resolve, 500));
     res = await callGemini(useCache);
   }
-  return finishGeminiResponse(res, mode, traceId);
+
+  if (mode !== "closing") {
+    return finishGeminiResponse(res, mode, traceId);
+  }
+
+  // B1 (docs/eng-docs/coach-chat-closing-followup.md): closing-turn-only retry for a mismatch
+  // between what `reasoning` claims and what `file_updates` actually contains - a distinct
+  // failure class from the 400/504/503 transport/cache handling above (content mismatch, not a
+  // failed request), so it deliberately shares no state or retry budget with that block and only
+  // ever runs after `res` has already settled there. Confirmed necessary live: Part A alone
+  // (schema reorder + broader close-trigger regex, #284) did not reliably prevent this.
+  let { parsed: finalParsed, rawText } = await parseGeminiResponseBody(res);
+  if (hasUnsavedContentMismatch(finalParsed.reasoning, finalParsed.file_updates)) {
+    try {
+      // Replay the model's own prior turn verbatim, then nudge it to either genuinely populate
+      // file_updates to match its own reasoning or admit there's nothing to save. Same auth shape
+      // (cachedContent/systemInstruction) and generationConfig as the original successful call -
+      // only `contents` differs.
+      const retryContents = [
+        ...buildContents(useCache),
+        { role: "model", parts: [{ text: rawText }] },
+        { role: "user", parts: [{ text: UNSAVED_CONTENT_RETRY_NUDGE }] },
+      ];
+      const retryRes = await callGemini(useCache, retryContents);
+      const retryResult = await parseGeminiResponseBody(retryRes);
+      finalParsed = retryResult.parsed;
+      rawText = retryResult.rawText;
+      console.log("[coach-chat] closing-turn retry fired - file_updates/reasoning mismatch", { traceId });
+    } catch (err) {
+      // Best-effort improvement only - a close that already has a valid (if incomplete) original
+      // response must not become a hard failure just because the retry itself broke (network
+      // error, non-ok status, bad JSON). Fall back to the original parsed result silently, aside
+      // from this warning.
+      console.warn("[coach-chat] closing-turn retry failed, falling back to original response", {
+        traceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // Same closing-turn logging finishGeminiResponse does for every close - factored out into a
+  // shared helper (not a second call to finishGeminiResponse itself) because `res`'s body has
+  // already been consumed by parseGeminiResponseBody above, and a Response body can only be read
+  // once; re-invoking finishGeminiResponse(res, ...) here would throw trying to re-read it.
+  logClosingTurnReasoning(finalParsed, traceId);
+  // B1 point 9: still true after everything above (whether or not a retry ran) - the internal
+  // flag consumed one layer up by the HTTP handler's honesty guard (B2), then stripped there.
+  if (hasUnsavedContentMismatch(finalParsed.reasoning, finalParsed.file_updates)) {
+    finalParsed._unsavedContentSuspected = true;
+  }
+  delete finalParsed.reasoning;
+  return finalParsed;
 }
 
-async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: string): Promise<GeminiReply> {
+// B1: status/429/text-extraction/parsing only - NOT the mode-specific logging or the
+// `delete parsed.reasoning` (finishGeminiResponse still owns those, see below). Split out so the
+// closing-turn retry logic in askGemini can see the raw response text (to replay the model's own
+// prior turn verbatim) and the parsed body (to run the mismatch heuristic) before `reasoning`
+// gets stripped - finishGeminiResponse deletes it immediately, so nothing downstream of it could
+// ever see either.
+async function parseGeminiResponseBody(res: Response): Promise<{ parsed: GeminiReply; rawText: string }> {
   if (res.status === 429) {
     // Not necessarily free-tier - Tier 1 has its own (much higher) ceilings too. Both clients now
     // handle 429 as its own case with a proper "wait and retry" message rather than surfacing
@@ -784,16 +885,29 @@ async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: str
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
   const parsed = JSON.parse(text) as GeminiReply;
-  // On closing turns specifically, log the model's own stated reasoning before stripping it -
-  // this is the only place it's ever available (never persisted, never sent to the athlete), and
-  // it's exactly the diagnostic needed for a close that silently saves nothing: the model's own
-  // account of what it considered and why, correlatable by request time with the
-  // "zero file_updates" warning logged downstream once resolveFileUpdate/injectCoachSinceIfNeeded
-  // have run (this function doesn't know the eventual file_updates outcome, so it logs
-  // unconditionally for every close rather than only the empty ones).
+  return { parsed, rawText: text };
+}
+
+// On closing turns specifically, log the model's own stated reasoning before stripping it - this
+// is the only place it's ever available (never persisted, never sent to the athlete), and it's
+// exactly the diagnostic needed for a close that silently saves nothing: the model's own account
+// of what it considered and why, correlatable by request time with the "zero file_updates"
+// warning logged downstream once resolveFileUpdate/injectCoachSinceIfNeeded have run. Shared
+// between finishGeminiResponse (greeting/ordinary paths never call this) and askGemini's own
+// closing-turn retry logic above, so there's exactly one place this logging happens.
+function logClosingTurnReasoning(parsed: GeminiReply, traceId?: string): void {
+  console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning, { traceId });
+  console.log("[coach-chat] closing-turn checklist_covered:", parsed.checklist_covered, { traceId });
+}
+
+async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: string): Promise<GeminiReply> {
+  const { parsed } = await parseGeminiResponseBody(res);
+  // mode is never "closing" here in practice - askGemini intercepts closing turns before calling
+  // this (see above) so it can run the B1 retry logic against the parsed/raw body first. Kept as
+  // a real check anyway (not assumed away) so this function stays correct as a standalone entry
+  // point, not just in its one current call site.
   if (mode === "closing") {
-    console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning, { traceId });
-    console.log("[coach-chat] closing-turn checklist_covered:", parsed.checklist_covered, { traceId });
+    logClosingTurnReasoning(parsed, traceId);
   }
   // reasoning is scratch space for the model, never meant for the athlete - delete here (not just
   // omit from responses) so it can never leak through any caller that spreads/serializes the
@@ -1105,6 +1219,24 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         console.error("[coach-chat] askGemini failed:", err);
         return Response.json({ error: errMessage }, { status });
       }
+
+      // B2 (docs/eng-docs/coach-chat-closing-followup.md): honesty guard - if askGemini's B1
+      // retry still couldn't resolve the reasoning/file_updates mismatch, and this turn is
+      // genuinely claiming a close (session_closed: true, not a clarifying question), append a
+      // caveat to what the athlete actually sees/what gets persisted, before coachMsg is built
+      // below. Checked session_closed === true specifically (not the broader `closing` local var,
+      // not computed yet) - the guard's whole purpose is correcting a false "saved" framing; if
+      // the model is asking a clarifying question instead, it isn't claiming anything was saved,
+      // so there's nothing to caveat. The delete runs unconditionally regardless of whether the
+      // caveat fired, same defense-in-depth treatment as `reasoning` gets, even though no current
+      // Response.json call site spreads `reply` wholesale.
+      if (reply._unsavedContentSuspected && reply.session_closed === true) {
+        reply.reply =
+          reply.reply +
+          "\n\n(One thing to flag: I ran into trouble saving today's notes — worth double-checking " +
+          "your log next time you're in, and let me know if anything's missing.)";
+      }
+      delete reply._unsavedContentSuspected;
 
       const coachMsg: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [reply.reply] };
       const closing = closeIntent && reply.session_closed === true;
