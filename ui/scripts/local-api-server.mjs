@@ -74,10 +74,13 @@ const server = createServer(async (nodeReq, nodeRes) => {
     if (key.toLowerCase() === "set-cookie") continue;
     headers[key] = value;
   }
-  nodeRes.writeHead(response.status, headers);
+  // appendHeader must run before writeHead - writeHead flushes status+headers immediately,
+  // and any header write attempted after that throws ERR_HTTP_HEADERS_SENT (found the hard way:
+  // this crashed the whole process on the first request that actually set a cookie, e.g. login).
   for (const cookie of response.headers.getSetCookie()) {
     nodeRes.appendHeader("set-cookie", cookie);
   }
+  nodeRes.writeHead(response.status, headers);
   nodeRes.end(response.body ? Buffer.from(await response.arrayBuffer()) : undefined);
 });
 
