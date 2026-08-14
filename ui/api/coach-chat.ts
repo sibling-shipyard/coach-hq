@@ -804,6 +804,13 @@ export async function askGemini(
       throw err;
     });
 
+  // Validation logging: full visibility into what we actually asked for, paired with the full
+  // response logging in parseGeminiResponseBody below - added while diagnosing how often/why
+  // Gemini fails to populate coach_note/file_updates despite claiming to. Deliberately doesn't
+  // log the full prompt text (the static system prompt alone is ~13K tokens) - mode and the
+  // athlete's own message are the two things that actually vary call to call and matter for
+  // correlating a request with its response.
+  console.log("[coach-chat] request:", { mode, userMessage, useCache: !!cachedName, traceId });
   let useCache = !!cachedName;
   let res = await callGemini(useCache);
   // Capped at ONE retry total, not one per failure kind - a naive "retry the 400 case, then
@@ -858,6 +865,7 @@ export async function askGemini(
         { role: "model", parts: [{ text: rawText }] },
         { role: "user", parts: [{ text: UNSAVED_CONTENT_RETRY_NUDGE }] },
       ];
+      console.log("[coach-chat] request (retry):", { mode, userMessage, useCache, traceId });
       const retryRes = await callGemini(useCache, retryContents);
       const retryResult = await parseGeminiResponseBody(retryRes);
       finalParsed = retryResult.parsed;
@@ -921,6 +929,13 @@ async function parseGeminiResponseBody(res: Response): Promise<{ parsed: GeminiR
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
   const parsed = JSON.parse(text) as GeminiReply;
+  // Validation logging: the complete, unredacted response - every field, including `reasoning`
+  // (stripped from every other log/return path, but this is server-only visibility, never sent
+  // to the athlete). Covers every call site that goes through this function - greeting, ordinary,
+  // closing, and B1's retry - so it's the one place to look to see exactly what Gemini actually
+  // returned, not just the two fields logClosingTurnReasoning surfaces. Paired with the request
+  // log in askGemini above (same traceId when one exists) to correlate ask vs. answer.
+  console.log("[coach-chat] response:", JSON.stringify(parsed));
   return { parsed, rawText: text };
 }
 
