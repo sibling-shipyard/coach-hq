@@ -502,6 +502,7 @@ export async function askGemini(
   mode: TurnMode,
   extraContext?: string,
   closingFiles?: ClosingFileContext,
+  traceId?: string,
 ): Promise<GeminiReply> {
   // Ordered for Gemini's implicit prompt caching (automatic, on by default for 2.5+ models) as
   // a fallback path: caching only matches the longest byte-identical *prefix*, so everything
@@ -754,10 +755,10 @@ export async function askGemini(
     await new Promise((resolve) => setTimeout(resolve, 500));
     res = await callGemini(useCache);
   }
-  return finishGeminiResponse(res, mode);
+  return finishGeminiResponse(res, mode, traceId);
 }
 
-async function finishGeminiResponse(res: Response, mode: TurnMode): Promise<GeminiReply> {
+async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: string): Promise<GeminiReply> {
   if (res.status === 429) {
     // Not necessarily free-tier - Tier 1 has its own (much higher) ceilings too. Both clients now
     // handle 429 as its own case with a proper "wait and retry" message rather than surfacing
@@ -791,8 +792,8 @@ async function finishGeminiResponse(res: Response, mode: TurnMode): Promise<Gemi
   // have run (this function doesn't know the eventual file_updates outcome, so it logs
   // unconditionally for every close rather than only the empty ones).
   if (mode === "closing") {
-    console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning);
-    console.log("[coach-chat] closing-turn checklist_covered:", parsed.checklist_covered);
+    console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning, { traceId });
+    console.log("[coach-chat] closing-turn checklist_covered:", parsed.checklist_covered, { traceId });
   }
   // reasoning is scratch space for the model, never meant for the athlete - delete here (not just
   // omit from responses) so it can never leak through any caller that spreads/serializes the
@@ -1058,6 +1059,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // closed this turn (it may instead ask a clarifying question) - see closing below.
       const closeIntent = isCloseSignal(trimmed);
       const now = Date.now();
+      // MVP (coach-commit-mvp.md): minted here, not down at the close-trace log site, so it's
+      // available to askGemini/finishGeminiResponse below - the model's own closing-turn
+      // reasoning is the highest-value diagnostic line this trace exists for, and it has to be
+      // taggable with the same traceId the eventual commit outcome logs under.
+      const traceId = Math.random().toString(36).slice(2, 10);
       const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
 
       // A6/A7: only fetch today's other threads + the other coach-writable files' current
@@ -1091,6 +1097,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           closeIntent ? "closing" : "ordinary",
           extraContext,
           closingFiles,
+          traceId,
         );
       } catch (err: unknown) {
         const status = (err as { status?: number }).status ?? 500;
@@ -1228,24 +1235,28 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // commit via the Git Data API, instead of a separate REST PUT per file.
       const writes: FileEntry[] = [...validUpdates, chatWrite];
 
-      // MVP (coach-commit-mvp.md): one structured line per close, correlating everything the
-      // model proposed with what actually got committed and why anything didn't - a close that
-      // proposed five unwritable paths and a close that proposed nothing used to be
-      // indistinguishable in the logs. traceId is surfaced in the response below so a failed
-      // save can be reported as "trace abc123" instead of "chat is broken".
-      const traceId = Math.random().toString(36).slice(2, 10);
-      console.warn("[coach-chat] close-trace", JSON.stringify({
-        traceId,
-        threadId: finalThreadId,
-        repo,
-        emitted: (reply.file_updates ?? []).map((u) => u.path),
-        outcomes: [
-          ...validUpdates.map((u) => ({ path: u.path, result: "committed" as const })),
-          ...droppedUpdates.map((d) => ({ path: d.path, result: "dropped" as const, reason: d.reason })),
-        ],
-        committed: writes.map((w) => w.path),
-        ms: Date.now() - now,
-      }));
+      // MVP (coach-commit-mvp.md) P2: distinguishes "Gemini didn't propose file_updates at all"
+      // from "Gemini proposed an empty array" (both used to render as a bare `[]`), and records
+      // which write strategy (edits/merge_patch/content, see GeminiFileUpdate) each entry used -
+      // exactly the detail this trace exists to capture for a strategy-specific bug. A path could
+      // in principle carry none of the three, so that's represented rather than assumed away.
+      const emittedTrace =
+        reply.file_updates === undefined
+          ? { proposed: false as const }
+          : {
+              proposed: true as const,
+              entries: reply.file_updates.map((u) => ({
+                path: u.path,
+                strategy:
+                  u.edits !== undefined
+                    ? ("edits" as const)
+                    : u.merge_patch !== undefined
+                    ? ("merge_patch" as const)
+                    : u.content !== undefined
+                    ? ("content" as const)
+                    : ("none" as const),
+              })),
+            };
 
       let repoSha: string;
       try {
@@ -1257,6 +1268,26 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           token,
         });
         repoSha = result.commitSha;
+        // MVP (coach-commit-mvp.md): one structured line per close, correlating everything the
+        // model proposed with what actually got committed and why anything didn't - a close that
+        // proposed five unwritable paths and a close that proposed nothing used to be
+        // indistinguishable in the logs. Logged only now, after the commit has genuinely landed -
+        // logging this before the try block (as result: "committed") meant a close that actually
+        // threw still asserted success for every path, directly contradicting the error line
+        // logged right after it. console.log, not warn: a healthy close isn't a problem, and warn
+        // is the level used to filter for real ones - see the catch block's failure variant below.
+        console.log("[coach-chat] close-trace", JSON.stringify({
+          traceId,
+          threadId: finalThreadId,
+          repo,
+          emitted: emittedTrace,
+          outcomes: [
+            ...validUpdates.map((u) => ({ path: u.path, result: "committed" as const })),
+            ...droppedUpdates.map((d) => ({ path: d.path, result: "dropped" as const, reason: d.reason })),
+          ],
+          committed: writes.map((w) => w.path),
+          ms: Date.now() - now,
+        }));
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
         // The resolve() guard above throws a tagged {status: 400} when this close targets a
@@ -1264,8 +1295,24 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         // not a save failure, so it gets its own status/message instead of being flattened into
         // the generic "saving failed" 502 below (which would be actively misleading here).
         if ((err as { status?: number }).status === 400) {
-          return Response.json({ error: errMessage }, { status: 400 });
+          return Response.json({ error: errMessage, traceId }, { status: 400 });
         }
+        // Failure variant of the close-trace line above, same shape/fields and same traceId -
+        // nothing in `writes` actually landed (the commit is atomic), so every resolved update is
+        // reported "commit_failed" rather than "committed". console.error: unlike the healthy-close
+        // line above, this genuinely is the problem this trace exists to catch.
+        console.error("[coach-chat] close-trace", JSON.stringify({
+          traceId,
+          threadId: finalThreadId,
+          repo,
+          emitted: emittedTrace,
+          outcomes: [
+            ...validUpdates.map((u) => ({ path: u.path, result: "commit_failed" as const })),
+            ...droppedUpdates.map((d) => ({ path: d.path, result: "dropped" as const, reason: d.reason })),
+          ],
+          error: errMessage,
+          ms: Date.now() - now,
+        }));
         console.error("[coach-chat] closing commitFilesAtomic failed:", err, { traceId });
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}`, traceId }, { status: 502 });
       }
