@@ -832,22 +832,34 @@ async function loadClosingFileContext(repo: string, token: string): Promise<Clos
 //     applying it anyway would mean editing/patching against content we never actually saw,
 //     which for a merge patch means silently replacing the whole file with just the patch's
 //     keys. Reject outright rather than guessing.
+// MVP (coach-commit-mvp.md): every drop now carries a named reason instead of a bare null, both
+// logged here and returned to the caller so the close-trace line below doesn't have to scrape
+// log output to know why a proposed update didn't land. `path` is always the update's own path,
+// whether it landed or was dropped, so the caller can build a trace without re-deriving it.
+export type ResolveFileUpdateResult =
+  | { ok: true; path: string; content: string }
+  | { ok: false; path: string; reason: string };
+
+function dropped(reason: string, path: string): ResolveFileUpdateResult {
+  console.warn(`[coach-chat] dropped update for ${path}: ${reason}`);
+  return { ok: false, path, reason };
+}
+
 export function resolveFileUpdate(
   update: GeminiFileUpdate,
   currentContent: string | null | undefined,
-): { path: string; content: string } | null {
-  if (!isCoachWritable(update.path)) return null;
+): ResolveFileUpdateResult {
+  if (!isCoachWritable(update.path)) return dropped("path is not coach-writable", update.path);
 
   // Session files never look at currentContent (full-content replacement, always) - only
   // markdown-edit and JSON-merge-patch files need to have actually been fetched this turn.
   const needsFetchedContent = MARKDOWN_EDIT_FILES.has(update.path) || JSON_MERGE_FILES.has(update.path);
   if (needsFetchedContent && currentContent === undefined) {
-    console.warn(`[coach-chat] ${update.path}: proposed without its current content having been fetched this turn - dropped`);
-    return null;
+    return dropped("proposed without its current content having been fetched this turn", update.path);
   }
 
   if (MARKDOWN_EDIT_FILES.has(update.path)) {
-    if (!update.edits || update.edits.length === 0) return null;
+    if (!update.edits || update.edits.length === 0) return dropped("markdown update with no edits array", update.path);
     const before = currentContent ?? "";
     const { content, failed } = applyStringEdits(before, update.edits);
     if (failed.length > 0) {
@@ -855,23 +867,23 @@ export function resolveFileUpdate(
     }
     // If every edit failed, content is identical to before - drop it rather than committing a
     // no-op write (and never commit a wipe-to-blank, same guard as before A7).
-    if (content === before || content.trim().length === 0) return null;
-    return { path: update.path, content };
+    if (content === before) return dropped("all edits failed to match - no-op, not committed", update.path);
+    if (content.trim().length === 0) return dropped("result would be blank - refusing to wipe the file", update.path);
+    return { ok: true, path: update.path, content };
   }
 
   if (JSON_MERGE_FILES.has(update.path)) {
-    if (!update.merge_patch) return null;
+    if (!update.merge_patch) return dropped("JSON update with no merge_patch", update.path);
     const result = applyJsonMergePatch(currentContent ?? null, update.merge_patch);
     if (!result.ok) {
-      console.warn(`[coach-chat] ${update.path}: merge patch rejected - ${result.error}`);
-      return null;
+      return dropped(`merge patch rejected - ${result.error}`, update.path);
     }
-    return { path: update.path, content: result.content };
+    return { ok: true, path: update.path, content: result.content };
   }
 
   // Session files (SESSIONS_PREFIX) - full-content replacement, same as before A7.
-  if (!update.content || update.content.trim().length === 0) return null;
-  return { path: update.path, content: update.content };
+  if (!update.content || update.content.trim().length === 0) return dropped("session file update with blank content", update.path);
+  return { ok: true, path: update.path, content: update.content };
 }
 
 // ADR 0018: coach_since is set automatically, server-side, the moment the false→true
@@ -1184,9 +1196,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         dedupedFileUpdates.set(update.path, update);
       }
 
-      const resolvedUpdates = [...dedupedFileUpdates.values()]
-        .map((f) => resolveFileUpdate(f, currentContentByPath[f.path]))
-        .filter((f): f is { path: string; content: string } => f !== null);
+      const resolveResults = [...dedupedFileUpdates.values()].map((f) => resolveFileUpdate(f, currentContentByPath[f.path]));
+      const resolvedUpdates = resolveResults
+        .filter((r): r is Extract<ResolveFileUpdateResult, { ok: true }> => r.ok)
+        .map(({ path, content }) => ({ path, content }));
+      const droppedUpdates = resolveResults.filter((r): r is Extract<ResolveFileUpdateResult, { ok: false }> => !r.ok);
 
       // B2/ADR 0018: detect the false→true profileComplete transition against what's actually
       // about to be committed (not the pre-turn snapshot alone) - a close-turn that finishes the
@@ -1214,9 +1228,34 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // commit via the Git Data API, instead of a separate REST PUT per file.
       const writes: FileEntry[] = [...validUpdates, chatWrite];
 
+      // MVP (coach-commit-mvp.md): one structured line per close, correlating everything the
+      // model proposed with what actually got committed and why anything didn't - a close that
+      // proposed five unwritable paths and a close that proposed nothing used to be
+      // indistinguishable in the logs. traceId is surfaced in the response below so a failed
+      // save can be reported as "trace abc123" instead of "chat is broken".
+      const traceId = Math.random().toString(36).slice(2, 10);
+      console.warn("[coach-chat] close-trace", JSON.stringify({
+        traceId,
+        threadId: finalThreadId,
+        repo,
+        emitted: (reply.file_updates ?? []).map((u) => u.path),
+        outcomes: [
+          ...validUpdates.map((u) => ({ path: u.path, result: "committed" as const })),
+          ...droppedUpdates.map((d) => ({ path: d.path, result: "dropped" as const, reason: d.reason })),
+        ],
+        committed: writes.map((w) => w.path),
+        ms: Date.now() - now,
+      }));
+
       let repoSha: string;
       try {
-        const result = await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, { repo, branch: "main", token });
+        const result = await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, {
+          repo,
+          // MVP (coach-commit-mvp.md): configurable so testing a real close doesn't have to write
+          // to a live athlete's actual main - defaults to main, unchanged, when unset.
+          branch: process.env.COACH_CHAT_BRANCH ?? "main",
+          token,
+        });
         repoSha = result.commitSha;
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
@@ -1227,8 +1266,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         if ((err as { status?: number }).status === 400) {
           return Response.json({ error: errMessage }, { status: 400 });
         }
-        console.error("[coach-chat] closing commitFilesAtomic failed:", err);
-        return Response.json({ error: `Coach replied but saving failed: ${errMessage}` }, { status: 502 });
+        console.error("[coach-chat] closing commitFilesAtomic failed:", err, { traceId });
+        return Response.json({ error: `Coach replied but saving failed: ${errMessage}`, traceId }, { status: 502 });
       }
 
       return Response.json({
@@ -1238,6 +1277,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         threads: withComputedDayOffsets(latestThreads, stateMd ?? ""),
         repoSha,
         profileComplete,
+        traceId,
       });
     }
 
