@@ -64,13 +64,11 @@ function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemi
   // reasoning must never leak into what the athlete sees - askGemini() already strips it before
   // returning, this is a belt-and-suspenders check against a regression in that stripping.
   if ("reasoning" in reply) failures.push("`reasoning` field leaked through into the returned reply");
-  // B1's internal-only mismatch flag (docs/eng-docs/coach-chat-closing-followup.md) is meant to
-  // be consumed and deleted by the HTTP handler's honesty guard one layer above askGemini - same
-  // leak check as `reasoning`, since askGemini itself deliberately does NOT strip this one (it
-  // has to survive that one extra layer).
-  if ("_unsavedContentSuspected" in reply) {
-    failures.push("`_unsavedContentSuspected` field leaked through into the returned reply");
-  }
+  // NOT checked here (unlike `reasoning`): B1's internal-only mismatch flag
+  // (docs/eng-docs/coach-chat-closing-followup.md) is meant to survive askGemini's return and get
+  // consumed/deleted by the HTTP handler's honesty guard one layer up - this harness only calls
+  // askGemini() directly, never the full handler, so it structurally can't observe whether the
+  // handler actually strips it. Its presence here on a mismatch transcript is expected, not a bug.
 
   for (const update of fileUpdates) {
     if (!isCoachWritable(update.path)) {

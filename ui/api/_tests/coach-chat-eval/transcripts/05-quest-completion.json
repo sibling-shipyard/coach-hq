@@ -5,7 +5,9 @@
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "history": [
-    { "id": "1", "role": "user", "text": "Did my cold shower this morning, easy jog too, felt fine." }
+    { "id": "1", "role": "user", "text": "Did my cold shower this morning, easy jog too, felt fine." },
+    { "id": "2", "role": "coach", "paragraphs": ["Nice - how'd you sleep last night?"] },
+    { "id": "3", "role": "user", "text": "Slept 7 hours." }
   ],
   "userMessage": "That's it for today, close the session.",
   "closingFiles": {
