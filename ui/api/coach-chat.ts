@@ -942,7 +942,10 @@ async function parseGeminiResponseBody(res: Response): Promise<{ parsed: GeminiR
   // closing, and B1's retry - so it's the one place to look to see exactly what Gemini actually
   // returned, not just the two fields logClosingTurnReasoning surfaces. Paired with the request
   // log in askGemini above (same traceId when one exists) to correlate ask vs. answer.
-  console.log("[coach-chat] response:", JSON.stringify(parsed));
+  // Passed as a plain object, not JSON.stringify'd - matches the request log above, and lets
+  // Node's own console formatting pretty-print/wrap it instead of dumping one unreadable line
+  // (which a pathologically long field, e.g. a garbled `title`, makes actively unreadable).
+  console.log("[coach-chat] response:", parsed);
   return { parsed, rawText: text };
 }
 
