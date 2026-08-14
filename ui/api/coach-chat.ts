@@ -265,6 +265,25 @@ export function isCloseSignal(message: string): boolean {
   return CLOSE_SESSION_PATTERN.test(message);
 }
 
+// A10: live testing found a bigger gap than the regex itself - a closing turn that asks a
+// clarifying question ("before I close, how'd you sleep?") gets a completely ordinary-sounding
+// reply back ("sleep 8hrs"), which never matches CLOSE_SESSION_PATTERN on its own. That routes
+// the next turn as "ordinary" - and Gemini, in direct violation of the ordinary-turn prompt's own
+// "set session_closed to false" instruction, was observed returning session_closed: true and a
+// fully closing-style reply anyway. Since `closing` requires closeIntent to be true regardless of
+// what Gemini says, nothing actually got committed - but the athlete saw a convincing "all set,
+// logged" message for a turn that saved nothing at all. Prompt-only fixes for Gemini not
+// following its own instructions have already proven unreliable elsewhere in this file (that's
+// the whole reason Part B's retry/honesty-guard exists) - the deterministic fix is to make the
+// trigger itself remember a pending close, not to trust the model to self-regulate a second time.
+// Bounded to the last few messages (not the whole thread) so this doesn't leak into unrelated
+// later chat in the same thread if the close attempt is abandoned rather than answered.
+const CLOSE_ATTEMPT_LOOKBACK = 4;
+
+export function wasCloseAttemptPending(priorMessages: ChatMessage[]): boolean {
+  return priorMessages.slice(-CLOSE_ATTEMPT_LOOKBACK).some((m) => m.role === "user" && isCloseSignal(m.text));
+}
+
 // B1 (docs/eng-docs/coach-chat-closing-followup.md): heuristic for "reasoning describes real
 // content the model intends to save, but file_updates came back empty/absent anyway" - the exact
 // failure mode confirmed live (2026-08-14, coach-akash-suresh, traceId xuij2ft9): reasoning
@@ -1234,7 +1253,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // Keyword match is only a trigger to ASK Gemini to consider closing - it is not itself
       // the close decision. Gemini reports back via reply.session_closed whether it actually
       // closed this turn (it may instead ask a clarifying question) - see closing below.
-      const closeIntent = isCloseSignal(trimmed);
+      // A10: also true if a close attempt is still pending from a few messages back (see
+      // wasCloseAttemptPending) - the athlete answering "sleep 8hrs" to Coach's own clarifying
+      // question is still part of the same close attempt, even though that answer alone never
+      // matches CLOSE_SESSION_PATTERN.
+      const closeIntent = isCloseSignal(trimmed) || wasCloseAttemptPending(priorMessages);
       const now = Date.now();
       // MVP (coach-commit-mvp.md): minted here, not down at the close-trace log site, so it's
       // available to askGemini/finishGeminiResponse below - the model's own closing-turn
