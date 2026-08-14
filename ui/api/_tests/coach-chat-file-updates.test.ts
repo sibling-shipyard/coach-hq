@@ -23,12 +23,12 @@ describe("resolveFileUpdate", () => {
 
   it("drops a markdown update whose only edit fails to match", () => {
     const result = resolveFileUpdate(
-      { path: "user_data/coach/coach_notes.md", edits: [{ old_string: "not present", new_string: "x" }] },
+      { path: "user_data/coach/state.md", edits: [{ old_string: "not present", new_string: "x" }] },
       "totally different content",
     );
     expect(result).toEqual({
       ok: false,
-      path: "user_data/coach/coach_notes.md",
+      path: "user_data/coach/state.md",
       reason: "all edits failed to match - no-op, not committed",
     });
   });
@@ -127,14 +127,25 @@ describe("resolveFileUpdate", () => {
 
   it("drops a markdown edit proposed when the current content was never fetched this turn (undefined, not null)", () => {
     const result = resolveFileUpdate(
-      { path: "user_data/coach/coach_notes.md", edits: [{ old_string: "x", new_string: "y" }] },
+      { path: "user_data/coach/state.md", edits: [{ old_string: "x", new_string: "y" }] },
       undefined,
     );
     expect(result).toEqual({
       ok: false,
-      path: "user_data/coach/coach_notes.md",
+      path: "user_data/coach/state.md",
       reason: "proposed without its current content having been fetched this turn",
     });
+  });
+
+  // coach-commit-mvp: coach_notes.md is no longer an edits-eligible markdown target (Gemini
+  // reports coach_note instead) - it now hits the same "not coach-writable" rejection as any
+  // other retired/disallowed path, same mechanism already covered above for propagated/SOUL.md.
+  it("drops a markdown edit proposed for the retired coach_notes.md path, regardless of content", () => {
+    const result = resolveFileUpdate(
+      { path: "user_data/coach/coach_notes.md", edits: [{ old_string: "x", new_string: "y" }] },
+      "some content",
+    );
+    expect(result).toEqual({ ok: false, path: "user_data/coach/coach_notes.md", reason: "path is not coach-writable" });
   });
 
   it("session files ignore currentContent entirely, even when undefined", () => {

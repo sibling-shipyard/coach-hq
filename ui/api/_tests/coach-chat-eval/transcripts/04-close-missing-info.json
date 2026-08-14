@@ -7,7 +7,6 @@
   "history": [],
   "userMessage": "wrap session",
   "closingFiles": {
-    "coachNotes": null,
     "challengeV2": "{\"season\":{\"start_date\":\"2026-07-01\"},\"main_quest\":{\"id\":\"sub45_10k\"},\"quests\":[{\"id\":\"cold_shower\",\"completed_dates\":[]}]}",
     "currentWeek": null,
     "sleepLog": "{}"

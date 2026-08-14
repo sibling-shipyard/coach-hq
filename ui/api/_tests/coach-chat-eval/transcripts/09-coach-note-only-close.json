@@ -1,0 +1,24 @@
+{
+  "name": "coach-note-only-close",
+  "description": "Genuine close-out with real content that's narrative/reflective rather than a concrete training-log fact - no injury flag, nothing that structurally belongs in state.md's Training Log. coach_note should carry the save; file_updates legitimately stays empty (coach-commit-mvp.md).",
+  "mode": "closing",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["How are you feeling about the block so far?"] },
+    { "id": "2", "role": "user", "text": "Honestly better than I expected. The early alarms were rough the first couple weeks but it's starting to feel normal now, I actually look forward to the morning runs." },
+    { "id": "3", "role": "coach", "paragraphs": ["That's a real shift - consistency compounding. Anything else on your mind?"] },
+    { "id": "4", "role": "user", "text": "No that's it, just wanted to say that. Slept fine, no aches, nothing to log today really." }
+  ],
+  "userMessage": "That's all for now, wrap this session.",
+  "closingFiles": {
+    "challengeV2": "{\"season\":{\"start_date\":\"2026-07-01\"},\"main_quest\":{\"id\":\"sub45_10k\"},\"quests\":[{\"id\":\"cold_shower\",\"completed_dates\":[]}]}",
+    "currentWeek": null,
+    "sleepLog": "{}"
+  },
+  "expect": {
+    "sessionClosed": true,
+    "fileUpdatesEmpty": true,
+    "coachNoteReported": true
+  }
+}

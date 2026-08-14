@@ -52,6 +52,12 @@ interface Transcript {
     fileUpdatesPathsSubsetOf?: string[];
     hasCommitMessage?: boolean;
     noFabricatedSaveLanguage?: boolean;
+    // coach-commit-mvp: asserts reply.coach_note came back as a real, non-empty (after trimming)
+    // plain-English note - the server-appended replacement for asking Gemini to edit
+    // coach_notes.md directly. See the coach-note-only-close transcript for the case this exists
+    // to cover: real content, no injury flag, so file_updates legitimately stays empty while
+    // coach_note carries the save.
+    coachNoteReported?: boolean;
   };
 }
 
@@ -107,6 +113,10 @@ function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemi
 
   if (t.expect.hasCommitMessage && !reply.commit_message?.trim()) {
     failures.push("expected a non-empty commit_message");
+  }
+
+  if (t.expect.coachNoteReported && !reply.coach_note?.trim()) {
+    failures.push("expected a non-empty coach_note, got none");
   }
 
   if (t.expect.noFabricatedSaveLanguage) {
