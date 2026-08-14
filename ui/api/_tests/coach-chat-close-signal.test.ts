@@ -48,4 +48,13 @@ describe("isCloseSignal", () => {
     expect(isCloseSignal("I don't think we should wrap")).toBe(false);
     expect(isCloseSignal("I dont think we should wrap")).toBe(false);
   });
+
+  // A9: found via real testing - "Lets wrap" is completely normal phrasing that the whole-message
+  // anchor above accidentally excluded, since it required the message to be ONLY "wrap".
+  it("matches 'wrap' with a short closing-affirming filler in front", () => {
+    expect(isCloseSignal("Lets wrap")).toBe(true);
+    expect(isCloseSignal("let's wrap")).toBe(true);
+    expect(isCloseSignal("ok wrap")).toBe(true);
+    expect(isCloseSignal("yeah, wrap")).toBe(true);
+  });
 });
