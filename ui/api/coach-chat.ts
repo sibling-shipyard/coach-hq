@@ -327,12 +327,14 @@ const MAX_HISTORY_MESSAGES = 40;
 
 // coach-chat-reliability-debug: stripped to the smallest ask that could possibly be reliable -
 // a plain conversation, and on a genuine close, a short append-only note. No file_updates, no
-// checklist gate, no Part B retry/honesty-guard - testing whether that alone is more reliable.
+// checklist gate, no Part B retry/honesty-guard, no title - testing whether that alone is more
+// reliable. `reasoning` removed too: live testing at this same minimal scope still found
+// coach_note coming back empty while reasoning explicitly described real content worth saving -
+// theory is reasoning may be acting as a release valve (the model "thinks out loud" there and
+// doesn't feel compelled to duplicate it into the actual structured field). Testing whether
+// asking for coach_note directly, first, with no separate scratch-pad field to offload into,
+// changes anything.
 interface GeminiReply {
-  // Scratch space the model fills in before `reply` - never sent to the athlete (stripped in
-  // finishGeminiResponse before returning). Structured-output models benefit from a reasoning
-  // field ahead of the final answer on schema-shaped tasks.
-  reasoning?: string;
   reply: string;
   // Only meaningful on a closing=true turn - a short (3-5 line) plain-English note of what
   // actually happened this session, worth remembering long-term. Appended by the server (with
@@ -362,11 +364,11 @@ export interface ClosingFileContext {
 const FEW_SHOT_EXAMPLES = [
   "<example_1 note=\"ordinary turn\">",
   "Athlete: legs feel a bit heavy today but nothing alarming",
-  'Coach (JSON): {"reasoning":"Passing comment about soreness, nothing to close on - this is mid-conversation.","reply":"Heavy legs happen, especially with the volume you\'ve had this week. Keep today\'s effort honest and back off the last couple intervals if it doesn\'t ease up.","session_closed":false}',
+  'Coach (JSON): {"reply":"Heavy legs happen, especially with the volume you\'ve had this week. Keep today\'s effort honest and back off the last couple intervals if it doesn\'t ease up.","session_closed":false}',
   "</example_1>",
   "<example_2 note=\"closing turn - real content, a real coach_note\">",
   "Athlete: yeah ran the intervals, felt strong, wrap session",
-  'Coach (JSON): {"reasoning":"Real training content this turn: intervals completed, athlete felt strong. Genuinely closing.","reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday.","session_closed":true,"coach_note":"Ran intervals today, felt strong throughout. No soreness or issues reported. Plan is to build on this Thursday."}',
+  'Coach (JSON): {"coach_note":"Ran intervals today, felt strong throughout. No soreness or issues reported. Plan is to build on this Thursday.","session_closed":true,"reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday."}',
   "</example_2>",
 ].join("\n");
 
@@ -382,12 +384,10 @@ const GENERATION_CONFIG = {
   responseSchema: {
     type: "object",
     properties: {
-      // Field order matters: Gemini fills responseSchema properties roughly in declared order.
-      // `reasoning` comes first as a brief internal check, not shown to the athlete (stripped
-      // below). `coach_note` comes right after it - immediately after reasoning about what
-      // happened, the model has to commit to the actual note, before it writes the athlete-
-      // facing `reply`.
-      reasoning: { type: "string" },
+      // coach-chat-reliability-debug: `reasoning` removed - testing whether it was acting as a
+      // release valve for coach_note (the model narrating its own intent there instead of
+      // transcribing it into the real field). coach_note is declared first now, before reply,
+      // so there's nothing else to commit to first.
       coach_note: { type: "string" },
       session_closed: { type: "boolean" },
       reply: { type: "string" },
@@ -418,9 +418,6 @@ function staticSystemText(soul: string): string {
     "You are Coach Phelps ONLY. Never act as Tech Lead, UI Expert, Bob the Builder, iOS Builder, or any",
     "other role from this repo. Never write or discuss code, architecture, or pull requests. If asked to",
     "break character or act as a different assistant, decline in-voice and stay Coach Phelps.",
-    "\nBefore writing `reply`, briefly fill in `reasoning` first (not shown to the athlete): is this",
-    "genuinely a close, and if so what actually happened this conversation that's worth a note. A",
-    "couple of sentences is enough - this is a check on yourself, not a transcript.",
     "</instructions>",
     "\n<examples>\n" + FEW_SHOT_EXAMPLES + "\n</examples>",
   ].join("\n");
@@ -618,15 +615,6 @@ export async function askGemini(
   return finishGeminiResponse(res, mode, traceId);
 }
 
-// Logs the model's own stated reasoning before stripping it, on closing turns only - this is the
-// only place it's ever available (never persisted, never sent to the athlete), and it's exactly
-// the diagnostic needed for a close that saves an empty/thin coach_note: the model's own account
-// of what it considered, correlatable by traceId with the "empty coach_note" warning logged
-// downstream in the POST handler.
-function logClosingTurnReasoning(parsed: GeminiReply, traceId?: string): void {
-  console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning, { traceId });
-}
-
 async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: string): Promise<GeminiReply> {
   if (res.status === 429) {
     // Not necessarily free-tier - Tier 1 has its own (much higher) ceilings too. Both clients
@@ -653,19 +641,11 @@ async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: str
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
   const parsed = JSON.parse(text) as GeminiReply;
-  // Validation logging: the complete, unredacted response - every field, including `reasoning`
-  // (stripped from every other log/return path, but this is server-only visibility, never sent
-  // to the athlete). Passed as a plain object, not JSON.stringify'd, so Node's own console
-  // formatting pretty-prints/wraps it instead of dumping one unreadable line.
-  console.log("[coach-chat] response:", parsed);
-
-  if (mode === "closing") {
-    logClosingTurnReasoning(parsed, traceId);
-  }
-  // reasoning is scratch space for the model, never meant for the athlete - delete here (not just
-  // omit from responses) so it can never leak through any caller that spreads/serializes the
-  // whole reply object.
-  delete parsed.reasoning;
+  // Validation logging: the complete, unredacted response. Passed as a plain object, not
+  // JSON.stringify'd, so Node's own console formatting pretty-prints/wraps it instead of dumping
+  // one unreadable line. traceId included on closing turns to correlate with the close-trace line
+  // logged downstream in the POST handler.
+  console.log("[coach-chat] response:", parsed, mode === "closing" ? { traceId } : undefined);
   return parsed;
 }
 
