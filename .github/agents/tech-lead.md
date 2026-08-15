@@ -49,7 +49,9 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 
 ## Learnings
 
-One-liners only. Tradeoffs → ADR in `kdb/decisions/`. Docs → `kdb/doc-style.md`.
+One-liners only. Tradeoffs → ADR in `kdb/decisions/`. Docs → `kdb/doc-style.md`. Cap ~15 entries — on overflow, promote the durable ones into the relevant `docs/eng-docs/` doc and drop the rest.
 
+- Re-verify subagent reports independently before trusting them — read the actual diff and re-run the checks yourself; never let a subagent push unreviewed.
+- `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree (caused a CI-only failure in PR #294).
 - iOS Xcode shell scripts need `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` — Xcode's PATH often lacks Homebrew `node`.
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
