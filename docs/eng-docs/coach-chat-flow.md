@@ -50,9 +50,9 @@ flowchart LR
     stale -- no --> cached["Use cached context if warm"]
     refresh --> turn
     cached --> turn["Gemini: ordinary or closing mode"]
-    turn --> closeCheck{"Close-signal regex\nmatched AND\nsession_closed:true?"}
+    turn --> closeCheck{"Close-signal regex matched\n(or a close attempt was still\npending from a recent turn)\nAND session_closed:true?"}
     closeCheck -- no --> noWrite["reply only, no repo write"]
-    closeCheck -- yes --> commitClose["commitFilesAtomic:\nfile_updates + chat_history.json\n(greeting + full transcript,\nfirst write for this thread)"]
+    closeCheck -- yes --> commitClose["commitFilesAtomic:\nfile_updates + coach_note + chat_history.json\n(greeting + full transcript,\nfirst write for this thread)"]
     commitClose --> done["closed:true, profileComplete,\nrepoSha returned"]
 ```
 
@@ -147,46 +147,70 @@ sequenceDiagram
 
 ### 5. Close-session detection
 
-`CLOSE_SESSION_PATTERN` (a fixed regex — `wrap this session`, `done for today`, `bye coach`, `see
-you tomorrow`, `goodnight coach`, etc.) is only a **trigger to ask** Gemini to consider closing,
-never the close decision itself. Gemini reports back `session_closed: true|false` — a match with
-`session_closed: false` means Gemini asked a clarifying question instead of closing (still no
-commit); only `closeIntent && session_closed === true` actually closes.
+`CLOSE_SESSION_PATTERN` (a fixed regex — `wrap this session`, bare `wrap` with a short affirming
+filler, `done for today`, `bye coach`, `see you tomorrow`, `goodnight coach`, etc.) is only a
+**trigger to ask** Gemini to consider closing, never the close decision itself. Gemini reports
+back `session_closed: true|false` — a match with `session_closed: false` means Gemini asked a
+clarifying question instead of closing (still no commit); only `closeIntent && session_closed ===
+true` actually closes. `closeIntent` is also true if a close-trigger message appeared in the last
+few turns (`wasCloseAttemptPending`) — otherwise, simply *answering* Coach's own clarifying
+question (e.g. "8hrs" in response to "how'd you sleep?") would route as an ordinary turn and never
+get a chance to actually close, even though the athlete is mid-close-attempt.
 
 On a genuine close:
-- `coach_notes.md`, `challenge_v2.json`, `current_week.json`, `sleep_log.json` are fetched fresh
+- `challenge_v2.json`, `current_week.json`, `sleep_log.json` are fetched fresh
   (`loadClosingFileContext()`) and injected into the prompt — the only turns Gemini sees their
-  current content.
+  current content. `coach_notes.md` is **not** fetched here — see `coach_note` below, its
+  current-content is only read server-side, at commit time.
 - Today's *other* already-committed threads' previews are summarized into the prompt
   (`todaysOtherThreadsSummary()`, A6) so side quests already covered earlier the same day aren't
   re-asked.
-- Gemini returns `file_updates` describing what changed (see write strategy below), plus
-  `commit_message`.
-- `resolveFileUpdate()` resolves each proposed update against real current content, drops
-  anything unwritable/unresolvable/blank, and the survivors plus the updated `chat_history.json`
-  land in **one** atomic commit (`commitFilesAtomic()`, ADR 0012 — blob → tree → commit → ref,
-  retried on a non-fast-forward conflict). Every GitHub call in this sequence goes through
-  `fetchWithTimeout` (25s default) rather than a bare `fetch()`, so a stalled write fails fast
-  into the retry instead of hanging until Vercel's platform ceiling kills the function; a timeout
-  on the ref-move step specifically is treated the same as a raw network error (re-check whether
-  the ref actually landed before deciding whether to retry — see the comment at that call site),
-  since either way the response was lost and blindly retrying risks a double-commit.
+- Gemini returns `file_updates` describing what changed (see write strategy below), plus a
+  separate `coach_note` fact (see below), plus `commit_message`.
+- `resolveFileUpdate()` resolves each proposed `file_updates` entry against real current content,
+  drops anything unwritable/unresolvable/blank (every drop now names a reason, not just a bare
+  `null`), and the survivors plus the updated `chat_history.json` (plus `coach_notes.md`, when
+  `coach_note` was reported) land in **one** atomic commit (`commitFilesAtomic()`, ADR 0012 —
+  blob → tree → commit → ref, retried on a non-fast-forward conflict). Every GitHub call in this
+  sequence goes through `fetchWithTimeout` (25s default) rather than a bare `fetch()`, so a
+  stalled write fails fast into the retry instead of hanging until Vercel's platform ceiling
+  kills the function; a timeout on the ref-move step specifically is treated the same as a raw
+  network error (re-check whether the ref actually landed before deciding whether to retry — see
+  the comment at that call site), since either way the response was lost and blindly retrying
+  risks a double-commit.
 - The response includes `profileComplete` — computed from whatever `state.md` content this turn
   actually just committed (see First Session Protocol below).
+- `COACH_CHAT_BRANCH` (env var, defaults to `main`) controls which branch the commit lands on —
+  lets a real close be tested end to end on a scratch branch instead of a live athlete's `main`.
+
+**`coach_note` — the append-only fact.** `file_updates` requires the model to either produce an
+exact-match string edit (state.md) or a valid merge patch (the JSON files) — both can silently
+fail to apply. `coach_note` sidesteps that: the model reports a short (2-3 sentence) plain-English
+note of what happened, and the server appends it with today's date to `coach_notes.md`
+(`appendCoachNote()`) — no exact-match, no patch parse, nothing to reject. `coach_notes.md` was
+fully removed from the edits-eligible set for this reason (see Write strategy below).
 
 **Close-save observability:** nothing in code requires `session_closed: true` to actually carry
-non-empty `file_updates` — a genuinely content-free close ("just wanted to say hi, bye") is
-legitimate and the prompt allows it honestly, so this isn't a hard block, just visibility plus a
-stronger prompt:
-- A `console.warn` fires whenever a close lands with `validUpdates.length === 0`, logging the
-  athlete's closing message. The model's own `reasoning` for every closing turn is separately
-  logged in `finishGeminiResponse` before being stripped, correlatable by request time — see
-  `gemini-flow.md`'s Reasoning field section.
+non-empty `file_updates`/`coach_note` — a genuinely content-free close ("just wanted to say hi,
+bye") is legitimate and the prompt allows it honestly, so this isn't a hard block, just visibility
+plus a stronger prompt, plus a retry-and-caveat safety net for the specific case where the model's
+own reasoning contradicts what it actually returned:
+- A structured `close-trace` log line fires on every close (traceId, threadId, what was proposed,
+  what committed/dropped and why, timing) — replaces the older scattered `console.warn`s. The
+  model's own `reasoning` for every closing turn is separately logged in `finishGeminiResponse`
+  before being stripped, correlatable by request time — see `gemini-flow.md`'s Reasoning field
+  section.
 - The closing-turn prompt asks for an explicit, mechanical self-check before deciding
-  `file_updates`: list every concrete fact the conversation contains that `state.md` doesn't
-  already reflect, one per line, and require each line to have either a `file_updates` entry or
-  an explicit reason it doesn't need one. Covers session-file (workout plan) proposals too, which
-  share the same underlying compliance question.
+  `file_updates`/`coach_note`: list every concrete fact the conversation contains that `state.md`
+  doesn't already reflect, one per line, and require each line to have either a save (an entry in
+  `file_updates`, or duplicated into `coach_note` as a guaranteed fallback if the model isn't
+  confident a `file_updates` edit will match exactly) or an explicit reason it doesn't need one.
+- If `reasoning` describes real content but both `file_updates` and `coach_note` still come back
+  empty (`hasUnsavedContentMismatch()`), `askGemini` fires one automatic follow-up call replaying
+  the model's own prior turn with a nudge to actually populate one of them. If the mismatch still
+  holds after that retry, the athlete-facing `reply` gets an honest caveat appended
+  server-side ("I ran into trouble saving today's notes...") instead of an unqualified "saved"
+  claim — this is what prevents a close from confidently lying about what happened.
 
 **Thread title:** generated by Gemini, not derived from the transcript server-side. The same
 closing-turn response that carries `session_closed: true` also carries an optional `title` — a
@@ -223,7 +247,7 @@ flowchart TD
     update["Gemini proposes a file_update"] --> writable{"isCoachWritable(path)?"}
     writable -- no --> drop1["dropped"]
     writable -- yes --> kind{"file type"}
-    kind -- "state.md, coach_notes.md" --> edits["edits: [{old_string, new_string}]\napplyStringEdits() — exact, unique match required"]
+    kind -- "state.md" --> edits["edits: [{old_string, new_string}]\napplyStringEdits() — exact, unique match required"]
     kind -- "challenge_v2.json, current_week.json, sleep_log.json" --> patch["merge_patch: JSON string\napplyJsonMergePatch() — RFC 7396"]
     kind -- "session files" --> content["content: full new file\n(usually a whole-new-file write)"]
     edits --> matched{"old_string matches\nexactly once?"}
@@ -234,10 +258,11 @@ flowchart TD
     validJson -- yes --> merged["shallow-merged onto current object\nnull deletes a key, arrays replace wholesale"]
 ```
 
-Markdown files (`state.md`, `coach_notes.md`) use exact-match string edits — mirrors this
-session's own Edit tool discipline. An `old_string` that's absent or appears more than once is
-rejected and that specific edit skipped (not fatal to the rest of the turn). If every edit in an
-update fails, the whole update is dropped rather than committing a no-op write.
+`state.md` uses exact-match string edits — mirrors this session's own Edit tool discipline. An
+`old_string` that's absent or appears more than once is rejected and that specific edit skipped
+(not fatal to the rest of the turn). If every edit in an update fails, the whole update is dropped
+rather than committing a no-op write. `coach_notes.md` used to be on this same path; it was moved
+off entirely onto the `coach_note` fact (above) since append-only has no exact-match to fail.
 
 JSON files (`challenge_v2.json`, `current_week.json`, `sleep_log.json`) use RFC 7396 JSON Merge
 Patch, sent as a JSON-encoded **string** (not a nested object — Gemini's structured-output schema

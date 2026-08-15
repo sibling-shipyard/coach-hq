@@ -1,8 +1,9 @@
-# Follow-up — coach-chat redesign (Aug 2026)
+# Follow-up — coach-chat (Aug 2026)
 
-What's deferred from the coach-chat prompt-architecture/SOUL-split/skeleton-trim redesign
-(PRs #263, #264, #266, issue #265, and ADR 0021), so it's readable on its own without
-reconstructing the plan from git history.
+The single consolidated list of coach-chat follow-up work not yet done, so it's readable on its
+own without reconstructing plans from git history. Items 1-10 are deferred from the prompt-
+architecture/SOUL-split/skeleton-trim redesign (PRs #263, #264, #266, issue #265, ADR 0021);
+items 11+ are from the closing-turn reliability work (PR #287 and after).
 
 ## 1. Live-repo terminal-mode deletion (tracked)
 
@@ -81,3 +82,62 @@ constant over the network every turn).
 Flagged in `docs/eng-docs/coach-chat-flow.md`'s own "Deferred" section already: no streaming
 responses, dead `EmptyChatPane` code, day-number/season-reset semantics (issue #179). Untouched
 by this pass.
+
+---
+
+## From `ASYNC-CLOSE-PLAN.md` (folded in here, file removed)
+
+## 11. Background-finish redesign for closing turns ("async close")
+
+Originally investigated as a fix for closes timing out outright in production — root-caused (PR
+#283) to Gemini's `generateContent` having no retry on a 45-64k-token prompt. That acute problem
+is already solved (confirmed Vercel Fluid Compute is enabled, raising the real ceiling to 300s,
+comfortably above the worst-case retry chain) — **this is not fixing anything currently broken.**
+
+Still worth doing eventually, for reasons unrelated to hitting a duration ceiling: a background
+"got it, wrapping up..." ack would feel much better than the current spinner (multiple seconds to
+over a minute in a bad case); it removes dependence on a specific Vercel plan's duration ceiling
+entirely rather than just raising it; and it decouples the request lifecycle from Gemini's actual
+latency variance, which isn't fully in our control. Full three-state-response/polling design
+(`closed: "pending"`, `waitUntil`, client poll loops on both platforms) is in git history
+(`ASYNC-CLOSE-PLAN.md` as of PR #287) — pick this up whenever it's worth the engineering time
+relative to other priorities.
+
+---
+
+## From coach-chat reliability testing, 2026-08-14/15 (PR #287)
+
+## 12. Gemini reliability gap — still open, no known code fix
+
+Confirmed via extensive live testing against a real athlete repo, on the actual production model
+(not just an exploratory pin): Gemini can claim in `reasoning` that it's saving specific content
+while leaving `file_updates`/`coach_note` both empty, even after PR #287's retry-on-mismatch
+safety net fires. Separately, it was observed producing a degenerate repetition loop inside the
+`title` field (tens of thousands of characters of the same few words repeated), burning its whole
+output-token budget before reaching the fields that matter, once badly enough to break JSON
+validity outright. Not something more prompt/schema tweaking alone has fixed so far — see
+`docs/eng-docs/coach-chat-design-history.md`'s 2026-08-14/15 entry for the full account.
+
+Model options ruled out while chasing this (all confirmed directly against the API, not assumed):
+- `gemini-2.5-flash` / `gemini-2.5-pro` — both 404 "no longer available to new users," despite
+  showing real quota in AI Studio's Rate Limit dashboard (that page shows tier limits, not actual
+  access eligibility).
+- `gemini-pro-latest` — accessible, but consistently exceeded the app's 45s
+  `GEMINI_GENERATE_TIMEOUT_MS` on a real closing-turn-sized prompt. Would need a larger timeout to
+  even test properly, its own tradeoff (slower closes for everyone, closer to Vercel's ceiling).
+- `gemini-3.7-flash` (pinned) — same repetition-loop instability as `gemini-flash-latest`, so
+  pinning away from the moving "-latest" alias didn't isolate or fix anything.
+
+A follow-on branch (`coach-chat-reliability-debug`) is testing whether stripping the closing-turn
+ask down to the smallest possible thing (just `coach_note`, nothing else) is more reliable than
+the current full-featured ask — no conclusions yet; this file will be updated once there's a
+result worth recording.
+
+## 13. Close-trace / honesty-guard cross-reference (P2, deferred from #287's re-review)
+
+The zero-file_updates-and-no-coach_note warning and `hasUnsavedContentMismatch`'s retry/honesty
+guard are two independently-computed diagnostics with no shared correlation - they check
+overlapping but not identical conditions (one post-drop/post-resolve, one on the raw model
+output), so they can disagree with nothing in the logs saying they're describing the same event.
+Not a data-loss risk, just an observability gap worth closing properly (e.g. thread a shared flag
+through both) rather than patching quickly under time pressure.
