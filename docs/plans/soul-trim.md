@@ -207,6 +207,15 @@ The 9 golden transcripts (`npm run eval:coach-chat`) cover chat structurally, no
 cover BYOB not at all. PR 2 is the only one that changes shared content; everything else is a
 move. Keep PR 2 small and reviewed line-by-line. The voice-eval gap is tracked on #329.
 
+**PR 2 also breaks the eval suite, and the obvious fix would hide it.** Six of nine transcripts
+touch sleep; `04-close-missing-info.json` depends on it structurally. Its purpose is *"close
+signal with nothing concrete discussed — must ask for missing info, never fabricate a save"*, and
+what makes Coach ask is the closing prompt's checklist — *"today's sleep, side-quest status,
+injury flags"* — where **sleep is the only member a genuinely empty conversation always lacks**.
+Remove it and 04 may pass for the wrong reason. Rewrite that transcript around a signal that
+still exists; do not just delete its sleep references. Detail on #300, which also needs the
+`coach-chat.ts` closing prompt edited, not only SOUL.
+
 ## Verification note
 
 Line counts are estimates from the section walkthrough, not measured against a built artifact.
