@@ -3,8 +3,8 @@
 > Status: Current · Owner: Tech Lead · Verified: 2026-07-29
 
 Moving Coach Phelps from single-tenant (one hand-built repo per person) to ~10 users on a shared hosted
-UI. Supersedes root `/scaling_plan.md` for architecture. Friend-#3 parking-lot items (issue links,
-8h re-prompt UX, org-rename follow-ups) live in [`../scaling_plan.md`](../scaling_plan.md).
+UI. Supersedes the old root scaling plan for architecture (deleted — see git history; its Friend-#3
+parking-lot items, issue links, 8h re-prompt UX and org-rename follow-ups went with it).
 
 ---
 
@@ -38,12 +38,12 @@ no seam.
 | Capability | State | Where |
 |---|---|---|
 | GitHub App auth (user-to-server OAuth + PKCE) | Done, hardened | `ui/api/auth-*.ts` |
-| User → repo resolution (ownership-filtered) | Done | `ui/api/list-my-repos.ts` |
+| User → repo resolution (ownership-filtered) | Done | `ui/api/auth/[...action].ts` (`list-my-repos` action) |
 | Runtime data load ("repo-as-CDN") | Done | `ui/api/repo-file.ts`, `hooks/useRepoData.ts` |
-| Sync trigger from UI | Done | `ui/api/trigger-sync.ts` |
+| Sync trigger from UI | **Gone** — no UI sync endpoint remains; sync is iOS-driven (ADR 0010 dropped Strava) | — |
 | **Server coach (Gemini) + write-back at close** | **Built** | `ui/api/coach-chat.ts` |
-| Dual-path ingestion (Strava / iOS) | Working | athlete `.github/workflows/sync.yml` (carved from `engine/.github/workflows/sync.user.yml`) |
-| Direct-to-main data validation | JSON-parse only | athlete `.github/workflows/validate-data.yml` (carved from `engine/.github/workflows/`) |
+| Dual-path ingestion (Strava / iOS) | Working | `<athlete>/.github/workflows/sync.yml` (carved from `engine/.github/workflows/sync.user.yml`) |
+| Direct-to-main data validation | JSON-parse only | `<athlete>/.github/workflows/validate-data.yml` (carved from `engine/.github/workflows/`) |
 
 Three load-bearing facts: every GitHub call uses the **signed-in user's own token**, App-scoped to their
 one repo (Contents R/W + Actions R/W) — no shared PAT. **Sessions are stateless** (encrypted 8h cookie, no
@@ -57,7 +57,7 @@ flowchart LR
   app --> repo["coach-user repo<br/>private, per user"]
   subgraph repo_contents["Inside each user repo"]
     soul["soul/ layers → SOUL.md<br/>composed A+B+C"]
-    cdata["training/* + data/aggregate.json<br/>Layer C data"]
+    cdata["user_data/* + gen/aggregate.json<br/>Layer C data"]
     wf["sync.yml / validate-data.yml"]
   end
   repo --- repo_contents
@@ -183,9 +183,9 @@ contracts so either runtime executes it — validators enforcing the guarantees 
 ```mermaid
 flowchart LR
   strava["Strava Premium<br/>API + secrets"] --> sync["sync.yml pipeline"]
-  ios["iOS HealthKit app"] -->|push history| hist["training/activities/history/*.json<br/>same shape either source"]
+  ios["iOS HealthKit app"] -->|push history| hist["user_data/activities/hist/*.json<br/>same shape either source"]
   sync --> hist
-  hist --> agg["build-data.mjs --aggregate<br/>writes data/aggregate.json"]
+  hist --> agg["build-data.mjs --aggregate<br/>writes gen/aggregate.json"]
   agg --> ghcdn["GitHub = data store + CDN"]
   ghcdn -->|repo-file.ts .raw, cached| dash["Dashboard (useRepoData)"]
 ```
@@ -325,8 +325,8 @@ Not committed; recorded so the design doesn't box us in.
 
 ## Appendix — file / endpoint references
 
-Auth: `ui/api/auth-*.ts`, `_lib/session.ts`, `_lib/pkce.ts` · Repo resolution: `list-my-repos.ts` ·
-Runtime data: `repo-file.ts`, `hooks/useRepoData.ts` · Sync: `trigger-sync.ts` · Server coach:
+Auth: `ui/api/auth/[...action].ts`, `_lib/session.ts`, `_lib/pkce.ts` · Repo resolution: `list-my-repos` action ·
+Runtime data: `repo-file.ts`, `hooks/useRepoData.ts` · Server coach:
 `coach-chat.ts` · Build: `build-data.mjs --aggregate` · Athlete workflows (carved from `engine/.github/workflows/`):
 `sync.yml`, `validate-data.yml`, `apply-coach-patch.yml` · HQ workflows: `validate-soul.yml`, `validate-kdb.yml` ·
-Engine: `soul/` layers + composed `SOUL.md` · Prior: `docs/website-unification-history.md`.
+Engine: `soul/` layers + composed `SOUL.md` · Prior: `docs/eng-docs/website-unification-history.md`.

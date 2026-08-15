@@ -74,7 +74,7 @@ which file each field lives in changes. `current_week.json` and `plugins.json` (
    touch product copy, or keep the file named `milestones.json` even though the concept is
    calisthenics progressions.
 4. **Cutover sequencing.** ADR 0006's own v4 migration (validator + carve + live-repo cutover,
-   C2–C4) isn't fully landed per `TODO.md`. Do this split as the next stage after v4 closes, or
+   C2–C4) isn't fully landed per `ROADMAP.md`. Do this split as the next stage after v4 closes, or
    fold both into one migration since they touch the same 7 consumers anyway?
 5. **File format for the two event-stream files.** Plain pretty-printed JSON (today's pattern —
    every write is a full-file diff) vs. one-line-per-event JSONL (cleaner git diffs, matches how

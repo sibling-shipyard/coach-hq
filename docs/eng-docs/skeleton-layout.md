@@ -3,8 +3,8 @@
 > Status: Current · Owner: Tech Lead · Verified: 2026-07-31 · Locked: 2026-07-26 · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
-> see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). `engine/strava/`
-> no longer exists; `query_history.py`/`rename_core.py` moved to `engine/core/`. `.env.example`
+> see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
+> `strava/` directory no longer exists; `query_history.py`/`rename_core.py` moved to `engine/core/`. `.env.example`
 > was also dropped from the skeleton. Untouched: this doc still describes the manual clone+PAT
 > setup flow, which self-serve GitHub auth (see [`github-auth.md`](github-auth.md)) has since replaced
 > for new sign-ups — that's a separate, not-yet-done doc pass.

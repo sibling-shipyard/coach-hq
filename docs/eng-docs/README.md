@@ -2,8 +2,8 @@
 
 > Status: Current · Owner: Tech Lead · Verified: 2026-08-15
 
-Rules for HQ docs. Athletes never see these. **No index here — listings rot, which is why
-`docs/CURRENT.md` was deleted. Never add one; use `ls` and `grep`.**
+Rules for HQ docs. Athletes never see these. **No index here — listings rot, which is why the
+old CURRENT.md index was deleted. Never add one; use `ls` and `grep`.**
 
 ## Reference vs. plan
 
