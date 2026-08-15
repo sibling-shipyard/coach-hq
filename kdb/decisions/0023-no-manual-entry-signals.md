@@ -14,8 +14,8 @@
 - **Decision:** A tracked signal ships only when it has a source that maintains itself — a sync,
   a sensor, a generated file, a computed digest. If keeping it current depends on the athlete
   remembering, or on Coach remembering to ask, it does not ship. Existing manual signals are
-  removed rather than left to rot, and re-added when an automatic source exists (sleep: on
-  HealthKit sync, #341).
+  removed rather than left to rot, and re-added once an automatic source exists — sleep, for
+  example, comes back when the HealthKit sleep sync lands.
 - **Why:** Data nobody maintains is worse than no data: Coach reads it as current, reasons from
   it, and the athlete has no way to see it went stale. A rotted field is a confident wrong answer
   waiting to happen, and it costs prompt space every turn in the meantime.
