@@ -112,6 +112,33 @@ as a table at 388–392.
 `carve-skeleton.mjs` doesn't scaffold it, and it isn't app-writable — so a chat close that
 "updates" it is silently discarded. Remove from both.
 
+## Approved replacement text
+
+**Line 106, the example season.** Currently carries the athlete's own season ("Full Send Season,
+Jun 18 → TBD… 2x strength, 2x sport-specific, 1x cardio, 1x free"), which is specific enough to
+anchor a new athlete's first season toward someone else's training shape. Genericised, keeping
+one in-voice goal example so the *tone* still demonstrates:
+
+> *(Shape of a defined season — the athlete's real one replaces this at kick-off: "\<name\>,
+> \<start\> → \<end or TBD\>. Goal: \<one sentence in the athlete's words about what changes by
+> the end — e.g. "get strong enough that injury fear stops calling the shots"\>. \<Phase\> runs
+> \<dates\> with a weekly spine of \<the few sessions they'll actually hit\>; next phase defined
+> at the next kick-off.")*
+
+Drops the sport mix, the session counts, and the season name. Keeps every structural cue: name,
+dates, a goal stated as a change rather than a metric, a dated phase, a spine sized to reality,
+and the next phase deferred.
+
+## Open question — do the Three Modes fire?
+
+§4 defines Mentor (default), Analyst (weekly planning), and Hype Man (milestones). Mentor
+obviously fires. **Nobody has confirmed the other two ever do.** Raised during the audit and left
+unanswered.
+
+If Analyst and Hype Man never fire in practice, that isn't 4 lines to trim — it's a sign the
+mode-switching instruction is too weak to act on, which is a §4 *quality* fix and the opposite of
+a cut. Worth watching for during the manual voice read on PR 2 rather than deciding in advance.
+
 ## Dead rules — instructions pointing at things that don't exist
 
 - **Deload week never fired, not once.** The rule says "every 4th week" and *nothing computes
