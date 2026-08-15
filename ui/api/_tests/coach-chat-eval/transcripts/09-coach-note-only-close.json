@@ -1,6 +1,6 @@
 {
   "name": "coach-note-only-close",
-  "description": "Genuine close-out with real content that's narrative/reflective rather than a concrete training-log fact - no injury flag, nothing that structurally belongs in state.md's Training Log. coach_note should carry the save; file_updates legitimately stays empty (coach-commit-mvp.md).",
+  "description": "Genuine close-out with real content that's narrative/reflective rather than a concrete training-log fact. Previously found (pre-strip-down) that this exact shape of conversation ('nothing to log today really') sometimes made Gemini skip coach_note entirely, treating 'nothing structural happened' as license to skip the note too - this transcript exists to catch that regression specifically.",
   "mode": "closing",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
@@ -11,14 +11,8 @@
     { "id": "4", "role": "user", "text": "No that's it, just wanted to say that. Slept fine, no aches, nothing to log today really." }
   ],
   "userMessage": "That's all for now, wrap this session.",
-  "closingFiles": {
-    "challengeV2": "{\"season\":{\"start_date\":\"2026-07-01\"},\"main_quest\":{\"id\":\"sub45_10k\"},\"quests\":[{\"id\":\"cold_shower\",\"completed_dates\":[]}]}",
-    "currentWeek": null,
-    "sleepLog": "{}"
-  },
   "expect": {
     "sessionClosed": true,
-    "fileUpdatesEmpty": true,
     "coachNoteReported": true
   }
 }

@@ -30,7 +30,7 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 | `EDGE_CONFIG_ID` | `ui/api/_lib/soulCache.ts` | Same fallback as above — a newly-created cache name can't be persisted, so it's only reused within the same warm instance. |
 | `VERCEL_API_TOKEN` | `ui/api/_lib/soulCache.ts` | Same fallback — needed alongside `EDGE_CONFIG_ID` because Edge Config has no write API of its own, only reads; writes go through the Vercel REST API. |
 | `VERCEL_TEAM_ID` | `ui/api/_lib/soulCache.ts` | Only needed if the Vercel project lives under a team account — omit for a personal-account project. |
-| `COACH_CHAT_BRANCH` | `ui/api/coach-chat.ts` | Falls back to `"main"` — the intended default for real athlete traffic, not a misconfiguration, so no `console.warn` on this one (would fire on every production close otherwise). Set to a scratch branch when testing a real close end-to-end (coach-commit-mvp.md), so a test run's commit doesn't land on an athlete's actual `main`. |
+| `COACH_CHAT_BRANCH` | `ui/api/coach-chat.ts` | Falls back to `"main"` — the intended default for real athlete traffic, not a misconfiguration, so no `console.warn` on this one (would fire on every production close otherwise). Set to a scratch branch when testing a real close end-to-end (see `coach-chat-design-history.md`'s 2026-08-14/15 entry), so a test run's commit doesn't land on an athlete's actual `main`. |
 
 ## Rule
 

@@ -116,7 +116,7 @@ pending — that's the one thing left before this doc's job is finished.
 1. ~~Enable billing on the existing Gemini project~~ — **done**, 2026-08-06.
 2. ~~Fix the `todayContextLine` prompt-ordering bug~~ — **done.**
 3. ~~Cap/window in-thread conversation history~~ — **done** (hard cap; real
-   compaction/summarization is still future work, see `FOLLOW-UP.md`).
+   compaction/summarization is still future work, see `docs/plans/coach-chat-follow-up.md`).
 4. ~~Build the eval harness~~ — **done**, structural rubric only (see Eval above).
 5. Revisit provider choice in ~2 weeks against eval results + real usage numbers, not projections
    — the only step left. Nothing else in this doc is blocking that anymore.

@@ -277,8 +277,96 @@ immunity.
   worst-case arithmetic across every stage (file reads, Gemini retries, commit retries) by simply
   using the real headroom available. This also meant the full "return fast, finish in background"
   redesign considered the same day was no longer an urgent fix (the timeout problem it targeted is
-  already solved by the 300s ceiling) — captured instead as `docs/plans/ASYNC-CLOSE-PLAN.md`
+  already solved by the 300s ceiling) — captured instead in `docs/plans/coach-chat-follow-up.md`
   for optional future work, not implemented now.
+
+---
+
+## 2026-08-14/15 — Coach commit MVP: stop silent drops, `coach_note`, retry + honesty guard (PR #287)
+
+Forensic audit of `coach-skanda-2003` found real closes weren't saving coach files at all: 5 close
+commits over 30 days, 0 wrote a coach file — only `chat_history.json` landed each time.
+`coach-akash-suresh` showed the same shape. Split into two design docs to keep scope tight:
+`coach-commit-mvp.md` (Split 1/P0 — prove a minimal fix on one file) and `docs/plans/coach-intent-schema.md`
+(Split 2/P1 — extend the same pattern to the rest of the coach files). Summarized here as the
+dated historical record; see those docs directly for full detail (`coach-commit-mvp.md` stays a
+live eng-doc since Split 1 shipped as designed, `coach-intent-schema.md` lives in `docs/plans/`
+since Split 2 was never built).
+
+**Split 1 / P0 (shipped as designed):**
+- `resolveFileUpdate` returns `{ok, path, reason}` instead of a bare `null` — every silent drop
+  (unwritable path, no edits/merge_patch, all edits no-op, blank result, unfetched content) now
+  logs its specific reason.
+- `COACH_CHAT_BRANCH` env var (defaults to `main`) makes the commit branch configurable, so a real
+  close can be tested end to end on a scratch branch instead of writing to a live athlete's repo.
+- Structured `close-trace` log line per close (`traceId`, `threadId`, what was proposed vs.
+  committed/dropped and why, timing) — one line answers "what happened to this specific close,"
+  replacing scattered unconnected `console.warn`s.
+- `coach_note`: the model reports a short (2-3 sentence) plain-English note instead of proposing
+  an exact-match edit to `coach_notes.md`; the server appends it with today's date at commit time
+  (`appendCoachNote()`). Immune to the exact-match/patch-parse failure modes `file_updates` edits
+  have, since it's pure append. `coach_notes.md` was fully removed from the edits-eligible file
+  set as part of this — `file_updates` proposals against it are now rejected outright, not
+  silently discouraged by prompt text alone.
+
+**Split 2 / P1 — not built as originally scoped.** The intent-schema doc's plan (extend the
+`coach_note` pattern to `session_note`/`quest_events`/`sleep`, delete `applyStringEdits`/
+`applyJsonMergePatch` entirely, rewrite SOUL.md §12) never shipped — `file_updates` and both apply
+functions are still in active use for `state.md`/`challenge_v2.json`/`current_week.json`/
+`sleep_log.json`. Superseded by a different direction (see `docs/plans/coach-chat-follow-up.md`),
+not carried forward as a live roadmap item.
+
+**Real bugs found through two days of live testing against a real athlete repo (not synthetic
+transcripts alone), fixed the same PR:**
+- The close-trigger regex required "wrap"/"close"/"end" to be followed by "session" — a bare
+  "wrap" (or "Lets wrap") never routed into closing mode at all, so Gemini answered as an ordinary
+  turn and hallucinated closing-sounding language without anything actually committing. Broadened
+  the trigger to catch casual bare sign-offs.
+- **Bigger bug, found by actually testing the multi-turn flow, not just single messages:**
+  answering Coach's own clarifying close-question (e.g. "8hrs" in reply to "how'd you sleep?")
+  never re-triggered closing mode on its own, since that answer alone doesn't match the trigger
+  regex. Gemini would still return `session_closed: true` and a fully convincing "all set, logged"
+  reply — directly violating the ordinary-turn prompt's own instruction to set `session_closed:
+  false` — while nothing committed at all. Fixed by having the trigger remember a pending close
+  for a few turns (`wasCloseAttemptPending`) instead of relying on the model to self-regulate a
+  second time; the underlying reasoning had already proven unreliable once (see Part B below), so
+  a second reliance on the same kind of self-regulation wasn't trusted either.
+- The close-trace itself had a bug: it logged `"committed"` before `commitFilesAtomic` actually
+  ran, so a close that threw partway through still asserted success in its own diagnostic. Moved
+  the log to fire only after a real commit lands (or with a `commit_failed` variant in the catch
+  block).
+- The model was observed narrating visible character-count arithmetic into the `title` field
+  itself (e.g. "...Wait that is too long, shorten to under 28 chars... exactly 27 chars: ...")
+  when the prompt asked for an exact character budget — burning output-token budget on it, and
+  once breaking JSON validity outright mid-generation. The server already truncates title safely
+  (`truncateTitle`), so the prompt was softened to "a handful of words" with an explicit
+  instruction not to show any length-adjustment work, rather than asking for exact arithmetic.
+
+**Part B — retry + honesty guard (shipped, formerly its own `coach-chat-closing-followup.md` design doc, folded in here since that code was later removed on `coach-chat-reliability-debug` — see below):**
+Root-caused from a live repro (traceId `xuij2ft9`) where `reasoning` explicitly described a
+`state.md` edit while `file_updates` still came back empty — confirmed the schema-reorder fix
+alone (moving `file_updates` ahead of `reply` in the declared property order) wasn't sufficient.
+- `hasUnsavedContentMismatch()`: true when `reasoning` is substantial, doesn't match a "nothing to
+  save" phrase pattern, and both `file_updates` and `coach_note` are empty/too short.
+- On a mismatch, `askGemini` fires exactly one automatic follow-up call, replaying the model's own
+  prior raw response plus a nudge to actually populate `file_updates` or `coach_note` (whichever
+  fits) — kept fully separate from the transport-level 504/503 retry logic (different failure
+  class: content mismatch, not a network error).
+- If the mismatch still holds after the retry, the POST handler appends an honest caveat to the
+  athlete-facing `reply` ("I ran into trouble saving today's notes...") before it's shown or
+  persisted, instead of leaving an unqualified "saved" claim standing.
+- Made `coach_note` the *guaranteed* fallback rather than an equal alternative to `file_updates`:
+  the closing prompt now tells the model to duplicate real content into `coach_note` whenever it
+  isn't fully confident a `file_updates` edit will land, since `coach_note` never fails to match.
+
+**Known, accepted limitation, confirmed via extensive live testing, not fixed in this pass:**
+Gemini itself is still not fully reliable even with all of the above — it can claim in `reasoning`
+that it's saving specific content while leaving `file_updates`/`coach_note` both empty (reproduced
+on the production model, not just an exploratory pin), and was observed producing a degenerate
+repetition loop in `title` that burned its entire output budget before reaching the fields that
+matter. This is a live, ongoing model-reliability question, not something resolved by more
+prompt/schema tweaking alone in this pass — tracked as a still-open item, not a bug ticket, since
+there's no known code fix yet.
 
 ---
 
