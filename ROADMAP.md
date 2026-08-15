@@ -49,6 +49,7 @@ _Any athlete, not just Akash's sports._
 - [ ] #316 challenge_v2 seasons/phases + quest_history (refs #86)
 - [ ] #156 healthkit-enrichment
 - [ ] #365 Workout templates aren't generic — Coach can't personalise them
+- [ ] #367 Audit the quest/gamification system end to end
 
 ### Epic: Coach depth (#317)
 _The coach feels wise, not generic._
