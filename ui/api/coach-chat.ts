@@ -344,10 +344,6 @@ interface GeminiReply {
   // sets this false when it's asking a clarifying question instead of closing (see prompt),
   // and the server must not commit/report closed:true unless this comes back true.
   session_closed?: boolean;
-  // Only meaningful on a closing=true turn - a short, descriptive summary of what this specific
-  // conversation was actually about, replacing the old "truncate the athlete's first message"
-  // title. See THREAD_TITLE_MAX_CHARS for the length budget and why.
-  title?: string;
 }
 
 export type TurnMode = "greeting" | "ordinary" | "closing";
@@ -370,7 +366,7 @@ const FEW_SHOT_EXAMPLES = [
   "</example_1>",
   "<example_2 note=\"closing turn - real content, a real coach_note\">",
   "Athlete: yeah ran the intervals, felt strong, wrap session",
-  'Coach (JSON): {"reasoning":"Real training content this turn: intervals completed, athlete felt strong. Genuinely closing.","reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday.","session_closed":true,"title":"Strong interval session","coach_note":"Ran intervals today, felt strong throughout. No soreness or issues reported. Plan is to build on this Thursday."}',
+  'Coach (JSON): {"reasoning":"Real training content this turn: intervals completed, athlete felt strong. Genuinely closing.","reply":"Nice work - that\'s locked in. Rest up, we\'ll build on this Thursday.","session_closed":true,"coach_note":"Ran intervals today, felt strong throughout. No soreness or issues reported. Plan is to build on this Thursday."}',
   "</example_2>",
 ].join("\n");
 
@@ -393,7 +389,6 @@ const GENERATION_CONFIG = {
       // facing `reply`.
       reasoning: { type: "string" },
       coach_note: { type: "string" },
-      title: { type: "string" },
       session_closed: { type: "boolean" },
       reply: { type: "string" },
     },
@@ -505,16 +500,6 @@ export async function askGemini(
             "response (asking a clarifying question instead does NOT count - set it false in that case,",
             "even though this turn was triggered by a close-session phrase). The athlete will simply see",
             "your question and reply normally; you'll get another chance to close once they answer.",
-            `\nIf session_closed is true, also set title: a short, specific, human-readable summary of`,
-            `what THIS conversation was actually about (e.g. "Sore shoulder, modified Tuesday session"`,
-            `or "Planned taper week before the 10K"), not a generic label like "Check-in" or "Training`,
-            `talk". Write it like a chat-app conversation title: a handful of words, not a sentence -`,
-            `descriptive enough that the athlete recognizes this specific conversation in a list of past`,
-            `days, not just its topic category. The server truncates this automatically if it runs long,`,
-            `so don't count characters or explain/show any length adjustment - just write the title`,
-            `itself, nothing else, in the title field. Omit title entirely if session_closed is false.`,
-            `Write it in plain English only - no mixed scripts or other languages, even if the`,
-            `conversation itself touched on one.`,
           ].join("\n")
         : [
             "\nThis is an ordinary turn, not a close-out - just talk with the athlete the way SOUL.md",
@@ -920,15 +905,14 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // stable across attempts, even though the merge against fresh state below can run more
       // than once.
       const finalThreadId = threadId ?? `t-${now}`;
-      // Prefer Gemini's contextual title (set alongside session_closed: true, see askGemini's
-      // closing-turn prompt) - it actually reflects what the conversation was about, not just
-      // whatever the athlete happened to type first. Truncate defensively in case it ignores the
-      // character budget it was given; fall back to the old truncated-first-message behavior only
-      // if Gemini omitted title (e.g. an older/misbehaving response).
-      const geminiTitle = sanitizeTitle(reply.title?.trim() ?? "");
+      // coach-chat-reliability-debug: no longer asking Gemini for a title at all - suspected of
+      // competing with coach_note for the model's attention (observed dumping the intended
+      // coach_note content into title instead, leaving coach_note empty). Always the old
+      // truncated-first-message behavior now. sanitizeTitle/truncateTitle stay in use here even
+      // though the title is no longer model-generated, in case a first user message itself ever
+      // carries a stray non-ASCII character.
       const firstUserText = allMessages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user")?.text ?? trimmed;
-      const fallbackTitle = truncateTitle(firstUserText, THREAD_TITLE_MAX_CHARS);
-      const computedTitle = geminiTitle.length > 0 ? truncateTitle(geminiTitle, THREAD_TITLE_MAX_CHARS) : fallbackTitle;
+      const computedTitle = truncateTitle(sanitizeTitle(firstUserText), THREAD_TITLE_MAX_CHARS);
       const previewText = reply.reply.slice(0, 80);
 
       // Resolved fresh on every commit retry attempt (see githubGitData.ts), not from a
