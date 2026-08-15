@@ -1,5 +1,7 @@
 # GitHub Auth — how sign-in works (web + iOS, shared backend)
 
+> Status: Current · Owner: UI Expert · Verified: 2026-08-03
+
 ## Context
 
 One shared backend, `ui/api/auth/`, handles GitHub sign-in for both the web dashboard and the

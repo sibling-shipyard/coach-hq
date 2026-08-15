@@ -1,5 +1,7 @@
 # Gemini integration — how it works
 
+> Status: Current · Owner: UI Expert · Verified: 2026-08-06
+
 ## Context
 
 Everything Gemini-specific was scattered across `coach-chat-flow.md`'s prompt section,

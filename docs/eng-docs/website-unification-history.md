@@ -1,5 +1,7 @@
 # How the Shared Coach Phelps Website Came Together
 
+> Status: Historical · Owner: UI Expert · Verified: 2026-07-29
+
 This is the story of how Skanda's and Akash's separate personal coaching dashboards became one
 shared site (`coach-phelps-hq.vercel.app`), what problems came up along the way, and why the
 non-obvious decisions were made the way they were. Written so either of you can come back to

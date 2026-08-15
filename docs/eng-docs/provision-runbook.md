@@ -1,6 +1,6 @@
 # Provision Runbook — M1b Operator Checklist
 
-> Status: **Active** · Owner: Tech Lead · Authority: [`m1-plan.md`](m1-plan.md) M1b
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-02 · Authority: [`m1-plan.md`](m1-plan.md) M1b
 
 ## Context
 

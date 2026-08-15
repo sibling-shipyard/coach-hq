@@ -1,11 +1,24 @@
 # Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-15
+
 ## Overview
 The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
 
 Due to Strava deprecating free API access, this app replaces the legacy Strava-dependent sync pipeline entirely. It enables true multi-user support (e.g., Sky and his brother) without requiring a centralized backend, database, or third-party API dependencies.
 
 The app is "dumb" by design: it reads from and writes to GitHub. The AI Coach (running via Manus/Claude) and the Netlify dashboard remain unchanged, continuing to use the GitHub repo as their single source of truth.
+
+## Identity & Design Philosophy
+
+The app is a **silent, fast, native iOS utility** — the on-device executor for Coach Phelps (the AI
+coach), not a second place the coach lives. It provides the native sensors, timers, and data
+ingestion that make the system seamless, and nothing else. Strict design boundaries:
+
+- **Silent Utility:** No push notifications, no chat interface, no AI personality inside the sync/timer surfaces. The app moves data and runs timers; coaching conversation happens in coach-chat.
+- **Native Aesthetic:** Built entirely in SwiftUI using system colors, SF Symbols, and standard iOS typography. Fully supports Light and Dark mode without custom theming.
+- **Offline-First:** GitHub is the ultimate source of truth, but the app caches data locally so it opens instantly and works in the gym with poor connectivity.
+- **GitHub as Backend:** No traditional backend or database of its own — it authenticates via GitHub and reads/writes directly to the athlete's repo.
 
 ## Core Architecture: "GitHub as Backend"
 
@@ -25,6 +38,17 @@ The app is "dumb" by design: it reads from and writes to GitHub. The AI Coach (r
 
 - **No Backend for activity data:** The app uses the GitHub REST API (Contents API) to read and commit files directly to the user's `coach-<login>` repo (forked from `coach-skeleton`).
 - **Authentication:** "Continue with GitHub" goes through the shared `coach-phelps-hq` GitHub App + PKCE flow entirely server-side (`ui/api/auth/`) - the same mechanism the web dashboard uses, no client secret embedded in the app. The resulting access token is stored securely in the iOS Keychain. See [`github-auth.md`](github-auth.md) and `.github/agents/ios-builder.md`'s Architecture Overview.
+- **Sign-in surface — plain `WKWebView`, and passkey 2FA will never work in it.** Login runs in an
+  in-app `WKWebView` (`WebAuthPresenter.swift`, `WebAuthBrowserStore.swift`, `InAppAuthWebView.swift`),
+  chosen over `ASWebAuthenticationSession`/`SFSafariViewController` so the OAuth flow shares a cookie
+  jar with GitHub browse-mode pages. Consequence: choosing a **passkey** for GitHub 2FA fails silently
+  — WebAuthn needs the OS to intercept `navigator.credentials.get()`, which `WKWebView` only does with
+  the restricted `com.apple.developer.web-browser` entitlement (Apple grants it to browser apps only)
+  *and* a `webcredentials` entry in `github.com`'s association file (not ours to edit). Both are hard
+  external gates, not implementation gaps — issue #238 investigated and closed on this. TOTP, GitHub
+  Mobile push, and recovery codes are plain form submits and all work; they are the supported path.
+  Switching this one flow to `ASWebAuthenticationSession` would enable passkeys at the cost of the
+  shared cookie jar — a deliberate trade to reopen only if passkey support is wanted badly enough.
 - **Multi-User:** A first-time user is walked through creating their repo from the `coach-skeleton` template and installing the App on it (`SetupView.swift`); a returning user's repo resolves automatically via the same ownership + marker-file check the web dashboard uses.
 
 ## Phase 1 (v0.1): HealthKit Sync Engine (The Strava Replacement)

@@ -11,6 +11,7 @@
     "dev:api": "tsx scripts/local-api-server.mjs",
     "build": "vite build",
     "preview": "vite preview --host",
+    "precheck": "node scripts/build-data.mjs && node scripts/build-soul.mjs",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "build-data": "node scripts/build-data.mjs",

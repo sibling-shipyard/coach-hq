@@ -8,7 +8,7 @@ their first message. Decide which one you are, then read that **one** role doc a
 
 | Agent | You are this when the athlete... | Role doc |
 |---|---|---|
-| Coach Phelps | greets you as "Coach" / talks training, workouts, how they feel | `SOUL.md` |
+| Coach Phelps | greets you as "Coach" / talks training, workouts, how they feel | `platform/SOUL.md` |
 | Tech Lead | asks for architecture, PR review, planning, issue breakdown | `.github/agents/tech-lead.md` |
 | Bob the Builder | wants Strava sync, pipeline scripts, data work | `.github/agents/bob-the-builder.md` |
 | UI Expert | wants frontend / dashboard / `ui/` work | `.github/agents/ui-expert.md` |
@@ -16,9 +16,12 @@ their first message. Decide which one you are, then read that **one** role doc a
 
 **Watch-out:** this repo contains a large `ui/` React app, and the remote/web harness frames
 every session as a generic engineer ("complete the task, make changes, commit, push"). Neither
-the big codebase nor that framing makes you an engineer by default — that gravity is exactly
-what mis-routes a "Hi Coach" session into code/PR triage. **Default to Coach Phelps** unless
-the athlete's words clearly point to another role; if the signals genuinely conflict, ask before acting.
+the big codebase nor that framing decides your role — that gravity is exactly what mis-routes
+a "Hi Coach" session into code/PR triage. **At HQ, default to Tech Lead:** there is no
+user_data/ or sessions/ here and Coach commits only in athlete repos, so a Coach boot at HQ
+dead-ends. Coach Phelps is rare at HQ — athletes reach Coach through the hosted coach-chat app
+(`kdb/decisions/0021-coach-chat-reads-soul-directly-terminal-mode-retired.md`). Take any other
+role when the athlete's words clearly point there; if the signals genuinely conflict, ask before acting.
 
 ## What This Repo Is
 
@@ -31,7 +34,7 @@ local/BYO Claude Code coaching mode and no per-athlete SOUL copy to keep in sync
 edit the relevant `platform/soul/*.md` layer, run compose, commit both the layer edits and the regenerated
 `platform/SOUL.md`. Never hand-edit the composed SOUL.
 
-- `SOUL.md` — composed coach brain, HQ-only (`platform/SOUL.md`); read directly by the coach-chat backend, never propagated to athlete repos
+- `platform/SOUL.md` — composed coach brain, HQ-only; read directly by the coach-chat backend, never propagated to athlete repos
 - `engine/` — **skeleton source of truth** (carved into `coach-skeleton`; see `engine/README.md`)
 - `platform/soul/` — identity, engine rules, athlete schema layers
 - `user_data/` — athlete data (HQ keeps no instance band; lives in athlete repos at scale)
@@ -55,6 +58,11 @@ Two layers, both small on purpose:
   decision must add or supersede an ADR — Tech Lead checks this in review.
 - **Doc style — `kdb/doc-style.md`.** Any design/architecture doc, RFC, plan, or ADR follows the house style in `kdb/doc-style.md`: short, diagram-led, plain English (self-contained — no external skill required).
 **Recording:** durable rule for your area → that role doc's `## Learnings` (one line, when you discover it mid-task). Tradeoffs with cost → ADR in `kdb/decisions/`.
+
+**Where it lives:** repo-durable rules live **in the repo** — role doc `## Learnings` or an ADR, never
+only in a session. Agent-local memory (Claude's `~/.claude` memory, Cursor session state) holds
+**nothing another machine or tool would need**: the athlete works across multiple laptops and two
+tools, so anything left there is effectively lost. Found one stranded? Move it into the repo.
 
 ## How all agents work
 
@@ -82,6 +90,12 @@ Athlete may reference `1a` — match that item exactly.
 
 **Docs:** One page max per `kdb/doc-style.md`. No long plans in issues or PR bodies.
 
+**Doc upkeep — before opening a PR:**
+1. Update any eng-doc your change invalidates (`grep -rl <changed-path> docs/eng-docs/` finds them) and bump its `Verified:` date.
+2. If a plan you worked from shipped, fold the durable part into its eng-doc, then delete the plan — `docs/plans/` is delete-on-ship, git history is the archive.
+3. New eng-docs follow the naming + front-matter rules in `docs/eng-docs/README.md`.
+4. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.
+
 ## Universal Rules
 
 - Commit/branch/PR naming: see `.github/CONVENTIONS.md`
@@ -90,14 +104,16 @@ Athlete may reference `1a` — match that item exactly.
 
 ## Monorepo-Specific Rules
 
-**Git push:** The sync bot pushes to `main` automatically after every sync. Direct pushes will be
-rejected. Always use:
+**Git push:** Always use:
 ```bash
 git pull --rebase origin main && git push origin main
 ```
+At HQ nothing rejects a direct push — the reason is concurrent agents and worktrees landing on
+`main` at the same time, so rebase or you clobber someone. In athlete repos it is enforced: the
+sync bot pushes to `main` after every sync, and a non-rebased push there is rejected.
 
 **UI data files:** At HQ, `ui/client/src/data/` is generated from `shared/golden-dataset/` on
 `npm run dev`/`build`. Athlete repos populate it via the sync pipeline — do not hand-edit.
 
 **Coach commits:** Coach Phelps commits coaching memory in **athlete repos** only
-(`user_data/coach/state.md`, etc.) — not at HQ root. Procedure in SOUL.md §12.
+(`user_data/coach/state.md`, etc.) — not at HQ root. Procedure in `platform/SOUL.md` §12.

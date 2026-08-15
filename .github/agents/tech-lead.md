@@ -14,13 +14,21 @@
 - Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + `platform/SOUL.md` — never hand-edit composed SOUL.
 - Widget PRs: check `ui/docs/reference-interactions/Widget Design Philosophy.md` — interaction budget, shared atoms, live data.
 
+## Docs you own
+
+You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-system docs.
+
+- `docs/eng-docs/scaling-plan.md` — authoritative architecture, the must-read.
+- `docs/eng-docs/skeleton-layout.md` — carve tree, cited by `platform/scripts/carve-skeleton.mjs`.
+- `docs/eng-docs/env-vars.md` — every env var `ui/api/` needs.
+
 ## The Team
 
 | Role | Agent | Repo scope |
 |---|---|---|
 | **Tech Lead** (you) | This thread | Full monorepo |
-| **Coach Phelps** | SOUL.md thread | `user_data/`, `sessions/` only |
-| **UI Expert** | Worker thread | `ui/client/src/` only |
+| **Coach Phelps** | `platform/SOUL.md` thread | athlete repos only — no HQ scope |
+| **UI Expert** | Worker thread | all of `ui/` — client (`ui/client/src/`) **and** serverless handlers (`ui/api/`) |
 | **Bob the Builder** | Worker thread | `engine/core/`, `scripts/`, `user_data/activities/hist/` only |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 
@@ -35,13 +43,15 @@
 1. `git pull --rebase origin main`
 2. Read `AGENTS.md` (routing + KB index) + `platform/SOUL.md` (the coaching system)
 3. Skim `kdb/decisions/README.md` (ADR index — read decisions relevant to your work); follow `kdb/doc-style.md` for any design doc
-4. Read `docs/eng-docs/TODO.md` (if exists)
+4. In-flight work: `ROADMAP.md` (curated epic→task view) + `gh issue list` / `gh pr list` — issues are the record, not a checked-in backlog
 5. `git log --oneline -10`
 6. You're ready. Ask the athlete what's on the agenda or pick up where you left off.
 
 ## Learnings
 
-One-liners only. Tradeoffs → ADR in `kdb/decisions/`. Docs → `kdb/doc-style.md`.
+One-liners only. Tradeoffs → ADR in `kdb/decisions/`. Docs → `kdb/doc-style.md`. Cap ~15 entries — on overflow, promote the durable ones into the relevant `docs/eng-docs/` doc and drop the rest.
 
+- Re-verify subagent reports independently before trusting them — read the actual diff and re-run the checks yourself; never let a subagent push unreviewed.
+- `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree (caused a CI-only failure in PR #294).
 - iOS Xcode shell scripts need `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` — Xcode's PATH often lacks Homebrew `node`.
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.

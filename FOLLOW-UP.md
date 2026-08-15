@@ -85,7 +85,7 @@ by this pass.
 
 ---
 
-## From `ASYNC-CLOSE-PLAN.md` (folded in here, file removed)
+## Summarized from `docs/plans/ASYNC-CLOSE-PLAN.md`
 
 ## 11. Background-finish redesign for closing turns ("async close")
 
@@ -99,9 +99,9 @@ Still worth doing eventually, for reasons unrelated to hitting a duration ceilin
 over a minute in a bad case); it removes dependence on a specific Vercel plan's duration ceiling
 entirely rather than just raising it; and it decouples the request lifecycle from Gemini's actual
 latency variance, which isn't fully in our control. Full three-state-response/polling design
-(`closed: "pending"`, `waitUntil`, client poll loops on both platforms) is in git history
-(`ASYNC-CLOSE-PLAN.md` as of PR #287) — pick this up whenever it's worth the engineering time
-relative to other priorities.
+(`closed: "pending"`, `waitUntil`, client poll loops on both platforms) is in
+`docs/plans/ASYNC-CLOSE-PLAN.md` - pick this up whenever it's worth the engineering time relative
+to other priorities.
 
 ---
 

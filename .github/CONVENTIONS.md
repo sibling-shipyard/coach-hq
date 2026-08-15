@@ -52,7 +52,8 @@ Examples:
 - `fix: clamp quest streak display at 0 (#7)`
 - `core: soul layers — periodization overhaul` (regenerates `SOUL.md` via compose)
 
-Always include `fixes #N` in the PR body. PR body must follow `.github/agents/issue-template.md`.
+Always include `fixes #N` in the PR body. PR bodies follow `.github/PULL_REQUEST_TEMPLATE.md`
+(GitHub prefills it); issues follow `.github/agents/issue-template.md`.
 
 ---
 

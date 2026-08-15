@@ -14,6 +14,14 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 - **Don't touch:** `ui/` (UI Expert), `ios/` (iOS Builder), `platform/skeleton-templates/*.json` (Tech Lead), coaching files (`user_data/coach/`, `sessions/`, `user_data/ledger/challenge_v2.json` — Coach), `platform/soul/` + `platform/SOUL.md` (HQ) / `propagated/SOUL.md` (athlete repos) — Tech Lead only.
 - **Ingestion:** iOS app commits `hk_*.json` → `user_data/activities/hist/`; naming is client-side (`ActivityNamer.swift`) — no server-side rename step.
 
+## Docs you own
+
+Keep these current when the pipeline changes; rules in `docs/eng-docs/README.md`.
+
+- `docs/eng-docs/ios-sync.md` — the only ingestion path into `user_data/activities/hist/`.
+- `docs/eng-docs/challenge-v2-schema.md` — canonical ledger schema (ADR 0006).
+- `docs/eng-docs/activity-naming-migration.md` — one-time retag runbook.
+
 ## Gotchas
 
 - Activity naming: `engine/core/rename_core.py` is source of truth — keep iOS `ActivityNamer.swift` aligned.
@@ -22,6 +30,6 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 
 ## Learnings
 
-One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`.
+One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`. Cap ~15 entries — on overflow, promote the durable ones into the relevant `docs/eng-docs/` doc and drop the rest.
 
 - _(none yet)_

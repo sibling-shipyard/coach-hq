@@ -1,5 +1,7 @@
 # Coach chat LLM provider
 
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-05
+
 ## Context
 
 `coach-chat.ts` calls Gemini directly via raw `fetch` (`gemini-flash-latest`). **Unblocked:**

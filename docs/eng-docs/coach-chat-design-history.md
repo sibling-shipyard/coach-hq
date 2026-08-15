@@ -1,5 +1,7 @@
 # Coach Chat — design history
 
+> Status: Historical · Owner: UI Expert · Verified: 2026-08-06
+
 ## Context
 
 Coach chat has gone through a foundational redesign plus two follow-on passes, all in real
@@ -275,7 +277,7 @@ immunity.
   worst-case arithmetic across every stage (file reads, Gemini retries, commit retries) by simply
   using the real headroom available. This also meant the full "return fast, finish in background"
   redesign considered the same day was no longer an urgent fix (the timeout problem it targeted is
-  already solved by the 300s ceiling) — captured instead as `ASYNC-CLOSE-PLAN.md` at the repo root
+  already solved by the 300s ceiling) — captured instead as `docs/plans/ASYNC-CLOSE-PLAN.md`
   for optional future work, not implemented now.
 
 ---
@@ -285,9 +287,11 @@ immunity.
 Forensic audit of `coach-skanda-2003` found real closes weren't saving coach files at all: 5 close
 commits over 30 days, 0 wrote a coach file — only `chat_history.json` landed each time.
 `coach-akash-suresh` showed the same shape. Split into two design docs to keep scope tight:
-`coach-commit-mvp.md` (Split 1/P0 — prove a minimal fix on one file) and `coach-intent-schema.md`
-(Split 2/P1 — extend the same pattern to the rest of the coach files). Both fully superseded by
-this entry and removed; their content is folded in below.
+`coach-commit-mvp.md` (Split 1/P0 — prove a minimal fix on one file) and `docs/plans/coach-intent-schema.md`
+(Split 2/P1 — extend the same pattern to the rest of the coach files). Summarized here as the
+dated historical record; see those docs directly for full detail (`coach-commit-mvp.md` stays a
+live eng-doc since Split 1 shipped as designed, `coach-intent-schema.md` lives in `docs/plans/`
+since Split 2 was never built).
 
 **Split 1 / P0 (shipped as designed):**
 - `resolveFileUpdate` returns `{ok, path, reason}` instead of a bare `null` — every silent drop

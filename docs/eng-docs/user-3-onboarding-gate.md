@@ -1,6 +1,6 @@
 # User 3+ Onboarding Gate — Must-Do Before Friends Sign Up
 
-> Status: **Locked requirement (2026-07-26)** · Owner: Tech Lead · Blocks: any athlete beyond Akash + Skanda · Authority: [`scaling-plan.md`](scaling-plan.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-02 · Locked requirement: 2026-07-26 · Blocks: any athlete beyond Akash + Skanda · Authority: [`scaling-plan.md`](scaling-plan.md)
 >
 > **Update (#189):** Step 1 (eliminate athlete-facing PAT) is **done** — Sync and Apply Coach Patch now run under the built-in `GITHUB_TOKEN`. `PAT_TOKEN` references below describe the pre-fix state. Remaining gate items (auto repo on sign-up, etc.) still open.
 
@@ -72,7 +72,7 @@ Removes the worst UX (user-created PAT). Still requires repo to exist and App to
 
 ### 2. Auto-provision repo on sign-up
 
-Sign-up (`auth-install.ts` / onboarding UI) must ensure a **`coach-<user>` private repo** exists with the full skeleton tree before the athlete reaches the dashboard.
+Sign-up (`install-redirect` auth action / onboarding UI) must ensure a **`coach-<user>` private repo** exists with the full skeleton tree before the athlete reaches the dashboard.
 
 | Approach | Notes |
 |---|---|
@@ -132,7 +132,7 @@ flowchart LR
 |---|---|
 | Scaling authority | [`scaling-plan.md`](scaling-plan.md) §6.1, §7 M4 |
 | Operator migrate (Akash/Skanda only) | [`provision-runbook.md`](provision-runbook.md) |
-| Sign-up entry | `ui/api/auth-install.ts` |
-| Sync dispatch | `ui/api/trigger-sync.ts` |
+| Sign-up entry | `ui/api/auth/[...action].ts` (`install-redirect` action) |
+| Sync dispatch | Gone — no UI sync endpoint; sync is iOS-driven |
 | Skeleton sync workflow | `engine/.github/workflows/sync.user.yml` |
 | Parking-lot context | `scaling_plan.md` |

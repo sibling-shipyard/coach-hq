@@ -14,6 +14,8 @@ ui/client/src/data/
 ui/api/_generated/
 shared/golden-dataset/repo-data/
 issues/
+# agent worktrees (nested checkouts, never committed)
+.claude/worktrees/
 ios/**/xcuserdata/
 ios/**/*.xcuserstate
 ios/**/DerivedData/

@@ -1,7 +1,7 @@
 # Layer C Schema — Declarative Athlete Seam (MVP)
 
-> **Status:** Design only — Tech Lead sign-off gate for S2  
-> **Source:** [`soul-split-plan.md`](soul-split-plan.md) MVP shape + v5.7 runtime files  
+> Status: Current · Owner: Tech Lead · Verified: 2026-07-31 · Design only — Tech Lead sign-off gate for S2  
+> **Source:** the SOUL split plan's MVP shape (S0–S3, shipped — plan deleted, see git history) + v5.7 runtime files  
 > **Scope:** Schema definition only. `tracking_modules{}` is **reserved and empty** in MVP.
 
 ## Purpose
@@ -151,7 +151,7 @@ From Sky's `state.md` → Active Injury Flags (abbreviated):
 tracking_modules: {}   # MVP — empty. Sky's sleep/PRE/RPE live in state.md sections until P2.
 ```
 
-Future modules (not MVP): `cycle`, `readiness`, `illness`, `hrv_deload` — per [`soul-split-plan.md`](soul-split-plan.md) follow-ups.
+Future modules (not MVP): `cycle`, `readiness`, `illness`, `hrv_deload` — carried over as follow-ups from the SOUL split plan (shipped; see git history).
 
 HQ ships a **v4 template** (see [`challenge-v2-schema.md`](challenge-v2-schema.md)). Legacy v2/v3 repos **migrate to v4** at provision — no parallel shapes in production.
 

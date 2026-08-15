@@ -1,121 +1,165 @@
 # iOS App: Xcode Setup Instructions
 
-This document provides step-by-step instructions to get the Coach HQ iOS app building and running on a physical iPhone from the `feat/ios-app` branch.
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-15 · Partial — see "Unverified claims"
+
+How to get the Coach HQ iOS app building and running on a physical iPhone from `main`.
+
+Most of what old versions of this doc told you to configure by hand (Info.plist keys, URL scheme,
+HealthKit capability, OAuth credentials) is now **committed in the project** — the only manual
+steps left are signing and `Secrets.swift`.
 
 ## Prerequisites
 
-- macOS with Xcode 15+ installed (iOS platform component only)
-- A physical iPhone connected via USB (HealthKit requires a real device, not simulator)
-- An Apple ID (free — no paid Developer Program needed)
-- The GitHub OAuth App already created (you should have `Client ID` and `Client Secret`)
+- macOS with **Xcode 26.x**. Not optional: the app target's `IPHONEOS_DEPLOYMENT_TARGET` is 26.0
+  (project-level 26.5) and `CoachHQ.xcodeproj` is `objectVersion = 77`, so older Xcode can't open
+  or build it. CI pins `/Applications/Xcode_26.3.app` in `.github/workflows/ios-build.yml`.
+- A physical iPhone on **iOS 26.0+**, connected via USB. HealthKit needs a real device.
+- An Apple ID signed into Xcode. See the Signing step for the free-vs-paid caveat.
+- **No GitHub OAuth credentials.** Sign-in uses the shared coach-phelps-hq GitHub App with
+  PKCE handled entirely server-side in `ui/api/auth/` — no client ID and no client secret ever
+  live in the app.
 
-## Step 1: Clone and Checkout
+## Step 1: Clone
 
 ```bash
-git clone https://github.com/akash-suresh/coach-phelps.git
-cd coach-phelps
-git checkout feat/ios-app
+git clone https://github.com/sibling-shipyard/coach-phelps-hq.git
+cd coach-phelps-hq
 ```
 
-## Step 2: Open the Project
+Build from `main`. (The old `feat/ios-app` branch is long merged and no longer exists on origin.)
 
-Open `ios/CoachHQ/CoachHQ.xcodeproj` in Xcode.
+## Step 2: Create `Secrets.swift`
 
-## Step 3: Fix Signing
+Do this **before the first build** — the app won't compile without it.
 
-1. In the left sidebar (Project Navigator), click the top-level **CoachHQ** project (blue icon).
-2. Select the **CoachHQ** target in the targets list.
-3. Go to the **Signing & Capabilities** tab.
-4. Check **Automatically manage signing**.
-5. Under **Team**, select your Personal Team (your Apple ID).
-   - If no team appears: go to **Xcode → Settings → Accounts → "+" → Apple ID** and sign in first.
-6. The **Bundle Identifier** should be `com.siblingshipyard.coachhq`. If it shows a conflict, change it to something unique like `com.yourname.coachhq`.
+```bash
+cp ios/CoachHQ/CoachHQ/Secrets.swift.example ios/CoachHQ/CoachHQ/Secrets.swift
+```
 
-## Step 4: Fix Duplicate Info.plist Error
+`Secrets.swift` is gitignored. It sets exactly one value, `dashboardBaseURL`, which defaults to
+production (`https://coach-phelps-hq.vercel.app`). Override it only for local dashboard dev.
+There is nothing else to fill in.
 
-The project has a custom `Info.plist` file but Xcode is also auto-generating one. Fix this:
+## Step 3: Open the Project
 
-1. In the Project Navigator, find and **delete** the file `CoachHQ/Info.plist` (choose "Move to Trash").
-2. Select the **CoachHQ** target → **Info** tab.
-3. Under **URL Types**, click the **+** button and add:
-   - **Identifier:** `com.siblingshipyard.coachhq.oauth`
-   - **URL Schemes:** `coachhq`
-4. Still in the **Info** tab, under **Custom iOS Target Properties**, click **+** and add these keys:
-   - Key: `Privacy - Health Share Usage Description`
-   - Value: `Coach HQ needs access to your health data to sync workouts, heart rate, and recovery metrics to your coaching dashboard.`
+Open `ios/CoachHQ/CoachHQ.xcodeproj` in Xcode. Two targets build:
 
-## Step 5: Add HealthKit Capability
+| Target / scheme | Product | Bundle ID |
+|---|---|---|
+| `CoachHQ` | app | `com.siblingshipyard.coachhq.app` |
+| `CoachHQWidgetExtension` | widget extension (sources in `ios/CoachHQ/CoachHQWidget/`) | `com.siblingshipyard.coachhq.app.widget` |
 
-1. Select the **CoachHQ** target → **Signing & Capabilities** tab.
-2. Click **+ Capability** (top left of the tab).
-3. Search for **HealthKit** and add it.
-4. In the HealthKit section that appears, check **Background Delivery**.
+The project uses file-system-synchronized groups, so files added on disk appear in the project
+automatically — you never "Add Files to…" a new Swift file.
 
-## Step 6: Configure OAuth Credentials
+## Step 4: Signing
 
-1. Open `CoachHQ/Services/GitHubAuthManager.swift`.
-2. Replace the placeholder values:
-   ```swift
-   private let clientId = "YOUR_ACTUAL_CLIENT_ID"
-   private let clientSecret = "YOUR_ACTUAL_CLIENT_SECRET"
-   ```
+1. Select the top-level **CoachHQ** project (blue icon) → **Signing & Capabilities**.
+2. `DEVELOPMENT_TEAM` is committed as `Z642PXCYBK`. Replace it with **your** team on both the
+   `CoachHQ` and `CoachHQWidgetExtension` targets. **Automatically manage signing** is already on
+   (`CODE_SIGN_STYLE = Automatic`).
+   - No team listed: **Xcode → Settings → Accounts → "+" → Apple ID**, sign in, then reselect.
+3. If the bundle IDs collide with something already on your account, change both together and
+   keep the widget a child of the app (`<your-id>` and `<your-id>.widget`) — the widget is an
+   app extension and must nest.
 
-## Step 7: Select Build Target
+## Step 5: Capabilities — already configured, don't re-add
 
-1. In the top toolbar, click the device selector (next to the play button).
-2. Select your connected iPhone (not a simulator).
-3. If your phone doesn't appear, ensure it's connected via USB and you've trusted the computer on the phone.
+`ios/CoachHQ/CoachHQ/CoachHQ.entitlements` is committed and wired via `CODE_SIGN_ENTITLEMENTS`.
+It already declares:
 
-## Step 8: Build and Run
+- `com.apple.developer.healthkit` and `...healthkit.background-delivery`
+- App Group `group.com.siblingshipyard.coachhq.ios` (how the app hands snapshots to the widget;
+  `ios/CoachHQ/CoachHQ/Shared/AppGroupSnapshotBridge.swift`)
 
-1. Press **Cmd+R** (or click the Play button).
-2. First build may take a minute.
-3. If you see a "Developer not trusted" error on your phone: go to **iPhone → Settings → General → VPN & Device Management → your Apple ID → Trust**.
-4. The app should launch on your phone.
+`ios/CoachHQ/CoachHQWidget/CoachHQWidget.entitlements` declares the same App Group for the
+extension.
 
-## Step 9: Test the App
+Likewise **do not delete `Info.plist`** (older versions of this doc said to). The project sets
+both `INFOPLIST_FILE = CoachHQ/Info.plist` and `GENERATE_INFOPLIST_FILE = YES`, which is the
+normal modern merge setup, not a duplicate-plist bug. `ios/CoachHQ/CoachHQ/Info.plist` already
+carries `NSHealthShareUsageDescription`, `NSHealthUpdateUsageDescription`, and the `coachhq`
+URL scheme.
 
-1. Tap **Sign in with GitHub** — a Safari sheet will open.
-2. Log in to GitHub and authorize the app.
-3. Grant HealthKit permissions when prompted.
-4. Tap **Sync Now** to pull recent workouts from Apple Health into your repo.
-5. Check your GitHub repo's `user_data/activities/hist/` folder for new `hk_` prefixed JSON files.
+## Step 6: Build and Run
+
+1. Pick your connected iPhone in the device selector (not a simulator).
+2. **Cmd+R**. First build takes a few minutes.
+3. On-device "Untrusted Developer": **iPhone → Settings → General → VPN & Device Management →
+   your Apple ID → Trust**.
+
+## Step 7: First Run
+
+1. Tap **Continue with GitHub** — an in-app web view opens (`WebAuthPresenter`, shared cookie jar).
+2. Setup runs two steps if the account is new: create your training-log repo, then install the
+   Coach HQ GitHub App on it.
+3. Tap **Connect Health** and grant HealthKit access when iOS prompts.
+4. After the intro reveal you land on the four tabs: **Home · Coach · Train · You**.
+5. **Sync Now** lives in the **You** tab. Tap it, then check your repo's
+   `user_data/activities/hist/` for new `hk_`-prefixed JSON files.
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
+| `cannot find 'Secrets' in scope` | You skipped Step 2 — copy `Secrets.swift.example`. |
+| Project won't open / unsupported object version | You're on Xcode < 26. See Prerequisites. |
 | "Developer not trusted" on phone | Settings → General → VPN & Device Management → Trust |
-| App expires after 7 days | Just hit Cmd+R in Xcode again to re-deploy |
-| "No such module 'HealthKit'" | Ensure you added the HealthKit capability (Step 5) |
-| OAuth callback not working | Verify URL Scheme is exactly `coachhq` (lowercase, no colon or slashes) |
-| HealthKit permission not appearing | Must run on a real device, not simulator |
-| Build fails with Sendable warnings | These are warnings, not errors. Set **Strict Concurrency Checking** to **Minimal** in Build Settings if they bother you |
+| App expires after 7 days | Free-provisioning limit. Re-run Cmd+R to redeploy. |
+| Signing error on the widget only | You changed the team or bundle ID on `CoachHQ` but not `CoachHQWidgetExtension`. |
+| OAuth callback not working | URL scheme must be exactly `coachhq` (lowercase). It matches `callbackScheme` in `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift`. |
+| HealthKit permission not appearing | Must run on a real device, not a simulator. |
+| Widget shows empty state | App Group mismatch, or the app hasn't written a snapshot yet — open the app and pull to refresh Home first. |
 
-## File Structure After Setup
+Concurrency note: the project ships `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and
+`SWIFT_APPROACHABLE_CONCURRENCY = YES` at `SWIFT_VERSION = 5.0`. It does **not** set
+`SWIFT_STRICT_CONCURRENCY`. Don't change these to silence warnings — CI builds with the
+committed settings, so local overrides just hide what CI will still see.
+
+## CI
+
+`.github/workflows/ios-build.yml` compiles both schemes for the iOS Simulator on `macos-15` for
+every `ios/**` push and PR, with `CODE_SIGNING_ALLOWED=NO` and a `Secrets.swift` copied from the
+`.example`. It catches compile errors only — there is no XCTest target, and nothing about
+signing, devices, or HealthKit runtime behaviour is covered. Local build on a real phone is still
+the only way to verify behaviour.
+
+## Layout
 
 ```
-ios/CoachHQ/
-├── CoachHQ.xcodeproj/
+ios/
+├── DESIGN.md
+├── README.md
+├── scripts/
 └── CoachHQ/
-    ├── CoachHQApp.swift
-    ├── Assets.xcassets/
-    ├── Models/
-    │   ├── Activity.swift
-    │   └── SyncCache.swift
-    ├── Services/
-    │   ├── ActivityMapper.swift
-    │   ├── ActivityNamer.swift
-    │   ├── DescriptionParser.swift
-    │   ├── GitHubAPIClient.swift
-    │   ├── GitHubAuthManager.swift
-    │   └── HealthKitSyncManager.swift
-    └── Views/
-        ├── ActivityDetailView.swift
-        ├── ActivityListView.swift
-        ├── LoginView.swift
-        ├── MainTabView.swift
-        ├── SettingsView.swift
-        ├── SyncStatusView.swift
-        └── WorkoutPlaceholderView.swift
+    ├── CoachHQ.xcodeproj/          # 2 targets, 2 shared schemes
+    ├── CoachHQ/                    # app target
+    │   ├── CoachHQApp.swift
+    │   ├── Info.plist
+    │   ├── CoachHQ.entitlements
+    │   ├── Secrets.swift.example   # → Secrets.swift (gitignored)
+    │   ├── Assets.xcassets/ · Resources/
+    │   ├── Models/ · Services/ · Views/
+    │   └── Shared/                 # App Group bridge to the widget
+    └── CoachHQWidget/              # CoachHQWidgetExtension target
 ```
+
+Architecture lives in `docs/eng-docs/ios-app-spec.md`; the HealthKit → repo path is in
+`docs/eng-docs/ios-sync.md`.
+
+## Unverified claims
+
+Everything above was checked against `ios/CoachHQ/CoachHQ.xcodeproj/project.pbxproj`, the
+committed plists/entitlements, `ui/api/auth/`, and `.github/workflows/ios-build.yml`. These
+could not be checked without a Mac with Xcode open, and are carried over unconfirmed:
+
+1. Whether a **free** Apple ID (Personal Team) can provision this project at all. The App Group
+   entitlement historically requires a paid Apple Developer Program membership; the older version
+   of this doc claimed "free — no paid Developer Program needed", which predates the widget
+   extension and its App Group. Assume you may need a paid account until someone confirms.
+2. The exact Xcode UI paths in Steps 4–6 (tab names, menu items) and the 7-day free-provisioning
+   expiry behaviour.
+3. That the widget target actually picks up `CoachHQWidget.entitlements` — the file exists, but
+   no `CODE_SIGN_ENTITLEMENTS` build setting references it in `project.pbxproj`, only the app's.
+   The simulator CI build passes with `CODE_SIGNING_ALLOWED=NO`, which would not catch this.
+   Check on a real device install before trusting the App Group on the widget side.
