@@ -1535,6 +1535,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           outcomes: [
             ...validUpdates.map((u) => ({ path: u.path, result: "committed" as const })),
             ...droppedUpdates.map((d) => ({ path: d.path, result: "dropped" as const, reason: d.reason })),
+            // Re-review fix: coachNoteWrite lands in `committed` below but was never represented
+            // here, so a coach_note-only close (real content, no file_updates) looked identical
+            // in `outcomes` to a close that saved nothing at all - only `committed` gave it away.
+            ...(coachNoteWrite ? [{ path: COACH_NOTES_PATH, result: "committed" as const, via: "coach_note" as const }] : []),
           ],
           committed: writes.map((w) => w.path),
           ms: Date.now() - now,
@@ -1560,6 +1564,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           outcomes: [
             ...validUpdates.map((u) => ({ path: u.path, result: "commit_failed" as const })),
             ...droppedUpdates.map((d) => ({ path: d.path, result: "dropped" as const, reason: d.reason })),
+            ...(coachNoteWrite ? [{ path: COACH_NOTES_PATH, result: "commit_failed" as const, via: "coach_note" as const }] : []),
           ],
           error: errMessage,
           ms: Date.now() - now,
