@@ -13,7 +13,7 @@
  */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
-import { STATE_FILE_PATH, getFileRaw, isAthleteProfileComplete } from "./_lib/coachChatFiles.js";
+import { STATE_FILE_PATH, getFileRaw, isAthleteProfileComplete } from "./_lib/coach-chat/coachChatFiles.js";
 
 export default {
   async fetch(req: Request): Promise<Response> {

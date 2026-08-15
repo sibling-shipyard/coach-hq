@@ -16,7 +16,7 @@
  * caching existed - a broken/misconfigured cache should never block a coaching reply.
  */
 import { createClient } from "@vercel/edge-config";
-import { fetchWithTimeout } from "./coachChatFiles.js";
+import { fetchWithTimeout } from "../httpTimeout.js";
 
 const edgeConfigClient = process.env.GLOBAL_CONFIG ? createClient(process.env.GLOBAL_CONFIG) : null;
 

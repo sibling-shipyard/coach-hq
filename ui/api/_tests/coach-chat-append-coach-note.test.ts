@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appendCoachNote } from "../coach-chat.js";
+import { appendCoachNote } from "../_lib/coach-chat/coachWrites.js";
 
 // coach-commit-mvp (docs/eng-docs/coach-commit-mvp.md): the append-only write path for
 // coach_notes.md - deliberately the simplest possible write strategy (no exact-match old_string,

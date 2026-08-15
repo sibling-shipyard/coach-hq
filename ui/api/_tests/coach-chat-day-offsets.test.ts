@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { withComputedDayOffsets, type ChatThread } from "../coach-chat.js";
+import { withComputedDayOffsets } from "../_lib/coach-chat/coachDay.js";
+import type { ChatThread } from "../_lib/coach-chat/chatThreads.js";
 
 // Regression coverage for the stale ageLabel bug: ageLabel used to be written once as the
 // literal string "NOW" at thread-creation/close time and never touched again, so an old thread

@@ -4,7 +4,8 @@
  * coach-chat.ts so coach-chat-context.ts (the app-load preload endpoint, A3) can fetch the same
  * files the same way without duplicating the GitHub-read plumbing.
  */
-import { SOUL } from "../_generated/soul.js";
+import { SOUL } from "../../_generated/soul.js";
+import { fetchWithTimeout } from "../httpTimeout.js";
 
 // SOUL.md is verified 100% generic - no per-athlete substitution happens anywhere in the carve
 // process (platform/scripts/carve-skeleton.mjs copies it byte-for-byte into every athlete's
@@ -15,30 +16,6 @@ import { SOUL } from "../_generated/soul.js";
 // ui/scripts/build-soul.mjs and the ADR amending 0011 for the full rationale.
 export const STATE_FILE_PATH = "user_data/coach/state.md";
 export const QUEST_LOG_PATH = "gen/quest_log.md";
-
-// Neither the Gemini call nor the GitHub reads had an explicit cutoff - a stalled upstream call
-// left "Coach is thinking" spinning indefinitely instead of failing visibly. 25s leaves headroom
-// under Vercel's function timeout while still being well past any real response time.
-export const UPSTREAM_TIMEOUT_MS = 25_000;
-
-export async function fetchWithTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs = UPSTREAM_TIMEOUT_MS,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw Object.assign(new Error(`Request to ${new URL(url).hostname} timed out`), { status: 504 });
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
