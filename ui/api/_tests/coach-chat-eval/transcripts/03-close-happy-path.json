@@ -1,6 +1,6 @@
 {
   "name": "close-happy-path",
-  "description": "Genuine close-out with real content given - should close, propose a well-formed state.md edit, and include a commit_message.",
+  "description": "Genuine close-out with real content given - should close and produce a real coach_note. This is the core signal the reliability-debug branch exists to measure: does the smallest possible ask reliably produce a non-empty coach_note.",
   "mode": "closing",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
@@ -11,13 +11,9 @@
     { "id": "4", "role": "user", "text": "Slept 8 hours, feeling good." }
   ],
   "userMessage": "That's all for now, wrap this session.",
-  "closingFiles": {
-    "challengeV2": "{\"season\":{\"start_date\":\"2026-07-01\"},\"main_quest\":{\"id\":\"sub45_10k\"},\"quests\":[{\"id\":\"cold_shower\",\"completed_dates\":[]}]}",
-    "currentWeek": null,
-    "sleepLog": "{}"
-  },
   "expect": {
     "sessionClosed": true,
-    "hasCommitMessage": true
+    "coachNoteReported": true,
+    "noFabricatedSaveLanguage": true
   }
 }

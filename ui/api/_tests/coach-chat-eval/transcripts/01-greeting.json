@@ -1,14 +1,12 @@
 {
   "name": "greeting",
-  "description": "Coach speaks first (A4) - no athlete message yet, must not touch files or close.",
+  "description": "Coach speaks first (A4) - no athlete message yet, must not close.",
   "mode": "greeting",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "history": [],
   "userMessage": "",
-  "closingFiles": null,
   "expect": {
-    "sessionClosed": false,
-    "fileUpdatesEmpty": true
+    "sessionClosed": false
   }
 }
