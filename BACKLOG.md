@@ -33,3 +33,20 @@ strip rather than relying on "it's not in the schema so it won't happen."
 `ui/scripts/eval-coach-chat.ts`'s `if ("reasoning" in reply) failures.push(...)` no longer
 verifies a real code guard (see #2) — it only passes because the schema doesn't ask for
 `reasoning`, not because anything strips it if the model emits it anyway. Revisit alongside #2.
+
+## 4. P2: consolidate coach-chat's 3 routes behind a catch-all, matching auth/
+
+`coach-chat.ts`, `coach-chat-context.ts`, `coach-chat-profile-status.ts` are 3 separate
+Vercel-routed files (3 functions) at flat, hyphenated URLs (`/api/coach-chat`,
+`/api/coach-chat-context`, `/api/coach-chat-profile-status`). Could become
+`coach-chat/[...action].ts` (1 function), the same pattern `auth/[...action].ts` already uses
+(ADR 0017) — Vercel counts a catch-all as one function regardless of how many sub-paths it
+dispatches internally.
+
+Not urgent: we're at 7/12 functions, no cap pressure. And unlike auth's consolidation (which
+didn't change any URL, since `/api/auth/*` already matched all 7 files), these 3 URLs don't
+share a path prefix today — moving to a catch-all would change them (e.g. to
+`/api/coach-chat/context`), requiring updates in the web frontend (`coachChatModel.ts`,
+`prefetchCoachContext.ts`) and iOS (`CoachChatAPIClient.swift`'s 3 hardcoded paths, plus doc
+comments in `CoachChatModels.swift`/`CoachSetupState.swift`/`CoachChatLocalCache.swift`). Do as
+its own small PR if/when worth it for consistency, not bundled with anything else.
