@@ -318,11 +318,19 @@ export function hasUnsavedContentMismatch(
 // B1: the nudge sent back to Gemini, replaying its own prior turn verbatim, when the mismatch
 // heuristic above fires on a closing turn. Asks it to either genuinely populate file_updates to
 // match its own stated reasoning, or admit there's nothing to save and say so explicitly.
+// coach-commit-mvp follow-up: live testing found the retry itself repeating the exact same
+// empty-file_updates mismatch a second time, twice in a row on the same turn (reasoning kept
+// claiming a state.md edit that never landed) - the nudge only ever asked for file_updates, never
+// offered coach_note as a fallback on the retry itself, even though the main closing prompt above
+// does now. Explicitly offering the easier target here too, on the one call most likely to matter
+// (this is already the last chance before the honesty-guard caveat fires).
 const UNSAVED_CONTENT_RETRY_NUDGE =
   "Your reasoning above described saving specific content, but file_updates was empty. Populate " +
-  "file_updates now with the exact edits your reasoning described (or, if there is truly nothing " +
-  "to save, say so explicitly in reasoning and leave file_updates empty). Also re-set " +
-  "checklist_covered and reply to match whatever you decide here — this is the final answer.";
+  "file_updates now with the exact edits your reasoning described. If you're not fully confident " +
+  "the edit will match state.md's exact current text, put the same facts in coach_note instead (or " +
+  "in addition) - coach_note is append-only and never fails to match, unlike a file_updates edit. " +
+  "Only leave both empty if there is truly nothing to save, and say so explicitly in reasoning. " +
+  "Also re-set checklist_covered and reply to match whatever you decide here — this is the final answer.";
 
 // The model's own commit_message sometimes already includes a "coach:"-style prefix, which
 // would otherwise stutter with the one the code adds below (observed in testing:
@@ -708,6 +716,12 @@ export async function askGemini(
           `is separate from file_updates and does not require you to propose an edit to`,
           `coach_notes.md - the server appends coach_note to that file with today's date on its own.`,
           `You never see or need to see coach_notes.md's current content - just report the fact.`,
+          `\ncoach_note is your guaranteed fallback, not an optional extra: if your reasoning above`,
+          `describes real content (an injury, a workout, a plan) but you're not fully confident the`,
+          `file_updates edit you're about to propose will match state.md's exact current text, put the`,
+          `same facts in coach_note too - a coach_note that duplicates a successful file_updates edit`,
+          `costs nothing, but a session that ends with BOTH empty when real content happened is the`,
+          `single worst outcome (nothing saved anywhere, silently). When in doubt, coach_note.`,
         ].join("\n")
       : [
           "\nThis is an ordinary turn, not a close-out - you were not given the current contents of",
