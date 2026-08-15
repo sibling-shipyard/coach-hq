@@ -59,6 +59,11 @@ Two layers, both small on purpose:
 - **Doc style — `kdb/doc-style.md`.** Any design/architecture doc, RFC, plan, or ADR follows the house style in `kdb/doc-style.md`: short, diagram-led, plain English (self-contained — no external skill required).
 **Recording:** durable rule for your area → that role doc's `## Learnings` (one line, when you discover it mid-task). Tradeoffs with cost → ADR in `kdb/decisions/`.
 
+**Where it lives:** repo-durable rules live **in the repo** — role doc `## Learnings` or an ADR, never
+only in a session. Agent-local memory (Claude's `~/.claude` memory, Cursor session state) holds
+**nothing another machine or tool would need**: the athlete works across multiple laptops and two
+tools, so anything left there is effectively lost. Found one stranded? Move it into the repo.
+
 ## How all agents work
 
 Every agent (Tech Lead + workers) follows this. Role docs add scope; they don't override these rules.

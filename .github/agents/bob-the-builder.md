@@ -30,6 +30,6 @@ Keep these current when the pipeline changes; rules in `docs/eng-docs/README.md`
 
 ## Learnings
 
-One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`.
+One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`. Cap ~15 entries — on overflow, promote the durable ones into the relevant `docs/eng-docs/` doc and drop the rest.
 
 - _(none yet)_

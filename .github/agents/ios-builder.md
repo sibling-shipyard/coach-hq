@@ -30,7 +30,7 @@ Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
 
 ## Learnings
 
-One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`.
+One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`. Cap ~15 entries — on overflow, promote the durable ones into the relevant `docs/eng-docs/` doc and drop the rest.
 
 - Coach-voice typography (Newsreader vs. system serif) was an open decision in `ios/DESIGN.md` — resolved as system serif italic (`.system(design: .serif).italic()`) for Warm Instrument Home rather than bundling a font asset. Revisit only if the team decides bundling Newsreader is worth it.
 - `Theme.cornerRadius`/`Theme.cardBackground`/`Theme.cardBorder`/`Theme.ink` are shared app-wide — retinting them (as Warm Instrument Home's Phase 1 did) changes every screen's card look, not just new ones. Cheap, low-risk way to roll a palette change across the whole app without touching each view file.
