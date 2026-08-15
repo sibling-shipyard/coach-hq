@@ -25,6 +25,8 @@
 | 0019 | Enforce one repo per GitHub account: block and instruct, no picker | cross-cutting (web auth, iOS auth) |
 | 0020 | Aggregate scalar projection boundary | cross-cutting |
 | 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | cross-cutting |
+| 0022 | SOUL composes into two builds: one for the app, one for BYO Claude Code | cross-cutting |
+| 0023 | A signal ships only when something other than the athlete maintains it | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.
