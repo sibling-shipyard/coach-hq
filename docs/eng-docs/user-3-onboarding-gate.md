@@ -72,7 +72,7 @@ Removes the worst UX (user-created PAT). Still requires repo to exist and App to
 
 ### 2. Auto-provision repo on sign-up
 
-Sign-up (`auth-install.ts` / onboarding UI) must ensure a **`coach-<user>` private repo** exists with the full skeleton tree before the athlete reaches the dashboard.
+Sign-up (`install-redirect` auth action / onboarding UI) must ensure a **`coach-<user>` private repo** exists with the full skeleton tree before the athlete reaches the dashboard.
 
 | Approach | Notes |
 |---|---|
@@ -132,7 +132,7 @@ flowchart LR
 |---|---|
 | Scaling authority | [`scaling-plan.md`](scaling-plan.md) §6.1, §7 M4 |
 | Operator migrate (Akash/Skanda only) | [`provision-runbook.md`](provision-runbook.md) |
-| Sign-up entry | `ui/api/auth-install.ts` |
-| Sync dispatch | `ui/api/trigger-sync.ts` |
+| Sign-up entry | `ui/api/auth/[...action].ts` (`install-redirect` action) |
+| Sync dispatch | Gone — no UI sync endpoint; sync is iOS-driven |
 | Skeleton sync workflow | `engine/.github/workflows/sync.user.yml` |
 | Parking-lot context | `scaling_plan.md` |

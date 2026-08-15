@@ -70,19 +70,76 @@ def gitignored(rel):
     except OSError:
         return False  # git unavailable — don't skip, but don't crash either
 
+LINE_CITE_RE = re.compile(r":\d+(?:-\d+)?$")  # `foo.ts:823`, `foo.ts:819-855` — a citation, not a path
+
+def check_repo_path(fp, tok, sink=None):
+    """Report tok if it looks like an HQ repo-relative path that no longer exists."""
+    if "/" not in tok or tok.startswith(("/", "@")):
+        return
+    # `{a,b}.ts` is brace expansion over several files, not one path — same class as <N> and *.
+    if any(c in tok for c in "<>*{}") or any(c.isspace() for c in tok):
+        return
+    rel = LINE_CITE_RE.sub("", tok).rstrip("/")
+    if rel.split("/", 1)[0] not in TOP_DIRS:
+        return
+    if (ROOT / rel).exists() or gitignored(rel):
+        return
+    msg = f"{fp.relative_to(ROOT)}: `{tok}` does not exist"
+    sink = errors if sink is None else sink
+    if msg not in sink:
+        sink.append(msg)
+
 doc_files = ([AGENTS] if AGENTS.exists() else []) + sorted((ROOT / ".github" / "agents").glob("*.md"))
 for fp in doc_files:
     for tok in dict.fromkeys(PATH_RE.findall(fp.read_text())):
-        if "/" not in tok or tok.startswith(("/", "@")):
+        check_repo_path(fp, tok)
+
+# Wider scan: workflows + HQ docs. Same path rules, plus two extra matchers, because paths
+# there are usually not backticked — the dead `docs/eng-docs/TODO.md` that survived in
+# ios-build.yml was a plain YAML comment.
+#   1. bare tokens, but only when they carry a known extension or a trailing slash. Prose and
+#      YAML are full of slashed non-paths (`actions/checkout@v4`, `A/B`, URLs); requiring an
+#      extension keeps this precise — a checker that cries wolf gets switched off.
+#   2. markdown link targets, resolved against the containing file's directory (they are
+#      relative to the file, not the repo root) — that is what catches broken cross-refs.
+WIDE_EXTS = (".md", ".py", ".mjs", ".ts", ".sh", ".json", ".yml")
+BARE_RE = re.compile(r"[\w.\-/]*/[\w.\-/]*")
+LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
+HISTORICAL_RE = re.compile(r"^>\s*Status:\s*(Historical|Superseded)", re.M)
+
+# `docs/plans/` is in-flight work that names files it proposes to create, so a missing path
+# there is a forward reference, not a dead one — warn, never fail. Workflows and `docs/eng-docs/`
+# describe the system as it is today: missing means broken.
+wide_files = ([(fp, errors) for fp in sorted((ROOT / ".github" / "workflows").glob("*.yml"))]
+              + [(fp, errors) for fp in sorted((ROOT / "docs" / "eng-docs").glob("*.md"))]
+              + [(fp, warnings) for fp in sorted((ROOT / "docs" / "plans").glob("*.md"))])
+for fp, sink in wide_files:
+    text = fp.read_text()
+    if HISTORICAL_RE.search(text):
+        continue  # dated records — they describe a tree that is gone on purpose
+    for tok in dict.fromkeys(PATH_RE.findall(text)):
+        check_repo_path(fp, tok, sink)
+    for tok in dict.fromkeys(BARE_RE.findall(text)):
+        tok = tok.strip("`\"'.,;:()[]")
+        if not (tok.endswith("/") or tok.endswith(WIDE_EXTS)):
             continue
-        if any(c in tok for c in "<>*") or any(c.isspace() for c in tok):
+        check_repo_path(fp, tok, sink)
+    for target in dict.fromkeys(LINK_RE.findall(text)):
+        target = target.split("#", 1)[0].strip("`\"'<>")
+        if not target or ":" in target or target.startswith(("/", "@")):
+            continue  # anchors, URLs, mailto:, absolute paths
+        if any(c in target for c in "<>*{}"):
             continue
-        rel = tok.rstrip("/")
-        if rel.split("/", 1)[0] not in TOP_DIRS:
+        dest = (fp.parent / target).resolve()
+        try:
+            rel = dest.relative_to(ROOT)
+        except ValueError:
+            continue  # points outside the repo — not ours to validate
+        if dest.exists() or gitignored(str(rel)):
             continue
-        if (ROOT / rel).exists() or gitignored(rel):
-            continue
-        errors.append(f"{fp.relative_to(ROOT)}: `{tok}` does not exist")
+        msg = f"{fp.relative_to(ROOT)}: link target '{target}' does not exist"
+        if msg not in sink:
+            sink.append(msg)
 
 # AGENTS.md size (soft cap)
 if AGENTS.exists():

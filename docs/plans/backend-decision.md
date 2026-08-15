@@ -486,7 +486,7 @@ users is more likely the Gemini API bill (unchanged by this migration) than Supa
    per-user repo to fan it out into.
 6. File a new ADR superseding 0001 (repo-per-user), 0009 (GitHub refresh-token session), and
    updating 0012/0014's mechanics to their Postgres equivalents. Update `scaling-plan.md` §9
-   and the M1-M4 milestones in `docs/eng-docs/TODO.md` — this migration effectively replaces
+   and the M1-M4 milestones in `ROADMAP.md` — this migration effectively replaces
    what M2-M4 currently describe in GitHub terms.
 
 ## Verification
