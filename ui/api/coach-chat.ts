@@ -41,7 +41,10 @@ const SLEEP_LOG_PATH = "user_data/coach/sleep_log.json";
 // A7: which write strategy applies to which coach-writable file. Markdown files get exact-match
 // string edits; JSON files get RFC 7396 merge patches (ui/api/_lib/fileEdits.ts); session files
 // (SESSIONS_PREFIX) are usually whole-new-file writes, so they keep full-content replacement.
-const MARKDOWN_EDIT_FILES = new Set([STATE_FILE_PATH, COACH_NOTES_PATH]);
+// coach-commit-mvp: coach_notes.md is no longer an edits-eligible target - Gemini reports a
+// `coach_note` fact instead (see GeminiReply/appendCoachNote below) and the server appends it
+// directly, so state.md is the only remaining markdown-edit file.
+const MARKDOWN_EDIT_FILES = new Set([STATE_FILE_PATH]);
 const JSON_MERGE_FILES = new Set([CHALLENGE_V2_PATH, CURRENT_WEEK_PATH, SLEEP_LOG_PATH]);
 
 // Dated model ids keep getting cut early without much notice - gemini-2.0-flash was deprecated,
@@ -248,18 +251,103 @@ export function coachDayNumber(challengeJson: string | null | undefined, stateMd
 // "for today/now/me" and trailing punctuation) rather than matching anywhere - an unanchored
 // version would false-positive on "that's all, actually one more thing about my shoulder", where
 // the athlete is clearly still talking, not closing.
+// A9: real-world testing found "Lets wrap" - completely normal phrasing - didn't match the bare
+// "wrap" anchor, since that was tightened to require the ENTIRE message be just "wrap" (to stop
+// "I don't think we should wrap" from false-triggering). That fix was too strict: it also
+// excluded "let's wrap"/"ok wrap"/"yeah, wrap", real closing phrases with a short filler in front.
+// Widened to allow a short closing-affirming filler before "wrap" while still anchoring to the
+// end of the message - a real sentence like "I don't think we should wrap" still doesn't fit this
+// shape (too many words, no affirming filler), so that negation case still correctly excludes.
 const CLOSE_SESSION_PATTERN =
-  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|^wrap[.!]?$|done for (today|the day)|that'?s (it|all)\b(\s+for (today|now|me))?[.!]?$|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
+  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|^(let'?s|ok|okay|yeah|yep|alright|sure)?[,.]?\s*wrap[.!]?$|done for (today|the day)|that'?s (it|all)\b(\s+for (today|now|me))?[.!]?$|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
 
 export function isCloseSignal(message: string): boolean {
   return CLOSE_SESSION_PATTERN.test(message);
 }
+
+// A10: live testing found a bigger gap than the regex itself - a closing turn that asks a
+// clarifying question ("before I close, how'd you sleep?") gets a completely ordinary-sounding
+// reply back ("sleep 8hrs"), which never matches CLOSE_SESSION_PATTERN on its own. That routes
+// the next turn as "ordinary" - and Gemini, in direct violation of the ordinary-turn prompt's own
+// "set session_closed to false" instruction, was observed returning session_closed: true and a
+// fully closing-style reply anyway. Since `closing` requires closeIntent to be true regardless of
+// what Gemini says, nothing actually got committed - but the athlete saw a convincing "all set,
+// logged" message for a turn that saved nothing at all. Prompt-only fixes for Gemini not
+// following its own instructions have already proven unreliable elsewhere in this file (that's
+// the whole reason Part B's retry/honesty-guard exists) - the deterministic fix is to make the
+// trigger itself remember a pending close, not to trust the model to self-regulate a second time.
+// Bounded to the last few messages (not the whole thread) so this doesn't leak into unrelated
+// later chat in the same thread if the close attempt is abandoned rather than answered.
+const CLOSE_ATTEMPT_LOOKBACK = 4;
+
+export function wasCloseAttemptPending(priorMessages: ChatMessage[]): boolean {
+  return priorMessages.slice(-CLOSE_ATTEMPT_LOOKBACK).some((m) => m.role === "user" && isCloseSignal(m.text));
+}
+
+// B1 (docs/eng-docs/coach-chat-closing-followup.md): heuristic for "reasoning describes real
+// content the model intends to save, but file_updates came back empty/absent anyway" - the exact
+// failure mode confirmed live (2026-08-14, coach-akash-suresh, traceId xuij2ft9): reasoning
+// explicitly described a state.md edit, file_updates was []. Part A (schema reorder + broader
+// close-trigger regex, #284) alone did not reliably prevent this in practice.
+// The 40-char length threshold is a plain judgment call, not a principled one - long enough to
+// skip empty/terse reasoning ("", "ok, nothing here") while still catching a real multi-fact
+// reasoning string; revisit if it proves too strict or too loose once B1's retry has run in
+// production for a while.
+const NOTHING_TO_SAVE_PATTERN =
+  /nothing (concrete|new|to save)|no (changes|updates) needed|already reflect(s|ed)|genuinely empty/i;
+
+// coach-commit-mvp: a non-trivial coach_note is now a fully legitimate, independent way to
+// satisfy a close - not just a fallback for when file_updates is empty. 10 chars is a plain
+// judgment call, same spirit as the 40-char reasoning threshold above: long enough to skip an
+// empty/placeholder note, short enough not to demand a full sentence.
+const COACH_NOTE_MIN_LENGTH = 10;
+
+export function hasUnsavedContentMismatch(
+  reasoning: string | undefined,
+  fileUpdates: GeminiFileUpdate[] | undefined,
+  coachNote: string | undefined,
+): boolean {
+  if (fileUpdates && fileUpdates.length > 0) return false;
+  if ((coachNote?.trim().length ?? 0) >= COACH_NOTE_MIN_LENGTH) return false;
+  const trimmed = reasoning?.trim() ?? "";
+  if (trimmed.length <= 40) return false;
+  if (NOTHING_TO_SAVE_PATTERN.test(trimmed)) return false;
+  return true;
+}
+
+// B1: the nudge sent back to Gemini, replaying its own prior turn verbatim, when the mismatch
+// heuristic above fires on a closing turn. Asks it to either genuinely populate file_updates to
+// match its own stated reasoning, or admit there's nothing to save and say so explicitly.
+// coach-commit-mvp follow-up: live testing found the retry itself repeating the exact same
+// empty-file_updates mismatch a second time, twice in a row on the same turn (reasoning kept
+// claiming a state.md edit that never landed) - the nudge only ever asked for file_updates, never
+// offered coach_note as a fallback on the retry itself, even though the main closing prompt above
+// does now. Explicitly offering the easier target here too, on the one call most likely to matter
+// (this is already the last chance before the honesty-guard caveat fires).
+const UNSAVED_CONTENT_RETRY_NUDGE =
+  "Your reasoning above described saving specific content, but file_updates was empty. Populate " +
+  "file_updates now with the exact edits your reasoning described. If you're not fully confident " +
+  "the edit will match state.md's exact current text, put the same facts in coach_note instead (or " +
+  "in addition) - coach_note is append-only and never fails to match, unlike a file_updates edit. " +
+  "Only leave both empty if there is truly nothing to save, and say so explicitly in reasoning. " +
+  "Also re-set checklist_covered and reply to match whatever you decide here — this is the final answer.";
 
 // The model's own commit_message sometimes already includes a "coach:"-style prefix, which
 // would otherwise stutter with the one the code adds below (observed in testing:
 // "coach: chat — coach: day-38 — ..."). Strip it defensively.
 function cleanCommitMessage(message: string): string {
   return message.replace(/^\s*coach:?\s*[-—]*\s*/i, "").trim();
+}
+
+// coach-commit-mvp: the whole point of coach_note is append-only, no exact-match, no patch parse
+// - so this is deliberately the simplest possible write strategy, immune to the three silent-drop
+// causes documented at the top of coach-commit-mvp.md. Pure/testable on its own, same spirit as
+// applyStringEdits/applyJsonMergePatch in fileEdits.ts, even though it's simple enough to live
+// here rather than in that file. `currentContent` is null when coach_notes.md doesn't exist yet
+// (first note ever written for this athlete) - starts the file with just the new dated entry.
+export function appendCoachNote(currentContent: string | null, note: string, dateString: string): string {
+  const base = currentContent ?? "";
+  return `${base}\n\n## ${dateString}\n${note.trim()}`;
 }
 
 export type ChatMessage =
@@ -355,6 +443,11 @@ interface GeminiReply {
   reasoning?: string;
   reply: string;
   file_updates?: GeminiFileUpdate[];
+  // Only meaningful on a closing=true turn - a short plain-English note of what actually
+  // happened this session, worth remembering long-term. Appended by the server (with today's
+  // date) to coach_notes.md at commit time (see appendCoachNote) - never shown to the athlete in
+  // any current response, same treatment as commit_message/title below.
+  coach_note?: string;
   commit_message?: string;
   // Only meaningful on a closing=true turn (see askGemini) - the athlete's keyword match is
   // just a trigger to ask Gemini to consider closing, not a guarantee it actually did. Gemini
@@ -371,6 +464,13 @@ interface GeminiReply {
   // closed without asking about sleep") can be told apart from "model legitimately used the
   // escape hatch on a second ask" instead of guessing from the reply text alone.
   checklist_covered?: boolean;
+  // Internal-only, same treatment as `reasoning` above: never sent to the athlete, never meant to
+  // leak through any response shape. Unlike `reasoning` (stripped inside askGemini itself, never
+  // leaves this file), this one has to survive one layer higher - set by askGemini's B1 retry
+  // logic (docs/eng-docs/coach-chat-closing-followup.md) when a closing turn's file_updates still
+  // looks mismatched against its own reasoning after the retry, then read and stripped by the
+  // HTTP handler's honesty guard right after askGemini returns.
+  _unsavedContentSuspected?: boolean;
 }
 
 export type TurnMode = "greeting" | "ordinary" | "closing";
@@ -381,7 +481,6 @@ export type TurnMode = "greeting" | "ordinary" | "closing";
 // sensible merge patch against it - it was never given these before A7 either, but that only
 // mattered when it was regenerating whole files from scratch; edits/patches need the real thing.
 export interface ClosingFileContext {
-  coachNotes: string | null;
   challengeV2: string | null;
   currentWeek: string | null;
   sleepLog: string | null;
@@ -451,6 +550,11 @@ const GENERATION_CONFIG = {
           required: ["path"],
         },
       },
+      // coach-commit-mvp: a "commitment" field, same category as file_updates above (real
+      // content the model is committing to save) - declared here, right after file_updates and
+      // still well ahead of the narrative fields (reply/title/session_closed) below, for the same
+      // ordering reason documented on `reasoning`/`file_updates` above.
+      coach_note: { type: "string" },
       checklist_covered: { type: "boolean" },
       commit_message: { type: "string" },
       title: { type: "string" },
@@ -502,6 +606,7 @@ export async function askGemini(
   mode: TurnMode,
   extraContext?: string,
   closingFiles?: ClosingFileContext,
+  traceId?: string,
 ): Promise<GeminiReply> {
   // Ordered for Gemini's implicit prompt caching (automatic, on by default for 2.5+ models) as
   // a fallback path: caching only matches the longest byte-identical *prefix*, so everything
@@ -544,7 +649,6 @@ export async function askGemini(
       ? [
           "\nCurrent contents of the other files you may need to edit this turn (only fetched on a",
           "close-out turn):",
-          "\nuser_data/coach/coach_notes.md:\n" + (closingFiles.coachNotes ?? "(file does not exist yet)"),
           "\nuser_data/ledger/challenge_v2.json:\n" + (closingFiles.challengeV2 ?? "(file does not exist yet)"),
           "\nuser_data/ledger/current_week.json:\n" + (closingFiles.currentWeek ?? "(file does not exist yet)"),
           "\nuser_data/coach/sleep_log.json:\n" + (closingFiles.sleepLog ?? "(file does not exist yet)"),
@@ -568,7 +672,7 @@ export async function askGemini(
           "session\", or similar). This turn IS the commit-protocol moment (SOUL.md §12) - you must",
           "actually execute it now, not just acknowledge it: reflect on this whole conversation, and",
           "propose edits for every file that genuinely changed via file_updates (state.md at minimum",
-          "if anything was discussed; coach_notes.md/challenge_v2.json/current_week.json/sleep_log.json",
+          "if anything was discussed; challenge_v2.json/current_week.json/sleep_log.json",
           "/user_data/activities/workout_plans/sessions/<name>.json if relevant - their current",
           "contents are given to you above). If something the pre-commit checklist needs - today's",
           "sleep, side-quest status, injury flags - was never covered anywhere in this conversation or",
@@ -596,20 +700,33 @@ export async function askGemini(
           `\nIf session_closed is true, also set title: a short, specific, human-readable summary of`,
           `what THIS conversation was actually about (e.g. "Sore shoulder, modified Tuesday session"`,
           `or "Planned taper week before the 10K"), not a generic label like "Check-in" or "Training`,
-          `talk". Write it like a chat-app conversation title: descriptive enough that the athlete`,
-          `recognizes this specific conversation in a list of past days, not just its topic category.`,
-          `Max ${THREAD_TITLE_MAX_CHARS} characters - if the natural phrasing runs longer, cut it down`,
-          `to the most specific/important part rather than a generic fallback. Omit title entirely if`,
-          `session_closed is false. Write it in plain English only - no mixed scripts or other`,
-          `languages, even if the conversation itself touched on one.`,
+          `talk". Write it like a chat-app conversation title: a handful of words, not a sentence -`,
+          `descriptive enough that the athlete recognizes this specific conversation in a list of past`,
+          `days, not just its topic category. The server truncates this automatically if it runs long,`,
+          `so don't count characters or explain/show any length adjustment - just write the title`,
+          `itself, nothing else, in the title field. Omit title entirely if session_closed is false.`,
+          `Write it in plain English only - no mixed scripts or other languages, even if the`,
+          `conversation itself touched on one.`,
           `\nAlso set checklist_covered: true if sleep/side-quest/injury status genuinely got covered`,
           `this conversation (or wasn't relevant), or false if you're closing via the "athlete asked`,
           `twice, close anyway" escape hatch above without it. This is diagnostic only, not a gate -`,
           `be honest about which case this is rather than defaulting to true.`,
+          `\nAlways include coach_note on a closing turn: a short (2-3 sentence) plain-English note of`,
+          `what actually happened this session, worth remembering long-term (e.g. "Ran intervals,`,
+          `felt strong, no soreness. Planning a rest day tomorrow before Thursday's tempo run."). This`,
+          `is separate from file_updates and does not require you to propose an edit to`,
+          `coach_notes.md - the server appends coach_note to that file with today's date on its own.`,
+          `You never see or need to see coach_notes.md's current content - just report the fact.`,
+          `\ncoach_note is your guaranteed fallback, not an optional extra: if your reasoning above`,
+          `describes real content (an injury, a workout, a plan) but you're not fully confident the`,
+          `file_updates edit you're about to propose will match state.md's exact current text, put the`,
+          `same facts in coach_note too - a coach_note that duplicates a successful file_updates edit`,
+          `costs nothing, but a session that ends with BOTH empty when real content happened is the`,
+          `single worst outcome (nothing saved anywhere, silently). When in doubt, coach_note.`,
         ].join("\n")
       : [
           "\nThis is an ordinary turn, not a close-out - you were not given the current contents of",
-          "coach_notes.md/challenge_v2.json/current_week.json/sleep_log.json this turn (only state.md",
+          "challenge_v2.json/current_week.json/sleep_log.json this turn (only state.md",
           "and quest_log.md above), so you cannot safely propose edits to those files right now - you'd",
           "be guessing at content you haven't actually seen. If something happened this turn that",
           "genuinely needs saving (a workout logged, a check-in, a quest completion), you may propose",
@@ -621,7 +738,7 @@ export async function askGemini(
     [
       "\nHow to propose a file change in file_updates - use exactly ONE of these per file, matching",
       "its type:",
-      "\n1. Markdown files (state.md, coach_notes.md) - `edits`: an array of {old_string, new_string}.",
+      "\n1. Markdown files (state.md) - `edits`: an array of {old_string, new_string}.",
       "Each old_string must be copied EXACTLY, character-for-character, from the current content given",
       "to you above, and must be long enough (include a line or two of surrounding context) to match",
       "only ONE place in the file - an old_string that doesn't appear, or appears more than once, will",
@@ -687,11 +804,16 @@ export async function askGemini(
         ]
       : [...historyContents, finalTurn];
 
-  const buildRequestBody = (useCache: boolean) => ({
+  // B1: optional `contentsOverride` lets a caller (the closing-turn mismatch retry below) reuse
+  // the exact same auth shape (cachedContent vs. systemInstruction) and generationConfig as
+  // whichever useCache value the original successful call ended up using, while swapping in a
+  // different `contents` array (the replayed prior turn + nudge) - only `contents` legitimately
+  // differs for that retry, nothing else about the request.
+  const buildRequestBody = (useCache: boolean, contentsOverride?: ReturnType<typeof buildContents>) => ({
     ...(useCache
       ? { cachedContent: cachedName }
       : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(false) }] } }),
-    contents: buildContents(useCache),
+    contents: contentsOverride ?? buildContents(useCache),
     generationConfig: GENERATION_CONFIG,
   });
 
@@ -702,13 +824,13 @@ export async function askGemini(
   // inheriting the file-read default.
   const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
 
-  const callGemini = (useCache: boolean): Promise<Response> =>
+  const callGemini = (useCache: boolean, contentsOverride?: ReturnType<typeof buildContents>): Promise<Response> =>
     fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildRequestBody(useCache)),
+        body: JSON.stringify(buildRequestBody(useCache, contentsOverride)),
       },
       GEMINI_GENERATE_TIMEOUT_MS,
     ).catch((err) => {
@@ -723,6 +845,13 @@ export async function askGemini(
       throw err;
     });
 
+  // Validation logging: full visibility into what we actually asked for, paired with the full
+  // response logging in parseGeminiResponseBody below - added while diagnosing how often/why
+  // Gemini fails to populate coach_note/file_updates despite claiming to. Deliberately doesn't
+  // log the full prompt text (the static system prompt alone is ~13K tokens) - mode and the
+  // athlete's own message are the two things that actually vary call to call and matter for
+  // correlating a request with its response.
+  console.log("[coach-chat] request:", { mode, userMessage, useCache: !!cachedName, traceId });
   let useCache = !!cachedName;
   let res = await callGemini(useCache);
   // Capped at ONE retry total, not one per failure kind - a naive "retry the 400 case, then
@@ -754,10 +883,68 @@ export async function askGemini(
     await new Promise((resolve) => setTimeout(resolve, 500));
     res = await callGemini(useCache);
   }
-  return finishGeminiResponse(res, mode);
+
+  if (mode !== "closing") {
+    return finishGeminiResponse(res, mode, traceId);
+  }
+
+  // B1 (docs/eng-docs/coach-chat-closing-followup.md): closing-turn-only retry for a mismatch
+  // between what `reasoning` claims and what `file_updates` actually contains - a distinct
+  // failure class from the 400/504/503 transport/cache handling above (content mismatch, not a
+  // failed request), so it deliberately shares no state or retry budget with that block and only
+  // ever runs after `res` has already settled there. Confirmed necessary live: Part A alone
+  // (schema reorder + broader close-trigger regex, #284) did not reliably prevent this.
+  let { parsed: finalParsed, rawText } = await parseGeminiResponseBody(res);
+  if (hasUnsavedContentMismatch(finalParsed.reasoning, finalParsed.file_updates, finalParsed.coach_note)) {
+    try {
+      // Replay the model's own prior turn verbatim, then nudge it to either genuinely populate
+      // file_updates to match its own reasoning or admit there's nothing to save. Same auth shape
+      // (cachedContent/systemInstruction) and generationConfig as the original successful call -
+      // only `contents` differs.
+      const retryContents = [
+        ...buildContents(useCache),
+        { role: "model", parts: [{ text: rawText }] },
+        { role: "user", parts: [{ text: UNSAVED_CONTENT_RETRY_NUDGE }] },
+      ];
+      console.log("[coach-chat] request (retry):", { mode, userMessage, useCache, traceId });
+      const retryRes = await callGemini(useCache, retryContents);
+      const retryResult = await parseGeminiResponseBody(retryRes);
+      finalParsed = retryResult.parsed;
+      rawText = retryResult.rawText;
+      console.log("[coach-chat] closing-turn retry fired - file_updates/reasoning mismatch", { traceId });
+    } catch (err) {
+      // Best-effort improvement only - a close that already has a valid (if incomplete) original
+      // response must not become a hard failure just because the retry itself broke (network
+      // error, non-ok status, bad JSON). Fall back to the original parsed result silently, aside
+      // from this warning.
+      console.warn("[coach-chat] closing-turn retry failed, falling back to original response", {
+        traceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // Same closing-turn logging finishGeminiResponse does for every close - factored out into a
+  // shared helper (not a second call to finishGeminiResponse itself) because `res`'s body has
+  // already been consumed by parseGeminiResponseBody above, and a Response body can only be read
+  // once; re-invoking finishGeminiResponse(res, ...) here would throw trying to re-read it.
+  logClosingTurnReasoning(finalParsed, traceId);
+  // B1 point 9: still true after everything above (whether or not a retry ran) - the internal
+  // flag consumed one layer up by the HTTP handler's honesty guard (B2), then stripped there.
+  if (hasUnsavedContentMismatch(finalParsed.reasoning, finalParsed.file_updates, finalParsed.coach_note)) {
+    finalParsed._unsavedContentSuspected = true;
+  }
+  delete finalParsed.reasoning;
+  return finalParsed;
 }
 
-async function finishGeminiResponse(res: Response, mode: TurnMode): Promise<GeminiReply> {
+// B1: status/429/text-extraction/parsing only - NOT the mode-specific logging or the
+// `delete parsed.reasoning` (finishGeminiResponse still owns those, see below). Split out so the
+// closing-turn retry logic in askGemini can see the raw response text (to replay the model's own
+// prior turn verbatim) and the parsed body (to run the mismatch heuristic) before `reasoning`
+// gets stripped - finishGeminiResponse deletes it immediately, so nothing downstream of it could
+// ever see either.
+async function parseGeminiResponseBody(res: Response): Promise<{ parsed: GeminiReply; rawText: string }> {
   if (res.status === 429) {
     // Not necessarily free-tier - Tier 1 has its own (much higher) ceilings too. Both clients now
     // handle 429 as its own case with a proper "wait and retry" message rather than surfacing
@@ -783,16 +970,39 @@ async function finishGeminiResponse(res: Response, mode: TurnMode): Promise<Gemi
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
   const parsed = JSON.parse(text) as GeminiReply;
-  // On closing turns specifically, log the model's own stated reasoning before stripping it -
-  // this is the only place it's ever available (never persisted, never sent to the athlete), and
-  // it's exactly the diagnostic needed for a close that silently saves nothing: the model's own
-  // account of what it considered and why, correlatable by request time with the
-  // "zero file_updates" warning logged downstream once resolveFileUpdate/injectCoachSinceIfNeeded
-  // have run (this function doesn't know the eventual file_updates outcome, so it logs
-  // unconditionally for every close rather than only the empty ones).
+  // Validation logging: the complete, unredacted response - every field, including `reasoning`
+  // (stripped from every other log/return path, but this is server-only visibility, never sent
+  // to the athlete). Covers every call site that goes through this function - greeting, ordinary,
+  // closing, and B1's retry - so it's the one place to look to see exactly what Gemini actually
+  // returned, not just the two fields logClosingTurnReasoning surfaces. Paired with the request
+  // log in askGemini above (same traceId when one exists) to correlate ask vs. answer.
+  // Passed as a plain object, not JSON.stringify'd - matches the request log above, and lets
+  // Node's own console formatting pretty-print/wrap it instead of dumping one unreadable line
+  // (which a pathologically long field, e.g. a garbled `title`, makes actively unreadable).
+  console.log("[coach-chat] response:", parsed);
+  return { parsed, rawText: text };
+}
+
+// On closing turns specifically, log the model's own stated reasoning before stripping it - this
+// is the only place it's ever available (never persisted, never sent to the athlete), and it's
+// exactly the diagnostic needed for a close that silently saves nothing: the model's own account
+// of what it considered and why, correlatable by request time with the "zero file_updates"
+// warning logged downstream once resolveFileUpdate/injectCoachSinceIfNeeded have run. Shared
+// between finishGeminiResponse (greeting/ordinary paths never call this) and askGemini's own
+// closing-turn retry logic above, so there's exactly one place this logging happens.
+function logClosingTurnReasoning(parsed: GeminiReply, traceId?: string): void {
+  console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning, { traceId });
+  console.log("[coach-chat] closing-turn checklist_covered:", parsed.checklist_covered, { traceId });
+}
+
+async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: string): Promise<GeminiReply> {
+  const { parsed } = await parseGeminiResponseBody(res);
+  // mode is never "closing" here in practice - askGemini intercepts closing turns before calling
+  // this (see above) so it can run the B1 retry logic against the parsed/raw body first. Kept as
+  // a real check anyway (not assumed away) so this function stays correct as a standalone entry
+  // point, not just in its one current call site.
   if (mode === "closing") {
-    console.log("[coach-chat] closing-turn reasoning:", parsed.reasoning);
-    console.log("[coach-chat] closing-turn checklist_covered:", parsed.checklist_covered);
+    logClosingTurnReasoning(parsed, traceId);
   }
   // reasoning is scratch space for the model, never meant for the athlete - delete here (not just
   // omit from responses) so it can never leak through any caller that spreads/serializes the
@@ -807,13 +1017,15 @@ async function finishGeminiResponse(res: Response, mode: TurnMode): Promise<Gemi
 // the "ordinary" prompt block in askGemini above. All four best-effort/independent; a missing
 // file (never yet written) is a legitimate null, not an error.
 async function loadClosingFileContext(repo: string, token: string): Promise<ClosingFileContext> {
-  const [coachNotes, challengeV2, currentWeek, sleepLog] = await Promise.all([
-    getFileRaw(repo, COACH_NOTES_PATH, token),
+  // coach_notes.md is deliberately not fetched here any more - Gemini never edits it, it only
+  // reports a coach_note fact, and the actual append fetches its own fresh copy at commit time
+  // (see the coachNoteWrite FileEntry below), not from this turn-start snapshot.
+  const [challengeV2, currentWeek, sleepLog] = await Promise.all([
     getFileRaw(repo, CHALLENGE_V2_PATH, token),
     getFileRaw(repo, CURRENT_WEEK_PATH, token),
     getFileRaw(repo, SLEEP_LOG_PATH, token),
   ]);
-  return { coachNotes, challengeV2, currentWeek, sleepLog };
+  return { challengeV2, currentWeek, sleepLog };
 }
 
 // A7: resolves one Gemini-proposed file_update into final content using whichever strategy
@@ -826,28 +1038,40 @@ async function loadClosingFileContext(repo: string, token: string): Promise<Clos
 // currentContent distinguishes three states, not two:
 //   - a string: fetched this turn, has real content
 //   - null: fetched this turn, file genuinely doesn't exist yet (legitimate - first write)
-//   - undefined: NOT fetched this turn at all (an ordinary turn never fetches coach_notes.md/
+//   - undefined: NOT fetched this turn at all (an ordinary turn never fetches
 //     challenge_v2.json/current_week.json/sleep_log.json - only closing turns do). An edit/patch
 //     proposed for a path in this state is Gemini disobeying its own turn-mode instructions -
 //     applying it anyway would mean editing/patching against content we never actually saw,
 //     which for a merge patch means silently replacing the whole file with just the patch's
 //     keys. Reject outright rather than guessing.
+// MVP (coach-commit-mvp.md): every drop now carries a named reason instead of a bare null, both
+// logged here and returned to the caller so the close-trace line below doesn't have to scrape
+// log output to know why a proposed update didn't land. `path` is always the update's own path,
+// whether it landed or was dropped, so the caller can build a trace without re-deriving it.
+export type ResolveFileUpdateResult =
+  | { ok: true; path: string; content: string }
+  | { ok: false; path: string; reason: string };
+
+function dropped(reason: string, path: string): ResolveFileUpdateResult {
+  console.warn(`[coach-chat] dropped update for ${path}: ${reason}`);
+  return { ok: false, path, reason };
+}
+
 export function resolveFileUpdate(
   update: GeminiFileUpdate,
   currentContent: string | null | undefined,
-): { path: string; content: string } | null {
-  if (!isCoachWritable(update.path)) return null;
+): ResolveFileUpdateResult {
+  if (!isCoachWritable(update.path)) return dropped("path is not coach-writable", update.path);
 
   // Session files never look at currentContent (full-content replacement, always) - only
   // markdown-edit and JSON-merge-patch files need to have actually been fetched this turn.
   const needsFetchedContent = MARKDOWN_EDIT_FILES.has(update.path) || JSON_MERGE_FILES.has(update.path);
   if (needsFetchedContent && currentContent === undefined) {
-    console.warn(`[coach-chat] ${update.path}: proposed without its current content having been fetched this turn - dropped`);
-    return null;
+    return dropped("proposed without its current content having been fetched this turn", update.path);
   }
 
   if (MARKDOWN_EDIT_FILES.has(update.path)) {
-    if (!update.edits || update.edits.length === 0) return null;
+    if (!update.edits || update.edits.length === 0) return dropped("markdown update with no edits array", update.path);
     const before = currentContent ?? "";
     const { content, failed } = applyStringEdits(before, update.edits);
     if (failed.length > 0) {
@@ -855,23 +1079,23 @@ export function resolveFileUpdate(
     }
     // If every edit failed, content is identical to before - drop it rather than committing a
     // no-op write (and never commit a wipe-to-blank, same guard as before A7).
-    if (content === before || content.trim().length === 0) return null;
-    return { path: update.path, content };
+    if (content === before) return dropped("all edits failed to match - no-op, not committed", update.path);
+    if (content.trim().length === 0) return dropped("result would be blank - refusing to wipe the file", update.path);
+    return { ok: true, path: update.path, content };
   }
 
   if (JSON_MERGE_FILES.has(update.path)) {
-    if (!update.merge_patch) return null;
+    if (!update.merge_patch) return dropped("JSON update with no merge_patch", update.path);
     const result = applyJsonMergePatch(currentContent ?? null, update.merge_patch);
     if (!result.ok) {
-      console.warn(`[coach-chat] ${update.path}: merge patch rejected - ${result.error}`);
-      return null;
+      return dropped(`merge patch rejected - ${result.error}`, update.path);
     }
-    return { path: update.path, content: result.content };
+    return { ok: true, path: update.path, content: result.content };
   }
 
   // Session files (SESSIONS_PREFIX) - full-content replacement, same as before A7.
-  if (!update.content || update.content.trim().length === 0) return null;
-  return { path: update.path, content: update.content };
+  if (!update.content || update.content.trim().length === 0) return dropped("session file update with blank content", update.path);
+  return { ok: true, path: update.path, content: update.content };
 }
 
 // ADR 0018: coach_since is set automatically, server-side, the moment the false→true
@@ -1044,8 +1268,17 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // Keyword match is only a trigger to ASK Gemini to consider closing - it is not itself
       // the close decision. Gemini reports back via reply.session_closed whether it actually
       // closed this turn (it may instead ask a clarifying question) - see closing below.
-      const closeIntent = isCloseSignal(trimmed);
+      // A10: also true if a close attempt is still pending from a few messages back (see
+      // wasCloseAttemptPending) - the athlete answering "sleep 8hrs" to Coach's own clarifying
+      // question is still part of the same close attempt, even though that answer alone never
+      // matches CLOSE_SESSION_PATTERN.
+      const closeIntent = isCloseSignal(trimmed) || wasCloseAttemptPending(priorMessages);
       const now = Date.now();
+      // MVP (coach-commit-mvp.md): minted here, not down at the close-trace log site, so it's
+      // available to askGemini/finishGeminiResponse below - the model's own closing-turn
+      // reasoning is the highest-value diagnostic line this trace exists for, and it has to be
+      // taggable with the same traceId the eventual commit outcome logs under.
+      const traceId = Math.random().toString(36).slice(2, 10);
       const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
 
       // A6/A7: only fetch today's other threads + the other coach-writable files' current
@@ -1079,6 +1312,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           closeIntent ? "closing" : "ordinary",
           extraContext,
           closingFiles,
+          traceId,
         );
       } catch (err: unknown) {
         const status = (err as { status?: number }).status ?? 500;
@@ -1086,6 +1320,24 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         console.error("[coach-chat] askGemini failed:", err);
         return Response.json({ error: errMessage }, { status });
       }
+
+      // B2 (docs/eng-docs/coach-chat-closing-followup.md): honesty guard - if askGemini's B1
+      // retry still couldn't resolve the reasoning/file_updates mismatch, and this turn is
+      // genuinely claiming a close (session_closed: true, not a clarifying question), append a
+      // caveat to what the athlete actually sees/what gets persisted, before coachMsg is built
+      // below. Checked session_closed === true specifically (not the broader `closing` local var,
+      // not computed yet) - the guard's whole purpose is correcting a false "saved" framing; if
+      // the model is asking a clarifying question instead, it isn't claiming anything was saved,
+      // so there's nothing to caveat. The delete runs unconditionally regardless of whether the
+      // caveat fired, same defense-in-depth treatment as `reasoning` gets, even though no current
+      // Response.json call site spreads `reply` wholesale.
+      if (reply._unsavedContentSuspected && reply.session_closed === true) {
+        reply.reply =
+          reply.reply +
+          "\n\n(One thing to flag: I ran into trouble saving today's notes — worth double-checking " +
+          "your log next time you're in, and let me know if anything's missing.)";
+      }
+      delete reply._unsavedContentSuspected;
 
       const coachMsg: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [reply.reply] };
       const closing = closeIntent && reply.session_closed === true;
@@ -1156,16 +1408,30 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         },
       };
 
+      // coach-commit-mvp: only included in `writes` below when reply.coach_note is present and
+      // non-empty after trimming. Fetches coach_notes.md's own fresh content at commit time
+      // (same pattern as chatWrite above), not from a turn-start snapshot - closingFileContext no
+      // longer fetches this file at all (see loadClosingFileContext).
+      const trimmedCoachNote = reply.coach_note?.trim();
+      const coachNoteWrite: FileEntry | undefined = trimmedCoachNote
+        ? {
+            path: COACH_NOTES_PATH,
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, COACH_NOTES_PATH, token);
+              return appendCoachNote(fresh, trimmedCoachNote, todayDateString(stateMd ?? "", new Date()));
+            },
+          }
+        : undefined;
+
       // A7: resolve each proposed update (edits/merge_patch/content, depending on file type)
       // against whatever current content this turn actually had for that path - drops anything
       // unwritable, unresolvable (edit didn't match, patch invalid), or blank. `undefined` here
       // means "not fetched this turn at all" (distinct from `null`, "fetched, doesn't exist yet")
-      // - coach_notes.md/challenge_v2.json/current_week.json/sleep_log.json are only fetched on
+      // - challenge_v2.json/current_week.json/sleep_log.json are only fetched on
       // closing turns, so on an ordinary turn they're `undefined` and resolveFileUpdate rejects
       // any proposed edit/patch against them rather than guessing at unseen content.
       const currentContentByPath: Record<string, string | null | undefined> = {
         [STATE_FILE_PATH]: stateMd ?? null,
-        [COACH_NOTES_PATH]: closingFiles ? closingFiles.coachNotes : undefined,
         [CHALLENGE_V2_PATH]: closingFiles ? closingFiles.challengeV2 : undefined,
         [CURRENT_WEEK_PATH]: closingFiles ? closingFiles.currentWeek : undefined,
         [SLEEP_LOG_PATH]: closingFiles ? closingFiles.sleepLog : undefined,
@@ -1184,9 +1450,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         dedupedFileUpdates.set(update.path, update);
       }
 
-      const resolvedUpdates = [...dedupedFileUpdates.values()]
-        .map((f) => resolveFileUpdate(f, currentContentByPath[f.path]))
-        .filter((f): f is { path: string; content: string } => f !== null);
+      const resolveResults = [...dedupedFileUpdates.values()].map((f) => resolveFileUpdate(f, currentContentByPath[f.path]));
+      const resolvedUpdates = resolveResults
+        .filter((r): r is Extract<ResolveFileUpdateResult, { ok: true }> => r.ok)
+        .map(({ path, content }) => ({ path, content }));
+      const droppedUpdates = resolveResults.filter((r): r is Extract<ResolveFileUpdateResult, { ok: false }> => !r.ok);
 
       // B2/ADR 0018: detect the false→true profileComplete transition against what's actually
       // about to be committed (not the pre-turn snapshot alone) - a close-turn that finishes the
@@ -1204,20 +1472,77 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // history alone whether that was a deliberate empty close or a missed one). The model's own
       // reasoning for this specific request was already logged in finishGeminiResponse (stripped
       // from `reply` by the time it reaches here) - correlate by request time.
-      if (validUpdates.length === 0) {
-        console.warn("[coach-chat] close landed with zero file_updates.", { athleteMessage: trimmed });
+      // coach-commit-mvp: a coach_note-only close (real content, no file_updates) is now a
+      // legitimate, complete close on its own - only warn when BOTH are empty/missing, not just
+      // validUpdates alone, so a healthy coach_note-only close doesn't cry wolf.
+      if (validUpdates.length === 0 && !trimmedCoachNote) {
+        console.warn("[coach-chat] close landed with zero file_updates and no coach_note.", { athleteMessage: trimmed });
       }
 
       const commitMessage = reply.commit_message ? cleanCommitMessage(reply.commit_message) : "session update";
 
-      // ADR 0012: every file_update plus the updated chat_history.json lands in ONE atomic
-      // commit via the Git Data API, instead of a separate REST PUT per file.
-      const writes: FileEntry[] = [...validUpdates, chatWrite];
+      // ADR 0012: every file_update plus the updated chat_history.json (plus coach_notes.md, when
+      // reply.coach_note was reported) lands in ONE atomic commit via the Git Data API, instead of
+      // a separate REST PUT per file.
+      const writes: FileEntry[] = coachNoteWrite ? [...validUpdates, chatWrite, coachNoteWrite] : [...validUpdates, chatWrite];
+
+      // MVP (coach-commit-mvp.md) P2: distinguishes "Gemini didn't propose file_updates at all"
+      // from "Gemini proposed an empty array" (both used to render as a bare `[]`), and records
+      // which write strategy (edits/merge_patch/content, see GeminiFileUpdate) each entry used -
+      // exactly the detail this trace exists to capture for a strategy-specific bug. A path could
+      // in principle carry none of the three, so that's represented rather than assumed away.
+      const emittedTrace =
+        reply.file_updates === undefined
+          ? { proposed: false as const }
+          : {
+              proposed: true as const,
+              entries: reply.file_updates.map((u) => ({
+                path: u.path,
+                strategy:
+                  u.edits !== undefined
+                    ? ("edits" as const)
+                    : u.merge_patch !== undefined
+                    ? ("merge_patch" as const)
+                    : u.content !== undefined
+                    ? ("content" as const)
+                    : ("none" as const),
+              })),
+            };
 
       let repoSha: string;
       try {
-        const result = await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, { repo, branch: "main", token });
+        const result = await commitFilesAtomic(writes, `coach: chat — ${commitMessage}`, {
+          repo,
+          // MVP (coach-commit-mvp.md): configurable so testing a real close doesn't have to write
+          // to a live athlete's actual main - defaults to main, unchanged, when unset.
+          branch: process.env.COACH_CHAT_BRANCH ?? "main",
+          token,
+        });
         repoSha = result.commitSha;
+        // MVP (coach-commit-mvp.md): one structured line per close, correlating everything the
+        // model proposed with what actually got committed and why anything didn't - a close that
+        // proposed five unwritable paths and a close that proposed nothing used to be
+        // indistinguishable in the logs. Logged only now, after the commit has genuinely landed -
+        // logging this before the try block (as result: "committed") meant a close that actually
+        // threw still asserted success for every path, directly contradicting the error line
+        // logged right after it. console.log, not warn: a healthy close isn't a problem, and warn
+        // is the level used to filter for real ones - see the catch block's failure variant below.
+        console.log("[coach-chat] close-trace", JSON.stringify({
+          traceId,
+          threadId: finalThreadId,
+          repo,
+          emitted: emittedTrace,
+          outcomes: [
+            ...validUpdates.map((u) => ({ path: u.path, result: "committed" as const })),
+            ...droppedUpdates.map((d) => ({ path: d.path, result: "dropped" as const, reason: d.reason })),
+            // Re-review fix: coachNoteWrite lands in `committed` below but was never represented
+            // here, so a coach_note-only close (real content, no file_updates) looked identical
+            // in `outcomes` to a close that saved nothing at all - only `committed` gave it away.
+            ...(coachNoteWrite ? [{ path: COACH_NOTES_PATH, result: "committed" as const, via: "coach_note" as const }] : []),
+          ],
+          committed: writes.map((w) => w.path),
+          ms: Date.now() - now,
+        }));
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
         // The resolve() guard above throws a tagged {status: 400} when this close targets a
@@ -1225,10 +1550,27 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         // not a save failure, so it gets its own status/message instead of being flattened into
         // the generic "saving failed" 502 below (which would be actively misleading here).
         if ((err as { status?: number }).status === 400) {
-          return Response.json({ error: errMessage }, { status: 400 });
+          return Response.json({ error: errMessage, traceId }, { status: 400 });
         }
-        console.error("[coach-chat] closing commitFilesAtomic failed:", err);
-        return Response.json({ error: `Coach replied but saving failed: ${errMessage}` }, { status: 502 });
+        // Failure variant of the close-trace line above, same shape/fields and same traceId -
+        // nothing in `writes` actually landed (the commit is atomic), so every resolved update is
+        // reported "commit_failed" rather than "committed". console.error: unlike the healthy-close
+        // line above, this genuinely is the problem this trace exists to catch.
+        console.error("[coach-chat] close-trace", JSON.stringify({
+          traceId,
+          threadId: finalThreadId,
+          repo,
+          emitted: emittedTrace,
+          outcomes: [
+            ...validUpdates.map((u) => ({ path: u.path, result: "commit_failed" as const })),
+            ...droppedUpdates.map((d) => ({ path: d.path, result: "dropped" as const, reason: d.reason })),
+            ...(coachNoteWrite ? [{ path: COACH_NOTES_PATH, result: "commit_failed" as const, via: "coach_note" as const }] : []),
+          ],
+          error: errMessage,
+          ms: Date.now() - now,
+        }));
+        console.error("[coach-chat] closing commitFilesAtomic failed:", err, { traceId });
+        return Response.json({ error: `Coach replied but saving failed: ${errMessage}`, traceId }, { status: 502 });
       }
 
       return Response.json({
@@ -1238,6 +1580,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         threads: withComputedDayOffsets(latestThreads, stateMd ?? ""),
         repoSha,
         profileComplete,
+        traceId,
       });
     }
 
