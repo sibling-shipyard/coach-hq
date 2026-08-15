@@ -1,5 +1,7 @@
 # Research: Backend options to replace GitHub-as-datastore
 
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-02
+
 ## Context
 
 Every user repo (`coach-<user>`, forked from `coach-skeleton`) currently uses its own GitHub

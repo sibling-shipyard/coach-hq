@@ -1,6 +1,6 @@
 # Coach-Chat Closing Turn: Background-Finish Redesign (Async Close)
 
-Status: **not implemented — proposal for future work, not a current blocker.**
+> Status: Current · Owner: UI Expert · Verified: 2026-08-06 · **Not implemented** — proposal for future work, not a current blocker.
 
 ## 0. Why this exists, and why it's not urgent right now
 

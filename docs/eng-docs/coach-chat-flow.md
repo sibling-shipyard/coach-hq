@@ -1,5 +1,7 @@
 # Coach Chat — how it works
 
+> Status: Current · Owner: UI Expert · Verified: 2026-08-06
+
 ## Context
 
 Real Coach Phelps sessions from the browser and iOS, backed by Gemini. This doc traces what

@@ -1,7 +1,7 @@
 # Ledger split — one file per concern
 
-> Status: **Proposal — not yet approved**, no code changes. Extends ADR 0006 (same v4 field
-> shapes, different file boundaries). Owner: Tech Lead.
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-05 · Proposal — not yet approved, no code
+> changes. Extends ADR 0006 (same v4 field shapes, different file boundaries).
 
 ## Context
 
@@ -13,7 +13,7 @@ across every `user_data/coach/archive/seasons/*/challenge_v2.json` snapshot, `ge
 passes the whole blob through raw *in addition to* that, and season close snapshots the entire
 file just so the replay has something to walk. Splitting along concern lines removes the
 duplication now and gives each new file a 1:1 target table for the eventual Postgres migration
-(`docs/eng-docs/backend-decision.md`'s ERD) — one design, two mechanical realizations.
+(`docs/plans/backend-decision.md`'s ERD) — one design, two mechanical realizations.
 
 ## Decision (proposed)
 

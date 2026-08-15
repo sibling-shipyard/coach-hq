@@ -1,6 +1,6 @@
 # M1 Plan — Skeleton Carve + Operator Onboarding
 
-> Status: **M1a structure locked** · Layout: [`skeleton-layout.md`](skeleton-layout.md) · Owner: Tech Lead · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1
+> Status: Historical · Owner: Tech Lead · Verified: 2026-07-29 · M1a structure locked · Layout: [`skeleton-layout.md`](skeleton-layout.md) · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1
 >
 > **Superseded in part:** Strava ingestion (referenced throughout as "Option A") was removed
 > entirely — see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md).

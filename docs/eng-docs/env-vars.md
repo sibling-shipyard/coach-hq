@@ -1,5 +1,7 @@
 # Vercel environment variables
 
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-15
+
 ## Context
 
 No file in this repo ever listed every env var the `ui/api/*` functions need — each just read

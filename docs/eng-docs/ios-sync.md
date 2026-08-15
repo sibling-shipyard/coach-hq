@@ -1,5 +1,7 @@
 # iOS (HealthKit) Sync — how it works
 
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-02
+
 ## Context
 
 Akash's data comes from Apple Health via the native iOS app under `ios/` — this is the only

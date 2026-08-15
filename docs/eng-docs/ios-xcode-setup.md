@@ -1,5 +1,7 @@
 # iOS App: Xcode Setup Instructions
 
+> Status: Current · Owner: iOS Builder · Verified: 2026-07-29
+
 This document provides step-by-step instructions to get the Coach HQ iOS app building and running on a physical iPhone from the `feat/ios-app` branch.
 
 ## Prerequisites

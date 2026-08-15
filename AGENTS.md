@@ -85,6 +85,12 @@ Athlete may reference `1a` — match that item exactly.
 
 **Docs:** One page max per `kdb/doc-style.md`. No long plans in issues or PR bodies.
 
+**Doc upkeep — before opening a PR:**
+1. Update any eng-doc your change invalidates (`grep -rl <changed-path> docs/eng-docs/` finds them) and bump its `Verified:` date.
+2. If a plan you worked from shipped, fold the durable part into its eng-doc, then delete the plan — `docs/plans/` is delete-on-ship, git history is the archive.
+3. New eng-docs follow the naming + front-matter rules in `docs/eng-docs/README.md`.
+4. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.
+
 ## Universal Rules
 
 - Commit/branch/PR naming: see `.github/CONVENTIONS.md`

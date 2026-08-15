@@ -1,6 +1,6 @@
 # HQ Restructure Plan
 
-> **Active** · R0–R6c complete · Authority: [`scaling-plan.md`](scaling-plan.md) (two-repo topology unchanged)
+> Status: Historical · Owner: Tech Lead · Verified: 2026-07-29 · R0–R6c complete · Authority: [`scaling-plan.md`](scaling-plan.md) (two-repo topology unchanged)
 
 ## Context
 

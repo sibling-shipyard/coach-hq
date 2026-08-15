@@ -14,6 +14,14 @@ On entry, read: `AGENTS.md`, this doc, `docs/eng-docs/ios-app-spec.md`, `ios/DES
 - **Don't touch:** `ui/`, `engine/core/`, `scripts/`, `user_data/`, `platform/skeleton-templates/`, `sessions/`, coaching memory files.
 - **Setup:** copy `ios/CoachHQ/CoachHQ/Secrets.swift.example` → `Secrets.swift` (gitignored); set `dashboardBaseURL` only — app won't build without it.
 
+## Docs you own
+
+Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
+
+- `docs/eng-docs/ios-app-spec.md` — architecture + spec, the must-read.
+- `docs/eng-docs/ios-sync.md` — HealthKit → athlete repo ingestion path.
+- `docs/eng-docs/ios-xcode-setup.md` — local build/signing setup.
+
 ## Gotchas
 
 - Auth: GitHub App + PKCE via `ui/api/auth/` — `Secrets.swift` only sets `dashboardBaseURL`; don't duplicate OAuth config in Swift.
