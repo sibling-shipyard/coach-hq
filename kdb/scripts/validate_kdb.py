@@ -52,6 +52,38 @@ else:
     elif (DEC / "README.md").read_text() != before:
         errors.append("ADR index in kdb/decisions/README.md is stale — run kdb/scripts/gen_adr_index.py")
 
+# Backticked repo-relative paths in AGENTS.md + role docs must exist.
+# Narrow hard: only tokens with a "/" whose top-level segment is a real HQ directory are
+# checked — that skips athlete-repo paths (user_data/**, sessions/**), external repo slugs
+# (owner/repo), API routes (/api/*), import aliases (@/*) and placeholders (<N>, *).
+TOP_DIRS = {p.name for p in ROOT.iterdir() if p.is_dir()}
+PATH_RE = re.compile(r"`([^`\n]+)`")
+
+def gitignored(rel):
+    # Directory-only patterns (trailing slash, e.g. `ui/client/src/data/`) only match when git
+    # can tell the path is a directory — on a clean checkout it is absent, so the bare form
+    # misses. Test both forms: with several pathspecs check-ignore exits 0 if ANY match
+    # (and rejects -q, so drop it — output is captured and discarded anyway).
+    try:
+        return subprocess.run(["git", "-C", str(ROOT), "check-ignore", rel, rel + "/"],
+                              capture_output=True).returncode == 0
+    except OSError:
+        return False  # git unavailable — don't skip, but don't crash either
+
+doc_files = ([AGENTS] if AGENTS.exists() else []) + sorted((ROOT / ".github" / "agents").glob("*.md"))
+for fp in doc_files:
+    for tok in dict.fromkeys(PATH_RE.findall(fp.read_text())):
+        if "/" not in tok or tok.startswith(("/", "@")):
+            continue
+        if any(c in tok for c in "<>*") or any(c.isspace() for c in tok):
+            continue
+        rel = tok.rstrip("/")
+        if rel.split("/", 1)[0] not in TOP_DIRS:
+            continue
+        if (ROOT / rel).exists() or gitignored(rel):
+            continue
+        errors.append(f"{fp.relative_to(ROOT)}: `{tok}` does not exist")
+
 # AGENTS.md size (soft cap)
 if AGENTS.exists():
     n = len(AGENTS.read_text().splitlines())

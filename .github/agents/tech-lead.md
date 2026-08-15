@@ -19,8 +19,8 @@
 | Role | Agent | Repo scope |
 |---|---|---|
 | **Tech Lead** (you) | This thread | Full monorepo |
-| **Coach Phelps** | SOUL.md thread | `user_data/`, `sessions/` only |
-| **UI Expert** | Worker thread | `ui/client/src/` only |
+| **Coach Phelps** | `platform/SOUL.md` thread | athlete repos only — no HQ scope |
+| **UI Expert** | Worker thread | all of `ui/` — client (`ui/client/src/`) **and** serverless handlers (`ui/api/`) |
 | **Bob the Builder** | Worker thread | `engine/core/`, `scripts/`, `user_data/activities/hist/` only |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
 
