@@ -140,19 +140,20 @@ a reason the app-only path is the destination rather than just a simplification:
 
 ## Rules we adopted
 
-Two, both from the audit's failure pattern. Both belong in `kdb/decisions/`.
+Both from the audit's failure pattern.
 
-1. **No manual-entry signals.** Anything requiring the athlete to maintain a record by hand will
-   rot. Evidence: resting HR (empty), PRE (3 entries ever, all April), equipment (collected at
-   First Session, never read again), `roadmap.md` (a ghost), sleep (entered only when asked). The
-   most motivated user this will ever have let all of them decay. A signal ships when it has an
-   automatic source, not before.
-2. **SOUL gets a linter.** Nearly every rot we found was mechanically detectable: paths that
-   don't exist, writes the app silently drops, a template list naming four of six, three
-   `propagated/docs/` references that stopped being carved. `validate-soul` should assert paths
-   resolve, writes are in that build's writable set, template names match
-   `platform/skeleton-templates/`, and section cross-references resolve. Ship it with step 1 —
-   the two-build split is what makes "which build is this rule for" expressible at all.
+1. **No manual-entry signals** — `kdb/decisions/0023-no-manual-entry-signals.md`. Anything
+   requiring the athlete to maintain a record by hand will rot. Evidence: resting HR (empty), PRE
+   (3 entries ever, all April), equipment (collected at First Session, never read again),
+   `roadmap.md` (a ghost), sleep (entered only when asked). The most motivated user this will ever
+   have let all of them decay. A signal ships when it has an automatic source, not before.
+2. **SOUL gets a linter** — issue #366, not an ADR: it's tooling, cheap to reverse, and nobody
+   will re-argue it. Nearly every rot we found was mechanically detectable — paths that don't
+   exist, writes the app silently drops, a template list naming more files than the carve ships,
+   `propagated/docs/` references that stopped being carved. `validate-soul` asserts paths
+   resolve, writes are in that build's writable set, template names match the carve, and section
+   cross-references resolve. Ships with step 1 — the two-build split is what makes "which build
+   is this rule for" expressible at all.
 
 ## The gap that worries me most
 

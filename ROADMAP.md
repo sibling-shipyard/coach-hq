@@ -18,6 +18,7 @@ This file is the curated view; issues are the record. Flip a box here or tell Un
 
 - [ ] #300 Remove sleep analytics (simplify onboarding)
 - [ ] #301 Remove PRE
+- [ ] #358 Carve ships no SOUL — a fresh repo cannot run BYOB
 
 _Supporting:_ #292 bob sync baseline
 
@@ -30,6 +31,7 @@ _Users 4–10 get a great first hour._
 - [ ] #304 Empty activity history handling
 - [ ] #305 Coach uses 1-year history patterns in FSP
 - [ ] #306 Coach chat works perfectly for FSP
+- [ ] #362 First-session predicate can never complete
 
 ### Epic: Homescreen UX (#307)
 
@@ -46,11 +48,15 @@ _Any athlete, not just Akash's sports._
 - [ ] #315 Badminton + calisthenics analytics
 - [ ] #316 challenge_v2 seasons/phases + quest_history (refs #86)
 - [ ] #156 healthkit-enrichment
+- [ ] #365 Workout templates aren't generic — Coach can't personalise them
 
 ### Epic: Coach depth (#317)
 _The coach feels wise, not generic._
 
+- [ ] #357 SOUL v5.8 trim (509 → ~232 app / ~289 BYOB)
 - [ ] #318 SOUL split (post-trim)
+- [ ] #359 App silently drops archive writes
+- [ ] #360 What does an ordinary turn need in context?
 - [ ] #319 Coach patterns per user
 - [ ] #320 Coach comment widget powered properly
 - [ ] #321 Narrative to 5/5: first-week experience, strength benchmark
@@ -65,6 +71,9 @@ _Scaling stops being hand-holding._
 - [ ] #327 How updates reach athlete repos
 - [ ] #328 Docs audit + agent framework: prune role files, clean docs (incl #130)
 - [ ] #329 Testing framework shape (decision)
+- [ ] #361 App writes current_week.json without validation
+- [ ] #363 Carve template drift
+- [ ] #366 validate-soul: lint SOUL against reality
 
 ### Epic: Stretch features — M3 (#330)
 
