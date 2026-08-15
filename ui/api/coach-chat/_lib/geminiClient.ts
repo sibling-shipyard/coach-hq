@@ -4,7 +4,7 @@
  * (stale cache, timeout, overload) exactly once, and parses the response. Prompt *content* lives
  * in coachPrompt.ts - this module only owns getting a request to Gemini and a reply back.
  */
-import { fetchWithTimeout } from "../httpTimeout.js";
+import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
 import type { ChatMessage } from "./chatThreads.js";
 import {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { isCloseSignal, wasCloseAttemptPending } from "../_lib/coach-chat/closeSignal.js";
-import type { ChatMessage } from "../_lib/coach-chat/chatThreads.js";
+import { isCloseSignal, wasCloseAttemptPending } from "../coach-chat/_lib/closeSignal.js";
+import type { ChatMessage } from "../coach-chat/_lib/chatThreads.js";
 
 // A8: CLOSE_SESSION_PATTERN originally required "session" after wrap/close/end, so a bare "wrap"
 // never routed into closing mode at all - the athlete typed it in production and got an ordinary

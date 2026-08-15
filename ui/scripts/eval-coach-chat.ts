@@ -16,9 +16,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { askGemini } from "../api/_lib/coach-chat/geminiClient.js";
-import type { ChatMessage } from "../api/_lib/coach-chat/chatThreads.js";
-import type { TurnMode } from "../api/_lib/coach-chat/coachPrompt.js";
+import { askGemini } from "../api/coach-chat/_lib/geminiClient.js";
+import type { ChatMessage } from "../api/coach-chat/_lib/chatThreads.js";
+import type { TurnMode } from "../api/coach-chat/_lib/coachPrompt.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");

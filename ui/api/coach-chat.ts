@@ -3,7 +3,7 @@
  * Full design/flow: docs/eng-docs/coach-chat-flow.md. Commit + retention design: ADR 0012.
  * Module split: docs/plans/coach-chat-modularization.md - this file is the HTTP handler only;
  * everything else (prompt construction, Gemini transport, thread persistence, write authority,
- * day math, close-signal detection) lives under ui/api/_lib/coach-chat/.
+ * day math, close-signal detection) lives under ui/api/coach-chat/_lib/.
  *
  * GET                        → load already-wrapped/committed threads
  * POST {action: "greet"}     → start a new conversation with Coach speaking first (A4) - no
@@ -31,9 +31,9 @@ import {
   getHeadSha,
   isAthleteProfileComplete,
   loadCoachContext,
-} from "./_lib/coach-chat/coachChatFiles.js";
-import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./_lib/coach-chat/coachDay.js";
-import { isCloseSignal, wasCloseAttemptPending } from "./_lib/coach-chat/closeSignal.js";
+} from "./coach-chat/_lib/coachChatFiles.js";
+import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./coach-chat/_lib/coachDay.js";
+import { isCloseSignal, wasCloseAttemptPending } from "./coach-chat/_lib/closeSignal.js";
 import {
   CHAT_FILE_PATH,
   THREAD_TITLE_MAX_CHARS,
@@ -44,16 +44,16 @@ import {
   applyRetention,
   type ChatMessage,
   type ChatThread,
-} from "./_lib/coach-chat/chatThreads.js";
+} from "./coach-chat/_lib/chatThreads.js";
 import {
   COACH_NOTES_PATH,
   appendCoachNote,
   loadClosingFileContext,
   injectCoachSinceIfNeeded,
   type ClosingFileContext,
-} from "./_lib/coach-chat/coachWrites.js";
-import { askGemini } from "./_lib/coach-chat/geminiClient.js";
-import { onboardingHintsContext, type GeminiReply, type OnboardingHints } from "./_lib/coach-chat/coachPrompt.js";
+} from "./coach-chat/_lib/coachWrites.js";
+import { askGemini } from "./coach-chat/_lib/geminiClient.js";
+import { onboardingHintsContext, type GeminiReply, type OnboardingHints } from "./coach-chat/_lib/coachPrompt.js";
 
 // A4: coach speaks first. Every greet() call generates a fresh opener via Gemini (informed by
 // current state.md/quest_log.md) and hands back a not-yet-committed thread id - nothing is

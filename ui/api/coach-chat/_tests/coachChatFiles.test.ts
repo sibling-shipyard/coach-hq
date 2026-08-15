@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { isAthleteProfileComplete, loadCoachContext } from "../coachChatFiles.js";
+import { isAthleteProfileComplete, loadCoachContext } from "../_lib/coachChatFiles.js";
 
 // B2: matches carve-skeleton.mjs's STATE_MD_TEMPLATE exactly - the blank template every new
 // athlete repo ships with.

@@ -5,7 +5,7 @@
  * files the same way without duplicating the GitHub-read plumbing.
  */
 import { SOUL } from "../../_generated/soul.js";
-import { fetchWithTimeout } from "../httpTimeout.js";
+import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 
 // SOUL.md is verified 100% generic - no per-athlete substitution happens anywhere in the carve
 // process (platform/scripts/carve-skeleton.mjs copies it byte-for-byte into every athlete's

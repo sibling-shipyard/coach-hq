@@ -7,7 +7,7 @@
  * docs/plans/coach-chat-follow-up.md for what's being rebuilt here, incrementally, on top of this
  * module boundary.
  */
-import { applyJsonMergePatch } from "../fileEdits.js";
+import { applyJsonMergePatch } from "../../_lib/fileEdits.js";
 import { getFileRaw } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
 
