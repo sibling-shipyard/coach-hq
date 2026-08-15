@@ -162,7 +162,7 @@ enum Theme {
     static func categoryOptions(for sportType: String) -> [ActivityCategory]? {
         switch sportType {
         case "Badminton":
-            return [.init(code: "RNK", label: "Ranking"), .init(code: "TRN", label: "Training"), .init(code: "REC", label: "Recreational")]
+            return [.init(code: "RNK", label: "Ranking"), .init(code: "TRN", label: "Training"), .init(code: "FRN", label: "Friendly")]
         case "WeightTraining", "Foundation", "TraditionalStrengthTraining", "FunctionalStrengthTraining":
             return [.init(code: "FDN", label: "Foundation"), .init(code: "HYP", label: "Hypertrophy"), .init(code: "STR", label: "Strength")]
         case "Run", "Running":

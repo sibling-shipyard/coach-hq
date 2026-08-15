@@ -1,11 +1,25 @@
 import SwiftUI
 
 /// Shows a synced activity's stats and (for Badminton) lets the user log match scores.
-/// Layout: headerBar (full-bleed) → hero stats → zone donut → HR context → zone breakdown → mental state → scores.
+/// Layout: headerBar → Beat 01 hero → Beat 02 ribbon → Beat 03 vs-usual → Beat 04 scores
 
-private let hrZoneKeys   = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-private let hrZoneShorts = ["Z1", "Z2", "Z3", "Z4", "Z5"]
-private let hrZoneNames  = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
+private let hrZoneKeys  = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
+private let hrZoneNames = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
+
+/// Earthy zone palette matching the mock — Recovery (sage) through VO₂ Max (terracotta).
+/// Intentionally separate from Theme.hrZoneColors (used in widgets) so each surface
+/// can evolve independently.
+private let detailZoneColors: [Color] = [
+    Color(red: 0xc3/255, green: 0xd1/255, blue: 0xc8/255), // Z1 Recovery  #c3d1c8
+    Color(red: 0xad/255, green: 0xc2/255, blue: 0xb7/255), // Z2 Base      #adc2b7
+    Color(red: 0x31/255, green: 0x5a/255, blue: 0x4a/255), // Z3 Aerobic   #315a4a
+    Color(red: 0xa8/255, green: 0x70/255, blue: 0x2c/255), // Z4 Threshold #a8702c
+    Color(red: 0x7f/255, green: 0x37/255, blue: 0x28/255), // Z5 VO₂ Max   #7f3728
+]
+
+private let matchWinColor  = Color(red: 0x1A/255, green: 0x47/255, blue: 0x31/255) // deep green
+private let matchLossColor = Color(red: 0xa3/255, green: 0x46/255, blue: 0x2c/255) // warm red
+
 struct ActivityDetailView: View {
     let entry: SyncCacheEntry
 
@@ -41,8 +55,6 @@ struct ActivityDetailView: View {
     }
 
     private var apiClient: GitHubAPIClient {
-        // targetBranch is governed by TestModeManager — don't override here.
-        // Previously this forced "main" unconditionally, silently bypassing test mode.
         GitHubAPIClient(authManager: authManager)
     }
 
@@ -59,17 +71,16 @@ struct ActivityDetailView: View {
         return hrZoneKeys.reduce(0) { $0 + (zones[$1]?.seconds ?? 0) }
     }
 
+    // MARK: - Body
+
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
                 headerBar
-
                 VStack(alignment: .leading, spacing: 14) {
                     heroCard
-                    zoneDonutSection
-                    hrContextSection
-                    zoneBreakdownSection
-                    mentalStateSection
+                    ribbonCard
+                    usualCard
                     if supportsScoreEntry { scoreSection }
                     if let errorMessage {
                         Text(errorMessage)
@@ -107,7 +118,7 @@ struct ActivityDetailView: View {
         }
     }
 
-    // MARK: - Header bar (full-bleed, matches EngineDetailView)
+    // MARK: - Header bar
 
     private var headerBar: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -141,272 +152,433 @@ struct ActivityDetailView: View {
         }
     }
 
-    // MARK: - Hero card (stats)
+    // MARK: - Beat 01: What it was
 
     private var heroCard: some View {
         WarmCard(padding: 0) {
-            VStack(spacing: 0) {
-                badge.color
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 6)
-
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        MonoLabel(badge.label)
-                        Spacer()
-                        MonoLabel(formattedDate, size: 9, color: WarmInstrument.inkFaint)
-                    }
+            VStack(alignment: .leading, spacing: 0) {
+                MonoLabel(heroDateString, size: 9.5, color: WarmInstrument.inkFaint)
                     .padding(.bottom, 12)
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(durationString)
-                            .font(.system(size: 38, weight: .bold, design: .monospaced))
-                            .foregroundColor(Theme.ink)
-                            .contentTransition(.numericText())
-                            .opacity(statsRevealed ? 1 : 0.9)
-                        MonoLabel("Duration", size: 9)
-                    }
+                Text(durationString)
+                    .font(.system(size: 52, weight: .semibold))
+                    .kerning(-2.6)
+                    .foregroundColor(Theme.ink)
+                    .contentTransition(.numericText())
+                    .opacity(statsRevealed ? 1 : 0.9)
                     .padding(.bottom, 16)
 
-                    WarmInstrument.border
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 1)
+                WarmInstrument.border
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 1)
 
-                    HStack(spacing: 0) {
-                        if isLoading && activity == nil {
-                            SupportingStatCell(value: "—", label: "CAL")
-                            SupportingStatCell(value: "—", label: "AVG HR")
-                            SupportingStatCell(value: "—", label: "PEAK")
-                        } else {
-                            if let cal = activity?.calories {
-                                SupportingStatCell(value: "\(Int(Double(cal) * statsProgress))", label: "CAL")
-                            }
-                            if let hr = activity?.averageHeartrate {
-                                SupportingStatCell(value: "\(Int(hr * statsProgress))", label: "AVG HR")
-                            }
-                            if let peak = activity?.maxHeartrate {
-                                SupportingStatCell(value: "\(Int(peak * statsProgress))", label: "PEAK")
-                            }
-                            if let dist = activity?.distance, dist > 0 {
-                                SupportingStatCell(
-                                    value: String(format: "%.1f", (dist / 1000) * statsProgress),
-                                    label: "KM"
-                                )
-                            }
+                HStack(spacing: 0) {
+                    if isLoading && activity == nil {
+                        SupportingStatCell(value: "—", label: "KCAL")
+                        SupportingStatCell(value: "—", label: "AVG BPM")
+                        SupportingStatCell(value: "—", label: "PEAK BPM")
+                    } else {
+                        if let cal = activity?.calories {
+                            SupportingStatCell(
+                                value: "\(Int(Double(cal) * statsProgress))",
+                                label: "KCAL"
+                            )
+                        }
+                        if let hr = activity?.averageHeartrate {
+                            SupportingStatCell(
+                                value: "\(Int(hr * statsProgress))",
+                                label: "AVG BPM"
+                            )
+                        }
+                        if let peak = activity?.maxHeartrate {
+                            SupportingStatCell(
+                                value: "\(Int(peak * statsProgress))",
+                                label: "PEAK BPM"
+                            )
+                        }
+                        if let dist = activity?.distance, dist > 0 {
+                            SupportingStatCell(
+                                value: String(format: "%.1f", (dist / 1000) * statsProgress),
+                                label: "KM"
+                            )
                         }
                     }
-                    .skeleton(isLoading && activity == nil)
-                    .padding(.vertical, 12)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .skeleton(isLoading && activity == nil)
+                .padding(.top, 12)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
         .staggerReveal(delay: 0.05)
     }
 
-    // MARK: - Widget A: Zone Donut
+    // MARK: - Beat 02: How it was spent
 
     @ViewBuilder
-    private var zoneDonutSection: some View {
+    private var ribbonCard: some View {
         if let zones = activity?.hrZones, hrZoneTotal > 0 {
-            let vals = hrZoneKeys.map { zones[$0]?.seconds ?? 0 }
-            let total = vals.reduce(0, +)
-            let fracs = vals.map { $0 / total }
-            let sortedIndices = fracs.indices
-                .filter { fracs[$0] > 0.01 }
-                .sorted { fracs[$0] > fracs[$1] }
-                .prefix(4)
-                .map { $0 }
-
             WarmCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    MonoLabel("ZONE DISTRIBUTION")
-
-                    HStack(spacing: 20) {
-                        ZoneDonut(fractions: fracs)
-                            .frame(width: 110, height: 110)
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            ForEach(sortedIndices, id: \.self) { i in
-                                HStack(spacing: 8) {
-                                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                        .fill(Theme.hrZoneColors[i])
-                                        .frame(width: 8, height: 8)
-                                    Text(hrZoneNames[i])
-                                        .font(.system(size: 12.5, weight: .medium))
-                                        .foregroundColor(WarmInstrument.ink)
-                                    Spacer(minLength: 4)
-                                    Text("\(Int((fracs[i] * 100).rounded()))%")
-                                        .font(WarmInstrument.figures(11))
-                                        .foregroundColor(Theme.hrZoneColors[i])
-                                }
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
+                VStack(alignment: .leading, spacing: 13) {
+                    MonoLabel("HOW IT WAS SPENT")
+                    activityRibbon(zones: zones)
+                    zoneLegend(zones: zones)
                 }
             }
             .staggerReveal(delay: 0.10)
         }
     }
 
-    // MARK: - Widget B: HR Context Bar
+    /// Generates a time-series-like ribbon: work zones shuffled in bursts with recovery
+    /// spread evenly between them — matching the mock's `zoneSequence` algorithm.
+    private func ribbonSequence(zones: [String: HRZoneEntry]) -> [Color] {
+        // Scale cell count to session length: ~1 cell per 4 min, clamped 5–41.
+        // Avoids ultra-thin barcode look on short sessions (e.g. 12-min foundation).
+        let cellCount = min(41, max(5, entry.elapsedTime / 240))
+        let totalSecs = hrZoneKeys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
+        guard totalSecs > 0 else { return [] }
 
-    @ViewBuilder
-    private var hrContextSection: some View {
-        if let zones = activity?.hrZones,
-           let avg = activity?.averageHeartrate,
-           let peak = activity?.maxHeartrate,
-           hrZoneTotal > 0 {
-            HRContextCard(zones: zones, avgHR: avg, peakHR: peak)
-                .staggerReveal(delay: 0.15)
+        // Largest-remainder allocation of cellCount across zones
+        let rawCounts = hrZoneKeys.map { Double(zones[$0]?.seconds ?? 0) / totalSecs * Double(cellCount) }
+        var counts = rawCounts.map { Int($0) }
+        let leftover = cellCount - counts.reduce(0, +)
+        rawCounts.enumerated()
+            .map { (idx: $0.offset, frac: $0.element - Double(counts[$0.offset])) }
+            .sorted { $0.frac > $1.frac }
+            .prefix(leftover)
+            .forEach { counts[$0.idx] += 1 }
+
+        // Build work array (zones 1–4 = Base through VO₂ Max) and shuffle with seeded RNG
+        var work: [Int] = []
+        for i in 1...4 { for _ in 0..<counts[i] { work.append(i) } }
+
+        var seed = UInt64(bitPattern: Int64(truncatingIfNeeded: entry.fileName.hashValue))
+        for i in stride(from: work.count - 1, through: 1, by: -1) {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            let j = Int(seed >> 33) % (i + 1)
+            work.swapAt(i, j)
         }
+
+        // Group work cells into bursts of 3, spread recovery between gaps
+        var groups: [[Int]] = []
+        var i = 0
+        while i < work.count { groups.append(Array(work[i..<min(i + 3, work.count)])); i += 3 }
+
+        let recCount = counts[0]
+        let gapCount = groups.count + 1
+        var seq: [Int] = []
+        for (g, group) in groups.enumerated() {
+            let from = g * recCount / gapCount
+            let to   = (g + 1) * recCount / gapCount
+            for _ in 0..<(to - from) { seq.append(0) }
+            seq.append(contentsOf: group)
+        }
+        let lastFrom = groups.count * recCount / gapCount
+        for _ in lastFrom..<recCount { seq.append(0) }
+
+        return seq.map { detailZoneColors[$0] }
     }
 
-    // MARK: - Widget C: HR Zone breakdown
+    private func activityRibbon(zones: [String: HRZoneEntry]) -> some View {
+        let colors = ribbonSequence(zones: zones)
+        return HStack(spacing: 1.5) {
+            ForEach(colors.indices, id: \.self) { i in
+                colors[i].frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: 64)
+        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+    }
 
     @ViewBuilder
-    private var zoneBreakdownSection: some View {
-        if let zones = activity?.hrZones {
-            let vals = hrZoneKeys.map { zones[$0]?.seconds ?? 0 }
-            let total = vals.reduce(0, +)
-            if total > 0 {
-                WarmCard(padding: 0) {
-                    VStack(spacing: 0) {
-                        CompactZoneBar(
-                            zones: zones,
-                            height: 10,
-                            rounded: false,
-                            animateEntrance: entry.activity == nil
-                        )
+    private func zoneLegend(zones: [String: HRZoneEntry]) -> some View {
+        let items: [(index: Int, name: String, secs: Double)] = hrZoneKeys.indices.compactMap { i in
+            let s = zones[hrZoneKeys[i]]?.seconds ?? 0
+            return s > 0 ? (i, hrZoneNames[i].uppercased(), s) : nil
+        }
+        let row1 = Array(items.prefix(3))
+        let row2 = Array(items.dropFirst(3))
 
-                        VStack(alignment: .leading, spacing: 14) {
-                            MonoLabel("TIME IN ZONE")
-                            VStack(spacing: 10) {
-                                ForEach(vals.indices, id: \.self) { i in
-                                    ZoneBreakdownRow(
-                                        label: hrZoneShorts[i],
-                                        name: hrZoneNames[i],
-                                        color: Theme.hrZoneColors[i],
-                                        fraction: vals[i] / total,
-                                        seconds: Int(vals[i]),
-                                        animateEntrance: entry.activity == nil
-                                    )
-                                }
-                            }
-                        }
-                        .padding(16)
-                    }
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 13) {
+                ForEach(row1, id: \.index) { item in
+                    zoneLegendChip(index: item.index, name: item.name, secs: item.secs)
                 }
-                .staggerReveal(delay: 0.20)
+                Spacer(minLength: 0)
+            }
+            if !row2.isEmpty {
+                HStack(spacing: 13) {
+                    ForEach(row2, id: \.index) { item in
+                        zoneLegendChip(index: item.index, name: item.name, secs: item.secs)
+                    }
+                    Spacer(minLength: 0)
+                }
             }
         }
     }
 
-    // MARK: - Mental state section
+    private func zoneLegendChip(index: Int, name: String, secs: Double) -> some View {
+        HStack(spacing: 4) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(detailZoneColors[index])
+                .frame(width: 7, height: 7)
+            Text(name)
+                .font(WarmInstrument.monoLabel(9, weight: .regular))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .fixedSize()
+            Text(zoneTimeString(secs))
+                .font(WarmInstrument.monoLabel(9))
+                .foregroundColor(WarmInstrument.ink)
+                .fixedSize()
+        }
+    }
+
+    private func zoneTimeString(_ seconds: Double) -> String {
+        let s = Int(seconds)
+        if s >= 3600 { let h = s / 3600, m = (s % 3600) / 60; return m > 0 ? "\(h)h\(m)m" : "\(h)h" }
+        return "\(s / 60)m"
+    }
+
+    // MARK: - Beat 03: VS Your Usual
 
     @ViewBuilder
-    private var mentalStateSection: some View {
-        if let mental = activity?.preMentalState {
+    private var usualCard: some View {
+        let rows = usualRows
+        if !rows.isEmpty {
             WarmCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    MonoLabel("PRE-SESSION")
-
-                    HStack(spacing: 16) {
-                        ZStack {
-                            Circle()
-                                .stroke(mentalScoreColor(mental.score).opacity(0.12), lineWidth: 5)
-                            Circle()
-                                .trim(from: 0, to: CGFloat(mental.score) / 10.0)
-                                .stroke(
-                                    mentalScoreColor(mental.score),
-                                    style: StrokeStyle(lineWidth: 5, lineCap: .round)
-                                )
-                                .rotationEffect(.degrees(-90))
-                            Text("\(mental.score)")
-                                .font(WarmInstrument.figures(16, weight: .bold))
-                                .foregroundColor(mentalScoreColor(mental.score))
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        MonoLabel("VS YOUR USUAL")
+                        Spacer()
+                        MonoLabel("TICK = USUAL", size: 9, color: WarmInstrument.inkFaint)
+                    }
+                    VStack(spacing: 13) {
+                        ForEach(rows.indices, id: \.self) { i in
+                            UsualComparisonRow(row: rows[i])
                         }
-                        .frame(width: 48, height: 48)
+                    }
+                }
+            }
+            .staggerReveal(delay: 0.15)
+        }
+    }
 
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(mental.word.prefix(1).uppercased() + mental.word.dropFirst())
-                                .font(.system(size: 15, weight: .semibold))
+    private var usualRows: [UsualRow] {
+        let allEntries = SyncCache.load()
+        let prior = Array(
+            allEntries
+                .filter { $0.sportType == entry.sportType && $0.fileName != entry.fileName }
+                .sorted { $0.startDateLocal > $1.startDateLocal }
+                .prefix(10)
+        )
+        var rows: [UsualRow] = []
+
+        // Duration — always present; requires ≥2 prior sessions
+        let durations = prior.map { Double($0.elapsedTime) }
+        if durations.count >= 2 {
+            let usual = median(durations)
+            let current = Double(entry.elapsedTime)
+            let pct = ((current - usual) / usual * 100).rounded()
+            let sign = pct >= 0 ? "+" : ""
+            let all = durations + [current]
+            rows.append(UsualRow(
+                label: "Duration",
+                currentValue: current,
+                usualValue: usual,
+                minVal: 0,
+                maxVal: (all.max() ?? current) * 1.2,
+                deltaLabel: "\(sign)\(Int(pct))%"
+            ))
+        }
+
+        // Avg HR — present once stats have been backfilled
+        let hrVals = prior.compactMap { $0.averageHeartrate }
+        if hrVals.count >= 2, let currentHR = activity?.averageHeartrate {
+            let usual = median(hrVals)
+            let diff = currentHR - usual
+            let sign = diff >= 0 ? "+" : ""
+            let all = hrVals + [currentHR]
+            rows.append(UsualRow(
+                label: "Avg HR",
+                currentValue: currentHR,
+                usualValue: usual,
+                minVal: (all.min() ?? currentHR) * 0.92,
+                maxVal: (all.max() ?? currentHR) * 1.08,
+                deltaLabel: "\(sign)\(Int(diff.rounded())) bpm"
+            ))
+        }
+
+        // Above threshold (Zone 4 + Zone 5) — needs full Activity cached
+        let aboveVals: [Double] = prior.compactMap { e in
+            guard let z = e.activity?.hrZones else { return nil }
+            return (z["Zone 4"]?.seconds ?? 0) + (z["Zone 5"]?.seconds ?? 0)
+        }
+        if aboveVals.count >= 2 {
+            let currentZ = activity?.hrZones
+            let currentAbove = (currentZ?["Zone 4"]?.seconds ?? 0) + (currentZ?["Zone 5"]?.seconds ?? 0)
+            let usual = median(aboveVals)
+            if usual > 30 {
+                let pct = ((currentAbove - usual) / usual * 100).rounded()
+                let sign = pct >= 0 ? "+" : ""
+                let all = aboveVals + [currentAbove]
+                rows.append(UsualRow(
+                    label: "Above threshold",
+                    currentValue: currentAbove,
+                    usualValue: usual,
+                    minVal: 0,
+                    maxVal: (all.max() ?? currentAbove) * 1.2,
+                    deltaLabel: "\(sign)\(Int(pct))%"
+                ))
+            }
+        }
+
+        return rows
+    }
+
+    private func median(_ values: [Double]) -> Double {
+        let sorted = values.sorted()
+        let n = sorted.count
+        guard n > 0 else { return 0 }
+        return n % 2 == 0 ? (sorted[n/2 - 1] + sorted[n/2]) / 2 : sorted[n/2]
+    }
+
+    // MARK: - Beat 04: Score section (Badminton only)
+
+    @ViewBuilder
+    private var scoreSection: some View {
+        if let desc = savedDescription {
+            if let matchData = FormattedMatchData.parse(desc) {
+                richScoreCard(matchData)
+            } else {
+                // Raw fallback — shouldn't normally happen for valid saved descriptions
+                rawScoreCard(desc)
+            }
+        } else {
+            emptyScorePrompt
+        }
+    }
+
+    private func richScoreCard(_ match: FormattedMatchData) -> some View {
+        WarmCard {
+            VStack(alignment: .leading, spacing: 0) {
+                // Header row
+                HStack {
+                    MonoLabel("MATCH SCORES")
+                    Spacer()
+                    Button { openScoreSheet() } label: {
+                        MonoLabel("EDIT", size: 9.5, color: WarmInstrument.accent)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 11)
+
+                // Summary: big W–L + stats + result pips
+                HStack(alignment: .lastTextBaseline, spacing: 10) {
+                    Text("\(match.wins)–\(match.losses)")
+                        .font(.system(size: 30, weight: .semibold))
+                        .kerning(-1.2)
+                        .foregroundColor(Theme.ink)
+
+                    MonoLabel("\(match.winPct)%", size: 10, color: WarmInstrument.inkFaint)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 4)
+
+                    HStack(spacing: 3) {
+                        ForEach(match.games.prefix(15).indices, id: \.self) { i in
+                            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                .fill(match.games[i].result == "W" ? matchWinColor : matchLossColor)
+                                .frame(width: 9, height: 9)
+                        }
+                    }
+                }
+                .padding(.bottom, 12)
+
+                // Game rows
+                ForEach(match.games.indices, id: \.self) { i in
+                    let game = match.games[i]
+                    VStack(spacing: 0) {
+                        Divider().overlay(WarmInstrument.headerRule)
+                        HStack(spacing: 9) {
+                            Text(game.result)
+                                .font(WarmInstrument.figures(9.5, weight: .bold))
+                                .foregroundColor(game.result == "W" ? matchWinColor : matchLossColor)
+                                .frame(width: 10, alignment: .leading)
+
+                            Text(game.score)
+                                .font(WarmInstrument.figures(12.5, weight: .bold))
                                 .foregroundColor(WarmInstrument.ink)
-                            Text("Mental readiness before the session")
-                                .font(.system(size: 11))
+                                .frame(width: 44, alignment: .leading)
+
+                            Text(game.players)
+                                .font(.system(size: 12.5))
+                                .foregroundColor(WarmInstrument.inkMuted)
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            let marginStr = game.margin >= 0 ? "+\(game.margin)" : "\(game.margin)"
+                            Text(marginStr)
+                                .font(WarmInstrument.figures(11))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                        }
+                        .padding(.vertical, 7)
+                    }
+                }
+            }
+        }
+        .staggerReveal(delay: 0.20)
+    }
+
+    private func rawScoreCard(_ desc: String) -> some View {
+        Button { openScoreSheet() } label: {
+            WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        MonoLabel("MATCH SCORES")
+                        Spacer()
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                    }
+                    Text(desc)
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundColor(WarmInstrument.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .buttonStyle(TimerWarmPressStyle())
+        .staggerReveal(delay: 0.20)
+    }
+
+    private var emptyScorePrompt: some View {
+        Button { openScoreSheet() } label: {
+            WarmCard(padding: 16, dashed: true) {
+                VStack(alignment: .leading, spacing: 12) {
+                    MonoLabel("MATCH SCORES")
+                    HStack(spacing: 12) {
+                        Image(systemName: "figure.badminton")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundColor(badge.color)
+                            .frame(width: 30)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Log match scores")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Theme.ink)
+                            Text("Paste your results from this session")
+                                .font(.system(size: 12))
                                 .foregroundColor(WarmInstrument.inkMuted)
                         }
                         Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(WarmInstrument.inkFaint)
                     }
                 }
             }
-            .staggerReveal(delay: 0.25)
         }
-    }
-
-    private func mentalScoreColor(_ score: Int) -> Color {
-        switch score {
-        case 8...10: return Theme.accentGreen
-        case 5...7:  return Theme.attentionOrange
-        default:     return WarmInstrument.accent
-        }
-    }
-
-    // MARK: - Score section (Badminton only)
-
-    private var scoreSection: some View {
-        Group {
-            if let desc = savedDescription {
-                Button { openScoreSheet() } label: {
-                    WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                MonoLabel("MATCH SCORES")
-                                Spacer()
-                                Image(systemName: "pencil")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(WarmInstrument.inkFaint)
-                            }
-                            Text(desc)
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundColor(WarmInstrument.ink)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-                .buttonStyle(TimerWarmPressStyle())
-            } else {
-                Button { openScoreSheet() } label: {
-                    WarmCard(padding: 16, dashed: true) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            MonoLabel("MATCH SCORES")
-                            HStack(spacing: 12) {
-                                Image(systemName: "figure.badminton")
-                                    .font(.system(size: 22, weight: .medium))
-                                    .foregroundColor(badge.color)
-                                    .frame(width: 30)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Log match scores")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(Theme.ink)
-                                    Text("Paste your results from this session")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(WarmInstrument.inkMuted)
-                                }
-                                Spacer(minLength: 0)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(WarmInstrument.inkFaint)
-                            }
-                        }
-                    }
-                }
-                .buttonStyle(TimerWarmPressStyle())
-            }
-        }
-        .staggerReveal(delay: 0.30)
+        .buttonStyle(TimerWarmPressStyle())
+        .staggerReveal(delay: 0.20)
     }
 
     private func openScoreSheet() {
@@ -416,7 +588,7 @@ struct ActivityDetailView: View {
         showingScoreSheet = true
     }
 
-    // MARK: - Category
+    // MARK: - Category chip
 
     @ViewBuilder
     private var categoryMenuChip: some View {
@@ -532,43 +704,39 @@ struct ActivityDetailView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Formatters
 
-    private var formattedDate: String {
-        guard let date = Self.isoParser.date(from: entry.startDateLocal) else { return entry.startDateLocal }
-        return Self.shortDateFormatter.string(from: date).uppercased()
+    private var heroDateString: String {
+        guard let start = Self.isoParser.date(from: entry.startDateLocal) else {
+            return entry.startDateLocal.prefix(10).description
+        }
+        let end = start.addingTimeInterval(TimeInterval(entry.elapsedTime))
+        let day   = Self.heroDateFormatter.string(from: start).uppercased()
+        let startT = Self.heroTimeFormatter.string(from: start)
+        let endT   = Self.heroTimeFormatter.string(from: end)
+        return "\(day) · \(startT)–\(endT)"
     }
 
     private static let isoParser: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        f.timeZone = .current
-        return f
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; f.timeZone = .current; return f
     }()
 
-    private static let shortDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "E · d MMM"
-        return f
+    private static let heroDateFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "EEE d MMM"; return f
+    }()
+
+    private static let heroTimeFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "H:mm"; return f
     }()
 
     private var durationString: String {
-        let hours = entry.elapsedTime / 3600
-        let minutes = (entry.elapsedTime % 3600) / 60
-        return hours > 0 ? String(format: "%dh %02dm", hours, minutes) : String(format: "%dm", minutes)
+        let h = entry.elapsedTime / 3600
+        let m = (entry.elapsedTime % 3600) / 60
+        return String(format: "%dh%02d", h, m)
     }
 
-    // MARK: - Data
+    // MARK: - Data loading
 
-    /// Loads the full activity — cache-first (issue #131).
-    ///
-    /// Freshly-synced entries carry the complete Activity payload in the local
-    /// cache, exactly as committed. Using it avoids the GitHub Contents API
-    /// read entirely, which can 404 or serve stale data for up to ~a minute
-    /// after a branch reset + immediate Git Data API write (the "save fails on
-    /// first sync, works after the second" bug). The network read remains as a
-    /// fallback for legacy cache entries, and refreshes the cached copy when it
-    /// succeeds.
     private func loadExistingActivity() async {
         if let cached = entry.activity {
             activity = cached
@@ -591,8 +759,6 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// Loads match history for save, retrying transient 404s. A missing file (greenfield)
-    /// becomes an empty v1 document — not an error.
     private func readMatchHistoryForSave() async throws -> MatchHistory {
         do {
             return try await withPropagationRetry(operation: "Reading match history") {
@@ -603,9 +769,6 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// Retries 404s twice with a 1.5s delay — covers GitHub's Contents API
-    /// propagation window after a branch reset (issue #131). Non-404 errors
-    /// surface immediately (the API client already retries transient ones).
     private func withPropagationRetry<T>(operation: String, _ body: () async throws -> T) async throws -> T {
         var lastError: Error?
         for attempt in 0..<3 {
@@ -632,8 +795,6 @@ struct ActivityDetailView: View {
 
         do {
             let formatted = DescriptionParser.formatDescription(parsed)
-            // Cache-first order (#131): in-memory state → entry.activity (freshly synced) → network.
-            // Avoids a GitHub Contents API read that can 404 for ~60s after a branch reset.
             let currentActivity: Activity
             if let activity {
                 currentActivity = activity
@@ -682,13 +843,11 @@ struct ActivityDetailView: View {
             let updatedHistory = MatchHistory(version: 1, sessions: sessions)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let activityData = try encoder.encode(updatedActivity)
-            let historyData = try encoder.encode(updatedHistory)
 
             try await apiClient.commitFiles(
                 [
-                    (path: "user_data/activities/hist/\(entry.fileName)", data: activityData),
-                    (path: "user_data/activities/match_history.json", data: historyData),
+                    (path: "user_data/activities/hist/\(entry.fileName)", data: try encoder.encode(updatedActivity)),
+                    (path: "user_data/activities/match_history.json", data: try encoder.encode(updatedHistory)),
                 ],
                 message: "ios: add scores for \(currentActivity.name)"
             )
@@ -717,13 +876,8 @@ private struct ScoreEntrySheet: View {
     @FocusState private var editorFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
-    private var badge: (label: String, color: Color) {
-        Theme.sportBadge(for: entry.sportType)
-    }
-
-    private var parsed: ParsedDescription? {
-        DescriptionParser.parseRawDescription(descriptionText)
-    }
+    private var badge: (label: String, color: Color) { Theme.sportBadge(for: entry.sportType) }
+    private var parsed: ParsedDescription? { DescriptionParser.parseRawDescription(descriptionText) }
 
     var body: some View {
         ScrollView {
@@ -742,9 +896,7 @@ private struct ScoreEntrySheet: View {
                 }
                 .disabled(isSaving || descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .opacity(descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
-                .overlay {
-                    if isSaving { ProgressView().tint(WarmInstrument.paper) }
-                }
+                .overlay { if isSaving { ProgressView().tint(WarmInstrument.paper) } }
             }
             .padding(.horizontal, 16)
             .padding(.top, 24)
@@ -811,288 +963,229 @@ private struct ScoreEntrySheet: View {
 
     @ViewBuilder
     private var previewSection: some View {
+        // Resolve to FormattedMatchData regardless of whether the text is raw or already-saved
+        let matchData: FormattedMatchData? = {
+            if let p = parsed {
+                return FormattedMatchData.parse(DescriptionParser.formatDescription(p))
+            }
+            return FormattedMatchData.parse(descriptionText)
+        }()
+
         VStack(alignment: .leading, spacing: 6) {
-            MonoLabel("Live preview")
-            WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
-                Group {
-                    if let parsed {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(DescriptionParser.formatDescription(parsed))
-                                .font(.system(size: 13, design: .monospaced))
-                                .foregroundColor(Theme.ink)
-                                .fixedSize(horizontal: false, vertical: true)
-                            ForEach(parsed.warnings, id: \.self) { warning in
-                                Label(warning, systemImage: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundColor(Theme.attentionOrange)
-                            }
-                        }
-                    } else if DescriptionParser.isAlreadyFormatted(descriptionText) {
-                        Text(descriptionText)
-                            .font(.system(size: 13, design: .monospaced))
-                            .foregroundColor(WarmInstrument.inkMuted)
-                    } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Paste scores above to see a preview. Format:")
-                                .font(WarmInstrument.coachVoice(13))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                                .italic()
-                            Text("Doubles: Partner me vs Opp1/Opp2 21-18\nSingles: me vs Opponent 21-18")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(WarmInstrument.inkFaint)
-                        }
-                    } else {
-                        Text("No games recognized yet — keep typing or check the format.")
-                            .font(WarmInstrument.coachVoice(13))
+            MonoLabel("Preview")
+            WarmCard(fill: WarmInstrument.surfaceMuted) {
+                if let match = matchData {
+                    miniMatchPreview(match, warnings: parsed?.warnings ?? [])
+                } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Paste scores above. Example format:")
+                            .font(.system(size: 13))
                             .foregroundColor(WarmInstrument.inkFaint)
-                            .italic()
+                        Text("Partner me vs Opp1 / Opp2  21–18\nme vs Opponent  18–21")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(WarmInstrument.inkFaint)
                     }
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Widget A: Zone Donut
-
-/// Animated donut ring where each zone is an arc segment, staggered on appear.
-private struct ZoneDonut: View {
-    let fractions: [Double]
-
-    @State private var appeared = false
-
-    private var arcs: [(start: Double, end: Double)] {
-        var result: [(Double, Double)] = []
-        var cursor: Double = 0
-        for f in fractions {
-            result.append((cursor, cursor + f))
-            cursor += f
-        }
-        return result
-    }
-
-    private var dominantIndex: Int {
-        fractions.enumerated().max(by: { $0.element < $1.element })?.offset ?? 0
-    }
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(WarmInstrument.surfaceMuted, lineWidth: 18)
-
-            ForEach(arcs.indices, id: \.self) { i in
-                let f = fractions[i]
-                if f > 0.005 {
-                    let gap = min(0.012, f * 0.15)
-                    Circle()
-                        .trim(
-                            from: CGFloat(arcs[i].start + gap),
-                            to: CGFloat(appeared ? arcs[i].end - gap : arcs[i].start + gap)
-                        )
-                        .stroke(
-                            Theme.hrZoneColors[i],
-                            style: StrokeStyle(lineWidth: 18, lineCap: .butt)
-                        )
-                        .rotationEffect(.degrees(-90))
-                        .animation(
-                            .spring(duration: 0.55, bounce: 0.08).delay(Double(i) * 0.06),
-                            value: appeared
-                        )
-                }
-            }
-
-            VStack(spacing: 2) {
-                Text(hrZoneNames[dominantIndex])
-                    .font(WarmInstrument.monoLabel(9))
-                    .foregroundColor(Theme.hrZoneColors[dominantIndex])
-                    .multilineTextAlignment(.center)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                MonoLabel("dominant", size: 7)
-            }
-            .frame(width: 68)
-        }
-        .onAppear { appeared = true }
-    }
-}
-
-// MARK: - Widget B: HR Context Card
-
-/// Full-width colored zone bar showing where avg and peak HR fall within the zone scale.
-private struct HRContextCard: View {
-    let zones: [String: HRZoneEntry]
-    let avgHR: Double
-    let peakHR: Double
-
-    // Derived from actual HR so markers sit away from the edges of the bar.
-    private var displayMin: Double { max(40, floor((min(avgHR, peakHR) - 30) / 10) * 10) }
-    private var displayMax: Double { min(230, ceil((peakHR + 20) / 10) * 10) }
-    private let order = hrZoneKeys
-
-    private var zoneFractions: [Double] {
-        order.enumerated().map { i, key in
-            let entry = zones[key]
-            let lo: Double = i == 0 ? displayMin : Double(entry?.low ?? Int(displayMin))
-            let hi: Double = i == 4 ? displayMax : Double(entry?.high ?? Int(displayMax))
-            return max(0, min(hi, displayMax) - max(lo, displayMin)) / (displayMax - displayMin)
-        }
-    }
-
-    private func barFraction(for bpm: Double) -> Double {
-        max(0, min(1, (bpm - displayMin) / (displayMax - displayMin)))
-    }
-
-    private func zoneIndex(for bpm: Double) -> Int {
-        for (i, key) in order.enumerated() {
-            if let entry = zones[key] {
-                if let high = entry.high { if bpm <= Double(high) { return i } }
-                else { return i }
-            }
-        }
-        return 4
-    }
-
-    var body: some View {
-        WarmCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    MonoLabel("HEART RATE RANGE")
-                    Spacer()
-                    Text("\(Int(avgHR))→\(Int(peakHR)) BPM")
-                        .font(WarmInstrument.monoLabel(9, weight: .regular))
+                } else {
+                    Text("No games recognized yet — keep typing or check the format.")
+                        .font(.system(size: 13))
                         .foregroundColor(WarmInstrument.inkFaint)
+                        .italic()
                 }
+            }
+        }
+    }
 
-                GeometryReader { geo in
-                    let w = geo.size.width
-                    ZStack(alignment: .leading) {
-                        HStack(spacing: 0) {
-                            ForEach(zoneFractions.indices, id: \.self) { i in
-                                Theme.hrZoneColors[i]
-                                    .frame(width: max(1, w * CGFloat(zoneFractions[i])))
-                            }
-                        }
-                        .frame(height: 22)
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-
-                        Capsule()
-                            .fill(WarmInstrument.paper)
-                            .frame(width: 2, height: 26)
-                            .offset(x: w * CGFloat(barFraction(for: avgHR)) - 1)
-
-                        Capsule()
-                            .fill(WarmInstrument.paper)
-                            .frame(width: 2, height: 26)
-                            .offset(x: w * CGFloat(barFraction(for: peakHR)) - 1)
+    private func miniMatchPreview(_ match: FormattedMatchData, warnings: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Summary row — mirrors detail card but scaled down
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                Text("\(match.wins)–\(match.losses)")
+                    .font(.system(size: 26, weight: .semibold))
+                    .kerning(-1.0)
+                    .foregroundColor(Theme.ink)
+                MonoLabel("\(match.winPct)%", size: 9.5, color: WarmInstrument.inkFaint)
+                Spacer(minLength: 4)
+                HStack(spacing: 3) {
+                    ForEach(match.games.prefix(15).indices, id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(match.games[i].result == "W" ? matchWinColor : matchLossColor)
+                            .frame(width: 8, height: 8)
                     }
                 }
-                .frame(height: 26)
+            }
 
-                HStack(spacing: 20) {
-                    HRMarkerLabel(
-                        title: "Avg",
-                        bpm: Int(avgHR),
-                        color: Theme.hrZoneColors[zoneIndex(for: avgHR)]
-                    )
-                    HRMarkerLabel(
-                        title: "Peak",
-                        bpm: Int(peakHR),
-                        color: Theme.hrZoneColors[zoneIndex(for: peakHR)]
-                    )
-                    Spacer()
+            // Per-game rows
+            ForEach(match.games.indices, id: \.self) { i in
+                let game = match.games[i]
+                VStack(spacing: 0) {
+                    Divider().overlay(WarmInstrument.headerRule)
+                    HStack(spacing: 8) {
+                        Text(game.result)
+                            .font(WarmInstrument.figures(9, weight: .bold))
+                            .foregroundColor(game.result == "W" ? matchWinColor : matchLossColor)
+                            .frame(width: 9, alignment: .leading)
+                        Text(game.score)
+                            .font(WarmInstrument.figures(12, weight: .bold))
+                            .foregroundColor(WarmInstrument.ink)
+                            .frame(width: 40, alignment: .leading)
+                        Text(game.players)
+                            .font(.system(size: 12))
+                            .foregroundColor(WarmInstrument.inkMuted)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        let s = game.margin >= 0 ? "+\(game.margin)" : "\(game.margin)"
+                        Text(s)
+                            .font(WarmInstrument.figures(10))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                    }
+                    .padding(.vertical, 6)
                 }
             }
-        }
-    }
-}
 
-private struct HRMarkerLabel: View {
-    let title: String
-    let bpm: Int
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 1, style: .continuous)
-                .fill(color)
-                .frame(width: 2, height: 16)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title.uppercased())
-                    .font(WarmInstrument.monoLabel(8, weight: .regular))
-                    .foregroundColor(WarmInstrument.inkFaint)
-                Text("\(bpm) bpm")
-                    .font(WarmInstrument.figures(12, weight: .semibold))
-                    .foregroundColor(color)
+            // Warnings from parser
+            ForEach(warnings, id: \.self) { w in
+                Label(w, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundColor(Theme.attentionOrange)
             }
         }
     }
 }
 
-// MARK: - Zone breakdown row
+// MARK: - Formatted match description parser
 
-private struct ZoneBreakdownRow: View {
+/// Parsed representation of a stored (already-formatted) match description.
+private struct FormattedMatchData {
+    struct Game {
+        let result: String  // "W" or "L"
+        let score: String   // "21-19"
+        let players: String // "Jon vs Joe + Frankie" (w/ prefix stripped)
+        let margin: Int     // signed: our score − their score
+    }
+
+    let wins: Int
+    let losses: Int
+    let winPct: Int
+    let avgMargin: Int
+    let games: [Game]
+
+    /// Parses the already-formatted description text that `DescriptionParser.formatDescription` produces.
+    /// Returns nil if the text doesn't contain recognisable structured game data.
+    static func parse(_ desc: String) -> FormattedMatchData? {
+        guard desc.contains("Games:") || desc.contains("Friendlies:") else { return nil }
+
+        var wins = 0, losses = 0, winPct = 0
+        var games: [Game] = []
+        var margins: [Int] = []
+        var inGames = false
+
+        for rawLine in desc.components(separatedBy: "\n") {
+            let t = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty else { continue }
+
+            // Summary: "6W-1L (86%)" — appears before any "Games:" line
+            if !inGames, t.contains("W-"), t.contains("L"), t.contains("(") {
+                let beforePipe = t.components(separatedBy: "|").first ?? t
+                let wPart = beforePipe.components(separatedBy: "W-").first ?? ""
+                let afterW  = beforePipe.components(separatedBy: "W-").dropFirst().first ?? ""
+                let lPart   = afterW.components(separatedBy: "L").first ?? ""
+                let pctPart = beforePipe.components(separatedBy: "(").dropFirst().first?
+                    .components(separatedBy: ")").first ?? ""
+                wins   = Int(wPart.trimmingCharacters(in: .whitespaces)) ?? 0
+                losses = Int(lPart.trimmingCharacters(in: .whitespaces)) ?? 0
+                winPct = Int(pctPart.trimmingCharacters(in: .init(charactersIn: " %"))) ?? 0
+                continue
+            }
+
+            if t == "Games:" || t == "Friendlies:" { inGames = true; continue }
+
+            guard inGames, t.hasPrefix("W ") || t.hasPrefix("L ") else { continue }
+
+            let result = String(t.prefix(1))
+            let rest   = String(t.dropFirst(2))
+            let parts  = rest.components(separatedBy: " ")
+            guard let scoreStr = parts.first, scoreStr.contains("-") else { continue }
+            let scoreParts = scoreStr.components(separatedBy: "-")
+            guard let a = Int(scoreParts.first ?? ""), let b = Int(scoreParts.last ?? "") else { continue }
+
+            let rawPlayers = parts.dropFirst().joined(separator: " ")
+            // Strip "w/ " prefix from doubles lines, then capitalize names (keep connectors lowercase)
+            let stripped = rawPlayers.hasPrefix("w/ ") ? String(rawPlayers.dropFirst(3)) : rawPlayers
+            let connectors: Set<String> = ["vs", "+", "w/", "&", "and"]
+            let players = stripped.split(separator: " ").map { word -> String in
+                let w = String(word)
+                return connectors.contains(w.lowercased()) ? w.lowercased() : w.prefix(1).uppercased() + w.dropFirst()
+            }.joined(separator: " ")
+            let margin = a - b
+            margins.append(margin)
+            games.append(Game(result: result, score: scoreStr, players: players, margin: margin))
+        }
+
+        guard !games.isEmpty else { return nil }
+
+        let avgMargin = margins.isEmpty ? 0 : Int((Double(margins.reduce(0, +)) / Double(margins.count)).rounded())
+        return FormattedMatchData(wins: wins, losses: losses, winPct: winPct, avgMargin: avgMargin, games: games)
+    }
+}
+
+// MARK: - VS Your Usual row model + view
+
+private struct UsualRow {
     let label: String
-    let name: String
-    let color: Color
-    let fraction: Double
-    let seconds: Int
-    var animateEntrance: Bool = true
-    @State private var appeared: Bool
+    let currentValue: Double
+    let usualValue: Double
+    let minVal: Double
+    let maxVal: Double
+    let deltaLabel: String
+}
 
-    init(label: String, name: String, color: Color, fraction: Double, seconds: Int, animateEntrance: Bool = true) {
-        self.label = label
-        self.name = name
-        self.color = color
-        self.fraction = fraction
-        self.seconds = seconds
-        self.animateEntrance = animateEntrance
-        _appeared = State(initialValue: !animateEntrance)
-    }
-
-    private var timeString: String {
-        if seconds >= 3600 {
-            let h = seconds / 3600, m = (seconds % 3600) / 60
-            return "\(h)h \(m)m"
-        } else if seconds >= 60 {
-            let m = seconds / 60, s = seconds % 60
-            return s > 0 ? "\(m)m \(s)s" : "\(m)m"
-        } else {
-            return "\(seconds)s"
-        }
-    }
+private struct UsualComparisonRow: View {
+    let row: UsualRow
+    @State private var filled = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 5) {
-                MonoLabel(label, size: 9, color: color)
-                    .frame(width: 20, alignment: .leading)
-                Text(name)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(WarmInstrument.inkFaint)
+        HStack(spacing: 12) {
+            Text(row.label)
+                .font(.system(size: 12.5))
+                .foregroundColor(WarmInstrument.inkMuted)
+                .frame(width: 104, alignment: .leading)
+
+            GeometryReader { geo in
+                let w = geo.size.width
+                let range = row.maxVal - row.minVal
+                let currentFrac = range > 0 ? CGFloat((row.currentValue - row.minVal) / range) : 0
+                let usualFrac   = range > 0 ? CGFloat((row.usualValue  - row.minVal) / range) : 0
+
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(Color(red: 84/255, green: 76/255, blue: 65/255).opacity(0.13))
+                        .frame(height: 5)
+
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(WarmInstrument.accent)
+                        .frame(width: max(4, w * min(1, filled ? currentFrac : 0)), height: 5)
+                        .animation(.spring(duration: 0.55, bounce: 0.08), value: filled)
+
+                    Capsule()
+                        .fill(WarmInstrument.ink.opacity(0.45))
+                        .frame(width: 1.5, height: 13)
+                        .offset(x: w * min(1, max(0, usualFrac)) - 0.75)
+                }
+                .frame(height: 13, alignment: .center)
             }
-            .frame(width: 82, alignment: .leading)
+            .frame(height: 13)
 
-            HairlineProgress(
-                fraction: appeared ? fraction : 0,
-                tint: color,
-                track: color.opacity(0.12),
-                height: 6
-            )
-            .animation(PremiumMotion.statsLoad, value: appeared)
-
-            HStack(spacing: 0) {
-                Text("\(Int(fraction * 100))%")
-                    .font(WarmInstrument.figures(10))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .frame(width: 32, alignment: .trailing)
-                Text(timeString)
-                    .font(WarmInstrument.figures(10))
-                    .foregroundColor(WarmInstrument.inkFaint)
-                    .frame(width: 50, alignment: .trailing)
+            Text(row.deltaLabel)
+                .font(WarmInstrument.figures(12, weight: .bold))
+                .foregroundColor(WarmInstrument.ink)
+                .frame(width: 60, alignment: .trailing)
+        }
+        .onAppear {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(0.1))
+                filled = true
             }
         }
-        .onAppear { guard animateEntrance else { return }; appeared = true }
-        .onDisappear { guard animateEntrance else { return }; appeared = false }
     }
 }
 
@@ -1103,13 +1196,13 @@ private struct SupportingStatCell: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(value)
-                .font(WarmInstrument.figures(15, weight: .semibold))
+                .font(WarmInstrument.figures(17, weight: .bold))
                 .foregroundColor(Theme.ink)
                 .contentTransition(.numericText())
-            MonoLabel(label, size: 8)
+            MonoLabel(label, size: 8.5)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
