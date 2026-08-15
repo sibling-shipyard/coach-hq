@@ -15,10 +15,12 @@ old CURRENT.md index was deleted. Never add one; use `ls` and `grep`.**
 
 **Reference test — the rule that matters:** *if shipped code, a script, or an ADR cites a doc, it
 is reference, not a plan.* `docs/plans/` is delete-on-ship, so filing a code-cited doc there
-orphans those source comments. `coach-chat-closing-followup.md`, `coach-commit-mvp.md`, and
-`user-3-onboarding-gate.md` all read like plans but are cited from `ui/api/coach-chat.ts`, its
-tests, or other docs — so they stay here. Before deleting a shipped plan, fold anything durable
-into its matching eng-doc.
+orphans those source comments. `coach-commit-mvp.md` and `user-3-onboarding-gate.md` read like
+plans but are cited from `ui/api/coach-chat.ts`, its tests, or other docs — so they stay here.
+(`coach-chat-closing-followup.md` no longer meets this bar as of the coach-chat-reliability-debug
+branch — the Part B retry/honesty-guard code it documented was removed there, so it was folded
+into `coach-chat-design-history.md` and deleted rather than kept as reference.) Before deleting a
+shipped plan, fold anything durable into its matching eng-doc.
 
 **Carve rule:** if it ships to athlete repos under `propagated/docs/`, the source lives in
 `docs/ref-docs/` (and `platform/skills/pipeline-tools.md`).

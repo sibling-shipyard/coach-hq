@@ -277,7 +277,7 @@ immunity.
   worst-case arithmetic across every stage (file reads, Gemini retries, commit retries) by simply
   using the real headroom available. This also meant the full "return fast, finish in background"
   redesign considered the same day was no longer an urgent fix (the timeout problem it targeted is
-  already solved by the 300s ceiling) — captured instead as `docs/plans/ASYNC-CLOSE-PLAN.md`
+  already solved by the 300s ceiling) — captured instead in `docs/plans/coach-chat-follow-up.md`
   for optional future work, not implemented now.
 
 ---
@@ -313,7 +313,7 @@ since Split 2 was never built).
 `coach_note` pattern to `session_note`/`quest_events`/`sleep`, delete `applyStringEdits`/
 `applyJsonMergePatch` entirely, rewrite SOUL.md §12) never shipped — `file_updates` and both apply
 functions are still in active use for `state.md`/`challenge_v2.json`/`current_week.json`/
-`sleep_log.json`. Superseded by a different direction (see the "still to do" note in `FOLLOW-UP.md`),
+`sleep_log.json`. Superseded by a different direction (see `docs/plans/coach-chat-follow-up.md`),
 not carried forward as a live roadmap item.
 
 **Real bugs found through two days of live testing against a real athlete repo (not synthetic
@@ -342,7 +342,7 @@ transcripts alone), fixed the same PR:**
   (`truncateTitle`), so the prompt was softened to "a handful of words" with an explicit
   instruction not to show any length-adjustment work, rather than asking for exact arithmetic.
 
-**Part B — retry + honesty guard (shipped, from `coach-chat-closing-followup.md`, folded in here):**
+**Part B — retry + honesty guard (shipped, formerly its own `coach-chat-closing-followup.md` design doc, folded in here since that code was later removed on `coach-chat-reliability-debug` — see below):**
 Root-caused from a live repro (traceId `xuij2ft9`) where `reasoning` explicitly described a
 `state.md` edit while `file_updates` still came back empty — confirmed the schema-reorder fix
 alone (moving `file_updates` ahead of `reply` in the declared property order) wasn't sufficient.
