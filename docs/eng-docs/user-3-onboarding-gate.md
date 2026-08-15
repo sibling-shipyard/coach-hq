@@ -1,6 +1,6 @@
 # User 3+ Onboarding Gate — Must-Do Before Friends Sign Up
 
-> Status: **Locked requirement (2026-07-26)** · Owner: Tech Lead · Blocks: any athlete beyond Akash + Skanda · Authority: [`scaling-plan.md`](scaling-plan.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-02 · Locked requirement: 2026-07-26 · Blocks: any athlete beyond Akash + Skanda · Authority: [`scaling-plan.md`](scaling-plan.md)
 >
 > **Update (#189):** Step 1 (eliminate athlete-facing PAT) is **done** — Sync and Apply Coach Patch now run under the built-in `GITHUB_TOKEN`. `PAT_TOKEN` references below describe the pre-fix state. Remaining gate items (auto repo on sign-up, etc.) still open.
 

@@ -1,6 +1,6 @@
 # challenge_v2.json — Canonical Schema (version 4)
 
-> Status: **Locked (2026-07-26)** · ADR: [0006](../../kdb/decisions/0006-unified-challenge-v2-schema.md) · Owner: Tech Lead · Path: `user_data/ledger/challenge_v2.json`
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-03 · Locked: 2026-07-26 · ADR: [0006](../../kdb/decisions/0006-unified-challenge-v2-schema.md) · Path: `user_data/ledger/challenge_v2.json`
 
 ## Context
 

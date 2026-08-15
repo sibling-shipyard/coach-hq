@@ -1,11 +1,24 @@
 # Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
+> Status: Current · Owner: iOS Builder · Verified: 2026-07-29
+
 ## Overview
 The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
 
 Due to Strava deprecating free API access, this app replaces the legacy Strava-dependent sync pipeline entirely. It enables true multi-user support (e.g., Sky and his brother) without requiring a centralized backend, database, or third-party API dependencies.
 
 The app is "dumb" by design: it reads from and writes to GitHub. The AI Coach (running via Manus/Claude) and the Netlify dashboard remain unchanged, continuing to use the GitHub repo as their single source of truth.
+
+## Identity & Design Philosophy
+
+The app is a **silent, fast, native iOS utility** — the on-device executor for Coach Phelps (the AI
+coach), not a second place the coach lives. It provides the native sensors, timers, and data
+ingestion that make the system seamless, and nothing else. Strict design boundaries:
+
+- **Silent Utility:** No push notifications, no chat interface, no AI personality inside the sync/timer surfaces. The app moves data and runs timers; coaching conversation happens in coach-chat.
+- **Native Aesthetic:** Built entirely in SwiftUI using system colors, SF Symbols, and standard iOS typography. Fully supports Light and Dark mode without custom theming.
+- **Offline-First:** GitHub is the ultimate source of truth, but the app caches data locally so it opens instantly and works in the gym with poor connectivity.
+- **GitHub as Backend:** No traditional backend or database of its own — it authenticates via GitHub and reads/writes directly to the athlete's repo.
 
 ## Core Architecture: "GitHub as Backend"
 

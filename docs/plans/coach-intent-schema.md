@@ -1,6 +1,6 @@
 # Coach intent schema — model reports, server writes
 
-**Owner:** Akash · **P1 of 3** (P0 = `coach-commit-mvp.md`, Skanda · P2 = `ledger-split-plan.md`)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-12 · Author: Akash · **P1 of 3** (P0 = [`coach-commit-mvp.md`](../eng-docs/coach-commit-mvp.md), Skanda · P2 = [`ledger-split-plan.md`](ledger-split-plan.md))
 
 ## Context
 

@@ -1,5 +1,7 @@
 # Coach Phelps: SOUL History
 
+> Status: Historical · Owner: Tech Lead · Verified: 2026-07-29
+
 A living record of how Coach Phelps evolved — what changed, and why. Updated with every SOUL.md version.
 
 ---
@@ -114,6 +116,22 @@ A living record of how Coach Phelps evolved — what changed, and why. Updated w
 
 **Why:** v4.1 was operational but brittle: too much loaded at boot, rules scattered, and no examples anchoring voice. v5 reduces boot noise (lost-in-the-middle), centralizes hard constraints, and adds calibration examples so the coach stays Phelps under pressure.
 
+**Design rationale (folded in from the v5 design doc, 2026-04-05):** the framing that drove the
+overhaul was that **SOUL.md was doing too many jobs at once** — identity, engine mechanics, athlete
+data, and tool documentation in one file. Concrete failure modes observed on v4.1:
+
+- **Wrong-time workout prompts** — no time-of-day awareness; Coach suggested finishing a workout without knowing if it was 9am or 9pm.
+- **Stale fitness baseline** — "Push-ups: 30, Pull-ups: 12-13" baked into SOUL.md as of Mar 2026, so Coach quoted outdated numbers.
+- **Heavy boot context** — SOUL.md + quest_log.md + analytics_snapshot.json + state.md loaded every session, even a rest-day check-in.
+- **Tool docs drift** — the CLI-flag section went silently out of sync whenever scripts changed.
+- **Scattered guardrails** — "never edit template files" in one section, "don't read coach_notes.md at boot" in another; one missed sentence caused wrong behavior.
+- **Over-specified protocols** — 8 numbered rules for persisting session files, quest polarity mechanics spelled out. Correct, but brittle: spec and reality diverge as the system evolves.
+- **No calibration examples** — SOUL defined voice but never *showed* it, so there was no anchor for when Coach drifted.
+
+This "one file, too many jobs" diagnosis is the direct ancestor of the A/B/C layer split
+(`platform/soul/A_identity.md`, `B_engine.md`, `C_athlete.md`) that landed later — v5 separated the
+jobs *within* one file; the split separated them into three.
+
 ---
 
 ## v4.1 — "Protocol Tightening" · Apr 3, 2026
@@ -144,7 +162,16 @@ A living record of how Coach Phelps evolved — what changed, and why. Updated w
 - Greeting workflow tightened: no day count, no data opener, one contextual opener only
 - Analytics workflow reframed: data is in the back pocket, not on the clipboard
 
-**Why:** v3.1 worked operationally but the coach had no real character. Under pressure — a bad session, a losing streak, an injury — it defaulted to structured status reports. Sky's description of what he actually wanted was "a permanent coach who puts a shoulder around you." That's not a feature; it's a personality. The rewrite started from Phelps because his story maps cleanly: elite results, visible failure, comeback through process discipline. The situation playbook came from a specific gap — there was no guidance on what to do when Sky showed up defeated. Full design spec: `docs/soul-v4-design.md`.
+**Why:** v3.1 worked operationally but the coach had no real character. Under pressure — a bad session, a losing streak, an injury — it defaulted to structured status reports. Sky's description of what he actually wanted was "a permanent coach who puts a shoulder around you." That's not a feature; it's a personality. The rewrite started from Phelps because his story maps cleanly: elite results, visible failure, comeback through process discipline. The situation playbook came from a specific gap — there was no guidance on what to do when Sky showed up defeated.
+
+**Design rationale (folded in from the v4 design doc, 2026-03-29, implemented in PR #21):** v3.1
+produced a capable but *robotic* coach — it led with data, delivered structured status reports, and
+treated every interaction like a system update. The stated goal was "a permanent coach who puts a
+shoulder around you and guides you through tough times. Not a dashboard with a personality." Phelps
+was chosen as the model because his story maps cleanly onto that: elite results, visible public
+failure, comeback through process discipline. Voice was synthesized from 15+ primary sources —
+see [`../ref-docs/phelps-voice-profile.md`](../ref-docs/phelps-voice-profile.md) (the profile) and
+[`phelps-research-notes.md`](phelps-research-notes.md) (raw notes).
 
 ---
 

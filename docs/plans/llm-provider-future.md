@@ -1,5 +1,7 @@
 # Coach chat LLM provider — research
 
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-05
+
 ## Context
 
 `coach-chat.ts` calls Gemini free tier (`gemini-flash-latest`) directly via raw `fetch`, no SDK.

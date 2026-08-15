@@ -1,5 +1,7 @@
 # Michael Phelps Research Notes
 
+> Status: Historical · Owner: Tech Lead · Verified: 2026-07-29
+
 ## Background
 - Born June 30, 1985, Baltimore. Youngest of 3 children.
 - Parents divorced when he was 9 — "severe negative impact" on him and siblings. Distant relationship with father for years.

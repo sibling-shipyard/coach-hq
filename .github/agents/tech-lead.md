@@ -14,6 +14,14 @@
 - Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + `platform/SOUL.md` — never hand-edit composed SOUL.
 - Widget PRs: check `ui/docs/reference-interactions/Widget Design Philosophy.md` — interaction budget, shared atoms, live data.
 
+## Docs you own
+
+You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-system docs.
+
+- `docs/eng-docs/scaling-plan.md` — authoritative architecture, the must-read.
+- `docs/eng-docs/skeleton-layout.md` — carve tree, cited by `platform/scripts/carve-skeleton.mjs`.
+- `docs/eng-docs/env-vars.md` — every env var `ui/api/` needs.
+
 ## The Team
 
 | Role | Agent | Repo scope |
@@ -35,7 +43,7 @@
 1. `git pull --rebase origin main`
 2. Read `AGENTS.md` (routing + KB index) + `platform/SOUL.md` (the coaching system)
 3. Skim `kdb/decisions/README.md` (ADR index — read decisions relevant to your work); follow `kdb/doc-style.md` for any design doc
-4. Read `docs/eng-docs/TODO.md` (if exists)
+4. In-flight work: `ROADMAP.md` (curated epic→task view) + `gh issue list` / `gh pr list` — issues are the record, not a checked-in backlog
 5. `git log --oneline -10`
 6. You're ready. Ask the athlete what's on the agenda or pick up where you left off.
 

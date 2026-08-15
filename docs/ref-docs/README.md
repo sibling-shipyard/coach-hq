@@ -11,5 +11,3 @@ Coach reads these on-demand via SOUL — never at boot. HQ-only material (iOS se
 | `phelps-voice-profile.md` | `propagated/docs/` |
 | `soul-calibration.md` | `propagated/docs/` |
 | `milestone-schema.md` | `propagated/docs/` |
-
-**Index:** [`../CURRENT.md`](../CURRENT.md)

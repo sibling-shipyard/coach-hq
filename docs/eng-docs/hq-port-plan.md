@@ -1,7 +1,8 @@
 # HQ Port Plan — Adopt the Clean Structure
 
-> Status: **P3 in review** · P1 ✅ · P2 ✅ · Owner: Tech Lead · Scope: structure only. Skeleton carve and the
-> two-repo split are out of scope here — see [`scaling-plan.md`](scaling-plan.md), done after this.
+> Status: Historical · Owner: Tech Lead · Verified: 2026-07-29 · P1 ✅ · P2 ✅ · P3 in review · Scope: structure
+> only. Skeleton carve and the two-repo split are out of scope here — see
+> [`scaling-plan.md`](scaling-plan.md), done after this.
 
 ## Goal
 

@@ -1,6 +1,8 @@
 # coach-chat closing follow-up (Part B — deferred)
 
-**Status:** Implemented (B1 retry + B2 honesty guard). B3 confirmed no-op. Part A alone was
+> Status: Current · Owner: UI Expert · Verified: 2026-08-15
+
+**Implemented:** B1 retry + B2 honesty guard. B3 confirmed no-op. Part A alone was
 confirmed insufficient by a live repro before this was built: a real closing turn against
 coach-akash-suresh (traceId `xuij2ft9`, 2026) logged `reasoning` explicitly describing a state.md
 edit while `file_updates` still came back empty.

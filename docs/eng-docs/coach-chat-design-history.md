@@ -1,5 +1,7 @@
 # Coach Chat — design history
 
+> Status: Historical · Owner: UI Expert · Verified: 2026-08-06
+
 ## Context
 
 Coach chat has gone through a foundational redesign plus two follow-on passes, all in real
@@ -275,7 +277,7 @@ immunity.
   worst-case arithmetic across every stage (file reads, Gemini retries, commit retries) by simply
   using the real headroom available. This also meant the full "return fast, finish in background"
   redesign considered the same day was no longer an urgent fix (the timeout problem it targeted is
-  already solved by the 300s ceiling) — captured instead as `ASYNC-CLOSE-PLAN.md` at the repo root
+  already solved by the 300s ceiling) — captured instead as `docs/plans/ASYNC-CLOSE-PLAN.md`
   for optional future work, not implemented now.
 
 ---

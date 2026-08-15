@@ -14,6 +14,14 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 - **Don't touch:** `engine/core/`, `scripts/`, `user_data/` (Bob); `ios/` (iOS Builder); `client/src/data/` (pipeline-built — never edit directly).
 - **Dev:** run from `ui/` — `npm run dev` (predev runs `build-data.mjs` then Vite, `localhost:3000`).
 
+## Docs you own
+
+Keep these current when `ui/` changes; rules in `docs/eng-docs/README.md`.
+
+- `docs/eng-docs/coach-chat-flow.md` — end-to-end chat path through `ui/api/`, the must-read.
+- `docs/eng-docs/gemini-flow.md` — prompt assembly, schema, and retry behavior.
+- `docs/eng-docs/github-auth.md` — shared web + iOS sign-in backend.
+
 ## Gotchas
 
 - Before opening a PR, run `npm run check` from `ui/` (typecheck — its `precheck` builds the generated data first, so a clean checkout passes).

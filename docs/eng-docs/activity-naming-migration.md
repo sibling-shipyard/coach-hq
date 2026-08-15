@@ -1,5 +1,7 @@
 # Activity naming migration (phase 2)
 
+> Status: Current · Owner: Bob the Builder · Verified: 2026-08-02
+
 One-time operator script to retag historical activities when an athlete repo still uses legacy display names (`Hit & Run #12: Ranked`, `Foundation #45`, etc.) before phase 1 generic naming lands in iOS.
 
 ## When to run
