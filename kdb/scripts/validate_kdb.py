@@ -60,8 +60,12 @@ TOP_DIRS = {p.name for p in ROOT.iterdir() if p.is_dir()}
 PATH_RE = re.compile(r"`([^`\n]+)`")
 
 def gitignored(rel):
+    # Directory-only patterns (trailing slash, e.g. `ui/client/src/data/`) only match when git
+    # can tell the path is a directory — on a clean checkout it is absent, so the bare form
+    # misses. Test both forms: with several pathspecs check-ignore exits 0 if ANY match
+    # (and rejects -q, so drop it — output is captured and discarded anyway).
     try:
-        return subprocess.run(["git", "-C", str(ROOT), "check-ignore", "-q", rel],
+        return subprocess.run(["git", "-C", str(ROOT), "check-ignore", rel, rel + "/"],
                               capture_output=True).returncode == 0
     except OSError:
         return False  # git unavailable — don't skip, but don't crash either
