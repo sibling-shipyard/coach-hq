@@ -4,12 +4,18 @@
 > **Source:** the SOUL split plan's MVP shape (S0–S3, shipped — plan deleted, see git history) + v5.7 runtime files  
 > **Scope:** Schema definition only. `tracking_modules{}` is **reserved and empty** in MVP.
 
+**This doc is the only copy.** The schema block was deleted from `platform/soul/C_athlete.md` in the
+SOUL v5.8 trim (PR 2b) — it explained the prompt's own architecture to the model and described a
+shape nothing on disk uses, so it no longer ships in either composed build. Field names below
+(`sports[]`, `injury_flags[]`, `conditions[]`) are the **design vocabulary for engineers**; the
+composed SOUL now names the real `state.md` headings instead.
+
 ## Purpose
 
 Layer C is the extensibility seam: new sports, conditions, and future tracking signals land as **data**, not engine edits. Layer B reads these fields generically.
 
 ```
-soul/C_athlete.md     ← declarative schema (shared, composed into SOUL.md)
+docs/eng-docs/soul-C-schema.md    ← declarative schema (design-only; not composed into SOUL)
 user_data/coach/state.md          ← durable athlete state (per-user data)
 user_data/ledger/challenge_v2.json ← quests, season arc, milestones (per-user data)
 user_data/ledger/current_week.json ← active week plan (per-user data, read by B)
