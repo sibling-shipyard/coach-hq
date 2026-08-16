@@ -89,10 +89,14 @@ the scarcest resource in this system — spend it one field at a time, behind ev
 
 ### Read side — tiers with a budget
 
-Today every turn ships full SOUL + the whole 14KB `state.md` verbatim, and `maxOutputTokens` is
-32768 specifically because the model once had to reproduce `state.md` back. Once the server owns
-writes that ceiling is dead weight. JSON storage makes field selection possible; markdown forced
-all-or-nothing.
+The output side is already solved — `maxOutputTokens` is 2048 (`coachPrompt.ts:50`), shrunk once the
+model stopped having to reproduce `state.md` back. (`backend-decision.md` still says 32768; it is
+stale there.) SOUL is also effectively free: it lives in a shared Gemini explicit cache
+(`soulCache.ts`), identical across athletes.
+
+**So the entire uncached per-turn cost is the athlete block — the whole 14KB `state.md` plus
+`quest_log.md`, shipped verbatim every turn.** That is exactly the surface this redesign controls,
+and JSON storage is what makes field selection possible at all; markdown forced all-or-nothing.
 
 | Tier | When | Contents |
 |---|---|---|
@@ -102,6 +106,11 @@ all-or-nothing.
 
 Each tier gets a declared byte budget in the render layer, so prompt size is a number we own rather
 than a consequence of how much Coach wrote last month.
+
+The band model pays off twice here: `config` and `narrative` change rarely, `events` change every
+session. Splitting the athlete block along that line makes the stable half cacheable **per athlete**
+the way SOUL already is across athletes — a P3 follow-on, not a P1 obligation, but only possible
+once the two are separate files.
 
 ## Phases
 

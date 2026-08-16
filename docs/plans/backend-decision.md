@@ -1,6 +1,6 @@
 # Research: Backend options to replace GitHub-as-datastore
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-02
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-16
 
 ## Context
 
@@ -165,13 +165,14 @@ from the design docs alone.
 
 ### Coach chat (web + iOS), today
 
-Both clients hit one endpoint, `ui/api/coach-chat.ts`. Per ordinary turn: reads exactly three
-files fresh from GitHub (`propagated/SOUL.md`, `user_data/coach/state.md`, `gen/quest_log.md`
-— **not** `chat_history.json`, which is only touched at close/list time), calls Gemini
-(`gemini-flash-latest`, non-streaming, `responseSchema`-constrained JSON, 32768 max output
-tokens because `state.md` must be reproduced verbatim in the system instruction every turn),
-returns the reply. No GitHub write on an ordinary turn — the client holds the running
-conversation in memory.
+Both clients hit one endpoint, `ui/api/coach-chat.ts`. Per ordinary turn: reads exactly two
+files fresh from GitHub (`user_data/coach/state.md`, `gen/quest_log.md` — **not**
+`chat_history.json`, which is only touched at close/list time; SOUL is no longer fetched per repo,
+it's bundled at build time into `ui/api/_generated/soul.ts` per ADR 0022 and held in a shared
+Gemini explicit cache, `coach-chat/_lib/soulCache.ts`), calls Gemini (`gemini-flash-latest`,
+non-streaming, `responseSchema`-constrained JSON, `maxOutputTokens: 2048` — shrunk from 16384 once
+the closing ask stopped requiring `state.md` to be reproduced back), returns the reply. No GitHub
+write on an ordinary turn — the client holds the running conversation in memory.
 
 A deterministic regex (`isCloseSignal`, not the model) detects "wrap up"/"that's it for
 today"/etc. On close: Gemini's `file_updates` are filtered through a hardcoded writable-file
