@@ -115,13 +115,8 @@ Dynamic profile — current fitness baseline, goals, RPE calibration, and injury
 
 | Concern | Primary file | Notes |
 |---------|--------------|-------|
-| Profile (name, sports, goal, timezone, coaching style) | `user_data/coach/state.md` → Athlete Profile | HQ template has headings; populated at First Session |
-| Active injuries (acute/transient) | `state.md` → Active Injury Flags | Freeform bullets today; maps to `injury_flags[]` |
-| Chronic constraints | `state.md` → Learned Patterns + flag notes | Maps to `conditions[]` |
-| Phase / block context | `state.md` → Current Season / Phase sections | Evolved athletes may use `Current Phase / Block Context` |
-| Fitness baseline, RPE calibration | `state.md` dedicated sections | Athlete-specific snapshots |
-| Coaching priorities, learned patterns | `state.md` | Coach-derived institutional memory |
-| Recent session notes | `state.md` | Rolling last 3 — boot continuity |
+| Profile and injuries | `user_data/coach/state.md` → Athlete Profile, Active Injury Flags | Name, sports, goal, timezone, coaching style; populated at First Session. Chronic constraints sit under Learned Patterns. |
+| Everything else durable — season/phase context, fitness baseline, RPE calibration, coaching priorities, recent session notes | `user_data/coach/state.md`, its own sections | Freeform. Long-running athletes restructure and rename these — read for the data, not the heading. |
 | Season arc, phase, milestones, quests | `user_data/ledger/challenge_v2.json` | Structured JSON — single source of truth for gamification |
 | Active week plan | `user_data/ledger/current_week.json` | Schema v1 per `propagated/docs/current-week-contract.md` |
 

@@ -6,6 +6,19 @@ A living record of how Coach Phelps evolved — what changed, and why. Updated w
 
 ---
 
+## v5.8 — "The Trim" · Aug 16, 2026 *(landing across stacked PRs — 2a, 2d, 2b done; 2c open)*
+**Theme:** Cut what the composed builds ship to two runtimes but neither can act on. Both builds 509 → 413 lines so far.
+
+**What changed (PR 2b — Layer C schema and its knock-on renames):**
+- Deleted §7's `Athlete Schema (MVP)` block. It explained the prompt's own architecture to the model ("Layer C is the extensibility seam", "B never hardcodes sport names"), shipped an explicitly `RESERVED` empty `tracking_modules: {}` every turn, and described a shape nothing on disk uses — `carve-skeleton.mjs` writes markdown bullets. Its content now lives only in `docs/eng-docs/soul-C-schema.md`, as design vocabulary for engineers.
+- Seven live instructions that referenced the deleted `injury_flags[]` / `conditions[]` / `sports[]` now name the real `state.md` headings — Athlete Profile, Active Injury Flags, Learned Patterns. Four had carried both at once ("Read `injury_flags[]` / Active Injury Flags").
+- Dropped two "read from Layer C" leaks in §9. Coach reads `state.md`, not a layer of its own prompt.
+- §7 Data Locations squashed 9 rows → 4; seven of the nine only said "it's in `state.md`".
+
+**Why:** The schema was addressed to the wrong reader. It cost tokens on every turn to teach the model a vocabulary that appeared nowhere in its actual files, and the invented field names had started standing next to the real headings in safety-critical instructions like the Pre-Workout Check.
+
+---
+
 ## v5.7 (hq-adopted) — "Personal Brain on Main" · Jul 26, 2026
 **Theme:** S0 milestone — adopt personal-repo v5.7 as hq's source of truth on `main`, reconciled not copied.
 
