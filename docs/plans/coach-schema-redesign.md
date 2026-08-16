@@ -1,159 +1,170 @@
-# Coach schema redesign — bands, not files
+# Coach data redesign — group files by how often they change
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-16 · Author: Akash · Issue: [#378](https://github.com/sibling-shipyard/coach-hq/issues/378) · Field shapes: [`coach-schema-redesign-lld.md`](coach-schema-redesign-lld.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-16 · Author: Akash · Issue: [#378](https://github.com/sibling-shipyard/coach-hq/issues/378) · Exact file contents: [`coach-schema-redesign-lld.md`](coach-schema-redesign-lld.md)
 >
-> **Supersedes on ship:** [`ledger-split-plan.md`](ledger-split-plan.md) (its 5 open questions are answered in the LLD).
-> **Absorbs:** `rolling_state.json` from PR #374 — that PR lands first and is migrated in P1, by design.
+> **Replaces when it ships:** [`ledger-split-plan.md`](ledger-split-plan.md) — its five open questions are answered in the LLD.
+> **Note:** PR #374 lands first. The `rolling_state.json` it adds gets folded in during step 2, on purpose.
 
-## Context
+## The problem
 
-Coach's living memory does not work. `state.md` is read every turn and **written by nothing** —
-the closing turn was stripped to `coach_note` only for reliability (`ui/api/coach-chat.ts:16`,
-`validUpdates` starts from `[]` at :257). So continuity is spread across three overlapping files at
-three retentions — `coach_notes.md` (append-only, never read back), `rolling_state.json` (last 3,
-read), `state.md` § Recent Session Notes (last 3, unwritable) — and the one Coach reads is frozen.
+Coach's memory file, `state.md`, is read every single turn — and nothing ever writes to it.
 
-The cause is structural: storage, prompt, and SOUL text are the same object, so no file can change
-shape without changing what the model reads. Every fix so far has added a file instead. This
-redesign covers the **coach-owned surface only** — `user_data/coach/*`, `user_data/ledger/*`,
-`user_data/activities/workout_plans/*`. Out of scope: `activities/hist/`, `gen/`, and sleep
-(removed in a parallel workstream).
+The closing question to the model was cut back to just `coach_note` to make it more reliable
+(`ui/api/coach-chat.ts:16`; `validUpdates` starts as an empty list at :257). So Coach's "living
+memory" has been stuck since the app took over. What continuity we do have is scattered across
+three files that all do the same job, each keeping a different amount of history:
 
-## Decision
+- `coach_notes.md` — everything Coach ever wrote, but never read back
+- `rolling_state.json` — the last 3 sessions (added by PR #374)
+- `state.md`'s "Recent Session Notes" — also the last 3, but nothing can write to it
 
-Organize by **write-cadence and owner**, not by file or format. Four bands, each with one storage
-shape and one 1:1 mapping to a Postgres object later.
+The reason this keeps happening: **the files Coach reads and the files we store are the same
+files.** So we can't change how something is stored without changing what the model sees, which
+means changing SOUL too. Every fix so far has dodged that by adding another file.
+
+This covers Coach's own files only — `user_data/coach/`, `user_data/ledger/`, and
+`user_data/activities/workout_plans/`. Not covered: `activities/hist/`, `gen/`, and sleep (being
+removed separately).
+
+## The idea
+
+Sort every file by **how often it changes and who changes it**, not by what it's about. Four kinds:
 
 ```mermaid
 flowchart LR
-  subgraph bands["Four bands"]
-    cfg["config — rare, athlete/coach<br/>profile, season, quests, templates"]
-    ev["events — append-only, server<br/>sessions, progress"]
-    nar["narrative — prose leaves, model<br/>memory"]
-    der["derived — rebuildable, pipeline<br/>gen/ (out of scope)"]
+  subgraph kinds["Four kinds of data"]
+    cfg["Settings — changes rarely<br/>profile, season, quests, templates"]
+    ev["History — only ever added to<br/>sessions, quest progress"]
+    nar["Notes — plain text Coach writes<br/>memory"]
+    der["Calculated — rebuilt from the rest<br/>gen/ (not covered here)"]
   end
-  cfg --> tbl["Postgres table"]
+  cfg --> tbl["one database table later"]
   ev --> tbl
-  nar --> col["TEXT column"]
-  der --> view["view / materialized view"]
+  nar --> col["one text column later"]
+  der --> view["recalculated on the fly later"]
 ```
 
-Three rules carry the design:
+Sorting this way means that when we move to a real database, each file already matches one table.
+No second redesign.
 
-1. **Storage is never the prompt.** A render layer builds the model's view from storage, so later
-   phases swap storage without touching SOUL or the prompt. This is what makes the migration
-   phased instead of chaotic — it is P0, and it changes no data.
-2. **Structure the container, keep the leaves prose.** `memory.json` holds Learned Patterns and
-   Coaching Priorities as free text, addressable by key. The server writes one key; no exact-match
-   string surgery on a 14KB file. That kills the bug class without flattening the memory into
-   fields, which is where "Coach knows me" actually lives (`coach-memory.md`).
-3. **Every write carries provenance.** `{updated_at, updated_by, trace_id}` on mutable files,
-   `{id, ts, actor, trace_id}` on event rows. Today git history is the only forensic trail and the
-   DB move would lose it. Cheap now, impossible to backfill.
+Three rules make it work:
 
-### File map
+1. **What we store is not what Coach reads.** Add a small translation layer in between. Coach keeps
+   reading the same thing it always has; underneath, we're free to change files without touching
+   SOUL or the prompt. This is what lets us do the move in steps instead of all at once — it's
+   step 1, and it changes no data at all.
+2. **Keep Coach's writing as plain text; just put it in labelled boxes.** `memory.json` holds things
+   like Learned Patterns as ordinary paragraphs, each under its own label. The server can then
+   replace one labelled box instead of trying to find-and-replace exact text inside a 14KB file —
+   which is what keeps failing. We are **not** turning Coach's observations into rigid fields;
+   that free text is where "Coach knows me" actually lives.
+3. **Stamp every write with who did it and when.** Each file or row records `updated_at`,
+   `updated_by`, and the existing `trace_id` from the logs. Right now the only record of who
+   changed what is git history — and we lose that entirely when we move to a database. Adding it
+   now is easy; adding it later is impossible for anything already written.
 
-`state.md` is **deleted** — it decomposes into three files plus a rendered view. `coach_notes.md`,
-`rolling_state.json`, and `archive/*.md` collapse into one append-only event log; they were always
-the same thing at different retentions.
+### Where everything ends up
 
-| Band | Target | Replaces |
+`state.md` goes away. It splits into three files plus the translation layer that rebuilds the view
+Coach reads. `coach_notes.md`, `rolling_state.json`, and the two `archive/*.md` files all become
+one running log — they were always the same list, just kept for different lengths of time.
+
+| Kind | New file | Takes over from |
 |---|---|---|
-| config | `coach/profile.json` | `state.md` § Athlete Profile + Equipment, `coach_since` |
-| narrative | `coach/memory.json` | `state.md` § Baseline, RPE, Priorities, Learned Patterns, Injury Flags |
-| events | `coach/sessions.json` | `coach_notes.md`, `rolling_state.json`, `state.md` § Recent Session Notes, `archive/*.md` |
-| config | `ledger/season.json` | `challenge_v2.json` § season + phase |
-| config | `ledger/quests.json` | `challenge_v2.json` § main_quest, quests[], weekly_targets, graduated |
-| events | `ledger/progress.json` | `completed_dates[]`, `missed_dates[]`, `excused_dates[]`, `main_quest.sessions[]` |
-| config | `ledger/progressions.json` | `challenge_v2.json` § milestones |
+| Settings | `coach/profile.json` | `state.md` Athlete Profile + Equipment, `coach_since` |
+| Notes | `coach/memory.json` | `state.md` Fitness Baseline, RPE, Priorities, Learned Patterns, Injury Flags |
+| History | `coach/sessions.json` | `coach_notes.md`, `rolling_state.json`, `state.md` Recent Session Notes, `archive/*.md` |
+| Settings | `ledger/season.json` | `challenge_v2.json` season + phase |
+| Settings | `ledger/quests.json` | `challenge_v2.json` main_quest, quests, weekly_targets, graduated |
+| History | `ledger/progress.json` | `completed_dates`, `missed_dates`, `excused_dates`, `main_quest.sessions` |
+| Settings | `ledger/progressions.json` | `challenge_v2.json` milestones |
 
-Unchanged this pass: `chat_history.json` (ADR 0012, bounded, works), `current_week.json` and
-`workout_plans/*` (already id-shaped — they gain provenance only), `plugins.json`.
+Left alone for now: `chat_history.json` (works fine, ADR 0012), `current_week.json` and
+`workout_plans/*` (already have proper ids — they just get the who/when stamp), `plugins.json`.
 
-### Write side — one intent per phase, never a batch
+### How Coach saves things
 
-The model reports a fact; the server owns every mechanic. Intents are **id-addressed and
-idempotent**, so a retry cannot double-apply — which is also what a Postgres transaction wants.
+Coach says what happened. The server does all the file writing. Each thing Coach can report has one
+matching action, and **repeating the same report twice must leave everything unchanged** — so a
+retry can't double-count. That's also exactly how a database transaction wants to behave.
 
-| Intent | Payload | Server does | Idempotent on | Phase |
+| Coach reports | Looks like | Server does | Repeat-safe because | Step |
 |---|---|---|---|---|
-| `coach_note` | `string` | append row to `sessions.json` | `trace_id` | P0 (shipped) |
-| `memory_update` | `{key, text}` | replace one leaf in `memory.json` | key + `trace_id` | P1 |
-| `quest_event` | `{quest_id, date, status}` | upsert row in `progress.json` | `(quest_id, date)` | P2 |
-| `profile_update` | `{key, value}` | set one field in `profile.json` | key + `trace_id` | P2 |
+| `coach_note` | text | adds a row to `sessions.json` | same `trace_id` | 1 (already live) |
+| `memory_update` | `{label, text}` | replaces one labelled box in `memory.json` | same label + `trace_id` | 2 |
+| `quest_event` | `{quest_id, date, status}` | updates that day's row in `progress.json` | same quest + same date | 3 |
+| `profile_update` | `{field, value}` | sets one field in `profile.json` | same field + `trace_id` | 3 |
 
-**Add exactly one field per phase.** PR #374's own history is the evidence: `title` was removed for
-degenerate output, `session_note` reproduced the same repetition loop and dropped `session_closed`
-on the same turn, and reusing the already-proven `coach_note` worked. Response-schema surface is
-the scarcest resource in this system — spend it one field at a time, behind evals.
+**Add one new thing for Coach to report per step — never several at once.** PR #374 is the proof:
+`title` was dropped because the model started rambling, `session_note` caused the same rambling and
+made it forget to close the session, and reusing the already-working `coach_note` was fine. Every
+extra field we ask for makes the model less reliable, so we spend them one at a time, behind tests.
 
-### Read side — tiers with a budget
+### What Coach reads, and what it costs
 
-The output side is already solved — `maxOutputTokens` is 2048 (`coachPrompt.ts:50`), shrunk once the
-model stopped having to reproduce `state.md` back. (`backend-decision.md` still says 32768; it is
-stale there.) SOUL is also effectively free: it lives in a shared Gemini explicit cache
-(`soulCache.ts`), identical across athletes.
+The reply side is already handled — the model's reply limit is 2048 tokens (`coachPrompt.ts:50`),
+lowered once it stopped having to type `state.md` back out. (`backend-decision.md` still says 32768;
+that's out of date.) SOUL is basically free too: it's identical for everyone and stored once in a
+shared Gemini cache (`soulCache.ts`).
 
-**So the entire uncached per-turn cost is the athlete block — the whole 14KB `state.md` plus
-`quest_log.md`, shipped verbatim every turn.** That is exactly the surface this redesign controls,
-and JSON storage is what makes field selection possible at all; markdown forced all-or-nothing.
+**So everything we actually pay for, every turn, is the athlete's own material — the full 14KB
+`state.md` plus `quest_log.md`, sent in full each time.** That's precisely what this redesign
+controls, and splitting it into JSON is what makes it possible to send only the parts we need.
+Markdown was all-or-nothing.
 
-| Tier | When | Contents |
+| Send | When | What's in it |
 |---|---|---|
-| `core` | every turn | profile essentials, current season/phase, injury flags, last 3 session summaries, today's plan, quest state one-liner |
-| `extended` | closing turn | learned patterns, coaching priorities, fitness baseline, RPE calibration |
-| `deep` | on demand (P3) | full quest log, session history digest, workout template detail |
+| Always | every turn | who they are, current season and phase, injuries, last 3 sessions, today's plan, quest status in one line |
+| At the end | closing turn | learned patterns, priorities, fitness baseline, RPE anchors |
+| Only if asked | later (step 4) | full quest log, training history summary, full workout details |
 
-Each tier gets a declared byte budget in the render layer, so prompt size is a number we own rather
-than a consequence of how much Coach wrote last month.
+Each of those gets a size limit written into the translation layer, so prompt size becomes a number
+we choose rather than however much Coach happened to write last month.
 
-The band model pays off twice here: `config` and `narrative` change rarely, `events` change every
-session. Splitting the athlete block along that line makes the stable half cacheable **per athlete**
-the way SOUL already is across athletes — a P3 follow-on, not a P1 obligation, but only possible
-once the two are separate files.
+There's a second win here: settings and notes barely change, while history changes every session.
+Once they're separate files, the barely-changing half can be cached per athlete the same way SOUL is
+cached for everyone. That's a step-4 bonus, not something step 2 has to deliver.
 
-## Phases
+## The steps
 
-Each is one PR, one migration script, skeleton + `coach-akash`. No dual-read adapter — at two
-athletes a one-shot script is cheaper than version tolerance.
+One PR each, one migration script each, applied to the skeleton and to `coach-akash`. No
+supporting-both-formats code — with two athletes, a single conversion script is cheaper.
 
 ```mermaid
 flowchart LR
-  p0["P0 seam<br/>no data change"] --> p1["P1 narrative<br/>memory writable again"]
-  p1 --> p2["P2 ledger<br/>quests as rows"]
-  p2 --> p3["P3 tiers + digest"]
-  p3 --> p4["P4 Postgres"]
+  p1["1. translation layer<br/>no data changes"] --> p2["2. Coach's memory<br/>writable again"]
+  p2 --> p3["3. quests as rows"]
+  p3 --> p4["4. send less, summarise more"]
+  p4 --> p5["5. real database"]
 ```
 
-| Phase | Ships | Verified by |
+| Step | What ships | How we know it worked |
 |---|---|---|
-| **P0** | `renderCoachContext()` read seam; `coachIntents.ts` apply seam (PR #374 lands it); `trace_id` propagated into writes | Prompt bytes byte-identical before/after; `npm run eval:coach-chat` unchanged |
-| **P1** | `profile.json` + `memory.json` + `sessions.json`; `state.md` deleted; `memory_update` intent | Rendered view byte-identical to today's `state.md`; one live close writes a memory leaf |
-| **P2** | 4 ledger files; `quest_event` + `profile_update` intents; `generate_quest_history.py` loses its per-day replay | `generate_quest_log.py` renders identical text before/after migration |
-| **P3** | Tier budgets, on-demand chunks, rhythms digest (`coach-memory.md`) | Measured prompt-token drop in `[coach-chat] Gemini usage:` |
-| **P4** | Postgres — every file is already a table | Out of scope here; `backend-decision.md` owns it |
+| **1** | translation layer both ways — one that builds what Coach reads, one that applies what Coach reports (PR #374 starts this); `trace_id` carried into writes | the prompt comes out character-for-character identical to today; `npm run eval:coach-chat` unchanged |
+| **2** | `profile.json` + `memory.json` + `sessions.json`; `state.md` deleted; `memory_update` added | rebuilt view is character-for-character identical to today's `state.md`; one real session saves a memory note |
+| **3** | the four ledger files; `quest_event` + `profile_update` added; `generate_quest_history.py` stops replaying day by day | `generate_quest_log.py` prints exactly the same text before and after |
+| **4** | size limits, load-on-demand, training history summary (`coach-memory.md`) | measured drop in `[coach-chat] Gemini usage:` |
+| **5** | move to a database — every file is already a table | not covered here; `backend-decision.md` owns it |
 
 ## Done when
 
-- `state.md`, `coach_notes.md`, `rolling_state.json`, and `archive/*.md` do not exist in a new or
-  migrated repo, and nothing reads them.
-- One live close writes a memory leaf and a session row in one atomic commit, confirmed in the repo
-  by grep — not by trusting the model's reply.
-- A quest tick lands from `quest_event` alone; replaying the same event twice changes nothing.
-- Every mutating write in scope carries `trace_id`, and `close-trace` can be joined to the row it
-  produced.
-- `validate-data.yml` enforces the new shapes; `challenge_v2.json` is gone.
-- `npm run test` and `npm run eval:coach-chat` pass at every phase boundary, not just the last.
+- `state.md`, `coach_notes.md`, `rolling_state.json`, `archive/*.md` and `challenge_v2.json` don't
+  exist in a new or converted repo, and nothing looks for them.
+- One real session saves both a memory note and a session entry in a single commit — checked by
+  actually looking in the repo, not by believing what Coach said.
+- Ticking a quest works from Coach's report alone, and reporting the same tick twice changes nothing.
+- Every write records who made it and when, and can be matched to its line in the logs.
+- `validate-data.yml` checks the new shapes; `challenge_v2.json` is gone.
+- `npm run test` and `npm run eval:coach-chat` pass at the end of *every* step, not just the last.
 
-## Deferred
+## Not doing yet
 
-- **P2 — biometrics file** (`vitals.json`: weight, resting HR, and whatever replaces sleep). Named
-  here as an extension point so the schema leaves room; not built until something needs it.
-- **P2 — `current_week.json` intent.** Stays judgment-heavy (session identity, provenance); needs
-  its own design, per `coach-intent-schema.md`.
-- **P3 — Gemini function-calling** so Coach pulls the `deep` tier on demand instead of pre-loading.
-  Needs its own ADR; the stable chunk addresses in P1/P2 are the prerequisite.
-- **P3 — the athlete's own words.** A thin thread of verbatim quotes alongside Coach's summaries
-  (`coach-memory.md`, "Later, not now").
-- **ADR churn.** ADR 0018 puts `coach_since` in `challenge_v2.json`; P1 moves it to `profile.json`.
-  ADR 0006 is superseded by P2. Both need superseding ADRs filed in the phase that moves them.
+- **A file for body measurements** (weight, resting heart rate, and whatever replaces sleep). Named
+  here so we leave room for it — not built until something needs it.
+- **Letting Coach edit `current_week.json` directly.** Too much judgement involved; needs its own
+  design, as `coach-intent-schema.md` already said.
+- **Letting Coach fetch extra detail on demand** instead of us sending it every time. Needs its own
+  ADR; steps 2 and 3 are what make it possible.
+- **Saving the athlete's exact words** alongside Coach's summaries of them (`coach-memory.md`).
+- **ADR updates.** ADR 0018 puts `coach_since` in `challenge_v2.json` and step 2 moves it; ADR 0006
+  is replaced by step 3. Each gets its replacement ADR in the step that moves it, not before.
