@@ -225,7 +225,9 @@ a cut. Worth watching for during the manual voice read on PR 2 rather than decid
 4. **PR 4 — the rare workflows.** Two mechanisms, not one:
 	a. *Conditional injection (app):* First Session, gated on `isAthleteProfileComplete()`.
 	   Blocks land in the **dynamic** half of the prompt, never the cached prefix
-	   (`ui/api/_lib/soulCache.ts`), or we fragment the cache per athlete.
+	   (`ui/api/coach-chat/_lib/soulCache.ts`), or we fragment the cache per athlete. The seam is
+	   `buildDynamicText()`'s `extraContext` parameter in `coachPrompt.ts`; the cached prefix is
+	   `staticSystemText(soul)`, hashed, so anything injected there forks the cache.
 	b. *On-demand docs (BYOB):* badminton and the season recap spec become files Coach opens
 	   when it needs them, with a one-line pointer left behind.
 

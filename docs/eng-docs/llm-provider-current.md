@@ -89,7 +89,7 @@ see the new ADR amending 0011 for the full rationale.
 ## Eval — how we actually pick, not vibes
 
 **Harness built** (`ui/scripts/eval-coach-chat.ts`, `npm run eval:coach-chat`, 7 transcripts in
-`ui/api/_tests/coach-chat-eval/transcripts/`): greeting, ordinary check-in, close-session happy
+`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`): greeting, ordinary check-in, close-session happy
 path, close-session with missing info (must ask, not fabricate a save), quest completion,
 injury/sore flag handling, false-positive close-signal. It runs each transcript through the real
 `askGemini()` and checks the *objective* rubric automatically: valid schema, no fabricated

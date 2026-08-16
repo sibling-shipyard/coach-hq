@@ -31,7 +31,7 @@ AI coaching system for the athlete — data, training pipeline, Strava sync, and
 layers. They compose into **two** artifacts, one per runtime (ADR 0022): `platform/SOUL.chat.md`, bundled
 into the hosted coach-chat web/iOS app at build time (`ui/scripts/build-soul.mjs`), and
 `platform/SOUL.claude.md`, the BYO Claude Code build. Both come from `node platform/scripts/compose-soul.mjs`
-and CI checks both for drift. The bare `platform/SOUL.md` name is retired so neither runtime silently owns
+and CI checks both for drift. The bare `SOUL.md` name is retired so neither runtime silently owns
 it. There is no per-athlete SOUL copy to keep in sync. To change coach behavior, edit the relevant
 `platform/soul/*.md` layer, run compose, commit both the layer edits and the regenerated artifacts. Never
 hand-edit a composed SOUL.

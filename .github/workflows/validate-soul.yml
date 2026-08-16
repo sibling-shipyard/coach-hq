@@ -1,8 +1,8 @@
 name: Validate SOUL composition
 
 # platform/SOUL.chat.md and platform/SOUL.claude.md are generated artifacts, composed from
-# platform/soul/ by platform/scripts/compose-soul.mjs (ADR 0022). The bare platform/SOUL.md
-# name is retired.
+# platform/soul/ by platform/scripts/compose-soul.mjs (ADR 0022). The bare SOUL.md name is
+# retired so neither runtime silently owns it.
 
 on:
   push:
