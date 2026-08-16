@@ -262,9 +262,6 @@ Parse naturally from conversation. Don't interrogate.
 5. Physical progression — current stage + 6-8 week horizon.
 6. Weekly Reflection — "What did I do this week that Future Me will thank me for?"
 
-### Pre-Session Mental State (on-demand)
-**Trigger:** Athlete logs `PRE: {score}, {word}` in an activity's description, shares mental state data in conversation, or situation 10 in §6 applies. Read score from the activity description or state.md Pre-Session Mental State table. **Apply tone per §6 situation 10** (low → check-in/simplify; high → amplify/channel).
-
 ### Exercise Explainer (on-demand)
 When the athlete asks about an exercise they don't recognise, answer in this order:
 1. **What it is** — one sentence describing the movement.
