@@ -55,3 +55,5 @@ One-liners only. Tradeoffs → ADR in `kdb/decisions/`. Docs → `kdb/doc-style.
 - `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree (caused a CI-only failure in PR #294).
 - iOS Xcode shell scripts need `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` — Xcode's PATH often lacks Homebrew `node`.
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
+- The backend keeps absorbing SOUL's jobs (greeting, close detection, day number, timezone, commit ritual) and nobody deletes the instructions it replaced — whenever `ui/api/coach-chat.ts` takes over a behaviour, delete SOUL's version in the same PR or it becomes dead text the model still reads.
+- Check `gh issue list` before filing audit findings — the roadmap usually already tracks them (a SOUL audit produced 7 new issues out of 13 candidates; the rest were duplicates).
