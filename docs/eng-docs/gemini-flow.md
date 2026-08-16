@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-06
+> Status: Current · Owner: UI Expert · Verified: 2026-08-16
 
 ## Context
 
@@ -12,7 +12,7 @@ the same way `coach-chat-flow.md` is the one reference for the request lifecycle
 ## Model and endpoint
 
 `gemini-flash-latest` (Google's maintained alias — dated model ids keep getting sunset early;
-see `coach-chat.ts:46-51`), called via raw `fetch` to `generateContent`, no SDK
+see `ui/api/coach-chat/_lib/geminiClient.ts`), called via raw `fetch` to `generateContent`, no SDK
 (`GEMINI_API_KEY` env var). One call per turn, no streaming (issue #270).
 
 ## Prompt shape: static prefix + dynamic block
@@ -35,8 +35,9 @@ flowchart LR
     history["conversation history\n(last 40 msgs)"] --> call
 ```
 
-`coach-chat.ts`'s `askGemini()` builds these as two separate strings (`staticSystemText()` and
-`dynamicText`), not one array, because of a hard API constraint below.
+`geminiClient.ts`'s `askGemini()` builds these as two separate strings (`coachPrompt.ts`'s
+`staticSystemText()` and `buildDynamicText()`), not one array, because of a hard API constraint
+below.
 
 ## Caching: implicit (fallback) vs explicit (primary path)
 
@@ -47,7 +48,7 @@ stable comes before anything that varies per call, so a byte-identical prefix ex
 first place. Minimum cacheable size is 2,048 tokens (Gemini 2.5 Flash); SOUL.md alone clears
 that ~6x over.
 
-**Explicit caching** (`ui/api/_lib/soulCache.ts`) is the primary path: the static prefix is
+**Explicit caching** (`ui/api/coach-chat/_lib/soulCache.ts`) is the primary path: the static prefix is
 uploaded once via `POST /v1beta/cachedContents`, returning a `cachedContents/...` name. Every
 subsequent call passes `cachedContent: <name>` instead of resending the text at all — cached
 reads are billed at 10% of standard input rate, *guaranteed*, not best-effort. The cache is not
@@ -152,8 +153,8 @@ spread the whole object anyway). It never reaches the athlete either way.
 ## Retries, timeouts, rate limits
 
 - The actual `generateContent` call uses its own longer timeout (`GEMINI_GENERATE_TIMEOUT_MS`,
-  45s, `coach-chat.ts`) rather than the shared file-read default (`UPSTREAM_TIMEOUT_MS`, 25s,
-  `coachChatFiles.ts`) — closing turns routinely carry the largest prompts in the system (full
+  45s, `geminiClient.ts`) rather than the shared file-read default (`UPSTREAM_TIMEOUT_MS`, 25s,
+  `ui/api/_lib/httpTimeout.ts`) — closing turns routinely carry the largest prompts in the system (full
   chat history + 5 extra files) and the hardest output (a structured close-out), so they're the
   turn most likely to legitimately need more than 25s. `ui/vercel.json` sets an explicit
   `maxDuration: 300` for `api/coach-chat.ts` so the platform's own ceiling doesn't silently become
