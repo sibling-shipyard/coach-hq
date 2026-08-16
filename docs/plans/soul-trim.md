@@ -19,12 +19,18 @@ receives falls under that.
 
 ```
 509 lines
-├── ~127  dead or duplicated in BOTH runtimes   ── pure deletion + squash
-├── ~78   only reachable with a shell/git       ── claude adapter
-├── ~54   rare, gated by athlete state          ── conditional injection (app)
-├── ~21   rare, gated by nothing checkable      ── on-demand doc (BYOB only)
-└── ~229  genuinely shared coaching instruction ── the actual SOUL
+├── ~112  dead or duplicated in BOTH runtimes   ── pure deletion + squash
+├──  ~70  only reachable with a shell/git       ── claude adapter
+├──   43  rare, gated by athlete state          ── conditional injection (app)
+├──   14  rare, gated by nothing checkable      ── on-demand doc (BYOB only)
+└──  rest genuinely shared coaching instruction ── the actual SOUL
 ```
+
+**How to read the counts.** The `n` column in the table below is each block's *raw line span*,
+blank lines and headings inside the span included, so every per-block figure runs ~12% high. The
+four buckets above are corrected for that; they therefore no longer subtract cleanly from 509,
+and the shared-core remainder is deliberately left unnumbered rather than restated wrong. PR 2a
+measured the first real datapoint: the pure-deletion pass took the composed builds 509 → 463.
 
 The third and fourth buckets are different mechanisms and worth keeping apart. **Conditional
 injection** needs a predicate the backend can evaluate *before* the turn starts — First Session
@@ -32,7 +38,11 @@ injection** needs a predicate the backend can evaluate *before* the turn starts 
 badminton and the season recap spec land here because their triggers can't be known in advance,
 and because every file they reference is unreachable in the app anyway.
 
-**Layer A — identity, voice, philosophy, situation playbook — is untouched in every step.**
+**Layer A is untouched apart from two named lines.** Identity, voice, philosophy, and the
+situation playbook do not move, fork, or get reworded — with exactly two exceptions, both already
+in the table below: `A_identity.md:83` (§6 situation 10, deleted with PRE) and `A_identity.md:65`
+(the example season at composed L106, genericised in PR 4). Any other diff to `A_identity.md` in
+any PR of this trim is out of scope and should be rejected in review.
 
 **The app's write capability is in a temporary trough — verdicts below target the intended design,
 not today's code.** PR #350 stripped coach-chat's closing turn to a bare minimum to isolate a
@@ -59,7 +69,7 @@ Section headings and blank lines are omitted — the table covers content blocks
 | 1 | 21–40 | File-roles table | 20 | CUT | nothing folded — 14 rows duplicate the point of use, 2 describe files Coach never touches |
 | 2 | 43 | "You don't write code" | 1 | CLAUDE | chat system prompt already says it, stronger |
 | 2 | 44–45 | Push authority, branch pinning | 2 | CLAUDE | chat has no git; backend gates writes |
-| 2 | 46 | "Never modify `propagated/SOUL.md`" | 1 | CUT | carve stopped writing that file (ADR 0021) |
+| 2 | 46 | "Never modify `propagated/SOUL.md`, templates, pipeline scripts, workflows" | 1 | REWRITE | only the first path is dead (ADR 0021) — see below |
 | 2 | 47 | Never edit `gen/quest_log.md` | 1 | CLAUDE | not in chat's writable set |
 | 2 | 48 | Never compute streaks | 1 | KEEP | real behaviour |
 | 2 | 49 | Never-read-at-boot list | 1 | CLAUDE | 3 of its 5 paths no longer exist post-ADR 0021 |
@@ -108,6 +118,14 @@ Section headings and blank lines are omitted — the table covers content blocks
 | 12 | 500–502 | "What NOT to update" | 3 | CUT | duplicates §2 lines 47–48 |
 | 12 | 504–509 | Interim Save, Rollback | 5 | CLAUDE | git-only |
 
+**§2 line 46 was verdicted `CUT` and that was wrong.** Only `propagated/SOUL.md` is dead there;
+the same sentence is the repo's statement of "never modify workout templates, pipeline scripts,
+or GitHub workflows". §12's "What NOT to update" block, also cut, carried the only other copy of
+the template half — so cutting both would have deleted the guardrail from *both* builds, which is
+a real regression, not a trim. The verdict is REWRITE: drop the dead path, keep the rest. Landed
+that way in PR 2a; grep both composed builds for `workout_plans/templates/*.json` after any
+future edit to §2 or §12.
+
 **Whole sections that disappear from the app build:** §1, §11, and all but ~6 lines of §12.
 **Sections untouched in both:** §3, and §6 apart from one rewritten line.
 
@@ -121,9 +139,15 @@ prompt's own architecture to the model: *"Layer C is the extensibility seam"*, *
 fields generically"*, *"B never hardcodes sport names"*, plus a note about a backlog ticket. It
 ships an explicitly `RESERVED` empty `tracking_modules: {}` every turn. And it describes a shape
 that exists nowhere — `carve-skeleton.mjs`'s `STATE_MD_TEMPLATE` writes markdown bullets, which
-SOUL's own line 184 admits (*"Freeform bullets today"*). **It also already lives in
-`docs/eng-docs/soul-C-schema.md`**, verbatim, so deleting it loses nothing. Bump that doc's
-`Verified:` date and note the schema no longer ships in the composed SOUL.
+SOUL's own line 184 admits (*"Freeform bullets today"*). It also lives in
+`docs/eng-docs/soul-C-schema.md` — **but not fully verbatim, and the gap must be closed before
+the block is deleted.** The YAML and the five schema design rules are there; SOUL L177's
+*"Template vs runtime"* paragraph is not. The eng-doc's nearest coverage is its "HQ template vs
+Sky live" section, which loses SOUL's explicit *"B reads the generic contract regardless of
+section layout"* clause, and its similar-sounding template sentence higher up is about
+`challenge_v2.json`, a different file. **PR 2b copies L177's content into the eng-doc first, then
+deletes the block** — never the other way round. Bump that doc's `Verified:` date and note the
+schema no longer ships in the composed SOUL.
 
 *Knock-on:* `injury_flags[]` / `conditions[]` / `sports[]` appear 15 times, 8 in live
 instructions, four as *"Read `injury_flags[]` / Active Injury Flags"* — invented name beside real
@@ -214,14 +238,38 @@ a cut. Worth watching for during the manual voice read on PR 2 rather than decid
    **Ship `validate-soul` here too** (its own issue) — the split is what makes its
    writable-set check expressible at all. It **will report findings on day one, and that is
    correct**: PR 1 changes no words, so every rot in the table above is still present. Run it
-   non-blocking with a committed baseline of today's failures; PRs 2–3 burn the baseline down and
-   it flips to blocking at zero. Never weaken a check to make CI green — a linter tuned until it
-   passes looks like coverage and isn't. If it reports *zero* findings on v5.7 content, it's
-   broken.
-2. **PR 2 — the ~127 dead and duplicated lines.** Applies to both builds, so it needs the most
-   care. §7 alone is 54 of them. Eval before/after, plus a manual voice read on BYOB since it has
-   no eval. This is also where sleep and PRE come out.
-3. **PR 3 — claude adapter.** Move the ~78 shell/git lines. App build drops to ~300.
+   non-blocking with a committed baseline of today's failures. Never weaken a check to make CI
+   green — a linter tuned until it passes looks like coverage and isn't. If it reports *zero*
+   findings on v5.7 content, it's broken.
+
+   **"PRs 2–3 burn the baseline down and it flips to blocking at zero" is not achievable, and
+   was wrong to write.** Measured on the post-2a baseline (42 entries), the floor the trim can
+   reach is **13**, none of which SOUL wording can fix:
+	a. **7 `not-yet-rebuilt`** — writes the intended coach-chat design supports but PR #350's
+	   floor does not (`state.md`, `current_week.json`, `sleep_log.json`, and four spellings of
+	   the sessions path). Gated on coach-chat Part B, not on this trim.
+	b. **6 validate-soul false positives** — `query_history.py`, `generate_quest_log.py`, and
+	   `validate-current-week` in both builds. The write verb in those sentences attaches to the
+	   *data* the script produces, not to the script being run; the linter mis-attributes it.
+	   Carried as `unclassified` today.
+
+   So the CI step flips to blocking only after (i) the linter bug in (b) is fixed and (ii) Part B
+   lands (a) — neither is a SOUL edit. Do not gate any trim PR on the baseline reaching zero.
+2. **PR 2 — the ~112 dead and duplicated lines.** Applies to both builds, so it needs the most
+   care. §7 alone is ~45 of them. Eval before/after, plus a manual voice read on BYOB since it
+   has no eval. Split into four PRs, in this order, so each is reviewable line-by-line:
+	a. **2a — pure deletions** (landed). Blocks that are dead or restated elsewhere, plus the
+	   `roadmap.md` / `propagated/SOUL.md` / competition-week / deload cleanup. No instruction is
+	   re-authored. 509 → 463.
+	b. **2d — sleep + PRE.** The two feature removals (#300, #301), done next because they cut
+	   whole blocks and shrink what 2b and 2c have to reason about.
+	c. **2b — §7 schema + renames.** The 40-line schema block (after its content is in the
+	   eng-doc) **and the §7 Data Locations table**, plus the `injury_flags[]` / `conditions[]` /
+	   `sports[]` rename sites that deleting the schema unblocks.
+	d. **2c — the squashes.** Every `SQUASH` and `MERGE` row in the table above. Judgement-heavy
+	   by definition: each one has to be read as "does the shorter text still mean the same
+	   thing", which is why it goes last and alone.
+3. **PR 3 — claude adapter.** Move the ~70 shell/git lines. App build drops to ~300.
 4. **PR 4 — the rare workflows.** Two mechanisms, not one:
 	a. *Conditional injection (app):* First Session, gated on `isAthleteProfileComplete()`.
 	   Blocks land in the **dynamic** half of the prompt, never the cached prefix
