@@ -27,6 +27,7 @@
 | 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | cross-cutting |
 | 0022 | SOUL composes into two builds: one for the app, one for BYO Claude Code | cross-cutting |
 | 0023 | A signal ships only when something other than the athlete maintains it | cross-cutting |
+| 0024 | Paid checks run at named gates, not on every PR | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.

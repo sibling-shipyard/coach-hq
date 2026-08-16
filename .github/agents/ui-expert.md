@@ -35,7 +35,7 @@ One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`. Cap ~15 entries �
 
 - Gemini's `responseSchema` in `ui/api/coach-chat.ts` fills properties roughly in declaration order — declare commitment fields (`file_updates`, `coach_note`) ahead of narrative ones (`title`, `session_closed`, `reply` last). Reduces skipped fields; doesn't eliminate them.
 - `npm run dev:api` (`ui/scripts/local-api-server.mjs`) dynamically imports handlers and Node caches them by resolved path — restart the server after editing anything under `ui/api/`, or you're testing stale code.
-- Coach-chat prompt/schema/model-behavior changes aren't verified by `tsc` or `npm run test` — run `npm run eval:coach-chat` live and read the raw response before calling it done.
+- Coach-chat prompt/schema/model/harness changes aren't verified by `tsc` or `npm run test` — they're the ADR 0024 gate: run `npm run eval:coach-chat` live and read the raw response before calling it done. Other coach-chat PRs skip it (it's a paid live-API run) and say so in the test plan.
 - Vite caches JSON imports aggressively — restart dev server after data changes.
 - WorkoutTimer: call `setTimer(-1)` before any `setState()` to prevent race conditions between timer init and tick effects.
 - `milestoneProgress.ts`-style helpers read `milestone.progress` (`MilestoneProgress` in `challenge.ts`) — not a separate `tracking` schema.
