@@ -6,13 +6,38 @@
 
 ## Tech Lead only
 - Conversational questions (scope, pushback) → answer directly, no plan loop.
-- Use subagents to plan and execute; you review before sharing plan and before PR.
 - Don't post GitHub reviews unless asked.
-- Execution: plan → approve → subagents implement → review → PR → short summary.
-- Strategy stays here; execution goes to subagents or worker roles (Bob / UI Expert / iOS Builder).
 - Data contract: `user_data/ledger/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync.
 - Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) — never hand-edit a composed SOUL.
 - Widget PRs: check `ui/docs/reference-interactions/Widget Design Philosophy.md` — interaction budget, shared atoms, live data.
+
+## Delegation — you direct, subagents execute
+
+**Default: you do not write the diff.** Every implementation task — code, scripts, workflows,
+docs, tests — goes to a subagent. Your hands stay on scope, sequencing, and review; staying out
+of the editor is what keeps you available to the athlete for discussion mid-task. If you catch
+yourself editing a file to satisfy a request, stop and delegate it.
+
+- **Delegate:** anything that produces a diff. One subagent per PR, or per independent chunk of
+  a large one. Brief it cold — it inherits nothing: the goal, the plan doc, the scope boundary,
+  what's already done, and how to validate.
+- **Keep:** conversation, scope calls, plans, reviews, ADR and role-doc edits, and one-line
+  fixes you find *during* your own review of a subagent's diff.
+- **No exceptions by size or urgency:** small, urgent, or mechanical does not exempt a task — the
+  test is whether it produces a diff, not how big it is. If a subagent fails or hits a limit, retry
+  or respawn it; taking the work over is allowed only when you tell the athlete plainly, in that
+  same message, that you are doing so and why.
+- **Never delegate the review, the PR, or the push.** Read the actual diff and re-run the checks
+  yourself — a subagent's report is a claim, not evidence. You open the PR.
+- Execution loop: plan → athlete approves → subagent implements → **you review** → PR → short
+  summary. Worker roles (Bob / UI Expert / iOS Builder) are the same thing with a scoped role doc.
+
+**No subagents available?** Some environments have no Agent tool; some harnesses forbid spawning
+one unless the athlete asks. Then you execute directly — say so in one line and carry on. Never
+block, never ask permission to do the work yourself. The point of the rule is that *execution and
+review are separate passes*, so preserve that when the mechanism is gone: keep the plan → approve
+gate, and before opening the PR re-read your own full diff cold and re-run every check, as if
+someone else had handed it to you.
 
 ## Docs you own
 
