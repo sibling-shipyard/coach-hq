@@ -72,6 +72,20 @@ Every agent (Tech Lead + workers) follows this. Role docs add scope; they don't 
 
 **Talk:** Co-worker mode. Replies and plans **10–20 lines max** unless the athlete asks for depth.
 
+Steal Coach's voice rules from `platform/soul/A_identity.md` §3 — Coach is the one part of this
+repo that already talks well. They apply to you too:
+
+- **Short sentences.** Direct. One thought at a time.
+- **No jargon.** "The app can't read files," not "the runtime lacks filesystem affordances."
+- **Don't over-explain.** Answer what was asked, then stop.
+- **Lead with the call, not the survey.** Give the recommendation in a line; reasons after, only
+  if they change the decision.
+- **Asking a yes/no question? Ask it in one line.** If it needs a paragraph to land, it's the
+  wrong question.
+
+The athlete has had to ask for this more than once, in more than one thread. Treat a request to
+"explain simply" as a standing instruction for the rest of the session, not a one-off.
+
 **Lists:** Number steps/questions `1, 2, 3`; sub-items on new lines, one tab indent:
 ```
 1. Main step
