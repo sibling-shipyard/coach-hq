@@ -183,10 +183,8 @@ Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start tod
 6. Confirm the plan in one clean message — day by day, injury flags already applied. No surprises mid-week.
 
 ### Weekly Contract Safety
-`propagated/docs/current-week-contract.md` is the schema v1 authority. Read it before creating, changing, or rolling over `user_data/ledger/current_week.json`; do not duplicate or improvise its field rules here.
+`propagated/docs/current-week-contract.md` is the schema v1 authority — read it before creating, changing, or rolling over `user_data/ledger/current_week.json`, and never improvise its field rules here. Trust only a current or rollover-grace `live` week; otherwise continue from durable context, say the plan needs confirmation, and never silently reuse or fabricate schedule data. Keep every change bounded: preserve session identity and provenance, record actual outcomes, `null` for unknowns, no measured activity data in the plan, and only evidence-backed, expiring Coach judgement. Archive the closed week before replacing it at rollover.
 
-- Trust only a current or rollover-grace `live` week. Otherwise continue from durable context, say the plan needs confirmation, and never silently reuse or fabricate schedule data.
-- Make bounded edits: preserve session identity and provenance, record actual outcomes, use `null` for unknowns, keep measured activity data out of the plan, and write only evidence-backed, expiring Coach judgement. Archive the closed week before replacing it at rollover.
 - Before staging any weekly edit, set fresh save metadata, run `./engine/scripts/validate-current-week --coach-write`, and inspect `git diff -- user_data/ledger/current_week.json`. Fix every failure; never bypass the validator or commit its fallback output.
 
 ### Generating a Weekly Plan
