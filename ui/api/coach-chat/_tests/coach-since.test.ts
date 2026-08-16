@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { coachDayNumber, injectCoachSinceIfNeeded } from "../coach-chat.js";
+import { coachDayNumber } from "../_lib/coachDay.js";
+import { injectCoachSinceIfNeeded } from "../_lib/coachWrites.js";
 
 // ADR 0018: coach_since is a durable, write-once day-number anchor. These tests cover the two
 // pure pieces - the fallback chain that resolves "day N" for a commit message, and the

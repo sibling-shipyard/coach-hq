@@ -1,6 +1,6 @@
 # Coach Chat — how it works
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-06
+> Status: Current · Owner: UI Expert · Verified: 2026-08-16
 
 ## Context
 
@@ -11,6 +11,13 @@ happens between the athlete opening the chat tab and anything landing on `main` 
 Companion to [`ios-sync.md`](ios-sync.md): that doc covers HealthKit ingestion, this one covers
 the coaching-conversation path. Commit/retention design: ADR 0012. Vercel function-count
 constraint that shapes the endpoint layout: ADR 0017.
+
+**Reliability-debug caveat:** as of the 2026-08-14/15 strip-down (see
+[`coach-chat-design-history.md`](coach-chat-design-history.md)), the code implements a reduced
+subset of the design below — `coach_note` on close only, no `file_updates`/JSON writes beyond the
+`coach_since` stamp, no model-generated title, no retry/honesty guard. This doc describes the
+intended full design Part B is rebuilding toward, incrementally; see `BACKLOG.md` and
+`docs/plans/coach-chat-follow-up.md` for exactly what's live right now.
 
 ## Two conversations this doc covers
 
@@ -61,7 +68,7 @@ flowchart LR
 ### 1. Preload (A3)
 
 `ui/api/coach-chat-context.ts` warms `loadCoachContext()`'s 60-second in-memory server cache
-(`ui/api/_lib/coachChatFiles.ts`) for state.md and quest_log.md — SOUL.md is no longer fetched
+(`ui/api/coach-chat/_lib/coachChatFiles.ts`) for state.md and quest_log.md — SOUL.md is no longer fetched
 from the athlete's repo at all (see below). Web fires this once
 per app load from `App.tsx`'s `Gate` component (`ui/client/src/lib/prefetchCoachContext.ts`,
 fire-and-forget); iOS fires it from `MainTabView.swift`'s `.task` block as soon as the app is
@@ -110,7 +117,7 @@ Gemini in `"ordinary"` mode only ever sees `state.md`/`quest_log.md` (not `coach
 turn, see below), so it's told it may only propose edits to `state.md` mid-conversation; anything
 else waits for the close-out.
 
-### 3a. Prompt construction (`askGemini()`, `coach-chat.ts`)
+### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/geminiClient.ts`)
 
 The prompt splits into a **static** half (persona, fixed instructions, few-shot examples — byte-
 identical for every athlete, every turn) and a **dynamic** half (current state.md/quest_log.md,
@@ -432,7 +439,7 @@ nothing for that thread at all until it closes.
 
 ### 5. Completion signal
 
-`isAthleteProfileComplete()` (`ui/api/_lib/coachChatFiles.ts`) parses the `## Athlete Profile`
+`isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/coachChatFiles.ts`) parses the `## Athlete Profile`
 section generically: every `- **Label:**` line found must have non-blank content after the
 colon, and the section must exist with at least one such line. Not hardcoded to the six current
 field names, so it stays correct if the template ever changes. Computed from whatever `state.md`
@@ -489,13 +496,23 @@ thread on relaunch, never re-asked what they already answered.
 
 ## Appendix — file/class reference
 
+Module split (2026-08-15/16): `coach-chat.ts` is the HTTP handler only, everything else lives
+under `ui/api/coach-chat/_lib/` — see [`ui/api/coach-chat/README.md`](../../ui/api/coach-chat/README.md)
+for the full module index.
+
 | File | Role |
 |---|---|
 | `ui/api/coach-chat.ts` | request handler, Gemini call, commit orchestration |
 | `ui/api/coach-chat-context.ts` | A3 preload endpoint |
 | `ui/api/coach-chat-profile-status.ts` | B2 First Session Protocol completion check |
-| `ui/api/_lib/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
-| `ui/api/_lib/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
+| `ui/api/coach-chat/_lib/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
+| `ui/api/coach-chat/_lib/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
+| `ui/api/coach-chat/_lib/geminiClient.ts` | Gemini transport — `askGemini()`, retry logic |
+| `ui/api/coach-chat/_lib/coachPrompt.ts` | prompt text construction, response schema |
+| `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, retention |
+| `ui/api/coach-chat/_lib/closeSignal.ts` | close-intent detection |
+| `ui/api/coach-chat/_lib/coachDay.ts` | timezone/day-number math |
+| `ui/api/coach-chat/_lib/coachWrites.ts` | write authority — `appendCoachNote`, `coach_since` stamping |
 | `ui/api/_lib/fileEdits.ts` | A7 write strategies — `applyStringEdits`, `applyJsonMergePatch` |
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API) |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |

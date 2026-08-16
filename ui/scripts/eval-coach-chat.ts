@@ -1,7 +1,7 @@
 #!/usr/bin/env -S npx tsx
 /**
  * eval-coach-chat.ts — runs the golden transcripts in
- * ui/api/_tests/coach-chat-eval/transcripts/ through the real askGemini() logic against a live
+ * ui/api/coach-chat/_tests/coach-chat-eval/transcripts/ through the real askGemini() logic against a live
  * Gemini key, and checks the structural rubric: valid schema, no fabricated "saved" language,
  * session_closed only true when the transcript expects it, coach_note present when expected.
  *
@@ -16,7 +16,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { askGemini, type ChatMessage, type TurnMode } from "../api/coach-chat.js";
+import { askGemini } from "../api/coach-chat/_lib/geminiClient.js";
+import type { ChatMessage } from "../api/coach-chat/_lib/chatThreads.js";
+import type { TurnMode } from "../api/coach-chat/_lib/coachPrompt.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
@@ -80,7 +82,7 @@ function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemi
 }
 
 async function main() {
-  const dir = path.join(__dirname, "..", "api", "_tests", "coach-chat-eval", "transcripts");
+  const dir = path.join(__dirname, "..", "api", "coach-chat", "_tests", "coach-chat-eval", "transcripts");
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
   if (files.length === 0) {
     console.error(`eval-coach-chat: no transcripts found in ${dir}`);

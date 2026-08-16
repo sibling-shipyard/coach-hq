@@ -4,15 +4,14 @@
  *
  * GET → {soul, state, questLog}
  *
- * Not tied to a chat turn - just exposes loadCoachContext's read-through cache (60s TTL,
- * ui/api/_lib/coachChatFiles.ts) so the app shell can trigger it on load, and the eventual
- * greeting turn / first message on this repo skips a redundant GitHub round-trip.
+ * Not tied to a chat turn - exposes loadCoachContext's read-through cache (60s TTL) so the app
+ * shell can trigger it on load, and the eventual greeting/first message skips a redundant round-trip.
  *
  * Auth: session cookie (web) or Bearer token + X-Coach-Repo (iOS) - same as coach-chat.ts.
  */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
-import { loadCoachContext } from "./_lib/coachChatFiles.js";
+import { loadCoachContext } from "./coach-chat/_lib/coachChatFiles.js";
 
 export default {
   async fetch(req: Request): Promise<Response> {

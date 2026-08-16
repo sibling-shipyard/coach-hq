@@ -1,6 +1,6 @@
 # Coach Chat — design history
 
-> Status: Historical · Owner: UI Expert · Verified: 2026-08-06
+> Status: Historical · Owner: UI Expert · Verified: 2026-08-16
 
 ## Context
 
@@ -367,6 +367,35 @@ repetition loop in `title` that burned its entire output budget before reaching 
 matter. This is a live, ongoing model-reliability question, not something resolved by more
 prompt/schema tweaking alone in this pass — tracked as a still-open item, not a bug ticket, since
 there's no known code fix yet.
+
+---
+
+## 2026-08-15/16 — Modularization: coach-chat.ts split into single-purpose modules (PR #356)
+
+`coach-chat.ts` mixed HTTP handling, Gemini prompt/transport, thread persistence, day/timezone
+math, close-signal detection, and write authority in one file (1614 lines at peak, ~1049 after
+the reliability-debug strip-down above). Split into `ui/api/coach-chat/_lib/`: `coachDay.ts`,
+`closeSignal.ts`, `chatThreads.ts`, `coachPrompt.ts`, `geminiClient.ts`, `coachWrites.ts`, plus
+the two pre-existing coach-chat-specific `_lib` files (`coachChatFiles.ts`, `soulCache.ts`)
+moved in alongside them. `coach-chat.ts` itself is now just the HTTP handler. Pure move - no
+behavior change, verified via `tsc`, the full test suite (same 102 tests, only import lines
+changed), the eval harness, and a live close-turn test on the `test/close-verification` scratch
+branch with the actual commit content checked directly in the athlete's repo.
+
+A follow-up pass gave `coach-chat/` its own top-level folder (`coach-chat/_lib/`,
+`coach-chat/_tests/`) as a true sibling of `auth/`, rather than nesting under the generic root
+`_lib/` (which is meant for cross-cutting infra only - `fileEdits.ts`, `githubGitData.ts`,
+`httpTimeout.ts`). Also relocated the 5 remaining coach-chat test files and the eval-transcript
+fixtures into `coach-chat/_tests/`, matching how `auth/_tests/` holds all of auth's own tests.
+Added `README.md` index files to `ui/api/`, `ui/api/auth/`, and `ui/api/coach-chat/` (Path\|Role
+tables, matching the existing `engine/README.md`/`platform/README.md` convention one level
+deeper) so the structure is self-documenting. The 3 Vercel-routed files
+(`coach-chat.ts`/`coach-chat-context.ts`/`coach-chat-profile-status.ts`) stay flat at top-level
+`api/` - Vercel routes by literal file path, so nesting them would change live URLs (tracked as
+`BACKLOG.md` #4, deferred, not done here).
+
+No ADR: this is internal code organization, not a locked/architectural decision - nothing about
+external behavior, URLs, or data shape changed.
 
 ---
 

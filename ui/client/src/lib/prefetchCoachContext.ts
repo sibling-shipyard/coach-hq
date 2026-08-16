@@ -3,7 +3,7 @@
  *
  * Doesn't hold onto the response - the point isn't to cache content client-side, it's to make
  * sure /api/coach-chat-context.ts's server-side read-through cache (60s TTL, see
- * ui/api/_lib/coachChatFiles.ts) is already warm by the time the athlete actually opens the
+ * ui/api/coach-chat/_lib/coachChatFiles.ts) is already warm by the time the athlete actually opens the
  * Coach Chat tab and triggers a greeting turn, so that turn doesn't pay a fresh GitHub
  * round-trip on top of the Gemini call. Call once per app load, not per page - see App.tsx's
  * Gate. A no-op in local dev (no /api routes served there).

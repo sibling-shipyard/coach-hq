@@ -1,0 +1,33 @@
+# api/coach-chat/ — coach-chat internals
+
+The HTTP routes for this feature (`coach-chat.ts`, `coach-chat-context.ts`,
+`coach-chat-profile-status.ts`) stay one level up at `api/` — Vercel routes by literal file path,
+so nesting them here would change their URLs (see [`../README.md`](../README.md)). This folder
+holds everything those routes call into.
+
+Full design: [`docs/eng-docs/coach-chat-flow.md`](../../../docs/eng-docs/coach-chat-flow.md).
+Commit/retention design: [ADR 0012](../../../kdb/decisions/0012-coach-chat-atomic-commits-and-retention.md).
+`coach_since` day-number design: [ADR 0018](../../../kdb/decisions/0018-coach-since-day-number.md).
+
+**Currently mid-rebuild:** `coach-chat.ts` was deliberately stripped down to its most reliable
+core (see `coach-chat-reliability-debug` history in the module header comments) and several
+modules below — `coachWrites.ts` especially — are intentionally thin right now, not because
+that's the intended final shape. What's missing and the plan to bring it back incrementally live
+in [`BACKLOG.md`](../../../BACKLOG.md) and [`docs/plans/coach-chat-follow-up.md`](../../../docs/plans/coach-chat-follow-up.md).
+
+## `_lib/`
+
+| File | Role |
+|---|---|
+| `coachChatFiles.ts` | Raw repo file reads + `CoachContext` (SOUL/state/quest_log) loading, with an in-flight/short-TTL cache; profile-complete check |
+| `soulCache.ts` | Gemini explicit prompt caching for the static SOUL/instructions text |
+| `chatThreads.ts` | Thread data model + `chat_history.json` persistence, retention (ADR 0012), title cleanup |
+| `closeSignal.ts` | Deterministic close-intent detection — regex trigger + pending-close-attempt lookback |
+| `coachDay.ts` | Timezone/day-number math (age labels, day dividers, `coach_since`-aware day count) |
+| `coachPrompt.ts` | Gemini prompt construction — response schema, static/cacheable text, per-turn dynamic text, onboarding-hint context. Pure text-building, no I/O |
+| `geminiClient.ts` | Gemini transport — builds the request from `coachPrompt.ts`'s text + `soulCache.ts`'s caching, retries transient failures once, parses the response |
+| `coachWrites.ts` | Write-authority: what Coach may write and how (currently just `coach_note` append + `coach_since` stamping — see the rebuild note above) |
+
+`_tests/` mirrors `_lib/` one file at a time (drop the `coach-chat-` prefix other repos use —
+redundant once you're already inside this folder), plus `_tests/coach-chat-eval/transcripts/`,
+the golden-transcript fixtures `ui/scripts/eval-coach-chat.ts` runs against a live Gemini key.

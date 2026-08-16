@@ -4,41 +4,13 @@
  * coach-chat.ts so coach-chat-context.ts (the app-load preload endpoint, A3) can fetch the same
  * files the same way without duplicating the GitHub-read plumbing.
  */
-import { SOUL } from "../_generated/soul.js";
+import { SOUL } from "../../_generated/soul.js";
+import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 
-// SOUL.md is verified 100% generic - no per-athlete substitution happens anywhere in the carve
-// process (platform/scripts/carve-skeleton.mjs copies it byte-for-byte into every athlete's
-// propagated/SOUL.md). Re-fetching that constant from each athlete's own GitHub repo on every
-// single turn was a real cost (one GitHub API call/turn, times every athlete) and a real drift
-// risk (a coach-behavior change wouldn't reach an athlete's chat until their next carve). This
-// backend now reads it directly from its own deployment bundle instead - see
-// ui/scripts/build-soul.mjs and the ADR amending 0011 for the full rationale.
+// SOUL.md is 100% generic across athletes, so it's bundled at build time (ui/scripts/build-
+// soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
 export const STATE_FILE_PATH = "user_data/coach/state.md";
 export const QUEST_LOG_PATH = "gen/quest_log.md";
-
-// Neither the Gemini call nor the GitHub reads had an explicit cutoff - a stalled upstream call
-// left "Coach is thinking" spinning indefinitely instead of failing visibly. 25s leaves headroom
-// under Vercel's function timeout while still being well past any real response time.
-export const UPSTREAM_TIMEOUT_MS = 25_000;
-
-export async function fetchWithTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs = UPSTREAM_TIMEOUT_MS,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw Object.assign(new Error(`Request to ${new URL(url).hostname} timed out`), { status: 504 });
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -62,9 +34,8 @@ export async function getFileRaw(repo: string, path: string, token: string, atte
       });
       if (res.status === 404) return null;
       if (!res.ok) {
-        // Tagged with .status so the top-level handler can tell an expired/invalid token (401)
-        // apart from any other failure and respond 401 instead of a generic 500 - iOS's Bearer
-        // auth has no cookie-refresh equivalent, so this is the only signal it gets to re-auth.
+        // .status lets the top-level handler tell a 401 (expired token) apart from other
+        // failures - iOS's Bearer auth has no cookie-refresh, so this is its only re-auth signal.
         throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), { status: res.status });
       }
       return await res.text();
@@ -82,10 +53,8 @@ export interface CoachContext {
   questLog: string | null;
 }
 
-// A5: cross-device staleness detection. No lock - just compare the repo's HEAD sha the client
-// last saw against the actual current one at request time. Cheap (a single small GET, no
-// caching - staleness checks need the true current value, not a 60s-old one) and reuses data
-// GitHub's API already returns; no new infra.
+// Cross-device staleness detection (A5): no lock, just compares the client's last-known HEAD sha
+// against the current one. Never cached - staleness checks need the true current value.
 export async function getHeadSha(repo: string, token: string, branch = "main"): Promise<string> {
   const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/git/ref/heads/${branch}`, {
     headers: {
@@ -101,18 +70,14 @@ export async function getHeadSha(repo: string, token: string, branch = "main"): 
   return body.object.sha;
 }
 
-// Server-side short-lived cache (A3): a client that just warmed the context via
-// coach-chat-context.ts and then immediately opens a greeting turn or sends a message
-// shouldn't force a second round-trip to GitHub for the same three files a few seconds later.
-// Keyed by repo, not by athlete/token - fine since the content is identical for a given repo
-// regardless of which of the athlete's own devices asked.
+// Server-side short-lived cache (A3): a client that just warmed context via coach-chat-
+// context.ts shouldn't force a second GitHub round-trip seconds later. Keyed by repo, not
+// athlete/token - content is identical regardless of which device asked.
 const CONTEXT_CACHE_TTL_MS = 60_000;
 const contextCache = new Map<string, { value: CoachContext; expiresAt: number }>();
 
-// In-flight de-dup: several concurrent cache-miss callers for the same repo (e.g. the web
-// preload firing at the same moment as an iOS greet(), or two devices opening Chat together)
-// would otherwise each independently hit GitHub for the same three files. Share one fetch
-// instead - not a correctness fix, just avoids wasted round-trips.
+// Shares one fetch across concurrent cache-miss callers for the same repo (e.g. web preload and
+// an iOS greet() firing together) instead of each hitting GitHub independently.
 const inFlight = new Map<string, Promise<CoachContext>>();
 
 export async function loadCoachContext(repo: string, token: string, opts?: { fresh?: boolean }): Promise<CoachContext> {
@@ -121,9 +86,8 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
     return cached.value;
   }
 
-  // A `fresh: true` caller (A5 staleness recovery) always wants its own real fetch, never a
-  // stale in-flight one it might end up sharing with a `fresh: false` caller that started
-  // moments earlier - skip the dedup for that case.
+  // fresh: true (A5 staleness recovery) always wants its own real fetch, never a shared
+  // in-flight one from a `fresh: false` caller that started moments earlier.
   if (!opts?.fresh) {
     const pending = inFlight.get(repo);
     if (pending) return pending;
@@ -147,27 +111,10 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 }
 
-// B2: First Session Protocol completion check. carve-skeleton.mjs ships every new athlete repo
-// with this exact blank template (STATE_MD_TEMPLATE):
-//
-//   ## Athlete Profile
-//   *(Filled in during First Session)*
-//   - **Name:**
-//   - **Sport(s) / Activities:**
-//   - **Goal:**
-//   - **Timeline / Upcoming events:**
-//   - **Coaching style preference:**
-//   - **Timezone:**
-//
-// platform/soul/B_engine.md's boot sequence already treats "only template headings, no data" as
-// the trigger for the First Session Protocol - this is the same check, just made programmatic
-// (and callable without a shell) so iOS can poll it instead of relying on the
-// thread-existence heuristic it used to (dead shouldOpenChatFirst(), see B3).
-//
-// Deliberately generic rather than hardcoding the six field names above: any `- **Label:**` line
-// found inside the Athlete Profile section must have non-blank content after the colon for the
-// profile to count as complete, and the section must contain at least one such line at all (an
-// entirely missing section, e.g. a malformed state.md, is not "complete" either).
+// B2: First Session Protocol completion check - is state.md's Athlete Profile section still
+// carve-skeleton.mjs's blank template? Deliberately generic rather than hardcoding field names:
+// every `- **Label:**` line in the section must have non-blank content after the colon, and the
+// section must contain at least one such line.
 export function isAthleteProfileComplete(stateMd: string): boolean {
   // (?![\s\S]) asserts true end-of-string regardless of the /m flag - a plain $ here would
   // match at the end of the SECTION'S OWN FIRST LINE too (since /m makes $ match every line
