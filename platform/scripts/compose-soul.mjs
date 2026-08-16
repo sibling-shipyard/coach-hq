@@ -143,8 +143,6 @@ const ASSEMBLY = [
       s10_sunday_archive: CLAUDE_ONLY,
       // §11 is script tables end to end.
       s11: CLAUDE_ONLY,
-      // The app has its own coach_note mechanism; the file path is BYOB-only.
-      s12_coach_notes: CLAUDE_ONLY,
       s12_checklist_shell: CLAUDE_ONLY,
       s12_commit_push: CLAUDE_ONLY,
       s12_interim_rollback: CLAUDE_ONLY,
@@ -222,8 +220,66 @@ function getSection(byLayer, layer, key) {
   return sections.get(key);
 }
 
+const LIST_ITEM_RE = /^\s*(?:\d+\.|[-*+])\s/;
+const CONTINUATION_RE = /^\s+\S/;
+
+/**
+ * True when `block` ends mid-list — either on a list item or on an indented
+ * continuation line belonging to one.
+ */
+function endsInsideList(block) {
+  const lines = block.split("\n");
+  const last = lines[lines.length - 1];
+  if (LIST_ITEM_RE.test(last)) return true;
+  return CONTINUATION_RE.test(last) && lines.some((line) => LIST_ITEM_RE.test(line));
+}
+
+/**
+ * Blocks are normally separated by a blank line, but a target seam can fall *inside* a
+ * list — §10's "Logging a Workout" steps and §12's checklist are each split across several
+ * keys so the shell-only ones can be claude-only. Joining those with "\n\n" would punch a
+ * blank line into the middle of a list that reads as one list in the source layer, so a
+ * seam between two list items closes up to a single newline.
+ */
 function joinBlocks(blocks) {
-  return blocks.filter(Boolean).join("\n\n");
+  const kept = blocks.filter(Boolean);
+  if (kept.length === 0) return "";
+  return kept.reduce((acc, block) => {
+    const glue = LIST_ITEM_RE.test(block.split("\n")[0]) && endsInsideList(acc) ? "\n" : "\n\n";
+    return acc + glue + block;
+  });
+}
+
+/**
+ * Renumber ordered lists per target. Dropping claude-only steps out of the chat build leaves
+ * holes in the source layer's hand-written numbering ("1. … 4. … 6."), and a model reading
+ * step 4 with no step 2 above it is being told instructions are missing. A run ends at the
+ * first line that is neither a list item nor an indented continuation — including a blank
+ * line, which after joinBlocks() no longer appears inside a list. Fenced code is skipped so
+ * a future SOUL edit can show a numbered sample without it being silently rewritten.
+ */
+function renumberOrderedLists(text) {
+  let counter = 0;
+  let inFence = false;
+  return text
+    .split("\n")
+    .map((line) => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence;
+        counter = 0;
+        return line;
+      }
+      if (inFence) return line;
+      const match = /^(\d+)\.(\s)/.exec(line);
+      if (match) {
+        counter += 1;
+        return `${counter}.${match[2]}${line.slice(match[0].length)}`;
+      }
+      if (line.trim() === "" || CONTINUATION_RE.test(line)) return line;
+      counter = 0;
+      return line;
+    })
+    .join("\n");
 }
 
 /** Which targets a key inside a step is emitted into: key override → step → all. */
@@ -260,7 +316,7 @@ function composeSoul(target) {
     parts.push(joinBlocks(keys.map((key) => getSection(byLayer, step.sources[key], key))));
   }
 
-  return `${parts.filter(Boolean).join("\n\n")}\n`;
+  return `${renumberOrderedLists(joinBlocks(parts))}\n`;
 }
 
 function summarizeDiff(relPath, expected, actual) {
