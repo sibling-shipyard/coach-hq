@@ -2,38 +2,51 @@
 
 > Status: Historical · Owner: Tech Lead · Verified: 2026-08-16
 
-A living record of how Coach Phelps evolved — what changed, and why. Updated with every SOUL.md version.
+A living record of how Coach Phelps evolved — what changed, and why. Updated with every SOUL
+version.
+
+**This file is read end to end.** It is the story of how Coach got here, and it is meant to be
+shown. Keep it readable by someone who has never opened the repo.
+
+**Entry format — one entry per version, ~25 lines max:**
+
+1. A theme in two or three sentences. What was wrong, in plain English.
+2. The line-count change, if it moved.
+3. Five to seven bullets. What changed and why it mattered — not how it was implemented.
+4. One closing line on why it mattered, and a pointer to the eng-doc or ADR that has the detail.
+
+Never one section per PR. A version ships across several PRs; the reader does not care which one
+carried which change. Mechanism, file paths, function names, and baseline counts belong in the
+eng-doc or the ADR — link to it instead. If an entry needs more than 25 lines, the extra belongs
+somewhere else.
 
 ---
 
-## v5.8 — "The Trim" · Aug 16, 2026 *(landing across stacked PRs — 2a, 2d, 2b, 2c, 3, 4 done)*
-**Theme:** Cut what the composed builds ship to two runtimes but neither can act on. The two builds fell together 509 → 375 lines through PR 2c, then PR 3 split them, and PR 4 moved the rare workflows out: **chat 219, claude 363**.
+## v5.8 — "The Trim" · Aug 16, 2026
+**Theme:** SOUL had become a file-maintenance manual. The backend kept absorbing its jobs and
+nobody deleted the instructions left behind, so half of what shipped was text the model was told
+to read and then ignore.
 
-**What changed (PR 4 — the rare workflows, by two different mechanisms):**
-- **First Session Protocol is no longer in the chat build at all.** ~50 lines every athlete carried on every turn, forever, to serve one conversation. It is now injected per-turn only while `isAthleteProfileComplete(state.md)` is false, through `buildDynamicText()`'s `extraContext` — **never** `staticSystemText()`, which is hashed and cached once for every athlete (`soulCache.ts`). Per-athlete content in that prefix forks the Gemini cache silently. A test asserts the prefix is identical either way.
-- New composer concept: **fragments** (`compose-soul.mjs`'s `FRAGMENTS`). Blocks that ship conditionally rather than as part of a build, emitted to `platform/soul-fragments/` and bundled separately by `ui/scripts/build-soul.mjs`. Not a third target — `TARGETS` stays `["chat","claude"]` so validate-soul's mirrored list keeps matching.
-- Two First Session steps stay claude-only even inside the fragment: Step 0 (`query_history.py`) and the commit. The commit lost its step number rather than leave chat counting "1,2,3,4,5,7" — the same numbering-hole defect PR 3's review turned up.
-- **Badminton plugin and the season recap spec became on-demand docs** — `propagated/docs/badminton-plugin.md` and `propagated/docs/season-close.md`, each with a one-line pointer left in the claude build. Their triggers can't be known in advance, and every file they name is unreachable from the app.
-- One badminton line stays in **both** builds: *"Match data exists only after the athlete pastes scores in iOS — never assume games from HR/duration alone."* The other 20 lines are file maps chat can't use; that one is a hallucination guardrail for a runtime that sees a badminton session's HR and duration and nothing else.
-- `validate-soul`: 2 findings resolved (the snapshot and `match_history.json` left the chat build), 2 added — both `propagated/docs/` references the carve doesn't write yet. Honest rot, recorded as `rot`, clears when phase 2 restores carving.
+**509 → chat 219, claude 365.** One source, two builds (ADR 0022).
 
-**What changed (PR 3 — the claude adapter, and the first real divergence):**
-- `SOUL.chat.md` and `SOUL.claude.md` stop being byte-identical, permanently. Every block below now composes into the claude build only, via the `targets` / `keyTargets` machinery ADR 0022 called for and PR 1 deliberately shipped unused.
-- Gone from the chat build entirely: **§1 Boot Sequence** (the app is told to skip booting), **§10 Greeting & Check-in** (the backend injects a longer version every turn), **§10 End-of-Day Check-in** (close detection is deterministic in `closeSignal.ts`), **§11 Tools & Data Operations** (script tables end to end).
-- Claude-only inside sections both builds keep: §2's push authority, branch pinning, "you don't write code", the `gen/quest_log.md` no-edit rule and the never-read-at-boot list; §5's phase and season close plus the season recap spec (archive writes the app silently drops); §10's shell-validator bullet, the `query_history.py` steps of Logging a Workout, the `hist/` auto-name fix, and the Sunday archive write; §12's coach_notes step, its `generate_quest_log.py` and archive checklist boxes, the commit-and-push commands, Interim Save and Rollback.
-- Kept in both on purpose: the "never modify templates, pipeline scripts, or workflows" guardrail (nearly lost twice in this series), "never compute streaks", §12's reflect-and-update steps and the checklist boxes naming files the app writes or is being rebuilt to write, and Logging a Workout's `current_week.json` reconciliation. coach-chat's write path is mid-rebuild after PR #350 — an instruction it will re-need is not dead weight.
-- The claude build grew 375 → 377 lines, which is exactly the two split bullets. The first push of that PR read +15 because splitting a list at a target seam was punching a blank line into it, and leaving the chat build's numbering with holes ("1, 4, 6, 7"); review caught both and fixed them in `compose-soul.mjs` rather than in the content. The chat build is the number that matters, and it fell 375 → 294.
-- `validate-soul`'s baseline dropped 15 chat findings (the archive writes, `gen/quest_log.md`, and the script paths simply stopped being in that build). 24 remain — 14 claude, 10 chat — none of them fixable by SOUL wording.
+- **Split into two builds.** `SOUL.chat.md` for the hosted app, `SOUL.claude.md` for BYO Claude
+  Code. They stopped being byte-identical for good; the app no longer carries the boot sequence,
+  shell commands, git ritual, or script tables it was explicitly told to ignore.
+- **Deleted what was dead in both.** The file-roles table, the athlete schema block that
+  explained the prompt's own architecture to the model, quest polarity stated three times,
+  `roadmap.md` (referenced by nothing), and the deload rule — which had never fired once,
+  because nothing computes week-of-phase.
+- **Cut two features.** Sleep asking and PRE, per ADR 0023: a signal that needs the athlete to
+  maintain it by hand will rot. Both had.
+- **Moved the rare workflows out.** First Session is injected only for an athlete who has no
+  profile yet; badminton and the season recap spec became docs Coach opens when it needs them.
+- **Layer A never moved.** Identity, voice, philosophy, and the situation playbook are untouched
+  apart from two named lines. That was the constraint the whole trim was built around.
 
-**Why:** coach-chat has no shell, no git, and no file reads, and its own system prompt tells the model to ignore any instruction it cannot execute. Those blocks were pure token cost on every turn — and worse, they left the model's stated abilities and its real ones disagreeing.
+**Why it matters:** the app pays for its whole prompt on every turn, and instructions it cannot
+execute left Coach's stated abilities and its real ones disagreeing.
 
-**What changed (PR 2b — Layer C schema and its knock-on renames):**
-- Deleted §7's `Athlete Schema (MVP)` block. It explained the prompt's own architecture to the model ("Layer C is the extensibility seam", "B never hardcodes sport names"), shipped an explicitly `RESERVED` empty `tracking_modules: {}` every turn, and described a shape nothing on disk uses — `carve-skeleton.mjs` writes markdown bullets. Its content now lives only in `docs/eng-docs/soul-C-schema.md`, as design vocabulary for engineers.
-- Seven live instructions that referenced the deleted `injury_flags[]` / `conditions[]` / `sports[]` now name the real `state.md` headings — Athlete Profile, Active Injury Flags, Learned Patterns. Four had carried both at once ("Read `injury_flags[]` / Active Injury Flags").
-- Dropped two "read from Layer C" leaks in §9. Coach reads `state.md`, not a layer of its own prompt.
-- §7 Data Locations squashed 9 rows → 4; seven of the nine only said "it's in `state.md`".
-
-**Why:** The schema was addressed to the wrong reader. It cost tokens on every turn to teach the model a vocabulary that appeared nowhere in its actual files, and the invented field names had started standing next to the real headings in safety-critical instructions like the Pre-Workout Check.
+*Mechanism: `docs/eng-docs/soul-two-builds.md`. Decisions: ADR 0022, 0023, 0024.*
 
 ---
 

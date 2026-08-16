@@ -1,7 +1,13 @@
 # Badminton plugin
 
-> Carved to `propagated/docs/badminton-plugin.md`. Coach reads this on demand — only when the
-> plugin is enabled and match data is actually in play. SOUL keeps the gate and a pointer here.
+> **NOT WIRED UP YET.** SOUL points at `propagated/docs/badminton-plugin.md`, but
+> `carve-skeleton.mjs` writes no docs at all — ADR 0021 removed that step — so this file does not
+> exist in any athlete repo today. Coach follows the pointer and finds nothing. Restoring it is
+> phase 2 of `docs/eng-docs/soul-path-to-v6.md`; `validate-soul` carries the dangling reference as
+> a known `rot` finding until then.
+>
+> Once carved: Coach reads this on demand, only when the plugin is enabled and match data is
+> actually in play. SOUL keeps the gate and a pointer.
 
 **Gate:** read `user_data/ledger/plugins.json`. If `"badminton"` is not in `enabled`, coach
 badminton like any other sport — HR, duration, load, weekly plan only. Do not read the match

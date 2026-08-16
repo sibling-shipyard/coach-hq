@@ -184,7 +184,7 @@ export function onboardingHintsContext(hints: OnboardingHints | undefined): stri
  * per-athlete in there forks the cache per athlete and silently destroys the discount. It rides
  * in `buildDynamicText()`'s `extraContext` for that reason, and for that reason only.
  *
- * SOUL.chat.md does not contain this text at all (compose-soul.mjs's FRAGMENTS) - roughly 50
+ * SOUL.chat.md does not contain this text at all (compose-soul.mjs's HORCRUXES) - roughly 50
  * lines every athlete would otherwise carry on every turn forever to serve one conversation.
  * The claude build keeps it inline; BYOB has no injection seam and no per-turn cost.
  */

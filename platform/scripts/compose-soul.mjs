@@ -136,10 +136,10 @@ const ASSEMBLY = [
     ],
     keyTargets: {
       // First Session is ~50 lines the chat build only needs on a brand-new athlete's first
-      // conversation, so it is injected per-turn instead (see FRAGMENTS below) rather than
+      // conversation, so it is injected per-turn instead (see HORCRUXES below) rather than
       // riding in the cached prefix forever. The claude build keeps it inline — BYOB has no
       // injection seam. `_trigger` describes boot detection, `_pull` and `_commit` need a
-      // shell, so those three stay claude-only even in the fragment.
+      // shell, so those three stay claude-only even in the horcrux.
       s10_first_session_head: CLAUDE_ONLY,
       s10_first_session_trigger: CLAUDE_ONLY,
       s10_first_session_pull: CLAUDE_ONLY,
@@ -176,15 +176,15 @@ const ASSEMBLY = [
  *
  * They exist because the chat runtime pays for its whole prompt on every turn, and the cached
  * prefix is hashed (soulCache.ts) — so a block only one athlete in a hundred needs is pure cost
- * for everyone else, and putting it in the prefix per-athlete would fork the cache. A fragment is
+ * for everyone else, and putting it in the prefix per-athlete would fork the cache. A horcrux is
  * emitted as its own file, bundled by ui/scripts/build-soul.mjs, and injected into the *dynamic*
  * half of the prompt (buildDynamicText's extraContext) when the backend's predicate says so.
  *
- * A fragment is not a third target: TARGETS stays ["chat","claude"] so validate-soul's mirrored
+ * A horcrux is not a third target: TARGETS stays ["chat","claude"] so validate-soul's mirrored
  * list keeps matching. The claude build carries these blocks inline as usual — BYOB has no
  * injection seam and no per-turn cost.
  */
-const FRAGMENTS = [
+const HORCRUXES = [
   {
     // Injected when isAthleteProfileComplete(state.md) is false — coach-chat.ts.
     out: "first-session.md",
@@ -193,7 +193,7 @@ const FRAGMENTS = [
   },
 ];
 
-const FRAGMENT_DIR = path.join(REPO_ROOT, "platform", "soul-fragments");
+const HORCRUX_DIR = path.join(REPO_ROOT, "platform", "horcruxes");
 
 const SECTION_MARKER_RE =
   /<!--\s*soul:section\s+(\S+)\s*-->\n([\s\S]*?)<!--\s*\/soul:section\s*-->/g;
@@ -364,9 +364,9 @@ function composeSoul(target) {
   return `${renumberOrderedLists(joinBlocks(parts))}\n`;
 }
 
-function composeFragment(fragment) {
+function composeHorcrux(horcrux) {
   const { byLayer } = loadAllSections();
-  const blocks = fragment.keys.map((key) => getSection(byLayer, fragment.source, key));
+  const blocks = horcrux.keys.map((key) => getSection(byLayer, horcrux.source, key));
   return `${renumberOrderedLists(joinBlocks(blocks))}\n`;
 }
 
@@ -416,9 +416,9 @@ function main() {
         outPath: soulFilePath(REPO_ROOT, target),
         composed: composeSoul(target),
       })),
-      ...FRAGMENTS.map((fragment) => ({
-        outPath: path.join(FRAGMENT_DIR, fragment.out),
-        composed: composeFragment(fragment),
+      ...HORCRUXES.map((horcrux) => ({
+        outPath: path.join(HORCRUX_DIR, horcrux.out),
+        composed: composeHorcrux(horcrux),
       })),
     ];
   } catch (err) {
