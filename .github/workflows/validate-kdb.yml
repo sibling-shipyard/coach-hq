@@ -12,12 +12,14 @@ on:
       - 'AGENTS.md'
       - '.github/agents/**'
       - 'kdb/scripts/**'
+      - 'docs/**'
   pull_request:
     paths:
       - 'kdb/**'
       - 'AGENTS.md'
       - '.github/agents/**'
       - 'kdb/scripts/**'
+      - 'docs/**'
 
 jobs:
   validate-kdb:
