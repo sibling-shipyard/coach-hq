@@ -302,6 +302,24 @@ coach dialogue, not an assertion), and the *"today's sleep, side-quest status, i
 checklist is already gone from `coachPrompt.ts`. #300's app-side half is done; what remains is
 SOUL's.
 
+## What must survive this file's deletion
+
+This plan is delete-on-ship. Before deleting it, `docs/eng-docs/soul-two-builds.md` must carry
+these — they are operational facts about the two builds, not a record of the trim:
+
+1. **The cache-fragmentation rule.** Conditionally-injected blocks go in the *dynamic* half of the
+   prompt (`buildDynamicText()`'s `extraContext`, `ui/api/coach-chat/_lib/coachPrompt.ts`), never
+   the cached prefix (`staticSystemText()`, hashed in `soulCache.ts`). Put per-athlete content in
+   the prefix and the Gemini cache forks per athlete, silently.
+2. **How to add a target-specific block** — `targets:` on an `ASSEMBLY` step, `keyTargets:` for one
+   key inside a merge step, and the fact that splitting a section at a target seam costs a blank
+   line in the other build (that is why the claude build grew in PR 3).
+3. **The checks that replaced "both builds are byte-identical"**, which retired in PR 3: the
+   template guardrail present in both, `parseClaudeWritableSet()` still resolving against the
+   claude build, and no dangling section cross-references in the shorter chat build.
+4. **`SOUL.claude.md` is a legacy target with an end date** (ADR 0022) — deleting BYOB later is one
+   line in `ASSEMBLY`, not a fresh audit.
+
 ## Verification note
 
 Line counts are estimates from the section walkthrough, not measured against a built artifact.
