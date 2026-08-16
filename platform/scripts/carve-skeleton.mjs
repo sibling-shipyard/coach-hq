@@ -2,8 +2,12 @@
 /**
  * carve-skeleton.mjs — Build coach-skeleton from HQ.
  *
- * Full BYO tree (see docs/eng-docs/skeleton-layout.md): composed SOUL.md, engine runtime,
- * gen/ placeholders, user_data/ init bands. No agents, soul layers, ui/, ios/, kdb/.
+ * BYO tree (see docs/eng-docs/skeleton-layout.md): engine runtime, gen/ placeholders,
+ * user_data/ init bands. No agents, soul layers, ui/, ios/, kdb/.
+ *
+ * SOUL: the carve currently ships **none** — ADR 0021 retired the propagated copy, and this
+ * script has not carved a SOUL since. Issue #358 restores it, and it will carve the BYO build
+ * `platform/SOUL.claude.md` only; `platform/SOUL.chat.md` is coach-chat's and never leaves HQ.
  *
  * Copy map and band model: kdb/decisions/0011-hq-four-band-layout.md
  * Restructure milestones: docs/eng-docs/hq-restructure-plan.md (R0–R5)

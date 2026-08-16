@@ -1,17 +1,21 @@
 name: Validate SOUL composition
 
-# platform/SOUL.md is a generated artifact from platform/soul/ via platform/scripts/compose-soul.mjs.
+# platform/SOUL.chat.md and platform/SOUL.claude.md are generated artifacts, composed from
+# platform/soul/ by platform/scripts/compose-soul.mjs (ADR 0022). The bare platform/SOUL.md
+# name is retired.
 
 on:
   push:
     branches: [main]
     paths:
-      - 'platform/SOUL.md'
+      - 'platform/SOUL.chat.md'
+      - 'platform/SOUL.claude.md'
       - 'platform/soul/**'
       - 'platform/scripts/compose-soul.mjs'
   pull_request:
     paths:
-      - 'platform/SOUL.md'
+      - 'platform/SOUL.chat.md'
+      - 'platform/SOUL.claude.md'
       - 'platform/soul/**'
       - 'platform/scripts/compose-soul.mjs'
 
@@ -21,5 +25,5 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Assert platform/SOUL.md matches composed output
+      - name: Assert both composed SOUL builds match the soul/ layers
         run: node platform/scripts/compose-soul.mjs --check

@@ -1,11 +1,13 @@
 # Platform — HQ IP (not carved verbatim)
 
 ```
-platform/soul/   ← source layers (edit these)
-platform/SOUL.md ← composed output (never hand-edit; carved → athlete propagated/SOUL.md)
+platform/soul/          ← source layers (edit these)
+platform/SOUL.chat.md   ← composed output for coach-chat (bundled by ui/scripts/build-soul.mjs)
+platform/SOUL.claude.md ← composed output for BYO Claude Code
 ```
 
-Athlete repos receive carved copy at `propagated/SOUL.md` + `propagated/docs/`.
+One source, two targets (ADR 0022); the bare `platform/SOUL.md` name is retired. Never hand-edit
+either composed file.
 
 ## compose-soul.mjs
 
@@ -14,7 +16,7 @@ node platform/scripts/compose-soul.mjs
 node platform/scripts/compose-soul.mjs --check
 ```
 
-Edit `platform/soul/*.md`, never hand-edit `platform/SOUL.md`.
+Writes/checks both targets. Edit `platform/soul/*.md`, never hand-edit a composed build.
 
 ## carve-skeleton.mjs
 

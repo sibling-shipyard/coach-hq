@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 /**
- * compose-soul.mjs — Deterministic assembly of SOUL.md from soul/ layer files.
+ * compose-soul.mjs — Deterministic assembly of the composed SOUL builds from soul/ layer files.
+ *
+ * One source, two targets (ADR 0022):
+ *   chat   → platform/SOUL.chat.md    bundled into coach-chat by ui/scripts/build-soul.mjs
+ *   claude → platform/SOUL.claude.md  carved into athlete repos for BYO Claude Code
+ *
+ * The bare `platform/SOUL.md` name is retired so neither runtime silently owns it.
  *
  * Usage:
- *   node platform/scripts/compose-soul.mjs          # write SOUL.md (HQ)
- *   node platform/scripts/compose-soul.mjs --check
+ *   node platform/scripts/compose-soul.mjs          # write both targets (HQ)
+ *   node platform/scripts/compose-soul.mjs --check  # assert both are in sync
  *
  * Section markers in soul/*.md:
  *   <!-- soul:section KEY -->
@@ -20,7 +26,13 @@ import { repoRoot, soulDir, soulFilePath } from "../../engine/lib/repo-layout.mj
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(__dirname);
 const SOUL_DIR = soulDir(REPO_ROOT);
-const SOUL_OUT = soulFilePath(REPO_ROOT);
+
+/**
+ * Build targets, in emit order. `claude` is a legacy target with an end date (ADR 0022).
+ * Deliberately not exported: this module runs `main()` on import, so importing it to read this
+ * would compose and exit. validate-soul.mjs mirrors the list instead, and says why.
+ */
+const TARGETS = ["chat", "claude"];
 
 const FIXED_HEADER = `# Coach Phelps: SOUL.md
 **Version:** v5.7 (hq-adopted reconciliation)
@@ -33,7 +45,15 @@ const LAYER_FILES = {
   C: "C_athlete.md",
 };
 
-/** Assembly order: flat keys or { merge, keys, sources } for merged sections. */
+/**
+ * Assembly order: flat keys or { merge, keys, sources } for merged sections.
+ *
+ * Targeting (ADR 0022): a step may carry `targets: [...]`, and a merge step may additionally
+ * carry `keyTargets: { <key>: [...] }` to override individual keys. Absent = emitted into every
+ * target. This step is deliberately empty of targeting today — PR 1 of the v5.8 trim changes no
+ * words, so both builds must compose byte-identical to the retired platform/SOUL.md. Targets get
+ * attached as the trim moves shell/git blocks to `claude` only.
+ */
 const ASSEMBLY = [
   { source: "B", keys: ["s1", "s2"] },
   { source: "A", keys: ["s3", "s4"] },
@@ -138,26 +158,44 @@ function joinBlocks(blocks) {
   return blocks.filter(Boolean).join("\n\n");
 }
 
-function composeSoul() {
+/** Which targets a key inside a step is emitted into: key override → step → all. */
+function targetsForKey(step, key) {
+  return step.keyTargets?.[key] ?? step.targets ?? TARGETS;
+}
+
+function assertKnownTargets() {
+  for (const step of ASSEMBLY) {
+    const declared = [step.targets ?? [], ...Object.values(step.keyTargets ?? {})].flat();
+    for (const target of declared) {
+      if (!TARGETS.includes(target)) {
+        throw new Error(`Unknown target "${target}" in ASSEMBLY (known: ${TARGETS.join(", ")})`);
+      }
+    }
+  }
+}
+
+function composeSoul(target) {
   const { byLayer } = loadAllSections();
   const parts = [FIXED_HEADER.trimEnd()];
 
   for (const step of ASSEMBLY) {
-    if (step.keys && !step.merge) {
-      for (const key of step.keys) {
+    const keys = step.keys.filter((key) => targetsForKey(step, key).includes(target));
+    if (keys.length === 0) continue;
+
+    if (!step.merge) {
+      for (const key of keys) {
         parts.push(getSection(byLayer, step.source, key));
       }
       continue;
     }
 
-    const blocks = step.keys.map((key) => getSection(byLayer, step.sources[key], key));
-    parts.push(joinBlocks(blocks));
+    parts.push(joinBlocks(keys.map((key) => getSection(byLayer, step.sources[key], key))));
   }
 
-  return `${parts.join("\n\n")}\n`;
+  return `${parts.filter(Boolean).join("\n\n")}\n`;
 }
 
-function summarizeDiff(expected, actual) {
+function summarizeDiff(relPath, expected, actual) {
   const expectedLines = expected.split("\n");
   const actualLines = actual.split("\n");
   const max = Math.max(expectedLines.length, actualLines.length);
@@ -171,9 +209,7 @@ function summarizeDiff(expected, actual) {
     }
   }
 
-  console.error(
-    "platform/SOUL.md drift detected — composed output differs from committed file.",
-  );
+  console.error(`${relPath} drift detected — composed output differs from committed file.`);
   console.error(
     `  lines: expected ${expectedLines.length}, actual ${actualLines.length}, differing ${diffs.length}`,
   );
@@ -197,33 +233,46 @@ function summarizeDiff(expected, actual) {
 function main() {
   const checkOnly = process.argv.includes("--check");
 
-  let composed;
+  let builds;
   try {
-    composed = composeSoul();
+    assertKnownTargets();
+    builds = TARGETS.map((target) => ({
+      target,
+      outPath: soulFilePath(REPO_ROOT, target),
+      composed: composeSoul(target),
+    }));
   } catch (err) {
     console.error(`::error::${err.message}`);
     process.exit(1);
   }
 
-  if (checkOnly) {
-    if (!fs.existsSync(SOUL_OUT)) {
-      console.error(`::error::${path.relative(REPO_ROOT, SOUL_OUT)} not found`);
-      process.exit(1);
+  let failed = false;
+
+  for (const { outPath, composed } of builds) {
+    const relPath = path.relative(REPO_ROOT, outPath);
+
+    if (checkOnly) {
+      if (!fs.existsSync(outPath)) {
+        console.error(`::error::${relPath} not found`);
+        failed = true;
+        continue;
+      }
+      const committed = fs.readFileSync(outPath, "utf-8");
+      if (committed === composed) {
+        console.log(`${relPath} is in sync with soul/ layer files.`);
+        continue;
+      }
+      summarizeDiff(relPath, composed, committed);
+      failed = true;
+      continue;
     }
 
-    const committed = fs.readFileSync(SOUL_OUT, "utf-8");
-    if (committed === composed) {
-      console.log("platform/SOUL.md is in sync with soul/ layer files.");
-      process.exit(0);
-    }
-
-    summarizeDiff(composed, committed);
-    process.exit(1);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, composed, "utf-8");
+    console.log(`Wrote ${relPath} (${composed.split("\n").length - 1} lines)`);
   }
 
-  fs.mkdirSync(path.dirname(SOUL_OUT), { recursive: true });
-  fs.writeFileSync(SOUL_OUT, composed, "utf-8");
-  console.log(`Wrote ${path.relative(REPO_ROOT, SOUL_OUT)}`);
+  process.exit(failed ? 1 : 0);
 }
 
 main();

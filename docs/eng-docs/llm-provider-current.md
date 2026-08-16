@@ -1,6 +1,6 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-05
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-16
 
 ## Context
 
@@ -82,7 +82,7 @@ errors — cached, so it's a one-time cost) and a hidden `reasoning` field ahead
 (stripped before the reply reaches the athlete).
 
 **Also fixed:** in-thread history is now capped at `MAX_HISTORY_MESSAGES = 40` (was fully
-unbounded — see Architecture above), and SOUL.md is bundled from `platform/SOUL.md` at build time
+unbounded — see Architecture above), and SOUL is bundled from `platform/SOUL.chat.md` at build time
 instead of being fetched from the athlete's own repo every turn (`ui/scripts/build-soul.mjs`) —
 see the new ADR amending 0011 for the full rationale.
 
