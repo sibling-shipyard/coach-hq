@@ -115,6 +115,20 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
 // carve-skeleton.mjs's blank template? Deliberately generic rather than hardcoding field names:
 // every `- **Label:**` line in the section must have non-blank content after the colon, and the
 // section must contain at least one such line.
+/**
+ * Label fragments (lowercased, substring-matched) for the fields that actually gate coaching.
+ *
+ * #362: this used to require EVERY field in the Athlete Profile, including Age, Height and
+ * Weight. An athlete who declined to give their weight never became complete. That was harmless
+ * while the flag only stamped `coach_since` - but the First Session Protocol is now conditionally
+ * injected on that same predicate, so an incomplete profile means Coach is told "this is their
+ * first session, run the protocol instead of coaching normally" on every turn, forever. It
+ * re-onboards someone it already onboarded.
+ *
+ * Everything not listed here is useful context the athlete is allowed to decline.
+ */
+const REQUIRED_PROFILE_FIELDS = ["name", "sport", "goal"];
+
 export function isAthleteProfileComplete(stateMd: string): boolean {
   // (?![\s\S]) asserts true end-of-string regardless of the /m flag - a plain $ here would
   // match at the end of the SECTION'S OWN FIRST LINE too (since /m makes $ match every line
@@ -124,8 +138,20 @@ export function isAthleteProfileComplete(stateMd: string): boolean {
   const section = sectionMatch[1];
   const fieldLines = section.match(/^- \*\*[^*]+:\*\*.*$/gm) ?? [];
   if (fieldLines.length === 0) return false;
-  return fieldLines.every((line) => {
-    const afterColon = line.replace(/^- \*\*[^*]+:\*\*/, "");
-    return afterColon.trim().length > 0;
-  });
+
+  const fields = fieldLines.map((line) => ({
+    label: (line.match(/^- \*\*([^*]+):\*\*/)?.[1] ?? "").toLowerCase(),
+    value: line.replace(/^- \*\*[^*]+:\*\*/, "").trim(),
+  }));
+
+  const required = fields.filter((field) =>
+    REQUIRED_PROFILE_FIELDS.some((needle) => field.label.includes(needle)),
+  );
+
+  // An unrecognised profile shape - none of the required labels present at all - falls back to
+  // "did the athlete answer anything". Blocking forever on labels this athlete's template does
+  // not use is the exact failure #362 is about, so never let a renamed heading recreate it.
+  if (required.length === 0) return fields.some((field) => field.value.length > 0);
+
+  return required.every((field) => field.value.length > 0);
 }

@@ -185,7 +185,8 @@ const STATE_MD_TEMPLATE = `# Coach Phelps: state.md (Living Memory)
 - **Age:**
 - **Height:**
 - **Weight:**
-- **Timezone:** *(inferred from the athlete's stated city/country, not asked directly — see FSP §10)*
+- **Timezone:**
+  *(inferred from the athlete's stated city/country, not asked directly — see FSP §10)*
 
 ## Equipment
 *(Filled in during First Session — update as equipment changes)*
