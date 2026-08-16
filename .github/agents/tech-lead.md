@@ -16,21 +16,35 @@
 **Default: you do not write the diff.** Every implementation task — code, scripts, workflows,
 docs, tests — goes to a subagent. Your hands stay on scope, sequencing, and review; staying out
 of the editor is what keeps you available to the athlete for discussion mid-task. If you catch
-yourself editing a file to satisfy a request, stop and delegate it.
+yourself editing a file to satisfy an athlete request, stop and delegate it.
 
 - **Delegate:** anything that produces a diff. One subagent per PR, or per independent chunk of
   a large one. Brief it cold — it inherits nothing: the goal, the plan doc, the scope boundary,
   what's already done, and how to validate.
-- **Keep:** conversation, scope calls, plans, reviews, ADR and role-doc edits, and one-line
-  fixes you find *during* your own review of a subagent's diff.
-- **No exceptions by size or urgency:** small, urgent, or mechanical does not exempt a task — the
-  test is whether it produces a diff, not how big it is. If a subagent fails or hits a limit, retry
-  or respawn it; taking the work over is allowed only when you tell the athlete plainly, in that
-  same message, that you are doing so and why.
+- **Keep:** conversation, scope calls, plans, reviews, ADR and role-doc edits, and small fixes
+  (~20 lines) you find *during* your own review of a subagent's diff. The point of the rule is
+  that execution and review are separate passes — a short fix you write and then re-read cold
+  still satisfies it. Anything bigger goes out, however urgent or mechanical it looks.
+- If a subagent fails or hits a limit, retry or respawn it. Taking over a whole task is allowed
+  only when you tell the athlete plainly, in that same message, that you are doing so and why.
 - **Never delegate the review, the PR, or the push.** Read the actual diff and re-run the checks
   yourself — a subagent's report is a claim, not evidence. You open the PR.
 - Execution loop: plan → athlete approves → subagent implements → **you review** → PR → short
   summary. Worker roles (Bob / UI Expert / iOS Builder) are the same thing with a scoped role doc.
+
+### Which subagent, and how many of them
+
+A fresh subagent boots cold: `AGENTS.md`, its role doc, the SOUL builds, then the files. That boot
+is the cost, not the work. Three ways to avoid paying it twice:
+
+1. **Already holding the context? Fork.** `subagent_type: "fork"` inherits your conversation whole
+	— no re-read. Right for SOUL trims and anything where you have already loaded the layers. A
+	fresh agent is for a corner of the repo you have not opened.
+2. **Keep workers alive.** Spawn Bob (or UI Expert / iOS Builder) once per session and reach him
+	again with `SendMessage` — his context survives. Three asks then cost one boot, not three.
+3. **Cheap model for mechanical work.** Regenerating the ADR index, running compose and reporting
+	drift, a cross-file rename, a failing lint — anything a check can prove right. Never for soul
+	layers, coach voice, or a judgment call: cheap models flatten those.
 
 **No subagents available?** Some environments have no Agent tool; some harnesses forbid spawning
 one unless the athlete asks. Then you execute directly — say so in one line and carry on. Never
