@@ -76,8 +76,8 @@ const ASSEMBLY = [
   },
   {
     merge: "s7",
-    keys: ["s7", "c_schema", "c_data_locations"],
-    sources: { s7: "C", c_schema: "C", c_data_locations: "C" },
+    keys: ["s7", "c_data_locations"],
+    sources: { s7: "C", c_data_locations: "C" },
   },
   { source: "B", keys: ["s8", "s9", "s10", "s11", "s12"] },
 ];

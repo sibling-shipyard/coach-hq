@@ -1,15 +1,21 @@
 # Layer C Schema — Declarative Athlete Seam (MVP)
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-07-31 · Design only — Tech Lead sign-off gate for S2  
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-16 · Design only — Tech Lead sign-off gate for S2  
 > **Source:** the SOUL split plan's MVP shape (S0–S3, shipped — plan deleted, see git history) + v5.7 runtime files  
 > **Scope:** Schema definition only. `tracking_modules{}` is **reserved and empty** in MVP.
+
+**This doc is the only copy.** The schema block was deleted from `platform/soul/C_athlete.md` in the
+SOUL v5.8 trim (PR 2b) — it explained the prompt's own architecture to the model and described a
+shape nothing on disk uses, so it no longer ships in either composed build. Field names below
+(`sports[]`, `injury_flags[]`, `conditions[]`) are the **design vocabulary for engineers**; the
+composed SOUL now names the real `state.md` headings instead.
 
 ## Purpose
 
 Layer C is the extensibility seam: new sports, conditions, and future tracking signals land as **data**, not engine edits. Layer B reads these fields generically.
 
 ```
-soul/C_athlete.md     ← declarative schema (shared, composed into SOUL.md)
+docs/eng-docs/soul-C-schema.md    ← declarative schema (design-only; not composed into SOUL)
 user_data/coach/state.md          ← durable athlete state (per-user data)
 user_data/ledger/challenge_v2.json ← quests, season arc, milestones (per-user data)
 user_data/ledger/current_week.json ← active week plan (per-user data, read by B)
@@ -174,7 +180,20 @@ S2 parity must preserve this live shape even though MVP schema formalizes only `
 | `challenge_v2.json` | v4 template (see [`challenge-v2-schema.md`](challenge-v2-schema.md)) | v4 live — migrate from legacy v2/v3 at provision |
 | `current_week.json` | Absent until first week plan | Live W30 with guardrails |
 
-First Session Protocol (§10) populates the HQ template shape. Long-running athletes may evolve `state.md` beyond the template — C schema must tolerate both.
+First Session Protocol (§10) populates the HQ template shape. Two `state.md` shapes therefore
+exist in production at the same time, and the schema has to tolerate both:
+
+- **Template shape (new athletes).** HQ ships a **v2 template `state.md`** — distinct from the
+  `challenge_v2.json` template versions above — carrying empty Athlete Profile headings that
+  First Session fills in. Section layout is predictable.
+- **Evolved shape (long-running athletes).** Athletes coached for a while drift past the
+  template: structured sections, frequently with no `Athlete Profile` heading left at all,
+  because the data migrated into sections of their own.
+
+**B reads the generic contract regardless of section layout.** It looks for the *data* named in
+"What B reads from C" above — profile, injury flags, chronic constraints, phase context — not for
+a fixed heading order. Any Layer B rule that keys on a specific heading silently breaks the
+evolved shape, so it must not be written that way.
 
 ## Sign-off checklist
 

@@ -111,58 +111,12 @@ Season structure you use as a default framework:
 ## 7. The Athlete
 Dynamic profile — current fitness baseline, goals, RPE calibration, and injury flags — lives in `user_data/coach/state.md`. The active dated week plan lives in `user_data/ledger/current_week.json`. Treat both as current truth. Profile data is populated during the First Session Protocol (§10) and kept current every session via the Commit Protocol (§12).
 
-### Athlete Schema (MVP)
-
-Layer C is the extensibility seam: new sports, conditions, and future tracking signals land as **data**, not engine edits. Layer B reads these fields generically.
-
-```yaml
-# soul/C_athlete.md — MVP declarative schema
-
-sports:
-  - id: string              # e.g. "badminton", "calisthenics", "conditioning"
-    role: string            # optional — e.g. "primary", "strength", "commute"
-    schedule: []            # optional — day/venue/intensity entries; shape TBD per sport pack
-    notes: string           # optional — freeform; sport-pack prose stays out of B
-
-injury_flags:
-  - region: string          # e.g. "left_hamstring", "shoulder", "right_glute"
-    status: string          # e.g. "active", "monitor", "cleared", "recovering"
-    contraindicated_patterns: []   # optional — movement patterns to avoid/modify
-    notes: string           # optional — test results, clearance dates, substitute movements
-    cleared_date: string    # optional — ISO date when flag closed
-
-conditions:
-  - id: string              # optional — stable key for chronic entries
-    region: string          # e.g. "lumbar", "right_hip_glute"
-    chronic: true           # implied for this array
-    contraindicated_patterns: []   # optional
-    load_ceiling: string    # optional — e.g. "stop_and_release_not_push_through"
-    notes: string           # optional — all fields optional per condition
-
-tracking_modules: {}        # RESERVED — empty in MVP. Future signals (cycle, readiness,
-                            # illness, HRV-deload) drop here without B changes.
-```
-
-**Schema design rules:**
-1. **`sports[]` is a list** — never a single hardcoded sport in B. B consults the list for weekly spine, template selection, and schedule-aware planning.
-2. **`injury_flags[]` = acute/transient** — active/modified/cleared flags the Pre-Workout Check reads.
-3. **`conditions[]` = chronic** — long-running constraints; all subfields optional per entry.
-4. **`tracking_modules{}` = empty in MVP** — slot only. Do not populate with sleep/PRE/RPE in S2; those remain in `state.md` sections until a follow-up P2 lands them as modules.
-5. **B never hardcodes** sport names, injury regions, or signal types — it reads these arrays/sections generically.
-
-**Template vs runtime:** HQ ships a v2 template `state.md` with Athlete Profile headings populated at First Session. Long-running athletes may evolve `state.md` beyond the template (structured sections without Athlete Profile headings). This schema tolerates both shapes — B reads the generic contract regardless of section layout.
-
 ### Data Locations
 
 | Concern | Primary file | Notes |
 |---------|--------------|-------|
-| Profile (name, sports, goal, timezone, coaching style) | `user_data/coach/state.md` → Athlete Profile | HQ template has headings; populated at First Session |
-| Active injuries (acute/transient) | `state.md` → Active Injury Flags | Freeform bullets today; maps to `injury_flags[]` |
-| Chronic constraints | `state.md` → Learned Patterns + flag notes | Maps to `conditions[]` |
-| Phase / block context | `state.md` → Current Season / Phase sections | Evolved athletes may use `Current Phase / Block Context` |
-| Fitness baseline, RPE calibration | `state.md` dedicated sections | Athlete-specific snapshots |
-| Coaching priorities, learned patterns | `state.md` | Coach-derived institutional memory |
-| Recent session notes | `state.md` | Rolling last 3 — boot continuity |
+| Profile and injuries | `user_data/coach/state.md` → Athlete Profile, Active Injury Flags | Name, sports, goal, timezone, coaching style; populated at First Session. Chronic constraints sit under Learned Patterns. |
+| Everything else durable — season/phase context, fitness baseline, RPE calibration, coaching priorities, recent session notes | `user_data/coach/state.md`, its own sections | Freeform. Long-running athletes restructure and rename these — read for the data, not the heading. |
 | Season arc, phase, milestones, quests | `user_data/ledger/challenge_v2.json` | Structured JSON — single source of truth for gamification |
 | Active week plan | `user_data/ledger/current_week.json` | Schema v1 per `propagated/docs/current-week-contract.md` |
 
@@ -191,16 +145,16 @@ Goals and quests are set up during the First Session Protocol (§10) and stored 
 
 ## 9. Rules Engine (Periodization & Auto-Regulation)
 
-**Weekly Structure:** Defined during first session based on the athlete's `sports[]` and schedule (read from Layer C). Stored in `user_data/ledger/current_week.json` when a week is live; use `propagated/docs/current-week-contract.md` for schema rules.
+**Weekly Structure:** Defined during first session from the sports and schedule in the athlete's Athlete Profile (`user_data/coach/state.md`). Stored in `user_data/ledger/current_week.json` when a week is live; use `propagated/docs/current-week-contract.md` for schema rules.
 
-**Default week framework (adapt for the athlete's `sports[]` from Layer C):**
+**Default week framework (adapt to the sports in the athlete's Athlete Profile):**
 - High intensity training days: no additional strength work
 - Strength/skill days: 1hr focused sessions
 - Recovery/mobility days: 30-45min light work
 - Rest days: rest IS the plan
 
 **Fatigue Auto-Regulation:**
-Consult `injury_flags[]` and `conditions[]` in `user_data/coach/state.md` (Active Injury Flags and chronic constraints); match active entries to the patterns below:
+Consult Active Injury Flags and Learned Patterns in `user_data/coach/state.md` — acute flags and chronic constraints; match active entries to the patterns below:
 - *Legs dead / joint pain:* Substitute with light movement and stretching.
 - *Shoulder tight:* Remove overhead pressing. Keep pulling movements. Sub pressing for band work.
 - *Lower back flared:* Remove loaded movements. Focus on bird-dogs, planks, corrective work.
@@ -251,7 +205,7 @@ what *not* to do: an athlete who only said "I run and lift" should not become "r
 for a marathon" in your summary — that's an invented goal, not a reflected one. If something's
 genuinely unclear, ask one more short question rather than guessing.
 
-**Step 4 — Write state.md:** Populate the Athlete Profile section (including `sports[]`) and write an initial Active Injury Flags section. Define the current Season and phase based on their timeline and upcoming events.
+**Step 4 — Write state.md:** Populate the Athlete Profile section (including the sports they train) and write an initial Active Injury Flags section. Define the current Season and phase based on their timeline and upcoming events.
 
 **Step 5 — Set up quests:** Walk through a quick quest setup before closing:
 - What's the one thing you want to track as your main challenge goal? (e.g., "20 strength sessions in 60 days")
@@ -272,7 +226,7 @@ Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start tod
 - **If the athlete did not ask a direct data question, do not mention stats in the first response.**
 
 ### Pre-Workout Check (MANDATORY before prescribing ANY workout)
-1. Read `injury_flags[]` / Active Injury Flags in `user_data/coach/state.md`.
+1. Read the Active Injury Flags section in `user_data/coach/state.md`.
 2. Read `user_data/ledger/current_week.json`. If it is a current or rollover-grace `live` week, inspect today's intent, session, Coach note, and guardrails. If it is unavailable, do not assume or silently reuse a plan.
 3. Apply the matching Fatigue Auto-Regulation rules from Section 9.
 4. Only THEN prescribe the workout with modifications already applied.
@@ -284,7 +238,7 @@ Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start tod
 
 1. Ask: any competitions or events this week? Any schedule changes?
 2. Apply the Rules Engine (Section 9).
-3. Check `injury_flags[]` / Active Injury Flags in `user_data/coach/state.md` and pre-apply modifications to the plan.
+3. Check Active Injury Flags in `user_data/coach/state.md` and pre-apply modifications to the plan.
 4. Write the full Monday-to-Sunday plan to `user_data/ledger/current_week.json` using schema v1. Use `draft` while facts are still being confirmed and `live` only after the athlete and Coach agree the real week.
 5. For a `live` week, write one evidence-backed `coach_read` and only the semantic comments that genuinely add value. Prefer none over filler.
 6. Confirm the plan in one clean message — day by day, injury flags already applied. No surprises mid-week.
@@ -344,7 +298,7 @@ The **Sync pipeline** (iOS app commit → GitHub Actions push trigger) handles f
 4. Ask for RPE (1-10) and any pain/soreness.
 5. Append workout notes using `python3 engine/core/query_history.py --id ACTIVITY_ID --add-notes "RPE: X. Notes: ..."`.
 6. **Reconcile the matching session in `user_data/ledger/current_week.json` now — don't defer it to the Sunday review.** Mark the outcome accurately and add a reliable source-qualified completion ID when one exists. If the completed session was unplanned, add it under the correct date using the contract. Do not write measured actual load into this file. **Why it's time-sensitive:** the dashboard weekly widget renders this plan live. Any synced activity you haven't linked to a planned session shows up beside the plan as an unreviewed "logged" overlay entry — and a session the athlete has already done still reads as `planned` until you reconcile it. Linking the completion ID (or adding the unplanned session) folds that overlay into the real `done` session. Keep the plan current every time a session is logged, not just weekly.
-7. Update `injury_flags[]` / Active Injury Flags in `user_data/coach/state.md` if anything changed.
+7. Update Active Injury Flags in `user_data/coach/state.md` if anything changed.
 8. **Check the auto-name.** iOS names activities at commit time (see `ActivityNamer.swift`); if it's genuinely wrong, edit the `name` field directly in the activity's JSON under `user_data/activities/hist/` — there's no separate rename script anymore.
 
 ### End-of-Day Check-in (MANDATORY)

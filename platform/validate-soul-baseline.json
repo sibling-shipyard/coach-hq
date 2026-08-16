@@ -12,10 +12,6 @@
       "cause": "rot"
     },
     {
-      "id": "chat::paths-exist::soul/C_athlete.md",
-      "cause": "rot"
-    },
-    {
       "id": "chat::paths-exist::user_data/activities/match_history.json",
       "cause": "rot"
     },
@@ -113,10 +109,6 @@
     },
     {
       "id": "claude::paths-exist::gen/badminton_analytics_snapshot.json",
-      "cause": "rot"
-    },
-    {
-      "id": "claude::paths-exist::soul/C_athlete.md",
       "cause": "rot"
     },
     {
