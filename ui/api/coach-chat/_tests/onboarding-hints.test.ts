@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { onboardingHintsContext } from "../coach-chat/_lib/coachPrompt.js";
+import { onboardingHintsContext } from "../_lib/coachPrompt.js";
 
 // B4: formats iOS's native onboarding sport/goal hints into extra prompt context for the
 // greeting turn, so platform/soul/B_engine.md's First Session Protocol can reflect them back

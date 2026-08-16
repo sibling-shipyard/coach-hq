@@ -50,3 +50,15 @@ share a path prefix today — moving to a catch-all would change them (e.g. to
 `prefetchCoachContext.ts`) and iOS (`CoachChatAPIClient.swift`'s 3 hardcoded paths, plus doc
 comments in `CoachChatModels.swift`/`CoachSetupState.swift`/`CoachChatLocalCache.swift`). Do as
 its own small PR if/when worth it for consistency, not bundled with anything else.
+
+## 5. P2: decompose `handle()` in `ui/api/coach-chat.ts`
+
+254 lines doing everything in one function: parse the request body, resolve close-intent (regex
++ pending-attempt lookback), call Gemini, build the `chat_history.json` write, conditionally
+build the `coach_notes.md` write, inject the `coach_since` stamp, commit atomically, then shape
+the response. Original module-split plan proposed breaking it into one function per lifecycle
+stage (parse request → resolve close intent → call Gemini → build writes → commit → respond).
+
+Deferred on purpose: Part B (state.md edits, then JSON writes one file at a time) keeps growing
+this same function, so the right time to decide the split boundaries is once Part B's shape is
+known — not now, which would mean redoing the split later anyway.
