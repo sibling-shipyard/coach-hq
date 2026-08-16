@@ -15,6 +15,8 @@ export interface GeminiReply {
   reply: string;
   // Closing turns only - a short plain-English note appended (with today's date) to
   // coach_notes.md at commit time (coachWrites.ts's appendCoachNote). Never shown to the athlete.
+  // Also reused server-side (unchanged, no new field) into rolling_state.json's last-N-sessions
+  // log - see coachIntents.ts's applyRollingState.
   coach_note?: string;
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
@@ -130,9 +132,9 @@ export function buildDynamicText(
           "now, not just acknowledge it.",
           "\nWrite coach_note: 3 to 5 lines, plain English, what actually happened this conversation",
           "that's worth remembering long-term (e.g. a workout done, how it felt, an injury mentioned,",
-          "a plan for next time). This is the ONLY thing that gets saved anywhere - there is no other",
-          "file to edit, no checklist to fill in, nothing else to propose. If there's truly nothing",
-          "concrete from this conversation, say so honestly in coach_note instead of inventing content.",
+          "a plan for next time). There is no file to edit, no checklist to fill in - report facts,",
+          "the server handles saving them. If there's truly nothing concrete from this conversation,",
+          "say so honestly in coach_note instead of inventing content.",
           "**Never say something is saved, logged, locked, or committed unless coach_note in this",
           "exact response genuinely reflects it.**",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
@@ -206,4 +208,25 @@ export function firstSessionContext(profileComplete: boolean, protocol: string):
 export function combineExtraContext(...blocks: (string | undefined)[]): string | undefined {
   const present = blocks.filter((b): b is string => Boolean(b && b.trim()));
   return present.length > 0 ? present.join("\n\n") : undefined;
+}
+
+// Part B step 2: renders rolling_state.json's last-N-sessions log (coachIntents.ts's
+// applyRollingState) into context text. Reuses coach_note verbatim (no separate Gemini field, no
+// new generation-failure surface) - see coach-chat/README.md's rebuild note. Returns undefined on
+// missing/empty/unparsable content so the caller can omit this block entirely rather than inject
+// an empty one.
+export function rollingStateContext(rollingStateJson: string | null | undefined): string | undefined {
+  if (!rollingStateJson) return undefined;
+  let entries: { date?: string; text?: string }[];
+  try {
+    const parsed = JSON.parse(rollingStateJson);
+    entries = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return undefined;
+  }
+  const lines = entries
+    .filter((e): e is { date: string; text: string } => typeof e.date === "string" && typeof e.text === "string")
+    .map((e) => `- ${e.date}: ${e.text}`);
+  if (lines.length === 0) return undefined;
+  return ["Recent sessions (most recent first):", ...lines].join("\n");
 }

@@ -63,8 +63,7 @@ interface Transcript {
     sessionClosed?: boolean;
     noFabricatedSaveLanguage?: boolean;
     // coach-chat-reliability-debug: asserts reply.coach_note came back as a real, non-empty
-    // (after trimming) plain-English note - the one thing that actually gets saved on a close in
-    // the stripped-down design.
+    // (after trimming) plain-English note.
     coachNoteReported?: boolean;
   };
 }

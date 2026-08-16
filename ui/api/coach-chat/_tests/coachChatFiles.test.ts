@@ -183,9 +183,10 @@ describe("loadCoachContext in-flight de-dup", () => {
       loadCoachContext(repo, "token"),
     ]);
     expect(a).toEqual(b);
-    // 2 files (state.md, quest_log.md) fetched once, not once per caller - SOUL.md no longer
-    // comes from the athlete's repo at all (bundled from platform/SOUL.md, see build-soul.mjs).
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 3 files (state.md, quest_log.md, rolling_state.json) fetched once, not once per caller -
+    // SOUL.md no longer comes from the athlete's repo at all (bundled from platform/SOUL.md, see
+    // build-soul.mjs).
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("a fresh:true call never shares the in-flight de-dup, even if one is already pending", async () => {
@@ -195,7 +196,7 @@ describe("loadCoachContext in-flight de-dup", () => {
       loadCoachContext(repo, "token", { fresh: true }),
     ]);
     expect(cached).toEqual(fresh);
-    // Each call does its own independent 2-file fetch since one of them demanded freshness.
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // Each call does its own independent 3-file fetch since one of them demanded freshness.
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 });

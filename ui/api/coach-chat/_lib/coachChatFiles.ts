@@ -11,12 +11,23 @@ import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 // soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
 export const STATE_FILE_PATH = "user_data/coach/state.md";
 export const QUEST_LOG_PATH = "gen/quest_log.md";
+export const ROLLING_STATE_PATH = "user_data/coach/rolling_state.json";
 
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
   Accept: "application/vnd.github.raw+json",
   "X-GitHub-Api-Version": "2022-11-28",
 });
+
+// COACH_CHAT_BRANCH lets a real close be tested end to end on a scratch branch instead of a
+// live athlete's main. Every read (this file) and write (commitFilesAtomic's branch option in
+// coach-chat.ts) must resolve the same way, or a scratch-branch test silently reads real main
+// content while writing to the scratch branch - found and fixed after exactly that happened
+// (coach_notes.md kept re-appending from main's stale baseline instead of building on the
+// previous test commit).
+export function resolveCoachChatBranch(): string {
+  return process.env.COACH_CHAT_BRANCH ?? "main";
+}
 
 // A pure read - safe to retry on any transient failure including a raw network error, unlike
 // the POST commit path where a lost response after a successful write makes blind retry unsafe.
@@ -27,9 +38,10 @@ function isTransientReadFailure(err: unknown): boolean {
 }
 
 export async function getFileRaw(repo: string, path: string, token: string, attempts = 3): Promise<string | null> {
+  const ref = encodeURIComponent(resolveCoachChatBranch());
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/contents/${path}`, {
+      const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/contents/${path}?ref=${ref}`, {
         headers: GH_HEADERS_RAW(token),
       });
       if (res.status === 404) return null;
@@ -51,11 +63,12 @@ export interface CoachContext {
   soul: string | null;
   state: string | null;
   questLog: string | null;
+  rollingState: string | null;
 }
 
 // Cross-device staleness detection (A5): no lock, just compares the client's last-known HEAD sha
 // against the current one. Never cached - staleness checks need the true current value.
-export async function getHeadSha(repo: string, token: string, branch = "main"): Promise<string> {
+export async function getHeadSha(repo: string, token: string, branch = resolveCoachChatBranch()): Promise<string> {
   const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/git/ref/heads/${branch}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -94,11 +107,12 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 
   const promise = (async (): Promise<CoachContext> => {
-    const [state, questLog] = await Promise.all([
+    const [state, questLog, rollingState] = await Promise.all([
       getFileRaw(repo, STATE_FILE_PATH, token),
       getFileRaw(repo, QUEST_LOG_PATH, token),
+      getFileRaw(repo, ROLLING_STATE_PATH, token),
     ]);
-    const value: CoachContext = { soul: SOUL, state, questLog };
+    const value: CoachContext = { soul: SOUL, state, questLog, rollingState };
     contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
     return value;
   })();
