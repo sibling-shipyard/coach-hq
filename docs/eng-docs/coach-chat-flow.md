@@ -127,7 +127,8 @@ half ships fresh every request. Full design, the caching mechanics, the response
 `reasoning` field are covered in `docs/eng-docs/gemini-flow.md` — that's the one reference for
 everything Gemini-specific, this doc stays focused on the request lifecycle around it.
 
-SOUL.md itself is bundled from `platform/SOUL.md` at build time (`ui/scripts/build-soul.mjs`,
+SOUL itself is bundled from `platform/SOUL.chat.md` — the coach-chat build of the two composed
+targets (ADR 0022) — at build time (`ui/scripts/build-soul.mjs`,
 wired into `predev`/`prebuild`) rather than fetched from the athlete's own repo — it's 100%
 generic, no per-athlete substitution happens anywhere in the carve process, so re-fetching it per
 athlete per turn was pure waste. See the ADR amending 0011 for the full rationale.
@@ -375,7 +376,7 @@ more network call) and `OnboardingHints.clear()` removes the now-unneeded cached
 
 Same `handleGreet()` / ordinary-turn / closing-turn mechanics as day-to-day chat — the First
 Session Protocol is entirely a **prompt difference** (`platform/soul/B_engine.md` §10, composed
-into `platform/SOUL.md`), not a separate code path. `askGemini()`'s greeting-mode call includes
+into `platform/SOUL.chat.md`), not a separate code path. `askGemini()`'s greeting-mode call includes
 `onboardingHintsContext()` — sport(s)/goal formatted from `OnboardingHints`, only when present —
 so Gemini reflects them back for confirmation instead of asking cold:
 

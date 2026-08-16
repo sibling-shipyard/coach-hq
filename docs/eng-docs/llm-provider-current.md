@@ -1,6 +1,6 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-05
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-16
 
 ## Context
 
@@ -82,14 +82,14 @@ errors — cached, so it's a one-time cost) and a hidden `reasoning` field ahead
 (stripped before the reply reaches the athlete).
 
 **Also fixed:** in-thread history is now capped at `MAX_HISTORY_MESSAGES = 40` (was fully
-unbounded — see Architecture above), and SOUL.md is bundled from `platform/SOUL.md` at build time
+unbounded — see Architecture above), and SOUL is bundled from `platform/SOUL.chat.md` at build time
 instead of being fetched from the athlete's own repo every turn (`ui/scripts/build-soul.mjs`) —
 see the new ADR amending 0011 for the full rationale.
 
 ## Eval — how we actually pick, not vibes
 
 **Harness built** (`ui/scripts/eval-coach-chat.ts`, `npm run eval:coach-chat`, 7 transcripts in
-`ui/api/_tests/coach-chat-eval/transcripts/`): greeting, ordinary check-in, close-session happy
+`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`): greeting, ordinary check-in, close-session happy
 path, close-session with missing info (must ask, not fabricate a save), quest completion,
 injury/sore flag handling, false-positive close-signal. It runs each transcript through the real
 `askGemini()` and checks the *objective* rubric automatically: valid schema, no fabricated

@@ -50,7 +50,7 @@ Format: `<prefix>: <description> (#N)`
 Examples:
 - `feat: add run pace chart (#12)`
 - `fix: clamp quest streak display at 0 (#7)`
-- `core: soul layers — periodization overhaul` (regenerates `SOUL.md` via compose)
+- `core: soul layers — periodization overhaul` (regenerates both composed SOUL builds via compose)
 
 Always include `fixes #N` in the PR body. PR bodies follow `.github/PULL_REQUEST_TEMPLATE.md`
 (GitHub prefills it); issues follow `.github/agents/issue-template.md`.
@@ -71,7 +71,7 @@ coach data (ADR 0011, R5); these conventions apply once carved out to a real ath
 **Always branch + PR:**
 - Scripts, workflows, GitHub Actions
 - Templates (`user_data/activities/workout_plans/templates/*.json`)
-- `platform/soul/*.md` (regenerates `SOUL.md`), agent docs, CLAUDE.md, CONVENTIONS.md
+- `platform/soul/*.md` (regenerates the composed SOUL builds), agent docs, CLAUDE.md, CONVENTIONS.md
 - UI source: `ui/client/src/` (components, pages, styles)
 - iOS app code (`ios/**` — **never** push directly to main)
 - Anything that changes how data is processed or displayed
@@ -79,8 +79,8 @@ coach data (ADR 0011, R5); these conventions apply once carved out to a real ath
 **If in doubt:** use a branch.
 
 **SOUL changes:** edit `soul/A_identity.md`, `soul/B_engine.md`, and/or `soul/C_athlete.md`, then run
-`node platform/scripts/compose-soul.mjs` and commit the layer edits plus the regenerated `SOUL.md`. Never
-hand-edit `SOUL.md`.
+`node platform/scripts/compose-soul.mjs` and commit the layer edits plus both regenerated builds,
+`platform/SOUL.chat.md` and `platform/SOUL.claude.md` (ADR 0022). Never hand-edit a composed SOUL.
 
 ---
 

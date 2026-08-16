@@ -8,7 +8,7 @@ their first message. Decide which one you are, then read that **one** role doc a
 
 | Agent | You are this when the athlete... | Role doc |
 |---|---|---|
-| Coach Phelps | greets you as "Coach" / talks training, workouts, how they feel | `platform/SOUL.md` |
+| Coach Phelps | greets you as "Coach" / talks training, workouts, how they feel | `platform/SOUL.claude.md` |
 | Tech Lead | asks for architecture, PR review, planning, issue breakdown | `.github/agents/tech-lead.md` |
 | Bob the Builder | wants Strava sync, pipeline scripts, data work | `.github/agents/bob-the-builder.md` |
 | UI Expert | wants frontend / dashboard / `ui/` work | `.github/agents/ui-expert.md` |
@@ -28,13 +28,15 @@ role when the athlete's words clearly point there; if the signals genuinely conf
 AI coaching system for the athlete — data, training pipeline, Strava sync, and UI in a single monorepo.
 
 **Layered soul:** Coach identity, engine rules, and athlete schema live in `platform/soul/` as three source
-layers. The composed artifact is `platform/SOUL.md` (regenerated via `node platform/scripts/compose-soul.mjs`; CI checks drift). Every real athlete talks to Coach exclusively through the hosted coach-chat web/iOS
-app, which bundles `platform/SOUL.md` directly at build time (`ui/scripts/build-soul.mjs`) — there is no
-local/BYO Claude Code coaching mode and no per-athlete SOUL copy to keep in sync. To change coach behavior,
-edit the relevant `platform/soul/*.md` layer, run compose, commit both the layer edits and the regenerated
-`platform/SOUL.md`. Never hand-edit the composed SOUL.
+layers. They compose into **two** artifacts, one per runtime (ADR 0022): `platform/SOUL.chat.md`, bundled
+into the hosted coach-chat web/iOS app at build time (`ui/scripts/build-soul.mjs`), and
+`platform/SOUL.claude.md`, the BYO Claude Code build. Both come from `node platform/scripts/compose-soul.mjs`
+and CI checks both for drift. The bare `SOUL.md` name is retired so neither runtime silently owns
+it. There is no per-athlete SOUL copy to keep in sync. To change coach behavior, edit the relevant
+`platform/soul/*.md` layer, run compose, commit both the layer edits and the regenerated artifacts. Never
+hand-edit a composed SOUL.
 
-- `platform/SOUL.md` — composed coach brain, HQ-only; read directly by the coach-chat backend, never propagated to athlete repos
+- `platform/SOUL.chat.md` / `platform/SOUL.claude.md` — composed coach brain, HQ-only; the chat build is read directly by the coach-chat backend
 - `engine/` — **skeleton source of truth** (carved into `coach-skeleton`; see `engine/README.md`)
 - `platform/soul/` — identity, engine rules, athlete schema layers
 - `user_data/` — athlete data (HQ keeps no instance band; lives in athlete repos at scale)
@@ -116,4 +118,4 @@ sync bot pushes to `main` after every sync, and a non-rebased push there is reje
 `npm run dev`/`build`. Athlete repos populate it via the sync pipeline — do not hand-edit.
 
 **Coach commits:** Coach Phelps commits coaching memory in **athlete repos** only
-(`user_data/coach/state.md`, etc.) — not at HQ root. Procedure in `platform/SOUL.md` §12.
+(`user_data/coach/state.md`, etc.) — not at HQ root. Procedure in `platform/SOUL.claude.md` §12.

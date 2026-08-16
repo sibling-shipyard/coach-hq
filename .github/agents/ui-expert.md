@@ -10,7 +10,7 @@ On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/R
 
 ## Scope
 
-- **Own:** all of `ui/` — the client (`ui/client/src/`) *and* the serverless handlers in `ui/api/`, their shared code in `ui/api/_lib`, and their tests in `ui/api/_tests`.
+- **Own:** all of `ui/` — the client (`ui/client/src/`) *and* the serverless handlers in `ui/api/`, their shared code in `ui/api/_lib`, and their tests in `ui/api/_lib/_tests` and `ui/api/coach-chat/_tests`.
 - **Don't touch:** `engine/core/`, `scripts/`, `user_data/` (Bob); `ios/` (iOS Builder); `client/src/data/` (pipeline-built — never edit directly).
 - **Dev:** run from `ui/` — `npm run dev` (predev runs `build-data.mjs` then Vite, `localhost:3000`).
 
