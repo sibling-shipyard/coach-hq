@@ -5,19 +5,16 @@
  */
 import type { ChatThread } from "./chatThreads.js";
 
-// Matches SOUL.md §1 step 6's `TZ=<timezone> date` - the web chat has no shell, so this is
-// the direct equivalent: pull the IANA zone out of state.md's Athlete Profile line
-// (`- **Timezone:** Asia/Kolkata (IST, UTC+5:30)`) and format "today" in it, falling back to
-// UTC the same way SOUL.md's own boot sequence does when the field isn't set yet.
+// Pulls the IANA zone out of state.md's Athlete Profile line
+// (`- **Timezone:** Asia/Kolkata (IST, UTC+5:30)`), falling back to UTC when unset.
 function extractTimezone(stateMd: string): string {
   const match = stateMd.match(/\*\*Timezone:\*\*\s*([A-Za-z_]+\/[A-Za-z_]+)/);
   return match?.[1] ?? "UTC";
 }
 
 // Calendar-day difference between a thread's createdAt and "today," both resolved in the
-// athlete's own timezone (state.md's Timezone field) rather than UTC - a thread created at
-// 11pm IST shouldn't already read as "yesterday" just because UTC has rolled over. Falls back
-// to 0 (same behavior as before this existed) if the timezone can't be resolved.
+// athlete's own timezone rather than UTC - a thread created at 11pm IST shouldn't already read
+// as "yesterday" just because UTC rolled over.
 function computeDayOffset(createdAt: number, stateMd: string): number {
   const timezone = extractTimezone(stateMd);
   try {
@@ -32,10 +29,8 @@ function computeDayOffset(createdAt: number, stateMd: string): number {
   }
 }
 
-// ageLabel is only ever written once, at thread-creation/close time (both call sites just set
-// "NOW"), so without this it freezes there forever - an old thread would say "NOW" for good.
-// Recompute it here from the freshly-computed dayOffset instead of trusting the stored value.
-// Matches threadDayLabel's "D-N" convention (coachChatModel.ts) rather than inventing new copy.
+// ageLabel is only ever written once at creation/close time (always "NOW"), so it freezes there
+// unless recomputed here from the fresh dayOffset. Matches coachChatModel.ts's "D-N" convention.
 function ageLabelFor(dayOffset: number): string {
   return dayOffset === 0 ? "NOW" : `D-${dayOffset}`;
 }
@@ -65,11 +60,6 @@ export function todayContextLine(stateMd: string): string {
   }
 }
 
-// A divider message's label was a bare "TODAY" before this - inconsistent with the richer
-// "TODAY · D-143 · 6:58" format iOS's own preview/mock data models (CoachChatPreviewData.swift).
-// Day number isn't threaded into the divider label (that's still computed client-side from
-// challenge_v2.json), but the time-of-day is - include at least that, applied identically
-// everywhere a divider gets created (greet and close) so they never disagree with each other.
 export function todayDividerLabel(stateMd: string): string {
   const timezone = extractTimezone(stateMd);
   try {
@@ -82,10 +72,8 @@ export function todayDividerLabel(stateMd: string): string {
   }
 }
 
-// Today's date as YYYY-MM-DD in the athlete's own timezone (state.md's Timezone field) - used
-// to stamp coach_since (ADR 0018) and to date a coach_note entry, so the date matches what the
-// athlete would call "today" even close to midnight, not whatever day it is in the server's UTC
-// clock.
+// Used to stamp coach_since (ADR 0018) and date a coach_note entry in the athlete's own
+// timezone, not the server's UTC clock.
 export function todayDateString(stateMd: string, now: Date): string {
   const timezone = extractTimezone(stateMd);
   try {
@@ -97,12 +85,8 @@ export function todayDateString(stateMd: string, now: Date): string {
 
 // ADR 0018: coach_since is a durable, write-once anchor - "days since this athlete started using
 // Coach at all," independent of season/challenge resets. Falls back to season.start_date, then
-// challenge.start_date, for repos that haven't been stamped yet (pre-existing athletes awaiting
-// manual backfill, or a session mid-First-Session-Protocol before coach_since exists). Returns
-// null if none of the three are present, rather than inventing a day number from nothing.
-// coach-chat-reliability-debug: no longer called from the closing-turn prompt (there's no more
-// commit_message field to thread a day-N reference into) - kept exported/tested as-is per
-// instruction not to touch coach_since-adjacent wiring, in case a day-N surface reappears.
+// challenge.start_date, for repos not yet stamped. Not currently called from the closing-turn
+// prompt (kept exported/tested in case a day-N surface reappears).
 export function coachDayNumber(challengeJson: string | null | undefined, stateMd: string, now: Date): number | null {
   if (!challengeJson) return null;
   let parsed: { coach_since?: string; season?: { start_date?: string }; challenge?: { start_date?: string } };

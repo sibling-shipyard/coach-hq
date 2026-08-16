@@ -1,52 +1,35 @@
 /**
- * Coach-chat's Gemini prompt construction: the response schema, the static (cacheable) persona/
- * instructions text, the per-turn dynamic text (state/mode-specific instructions/today's date),
- * and onboarding-hint context. Pure text-building - no network calls, no caching I/O (that's
- * geminiClient.ts).
+ * Coach-chat's Gemini prompt construction: response schema, static (cacheable) persona/
+ * instructions text, per-turn dynamic text, onboarding-hint context. Pure text-building - no
+ * network calls, no caching I/O (that's geminiClient.ts).
  *
- * coach-chat-reliability-debug: stripped to the smallest ask that could possibly be reliable -
- * a plain conversation, and on a genuine close, a short append-only note. No file_updates, no
- * checklist gate, no Part B retry/honesty-guard, no title - testing whether that alone is more
- * reliable. `reasoning` removed too: live testing at this same minimal scope still found
- * coach_note coming back empty while reasoning explicitly described real content worth saving -
- * theory is reasoning may be acting as a release valve (the model "thinks out loud" there and
- * doesn't feel compelled to duplicate it into the actual structured field). Testing whether
- * asking for coach_note directly, first, with no separate scratch-pad field to offload into,
- * changes anything.
+ * coach-chat-reliability-debug: stripped to the smallest reliable ask - a plain conversation,
+ * plus a short append-only note on close. No file_updates, checklist gate, retry/honesty guard,
+ * or title. `reasoning` removed too - it was suspected of acting as a release valve, letting the
+ * model narrate intent there instead of committing it to coach_note.
  */
 import type { ChatMessage } from "./chatThreads.js";
 import { todayContextLine } from "./coachDay.js";
 
 export interface GeminiReply {
   reply: string;
-  // Only meaningful on a closing=true turn - a short (3-5 line) plain-English note of what
-  // actually happened this session, worth remembering long-term. Appended by the server (with
-  // today's date) to coach_notes.md at commit time (see coachWrites.ts's appendCoachNote) - never
-  // shown to the athlete in any current response.
+  // Closing turns only - a short plain-English note appended (with today's date) to
+  // coach_notes.md at commit time (coachWrites.ts's appendCoachNote). Never shown to the athlete.
   coach_note?: string;
-  // Only meaningful on a closing=true turn (see geminiClient.ts's askGemini) - the athlete's
-  // keyword match is just a trigger to ask Gemini to consider closing, not a guarantee it
-  // actually did. Gemini sets this false when it's asking a clarifying question instead of
-  // closing (see prompt), and the server must not commit/report closed:true unless this comes
-  // back true.
+  // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
+  // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;
 }
 
 export type TurnMode = "greeting" | "ordinary" | "closing";
 
-// Thread count is capped elsewhere (chatThreads.ts's MAX_RETAINED_THREADS), but messages
-// *within* a thread weren't - a long conversation before close grew every subsequent request
-// linearly, on top of the fixed system-prompt prefix. 40 is generous for a single day's check-
-// in/close-out (SOUL's actual usage pattern) while stopping pathological growth; a real
-// conversation-compaction pattern (summarize what's trimmed, per Anthropic's context-engineering
-// guidance) is future work once usage data exists to size it properly - this is a simple hard
-// window, not that.
+// Caps messages within a thread (thread count itself is capped separately, chatThreads.ts's
+// MAX_RETAINED_THREADS) - a simple hard window against pathological growth, not real compaction.
 export const MAX_HISTORY_MESSAGES = 40;
 
-// Two worked examples of the exact JSON shape expected, covering the two turn shapes that
-// actually exist now: an ordinary turn with nothing worth saving, and a real close with a real
-// coach_note. Sits inside the cached prefix (see systemInstruction below) so it's a one-time
-// token cost, not per-turn.
+// Two worked examples covering the two turn shapes that exist now: an ordinary turn with
+// nothing to save, and a real close with a coach_note. Sits in the cached prefix, so it's a
+// one-time token cost.
 const FEW_SHOT_EXAMPLES = [
   "<example_1 note=\"ordinary turn\">",
   "Athlete: legs feel a bit heavy today but nothing alarming",
@@ -58,23 +41,17 @@ const FEW_SHOT_EXAMPLES = [
   "</example_2>",
 ].join("\n");
 
-// Shared between the primary cached-or-not call and the stale-cache retry in geminiClient.ts's
-// askGemini - the response shape Gemini should return doesn't depend on whether cachedContent
-// was used.
+// Shared between the primary call and the stale-cache retry in geminiClient.ts - the response
+// shape doesn't depend on whether cachedContent was used.
 export const GENERATION_CONFIG = {
   responseMimeType: "application/json",
-  // coach-chat-reliability-debug: the ask is now a handful of short fields, not a multi-file
-  // edit proposal - shrunk from 16384. Also acts as a cheap bound against the repetition-loop
-  // failure mode observed in testing (the model burning its whole budget on runaway repeated
-  // text in one field) - a smaller cap means less damage before generation is cut off.
+  // Shrunk from 16384 now that the ask is a handful of short fields - also caps the damage from
+  // the repetition-loop failure mode observed in testing.
   maxOutputTokens: 2048,
   responseSchema: {
     type: "object",
     properties: {
-      // coach-chat-reliability-debug: `reasoning` removed - testing whether it was acting as a
-      // release valve for coach_note (the model narrating its own intent there instead of
-      // transcribing it into the real field). coach_note is declared first now, before reply,
-      // so there's nothing else to commit to first.
+      // Declared first, before reply, so there's nothing else to commit to first.
       coach_note: { type: "string" },
       session_closed: { type: "boolean" },
       reply: { type: "string" },
@@ -83,12 +60,10 @@ export const GENERATION_CONFIG = {
   },
 } as const;
 
-// The truly static half of the prompt - byte-identical on every single call, for every athlete.
-// This is what gets uploaded once via Gemini's explicit-caching API (see geminiClient.ts's use of
-// soulCache.ts) instead of being resent as text on every request. Kept separate from the per-turn
-// dynamic block below because Gemini rejects a generateContent request that sets both
-// `cachedContent` and `systemInstruction` - when a cache is active, this text isn't sent at all,
-// only referenced.
+// The static half of the prompt - byte-identical every call, uploaded once via Gemini's
+// explicit-caching API (geminiClient.ts) instead of resent per request. Kept separate from the
+// dynamic block below since Gemini rejects setting both `cachedContent` and `systemInstruction`
+// on the same request.
 export function staticSystemText(soul: string): string {
   return [
     "<persona>",
@@ -112,10 +87,9 @@ export function staticSystemText(soul: string): string {
 }
 
 // The per-turn dynamic half of the prompt: current state/quest_log, mode-specific instructions,
-// and (deliberately last, since it changes every single minute) today's date/time. `useCache`
-// only changes the framing sentence at the top (see geminiClient.ts's buildContents for why -
-// this text ships as a synthetic turn when a cache is active, or gets concatenated into
-// systemInstruction directly when it isn't, and the framing has to describe whichever is true).
+// and (deliberately last, since it changes every minute) today's date/time. `useCache` only
+// changes the framing sentence at the top - it ships as a synthetic turn when a cache is active,
+// or gets concatenated into systemInstruction directly when it isn't.
 export function buildDynamicText(
   stateMd: string,
   questLog: string,
@@ -124,14 +98,10 @@ export function buildDynamicText(
   useCache: boolean,
 ): string {
   return [
-    // When explicit caching is active, this whole block is injected as a synthetic turn (see
-    // geminiClient.ts's buildContents) rather than living in `systemInstruction` - Gemini's API
-    // rejects setting both on the same request. A plain instructions block dropped mid-
-    // conversation reads with less authority than a system instruction, so it's spelled out
-    // explicitly here. Only relevant - and only true - on the cached path: in the no-cache
-    // fallback, this text gets concatenated directly into systemInstruction itself, so a claim
-    // about "arriving as a turn instead of a system field" would be describing a mechanism
-    // that isn't happening. Omit it there rather than confuse the model with a false framing.
+    // Only relevant on the cached path, where this block arrives as a synthetic turn rather than
+    // systemInstruction - spelled out explicitly since a plain instructions block dropped mid-
+    // conversation otherwise reads with less authority. Omitted on the no-cache path, where this
+    // text is concatenated directly into systemInstruction and the claim wouldn't be true.
     useCache
       ? "[SYSTEM CONTEXT - not a message from the athlete. Everything below carries the same " +
         "binding authority as your system instructions above: follow every directive in it " +
@@ -175,25 +145,15 @@ export function buildDynamicText(
           "describes. Nothing about this turn gets saved anywhere; that only happens on a genuine",
           "close. Set session_closed to false - this isn't a close-session turn.",
         ].join("\n"),
-    // Deliberately last: this is the one piece of the whole prompt that changes every minute.
-    // Keeping it here, after everything else, is what makes this a stable-then-volatile block,
-    // matching the same ordering rationale as the no-cache fallback's systemInstruction used to
-    // rely on end-to-end.
+    // Deliberately last - the one piece of this prompt that changes every minute.
     "\n" + todayContextLine(stateMd),
   ].join("\n");
 }
 
-// Gemini's generateContent needs at least one content entry to generate against - a greeting
-// turn has no real athlete message yet, so the caller passes a hidden trigger string, never
-// shown to the athlete (the mode-specific instructions above tell Gemini exactly what to do with
-// it). Filters + windows the raw thread history into the {role, parts} shape Gemini expects.
+// Filters + windows the raw thread history into the {role, parts} shape Gemini expects.
 export function buildHistoryContents(history: ChatMessage[]): { role: string; parts: { text: string }[] }[] {
   return history
     .filter((m): m is Extract<ChatMessage, { role: "user" | "coach" }> => m.role === "user" || m.role === "coach")
-    // Only thread *count* was capped before (chatThreads.ts's MAX_RETAINED_THREADS) - nothing
-    // stopped a single long conversation from growing every request linearly on top of the fixed
-    // system-prompt prefix. Keep just the most recent messages; real compaction/summarization is
-    // future work.
     .slice(-MAX_HISTORY_MESSAGES)
     .map((m) => ({
       role: m.role === "user" ? "user" : "model",
@@ -201,10 +161,8 @@ export function buildHistoryContents(history: ChatMessage[]): { role: string; pa
     }));
 }
 
-// B4: sport(s)/goal collected in iOS's native onboarding (season step), passed through on the
-// very first greet() call for a brand-new athlete so the First Session Protocol can reflect them
-// back for confirmation instead of asking cold - see platform/soul/B_engine.md §10's "Onboarding
-// hints" note. Absent for web-only athletes or once the hint's already been used once.
+// B4: sport(s)/goal from iOS's native onboarding, passed on the first greet() so the First
+// Session Protocol can reflect them back instead of asking cold - platform/soul/B_engine.md §10.
 export interface OnboardingHints {
   sports: string[];
   goal: string;

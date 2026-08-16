@@ -1,26 +1,20 @@
 /**
  * coach-chat.ts — real Coach Phelps sessions from the browser and iOS, backed by Gemini.
- * Full design/flow: docs/eng-docs/coach-chat-flow.md. Commit + retention design: ADR 0012.
- * Module split: docs/plans/coach-chat-modularization.md - this file is the HTTP handler only;
- * everything else (prompt construction, Gemini transport, thread persistence, write authority,
- * day math, close-signal detection) lives under ui/api/coach-chat/_lib/.
+ * Full design/flow: docs/eng-docs/coach-chat-flow.md. Commit + retention: ADR 0012. This file is
+ * the HTTP handler only - prompt construction, Gemini transport, thread persistence, write
+ * authority, day math, and close-signal detection live under ui/api/coach-chat/_lib/.
  *
- * GET                        → load already-wrapped/committed threads
- * POST {action: "greet"}     → start a new conversation with Coach speaking first (A4) - no
- *                               athlete message. Creates + commits a thread with just Coach's
- *                               opening line, or reuses today's still-unanswered greeting
- *                               thread if one already exists.
- * POST {threadId?, messages, message} → send a message, get a real coach reply.
- *                               No repo write unless this message closes the
- *                               session, in which case the whole thread (plus
- *                               coach_note, if any) commits in one batch.
+ * GET                        → load committed threads
+ * POST {action: "greet"}     → Coach speaks first (A4), no athlete message, no repo write
+ * POST {threadId?, messages, message} → send a message, get a reply. No repo write unless it
+ *                               closes the session, in which case the whole thread (+ coach_note,
+ *                               if any) commits in one batch.
  *
- * No delete endpoint - retention is fully automatic (ADR 0012 amendment): the 7 most recent
- * threads are kept, oldest evicted on write. There's no user-facing delete control.
+ * No delete endpoint - retention is automatic (ADR 0012 amendment): 7 most recent threads kept,
+ * oldest evicted on write.
  *
- * coach-chat-reliability-debug: closing-turn ask stripped to the bare minimum (coach_note only -
- * no file_updates, no sleep/side-quest/injury checklist, no Part B retry/honesty-guard) to test
- * whether a much smaller ask is more reliable than the full-featured one. Local to this branch.
+ * coach-chat-reliability-debug: closing-turn ask stripped to coach_note only - no file_updates,
+ * checklist, or retry/honesty guard - to test whether a smaller ask is more reliable.
  */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
@@ -55,18 +49,10 @@ import {
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import { onboardingHintsContext, type GeminiReply, type OnboardingHints } from "./coach-chat/_lib/coachPrompt.js";
 
-// A4: coach speaks first. Every greet() call generates a fresh opener via Gemini (informed by
-// current state.md/quest_log.md) and hands back a not-yet-committed thread id - nothing is
-// written to the repo here. The greeting only actually lands in the repo if the athlete replies
-// and that conversation later closes (its full message history, greeting included, is what the
-// close-commit writes in one atomic commit - see the closing-turn path below). Before this, every
-// greet() committed a brand-new thread immediately, which meant opening the tab and not engaging
-// permanently ate one of the 7 retention slots and littered the repo with empty
-// "coach: chat — new conversation" commits - confirmed in real usage on both live athlete repos.
-// The close path already handles a client-supplied threadId that was never committed (treats it
-// as a brand-new thread, this file's message-send handler: `threadId ?? \`t-${now}\``), so this
-// needs no special-casing there - it's the same mechanism ordinary mid-conversation turns already
-// rely on (nothing commits until close).
+// A4: coach speaks first. Generates a fresh opener via Gemini and hands back a not-yet-committed
+// thread id - nothing writes to the repo here. The greeting only lands if the athlete replies
+// and the conversation later closes (see the closing-turn path below, which handles a
+// client-supplied threadId that was never committed the same as any other new thread).
 async function handleGreet(
   repo: string,
   token: string,
@@ -92,9 +78,8 @@ async function handleGreet(
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const errMessage = err instanceof Error ? err.message : String(err);
-    // This catch returns directly instead of re-throwing, so the outer handler's console.error
-    // never runs for it - without its own log line, an askGemini failure here is completely
-    // invisible in Runtime Logs (found the hard way: several real 500s had zero log output).
+    // Returns directly instead of re-throwing, so the outer handler's console.error never runs
+    // for it - log here or an askGemini failure is invisible in Runtime Logs.
     console.error("[coach-chat] greet askGemini failed:", err);
     return Response.json({ error: errMessage }, { status });
   }
@@ -103,11 +88,8 @@ async function handleGreet(
   const repoSha = await getHeadSha(repo, token).catch(() => null); // A5: best-effort, never blocks a reply
   return Response.json({
     reply: reply.reply,
-    // Neither client actually reads this - both web and iOS mint their own local id and
-    // materialize the greeting as an uncommitted thread client-side (see the comment above this
-    // function). Kept in the response on purpose, not a leftover: preserves the response shape
-    // exactly, so this backend change and the client-side follow-ups don't have to ship in
-    // lockstep.
+    // Neither client reads this - both mint their own local id for the uncommitted greeting.
+    // Kept for response-shape stability.
     threadId: `t-${now}`,
     threads: withComputedDayOffsets(history.threads, stateMd ?? ""),
     repoSha,
@@ -121,9 +103,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
     if (req.method === "GET") {
       const [history, stateMd] = await Promise.all([loadChatHistory(repo, token), getFileRaw(repo, STATE_FILE_PATH, token)]);
-      // Retention is enforced on write (POST), not here - a GET must never rewrite the file
-      // just because it was read. Every thread returned here is active - retention (ADR 0012
-      // amendment) drops the oldest automatically, no user-facing delete exists any more.
+      // Retention is enforced on write, not here - a GET must never rewrite the file just
+      // because it was read.
       return Response.json({ threads: withComputedDayOffsets(history.threads, stateMd ?? "") });
     }
 
@@ -131,24 +112,19 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return Response.json({ error: "Coach chat isn't configured yet" }, { status: 500 });
 
-      // `messages` is the client's own running history for this thread (nothing persisted
-      // server-side for an unwrapped conversation) - the server only ever reads the repo's
-      // chat_history.json at the moment a thread actually closes, below.
+      // `messages` is the client's own running history - nothing persists server-side until close.
       const { threadId, messages, message, action, knownSha, onboardingHints } = (await req.json()) as {
         threadId?: string;
         messages?: ChatMessage[];
         message?: string;
         action?: "greet";
-        // A5: the repoSha this client last saw for this thread (from a prior response) - lets
-        // the server detect "another device wrapped a session (or otherwise wrote to this repo)
-        // since I last saw it" without any lock.
+        // A5: repoSha this client last saw - lets the server detect a write from elsewhere
+        // without a lock.
         knownSha?: string;
         // B4: only meaningful alongside action: "greet" - see onboardingHintsContext().
         onboardingHints?: OnboardingHints;
       };
 
-      // A4: coach speaks first. Landing on "new conversation" calls this instead of sending a
-      // message - the athlete hasn't typed anything yet.
       if (action === "greet") {
         return handleGreet(repo, token, apiKey, onboardingHints);
       }
@@ -156,37 +132,29 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const trimmed = (message ?? "").trim();
       if (!trimmed) return Response.json({ error: "Message required" }, { status: 400 });
 
-      // A5: best-effort - a failed HEAD check never blocks the turn, it just means staleness
-      // can't be detected this time (same as before A5 existed).
+      // A5: best-effort - a failed HEAD check just means staleness can't be detected this time.
       const currentSha = await getHeadSha(repo, token).catch(() => null);
       const stale = knownSha != null && currentSha != null && knownSha !== currentSha;
 
-      // A3: reuses whatever coach-chat-context.ts's app-load preload already warmed for this
-      // repo (60s TTL) instead of always paying a fresh GitHub round-trip on every turn - unless
-      // A5 just detected the cache is stale, in which case force a fresh read so Gemini's
-      // context reflects whatever landed on the repo since (e.g. a session closed elsewhere).
+      // A3: reuses the app-load preload's 60s cache, unless A5 just found it stale, in which
+      // case force a fresh read.
       const { soul, state: stateMd, questLog } = await loadCoachContext(repo, token, { fresh: stale });
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
       const priorMessages = messages ?? [];
-      // Keyword match is only a trigger to ASK Gemini to consider closing - it is not itself
-      // the close decision. Gemini reports back via reply.session_closed whether it actually
-      // closed this turn (it may instead ask a clarifying question) - see closing below.
-      // A10: also true if a close attempt is still pending from a few messages back (see
-      // wasCloseAttemptPending) - the athlete answering to Coach's own clarifying question is
-      // still part of the same close attempt, even though that answer alone never matches
-      // CLOSE_SESSION_PATTERN.
+      // Keyword match only triggers asking Gemini to consider closing - reply.session_closed is
+      // the real decision (see closing below). A10: also true if a close attempt is still
+      // pending from a few messages back, since answering Coach's clarifying question doesn't
+      // itself match CLOSE_SESSION_PATTERN.
       const closeIntent = isCloseSignal(trimmed) || wasCloseAttemptPending(priorMessages);
       const now = Date.now();
-      // Minted here, not down at the close-trace log site, so it's available to
-      // askGemini/finishGeminiResponse below - the model's own closing-turn reasoning is the
-      // highest-value diagnostic line this trace exists for, and it has to be taggable with the
-      // same traceId the eventual commit outcome logs under.
+      // Minted here so it's available to askGemini/finishGeminiResponse, taggable with the same
+      // id the eventual commit-outcome log uses.
       const traceId = Math.random().toString(36).slice(2, 10);
       const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
 
-      // Only fetched on a closing turn - purely for the server-side coach_since stamp, Gemini
-      // never sees this content (see loadClosingFileContext).
+      // Only fetched on a closing turn, for the server-side coach_since stamp - Gemini never
+      // sees this content.
       let closingFiles: ClosingFileContext | undefined;
       if (closeIntent) {
         closingFiles = await loadClosingFileContext(repo, token);
@@ -216,37 +184,28 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const closing = closeIntent && reply.session_closed === true;
 
       if (!closing) {
-        // No repo write at all for an ordinary turn - the client just appends both messages
-        // to its own in-memory thread. Losing this on a refresh before wrap is accepted. This
-        // also covers a close-intent turn where Gemini asked a clarifying question instead of
-        // actually closing (session_closed came back false) - no premature commit.
+        // No repo write for an ordinary turn - client appends both messages to its own
+        // in-memory thread. Also covers a close-intent turn where Gemini asked a clarifying
+        // question instead of closing.
         return Response.json({ reply: reply.reply, closed: false, repoSha: currentSha, stale });
       }
 
-      // Closing: this is the one moment a real commit happens, so build the thread's final
-      // message list and merge it into whatever's already committed for this repo.
+      // Closing: build the thread's final message list and merge into what's already committed.
       const allMessages: ChatMessage[] = priorMessages.length
         ? [...priorMessages, userMsg, coachMsg]
         : [{ id: `d-${now}`, role: "divider", label: todayDividerLabel(stateMd ?? "") }, userMsg, coachMsg];
 
-      // Fixed once outside the retry loop so the id/title/preview this response reports stay
-      // stable across attempts, even though the merge against fresh state below can run more
-      // than once.
+      // Fixed outside the retry loop so the response's id/title/preview stay stable across
+      // attempts.
       const finalThreadId = threadId ?? `t-${now}`;
-      // coach-chat-reliability-debug: no longer asking Gemini for a title at all - suspected of
-      // competing with coach_note for the model's attention (observed dumping the intended
-      // coach_note content into title instead, leaving coach_note empty). Always the old
-      // truncated-first-message behavior now. sanitizeTitle/truncateTitle stay in use here even
-      // though the title is no longer model-generated, in case a first user message itself ever
-      // carries a stray non-ASCII character.
+      // coach-chat-reliability-debug: title is no longer model-generated (suspected of competing
+      // with coach_note for the model's attention) - always the truncated-first-message fallback.
       const firstUserText = allMessages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user")?.text ?? trimmed;
       const computedTitle = truncateTitle(sanitizeTitle(firstUserText), THREAD_TITLE_MAX_CHARS);
       const previewText = reply.reply.slice(0, 80);
 
-      // Resolved fresh on every commit retry attempt (see githubGitData.ts), not from a
-      // snapshot read before this function was even called - otherwise two requests racing on
-      // the same repo (e.g. this close vs. another tab's "Delete forever") could have the
-      // last-to-commit silently overwrite the first's changes instead of merging on top of them.
+      // Resolved fresh on every commit retry (see githubGitData.ts) so two requests racing on
+      // the same repo merge rather than the last-to-commit overwriting the first.
       let latestThreads: ChatThread[] = [];
       const chatWrite: FileEntry = {
         path: CHAT_FILE_PATH,
@@ -254,11 +213,9 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           const fresh = await loadChatHistory(repo, token);
           const existing = fresh.threads.find((t) => t.id === finalThreadId);
           if (existing && existing.status === "deleted") {
-            // Stale client reference (e.g. a backgrounded tab holding an old thread open) closing
-            // into a thread another request deleted since this conversation started - fail loudly
-            // instead of silently resurrecting it. (In practice a hard-deleted thread is removed
-            // from the array entirely, so `existing` won't be found at all here - this branch is
-            // a defensive backstop, not the primary guard.)
+            // Stale client closing into a thread deleted since this conversation started - fail
+            // loudly instead of silently resurrecting it. Defensive backstop; a hard-deleted
+            // thread is normally removed from the array entirely.
             throw Object.assign(
               new Error(`Thread ${finalThreadId} was ${existing.status} - refusing to reactivate it via close`),
               { status: 400 }, // non-transient: don't burn retries on a real rejection
@@ -266,7 +223,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
           const thread: ChatThread = {
             id: finalThreadId,
-            dayOffset: existing?.dayOffset ?? 0, // stored value is stale by design - recomputed from createdAt below on every response
+            dayOffset: existing?.dayOffset ?? 0, // stale by design - recomputed from createdAt on every response
             createdAt: existing?.createdAt ?? now,
             title: existing?.title ?? computedTitle,
             preview: previewText,
@@ -280,9 +237,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         },
       };
 
-      // coach-chat-reliability-debug: only included in `writes` below when reply.coach_note is
-      // present and non-empty after trimming. Fetches coach_notes.md's own fresh content at
-      // commit time (same pattern as chatWrite above), not from a turn-start snapshot.
+      // Only included in `writes` below when non-empty. Fetches coach_notes.md fresh at commit
+      // time, same pattern as chatWrite above.
       const trimmedCoachNote = reply.coach_note?.trim();
       const coachNoteWrite: FileEntry | undefined = trimmedCoachNote
         ? {
@@ -294,39 +250,29 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
-      // B2/ADR 0018: detect the false→true profileComplete transition against what's actually
-      // about to be committed - a close-turn that finishes the intake writes state.md this same
-      // turn and coach_since must key off that fresh value. state.md itself is no longer edited
-      // here (no file_updates any more), so this is keyed off the pre-turn stateMd only.
+      // B2/ADR 0018: state.md isn't edited here (no file_updates), so both sides of this
+      // transition check are the same pre-turn value - see BACKLOG.md #1.
       const wasProfileComplete = isAthleteProfileComplete(stateMd ?? "");
       const profileComplete = isAthleteProfileComplete(stateMd ?? "");
       const validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, stateMd ?? "");
 
-      // coach-chat-reliability-debug: visibility without retry machinery - if a close lands with
-      // neither a coach_since stamp nor a coach_note, log it plainly so it's easy to tell apart
-      // from a close that genuinely had nothing to save (also visible via the reasoning log
-      // above, correlatable by traceId).
       if (validUpdates.length === 0 && !trimmedCoachNote) {
         console.warn("[coach-chat] close landed with no coach_note.", { athleteMessage: trimmed, traceId });
       }
 
-      // ADR 0012: chat_history.json plus coach_notes.md (when reply.coach_note was reported),
-      // plus a coach_since stamp on the one turn that needs it, land in ONE atomic commit via
-      // the Git Data API.
+      // ADR 0012: chat_history.json plus coach_notes.md (when reported), plus a coach_since
+      // stamp when needed, land in ONE atomic commit.
       const writes: FileEntry[] = coachNoteWrite ? [...validUpdates, chatWrite, coachNoteWrite] : [...validUpdates, chatWrite];
 
       let repoSha: string;
       try {
         const result = await commitFilesAtomic(writes, `coach: chat — ${computedTitle || "session update"}`, {
           repo,
-          // Configurable so testing a real close doesn't have to write to a live athlete's
-          // actual main - defaults to main, unchanged, when unset.
+          // Configurable so a test close doesn't have to write to a live athlete's actual main.
           branch: process.env.COACH_CHAT_BRANCH ?? "main",
           token,
         });
         repoSha = result.commitSha;
-        // One structured line per close, correlating the traceId with what actually committed.
-        // console.log, not warn: a healthy close isn't a problem.
         console.log("[coach-chat] close-trace", JSON.stringify({
           traceId,
           threadId: finalThreadId,
@@ -337,10 +283,9 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         }));
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
-        // The resolve() guard above throws a tagged {status: 400} when this close targets a
-        // thread another request archived/deleted in the meantime - that's a correct rejection,
-        // not a save failure, so it gets its own status/message instead of being flattened into
-        // the generic "saving failed" 502 below (which would be actively misleading here).
+        // The resolve() guard above throws a tagged {status: 400} for a correct rejection (this
+        // close targeted a deleted thread), not a save failure - don't flatten it into the
+        // generic 502 below.
         if ((err as { status?: number }).status === 400) {
           return Response.json({ error: errMessage, traceId }, { status: 400 });
         }
@@ -372,11 +317,9 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // resolveRepoAuth handles both auth modes (ADR 0012 makes coach chat iOS-reachable the
-    // same way ADR 0005's widget-snapshots.ts already is): session cookie for web,
-    // `Authorization: Bearer <token>` + `X-Coach-Repo: owner/repo` for iOS. Cookie mode's
-    // setCookie (ADR 0009 rotation) is undefined in Bearer mode, so withSessionCookie below
-    // is a no-op for iOS calls.
+    // resolveRepoAuth handles both auth modes: session cookie for web, Bearer token +
+    // X-Coach-Repo for iOS. Cookie mode's setCookie (ADR 0009 rotation) is undefined in Bearer
+    // mode, so withSessionCookie is a no-op for iOS calls.
     const resolved = await resolveRepoAuth(req);
     if (resolved instanceof Response) return resolved;
     try {
@@ -384,11 +327,10 @@ export default {
       return withSessionCookie(res, resolved.setCookie);
     } catch (err) {
       // A rotated refresh_token (ADR 0009) is single-use - losing resolved.setCookie here
-      // would strand the next request, not just fail this one.
+      // would strand the next request.
       const message = err instanceof Error ? err.message : "Coach chat failed";
-      // A 401 from GitHub itself (expired/invalid token) is surfaced as a real 401 instead of
-      // a generic 500 - iOS's Bearer auth has no cookie-refresh equivalent, so this status is
-      // its only signal to re-prompt sign-in rather than showing a dead-end error.
+      // iOS has no cookie-refresh equivalent, so a real 401 (not a generic 500) is its only
+      // signal to re-prompt sign-in.
       const status = (err as { status?: number }).status === 401 ? 401 : 500;
       console.error("[coach-chat]", err);
       return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);

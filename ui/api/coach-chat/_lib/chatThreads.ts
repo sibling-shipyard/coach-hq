@@ -7,20 +7,13 @@ import { getFileRaw } from "./coachChatFiles.js";
 
 export const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 
-// Kept short by design, not just to fit the tightest surface (iOS's `historyRow` in
-// CoachChatWarmUI.swift, 14.5pt semibold sharing a row with a day-label chip and an "OPEN"/
-// age-label chip) - a short title reads faster in a list than a longer one, even where there'd
-// be room for more. iOS still applies its own lineLimit(1) + truncation as a defensive backstop
-// (see #244 follow-up) in case a response ever ignores this budget.
+// Short by design - fits iOS's tight history-row layout. iOS also applies its own lineLimit(1)
+// as a defensive backstop.
 export const THREAD_TITLE_MAX_CHARS = 28;
 
-// Model-generated titles are meant to be short, plain-English summaries - a stray non-Latin
-// token (observed in production: literal CJK characters mixed into otherwise-English text) is a
-// generation-quality slip. Strips anything outside basic printable ASCII rather than attempting
-// real script/language detection. coach-chat-reliability-debug: titles are no longer model-
-// generated at all (see coachPrompt.ts's history) - this and truncateTitle now only ever run
-// against the athlete's own first message, kept as a safety net for the same reason (a stray
-// character in the athlete's own typed text is just as possible).
+// Strips anything outside printable ASCII rather than attempting script detection. Titles are no
+// longer model-generated (see coachPrompt.ts) - this now only ever runs against the athlete's
+// own first message, kept as a safety net against a stray typed character.
 export function sanitizeTitle(title: string): string {
   return title.replace(/[^\x20-\x7E]/g, "").replace(/\s+/g, " ").trim();
 }
@@ -38,18 +31,15 @@ export type ChatMessage =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "coach"; paragraphs: string[] };
 
-// No archive state: a thread is "active" until the athlete deletes it, which is immediate and
-// permanent (ADR 0012 amendment - see below). "deleted" never actually persists in
-// chat_history.json; it exists only as the PATCH request shape (status: "deleted" in ⇒ thread
-// removed from the array, never written back with that status).
+// No archive state: a thread is "active" until deleted, immediate and permanent (ADR 0012
+// amendment). "deleted" never persists in chat_history.json - it's only the PATCH request shape.
 type ChatThreadStatus = "active" | "deleted";
 
 export interface ChatThread {
   id: string;
   dayOffset: number;
-  // Set once when the thread is first created, never overwritten - dayOffset is recomputed from
-  // this on every read (see coachDay.ts's withComputedDayOffsets) rather than persisted
-  // statically, so it stays correct as real time passes instead of freezing at creation.
+  // Set once at creation, never overwritten - dayOffset is recomputed from this on every read
+  // (coachDay.ts's withComputedDayOffsets), so it stays correct as real time passes.
   createdAt?: number;
   title: string;
   preview: string;
@@ -73,20 +63,15 @@ export async function loadChatHistory(repo: string, token: string): Promise<Chat
   }
 }
 
-// Puts `thread` at the front of `threads`, replacing any existing entry with the same id.
-// Used for both brand-new threads and reactivated ones (reopening + closing an old thread used
-// to leave it wherever it already sat in the array, silently breaking the newest-first
-// invariant applyRetention() below depends on).
+// Puts `thread` at the front, replacing any existing entry with the same id - keeps the
+// newest-first invariant applyRetention() below depends on.
 export function mergeThreadToFront(threads: ChatThread[], thread: ChatThread): ChatThread[] {
   return [thread, ...threads.filter((t) => t.id !== thread.id)];
 }
 
-// ADR 0012 (amended): count-based retention, no archive tier. Deleting a thread removes it
-// immediately and permanently (see PATCH handler in coach-chat.ts), so this cap only ever sees
-// "active" threads - the 7 most-recently-active survive; creating an 8th evicts the oldest.
-// Deleting a thread below the cap does NOT backfill/evict anything on the next new thread, since
-// the deleted thread was never counted against the cap to begin with. Threads must be newest-
-// first for the cap to keep the right ones - see mergeThreadToFront above.
+// ADR 0012 (amended): count-based retention, no archive tier. Only "active" threads count -
+// the 7 most-recently-active survive, creating an 8th evicts the oldest. Threads must be
+// newest-first for the cap to keep the right ones.
 export const MAX_RETAINED_THREADS = 7;
 
 export function applyRetention(threads: ChatThread[]): ChatThread[] {
