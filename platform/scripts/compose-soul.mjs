@@ -48,26 +48,38 @@ const LAYER_FILES = {
  *
  * Targeting (ADR 0022): a step may carry `targets: [...]`, and a merge step may additionally
  * carry `keyTargets: { <key>: [...] }` to override individual keys. Absent = emitted into every
- * target. This step is deliberately empty of targeting today — PR 1 of the v5.8 trim changes no
- * words, so both builds must compose byte-identical to the retired platform/SOUL.md. Targets get
- * attached as the trim moves shell/git blocks to `claude` only.
+ * target. PR 3 of the v5.8 trim is where targeting starts doing work: every block below marked
+ * CLAUDE_ONLY needs a shell, git, or a file read, none of which coach-chat has — its own system
+ * prompt tells the model to ignore instructions it cannot execute, so those blocks were pure cost
+ * in the chat build. The two composed builds are legitimately different files from here on; they
+ * are no longer expected to `diff` clean against each other.
  */
+const CLAUDE_ONLY = ["claude"];
+
 const ASSEMBLY = [
-  { source: "B", keys: ["s1", "s2"] },
+  // §1 Boot Sequence — chat is told to skip booting entirely.
+  { source: "B", keys: ["s1_boot"], targets: CLAUDE_ONLY },
+  {
+    source: "B",
+    keys: ["s2_guardrails", "s2_guardrails_git"],
+    keyTargets: { s2_guardrails_git: CLAUDE_ONLY },
+  },
   { source: "A", keys: ["s3", "s4"] },
   {
     merge: "s5",
-    keys: ["s5a1", "s5b1", "s5a2", "s5a3", "s5b2", "s5b3", "s5b4", "s5a4"],
+    keys: ["s5a1", "s5b1", "s5a2", "s5a3", "s5b2", "s5b3_closing_archives", "s5b4", "s5a4"],
     sources: {
       s5a1: "A",
       s5b1: "B",
       s5a2: "A",
       s5a3: "A",
       s5b2: "B",
-      s5b3: "B",
+      s5b3_closing_archives: "B",
       s5b4: "B",
       s5a4: "A",
     },
+    // Phase/season close write `archive/phases.md` and `archive/seasons/**`; the app drops both.
+    keyTargets: { s5b3_closing_archives: CLAUDE_ONLY },
   },
   {
     merge: "s6",
@@ -79,7 +91,63 @@ const ASSEMBLY = [
     keys: ["s7", "c_data_locations"],
     sources: { s7: "C", c_data_locations: "C" },
   },
-  { source: "B", keys: ["s8", "s9", "s10", "s11", "s12"] },
+  {
+    source: "B",
+    keys: [
+      "s8",
+      "s9",
+      "s10_head",
+      "s10_first_session",
+      "s10_greeting",
+      "s10_pre_workout",
+      "s10_weekly_kickoff",
+      "s10_contract_safety",
+      "s10_contract_validator",
+      "s10_session_files",
+      "s10_timer_fields",
+      "s10_logging_intro",
+      "s10_logging_lookup",
+      "s10_logging_rpe",
+      "s10_logging_notes",
+      "s10_logging_reconcile",
+      "s10_logging_autoname",
+      "s10_end_of_day",
+      "s10_daily_checkin",
+      "s10_sunday_intro",
+      "s10_sunday_archive",
+      "s10_sunday_rest",
+      "s10_exercise_explainer",
+      "s10_badminton",
+      "s11",
+      "s12_head",
+      "s12_updates",
+      "s12_coach_notes",
+      "s12_checklist",
+      "s12_checklist_shell",
+      "s12_commit_push",
+      "s12_confirm",
+      "s12_interim_rollback",
+    ],
+    keyTargets: {
+      // The backend injects its own, longer greeting instruction on every turn.
+      s10_greeting: CLAUDE_ONLY,
+      // Shell validator + `git diff`.
+      s10_contract_validator: CLAUDE_ONLY,
+      // query_history.py lookups and a write into user_data/activities/hist/.
+      s10_logging_lookup: CLAUDE_ONLY,
+      s10_logging_notes: CLAUDE_ONLY,
+      s10_logging_autoname: CLAUDE_ONLY,
+      // Close detection in chat is deterministic (closeSignal.ts), not modelled here.
+      s10_end_of_day: CLAUDE_ONLY,
+      // archive/week_plans.md write.
+      s10_sunday_archive: CLAUDE_ONLY,
+      // §11 is script tables end to end.
+      s11: CLAUDE_ONLY,
+      s12_checklist_shell: CLAUDE_ONLY,
+      s12_commit_push: CLAUDE_ONLY,
+      s12_interim_rollback: CLAUDE_ONLY,
+    },
+  },
 ];
 
 const SECTION_MARKER_RE =
@@ -152,8 +220,66 @@ function getSection(byLayer, layer, key) {
   return sections.get(key);
 }
 
+const LIST_ITEM_RE = /^\s*(?:\d+\.|[-*+])\s/;
+const CONTINUATION_RE = /^\s+\S/;
+
+/**
+ * True when `block` ends mid-list — either on a list item or on an indented
+ * continuation line belonging to one.
+ */
+function endsInsideList(block) {
+  const lines = block.split("\n");
+  const last = lines[lines.length - 1];
+  if (LIST_ITEM_RE.test(last)) return true;
+  return CONTINUATION_RE.test(last) && lines.some((line) => LIST_ITEM_RE.test(line));
+}
+
+/**
+ * Blocks are normally separated by a blank line, but a target seam can fall *inside* a
+ * list — §10's "Logging a Workout" steps and §12's checklist are each split across several
+ * keys so the shell-only ones can be claude-only. Joining those with "\n\n" would punch a
+ * blank line into the middle of a list that reads as one list in the source layer, so a
+ * seam between two list items closes up to a single newline.
+ */
 function joinBlocks(blocks) {
-  return blocks.filter(Boolean).join("\n\n");
+  const kept = blocks.filter(Boolean);
+  if (kept.length === 0) return "";
+  return kept.reduce((acc, block) => {
+    const glue = LIST_ITEM_RE.test(block.split("\n")[0]) && endsInsideList(acc) ? "\n" : "\n\n";
+    return acc + glue + block;
+  });
+}
+
+/**
+ * Renumber ordered lists per target. Dropping claude-only steps out of the chat build leaves
+ * holes in the source layer's hand-written numbering ("1. … 4. … 6."), and a model reading
+ * step 4 with no step 2 above it is being told instructions are missing. A run ends at the
+ * first line that is neither a list item nor an indented continuation — including a blank
+ * line, which after joinBlocks() no longer appears inside a list. Fenced code is skipped so
+ * a future SOUL edit can show a numbered sample without it being silently rewritten.
+ */
+function renumberOrderedLists(text) {
+  let counter = 0;
+  let inFence = false;
+  return text
+    .split("\n")
+    .map((line) => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence;
+        counter = 0;
+        return line;
+      }
+      if (inFence) return line;
+      const match = /^(\d+)\.(\s)/.exec(line);
+      if (match) {
+        counter += 1;
+        return `${counter}.${match[2]}${line.slice(match[0].length)}`;
+      }
+      if (line.trim() === "" || CONTINUATION_RE.test(line)) return line;
+      counter = 0;
+      return line;
+    })
+    .join("\n");
 }
 
 /** Which targets a key inside a step is emitted into: key override → step → all. */
@@ -190,7 +316,7 @@ function composeSoul(target) {
     parts.push(joinBlocks(keys.map((key) => getSection(byLayer, step.sources[key], key))));
   }
 
-  return `${parts.filter(Boolean).join("\n\n")}\n`;
+  return `${renumberOrderedLists(joinBlocks(parts))}\n`;
 }
 
 function summarizeDiff(relPath, expected, actual) {
