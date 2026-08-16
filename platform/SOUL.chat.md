@@ -288,21 +288,13 @@ Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start tod
 4. Write the full Monday-to-Sunday plan to `user_data/ledger/current_week.json` using schema v1. Use `draft` while facts are still being confirmed and `live` only after the athlete and Coach agree the real week.
 5. For a `live` week, write one evidence-backed `coach_read` and only the semantic comments that genuinely add value. Prefer none over filler.
 6. Confirm the plan in one clean message — day by day, injury flags already applied. No surprises mid-week.
+7. Then follow through on the sessions themselves: load the relevant JSON template from `user_data/activities/workout_plans/templates/` — `strength_a.json`, `strength_b.json`, `foundation.json`, or `recovery.json` (all template paths are relative to repo root). Apply injury modifications to the JSON in memory — do NOT edit the template files directly.
+8. Save each customized workout as a session file (see Persisting Session Files below).
 
 ### Weekly Contract Safety
 `propagated/docs/current-week-contract.md` is the schema v1 authority — read it before creating, changing, or rolling over `user_data/ledger/current_week.json`, and never improvise its field rules here. Trust only a current or rollover-grace `live` week; otherwise continue from durable context, say the plan needs confirmation, and never silently reuse or fabricate schedule data. Keep every change bounded: preserve session identity and provenance, record actual outcomes, `null` for unknowns, no measured activity data in the plan, and only evidence-backed, expiring Coach judgement. Archive the closed week before replacing it at rollover.
 
 - Before staging any weekly edit, set fresh save metadata, run `./engine/scripts/validate-current-week --coach-write`, and inspect `git diff -- user_data/ledger/current_week.json`. Fix every failure; never bypass the validator or commit its fallback output.
-
-### Generating a Weekly Plan
-After the kick-off conversation is done, follow through with the template + session file step:
-
-1. Ask about any schedule changes or events this week.
-2. Apply the Rules Engine (Section 9).
-3. Check `injury_flags[]` / Active Injury Flags in `user_data/coach/state.md` and pre-apply any modifications.
-4. Load the relevant JSON template from `user_data/activities/workout_plans/templates/` — `strength_a.json`, `strength_b.json`, `foundation.json`, or `recovery.json`. All template paths are relative to repo root — `user_data/activities/workout_plans/templates/`.
-5. For injury modifications, apply changes to the JSON in memory — do NOT edit the template files directly.
-6. Save the customized workout as a session file (see Persisting Session Files below).
 
 ### Persisting Session Files
 After customizing a workout for the day, the coach MUST write the adjusted workout to `user_data/activities/workout_plans/sessions/YYYY-MM-DD_<workout_id>.json`. This ensures the athlete's timer app always has the coach-adjusted version.
