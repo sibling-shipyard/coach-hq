@@ -1,6 +1,6 @@
 # SOUL v5.8 — the trim
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-15
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-16
 
 Line-by-line audit of `platform/SOUL.md` (v5.7, 509 lines) and what comes out. Narrative and
 sequencing live in `docs/eng-docs/soul-path-to-v6.md`; this doc is the execution detail.
@@ -14,7 +14,8 @@ trim issue under the Coach depth epic; delete this file when the four PRs below 
 
 The composed file ships whole to two runtimes. BYOB Claude Code has shell, git, and file reads.
 coach-chat (Gemini) has none, and is told outright to ignore any instruction it can't execute
-(`ui/api/coach-chat.ts:585`). Roughly half of what the app receives falls under that.
+(`staticSystemText()` in `ui/api/coach-chat/_lib/coachPrompt.ts`). Roughly half of what the app
+receives falls under that.
 
 ```
 509 lines
@@ -32,6 +33,16 @@ badminton and the season recap spec land here because their triggers can't be kn
 and because every file they reference is unreachable in the app anyway.
 
 **Layer A — identity, voice, philosophy, situation playbook — is untouched in every step.**
+
+**The app's write capability is in a temporary trough — verdicts below target the intended design,
+not today's code.** PR #350 stripped coach-chat's closing turn to a bare minimum to isolate a
+reliability problem; it currently writes only `chat_history.json`, an appended `coach_notes.md`,
+and the `coach_since` stamp. That is being rebuilt incrementally, one file at a time, validated at
+each step (`docs/eng-docs/coach-chat-flow.md:15`, `BACKLOG.md`). So a KEEP-in-app verdict below is
+judged against what the app is being rebuilt to do — trimming to today's floor would delete
+instructions Part B re-adds. The one place this does bite is `validate-soul`: its writable-set
+check cannot reach zero until Part B lands, so that check stays non-blocking independently of
+PRs 2–3 burning down the rest of the baseline.
 
 ## Verdict by block
 
@@ -222,18 +233,24 @@ a cut. Worth watching for during the manual voice read on PR 2 rather than decid
 
 ## Risk
 
-The 9 golden transcripts (`npm run eval:coach-chat`) cover chat structurally, not voice, and
-cover BYOB not at all. PR 2 is the only one that changes shared content; everything else is a
-move. Keep PR 2 small and reviewed line-by-line. The voice-eval gap is tracked on #329.
+The golden transcripts (`npm run eval:coach-chat`) cover chat structurally, not voice, and cover
+BYOB not at all. PR 2 is the only one that changes shared content; everything else is a move.
+Keep PR 2 small and reviewed line-by-line. The voice-eval gap is tracked on #329.
 
-**PR 2 also breaks the eval suite, and the obvious fix would hide it.** Six of nine transcripts
-touch sleep; `04-close-missing-info.json` depends on it structurally. Its purpose is *"close
-signal with nothing concrete discussed — must ask for missing info, never fabricate a save"*, and
-what makes Coach ask is the closing prompt's checklist — *"today's sleep, side-quest status,
-injury flags"* — where **sleep is the only member a genuinely empty conversation always lacks**.
-Remove it and 04 may pass for the wrong reason. Rewrite that transcript around a signal that
-still exists; do not just delete its sleep references. Detail on #300, which also needs the
-`coach-chat.ts` closing prompt edited, not only SOUL.
+**The eval is thinner than it looks, and PR 2 cannot lean on it.** PR #350 deleted four of the
+nine transcripts — `04-close-missing-info`, `05-quest-completion`, `06-injury-flag`,
+`08-close-reasoning-implies-save`. Five remain, and the four that went were the structural cases.
+Whatever Part B restores later does not retroactively cover a PR that already landed, so on PR 2
+the line-by-line read *is* the safety net, not a supplement to one.
+
+**Sleep removal is near-free, for the same reason.** An earlier draft of this plan warned that six
+of nine transcripts touched sleep and that `04-close-missing-info` depended on it structurally —
+its purpose was *"close signal with nothing concrete discussed"*, and sleep was the only member of
+the closing prompt's checklist that a genuinely empty conversation always lacked. That trap left
+with #350. Today one transcript mentions sleep (`03-close-happy-path`, a single line of seeded
+coach dialogue, not an assertion), and the *"today's sleep, side-quest status, injury flags"*
+checklist is already gone from `coachPrompt.ts`. #300's app-side half is done; what remains is
+SOUL's.
 
 ## Verification note
 
