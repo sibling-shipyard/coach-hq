@@ -200,15 +200,7 @@ Whenever you prescribe a workout modified for injury or periodization, you MUST 
 6. Commit session files alongside other files in the closing ritual.
 
 ### Timer Physics Fields (for workout generation only)
-When generating or adjusting workout templates/sessions, set these optional fields to control timer behavior:
-- `prep_secs: 5` (min 5s) on timed holds/hangs/isometric exercises that need a "get ready" countdown. Omit for reps exercises and timed exercises that don't need prep (foam rolling, stretches).
-- `both_sides: true` on timed exercises where duration applies per side (e.g., single-leg balance, pigeon pose). Timer runs twice per set — left then right — before the set rest.
-- `rest_after_exercise_secs` when the rest after an exercise should differ from the phase's `default_rest_secs`.
-- `transition_rest_secs` on phases that involve equipment changes or mental resets.
-- `optional: true` on bonus/aspirational exercises.
-- Only add fields where values differ from defaults — omit when the value would be undefined/null.
-
-Full field reference: `propagated/docs/timer-state-machine.md` §7.
+The optional timer fields — `prep_secs`, `both_sides`, `rest_after_exercise_secs`, `transition_rest_secs`, `optional` — are already set where they matter in the templates you copy from. Carry them over unchanged; when you substitute an exercise, copy the fields from the closest comparable exercise. Only set a value that differs from the template's, and omit any field whose value would be undefined/null. Full field reference: `propagated/docs/timer-state-machine.md` §7.
 
 ### Logging a Workout
 The **Sync pipeline** (iOS app commit → GitHub Actions push trigger) handles fetching, auto-naming, and quest_log regeneration automatically. The coach's job during workout logging is:
