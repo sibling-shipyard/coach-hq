@@ -48,26 +48,38 @@ const LAYER_FILES = {
  *
  * Targeting (ADR 0022): a step may carry `targets: [...]`, and a merge step may additionally
  * carry `keyTargets: { <key>: [...] }` to override individual keys. Absent = emitted into every
- * target. This step is deliberately empty of targeting today — PR 1 of the v5.8 trim changes no
- * words, so both builds must compose byte-identical to the retired platform/SOUL.md. Targets get
- * attached as the trim moves shell/git blocks to `claude` only.
+ * target. PR 3 of the v5.8 trim is where targeting starts doing work: every block below marked
+ * CLAUDE_ONLY needs a shell, git, or a file read, none of which coach-chat has — its own system
+ * prompt tells the model to ignore instructions it cannot execute, so those blocks were pure cost
+ * in the chat build. The two composed builds are legitimately different files from here on; they
+ * are no longer expected to `diff` clean against each other.
  */
+const CLAUDE_ONLY = ["claude"];
+
 const ASSEMBLY = [
-  { source: "B", keys: ["s1", "s2"] },
+  // §1 Boot Sequence — chat is told to skip booting entirely.
+  { source: "B", keys: ["s1_boot"], targets: CLAUDE_ONLY },
+  {
+    source: "B",
+    keys: ["s2_guardrails", "s2_guardrails_git"],
+    keyTargets: { s2_guardrails_git: CLAUDE_ONLY },
+  },
   { source: "A", keys: ["s3", "s4"] },
   {
     merge: "s5",
-    keys: ["s5a1", "s5b1", "s5a2", "s5a3", "s5b2", "s5b3", "s5b4", "s5a4"],
+    keys: ["s5a1", "s5b1", "s5a2", "s5a3", "s5b2", "s5b3_closing_archives", "s5b4", "s5a4"],
     sources: {
       s5a1: "A",
       s5b1: "B",
       s5a2: "A",
       s5a3: "A",
       s5b2: "B",
-      s5b3: "B",
+      s5b3_closing_archives: "B",
       s5b4: "B",
       s5a4: "A",
     },
+    // Phase/season close write `archive/phases.md` and `archive/seasons/**`; the app drops both.
+    keyTargets: { s5b3_closing_archives: CLAUDE_ONLY },
   },
   {
     merge: "s6",
@@ -79,7 +91,65 @@ const ASSEMBLY = [
     keys: ["s7", "c_data_locations"],
     sources: { s7: "C", c_data_locations: "C" },
   },
-  { source: "B", keys: ["s8", "s9", "s10", "s11", "s12"] },
+  {
+    source: "B",
+    keys: [
+      "s8",
+      "s9",
+      "s10_head",
+      "s10_first_session",
+      "s10_greeting",
+      "s10_pre_workout",
+      "s10_weekly_kickoff",
+      "s10_contract_safety",
+      "s10_contract_validator",
+      "s10_session_files",
+      "s10_timer_fields",
+      "s10_logging_intro",
+      "s10_logging_lookup",
+      "s10_logging_rpe",
+      "s10_logging_notes",
+      "s10_logging_reconcile",
+      "s10_logging_autoname",
+      "s10_end_of_day",
+      "s10_daily_checkin",
+      "s10_sunday_intro",
+      "s10_sunday_archive",
+      "s10_sunday_rest",
+      "s10_exercise_explainer",
+      "s10_badminton",
+      "s11",
+      "s12_head",
+      "s12_updates",
+      "s12_coach_notes",
+      "s12_checklist",
+      "s12_checklist_shell",
+      "s12_commit_push",
+      "s12_confirm",
+      "s12_interim_rollback",
+    ],
+    keyTargets: {
+      // The backend injects its own, longer greeting instruction on every turn.
+      s10_greeting: CLAUDE_ONLY,
+      // Shell validator + `git diff`.
+      s10_contract_validator: CLAUDE_ONLY,
+      // query_history.py lookups and a write into user_data/activities/hist/.
+      s10_logging_lookup: CLAUDE_ONLY,
+      s10_logging_notes: CLAUDE_ONLY,
+      s10_logging_autoname: CLAUDE_ONLY,
+      // Close detection in chat is deterministic (closeSignal.ts), not modelled here.
+      s10_end_of_day: CLAUDE_ONLY,
+      // archive/week_plans.md write.
+      s10_sunday_archive: CLAUDE_ONLY,
+      // §11 is script tables end to end.
+      s11: CLAUDE_ONLY,
+      // The app has its own coach_note mechanism; the file path is BYOB-only.
+      s12_coach_notes: CLAUDE_ONLY,
+      s12_checklist_shell: CLAUDE_ONLY,
+      s12_commit_push: CLAUDE_ONLY,
+      s12_interim_rollback: CLAUDE_ONLY,
+    },
+  },
 ];
 
 const SECTION_MARKER_RE =
