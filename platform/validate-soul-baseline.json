@@ -12,19 +12,11 @@
       "cause": "rot"
     },
     {
-      "id": "chat::paths-exist::propagated/SOUL.md",
-      "cause": "rot"
-    },
-    {
       "id": "chat::paths-exist::soul/C_athlete.md",
       "cause": "rot"
     },
     {
       "id": "chat::paths-exist::user_data/activities/match_history.json",
-      "cause": "rot"
-    },
-    {
-      "id": "chat::paths-exist::user_data/coach/roadmap.md",
       "cause": "rot"
     },
     {
@@ -112,10 +104,6 @@
       "cause": "rot"
     },
     {
-      "id": "chat::writable::user_data/coach/roadmap.md",
-      "cause": "rot"
-    },
-    {
       "id": "chat::writable::user_data/coach/sleep_log.json",
       "cause": "not-yet-rebuilt"
     },
@@ -132,19 +120,11 @@
       "cause": "rot"
     },
     {
-      "id": "claude::paths-exist::propagated/SOUL.md",
-      "cause": "rot"
-    },
-    {
       "id": "claude::paths-exist::soul/C_athlete.md",
       "cause": "rot"
     },
     {
       "id": "claude::paths-exist::user_data/activities/match_history.json",
-      "cause": "rot"
-    },
-    {
-      "id": "claude::paths-exist::user_data/coach/roadmap.md",
       "cause": "rot"
     },
     {
@@ -193,10 +173,6 @@
     },
     {
       "id": "claude::writable::user_data/activities/hist",
-      "cause": "rot"
-    },
-    {
-      "id": "claude::writable::user_data/coach/roadmap.md",
       "cause": "rot"
     }
   ]
