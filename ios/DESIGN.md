@@ -130,7 +130,6 @@ Each widget is a self-contained SwiftUI view taking `entries: [SyncCacheEntry]`.
 | **Streak & Consistency** | `startDateLocal` | Current consecutive days, longest this month |
 | **Sport Balance** | `sportType` counts | % split across sports (last 30 days) |
 | **Weekly Calorie Burn** | `calories` sum | Rolling 7-day total vs rough target |
-| **Mental State Trend** | `preMentalState.score` | Rolling average pre-session score + word cloud |
 | **Training Heatmap** | all entries | Reuse `TrainingHeatmapView` directly |
 | **Intensity Trend** | avg `averageHeartrate` per session | Is effort going up or down week-over-week? |
 | **Next Milestone** | session count | "3 more sessions to hit your monthly target" |
