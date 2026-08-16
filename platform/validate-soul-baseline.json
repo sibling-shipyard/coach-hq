@@ -104,10 +104,6 @@
       "cause": "rot"
     },
     {
-      "id": "chat::writable::user_data/coach/sleep_log.json",
-      "cause": "not-yet-rebuilt"
-    },
-    {
       "id": "chat::writable::user_data/coach/state.md",
       "cause": "not-yet-rebuilt"
     },
