@@ -184,10 +184,29 @@ a cut. Worth watching for during the manual voice read on PR 2 rather than decid
 ## Sequencing
 
 1. **PR 1 — composer targets.** `compose-soul.mjs` gains `targets: ["claude","chat"]` per
-   `ASSEMBLY` step; emit `SOUL.claude.md` + `SOUL.chat.md`; wire carve, `ui/scripts/build-soul.mjs`,
-   and CI `--check` on both. Byte-identical content. Decision already recorded in
-   `kdb/decisions/0022-two-composed-soul-builds.md`. Ship `validate-soul` alongside it — the split
-   is what makes "which build is this rule for" expressible.
+   `ASSEMBLY` step; emit `SOUL.claude.md` + `SOUL.chat.md`. Byte-identical content — **both
+   outputs must `diff` clean against the previous `platform/SOUL.md`**, which is the whole
+   acceptance test. Decision recorded in `kdb/decisions/0022-two-composed-soul-builds.md`, which
+   also retires the bare `platform/SOUL.md` name.
+
+   Four consumers to rewire, and the third is the one that bites:
+	a. `ui/scripts/build-soul.mjs` — reads the composed file, bundles it to
+	   `ui/api/_generated/soul.ts`. Points at the chat build.
+	b. `.github/workflows/validate-soul.yml` — path triggers and `--check`, on both artifacts.
+	c. `engine/lib/repo-layout.mjs` — `soulFilePath()` and its repo-root detection key on
+	   `SOUL.md` / `propagated/SOUL.md`. **This code also runs inside athlete repos**, which
+	   still carry `propagated/SOUL.md` (carve stopped writing it; `coach-akash` and
+	   `coach-skanda` predate that). A naive rename breaks their engine scripts.
+	d. `platform/scripts/carve-skeleton.mjs` — writes no SOUL today, so nothing to change yet;
+	   the restore lands with the carve issue, using `SOUL.claude.md`.
+
+   **Ship `validate-soul` here too** (its own issue) — the split is what makes its
+   writable-set check expressible at all. It **will report findings on day one, and that is
+   correct**: PR 1 changes no words, so every rot in the table above is still present. Run it
+   non-blocking with a committed baseline of today's failures; PRs 2–3 burn the baseline down and
+   it flips to blocking at zero. Never weaken a check to make CI green — a linter tuned until it
+   passes looks like coverage and isn't. If it reports *zero* findings on v5.7 content, it's
+   broken.
 2. **PR 2 — the ~127 dead and duplicated lines.** Applies to both builds, so it needs the most
    care. §7 alone is 54 of them. Eval before/after, plus a manual voice read on BYOB since it has
    no eval. This is also where sleep and PRE come out.
