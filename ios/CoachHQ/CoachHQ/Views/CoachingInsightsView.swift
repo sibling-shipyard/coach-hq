@@ -99,16 +99,6 @@ struct CoachingInsightsView: View {
                     .padding(.top, 4)
                     .appearEffect(delay: 0.20)
 
-                    if entries.contains(where: { $0.activity?.preMentalState != nil }) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            SectionHeader("Mental State")
-                            MentalStateWidget(entries: entries)
-                                .skeleton(isLoading)
-                        }
-                        .padding(.top, 4)
-                        .appearEffect(delay: 0.25)
-                    }
-
                     VStack(alignment: .leading, spacing: 6) {
                         SectionHeader("8-Week Heatmap")
                         TrainingHeatmapView(entries: entries)
@@ -514,81 +504,6 @@ struct SportBalanceWidget: View {
                 }
             }
             .frame(height: 6)
-        }
-    }
-}
-
-// MARK: - Mental State Widget
-
-struct MentalStateWidget: View {
-    let entries: [SyncCacheEntry]
-
-    private struct MentalPoint: Identifiable {
-        let id: String
-        let score: Int
-        let word: String
-        let date: Date
-    }
-
-    private var points: [MentalPoint] {
-        entries
-            .compactMap { e -> MentalPoint? in
-                guard let ms = e.activity?.preMentalState,
-                      let d = entryDate(e) else { return nil }
-                return MentalPoint(id: e.fileName, score: ms.score, word: ms.word, date: d)
-            }
-            .sorted { $0.date > $1.date }
-            .prefix(8)
-            .reversed()
-            .map { $0 }
-    }
-
-    private var average: Double {
-        guard !points.isEmpty else { return 0 }
-        return Double(points.map(\.score).reduce(0, +)) / Double(points.count)
-    }
-
-    private func scoreColor(_ s: Int) -> Color {
-        switch s {
-        case 8...10: return Theme.accentGreen
-        case 5...7:  return Theme.attentionOrange
-        default:     return WarmInstrument.alarmFg
-        }
-    }
-
-    var body: some View {
-        ThemedCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(String(format: "%.1f", average))
-                        .font(.system(size: 32, weight: .black).monospacedDigit())
-                        .foregroundColor(scoreColor(Int(average.rounded())))
-                        .contentTransition(.numericText())  // #5
-                    Text("/ 10  avg mood")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-
-                HStack(alignment: .bottom, spacing: 6) {
-                    ForEach(points) { pt in
-                        VStack(spacing: 4) {
-                            Text("\(pt.score)")
-                                .font(.system(size: 10, weight: .bold).monospacedDigit())
-                                .foregroundColor(scoreColor(pt.score))
-                                .contentTransition(.numericText())
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(scoreColor(pt.score))
-                                .frame(width: 22, height: CGFloat(pt.score) * 5)
-                            Text(pt.word.prefix(4).lowercased())
-                                .font(.system(size: 8))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
     }
 }
