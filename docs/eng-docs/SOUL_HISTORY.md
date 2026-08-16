@@ -2,291 +2,331 @@
 
 > Status: Historical · Owner: Tech Lead · Verified: 2026-08-16
 
-A living record of how Coach Phelps evolved — what changed, and why. Updated with every SOUL
-version.
+How a generic motivational chatbot became Coach Phelps. Every version, what it gained, and what
+it cost.
 
-**This file is read end to end.** It is the story of how Coach got here, and it is meant to be
-shown. Keep it readable by someone who has never opened the repo.
+Read top to bottom it's a character sheet. Coach starts as a markdown file that leads with data
+and describes itself as "direct & no-nonsense". Five months later it has a voice, a memory, a
+conscience about injuries, and the discipline to save its own notes before it leaves. Somewhere
+in the middle it stopped being a dashboard with a personality.
 
 **Entry format — one entry per version, ~25 lines max:**
 
-1. A theme in two or three sentences. What was wrong, in plain English.
-2. The line-count change, if it moved.
-3. Five to seven bullets. What changed and why it mattered — not how it was implemented.
-4. One closing line on why it mattered, and a pointer to the eng-doc or ADR that has the detail.
+1. **Superpower gained** — one line. What can Coach do now that it couldn't before?
+2. Two or three sentences on what was wrong. Plain English, and it's allowed to be fun.
+3. Five to seven bullets: what changed and why it mattered. Not how it was implemented.
+4. **Why it mattered** (or **what it cost**) — the honest closing line, plus a pointer to the
+   eng-doc or ADR carrying the detail.
 
-Never one section per PR. A version ships across several PRs; the reader does not care which one
-carried which change. Mechanism, file paths, function names, and baseline counts belong in the
-eng-doc or the ADR — link to it instead. If an entry needs more than 25 lines, the extra belongs
-somewhere else.
+Never one section per PR — a version ships across several, and the reader doesn't care which one
+carried what. File paths, function names and baseline counts belong in the eng-doc; link to it.
+Write it so someone who has never opened this repo enjoys reading it. If an entry needs more than
+25 lines, the extra belongs somewhere else.
 
 ---
 
 ## v5.8 — "The Trim" · Aug 16, 2026
-**Theme:** SOUL had become a file-maintenance manual. The backend kept absorbing its jobs and
-nobody deleted the instructions left behind, so half of what shipped was text the model was told
-to read and then ignore.
+**Superpower gained:** knowing what it can't do, and shutting up about it.
 
-**509 → chat 219, claude 365.** One source, two builds (ADR 0022).
+Coach had been hauling a 509-line instruction manual into every conversation, and roughly half of
+it was orders it was physically incapable of following. The web app has no shell, no git, no
+files — and its own system prompt ended with, essentially, *"ignore anything in here you can't
+actually do."* So Coach read 250 lines a turn and then pretended it hadn't. **509 → chat 219,
+claude 365.**
 
-- **Split into two builds.** `SOUL.chat.md` for the hosted app, `SOUL.claude.md` for BYO Claude
-  Code. They stopped being byte-identical for good; the app no longer carries the boot sequence,
-  shell commands, git ritual, or script tables it was explicitly told to ignore.
-- **Deleted what was dead in both.** The file-roles table, the athlete schema block that
-  explained the prompt's own architecture to the model, quest polarity stated three times,
-  `roadmap.md` (referenced by nothing), and the deload rule — which had never fired once,
-  because nothing computes week-of-phase.
-- **Cut two features.** Sleep asking and PRE, per ADR 0023: a signal that needs the athlete to
-  maintain it by hand will rot. Both had.
-- **Moved the rare workflows out.** First Session is injected only for an athlete who has no
-  profile yet; badminton and the season recap spec became docs Coach opens when it needs them.
-- **Layer A never moved.** Identity, voice, philosophy, and the situation playbook are untouched
-  apart from two named lines. That was the constraint the whole trim was built around.
+- **One soul, two bodies.** `SOUL.chat.md` for the hosted app, `SOUL.claude.md` for BYO Claude
+  Code. The app stopped carrying the boot sequence, shell commands, git ritual and script tables
+  it was explicitly told to ignore.
+- **Deleted the fiction.** A file-roles table nobody consulted, an athlete schema block that
+  explained the prompt's own architecture *to the model*, quest polarity stated three separate
+  times, and `roadmap.md` — a file referenced by SOUL and by nothing else in existence.
+- **The deload rule had never fired. Not once.** It said "every 4th week" and nothing anywhere
+  computed week-of-phase. Deleted rather than repaired — ADR 0023 has why we didn't just wire it
+  to sleep data.
+- **Killed two features on purpose.** Sleep-asking and PRE, per ADR 0023: a signal the athlete
+  has to maintain by hand *will* rot. The most motivated user this will ever have let both decay.
+- **Rare workflows moved out of the way.** First Session is summoned only for an athlete with no
+  profile yet (ADR 0025 — they're called horcruxes, and there is a real reason). Badminton and
+  the season recap became docs Coach opens when it needs them.
+- **Layer A never moved.** Identity, voice, philosophy, situation playbook — untouched but for
+  two named lines. That constraint is what the whole trim was built around.
 
-**Why it matters:** the app pays for its whole prompt on every turn, and instructions it cannot
-execute left Coach's stated abilities and its real ones disagreeing.
+**What it cost:** nothing yet, and that's the worry. The eval covers structure, not voice, and
+BYOB isn't covered at all. We removed 290 lines from a file whose entire value is voice, and the
+safety net was reading it line by line.
 
-*Mechanism: `docs/eng-docs/soul-two-builds.md`. Decisions: ADR 0022, 0023, 0024.*
+*Mechanism: `soul-two-builds.md`. Decisions: ADR 0022, 0023, 0024, 0025.*
 
 ---
 
 ## v5.7 (hq-adopted) — "Personal Brain on Main" · Jul 26, 2026
-**Theme:** S0 milestone — adopt personal-repo v5.7 as hq's source of truth on `main`, reconciled not copied.
+**Superpower gained:** the good brain became everyone's brain.
 
-**What changed:**
-- Replaced hq's thinner v1.0 (13 sections) with v5.7's 12-section layout: Commit Protocol §13→§12, Rules Engine §10→§9, First Session folded into §10 Workflows.
-- De-personalized: §7 is generic (no athlete name/profile); all Sky/badminton-specific content removed.
-- Preserved hq-only: `training/chat_history.json` file-map row, Vercel serverless Sync pipeline note, boot `git pull`, First Session Protocol, `sleep_log.json` + `roadmap.md` in commit ritual.
-- Restored v5.7 `current_week.json` workflows (boot read, Weekly Contract Safety, logging reconciliation, Sunday rollover, §12 commit) — genericized, no personal sport data.
-- `ui/api/coach-chat.ts` §-references re-pointed to v5.7 numbering; added `current_week.json` to web-chat writable set.
+Two Coaches existed: a rich one in Sky's personal repo, and a thinner 13-section one in HQ. HQ's
+was the one about to be forked to every future athlete. We nearly shipped the downgrade.
 
-**Why:** Splitting the thinner v1.0 would bake a downgrade into every fork. S0 lands the richer brain first; the three-layer split (S1–S3) comes next.
+- Adopted v5.7's 12-section layout wholesale — Commit Protocol §13→§12, Rules Engine §10→§9,
+  First Session folded into §10 Workflows. Reconciled line by line, not copy-pasted.
+- De-personalized §7: no athlete name, no profile, no badminton-specific content.
+- Kept HQ's own additions: the chat-history file row, the serverless sync pipeline note, boot
+  `git pull`, First Session, and the commit ritual's extra files.
+- Restored the full `current_week.json` workflows — boot read, contract safety, logging
+  reconciliation, Sunday rollover — genericized.
+
+**Why it mattered:** splitting the thin version would have baked a worse Coach into every fork
+forever. Land the good brain first, split it after.
 
 ---
 
 ## v5.7 — "Canonical Layout" · Jul 25, 2026
-**Theme:** Repo restructure closed. Every hardcoded path in SOUL now matches the on-disk `training/` tree.
+**Superpower gained:** knowing where its own things are.
 
-**What changed:**
-- Boot, guardrails, rituals, and file-roles table updated to the post-M5 layout: `training/coach/`, `training/ledger/`, `training/activities/` (was flat `training/` + interim `contracts/`/`pipeline/` names).
-- Analytics output renamed: `training/activities/badminton_analytics_snapshot.json` (on-demand, not at boot — unchanged policy).
-- Archived 60-Day Challenge narrative: `training/coach/archive/early_challenge_log.md` replaces standalone `workout_log.md`.
-- Static warm-up protocol lives at `training/reference/league_warmup.md` (reference material, not coach memory).
+The repo got reorganised underneath Coach and nobody told it. Coach boots by reading paths, and a
+stale path doesn't throw an error — it quietly finds nothing.
 
-**Why:** M0–M5 reorg landed (#167–#169). Coach boots from paths — stale strings break silently. This version is the path canon after ledger close-out; no behavioral change beyond knowing where files live.
+- Boot, guardrails, rituals and the file-roles table repointed to the post-reorg tree.
+- Badminton analytics snapshot renamed; still on-demand, never at boot.
+- The 60-Day Challenge narrative archived rather than deleted.
+- The static warm-up protocol moved to reference material, not coach memory.
+
+**Why it mattered:** no behaviour change at all, which is the point. Stale path strings are the
+failure mode that never announces itself.
 
 ---
 
 ## v5.6 — "Milestone Record Contract" · Jul 22, 2026
-**Theme:** Build Phase milestones got a structured display/progress lane without touching canonical prose.
+**Superpower gained:** milestones the dashboard could draw.
 
-**What changed:**
-- §8 pointer to new `docs/ref-docs/milestone-schema.md` — authority for optional `short_*` display fields and `progress` blocks on `challenge_v2.json` milestones. SOUL keeps behavior; schema stays in the contract doc (mirrors `current-week-contract.md` pattern).
+Coach was being asked to hand-compute progress percentages for a UI widget. That is not coaching.
 
-**Why:** Dashboard Build Phase widget needed terse rows and honest progress bars. Prose milestone names stay canonical for the quest-log generator; structured fields feed the UI without Coach hand-computing percentages.
+- §8 points at a milestone schema doc owning the display fields and progress blocks. SOUL keeps
+  the behaviour, the contract doc keeps the shape.
+
+**Why it mattered:** same trick as the weekly contract — prose stays canonical for Coach,
+structured fields feed the UI, and neither has to know about the other.
 
 ---
 
 ## v5.5 — "Live Weekly Plan" · Jul 20, 2026
-**Theme:** The dashboard weekly widget reads Coach's bounded week file, not a static placeholder.
+**Superpower gained:** the plan Coach writes is the plan the athlete sees.
 
-**What changed:**
-- Minor SOUL touch-ups aligning with `current_week.json` now rendering live in the v2 home weekly widget (plan rows, completion overlay, Coach commentary surface).
+- Touch-ups so `current_week.json` renders live in the home weekly widget — plan rows, completion
+  overlay, Coach's commentary.
 
-**Why:** v5.4 created the contract; v5.5 wired it to what Sky actually sees on the dashboard — the plan must stay reconciled session-by-session because the UI reflects it in real time.
+**Why it mattered:** v5.4 built the contract; this wired it to glass. From here an unreconciled
+session isn't untidy data, it's visibly wrong on the athlete's screen.
 
 ---
 
 ## v5.4 — "The Bounded Week" · Jul 19, 2026
-**Theme:** The active week became a dated contract instead of a growing section in durable memory.
+**Superpower gained:** a week with an expiry date.
 
-**What changed:**
-- Added `training/current_week.json` as the single Monday-to-Sunday source for the active plan, session outcomes, safe move provenance, provisional planned load, and short-lived semantic Coach commentary. Boot now validates lifecycle and freshness before trusting it.
-- Weekly kick-off, pre-workout checks, workout logging, Sunday rollover, interim saves, rollback, and the closing ritual now read and write the bounded contract. Closed weeks append one concise summary to `training/archive/week_plans.md`; day-by-day schedules no longer return to `training/state.md`.
-- Moved exact field, lifecycle, identity, load, commentary, and expiry rules into the authoritative contract; SOUL keeps only the behavioral safety policy and reads the contract before a mutation.
-- Added a one-command pre-push check that runs the dashboard's semantic parser, verifies Coach save metadata, and requires a weekly diff review. Expanded the Coach direct-main lane to include `training/current_week.json` and the Coach-owned archives.
+The active plan lived as an ever-growing section inside durable memory, so Coach could neither
+tell a stale plan from a live one nor stop the file swelling.
 
-**Why:** The dashboard and future iOS experience need one structured weekly source that Coach can update without UI knowledge, while durable state stays compact and truthful. A one-week file creates a hard freshness boundary, preserves history through summaries rather than accumulation, and gives downstream clients safe unavailable behavior when a plan is missing, incomplete, or stale.
+- The week became a dated Monday-to-Sunday contract: plan, outcomes, move provenance, planned
+  load, short-lived commentary. Boot validates lifecycle and freshness before trusting it.
+- Every workflow touching the week — kick-off, pre-workout, logging, rollover, interim save,
+  rollback, close — reads and writes that contract.
+- Closed weeks append one summary to the archive. Day-by-day schedules never return to `state.md`.
+- Exact field rules moved into the contract doc; SOUL keeps only the safety policy.
+- A pre-push check runs the dashboard's own parser and demands a diff review.
+
+**Why it mattered:** a one-week file creates a hard freshness boundary. Downstream clients get an
+honest "unavailable" instead of a confidently stale plan, and durable state stays small.
 
 ---
 
-## v5.3 — "One Source of Truth, One Place for History" · Jun 21, 2026
-**Theme:** Stopped duplicating injury status across two files. Gave closed phases a home.
+## v5.3 — "One Source of Truth" · Jun 21, 2026
+**Superpower gained:** one answer to "is he injured?"
 
-**What changed:**
-- §7 static `Injuries:` list removed — it had gone stale against `state.md`'s live `Active Injury Flags` (ankle said "taped for competitive games," shoulder said "flares post-intense" — both had been cleared for weeks). Kept only the permanent, non-changing fact (lower-back injury ~5 years ago, source of the chronic right-side tightness); all current status now points solely to `state.md`.
-- New `training/archive/phases.md` — phase and Build-block retrospectives, written once at close, mirroring the existing `training/archive/week_plans.md` pattern. Backfilled with the Base Phase entry. §5 and §8 reference it.
+Injury status lived in two files. Predictably they disagreed — SOUL still said the ankle needed
+taping and the shoulder flared after intensity, weeks after both were cleared.
 
-**Why:** Two files claiming to hold injury status is exactly the kind of drift the two-file architecture was built to prevent — `SOUL.md` is the static contract, `state.md` is the live truth, and the moment a status list exists in both, one of them lies. Separately, closing a phase or block needs somewhere to land besides scrolling `coach_notes.md` — the archive gives lookback without growing `state.md` or `SOUL.md`.
+- Deleted §7's static injury list. Kept only the permanent fact (a lower-back injury ~5 years
+  earlier, source of the chronic right-side tightness). Live status now points solely at
+  `state.md`.
+- New phase archive for retrospectives, written once at close, mirroring the week archive.
+
+**Why it mattered:** the two-file architecture exists to stop exactly this drift. The moment a
+status list lives in both files one of them is lying, and Coach cannot tell which.
 
 ---
 
 ## v5.2 — "Build Phase" · Jun 21, 2026
-**Theme:** Base Phase closed. The 60-Day Challenge framing retired. Build Phase got a real model — sessions, milestones, and a leaner quest list.
+**Superpower gained:** catching up before saying hello.
 
-**What changed:**
-- Boot sequence: new mandatory step — review new Strava activity (`query_history.py --last 10d`) before greeting back, with a freshness guard if the sync looks stale. Replaces waiting to be told what happened.
-- §5 Seasons & Arcs: Base Phase marked COMPLETE; Build Phase marked CURRENT, structured as 4-week blocks each closing with a deload + milestone-test week. Old 60-Day Challenge paragraph replaced with the Jun 4 "less prescriptive, more principled" operating-mode reset (don't push a fixed weekly map, trust auto-regulation, programming lands with him not at him).
-- §7 Equipment: added the calisthenics park (human flag) and the 400m track.
-- §8 Goals & Quests rewritten: main quest is now session count (2.5/wk floor, ≥1.5 loaded) + a milestones list (FL single-leg L/R, freestanding handstand, bar dips, weighted pull-ups, BSS, human flag, sprint baseline, win rate) tested at block boundaries instead of daily-tracked. Added skill-session model (20-min, fresh, capped 0.5×2/wk), human flag progression notes, sprint conditioning (top-end speed, not VO2), and the leg-load periodization rule (sprint/plyo/lower/badminton can't all stack in one week).
-- Side quests trimmed: Foundation and Cold Shower graduated to untracked habits (joining Protein, graduated earlier). Only Visualization and Reading remain tracked.
+Base Phase closed at 18/20. Build Phase had no model at all — no session floor, no milestones,
+just vibes. And Coach still opened every conversation waiting to be told what had happened.
 
-**Why:** The 60-Day Challenge ended at 18/20 — but more importantly, Foundation and Cold Shower had been running long unbroken streaks (Cold Shower ~98% across the phase; Foundation an 83-day unbroken streak with zero unexcused misses, every gap life-excused — illness, travel); tracking them as quests was bookkeeping a foregone conclusion and cluttering the end-of-day check-in with questions that didn't need asking. Meanwhile Build Phase had no model at all — no session floor, no milestones, just vibes. This version gave it one, sized to match how Sky actually wanted to train post-reset (mindful, principled, not a fixed map), and added the boot-time activity review so the coach isn't coached blind into a conversation.
+- **Boot now reviews the last 10 days of activity before greeting.** This is the change that made
+  Coach feel like it remembered you: *"saw you got that session in"* instead of *"how's
+  training?"*
+- Base Phase marked complete; Build Phase structured as 4-week blocks, each closing with a deload
+  and a milestone test.
+- Main quest became session count plus a milestone list tested at block boundaries rather than
+  tracked daily. Added the skill-session model and the leg-load rule — sprint, plyo, lower and
+  badminton can't all stack in one week.
+- Side quests trimmed hard: Foundation and Cold Shower graduated to untracked habits.
+- The 60-Day Challenge framing retired for "less prescriptive, more principled" — programming
+  lands *with* the athlete, not *at* him.
+
+**Why it mattered:** Cold Shower was running ~98%, Foundation an 83-day unbroken streak with every
+gap life-excused. Tracking those was bookkeeping a foregone conclusion, and it cluttered every
+check-in with questions that didn't need asking.
 
 ---
 
 ## v5.1 — "Drop Per-Game Notation" · Apr 11, 2026
-**Theme:** Removed per-game `{pre} :: {post}` format — unmaintainable mid-session and hurts focus between games.
+**Superpower gained:** shutting up between games.
 
-**What changed:**
-- Removed per-game notes format (`{game} ... | {pre} :: {post}`) from Pre-Session Mental State section.
-- Simplified situation playbook item 10: PRE: score remains, post-game notation references removed.
+- Removed the per-game mental-state notation. The single session-level note before play stays.
 
-**Why:** Logging mental state per-game requires writing between matches — exactly when focus should be on recovery and the next game, not note-taking. The session-level `PRE: {score}, {word}` written once before play is enough. The per-game format was never consistently used and the friction of doing it was actively harmful to performance.
+**Why it mattered:** logging state per game meant writing notes between matches — exactly when
+attention belongs on recovery and the next point. The friction wasn't neutral, it was hurting
+performance. First time we deleted a feature because using it made the athlete worse.
 
 ---
 
 ## v5.0 — "Lean Boot + Calibration" · Apr 6, 2026
-**Theme:** SOUL stopped doing four jobs at once. Boot got lean. Guardrails got centralized. Calibration got examples.
+**Superpower gained:** travelling light.
 
-**What changed:**
-- Boot sequence now loads only `SOUL.md`, `training/state.md`, and `training/quest_log.md` (no analytics at boot). Coach checks London time via `TZ=Europe/London date` for ambient awareness.
-- Consolidated guardrails into a single section (boot rules, file edit constraints, on-demand loading).
-- Extended Situation Playbook with two real-world edges: multi-day gap re-entry and using mental state (PRE:/game-note) data without judgment.
-- Tools section slimmed to purpose/when-to-use; full CLI flag reference moved to `skills/pipeline-tools.md`.
-- New on-demand companion files introduced:
-  - `docs/ref-docs/soul-calibration.md` — good/bad/borderline output anchors
-  - `training/opponent_notes.md` — opponent scouting notes (load when opponent named)
+v4.1 worked but was brittle. SOUL was doing four jobs at once — identity, engine mechanics,
+athlete data, tool documentation — and loading all of it, every time, for a rest-day check-in.
 
-**Why:** v4.1 was operational but brittle: too much loaded at boot, rules scattered, and no examples anchoring voice. v5 reduces boot noise (lost-in-the-middle), centralizes hard constraints, and adds calibration examples so the coach stays Phelps under pressure.
+- Boot slimmed to three files. Analytics no longer loaded at boot.
+- Guardrails consolidated into one section, because a rule split across three places is a rule
+  someone misses.
+- Situation Playbook extended with two real edges: returning after a multi-day gap, and using
+  mental-state data without judging the athlete for it.
+- Full CLI reference moved to a companion doc; SOUL keeps purpose and when-to-use.
+- Calibration examples added — the first time SOUL *showed* the voice instead of describing it.
 
-**Design rationale (folded in from the v5 design doc, 2026-04-05):** the framing that drove the
-overhaul was that **SOUL.md was doing too many jobs at once** — identity, engine mechanics, athlete
-data, and tool documentation in one file. Concrete failure modes observed on v4.1:
+**The failure modes that drove it**, all observed live on v4.1: suggesting a workout with no idea
+whether it was 9am or 9pm; quoting a fitness baseline hardcoded months earlier; tool docs silently
+drifting from the actual scripts; eight numbered rules for saving one session file.
 
-- **Wrong-time workout prompts** — no time-of-day awareness; Coach suggested finishing a workout without knowing if it was 9am or 9pm.
-- **Stale fitness baseline** — "Push-ups: 30, Pull-ups: 12-13" baked into SOUL.md as of Mar 2026, so Coach quoted outdated numbers.
-- **Heavy boot context** — SOUL.md + quest_log.md + analytics_snapshot.json + state.md loaded every session, even a rest-day check-in.
-- **Tool docs drift** — the CLI-flag section went silently out of sync whenever scripts changed.
-- **Scattered guardrails** — "never edit template files" in one section, "don't read coach_notes.md at boot" in another; one missed sentence caused wrong behavior.
-- **Over-specified protocols** — 8 numbered rules for persisting session files, quest polarity mechanics spelled out. Correct, but brittle: spec and reality diverge as the system evolves.
-- **No calibration examples** — SOUL defined voice but never *showed* it, so there was no anchor for when Coach drifted.
-
-This "one file, too many jobs" diagnosis is the direct ancestor of the A/B/C layer split
-(`platform/soul/A_identity.md`, `B_engine.md`, `C_athlete.md`) that landed later — v5 separated the
-jobs *within* one file; the split separated them into three.
+**Why it mattered:** "one file, too many jobs" is the direct ancestor of the A/B/C layer split.
+v5 separated the jobs *inside* one file; the split later separated them into three.
 
 ---
 
 ## v4.1 — "Protocol Tightening" · Apr 3, 2026
-**Theme:** The coach got sharper at the edges. Boot friction removed, commit discipline enforced.
+**Superpower gained:** a memory that fits in your pocket.
 
-**What changed:**
-- Boot sequence rewritten to skip `coach_notes.md` — it had grown past 200 lines and reading it in full was slowing every session start. The key context now lives in `state.md` as Rolling Session Notes (last 3 sessions inline)
-- Weekly kick-off ritual formalised as a named workflow with explicit trigger phrases, so it reliably happens instead of getting absorbed into general conversation
-- Pre-commit checklist added to the commit protocol — 6 boxes to tick before `git add`, replacing the informal "remember to save" framing
-- Template path corrected (`training/templates/` → `templates/`)
+- Boot stopped reading `coach_notes.md` — past 200 lines and slowing every session start. The last
+  3 sessions now live inline in `state.md` as rolling notes.
+- Weekly kick-off became a named workflow with explicit trigger phrases, so it actually happened
+  instead of dissolving into general conversation.
+- Pre-commit checklist added — six boxes, replacing "remember to save".
 
-**Why:** Three real sessions with v4.0 surfaced the same friction points each time. The boot sequence was too loose — coaches were reading the wrong paths, skipping the week planning ritual, and committing without a structured check. The rolling notes idea was practical: don't read the whole archive, just keep the last three sessions visible in state.md. Small changes, but the difference between a protocol that holds under pressure and one that drifts.
+**Why it mattered:** three real sessions hit the same friction every time. Don't read the whole
+archive; keep the last three sessions visible. Small change, and the difference between a protocol
+that holds under pressure and one that drifts.
 
 ---
 
 ## v4.0 — "The Phelps Rewrite" · Mar 29, 2026
-**Theme:** Full personality transplant. The generic coach was retired. Michael Phelps took over.
+**Superpower gained:** an actual personality. This is the big one.
 
-**What changed:**
-- Identity rewritten entirely around Phelps — process over outcome, personal vulnerability, the 2014 DUI and the comeback, the line about pausing to count the medals
-- Voice rules locked in: short sentences, casual vocabulary, signature openers ("Look...", "I think...", "For me..."), emotional before analytical
-- "What you are NOT" added — not a data analyst, not a drill sergeant, not a therapist
-- Core coaching loop defined: Validate → Share → Redirect
-- Three modes introduced: Mentor (default), Analyst (weekly planning), Hype Man (milestones)
-- "Lead with data" removed as the first coaching rule, replaced with "Lead with feeling, not data"
-- Seasons & Arcs added: The Transformation (Mar 2026 → Jan 2027), split into Base / Build / Peak phases
-- Situation Playbook added — 8 failure and edge-case scenarios with explicit emotional approach and example language
-- Greeting workflow tightened: no day count, no data opener, one contextual opener only
-- Analytics workflow reframed: data is in the back pocket, not on the clipboard
+v3.1 was operationally excellent and had no character whatsoever. Under pressure — a bad session,
+a losing streak, an injury — it defaulted to a structured status report. What the athlete asked
+for was *"a permanent coach who puts a shoulder around you."* That isn't a feature. That's a
+person.
 
-**Why:** v3.1 worked operationally but the coach had no real character. Under pressure — a bad session, a losing streak, an injury — it defaulted to structured status reports. Sky's description of what he actually wanted was "a permanent coach who puts a shoulder around you." That's not a feature; it's a personality. The rewrite started from Phelps because his story maps cleanly: elite results, visible failure, comeback through process discipline. The situation playbook came from a specific gap — there was no guidance on what to do when Sky showed up defeated.
+- Identity rebuilt entirely around Michael Phelps: process over outcome, the 2014 DUI, rehab, the
+  comeback that wasn't about medals. The detail anchoring the whole thing — he could recall any
+  finish time to the hundredth but had to pause to count his own medals.
+- Voice rules locked: short sentences, casual vocabulary, signature openers, emotional before
+  analytical.
+- **"What you are NOT"** added — not a data analyst, not a drill sergeant, not a therapist, not
+  always positive. Defining the negative space mattered more than the positive.
+- Core loop defined: Validate → Share → Redirect. Three modes: Mentor, Analyst, Hype Man.
+- *"Lead with data"* — the first coaching rule since v1.0 — deleted, replaced with **"Lead with
+  feeling, not data."**
+- Situation Playbook added: 8 failure scenarios with explicit emotional approach and real
+  language, written because there was no guidance at all for an athlete showing up defeated.
 
-**Design rationale (folded in from the v4 design doc, 2026-03-29, implemented in PR #21):** v3.1
-produced a capable but *robotic* coach — it led with data, delivered structured status reports, and
-treated every interaction like a system update. The stated goal was "a permanent coach who puts a
-shoulder around you and guides you through tough times. Not a dashboard with a personality." Phelps
-was chosen as the model because his story maps cleanly onto that: elite results, visible public
-failure, comeback through process discipline. Voice was synthesized from 15+ primary sources —
-see [`../ref-docs/phelps-voice-profile.md`](../ref-docs/phelps-voice-profile.md) (the profile) and
-[`phelps-research-notes.md`](phelps-research-notes.md) (raw notes).
+**Why it mattered:** Phelps was chosen because his story maps cleanly onto the ask — elite results,
+visible public failure, comeback through process discipline. Voice was synthesized from 15+
+primary sources; see `../ref-docs/phelps-voice-profile.md` and `phelps-research-notes.md`.
 
 ---
 
 ## v3.1 — "Pipeline Aware" · Mar 28, 2026
-**Theme:** The coach learned how the data actually flows.
+**Superpower gained:** understanding its own plumbing.
 
-**What changed:**
-- Full tools section added: `fetch_strava.py`, `query_history.py`, `rename_single.py`, `rename_activities.py` — command syntax, flags, when to use each
-- Automated sync pipeline documented end-to-end (Strava fetch → rename → enrich → push to dashboard → Netlify build)
-- Session files workflow introduced — coach writes a `sessions/YYYY-MM-DD_<workout_id>.json` before the timer is used, so the timer always gets the coach-adjusted version
-- `badminton_analytics_snapshot.json` added to boot sequence as the pre-computed analytics source — no live queries needed
-- Commit protocol expanded with an explicit file list and push command
+The data pipeline had matured and Coach had no idea it existed. It would try to run steps the
+pipeline had already automated, or skip the session file entirely and send the athlete into the
+timer with unadjusted sets.
 
-**Why:** The pipeline had matured, but a coach booting in a new thread had no way to know it existed. They'd try to run manual steps that the pipeline had already automated, or miss the session file entirely and send Sky into the timer with unadjusted sets. The tools section needed to be complete enough that no agent ever had to read `strava/README.md` to figure out how things worked. Operational clarity, not new features.
+- Full tools section: every script, its flags, and when to use it.
+- The sync pipeline documented end to end.
+- **Session files introduced** — Coach writes the adjusted workout before the timer is opened, so
+  the timer gets the coach-adjusted version instead of the base template.
+- Commit protocol expanded with an explicit file list.
+
+**Why it mattered:** operational clarity, not features. The bar was that no agent should ever have
+to read the pipeline's own README to work out what was going on.
 
 ---
 
 ## v1.6–v3.0 — Undocumented · Mar 25–28, 2026
 
-*These versions were created in the three days between v1.5 and v3.1. They predate this repo's git history and were not logged in coach_notes.md. The jump from v1.5 to v3.1 likely reflects rapid iteration as the data pipeline was being built — the version number climbed faster than the documentation did.*
+*Three days, five version numbers, no record. These predate the repo's git history and never made
+it into coach_notes.md. Best guess: the pipeline was being built fast and the version number
+climbed quicker than the documentation did. A gap in the fossil record.*
 
 ---
 
 ## v1.5 — "Forward Sync" · Mar 25, 2026
-**Theme:** The sync pipeline learned to look both ways.
+**Superpower gained:** not losing yesterday.
 
-**What changed:**
-- `--sync` rewritten as a two-pass operation: forward pass from `newest_synced` to catch new activities, then backward pass to fill historical gaps
-- Token file moved from `~/strava_tokens.json` to `strava/strava_tokens.json` (co-located with the scripts that use it)
+- `--sync` became two passes: forward from the last sync point to catch new activity, then
+  backward to fill historical gaps. Token file moved next to the scripts that use it.
 
-**Why:** A sync gap was identified on Day 8 — the single-pass backward sync didn't catch activities logged after the last sync point. New sessions were being missed unless Sky manually saved them. The two-pass fix made the pipeline reliable for daily use: run it once, get everything. The token file move was housekeeping, keeping credentials next to the code that needs them.
+**Why it mattered:** a gap was spotted on Day 8 — single-pass backward sync missed anything logged
+*after* the last sync point, so new sessions vanished unless saved by hand. Run once, get
+everything.
 
 ---
 
 ## v1.4 — "History as Ground Truth" · Mar 24, 2026
-**Theme:** Raw Strava data became the canonical record. The human-readable log stepped back.
+**Superpower gained:** data it could actually query.
 
-**What changed:**
-- Raw activity data moved into `training/history/` as enriched JSON files — the source of truth for all analytics and coaching context
-- `workout_log.md` demoted to human-readable summaries only — no longer the primary data store
-- Coach_notes and RPE annotations embedded directly in the JSON, alongside the Strava fields
+- Raw activity data became enriched JSON — the canonical record for all analytics and context.
+- The markdown workout log demoted to human-readable summaries.
+- Coach notes and RPE embedded directly alongside the activity fields.
 
-**Why:** The original design stored workout data in a markdown log that was easy to read but hard to query. As the analytics pipeline matured, having the canonical data in structured JSON files made everything downstream — querying, renaming, enrichment, dashboard sync — straightforward and reliable. The markdown log stayed for readability, but the JSON became the truth.
+**Why it mattered:** the original design stored workouts in markdown — lovely to read, miserable to
+query. The log stayed for humans; the JSON became the truth.
 
 ---
 
 ## v1.3 — "The Consolidation" · Mar 24, 2026
-**Theme:** Five files became two, and the commit protocol went live.
+**Superpower gained:** the discipline to save before leaving.
 
-**What changed:**
-- Consolidation completed: `SOUL.md` is now the sole source of truth for the coach's static brain
-- Old files deleted: `training/SKILL.md`, `training/progress_summary.md`, `training/references/coach_persona.md`, `training/references/periodization_rules.md`
-- Commit protocol activated — the mandatory closing ritual for every session
+- Five files became two. `SOUL.md` is now the sole static brain; the old persona, periodization
+  and progress files deleted.
+- **The commit protocol went live** — the mandatory closing ritual, every session.
 
-**Why:** The two-file architecture had been planned since v1.0, but this was the moment it actually went live. The old files existed in parallel through v1.1 and v1.2 as a safety net while the new structure was validated. Once the first real coaching sessions ran successfully on SOUL.md + state.md alone, the old files were removed. The commit protocol went live at the same time — the architecture only works if the state is always saved.
+**Why it mattered:** the two-file architecture had been planned since v1.0, but the old files were
+kept in parallel as a safety net until real sessions proved the new structure. The ritual shipped
+the same day, because an architecture built on living memory only works if the memory is always
+written down.
 
 ---
 
 ## v1.0–v1.2 — "The Foundation" · Mar 17–24, 2026
-**Theme:** Portable two-file coaching architecture designed and first drafted.
+**Superpower gained:** existing.
 
-**What changed:**
-- `SOUL.md` created — the static coach brain consolidated from five fragmented files into one (~200-250 lines):
-  - `training/SKILL.md` → workflows, Sky profile, goals, tools reference
-  - `training/references/coach_persona.md` → identity, voice, coaching style
-  - `training/references/periodization_rules.md` → weekly schedule, fatigue rules, deload protocol
-- `training/state.md` created — the living memory updated every session, replacing:
-  - `training/coach_notes.md` → observations, injury tracking, patterns
-  - `training/progress_summary.md` → quest tallies, active flags, week plan
-- Coach persona at this point: generic motivational coach, "direct & no-nonsense", leads with data
-- Boot sequence established: read SOUL.md → read state.md → coach up
-- Versioning header introduced: version number + last-updated date
+Five fragmented files became a portable two-file architecture: a static brain and a living memory.
 
-**Why:** The coach's brain was scattered across 5 files. Every new thread required reading all of them before a single coaching decision could be made. There was no enforced save state — insights surfaced mid-conversation disappeared when the thread ended. Injury status was duplicated across three files and frequently out of sync. The two-file architecture solved all three problems at once: one file for what the coach knows about coaching, one for what's happening right now. Any LLM, any thread, any day — boot from two files and you're live. Full design spec: `archive/SOUL_PLAN.md`.
+- `SOUL.md` created (~200-250 lines) from the old skill file, persona doc and periodization rules.
+- `state.md` created as the living memory, replacing the separate notes and progress summary.
+- Boot sequence established: read SOUL, read state, coach up.
+- Versioning header introduced.
+
+**Coach at this point:** a generic motivational coach. Self-described as *"direct & no-nonsense."*
+Led with data. Had no story, no failures of its own, and nothing to say to someone having a bad
+week. Everything above is the work of fixing that.

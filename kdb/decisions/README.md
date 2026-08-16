@@ -28,6 +28,7 @@
 | 0022 | SOUL composes into two builds: one for the app, one for BYO Claude Code | cross-cutting |
 | 0023 | A signal ships only when something other than the athlete maintains it | cross-cutting |
 | 0024 | Paid checks run at named gates, not on every PR | cross-cutting |
+| 0025 | The soul fragments are called horcruxes, and they stay called horcruxes | platform |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.
