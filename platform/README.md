@@ -18,6 +18,17 @@ node platform/scripts/compose-soul.mjs --check
 
 Writes/checks both targets. Edit `platform/soul/*.md`, never hand-edit a composed build.
 
+## validate-soul.mjs
+
+```bash
+node platform/scripts/validate-soul.mjs                  # lint both builds against reality
+node platform/scripts/validate-soul.mjs --update-baseline
+```
+
+Checks that the paths, templates, writable sets, and section cross-references SOUL names actually
+exist (issue #366). Known failures live in `platform/validate-soul-baseline.json`, each tagged with
+a cause; only *new* findings fail. Non-blocking in CI until the baseline reaches zero.
+
 ## carve-skeleton.mjs
 
 ```bash

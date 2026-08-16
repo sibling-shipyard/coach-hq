@@ -1,0 +1,203 @@
+{
+  "generated_at": "2026-08-16",
+  "why": "Known validate-soul findings as of the SOUL v5.8 trim PR 1, which changes no SOUL words. PRs 2-4 burn this down; the CI step flips to blocking when it reaches zero. Regenerate with: node platform/scripts/validate-soul.mjs --update-baseline",
+  "causes": {
+    "rot": "Dead instruction — path doesn't exist, was never writable, or the rule is obsolete. The trim fixes these.",
+    "not-yet-rebuilt": "SOUL names a write the intended coach-chat design supports; the write path is mid-rebuild after PR #350 (see docs/eng-docs/coach-chat-flow.md). Clears as Part B lands.",
+    "unclassified": "Not determinable mechanically — classify by hand in review. A cause set here is preserved across --update-baseline."
+  },
+  "findings": [
+    {
+      "id": "chat::paths-exist::gen/badminton_analytics_snapshot.json",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::paths-exist::propagated/SOUL.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::paths-exist::soul/C_athlete.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::paths-exist::user_data/activities/match_history.json",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::paths-exist::user_data/coach/roadmap.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::propagated-docs::propagated/docs/current-week-contract.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::propagated-docs::propagated/docs/phelps-voice-profile.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::propagated-docs::propagated/docs/pipeline-tools.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::propagated-docs::propagated/docs/soul-calibration.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::propagated-docs::propagated/docs/timer-state-machine.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::templates::recovery.json",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::templates::strength_b.json",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::engine/core/query_history.py",
+      "cause": "unclassified"
+    },
+    {
+      "id": "chat::writable::engine/scripts/generate_quest_log.py",
+      "cause": "unclassified"
+    },
+    {
+      "id": "chat::writable::engine/scripts/validate-current-week",
+      "cause": "unclassified"
+    },
+    {
+      "id": "chat::writable::gen/quest_log.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::user_data/activities/hist",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::user_data/activities/workout_plans/sessions",
+      "cause": "not-yet-rebuilt"
+    },
+    {
+      "id": "chat::writable::user_data/activities/workout_plans/sessions/*.json",
+      "cause": "not-yet-rebuilt"
+    },
+    {
+      "id": "chat::writable::user_data/activities/workout_plans/sessions/**",
+      "cause": "not-yet-rebuilt"
+    },
+    {
+      "id": "chat::writable::user_data/activities/workout_plans/sessions/YYYY-MM-DD_<workout_id>.json",
+      "cause": "not-yet-rebuilt"
+    },
+    {
+      "id": "chat::writable::user_data/coach/archive/phases.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::user_data/coach/archive/seasons/**",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::user_data/coach/archive/seasons/*/recap.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::user_data/coach/archive/seasons/<season-slug>/recap.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::user_data/coach/archive/week_plans.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::user_data/coach/roadmap.md",
+      "cause": "rot"
+    },
+    {
+      "id": "chat::writable::user_data/coach/sleep_log.json",
+      "cause": "not-yet-rebuilt"
+    },
+    {
+      "id": "chat::writable::user_data/coach/state.md",
+      "cause": "not-yet-rebuilt"
+    },
+    {
+      "id": "chat::writable::user_data/ledger/current_week.json",
+      "cause": "not-yet-rebuilt"
+    },
+    {
+      "id": "claude::paths-exist::gen/badminton_analytics_snapshot.json",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::paths-exist::propagated/SOUL.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::paths-exist::soul/C_athlete.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::paths-exist::user_data/activities/match_history.json",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::paths-exist::user_data/coach/roadmap.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::propagated-docs::propagated/docs/current-week-contract.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::propagated-docs::propagated/docs/phelps-voice-profile.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::propagated-docs::propagated/docs/pipeline-tools.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::propagated-docs::propagated/docs/soul-calibration.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::propagated-docs::propagated/docs/timer-state-machine.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::templates::recovery.json",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::templates::strength_b.json",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::writable::engine/core/query_history.py",
+      "cause": "unclassified"
+    },
+    {
+      "id": "claude::writable::engine/scripts/generate_quest_log.py",
+      "cause": "unclassified"
+    },
+    {
+      "id": "claude::writable::engine/scripts/validate-current-week",
+      "cause": "unclassified"
+    },
+    {
+      "id": "claude::writable::gen/quest_log.md",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::writable::user_data/activities/hist",
+      "cause": "rot"
+    },
+    {
+      "id": "claude::writable::user_data/coach/roadmap.md",
+      "cause": "rot"
+    }
+  ]
+}

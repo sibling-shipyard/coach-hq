@@ -12,12 +12,30 @@ on:
       - 'platform/SOUL.claude.md'
       - 'platform/soul/**'
       - 'platform/scripts/compose-soul.mjs'
+      - 'platform/scripts/validate-soul.mjs'
+      - 'platform/validate-soul-baseline.json'
+      # validate-soul's ground truth: the carve it inventories, the templates it compares
+      # against, the chat writable set it reads, and the design doc it classifies causes from.
+      # A change to any of these can create or resolve a finding without touching SOUL itself.
+      - 'platform/scripts/carve-skeleton.mjs'
+      - 'platform/skeleton-templates/**'
+      - 'ui/api/coach-chat/_lib/coachWrites.ts'
+      - 'docs/eng-docs/coach-chat-flow.md'
   pull_request:
     paths:
       - 'platform/SOUL.chat.md'
       - 'platform/SOUL.claude.md'
       - 'platform/soul/**'
       - 'platform/scripts/compose-soul.mjs'
+      - 'platform/scripts/validate-soul.mjs'
+      - 'platform/validate-soul-baseline.json'
+      # validate-soul's ground truth: the carve it inventories, the templates it compares
+      # against, the chat writable set it reads, and the design doc it classifies causes from.
+      # A change to any of these can create or resolve a finding without touching SOUL itself.
+      - 'platform/scripts/carve-skeleton.mjs'
+      - 'platform/skeleton-templates/**'
+      - 'ui/api/coach-chat/_lib/coachWrites.ts'
+      - 'docs/eng-docs/coach-chat-flow.md'
 
 jobs:
   validate-soul:
@@ -27,3 +45,14 @@ jobs:
 
       - name: Assert both composed SOUL builds match the soul/ layers
         run: node platform/scripts/compose-soul.mjs --check
+
+      # Non-blocking on purpose: PR 1 of the SOUL v5.8 trim changes no SOUL words, so the linter
+      # legitimately reports every rot the v5.7 audit found, recorded in
+      # platform/validate-soul-baseline.json. It already fails the build on *new* findings.
+      # Exit condition: when the baseline reaches zero, delete this comment and
+      # `continue-on-error` so the step blocks. PRs 2-4 burn down the `rot` entries; the
+      # `not-yet-rebuilt` ones clear only as coach-chat's write path is rebuilt (Part B), so
+      # zero arrives after both.
+      - name: Lint SOUL against reality (validate-soul)
+        continue-on-error: true
+        run: node platform/scripts/validate-soul.mjs
