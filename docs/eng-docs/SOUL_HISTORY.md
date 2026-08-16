@@ -6,8 +6,18 @@ A living record of how Coach Phelps evolved — what changed, and why. Updated w
 
 ---
 
-## v5.8 — "The Trim" · Aug 16, 2026 *(landing across stacked PRs — 2a, 2d, 2b done; 2c open)*
-**Theme:** Cut what the composed builds ship to two runtimes but neither can act on. Both builds 509 → 413 lines so far.
+## v5.8 — "The Trim" · Aug 16, 2026 *(landing across stacked PRs — 2a, 2d, 2b, 2c, 3 done; 4 open)*
+**Theme:** Cut what the composed builds ship to two runtimes but neither can act on. The two builds fell together 509 → 375 lines through PR 2c, then PR 3 split them: **chat 294, claude 390**.
+
+**What changed (PR 3 — the claude adapter, and the first real divergence):**
+- `SOUL.chat.md` and `SOUL.claude.md` stop being byte-identical, permanently. Every block below now composes into the claude build only, via the `targets` / `keyTargets` machinery ADR 0022 called for and PR 1 deliberately shipped unused.
+- Gone from the chat build entirely: **§1 Boot Sequence** (the app is told to skip booting), **§10 Greeting & Check-in** (the backend injects a longer version every turn), **§10 End-of-Day Check-in** (close detection is deterministic in `closeSignal.ts`), **§11 Tools & Data Operations** (script tables end to end).
+- Claude-only inside sections both builds keep: §2's push authority, branch pinning, "you don't write code", the `gen/quest_log.md` no-edit rule and the never-read-at-boot list; §5's phase and season close plus the season recap spec (archive writes the app silently drops); §10's shell-validator bullet, the `query_history.py` steps of Logging a Workout, the `hist/` auto-name fix, and the Sunday archive write; §12's coach_notes step, its `generate_quest_log.py` and archive checklist boxes, the commit-and-push commands, Interim Save and Rollback.
+- Kept in both on purpose: the "never modify templates, pipeline scripts, or workflows" guardrail (nearly lost twice in this series), "never compute streaks", §12's reflect-and-update steps and the checklist boxes naming files the app writes or is being rebuilt to write, and Logging a Workout's `current_week.json` reconciliation. coach-chat's write path is mid-rebuild after PR #350 — an instruction it will re-need is not dead weight.
+- The claude build *grew* 375 → 390 lines. No words were added: splitting a numbered or bulleted list at a target boundary puts a blank line at each seam. The chat build is the number that matters, and it fell 375 → 294.
+- `validate-soul`'s baseline dropped 15 chat findings (the archive writes, `gen/quest_log.md`, and the script paths simply stopped being in that build). 24 remain — 14 claude, 10 chat — none of them fixable by SOUL wording.
+
+**Why:** coach-chat has no shell, no git, and no file reads, and its own system prompt tells the model to ignore any instruction it cannot execute. Those blocks were pure token cost on every turn — and worse, they left the model's stated abilities and its real ones disagreeing.
 
 **What changed (PR 2b — Layer C schema and its knock-on renames):**
 - Deleted §7's `Athlete Schema (MVP)` block. It explained the prompt's own architecture to the model ("Layer C is the extensibility seam", "B never hardcodes sport names"), shipped an explicitly `RESERVED` empty `tracking_modules: {}` every turn, and described a shape nothing on disk uses — `carve-skeleton.mjs` writes markdown bullets. Its content now lives only in `docs/eng-docs/soul-C-schema.md`, as design vocabulary for engineers.
