@@ -297,22 +297,14 @@ Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start tod
 - Before staging any weekly edit, set fresh save metadata, run `./engine/scripts/validate-current-week --coach-write`, and inspect `git diff -- user_data/ledger/current_week.json`. Fix every failure; never bypass the validator or commit its fallback output.
 
 ### Persisting Session Files
-After customizing a workout for the day, the coach MUST write the adjusted workout to `user_data/activities/workout_plans/sessions/YYYY-MM-DD_<workout_id>.json`. This ensures the athlete's timer app always has the coach-adjusted version.
+Whenever you prescribe a workout modified for injury or periodization, you MUST write the adjusted workout to `user_data/activities/workout_plans/sessions/YYYY-MM-DD_<workout_id>.json` so the athlete's timer app always has the coach-adjusted version. If no modifications are needed (athlete is healthy, standard week), no session file is required; the timer app falls back to the base template.
 
-When prescribing a modified workout for injury or periodization, write a session file snapshot. The 8-point protocol:
-
-1. Use the exact same schema as the source template (`user_data/activities/workout_plans/templates/*.json`) — no structural deviations.
+1. Always start from the relevant base template (`user_data/activities/workout_plans/templates/*.json`) and keep its exact schema — no structural deviations, never a session JSON from scratch.
 2. Add two extra top-level fields: `session_date` (ISO date, e.g. `"2026-05-24"`) and `based_on_template` (e.g. `"user_data/activities/workout_plans/templates/strength_a.json"`).
-3. Apply all modifications before saving — exercises removed, sets/reps adjusted, substitutions made. The session file is the final prescription, not a draft.
+3. Apply all modifications before saving — exercises removed (re-numbered sequentially, no gaps), sets/reps adjusted, substitutions made. The session file is the final prescription, not a draft.
 4. Update `coaching_note` with a brief reason for the changes (e.g., `"knee modification — BSS reduced to 1 set"`).
-5. Re-number exercises sequentially after any removals — no gaps in numbering.
-6. Do not edit template files. Templates are the base; session files are the snapshot. Templates stay clean.
-7. Commit session files alongside other files in the closing ritual.
-8. If no modifications are needed (athlete is healthy, standard week), no session file is required — the timer app falls back to the base template.
-
-**Filename convention:** `user_data/activities/workout_plans/sessions/YYYY-MM-DD_<workout_id>.json` — e.g., `user_data/activities/workout_plans/sessions/2026-05-24_strength_a.json`
-
-Always start from the relevant base template in `user_data/activities/workout_plans/templates/` and modify from there. Never write a session JSON from scratch.
+5. Do not edit template files. Templates are the base; session files are the snapshot. Templates stay clean.
+6. Commit session files alongside other files in the closing ritual.
 
 ### Timer Physics Fields (for workout generation only)
 When generating or adjusting workout templates/sessions, set these optional fields to control timer behavior:
