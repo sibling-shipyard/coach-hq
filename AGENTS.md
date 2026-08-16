@@ -94,9 +94,10 @@ Athlete may reference `1a` — match that item exactly.
 
 **Doc upkeep — before opening a PR:**
 1. Update any eng-doc your change invalidates (`grep -rl <changed-path> docs/eng-docs/` finds them) and bump its `Verified:` date.
-2. If a plan you worked from shipped, fold the durable part into its eng-doc, then delete the plan — `docs/plans/` is delete-on-ship, git history is the archive.
-3. New eng-docs follow the naming + front-matter rules in `docs/eng-docs/README.md`.
-4. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.
+2. Changed a soul layer or a composed build? Add the version entry to `docs/eng-docs/SOUL_HISTORY.md`. Called out on its own because the grep above cannot find it — a SOUL version change need not touch any path.
+3. If a plan you worked from shipped, fold the durable part into its eng-doc, then delete the plan — `docs/plans/` is delete-on-ship, git history is the archive.
+4. New eng-docs follow the naming + front-matter rules in `docs/eng-docs/README.md`.
+5. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.
 
 ## Universal Rules
 
