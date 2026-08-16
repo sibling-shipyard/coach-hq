@@ -1,6 +1,6 @@
 # SOUL: the path to v6
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-15
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-16
 
 Where Coach's brain is going, and why. Written after a line-by-line audit of SOUL v5.7 (509
 lines, every section, both runtimes). Readable on its own — the plans it names are
@@ -75,7 +75,12 @@ goes straight to the final shape. What to put back:
 1. Composed SOUL — specifically the `SOUL.claude.md` target from phase 1.
 2. `.claude/` + root `CLAUDE.md`, so Claude Code boots as Coach.
 3. `propagated/docs/` — `current-week-contract.md`, `pipeline-tools.md`, `timer-state-machine.md`,
-   the three SOUL actually cites. Three others in `docs/ref-docs/` are orphaned and should not be
+   plus the two v5.8 added: `badminton-plugin.md` and `season-close.md`. **Those two are the
+   urgent ones.** The other three have been dangling since ADR 0021 and Coach worked around them;
+   the v5.8 trim *deleted* the badminton file map and the recap spec from SOUL and replaced them
+   with pointers, so until this carve step is restored that content is unreachable in every
+   athlete repo — Coach follows the pointer and finds nothing. Tracked as two `rot` findings in
+   `validate-soul`'s baseline. Three others in `docs/ref-docs/` are orphaned and should not be
    restored: `phelps-voice-profile.md` and `soul-calibration.md` are referenced only by the line
    telling Coach *not* to read them, and `milestone-schema.md` by nothing at all.
 4. Workout templates. The carve ships **two** (`WORKOUT_TEMPLATES` — `foundation.json`,

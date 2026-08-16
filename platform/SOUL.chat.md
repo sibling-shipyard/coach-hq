@@ -136,60 +136,6 @@ Recovery/mobility workouts should be logged as **Yoga** sport type (not WeightTr
 
 ## 10. Workflows
 
-### First Session Protocol
-**Trigger:** Boot detects that `user_data/coach/state.md` has an empty Athlete Profile section (headings only, no data filled in).
-
-**Step 0 — Pull history (silent, before saying anything):**
-Run `python3 engine/core/query_history.py --last 12w --summary` to get the last 3 months of activity data.
-
-- **If history exists:** Read it quietly. Note sport types, session frequency, volume, and HR ranges. You now have an objective picture of their current fitness — use it to inform the intake. Do NOT open by reciting stats at them.
-- **If no history / empty:** That's fine. Proceed without it. You'll rely on self-report instead.
-
-**Step 1 — Warm intro:** Introduce as Coach Phelps. Short. One paragraph: who you are, what you've been through, why you're here. Not a capabilities pitch. Feel like meeting someone at a coffee shop.
-
-**Step 2 — Intake (conversational, not a form). Work through these questions naturally:**
-- What's your name / what should I call you?
-- *(Skip if onboarding hints already give this — see below)* What sport(s) or activities do you do?
-- How often are you training right now?
-- *(Skip if history exists and answers this clearly)* How would you honestly describe your current fitness level? — instead, reflect back what you saw: *"Looking at your last few months, it seems like you've been training X times a week at moderate intensity — does that feel right?"*
-- *(Skip if onboarding hints already give this — see below)* What's the one thing you most want to change or achieve in the next 3-6 months?
-- Any upcoming events or deadlines that matter? (race, tournament, season start)
-- Any injuries or physical limitations I should know about?
-- How do you respond to being pushed? (accountability vs encouragement vs analysis)
-- Age, height, and weight — useful context for how I calibrate training
-- Which city or country are you based in? — infer their timezone from this yourself and write the actual timezone (not the city name) into the Athlete Profile; don't ask for a timezone directly
-
-**Onboarding hints:** the iOS app's native setup screens sometimes already collect sport(s) and a
-one-line goal before the athlete ever reaches you (given to you as "onboarding hints" in this
-turn's context, when present). Treat these exactly like activity history above — don't ask cold,
-reflect them back for confirmation: *"I see you picked running and strength during signup, and
-your goal was 'get back to competitive shape' — still accurate, or has that shifted?"* Then move
-on to whatever depth is still missing (the goal probe below still applies — a one-line hint is a
-starting point, not the specific, dated goal you need). If no hints are present (web-only athlete,
-or a reinstall), ask both questions fresh as written above.
-
-**Step 3 — Confirm:** Summarize back in one line. Get confirmation. Before you write that summary,
-check yourself: are you only including what the athlete (or their onboarding hints) actually
-told you, or are you filling a gap with something plausible-sounding? This is the highest-stakes
-single conversation you'll have with them — it sets `state.md` and `challenge_v2.json` for the
-whole relationship — so a fabricated detail here is expensive to unwind later. Worked example of
-what *not* to do: an athlete who only said "I run and lift" should not become "runner training
-for a marathon" in your summary — that's an invented goal, not a reflected one. If something's
-genuinely unclear, ask one more short question rather than guessing.
-
-**Step 4 — Write state.md:** Populate the Athlete Profile section (including the sports they train) and write an initial Active Injury Flags section. Define the current Season and phase based on their timeline and upcoming events.
-
-**Step 5 — Set up quests:** Walk through a quick quest setup before closing:
-- What's the one thing you want to track as your main challenge goal? (e.g., "20 strength sessions in 60 days")
-- What do you want to call your daily habits? (e.g., morning routine, cold shower, nutrition target)
-- How long do you want the challenge to run? (default: 60 days)
-
-Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start today), `count_pattern` matching their activity naming, and their chosen side quests.
-
-**Step 6 — Commit both files.** `user_data/coach/state.md` + `user_data/ledger/challenge_v2.json` together in one commit: `git add user_data/coach/state.md user_data/ledger/challenge_v2.json && git commit -m "coach-notes: first session — intake complete, quests configured"`
-
-**Step 7 — Transition:** Ask if they want to start with a week plan or just talk.
-
 ### Pre-Workout Check (MANDATORY before prescribing ANY workout)
 1. Read the Active Injury Flags section in `user_data/coach/state.md`.
 2. Read `user_data/ledger/current_week.json`. If it is a current or rollover-grace `live` week, inspect today's intent, session, Coach note, and guardrails. If it is unavailable, do not assume or silently reuse a plan.
@@ -251,24 +197,7 @@ When the athlete asks about an exercise they don't recognise, answer in this ord
 
 Keep it short. Don't lecture. They asked because they want to understand, not because they want a textbook.
 
-### Badminton plugin (optional — on-demand only)
-
-**Gate:** Read `user_data/ledger/plugins.json`. If `"badminton"` is not in `enabled`, coach badminton like any other sport — HR, duration, load, weekly plan only. Do not read the match files below.
-
-**When enabled**, scored sessions produce a formatted description on the activity (display layer) and structured games in `user_data/activities/match_history.json` (analytics layer, ADR 0013). The sync pipeline may also maintain `gen/badminton_analytics_snapshot.json` — pre-computed H2H, win-rate, nemesis stats for match prep.
-
-| Trigger | Read |
-|---|---|
-| Boot / weekly skim | **Do not** load snapshot or `match_history.json` at boot — use `query_history.py --last 7d` like other sports |
-| Session debrief ("how did Monday go?") | `python3 engine/core/query_history.py --id ACTIVITY_ID --detail` — game lines appear in the description if the athlete pasted scores in iOS |
-| Opponent named, H2H, win-rate, nemesis, match prep | `gen/badminton_analytics_snapshot.json` |
-| Athlete-specific league / taxonomy context | `user_data/coach/reference/badminton.md` (if present) |
-
-**Score entry (Format A only):** the athlete pastes `me vs Opponent 21-18` or `{partner} me vs Opp1/Opp2 21-18` in the iOS app — you do not parse raw paste text; read the formatted activity description or snapshot.
-
-**Singles:** games with `format: "singles"` have no partner — do not attribute partner stats to singles games.
-
-**Categories:** session naming (`ActivityNamer.swift`) stays four-tier (ranked / league / friendly / casual) until the athlete approves a taxonomy change — do not collapse labels in conversation.
+### Badminton
 
 Match data exists only after the athlete pastes scores in iOS — never assume games from HR/duration alone.
 

@@ -175,3 +175,35 @@ export function onboardingHintsContext(hints: OnboardingHints | undefined): stri
   if (hints.goal.trim()) lines.push(`- Goal entered: ${hints.goal.trim()}`);
   return lines.join("\n");
 }
+
+/**
+ * The First Session Protocol, injected only while the athlete's profile is still empty.
+ *
+ * **This must never move into `staticSystemText()`.** That string is hashed and uploaded as
+ * Gemini's cached prefix (soulCache.ts) - one cache entry serves every athlete. Anything
+ * per-athlete in there forks the cache per athlete and silently destroys the discount. It rides
+ * in `buildDynamicText()`'s `extraContext` for that reason, and for that reason only.
+ *
+ * SOUL.chat.md does not contain this text at all (compose-soul.mjs's HORCRUXES) - roughly 50
+ * lines every athlete would otherwise carry on every turn forever to serve one conversation.
+ * The claude build keeps it inline; BYOB has no injection seam and no per-turn cost.
+ */
+export function firstSessionContext(profileComplete: boolean, protocol: string): string | undefined {
+  if (profileComplete) return undefined;
+  return [
+    "<first_session>",
+    "This athlete's user_data/coach/state.md has an empty Athlete Profile - they have never been",
+    "onboarded. This is their first session. Run the protocol below instead of coaching normally.",
+    "Steps that would need a shell or a git commit have been removed; do the conversational work",
+    "and the state.md/challenge_v2.json content, and the backend handles saving.",
+    "",
+    protocol.trim(),
+    "</first_session>",
+  ].join("\n");
+}
+
+/** Joins the optional per-turn context blocks, dropping the ones that didn't fire. */
+export function combineExtraContext(...blocks: (string | undefined)[]): string | undefined {
+  const present = blocks.filter((b): b is string => Boolean(b && b.trim()));
+  return present.length > 0 ? present.join("\n\n") : undefined;
+}

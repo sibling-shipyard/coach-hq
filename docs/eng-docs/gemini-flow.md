@@ -55,6 +55,15 @@ reads are billed at 10% of standard input rate, *guaranteed*, not best-effort. T
 per-athlete: since the static prefix is byte-identical for everyone, one cache entry serves
 every athlete's calls.
 
+**The rule that follows from that: anything per-athlete goes in the dynamic half, never the
+prefix.** Put a conditional block in `staticSystemText()` and the hash changes per athlete, so
+the cache forks per athlete and the discount quietly disappears — nothing fails, the bill just
+goes up. Conditional SOUL blocks (the First Session Protocol, gated on
+`isAthleteProfileComplete()`) are injected through `buildDynamicText()`'s `extraContext` for this
+reason. They are not in `SOUL.chat.md` at all; `compose-soul.mjs` emits them as horcruxes under
+`platform/horcruxes/`, which `build-soul.mjs` bundles separately. Guarded by
+`ui/api/coach-chat/_tests/first-session-injection.test.ts`.
+
 **Hard constraint that shapes the whole design:** Gemini rejects a `generateContent` request
 that sets both `cachedContent` and `systemInstruction` — they're mutually exclusive. Once a
 cache is active, the dynamic block has nowhere else to go, so it's prepended into `contents` as
