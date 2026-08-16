@@ -47,7 +47,14 @@ import {
   type ClosingFileContext,
 } from "./coach-chat/_lib/coachWrites.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
-import { onboardingHintsContext, type GeminiReply, type OnboardingHints } from "./coach-chat/_lib/coachPrompt.js";
+import {
+  combineExtraContext,
+  firstSessionContext,
+  onboardingHintsContext,
+  type GeminiReply,
+  type OnboardingHints,
+} from "./coach-chat/_lib/coachPrompt.js";
+import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
 
 // A4: coach speaks first. Generates a fresh opener via Gemini and hands back a not-yet-committed
 // thread id - nothing writes to the repo here. The greeting only lands if the athlete replies
@@ -73,7 +80,10 @@ async function handleGreet(
       [],
       "",
       "greeting",
-      onboardingHintsContext(onboardingHints),
+      combineExtraContext(
+        firstSessionContext(isAthleteProfileComplete(stateMd ?? ""), FIRST_SESSION_PROTOCOL),
+        onboardingHintsContext(onboardingHints),
+      ),
     );
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
@@ -170,7 +180,9 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           priorMessages,
           trimmed,
           closeIntent ? "closing" : "ordinary",
-          undefined,
+          // First Session spans several turns, so this has to fire on ordinary turns too -
+          // greet-only would drop the protocol the moment the athlete answered the first question.
+          firstSessionContext(isAthleteProfileComplete(stateMd ?? ""), FIRST_SESSION_PROTOCOL),
           traceId,
         );
       } catch (err: unknown) {

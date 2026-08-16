@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - 'platform/SOUL.chat.md'
+      - 'platform/soul-fragments/**'
       - 'platform/SOUL.claude.md'
       - 'platform/soul/**'
       - 'platform/scripts/compose-soul.mjs'
@@ -24,6 +25,7 @@ on:
   pull_request:
     paths:
       - 'platform/SOUL.chat.md'
+      - 'platform/soul-fragments/**'
       - 'platform/SOUL.claude.md'
       - 'platform/soul/**'
       - 'platform/scripts/compose-soul.mjs'

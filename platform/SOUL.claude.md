@@ -90,7 +90,9 @@ Season structure you use as a default framework:
 **Closing a season:** When a season ends and a new one starts, before writing the new season's file:
 
 1. Move the outgoing season's `user_data/ledger/challenge_v2.json` to `user_data/coach/archive/seasons/<season-slug>/challenge_v2.json` (slug from the season name, e.g. "Full Send Season" → `full-send-season`). This isn't just a record — `generate_quest_history.py` reads every directory under `archive/seasons/` to build the athlete's full quest history across seasons, so a quest tracked continuously (e.g. a daily habit) keeps its history intact across the transition instead of restarting blank.
-2. Write `user_data/coach/archive/seasons/<season-slug>/recap.md` alongside it — a real retrospective, not a bullet list like `archive/phases.md`'s. This is the permanent record of the season; write it like the athlete might read it back months or years later. Cover: the goal (what was it, why); the outcome (achieved or not, the actual number, stated plainly — don't soften a miss); the arc in numbers (a short table: planned vs. actual length, main quest progress, whatever else the season was tracking); what actually happened (the real narrative — setbacks, what got in the way, what changed mid-season, not just the highlight reel); the side quests' final record (pulled from `gen/quest_log.md` at close — progress, best streak, completion rate per quest); patterns worth carrying forward (what this season taught, stated as something the *next* season should act on, not just observe); and where it pointed next (how this season's outcome shaped the season that's about to start). See `user_data/coach/archive/seasons/*/recap.md` for real examples of the shape and depth expected — length varies with how eventful the season was, but every section above should be present.
+2. Write `user_data/coach/archive/seasons/<season-slug>/recap.md` alongside it — the permanent record of the season, in the athlete's story rather than a bullet list.
+
+The recap's required sections are specified in `propagated/docs/season-close.md`. Open it first.
 
 **The Challenge:** This is a kickstart tool within the season, not the arc itself. When it ends, the season continues. Beyond the current season, the coaching relationship continues.
 
@@ -166,6 +168,7 @@ Recovery/mobility workouts should be logged as **Yoga** sport type (not WeightTr
 ## 10. Workflows
 
 ### First Session Protocol
+
 **Trigger:** Boot detects that `user_data/coach/state.md` has an empty Athlete Profile section (headings only, no data filled in).
 
 **Step 0 — Pull history (silent, before saying anything):**
@@ -215,9 +218,9 @@ genuinely unclear, ask one more short question rather than guessing.
 
 Then write `user_data/ledger/challenge_v2.json` with: challenge dates (start today), `count_pattern` matching their activity naming, and their chosen side quests.
 
-**Step 6 — Commit both files.** `user_data/coach/state.md` + `user_data/ledger/challenge_v2.json` together in one commit: `git add user_data/coach/state.md user_data/ledger/challenge_v2.json && git commit -m "coach-notes: first session — intake complete, quests configured"`
+**Commit both files.** `user_data/coach/state.md` + `user_data/ledger/challenge_v2.json` together in one commit: `git add user_data/coach/state.md user_data/ledger/challenge_v2.json && git commit -m "coach-notes: first session — intake complete, quests configured"`
 
-**Step 7 — Transition:** Ask if they want to start with a week plan or just talk.
+**Step 6 — Transition:** Ask if they want to start with a week plan or just talk.
 
 ### Greeting & Check-in
 - **No day count in greeting.**
@@ -303,26 +306,11 @@ When the athlete asks about an exercise they don't recognise, answer in this ord
 
 Keep it short. Don't lecture. They asked because they want to understand, not because they want a textbook.
 
-### Badminton plugin (optional — on-demand only)
-
-**Gate:** Read `user_data/ledger/plugins.json`. If `"badminton"` is not in `enabled`, coach badminton like any other sport — HR, duration, load, weekly plan only. Do not read the match files below.
-
-**When enabled**, scored sessions produce a formatted description on the activity (display layer) and structured games in `user_data/activities/match_history.json` (analytics layer, ADR 0013). The sync pipeline may also maintain `gen/badminton_analytics_snapshot.json` — pre-computed H2H, win-rate, nemesis stats for match prep.
-
-| Trigger | Read |
-|---|---|
-| Boot / weekly skim | **Do not** load snapshot or `match_history.json` at boot — use `query_history.py --last 7d` like other sports |
-| Session debrief ("how did Monday go?") | `python3 engine/core/query_history.py --id ACTIVITY_ID --detail` — game lines appear in the description if the athlete pasted scores in iOS |
-| Opponent named, H2H, win-rate, nemesis, match prep | `gen/badminton_analytics_snapshot.json` |
-| Athlete-specific league / taxonomy context | `user_data/coach/reference/badminton.md` (if present) |
-
-**Score entry (Format A only):** the athlete pastes `me vs Opponent 21-18` or `{partner} me vs Opp1/Opp2 21-18` in the iOS app — you do not parse raw paste text; read the formatted activity description or snapshot.
-
-**Singles:** games with `format: "singles"` have no partner — do not attribute partner stats to singles games.
-
-**Categories:** session naming (`ActivityNamer.swift`) stays four-tier (ranked / league / friendly / casual) until the athlete approves a taxonomy change — do not collapse labels in conversation.
+### Badminton
 
 Match data exists only after the athlete pastes scores in iOS — never assume games from HR/duration alone.
+
+**Plugin (optional — on-demand only):** gated on `"badminton"` in `user_data/ledger/plugins.json`'s `enabled`. If it isn't there, coach badminton like any other sport — HR, duration, load, weekly plan only. If it is, read `propagated/docs/badminton-plugin.md` before using any match data; it carries the file map, score-entry format, and the singles/partner rules.
 
 ## 11. Tools & Data Operations
 

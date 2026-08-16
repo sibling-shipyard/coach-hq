@@ -97,7 +97,12 @@ const ASSEMBLY = [
       "s8",
       "s9",
       "s10_head",
-      "s10_first_session",
+      "s10_first_session_head",
+      "s10_first_session_trigger",
+      "s10_first_session_pull",
+      "s10_first_session_body",
+      "s10_first_session_commit",
+      "s10_first_session_transition",
       "s10_greeting",
       "s10_pre_workout",
       "s10_weekly_kickoff",
@@ -117,7 +122,8 @@ const ASSEMBLY = [
       "s10_sunday_archive",
       "s10_sunday_rest",
       "s10_exercise_explainer",
-      "s10_badminton",
+      "s10_badminton_guardrail",
+      "s10_badminton_pointer",
       "s11",
       "s12_head",
       "s12_updates",
@@ -129,6 +135,21 @@ const ASSEMBLY = [
       "s12_interim_rollback",
     ],
     keyTargets: {
+      // First Session is ~50 lines the chat build only needs on a brand-new athlete's first
+      // conversation, so it is injected per-turn instead (see FRAGMENTS below) rather than
+      // riding in the cached prefix forever. The claude build keeps it inline — BYOB has no
+      // injection seam. `_trigger` describes boot detection, `_pull` and `_commit` need a
+      // shell, so those three stay claude-only even in the fragment.
+      s10_first_session_head: CLAUDE_ONLY,
+      s10_first_session_trigger: CLAUDE_ONLY,
+      s10_first_session_pull: CLAUDE_ONLY,
+      s10_first_session_body: CLAUDE_ONLY,
+      s10_first_session_commit: CLAUDE_ONLY,
+      s10_first_session_transition: CLAUDE_ONLY,
+      // The file map, score format and taxonomy rules moved to an on-demand doc; the gate and
+      // its pointer are BYOB-only because the app can read neither. The one-line "never invent
+      // games from HR" guardrail stays in both — chat sees badminton activities too.
+      s10_badminton_pointer: CLAUDE_ONLY,
       // The backend injects its own, longer greeting instruction on every turn.
       s10_greeting: CLAUDE_ONLY,
       // Shell validator + `git diff`.
@@ -149,6 +170,30 @@ const ASSEMBLY = [
     },
   },
 ];
+
+/**
+ * Fragments: blocks that ship to a runtime *conditionally*, not as part of a composed build.
+ *
+ * They exist because the chat runtime pays for its whole prompt on every turn, and the cached
+ * prefix is hashed (soulCache.ts) — so a block only one athlete in a hundred needs is pure cost
+ * for everyone else, and putting it in the prefix per-athlete would fork the cache. A fragment is
+ * emitted as its own file, bundled by ui/scripts/build-soul.mjs, and injected into the *dynamic*
+ * half of the prompt (buildDynamicText's extraContext) when the backend's predicate says so.
+ *
+ * A fragment is not a third target: TARGETS stays ["chat","claude"] so validate-soul's mirrored
+ * list keeps matching. The claude build carries these blocks inline as usual — BYOB has no
+ * injection seam and no per-turn cost.
+ */
+const FRAGMENTS = [
+  {
+    // Injected when isAthleteProfileComplete(state.md) is false — coach-chat.ts.
+    out: "first-session.md",
+    source: "B",
+    keys: ["s10_first_session_head", "s10_first_session_body", "s10_first_session_transition"],
+  },
+];
+
+const FRAGMENT_DIR = path.join(REPO_ROOT, "platform", "soul-fragments");
 
 const SECTION_MARKER_RE =
   /<!--\s*soul:section\s+(\S+)\s*-->\n([\s\S]*?)<!--\s*\/soul:section\s*-->/g;
@@ -319,6 +364,12 @@ function composeSoul(target) {
   return `${renumberOrderedLists(joinBlocks(parts))}\n`;
 }
 
+function composeFragment(fragment) {
+  const { byLayer } = loadAllSections();
+  const blocks = fragment.keys.map((key) => getSection(byLayer, fragment.source, key));
+  return `${renumberOrderedLists(joinBlocks(blocks))}\n`;
+}
+
 function summarizeDiff(relPath, expected, actual) {
   const expectedLines = expected.split("\n");
   const actualLines = actual.split("\n");
@@ -360,11 +411,16 @@ function main() {
   let builds;
   try {
     assertKnownTargets();
-    builds = TARGETS.map((target) => ({
-      target,
-      outPath: soulFilePath(REPO_ROOT, target),
-      composed: composeSoul(target),
-    }));
+    builds = [
+      ...TARGETS.map((target) => ({
+        outPath: soulFilePath(REPO_ROOT, target),
+        composed: composeSoul(target),
+      })),
+      ...FRAGMENTS.map((fragment) => ({
+        outPath: path.join(FRAGMENT_DIR, fragment.out),
+        composed: composeFragment(fragment),
+      })),
+    ];
   } catch (err) {
     console.error(`::error::${err.message}`);
     process.exit(1);
