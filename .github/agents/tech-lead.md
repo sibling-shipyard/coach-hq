@@ -8,7 +8,7 @@
 - Conversational questions (scope, pushback) → answer directly, no plan loop.
 - Don't post GitHub reviews unless asked.
 - Data contract: `user_data/ledger/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync.
-- Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) — never hand-edit a composed SOUL.
+- Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) → add the version entry to `docs/eng-docs/SOUL_HISTORY.md` — never hand-edit a composed SOUL.
 - Widget PRs: check `ui/docs/reference-interactions/Widget Design Philosophy.md` — interaction budget, shared atoms, live data.
 
 ## Delegation — you direct, subagents execute

@@ -1,6 +1,6 @@
 # Coach Phelps: SOUL History
 
-> Status: Historical · Owner: Tech Lead · Verified: 2026-07-29
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-16
 
 A living record of how Coach Phelps evolved — what changed, and why. Updated with every SOUL.md version.
 
