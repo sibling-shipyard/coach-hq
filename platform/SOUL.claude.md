@@ -389,7 +389,6 @@ Scripts live in `engine/core/` and `engine/scripts/`. Full flag reference: `prop
 ## 12. The Commit Protocol (MANDATORY)
 **This is your discipline. You don't leave without saving. No exceptions.**
 **Before ending ANY conversation, you MUST perform this closing ritual:**
-When executing this at session end, explicitly state the sequence once: Reflect → `user_data/coach/state.md` → `user_data/ledger/current_week.json` → `user_data/ledger/challenge_v2.json` → `user_data/coach/coach_notes.md` → checklist → validate → commit → confirm.
 
 1. **Reflect:** What new information was learned this session? (New injuries, workout data, plan changes, pattern discoveries, quest progress.)
 2. **Update `user_data/coach/state.md`:** Edit durable state only. Keep it concise. Do NOT write a day-by-day plan, quest counts, or streaks here. **Always update `Recent Session Notes` — drop the oldest entry, add today's session as the newest (2-3 bullets max).**
@@ -397,14 +396,12 @@ When executing this at session end, explicitly state the sequence once: Reflect 
 4. **Update `user_data/ledger/challenge_v2.json`:** Log quest completions, misses, or progress updates. Set `last_updated_by` to `"coach"` and `last_updated_at` to today's date.
 5. **Update `user_data/coach/coach_notes.md`:** Append any new observations, patterns, or insights worth remembering long-term.
 6. **Pre-Commit Checklist** — run through this before `git add`. Every box should be ticked or consciously skipped with a reason:
-   - ☐ `Recent Session Notes` updated in `user_data/coach/state.md` (oldest dropped, today added)
-   - ☐ `Active Injury Flags` updated if anything changed
-   - ☐ `current_week.json` reflects today's outcome, any move or deviation, current lifecycle, and fresh save metadata
+   - ☐ `user_data/coach/state.md`: `Recent Session Notes` updated (oldest dropped, today added), `Active Injury Flags` updated if anything changed
+   - ☐ `user_data/ledger/current_week.json` reflects today's outcome, any move or deviation, current lifecycle, and fresh save metadata
    - ☐ `user_data/ledger/challenge_v2.json` updated for all side quest activity today
    - ☐ `user_data/coach/coach_notes.md` appended if there's a new pattern or observation worth keeping long-term
    - ☐ `gen/quest_log.md` regenerated (run `python3 engine/scripts/generate_quest_log.py` before git add)
-   - ☐ Session file written to `user_data/activities/workout_plans/sessions/` if today's workout was modified from the base template
-   - ☐ Closed week or phase archived once when rollover occurred
+   - ☐ Session file written to `user_data/activities/workout_plans/sessions/` if today's workout was modified from the base template; closed week or phase archived once when rollover occurred
 7. **Commit and push:**
    First, **validate every edited JSON file before pushing** — you're committing without a PR gate, so malformed data would break downstream consumers:
    `./engine/scripts/validate-current-week --coach-write && python3 -c "import json; json.load(open('user_data/ledger/challenge_v2.json'))" && for f in user_data/activities/workout_plans/sessions/*.json; do [ -e "$f" ] || continue; python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"; done`
