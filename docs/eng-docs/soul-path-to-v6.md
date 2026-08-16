@@ -51,15 +51,17 @@ in every step**.
 | 4 | Cut sleep and PRE | First real feature removal |
 | 5 | Move rare workflows to on-demand | First Session, badminton, season close |
 
-Result: **~232 lines for the app, ~289 for BYOB**, from 509.
+Shipped Aug 16, 2026. Actual: **219 lines for the app, 365 for BYOB**, from 509. (The BYOB figure
+lands above the ~289 estimate because the audit's per-block line counts ran ~12% high and the
+claude build keeps every shell/git block rather than losing them.)
 
 The two-build decision is recorded in `kdb/decisions/0022-two-composed-soul-builds.md`, which
 amends ADR 0021's assumption that terminal/BYO mode was retiring. It wasn't; it's the primary
 path. Step 1 also ships `validate-soul` (see Rules below) — the split is what makes "which build
 is this rule for" expressible at all.
 
-*Block-by-block verdicts and the four PRs: `docs/plans/soul-trim.md`. Tracked as the SOUL v5.8
-trim issue, with the post-trim split following it.*
+*Shipped. How the two builds work now: `docs/eng-docs/soul-two-builds.md`. The block-by-block
+audit was a delete-on-ship plan — git history is the archive.*
 
 ## Phase 2 — restore the BYO carve path
 
