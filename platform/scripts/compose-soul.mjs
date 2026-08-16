@@ -35,8 +35,6 @@ const SOUL_DIR = soulDir(REPO_ROOT);
 const TARGETS = ["chat", "claude"];
 
 const FIXED_HEADER = `# Coach Phelps: SOUL.md
-**Version:** v5.7 (hq-adopted reconciliation)
-**Last Updated:** 2026-07-26
 `;
 
 const LAYER_FILES = {
