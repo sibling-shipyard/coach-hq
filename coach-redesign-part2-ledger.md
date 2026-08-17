@@ -69,6 +69,11 @@ so unbounded is fine.
       "id": "morning_routine", "name": "Morning Routine", "type": "daily_streak",
       "start_date": "2026-07-01", "end_date": null, "status": "active",
       "polarity": "default_not_done"
+    },
+    {
+      "id": "inner_game_of_tennis", "name": "Inner Game of Tennis", "type": "progress",
+      "start_date": "2026-07-01", "end_date": null, "status": "active",
+      "target": 20, "unit": "chapters"
     }
   ]
 }
@@ -86,21 +91,24 @@ coaching model can use, not carrying over one model's fields unchanged:
   weekly-session-floor design); a generalized `quests.json` doesn't carry model-specific fields by
   default.
 - `type` — narrowed from the code's actual 5 valid values (`daily_streak`, `progress`,
-  `count_target`, `weekly_frequency`, `milestone`) down to **`daily_streak`, `count_target`,
-  `weekly_frequency`**. `progress` removed — its two live use cases (`mental-visualization`,
-  `inner-game-of-tennis`, both "N/target unit" trackers) don't map cleanly onto a general system
-  and can be revisited later. `milestone` removed outright — confirmed zero behavior anywhere in
-  the codebase beyond being accepted as a valid value, and it confusingly duplicates the name of
-  the unrelated `progressions.json` "Milestone" concept. Both moved to Part 6.
+  `count_target`, `weekly_frequency`, `milestone`) down to **`daily_streak`, `progress`,
+  `count_target`, `weekly_frequency`**. `progress` kept after review: it's the only type covering
+  a real, live use case — a self-reported cumulative count toward one target that isn't
+  day-by-day (`daily_streak`) or derivable from synced activity data (`count_target`) or
+  weekly-resetting (`weekly_frequency`). `mental-visualization` and `inner-game-of-tennis` are
+  real quests of this shape today; dropping the type left them with nowhere to go. `milestone`
+  still removed outright — confirmed zero behavior anywhere in the codebase beyond being accepted
+  as a valid value, and it confusingly duplicates the name of the unrelated `progressions.json`
+  "Milestone" concept. Moved to Part 6.
 - `category` — **removed**. Required-present by the current validator but never read anywhere
   else — confirmed via grep, no display, no grouping, no branching.
 - `tracking` — **removed**. Confirmed redundant with `type` itself: its only real values
   (`"daily"`/`"count"`) just restate `daily_streak`/`progress`, and nothing branches on it anyway.
-- `target` — **kept.** Real: drives the MAIN QUEST progress bar (`main_quest.target`) and, while
-  `progress`-type quests existed, the SIDE QUESTS bar too. Still load-bearing for `main_quest` and
-  for `count_target`/`weekly_frequency` side quests going forward.
-- `unit` — **removed.** Only meaningful for `progress`-type quests (`"12/20 chapters"`), which are
-  gone. Dead weight without that type.
+- `target` — **kept.** Real: drives the MAIN QUEST progress bar (`main_quest.target`), the
+  SIDE QUESTS bar for `progress`-type quests, and the target for `count_target`/`weekly_frequency`
+  quests too.
+- `unit` — **kept**, restored alongside `progress`. Only meaningful for `progress`-type quests
+  (`"12/20 chapters"`) — real again now that the type is back.
 - `notes` — **removed.** Not read anywhere in the codebase, confirmed via grep.
 - `weekly_targets` — **kept as today's real design**, just with the two Strava-specific source
   values dropped (`strava_pattern`, `strava_sport` — Strava sync doesn't exist for either athlete
@@ -125,7 +133,7 @@ coaching model can use, not carrying over one model's fields unchanged:
     {
       "id": "pr_morning_routine_2026-08-16", "quest_id": "morning_routine",
       "season_id": "s_2026_q3", "date": "2026-08-16", "status": "completed",
-      "value": null, "meta": null, "source": "model", "ts": "2026-08-16T18:42:03Z",
+      "value": null, "source": "model", "ts": "2026-08-16T18:42:03Z",
       "trace_id": "abc123"
     }
   ]
@@ -140,9 +148,22 @@ every row (LLD's answered question #2) costs ~20 bytes/row and removes an implic
 wins on date overlap" rule from `generate_quest_history.py` — worth keeping, the cost is trivial
 next to what it makes explicit.
 
-**No fields to cut here** — this is the tightest-scoped file in the whole redesign; every field
-is either a foreign key, the fact being recorded, or provenance (`source`/`ts`/`trace_id`). Nothing
-speculative.
+**Reviewed field-by-field, cross-checked against `quests.json`'s decisions (my earlier "no fields
+to cut" claim was wrong — I hadn't actually checked `value`/`meta` against what `quests.json`
+still uses):**
+- `value` — **kept.** Per the LLD's own comment, this is "only for quests that count something
+  (chapters read, etc.)" — exactly the `progress` type, which is back in `quests.json` after
+  review. Real again.
+- `meta` — **removed.** Per the LLD's own comment, its only documented purpose was
+  `weekly_sessions only: {label, kind, weight}` — tied to `main_quest.sessions[]`, which only
+  exists for Akash's weekly-session-floor model. That model's fields were already dropped from
+  the generalized `main_quest` (`weekly_floor`/`loaded_floor`/`skill_weight`/`skill_cap`), so
+  `meta` has nothing left to carry. Moved to Part 6.
+- `source` — **kept**, per your call. Real, distinguishes Coach-written (`"model"`) from
+  pipeline-auto-detected (`"pipeline"`) rows — genuinely different information, not provenance
+  padding. `"athlete"` as a value is still unconfirmed (no direct athlete-write path found) —
+  worth settling separately, not blocking on it.
+- `id`, `quest_id`, `season_id`, `date`, `status`, `ts`, `trace_id` — all real, unchanged.
 
 ## `progressions.json` — proposed shape
 
