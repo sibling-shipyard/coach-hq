@@ -55,21 +55,22 @@ so unbounded is fine.
 ```jsonc
 {
   "version": 1,
-  "_meta": { "...": "" },
+  "_meta": { "updated_at": "...", "updated_by": "model", "trace_id": "..." },
   "main_quest": {
     "id": "main", "name": "20 Strength Sessions", "type": "count_target", "target": 20,
-    "count_pattern": "^WeightTraining\\s*#",
-    "weekly_floor": null, "loaded_floor": null, "skill_weight": null, "skill_cap": null
+    "count_pattern": "^WeightTraining\\s*#"
   },
   "quests": [
     {
       "id": "morning_routine", "name": "Morning Routine", "type": "daily_streak",
-      "category": "side", "start_date": "2026-07-01", "status": "active",
-      "polarity": "default_not_done", "tracking": "manual",
-      "target": null, "unit": null, "notes": "string"
+      "start_date": "2026-07-01", "status": "active",
+      "polarity": "default_not_done"
     }
   ],
-  "weekly_targets": { "strength": 2, "cardio": 1 }
+  "weekly_targets": {
+    "badminton": { "target": 2, "source": "quest", "quest_id": "badminton-daily" },
+    "reading":   { "target": 1 }
+  }
 }
 ```
 
@@ -77,11 +78,36 @@ What a quest **is**, not how it's going — completion data all moves to `progre
 `status: "graduated"` replacing the old separate `graduated[]` list is a genuine simplification
 worth keeping — a finished quest is still a quest, the LLD's own reasoning holds up.
 
-**Field-by-field check:** `main_quest`'s four null-by-default fields (`weekly_floor`,
-`loaded_floor`, `skill_weight`, `skill_cap`) are carried over unchanged from the current
-`challenge_v2.json` shape per ADR 0006 — not new complexity introduced by this redesign, just
-relocated. Worth confirming during implementation which quest *types* actually populate these
-(not all of them do today either) rather than assuming every quest needs all four reserved.
+**Generalized, not Akash's-model-specific.** This step is trimming `quests.json` to a shape any
+coaching model can use, not carrying over one model's fields unchanged:
+
+- `main_quest`'s four null-by-default fields (`weekly_floor`, `loaded_floor`, `skill_weight`,
+  `skill_cap`) — **removed**. They only exist for one specific coaching model (Akash's
+  weekly-session-floor design); a generalized `quests.json` doesn't carry model-specific fields by
+  default.
+- `type` — narrowed from the code's actual 5 valid values (`daily_streak`, `progress`,
+  `count_target`, `weekly_frequency`, `milestone`) down to **`daily_streak`, `count_target`,
+  `weekly_frequency`**. `progress` removed — its two live use cases (`mental-visualization`,
+  `inner-game-of-tennis`, both "N/target unit" trackers) don't map cleanly onto a general system
+  and can be revisited later. `milestone` removed outright — confirmed zero behavior anywhere in
+  the codebase beyond being accepted as a valid value, and it confusingly duplicates the name of
+  the unrelated `progressions.json` "Milestone" concept. Both moved to Part 6.
+- `category` — **removed**. Required-present by the current validator but never read anywhere
+  else — confirmed via grep, no display, no grouping, no branching.
+- `tracking` — **removed**. Confirmed redundant with `type` itself: its only real values
+  (`"daily"`/`"count"`) just restate `daily_streak`/`progress`, and nothing branches on it anyway.
+- `target` — **kept.** Real: drives the MAIN QUEST progress bar (`main_quest.target`) and, while
+  `progress`-type quests existed, the SIDE QUESTS bar too. Still load-bearing for `main_quest` and
+  for `count_target`/`weekly_frequency` side quests going forward.
+- `unit` — **removed.** Only meaningful for `progress`-type quests (`"12/20 chapters"`), which are
+  gone. Dead weight without that type.
+- `notes` — **removed.** Not read anywhere in the codebase, confirmed via grep.
+- `weekly_targets` — **kept as today's real design**, just with the two Strava-specific source
+  values dropped (`strava_pattern`, `strava_sport` — Strava sync doesn't exist for either athlete
+  repo anymore; confirmed via grep this is the only place in the whole codebase those values
+  appear). `source: "quest"` + `quest_id` stays: it's what lets a weekly target compute itself
+  automatically from `sessions.json`/`progress.json` instead of needing manual upkeep. A target
+  with no `source` is still valid — manually tracked in the UI, same as today.
 
 ## `progress.json` — proposed shape
 
@@ -156,7 +182,8 @@ next one starts.
   effort. Confirmed as the right call reading both docs.
 
 ## Changes I'm flagging for your review
-1. Confirm which quest types actually use `main_quest`'s four null-default fields before treating
-   them as universal.
-2. Ship `quest_event` and `profile_update` as two separate small steps, not one PR — same
+1. Ship `quest_event` and `profile_update` as two separate small steps, not one PR — same
    one-field-at-a-time discipline as Part 1, tested independently.
+2. A README explaining the quest `type` values (and any other schema concepts worth documenting
+   for future devs, or the athlete) — deferred until the redesign is fully reviewed, so we know
+   where it belongs and what it needs to cover. Tracked in Part 6.

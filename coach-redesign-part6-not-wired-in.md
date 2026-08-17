@@ -32,6 +32,23 @@
   `warmHomeSnapshots.ts`, `liveWeekContract.ts`, `warmHomeModel.ts`, `MonthlyAnalytics.tsx`) is
   real follow-up work, not done as part of this doc pass.
 
+## From Part 2 (`quests.json`)
+
+- **`type: "progress"`** — dropped from the generalized `quests.json`. Two live quests use it
+  today (`mental-visualization`, `inner-game-of-tennis`, both "N/target unit" trackers) — real
+  usage, doesn't map cleanly onto the generalized shape as-is. Revisit if a generalized
+  numeric-progress quest type is needed later.
+- **`type: "milestone"`** — dropped outright, not moved here. Confirmed zero behavior anywhere in
+  the codebase beyond being a valid enum value — not a deferred feature, dead weight, same
+  treatment as `sessions.json`'s `"manual"` type above.
+- **`main_quest`'s `weekly_floor`/`loaded_floor`/`skill_weight`/`skill_cap`** — dropped from the
+  generalized `quests.json`. These exist only for Akash's weekly-session-floor coaching model.
+  Revisit if/when a per-athlete or per-model extension mechanism for `main_quest` is designed —
+  not part of this pass.
+- **README for schema concepts** (quest `type` values, and anything else worth documenting once
+  the whole redesign is settled) — needs a home in `user_data/`, for developers if not directly
+  athlete-facing. Location TBD once parts 1-5 are fully reviewed.
+
 ## Your annotations
 
 (space for anything else that falls out of parts 2-5 review)
