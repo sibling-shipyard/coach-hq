@@ -65,11 +65,9 @@
   "known phase only; do not infer" for `phase_name`, and there's no known phase left once
   `seasons.json` ships. Needs resolving alongside the SOUL "Phase Awareness" rewording already
   tracked under Part 2's entry above — same root cause, one fix.
-- **`chat_history.json`'s `dayOffset`/`ageLabel`** — persisted to disk but always overwritten on
-  read from `createdAt` (`coachDay.ts`'s `withComputedDayOffsets`). Nothing reads the stored
-  value as truth. Worth deciding whether to stop writing them at all (pure read-time derivation)
-  — not done here since it's outside this redesign's file list, just flagged as a real finding
-  while checking the file for Part 3.
+- **`chat_history.json`'s `ageLabel`/`status`/`dayOffset` — resolved, not deferred.** All three
+  dropped from the stored shape in Part 3 after review (dead in storage or already deprecated in
+  the UI). Nothing to revisit here.
 
 ## Your annotations
 

@@ -7,7 +7,7 @@
 
 | File | Why it's fine | Change |
 |---|---|---|
-| `coach/chat_history.json` | ADR 0012, capped at 7 threads, merge race already fixed | `_meta` only |
+| `coach/chat_history.json` | ADR 0012, capped at 7 threads, merge race already fixed | `_meta`, drop `ageLabel`/`status`/`dayOffset` |
 | `ledger/current_week.json` | already versioned, stable session ids, `updated_by` | `trace_id` added |
 | `ledger/plugins.json` | two fields, doesn't grow | none |
 | `activities/workout_plans/templates/*.json` | already id-shaped, Coach only reads | `_meta` only |
@@ -25,26 +25,34 @@ Two fields worth of content, doesn't grow. Nothing to check — confirmed real, 
 
 ### `coach/chat_history.json` — `ChatThread` shape (`chatThreads.ts`)
 
+Reviewed and trimmed — not actually staying untouched, despite the table above.
+
 ```jsonc
 {
-  "id": "th_...", "dayOffset": 0, "createdAt": 1723834200000,
-  "title": "Morning check-in", "preview": "...", "ageLabel": "NOW",
-  "status": "active", "messages": [ { "id": "...", "role": "user", "text": "..." } ]
+  "id": "th_...", "createdAt": 1723834200000,
+  "title": "Morning check-in", "preview": "...",
+  "messages": [ { "id": "...", "role": "user", "text": "..." } ]
 }
 ```
 
-- `id`, `title`, `preview`, `status`, `messages[]` — all real, straightforward.
-- `createdAt` — real, the one field that's actually the source of truth (comment in the code:
-  "set once at creation, never overwritten").
-- **`dayOffset` and `ageLabel` are stored fields that get silently overwritten on every read.**
-  `coachDay.ts`'s `withComputedDayOffsets` recomputes both from `createdAt` every time the file is
-  loaded — the code's own comment says `ageLabel` "freezes there unless recomputed here." So
-  whatever value is actually persisted to disk for these two fields is never trusted — it's
-  replaced in memory before anything reads it. Worth asking whether they need to be *written* to
-  the file at all, or whether they're pure read-time derivations from `createdAt` that got
-  persisted out of habit. If nothing outside this codebase reads the raw file directly, dropping
-  them from the stored shape (keep the derivation, drop the write) is a real simplification, not
-  just fewer bytes.
+- `id`, `title`, `preview`, `messages[]` — real, kept.
+- `createdAt` — real, kept, the one field that's actually the source of truth (comment in the
+  code: "set once at creation, never overwritten").
+- **`ageLabel` — dropped.** Dead twice over: `coachDay.ts`'s `withComputedDayOffsets` overwrites
+  it from `createdAt` on every read regardless of what's stored, and separately the UI already
+  stopped using it as the primary display — a code comment in `coachChatModel.ts` says the
+  relative "D-1"/"D-2" badge it produces "was reported as 'useless' in practice" (athlete feedback)
+  and was replaced with a real calendar date. It now only survives as a last-resort fallback for a
+  `createdAt` that "shouldn't happen" to be missing.
+- **`status` — dropped, per your call.** Confirmed dead in storage: ADR 0012's own amendment says
+  a deleted thread is filtered out of the array entirely on write, never soft-marked — so the
+  persisted value only ever holds `"active"`. One possible value in storage, same dead pattern as
+  `sessions.json`'s `actor` in Part 1.
+- **`dayOffset` — dropped, per your question.** It's genuinely used at read time (the "NOW" vs.
+  dated badge, `CoachChat.tsx`'s same-day-thread cleanup), but `coachDay.ts` unconditionally
+  recomputes it from `createdAt` on every load (`return { ...t, dayOffset, ... }`) — nothing that
+  gets written to disk for this field is ever trusted. `createdAt` is the only real source data;
+  `dayOffset` becomes a pure derived value computed at serve time, never persisted.
 - ADR 0012's own amendment already removed the archive tier entirely ("no archive option
   anywhere — direct instruction") — same instinct as dropping `seasons.json`'s archive folder,
   just already applied here previously.
