@@ -58,13 +58,9 @@
 
 ## From Part 3 (`current_week.json`, `chat_history.json`)
 
-- **`current_week.json`'s `week.phase_name`/`week.block_name` are broken by Part 2's phase
-  removal.** This file wasn't in scope for this redesign ("staying untouched"), but it directly
-  references the `phase`/`current_block` concept Part 2 deleted from `seasons.json`. Not a
-  hypothetical — the file's own accepted contract (`docs/ref-docs/current-week-contract.md`) says
-  "known phase only; do not infer" for `phase_name`, and there's no known phase left once
-  `seasons.json` ships. Needs resolving alongside the SOUL "Phase Awareness" rewording already
-  tracked under Part 2's entry above — same root cause, one fix.
+- **`current_week.json`'s `week.phase_name`/`week.block_name` — resolved, not deferred.** Dropped
+  from the file entirely (Part 3), same root cause as the SOUL "Phase Awareness" rewording already
+  tracked under Part 2's entry above — one fix covers both once that lands.
 - **`chat_history.json`'s `ageLabel`/`status`/`dayOffset` — resolved, not deferred.** All three
   dropped from the stored shape in Part 3 after review (dead in storage or already deprecated in
   the UI). Nothing to revisit here.

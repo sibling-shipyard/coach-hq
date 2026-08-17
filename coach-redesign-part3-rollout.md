@@ -65,7 +65,6 @@ Reviewed and trimmed — not actually staying untouched, despite the table above
   "schema_version": 1, "data_status": "live", "timezone": "Asia/Kolkata",
   "week": {
     "id": "2026-W32", "start_date": "...", "end_date": "...",
-    "phase_name": "Build", "block_name": "Capacity without noise",
     "focus": "...", "guardrails": ["..."]
   },
   "coach_read": { "headline": "...", "body": "...", "valid_from": "...", "valid_until": "..." },
@@ -107,13 +106,11 @@ needs to become a genuine daily update going forward once this file is wired int
 real — not just a schema decision, a behavior one. Tracked in Part 6 since it's implementation,
 not review-doc scope.
 
-**`week.phase_name` and `week.block_name` directly reference the `phase`/`current_block` concept
-Part 2 just removed entirely from `seasons.json`.** This file wasn't touched by this redesign
-(hence "staying untouched"), but it's not actually independent of it — once `seasons.json` has no
-`phase` or `block`, there's nothing left to populate these two fields with. This is a real
-cross-file break, not a hypothetical one: `current_week.json`'s own contract doc says "Known phase
-only; do not infer" for `phase_name`, and there'd be no known phase left to reference. Needs
-resolving alongside Part 2's phase removal, not treated as a separately untouched file.
+**`week.phase_name`/`week.block_name` — dropped**, per your call. They directly referenced the
+`phase`/`current_block` concept Part 2 removed entirely from `seasons.json`; there's no known
+phase left to reference (`current_week.json`'s own contract said "known phase only; do not
+infer"). This file wasn't in scope for this redesign, but it wasn't actually independent of it
+either — same root cause as the SOUL "Phase Awareness" rewording tracked under Part 2.
 
 ### `activities/workout_plans/templates/*.json` / `sessions/*.json`
 
