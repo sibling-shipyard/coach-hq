@@ -1,4 +1,4 @@
-# Coach redesign review — Part 1: state.md → profile.json + memory.json + sessions.json
+# Coach redesign review — Part 1: state.md → profile.json + memory.json + injuries.json + sessions.json
 
 > Working doc for review, not a final eng-doc. Source: `docs/plans/coach-schema-redesign-lld.md`
 > (merged, #380). This is where you said you want to start.
@@ -65,22 +65,23 @@ Equipment sections + `coach_since` (currently in `challenge_v2.json`).
   "goal": "string",
   "timeline": "string",
   "coaching_style": "string",
+  "equipment": ["skipping rope", "pilates band"],
   "notes": {
     "fitness_baseline":           { "text": "...", "updated_at": "...", "trace_id": "..." },
     "coaching_priorities":        { "text": "...", "updated_at": "...", "trace_id": "..." },
     "learned_patterns.training":  { "text": "...", "updated_at": "...", "trace_id": "..." },
     "learned_patterns.nutrition": { "text": "...", "updated_at": "...", "trace_id": "..." },
     "learned_patterns.mental":    { "text": "...", "updated_at": "...", "trace_id": "..." }
-  },
-  "injury_flags": [
-    { "id": "inj_...", "text": "...", "status": "active", "opened_at": "...", "resolved_at": null }
-  ],
-  "rpe_calibration": [ { "rpe": 7, "anchor": "..." } ]
+  }
 }
 ```
 
 - `sports`, `goal`, `timeline`, `coaching_style` — moved here from `profile.json` (see that
   section's annotation). Still written once at First Session Protocol, just not settings-tier.
+- `equipment` — moved here from `profile.json`.
+- `injury_flags` — pulled out into its own file, `injuries.json` (see below), not part of
+  `memory.json` anymore.
+- `rpe_calibration` — removed.
 
 **Input:** `memory_update {label, text}` — one new Gemini schema field, one action per report,
 replaces exactly one labelled box. **Output:** read every turn (all of it, until Part 4's windowed-
@@ -89,17 +90,21 @@ read idea is scoped) or on close only, depending on what Part 4's size-tier rese
 **Field-by-field necessity check:**
 - The five remaining fixed labels map directly to `state.md`'s existing sections (Fitness
   Baseline, RPE, Priorities, Learned Patterns ×3) — no invented structure, keep as-is.
-- `injury_flags` pulled OUT of the flat labelled-box `notes` list into its own structured array
-  above. The LLD's own Part 3 (main redesign doc) flags this too: injury flags aren't a fixed
-  block of prose you replace wholesale, they're a set of individual items with
-  **open/resolved/updated** semantics (an athlete can have 2 active flags, resolve 1, add 1 more —
-  replacing the whole label text loses the ability to reason about them individually). Not a
-  `memory_update` label at all now — its own `{id, text, status, opened_at, resolved_at}` shape.
-  Doing this now avoids a second migration once someone notices the free-text version can't answer
-  "what injuries are currently active" without an LLM re-reading a paragraph.
-- `rpe_calibration` staying a hand-edited list (not a `memory_update` target) — agree, it's a
-  real small table, not prose. No action needed here now; flagged in the LLD as a "gets its own
-  action if that stops being true" — fine to leave exactly as scoped.
+
+## `injuries.json` — proposed shape
+
+Pulled out of `memory.json` into its own file per your call. Injury flags aren't a fixed block of
+prose you replace wholesale — they're individual items with **open/resolved** semantics (an
+athlete can have 2 active flags, resolve 1, add 1 more), which the flat labelled-box `memory_update`
+mechanic can't represent.
+
+```jsonc
+{
+  "flags": [
+    { "id": "inj_...", "text": "...", "status": "active", "opened_at": "...", "resolved_at": null }
+  ]
+}
+```
 
 ## `sessions.json` — proposed shape
 
@@ -163,9 +168,9 @@ no Gemini call needed to verify it.
   reading the current code — straightforward, no hidden complexity to preserve.
 
 ## Open questions for the next pass
-- `sports`/`goal`/`timeline`/`coaching_style` now live in `memory.json` but aren't really
-  "notes" like the other five labels — revisit if a better-fitting bucket emerges.
-- `equipment` has no home yet — dropped from `profile.json`, not yet placed anywhere. Revisit
-  once it's wired to workout customization.
+- `sports`/`goal`/`timeline`/`coaching_style`/`equipment` now live in `memory.json` but aren't
+  really "notes" like the other five labels — revisit if a better-fitting bucket emerges.
+- Whether `age` should sit alongside `dob` in `profile.json`, or `dob` alone is enough since age
+  is derivable — still open, your call.
 - See Part 5 (new doc) for how First Session Protocol changes to write these files in their new
   shape, plus Akash's SOUL changes.
