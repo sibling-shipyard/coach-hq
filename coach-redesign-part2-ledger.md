@@ -17,48 +17,38 @@
       "name": "My 60-Day Challenge",
       "start_date": "2026-07-01",
       "end_date": "2026-08-30",
-      "status": "active",
-      "phase": {
-        "name": "Build",
-        "start_date": "2026-07-01",
-        "end_date": "2026-08-30",
-        "status": "active"
-      }
+      "status": "active"
     }
   ]
 }
 ```
 
-`status: "active" | "completed" | "retired"` added to both season and phase, per your call.
-Date math alone (today vs `end_date`) can't tell "ran its full course" apart from "the athlete
-stopped it early" (injury, plan change) — an explicit status covers that case cleanly.
-`current_season_id` stays as the fast O(1) pointer to the active season rather than scanning for
-`status: "active"`; the two aren't redundant, the pointer is just cheaper to read.
+Complete redesign, not a patch on the old shape — this is the settled shape, not what's carried
+over from `challenge_v2.json`.
 
-A **list**, not a single object — a new season appends instead of overwriting, which is what lets
-`archive/seasons/*/challenge_v2.json` copies stop happening at every season end (the old season is
-still right there in the array). Necessity check: every field here maps to something SOUL already
-manages (§5b1-b4 in `B_engine.md` — Current Season, Phase Awareness, Closing a phase/season). No
-padding to flag.
+- **`phase` (and `current_block` nested under it) removed entirely.** Season → phase → block was
+  three tiers; per your call, even phase is more than needed — a season just has a start and end.
+  This drops SOUL's "Phase Awareness" behavior (`B_engine.md` §5b) as it exists today — flagging
+  that plainly since it's a real behavior change, but proceeding since the old structure isn't
+  what's being preserved here. Rectifying SOUL and the UI files that read `phase`/`current_block`
+  is later work, not part of this redesign pass.
+- **`status: "active" | "completed" | "retired"`** — a season that ran its full course vs one the
+  athlete stopped early (injury, plan change) needs to be distinguishable; date math alone
+  (today vs `end_date`) can't do that.
+- **No archive folder.** `archive/seasons/*/challenge_v2.json` is removed as a concept — a
+  completed or retired season doesn't move anywhere, it just stays in `seasons[]` with its status
+  flipped. This resolves the "where do archived seasons go" open question from Part 6 — there's no
+  archive, so it doesn't apply. (Part 6 entry needs updating to reflect this.)
+- **`seasons[]` ordered newest-first (descending by `start_date`)** — a new season gets prepended,
+  not appended. `current_season_id` stays as the O(1) pointer either way, but descending order
+  means "what's the athlete doing now" is also just "the first element," which lines up with how
+  this file gets read most often.
+- `current_season_id` — kept as the fast pointer to the active season rather than scanning for
+  `status: "active"`.
 
-**`current_block` dropped entirely** (was: `{id, name, start_date, end_date, note}` nested under
-`phase`). Per your read — season → phase is the right level of granularity for both the athlete
-and Coach; a third tier inside phase is overkill. Checking the current code confirmed it too:
-`Phase` (`ui/client/src/lib/challenge.ts`) had no `end_date` of its own — it was silently
-borrowing `current_block.end_date` to know when the phase ends, which is a gap in `Phase`'s own
-shape, not a real reason for a third level. `phase.end_date` now lives directly on `phase` where
-it belongs. `current_block.note` was dead — not read anywhere in the codebase.
-
-Implementation note: four UI files currently read `challenge.phase?.current_block` —
-`calisthenicsLensModel.ts`, `warmHomeSnapshots.ts`, `liveWeekContract.ts`, `warmHomeModel.ts`, and
-`MonthlyAnalytics.tsx` (five, all in `ui/client/src/`). These need updating to read `phase.name`/
-`phase.end_date` directly instead — a UI Expert task when this part actually gets implemented, not
-now.
-
-**Real question for you:** the LLD doesn't specify a retention/trim policy for the `seasons[]`
-array — it grows forever, same as `sessions.json`. Given a season is months long, this grows slowly
-enough that it's probably fine unbounded for years, but worth a one-line decision now (unbounded,
-or archive-to-cold-storage after N seasons) rather than an implicit "we'll figure it out."
+**Resolved:** `seasons[]` grows unbounded in this same file, forever — no archive-to-cold-storage
+later, per "no archive folder" above. Given a season is months long, this stays small for years,
+so unbounded is fine.
 
 ## `quests.json` — proposed shape
 
@@ -166,13 +156,7 @@ next one starts.
   effort. Confirmed as the right call reading both docs.
 
 ## Changes I'm flagging for your review
-1. Decide a `season.json` retention policy now (even if the answer is "unbounded, revisit at 20+
-   seasons") rather than leaving it implicit.
-2. Confirm which quest types actually use `main_quest`'s four null-default fields before treating
+1. Confirm which quest types actually use `main_quest`'s four null-default fields before treating
    them as universal.
-3. Ship `quest_event` and `profile_update` as two separate small steps, not one PR — same
+2. Ship `quest_event` and `profile_update` as two separate small steps, not one PR — same
    one-field-at-a-time discipline as Part 1, tested independently.
-
-## Your annotations
-
-(space for your changes — go file by file)

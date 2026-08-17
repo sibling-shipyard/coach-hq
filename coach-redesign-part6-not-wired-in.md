@@ -16,21 +16,21 @@
   `platform/SOUL.claude.md`'s commit ritual). The redesign LLD's idea was to fold those into
   `sessions.json` as rows with these `type` values instead of separate files — real, but out of
   scope for this pass. Revisit when/if `archive/phases.md`/`archive/week_plans.md` get folded in.
+  **Note:** Part 2 has since dropped the `phase` concept from `season.json` entirely — `"phase_close"`
+  as a row type may no longer make sense once that lands. Revisit both together.
 - **`type: "manual"`** — dropped outright, not moved here. No design existed behind it anywhere
   in the LLD, SOUL, or code — not a deferred feature, just dead weight.
 
 ## From Part 2 (`season.json`)
 
-- **Archived seasons/phases — where do they go?** Undecided. `season.json`'s `seasons[]` array
-  keeps every season forever (no more `archive/seasons/*/challenge_v2.json` copies), but whether a
-  completed/retired season eventually moves to cold storage of some kind, or just stays in the
-  live array indefinitely, hasn't been decided. This is the same open question Part 2 already
-  flagged for `season.json`'s retention policy generally.
-- **This directly affects the `status` field just added to season and phase** (`"active" |
-  "completed" | "retired"`). If a season/phase later moves out of `season.json` into an archive of
-  some kind once it's done, `status` stops doing much work there — an archived record's status is
-  implied by which file it's in, not a field on it. Revisit `status`'s value once the archive
-  question is actually decided; don't build around it as settled yet.
+- **Resolved, not deferred:** no archive folder at all. A completed/retired season stays in
+  `seasons[]` with `status` flipped, ordered newest-first. `status: "active" | "completed" |
+  "retired"` does real work under this design — nothing to revisit here.
+- **`phase` (and `current_block`) dropped entirely from `season.json`.** This removes SOUL's
+  "Phase Awareness" behavior (`B_engine.md` §5b) as it exists today. Rectifying SOUL's wording and
+  the five UI files that read `phase`/`current_block` (`calisthenicsLensModel.ts`,
+  `warmHomeSnapshots.ts`, `liveWeekContract.ts`, `warmHomeModel.ts`, `MonthlyAnalytics.tsx`) is
+  real follow-up work, not done as part of this doc pass.
 
 ## Your annotations
 
