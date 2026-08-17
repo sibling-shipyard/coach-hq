@@ -39,10 +39,10 @@ Equipment sections + `coach_since` (currently in `challenge_v2.json`).
 - `coach_since`, `name`, `timezone` — directly used today (state.md Athlete Profile), keep.
 - `sports`, `goal`, `timeline`, `coaching_style` — moved to `memory.json` below. Don't fit
   "rarely changes" the way `name`/`timezone` do, and there's no better-fitting bucket yet.
-- `age` → replaced with `dob`. Get the date of birth so age can be derived/incremented
-  automatically in the backend — also opens the door to a "happy birthday" message (P2, not
-  required now). Confirmed via grep: neither `age` nor `height_cm`/`weight_kg`/`equipment` are
-  read anywhere in `coachPrompt.ts` or SOUL today.
+- `age` → replaced with `dob`, no separate `age` field and no backend script to update it. Age
+  is computed from `dob` in the translation layer (`renderCoachContext`, below) every turn — a
+  one-line calculation, so there's nothing to keep in sync and no cron job needed. Also opens the
+  door to a "happy birthday" message (P2, not required now).
 - `height_cm`, `weight_kg` — kept, per your call. Not currently read in `coachPrompt.ts` or SOUL
   (confirmed via grep), so flagging as collected-but-unused today in case that's worth knowing —
   no change made either way.
@@ -65,20 +65,23 @@ Equipment sections + `coach_since` (currently in `challenge_v2.json`).
   "goal": "string",
   "timeline": "string",
   "coaching_style": "string",
-  "equipment": ["skipping rope", "pilates band"],
   "notes": {
     "fitness_baseline":           { "text": "...", "updated_at": "...", "trace_id": "..." },
     "coaching_priorities":        { "text": "...", "updated_at": "...", "trace_id": "..." },
     "learned_patterns.training":  { "text": "...", "updated_at": "...", "trace_id": "..." },
     "learned_patterns.nutrition": { "text": "...", "updated_at": "...", "trace_id": "..." },
-    "learned_patterns.mental":    { "text": "...", "updated_at": "...", "trace_id": "..." }
+    "learned_patterns.mental":    { "text": "...", "updated_at": "...", "trace_id": "..." },
+    "equipment":                  { "text": "...", "updated_at": "...", "trace_id": "..." }
   }
 }
 ```
 
 - `sports`, `goal`, `timeline`, `coaching_style` — moved here from `profile.json` (see that
   section's annotation). Still written once at First Session Protocol, just not settings-tier.
-- `equipment` — moved here from `profile.json`.
+- `equipment` — moved here from `profile.json`, as a sixth `notes` label rather than a top-level
+  field. It changes on its own schedule (gym membership starts/stops, new gear bought) the same
+  way Coach learns fitness_baseline or priorities mid-conversation — same `memory_update`
+  mechanic, not a new one.
 - `injury_flags` — pulled out into its own file, `injuries.json` (see below), not part of
   `memory.json` anymore.
 - `rpe_calibration` — removed.
@@ -88,8 +91,9 @@ replaces exactly one labelled box. **Output:** read every turn (all of it, until
 read idea is scoped) or on close only, depending on what Part 4's size-tier research lands on.
 
 **Field-by-field necessity check:**
-- The five remaining fixed labels map directly to `state.md`'s existing sections (Fitness
-  Baseline, RPE, Priorities, Learned Patterns ×3) — no invented structure, keep as-is.
+- Five of the six labels map directly to `state.md`'s existing sections (Fitness Baseline, RPE,
+  Priorities, Learned Patterns ×3) — no invented structure, keep as-is. `equipment` is the sixth,
+  newly added here (moved from `profile.json`).
 
 ## `injuries.json` — proposed shape
 
@@ -168,9 +172,8 @@ no Gemini call needed to verify it.
   reading the current code — straightforward, no hidden complexity to preserve.
 
 ## Open questions for the next pass
-- `sports`/`goal`/`timeline`/`coaching_style`/`equipment` now live in `memory.json` but aren't
-  really "notes" like the other five labels — revisit if a better-fitting bucket emerges.
-- Whether `age` should sit alongside `dob` in `profile.json`, or `dob` alone is enough since age
-  is derivable — still open, your call.
+- `sports`/`goal`/`timeline`/`coaching_style` now live in `memory.json` as top-level fields, not
+  `notes` labels, and aren't really "notes" like the six labelled ones — revisit if a
+  better-fitting bucket emerges.
 - See Part 5 (new doc) for how First Session Protocol changes to write these files in their new
   shape, plus Akash's SOUL changes.
