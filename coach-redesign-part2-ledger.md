@@ -17,15 +17,23 @@
       "name": "My 60-Day Challenge",
       "start_date": "2026-07-01",
       "end_date": "2026-08-30",
+      "status": "active",
       "phase": {
         "name": "Build",
         "start_date": "2026-07-01",
-        "end_date": "2026-08-30"
+        "end_date": "2026-08-30",
+        "status": "active"
       }
     }
   ]
 }
 ```
+
+`status: "active" | "completed" | "retired"` added to both season and phase, per your call.
+Date math alone (today vs `end_date`) can't tell "ran its full course" apart from "the athlete
+stopped it early" (injury, plan change) — an explicit status covers that case cleanly.
+`current_season_id` stays as the fast O(1) pointer to the active season rather than scanning for
+`status: "active"`; the two aren't redundant, the pointer is just cheaper to read.
 
 A **list**, not a single object — a new season appends instead of overwriting, which is what lets
 `archive/seasons/*/challenge_v2.json` copies stop happening at every season end (the old season is
