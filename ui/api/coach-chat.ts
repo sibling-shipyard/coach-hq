@@ -7,24 +7,27 @@
  * GET                        → load committed threads
  * POST {action: "greet"}     → Coach speaks first (A4), no athlete message, no repo write
  * POST {threadId?, messages, message} → send a message, get a reply. No repo write unless it
- *                               closes the session, in which case the whole thread (+ coach_note,
- *                               if any) commits in one batch.
+ *                               closes the session, in which case the whole thread (+ coach_note/
+ *                               rolling_state.json, if any) commits in one batch.
  *
  * No delete endpoint - retention is automatic (ADR 0012 amendment): 7 most recent threads kept,
  * oldest evicted on write.
  *
- * coach-chat-reliability-debug: closing-turn ask stripped to coach_note only - no file_updates,
- * checklist, or retry/honesty guard - to test whether a smaller ask is more reliable.
+ * coach-chat-reliability-debug: closing-turn ask was stripped to coach_note only, then rebuilt
+ * incrementally on the same "model reports a fact, server owns the file mechanic" principle
+ * (docs/plans/coach-intent-schema.md) - see BACKLOG.md for what's still not wired back in yet.
  */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
 import {
   STATE_FILE_PATH,
+  ROLLING_STATE_PATH,
   getFileRaw,
   getHeadSha,
   isAthleteProfileComplete,
   loadCoachContext,
+  resolveCoachChatBranch,
 } from "./coach-chat/_lib/coachChatFiles.js";
 import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./coach-chat/_lib/coachDay.js";
 import { isCloseSignal, wasCloseAttemptPending } from "./coach-chat/_lib/closeSignal.js";
@@ -46,11 +49,13 @@ import {
   injectCoachSinceIfNeeded,
   type ClosingFileContext,
 } from "./coach-chat/_lib/coachWrites.js";
+import { applyRollingState } from "./coach-chat/_lib/coachIntents.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import {
   combineExtraContext,
   firstSessionContext,
   onboardingHintsContext,
+  rollingStateContext,
   type GeminiReply,
   type OnboardingHints,
 } from "./coach-chat/_lib/coachPrompt.js";
@@ -67,7 +72,7 @@ async function handleGreet(
   onboardingHints?: OnboardingHints,
 ): Promise<Response> {
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
-  const { soul, state: stateMd, questLog } = context;
+  const { soul, state: stateMd, questLog, rollingState } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
   let reply: GeminiReply;
@@ -83,6 +88,7 @@ async function handleGreet(
       combineExtraContext(
         firstSessionContext(isAthleteProfileComplete(stateMd ?? ""), FIRST_SESSION_PROTOCOL),
         onboardingHintsContext(onboardingHints),
+        rollingStateContext(rollingState),
       ),
     );
   } catch (err: unknown) {
@@ -148,7 +154,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // A3: reuses the app-load preload's 60s cache, unless A5 just found it stale, in which
       // case force a fresh read.
-      const { soul, state: stateMd, questLog } = await loadCoachContext(repo, token, { fresh: stale });
+      const { soul, state: stateMd, questLog, rollingState } = await loadCoachContext(repo, token, { fresh: stale });
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
       const priorMessages = messages ?? [];
@@ -182,7 +188,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           closeIntent ? "closing" : "ordinary",
           // First Session spans several turns, so this has to fire on ordinary turns too -
           // greet-only would drop the protocol the moment the athlete answered the first question.
-          firstSessionContext(isAthleteProfileComplete(stateMd ?? ""), FIRST_SESSION_PROTOCOL),
+          combineExtraContext(
+            firstSessionContext(isAthleteProfileComplete(stateMd ?? ""), FIRST_SESSION_PROTOCOL),
+            rollingStateContext(rollingState),
+          ),
           traceId,
         );
       } catch (err: unknown) {
@@ -262,8 +271,21 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
-      // B2/ADR 0018: state.md isn't edited here (no file_updates), so both sides of this
-      // transition check are the same pre-turn value - see BACKLOG.md #1.
+      // Reuses trimmedCoachNote verbatim (no new Gemini field) into rolling_state.json's bounded
+      // last-N-sessions log, read back into every future turn's prompt (rollingStateContext).
+      // Fetched fresh at commit time, same pattern as coachNoteWrite above.
+      const rollingStateWrite: FileEntry | undefined = trimmedCoachNote
+        ? {
+            path: ROLLING_STATE_PATH,
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, ROLLING_STATE_PATH, token);
+              return applyRollingState(fresh, { date: todayDateString(stateMd ?? "", new Date()), text: trimmedCoachNote });
+            },
+          }
+        : undefined;
+
+      // B2/ADR 0018: state.md isn't edited here, so both sides of this transition check stay the
+      // pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
       const wasProfileComplete = isAthleteProfileComplete(stateMd ?? "");
       const profileComplete = isAthleteProfileComplete(stateMd ?? "");
       const validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, stateMd ?? "");
@@ -272,16 +294,20 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         console.warn("[coach-chat] close landed with no coach_note.", { athleteMessage: trimmed, traceId });
       }
 
-      // ADR 0012: chat_history.json plus coach_notes.md (when reported), plus a coach_since
-      // stamp when needed, land in ONE atomic commit.
-      const writes: FileEntry[] = coachNoteWrite ? [...validUpdates, chatWrite, coachNoteWrite] : [...validUpdates, chatWrite];
+      // ADR 0012: chat_history.json plus coach_notes.md/rolling_state.json (when reported), plus
+      // a coach_since stamp when needed, land in ONE atomic commit.
+      const optionalWrites: FileEntry[] = [];
+      if (coachNoteWrite) optionalWrites.push(coachNoteWrite);
+      if (rollingStateWrite) optionalWrites.push(rollingStateWrite);
+      const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
 
       let repoSha: string;
       try {
         const result = await commitFilesAtomic(writes, `coach: chat — ${computedTitle || "session update"}`, {
           repo,
-          // Configurable so a test close doesn't have to write to a live athlete's actual main.
-          branch: process.env.COACH_CHAT_BRANCH ?? "main",
+          // Same resolver every read in this turn already used (resolveCoachChatBranch) - reads
+          // and writes must never diverge, or a scratch-branch test silently reads real main.
+          branch: resolveCoachChatBranch(),
           token,
         });
         repoSha = result.commitSha;

@@ -26,7 +26,8 @@ in [`BACKLOG.md`](../../../BACKLOG.md) and [`docs/plans/coach-chat-follow-up.md`
 | `coachDay.ts` | Timezone/day-number math (age labels, day dividers, `coach_since`-aware day count) |
 | `coachPrompt.ts` | Gemini prompt construction — response schema, static/cacheable text, per-turn dynamic text, onboarding-hint context. Pure text-building, no I/O |
 | `geminiClient.ts` | Gemini transport — builds the request from `coachPrompt.ts`'s text + `soulCache.ts`'s caching, retries transient failures once, parses the response |
-| `coachWrites.ts` | Write-authority: what Coach may write and how (currently just `coach_note` append + `coach_since` stamping — see the rebuild note above) |
+| `coachWrites.ts` | Write-authority: `coach_note` append, closing-turn file context, `coach_since` stamping (currently thin — see the rebuild note above) |
+| `coachIntents.ts` | Pure appliers for coach-authored files beyond `coach_notes.md` — `rolling_state.json`'s bounded last-N-sessions log so far (reuses `coach_note` verbatim, no separate Gemini field), grows one function per Part B step |
 
 `_tests/` mirrors `_lib/` one file at a time (drop the `coach-chat-` prefix other repos use —
 redundant once you're already inside this folder), plus `_tests/coach-chat-eval/transcripts/`,
