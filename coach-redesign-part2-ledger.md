@@ -20,7 +20,7 @@
       "phase": {
         "name": "Build",
         "start_date": "2026-07-01",
-        "current_block": { "id": "block_1", "name": "Capacity", "start_date": "...", "end_date": "...", "note": "..." }
+        "end_date": "2026-08-30"
       }
     }
   ]
@@ -32,6 +32,20 @@ A **list**, not a single object — a new season appends instead of overwriting,
 still right there in the array). Necessity check: every field here maps to something SOUL already
 manages (§5b1-b4 in `B_engine.md` — Current Season, Phase Awareness, Closing a phase/season). No
 padding to flag.
+
+**`current_block` dropped entirely** (was: `{id, name, start_date, end_date, note}` nested under
+`phase`). Per your read — season → phase is the right level of granularity for both the athlete
+and Coach; a third tier inside phase is overkill. Checking the current code confirmed it too:
+`Phase` (`ui/client/src/lib/challenge.ts`) had no `end_date` of its own — it was silently
+borrowing `current_block.end_date` to know when the phase ends, which is a gap in `Phase`'s own
+shape, not a real reason for a third level. `phase.end_date` now lives directly on `phase` where
+it belongs. `current_block.note` was dead — not read anywhere in the codebase.
+
+Implementation note: four UI files currently read `challenge.phase?.current_block` —
+`calisthenicsLensModel.ts`, `warmHomeSnapshots.ts`, `liveWeekContract.ts`, `warmHomeModel.ts`, and
+`MonthlyAnalytics.tsx` (five, all in `ui/client/src/`). These need updating to read `phase.name`/
+`phase.end_date` directly instead — a UI Expert task when this part actually gets implemented, not
+now.
 
 **Real question for you:** the LLD doesn't specify a retention/trim policy for the `seasons[]`
 array — it grows forever, same as `sessions.json`. Given a season is months long, this grows slowly
