@@ -16,17 +16,17 @@
   `platform/SOUL.claude.md`'s commit ritual). The redesign LLD's idea was to fold those into
   `sessions.json` as rows with these `type` values instead of separate files — real, but out of
   scope for this pass. Revisit when/if `archive/phases.md`/`archive/week_plans.md` get folded in.
-  **Note:** Part 2 has since dropped the `phase` concept from `season.json` entirely — `"phase_close"`
+  **Note:** Part 2 has since dropped the `phase` concept from `seasons.json` entirely — `"phase_close"`
   as a row type may no longer make sense once that lands. Revisit both together.
 - **`type: "manual"`** — dropped outright, not moved here. No design existed behind it anywhere
   in the LLD, SOUL, or code — not a deferred feature, just dead weight.
 
-## From Part 2 (`season.json`)
+## From Part 2 (`seasons.json`)
 
 - **Resolved, not deferred:** no archive folder at all. A completed/retired season stays in
   `seasons[]` with `status` flipped, ordered newest-first. `status: "active" | "completed" |
   "retired"` does real work under this design — nothing to revisit here.
-- **`phase` (and `current_block`) dropped entirely from `season.json`.** This removes SOUL's
+- **`phase` (and `current_block`) dropped entirely from `seasons.json`.** This removes SOUL's
   "Phase Awareness" behavior (`B_engine.md` §5b) as it exists today. Rectifying SOUL's wording and
   the five UI files that read `phase`/`current_block` (`calisthenicsLensModel.ts`,
   `warmHomeSnapshots.ts`, `liveWeekContract.ts`, `warmHomeModel.ts`, `MonthlyAnalytics.tsx`) is

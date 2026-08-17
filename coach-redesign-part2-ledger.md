@@ -4,7 +4,7 @@
 > (merged, #380). Scope this in detail after Part 1 ships — noted here now so the full shape is
 > visible while you're reviewing, per your "check everything" ask.
 
-## `season.json` — proposed shape
+## `seasons.json` — proposed shape
 
 ```jsonc
 {
@@ -56,6 +56,10 @@ so unbounded is fine.
 {
   "version": 1,
   "_meta": { "updated_at": "...", "updated_by": "model", "trace_id": "..." },
+  "weekly_targets": {
+    "badminton": { "target": 2, "source": "quest", "quest_id": "badminton-daily" },
+    "reading":   { "target": 1 }
+  },
   "main_quest": {
     "id": "main", "name": "20 Strength Sessions", "type": "count_target", "target": 20,
     "count_pattern": "^WeightTraining\\s*#"
@@ -63,14 +67,10 @@ so unbounded is fine.
   "quests": [
     {
       "id": "morning_routine", "name": "Morning Routine", "type": "daily_streak",
-      "start_date": "2026-07-01", "status": "active",
+      "start_date": "2026-07-01", "end_date": null, "status": "active",
       "polarity": "default_not_done"
     }
-  ],
-  "weekly_targets": {
-    "badminton": { "target": 2, "source": "quest", "quest_id": "badminton-daily" },
-    "reading":   { "target": 1 }
-  }
+  ]
 }
 ```
 
@@ -107,7 +107,14 @@ coaching model can use, not carrying over one model's fields unchanged:
   repo anymore; confirmed via grep this is the only place in the whole codebase those values
   appear). `source: "quest"` + `quest_id` stays: it's what lets a weekly target compute itself
   automatically from `sessions.json`/`progress.json` instead of needing manual upkeep. A target
-  with no `source` is still valid — manually tracked in the UI, same as today.
+  with no `source` is still valid — manually tracked in the UI, same as today. Moved to the top of
+  the file, above `main_quest`, per your ordering call.
+- `end_date` — **added** to side quests. Same reasoning as `seasons.json`'s `status`/no-archive
+  design: a completed/graduated/retired quest stays in `quests[]` rather than moving anywhere, so
+  it needs its own end so a closed-out quest is distinguishable from an open-ended one. `null`
+  while active.
+- `main_quest` gets no `end_date` of its own — it's bound to the season it belongs to and ends
+  when the season does, so a separate field would just duplicate `seasons.json`'s `end_date`.
 
 ## `progress.json` — proposed shape
 
