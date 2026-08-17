@@ -166,4 +166,21 @@ no Gemini call needed to verify it.
 
 ## Your annotations
 
-(space for your changes — go file by file)
+**profile.json** — should hold only values that change very rarely or never, and it's read by
+Coach as input for details about the athlete. This whole file gets filled during First Session
+Protocol.
+- Drop `version`, `_meta` — not required on a file this static.
+- Move `sports` to `memory.json` — doesn't belong in settings.
+- Move `goal`, `timeline`, `coaching_style` to `memory.json` for now — don't fit "rarely changes"
+  either, and there's no better-fitting bucket yet.
+- Replace `age` with `dob` — get the date of birth so age can be derived/incremented
+  automatically in the backend. Opens the door to a "happy birthday" message (P2 — implement
+  later or not at all, not required now). Confirmed via grep: `age`/`height_cm`/`weight_kg`/
+  `equipment` aren't read anywhere in `coachPrompt.ts` or SOUL today, so nothing breaks by moving
+  these.
+- Drop `equipment` from `profile.json` entirely — it changes too often to be a settings-tier
+  field; needs a home elsewhere (not decided yet, revisit when this field is actually wired up to
+  workout customization).
+
+**New: part5 doc** — write up how First Session Protocol changes as a result of parts 1-4 here,
+plus Akash's SOUL changes, for Skanda to review separately once parts 1-4 are annotated.
