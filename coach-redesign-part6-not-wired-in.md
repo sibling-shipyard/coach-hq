@@ -1,10 +1,9 @@
-# Coach redesign review — Part 7: not wired in / UI-affecting leftovers
+# Coach redesign review — Part 6: not wired in / UI-affecting leftovers
 
-> Working doc for review, not a final eng-doc. Renamed from Part 6 — Part 6 is now the
-> wire-everything-into-coach-chat plan (`coach-redesign-part6-wiring-plan.md`). This doc stays a
-> catch-all, scope narrowed to: fields/concepts dropped during review that made changes a UI
-> rebuild will need to account for, or that are speculative/unused in the UI specifically. Add to
-> this as each part gets reviewed.
+> Working doc for review, not a final eng-doc. Catch-all, scope narrowed to: fields/concepts
+> dropped during review that made changes a UI rebuild will need to account for, or that are
+> speculative/unused in the UI specifically. Implementation/wiring work lives in Part 5
+> (`coach-redesign-part5-wiring-plan.md`) instead. Add to this as each part gets reviewed.
 
 ## From Part 1 (`sessions.json`)
 
@@ -66,7 +65,7 @@
   dropped from the stored shape in Part 3 after review (dead in storage or already deprecated in
   the UI). Nothing to revisit here.
 
-(The `current_week.json` daily-update requirement moved to Part 6 — that's implementation work
+(The `current_week.json` daily-update requirement moved to Part 5 — that's implementation work
 for whoever wires this file into coach-chat, not a UI-leftover item.)
 
 ## Your annotations

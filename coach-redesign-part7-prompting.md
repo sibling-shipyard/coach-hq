@@ -1,4 +1,4 @@
-# Coach redesign review — Part 4: prompting architecture
+# Coach redesign review — Part 7: prompting architecture
 
 > Working doc for review, not a final eng-doc. Delete or fold into `docs/eng-docs/` once you've
 > annotated it and we've implemented. Comes last on purpose: several of its recommendations (a
@@ -127,5 +127,5 @@ change recommended.
 get decided here. Building a cache tier, choosing retry strategy, or deciding sequential-vs-wide
 schema calls is optimizing a system that doesn't exist yet — Parts 1-3/5 aren't implemented, so
 there's no real failure-rate data or usage pattern to decide any of this against. Revisit all of
-it in Part 6 (`coach-redesign-part6-wiring-plan.md`) once the restructure is actually running —
+it in Part 5 (`coach-redesign-part5-wiring-plan.md`) once the restructure is actually running —
 that's where these decisions get made for real, informed by what's built, not guessed at now.

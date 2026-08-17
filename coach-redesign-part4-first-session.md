@@ -1,4 +1,4 @@
-# Coach redesign review — Part 5: First Session Protocol changes
+# Coach redesign review — Part 4: First Session Protocol changes
 
 > Working doc for review, not a final eng-doc. Stub — fill in once parts 1-4 are annotated, since
 > FSP is downstream of all of them plus Akash's SOUL changes.
