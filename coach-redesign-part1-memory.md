@@ -24,7 +24,9 @@ itself changes).
   "coach_since": "2026-03-14",
   "name": "Akash",
   "dob": "1993-05-14",
-  "timezone": "Asia/Kolkata"
+  "timezone": "Asia/Kolkata",
+  "height_cm": 178,
+  "weight_kg": 74
 }
 ```
 
@@ -41,8 +43,9 @@ Equipment sections + `coach_since` (currently in `challenge_v2.json`).
   automatically in the backend — also opens the door to a "happy birthday" message (P2, not
   required now). Confirmed via grep: neither `age` nor `height_cm`/`weight_kg`/`equipment` are
   read anywhere in `coachPrompt.ts` or SOUL today.
-- `height_cm`, `weight_kg` — dropped, unused (see grep above). Re-add if something actually needs
-  them.
+- `height_cm`, `weight_kg` — kept, per your call. Not currently read in `coachPrompt.ts` or SOUL
+  (confirmed via grep), so flagging as collected-but-unused today in case that's worth knowing —
+  no change made either way.
 - `equipment` — dropped. Changes too often to be a settings-tier field; needs a home elsewhere
   once it's actually wired up to workout customization.
 - Missing from the LLD but arguably belongs here: **the `#362` fix already merged** — the
