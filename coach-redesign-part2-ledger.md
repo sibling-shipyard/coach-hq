@@ -68,12 +68,12 @@ so unbounded is fine.
     {
       "id": "morning_routine", "name": "Morning Routine", "type": "daily_streak",
       "start_date": "2026-07-01", "end_date": null, "status": "active",
-      "polarity": "default_not_done"
+      "polarity": "default_not_done", "source": "model"
     },
     {
       "id": "inner_game_of_tennis", "name": "Inner Game of Tennis", "type": "progress",
       "start_date": "2026-07-01", "end_date": null, "status": "active",
-      "target": 20, "unit": "chapters"
+      "target": 20, "unit": "chapters", "source": "athlete"
     }
   ]
 }
@@ -123,6 +123,12 @@ coaching model can use, not carrying over one model's fields unchanged:
   while active.
 - `main_quest` gets no `end_date` of its own — it's bound to the season it belongs to and ends
   when the season does, so a separate field would just duplicate `seasons.json`'s `end_date`.
+- `source: "model" | "athlete"` — **added**, per your call. Same reasoning as `progress.json`'s
+  `source`: whether a quest was Coach's idea or something the athlete specifically asked for is
+  real coaching context worth keeping. No `"pipeline"` value here — nothing auto-creates quests.
+  There's no defined action yet for *creating* a quest (this pass only defines `quest_event` for
+  logging progress on an existing one) — quest creation happens at First Session Protocol today;
+  a dedicated creation action for later is Part 5/6 territory, not decided here.
 
 ## `progress.json` — proposed shape
 
