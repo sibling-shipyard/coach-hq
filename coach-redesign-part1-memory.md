@@ -21,6 +21,7 @@ itself changes).
 
 ```jsonc
 {
+  "version": 1,
   "coach_since": "2026-03-14",
   "name": "Akash",
   "dob": "1993-05-14",
@@ -35,7 +36,7 @@ rarely revised after. **Output:** read every turn, replaces `state.md`'s Athlete
 Equipment sections + `coach_since` (currently in `challenge_v2.json`).
 
 **Field-by-field necessity check** (per your ask — not accepting this verbatim):
-- `version`, `_meta` — dropped. Not required on a file this static.
+- `version` — kept, per your call. `_meta` — dropped, not required on a file this static.
 - `coach_since`, `name`, `timezone` — directly used today (state.md Athlete Profile), keep.
 - `sports`, `goal`, `timeline`, `coaching_style` — moved to `memory.json` below. Don't fit
   "rarely changes" the way `name`/`timezone` do, and there's no better-fitting bucket yet.
@@ -122,9 +123,7 @@ mechanic can't represent.
       "ts": "2026-08-16T18:42:03Z",
       "type": "chat",
       "text": "what Coach wrote, word for word",
-      "actor": "model",
-      "trace_id": "abc123",
-      "thread_id": "th_..."
+      "trace_id": "abc123"
     }
   ]
 }
@@ -135,12 +134,16 @@ already proved). **Output:** last-N window read every turn (see Part 4's windowe
 recommendation — don't send the whole growing log).
 
 **Field-by-field necessity check:**
-- `id`, `date`, `ts`, `text`, `actor`, `trace_id` — all load-bearing (id for dedup/addressing,
-  trace_id for the log-correlation the whole redesign is built around). Keep.
-- `type: "chat" | "phase_close" | "week_close" | "manual"` — shipping with just `"chat"` live;
-  the other three values stay reserved-but-unused in the type rather than building phase/week-close
-  writers now. Only `"chat"` has an actual writer today.
-- `thread_id` — `null` for anything that isn't a chat, per the LLD. Fine as specified.
+- `id`, `date`, `ts`, `text`, `trace_id` — kept, load-bearing (id for dedup/addressing, trace_id
+  for the log-correlation the whole redesign is built around).
+- `actor` — dropped. Coach is the only writer today; a field with exactly one possible value
+  isn't doing anything. Moved to Part 6.
+- `thread_id` — dropped. Moved to Part 6.
+- `type` — kept, but trimmed to just `"chat"` for now. `"phase_close"`/`"week_close"` moved to
+  Part 6 (real concept — Coach's end-of-phase/end-of-week retrospectives, currently
+  `archive/phases.md`/`archive/week_plans.md` — but no writer folds them into this log yet).
+  `"manual"` dropped outright — not referenced anywhere in the LLD, SOUL, or code; no writer, human
+  or backend, was ever defined for it.
 - Reads should pull the last-N window, not the whole growing log — pulling Part 4's windowed-read
   idea into this step rather than deferring it.
 
