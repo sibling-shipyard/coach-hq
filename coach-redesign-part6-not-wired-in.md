@@ -56,6 +56,21 @@
   the whole redesign is settled) — needs a home in `user_data/`, for developers if not directly
   athlete-facing. Location TBD once parts 1-5 are fully reviewed.
 
+## From Part 3 (`current_week.json`, `chat_history.json`)
+
+- **`current_week.json`'s `week.phase_name`/`week.block_name` are broken by Part 2's phase
+  removal.** This file wasn't in scope for this redesign ("staying untouched"), but it directly
+  references the `phase`/`current_block` concept Part 2 deleted from `seasons.json`. Not a
+  hypothetical — the file's own accepted contract (`docs/ref-docs/current-week-contract.md`) says
+  "known phase only; do not infer" for `phase_name`, and there's no known phase left once
+  `seasons.json` ships. Needs resolving alongside the SOUL "Phase Awareness" rewording already
+  tracked under Part 2's entry above — same root cause, one fix.
+- **`chat_history.json`'s `dayOffset`/`ageLabel`** — persisted to disk but always overwritten on
+  read from `createdAt` (`coachDay.ts`'s `withComputedDayOffsets`). Nothing reads the stored
+  value as truth. Worth deciding whether to stop writing them at all (pure read-time derivation)
+  — not done here since it's outside this redesign's file list, just flagged as a real finding
+  while checking the file for Part 3.
+
 ## Your annotations
 
 (space for anything else that falls out of parts 2-5 review)

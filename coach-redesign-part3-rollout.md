@@ -13,6 +13,85 @@
 | `activities/workout_plans/templates/*.json` | already id-shaped, Coach only reads | `_meta` only |
 | `activities/workout_plans/sessions/*.json` | per-day override, already id-shaped | `_meta` only |
 
+"Untouched" turned out to be an assumption worth checking, not a given — per your ask, actual
+field-by-field below, same rigor as Parts 1/2.
+
+### `ledger/plugins.json`
+
+```jsonc
+{ "enabled": [] }
+```
+Two fields worth of content, doesn't grow. Nothing to check — confirmed real, matches the table.
+
+### `coach/chat_history.json` — `ChatThread` shape (`chatThreads.ts`)
+
+```jsonc
+{
+  "id": "th_...", "dayOffset": 0, "createdAt": 1723834200000,
+  "title": "Morning check-in", "preview": "...", "ageLabel": "NOW",
+  "status": "active", "messages": [ { "id": "...", "role": "user", "text": "..." } ]
+}
+```
+
+- `id`, `title`, `preview`, `status`, `messages[]` — all real, straightforward.
+- `createdAt` — real, the one field that's actually the source of truth (comment in the code:
+  "set once at creation, never overwritten").
+- **`dayOffset` and `ageLabel` are stored fields that get silently overwritten on every read.**
+  `coachDay.ts`'s `withComputedDayOffsets` recomputes both from `createdAt` every time the file is
+  loaded — the code's own comment says `ageLabel` "freezes there unless recomputed here." So
+  whatever value is actually persisted to disk for these two fields is never trusted — it's
+  replaced in memory before anything reads it. Worth asking whether they need to be *written* to
+  the file at all, or whether they're pure read-time derivations from `createdAt` that got
+  persisted out of habit. If nothing outside this codebase reads the raw file directly, dropping
+  them from the stored shape (keep the derivation, drop the write) is a real simplification, not
+  just fewer bytes.
+- ADR 0012's own amendment already removed the archive tier entirely ("no archive option
+  anywhere — direct instruction") — same instinct as dropping `seasons.json`'s archive folder,
+  just already applied here previously.
+
+### `ledger/current_week.json` — root + `week` + `day` + `session` (full contract:
+`docs/ref-docs/current-week-contract.md`, Status: Accepted schema v1)
+
+```jsonc
+{
+  "schema_version": 1, "data_status": "live", "timezone": "Asia/Kolkata",
+  "week": {
+    "id": "2026-W32", "start_date": "...", "end_date": "...",
+    "phase_name": "Build", "block_name": "Capacity without noise",
+    "focus": "...", "guardrails": ["..."]
+  },
+  "coach_read": { "headline": "...", "body": "...", "tone": "...", "confidence": "...",
+                  "evidence_refs": ["..."], "valid_from": "...", "valid_until": "..." },
+  "days": [ { "date": "...", "intent": "train", "coach_note": null, "sessions": [ /* see below */ ] } ],
+  "coach_comments": [],
+  "updated_at": "...", "updated_by": "coach"
+}
+```
+Session object: `id`, `origin`, `discipline`, `kind`, `title`, `priority`, `status`,
+`planned_duration_min`, `planned_load`, `template_id`, `session_file`, `coach_note`,
+`original_date`, `completion_activity_ids`.
+
+This is an accepted, owned contract (Tech Lead) with a documented rationale for every field —
+not a candidate for the same trim pass as `challenge_v2.json` was. One real problem, though, not
+a style choice:
+
+**`week.phase_name` and `week.block_name` directly reference the `phase`/`current_block` concept
+Part 2 just removed entirely from `seasons.json`.** This file wasn't touched by this redesign
+(hence "staying untouched"), but it's not actually independent of it — once `seasons.json` has no
+`phase` or `block`, there's nothing left to populate these two fields with. This is a real
+cross-file break, not a hypothetical one: `current_week.json`'s own contract doc says "Known phase
+only; do not infer" for `phase_name`, and there'd be no known phase left to reference. Needs
+resolving alongside Part 2's phase removal, not treated as a separately untouched file.
+
+### `activities/workout_plans/templates/*.json` / `sessions/*.json`
+
+Deep, hand-authored exercise-physics schema (`phases[].exercises[]` — timing, rest, form cues,
+weight progression), governed by its own doc (`propagated/docs/timer-state-machine.md` §7) and
+already flagged in `AGENTS.md` as Tech-Lead-authorize-only. Real, but a different subsystem from
+the coach-memory/ledger data this redesign is trimming — not going field-by-field here the way
+`profile.json`/`quests.json` got trimmed. `_meta` addition per the LLD stands; nothing else to
+flag from a necessity-check angle.
+
 **Real open question, not assumed:** does a session file (`sessions/YYYY-MM-DD_<id>.json`) copy
 its *whole* template on write, or only the fields that actually differ? If it's a full copy,
 that's real duplication (every session file repeats everything unchanged in the template) worth
