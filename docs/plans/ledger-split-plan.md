@@ -1,7 +1,11 @@
 # Ledger split — one file per concern
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-05 · Proposal — not yet approved, no code
+> Status: Superseded on ship · Owner: Tech Lead · Verified: 2026-08-16 · Proposal — not yet approved, no code
 > changes. Extends ADR 0006 (same v4 field shapes, different file boundaries).
+>
+> **Do not work from this doc.** [`coach-schema-redesign.md`](coach-schema-redesign.md) (issue #378)
+> absorbs the ledger split as its P2 and answers all five open questions below in its
+> [LLD](coach-schema-redesign-lld.md). Delete this file when P2 ships.
 
 ## Context
 
