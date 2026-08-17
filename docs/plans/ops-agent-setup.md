@@ -54,7 +54,8 @@ Verified, six correctly marked Historical. The problems are volume and expiry, n
 |---|---|---|---|
 | D1 | Re-verify or supersede `scaling-plan.md` — "the must-read", last verified 2026-07-29, since then the SOUL split, ADRs 0022–0025 and the coach data redesign all shipped | M | High |
 | D2 | Delete-on-ship for Historical eng-docs, the rule `docs/plans/` already has. Candidates: `phelps-research-notes`, `website-unification-history`, `hq-port-plan`, `hq-restructure-plan`, `m1-plan` | L | Med |
-| D3 | `Verified:` staleness check in `validate_kdb.py` — warn at 60 days, fail at 90 | L | High |
+| D3 | `Verified:` staleness check in `validate_kdb.py` — warn at 60 days, fail at 90. The doc walker and path checker already exist, so this is an extension, not new machinery | L | High |
+| D4 | Act on the four warnings `validate_kdb.py` already prints (dead paths in three `docs/plans/` files) and then decide: a warning nobody reads is noise — either it fails the build or the check goes | L | Med |
 
 **E — How we plan and ship.**
 
