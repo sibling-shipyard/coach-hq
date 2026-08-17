@@ -1,0 +1,1052 @@
+<title>Coach Phelps HQ</title>
+<style>
+  :root{
+    --paper:#E7E2D2; --block-top:#F2EEE0; --block-right:#D8D2BE; --block-left:#C3BCA5;
+    --slab-top:#EDE4CF; --slab-right:#D6CBAE; --slab-left:#C0B497;
+    --ink:#262B24; --ink-soft:#5B6156; --accent:#0E7C86; --accent-soft:#BFE0DF;
+    --line:#9B9483; --alert:#B5502E; --panel:#F7F4E9; --rail:#EFE9D8;
+    --shadow: rgba(38,43,36,0.18);
+    --col-soul:#F1E6C2; --col-soul-edge:#DFCF9E;
+    --col-dashboard:#D9E5EE; --col-dashboard-edge:#BBD0E0;
+    --col-api:#CDE8E4; --col-api-edge:#A9D4CD;
+    --col-engine:#DEE8D3; --col-engine-edge:#C1D4AF;
+    --col-ios:#E5DEED; --col-ios-edge:#CBBEDD;
+    --col-ci:#E6E2D6; --col-ci-edge:#CFC8B3;
+    --col-store:#EEDFC0; --col-store-edge:#DCC495;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#1B1D18; --block-top:#2B2E27; --block-right:#232620; --block-left:#1A1C17;
+      --slab-top:#2A2D25; --slab-right:#212420; --slab-left:#181A16;
+      --ink:#EDE8D8; --ink-soft:#A9A190; --accent:#4FC6C2; --accent-soft:#1F3C3C;
+      --line:#43473C; --alert:#E38A63; --panel:#20221D; --rail:#1D1F1A;
+      --shadow: rgba(0,0,0,0.45);
+      --col-soul:#3B331E; --col-soul-edge:#544825;
+      --col-dashboard:#1F2A32; --col-dashboard-edge:#2C3E4A;
+      --col-api:#1A302C; --col-api-edge:#23453D;
+      --col-engine:#232C1D; --col-engine-edge:#334227;
+      --col-ios:#2A2432; --col-ios-edge:#3B3247;
+      --col-ci:#292720; --col-ci-edge:#3A372C;
+      --col-store:#332813; --col-store-edge:#4A3A1A;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1B1D18; --block-top:#2B2E27; --block-right:#232620; --block-left:#1A1C17;
+    --slab-top:#2A2D25; --slab-right:#212420; --slab-left:#181A16;
+    --ink:#EDE8D8; --ink-soft:#A9A190; --accent:#4FC6C2; --accent-soft:#1F3C3C;
+    --line:#43473C; --alert:#E38A63; --panel:#20221D; --rail:#1D1F1A;
+    --shadow: rgba(0,0,0,0.45);
+    --col-soul:#3B331E; --col-soul-edge:#544825;
+    --col-dashboard:#1F2A32; --col-dashboard-edge:#2C3E4A;
+    --col-api:#1A302C; --col-api-edge:#23453D;
+    --col-engine:#232C1D; --col-engine-edge:#334227;
+    --col-ios:#2A2432; --col-ios-edge:#3B3247;
+    --col-ci:#292720; --col-ci-edge:#3A372C;
+    --col-store:#332813; --col-store-edge:#4A3A1A;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--paper);}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    color:var(--ink);
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  .mono{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; }
+  ::selection{ background:var(--accent-soft); }
+  a{ color:var(--accent); }
+  button:focus-visible, .rail-item:focus-visible, .tab:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    display:flex; align-items:stretch; gap:0; flex-shrink:0;
+    border-bottom:1px solid var(--line); background:var(--rail);
+  }
+  .stat{
+    padding:10px 18px; border-right:1px solid var(--line);
+    display:flex; flex-direction:column; justify-content:center; gap:3px; min-width:0;
+  }
+  .stat-label{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:9.5px; letter-spacing:.09em; color:var(--ink-soft); text-transform:uppercase; white-space:nowrap;}
+  .stat-value{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:14px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .stat-value b{ font-weight:700; }
+  .topbar-fill{ flex:1; }
+  .topbar-actions{ display:flex; align-items:center; gap:8px; padding:0 14px; }
+  .btn{
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+    background:var(--block-top); color:var(--ink); border:1px solid var(--line);
+    padding:7px 12px; cursor:pointer; white-space:nowrap;
+  }
+  .btn:hover{ background:var(--accent-soft); border-color:var(--accent); }
+  .btn[aria-pressed="true"]{ background:var(--accent); color:var(--panel); border-color:var(--accent); }
+
+  /* ---------- Body layout ---------- */
+  .body{ flex:1; display:flex; min-height:0; }
+  .rail{
+    width:212px; flex-shrink:0; background:var(--rail); border-right:1px solid var(--line);
+    overflow-y:auto; padding:10px 0 20px;
+  }
+  .rail-group-label{
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:9.5px; letter-spacing:.09em; color:var(--ink-soft); text-transform:uppercase;
+    padding:12px 14px 5px;
+  }
+  .rail-item{
+    display:flex; align-items:baseline; gap:8px; width:100%; text-align:left;
+    background:none; border:none; padding:5px 14px; cursor:pointer; color:var(--ink);
+  }
+  .rail-item:hover, .rail-item.hover{ background:var(--accent-soft); }
+  .rail-item.pinned{ background:var(--accent); color:var(--panel); }
+  .rail-code{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:11px; font-weight:700; width:20px; flex-shrink:0; }
+  .rail-name{ font-size:12px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rail-loc{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:9.5px; color:var(--ink-soft); flex-shrink:0; }
+  .rail-item.pinned .rail-loc{ color:var(--panel); opacity:.8; }
+
+  .stage{ flex:1; position:relative; min-width:0; background:var(--paper); overflow:hidden; }
+  #canvas{ width:100%; height:100%; display:block; cursor:grab; }
+  #canvas.panning{ cursor:grabbing; }
+
+  .zoom-controls{ position:absolute; top:14px; right:14px; display:flex; flex-direction:column; gap:1px; z-index:5;}
+  .zoom-controls button{
+    width:30px; height:30px; font-size:16px; line-height:1; background:var(--block-top);
+    border:1px solid var(--line); color:var(--ink); cursor:pointer;
+  }
+  .zoom-controls button:hover{ background:var(--accent-soft); }
+
+  .breadcrumb{
+    position:absolute; top:14px; left:14px; z-index:5;
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:11px;
+    background:var(--block-top); border:1px solid var(--line); padding:6px 10px;
+    display:none; align-items:center; gap:8px; color:var(--ink);
+  }
+  .breadcrumb.show{ display:flex; }
+  .breadcrumb button{ background:none; border:none; color:var(--accent); cursor:pointer; font:inherit; padding:0; text-decoration:underline; }
+
+  .trace-banner{
+    position:absolute; left:14px; right:14px; bottom:14px; z-index:5;
+    background:var(--panel); border:1px solid var(--accent); padding:10px 14px;
+    display:none; gap:10px; align-items:baseline; box-shadow:0 2px 10px var(--shadow);
+  }
+  .trace-banner.show{ display:flex; }
+  .trace-step{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:11px; color:var(--accent); flex-shrink:0; }
+  .trace-text{ font-size:13px; line-height:1.5; }
+
+  .footer-hint{
+    position:absolute; left:14px; bottom:14px; z-index:4;
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:10px;
+    color:var(--ink-soft); letter-spacing:.03em;
+  }
+
+  .legend{
+    position:absolute; right:14px; bottom:14px; z-index:4;
+    background:var(--block-top); border:1px solid var(--line); padding:8px 11px;
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .legend-row{ display:flex; align-items:center; gap:7px; font-size:10px; color:var(--ink-soft); white-space:nowrap; }
+  .legend-row svg{ flex-shrink:0; }
+
+  .tip{
+    position:fixed; z-index:20; pointer-events:none;
+    background:var(--ink); color:var(--paper); font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:11px; padding:5px 8px; max-width:240px; display:none; line-height:1.4;
+  }
+  .tip b{ font-weight:700; }
+
+  .colony-top, .colony-side{ pointer-events:none; }
+  .colony-label{
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:9px; letter-spacing:.1em;
+    fill:var(--ink-soft); text-transform:uppercase; pointer-events:none;
+  }
+  .colony-label-bg{ fill:var(--panel); opacity:0.86; stroke:var(--line); stroke-width:0.6; pointer-events:none; }
+
+  .trace-fx-dot{ fill:var(--alert); stroke:var(--panel); stroke-width:1.5; }
+
+  /* ---------- Panel ---------- */
+  .panel{
+    width:340px; flex-shrink:0; background:var(--panel); border-left:1px solid var(--line);
+    display:flex; flex-direction:column; min-height:0;
+  }
+  .tabs{ display:flex; border-bottom:1px solid var(--line); flex-shrink:0; }
+  .tab{
+    flex:1; font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; text-align:center;
+    padding:12px 4px; background:none; border:none; color:var(--ink-soft); cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  .tab.active{ color:var(--ink); border-bottom-color:var(--accent); }
+  .panel-scroll{ flex:1; overflow-y:auto; padding:20px; }
+  .panel-eyebrow{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:10px; letter-spacing:.09em; color:var(--accent); text-transform:uppercase; margin-bottom:6px;}
+  .panel-title{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:19px; font-weight:700; line-height:1.25; margin:0 0 4px; text-wrap:balance; }
+  .panel-sub{ font-size:13px; color:var(--ink-soft); margin:0 0 16px; line-height:1.5; }
+  .panel-meta{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:10.5px; color:var(--ink-soft); margin-bottom:14px; }
+  .panel-body p{ font-size:13px; line-height:1.65; margin:0 0 13px; }
+  .panel-body p:last-child{ margin-bottom:0; }
+  .panel-hl{ background:var(--accent-soft); padding:0 3px; }
+  .panel-hr{ border:none; border-top:1px solid var(--line); margin:18px 0; }
+  .panel-section-label{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; font-size:10px; letter-spacing:.09em; color:var(--ink-soft); text-transform:uppercase; margin-bottom:8px; }
+  .talks-list{
+    list-style:none; margin:0; padding:0; font-size:12.5px;
+    display:grid; grid-template-columns:124px 1fr; column-gap:14px;
+  }
+  .talks-list li{ display:contents; }
+  .talks-list button, .talks-list .talk-pay{
+    padding:7px 0; border-bottom:1px dotted var(--line); line-height:1.45;
+    display:flex; align-items:center;
+  }
+  .talks-list button{ background:none; border:none; border-bottom:1px dotted var(--line); color:var(--accent); cursor:pointer; font:inherit; text-align:left; }
+  .talks-list .talk-pay{ color:var(--ink-soft); }
+  .talks-list li:last-child button, .talks-list li:last-child .talk-pay{ border-bottom:none; }
+  .pin-x{ background:var(--accent); color:var(--panel); border:none; font-family:ui-monospace,monospace; font-size:11px; padding:4px 9px; cursor:pointer; margin-top:10px; }
+
+  svg text{ font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace; user-select:none; }
+  .struct{ cursor:pointer; }
+  .face{ stroke:var(--ink); stroke-width:1; stroke-linejoin:round; }
+  .struct .code-label{ font-size:11.5px; font-weight:700; fill:var(--ink); text-anchor:middle; }
+  .struct .loc-label{ font-size:7.5px; fill:var(--ink-soft); text-anchor:middle; }
+  .struct.hover .face-top, .struct.pinned .face-top{ filter:brightness(1.06); }
+  .struct.hover .face, .struct.pinned .face{ stroke:var(--accent); stroke-width:1.8; }
+  .struct.dim{ opacity:.28; }
+  .struct.trace-active .face{ stroke:var(--accent); stroke-width:2.4; }
+  .struct.trace-active .code-label{ fill:var(--accent); }
+
+  .edge-line{ fill:none; stroke:var(--line); stroke-width:1.1; }
+  .edge-line.dashed{ stroke-dasharray:3 3; }
+  .edge-hit{ fill:none; stroke:transparent; stroke-width:11; cursor:default; }
+  .edge-dot{ fill:var(--accent); }
+  .external-label{ font-size:9.5px; fill:var(--ink-soft); letter-spacing:.05em; }
+  .external-leader{ stroke:var(--ink-soft); stroke-dasharray:2 3; stroke-width:1; fill:none; }
+  .external.trace-active .external-label{ fill:var(--accent); font-weight:700; }
+  .external.dim{ opacity:.3; }
+
+  @media (prefers-reduced-motion: reduce){
+    * { animation-duration:0.001s !important; }
+  }
+
+  @media (max-width: 900px){
+    .rail{ width:150px; }
+    .panel{ width:280px; }
+    .stat-label{ display:none; }
+  }
+</style>
+<script>
+(function(){
+  try{
+    var t = localStorage.getItem('atlas-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  }catch(e){
+    document.documentElement.setAttribute('data-theme','light');
+  }
+})();
+</script>
+
+<div class="topbar" id="topbar">
+  <div class="topbar-fill" style="display:flex;"></div>
+  <div class="topbar-actions">
+    <button class="btn" id="btnTheme">☀ Light</button>
+    <button class="btn" id="btnPause" aria-pressed="false">Pause the flow</button>
+    <button class="btn" id="btnTraceBack">◀ Back</button>
+    <button class="btn" id="btnTrace">Trace one step ▶</button>
+    <button class="btn" id="btnReset">Reset view</button>
+  </div>
+</div>
+
+<div class="body">
+  <nav class="rail" id="rail" aria-label="Repository structure"></nav>
+
+  <div class="stage" id="stage">
+    <div class="breadcrumb" id="breadcrumb"></div>
+    <svg id="canvas" viewBox="-403 -345 1150 955" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Isometric architecture map of Coach Phelps HQ">
+      <defs>
+        <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="6" stroke="var(--line)" stroke-width="1"></line>
+        </pattern>
+        <pattern id="crosshatch" width="7" height="7" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="7" y2="7" stroke="var(--line)" stroke-width="0.9"></line>
+          <line x1="7" y1="0" x2="0" y2="7" stroke="var(--line)" stroke-width="0.9"></line>
+        </pattern>
+        <pattern id="bggrid" width="34" height="34" patternUnits="userSpaceOnUse">
+          <path d="M34 0 L0 0 0 34" fill="none" stroke="var(--line)" stroke-width="0.6" opacity="0.35"></path>
+        </pattern>
+        <marker id="arrowFlow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path>
+        </marker>
+        <marker id="arrowDashed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"></path>
+        </marker>
+      </defs>
+      <rect id="bgrect" x="-3000" y="-3000" width="6000" height="6000" fill="url(#bggrid)"></rect>
+      <g id="world"></g>
+    </svg>
+    <div class="zoom-controls">
+      <button id="zoomIn" aria-label="Zoom in">+</button>
+      <button id="zoomOut" aria-label="Zoom out">&minus;</button>
+    </div>
+    <div class="trace-banner" id="traceBanner">
+      <span class="trace-step mono" id="traceStep"></span>
+      <span class="trace-text" id="traceText"></span>
+    </div>
+    <div class="legend">
+      <div class="legend-row"><svg width="20" height="8" viewBox="0 0 20 8"><line x1="0" y1="4" x2="20" y2="4" stroke="var(--accent)" stroke-width="1.4"></line><circle cx="8" cy="4" r="2.4" fill="var(--accent)"></circle></svg><span>data in motion, live at request time</span></div>
+      <div class="legend-row"><svg width="20" height="8" viewBox="0 0 20 8"><line x1="0" y1="4" x2="20" y2="4" stroke="var(--ink-soft)" stroke-width="1.2" stroke-dasharray="3 3"></line></svg><span>wired at build time / config only</span></div>
+      <div class="legend-row"><svg width="14" height="10" viewBox="0 0 10 10"><path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"></path></svg><span>arrow points at the receiver</span></div>
+    </div>
+    <div class="footer-hint">HOVER TO READ &middot; CLICK TO PIN &middot; DOUBLE-CLICK TO GO INSIDE &middot; DRAG TO PAN &middot; SCROLL TO ZOOM</div>
+  </div>
+
+  <aside class="panel">
+    <div class="tabs">
+      <button class="tab active" data-tab="what">What it does</button>
+      <button class="tab" data-tab="how">How it's built</button>
+    </div>
+    <div class="panel-scroll" id="panelScroll"></div>
+  </aside>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================== DATA ============================== */
+
+var GROUPS = [
+  {id:'soul', label:'The Soul', short:'SOUL'},
+  {id:'dashboard', label:'The Dashboard', short:'DASHBOARD'},
+  {id:'api', label:'The Coach-Chat API', short:'COACH-CHAT API'},
+  {id:'engine', label:'The Engine', short:'ENGINE'},
+  {id:'ios', label:'The iOS App', short:'IOS APP'},
+  {id:'ci', label:'CI & Governance', short:'CI & GOVERNANCE'},
+  {id:'store', label:'The Data Store', short:'DATA STORE'}
+];
+
+var STRUCTURES = [
+  { id:'SL', code:'SL', name:'Soul Composition', group:'soul', loc:'3 layers · 1,062 ln', gx:9, gy:0, w:2, d:2, h:6,
+    what:"Three hand-written layers — coach identity, engine rules, athlete schema — get deterministically concatenated into platform/SOUL.md, the coach's entire personality and rulebook in one file.",
+    how:"A Node script (compose-soul.mjs) concatenates platform/soul/A_identity.md, B_engine.md and C_athlete.md with section markers. CI (validate-soul.yml) fails any PR where SOUL.md drifts from its sources.",
+    children:[
+      {code:'A', name:'A_identity.md', h:3, what:'Coach Phelps’ voice, tone, and the six coaching rules — 84 lines.'},
+      {code:'B', name:'B_engine.md', h:6, what:'Boot sequence, workflows, the commit protocol — the rules engine, 400 lines.'},
+      {code:'C', name:'C_athlete.md', h:2, what:'Declarative athlete schema: sports[], injury_flags[], conditions[] — 69 lines.'},
+      {code:'MD', name:'SOUL.md (composed)', h:5, what:'509-line output, ~12,400 tokens — read directly by the coach-chat backend.'}
+    ]},
+
+  { id:'UI', code:'UI', name:'Dashboard Client', group:'dashboard', loc:'145 files · 19.7K ln', gx:2, gy:0, w:3, d:2, h:14,
+    what:"The athlete-facing web app — quest home, monthly and sport analytics, workout timer, and the Coach Chat tab. Built with React 19 and Vite, shipped as a static site on Vercel.",
+    how:"ui/client/src: 18 pages, 91 components, Radix UI + Tailwind 4 + Recharts. Build-time data comes from shared/golden-dataset (HQ) or a synced athlete repo, injected by build-data.mjs." },
+
+  { id:'WI', code:'TOK', name:'Design Tokens', group:'dashboard', loc:'2 files', gx:0, gy:1, w:1, d:1, h:2,
+    what:"One shared set of colors and spacing — the “Warm Instrument” system — so the web dashboard and the native iOS app read as the same product.",
+    how:"shared/warm-instrument/tokens.json generates CSS custom properties for the web build; iOS reads the same values from a mapping doc by hand — no generated Swift file yet." },
+
+  { id:'GD', code:'GD', name:'Golden Dataset', group:'dashboard', loc:'6 files', gx:0, gy:3, w:1, d:1, h:1.4, slab:true,
+    what:"Synthetic sample training data — the fixture HQ's own dashboard build runs on, since this repo carries no real athlete data by design.",
+    how:"shared/golden-dataset/*.json, copied into ui/client/src/data at build time in place of a real synced repo." },
+
+  { id:'BD', code:'BD', name:'Build Scripts', group:'dashboard', loc:'8 files', gx:1, gy:2, w:1, d:1, h:3,
+    what:"The pre-build pipeline that stitches everything else together before the dashboard or its API functions ship — pulling in data, bundling SOUL.md, bundling the widget generator.",
+    how:"ui/scripts/*.mjs, run via npm run predev / prebuild: build-data.mjs, build-soul.mjs, bundle-widget-snapshots-api.mjs, plus the coach-chat eval harness." },
+
+  { id:'CC', code:'CC', name:'Coach Chat', group:'api', loc:'3 routes · 1,349 ln', gx:7, gy:3, w:3, d:3, h:11,
+    what:"The actual coaching conversation. Every chat turn — web or iOS — lands here: it loads the athlete's context, asks Gemini for a reply, and on session close, writes the coach's memory back to the athlete's repo.",
+    how:"ui/api/coach-chat.ts — 1,271 lines, the single largest file in the repo — is one Vercel serverless function. No separate chat server exists.",
+    children:[
+      {code:'CH', name:'coach-chat.ts', h:9, what:'Main handler: auth, context load, Gemini call, close-detection, response — 1,271 lines.'},
+      {code:'CX', name:'coach-chat-context.ts', h:2, what:'Fire-and-forget cache warmer, fired when the chat tab opens.'},
+      {code:'PS', name:'coach-chat-profile-status.ts', h:2, what:'Checks whether First Session intake is complete before the client shows the chat tab.'},
+      {code:'LIB', name:'_lib file writer', h:5, what:'Shared commit / auth / cache helpers — see the File Writer block.'}
+    ]},
+
+  { id:'FW', code:'FW', name:'File Writer', group:'api', loc:'4 files · 644 ln', gx:11, gy:4, w:1, d:1, h:5,
+    what:"Turns a closed conversation's proposed edits into real file changes — JSON merge-patches for structured ledgers, string diffs for prose files like state.md.",
+    how:"ui/api/_lib/{coachChatFiles, fileEdits, githubGitData, soulCache}.ts — unit-tested, no database, just Git blob/tree/commit calls." },
+
+  { id:'AU', code:'AU', name:'Auth & Sessions', group:'api', loc:'7 files · 1,177 ln', gx:10, gy:7, w:2, d:2, h:7,
+    what:"Signs the athlete in with GitHub, issues an encrypted session cookie, and resolves which GitHub repo belongs to them — the gate every other API route sits behind.",
+    how:"ui/api/auth/[...action].ts — a single catch-all dispatching 7 sub-routes to stay under Vercel's 12-function cap (ADR 0017). iOS uses a Bearer token + X-Coach-Repo header instead of a cookie." },
+
+  { id:'WS', code:'WS', name:'Widget Snapshots', group:'api', loc:'66 ln', gx:7, gy:7, w:1, d:1, h:3,
+    what:"Pre-computes what the iOS home-screen widget needs — streaks, quest counts — so the widget extension never has to run coaching logic itself.",
+    how:"ui/api/widget-snapshots.ts fetches the athlete's gen/aggregate.json and runs the same projection models the dashboard uses, server-side." },
+
+  { id:'RW', code:'RFW', name:'Repo File & Waitlist', group:'api', loc:'2 files · 206 ln', gx:6, gy:7, w:1, d:1, h:3,
+    what:"repo-file.ts serves the athlete's derived data straight out of their GitHub repo like a CDN; waitlist.ts appends a signup email to this repo's own waitlist.json.",
+    how:"Both are thin Vercel functions over the GitHub Contents API — no app database involved." },
+
+  { id:'EN', code:'EN', name:'Sync Engine', group:'engine', loc:'29 files · 3.2K ln', gx:0, gy:5, w:2, d:2, h:8,
+    what:"Turns a pile of raw synced activity JSON into the derived numbers everything else reads — quest streaks, a dashboard aggregate, sync status.",
+    how:"engine/core + engine/scripts, Python + Node. Runs inside every athlete repo's sync workflow after a push — never at HQ, which has no user_data/ of its own.",
+    children:[
+      {code:'QH', name:'query_history.py', h:5, what:'Search and annotate local activity JSON — RPE notes, lookups. 421 lines.'},
+      {code:'QL', name:'generate_quest_log.py', h:7, what:'Computes streaks, rates and quest progress — the only source of truth for those numbers. 613 lines.'},
+      {code:'RD', name:'regenerate_derived.py', h:3, what:'Orchestrates the full derived-data regen the sync workflow calls.'},
+      {code:'AGG', name:'build-aggregate.mjs', h:4, what:'Builds gen/aggregate.json — the one file the dashboard and widgets actually fetch.'}
+    ]},
+
+  { id:'BP', code:'BP', name:'Badminton Plugin', group:'engine', loc:'3 files · 729 ln', gx:0, gy:7, w:1, d:1, h:4,
+    what:"Sport-specific match analytics — head-to-head, win rate, nemesis stats — kept as an opt-in plugin instead of baked into the core engine.",
+    how:"platform/plugins/badminton/analytics.py, loaded through a generic plugin interface in engine/lib so a second sport plugin needs no engine changes." },
+
+  { id:'CV', code:'CV', name:'Carve & Provision', group:'engine', loc:'3 scripts', gx:2, gy:5, w:1, d:1, h:3,
+    what:"The operator tool that turns this template repo into a brand-new athlete's actual repo — copying the engine and a fresh SOUL.md-derived skeleton.",
+    how:"platform/scripts/carve-skeleton.mjs pushes to a new sibling-shipyard/coach-<athlete> repo via the GitHub API. Never runs automatically." },
+
+  { id:'ST', code:'ST', name:'Skeleton Templates', group:'engine', loc:'7 files', gx:2, gy:6, w:1, d:1, h:1.4, slab:true,
+    what:"The starter workout templates — calisthenics, strength, foundation, recovery — every new athlete's repo is stamped with at carve time.",
+    how:"platform/skeleton-templates/*.json, plain data, copied verbatim by carve-skeleton.mjs." },
+
+  { id:'IO', code:'IOS', name:'CoachHQ iOS App', group:'ios', loc:'~53 files · Swift', gx:13, gy:0, w:2, d:2, h:13,
+    what:"The native app: signs in with the same GitHub OAuth flow, pulls workouts from Apple HealthKit, and pushes them straight to the athlete's GitHub repo — no server in the loop for sync itself.",
+    how:"SwiftUI + HealthKit, with a hand-written GitHubAPIClient.swift that mirrors the web's blob→tree→commit pattern independently. No XCTest target exists yet." },
+
+  { id:'IW', code:'IW', name:'Home Screen Widget', group:'ios', loc:'7 files', gx:15, gy:0, w:1, d:1, h:3,
+    what:"WidgetKit home-screen widgets — quest streak, training load — built as their own extension target.",
+    how:"A separate Xcode scheme (CoachHQWidgetExtension), compiled by CI alongside the main app. Reads a snapshot the main app already fetched — makes no network calls of its own." },
+
+  { id:'CI', code:'CI', name:'HQ CI Gates', group:'ci', loc:'4 workflows', gx:7, gy:11, w:2, d:1, h:4,
+    what:"Four GitHub Actions checks guard this repo directly: does iOS still build, do the Vitest suites pass, are the ADRs well-formed, has SOUL.md drifted from its source layers.",
+    how:".github/workflows/{ios-build, ui-tests, validate-kdb, validate-soul}.yml — HQ-only. The athlete-repo workflows (sync, validate-data) are templates carved elsewhere — they never run here." },
+
+  { id:'KD', code:'KD', name:'Decisions (ADRs)', group:'ci', loc:'20 ADRs', gx:9, gy:11, w:1, d:1, h:1.4, slab:true,
+    what:"The durable, hard-to-reverse architecture calls and why — read on entry by every agent working this repo, never re-litigated casually.",
+    how:"kdb/decisions/*.md, one file per decision, linted by validate_kdb.py in CI." },
+
+  { id:'DC', code:'DC', name:'Eng Docs', group:'ci', loc:'50 files · 7.7K ln', gx:10, gy:11, w:1, d:1, h:1.4, slab:true,
+    what:"Architecture plans, cost analyses and design-history docs — the operator-facing record of why this was built this way. Read on demand, not wired to any pipeline.",
+    how:"docs/eng-docs/ + docs/ref-docs/, plain markdown, not code, not shipped anywhere." },
+
+  { id:'AG', code:'AG', name:'Agent Roles', group:'ci', loc:'5 role docs', gx:11, gy:11, w:1, d:1, h:1.4, slab:true,
+    what:"The routing rules and per-area conventions for the five agents — this one included — that share this repo.",
+    how:".github/agents/*.md + root AGENTS.md, read once at boot, never at runtime. validate-kdb.yml lints them on any change." },
+
+  { id:'REPO', code:'DB', name:"Athlete's GitHub Repo", group:'store', loc:'the data store', gx:2, gy:9, w:4, d:2, h:1.6, slab:true,
+    what:"There is no database. Every athlete's own GitHub repository — its files, its git history — IS the data store. Every read and write in this system goes through GitHub's Git Data API.",
+    how:"Confirmed by absence: no Postgres, KV, Mongo or SQLite import anywhere in ui/. The one real cache is a single Vercel Edge Config value holding a Gemini prompt-cache handle — not app data." }
+];
+
+var EXTERNALS = [
+  { id:'GM', label:'GEMINI API', anchor:'CC', dx:150, dy:-70,
+    what:"Google's gemini-flash-latest model. One generateContent() call per chat turn, with SOUL.md + state.md + quest_log.md as system context." },
+  { id:'HK', label:'HEALTHKIT', anchor:'IO', dx:90, dy:-80,
+    what:"On-device workout data, read directly by the iOS app. Never touches a server during sync itself — the phone talks straight to GitHub." }
+];
+
+var EDGES = [
+  {f:'HK', t:'IO', flow:1, pay:'HKWorkout samples (on-device)'},
+  {f:'IO', t:'REPO', flow:1, pay:'new activity JSON — blob→tree→commit'},
+  {f:'REPO', t:'EN', flow:1, pay:'push trigger → sync workflow'},
+  {f:'EN', t:'REPO', flow:1, pay:'writes gen/quest_log.md, aggregate.json'},
+  {f:'REPO', t:'RW', flow:1, pay:'GET aggregate.json via Contents API'},
+  {f:'RW', t:'UI', flow:1, pay:'aggregate JSON'},
+  {f:'REPO', t:'WS', flow:1, pay:'aggregate.json for widget projection'},
+  {f:'WS', t:'IW', flow:1, pay:'widget snapshot JSON'},
+  {f:'UI', t:'CC', flow:1, pay:'chat turn (session cookie)'},
+  {f:'IO', t:'CC', flow:1, pay:'chat turn (Bearer + X-Coach-Repo)'},
+  {f:'SL', t:'CC', dashed:1, pay:'SOUL.md bundled at build time'},
+  {f:'CC', t:'AU', flow:1, pay:'resolve repo auth'},
+  {f:'AU', t:'REPO', dashed:1, pay:'OAuth token → repo resolution'},
+  {f:'CC', t:'GM', flow:1, pay:'generateContent()'},
+  {f:'CC', t:'FW', flow:1, pay:'session_closed → file_updates'},
+  {f:'FW', t:'REPO', flow:1, pay:'atomic multi-file commit'},
+  {f:'BD', t:'SL', dashed:1, pay:'build-soul.mjs bundles SOUL.md'},
+  {f:'GD', t:'BD', dashed:1, pay:'sample fixtures'},
+  {f:'BD', t:'UI', dashed:1, pay:'data/ populated pre-build'},
+  {f:'WI', t:'UI', dashed:1, pay:'design tokens → CSS vars'},
+  {f:'CV', t:'EN', dashed:1, pay:'carve copies engine/ verbatim'},
+  {f:'ST', t:'CV', dashed:1, pay:'starter templates stamped at carve time'},
+  {f:'EN', t:'BP', dashed:1, pay:'plugin loader'},
+  {f:'CI', t:'UI', dashed:1, pay:'vitest gate'},
+  {f:'CI', t:'IO', dashed:1, pay:'xcodebuild gate'},
+  {f:'CI', t:'SL', dashed:1, pay:'compose --check drift gate'},
+  {f:'CI', t:'KD', dashed:1, pay:'ADR lint gate'},
+  {f:'CI', t:'AG', dashed:1, pay:'ADR/agent-doc lint gate'}
+];
+
+var TRACE = [
+  ['UI', "Athlete opens Coach Chat — the client quietly warms the server's context cache in the background."],
+  ['CC', "coach-chat.ts receives the request and calls resolveRepoAuth() to check the session."],
+  ['AU', "Auth resolves the athlete's GitHub session cookie (web) or Bearer token + repo header (iOS) to a specific athlete repo."],
+  ['SL', "The composed SOUL.md — bundled into the function at build time — supplies the coach's personality and rules as system instruction."],
+  ['REPO', "state.md and quest_log.md are pulled fresh from the athlete's repo, or served from a 60-second cache, for durable memory and quest status."],
+  ['CC', "Gemini is called once with SOUL + state + quest context plus the athlete's message."],
+  ['GM', "Google's Gemini API (gemini-flash-latest) generates the reply text."],
+  ['CC', "The reply comes back with a structured session_closed flag and, if the conversation is wrapping up, proposed file_updates."],
+  ['FW', "When session_closed is true, the file-write layer turns those updates into JSON merge-patches and string diffs, one per coach-owned file."],
+  ['REPO', "One atomic Git Data API commit — blob → tree → commit → ref — writes state.md, coach_notes.md, challenge_v2.json, sleep_log.json and chat_history.json back to the athlete's repo in a single push."],
+  ['CC', "The response — reply text, closed flag, and the repo's new commit SHA — returns to the client."],
+  ['UI', "The athlete sees the coach's reply. Nothing is lost even if the tab closes right after this message."]
+];
+
+var OVERVIEW_WHAT = {
+  eyebrow:'coach-phelps-hq',
+  title:'The Coach Phelps Platform',
+  sub:"how one athlete's training data becomes a coach who remembers everything",
+  body:[
+    "This repository is Coach Phelps HQ: a multi-agent monorepo that builds and operates an AI coach. It composes a coach's personality into <span class=\"panel-hl\">SOUL.md</span>, serves live conversation through a <span class=\"panel-hl\">Gemini-backed chat API</span>, and ships both a web dashboard and a native iOS app that read and write straight to the athlete's own <span class=\"panel-hl\">GitHub repo</span>.",
+    "There is no product database. The center of this map is the athlete's repo itself — every quest, every workout, every coaching note lives there as a git-committed file, read and written through GitHub's own API.",
+    "One skeleton (the engine plus a composed SOUL.md) gets <span class=\"panel-hl\">carved</span> into a fresh repo per athlete. This repo, HQ, carries no real athlete data of its own — its own dashboard build runs on a synthetic golden dataset instead.",
+    "Five agents share this codebase — Tech Lead, Coach Phelps, and the UI / engine / iOS builders — routed by how you address them. This atlas is a Tech Lead artifact, not part of the shipped product."
+  ]
+};
+var OVERVIEW_HOW = {
+  eyebrow:'coach-phelps-hq',
+  title:'How It’s Built',
+  sub:'two deployables sharing one source of truth',
+  body:[
+    "There's no single backend image here — this is genuinely two deployables: a Vercel project (static dashboard plus 7 serverless functions) and a native iOS app, both talking to the same GitHub-hosted data instead of to each other directly.",
+    "The coach's brain is composed, not hand-written as one file: three layers — identity, engine rules, athlete schema — concatenate into SOUL.md, then get bundled into the chat function at build time. Coaching behavior changes by editing a layer and running compose, never by hand-editing the output.",
+    "Auth is one catch-all function, not seven, to stay under Vercel's function cap — a hard platform constraint that shaped the whole API tier's shape (ADR 0017).",
+    "Four CI gates run at HQ: iOS still builds, the Vitest suites pass, ADRs are well-formed, SOUL.md hasn't drifted. The athlete-repo workflows (sync, validate-data) are templates carved elsewhere — they never run in this repo."
+  ]
+};
+var READ_IT = "Hover anything for a plain description. Click to pin it in this panel. Double-click a structure to go inside it. The moving marks are data in motion — hover one to see what travels on that line. “Trace one step” walks a real chat message through the whole system.";
+
+/* ============================== PROJECTION ============================== */
+
+var TILE_W = 39, TILE_H = 21, H_SCALE = 23;
+function pg(gx, gy){ return { x:(gx-gy)*TILE_W, y:(gx+gy)*TILE_H }; }
+function corners(s){
+  var g0=pg(s.gx,s.gy), g1=pg(s.gx+s.w,s.gy), g2=pg(s.gx+s.w,s.gy+s.d), g3=pg(s.gx,s.gy+s.d);
+  var hs = s.h*H_SCALE;
+  return {
+    g0:g0, g1:g1, g2:g2, g3:g3,
+    t0:{x:g0.x,y:g0.y-hs}, t1:{x:g1.x,y:g1.y-hs}, t2:{x:g2.x,y:g2.y-hs}, t3:{x:g3.x,y:g3.y-hs}
+  };
+}
+function anchorPt(s){ var c=corners(s); return { x:(c.t0.x+c.t2.x)/2, y:(c.t0.y+c.t2.y)/2 }; }
+function inset(s, m){ return { gx:s.gx+m, gy:s.gy+m, w:Math.max(0.3,s.w-2*m), d:Math.max(0.3,s.d-2*m), h:s.h }; }
+function pts(list){ return list.map(function(p){return p.x.toFixed(1)+','+p.y.toFixed(1);}).join(' '); }
+
+/* ============================== STATE ============================== */
+
+var byId = {};
+STRUCTURES.forEach(function(s){ byId[s.id]=s; });
+var extById = {};
+EXTERNALS.forEach(function(e){ extById[e.id]=e; });
+function getNode(id){ return byId[id] || extById[id]; }
+function isExternalId(id){ return !!extById[id]; }
+
+var state = {
+  pinnedId: null,
+  hoverId: null,
+  insideId: null,
+  traceIndex: -1,
+  activeTab: 'what',
+  paused: false,
+  zoom: 1,
+  panX: 0, panY: 0
+};
+
+var svg = document.getElementById('canvas');
+var world = document.getElementById('world');
+var railEl = document.getElementById('rail');
+var panelScroll = document.getElementById('panelScroll');
+var topbarFill = document.querySelector('.topbar-fill');
+var breadcrumb = document.getElementById('breadcrumb');
+var traceBanner = document.getElementById('traceBanner');
+var traceFxLayer = null;
+var tip = document.getElementById('tip');
+function showTip(ev, html){
+  tip.style.display='block';
+  tip.style.left=(ev.clientX+14)+'px';
+  tip.style.top=(ev.clientY+14)+'px';
+  tip.innerHTML = html;
+}
+function hideTip(){ tip.style.display='none'; }
+
+/* ============================== TOPBAR ============================== */
+
+var STATS = [
+  ['Repository', 'coach-phelps-hq'],
+  ['Lines of code', '~52K'],
+  ['Dashboard', '145 files · 19.7K ln'],
+  ['API tier', '7 functions · 1 repo-as-DB'],
+  ['Test files', '23'],
+  ['Deployed surfaces', '13 · web, iOS, Actions']
+];
+topbarFill.innerHTML = STATS.map(function(s){
+  return '<div class="stat"><div class="stat-label">'+s[0]+'</div><div class="stat-value mono">'+s[1]+'</div></div>';
+}).join('');
+
+/* ============================== RAIL ============================== */
+
+function buildRail(){
+  var html = '';
+  GROUPS.forEach(function(g){
+    var items = STRUCTURES.filter(function(s){ return s.group===g.id; });
+    if(!items.length) return;
+    html += '<div class="rail-group-label">'+g.label+'</div>';
+    items.forEach(function(s){
+      html += '<button class="rail-item mono" data-id="'+s.id+'" title="'+s.name+'">'+
+        '<span class="rail-code">'+s.code+'</span>'+
+        '<span class="rail-name" style="font-family:-apple-system,system-ui,sans-serif;">'+s.name+'</span>'+
+        '<span class="rail-loc">'+s.loc+'</span></button>';
+    });
+  });
+  railEl.innerHTML = html;
+  railEl.querySelectorAll('.rail-item').forEach(function(btn){
+    btn.addEventListener('mouseenter', function(){ setHover(btn.dataset.id); });
+    btn.addEventListener('mouseleave', function(){ setHover(null); });
+    btn.addEventListener('click', function(){ togglePin(btn.dataset.id); });
+  });
+}
+
+/* ============================== RENDER ============================== */
+
+function svgEl(tag, attrs){
+  var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for(var k in attrs){ el.setAttribute(k, attrs[k]); }
+  return el;
+}
+
+function renderStructure(s, container){
+  var c = corners(inset(s, 0.16));
+  var g = svgEl('g', {class:'struct', 'data-id':s.id});
+  var topFill = s.slab ? 'var(--slab-top)' : 'var(--block-top)';
+  var rightFill = s.slab ? 'var(--slab-right)' : 'var(--block-right)';
+  var leftFill = s.slab ? 'var(--slab-left)' : 'var(--block-left)';
+  var hatchPattern = s.slab ? 'url(#crosshatch)' : 'url(#hatch)';
+
+  var left = svgEl('polygon', {class:'face face-left', points: pts([c.g2,c.g3,c.t3,c.t2]), fill:leftFill});
+  var right = svgEl('polygon', {class:'face face-right', points: pts([c.g1,c.g2,c.t2,c.t1]), fill:rightFill});
+  var top = svgEl('polygon', {class:'face face-top', points: pts([c.t0,c.t1,c.t2,c.t3]), fill:topFill});
+  var topHatch = svgEl('polygon', {points: pts([c.t0,c.t1,c.t2,c.t3]), fill:hatchPattern, opacity:'0.55', style:'pointer-events:none;'});
+
+  g.appendChild(left); g.appendChild(right); g.appendChild(top); g.appendChild(topHatch);
+
+  var cx = (c.t0.x+c.t2.x)/2, cy = (c.t0.y+c.t2.y)/2;
+  var codeLabel = svgEl('text', {class:'code-label', x:cx.toFixed(1), y:(cy+3).toFixed(1)});
+  codeLabel.textContent = s.code;
+  g.appendChild(codeLabel);
+
+  var tipHtml = '<b>'+s.name+'</b>'+(s.loc?'<br>'+s.loc:'')+(s.children?'<br>double-click to go inside':'');
+  g.addEventListener('mouseenter', function(){ setHover(s.id); });
+  g.addEventListener('mousemove', function(ev){ showTip(ev, tipHtml); });
+  g.addEventListener('mouseleave', function(){ setHover(null); hideTip(); });
+  g.addEventListener('click', function(ev){ ev.stopPropagation(); togglePin(s.id); });
+  g.addEventListener('dblclick', function(ev){ ev.stopPropagation(); if(s.children){ goInside(s.id); } });
+
+  container.appendChild(g);
+}
+
+function renderChildRow(parent, container){
+  var kids = parent.children;
+  kids.forEach(function(k, i){
+    var pseudo = { id:k.code, code:k.code, name:k.name, loc:'', gx:i*2.4, gy:0, w:1.6, d:1.6, h:k.h, slab:false };
+    var c = corners(inset(pseudo, 0.1));
+    var g = svgEl('g', {class:'struct', 'data-id':'__child__'+i});
+    var left = svgEl('polygon', {class:'face face-left', points: pts([c.g2,c.g3,c.t3,c.t2]), fill:'var(--block-left)'});
+    var right = svgEl('polygon', {class:'face face-right', points: pts([c.g1,c.g2,c.t2,c.t1]), fill:'var(--block-right)'});
+    var top = svgEl('polygon', {class:'face face-top', points: pts([c.t0,c.t1,c.t2,c.t3]), fill:'var(--block-top)'});
+    var topHatch = svgEl('polygon', {points: pts([c.t0,c.t1,c.t2,c.t3]), fill:'url(#hatch)', opacity:'0.55', style:'pointer-events:none;'});
+    g.appendChild(left); g.appendChild(right); g.appendChild(top); g.appendChild(topHatch);
+    var cx = (c.t0.x+c.t2.x)/2, cy=(c.t0.y+c.t2.y)/2;
+    var codeLabel = svgEl('text', {class:'code-label', x:cx.toFixed(1), y:(cy-1).toFixed(1)});
+    codeLabel.textContent = k.code;
+    var nameLabel = svgEl('text', {class:'loc-label', x:cx.toFixed(1), y:(cy+13).toFixed(1)});
+    nameLabel.textContent = k.name;
+    g.appendChild(codeLabel); g.appendChild(nameLabel);
+    g.addEventListener('mouseenter', function(){ showPanelFor({what:k.what, how:'Part of '+parent.name+'. '+parent.how, name:k.name, loc:parent.name, id:null}); });
+    g.addEventListener('mousemove', function(ev){ showTip(ev, '<b>'+k.name+'</b>'); });
+    g.addEventListener('mouseleave', function(){ renderPanel(); hideTip(); });
+    container.appendChild(g);
+  });
+}
+
+function edgeAnchor(id){
+  if(isExternalId(id)){
+    var e = extById[id];
+    var a = anchorPt(byId[e.anchor]);
+    return { x:a.x+e.dx, y:a.y+e.dy };
+  }
+  var s = byId[id];
+  return anchorPt(s);
+}
+
+function renderEdge(edge, container){
+  var from = edgeAnchor(edge.f), to = edgeAnchor(edge.t);
+  var midx = (from.x+to.x)/2;
+  var d = 'M '+from.x.toFixed(1)+','+from.y.toFixed(1)+
+          ' L '+midx.toFixed(1)+','+from.y.toFixed(1)+
+          ' L '+midx.toFixed(1)+','+to.y.toFixed(1)+
+          ' L '+to.x.toFixed(1)+','+to.y.toFixed(1);
+  var line = svgEl('path', {class:'edge-line'+(edge.dashed?' dashed':''), d:d,
+    'marker-end': edge.dashed ? 'url(#arrowDashed)' : 'url(#arrowFlow)'});
+  var hit = svgEl('path', {class:'edge-hit', d:d, 'data-pay':edge.pay});
+  container.appendChild(line);
+  container.appendChild(hit);
+
+  var fromNode = getNode(edge.f), toNode = getNode(edge.t);
+  var edgeLabel = '<b>'+(fromNode.name||fromNode.label)+' → '+(toNode.name||toNode.label)+'</b><br>'+edge.pay;
+  hit.addEventListener('mousemove', function(ev){ showTip(ev, edgeLabel); });
+  hit.addEventListener('mouseleave', hideTip);
+
+  if(edge.flow){
+    var pathId = 'edgepath-'+Math.random().toString(36).slice(2,9);
+    line.setAttribute('id', pathId);
+    var dot = svgEl('circle', {class:'edge-dot', r:'3.2'});
+    var anim = svgEl('animateMotion', {dur:(4+Math.random()*2).toFixed(1)+'s', repeatCount:'indefinite', rotate:'0'});
+    var mp = svgEl('mpath', {});
+    mp.setAttributeNS('http://www.w3.org/1999/xlink','href','#'+pathId);
+    anim.appendChild(mp);
+    dot.appendChild(anim);
+    container.appendChild(dot);
+  }
+}
+
+function renderExternal(e, container){
+  var s = byId[e.anchor];
+  var a = anchorPt(s);
+  var pt = { x:a.x+e.dx, y:a.y+e.dy };
+  var g = svgEl('g', {class:'external', 'data-id':e.id});
+  var leader = svgEl('line', {class:'external-leader', x1:a.x.toFixed(1), y1:a.y.toFixed(1), x2:pt.x.toFixed(1), y2:pt.y.toFixed(1)});
+  var dot = svgEl('circle', {cx:pt.x.toFixed(1), cy:pt.y.toFixed(1), r:'2', fill:'var(--ink-soft)'});
+  var label = svgEl('text', {class:'external-label', x:pt.x.toFixed(1), y:(pt.y-7).toFixed(1), 'text-anchor': e.dx<0?'end':'start'});
+  label.textContent = e.label;
+  g.appendChild(leader); g.appendChild(dot); g.appendChild(label);
+  g.addEventListener('mouseenter', function(){ setHover(e.id); });
+  g.addEventListener('mousemove', function(ev){ showTip(ev, '<b>'+e.label+'</b><br>external dependency'); });
+  g.addEventListener('mouseleave', function(){ setHover(null); hideTip(); });
+  container.appendChild(g);
+}
+
+function groupBBox(groupId, pad){
+  var members = STRUCTURES.filter(function(s){ return s.group===groupId; });
+  if(!members.length) return null;
+  var minGx=Infinity,maxGx=-Infinity,minGy=Infinity,maxGy=-Infinity;
+  members.forEach(function(s){
+    minGx=Math.min(minGx,s.gx); maxGx=Math.max(maxGx,s.gx+s.w);
+    minGy=Math.min(minGy,s.gy); maxGy=Math.max(maxGy,s.gy+s.d);
+  });
+  return { gx:minGx-pad, gy:minGy-pad, w:(maxGx-minGx)+pad*2, d:(maxGy-minGy)+pad*2 };
+}
+
+function renderColonies(container){
+  GROUPS.forEach(function(g){
+    var bb = groupBBox(g.id, 0.28);
+    if(!bb) return;
+    var plate = Object.assign({h:0.32}, bb);
+    var c = corners(plate);
+    var top = svgEl('polygon', {class:'colony-top', points: pts([c.t0,c.t1,c.t2,c.t3]), fill:'var(--col-'+g.id+')'});
+    var right = svgEl('polygon', {class:'colony-side', points: pts([c.g1,c.g2,c.t2,c.t1]), fill:'var(--col-'+g.id+'-edge)'});
+    var left = svgEl('polygon', {class:'colony-side', points: pts([c.g2,c.g3,c.t3,c.t2]), fill:'var(--col-'+g.id+'-edge)'});
+    container.appendChild(top); container.appendChild(right); container.appendChild(left);
+  });
+}
+
+/* Labels render in their own top-most layer (after every building) so a tall
+   neighboring block can never fully hide one — worst case it sits on a roof,
+   which the background chip keeps legible. */
+function renderColonyLabels(container){
+  GROUPS.forEach(function(g){
+    var bb = groupBBox(g.id, 0.28);
+    if(!bb) return;
+    var plate = Object.assign({h:0.32}, bb);
+    var c = corners(plate);
+    var text = svgEl('text', {class:'colony-label', x:c.t2.x.toFixed(1), y:(c.t2.y+18).toFixed(1), 'text-anchor':'middle'});
+    text.textContent = g.short;
+    container.appendChild(text);
+    var box = text.getBBox();
+    var pad = 3;
+    var chip = svgEl('rect', {class:'colony-label-bg', x:(box.x-pad).toFixed(1), y:(box.y-pad).toFixed(1),
+      width:(box.width+pad*2).toFixed(1), height:(box.height+pad*2).toFixed(1), rx:'2'});
+    container.insertBefore(chip, text);
+  });
+}
+
+function renderOverview(){
+  world.innerHTML = '';
+  var order = STRUCTURES.slice().sort(function(a,b){
+    return (a.gx+a.w/2+a.gy+a.d/2) - (b.gx+b.w/2+b.gy+b.d/2);
+  });
+  var colonyLayer = svgEl('g', {class:'colony-layer'});
+  var edgeLayer = svgEl('g', {class:'edge-layer'});
+  var structLayer = svgEl('g', {class:'struct-layer'});
+  var extLayer = svgEl('g', {class:'ext-layer'});
+  var labelLayer = svgEl('g', {class:'colony-label-layer'});
+  world.appendChild(colonyLayer);
+  renderColonies(colonyLayer);
+  world.appendChild(edgeLayer);
+  EDGES.forEach(function(e){ renderEdge(e, edgeLayer); });
+  order.forEach(function(s){ renderStructure(s, structLayer); });
+  world.appendChild(structLayer);
+  EXTERNALS.forEach(function(e){ renderExternal(e, extLayer); });
+  world.appendChild(extLayer);
+  world.appendChild(labelLayer);
+  renderColonyLabels(labelLayer);
+  traceFxLayer = svgEl('g', {class:'trace-fx'});
+  world.appendChild(traceFxLayer);
+  breadcrumb.classList.remove('show');
+  applyZoomPan();
+}
+
+function renderInside(id){
+  var s = byId[id];
+  world.innerHTML = '';
+  var layer = svgEl('g', {});
+  world.appendChild(layer);
+  renderChildRow(s, layer);
+  breadcrumb.innerHTML = '<span>'+s.name.toUpperCase()+'</span><button id="backBtn">← all systems</button>';
+  breadcrumb.classList.add('show');
+  document.getElementById('backBtn').addEventListener('click', function(){ goOverview(); });
+  applyZoomPan();
+}
+
+/* ============================== INTERACTION ============================== */
+
+function setHover(id){
+  state.hoverId = id;
+  updateVisualState();
+  if(!state.pinnedId) renderPanel();
+}
+function togglePin(id){
+  state.pinnedId = (state.pinnedId===id) ? null : id;
+  updateVisualState();
+  renderPanel();
+  updateRailPinned();
+}
+function updateRailPinned(){
+  railEl.querySelectorAll('.rail-item').forEach(function(btn){
+    btn.classList.toggle('pinned', btn.dataset.id===state.pinnedId);
+  });
+}
+function updateVisualState(){
+  var activeId = state.hoverId || state.pinnedId;
+  document.querySelectorAll('.struct').forEach(function(g){
+    var id = g.dataset.id;
+    g.classList.toggle('hover', id===state.hoverId);
+    g.classList.toggle('pinned', id===state.pinnedId);
+  });
+  document.querySelectorAll('.external').forEach(function(g){
+    g.classList.toggle('hover', g.dataset.id===state.hoverId);
+  });
+}
+function goInside(id){
+  state.insideId = id;
+  state.pinnedId = null;
+  renderInside(id);
+  window.location.hash = 'inside='+id;
+  renderPanel();
+}
+function goOverview(){
+  state.insideId = null;
+  state.pinnedId = null;
+  state.traceIndex = -1;
+  renderOverview();
+  traceBanner.classList.remove('show');
+  window.location.hash='';
+  renderPanel();
+  updateRailPinned();
+}
+
+svg.addEventListener('click', function(ev){
+  if(ev.target === svg || ev.target.id==='bgrect'){
+    state.pinnedId = null; updateVisualState(); renderPanel(); updateRailPinned();
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click', goOverview);
+
+/* ---- Theme toggle ---- */
+var btnTheme = document.getElementById('btnTheme');
+function syncThemeButton(){
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  btnTheme.textContent = isDark ? '☀ Light' : '🌙 Dark';
+}
+syncThemeButton();
+btnTheme.addEventListener('click', function(){
+  var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try{ localStorage.setItem('atlas-theme', next); }catch(e){}
+  syncThemeButton();
+});
+
+document.getElementById('btnPause').addEventListener('click', function(){
+  state.paused = !state.paused;
+  this.setAttribute('aria-pressed', state.paused);
+  this.textContent = state.paused ? 'Resume the flow' : 'Pause the flow';
+  if(state.paused) svg.pauseAnimations(); else svg.unpauseAnimations();
+});
+
+document.getElementById('btnTrace').addEventListener('click', function(){
+  if(state.insideId) goOverview();
+  if(state.traceIndex >= TRACE.length-1) return;
+  var prevIndex = state.traceIndex;
+  state.traceIndex = state.traceIndex + 1;
+  runTraceStep(prevIndex);
+});
+
+document.getElementById('btnTraceBack').addEventListener('click', function(){
+  if(state.insideId) goOverview();
+  if(state.traceIndex <= 0) return;
+  var prevIndex = state.traceIndex;
+  state.traceIndex = state.traceIndex - 1;
+  runTraceStep(prevIndex);
+});
+
+function spawnTraceFx(fromId, toId){
+  if(!traceFxLayer || fromId===toId) return;
+  traceFxLayer.innerHTML = '';
+  var from = edgeAnchor(fromId), to = edgeAnchor(toId);
+  var midx = (from.x+to.x)/2;
+  var d = 'M '+from.x.toFixed(1)+','+from.y.toFixed(1)+
+          ' L '+midx.toFixed(1)+','+from.y.toFixed(1)+
+          ' L '+midx.toFixed(1)+','+to.y.toFixed(1)+
+          ' L '+to.x.toFixed(1)+','+to.y.toFixed(1);
+  var pathId = 'tracefx-'+Math.random().toString(36).slice(2,9);
+  var path = svgEl('path', {id:pathId, d:d, fill:'none', stroke:'none'});
+  var dot = svgEl('circle', {class:'trace-fx-dot', r:'6'});
+  var anim = svgEl('animateMotion', {dur:'0.8s', begin:'0s', fill:'freeze'});
+  var mp = svgEl('mpath', {});
+  mp.setAttributeNS('http://www.w3.org/1999/xlink','href','#'+pathId);
+  anim.appendChild(mp);
+  var fade = svgEl('animate', {attributeName:'opacity', from:'1', to:'0', begin:'0.8s', dur:'0.5s', fill:'freeze'});
+  dot.appendChild(anim); dot.appendChild(fade);
+  traceFxLayer.appendChild(path);
+  traceFxLayer.appendChild(dot);
+}
+
+function runTraceStep(prevIndex){
+  var step = TRACE[state.traceIndex];
+  var id = step[0], text = step[1];
+  document.getElementById('traceStep').textContent = 'STEP '+(state.traceIndex+1)+' / '+TRACE.length;
+  document.getElementById('traceText').textContent = text;
+  traceBanner.classList.add('show');
+  window.location.hash = 'trace='+state.traceIndex;
+
+  document.querySelectorAll('.struct').forEach(function(g){
+    g.classList.toggle('trace-active', g.dataset.id===id);
+    g.classList.toggle('dim', g.dataset.id!==id && !isExternalId(id));
+  });
+  document.querySelectorAll('.external').forEach(function(g){
+    g.classList.toggle('trace-active', g.dataset.id===id);
+    g.classList.toggle('dim', g.dataset.id!==id);
+  });
+  if(!isExternalId(id)){
+    document.querySelectorAll('.struct').forEach(function(g){
+      if(g.dataset.id!==id) g.classList.add('dim');
+    });
+  }
+  if(prevIndex!=null && prevIndex>=0 && prevIndex!==state.traceIndex){
+    spawnTraceFx(TRACE[prevIndex][0], id);
+  }
+  state.pinnedId = null;
+  showPanelFor(Object.assign({id:id, name: (byId[id]||extById[id]).name || (byId[id]||extById[id]).label}, byId[id]||extById[id]));
+}
+
+document.getElementById('zoomIn').addEventListener('click', function(){ state.zoom=Math.min(2.6,state.zoom*1.2); applyZoomPan(); });
+document.getElementById('zoomOut').addEventListener('click', function(){ state.zoom=Math.max(0.45,state.zoom/1.2); applyZoomPan(); });
+svg.addEventListener('wheel', function(ev){
+  ev.preventDefault();
+  var factor = ev.deltaY<0 ? 1.08 : 0.93;
+  state.zoom = Math.max(0.45, Math.min(2.6, state.zoom*factor));
+  applyZoomPan();
+}, {passive:false});
+
+var dragging=false, dragStart=null;
+svg.addEventListener('mousedown', function(ev){ dragging=true; dragStart={x:ev.clientX,y:ev.clientY,panX:state.panX,panY:state.panY}; svg.classList.add('panning'); });
+window.addEventListener('mousemove', function(ev){
+  if(!dragging) return;
+  var vb = svg.viewBox.baseVal;
+  var scaleX = vb.width / svg.clientWidth, scaleY = vb.height / svg.clientHeight;
+  state.panX = dragStart.panX + (ev.clientX-dragStart.x)*scaleX;
+  state.panY = dragStart.panY + (ev.clientY-dragStart.y)*scaleY;
+  applyZoomPan();
+});
+window.addEventListener('mouseup', function(){ dragging=false; svg.classList.remove('panning'); });
+
+function applyZoomPan(){
+  world.setAttribute('transform', 'translate('+state.panX.toFixed(1)+','+state.panY.toFixed(1)+') scale('+state.zoom.toFixed(3)+')');
+}
+
+/* ============================== PANEL ============================== */
+
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});
+    t.classList.add('active');
+    state.activeTab = t.dataset.tab;
+    renderPanel();
+  });
+});
+
+function showPanelFor(node){
+  var isWhat = state.activeTab==='what';
+  var body = isWhat ? node.what : (node.how || node.what);
+  panelScroll.innerHTML =
+    '<div class="panel-eyebrow">'+(node.group ? GROUPS.filter(function(g){return g.id===node.group;})[0].label : 'external dependency')+'</div>'+
+    '<h2 class="panel-title">'+node.name+'</h2>'+
+    (node.loc ? '<div class="panel-meta mono">'+node.loc+'</div>' : '') +
+    '<div class="panel-body"><p>'+body+'</p></div>'+
+    (talksHtml(node));
+  wireTalks();
+}
+
+function talksHtml(node){
+  if(!node.id || !byId[node.id]) return '';
+  var s = byId[node.id];
+  var outgoing = EDGES.filter(function(e){ return e.f===s.id; });
+  var incoming = EDGES.filter(function(e){ return e.t===s.id; });
+  if(!outgoing.length && !incoming.length) return '';
+  var rows = [];
+  outgoing.forEach(function(e){ var n=getNode(e.t); rows.push({dir:'→', id:e.t, name:n.name||n.label, pay:e.pay}); });
+  incoming.forEach(function(e){ var n=getNode(e.f); rows.push({dir:'←', id:e.f, name:n.name||n.label, pay:e.pay}); });
+  var html = '<hr class="panel-hr"><div class="panel-section-label">Talks to</div><ul class="talks-list">';
+  rows.forEach(function(r){
+    html += '<li><button class="mono" data-jump="'+r.id+'">'+r.dir+' '+r.name+'</button><span class="talk-pay">'+r.pay+'</span></li>';
+  });
+  html += '</ul>';
+  if(s.children){ html += '<button class="pin-x" id="goInsideBtn">Go inside →</button>'; }
+  return html;
+}
+function wireTalks(){
+  panelScroll.querySelectorAll('[data-jump]').forEach(function(btn){
+    btn.addEventListener('click', function(){ togglePin(btn.dataset.jump); updateRailPinned(); });
+  });
+  var gi = document.getElementById('goInsideBtn');
+  if(gi) gi.addEventListener('click', function(){ goInside(state.pinnedId); });
+}
+
+function renderOverviewPanel(){
+  var d = state.activeTab==='what' ? OVERVIEW_WHAT : OVERVIEW_HOW;
+  panelScroll.innerHTML =
+    '<div class="panel-eyebrow">'+d.eyebrow+'</div>'+
+    '<h2 class="panel-title">'+d.title+'</h2>'+
+    '<p class="panel-sub">'+d.sub+'</p>'+
+    '<div class="panel-body">'+d.body.map(function(p){return '<p>'+p+'</p>';}).join('')+'</div>'+
+    '<hr class="panel-hr">'+
+    '<div class="panel-section-label">How to read it</div>'+
+    '<div class="panel-body"><p>'+READ_IT+'</p></div>';
+}
+
+function renderPanel(){
+  var activeId = state.pinnedId || state.hoverId;
+  if(activeId){
+    var node = getNode(activeId);
+    if(node) { showPanelFor(Object.assign({id:activeId}, node)); return; }
+  }
+  renderOverviewPanel();
+}
+
+/* ============================== INIT ============================== */
+
+function initFromHash(){
+  var h = window.location.hash.replace('#','');
+  if(h.indexOf('inside=')===0){
+    var id = h.split('=')[1];
+    if(byId[id] && byId[id].children){ state.insideId=id; renderInside(id); renderPanel(); return; }
+  }
+  if(h.indexOf('trace=')===0){
+    var n = parseInt(h.split('=')[1],10);
+    if(!isNaN(n) && n>=0 && n<TRACE.length){ renderOverview(); state.traceIndex=n; runTraceStep(); return; }
+  }
+  renderOverview();
+  renderPanel();
+}
+
+buildRail();
+initFromHash();
+
+})();
+</script>
