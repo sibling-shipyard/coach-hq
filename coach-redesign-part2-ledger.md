@@ -194,8 +194,14 @@ real). No field-level concerns; this is the smallest, least-changed of the four 
 
 | Reports | Shape | Server does | Repeat-safe because |
 |---|---|---|---|
-| `quest_event` | `{quest_id, date, status}` | upserts the row in `progress.json` for that quest+date | same quest_id + date = same row |
+| `quest_event` | `{quest_id, date, status, value?}` | upserts the row in `progress.json` for that quest+date | same quest_id + date = same row |
 | `profile_update` | `{field, value}` | sets one field in `profile.json` | same field + trace_id |
+
+`quest_event`'s `value` is optional and only meaningful for `progress`-type quests (the "12/20
+chapters" case) — `daily_streak`/`count_target`/`weekly_frequency` quests only ever report
+`status`. Without this, there'd be no way for Gemini to actually write the `value` field
+`progress.json`'s rows carry for `progress`-type quests — caught while updating this section after
+restoring `progress` back into `quests.json`.
 
 Same "add one new thing at a time" discipline as Part 1 — don't ship both in the same PR as Part
 1's `memory_update`. Order: `memory_update` lands with Part 1 (state.md split), `quest_event` +
