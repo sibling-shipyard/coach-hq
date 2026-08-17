@@ -68,6 +68,12 @@
 - **`chat_history.json`'s `ageLabel`/`status`/`dayOffset` — resolved, not deferred.** All three
   dropped from the stored shape in Part 3 after review (dead in storage or already deprecated in
   the UI). Nothing to revisit here.
+- **`current_week.json` needs to become a genuine daily update, not a once-per-week write.**
+  Confirmed via a real live file (`coach-skanda`) that today's actual practice is "written once at
+  week kick-off," despite SOUL's Commit Protocol saying to reconcile it every session. Per Skanda's
+  direction, once this file is wired into coach-chat for real (it currently has zero read/write
+  path in the backend — see Part 3), it should update daily. This is a behavior/implementation
+  item for whoever wires this file up, not something this review doc can resolve on paper.
 
 ## Your annotations
 

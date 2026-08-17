@@ -68,8 +68,7 @@ Reviewed and trimmed — not actually staying untouched, despite the table above
     "phase_name": "Build", "block_name": "Capacity without noise",
     "focus": "...", "guardrails": ["..."]
   },
-  "coach_read": { "headline": "...", "body": "...", "tone": "...", "confidence": "...",
-                  "evidence_refs": ["..."], "valid_from": "...", "valid_until": "..." },
+  "coach_read": { "headline": "...", "body": "...", "valid_from": "...", "valid_until": "..." },
   "days": [ { "date": "...", "intent": "train", "coach_note": null, "sessions": [ /* see below */ ] } ],
   "coach_comments": [],
   "updated_at": "...", "updated_by": "coach"
@@ -79,9 +78,34 @@ Session object: `id`, `origin`, `discipline`, `kind`, `title`, `priority`, `stat
 `planned_duration_min`, `planned_load`, `template_id`, `session_file`, `coach_note`,
 `original_date`, `completion_activity_ids`.
 
-This is an accepted, owned contract (Tech Lead) with a documented rationale for every field —
-not a candidate for the same trim pass as `challenge_v2.json` was. One real problem, though, not
-a style choice:
+This was mostly an accepted, owned contract (Tech Lead) with a documented rationale for every
+field — not a candidate for the same trim pass as `challenge_v2.json` was. Two real problems
+turned up under review, though, not style choices:
+
+**`coach_read.tone`/`confidence`/`evidence_refs` — dropped**, after checking a real live file
+(`coach-skanda`, commit `a380c6e`). Not because they're unused — because they duplicate
+something better. `tone`/`confidence` ask Coach for a categorical judgment about its own writing,
+separate from the writing — but the prose itself (SOUL's whole voice design) already carries tone
+and confidence naturally; a redundant structured label is a write cost for something already said.
+`evidence_refs` is worse than redundant: it asks Coach to self-assert what backs its claim as a
+list of topic strings, when "what's the evidence" should be *computed from real data* (load,
+quest progress, activity history) — the current widget code already proves this instinct right,
+building its own evidence array from live numbers rather than trusting `evidence_refs`. Evidence
+should be derived, not declared.
+
+`valid_from`/`valid_until` — **kept**, confirmed genuinely earning their place by the same real
+file: the week ran Mon Aug 3 → Sun Aug 9, but `coach_read.valid_from` was `"2026-08-05"`
+(Wednesday) — because Coach's read was written mid-week, after a reset ("first two days got
+swallowed by work... reset starting today"). Not redundant with `week.start_date`/`end_date`;
+records when *this specific read* became true, which can start partway through the week.
+
+**Real-world usage gap, not a schema question:** that same live file has exactly one content
+commit despite being 4 days into its week already (days already past were backfilled in that
+one commit, not reconciled day by day). SOUL's Commit Protocol says update this file every
+session; actual practice today is closer to "written once at kick-off." Per your direction, this
+needs to become a genuine daily update going forward once this file is wired into coach-chat for
+real — not just a schema decision, a behavior one. Tracked in Part 6 since it's implementation,
+not review-doc scope.
 
 **`week.phase_name` and `week.block_name` directly reference the `phase`/`current_block` concept
 Part 2 just removed entirely from `seasons.json`.** This file wasn't touched by this redesign
