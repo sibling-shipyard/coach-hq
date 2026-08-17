@@ -11,7 +11,7 @@ continuity" job a different way — `coach_notes.md` (write-only), `rolling_stat
 just added), `state.md`'s own Recent Session Notes (nothing can write it). This step ends that
 split for good: `profile.json` (settings), `memory.json` (Coach's free-text notes), `sessions.json`
 (the merged log — absorbs all three of the above, plus `archive/phases.md`/`archive/week_plans.md`
-if you decide to fold those in too — see Part 6, this is still undecided and now also depends on
+if you decide to fold those in too — see Part 7, this is still undecided and now also depends on
 Part 2 having dropped the `phase` concept entirely from `seasons.json`).
 
 ## `profile.json` — proposed shape
@@ -138,14 +138,14 @@ recommendation — don't send the whole growing log).
 - `id`, `date`, `ts`, `text`, `trace_id` — kept, load-bearing (id for dedup/addressing, trace_id
   for the log-correlation the whole redesign is built around).
 - `actor` — dropped. Coach is the only writer today; a field with exactly one possible value
-  isn't doing anything. Moved to Part 6.
-- `thread_id` — dropped. Moved to Part 6.
+  isn't doing anything. Moved to Part 7.
+- `thread_id` — dropped. Moved to Part 7.
 - `type` — kept, but trimmed to just `"chat"` for now. `"phase_close"`/`"week_close"` moved to
-  Part 6 (real concept — Coach's end-of-phase/end-of-week retrospectives, currently
+  Part 7 (real concept — Coach's end-of-phase/end-of-week retrospectives, currently
   `archive/phases.md`/`archive/week_plans.md` — but no writer folds them into this log yet).
   `"manual"` dropped outright — not referenced anywhere in the LLD, SOUL, or code; no writer, human
   or backend, was ever defined for it. **Update from Part 2:** `phase` no longer exists as a
-  concept in `seasons.json` — `"phase_close"` may not make sense as a row type anymore. Part 6
+  concept in `seasons.json` — `"phase_close"` may not make sense as a row type anymore. Part 7
   tracks this; not resolved yet.
 - Reads should pull the last-N window, not the whole growing log — pulling Part 4's windowed-read
   idea into this step rather than deferring it.

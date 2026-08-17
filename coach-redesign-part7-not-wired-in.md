@@ -1,8 +1,9 @@
-# Coach redesign review — Part 6: not wired in yet
+# Coach redesign review — Part 7: not wired in / UI-affecting leftovers
 
-> Working doc for review, not a final eng-doc. Catch-all for fields/concepts dropped from parts
-> 1-4 during review that aren't ready to ship now but shouldn't be forgotten either — either
-> because nothing writes them yet, or because they need more design before they're real. Add to
+> Working doc for review, not a final eng-doc. Renamed from Part 6 — Part 6 is now the
+> wire-everything-into-coach-chat plan (`coach-redesign-part6-wiring-plan.md`). This doc stays a
+> catch-all, scope narrowed to: fields/concepts dropped during review that made changes a UI
+> rebuild will need to account for, or that are speculative/unused in the UI specifically. Add to
 > this as each part gets reviewed.
 
 ## From Part 1 (`sessions.json`)
@@ -64,12 +65,9 @@
 - **`chat_history.json`'s `ageLabel`/`status`/`dayOffset` — resolved, not deferred.** All three
   dropped from the stored shape in Part 3 after review (dead in storage or already deprecated in
   the UI). Nothing to revisit here.
-- **`current_week.json` needs to become a genuine daily update, not a once-per-week write.**
-  Confirmed via a real live file (`coach-skanda`) that today's actual practice is "written once at
-  week kick-off," despite SOUL's Commit Protocol saying to reconcile it every session. Per Skanda's
-  direction, once this file is wired into coach-chat for real (it currently has zero read/write
-  path in the backend — see Part 3), it should update daily. This is a behavior/implementation
-  item for whoever wires this file up, not something this review doc can resolve on paper.
+
+(The `current_week.json` daily-update requirement moved to Part 6 — that's implementation work
+for whoever wires this file into coach-chat, not a UI-leftover item.)
 
 ## Your annotations
 

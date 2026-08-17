@@ -123,5 +123,9 @@ change recommended.
 
 ## Your annotations
 
-(space for your changes/pushback — go through the six research areas above and mark what to keep,
-cut, or reorder)
+**Deferred as a whole, per your call.** None of the six research areas or four flagged changes
+get decided here. Building a cache tier, choosing retry strategy, or deciding sequential-vs-wide
+schema calls is optimizing a system that doesn't exist yet — Parts 1-3/5 aren't implemented, so
+there's no real failure-rate data or usage pattern to decide any of this against. Revisit all of
+it in Part 6 (`coach-redesign-part6-wiring-plan.md`) once the restructure is actually running —
+that's where these decisions get made for real, informed by what's built, not guessed at now.

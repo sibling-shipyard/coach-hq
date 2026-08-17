@@ -103,8 +103,8 @@ commit despite being 4 days into its week already (days already past were backfi
 one commit, not reconciled day by day). SOUL's Commit Protocol says update this file every
 session; actual practice today is closer to "written once at kick-off." Per your direction, this
 needs to become a genuine daily update going forward once this file is wired into coach-chat for
-real — not just a schema decision, a behavior one. Tracked in Part 6 since it's implementation,
-not review-doc scope.
+real — not just a schema decision, a behavior one. Tracked in Part 6 (the wiring plan) since it's
+implementation, not review-doc scope.
 
 **`week.phase_name`/`week.block_name` — dropped**, per your call. They directly referenced the
 `phase`/`current_block` concept Part 2 removed entirely from `seasons.json`; there's no known

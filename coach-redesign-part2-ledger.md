@@ -37,8 +37,8 @@ over from `challenge_v2.json`.
   (today vs `end_date`) can't do that.
 - **No archive folder.** `archive/seasons/*/challenge_v2.json` is removed as a concept — a
   completed or retired season doesn't move anywhere, it just stays in `seasons[]` with its status
-  flipped. This resolves the "where do archived seasons go" open question from Part 6 — there's no
-  archive, so it doesn't apply. (Part 6 entry needs updating to reflect this.)
+  flipped. This resolves the "where do archived seasons go" open question from Part 7 — there's no
+  archive, so it doesn't apply. (Part 7 entry needs updating to reflect this.)
 - **`seasons[]` ordered newest-first (descending by `start_date`)** — a new season gets prepended,
   not appended. `current_season_id` stays as the O(1) pointer either way, but descending order
   means "what's the athlete doing now" is also just "the first element," which lines up with how
@@ -99,7 +99,7 @@ coaching model can use, not carrying over one model's fields unchanged:
   real quests of this shape today; dropping the type left them with nowhere to go. `milestone`
   still removed outright — confirmed zero behavior anywhere in the codebase beyond being accepted
   as a valid value, and it confusingly duplicates the name of the unrelated `progressions.json`
-  "Milestone" concept. Moved to Part 6.
+  "Milestone" concept. Moved to Part 7.
 - `category` — **removed**. Required-present by the current validator but never read anywhere
   else — confirmed via grep, no display, no grouping, no branching.
 - `tracking` — **removed**. Confirmed redundant with `type` itself: its only real values
@@ -164,7 +164,7 @@ still uses):**
   `weekly_sessions only: {label, kind, weight}` — tied to `main_quest.sessions[]`, which only
   exists for Akash's weekly-session-floor model. That model's fields were already dropped from
   the generalized `main_quest` (`weekly_floor`/`loaded_floor`/`skill_weight`/`skill_cap`), so
-  `meta` has nothing left to carry. Moved to Part 6.
+  `meta` has nothing left to carry. Moved to Part 7.
 - `source` — **kept**, per your call. Real, distinguishes Coach-written (`"model"`) from
   pipeline-auto-detected (`"pipeline"`) rows — genuinely different information, not provenance
   padding. `"athlete"` as a value is still unconfirmed (no direct athlete-write path found) —
@@ -226,4 +226,4 @@ next one starts.
    one-field-at-a-time discipline as Part 1, tested independently.
 2. A README explaining the quest `type` values (and any other schema concepts worth documenting
    for future devs, or the athlete) — deferred until the redesign is fully reviewed, so we know
-   where it belongs and what it needs to cover. Tracked in Part 6.
+   where it belongs and what it needs to cover. Tracked in Part 7.
