@@ -19,6 +19,19 @@
 - **`type: "manual"`** — dropped outright, not moved here. No design existed behind it anywhere
   in the LLD, SOUL, or code — not a deferred feature, just dead weight.
 
+## From Part 2 (`season.json`)
+
+- **Archived seasons/phases — where do they go?** Undecided. `season.json`'s `seasons[]` array
+  keeps every season forever (no more `archive/seasons/*/challenge_v2.json` copies), but whether a
+  completed/retired season eventually moves to cold storage of some kind, or just stays in the
+  live array indefinitely, hasn't been decided. This is the same open question Part 2 already
+  flagged for `season.json`'s retention policy generally.
+- **This directly affects the `status` field just added to season and phase** (`"active" |
+  "completed" | "retired"`). If a season/phase later moves out of `season.json` into an archive of
+  some kind once it's done, `status` stops doing much work there — an archived record's status is
+  implied by which file it's in, not a field on it. Revisit `status`'s value once the archive
+  question is actually decided; don't build around it as settled yet.
+
 ## Your annotations
 
 (space for anything else that falls out of parts 2-5 review)
