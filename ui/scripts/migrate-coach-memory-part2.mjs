@@ -171,25 +171,21 @@ fs.writeFileSync(path.join(coachDir, "progressions.json"), JSON.stringify(progre
 
 fs.rmSync(path.join(ledgerDir, "challenge_v2.json"));
 
-// "No archive folder" (coach-redesign-part2-ledger.md) only ever meant the JSON snapshots
-// (archive/seasons/*/challenge_v2.json), not the prose retrospectives sitting alongside them
-// (recap.md, roadmap.md) - those are real season history an athlete wrote, not a data-model
-// artifact. Remove only the JSON, leave everything else untouched.
-let removedSnapshots = 0;
+// The season-closing recap/archive ritual is dropped entirely for now, not just its JSON
+// snapshots - confirmed with Skanda (issue #411 tracks revisiting whether it comes back in some
+// form later). archive/seasons/ (recap.md, roadmap.md, challenge_v2.json snapshots alike) is
+// removed wholesale. If that content ever needs recovering, it's in this migration commit's
+// parent in git history, on whatever branch this ran on.
+let removedArchive = false;
 if (fs.existsSync(archiveSeasonsDir)) {
-  for (const seasonDir of fs.readdirSync(archiveSeasonsDir)) {
-    const snapshotPath = path.join(archiveSeasonsDir, seasonDir, "challenge_v2.json");
-    if (fs.existsSync(snapshotPath)) {
-      fs.rmSync(snapshotPath);
-      removedSnapshots++;
-    }
-  }
+  fs.rmSync(archiveSeasonsDir, { recursive: true });
+  removedArchive = true;
 }
 
 console.log(
   `Wrote seasons.json (1 season), quests.json (${quests.length} quests), progress.json (${rows.length} rows), progressions.json (empty) to ${coachDir}`,
 );
 console.log(
-  `Removed: user_data/ledger/challenge_v2.json${removedSnapshots > 0 ? ` + ${removedSnapshots} archive/seasons/*/challenge_v2.json snapshot(s) (recap.md/roadmap.md left untouched)` : ""}`,
+  `Removed: user_data/ledger/challenge_v2.json${removedArchive ? ", user_data/coach/archive/seasons/ (recap ritual dropped for now - issue #411)" : ""}`,
 );
 console.log("Review the diffs, then commit on your scratch branch yourself - this script does not touch git.");
