@@ -461,8 +461,16 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // survive (the old session being reconciled no longer conceptually exists once the week is
       // fully replaced), week_plan wins outright and session_reconcile is dropped with a loud
       // warning - a full-week rewrite already supersedes whatever the reconcile was reporting on.
+      // Live verification: on a "busy" turn also carrying session_reconcile/plan_edit, Gemini
+      // repeatedly hallucinated a placeholder week_plan alongside them (non-empty headline/body
+      // like "Plan for week"/"Body", but days: []) - the old guard here only checked
+      // Array.isArray(days), so that placeholder still counted as "genuinely requested," wrongly
+      // won over the real reconcile/edit data, and then applyWeekPlan's own "exactly 7 days"
+      // guard failed the WHOLE commit. Requiring the real day count here means a hallucinated
+      // empty week_plan is ignored entirely, falling through to the session_reconcile/plan_edit
+      // branch instead of destroying real data.
       const weekPlan = reply.week_plan;
-      const weekPlanRequested = Boolean(weekPlan?.headline?.trim() && weekPlan.body?.trim() && Array.isArray(weekPlan.days));
+      const weekPlanRequested = Boolean(weekPlan?.headline?.trim() && weekPlan.body?.trim() && weekPlan.days?.length === 7);
       const sessionReconcileEvents = reply.session_reconcile ?? [];
       const planEditEvents = reply.plan_edit ?? [];
 
