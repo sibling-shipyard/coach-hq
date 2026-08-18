@@ -441,6 +441,10 @@ export function buildDynamicText(
           "\nIf the athlete asked to PERMANENTLY change one of their own existing workout",
           "templates (see Current templates below) going forward, not just for today - set",
           "template_edit with that template's exact template_id and a short note explaining why.",
+          "template_edit is NOT for changing what a single day's already-planned session is (\"swap",
+          "Friday's session for something else\") - that's plan_edit, see below. template_edit only",
+          "when the athlete means the template itself, permanently, for every future session built",
+          "from it.",
           "You don't know the template's exact exercise numbers, so name what to drop the way the",
           "athlete actually said it: skip_exercise_nums if you happen to know specific numbers,",
           "skip_phases with the phase's plain-language name (e.g. \"Shoulder & Elbow\") when the",
@@ -497,7 +501,14 @@ export function buildDynamicText(
           "swap like the example is normally TWO entries in the same turn: session_reconcile with",
           "actual for today's session (mark it done as what really happened), and plan_edit for",
           "tomorrow's session (change what it's planned to be). Only use a session_id that's",
-          "actually listed below - never invent one.",
+          "actually listed below - never invent one. plan_edit and template_edit are NOT",
+          "interchangeable: plan_edit changes what ONE day's session in this week's plan is (by",
+          "session_id, from Current week's sessions below) and never touches the reusable template",
+          "file itself. template_edit permanently changes the base template FILE (by template_id,",
+          "from Current templates below), affecting every future session built from it, not just",
+          "one day. \"Swap Friday's session\" or \"change what's planned for tomorrow\" is always",
+          "plan_edit, never template_edit - template_edit is only for the athlete asking to",
+          "permanently change the template going forward.",
           "**Never say something is saved, logged, locked, or committed unless coach_note (or",
           "memory_update / injury_event / quest_event / profile_update / template_edit /",
           "session_plan / week_plan / session_reconcile / plan_edit) in this exact response",
@@ -622,5 +633,9 @@ export function activeWeekSessionsContext(
 ): string | undefined {
   if (sessions.length === 0) return undefined;
   const lines = sessions.map((s) => `- session_id: ${s.id} | date: ${s.date} | ${s.title} | status: ${s.status}`);
-  return ["Current week's sessions (use these exact session_ids for session_reconcile):", ...lines].join("\n");
+  return [
+    "Current week's sessions (use these exact session_ids for session_reconcile AND plan_edit -",
+    "match the date to what the athlete actually means, never guess):",
+    ...lines,
+  ].join("\n");
 }
