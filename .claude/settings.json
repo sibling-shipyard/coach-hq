@@ -6,8 +6,6 @@
       "Grep",
       "Glob",
       "Bash(npx tsc --noEmit)",
-      "Bash(npm run test)",
-      "Bash(npm run check)",
       "Bash(npm test)",
       "Bash(npm --prefix ui run check)",
       "Bash(npm --prefix ui run test)",
@@ -43,17 +41,9 @@
       "Bash(gh issue list *)",
       "Bash(gh issue view *)",
       "mcp__github__get_me",
-      "mcp__github__get_pull_request",
       "mcp__github__list_pull_requests",
-      "mcp__github__get_pull_request_files",
-      "mcp__github__get_pull_request_diff",
-      "mcp__github__get_pull_request_comments",
-      "mcp__github__get_pull_request_reviews",
-      "mcp__github__get_pull_request_status",
       "mcp__github__pull_request_read",
-      "mcp__github__get_issue",
       "mcp__github__list_issues",
-      "mcp__github__get_issue_comments",
       "mcp__github__issue_read",
       "mcp__github__get_file_contents",
       "mcp__github__get_commit",
@@ -63,12 +53,19 @@
       "mcp__github__search_code",
       "mcp__github__search_issues",
       "mcp__github__search_pull_requests",
-      "mcp__github__search_repositories"
+      "mcp__github__search_repositories",
+      "mcp__github__get_check_run",
+      "mcp__github__get_job_logs",
+      "mcp__github__actions_list",
+      "mcp__github__actions_get",
+      "mcp__github__search_commits"
     ]
   },
   "sandbox": {
     "network": {
-      "allowedDomains": ["*.strava.com"]
+      "allowedDomains": [
+        "*.strava.com"
+      ]
     }
   },
   "hooks": {
