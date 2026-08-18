@@ -1,0 +1,154 @@
+{
+  "id": "strength_dumbbells_intermediate",
+  "title": "Strength — Dumbbells Intermediate",
+  "subtitle": "Upper/lower strength split, home dumbbells",
+  "workout_type": "strength",
+  "estimated_duration_mins": 55,
+  "location": "Home",
+  "equipment": ["dumbbells", "bench"],
+  "coaching_note": "You should be picking a weight where the last 2 reps of each set are genuinely hard, not just tiring. If you're cruising through every set, it's too light — tell me and we'll adjust.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "6 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Jump Rope (or high knees if no rope)",
+          "type": "timed",
+          "duration_secs": 90,
+          "sets": 1,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Light on your feet, small jumps, steady rhythm.",
+          "why": "Full-body warm-up that raises heart rate faster than static stretching."
+        },
+        {
+          "num": 2,
+          "name": "Bodyweight Good Morning",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Hands behind head, soft knees, hinge forward from the hips until you feel your hamstrings, stand back up.",
+          "why": "Rehearses the hip hinge pattern before you load it with a dumbbell RDL."
+        }
+      ]
+    },
+    {
+      "name": "Lower Body — Heavy",
+      "duration": "20 min",
+      "default_rest_secs": 90,
+      "coaching_note": "This is the heaviest block of the session — take the full rest between sets, don't rush it.",
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Dumbbell Romanian Deadlift",
+          "type": "reps",
+          "reps": 8,
+          "sets": 4,
+          "rest_between_sets_secs": 90,
+          "rest_after_exercise_secs": 90,
+          "form_cue": "Push hips back first, soft knee bend, dumbbells trace close down your legs. Stop the descent when your lower back wants to round.",
+          "why": "The primary posterior chain lift in this session — hamstrings, glutes, and spinal control all get built here."
+        },
+        {
+          "num": 4,
+          "name": "Bulgarian Split Squat (dumbbells)",
+          "type": "reps",
+          "reps": 8,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 75,
+          "rest_after_exercise_secs": 90,
+          "form_cue": "Back foot elevated on a bench, dumbbells at your sides. Drop straight down until the back knee nearly grazes the floor.",
+          "why": "Single-leg strength closes the gap between your dominant and non-dominant side — a bilateral lift alone can't do that."
+        },
+        {
+          "num": 5,
+          "name": "Dumbbell Step-Up",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Bench or box at about knee height. Drive through the planted heel to stand tall — don't push off the trailing foot.",
+          "why": "Direct single-leg power that carries into running, jumping, and change-of-direction sports."
+        }
+      ]
+    },
+    {
+      "name": "Upper Body",
+      "duration": "20 min",
+      "default_rest_secs": 75,
+      "exercises": [
+        {
+          "num": 6,
+          "name": "Dumbbell Bench Press",
+          "type": "reps",
+          "reps": 8,
+          "sets": 4,
+          "rest_between_sets_secs": 75,
+          "rest_after_exercise_secs": 90,
+          "form_cue": "Elbows at roughly 45 degrees from your torso, not flared to 90. Press until your arms are straight but not locked hard.",
+          "why": "Your primary horizontal press — chest, shoulders, and triceps under real load."
+        },
+        {
+          "num": 7,
+          "name": "One-Arm Dumbbell Row",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Flat back braced on the bench, pull the dumbbell to your hip, elbow brushing your ribs.",
+          "why": "Matches the pressing volume with pulling volume — keeps shoulders balanced and healthy under a real strength program."
+        },
+        {
+          "num": 8,
+          "name": "Dumbbell Overhead Press",
+          "type": "reps",
+          "reps": 8,
+          "sets": 3,
+          "rest_between_sets_secs": 75,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Brace your core hard before you press — don't let your lower back arch to get the weight up.",
+          "why": "Overhead strength and shoulder stability that most lower-body-focused programs neglect."
+        }
+      ]
+    },
+    {
+      "name": "Core & Cool-down",
+      "duration": "9 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 9,
+          "name": "Weighted Dead Bug",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Hold a light dumbbell overhead with both hands. Lower back stays flat on the floor. Extend the opposite leg slow.",
+          "why": "Anti-extension core control — protects your lower back on every heavy hinge and press in this program."
+        },
+        {
+          "num": 10,
+          "name": "Kneeling Hip Flexor Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Back knee down, tuck your tailbone under, gently push the hips forward.",
+          "why": "Split squats and step-ups tighten the hip flexors — undo that before you finish."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Add weight to the RDL first once 4x8 feels controlled — it's the anchor lift. Add a rep before adding weight on the split squat and step-up until both sides feel even."
+}

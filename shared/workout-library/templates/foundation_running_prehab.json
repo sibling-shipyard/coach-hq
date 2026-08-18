@@ -1,0 +1,122 @@
+{
+  "id": "foundation_running_prehab",
+  "title": "Foundation — Running Prehab",
+  "subtitle": "Bodyweight strength base for runners",
+  "workout_type": "foundation",
+  "estimated_duration_mins": 30,
+  "location": "Home",
+  "equipment": ["bodyweight"],
+  "coaching_note": "This isn't a substitute for running, it's what keeps you running injury-free while your mileage builds. Single-leg strength and hip stability are what most runners skip — that's exactly why this session exists.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "5 min",
+      "default_rest_secs": 15,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Leg Swings (front-back and side-to-side)",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Hold a wall for balance, controlled swing through a full range.",
+          "why": "Opens the hips through the exact planes running demands, before you load them."
+        },
+        {
+          "num": 2,
+          "name": "Glute Bridge",
+          "type": "reps",
+          "reps": 12,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Drive through your heels, squeeze your glutes hard at the top.",
+          "why": "Wakes up the glutes that a desk job or long runs at low effort can leave under-recruited."
+        }
+      ]
+    },
+    {
+      "name": "Single-Leg Strength",
+      "duration": "16 min",
+      "default_rest_secs": 45,
+      "coaching_note": "Running is a single-leg sport — every stride lands on one foot. This block is where the injury prevention actually happens.",
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Single-Leg Glute Bridge",
+          "type": "reps",
+          "reps": 12,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "One foot flat, other leg extended straight out. Drive through the planted heel, keep your hips level — don't let the free side drop.",
+          "why": "Single-leg glute strength directly supports hip stability at footstrike — a weak link here shows up as knee or IT band pain."
+        },
+        {
+          "num": 4,
+          "name": "Lateral Step-Down",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Stand on a low step, slowly lower the opposite heel to tap the floor without letting your standing knee cave inward.",
+          "why": "Trains the glute medius to control knee alignment on impact — this is the muscle behind most runner's-knee patterns."
+        },
+        {
+          "num": 5,
+          "name": "Single-Leg Calf Raise",
+          "type": "reps",
+          "reps": 15,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Balance on one foot, rise onto the ball of your foot, full range, control the lowering.",
+          "why": "Calf and Achilles strength on the exact single-leg pattern of push-off — the highest-value prehab for Achilles issues."
+        }
+      ]
+    },
+    {
+      "name": "Core & Stability",
+      "duration": "6 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 6,
+          "name": "Side Plank",
+          "type": "timed",
+          "duration_secs": 25,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Hips stacked, don't let them sag. Modify on your knee if needed.",
+          "why": "Lateral core strength that controls the side-to-side sway that creeps in as running fatigue sets in."
+        }
+      ]
+    },
+    {
+      "name": "Cool-down",
+      "duration": "3 min",
+      "default_rest_secs": 10,
+      "exercises": [
+        {
+          "num": 7,
+          "name": "Standing Calf Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Heel down, toes up on a wall or step.",
+          "why": "Releases what the calf raises just loaded."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Once single-leg glute bridges feel easy at 3x12, add a pause at the top. Increase single-leg calf raise reps before adding a weighted version."
+}

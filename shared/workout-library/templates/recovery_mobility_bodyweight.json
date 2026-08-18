@@ -1,0 +1,119 @@
+{
+  "id": "recovery_mobility_bodyweight",
+  "title": "Recovery — Mobility Flow",
+  "subtitle": "Full-body mobility, no equipment",
+  "workout_type": "recovery",
+  "estimated_duration_mins": 25,
+  "location": "Home",
+  "equipment": ["bodyweight"],
+  "coaching_note": "This is still training — treat it like a session, not a rest day extra. Move slow, breathe deep, and don't rush through tight spots to get to the end.",
+  "phases": [
+    {
+      "name": "Lower Body Mobility",
+      "duration": "12 min",
+      "default_rest_secs": 10,
+      "coaching_note": "Move slow and controlled — this is about range of motion, not a workout pace.",
+      "exercises": [
+        {
+          "num": 1,
+          "name": "World's Greatest Stretch",
+          "type": "reps",
+          "reps": 6,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Big step into a lunge, drop the back knee, plant the same-side hand down, rotate your other arm up toward the ceiling.",
+          "why": "One move that opens the hip flexor, hamstring, and thoracic spine together — the most efficient mobility drill there is."
+        },
+        {
+          "num": 2,
+          "name": "90-90 Hip Switch",
+          "type": "reps",
+          "reps": 8,
+          "sets": 1,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Seated, both knees bent at 90 degrees, one in front and one to the side. Rotate through to switch which leg is in front, keeping your chest tall.",
+          "why": "Trains internal and external hip rotation — range most people lose sitting all day and never get back."
+        },
+        {
+          "num": 3,
+          "name": "Deep Squat Hold",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Feet slightly wider than shoulder-width, sink as deep as you can with heels down. Hold a doorframe if you need balance.",
+          "why": "The deep squat position is a compressed test of ankle, knee, and hip mobility all at once."
+        },
+        {
+          "num": 4,
+          "name": "Standing Calf Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Heel down, toes up against a wall for the straight-knee version, then a slight bend for the soleus.",
+          "why": "Tight calves limit ankle range, which quietly loads the knee and hip on every step."
+        }
+      ]
+    },
+    {
+      "name": "Upper Body Mobility",
+      "duration": "10 min",
+      "default_rest_secs": 10,
+      "exercises": [
+        {
+          "num": 5,
+          "name": "Thoracic Rotation (quadruped)",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "On all fours, one hand behind your head, rotate your elbow up toward the ceiling following it with your eyes, then thread it back under.",
+          "why": "Directly targets thoracic rotation — the piece most people are missing that forces the lower back to compensate."
+        },
+        {
+          "num": 6,
+          "name": "Doorway Chest Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Forearm on the doorframe, elbow at shoulder height, gently lean your body through the door.",
+          "why": "Opens the chest and front of the shoulder — the muscles that pull posture forward all day at a desk."
+        },
+        {
+          "num": 7,
+          "name": "Neck Circles",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Slow and gentle, small range. Stop anywhere that pinches.",
+          "why": "Releases neck tension that builds up from screen time and stress, easy to skip but worth the minute."
+        }
+      ]
+    },
+    {
+      "name": "Breathing",
+      "duration": "3 min",
+      "default_rest_secs": 0,
+      "exercises": [
+        {
+          "num": 8,
+          "name": "Box Breathing",
+          "type": "timed",
+          "duration_secs": 180,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Inhale 4 counts, hold 4, exhale 4, hold 4. Repeat for the full three minutes.",
+          "why": "Downshifts your nervous system — the actual point of a recovery day is recovery, not just stretching."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "If any joint feels consistently restricted week over week, flag it — that's worth a closer look rather than just more stretching."
+}

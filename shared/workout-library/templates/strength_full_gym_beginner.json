@@ -1,0 +1,138 @@
+{
+  "id": "strength_full_gym_beginner",
+  "title": "Strength — Full Gym Beginner",
+  "subtitle": "Machine-first strength foundation",
+  "workout_type": "strength",
+  "estimated_duration_mins": 50,
+  "location": "Gym",
+  "equipment": ["full_gym"],
+  "coaching_note": "Machines take balance out of the equation so you can focus purely on pushing effort into the muscle. That's the right call while you're new — free weights come once these movement patterns are second nature.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "8 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Stationary Bike",
+          "type": "timed",
+          "duration_secs": 300,
+          "sets": 1,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Easy spin, build to a light sweat by the end.",
+          "why": "Raises heart rate and warms the knees before any leg work."
+        }
+      ]
+    },
+    {
+      "name": "Lower Body",
+      "duration": "16 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 2,
+          "name": "Leg Press",
+          "type": "reps",
+          "reps": 12,
+          "sets": 3,
+          "rest_between_sets_secs": 75,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Feet shoulder-width on the platform, lower until knees hit about 90 degrees, push through the whole foot.",
+          "why": "Builds quad and glute strength with the machine handling balance — the safest place to start pushing real effort."
+        },
+        {
+          "num": 3,
+          "name": "Leg Extension",
+          "type": "reps",
+          "reps": 12,
+          "sets": 2,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Pad against your shins, controlled extension, pause a beat at the top, lower slowly.",
+          "why": "Isolated quad work adds volume without the technical demand of a free-weight squat."
+        },
+        {
+          "num": 4,
+          "name": "Seated Leg Curl",
+          "type": "reps",
+          "reps": 12,
+          "sets": 2,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Pad just above the heel, curl through the full range, don't let momentum swing it.",
+          "why": "Hamstring counterbalance to the quad work — keeps the knee joint stable and healthy."
+        }
+      ]
+    },
+    {
+      "name": "Upper Body",
+      "duration": "16 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 5,
+          "name": "Chest Press Machine",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Handles at chest height, press straight forward without banging your elbows to full lockout hard.",
+          "why": "Guided pressing pattern — builds chest, shoulder, and tricep strength before you handle a free-weight bench press."
+        },
+        {
+          "num": 6,
+          "name": "Lat Pulldown",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Wide grip, lead with your elbows down and back, pull to your upper chest.",
+          "why": "Builds real pulling strength — the movement most beginners are weakest at because daily life rarely demands it."
+        },
+        {
+          "num": 7,
+          "name": "Seated Shoulder Press Machine",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Back flat against the pad, press straight up, don't shrug your shoulders up to your ears at the top.",
+          "why": "Overhead strength with a fixed path — safer entry point than a free dumbbell press for a first-timer."
+        }
+      ]
+    },
+    {
+      "name": "Core & Cool-down",
+      "duration": "10 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 8,
+          "name": "Cable Crunch",
+          "type": "reps",
+          "reps": 15,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Kneel below the pulley, hinge from the waist, curl your ribs toward your hips — don't just pull with your arms.",
+          "why": "Loaded core work — trains the same crunch pattern with resistance you can progress over time."
+        },
+        {
+          "num": 9,
+          "name": "Foam Roll: Legs",
+          "type": "timed",
+          "duration_secs": 90,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Slow passes on quads and hamstrings, pause on tight spots.",
+          "why": "Releases what you loaded before you leave — helps you walk out feeling good, not stiff."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Bump the weight stack one increment once all three sets hit the top of the rep range cleanly. Move from machine chest press to dumbbell bench once machine feels easy for two straight sessions."
+}

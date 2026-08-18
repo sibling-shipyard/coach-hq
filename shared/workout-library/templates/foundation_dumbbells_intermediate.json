@@ -1,0 +1,153 @@
+{
+  "id": "foundation_dumbbells_intermediate",
+  "title": "Foundation — Dumbbells Intermediate",
+  "subtitle": "General base building with light load",
+  "workout_type": "foundation",
+  "estimated_duration_mins": 45,
+  "location": "Home",
+  "equipment": ["dumbbells"],
+  "coaching_note": "This sits under whatever sport you're building toward — the point is a strong, balanced base, not chasing heavy numbers. Pick a dumbbell weight you can control for every rep of every set. If your form breaks down on the last few reps, that's the right weight — not too light.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "6 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Jumping Jacks",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Full range — arms overhead, feet wide. Land soft.",
+          "why": "Gets the whole body warm fast before you pick up weight."
+        },
+        {
+          "num": 2,
+          "name": "Bodyweight Reverse Lunge",
+          "type": "reps",
+          "reps": 8,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Step back, drop the back knee toward the floor, front shin stays vertical.",
+          "why": "Rehearses the lunge pattern and opens the hip flexors before loading."
+        }
+      ]
+    },
+    {
+      "name": "Lower Body",
+      "duration": "16 min",
+      "default_rest_secs": 60,
+      "coaching_note": "Start light. You should be able to nail the last rep of set one with the same form as the first.",
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Goblet Squat",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Hold one dumbbell at chest height with both hands. Chest tall, sit back and down, knees track your toes.",
+          "why": "The goblet position keeps your torso upright, which is far more forgiving on the lower back than a barbell squat while you build the pattern."
+        },
+        {
+          "num": 4,
+          "name": "Dumbbell Romanian Deadlift",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Soft knees, push your hips straight back, dumbbells stay close to your legs. Stop when you feel the hamstring stretch — that's your range, not the floor.",
+          "why": "Builds the posterior chain that keeps you upright and powerful in almost every sport movement."
+        },
+        {
+          "num": 5,
+          "name": "Reverse Lunge (dumbbells)",
+          "type": "reps",
+          "reps": 8,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Dumbbells at your sides, step back into the lunge, front knee stays over the ankle, not past the toes.",
+          "why": "Single-leg strength closes gaps between your stronger and weaker side that a bilateral squat can hide."
+        }
+      ]
+    },
+    {
+      "name": "Upper Body",
+      "duration": "14 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 6,
+          "name": "Dumbbell Row",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Flat back, brace on a bench with one hand. Pull the dumbbell to your hip, elbow close to your body, squeeze at the top.",
+          "why": "Pulling strength balances all the pressing in daily life and most sport-specific work — keeps shoulders healthy long-term."
+        },
+        {
+          "num": 7,
+          "name": "Dumbbell Shoulder Press",
+          "type": "reps",
+          "reps": 8,
+          "sets": 3,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Start at shoulder height, press straight overhead without arching your lower back. Ribs stay down.",
+          "why": "Overhead strength and stability — most sports ask your shoulders to work overhead at some point."
+        },
+        {
+          "num": 8,
+          "name": "Dumbbell Bicep Curl",
+          "type": "reps",
+          "reps": 12,
+          "sets": 2,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Elbows pinned at your sides, no swinging. Full range, control the lowering.",
+          "why": "Small accessory work — keeps the elbow and forearm resilient under the bigger lifts."
+        }
+      ]
+    },
+    {
+      "name": "Core & Cool-down",
+      "duration": "9 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 9,
+          "name": "Plank",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Forearms down, straight line from head to heel. No sagging hips, no raised butt.",
+          "why": "Anterior core endurance — the foundation everything else sits on top of."
+        },
+        {
+          "num": 10,
+          "name": "Standing Hip Flexor Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Step into a lunge, tuck your tailbone under, gently drive the hips forward.",
+          "why": "Lunges and squats tighten the hip flexors — stretch them before you leave the mat."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Add 1-2kg per dumbbell once all sets hit the top of the rep range with clean form for two sessions in a row. Add a third lunge set before adding weight to the lunge."
+}

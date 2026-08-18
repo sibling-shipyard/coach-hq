@@ -1,0 +1,129 @@
+{
+  "id": "strength_full_gym_advanced",
+  "title": "Strength — Full Gym Advanced",
+  "subtitle": "Barbell-driven strength for an experienced lifter",
+  "workout_type": "strength",
+  "estimated_duration_mins": 65,
+  "location": "Gym",
+  "equipment": ["full_gym"],
+  "coaching_note": "Barbell work is loaded heavier here — treat the first work set of each lift as a ramp, not a max. Miss a rep with a breakdown in form and we drop the weight next session, no ego about it.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "10 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Rowing Machine",
+          "type": "timed",
+          "duration_secs": 300,
+          "sets": 1,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Easy pace, focus on a long stroke — legs, then back, then arms. This is a warm-up, not a piece.",
+          "why": "Full-body warm-up that primes the posterior chain you're about to load heavy."
+        },
+        {
+          "num": 2,
+          "name": "Barbell Good Morning (empty bar)",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Bar on your back, soft knees, hinge at the hips until you feel your hamstrings load.",
+          "why": "Grooves the hip hinge pattern under a light bar before you touch working weight on the deadlift."
+        }
+      ]
+    },
+    {
+      "name": "Primary Lift",
+      "duration": "20 min",
+      "default_rest_secs": 150,
+      "coaching_note": "This is the main event. Full rest between sets — 2-3 minutes minimum. Nothing else in the session matters more than this being clean.",
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Barbell Deadlift",
+          "type": "reps",
+          "reps": 5,
+          "sets": 4,
+          "rest_between_sets_secs": 150,
+          "rest_after_exercise_secs": 150,
+          "form_cue": "Bar over midfoot, flat back, chest up before you pull. Drive the floor away — don't yank with your lower back.",
+          "why": "The single best full-body strength builder available with a barbell — hits posterior chain, grip, and total-body bracing at once."
+        }
+      ]
+    },
+    {
+      "name": "Secondary Lifts",
+      "duration": "20 min",
+      "default_rest_secs": 90,
+      "exercises": [
+        {
+          "num": 4,
+          "name": "Barbell Back Squat",
+          "type": "reps",
+          "reps": 6,
+          "sets": 3,
+          "rest_between_sets_secs": 120,
+          "rest_after_exercise_secs": 120,
+          "form_cue": "Bar on your upper traps, brace your core before you unrack. Hit at least parallel depth, drive up through your whole foot.",
+          "why": "Quad and glute strength at a rep range that builds size and strength together, without the fatigue cost of another deadlift-style pull today."
+        },
+        {
+          "num": 5,
+          "name": "Weighted Pull-up",
+          "type": "reps",
+          "reps": 6,
+          "sets": 3,
+          "rest_between_sets_secs": 90,
+          "rest_after_exercise_secs": 90,
+          "form_cue": "Full hang at the bottom, chin clears the bar at the top. Add weight on a dip belt once bodyweight sets of 8 feel easy.",
+          "why": "Vertical pulling strength — the upper-body counterpart to the squat and deadlift, and the movement most lifters neglect."
+        },
+        {
+          "num": 6,
+          "name": "Barbell Overhead Press",
+          "type": "reps",
+          "reps": 6,
+          "sets": 3,
+          "rest_between_sets_secs": 90,
+          "rest_after_exercise_secs": 90,
+          "form_cue": "Bar starts at the collarbone. Brace your glutes and core, press straight up, tuck your head through at the top.",
+          "why": "Full-body pressing strength — a strict overhead press exposes weak core bracing faster than almost any other lift."
+        }
+      ]
+    },
+    {
+      "name": "Core & Cool-down",
+      "duration": "10 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 7,
+          "name": "Hanging Leg Raise",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Dead hang, raise your legs to at least parallel without swinging. Control the lowering.",
+          "why": "Core strength under load-bearing tension, not just a floor crunch — carries directly into bracing on the big lifts."
+        },
+        {
+          "num": 8,
+          "name": "Couch Stretch (hip flexor)",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Back shin up a wall or bench, front foot forward, tuck your tailbone under and lean into it.",
+          "why": "Squats and deadlifts both tighten the hip flexors hard — this is the deepest release for that."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Add 2.5kg total to the deadlift once all 4x5 sets move fast off the floor with no grinding on the last rep. Add weight to squat and press independently on the same rule — don't chase all three at once."
+}

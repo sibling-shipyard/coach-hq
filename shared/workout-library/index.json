@@ -1,0 +1,128 @@
+[
+  {
+    "id": "foundation_bodyweight_beginner",
+    "sport_tags": ["general_fitness"],
+    "equipment": ["bodyweight"],
+    "goal_tags": ["general_fitness", "build_strength"],
+    "level": "beginner"
+  },
+  {
+    "id": "foundation_dumbbells_intermediate",
+    "sport_tags": ["general_fitness"],
+    "equipment": ["dumbbells"],
+    "goal_tags": ["general_fitness", "build_strength"],
+    "level": "intermediate"
+  },
+  {
+    "id": "foundation_full_gym_general",
+    "sport_tags": ["general_fitness"],
+    "equipment": ["full_gym"],
+    "goal_tags": ["general_fitness", "build_strength"],
+    "level": "beginner"
+  },
+  {
+    "id": "foundation_running_prehab",
+    "sport_tags": ["running"],
+    "equipment": ["bodyweight"],
+    "goal_tags": ["injury_prevention", "endurance"],
+    "level": "beginner"
+  },
+  {
+    "id": "strength_bodyweight_beginner",
+    "sport_tags": ["general_fitness", "calisthenics"],
+    "equipment": ["bodyweight"],
+    "goal_tags": ["build_strength"],
+    "level": "beginner"
+  },
+  {
+    "id": "strength_bodyweight_advanced",
+    "sport_tags": ["general_fitness", "calisthenics"],
+    "equipment": ["bodyweight"],
+    "goal_tags": ["build_strength", "skill_development"],
+    "level": "advanced"
+  },
+  {
+    "id": "strength_dumbbells_intermediate",
+    "sport_tags": ["general_fitness", "strength_training"],
+    "equipment": ["dumbbells"],
+    "goal_tags": ["build_strength"],
+    "level": "intermediate"
+  },
+  {
+    "id": "strength_full_gym_beginner",
+    "sport_tags": ["general_fitness", "strength_training"],
+    "equipment": ["full_gym"],
+    "goal_tags": ["build_strength"],
+    "level": "beginner"
+  },
+  {
+    "id": "strength_full_gym_advanced",
+    "sport_tags": ["strength_training"],
+    "equipment": ["full_gym"],
+    "goal_tags": ["build_strength"],
+    "level": "advanced"
+  },
+  {
+    "id": "recovery_mobility_bodyweight",
+    "sport_tags": ["general_fitness"],
+    "equipment": ["bodyweight"],
+    "goal_tags": ["mobility", "general_fitness"],
+    "level": "beginner"
+  },
+  {
+    "id": "recovery_post_run_stretch",
+    "sport_tags": ["running"],
+    "equipment": ["bodyweight"],
+    "goal_tags": ["mobility", "injury_prevention"],
+    "level": "beginner"
+  },
+  {
+    "id": "recovery_band_full_body",
+    "sport_tags": ["general_fitness"],
+    "equipment": ["resistance_band"],
+    "goal_tags": ["mobility", "injury_prevention"],
+    "level": "beginner"
+  },
+  {
+    "id": "realign_posture_reset",
+    "sport_tags": ["general_fitness"],
+    "equipment": ["resistance_band"],
+    "goal_tags": ["injury_prevention", "mobility"],
+    "level": "beginner"
+  },
+  {
+    "id": "realign_single_leg_balance",
+    "sport_tags": ["running", "badminton", "general_fitness"],
+    "equipment": ["dumbbells"],
+    "goal_tags": ["injury_prevention", "build_strength"],
+    "level": "intermediate"
+  },
+  {
+    "id": "realign_shoulder_prehab",
+    "sport_tags": ["badminton", "swimming", "tennis"],
+    "equipment": ["resistance_band"],
+    "goal_tags": ["injury_prevention"],
+    "level": "beginner"
+  },
+  {
+    "id": "calisthenics_beginner_basics",
+    "sport_tags": ["calisthenics"],
+    "equipment": ["bodyweight"],
+    "goal_tags": ["skill_development", "build_strength"],
+    "level": "beginner"
+  },
+  {
+    "id": "calisthenics_pullup_progression",
+    "sport_tags": ["calisthenics"],
+    "equipment": ["pull_up_bar", "resistance_band"],
+    "goal_tags": ["skill_development", "build_strength"],
+    "level": "intermediate"
+  },
+  {
+    "id": "calisthenics_advanced_skills",
+    "sport_tags": ["calisthenics"],
+    "equipment": ["parallettes", "resistance_band"],
+    "goal_tags": ["skill_development", "build_strength"],
+    "level": "advanced"
+  }
+]

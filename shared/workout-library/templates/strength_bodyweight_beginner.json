@@ -1,0 +1,150 @@
+{
+  "id": "strength_bodyweight_beginner",
+  "title": "Strength — Bodyweight Only",
+  "subtitle": "No-equipment strength for a beginner",
+  "workout_type": "strength",
+  "estimated_duration_mins": 40,
+  "location": "Home",
+  "equipment": ["bodyweight"],
+  "coaching_note": "No equipment doesn't mean no intensity — the tempo and the pauses are your load here. Slow the lowering phase down on every exercise; that's where the strength gets built.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "6 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "High Knees",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Quick feet, drive knees to hip height. Stay light on your feet.",
+          "why": "Raises heart rate and warms the hips before squat work."
+        },
+        {
+          "num": 2,
+          "name": "Arm Circles + Shoulder Taps",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "10 circles each direction, then 10 shoulder taps from a plank position, hips as still as possible.",
+          "why": "Preps shoulders for push-ups and core for the plank work later."
+        }
+      ]
+    },
+    {
+      "name": "Lower Body",
+      "duration": "14 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Slow-Tempo Squat",
+          "type": "reps",
+          "reps": 12,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Take 4 full seconds on the way down, pause 1 second at the bottom, stand up with control. No bouncing.",
+          "why": "Without weight, slowing the tempo down is how you add real load to a squat — this is what builds the strength here."
+        },
+        {
+          "num": 4,
+          "name": "Bulgarian Split Squat (back foot elevated)",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Back foot on a chair or step. Front foot far enough forward that your knee doesn't drift past your toes. Drop straight down.",
+          "why": "Single-leg strength that a bodyweight bilateral squat can't reach — this is where most of your leg strength gain will come from."
+        },
+        {
+          "num": 5,
+          "name": "Single-Leg Glute Bridge",
+          "type": "reps",
+          "reps": 12,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "One foot flat, other leg extended straight. Drive through the planted heel, squeeze the glute at the top.",
+          "why": "Isolates one glute at a time — a much harder version of the standard bridge, no equipment needed to make it harder."
+        }
+      ]
+    },
+    {
+      "name": "Upper Body",
+      "duration": "13 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 6,
+          "name": "Push-up (full or knee-modified)",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Straight line from head to heel (or knee). Chest touches the floor, elbows track back at about 45 degrees, not straight out.",
+          "why": "The core strength benchmark of upper-body pushing — build clean full reps here before adding any load."
+        },
+        {
+          "num": 7,
+          "name": "Pike Push-up",
+          "type": "reps",
+          "reps": 6,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Hips high, feet close to hands, head aims toward the floor between your hands. This is a shoulder press, not a push-up.",
+          "why": "The only real way to train overhead pressing strength with zero equipment."
+        },
+        {
+          "num": 8,
+          "name": "Superman Hold",
+          "type": "timed",
+          "duration_secs": 20,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Lying face down, lift chest and legs off the floor together, squeeze through the lower back and glutes.",
+          "why": "Balances all the forward-flexion work in push-ups and squats with posterior chain extension strength."
+        }
+      ]
+    },
+    {
+      "name": "Core & Cool-down",
+      "duration": "7 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 9,
+          "name": "Plank",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Straight line head to heel, no sagging hips.",
+          "why": "Full-body tension endurance — supports every lift you'll add load to later."
+        },
+        {
+          "num": 10,
+          "name": "Seated Forward Fold",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Legs straight, hinge from the hips, reach for your toes without rounding hard through the upper back.",
+          "why": "Stretches the hamstrings and lower back after all the squatting and hinging."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Once 3x10 full push-ups feels controlled, add a 4th set before moving to a weighted vest or decline version. Once split squats feel easy, raise the back foot higher to increase range."
+}

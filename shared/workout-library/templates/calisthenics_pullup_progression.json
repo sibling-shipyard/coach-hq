@@ -1,0 +1,115 @@
+{
+  "id": "calisthenics_pullup_progression",
+  "title": "Calisthenics — Pull-up Progression",
+  "subtitle": "Building toward strict pull-ups",
+  "workout_type": "calisthenics",
+  "estimated_duration_mins": 40,
+  "location": "Home",
+  "equipment": ["pull_up_bar", "resistance_band"],
+  "coaching_note": "Pull-ups are earned through volume of quality reps at each step, not by rushing to the next progression. If your form breaks down (kipping, half reps), you're not ready for less band assistance yet — that's fine, stay a session or two longer at this step.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "6 min",
+      "default_rest_secs": 15,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Scapular Pulls (dead hang)",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Hang from the bar, arms straight, pull your shoulder blades down and together without bending your elbows.",
+          "why": "Trains the scapular movement that has to happen before a pull-up even starts — most beginners skip this entirely."
+        },
+        {
+          "num": 2,
+          "name": "Band Pull-Apart",
+          "type": "reps",
+          "reps": 15,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Arms straight, pull the band apart to your chest, squeeze your shoulder blades.",
+          "why": "Activates the mid-back before it takes real load."
+        }
+      ]
+    },
+    {
+      "name": "Pull-up Progression",
+      "duration": "20 min",
+      "default_rest_secs": 60,
+      "coaching_note": "Use the lightest band that still lets you complete every rep with full range and a controlled lowering.",
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Band-Assisted Pull-up",
+          "type": "reps",
+          "reps": 6,
+          "sets": 4,
+          "rest_between_sets_secs": 75,
+          "rest_after_exercise_secs": 90,
+          "form_cue": "Loop the band over the bar and under your foot or knee. Full hang at the bottom, chin clears the bar at the top, control the descent.",
+          "why": "The band takes just enough load off that you can practice the full range with good form — the exact pattern you're training toward."
+        },
+        {
+          "num": 4,
+          "name": "Negative Pull-up",
+          "type": "reps",
+          "reps": 4,
+          "sets": 3,
+          "rest_between_sets_secs": 75,
+          "rest_after_exercise_secs": 90,
+          "form_cue": "Jump or step up to the top position, chin over the bar, then lower yourself as slowly as you can — aim for a 5 second count down.",
+          "why": "Eccentric strength builds faster than concentric — this is often the fastest way to a first unassisted pull-up."
+        },
+        {
+          "num": 5,
+          "name": "Active Hang",
+          "type": "timed",
+          "duration_secs": 20,
+          "sets": 3,
+          "rest_between_sets_secs": 45,
+          "form_cue": "Full hang, shoulder blades pulled down and back (not shrugged up), core braced.",
+          "why": "Builds the grip and shoulder stability endurance a pull-up set demands — often the first thing to fail before the back does."
+        }
+      ]
+    },
+    {
+      "name": "Accessory Push",
+      "duration": "10 min",
+      "default_rest_secs": 45,
+      "exercises": [
+        {
+          "num": 6,
+          "name": "Push-up",
+          "type": "reps",
+          "reps": 12,
+          "sets": 3,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Straight line head to heel, full range, elbows track back at roughly 45 degrees.",
+          "why": "Balances the heavy pulling volume with pushing so your shoulders stay even, front to back."
+        }
+      ]
+    },
+    {
+      "name": "Cool-down",
+      "duration": "4 min",
+      "default_rest_secs": 10,
+      "exercises": [
+        {
+          "num": 7,
+          "name": "Lat Stretch (hang from bar)",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Relaxed dead hang, let your lats lengthen, breathe out to sink deeper.",
+          "why": "Releases the lats and shoulders after all the pulling volume."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Reduce band tension one level once 4x6 band-assisted reps feel controlled with a full range for two sessions running. Once you can do 1-2 unassisted reps, replace band-assisted sets with straight attempts and keep negatives as backup volume."
+}
