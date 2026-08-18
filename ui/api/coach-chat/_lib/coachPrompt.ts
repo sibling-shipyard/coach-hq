@@ -144,9 +144,14 @@ const FEW_SHOT_EXAMPLES = [
 // shape doesn't depend on whether cachedContent was used.
 export const GENERATION_CONFIG = {
   responseMimeType: "application/json",
-  // Shrunk from 16384 now that the ask is a handful of short fields - also caps the damage from
-  // the repetition-loop failure mode observed in testing.
-  maxOutputTokens: 2048,
+  // Was 2048 (shrunk from 16384 when the ask was a handful of short fields). Raised after live
+  // verification hit a real truncation - a turn combining coach_note/reply with a
+  // session_reconcile actual{} and a plan_edit entry produced an "Unterminated string in JSON"
+  // error, not a network failure. The schema has grown a lot since 2048 was chosen (week_plan,
+  // session_reconcile+actual, plan_edit, template_edit, session_plan all coexist as possible
+  // fields now) - 4096 gives real headroom for a turn that legitimately needs several of them at
+  // once, while still well short of the original 16384 (and its repetition-loop risk).
+  maxOutputTokens: 4096,
   responseSchema: {
     type: "object",
     properties: {
