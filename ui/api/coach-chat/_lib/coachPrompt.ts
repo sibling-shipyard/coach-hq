@@ -250,7 +250,12 @@ export const GENERATION_CONFIG = {
       session_closed: { type: "boolean" },
       reply: { type: "string" },
     },
-    required: ["reply"],
+    // session_closed is required, not optional: live verification found Gemini intermittently
+    // omitting it on longer closing-turn responses (a real week_plan, a template_edit) since it
+    // wasn't enforced - the prompt always instructs a value either way (true/false depending on
+    // mode), so this just makes the schema match what's already asked of the model, rather than
+    // letting the close silently die whenever the field goes missing.
+    required: ["reply", "session_closed"],
   },
 } as const;
 
