@@ -41,6 +41,57 @@ have never matched anything. Combined with the `gh` entries the remote harness c
 third of the allowlist is dead. That makes the allowlist fix (T1.2) worth more than either plan
 scored it: it is not a tidy-up, it is a broken file.
 
+## Status — what the #399–#405 stack shipped
+
+Updated 2026-08-18 after Tech Lead review of the whole stack.
+
+| Item | PR | State |
+|---|---|---|
+| T1.1 boot-cost script | #399 | ✅ shipped |
+| T1.2 settings.json repair | #400 | ✅ shipped — 8 MCP names in the first pass did not exist on this server; corrected in review |
+| T1.3 one check command | #399 | ✅ shipped as `platform/scripts/check.sh` |
+| T1.4 `git add -A` hook | #400 | ✅ shipped — 15/15 on a payload matrix, and it blocked a real `git add .` during this review |
+| T1.5 role-doc diet + byte cap | #401 | ✅ shipped — see the measurement below before calling it a win |
+| T1.6 conditional SOUL read | #402 | ✅ shipped — the one large saving in the stack |
+| T2.1–T2.7 loop gates | #403 | ✅ shipped, plus ADR 0026 recording the LangGraph rejection |
+| T3.7 dynamic session-start state | #405 | ✅ shipped |
+| T3.8 dedupe role-doc preamble | #401 | ✅ shipped |
+| T4.1 fix the four dead paths | #404 | ✅ shipped |
+| T4.2 two new validator rules | #404 | ✅ shipped — the staleness hard-fail was rescoped in review, see below |
+| T4.5 PR template gate line | #404 | ✅ shipped |
+| T3.1–T3.6 register roles, model tiers, worktrees, skills | — | ⏸ held, gated on the measurement below |
+| T4.3 re-verify `scaling-plan.md` | — | ⏸ held, athlete's call |
+| T4.4 delete the Historical eng-docs | — | ⏸ held, athlete's call |
+
+### What the measurement actually says
+
+`node platform/scripts/boot-cost.mjs`, `main` vs top of stack:
+
+| Role | Before | After | Δ |
+|---|---|---|---|
+| Tech Lead (non-soul task) | ~14 760 tok | ~5 250 tok | **−64%** |
+| iOS Builder | 8 884 tok | 8 636 tok | −2.8% |
+| UI Expert | 3 722 tok | 3 772 tok | **+1.3%** |
+| Bob the Builder | 3 415 tok | 3 464 tok | **+1.4%** |
+
+One real win: Tech Lead's conditional SOUL read. Everything else roughly broke even, and two
+roles got slightly *heavier*, because `AGENTS.md` grew 495B and the ADR index 65B — costs every
+role pays — while the savings landed in role docs each read by one role. The iOS "71% smaller
+role doc" moved 3072B of its 4626B straight into `ios-app-spec.md` and `ios/DESIGN.md`, which
+iOS Builder also reads at boot. Promotion into an eng-doc is not a saving when the eng-doc is
+itself a boot file (#414).
+
+**This is the number T3.1–T3.6 were gated on.** It says the boot-doc problem is nearly all
+Tech Lead's SOUL read, now fixed, plus iOS's two spec docs, which is #414 and not Tier 3. Tier 3
+buys isolation and tool scoping — real, but not tokens. Score it that way before starting it.
+
+### Found in review, filed as issues
+
+- #414 (P1) — iOS boot is the heaviest and the diet barely moved it
+- #415 (P2) — the path checker silently skips paths after an odd backtick, so "zero warnings" is a floor
+- #416 (P2) — staleness only polices docs that opted in via `Status: Current`
+- #417 (P2) — widen path-checking to `.claude/hooks/`, where a dead path misdirects every session
+
 ## The loop, with the gates in it
 
 ```mermaid
