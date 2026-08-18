@@ -27,6 +27,11 @@ import { validateWorkout } from "./workoutSchema.js";
 import type { Workout } from "../../../client/src/lib/workouts.js";
 
 export const TEMPLATES_PATH_PREFIX = "user_data/activities/workout_plans/templates/";
+// coach-redesign workout-backend-wiring §4: session snapshot write path. Same directory
+// B_engine.md's "Persisting Session Files" ritual already writes to by hand
+// (sessions/YYYY-MM-DD_<workout_id>.json) - this just gives that path a named constant like
+// TEMPLATES_PATH_PREFIX has, so coach-chat.ts doesn't hand-roll the string.
+export const SESSIONS_PATH_PREFIX = "user_data/activities/workout_plans/sessions/";
 // Write-once sentinel: no directory-listing API exists in this codebase's GitHub plumbing
 // (githubGitData.ts only ever reads/writes single known paths), so rather than invent one, this
 // mirrors coachWrites.ts's own write-once pattern (a single known file, checked with the existing
@@ -453,4 +458,84 @@ export async function applyTemplateEdit(
   };
 
   return JSON.stringify(result, null, 2);
+}
+
+// coach-redesign workout-backend-wiring §4: session_plan action field. Write path is dynamic per
+// call (date + template_id baked into the filename), unlike every other applier in this file -
+// callers build it with this helper rather than hand-rolling the string.
+export function sessionPath(sessionDate: string, templateId: string): string {
+  return `${SESSIONS_PATH_PREFIX}${sessionDate}_${templateId}.json`;
+}
+
+// Renumbers a workout's exercises after removing the nums in skipNums: filters each phase's
+// exercises down, then walks every phase in order re-assigning num 1, 2, 3... sequentially across
+// the whole workout (never gaps, never restarting per-phase) - B_engine.md's Persisting Session
+// Files rule #3 ("exercises removed (re-numbered sequentially, no gaps)"). Matches original
+// relative order since it only ever filters+re-labels, never reorders. A phase whose exercises are
+// all skipped is left with an empty exercises array rather than dropped or crashed on here -
+// validateWorkout (called by applySessionPlan after this runs) is what actually rejects an
+// empty-exercises phase, since the base Workout schema requires phases.exercises to be non-empty;
+// this function's job is purely the mechanical renumber, not schema enforcement.
+export function renumberAfterSkip(phases: Workout["phases"], skipNums: number[]): Workout["phases"] {
+  const skip = new Set(skipNums);
+  let next = 1;
+  return phases.map((phase) => ({
+    ...phase,
+    exercises: phase.exercises
+      .filter((ex) => !skip.has(ex.num))
+      .map((ex) => ({ ...ex, num: next++ })),
+  }));
+}
+
+/**
+ * Applies a session_plan action field: builds an injury/periodization-adjusted snapshot of one of
+ * the athlete's own templates for a specific day (B_engine.md's Persisting Session Files ritual).
+ * Validates template_id against the athlete's real, already-committed template ids
+ * (validTemplateIds, same manifest-based set applyTemplateEdit already established) before doing
+ * anything else - same hallucinated-id guard. No Gemini call: skip_exercise_nums is purely
+ * mechanical (renumberAfterSkip), matching the plan's explicit "no Gemini call needed" for this
+ * shape. Validates the final result structurally (validateWorkout) before returning - never commit
+ * invalid data, same discipline as applyTemplateEdit. Returns {path, content} rather than just
+ * content since, unlike every other applier here, the write path itself is dynamic (per
+ * session_date + template_id), not a fixed constant.
+ */
+export function applySessionPlan(
+  templateContent: string | null,
+  plan: { template_id: string; session_date: string; skip_exercise_nums?: number[]; note?: string },
+  validTemplateIds: ReadonlySet<string>,
+  traceId: string,
+): { path: string; content: string } {
+  if (!validTemplateIds.has(plan.template_id)) {
+    throw new Error(`session_plan: no template with id "${plan.template_id}" in this athlete's templates`);
+  }
+
+  const base = parseJsonOrNull<Workout>(templateContent);
+  if (!base) {
+    throw new Error(`session_plan: template "${plan.template_id}" could not be read`);
+  }
+
+  const skipNums = plan.skip_exercise_nums ?? [];
+  const phases = skipNums.length > 0 ? renumberAfterSkip(base.phases, skipNums) : base.phases;
+
+  // coaching_note: append the athlete-facing reason rather than replace it outright, so any
+  // durable context already on the base template (e.g. general session guidance) survives the
+  // modification note being layered on top - same "extend, don't clobber" spirit as
+  // applyMemoryUpdate elsewhere in this pipeline. No note given: leave the base template's
+  // coaching_note untouched, per B_engine.md's rule (a note is only required "for the changes",
+  // i.e. only meaningful when something actually changed).
+  const trimmedNote = plan.note?.trim();
+  const coachingNote = trimmedNote ? `${base.coaching_note} — ${trimmedNote}` : base.coaching_note;
+
+  const session: Workout = {
+    ...base,
+    phases,
+    session_date: plan.session_date,
+    based_on_template: templatePath(plan.template_id),
+    coaching_note: coachingNote,
+    _meta: { updated_at: new Date().toISOString(), updated_by: "model", trace_id: traceId },
+  };
+
+  validateWorkout(session, `session_plan result for "${plan.template_id}" on ${plan.session_date}`);
+
+  return { path: sessionPath(plan.session_date, plan.template_id), content: JSON.stringify(session, null, 2) };
 }

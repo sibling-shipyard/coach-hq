@@ -59,6 +59,25 @@ export interface GeminiReply {
   // first pass, matching profile_update's shape rather than quest_event's. Closing turns only,
   // same as the fields above.
   template_edit?: { template_id: string; instruction: string };
+  // coach-redesign workout-backend-wiring §4: Coach is prescribing a modified version of one of
+  // the athlete's templates for a specific day (injury/periodization adjustment), per
+  // B_engine.md's Persisting Session Files ritual. No `session_date` field here - per
+  // gemini-flow.md's Action-field design rule #1 ("server computes all bookkeeping - dates, ids,
+  // timestamps"), the server stamps session_date itself (coach-chat.ts, todayDateString), same as
+  // coach_note/quest_event/injury_event never carry a Gemini-supplied date. Judgment call: this
+  // means session_plan can only ever apply to *today's* session, not a future date. B_engine.md's
+  // trigger text ("whenever you prescribe a workout modified for injury or periodization") reads
+  // as an in-the-moment same-day prescription in every example in that section, not "plan
+  // Thursday's session now" - and the existing hand-written ritual only ever runs at the point the
+  // athlete is about to do the session, not ahead of time. If a genuine need for future-dated
+  // session planning shows up, that's a deliberate schema change later (add an explicit
+  // Gemini-supplied session_date with its own validation), not a workaround here.
+  // template_id must be one of the ids listed in context (activeTemplatesContext, same set
+  // template_edit uses) - never invented. skip_exercise_nums is the only supported modification
+  // this pass (free-form new-exercise insertion is a known gap, not built yet). Single object, not
+  // an array - one session prescription per closing turn, matching template_edit/profile_update's
+  // shape. Closing turns only, same as the fields above.
+  session_plan?: { template_id: string; skip_exercise_nums?: number[]; note?: string };
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;
@@ -143,6 +162,17 @@ export const GENERATION_CONFIG = {
         properties: {
           template_id: { type: "string" },
           instruction: { type: "string" },
+        },
+      },
+      // coach-redesign workout-backend-wiring §4 - single object, matching template_edit's shape.
+      // No session_date property here - server-stamped, see GeminiReply's own comment above for
+      // why. skip_exercise_nums is the only supported modification this pass.
+      session_plan: {
+        type: "object",
+        properties: {
+          template_id: { type: "string" },
+          skip_exercise_nums: { type: "array", items: { type: "number" } },
+          note: { type: "string" },
         },
       },
       session_closed: { type: "boolean" },
@@ -261,9 +291,18 @@ export function buildDynamicText(
           "the edit yourself - instruction should describe what the athlete asked for, not the",
           "result. Only use a template_id that's actually listed below - never invent one, and",
           "never set this if the athlete has no templates listed.",
+          "\nIf you are prescribing today's session as a modified version of one of the athlete's",
+          "own templates (see Current templates below) - dropping exercises for an injury or a",
+          "time constraint - set session_plan with that template's exact template_id, an array",
+          "skip_exercise_nums of the exercise numbers to drop, and a short note explaining why.",
+          "Only set this when the session is genuinely modified from the template as written - if",
+          "today's session is the standard, unmodified template, do NOT set session_plan; the",
+          "athlete's timer app already falls back to the base template on its own. Only use a",
+          "template_id that's actually listed below - never invent one. This always applies to",
+          "today's session only, never a future date.",
           "**Never say something is saved, logged, locked, or committed unless coach_note (or",
-          "memory_update / injury_event / quest_event / profile_update / template_edit) in this",
-          "exact response genuinely reflects it.**",
+          "memory_update / injury_event / quest_event / profile_update / template_edit /",
+          "session_plan) in this exact response genuinely reflects it.**",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
           "response (asking a clarifying question instead does NOT count - set it false in that case,",
           "even though this turn was triggered by a close-session phrase). The athlete will simply see",

@@ -46,8 +46,10 @@ import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, a
 import {
   generateInitialTemplates,
   applyTemplateEdit,
+  applySessionPlan,
   validTemplateIdsFromManifest,
   templatePath,
+  sessionPath,
   TEMPLATES_MANIFEST_PATH,
 } from "./coach-chat/_lib/coachWorkoutFiles.js";
 import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
@@ -398,6 +400,35 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
+      // §4: reported only when Coach is prescribing today's session as a modified version of one
+      // of the athlete's own templates this close. session_date is server-computed here
+      // (todayDateString), never Gemini-supplied - see coachPrompt.ts's GeminiReply.session_plan
+      // comment for the reasoning. template_id is re-validated at commit time against
+      // validTemplateIds (same set Gemini was shown via activeTemplatesContext) inside
+      // applySessionPlan itself - guard condition here just checks the field is present.
+      // resolve() re-fetches the template's current content fresh at commit time, same
+      // stale-read-avoidance pattern as templateEditWrite above. No Gemini call inside
+      // applySessionPlan - skip_exercise_nums is purely mechanical - so the write path itself
+      // (session_date baked into the filename) can be computed up front rather than inside
+      // resolve().
+      const sessionPlan = reply.session_plan;
+      const sessionPlanDate = todayDateString(timezone, new Date());
+      const sessionPlanWrite: FileEntry | undefined = sessionPlan?.template_id
+        ? {
+            path: sessionPath(sessionPlanDate, sessionPlan.template_id),
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, templatePath(sessionPlan.template_id), token);
+              const { content } = applySessionPlan(
+                fresh,
+                { ...sessionPlan, session_date: sessionPlanDate },
+                validTemplateIds,
+                traceId,
+              );
+              return content;
+            },
+          }
+        : undefined;
+
       // B2/ADR 0018: profile.json isn't edited here, so both sides of this transition check stay
       // the pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
       const wasProfileComplete = isAthleteProfileComplete(profile, memory);
@@ -417,6 +448,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       if (questEventWrite) optionalWrites.push(questEventWrite);
       if (profileUpdateWrite) optionalWrites.push(profileUpdateWrite);
       if (templateEditWrite) optionalWrites.push(templateEditWrite);
+      if (sessionPlanWrite) optionalWrites.push(sessionPlanWrite);
       const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
 
       let repoSha: string;
