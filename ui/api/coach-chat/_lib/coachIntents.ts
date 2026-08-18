@@ -145,7 +145,9 @@ export function applyInjuryEvent(content: string | null, event: InjuryEvent, tod
 export interface QuestEvent {
   quest_id: string;
   status: "completed" | "missed" | "excused";
-  value?: number | string;
+  // string-only - the Gemini responseSchema (coachPrompt.ts) declares value as
+  // `{ type: "string" }`, so `number` here was dead, unreachable type surface. Found in review.
+  value?: string;
 }
 
 export function applyQuestEvent(

@@ -39,7 +39,10 @@ export interface GeminiReply {
   //
   // Issue #410: was a single object - a turn reporting two separate quest completions could only
   // capture one. Now an array so every reported completion lands as its own row.
-  quest_event?: { quest_id: string; status: "completed" | "missed" | "excused"; value?: number | string }[];
+  // value is string-only, not string | number - the responseSchema below declares it as
+  // `{ type: "string" }`, so Gemini's structured output can never actually produce a number here
+  // regardless of what a wider TS type might promise. Found in review.
+  quest_event?: { quest_id: string; status: "completed" | "missed" | "excused"; value?: string }[];
   // Part 2 ledger split: one field in profile.json changed this conversation (e.g. weight_kg
   // after the athlete reports a new number). Server sets that one field, nothing else - Gemini
   // only ever supplies field/value. Closing turns only, same as the fields above.

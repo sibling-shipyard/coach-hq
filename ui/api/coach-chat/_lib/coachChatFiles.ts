@@ -30,7 +30,6 @@ import {
 
 // SOUL.md is 100% generic across athletes, so it's bundled at build time (ui/scripts/build-
 // soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
-export const QUEST_LOG_PATH = "gen/quest_log.md";
 
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -80,13 +79,13 @@ export async function getFileRaw(repo: string, path: string, token: string, atte
 
 export interface CoachContext {
   soul: string | null;
-  questLog: string | null;
   profile: ProfileJson | null;
   memory: MemoryJson | null;
   injuries: InjuriesJson | null;
   coachLog: CoachLogJson | null;
-  // Part 2 ledger split: replaces challenge_v2.json. questLog above stays for now (see
-  // coachContext.ts) - these four feed the new quest-context section, not the old quest_log.md.
+  // Part 2 ledger split: replaces challenge_v2.json and gen/quest_log.md - these four feed
+  // renderQuestContext (coachContext.ts) directly. Found in review: quest_log.md was still being
+  // fetched here (dead network call every turn) after nothing was left reading it - removed.
   seasons: SeasonsJson | null;
   quests: QuestsJson | null;
   progress: ProgressJson | null;
@@ -146,9 +145,8 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 
   const promise = (async (): Promise<CoachContext> => {
-    const [questLog, profileRaw, memoryRaw, injuriesRaw, coachLogRaw, seasonsRaw, questsRaw, progressRaw, progressionsRaw] =
+    const [profileRaw, memoryRaw, injuriesRaw, coachLogRaw, seasonsRaw, questsRaw, progressRaw, progressionsRaw] =
       await Promise.all([
-        getFileRaw(repo, QUEST_LOG_PATH, token),
         getFileRaw(repo, PROFILE_PATH, token),
         getFileRaw(repo, MEMORY_PATH, token),
         getFileRaw(repo, INJURIES_PATH, token),
@@ -160,7 +158,6 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
       ]);
     const value: CoachContext = {
       soul: SOUL,
-      questLog,
       profile: parseJsonOrNull<ProfileJson>(profileRaw),
       memory: parseJsonOrNull<MemoryJson>(memoryRaw),
       injuries: parseJsonOrNull<InjuriesJson>(injuriesRaw),

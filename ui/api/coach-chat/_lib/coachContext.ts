@@ -17,7 +17,7 @@
  * report as a judgment call, not silently dropped.
  */
 import type { ProfileJson, MemoryJson, InjuriesJson, CoachLogJson } from "./coachMemoryFiles.js";
-import type { SeasonsJson, QuestsJson, ProgressJson } from "./coachQuestFiles.js";
+import type { SeasonsJson, QuestsJson, ProgressJson, ProgressionsJson } from "./coachQuestFiles.js";
 
 export interface CoachContextStorage {
   profile: ProfileJson | null;
@@ -30,6 +30,7 @@ export interface QuestContextStorage {
   seasons: SeasonsJson | null;
   quests: QuestsJson | null;
   progress: ProgressJson | null;
+  progressions: ProgressionsJson | null;
 }
 
 const RECENT_SESSION_WINDOW = 3;
@@ -134,7 +135,7 @@ function questProgressCounts(progress: ProgressJson | null, questId: string): { 
 }
 
 export function renderQuestContext(storage: QuestContextStorage): string {
-  const { seasons, quests, progress } = storage;
+  const { seasons, quests, progress, progressions } = storage;
   const currentSeason = seasons?.seasons.find((s) => s.id === seasons.current_season_id) ?? null;
 
   const seasonLines = [
@@ -147,8 +148,13 @@ export function renderQuestContext(storage: QuestContextStorage): string {
   const mainQuest = quests?.main_quest;
   const mainQuestLines = ["## Main Quest"];
   if (mainQuest) {
-    const { completed } = questProgressCounts(progress, mainQuest.id);
-    mainQuestLines.push(`- **${mainQuest.name}** (id: ${mainQuest.id}, type: ${mainQuest.type}): ${completed}/${mainQuest.target}`);
+    // Found in review: this always used `completed` even for a progress-type main quest, same
+    // bug the side-quest branch below already avoids - a progress-type main quest (e.g. tracking
+    // a cumulative count) would render its completed-row count instead of its actual latest
+    // value. Match the side-quest branching exactly.
+    const { completed, latestValue } = questProgressCounts(progress, mainQuest.id);
+    const progressText = mainQuest.type === "progress" ? `${latestValue ?? "0"}/${mainQuest.target}` : `${completed}/${mainQuest.target}`;
+    mainQuestLines.push(`- **${mainQuest.name}** (id: ${mainQuest.id}, type: ${mainQuest.type}): ${progressText}`);
   } else {
     mainQuestLines.push("*(None set)*");
   }
@@ -177,7 +183,27 @@ export function renderQuestContext(storage: QuestContextStorage): string {
     weeklyLines.push("*(None set)*");
   }
 
-  return [seasonLines.join("\n"), mainQuestLines.join("\n"), sideQuestLines.join("\n"), weeklyLines.join("\n")].join("\n\n");
+  // ADR 0016: stored as "progressions", stays "Milestone" everywhere Coach and the athlete talk
+  // about it - the section header uses the athlete-facing word, same convention as "Active
+  // Injury Flags" above rather than the raw file/field name.
+  //
+  // Found in review: progressions.json was fetched into CoachContext every turn but never
+  // rendered into the prompt at all - Coach had zero visibility into milestone progress despite
+  // paying for the fetch. Fixed.
+  const milestoneEntries = progressions?.progressions ?? [];
+  const milestoneLines = ["## Milestones"];
+  if (milestoneEntries.length > 0) {
+    for (const m of milestoneEntries) {
+      const unit = m.unit ? ` ${m.unit}` : "";
+      milestoneLines.push(`- **${m.name}** (id: ${m.id}): ${m.current}${unit} → target ${m.target}${unit}`);
+    }
+  } else {
+    milestoneLines.push("*(None set)*");
+  }
+
+  return [seasonLines.join("\n"), mainQuestLines.join("\n"), sideQuestLines.join("\n"), weeklyLines.join("\n"), milestoneLines.join("\n")].join(
+    "\n\n",
+  );
 }
 
 // Builds the athlete-context block that goes where state.md's raw prose used to go in

@@ -122,14 +122,22 @@ const questsJson = {
 // challenge_v2.json's per-quest completed_dates/excused_dates arrays become one row per date,
 // upserted by (quest_id, date) same as quest_event would at runtime. missed_dates isn't present
 // in the current live file (nothing ever wrote to it) but handled the same way if it exists.
+//
+// Runs over side quests AND main_quest (quest_id "main", per coach-redesign-part2-ledger.md's
+// answered question #1 - the main quest's progress is split the same way side quests are).
+// Found in review: this used to only iterate questsSrc (side quests), silently dropping the main
+// quest's own completed_dates/current if it had any. A count_target main quest (this athlete's
+// real data) computes its progress live from activity history, not stored dates, so this was a
+// no-op here - but the loop needs to cover main_quest generically, not just for this one athlete.
 const rows = [];
 let rowCounter = 0;
-for (const q of questsSrc) {
+for (const q of [mainQuestSrc, ...questsSrc]) {
+  const questId = q === mainQuestSrc ? mainQuest.id : q.id;
   const pushRow = (date, status, value) => {
     rowCounter += 1;
     rows.push({
-      id: `pr_${q.id}_${date}`,
-      quest_id: q.id,
+      id: `pr_${questId}_${date}`,
+      quest_id: questId,
       season_id: seasonId,
       date,
       status,
