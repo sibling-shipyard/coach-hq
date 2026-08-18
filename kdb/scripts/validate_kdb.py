@@ -147,6 +147,26 @@ if AGENTS.exists():
     if n > 200:
         warnings.append(f"AGENTS.md is {n} lines (>200) — keep it lean")
 
+# Role-doc `## Learnings` blocks (hard cap). Every agent re-reads its role doc on every cold
+# boot, so an unbounded Learnings list is a cost paid forever. Measured in BYTES, not characters:
+# the entries are long single lines full of em-dashes, and a char count under-reports them.
+LEARNINGS_CAP = 1536
+LEARNINGS_RE = re.compile(r"^## Learnings *$", re.M)
+for fp in sorted((ROOT / ".github" / "agents").glob("*.md")):
+    if fp.name == "issue-template.md":
+        continue  # not a role doc — no Learnings block, nobody boots it
+    text = fp.read_text()
+    m = LEARNINGS_RE.search(text)
+    if not m:
+        continue  # a role doc with no Learnings section is fine
+    nxt = re.search(r"^## ", text[m.end():], re.M)
+    end = m.end() + nxt.start() if nxt else len(text)
+    size = len(text[m.start():end].encode("utf-8"))
+    if size > LEARNINGS_CAP:
+        errors.append(
+            f"{fp.relative_to(ROOT)}: '## Learnings' block is {size}B, cap is {LEARNINGS_CAP}B — "
+            "promote the durable entries into the relevant docs/eng-docs/ doc and delete the rest")
+
 for w in warnings:
     print(f"warn: {w}")
 if errors:

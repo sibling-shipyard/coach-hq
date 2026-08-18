@@ -2,7 +2,8 @@
 
 **Thread purpose:** Co-builder with the athlete — move fast, ship robust, don't overengineer.
 
-**Shared rules:** `AGENTS.md` § How all agents work (this doc adds Tech Lead specifics only).
+**How we work:** `AGENTS.md` § How all agents work — shared boot reads and the Learnings rule live
+there. This doc adds Tech Lead specifics only.
 
 ## Tech Lead only
 - Conversational questions (scope, pushback) → answer directly, no plan loop.
@@ -80,26 +81,16 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 
 ## Boot Sequence
 1. `git pull --rebase origin main`
-2. Read `AGENTS.md` (routing + KB index) + `platform/SOUL.claude.md` (the coaching system)
-3. Skim `kdb/decisions/README.md` (ADR index — read decisions relevant to your work); follow `kdb/doc-style.md` for any design doc
+2. The shared boot reads — you skim every ADR `Area:`, not one
+3. `platform/SOUL.claude.md` — the coaching system
 4. In-flight work: `ROADMAP.md` (curated epic→task view) + `gh issue list` / `gh pr list` — issues are the record, not a checked-in backlog
 5. `git log --oneline -10`
 6. You're ready. Ask the athlete what's on the agenda or pick up where you left off.
 
 ## Learnings
 
-One-liners only. Tradeoffs → ADR in `kdb/decisions/`. Docs → `kdb/doc-style.md`. Cap ~15 entries — on overflow, promote the durable ones into the relevant `docs/eng-docs/` doc and drop the rest.
-
-- Re-verify subagent reports independently before trusting them — read the actual diff and re-run the checks yourself; never let a subagent push unreviewed.
 - `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree (caused a CI-only failure in PR #294).
-- iOS Xcode shell scripts need `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` — Xcode's PATH often lacks Homebrew `node`.
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
-- The backend keeps absorbing SOUL's jobs (greeting, close detection, day number, timezone, commit ritual) and nobody deletes the instructions it replaced — whenever `ui/api/coach-chat.ts` takes over a behaviour, delete SOUL's version in the same PR or it becomes dead text the model still reads.
 - Check `gh issue list` before filing audit findings — the roadmap usually already tracks them (a SOUL audit produced 7 new issues out of 13 candidates; the rest were duplicates).
-- Verify what a PR actually published with `gh pr view <n> --json files`, not `git diff main --stat` — a stale local `main` reported 3 files while the branch carried 7, and the PR shipped four files belonging to another agent before anyone noticed.
-- Leave the primary checkout on `main` when a subagent finishes — a feature branch left checked out there catches the next session's commits, which then exist on that branch and nowhere else; before force-pushing a branch carrying unexpected commits, rescue them first (`git branch rescue/... <sha>`, push it) or you orphan a colleague's only copy.
-- Tell every subagent brief to stage explicit paths and **never `git add -A`** — one swept a `node_modules` symlink holding an absolute path to the athlete's machine into a commit, past a `.gitignore` rule that only matched directories.
-- A composed SOUL build that conflicts in a rebase is resolved by re-running `compose-soul.mjs`, never by hand — they are generated, and a hand-merged artifact stops matching its source layers while still passing review.
-- SOUL states its safety rules more than once on purpose (the workout-template guardrail lives in §2, §10 and §12); two separate trim PRs each looked at one copy, judged it redundant, and nearly deleted the last one — grep both builds for the rule after any §2/§10/§12 edit.
-- Give each trim/cleanup PR the list of `validate-soul` baseline ids it should resolve *before* it starts, and diff the baseline after — an unexpected drop means the PR deleted something outside its scope, which no other check catches.
-- `Status: Historical` in an eng-doc's front matter is load-bearing, not decorative: `validate_kdb.py` skips path-checking those files, which is what lets a history doc name paths from a tree that is gone on purpose.
+- Verify what a PR actually published with `gh pr view <n> --json files`, not `git diff main --stat` — a stale local `main` reported 3 files while the branch carried 7.
+- Leave the primary checkout on `main` when a subagent finishes — a branch left checked out there catches the next session's commits. Before force-pushing a branch carrying unexpected commits, rescue them (`git branch rescue/... <sha>`, push it) or you orphan a colleague's only copy.

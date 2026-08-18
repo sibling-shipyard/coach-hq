@@ -1,6 +1,6 @@
 # GitHub Auth — how sign-in works (web + iOS, shared backend)
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-03
+> Status: Current · Owner: UI Expert · Verified: 2026-08-18
 
 ## Context
 
@@ -64,6 +64,11 @@ route (`/api/auth/*`) since both are dynamic patterns — Vercel reliably prefer
 over a rewrite for a *literal* path (`/api/waitlist`), but not reliably between two wildcards.
 This took down GitHub sign-in on web and iOS simultaneously for several hours with no server-side
 error to find, because the request never reached this file at all.
+
+**iOS gotcha — the two handlers hand back different shapes.** `selectedRepo` is `owner/repo` when
+it came from `handleListMyRepos`, but a bare repo name when it came from the OAuth callback. Always
+use `GitHubAuthManager.repoFullName` for GitHub API URLs and the `X-Coach-Repo` header; never
+concatenate `user.login` + `selectedRepo` blindly.
 
 ## Session mechanics (ADR 0009)
 

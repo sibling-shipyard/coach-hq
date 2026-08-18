@@ -53,6 +53,10 @@ These apply to every screen. Every interaction should feel intentional and alive
 | meta | 11pt | regular | Time, date, secondary info |
 | label | 8–10pt | bold, kerning 1–2 | Uppercase section headers |
 
+**Coach voice — resolved.** Newsreader vs. system serif was an open question here; the answer is
+**system serif italic** (`.system(design: .serif).italic()`) for Warm Instrument Home — no bundled
+font asset. Reopen only if the team decides shipping Newsreader is worth the bundle.
+
 ### Sport icons (SF Symbols)
 Mapped in `Theme.sportIcon(for:)`:
 - Badminton → `figure.badminton`
@@ -70,6 +74,7 @@ Mapped in `Theme.sportIcon(for:)`:
 
 ### Dark mode
 - Every color uses adaptive tokens (`Theme.cardBackground`, `Theme.cardBorder`, `Theme.ink`). Never hardcode `.white` or `.black`.
+- `Theme.cornerRadius` / `Theme.cardBackground` / `Theme.cardBorder` / `Theme.ink` are **shared app-wide** — retinting them changes every screen's card look, not just the new one. That is the cheap, low-risk way to roll a palette change across the whole app without touching each view file; it is also why an "only my screen" tweak must not go there.
 
 ---
 
@@ -141,6 +146,7 @@ Each widget is a self-contained SwiftUI view taking `entries: [SyncCacheEntry]`.
 - Animate on appear (spring reveals, staggered where applicable)
 - Empty state: muted placeholder, never crash on nil data
 - Data source: `SyncCache.load()` — no new network calls in widgets (use cached `entry.activity` where available)
+- Color: snapshot JSON items that carry their own hex `color` (`LoadMixSnapshot`, `QuestSideSnapshot`) **must use it** — never re-derive from a table. `WarmInstrument.sportColors` is the palette only for snapshot types that carry just a `sport` id (`RecentSessionSnapshot`, `DoseRowSnapshot`, heatmap cells)
 
 ---
 

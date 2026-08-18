@@ -1,6 +1,6 @@
 # SOUL: the path to v6
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-16
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-18
 
 Where Coach's brain is going, and why. Written after a line-by-line audit of SOUL v5.7 (509
 lines, every section, both runtimes). Readable on its own — the plans it names are
@@ -154,7 +154,7 @@ rather than just a simplification:
 
 ## Rules we adopted
 
-Both from the audit's failure pattern.
+The first two come from the audit's failure pattern; 3 and 4 from trim PRs that went wrong.
 
 1. **No manual-entry signals** — `kdb/decisions/0023-no-manual-entry-signals.md`. Anything
    requiring the athlete to maintain a record by hand will rot. Evidence: resting HR (empty), PRE
@@ -167,6 +167,13 @@ Both from the audit's failure pattern.
    `propagated/docs/` references that stopped being carved. `validate-soul` asserts paths resolve,
    writes are in that build's writable set, template names match the carve, and section
    cross-references resolve.
+
+3. **SOUL repeats its safety rules on purpose** — the workout-template guardrail lives in §2, §10
+   *and* §12. Two separate trim PRs each looked at one copy, judged it redundant, and nearly
+   deleted the last one. After any §2/§10/§12 edit, grep **both** builds for the rule.
+4. **Trim PRs get their baseline up front** — hand each trim/cleanup PR the list of `validate-soul`
+   baseline ids it is meant to resolve *before* it starts, and diff the baseline after. An
+   unexpected drop means the PR deleted something outside its scope; no other check catches that.
 
 ## The gap that worries me most
 

@@ -1,6 +1,6 @@
 # Engineering docs
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-15
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-18
 
 Rules for HQ docs. Athletes never see these. **No index here — listings rot, which is why the
 old CURRENT.md index was deleted. Never add one; use `ls` and `grep`.**
@@ -34,5 +34,9 @@ One blockquote line under the H1, no second header line:
 a role from the `AGENTS.md` routing table. **`Verified:` older than the code a doc describes is
 the staleness signal.** Extra fields (`Authority:`, `ADR:`, `Carve:`) get appended, never
 replaced — scripts and other docs cite them.
+
+`Status: Historical` (or `Superseded by ...`) is **load-bearing, not decorative**:
+`kdb/scripts/validate_kdb.py` skips path-checking those files, which is what lets a history doc
+name paths from a tree that is gone on purpose. Never set it on a doc describing today's system.
 
 **Naming, new docs only:** `<chat|ios|soul|data|platform|ops>-<topic>.md`. Existing files are not renamed.

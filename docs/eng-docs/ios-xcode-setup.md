@@ -1,6 +1,6 @@
 # iOS App: Xcode Setup Instructions
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-15 · Partial — see "Unverified claims"
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-18 · Partial — see "Unverified claims"
 
 How to get the Coach HQ iOS app building and running on a physical iPhone from `main`.
 
@@ -110,6 +110,7 @@ URL scheme.
 | OAuth callback not working | URL scheme must be exactly `coachhq` (lowercase). It matches `callbackScheme` in `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift`. |
 | HealthKit permission not appearing | Must run on a real device, not a simulator. |
 | Widget shows empty state | App Group mismatch, or the app hasn't written a snapshot yet — open the app and pull to refresh Home first. |
+| A Run Script build phase can't find `node` (or any Homebrew tool) | Xcode's PATH usually lacks Homebrew. Start the script with `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"`. |
 
 Concurrency note: the project ships `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and
 `SWIFT_APPROACHABLE_CONCURRENCY = YES` at `SWIFT_VERSION = 5.0`. It does **not** set

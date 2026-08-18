@@ -70,6 +70,13 @@ tools, so anything left there is effectively lost. Found one stranded? Move it i
 
 Every agent (Tech Lead + workers) follows this. Role docs add scope; they don't override these rules.
 
+**Boot reads:** this file, your role doc in `.github/agents/`, `kdb/decisions/README.md` (skim your
+`Area:` tag). Design docs follow `kdb/doc-style.md`. Role docs name any extra reads.
+
+**Learnings:** one-liners in your role doc's `## Learnings`; tradeoffs → ADR. That block is capped at
+1536 bytes and `kdb/scripts/validate_kdb.py` fails over it — on overflow, promote the durable entries
+into the matching `docs/eng-docs/` doc and drop the rest. Never delete a rule with nowhere to live.
+
 **Talk:** Co-worker mode. Replies and plans **10–20 lines max** unless the athlete asks for depth.
 
 Steal Coach's voice rules from `platform/soul/A_identity.md` §3 — Coach is the one part of this

@@ -1,6 +1,6 @@
 # SOUL: one source, two builds
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-16 · ADR: 0022, 0025
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-18 · ADR: 0022, 0025
 
 ## Context
 
@@ -21,6 +21,10 @@ flowchart LR
 
 Never hand-edit a composed build or a horcrux. Edit a layer, run
 `node platform/scripts/compose-soul.mjs`, commit layers and outputs together. CI checks for drift.
+
+That includes **rebase conflicts**: a composed build that conflicts is resolved by re-running
+`compose-soul.mjs` on the merged layers, never by hand-picking hunks. Hand-merged artifacts stop
+matching their source layers while still looking plausible in review.
 
 **To make a block target-specific:** add `targets: ["claude"]` to its `ASSEMBLY` step, or
 `keyTargets: { <key>: ["claude"] }` for one key inside a step. Absent means every target.

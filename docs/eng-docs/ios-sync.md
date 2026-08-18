@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-02
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-18
 
 ## Context
 
@@ -113,6 +113,31 @@ and `user_data/activities/sync_state.json` — exactly the files this iOS commit
 iOS sync **does indirectly trigger a second, automatic GitHub Actions run**, which calls
 `engine/scripts/regenerate_derived.py` and `engine/scripts/build-aggregate.mjs` to rebuild
 `gen/aggregate.json`, `gen/quest_log.md`, etc.
+
+**So the app must wait for that second run, not for its own commit.** That regeneration takes
+~30s. A single immediate `WidgetSnapshotStore.refresh()` races the pipeline and then caches stale
+Home data for 5 minutes. Use `refreshAfterSync(since:)`, which polls until `home.sync.timestamp`
+passes the commit time.
+
+iOS Home also depends on HQ's `/api/widget-snapshots` being deployed and healthy. A 401 from it
+without auth headers is expected; a **500 is a server-side bug** — historically Vercel not
+resolving TS `@/` path aliases, fixed by the pre-build bundle in
+`ui/scripts/bundle-widget-snapshots-api.mjs`.
+
+## HealthKit permissions
+
+`HKHealthStore.authorizationStatus(for:)` is **unreliable for read-only types by design** — Apple
+deliberately reports `.notDetermined` even after a real grant, so an app cannot infer sensitive
+health status from it. Never gate UI on it for read access. Calling `requestAuthorization` again is
+the safe idempotent check: a no-op if the user already decided.
+
+## Client caches — what `SyncCache` is not for
+
+`SyncCache` backfills 7 days and evicts anything past 30, so **"All activity" must never read it**.
+`AllActivitiesListView` lists the full `user_data/activities/hist` directory once via
+`GitHubAPIClient.listFiles` (filenames encode the date, so a lexical sort is enough for
+newest-first) and paginates activity-body fetches in memory. Nothing touches `SyncCache`, so
+nothing gets evicted out from under the list.
 
 ## Auth
 
