@@ -47,8 +47,9 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
 1. the named checks re-run by you, and green
 2. the diff is a subset of the phase's declared files
 3. explicit paths were staged
-4. the PR's file list verified against the branch with `gh pr view <n> --json files` — not against
-	local `main`, which has under-reported a branch here before
+4. the PR's file list verified against the branch — not against local `main`, which has
+	under-reported a branch here before. `gh pr view <n> --json files` locally; web and remote
+	sessions have no `gh`, so there use `mcp__github__pull_request_read` with `method: get_files`
 5. doc upkeep done (`AGENTS.md` § Doc upkeep)
 
 ### Which subagent, and how many of them
