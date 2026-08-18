@@ -43,6 +43,7 @@ import {
 } from "./coach-chat/_lib/chatThreads.js";
 import { loadClosingFileContext, injectCoachSinceIfNeeded, type ClosingFileContext } from "./coach-chat/_lib/coachWrites.js";
 import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate } from "./coach-chat/_lib/coachIntents.js";
+import { generateInitialTemplates, TEMPLATES_MANIFEST_PATH } from "./coach-chat/_lib/coachWorkoutFiles.js";
 import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { PROGRESS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
@@ -411,6 +412,36 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         }));
         console.error("[coach-chat] closing commitFilesAtomic failed:", err, { traceId });
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}`, traceId }, { status: 502 });
+      }
+
+      // Part 5 §2: post-first-session template generation, only on the false->true
+      // profileComplete transition (same trigger as injectCoachSinceIfNeeded above), and only if
+      // this hasn't already run for this athlete (write-once, checked via the manifest
+      // coachWorkoutFiles.ts stamps alongside the templates it writes). A second, separate
+      // commit, deliberately best-effort: a failure here must never fail the athlete's response -
+      // template generation is a nice-to-have follow-up to onboarding, not a hard requirement.
+      if (!wasProfileComplete && profileComplete && profile && memory && injuries) {
+        try {
+          const existingManifest = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token);
+          if (existingManifest == null) {
+            const { templates } = await generateInitialTemplates(
+              profile,
+              memory,
+              injuries,
+              timezone,
+              traceId,
+              apiKey,
+            );
+            await commitFilesAtomic(templates, "coach: initial workout templates generated", {
+              repo,
+              branch: resolveCoachChatBranch(),
+              token,
+            });
+            console.log("[coach-chat] initial workout templates committed", { traceId, count: templates.length });
+          }
+        } catch (err) {
+          console.error("[coach-chat] initial workout template generation failed - continuing without it:", err, { traceId });
+        }
       }
 
       return Response.json({
