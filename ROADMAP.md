@@ -12,6 +12,8 @@ This file is the curated view; issues are the record. Flip a box here or tell Un
 
 - [ ] #296 MVP chat commit works
 - [ ] #297 Gemini end-to-end in coach chat — web + iOS (checklist: #280)
+	a. #424 validate-soul can't fail CI — Skanda
+	a. #424 validate-soul can't fail CI — Skanda
 - [ ] #298 First-session protocol
 
 ### 🟥 Epic: Onboard Nats (#299)
