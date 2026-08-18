@@ -157,11 +157,19 @@ export function applyQuestEvent(
   currentSeasonId: string,
   traceId: string,
   now: Date,
+  validQuestIds: ReadonlySet<string>,
 ): string {
   const parsed = parseJsonOrNull<{ rows?: ProgressRow[] }>(content);
   let rows: ProgressRow[] = Array.isArray(parsed?.rows) ? parsed.rows : [];
 
   for (const event of events) {
+    // Same discipline as applyInjuryEvent's flag_id guard - a hallucinated or stale quest_id
+    // (quests.json changed underneath Gemini's context since it was built) must not write a
+    // permanent bogus row with no rejection path. Found in review: applyProfileUpdate already
+    // guards its field enum, this had no equivalent guard at all.
+    if (!validQuestIds.has(event.quest_id)) {
+      throw new Error(`quest_event: no quest with id "${event.quest_id}" in quests.json`);
+    }
     const existingIndex = rows.findIndex((r) => r.quest_id === event.quest_id && r.date === today);
     const row: ProgressRow = {
       id: existingIndex >= 0 ? rows[existingIndex].id : `pr_${event.quest_id}_${today}`,
@@ -189,7 +197,10 @@ export type ProfileUpdateField = "name" | "dob" | "timezone" | "height_cm" | "we
 
 export interface ProfileUpdate {
   field: ProfileUpdateField;
-  value: string | number;
+  // string-only, same reasoning as QuestEvent.value above - the Gemini responseSchema
+  // (coachPrompt.ts) declares this as `{ type: "string" }` too, so `number` was equally dead
+  // type surface here. Found in review as the same bug class left uncorrected on this field.
+  value: string;
 }
 
 const PROFILE_UPDATE_FIELDS: readonly ProfileUpdateField[] = ["name", "dob", "timezone", "height_cm", "weight_kg"];
@@ -219,8 +230,15 @@ export function applyProfileUpdate(content: string | null, update: ProfileUpdate
   if (update.field === "name" || update.field === "dob" || update.field === "timezone") {
     result[update.field] = String(update.value);
   } else {
-    // height_cm / weight_kg - numeric fields.
-    result[update.field] = Number(update.value);
+    // height_cm / weight_kg - numeric fields. Found in review: Number(update.value) was never
+    // checked for NaN, so a non-numeric value (e.g. Gemini passing along "about 180" verbatim)
+    // silently wrote NaN into profile.json - same silent-corruption shape the coach_since guard
+    // above exists to prevent, just for a value instead of a field.
+    const parsedValue = Number(update.value);
+    if (Number.isNaN(parsedValue)) {
+      throw new Error(`profile_update: "${update.value}" is not a valid number for ${update.field}`);
+    }
+    result[update.field] = parsedValue;
   }
 
   return JSON.stringify(result, null, 2);

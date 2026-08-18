@@ -46,7 +46,9 @@ export interface GeminiReply {
   // Part 2 ledger split: one field in profile.json changed this conversation (e.g. weight_kg
   // after the athlete reports a new number). Server sets that one field, nothing else - Gemini
   // only ever supplies field/value. Closing turns only, same as the fields above.
-  profile_update?: { field: "name" | "dob" | "timezone" | "height_cm" | "weight_kg"; value: string | number };
+  // value is string-only, same reasoning as quest_event above - the responseSchema below
+  // declares it as `{ type: "string" }`. Found in review as the same bug class left uncorrected.
+  profile_update?: { field: "name" | "dob" | "timezone" | "height_cm" | "weight_kg"; value: string };
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;

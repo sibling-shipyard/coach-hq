@@ -120,8 +120,13 @@ const questsJson = {
 // --- progress.json -----------------------------------------------------------------------------
 
 // challenge_v2.json's per-quest completed_dates/excused_dates arrays become one row per date,
-// upserted by (quest_id, date) same as quest_event would at runtime. missed_dates isn't present
-// in the current live file (nothing ever wrote to it) but handled the same way if it exists.
+// upserted by (quest_id, date) same as quest_event would at runtime - a real Map keyed by
+// quest_id+date, not just an id string that happens to look the same. Found in review: the
+// previous version called this "upserted" in the comment but pushRow unconditionally pushed, so
+// a date appearing in two of completed_dates/excused_dates/missed_dates for the same quest (the
+// exact invariant SOUL's own docs warn against - "write to ONE array only, not both for the same
+// date") would silently produce two rows sharing one id instead of one row winning. Fixed to a
+// real upsert: last write for a given quest_id+date wins, same as the runtime applier.
 //
 // Runs over side quests AND main_quest (quest_id "main", per coach-redesign-part2-ledger.md's
 // answered question #1 - the main quest's progress is split the same way side quests are).
@@ -129,13 +134,11 @@ const questsJson = {
 // quest's own completed_dates/current if it had any. A count_target main quest (this athlete's
 // real data) computes its progress live from activity history, not stored dates, so this was a
 // no-op here - but the loop needs to cover main_quest generically, not just for this one athlete.
-const rows = [];
-let rowCounter = 0;
+const rowsByKey = new Map();
 for (const q of [mainQuestSrc, ...questsSrc]) {
   const questId = q === mainQuestSrc ? mainQuest.id : q.id;
-  const pushRow = (date, status, value) => {
-    rowCounter += 1;
-    rows.push({
+  const upsertRow = (date, status, value) => {
+    rowsByKey.set(`${questId}|${date}`, {
       id: `pr_${questId}_${date}`,
       quest_id: questId,
       season_id: seasonId,
@@ -147,16 +150,16 @@ for (const q of [mainQuestSrc, ...questsSrc]) {
       trace_id: MIGRATION_TRACE_ID,
     });
   };
-  for (const date of q.completed_dates ?? []) pushRow(date, "completed");
-  for (const date of q.excused_dates ?? []) pushRow(date, "excused");
-  for (const date of q.missed_dates ?? []) pushRow(date, "missed");
+  for (const date of q.completed_dates ?? []) upsertRow(date, "completed");
+  for (const date of q.excused_dates ?? []) upsertRow(date, "excused");
+  for (const date of q.missed_dates ?? []) upsertRow(date, "missed");
   if (q.type === "progress" && q.current != null) {
     // No per-date history for progress-type quests in challenge_v2.json - only today's snapshot
     // exists, so it becomes one row dated today.
-    pushRow(today, "completed", q.current);
+    upsertRow(today, "completed", q.current);
   }
 }
-rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+const rows = [...rowsByKey.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
 const progressJson = { version: 1, rows };
 

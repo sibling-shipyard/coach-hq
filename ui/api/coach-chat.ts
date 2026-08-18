@@ -326,6 +326,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // context.
       const questEvents = reply.quest_event ?? [];
       const currentSeasonId = seasons?.current_season_id ?? "";
+      // Same real ids injected into the prompt (activeQuestsContext) that Gemini was told to use
+      // verbatim - applyQuestEvent throws on anything outside this set.
+      const validQuestIds = new Set<string>(
+        [quests?.main_quest?.id, ...(quests?.quests ?? []).map((q) => q.id)].filter((id): id is string => Boolean(id)),
+      );
       const questEventWrite: FileEntry | undefined = questEvents.length > 0
         ? {
             path: PROGRESS_PATH,
@@ -338,6 +343,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
                 currentSeasonId,
                 traceId,
                 new Date(),
+                validQuestIds,
               );
             },
           }

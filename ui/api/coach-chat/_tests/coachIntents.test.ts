@@ -213,9 +213,11 @@ describe("applyQuestEvent", () => {
     ],
   });
 
+  const VALID_QUEST_IDS = new Set(["morning_routine", "inner_game_of_tennis"]);
+
   it("upserts a new row for a quest_id+date with no existing row", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z"), VALID_QUEST_IDS),
     );
     expect(result.rows).toHaveLength(3);
     const newRow = result.rows.find((r: any) => r.date === "2026-08-16");
@@ -225,7 +227,7 @@ describe("applyQuestEvent", () => {
 
   it("replaces the existing row for the same quest_id+date rather than adding a duplicate", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "missed" }], "2026-08-15", "s_2026_q2", "t2", new Date("2026-08-16T09:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "missed" }], "2026-08-15", "s_2026_q2", "t2", new Date("2026-08-16T09:00:00Z"), VALID_QUEST_IDS),
     );
     const rowsForDate = result.rows.filter((r: any) => r.quest_id === "morning_routine" && r.date === "2026-08-15");
     expect(rowsForDate).toHaveLength(1);
@@ -236,7 +238,7 @@ describe("applyQuestEvent", () => {
 
   it("stores value when given (progress-type quest case)", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, [{ quest_id: "inner_game_of_tennis", status: "completed", value: 12 }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "inner_game_of_tennis", status: "completed", value: 12 }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z"), VALID_QUEST_IDS),
     );
     const row = result.rows.find((r: any) => r.date === "2026-08-16");
     expect(row.value).toBe(12);
@@ -244,7 +246,7 @@ describe("applyQuestEvent", () => {
 
   it("stores value as null when omitted", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z"), VALID_QUEST_IDS),
     );
     const row = result.rows.find((r: any) => r.date === "2026-08-16");
     expect(row.value).toBeNull();
@@ -252,7 +254,7 @@ describe("applyQuestEvent", () => {
 
   it("stamps id/date/ts/trace_id/season_id server-side, not from anything Gemini-influenced beyond quest_id/status/value", () => {
     const result = JSON.parse(
-      applyQuestEvent(null, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q3", "trace-xyz", new Date("2026-08-16T18:42:03Z")),
+      applyQuestEvent(null, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q3", "trace-xyz", new Date("2026-08-16T18:42:03Z"), VALID_QUEST_IDS),
     );
     const row = result.rows[0];
     expect(row.id).toBe("pr_morning_routine_2026-08-16");
@@ -265,21 +267,21 @@ describe("applyQuestEvent", () => {
 
   it("treats malformed JSON as an empty rows array rather than throwing", () => {
     const result = JSON.parse(
-      applyQuestEvent("{not valid json", [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent("{not valid json", [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z"), VALID_QUEST_IDS),
     );
     expect(result.rows).toHaveLength(1);
   });
 
   it("treats missing/non-array rows as empty rather than throwing", () => {
     const result = JSON.parse(
-      applyQuestEvent('{"threads":[]}', [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent('{"threads":[]}', [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z"), VALID_QUEST_IDS),
     );
     expect(result.rows).toHaveLength(1);
   });
 
   it("leaves other quests' rows untouched by an update to one quest", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "excused" }], "2026-08-15", "s_2026_q2", "t2", new Date("2026-08-16T09:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "excused" }], "2026-08-15", "s_2026_q2", "t2", new Date("2026-08-16T09:00:00Z"), VALID_QUEST_IDS),
     );
     const other = result.rows.find((r: any) => r.quest_id === "inner_game_of_tennis");
     expect(other).toEqual({
@@ -293,6 +295,14 @@ describe("applyQuestEvent", () => {
       ts: "2026-08-15T18:00:00.000Z",
       trace_id: "old",
     });
+  });
+
+  // Found in review: applyProfileUpdate already guards its field enum against a hallucinated
+  // value; this had no equivalent guard against a hallucinated/stale quest_id at all.
+  it("throws on a quest_id that isn't in the known quest list, instead of writing a bogus row", () => {
+    expect(() =>
+      applyQuestEvent(EXISTING, [{ quest_id: "not_a_real_quest", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z"), VALID_QUEST_IDS),
+    ).toThrow('quest_event: no quest with id "not_a_real_quest" in quests.json');
   });
 
   // Issue #410: quest_event became an array so a single turn can report multiple quest
@@ -310,6 +320,7 @@ describe("applyQuestEvent", () => {
           "s_2026_q2",
           "t3",
           new Date("2026-08-16T18:00:00Z"),
+          VALID_QUEST_IDS,
         ),
       );
       expect(result.rows).toHaveLength(4);
@@ -321,7 +332,7 @@ describe("applyQuestEvent", () => {
 
     it("an empty array is a no-op - rows unchanged", () => {
       const result = JSON.parse(
-        applyQuestEvent(EXISTING, [], "2026-08-16", "s_2026_q2", "t3", new Date("2026-08-16T18:00:00Z")),
+        applyQuestEvent(EXISTING, [], "2026-08-16", "s_2026_q2", "t3", new Date("2026-08-16T18:00:00Z"), VALID_QUEST_IDS),
       );
       expect(result.rows).toEqual(JSON.parse(EXISTING).rows);
     });
@@ -338,6 +349,7 @@ describe("applyQuestEvent", () => {
           "s_2026_q2",
           "t3",
           new Date("2026-08-16T18:00:00Z"),
+          VALID_QUEST_IDS,
         ),
       );
       expect(result.rows).toHaveLength(1);
@@ -358,7 +370,10 @@ describe("applyProfileUpdate", () => {
   });
 
   it("sets exactly the targeted field, leaves every other field untouched", () => {
-    const result = JSON.parse(applyProfileUpdate(EXISTING, { field: "height_cm", value: 178 }));
+    // value is a string here (not a number literal) to match what the Gemini schema actually
+    // produces (found in review: ProfileUpdate.value used to allow number too, which nothing
+    // could ever really send).
+    const result = JSON.parse(applyProfileUpdate(EXISTING, { field: "height_cm", value: "178" }));
     expect(result.height_cm).toBe(178);
     expect(result.name).toBe("Akash");
     expect(result.dob).toBe("1998-05-01");
@@ -376,6 +391,15 @@ describe("applyProfileUpdate", () => {
   it("coerces numeric fields even if given as a string", () => {
     const result = JSON.parse(applyProfileUpdate(EXISTING, { field: "weight_kg", value: "72" }));
     expect(result.weight_kg).toBe(72);
+  });
+
+  // Found in review: Number(update.value) was never checked for NaN - a non-numeric string
+  // (Gemini passing along "about 180" verbatim, say) would silently write NaN into profile.json
+  // instead of being rejected.
+  it("throws instead of silently writing NaN for a non-numeric value on a numeric field", () => {
+    expect(() => applyProfileUpdate(EXISTING, { field: "height_cm", value: "about 180" })).toThrow(
+      'profile_update: "about 180" is not a valid number for height_cm',
+    );
   });
 
   // coach_since is deliberately excluded from ProfileUpdateField (see coachIntents.ts) - it's
