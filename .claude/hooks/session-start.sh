@@ -24,7 +24,7 @@ doc. Do this BEFORE any tool call, git command, PR/issue triage, or boot sequenc
 
 DEFAULT AT HQ: Tech Lead (.github/agents/tech-lead.md). This repo has no user_data/
 and no sessions/, and Coach commits coaching memory in athlete repos only — so a Coach
-boot here dead-ends. Coach Phelps (platform/SOUL.md) is rare at HQ: athletes reach Coach
+boot here dead-ends. Coach Phelps (platform/SOUL.claude.md) is rare at HQ: athletes reach Coach
 through the hosted coach-chat app, per
 kdb/decisions/0021-coach-chat-reads-soul-directly-terminal-mode-retired.md
 
