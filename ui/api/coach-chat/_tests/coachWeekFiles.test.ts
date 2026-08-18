@@ -203,16 +203,19 @@ describe("applySessionReconcile", () => {
     );
   });
 
-  it("throws (not silently corrupts) when reconciling against a stale session_id from before a same-turn week_plan rebuild", () => {
-    // PR #421 review: if Gemini ever sets week_plan and session_reconcile in the same turn (the
-    // prompt discourages this, but doesn't forbid it), coach-chat.ts feeds week_plan's freshly-
-    // rebuilt content straight into applySessionReconcile - so a session_reconcile event
-    // referencing a session_id from the PRE-rebuild week (which week_plan just replaced with
-    // brand-new ids) correctly fails loud here, same discipline as every other hallucinated-id
-    // guard in this pipeline, rather than silently patching the wrong session or corrupting data.
+  it("throws on an id that doesn't exist in the given content, regardless of caller", () => {
+    // PR #421 review, round 2: applyWeekPlan's session ids are synthesized purely from
+    // date + array-index (see applyWeekPlan above), with no dependence on session content - a
+    // same-day re-plan can coincidentally regenerate the exact same id string for an unrelated
+    // session. That's why coach-chat.ts no longer chains week_plan's rebuilt output straight into
+    // applySessionReconcile when Gemini sets both in one turn (a coincidental id match there would
+    // silently misattribute the reconcile to the wrong session) - week_plan wins outright and
+    // session_reconcile is dropped for that turn instead. This applier-level test just documents
+    // the narrower, still-true fact: applySessionReconcile itself throws on any id genuinely
+    // absent from its input, which is what protects every OTHER caller of this function.
     const rebuilt = applyWeekPlan(validPlan(), new Set(), "Asia/Kolkata", "t1", now);
-    expect(() => applySessionReconcile(rebuilt, [{ session_id: "sess_from_a_prior_week_plan", status: "done" }], "t1", now)).toThrow(
-      /no session with id "sess_from_a_prior_week_plan"/,
+    expect(() => applySessionReconcile(rebuilt, [{ session_id: "sess_genuinely_absent", status: "done" }], "t1", now)).toThrow(
+      /no session with id "sess_genuinely_absent"/,
     );
   });
 });

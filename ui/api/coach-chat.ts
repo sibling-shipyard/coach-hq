@@ -446,31 +446,38 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         : undefined;
 
       // §5: week_plan / session_reconcile both target current_week.json - at most one FileEntry
-      // for that path can go in a single commitFilesAtomic call, so these two are combined into
-      // one write below rather than pushed independently (Gemini isn't prompted to set both in
-      // the same turn, but this stays correct even if it ever did: week_plan's freshly-built
-      // content becomes the "current" state session_reconcile patches onto, instead of stale
-      // disk content).
+      // for that path can go in a single commitFilesAtomic call. Gemini isn't prompted to set both
+      // in the same turn, and if it ever did, session_reconcile's event(s) necessarily reference
+      // session_ids from the PRE-turn week (the "Current week's sessions" context it was shown) -
+      // but week_plan's ids are synthesized purely from date + array-index (coachWeekFiles.ts),
+      // with no dependence on content. A same-day re-plan can coincidentally regenerate the exact
+      // same id string for an entirely different, unrelated session, which would silently
+      // misattribute the reconcile event to the wrong session rather than throwing - worse than a
+      // crash. Rather than trying to make id-matching safe across a rebuild it can't meaningfully
+      // survive (the old session being reconciled no longer conceptually exists once the week is
+      // fully replaced), week_plan wins outright and session_reconcile is dropped with a loud
+      // warning - a full-week rewrite already supersedes whatever the reconcile was reporting on.
       const weekPlan = reply.week_plan;
       const weekPlanRequested = Boolean(weekPlan?.headline?.trim() && weekPlan.body?.trim() && Array.isArray(weekPlan.days));
       const sessionReconcileEvents = reply.session_reconcile ?? [];
 
       let currentWeekWrite: FileEntry | undefined;
-      if (weekPlanRequested && sessionReconcileEvents.length > 0) {
-        currentWeekWrite = {
-          path: CURRENT_WEEK_PATH,
-          resolve: async () => {
-            const rebuilt = applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date());
-            return applySessionReconcile(rebuilt, sessionReconcileEvents, traceId, new Date());
-          },
-        };
-      } else if (weekPlanRequested) {
+      if (weekPlanRequested) {
         // §5: week_plan - reported only when Coach is genuinely committing the full week now
         // (Weekly Kick-off Ritual). template_id inside each session is re-validated at commit
         // time against validTemplateIds inside applyWeekPlan itself (nulled out, not thrown - see
         // coachWeekFiles.ts's own comment for why this differs from template_edit/session_plan's
         // throw-on-hallucination discipline). No resolve() needed - week_plan is a full rewrite,
-        // not a patch onto existing content.
+        // not a patch onto existing content. If session_reconcile is also set this same turn, it's
+        // dropped (see the comment above this block) rather than chained against week_plan's fresh
+        // output - week_plan always wins outright.
+        if (sessionReconcileEvents.length > 0) {
+          console.warn(
+            "[coach-chat] week_plan and session_reconcile both set in the same turn - dropping session_reconcile " +
+              "(its ids reference the pre-rebuild week and can't be safely matched against week_plan's fresh ids)",
+            { traceId },
+          );
+        }
         currentWeekWrite = { path: CURRENT_WEEK_PATH, content: applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date()) };
       } else if (sessionReconcileEvents.length > 0) {
         // §5: session_reconcile - reported only when the athlete logged an outcome for one or
