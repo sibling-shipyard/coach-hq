@@ -68,6 +68,12 @@
 (The `current_week.json` daily-update requirement moved to Part 5 — that's implementation work
 for whoever wires this file into coach-chat, not a UI-leftover item.)
 
+## From workout-backend-wiring (`week_plan`/`session_reconcile` now live)
+
+- **iOS's bundled offline template fallback (`BundledTemplates.swift`) drifting** now that
+  templates are backend-generated per athlete rather than hand-authored and shipped with the app.
+  iOS Builder's territory — revisit once the generic-library pipeline has run for real athletes.
+
 ## Your annotations
 
 (space for anything else that falls out of parts 2-5 review)

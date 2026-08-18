@@ -17,18 +17,18 @@
 - Defining what Gemini can write back as output — `memory_update`, `quest_event`,
   `profile_update`, and whatever else Parts 1/2/5 need, each shipped one at a time per the
   existing "add one new field at a time" discipline.
-- Wiring `current_week.json` into coach-chat for real (currently has zero read/write path in the
-  backend — see Part 3) — including making it a genuine daily update, not the once-per-week
-  pattern found in the real `coach-skanda` data.
 - The testing plan for all of the above — eval harness coverage per new action/field, live
   verification against `test/close-verification` on `coach-skanda-2003` before anything ships.
 
 ## Known items already waiting here
 
-- **`current_week.json` needs to become a genuine daily update, not a once-per-week write.**
-  Confirmed via a real live file (`coach-skanda`, commit `a380c6e`) that today's actual practice is
-  "written once at week kick-off" despite SOUL's Commit Protocol saying to reconcile it every
-  session. Once this file is wired into coach-chat for real, it should update daily.
+- **Free-form template/session edits beyond the structured shapes built for `template_edit`/
+  `session_plan`.** Today those two action fields only support `skip_exercise_nums` (structured
+  skip-by-number), no free-form insertion/reordering. Follow-up once the structured version is
+  live and its real limits are visible.
+- **Regenerating templates for existing athletes (`coach-skanda`, `coach-akash`).** The
+  generic-library template pipeline only applies going forward — a possible future one-time
+  backfill, not required for the pipeline itself to work.
 
 ## Not started
 

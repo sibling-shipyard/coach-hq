@@ -12,6 +12,7 @@ import type { ChatMessage } from "./chatThreads.js";
 import { todayContextLine } from "./coachDay.js";
 import { MEMORY_NOTE_LABELS, type MemoryNoteLabel, type InjuriesJson } from "./coachMemoryFiles.js";
 import type { QuestsJson } from "./coachQuestFiles.js";
+import type { WeekPlan, SessionReconcileEvent } from "./coachWeekFiles.js";
 
 export interface GeminiReply {
   reply: string;
@@ -78,6 +79,21 @@ export interface GeminiReply {
   // an array - one session prescription per closing turn, matching template_edit/profile_update's
   // shape. Closing turns only, same as the fields above.
   session_plan?: { template_id: string; skip_exercise_nums?: number[]; note?: string };
+  // coach-redesign workout-backend-wiring §5: the Weekly Kick-off Ritual (B_engine.md) - Coach is
+  // writing the full Monday-to-Sunday plan. Single object, full rewrite of current_week.json's
+  // days/sessions/week, not an incremental patch - matches how the ritual actually works (the
+  // whole week is authored in one pass). headline/body are the coach_read content, kept in this
+  // same small schema rather than a second Gemini call (coachWeekFiles.ts's applyWeekPlan owns
+  // that reasoning). Server computes every id/date/status field - see applyWeekPlan's own
+  // judgment-call comments for data_status/template_id handling. Closing turns only.
+  week_plan?: WeekPlan;
+  // coach-redesign workout-backend-wiring §5: B_engine.md's s10_logging_reconcile - reconciling a
+  // completed/skipped/cancelled session against current_week.json "now, not at the Sunday
+  // review". Array, mirrors quest_event's upsert-by-id shape - a turn can report more than one
+  // session's outcome. session_id must be one of the ids already in current_week.json (server
+  // re-validates at commit time, coachWeekFiles.ts's applySessionReconcile) - never invented.
+  // Closing turns only, same as the fields above.
+  session_reconcile?: SessionReconcileEvent[];
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;
@@ -173,6 +189,62 @@ export const GENERATION_CONFIG = {
           template_id: { type: "string" },
           skip_exercise_nums: { type: "array", items: { type: "number" } },
           note: { type: "string" },
+        },
+      },
+      // coach-redesign workout-backend-wiring §5 - single object, the Weekly Kick-off Ritual's
+      // full seven-day rewrite. priority/planned_duration_min/template_id are all optional per
+      // session (server fills in a default priority, see coachWeekFiles.ts's
+      // DEFAULT_SESSION_PRIORITY, when Gemini leaves it out). No enum "null" option for priority -
+      // Gemini simply omits the field when it doesn't have a clear call.
+      week_plan: {
+        type: "object",
+        properties: {
+          focus: { type: "string" },
+          guardrails: { type: "array", items: { type: "string" } },
+          headline: { type: "string" },
+          body: { type: "string" },
+          days: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                date: { type: "string" },
+                intent: { type: "string" },
+                sessions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      discipline: { type: "string" },
+                      kind: { type: "string" },
+                      title: { type: "string" },
+                      priority: { type: "string", enum: ["anchor", "support", "optional"] },
+                      planned_duration_min: { type: "number" },
+                      template_id: { type: "string" },
+                    },
+                    required: ["discipline", "kind", "title"],
+                  },
+                },
+              },
+              required: ["date", "sessions"],
+            },
+          },
+        },
+        required: ["headline", "body", "days"],
+      },
+      // coach-redesign workout-backend-wiring §5 - array, mirrors quest_event's shape.
+      // session_id must be one of the ids listed in context (activeWeekSessionsContext below) -
+      // never invented.
+      session_reconcile: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            session_id: { type: "string" },
+            status: { type: "string", enum: ["done", "skipped", "cancelled"] },
+            activity_ids: { type: "array", items: { type: "string" } },
+          },
+          required: ["session_id", "status"],
         },
       },
       session_closed: { type: "boolean" },
@@ -300,9 +372,24 @@ export function buildDynamicText(
           "athlete's timer app already falls back to the base template on its own. Only use a",
           "template_id that's actually listed below - never invent one. This always applies to",
           "today's session only, never a future date.",
+          "\nIf you are running the Weekly Kick-off Ritual (the athlete asked to plan the week, or",
+          "it's Monday and there's no current live weekly plan) and are ready to commit the full",
+          "week, set week_plan: focus, guardrails, headline/body (your one weekly coaching",
+          "conclusion), and exactly 7 days (Monday through Sunday) each with intent and a sessions",
+          "array (discipline/kind/title, and priority/planned_duration_min/template_id where you",
+          "have them). Only use a template_id that's actually listed below - never invent one.",
+          "Only set this when you are genuinely committing the week now, not while still asking",
+          "the athlete about competitions or schedule changes for it.",
+          "\nIf the athlete reported completing, skipping, or cancelling one or more of this week's",
+          "planned sessions (see Current week's sessions below) - do this the same session it",
+          "happens, not just at a weekly review - set session_reconcile to an array with one entry",
+          "per session: its exact session_id, the outcome status, and activity_ids if a real",
+          "completion id exists. Only use a session_id that's actually listed below - never invent",
+          "one.",
           "**Never say something is saved, logged, locked, or committed unless coach_note (or",
           "memory_update / injury_event / quest_event / profile_update / template_edit /",
-          "session_plan) in this exact response genuinely reflects it.**",
+          "session_plan / week_plan / session_reconcile) in this exact response genuinely reflects",
+          "it.**",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
           "response (asking a clarifying question instead does NOT count - set it false in that case,",
           "even though this turn was triggered by a close-session phrase). The athlete will simply see",
@@ -411,4 +498,17 @@ export function activeTemplatesContext(templateIds: ReadonlySet<string>): string
   if (templateIds.size === 0) return undefined;
   const lines = [...templateIds].map((id) => `- template_id: ${id}`);
   return ["Current templates (use these exact template_ids for template_edit):", ...lines].join("\n");
+}
+
+// coach-redesign workout-backend-wiring §5: lists the current week's real, already-committed
+// session ids (from the current_week.json read at the top of the turn) so Gemini has real
+// session_ids to reference for session_reconcile - it must never invent one. Same
+// reasoning/placement as activeTemplatesContext above. Omitted entirely when there's no current
+// live week yet, matching the other context helpers' empty-case handling.
+export function activeWeekSessionsContext(
+  sessions: readonly { id: string; date: string; title: string; status: string }[],
+): string | undefined {
+  if (sessions.length === 0) return undefined;
+  const lines = sessions.map((s) => `- session_id: ${s.id} | date: ${s.date} | ${s.title} | status: ${s.status}`);
+  return ["Current week's sessions (use these exact session_ids for session_reconcile):", ...lines].join("\n");
 }

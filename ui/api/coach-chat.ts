@@ -52,15 +52,18 @@ import {
   sessionPath,
   TEMPLATES_MANIFEST_PATH,
 } from "./coach-chat/_lib/coachWorkoutFiles.js";
+import { applyWeekPlan, applySessionReconcile, CURRENT_WEEK_PATH } from "./coach-chat/_lib/coachWeekFiles.js";
 import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { PROGRESS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
+import { parseJsonOrNull } from "./coach-chat/_lib/coachChatFiles.js";
 import {
   combineExtraContext,
   injuryFlagsContext,
   activeQuestsContext,
   activeTemplatesContext,
+  activeWeekSessionsContext,
   firstSessionContext,
   onboardingHintsContext,
   type GeminiReply,
@@ -199,9 +202,21 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // editable via chat yet for this athlete (validTemplateIdsFromManifest's own defensive
       // default), never thrown.
       let validTemplateIds: ReadonlySet<string> = new Set();
+      // §5: same lazy, closing-turn-only fetch pattern as the manifest above - current_week.json
+      // is only relevant for week_plan/session_reconcile, both closing-only action fields.
+      // Malformed/missing content is treated as "no current week yet" (currentWeekRaw stays
+      // null), same defensive default as every other read in this pipeline.
+      let currentWeekRaw: string | null = null;
+      let weekSessionsForContext: { id: string; date: string; title: string; status: string }[] = [];
       if (closeIntent) {
         const manifestRaw = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null);
         validTemplateIds = validTemplateIdsFromManifest(manifestRaw);
+
+        currentWeekRaw = await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null);
+        const parsedWeek = parseJsonOrNull<{ days?: { date: string; sessions?: { id: string; title: string; status: string }[] }[] }>(currentWeekRaw);
+        weekSessionsForContext = (parsedWeek?.days ?? []).flatMap((day) =>
+          (day.sessions ?? []).map((s) => ({ id: s.id, date: day.date, title: s.title, status: s.status })),
+        );
       }
 
       let reply: GeminiReply;
@@ -221,6 +236,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
             injuryFlagsContext(injuries),
             activeQuestsContext(quests),
             activeTemplatesContext(validTemplateIds),
+            activeWeekSessionsContext(weekSessionsForContext),
           ),
           traceId,
           timezone,
@@ -429,6 +445,49 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
+      // §5: week_plan / session_reconcile both target current_week.json - at most one FileEntry
+      // for that path can go in a single commitFilesAtomic call, so these two are combined into
+      // one write below rather than pushed independently (Gemini isn't prompted to set both in
+      // the same turn, but this stays correct even if it ever did: week_plan's freshly-built
+      // content becomes the "current" state session_reconcile patches onto, instead of stale
+      // disk content).
+      const weekPlan = reply.week_plan;
+      const weekPlanRequested = Boolean(weekPlan?.headline?.trim() && weekPlan.body?.trim() && Array.isArray(weekPlan.days));
+      const sessionReconcileEvents = reply.session_reconcile ?? [];
+
+      let currentWeekWrite: FileEntry | undefined;
+      if (weekPlanRequested && sessionReconcileEvents.length > 0) {
+        currentWeekWrite = {
+          path: CURRENT_WEEK_PATH,
+          resolve: async () => {
+            const rebuilt = applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date());
+            return applySessionReconcile(rebuilt, sessionReconcileEvents, traceId, new Date());
+          },
+        };
+      } else if (weekPlanRequested) {
+        // §5: week_plan - reported only when Coach is genuinely committing the full week now
+        // (Weekly Kick-off Ritual). template_id inside each session is re-validated at commit
+        // time against validTemplateIds inside applyWeekPlan itself (nulled out, not thrown - see
+        // coachWeekFiles.ts's own comment for why this differs from template_edit/session_plan's
+        // throw-on-hallucination discipline). No resolve() needed - week_plan is a full rewrite,
+        // not a patch onto existing content.
+        currentWeekWrite = { path: CURRENT_WEEK_PATH, content: applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date()) };
+      } else if (sessionReconcileEvents.length > 0) {
+        // §5: session_reconcile - reported only when the athlete logged an outcome for one or
+        // more of this week's planned sessions this close. session_id is re-validated at commit
+        // time against the live current_week.json content inside applySessionReconcile itself
+        // (throws on a hallucinated/stale id, same discipline as applyQuestEvent's quest_id
+        // guard) - resolve() re-fetches current_week.json fresh at commit time, same
+        // stale-read-avoidance pattern as templateEditWrite/sessionPlanWrite above.
+        currentWeekWrite = {
+          path: CURRENT_WEEK_PATH,
+          resolve: async () => {
+            const fresh = await getFileRaw(repo, CURRENT_WEEK_PATH, token);
+            return applySessionReconcile(fresh, sessionReconcileEvents, traceId, new Date());
+          },
+        };
+      }
+
       // B2/ADR 0018: profile.json isn't edited here, so both sides of this transition check stay
       // the pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
       const wasProfileComplete = isAthleteProfileComplete(profile, memory);
@@ -449,6 +508,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       if (profileUpdateWrite) optionalWrites.push(profileUpdateWrite);
       if (templateEditWrite) optionalWrites.push(templateEditWrite);
       if (sessionPlanWrite) optionalWrites.push(sessionPlanWrite);
+      if (currentWeekWrite) optionalWrites.push(currentWeekWrite);
       const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
 
       let repoSha: string;
