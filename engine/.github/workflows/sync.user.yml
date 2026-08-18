@@ -41,6 +41,15 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests
 
+      - name: Find changed activities
+        if: github.event_name == 'push'
+        run: |
+          {
+            echo 'CHANGED_ACTIVITY_PATHS<<EOF'
+            git diff --name-only --diff-filter=AM '${{ github.event.before }}' '${{ github.sha }}' -- user_data/activities/hist/
+            echo EOF
+          } >> "$GITHUB_ENV"
+
       - name: Run pipeline
         run: python3 engine/scripts/regenerate_derived.py
 
@@ -56,6 +65,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add user_data/activities/hist/
           git add -f gen/aggregate.json
           git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
           if git diff --cached --quiet; then
@@ -74,6 +84,7 @@ jobs:
             git reset --hard origin/main
             python3 engine/scripts/regenerate_derived.py
             node engine/scripts/build-aggregate.mjs --aggregate
+            git add user_data/activities/hist/
             git add -f gen/aggregate.json
             git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
             if git diff --cached --quiet; then
