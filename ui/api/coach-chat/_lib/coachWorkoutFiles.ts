@@ -374,65 +374,32 @@ export function templatePath(templateId: string): string {
   return `${TEMPLATES_PATH_PREFIX}${templateId}.json`;
 }
 
-// Injectable, same reasoning as AdjustTemplatesFn above - tests supply a fake so this suite never
-// needs real network access. Takes only the current template JSON + the athlete's instruction
-// (per the plan: keep Gemini under minimal field pressure, no other context leaks into this
-// call), returns the full updated Workout object.
-export type EditTemplateFn = (apiKey: string, template: Workout, instruction: string) => Promise<unknown>;
-
-export const editTemplateWithGemini: EditTemplateFn = async (apiKey, template, instruction) => {
-  const prompt = [
-    "The athlete asked for a change to one of their existing workout templates. Below is the",
-    "current template (full JSON) and the athlete's instruction, in their own words.",
-    "Return the complete updated template as a single JSON object matching the exact same shape -",
-    "same top-level fields, same phases/exercises structure. Keep the id field unchanged. Only",
-    "change what the instruction asks for; leave everything else as-is.",
-    `Athlete's instruction: ${instruction}`,
-    "Current template:",
-    JSON.stringify(template),
-  ].join("\n");
-
-  const body = {
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      maxOutputTokens: 4096,
-    },
-  };
-
-  const res = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
-    20_000,
-  );
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Gemini template-edit call failed (${res.status}): ${detail}`);
-  }
-  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini template-edit call returned no content");
-  return JSON.parse(text);
-};
-
 /**
- * Applies a template_edit action field. Validates template_id against the athlete's real,
- * already-committed template ids (validTemplateIds, built from the manifest by
- * validTemplateIdsFromManifest) before doing anything else - same "hallucinated id" guard
- * coachIntents.ts's applyQuestEvent already established for quest_id. Makes one small, separate
- * Gemini call scoped to just this template + the athlete's instruction, then validates the
- * returned object structurally (workoutSchema.ts's validateWorkout) before accepting it - never
- * commit invalid data, same discipline as every other applier in this pipeline. Stamps _meta the
- * same way generateInitialTemplates does.
+ * Applies a template_edit action field: a PERMANENT structural change to one of the athlete's own
+ * templates, using the exact same mechanical primitives as session_plan (skip_exercise_nums/
+ * skip_phases, resolved server-side, zero Gemini-generated content) - not a free-form rewrite.
+ *
+ * This was originally a free-form edit: Gemini captured {template_id, instruction} and a second,
+ * separate Gemini call generated a whole new template from that instruction. Dropped after live
+ * verification - that second call doubled the failure surface of every edit turn (both calls had
+ * to succeed under Gemini's live 503 load, and one turn was observed losing a fully-valid primary
+ * response when only the second call failed), and per direction, content-generation for templates
+ * isn't wanted at all, not just for reliability - some requests (invent a new exercise, swap in
+ * unrelated content) simply aren't supported anymore, matching this subsystem's original "Coach
+ * must never modify templates" instinct from before this redesign existed.
+ *
+ * Validates template_id against the athlete's real, already-committed template ids
+ * (validTemplateIds, built from the manifest by validTemplateIdsFromManifest) before doing
+ * anything else - same "hallucinated id" guard applyQuestEvent already established for quest_id.
+ * Validates the result structurally (validateWorkout) before returning - never commit invalid
+ * data, same discipline as every other applier in this pipeline.
  */
-export async function applyTemplateEdit(
+export function applyTemplateEdit(
   templateContent: string | null,
-  edit: { template_id: string; instruction: string },
+  edit: { template_id: string; skip_exercise_nums?: number[]; skip_phases?: string[]; note?: string },
   validTemplateIds: ReadonlySet<string>,
   traceId: string,
-  apiKey: string,
-  editFn: EditTemplateFn = editTemplateWithGemini,
-): Promise<string> {
+): string {
   if (!validTemplateIds.has(edit.template_id)) {
     throw new Error(`template_edit: no template with id "${edit.template_id}" in this athlete's templates`);
   }
@@ -442,20 +409,21 @@ export async function applyTemplateEdit(
     throw new Error(`template_edit: template "${edit.template_id}" could not be read`);
   }
 
-  const rawEdited = await editFn(apiKey, current, edit.instruction);
-  validateWorkout(rawEdited, `template_edit result for "${edit.template_id}"`);
-  const edited = rawEdited as Workout;
+  const skipNums = new Set(edit.skip_exercise_nums ?? []);
+  for (const num of resolvePhaseNames(current.phases, edit.skip_phases ?? [], traceId)) skipNums.add(num);
+  const phases = skipNums.size > 0 ? renumberAfterSkip(current.phases, [...skipNums]) : current.phases;
 
-  if (edited.id !== edit.template_id) {
-    throw new Error(
-      `template_edit: Gemini returned id "${edited.id}", expected "${edit.template_id}" to stay unchanged`,
-    );
-  }
+  const trimmedNote = edit.note?.trim();
+  const coachingNote = trimmedNote ? `${current.coaching_note} — ${trimmedNote}` : current.coaching_note;
 
   const result: Workout = {
-    ...edited,
+    ...current,
+    phases,
+    coaching_note: coachingNote,
     _meta: { updated_at: new Date().toISOString(), updated_by: "model", trace_id: traceId },
   };
+
+  validateWorkout(result, `template_edit result for "${edit.template_id}"`);
 
   return JSON.stringify(result, null, 2);
 }

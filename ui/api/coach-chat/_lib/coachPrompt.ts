@@ -50,16 +50,20 @@ export interface GeminiReply {
   // value is string-only, same reasoning as quest_event above - the responseSchema below
   // declares it as `{ type: "string" }`. Found in review as the same bug class left uncorrected.
   profile_update?: { field: "name" | "dob" | "timezone" | "height_cm" | "weight_kg"; value: string };
-  // coach-redesign workout-backend-wiring §3: the athlete asked to change one of their own
-  // existing workout templates (e.g. "add more exercises to strength B"). Gemini only captures
-  // the athlete's own words/intent here - it does not invent or perform the edit itself. A
-  // second, separate, small Gemini call (coachWorkoutFiles.ts's applyTemplateEdit) does the
-  // actual editing at commit time, scoped to just that template's JSON + this instruction.
-  // template_id must be one of the ids listed in context (activeTemplatesContext) - never
-  // invented. Single object, not an array - one edit request per closing turn is enough for a
-  // first pass, matching profile_update's shape rather than quest_event's. Closing turns only,
-  // same as the fields above.
-  template_edit?: { template_id: string; instruction: string };
+  // coach-redesign workout-backend-wiring §3: the athlete asked for a PERMANENT structural change
+  // to one of their own existing workout templates. Originally free-form (Gemini captured an
+  // instruction, a second separate Gemini call generated a whole new template from it) - dropped
+  // after live verification found that second call doubling the failure surface of every edit
+  // turn, and per direction, no free-form content generation for templates at all, ever. Same
+  // mechanical shape as session_plan now (skip_exercise_nums/skip_phases, zero Gemini-generated
+  // content, resolved server-side against the real template at commit time) - the only difference
+  // is this writes back to the template itself, not a dated session snapshot. A request that
+  // needs real new content (inventing an exercise, swapping in unrelated content) simply isn't
+  // supported via chat - matches this subsystem's original "Coach must never modify templates"
+  // instinct from before this redesign existed. template_id must be one of the ids listed in
+  // context (activeTemplatesContext) - never invented. Single object, not an array - one edit per
+  // closing turn, matching session_plan's shape. Closing turns only, same as the fields above.
+  template_edit?: { template_id: string; skip_exercise_nums?: number[]; skip_phases?: string[]; note?: string };
   // coach-redesign workout-backend-wiring §4: Coach is prescribing a modified version of one of
   // the athlete's templates for a specific day (injury/periodization adjustment), per
   // B_engine.md's Persisting Session Files ritual. No `session_date` field here - per
@@ -176,22 +180,20 @@ export const GENERATION_CONFIG = {
           value: { type: "string" },
         },
       },
-      // coach-redesign workout-backend-wiring §3 - single object (not array), matching
-      // profile_update's shape. template_id is free text in the schema itself (Gemini's real ids
-      // come from context, per activeTemplatesContext below); coachWorkoutFiles.ts's
-      // applyTemplateEdit is the actual enforcement point.
+      // coach-redesign workout-backend-wiring §3 - single object, same mechanical shape as
+      // session_plan below (no free-form content generation - see GeminiReply's own comment).
+      // template_id is free text in the schema itself (Gemini's real ids come from context, per
+      // activeTemplatesContext below); coachWorkoutFiles.ts's applyTemplateEdit is the actual
+      // enforcement point.
       template_edit: {
         type: "object",
         properties: {
           template_id: { type: "string" },
-          instruction: { type: "string" },
+          skip_exercise_nums: { type: "array", items: { type: "number" } },
+          skip_phases: { type: "array", items: { type: "string" } },
+          note: { type: "string" },
         },
-        // Live verification found Gemini reliably setting template_id while omitting
-        // instruction (same unenforced-optional-field pattern session_closed had) - the write
-        // guard in coach-chat.ts requires both, so the edit silently never fired despite the
-        // reply claiming it was "locked in". Both required now so a partial object fails the
-        // schema instead of silently dropping the write.
-        required: ["template_id", "instruction"],
+        required: ["template_id"],
       },
       // coach-redesign workout-backend-wiring §4 - single object, matching template_edit's shape.
       // No session_date property here - server-stamped, see GeminiReply's own comment above for
@@ -382,15 +384,20 @@ export function buildDynamicText(
           "\nIf the athlete gave a new value for one of their profile basics (name, date of birth,",
           "timezone, height, or weight), set profile_update with that field and the new value.",
           "Only set it when the athlete actually stated a new value, never to fill in a guess.",
-          "\nIf the athlete clearly asked to change one of their own existing workout templates",
-          "(see Current templates below) - e.g. \"add more exercises to strength B\" or \"swap out",
-          "the burpees in foundation\" - set template_edit with that template's exact template_id",
-          "and an instruction capturing the athlete's own words/intent. Do not invent or perform",
-          "the edit yourself - instruction should describe what the athlete asked for, not the",
-          "result. Only use a template_id that's actually listed below - never invent one, and",
-          "never set this if the athlete has no templates listed. Setting template_edit does not",
-          "mean the session stays open - the edit is applied by the server the moment this turn",
-          "commits, so it's fine to close normally in the same response if the athlete is done.",
+          "\nIf the athlete asked to PERMANENTLY change one of their own existing workout",
+          "templates (see Current templates below) going forward, not just for today - set",
+          "template_edit with that template's exact template_id and a short note explaining why.",
+          "You don't know the template's exact exercise numbers, so name what to drop the way the",
+          "athlete actually said it: skip_exercise_nums if you happen to know specific numbers,",
+          "skip_phases with the phase's plain-language name (e.g. \"Shoulder & Elbow\") when the",
+          "athlete means a whole section - either or both. You can only remove exercises this way,",
+          "never invent new ones or write new exercise content - if the athlete asks to add a new",
+          "exercise or swap in something that doesn't already exist in the template, tell them",
+          "that's not something you can do yourself right now, don't set template_edit for it.",
+          "Only use a template_id that's actually listed below - never invent one, and never set",
+          "this if the athlete has no templates listed. Setting template_edit does not mean the",
+          "session stays open - the edit is applied by the server the moment this turn commits, so",
+          "it's fine to close normally in the same response if the athlete is done.",
           "\nIf you are prescribing today's session as a modified version of one of the athlete's",
           "own templates (see Current templates below) - dropping exercises for an injury or a",
           "time constraint - set session_plan with that template's exact template_id and a short",

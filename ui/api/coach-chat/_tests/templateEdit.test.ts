@@ -1,16 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
-import {
-  applyTemplateEdit,
-  validTemplateIdsFromManifest,
-  templatePath,
-  type EditTemplateFn,
-} from "../_lib/coachWorkoutFiles.js";
+import { describe, it, expect } from "vitest";
+import { applyTemplateEdit, validTemplateIdsFromManifest, templatePath } from "../_lib/coachWorkoutFiles.js";
 import type { Workout } from "../../../client/src/lib/workouts.js";
 
-// coach-redesign workout-backend-wiring §3: template_edit action field. Covers the two guards
-// applyTemplateEdit exists to enforce - a hallucinated/stale template_id must never write, and a
-// structurally malformed Gemini response must never commit - with the Gemini call itself always
-// mocked (EditTemplateFn injection) so this suite never needs real network access.
+// coach-redesign workout-backend-wiring §3: template_edit action field. Purely mechanical now -
+// same skip_exercise_nums/skip_phases primitives as session_plan, no Gemini-generated content, no
+// second network call. Covers the hallucinated-id guard, the skip/renumber/note behavior (mirrors
+// sessionPlan.test.ts), and validateWorkout as the final backstop.
 
 function validWorkout(overrides: Partial<Workout> = {}): Workout {
   return {
@@ -24,11 +19,22 @@ function validWorkout(overrides: Partial<Workout> = {}): Workout {
     coaching_note: "Keep form tight.",
     phases: [
       {
+        name: "Warmup",
+        duration: "10 min",
+        default_rest_secs: 30,
+        exercises: [
+          { num: 1, name: "Arm circles", type: "timed", duration_secs: 30, sets: 1, form_cue: "Slow.", why: "Warm up." },
+          { num: 2, name: "Band pull-aparts", type: "reps", reps: 15, sets: 2, form_cue: "Squeeze.", why: "Activate." },
+        ],
+      },
+      {
         name: "Main set",
         duration: "30 min",
         default_rest_secs: 60,
         exercises: [
-          { num: 1, name: "Push-ups", type: "reps", reps: 12, sets: 3, form_cue: "Elbows in.", why: "Chest strength." },
+          { num: 3, name: "Push-ups", type: "reps", reps: 12, sets: 3, form_cue: "Elbows in.", why: "Chest strength." },
+          { num: 4, name: "Rows", type: "reps", reps: 10, sets: 3, form_cue: "Squeeze back.", why: "Balance pushing work." },
+          { num: 5, name: "Overhead Press", type: "reps", reps: 8, sets: 3, form_cue: "Brace core.", why: "Shoulder strength." },
         ],
       },
     ],
@@ -48,18 +54,15 @@ describe("validTemplateIdsFromManifest", () => {
   });
 
   it("treats missing manifest content as no valid ids, not a throw", () => {
-    const ids = validTemplateIdsFromManifest(null);
-    expect(ids.size).toBe(0);
+    expect(validTemplateIdsFromManifest(null).size).toBe(0);
   });
 
   it("treats unparseable manifest content as no valid ids, not a throw", () => {
-    const ids = validTemplateIdsFromManifest("{not valid json");
-    expect(ids.size).toBe(0);
+    expect(validTemplateIdsFromManifest("{not valid json").size).toBe(0);
   });
 
   it("treats a manifest with no template_ids array as no valid ids", () => {
-    const ids = validTemplateIdsFromManifest(JSON.stringify({ generated_at: "2026-08-18T00:00:00Z" }));
-    expect(ids.size).toBe(0);
+    expect(validTemplateIdsFromManifest(JSON.stringify({ generated_at: "2026-08-18T00:00:00Z" })).size).toBe(0);
   });
 });
 
@@ -72,109 +75,62 @@ describe("templatePath", () => {
 describe("applyTemplateEdit", () => {
   const validIds = new Set(["strength_b"]);
 
-  it("throws with the hallucinated-id message when template_id isn't in validTemplateIds", async () => {
-    const editFn: EditTemplateFn = vi.fn();
-    await expect(
-      applyTemplateEdit(
-        currentTemplateContent,
-        { template_id: "made_up_id", instruction: "add more exercises" },
-        validIds,
-        "t1",
-        "fake-key",
-        editFn,
-      ),
-    ).rejects.toThrow('template_edit: no template with id "made_up_id" in this athlete\'s templates');
-    expect(editFn).not.toHaveBeenCalled();
+  it("throws with the hallucinated-id message when template_id isn't in validTemplateIds", () => {
+    expect(() =>
+      applyTemplateEdit(currentTemplateContent, { template_id: "made_up_id" }, validIds, "t1"),
+    ).toThrow('template_edit: no template with id "made_up_id" in this athlete\'s templates');
   });
 
-  it("throws when the manifest is empty (no templates editable yet)", async () => {
-    await expect(
-      applyTemplateEdit(
-        currentTemplateContent,
-        { template_id: "strength_b", instruction: "add more exercises" },
-        new Set(),
-        "t1",
-        "fake-key",
-      ),
-    ).rejects.toThrow('template_edit: no template with id "strength_b"');
+  it("throws when the manifest is empty (no templates editable yet)", () => {
+    expect(() =>
+      applyTemplateEdit(currentTemplateContent, { template_id: "strength_b" }, new Set(), "t1"),
+    ).toThrow('template_edit: no template with id "strength_b"');
   });
 
-  it("accepts a well-formed Gemini-returned Workout and stamps _meta", async () => {
-    const edited = validWorkout({
-      phases: [
-        {
-          name: "Main set",
-          duration: "35 min",
-          default_rest_secs: 60,
-          exercises: [
-            { num: 1, name: "Push-ups", type: "reps", reps: 12, sets: 3, form_cue: "Elbows in.", why: "Chest strength." },
-            { num: 2, name: "Rows", type: "reps", reps: 10, sets: 3, form_cue: "Squeeze back.", why: "Balance pushing work." },
-          ],
-        },
-      ],
-    });
-    const editFn: EditTemplateFn = vi.fn().mockResolvedValue(edited);
+  it("throws when the current template content can't be read", () => {
+    expect(() => applyTemplateEdit(null, { template_id: "strength_b" }, validIds, "t1")).toThrow(
+      'template_edit: template "strength_b" could not be read',
+    );
+  });
 
-    const result = await applyTemplateEdit(
+  it("applies skip_exercise_nums permanently, renumbering the rest, and stamps _meta", () => {
+    const result = applyTemplateEdit(
       currentTemplateContent,
-      { template_id: "strength_b", instruction: "add a row exercise" },
+      { template_id: "strength_b", skip_exercise_nums: [3] },
       validIds,
       "trace-1",
-      "fake-key",
-      editFn,
     );
-
     const parsed = JSON.parse(result);
-    expect(parsed.id).toBe("strength_b");
-    expect(parsed.phases[0].exercises).toHaveLength(2);
+    expect(parsed.phases.flatMap((p: any) => p.exercises.map((e: any) => e.num))).toEqual([1, 2, 3, 4]);
+    expect(parsed.phases.flatMap((p: any) => p.exercises.map((e: any) => e.name))).toEqual([
+      "Arm circles",
+      "Band pull-aparts",
+      "Rows",
+      "Overhead Press",
+    ]);
     expect(parsed._meta).toMatchObject({ updated_by: "model", trace_id: "trace-1" });
-    expect(editFn).toHaveBeenCalledWith("fake-key", JSON.parse(currentTemplateContent), "add a row exercise");
   });
 
-  it("rejects a malformed Gemini response (missing required field) rather than committing it", async () => {
-    const malformed = { id: "strength_b", title: "Strength B" }; // missing phases, etc.
-    const editFn: EditTemplateFn = vi.fn().mockResolvedValue(malformed);
-
-    await expect(
-      applyTemplateEdit(
-        currentTemplateContent,
-        { template_id: "strength_b", instruction: "add more exercises" },
-        validIds,
-        "t1",
-        "fake-key",
-        editFn,
-      ),
-    ).rejects.toThrow(/workout schema/);
+  it("resolves skip_phases by name (case-insensitive), dropping the whole phase", () => {
+    const result = applyTemplateEdit(currentTemplateContent, { template_id: "strength_b", skip_phases: ["warmup"] }, validIds, "t1");
+    const parsed = JSON.parse(result);
+    expect(parsed.phases).toHaveLength(1);
+    expect(parsed.phases[0].exercises.map((e: any) => e.num)).toEqual([1, 2, 3]);
   });
 
-  it("rejects a Gemini response whose id doesn't match the requested template_id", async () => {
-    const edited = validWorkout({ id: "different_id" });
-    const editFn: EditTemplateFn = vi.fn().mockResolvedValue(edited);
-
-    await expect(
-      applyTemplateEdit(
-        currentTemplateContent,
-        { template_id: "strength_b", instruction: "add more exercises" },
-        validIds,
-        "t1",
-        "fake-key",
-        editFn,
-      ),
-    ).rejects.toThrow('template_edit: Gemini returned id "different_id", expected "strength_b" to stay unchanged');
+  it("appends note to coaching_note rather than replacing it", () => {
+    const result = applyTemplateEdit(
+      currentTemplateContent,
+      { template_id: "strength_b", skip_exercise_nums: [5], note: "shoulder still recovering" },
+      validIds,
+      "t1",
+    );
+    const parsed = JSON.parse(result);
+    expect(parsed.coaching_note).toBe("Keep form tight. — shoulder still recovering");
   });
 
-  it("throws when the current template content can't be read", async () => {
-    const editFn: EditTemplateFn = vi.fn();
-    await expect(
-      applyTemplateEdit(
-        null,
-        { template_id: "strength_b", instruction: "add more exercises" },
-        validIds,
-        "t1",
-        "fake-key",
-        editFn,
-      ),
-    ).rejects.toThrow('template_edit: template "strength_b" could not be read');
-    expect(editFn).not.toHaveBeenCalled();
+  it("produces schema-valid output", () => {
+    const result = applyTemplateEdit(currentTemplateContent, { template_id: "strength_b", skip_exercise_nums: [3] }, validIds, "t1");
+    expect(() => JSON.parse(result)).not.toThrow();
   });
 });

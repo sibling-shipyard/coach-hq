@@ -399,19 +399,21 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
-      // §3: reported only when the athlete asked to change one of their own existing templates
-      // this close. template_id is re-validated at commit time against validTemplateIds (the
-      // same set Gemini was shown via activeTemplatesContext) inside applyTemplateEdit itself -
-      // guard condition here just checks both fields are present. resolve() re-fetches the
-      // template's current content fresh at commit time, same stale-read-avoidance pattern as
-      // coachNoteWrite/memoryUpdateWrite/etc above.
+      // §3: reported only when the athlete asked to permanently change one of their own existing
+      // templates this close. Purely mechanical (skip_exercise_nums/skip_phases, no Gemini call
+      // inside resolve()) since the free-form content-generation version was dropped after live
+      // verification - see coachWorkoutFiles.ts's applyTemplateEdit for why. template_id is
+      // re-validated at commit time against validTemplateIds (the same set Gemini was shown via
+      // activeTemplatesContext) inside applyTemplateEdit itself - guard condition here just checks
+      // the id is present. resolve() re-fetches the template's current content fresh at commit
+      // time, same stale-read-avoidance pattern as coachNoteWrite/memoryUpdateWrite/etc above.
       const templateEdit = reply.template_edit;
-      const templateEditWrite: FileEntry | undefined = templateEdit?.template_id && templateEdit.instruction?.trim()
+      const templateEditWrite: FileEntry | undefined = templateEdit?.template_id
         ? {
             path: templatePath(templateEdit.template_id),
             resolve: async () => {
               const fresh = await getFileRaw(repo, templatePath(templateEdit.template_id), token);
-              return applyTemplateEdit(fresh, templateEdit, validTemplateIds, traceId, apiKey);
+              return applyTemplateEdit(fresh, templateEdit, validTemplateIds, traceId);
             },
           }
         : undefined;
