@@ -134,6 +134,17 @@ describe("applySessionPlan", () => {
     expect(parsed.coaching_note).toBe("Keep form tight. — knee modification");
   });
 
+  it("does NOT append the note when a skip was requested but matched nothing real", () => {
+    const { content } = applySessionPlan(
+      currentTemplateContent,
+      { template_id: "strength_b", session_date: "2026-08-18", skip_exercise_nums: [999], note: "removed the burpees" },
+      validIds,
+      "trace-1",
+    );
+    const parsed = JSON.parse(content);
+    expect(parsed.coaching_note).toBe("Keep form tight.");
+  });
+
   it("drops a phase entirely, rather than rejecting the result, when every exercise in it is skipped", () => {
     const { content } = applySessionPlan(
       currentTemplateContent,

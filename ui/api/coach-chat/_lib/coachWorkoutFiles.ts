@@ -413,8 +413,20 @@ export function applyTemplateEdit(
   for (const num of resolvePhaseNames(current.phases, edit.skip_phases ?? [], traceId)) skipNums.add(num);
   const phases = skipNums.size > 0 ? renumberAfterSkip(current.phases, [...skipNums]) : current.phases;
 
+  // A skip was asked for but matched nothing real (adversarial testing: "drop the burpees" when
+  // no such exercise/phase exists, or a raw exercise number that was never real to begin with) -
+  // appending the note anyway would permanently record a claim ("removed burpees per request")
+  // for something that never actually happened. Compared by total exercise count rather than
+  // skipNums.size, since skipNums.size alone is true even for a raw skip_exercise_nums entry that
+  // never matched any real exercise (only resolvePhaseNames filters unmatched names out - a
+  // number is trusted as-is until renumberAfterSkip actually runs). Only suppress the note in
+  // that specific case - a note with no skip requested at all (a pure "just leaving context"
+  // note) still gets appended normally.
+  const skipRequested = (edit.skip_exercise_nums?.length ?? 0) > 0 || (edit.skip_phases?.length ?? 0) > 0;
+  const skipHappened = countExercises(phases) < countExercises(current.phases);
   const trimmedNote = edit.note?.trim();
-  const coachingNote = trimmedNote ? `${current.coaching_note} — ${trimmedNote}` : current.coaching_note;
+  const coachingNote =
+    trimmedNote && !(skipRequested && !skipHappened) ? `${current.coaching_note} — ${trimmedNote}` : current.coaching_note;
 
   const result: Workout = {
     ...current,
@@ -446,6 +458,10 @@ export function sessionPath(sessionDate: string, templateId: string): string {
 // input. The base Workout schema requires phases.exercises to be non-empty, so an empty phase
 // was never a valid shape to keep around; dropping it is the correct mechanical response, not a
 // workaround.
+function countExercises(phases: Workout["phases"]): number {
+  return phases.reduce((sum, p) => sum + p.exercises.length, 0);
+}
+
 export function renumberAfterSkip(phases: Workout["phases"], skipNums: number[]): Workout["phases"] {
   const skip = new Set(skipNums);
   let next = 1;
@@ -516,9 +532,14 @@ export function applySessionPlan(
   // modification note being layered on top - same "extend, don't clobber" spirit as
   // applyMemoryUpdate elsewhere in this pipeline. No note given: leave the base template's
   // coaching_note untouched, per B_engine.md's rule (a note is only required "for the changes",
-  // i.e. only meaningful when something actually changed).
+  // i.e. only meaningful when something actually changed). A skip was requested but matched
+  // nothing real (adversarial testing found this) - same guard as applyTemplateEdit, don't append
+  // a note claiming a change that never happened.
+  const skipRequested = (plan.skip_exercise_nums?.length ?? 0) > 0 || (plan.skip_phases?.length ?? 0) > 0;
+  const skipHappened = countExercises(phases) < countExercises(base.phases);
   const trimmedNote = plan.note?.trim();
-  const coachingNote = trimmedNote ? `${base.coaching_note} — ${trimmedNote}` : base.coaching_note;
+  const coachingNote =
+    trimmedNote && !(skipRequested && !skipHappened) ? `${base.coaching_note} — ${trimmedNote}` : base.coaching_note;
 
   const session: Workout = {
     ...base,

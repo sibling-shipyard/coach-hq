@@ -129,6 +129,23 @@ describe("applyTemplateEdit", () => {
     expect(parsed.coaching_note).toBe("Keep form tight. — shoulder still recovering");
   });
 
+  it("appends note when no skip was requested at all (a pure note-only edit)", () => {
+    const result = applyTemplateEdit(currentTemplateContent, { template_id: "strength_b", note: "just leaving context" }, validIds, "t1");
+    expect(JSON.parse(result).coaching_note).toBe("Keep form tight. — just leaving context");
+  });
+
+  it("does NOT append the note when a skip was requested but matched nothing real (adversarial testing: \"drop the burpees\" when no such exercise/phase exists)", () => {
+    const result = applyTemplateEdit(
+      currentTemplateContent,
+      { template_id: "strength_b", skip_phases: ["Nonexistent Phase"], note: "removed burpees per athlete request" },
+      validIds,
+      "t1",
+    );
+    const parsed = JSON.parse(result);
+    expect(parsed.coaching_note).toBe("Keep form tight.");
+    expect(parsed.phases).toHaveLength(2);
+  });
+
   it("produces schema-valid output", () => {
     const result = applyTemplateEdit(currentTemplateContent, { template_id: "strength_b", skip_exercise_nums: [3] }, validIds, "t1");
     expect(() => JSON.parse(result)).not.toThrow();
