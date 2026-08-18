@@ -91,12 +91,13 @@ Nothing in the stack is outstanding. These are the deliberate holds and the foll
 
 | | Item | Why it is still open |
 |---|---|---|
-| 1 | **Run `platform/scripts/check.sh` end to end, once** | Its three non-npm checks are proven; the `ui/` tsc and vitest legs have never run, because the container that wrote and reviewed it had no `ui/node_modules`. Until someone runs it on a full checkout, the script is unverified on its main path. |
+| 1 | ~~Run `platform/scripts/check.sh` end to end~~ | **Done 2026-08-18.** All five legs run. Four pass; `validate-soul` fails on a finding that predates this stack and is now #424. Confirmed the script is not the cause — a pristine worktree of `main` fails identically. |
 | 2 | **#414 — iOS boot (P1)** | The one P1 from review. Cheap now: #402 built the conditional-read mechanism, so applying it to `ios/DESIGN.md` and `docs/eng-docs/ios-app-spec.md` is a small PR. |
 | 3 | **T3.1–T3.6 — register roles, model tiers, tool scoping, worktrees, skills** | Held, and the measurement above is the reason. It says the boot-token problem was almost entirely Tech Lead's SOUL read, now fixed. Tier 3 buys isolation and tool scoping, which are real but are not tokens. Score it that way before starting. |
 | 4 | **T4.3 — re-verify or supersede `scaling-plan.md`** | Athlete's call: is our architecture doc still true? |
 | 5 | **T4.4 — delete the five Historical eng-docs** | Athlete's call. |
 | 6 | **#415, #416, #417 (P2)** | Validator gaps found in review. None blocking. |
+| 7 | **#424 (P1) — `validate-soul` cannot fail CI** | Found by item 1 on its first real run. `continue-on-error: true` in `.github/workflows/validate-soul.yml` swallows the step's exit code, so the "fails on new findings" its comment promises has never once happened — and there is an unseen new finding on `main` today. Assigned to Skanda, under #297 in M2. |
 
 **This plan is not delete-on-ship yet.** `docs/plans/` is deleted when the work ships; items 3–5
 above are still open, so it stays. Delete it when they resolve, folding anything durable into
