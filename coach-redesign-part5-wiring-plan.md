@@ -29,6 +29,15 @@
 - **Regenerating templates for existing athletes (`coach-skanda`, `coach-akash`).** The
   generic-library template pipeline only applies going forward — a possible future one-time
   backfill, not required for the pipeline itself to work.
+- **Migration script for workout-backend-wiring's changes.** No migration script exists yet for
+  the `_manifest.json`/schema additions this branch introduces — nothing here retrofits existing
+  athlete data on its own (deliberate — new pipeline only, see above), but a Part 1/2/3-style
+  script may still be worth writing so an existing athlete's real templates/`current_week.json`
+  can adopt the new bookkeeping (`_manifest.json`, `trace_id`, etc.) without waiting on a live
+  chat turn to trigger it.
+- **`platform/scripts/carve-skeleton.mjs` regeneration.** The skeleton (`.skeleton-push/` →
+  `coach-skeleton`) hasn't been re-run since workout-backend-wiring landed — it's a mechanical,
+  low-risk regen, just needs doing once this branch's code is settled.
 
 ## Not started
 
