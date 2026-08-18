@@ -179,6 +179,12 @@ export const GENERATION_CONFIG = {
           template_id: { type: "string" },
           instruction: { type: "string" },
         },
+        // Live verification found Gemini reliably setting template_id while omitting
+        // instruction (same unenforced-optional-field pattern session_closed had) - the write
+        // guard in coach-chat.ts requires both, so the edit silently never fired despite the
+        // reply claiming it was "locked in". Both required now so a partial object fails the
+        // schema instead of silently dropping the write.
+        required: ["template_id", "instruction"],
       },
       // coach-redesign workout-backend-wiring §4 - single object, matching template_edit's shape.
       // No session_date property here - server-stamped, see GeminiReply's own comment above for
@@ -190,6 +196,11 @@ export const GENERATION_CONFIG = {
           skip_exercise_nums: { type: "array", items: { type: "number" } },
           note: { type: "string" },
         },
+        // template_id is the only field the write guard in coach-chat.ts actually needs
+        // (skip_exercise_nums/note are genuinely optional content) - required here so Gemini
+        // can't set this field at all without it, same "no silently-partial commitment object"
+        // discipline as template_edit above.
+        required: ["template_id"],
       },
       // coach-redesign workout-backend-wiring §5 - single object, the Weekly Kick-off Ritual's
       // full seven-day rewrite. priority/planned_duration_min/template_id are all optional per
