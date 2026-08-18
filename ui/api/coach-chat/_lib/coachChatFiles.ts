@@ -6,7 +6,7 @@
  */
 import { SOUL } from "../../_generated/soul.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { PROFILE_PATH, MEMORY_PATH, type ProfileJson, type MemoryJson } from "./coachMemoryFiles.js";
+import { PROFILE_PATH, MEMORY_PATH, INJURIES_PATH, type ProfileJson, type MemoryJson, type InjuriesJson } from "./coachMemoryFiles.js";
 
 // SOUL.md is 100% generic across athletes, so it's bundled at build time (ui/scripts/build-
 // soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
@@ -67,6 +67,7 @@ export interface CoachContext {
   rollingState: string | null;
   profile: ProfileJson | null;
   memory: MemoryJson | null;
+  injuries: InjuriesJson | null;
 }
 
 // Best-effort parse - a missing or malformed file (not yet migrated, or a transient bad commit)
@@ -122,12 +123,13 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 
   const promise = (async (): Promise<CoachContext> => {
-    const [state, questLog, rollingState, profileRaw, memoryRaw] = await Promise.all([
+    const [state, questLog, rollingState, profileRaw, memoryRaw, injuriesRaw] = await Promise.all([
       getFileRaw(repo, STATE_FILE_PATH, token),
       getFileRaw(repo, QUEST_LOG_PATH, token),
       getFileRaw(repo, ROLLING_STATE_PATH, token),
       getFileRaw(repo, PROFILE_PATH, token),
       getFileRaw(repo, MEMORY_PATH, token),
+      getFileRaw(repo, INJURIES_PATH, token),
     ]);
     const value: CoachContext = {
       soul: SOUL,
@@ -136,6 +138,7 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
       rollingState,
       profile: parseJsonOrNull<ProfileJson>(profileRaw),
       memory: parseJsonOrNull<MemoryJson>(memoryRaw),
+      injuries: parseJsonOrNull<InjuriesJson>(injuriesRaw),
     };
     contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
     return value;

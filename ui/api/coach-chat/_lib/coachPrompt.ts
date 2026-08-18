@@ -10,6 +10,7 @@
  */
 import type { ChatMessage } from "./chatThreads.js";
 import { todayContextLine } from "./coachDay.js";
+import { MEMORY_NOTE_LABELS, type MemoryNoteLabel, type InjuriesJson } from "./coachMemoryFiles.js";
 
 export interface GeminiReply {
   reply: string;
@@ -18,6 +19,16 @@ export interface GeminiReply {
   // Also reused server-side (unchanged, no new field) into rolling_state.json's last-N-sessions
   // log - see coachIntents.ts's applyRollingState.
   coach_note?: string;
+  // Part 1 redesign, Step 4a: Coach states which one of memory.json's six labelled notes boxes
+  // changed and its new text - the server owns replacing that box entirely (coachIntents.ts's
+  // applyMemoryUpdate). `label` is a constrained enum, never free text - gemini-flow.md's
+  // Action-field design rule. Closing turns only, same as coach_note.
+  memory_update?: { label: MemoryNoteLabel; text: string };
+  // Step 4b: an injury flag opened, updated, or resolved this conversation. Server generates
+  // `id`/`opened_at`/`resolved_at` - Gemini only ever supplies status/text/flag_id (see
+  // coachIntents.ts's applyInjuryEvent for the exact new/update/resolve rules). Closing turns
+  // only, same as coach_note/memory_update.
+  injury_event?: { status: "active" | "resolved"; text?: string; flag_id?: string };
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;
@@ -53,8 +64,24 @@ export const GENERATION_CONFIG = {
   responseSchema: {
     type: "object",
     properties: {
-      // Declared first, before reply, so there's nothing else to commit to first.
+      // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4) -
+      // there's nothing else to commit to first.
       coach_note: { type: "string" },
+      memory_update: {
+        type: "object",
+        properties: {
+          label: { type: "string", enum: [...MEMORY_NOTE_LABELS] },
+          text: { type: "string" },
+        },
+      },
+      injury_event: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["active", "resolved"] },
+          text: { type: "string" },
+          flag_id: { type: "string" },
+        },
+      },
       session_closed: { type: "boolean" },
       reply: { type: "string" },
     },
@@ -135,8 +162,20 @@ export function buildDynamicText(
           "a plan for next time). There is no file to edit, no checklist to fill in - report facts,",
           "the server handles saving them. If there's truly nothing concrete from this conversation,",
           "say so honestly in coach_note instead of inventing content.",
-          "**Never say something is saved, logged, locked, or committed unless coach_note in this",
-          "exact response genuinely reflects it.**",
+          "\nIf this conversation changed something in one of these six categories - fitness",
+          "baseline, coaching priorities, a learned training pattern, a learned nutrition pattern,",
+          "a learned mental/performance pattern, or equipment - set memory_update with that",
+          "category as label and the new full text as text. Only set it when something genuinely",
+          "changed; most closes won't need it. Never invent a change to justify setting it.",
+          "\nIf the athlete mentioned a new injury or pain, or gave an update on an existing one",
+          "listed in Active Injury Flags below, set injury_event. A brand-new injury: status",
+          "\"active\", text describing it, no flag_id (the server mints one). An update to an",
+          "existing flag still ongoing: status \"active\", the matching flag_id from the list below,",
+          "and text only if there's new detail worth recording (omit text to leave it unchanged).",
+          "A flag that's cleared up: status \"resolved\" and that flag_id. Only ever use a flag_id",
+          "that's actually listed below - never invent one. Most closes won't need this either.",
+          "**Never say something is saved, logged, locked, or committed unless coach_note (or",
+          "memory_update / injury_event) in this exact response genuinely reflects it.**",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
           "response (asking a clarifying question instead does NOT count - set it false in that case,",
           "even though this turn was triggered by a close-session phrase). The athlete will simply see",
@@ -229,4 +268,14 @@ export function rollingStateContext(rollingStateJson: string | null | undefined)
     .map((e) => `- ${e.date}: ${e.text}`);
   if (lines.length === 0) return undefined;
   return ["Recent sessions (most recent first):", ...lines].join("\n");
+}
+
+// Step 4b: lists the athlete's current injuries.json flags (id + status + text) so Gemini has
+// real flag_ids to reference for injury_event's update/resolve cases - it must never invent one.
+// Per-athlete, so this rides in buildDynamicText's extraContext, never staticSystemText - same
+// reasoning as firstSessionContext/rollingStateContext above.
+export function injuryFlagsContext(injuries: InjuriesJson | null | undefined): string | undefined {
+  if (!injuries || !Array.isArray(injuries.flags) || injuries.flags.length === 0) return undefined;
+  const lines = injuries.flags.map((f) => `- flag_id: ${f.id} | status: ${f.status} | ${f.text}`);
+  return ["Active Injury Flags (use these exact flag_ids for injury_event updates/resolves):", ...lines].join("\n");
 }

@@ -49,10 +49,12 @@ import {
   injectCoachSinceIfNeeded,
   type ClosingFileContext,
 } from "./coach-chat/_lib/coachWrites.js";
-import { applyRollingState } from "./coach-chat/_lib/coachIntents.js";
+import { applyRollingState, applyMemoryUpdate, applyInjuryEvent } from "./coach-chat/_lib/coachIntents.js";
+import { MEMORY_PATH, INJURIES_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import {
   combineExtraContext,
+  injuryFlagsContext,
   firstSessionContext,
   onboardingHintsContext,
   rollingStateContext,
@@ -72,7 +74,7 @@ async function handleGreet(
   onboardingHints?: OnboardingHints,
 ): Promise<Response> {
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
-  const { soul, state: stateMd, questLog, rollingState, profile, memory } = context;
+  const { soul, state: stateMd, questLog, rollingState, profile, memory, injuries } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
   let reply: GeminiReply;
@@ -89,6 +91,7 @@ async function handleGreet(
         firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
         onboardingHintsContext(onboardingHints),
         rollingStateContext(rollingState),
+        injuryFlagsContext(injuries),
       ),
     );
   } catch (err: unknown) {
@@ -154,7 +157,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // A3: reuses the app-load preload's 60s cache, unless A5 just found it stale, in which
       // case force a fresh read.
-      const { soul, state: stateMd, questLog, rollingState, profile, memory } = await loadCoachContext(repo, token, { fresh: stale });
+      const { soul, state: stateMd, questLog, rollingState, profile, memory, injuries } = await loadCoachContext(repo, token, { fresh: stale });
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
       const priorMessages = messages ?? [];
@@ -191,6 +194,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           combineExtraContext(
             firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
             rollingStateContext(rollingState),
+            injuryFlagsContext(injuries),
           ),
           traceId,
         );
@@ -284,6 +288,43 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
+      // Step 4a: reported only when the athlete's memory.json actually changed something this
+      // close - most closes carry no memory_update at all. Fetched fresh at commit time, same
+      // pattern as coachNoteWrite/rollingStateWrite above.
+      const memoryUpdate = reply.memory_update;
+      const memoryUpdateWrite: FileEntry | undefined = memoryUpdate?.label && memoryUpdate.text?.trim()
+        ? {
+            path: MEMORY_PATH,
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, MEMORY_PATH, token);
+              return applyMemoryUpdate(
+                fresh,
+                memoryUpdate.label,
+                memoryUpdate.text,
+                todayDateString(stateMd ?? "", new Date()),
+                traceId,
+              );
+            },
+          }
+        : undefined;
+
+      // Step 4b: reported only when the athlete opened/updated/resolved an injury flag this
+      // close. A new flag requires text (enforced here, before the write ever hits
+      // applyInjuryEvent) since a flag_id-less event with no text has nothing to record.
+      const injuryEvent = reply.injury_event;
+      const injuryEventValid =
+        injuryEvent?.status != null &&
+        (injuryEvent.flag_id != null || (injuryEvent.text?.trim().length ?? 0) > 0);
+      const injuryEventWrite: FileEntry | undefined = injuryEventValid
+        ? {
+            path: INJURIES_PATH,
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, INJURIES_PATH, token);
+              return applyInjuryEvent(fresh, injuryEvent!, todayDateString(stateMd ?? "", new Date()));
+            },
+          }
+        : undefined;
+
       // B2/ADR 0018: state.md isn't edited here, so both sides of this transition check stay the
       // pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
       const wasProfileComplete = isAthleteProfileComplete(profile, memory);
@@ -299,6 +340,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const optionalWrites: FileEntry[] = [];
       if (coachNoteWrite) optionalWrites.push(coachNoteWrite);
       if (rollingStateWrite) optionalWrites.push(rollingStateWrite);
+      if (memoryUpdateWrite) optionalWrites.push(memoryUpdateWrite);
+      if (injuryEventWrite) optionalWrites.push(injuryEventWrite);
       const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
 
       let repoSha: string;
