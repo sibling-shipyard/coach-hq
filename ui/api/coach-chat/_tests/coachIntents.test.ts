@@ -320,23 +320,18 @@ describe("applyProfileUpdate", () => {
 
   // coach_since is deliberately excluded from ProfileUpdateField (see coachIntents.ts) - it's
   // stamped once at First Session per ADR 0018 and is never a settable field via this action.
-  // The type checker does reject it (@ts-expect-error below confirms that). But the runtime is
-  // NOT actually defensive if a caller bypasses the type (e.g. untrusted JSON parsed `as any`
-  // before reaching applyProfileUpdate, which is exactly how the real caller in coach-chat.ts
-  // gets Gemini's action arguments): "coach_since" doesn't match the name/dob/timezone branch, so
-  // it falls into the numeric branch and writes Number("2026-01-01") = NaN, which JSON.stringify
-  // renders as null - silently wiping the real coach_since value. This is a real gap flagged for
-  // Tech Lead review, not a passing safety guarantee - the test below documents the actual
-  // (unsafe) behavior rather than asserting the field is protected.
-  it("type system rejects coach_since at compile time, but a bypassed runtime call corrupts it (flagged, not safe)", () => {
+  // The type checker rejects it at compile time (@ts-expect-error below confirms that), AND
+  // applyProfileUpdate now has a runtime guard too - not just trusting the type, same pattern
+  // every other applier in this file already follows for its own inputs (malformed JSON, etc.).
+  // A caller that bypasses the type (untrusted JSON parsed `as any`, exactly how coach-chat.ts
+  // gets Gemini's action arguments) throws instead of silently corrupting coach_since.
+  it("throws on a bypassed coach_since field instead of silently corrupting it", () => {
     // @ts-expect-error - "coach_since" is not assignable to ProfileUpdateField.
     const invalid: ProfileUpdate = { field: "coach_since", value: "2026-01-01" };
     const bypassed = invalid as unknown as ProfileUpdate;
-    const result = JSON.parse(applyProfileUpdate(EXISTING, bypassed));
-    // Documents actual behavior: coach_since gets nulled out, not preserved. If the real caller
-    // ever passes an untrusted field value through without validating against
-    // ProfileUpdateField first, this is a live data-loss bug.
-    expect(result.coach_since).toBeNull();
+    expect(() => applyProfileUpdate(EXISTING, bypassed)).toThrow(
+      'profile_update: "coach_since" is not a settable field',
+    );
   });
 
   it("degrades malformed content to a sensible empty/null profile rather than throwing", () => {

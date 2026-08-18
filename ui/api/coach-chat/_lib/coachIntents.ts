@@ -186,7 +186,18 @@ export interface ProfileUpdate {
   value: string | number;
 }
 
+const PROFILE_UPDATE_FIELDS: readonly ProfileUpdateField[] = ["name", "dob", "timezone", "height_cm", "weight_kg"];
+
 export function applyProfileUpdate(content: string | null, update: ProfileUpdate): string {
+  // Runtime guard, not just the TS type - `coach_since` must never be settable through this
+  // action (ADR 0018), and this file's whole pattern is not trusting an upstream constraint
+  // alone (see the malformed-JSON handling every applier here already does). Without this, an
+  // unexpected `field` value would fall through to the numeric-coercion branch below, produce
+  // NaN, and silently null out whatever was passed in.
+  if (!PROFILE_UPDATE_FIELDS.includes(update.field)) {
+    throw new Error(`profile_update: "${update.field}" is not a settable field`);
+  }
+
   const parsed = parseJsonOrNull<Partial<ProfileJson>>(content) ?? {};
 
   const result: ProfileJson = {
