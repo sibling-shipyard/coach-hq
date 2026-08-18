@@ -17,12 +17,19 @@
  * report as a judgment call, not silently dropped.
  */
 import type { ProfileJson, MemoryJson, InjuriesJson, CoachLogJson } from "./coachMemoryFiles.js";
+import type { SeasonsJson, QuestsJson, ProgressJson } from "./coachQuestFiles.js";
 
 export interface CoachContextStorage {
   profile: ProfileJson | null;
   memory: MemoryJson | null;
   injuries: InjuriesJson | null;
   coachLog: CoachLogJson | null;
+}
+
+export interface QuestContextStorage {
+  seasons: SeasonsJson | null;
+  quests: QuestsJson | null;
+  progress: ProgressJson | null;
 }
 
 const RECENT_SESSION_WINDOW = 3;
@@ -101,6 +108,78 @@ function learnedPatternsSection(memory: MemoryJson | null): string {
     "**Mental / Performance:**",
     mental || "*(Not yet built)*",
   ].join("\n");
+}
+
+// Part 2 ledger split: replaces gen/quest_log.md as the quest-context source. Reproduces the
+// same rough shape (Current Season, Main Quest, Side Quests) generate_quest_log.py's markdown
+// carries, built directly from seasons.json/quests.json/progress.json instead of a pre-computed
+// file - this doesn't touch generate_quest_log.py itself, and doesn't try to match it byte for
+// byte (pace/rate math is real work that script already does well; this just gives Gemini the
+// raw facts and real ids it needs).
+function questProgressCounts(progress: ProgressJson | null, questId: string): { completed: number; excused: number; missed: number; latestValue: string | null } {
+  const rows = (progress?.rows ?? []).filter((r) => r.quest_id === questId);
+  let completed = 0;
+  let excused = 0;
+  let missed = 0;
+  let latestValue: string | null = null;
+  let latestDate = "";
+  for (const row of rows) {
+    if (row.status === "completed") completed += 1;
+    else if (row.status === "excused") excused += 1;
+    else if (row.status === "missed") missed += 1;
+    if (row.value != null && row.date >= latestDate) {
+      latestDate = row.date;
+      latestValue = String(row.value);
+    }
+  }
+  return { completed, excused, missed, latestValue };
+}
+
+export function renderQuestContext(storage: QuestContextStorage): string {
+  const { seasons, quests, progress } = storage;
+  const currentSeason = seasons?.seasons.find((s) => s.id === seasons.current_season_id) ?? null;
+
+  const seasonLines = [
+    "## Current Season",
+    currentSeason
+      ? `- **${currentSeason.name}:** ${currentSeason.start_date} to ${currentSeason.end_date} (${currentSeason.status})`
+      : "*(No active season)*",
+  ];
+
+  const mainQuest = quests?.main_quest;
+  const mainQuestLines = ["## Main Quest"];
+  if (mainQuest) {
+    const { completed } = questProgressCounts(progress, mainQuest.id);
+    mainQuestLines.push(`- **${mainQuest.name}** (id: ${mainQuest.id}, type: ${mainQuest.type}): ${completed}/${mainQuest.target}`);
+  } else {
+    mainQuestLines.push("*(None set)*");
+  }
+
+  const sideQuests = (quests?.quests ?? []).filter((q) => q.status === "active");
+  const sideQuestLines = ["## Side Quests"];
+  if (sideQuests.length > 0) {
+    for (const q of sideQuests) {
+      const { completed, excused, missed, latestValue } = questProgressCounts(progress, q.id);
+      const progressText =
+        q.type === "progress" ? `${latestValue ?? "0"}/${q.target ?? "?"} ${q.unit ?? ""}`.trim() : `${completed} completed, ${excused} excused, ${missed} missed`;
+      sideQuestLines.push(`- **${q.name}** (id: ${q.id}, type: ${q.type}): ${progressText}`);
+    }
+  } else {
+    sideQuestLines.push("*(None active)*");
+  }
+
+  const weeklyTargets = quests?.weekly_targets ?? {};
+  const weeklyLines = ["## Weekly Targets"];
+  const targetEntries = Object.entries(weeklyTargets);
+  if (targetEntries.length > 0) {
+    for (const [key, wt] of targetEntries) {
+      weeklyLines.push(`- **${key}:** target ${wt.target}`);
+    }
+  } else {
+    weeklyLines.push("*(None set)*");
+  }
+
+  return [seasonLines.join("\n"), mainQuestLines.join("\n"), sideQuestLines.join("\n"), weeklyLines.join("\n")].join("\n\n");
 }
 
 // Builds the athlete-context block that goes where state.md's raw prose used to go in

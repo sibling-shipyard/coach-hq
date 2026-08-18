@@ -5,7 +5,8 @@
  * field gets wired in.
  */
 
-import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow } from "./coachMemoryFiles.js";
+import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
+import { type ProgressRow } from "./coachQuestFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 
 // coach_note: appends one row to coach_log.json - the single merged continuity log
@@ -130,4 +131,80 @@ export function applyInjuryEvent(content: string | null, event: InjuryEvent, tod
   });
 
   return JSON.stringify({ flags: updated }, null, 2);
+}
+
+// quest_event { quest_id, status, value? }: Part 2 ledger split. Server owns date/id/ts/trace_id/
+// season_id entirely (gemini-flow.md's Action-field design rule #1) - Gemini only ever supplies
+// quest_id/status/value. Upserts on (quest_id, date) - reporting the same tick twice for today is
+// a no-op by construction, same repeat-safety story as coach-redesign-part2-ledger.md describes.
+// `value` only matters for progress-type quests (e.g. "12/20 chapters") - other quest types only
+// ever report status.
+export interface QuestEvent {
+  quest_id: string;
+  status: "completed" | "missed" | "excused";
+  value?: number | string;
+}
+
+export function applyQuestEvent(
+  content: string | null,
+  event: QuestEvent,
+  today: string,
+  currentSeasonId: string,
+  traceId: string,
+  now: Date,
+): string {
+  const parsed = parseJsonOrNull<{ rows?: ProgressRow[] }>(content);
+  const rows: ProgressRow[] = Array.isArray(parsed?.rows) ? parsed.rows : [];
+
+  const existingIndex = rows.findIndex((r) => r.quest_id === event.quest_id && r.date === today);
+  const row: ProgressRow = {
+    id: existingIndex >= 0 ? rows[existingIndex].id : `pr_${event.quest_id}_${today}`,
+    quest_id: event.quest_id,
+    season_id: currentSeasonId,
+    date: today,
+    status: event.status,
+    value: event.value ?? null,
+    source: "model",
+    ts: now.toISOString(),
+    trace_id: traceId,
+  };
+
+  const updated = existingIndex >= 0 ? rows.map((r, i) => (i === existingIndex ? row : r)) : [...rows, row];
+
+  return JSON.stringify({ version: 1, rows: updated }, null, 2);
+}
+
+// profile_update { field, value }: Part 2 ledger split, step 3b - sets exactly one field in
+// profile.json. `coach_since` is deliberately not one of the allowed fields (server-only, per
+// ADR 0018 - it's stamped once at First Session, never something Gemini reports). Falls back to
+// a fresh, mostly-null profile.json on missing/unparsable content - same defensive default as
+// the other appliers in this file.
+export type ProfileUpdateField = "name" | "dob" | "timezone" | "height_cm" | "weight_kg";
+
+export interface ProfileUpdate {
+  field: ProfileUpdateField;
+  value: string | number;
+}
+
+export function applyProfileUpdate(content: string | null, update: ProfileUpdate): string {
+  const parsed = parseJsonOrNull<Partial<ProfileJson>>(content) ?? {};
+
+  const result: ProfileJson = {
+    version: 1,
+    coach_since: parsed.coach_since ?? null,
+    name: parsed.name ?? "",
+    dob: parsed.dob ?? null,
+    timezone: parsed.timezone ?? "UTC",
+    height_cm: parsed.height_cm ?? null,
+    weight_kg: parsed.weight_kg ?? null,
+  };
+
+  if (update.field === "name" || update.field === "dob" || update.field === "timezone") {
+    result[update.field] = String(update.value);
+  } else {
+    // height_cm / weight_kg - numeric fields.
+    result[update.field] = Number(update.value);
+  }
+
+  return JSON.stringify(result, null, 2);
 }

@@ -17,6 +17,16 @@ import {
   type InjuriesJson,
   type CoachLogJson,
 } from "./coachMemoryFiles.js";
+import {
+  SEASONS_PATH,
+  QUESTS_PATH,
+  PROGRESS_PATH,
+  PROGRESSIONS_PATH,
+  type SeasonsJson,
+  type QuestsJson,
+  type ProgressJson,
+  type ProgressionsJson,
+} from "./coachQuestFiles.js";
 
 // SOUL.md is 100% generic across athletes, so it's bundled at build time (ui/scripts/build-
 // soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
@@ -75,6 +85,12 @@ export interface CoachContext {
   memory: MemoryJson | null;
   injuries: InjuriesJson | null;
   coachLog: CoachLogJson | null;
+  // Part 2 ledger split: replaces challenge_v2.json. questLog above stays for now (see
+  // coachContext.ts) - these four feed the new quest-context section, not the old quest_log.md.
+  seasons: SeasonsJson | null;
+  quests: QuestsJson | null;
+  progress: ProgressJson | null;
+  progressions: ProgressionsJson | null;
 }
 
 // Best-effort parse - a missing or malformed file (not yet migrated, or a transient bad commit)
@@ -130,13 +146,18 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 
   const promise = (async (): Promise<CoachContext> => {
-    const [questLog, profileRaw, memoryRaw, injuriesRaw, coachLogRaw] = await Promise.all([
-      getFileRaw(repo, QUEST_LOG_PATH, token),
-      getFileRaw(repo, PROFILE_PATH, token),
-      getFileRaw(repo, MEMORY_PATH, token),
-      getFileRaw(repo, INJURIES_PATH, token),
-      getFileRaw(repo, COACH_LOG_PATH, token),
-    ]);
+    const [questLog, profileRaw, memoryRaw, injuriesRaw, coachLogRaw, seasonsRaw, questsRaw, progressRaw, progressionsRaw] =
+      await Promise.all([
+        getFileRaw(repo, QUEST_LOG_PATH, token),
+        getFileRaw(repo, PROFILE_PATH, token),
+        getFileRaw(repo, MEMORY_PATH, token),
+        getFileRaw(repo, INJURIES_PATH, token),
+        getFileRaw(repo, COACH_LOG_PATH, token),
+        getFileRaw(repo, SEASONS_PATH, token),
+        getFileRaw(repo, QUESTS_PATH, token),
+        getFileRaw(repo, PROGRESS_PATH, token),
+        getFileRaw(repo, PROGRESSIONS_PATH, token),
+      ]);
     const value: CoachContext = {
       soul: SOUL,
       questLog,
@@ -144,6 +165,10 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
       memory: parseJsonOrNull<MemoryJson>(memoryRaw),
       injuries: parseJsonOrNull<InjuriesJson>(injuriesRaw),
       coachLog: parseJsonOrNull<CoachLogJson>(coachLogRaw),
+      seasons: parseJsonOrNull<SeasonsJson>(seasonsRaw),
+      quests: parseJsonOrNull<QuestsJson>(questsRaw),
+      progress: parseJsonOrNull<ProgressJson>(progressRaw),
+      progressions: parseJsonOrNull<ProgressionsJson>(progressionsRaw),
     };
     contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
     return value;
