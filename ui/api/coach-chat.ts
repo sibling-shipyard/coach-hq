@@ -401,12 +401,6 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         }));
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : String(err);
-        // The resolve() guard above throws a tagged {status: 400} for a correct rejection (this
-        // close targeted a deleted thread), not a save failure - don't flatten it into the
-        // generic 502 below.
-        if ((err as { status?: number }).status === 400) {
-          return Response.json({ error: errMessage, traceId }, { status: 400 });
-        }
         console.error("[coach-chat] close-trace", JSON.stringify({
           traceId,
           threadId: finalThreadId,

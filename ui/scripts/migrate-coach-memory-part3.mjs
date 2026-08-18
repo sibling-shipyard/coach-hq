@@ -74,7 +74,9 @@ if (chatHistory) {
     ? chatHistory._meta
     : { updated_at: new Date().toISOString(), updated_by: "coach", trace_id: MIGRATION_TRACE_ID };
 
-  fs.writeFileSync(chatHistoryPath, JSON.stringify({ _meta: meta, threads: trimmedThreads }, null, 2) + "\n");
+  if (chatHistoryChanged) {
+    fs.writeFileSync(chatHistoryPath, JSON.stringify({ _meta: meta, threads: trimmedThreads }, null, 2) + "\n");
+  }
 } else {
   console.log(`No chat_history.json found at ${coachDir} - skipping.`);
 }
@@ -104,7 +106,9 @@ if (currentWeek) {
     currentWeekChanged = true;
   }
 
-  fs.writeFileSync(currentWeekPath, JSON.stringify(currentWeek, null, 2) + "\n");
+  if (currentWeekChanged) {
+    fs.writeFileSync(currentWeekPath, JSON.stringify(currentWeek, null, 2) + "\n");
+  }
 } else {
   console.log(`No current_week.json found at ${ledgerDir} - skipping.`);
 }
