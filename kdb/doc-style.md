@@ -11,6 +11,15 @@ Need drill-down? Add a separate `*-lld.md` — never bloat the main doc.
 
 ADRs use the same budget: Context / Decision / Why / Rejected — a few lines each.
 
+## Executable plans
+
+A plan a worker is briefed from also carries a phase table: `| id | files | deps | owner |`.
+
+**File overlap decides parallelism, not task logic.** Two phases with disjoint `files` sets can
+run at once; two that overlap cannot, however unrelated the tasks sound. `owner` is the worker
+live in that area, so "reuse before spawn" has somewhere to look. Scope bleed gets checkable
+too: a worker's diff must be a subset of its phase's `files`.
+
 ## Rules
 - Plain English. No restating the diagram in prose.
 - Cite real file paths so it's greppable.
