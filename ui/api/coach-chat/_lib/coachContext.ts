@@ -146,7 +146,10 @@ function isoWeekBounds(today: string): { start: string; end: string } {
 function questProgressCounts(
   progress: ProgressJson | null,
   questId: string,
-  seasonId: string | null,
+  // "" (not null) is "no current season" - matches ProgressRow.season_id's non-nullable string
+  // type and the write path's own fallback (coach-chat.ts). Found in review: this was typed
+  // `string | null` while the write side never produces null, only "".
+  seasonId: string,
   weekBounds: { start: string; end: string },
 ): { completed: number; excused: number; missed: number; latestValue: string | null; thisWeekCompleted: number } {
   // Found in review: `seasonId == null` used to bypass the season filter entirely (fall back to
@@ -183,7 +186,12 @@ function questProgressCounts(
 export function renderQuestContext(storage: QuestContextStorage): string {
   const { seasons, quests, progress, progressions, today } = storage;
   const currentSeason = seasons?.seasons.find((s) => s.id === seasons.current_season_id) ?? null;
-  const currentSeasonId = seasons?.current_season_id ?? null;
+  // Found in review: this used `?? null` while the write path (coach-chat.ts's quest_event
+  // handler) uses `?? ""` - ProgressRow.season_id is typed as a non-nullable string, so a row
+  // written with no active season gets `season_id: ""` on disk, and `"" !== null` meant that row
+  // could never match here - orphaned forever. Match the write side's sentinel instead of
+  // widening the type.
+  const currentSeasonId = seasons?.current_season_id ?? "";
   const weekBounds = isoWeekBounds(today);
 
   const seasonLines = [

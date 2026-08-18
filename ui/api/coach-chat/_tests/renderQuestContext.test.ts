@@ -122,6 +122,22 @@ describe("renderQuestContext", () => {
     expect(section).toContain("0/20"); // not 1/20 - no current season means nothing counts as current-season progress
   });
 
+  // Found in review: the write path (coach-chat.ts's quest_event handler) falls back to
+  // `seasons?.current_season_id ?? ""` when there's no active season, but this read path used to
+  // fall back to `?? null` - a row written as season_id:"" could never match a read-side filter
+  // looking for null, orphaning it forever. Simulates the real round trip: current_season_id is
+  // genuinely null (missing), and a row was already written with the write side's "" sentinel.
+  it("finds a row written with the write path's \"\" season sentinel, when current_season_id is genuinely null", () => {
+    const seasonsWithNullId: SeasonsJson = { ...seasons, current_season_id: null };
+    const orphanRiskProgress: ProgressJson = {
+      version: 1,
+      rows: [{ id: "pr_main_noseason", quest_id: "main", season_id: "", date: "2026-08-18", status: "completed", value: null, source: "model", ts: "2026-08-18T00:00:00Z", trace_id: "t0" }],
+    };
+    const text = renderQuestContext({ seasons: seasonsWithNullId, quests, progress: orphanRiskProgress, progressions: null, today: "2026-08-18" });
+    const section = text.split("## Main Quest")[1].split("## Side Quests")[0];
+    expect(section).toContain("1/20"); // the "" row must be found, not orphaned
+  });
+
   // Found in review: weekly_frequency fell into the generic all-time completed/excused/missed
   // tally, when its actual semantics need a week-scoped count instead.
   describe("weekly_frequency quests", () => {

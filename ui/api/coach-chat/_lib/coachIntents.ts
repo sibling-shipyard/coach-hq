@@ -228,6 +228,12 @@ export function applyProfileUpdate(content: string | null, update: ProfileUpdate
   };
 
   if (update.field === "name" || update.field === "dob" || update.field === "timezone") {
+    // Found in review: the numeric branch below got a blank-value guard, but this branch didn't
+    // get the same treatment - a blank value silently overwrote real name/dob/timezone data with
+    // "" instead of being rejected like every other invalid input this action guards against.
+    if (update.value.trim() === "") {
+      throw new Error(`profile_update: empty value is not valid for ${update.field}`);
+    }
     result[update.field] = String(update.value);
   } else {
     // height_cm / weight_kg - numeric fields. Found in review: Number(update.value) was never

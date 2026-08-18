@@ -388,6 +388,14 @@ describe("applyProfileUpdate", () => {
     expect(result.name).toBe("Akash");
   });
 
+  // Found in review: the numeric branch (height_cm/weight_kg) got a blank-value guard, but the
+  // string branch (name/dob/timezone) didn't get the same treatment - a blank value silently
+  // wiped real data with "" instead of being rejected.
+  it.each(["name", "dob", "timezone"] as const)("throws on a blank %s instead of silently wiping it with \"\"", (field) => {
+    expect(() => applyProfileUpdate(EXISTING, { field, value: "" })).toThrow(`profile_update: empty value is not valid for ${field}`);
+    expect(() => applyProfileUpdate(EXISTING, { field, value: "   " })).toThrow(`profile_update: empty value is not valid for ${field}`);
+  });
+
   it("coerces numeric fields even if given as a string", () => {
     const result = JSON.parse(applyProfileUpdate(EXISTING, { field: "weight_kg", value: "72" }));
     expect(result.weight_kg).toBe(72);

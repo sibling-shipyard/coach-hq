@@ -327,9 +327,16 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const questEvents = reply.quest_event ?? [];
       const currentSeasonId = seasons?.current_season_id ?? "";
       // Same real ids injected into the prompt (activeQuestsContext) that Gemini was told to use
-      // verbatim - applyQuestEvent throws on anything outside this set.
+      // verbatim - applyQuestEvent throws on anything outside this set. Found in review: this
+      // used to include every quest regardless of status, but activeQuestsContext only ever
+      // shows status:"active" side quests (plus the main quest, which has no status to filter
+      // on) - a graduated/retired quest's id was accepted even though Gemini was never told about
+      // it. Filter to match activeQuestsContext exactly, not just "same variable name, different
+      // scope."
       const validQuestIds = new Set<string>(
-        [quests?.main_quest?.id, ...(quests?.quests ?? []).map((q) => q.id)].filter((id): id is string => Boolean(id)),
+        [quests?.main_quest?.id, ...(quests?.quests ?? []).filter((q) => q.status === "active").map((q) => q.id)].filter((id): id is string =>
+          Boolean(id),
+        ),
       );
       const questEventWrite: FileEntry | undefined = questEvents.length > 0
         ? {
