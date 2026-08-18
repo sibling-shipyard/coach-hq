@@ -331,22 +331,24 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
-      // Step 4b: reported only when the athlete opened/updated/resolved an injury flag this
-      // close. A new flag requires text (enforced here, before the write ever hits
-      // applyInjuryEvent) since a flag_id-less event with no text has nothing to record.
-      const injuryEvent = reply.injury_event;
-      const injuryEventValid =
-        injuryEvent?.status != null &&
-        (injuryEvent.flag_id != null || (injuryEvent.text?.trim().length ?? 0) > 0);
-      const injuryEventWrite: FileEntry | undefined = injuryEventValid
-        ? {
-            path: INJURIES_PATH,
-            resolve: async () => {
-              const fresh = await getFileRaw(repo, INJURIES_PATH, token);
-              return applyInjuryEvent(fresh, injuryEvent!, todayDateString(timezone, new Date()));
-            },
-          }
-        : undefined;
+      // Step 4b: reported only when the athlete opened/updated/resolved one or more injury flags
+      // this close. Array (workout-backend-wiring live verification, same fix issue #410 already
+      // gave quest_event) - a single object silently dropped every update past the first when an
+      // athlete reported more than one injury change in the same message. Each event needs text
+      // (a new flag) or a flag_id (an update to an existing one) to have anything to record.
+      const injuryEvents = (reply.injury_event ?? []).filter(
+        (event) => event.status != null && (event.flag_id != null || (event.text?.trim().length ?? 0) > 0),
+      );
+      const injuryEventWrite: FileEntry | undefined =
+        injuryEvents.length > 0
+          ? {
+              path: INJURIES_PATH,
+              resolve: async () => {
+                const fresh = await getFileRaw(repo, INJURIES_PATH, token);
+                return applyInjuryEvent(fresh, injuryEvents, todayDateString(timezone, new Date()));
+              },
+            }
+          : undefined;
 
       // Part 2 ledger split, step 3a: reported only when the athlete logged one or more quest
       // completions/misses/excuses this close (issue #410: quest_event is now an array so a turn

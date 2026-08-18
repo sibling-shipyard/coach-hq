@@ -26,11 +26,14 @@ export interface GeminiReply {
   // applyMemoryUpdate). `label` is a constrained enum, never free text - gemini-flow.md's
   // Action-field design rule. Closing turns only, same as coach_note.
   memory_update?: { label: MemoryNoteLabel; text: string };
-  // Step 4b: an injury flag opened, updated, or resolved this conversation. Server generates
-  // `id`/`opened_at`/`resolved_at` - Gemini only ever supplies status/text/flag_id (see
-  // coachIntents.ts's applyInjuryEvent for the exact new/update/resolve rules). Closing turns
-  // only, same as coach_note/memory_update.
-  injury_event?: { status: "active" | "resolved"; text?: string; flag_id?: string };
+  // Array (workout-backend-wiring live verification, same fix issue #410 already gave
+  // quest_event): a single object silently dropped every injury update past the first when an
+  // athlete reported more than one in the same message - found live, the reply claimed both were
+  // handled but only the first actually committed. One or more injury flags opened, updated, or
+  // resolved this conversation. Server generates `id`/`opened_at`/`resolved_at` - Gemini only
+  // ever supplies status/text/flag_id per event (see coachIntents.ts's applyInjuryEvent for the
+  // exact new/update/resolve rules). Closing turns only, same as coach_note/memory_update.
+  injury_event?: { status: "active" | "resolved"; text?: string; flag_id?: string }[];
   // Part 2 ledger split: the athlete logged a completion/miss/excuse on one or more existing
   // quests this conversation. Server stamps date/id/ts/trace_id/season_id and upserts the row for
   // each quest+date in progress.json (coachIntents.ts's applyQuestEvent) - Gemini only ever
@@ -165,12 +168,18 @@ export const GENERATION_CONFIG = {
           text: { type: "string" },
         },
       },
+      // Array (workout-backend-wiring live verification, same fix issue #410 already gave
+      // quest_event) - a turn can report more than one injury update.
       injury_event: {
-        type: "object",
-        properties: {
-          status: { type: "string", enum: ["active", "resolved"] },
-          text: { type: "string" },
-          flag_id: { type: "string" },
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: ["active", "resolved"] },
+            text: { type: "string" },
+            flag_id: { type: "string" },
+          },
+          required: ["status"],
         },
       },
       // Part 2 ledger split, step 3a - shipped and tested in isolation before profile_update
@@ -410,12 +419,15 @@ export function buildDynamicText(
           "category as label and the new full text as text. Only set it when something genuinely",
           "changed; most closes won't need it. Never invent a change to justify setting it.",
           "\nIf the athlete mentioned a new injury or pain, or gave an update on an existing one",
-          "listed in Active Injury Flags below, set injury_event. A brand-new injury: status",
-          "\"active\", text describing it, no flag_id (the server mints one). An update to an",
-          "existing flag still ongoing: status \"active\", the matching flag_id from the list below,",
-          "and text only if there's new detail worth recording (omit text to leave it unchanged).",
-          "A flag that's cleared up: status \"resolved\" and that flag_id. Only ever use a flag_id",
-          "that's actually listed below - never invent one. Most closes won't need this either.",
+          "listed in Active Injury Flags below, set injury_event to an array with one entry per",
+          "injury being reported - if the athlete mentions TWO separate injuries changing in the",
+          "same message (e.g. one resolving and a different one flaring up), that's two entries,",
+          "not one. A brand-new injury: status \"active\", text describing it, no flag_id (the",
+          "server mints one). An update to an existing flag still ongoing: status \"active\", the",
+          "matching flag_id from the list below, and text only if there's new detail worth",
+          "recording (omit text to leave it unchanged). A flag that's cleared up: status",
+          "\"resolved\" and that flag_id. Only ever use a flag_id that's actually listed below -",
+          "never invent one. Most closes won't need this either.",
           "\nIf the athlete reported completing, missing, or being excused from one or more of",
           "today's quests (see Current quests below), set quest_event to an array with one entry",
           "per quest - each entry has that quest's exact quest_id and status \"completed\",",

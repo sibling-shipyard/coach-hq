@@ -123,7 +123,7 @@ describe("applyInjuryEvent", () => {
   });
 
   it("opens a new flag with a server-minted id and no resolved_at", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "active", text: "Left ankle tweak" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "active", text: "Left ankle tweak" }], "2026-08-18"));
     expect(result.flags).toHaveLength(3);
     const newFlag = result.flags[2];
     expect(newFlag.text).toBe("Left ankle tweak");
@@ -134,13 +134,13 @@ describe("applyInjuryEvent", () => {
   });
 
   it("starts a fresh flags array when content is null", () => {
-    const result = JSON.parse(applyInjuryEvent(null, { status: "active", text: "First injury" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(null, [{ status: "active", text: "First injury" }], "2026-08-18"));
     expect(result.flags).toHaveLength(1);
     expect(result.flags[0].text).toBe("First injury");
   });
 
   it("updates an existing active flag's text without changing its id/opened_at", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "active", flag_id: "inj_elbow", text: "Worse today" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "active", flag_id: "inj_elbow", text: "Worse today" }], "2026-08-18"));
     const flag = result.flags.find((f: any) => f.id === "inj_elbow");
     expect(flag.text).toBe("Worse today");
     expect(flag.opened_at).toBe("2026-08-01");
@@ -148,7 +148,7 @@ describe("applyInjuryEvent", () => {
   });
 
   it("resolves a flag, stamping resolved_at and leaving text as-is when no new text given", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "resolved", flag_id: "inj_elbow" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "resolved", flag_id: "inj_elbow" }], "2026-08-18"));
     const flag = result.flags.find((f: any) => f.id === "inj_elbow");
     expect(flag.status).toBe("resolved");
     expect(flag.resolved_at).toBe("2026-08-18");
@@ -156,7 +156,7 @@ describe("applyInjuryEvent", () => {
   });
 
   it("reactivates a previously resolved flag, clearing resolved_at back to null", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "active", flag_id: "inj_knee", text: "Flared up again" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "active", flag_id: "inj_knee", text: "Flared up again" }], "2026-08-18"));
     const flag = result.flags.find((f: any) => f.id === "inj_knee");
     expect(flag.status).toBe("active");
     expect(flag.resolved_at).toBeNull();
@@ -164,13 +164,13 @@ describe("applyInjuryEvent", () => {
   });
 
   it("leaves other flags untouched", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "resolved", flag_id: "inj_elbow" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "resolved", flag_id: "inj_elbow" }], "2026-08-18"));
     const untouched = result.flags.find((f: any) => f.id === "inj_knee");
     expect(untouched).toEqual({ id: "inj_knee", text: "Right knee discomfort", status: "resolved", opened_at: "2026-07-01", resolved_at: "2026-07-20" });
   });
 
   it("treats malformed JSON as an empty flags array rather than throwing", () => {
-    const result = JSON.parse(applyInjuryEvent("{not valid json", { status: "active", text: "New injury" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent("{not valid json", [{ status: "active", text: "New injury" }], "2026-08-18"));
     expect(result.flags).toHaveLength(1);
   });
 
@@ -179,8 +179,40 @@ describe("applyInjuryEvent", () => {
     // nothing - throwing lets the caller's existing error handling (commitFilesAtomic's catch)
     // surface the failure instead.
     expect(() =>
-      applyInjuryEvent(EXISTING, { status: "resolved", flag_id: "inj_nonexistent" }, "2026-08-18"),
+      applyInjuryEvent(EXISTING, [{ status: "resolved", flag_id: "inj_nonexistent" }], "2026-08-18"),
     ).toThrow('no flag with id "inj_nonexistent"');
+  });
+
+  // workout-backend-wiring live verification: an athlete reporting two injuries changing in the
+  // same message used to silently lose the second one when this was a single object, same bug
+  // class issue #410 fixed for quest_event.
+  it("applies every event in the batch, not just the first, when the athlete reports two injuries at once", () => {
+    const result = JSON.parse(
+      applyInjuryEvent(
+        EXISTING,
+        [
+          { status: "resolved", flag_id: "inj_elbow" },
+          { status: "active", flag_id: "inj_knee", text: "Flared up again" },
+        ],
+        "2026-08-18",
+      ),
+    );
+    const elbow = result.flags.find((f: any) => f.id === "inj_elbow");
+    const knee = result.flags.find((f: any) => f.id === "inj_knee");
+    expect(elbow.status).toBe("resolved");
+    expect(knee).toMatchObject({ status: "active", resolved_at: null, text: "Flared up again" });
+  });
+
+  it("lets a batch open a brand-new flag and resolve it in the same turn", () => {
+    const result = JSON.parse(
+      applyInjuryEvent(null, [{ status: "active", text: "New wrist tweak" }], "2026-08-18"),
+    );
+    // Confirms new-flag events accumulate correctly across a batch (a second new flag doesn't
+    // clobber the first) - the id-less branch appends rather than replaces.
+    const second = JSON.parse(
+      applyInjuryEvent(JSON.stringify(result), [{ status: "active", text: "Separate shoulder niggle" }], "2026-08-18"),
+    );
+    expect(second.flags).toHaveLength(2);
   });
 });
 

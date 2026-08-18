@@ -77,58 +77,71 @@ export interface InjuryEvent {
   flag_id?: string;
 }
 
-export function applyInjuryEvent(content: string | null, event: InjuryEvent, today: string): string {
+// Array (workout-backend-wiring live verification, same bug class issue #410 fixed for
+// quest_event): a single object silently dropped every injury update past the first when an
+// athlete reported more than one in the same message (e.g. two separate flags resolving) -
+// found live, the reply claimed both were handled but only the first actually committed. Events
+// are applied in order against an accumulating flags array, so a turn reporting several updates
+// captures all of them, and a later event in the same batch sees an earlier one's new flag (e.g.
+// resolving a flag opened earlier in the same turn is possible, however unlikely in practice).
+export function applyInjuryEvent(content: string | null, events: InjuryEvent[], today: string): string {
   const parsed = parseJsonOrNull<{ flags?: InjuryFlag[] }>(content);
-  const flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
+  let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
 
-  if (!event.flag_id) {
-    // New flag - text is required (enforced by the caller before this is invoked), id minted
-    // server-side.
-    const slug = (event.text ?? "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 24);
-    const id = `inj_${today.replace(/-/g, "")}_${slug || Math.random().toString(36).slice(2, 6)}`;
-    const newFlag: InjuryFlag = {
-      id,
-      text: (event.text ?? "").trim(),
-      status: "active",
-      opened_at: today,
-      resolved_at: null,
-    };
-    return JSON.stringify({ flags: [...flags, newFlag] }, null, 2);
-  }
+  for (const event of events) {
+    if (!event.flag_id) {
+      // New flag - text is required (enforced by the caller before this is invoked), id minted
+      // server-side.
+      const slug = (event.text ?? "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 24);
+      const id = `inj_${today.replace(/-/g, "")}_${slug || Math.random().toString(36).slice(2, 6)}`;
+      const newFlag: InjuryFlag = {
+        id,
+        text: (event.text ?? "").trim(),
+        status: "active",
+        opened_at: today,
+        resolved_at: null,
+      };
+      flags = [...flags, newFlag];
+      continue;
+    }
 
-  if (!flags.some((flag) => flag.id === event.flag_id)) {
-    // Gemini reported a flag_id that doesn't exist in the current file - either it hallucinated
-    // one or the flags list changed underneath it since its context was built. Throwing here
-    // (instead of silently returning the array unchanged) is deliberate: a caller that commits
-    // this write should know the update didn't actually happen, not get a false "success".
-    throw new Error(`injury_event: no flag with id "${event.flag_id}" in injuries.json`);
-  }
+    if (!flags.some((flag) => flag.id === event.flag_id)) {
+      // Gemini reported a flag_id that doesn't exist in the current file - either it
+      // hallucinated one or the flags list changed underneath it since its context was built.
+      // Throwing here (instead of silently returning the array unchanged) is deliberate: a
+      // caller that commits this write should know the update didn't actually happen, not get a
+      // false "success". Throws for the WHOLE batch, same all-or-nothing discipline as
+      // applyWeekPlan's day-date validation - a batch with one bad id fails the whole call
+      // rather than silently applying a partial patch.
+      throw new Error(`injury_event: no flag with id "${event.flag_id}" in injuries.json`);
+    }
 
-  const updated = flags.map((flag) => {
-    if (flag.id !== event.flag_id) return flag;
-    if (event.status === "resolved") {
+    flags = flags.map((flag) => {
+      if (flag.id !== event.flag_id) return flag;
+      if (event.status === "resolved") {
+        return {
+          ...flag,
+          text: event.text?.trim() ? event.text.trim() : flag.text,
+          status: "resolved" as const,
+          resolved_at: today,
+        };
+      }
+      // status: "active" - either a text update on an already-active flag, or a reactivation of
+      // a previously resolved one (resolved_at cleared back to null).
       return {
         ...flag,
         text: event.text?.trim() ? event.text.trim() : flag.text,
-        status: "resolved" as const,
-        resolved_at: today,
+        status: "active" as const,
+        resolved_at: null,
       };
-    }
-    // status: "active" - either a text update on an already-active flag, or a reactivation of a
-    // previously resolved one (resolved_at cleared back to null).
-    return {
-      ...flag,
-      text: event.text?.trim() ? event.text.trim() : flag.text,
-      status: "active" as const,
-      resolved_at: null,
-    };
-  });
+    });
+  }
 
-  return JSON.stringify({ flags: updated }, null, 2);
+  return JSON.stringify({ flags }, null, 2);
 }
 
 // quest_event { quest_id, status, value? }[]: Part 2 ledger split. Server owns date/id/ts/
