@@ -123,6 +123,11 @@ coaching model can use, not carrying over one model's fields unchanged:
   while active.
 - `main_quest` gets no `end_date` of its own — it's bound to the season it belongs to and ends
   when the season does, so a separate field would just duplicate `seasons.json`'s `end_date`.
+- **When this lands, revisit `memory.json`'s `goal`/`timeline` fields (Part 1, already
+  implemented and frozen) — issue #408.** `seasons.json`'s `name` + `main_quest` here may already
+  express what `goal` is trying to capture as free text, and `timeline` was never actually
+  defined anywhere in the source LLD in the first place. Don't carry `goal`/`timeline` forward
+  into whatever comes after Part 2 without checking this first.
 - `source: "model" | "athlete"` — **added**, per your call. Same reasoning as `progress.json`'s
   `source`: whether a quest was Coach's idea or something the athlete specifically asked for is
   real coaching context worth keeping. No `"pipeline"` value here — nothing auto-creates quests.
