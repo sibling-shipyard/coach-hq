@@ -9,6 +9,7 @@ Usage:
 """
 
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -17,9 +18,12 @@ from typing import Optional
 
 _BOOT = Path(__file__).resolve().parent
 _LIB = _BOOT.parent / "lib"
+_CORE = _BOOT.parent / "core"
 sys.path.insert(0, str(_LIB))
+sys.path.insert(0, str(_CORE))
 from plugins import badminton_analytics_script, is_plugin_enabled  # noqa: E402
-from repo_layout import gen_dir, p, repo_root_from_here, sync_status_path  # noqa: E402
+from repo_layout import gen_dir, hist_dir, p, repo_root_from_here, sync_status_path  # noqa: E402
+from vs_usual import enrich_activity_files  # noqa: E402
 
 REPO = repo_root_from_here(__file__)
 SCRIPTS_DIR = p(REPO, "scripts")
@@ -64,6 +68,13 @@ def maybe_run_badminton_analytics() -> None:
         log(result.stderr.strip())
 
 
+def enrich_vs_usual() -> None:
+    raw_paths = os.environ.get("CHANGED_ACTIVITY_PATHS", "")
+    changed_paths = [REPO / line for line in raw_paths.splitlines() if line.strip()]
+    writes = enrich_activity_files(hist_dir(REPO), changed_paths)
+    log(f"Added vs_usual to {writes} new activity file(s)")
+
+
 def write_sync_status(error: Optional[str] = None) -> None:
     status = "error" if error else "success"
     payload = {
@@ -83,6 +94,7 @@ def write_sync_status(error: Optional[str] = None) -> None:
 
 def main() -> None:
     try:
+        enrich_vs_usual()
         log("Generating quest_history.json...")
         run("generate_quest_history.py")
         maybe_run_badminton_analytics()
