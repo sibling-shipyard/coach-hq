@@ -72,7 +72,7 @@ async function handleGreet(
   onboardingHints?: OnboardingHints,
 ): Promise<Response> {
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
-  const { soul, state: stateMd, questLog, rollingState } = context;
+  const { soul, state: stateMd, questLog, rollingState, profile, memory } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
   let reply: GeminiReply;
@@ -86,7 +86,7 @@ async function handleGreet(
       "",
       "greeting",
       combineExtraContext(
-        firstSessionContext(isAthleteProfileComplete(stateMd ?? ""), FIRST_SESSION_PROTOCOL),
+        firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
         onboardingHintsContext(onboardingHints),
         rollingStateContext(rollingState),
       ),
@@ -154,7 +154,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // A3: reuses the app-load preload's 60s cache, unless A5 just found it stale, in which
       // case force a fresh read.
-      const { soul, state: stateMd, questLog, rollingState } = await loadCoachContext(repo, token, { fresh: stale });
+      const { soul, state: stateMd, questLog, rollingState, profile, memory } = await loadCoachContext(repo, token, { fresh: stale });
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
 
       const priorMessages = messages ?? [];
@@ -189,7 +189,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           // First Session spans several turns, so this has to fire on ordinary turns too -
           // greet-only would drop the protocol the moment the athlete answered the first question.
           combineExtraContext(
-            firstSessionContext(isAthleteProfileComplete(stateMd ?? ""), FIRST_SESSION_PROTOCOL),
+            firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
             rollingStateContext(rollingState),
           ),
           traceId,
@@ -286,8 +286,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // B2/ADR 0018: state.md isn't edited here, so both sides of this transition check stay the
       // pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
-      const wasProfileComplete = isAthleteProfileComplete(stateMd ?? "");
-      const profileComplete = isAthleteProfileComplete(stateMd ?? "");
+      const wasProfileComplete = isAthleteProfileComplete(profile, memory);
+      const profileComplete = isAthleteProfileComplete(profile, memory);
       const validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, stateMd ?? "");
 
       if (validUpdates.length === 0 && !trimmedCoachNote) {

@@ -13,7 +13,7 @@
  */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
-import { STATE_FILE_PATH, getFileRaw, isAthleteProfileComplete } from "./coach-chat/_lib/coachChatFiles.js";
+import { loadCoachContext, isAthleteProfileComplete } from "./coach-chat/_lib/coachChatFiles.js";
 
 export default {
   async fetch(req: Request): Promise<Response> {
@@ -27,8 +27,8 @@ export default {
       if (resolved instanceof Response) return resolved;
       auth = resolved;
 
-      const stateMd = await getFileRaw(auth.repo_full_name, STATE_FILE_PATH, auth.gh_token);
-      const profileComplete = isAthleteProfileComplete(stateMd ?? "");
+      const { profile, memory } = await loadCoachContext(auth.repo_full_name, auth.gh_token);
+      const profileComplete = isAthleteProfileComplete(profile, memory);
       return withSessionCookie(Response.json({ profileComplete }), auth.setCookie);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Coach chat profile status failed";
