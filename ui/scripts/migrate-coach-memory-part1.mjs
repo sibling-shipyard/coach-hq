@@ -166,6 +166,10 @@ const flags = injuryLines.map((line) => {
     // Migration doesn't try to parse each flag's "Onset ..." date out of free text - opened_at is
     // set to today (the migration date) since that's the one date this script can state with
     // confidence. Flag content (including the real onset date) is preserved verbatim in `text`.
+    // This only ever runs against Skanda's or Akash's own repo (the only two athletes) - before
+    // running this for real (not a scratch-branch test), ask them for each flag's actual onset
+    // date and pass it in instead of defaulting to today, so opened_at reflects reality rather
+    // than the day the migration happened to run.
     opened_at: today,
     resolved_at: null,
   };
