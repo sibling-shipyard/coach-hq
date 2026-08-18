@@ -119,6 +119,7 @@ const CURRENT_WEEK_TEMPLATE = {
   coach_comments: [],
   updated_at: null,
   updated_by: "skeleton-init",
+  trace_id: null,
 };
 
 const AGGREGATE_PLACEHOLDER = {

@@ -70,17 +70,15 @@ export interface CurrentWeekContract {
     start_date: string;
     end_date: string;
     status: WeekStatus;
-    phase_name: string;
-    block_name: string;
     focus: string;
     guardrails: string[];
   };
+  // tone/confidence/evidence_refs dropped (part3-rollout) - redundant with SOUL's own prose
+  // voice, and evidence should be computed from real data rather than self-asserted.
+  // valid_from/valid_until kept - a coach_read can start partway through the week after a reset.
   coach_read: {
     headline: string;
     body: string;
-    tone: CoachTone;
-    confidence: CoachConfidence;
-    evidence_refs: string[];
     valid_from: string;
     valid_until: string;
   };
@@ -88,4 +86,5 @@ export interface CurrentWeekContract {
   coach_comments: CoachComment[];
   updated_at: string;
   updated_by: string;
+  trace_id: string;
 }

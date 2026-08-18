@@ -18,8 +18,6 @@ describe("currentWeekAdapter completion matching", () => {
       id: "2026-w31",
       start_date: "2026-08-01",
       end_date: "2026-08-07",
-      phase_name: "Base",
-      block_name: "Block 1",
       focus: "Build baseline fitness",
       guardrails: [],
     },
@@ -27,6 +25,7 @@ describe("currentWeekAdapter completion matching", () => {
     coach_comments: [],
     updated_at: "2026-08-01T00:00:00Z",
     updated_by: "coach",
+    trace_id: "trace-test",
     days: [
       {
         date: "2026-08-02",
@@ -130,5 +129,37 @@ describe("currentWeekAdapter completion matching", () => {
     
     const overlays = result.days[0].sessions.filter(s => s.id.startsWith("activity-"));
     expect(overlays).toHaveLength(0);
+  });
+});
+
+// part3-rollout: week.phase_name/week.block_name are gone (dead references to the
+// phase/current_block concept Part 2 already removed from seasons.json), and coach_read no
+// longer carries tone/confidence/evidence_refs (redundant with SOUL's prose voice / better
+// computed from real data than self-asserted). trace_id is now required at the root, matching
+// the pattern coachIntents.ts/coachMemoryFiles.ts already stamp elsewhere.
+describe("current_week.json schema v1 shape (part3-rollout)", () => {
+  it("parses without phase_name/block_name on week and without tone/confidence/evidence_refs on coach_read", () => {
+    const raw: CurrentWeek = {
+      schema_version: 1,
+      data_status: "placeholder",
+      timezone: "UTC",
+      week: {
+        id: "2026-w31",
+        start_date: "2026-08-01",
+        end_date: "2026-08-07",
+        focus: "Build baseline fitness",
+        guardrails: [],
+      },
+      coach_read: null,
+      coach_comments: [],
+      updated_at: "2026-08-01T00:00:00Z",
+      updated_by: "coach",
+      trace_id: "trace-test",
+      days: [],
+    };
+
+    expect((raw.week as Record<string, unknown>).phase_name).toBeUndefined();
+    expect((raw.week as Record<string, unknown>).block_name).toBeUndefined();
+    expect(raw.trace_id).toBe("trace-test");
   });
 });

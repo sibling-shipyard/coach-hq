@@ -52,6 +52,11 @@ export interface Workout {
     affected_exercises: number[];
   };
   progression_notes?: string;
+  // Optional, forward-compatible (part3-rollout): Coach writes templates/sessions directly via
+  // git commit (platform/soul/B_engine.md's Persisting Session Files ritual), not through
+  // coach-chat.ts, so nothing in this codebase stamps it yet - never crash on a file that lacks
+  // it. Matches the {updated_at, updated_by, trace_id} shape coach-chat's own files use.
+  _meta?: { updated_at: string; updated_by: string; trace_id: string };
 }
 
 export interface WorkoutsData {

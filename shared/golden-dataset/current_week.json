@@ -6,8 +6,6 @@
     "start_date": "2026-07-20",
     "end_date": "2026-07-26",
     "status": "draft",
-    "phase_name": "Build",
-    "block_name": "Capacity without noise",
     "focus": "Protect the two court anchors; let the support work stay supportive.",
     "guardrails": [
       "Keep the hard-dose ceiling intact after the second court session.",
@@ -17,9 +15,6 @@
   "coach_read": {
     "headline": "Two anchors. One restraint.",
     "body": "The week has enough stimulus already. Win it by protecting Monday and Thursday, then keep Friday genuinely optional.",
-    "tone": "steady",
-    "confidence": "medium",
-    "evidence_refs": ["current_week_plan", "weekly_load"],
     "valid_from": "2026-07-20",
     "valid_until": "2026-07-27"
   },
@@ -185,5 +180,6 @@
     }
   ],
   "updated_at": "2026-07-19T12:00:00+01:00",
-  "updated_by": "golden-dataset"
+  "updated_by": "golden-dataset",
+  "trace_id": "golden-dataset"
 }

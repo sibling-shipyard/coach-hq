@@ -51,6 +51,7 @@ The proposed shape is retained with the following revisions:
 | `coach_comments` | array | Zero to three evidence-backed semantic comments |
 | `updated_at` | string | ISO 8601 timestamp with an explicit timezone offset |
 | `updated_by` | string | Writer identity; Coach writes `coach` on normal saves |
+| `trace_id` | string | Correlation id for the write, same pattern as `coach/memory.json`'s `_meta.trace_id` |
 
 ### Week
 
@@ -59,8 +60,6 @@ The proposed shape is retained with the following revisions:
 | `id` | string | ISO week identifier such as `2026-W30` |
 | `start_date` | date | Monday in `YYYY-MM-DD` format |
 | `end_date` | date | Sunday exactly six days after `start_date` |
-| `phase_name` | string or `null` | Known phase only; do not infer |
-| `block_name` | string or `null` | Known block only; do not infer |
 | `focus` | string or `null` | One concise outcome for the week |
 | `guardrails` | string array | Confirmed injury, load, recovery, or scheduling constraints only |
 
@@ -118,15 +117,21 @@ For the initial UI, the optimal weekly band is provisionally the mean actual loa
 
 `coach_read` contains one primary weekly judgement. Each `coach_comment` covers a semantic topic such as `weekly_load`, `training_intensity`, `weekly_plan`, `recovery`, or `recent_session`.
 
+`coach_read.tone`/`confidence`/`evidence_refs` were dropped (part3-rollout): `tone`/`confidence`
+duplicate a judgement the prose itself already carries (SOUL's voice design), and
+`evidence_refs` asked Coach to self-assert what backs its claim when the real evidence should be
+computed from live data instead. `coach_comments[]` is a separate, out-of-scope semantic-comment
+system and keeps all three.
+
 | Field | `coach_read` | `coach_comments[]` |
 |---|---:|---:|
 | `id` | No | Yes |
 | `topic` | No | Yes |
 | `headline` | Required, at most 72 characters | Required, at most 48 characters |
 | `body` | Required, at most 280 characters | Required, at most 140 characters |
-| `tone` | `positive`, `steady`, `caution`, or `recovery` | Same |
-| `confidence` | `low`, `medium`, or `high` | Same |
-| `evidence_refs` | One or more real source names | One or more real source names |
+| `tone` | Dropped | `positive`, `steady`, `caution`, or `recovery` |
+| `confidence` | Dropped | `low`, `medium`, or `high` |
+| `evidence_refs` | Dropped | One or more real source names |
 | `valid_from` | Date | Date |
 | `valid_until` | Date on or after `valid_from` | Date on or after `valid_from` |
 
