@@ -170,14 +170,26 @@ fs.writeFileSync(path.join(coachDir, "progress.json"), JSON.stringify(progressJs
 fs.writeFileSync(path.join(coachDir, "progressions.json"), JSON.stringify(progressionsJson, null, 2) + "\n");
 
 fs.rmSync(path.join(ledgerDir, "challenge_v2.json"));
-let removedArchive = false;
+
+// "No archive folder" (coach-redesign-part2-ledger.md) only ever meant the JSON snapshots
+// (archive/seasons/*/challenge_v2.json), not the prose retrospectives sitting alongside them
+// (recap.md, roadmap.md) - those are real season history an athlete wrote, not a data-model
+// artifact. Remove only the JSON, leave everything else untouched.
+let removedSnapshots = 0;
 if (fs.existsSync(archiveSeasonsDir)) {
-  fs.rmSync(archiveSeasonsDir, { recursive: true });
-  removedArchive = true;
+  for (const seasonDir of fs.readdirSync(archiveSeasonsDir)) {
+    const snapshotPath = path.join(archiveSeasonsDir, seasonDir, "challenge_v2.json");
+    if (fs.existsSync(snapshotPath)) {
+      fs.rmSync(snapshotPath);
+      removedSnapshots++;
+    }
+  }
 }
 
 console.log(
   `Wrote seasons.json (1 season), quests.json (${quests.length} quests), progress.json (${rows.length} rows), progressions.json (empty) to ${coachDir}`,
 );
-console.log(`Removed: user_data/ledger/challenge_v2.json${removedArchive ? ", user_data/coach/archive/seasons/" : ""}`);
+console.log(
+  `Removed: user_data/ledger/challenge_v2.json${removedSnapshots > 0 ? ` + ${removedSnapshots} archive/seasons/*/challenge_v2.json snapshot(s) (recap.md/roadmap.md left untouched)` : ""}`,
+);
 console.log("Review the diffs, then commit on your scratch branch yourself - this script does not touch git.");
