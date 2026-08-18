@@ -65,8 +65,9 @@
   dropped from the stored shape in Part 3 after review (dead in storage or already deprecated in
   the UI). Nothing to revisit here.
 
-(The `current_week.json` daily-update requirement moved to Part 5 — that's implementation work
-for whoever wires this file into coach-chat, not a UI-leftover item.)
+(The `current_week.json` daily-update requirement — resolved, not deferred. `session_reconcile`
+(workout-backend-wiring §5) patches the matching session's status/completion immediately on a
+logged workout, not deferred to a weekly rewrite. Nothing left to revisit here.)
 
 ## From workout-backend-wiring (`week_plan`/`session_reconcile` now live)
 
