@@ -65,11 +65,11 @@ describe("renumberAfterSkip", () => {
     expect(result[1].exercises.map((e) => e.name)).toEqual(["Exercise 4", "Exercise 5"]);
   });
 
-  it("leaves an empty-exercises phase rather than crashing when a whole phase is skipped", () => {
+  it("drops a phase entirely rather than leaving it empty when every exercise in it is skipped", () => {
     const phases = validWorkout().phases;
     const result = renumberAfterSkip(phases, [1, 2]);
-    expect(result[0].exercises).toEqual([]);
-    expect(result[1].exercises.map((e) => e.num)).toEqual([1, 2, 3]);
+    expect(result).toHaveLength(1);
+    expect(result[0].exercises.map((e) => e.num)).toEqual([1, 2, 3]);
   });
 });
 
@@ -134,14 +134,15 @@ describe("applySessionPlan", () => {
     expect(parsed.coaching_note).toBe("Keep form tight. — knee modification");
   });
 
-  it("rejects a malformed result (skipping every exercise in a phase leaves it schema-invalid) rather than committing it", () => {
-    expect(() =>
-      applySessionPlan(
-        currentTemplateContent,
-        { template_id: "strength_b", session_date: "2026-08-18", skip_exercise_nums: [1, 2] },
-        validIds,
-        "t1",
-      ),
-    ).toThrow(/workout schema/);
+  it("drops a phase entirely, rather than rejecting the result, when every exercise in it is skipped", () => {
+    const { content } = applySessionPlan(
+      currentTemplateContent,
+      { template_id: "strength_b", session_date: "2026-08-18", skip_exercise_nums: [1, 2] },
+      validIds,
+      "t1",
+    );
+    const parsed = JSON.parse(content);
+    expect(parsed.phases).toHaveLength(1);
+    expect(parsed.phases[0].exercises.map((e: any) => e.num)).toEqual([1, 2, 3]);
   });
 });

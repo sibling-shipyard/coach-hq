@@ -473,18 +473,23 @@ export function sessionPath(sessionDate: string, templateId: string): string {
 // Files rule #3 ("exercises removed (re-numbered sequentially, no gaps)"). Matches original
 // relative order since it only ever filters+re-labels, never reorders. A phase whose exercises are
 // all skipped is left with an empty exercises array rather than dropped or crashed on here -
-// validateWorkout (called by applySessionPlan after this runs) is what actually rejects an
-// empty-exercises phase, since the base Workout schema requires phases.exercises to be non-empty;
-// this function's job is purely the mechanical renumber, not schema enforcement.
+// A phase left with zero exercises after skipping is dropped entirely rather than kept and
+// rejected by validateWorkout downstream - skipping every exercise in a phase (e.g. "skip the
+// whole shoulder phase today, it's flared up") is a real, foreseeable request, not malformed
+// input. The base Workout schema requires phases.exercises to be non-empty, so an empty phase
+// was never a valid shape to keep around; dropping it is the correct mechanical response, not a
+// workaround.
 export function renumberAfterSkip(phases: Workout["phases"], skipNums: number[]): Workout["phases"] {
   const skip = new Set(skipNums);
   let next = 1;
-  return phases.map((phase) => ({
-    ...phase,
-    exercises: phase.exercises
-      .filter((ex) => !skip.has(ex.num))
-      .map((ex) => ({ ...ex, num: next++ })),
-  }));
+  return phases
+    .map((phase) => ({
+      ...phase,
+      exercises: phase.exercises
+        .filter((ex) => !skip.has(ex.num))
+        .map((ex) => ({ ...ex, num: next++ })),
+    }))
+    .filter((phase) => phase.exercises.length > 0);
 }
 
 /**
