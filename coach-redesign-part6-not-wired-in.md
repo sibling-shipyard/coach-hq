@@ -5,16 +5,16 @@
 > speculative/unused in the UI specifically. Implementation/wiring work lives in Part 5
 > (`coach-redesign-part5-wiring-plan.md`) instead. Add to this as each part gets reviewed.
 
-## From Part 1 (`sessions.json`)
+## From Part 1 (`coach_log.json`)
 
-- **`actor`** — dropped from `sessions.json`. Coach is the only writer today, so the field only
+- **`actor`** — dropped from `coach_log.json`. Coach is the only writer today, so the field only
   ever holds one value. Revisit if a second writer (athlete, a backend job) is ever added.
-- **`thread_id`** — dropped from `sessions.json`. No current read/write path uses it.
+- **`thread_id`** — dropped from `coach_log.json`. No current read/write path uses it.
 - **`type: "phase_close" | "week_close"`** — real concept, no writer yet. Today Coach's
   end-of-phase and end-of-week retrospectives live in separate files
   (`archive/phases.md`, `archive/week_plans.md`, both named in `platform/soul/B_engine.md` and
   `platform/SOUL.claude.md`'s commit ritual). The redesign LLD's idea was to fold those into
-  `sessions.json` as rows with these `type` values instead of separate files — real, but out of
+  `coach_log.json` as rows with these `type` values instead of separate files — real, but out of
   scope for this pass. Revisit when/if `archive/phases.md`/`archive/week_plans.md` get folded in.
   **Note:** Part 2 has since dropped the `phase` concept from `seasons.json` entirely — `"phase_close"`
   as a row type may no longer make sense once that lands. Revisit both together.
@@ -40,7 +40,7 @@
   kept in `progress.json` to match. Nothing to revisit here.
 - **`type: "milestone"`** — dropped outright, not moved here. Confirmed zero behavior anywhere in
   the codebase beyond being a valid enum value — not a deferred feature, dead weight, same
-  treatment as `sessions.json`'s `"manual"` type above.
+  treatment as `coach_log.json`'s `"manual"` type above.
 - **`main_quest`'s `weekly_floor`/`loaded_floor`/`skill_weight`/`skill_cap`** — dropped from the
   generalized `quests.json`. These exist only for Akash's weekly-session-floor coaching model.
   Revisit if/when a per-athlete or per-model extension mechanism for `main_quest` is designed —

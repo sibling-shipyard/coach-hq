@@ -25,6 +25,31 @@ Write it so someone who has never opened this repo enjoys reading it. If an entr
 
 ---
 
+## v5.9 — "New Files, Same Sections" · Aug 18, 2026
+**Superpower gained:** memory keeps working across a full data-model rewrite underneath it.
+
+Part 1 of the coach-memory redesign split `state.md`/`coach_notes.md`/`rolling_state.json` into
+`profile.json`/`memory.json`/`injuries.json`/`coach_log.json` (`coach-redesign-part1-memory.md`).
+SOUL never named a file path it didn't have to — it already referred to "Recent Session Notes"
+and "Learned Patterns" as sections, not files — so this landed as a rewording pass, not a
+restructuring.
+
+- Boot Sequence step 4 and the Commit Protocol's memory-write steps now name sections instead of
+  `state.md`/`coach_notes.md` directly.
+- Two new Gemini actions this version: `memory_update {label, text}` and
+  `injury_event {status, text?, flag_id?}` — both server-stamp every date/id/timestamp, Gemini
+  only ever supplies the semantic fact (see `docs/eng-docs/gemini-flow.md`'s Action-field design
+  rule, written the same day this shipped).
+- `isAthleteProfileComplete()` went from regex-matching `state.md` prose to a field-presence
+  check against the new JSON files.
+
+**Why it mattered:** the whole point of keeping SOUL's language name-based, not path-based, is
+that a data-model rewrite this size should be invisible to the coaching relationship — Coach
+still knows what "Learned Patterns" means, it just lives somewhere new. See
+`coach-redesign-part1-memory.md` for the full field-by-field spec.
+
+---
+
 ## v5.8 — "The Trim" · Aug 16, 2026
 **Superpower gained:** knowing what it can't do, and shutting up about it.
 

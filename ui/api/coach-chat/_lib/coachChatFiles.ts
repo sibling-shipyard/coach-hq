@@ -1,17 +1,26 @@
 /**
- * Shared read helpers for the files coach-chat.ts injects into every Gemini call: state.md and
- * quest_log.md come from the athlete's own repo; SOUL.md does not (see below). Extracted out of
- * coach-chat.ts so coach-chat-context.ts (the app-load preload endpoint, A3) can fetch the same
- * files the same way without duplicating the GitHub-read plumbing.
+ * Shared read helpers for the files coach-chat.ts injects into every Gemini call: profile.json/
+ * memory.json/injuries.json/coach_log.json and quest_log.md come from the athlete's own repo;
+ * SOUL.md does not (see below). Extracted out of coach-chat.ts so coach-chat-context.ts (the
+ * app-load preload endpoint, A3) can fetch the same files the same way without duplicating the
+ * GitHub-read plumbing.
  */
 import { SOUL } from "../../_generated/soul.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
+import {
+  PROFILE_PATH,
+  MEMORY_PATH,
+  INJURIES_PATH,
+  COACH_LOG_PATH,
+  type ProfileJson,
+  type MemoryJson,
+  type InjuriesJson,
+  type CoachLogJson,
+} from "./coachMemoryFiles.js";
 
 // SOUL.md is 100% generic across athletes, so it's bundled at build time (ui/scripts/build-
 // soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
-export const STATE_FILE_PATH = "user_data/coach/state.md";
 export const QUEST_LOG_PATH = "gen/quest_log.md";
-export const ROLLING_STATE_PATH = "user_data/coach/rolling_state.json";
 
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -61,9 +70,23 @@ export async function getFileRaw(repo: string, path: string, token: string, atte
 
 export interface CoachContext {
   soul: string | null;
-  state: string | null;
   questLog: string | null;
-  rollingState: string | null;
+  profile: ProfileJson | null;
+  memory: MemoryJson | null;
+  injuries: InjuriesJson | null;
+  coachLog: CoachLogJson | null;
+}
+
+// Best-effort parse - a missing or malformed file (not yet migrated, or a transient bad commit)
+// degrades to null rather than throwing. Exported so coachIntents.ts's appliers share this same
+// parse+catch instead of each hand-rolling their own copy.
+export function parseJsonOrNull<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
 }
 
 // Cross-device staleness detection (A5): no lock, just compares the client's last-known HEAD sha
@@ -107,12 +130,21 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 
   const promise = (async (): Promise<CoachContext> => {
-    const [state, questLog, rollingState] = await Promise.all([
-      getFileRaw(repo, STATE_FILE_PATH, token),
+    const [questLog, profileRaw, memoryRaw, injuriesRaw, coachLogRaw] = await Promise.all([
       getFileRaw(repo, QUEST_LOG_PATH, token),
-      getFileRaw(repo, ROLLING_STATE_PATH, token),
+      getFileRaw(repo, PROFILE_PATH, token),
+      getFileRaw(repo, MEMORY_PATH, token),
+      getFileRaw(repo, INJURIES_PATH, token),
+      getFileRaw(repo, COACH_LOG_PATH, token),
     ]);
-    const value: CoachContext = { soul: SOUL, state, questLog, rollingState };
+    const value: CoachContext = {
+      soul: SOUL,
+      questLog,
+      profile: parseJsonOrNull<ProfileJson>(profileRaw),
+      memory: parseJsonOrNull<MemoryJson>(memoryRaw),
+      injuries: parseJsonOrNull<InjuriesJson>(injuriesRaw),
+      coachLog: parseJsonOrNull<CoachLogJson>(coachLogRaw),
+    };
     contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
     return value;
   })();
@@ -125,47 +157,15 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 }
 
-// B2: First Session Protocol completion check - is state.md's Athlete Profile section still
-// carve-skeleton.mjs's blank template? Deliberately generic rather than hardcoding field names:
-// every `- **Label:**` line in the section must have non-blank content after the colon, and the
-// section must contain at least one such line.
-/**
- * Label fragments (lowercased, substring-matched) for the fields that actually gate coaching.
- *
- * #362: this used to require EVERY field in the Athlete Profile, including Age, Height and
- * Weight. An athlete who declined to give their weight never became complete. That was harmless
- * while the flag only stamped `coach_since` - but the First Session Protocol is now conditionally
- * injected on that same predicate, so an incomplete profile means Coach is told "this is their
- * first session, run the protocol instead of coaching normally" on every turn, forever. It
- * re-onboards someone it already onboarded.
- *
- * Everything not listed here is useful context the athlete is allowed to decline.
- */
-const REQUIRED_PROFILE_FIELDS = ["name", "sport", "goal"];
-
-export function isAthleteProfileComplete(stateMd: string): boolean {
-  // (?![\s\S]) asserts true end-of-string regardless of the /m flag - a plain $ here would
-  // match at the end of the SECTION'S OWN FIRST LINE too (since /m makes $ match every line
-  // ending, not just the string's end), truncating the captured section to just its first line.
-  const sectionMatch = stateMd.match(/^## Athlete Profile\s*\n([\s\S]*?)(?=\n## |(?![\s\S]))/m);
-  if (!sectionMatch) return false;
-  const section = sectionMatch[1];
-  const fieldLines = section.match(/^- \*\*[^*]+:\*\*.*$/gm) ?? [];
-  if (fieldLines.length === 0) return false;
-
-  const fields = fieldLines.map((line) => ({
-    label: (line.match(/^- \*\*([^*]+):\*\*/)?.[1] ?? "").toLowerCase(),
-    value: line.replace(/^- \*\*[^*]+:\*\*/, "").trim(),
-  }));
-
-  const required = fields.filter((field) =>
-    REQUIRED_PROFILE_FIELDS.some((needle) => field.label.includes(needle)),
-  );
-
-  // An unrecognised profile shape - none of the required labels present at all - falls back to
-  // "did the athlete answer anything". Blocking forever on labels this athlete's template does
-  // not use is the exact failure #362 is about, so never let a renamed heading recreate it.
-  if (required.length === 0) return fields.some((field) => field.value.length > 0);
-
-  return required.every((field) => field.value.length > 0);
+// B2/coach-redesign-part1-memory.md: First Session Protocol completion check. Used to be a
+// regex/section-matching read of state.md's Athlete Profile section (see git history) - now a
+// simple field-presence check against profile.json/memory.json, matching #362's reduced
+// REQUIRED_PROFILE_FIELDS set exactly: `name` lives in profile.json, `sport`/`goal` moved to
+// memory.json in the Part 1 redesign, so this reads across both files rather than one.
+export function isAthleteProfileComplete(profile: ProfileJson | null, memory: MemoryJson | null): boolean {
+  if (!profile || !memory) return false;
+  const hasName = Boolean(profile.name && profile.name.trim().length > 0);
+  const hasSport = Array.isArray(memory.sports) && memory.sports.some((s) => s.trim().length > 0);
+  const hasGoal = Boolean(memory.goal && memory.goal.trim().length > 0);
+  return hasName && hasSport && hasGoal;
 }

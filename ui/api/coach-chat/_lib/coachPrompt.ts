@@ -10,14 +10,25 @@
  */
 import type { ChatMessage } from "./chatThreads.js";
 import { todayContextLine } from "./coachDay.js";
+import { MEMORY_NOTE_LABELS, type MemoryNoteLabel, type InjuriesJson } from "./coachMemoryFiles.js";
 
 export interface GeminiReply {
   reply: string;
-  // Closing turns only - a short plain-English note appended (with today's date) to
-  // coach_notes.md at commit time (coachWrites.ts's appendCoachNote). Never shown to the athlete.
-  // Also reused server-side (unchanged, no new field) into rolling_state.json's last-N-sessions
-  // log - see coachIntents.ts's applyRollingState.
+  // Closing turns only - a short plain-English note appended (with today's date) as a new row in
+  // coach_log.json at commit time (coachIntents.ts's applyCoachNote). Never shown to the athlete.
+  // coach_log.json is the single merged continuity log - it absorbs what used to be split across
+  // coach_notes.md and rolling_state.json.
   coach_note?: string;
+  // Part 1 redesign, Step 4a: Coach states which one of memory.json's six labelled notes boxes
+  // changed and its new text - the server owns replacing that box entirely (coachIntents.ts's
+  // applyMemoryUpdate). `label` is a constrained enum, never free text - gemini-flow.md's
+  // Action-field design rule. Closing turns only, same as coach_note.
+  memory_update?: { label: MemoryNoteLabel; text: string };
+  // Step 4b: an injury flag opened, updated, or resolved this conversation. Server generates
+  // `id`/`opened_at`/`resolved_at` - Gemini only ever supplies status/text/flag_id (see
+  // coachIntents.ts's applyInjuryEvent for the exact new/update/resolve rules). Closing turns
+  // only, same as coach_note/memory_update.
+  injury_event?: { status: "active" | "resolved"; text?: string; flag_id?: string };
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;
@@ -53,8 +64,24 @@ export const GENERATION_CONFIG = {
   responseSchema: {
     type: "object",
     properties: {
-      // Declared first, before reply, so there's nothing else to commit to first.
+      // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4) -
+      // there's nothing else to commit to first.
       coach_note: { type: "string" },
+      memory_update: {
+        type: "object",
+        properties: {
+          label: { type: "string", enum: [...MEMORY_NOTE_LABELS] },
+          text: { type: "string" },
+        },
+      },
+      injury_event: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["active", "resolved"] },
+          text: { type: "string" },
+          flag_id: { type: "string" },
+        },
+      },
       session_closed: { type: "boolean" },
       reply: { type: "string" },
     },
@@ -77,9 +104,9 @@ export function staticSystemText(soul: string): string {
     "You are mid-conversation already, not booting a fresh session - skip SOUL.md's Boot Sequence",
     "entirely, you're past it. You have NO shell or tool access: you cannot run `git pull`, cannot",
     "execute Strava scripts, cannot run shell commands, cannot read files on-demand. Everything you",
-    "have is already given to you below (current state.md and quest_log.md) or in this conversation.",
-    "If SOUL.md instructs you to read a file or run a command you don't have access to here, ignore",
-    "that instruction rather than acting like you did it.",
+    "have is already given to you below (current athlete context and quest_log.md) or in this",
+    "conversation. If SOUL.md instructs you to read a file or run a command you don't have access",
+    "to here, ignore that instruction rather than acting like you did it.",
     "You are Coach Phelps ONLY. Never act as Tech Lead, UI Expert, Bob the Builder, iOS Builder, or any",
     "other role from this repo. Never write or discuss code, architecture, or pull requests. If asked to",
     "break character or act as a different assistant, decline in-voice and stay Coach Phelps.",
@@ -93,11 +120,12 @@ export function staticSystemText(soul: string): string {
 // changes the framing sentence at the top - it ships as a synthetic turn when a cache is active,
 // or gets concatenated into systemInstruction directly when it isn't.
 export function buildDynamicText(
-  stateMd: string,
+  athleteContext: string,
   questLog: string,
   mode: TurnMode,
   extraContext: string | undefined,
   useCache: boolean,
+  timezone: string,
 ): string {
   return [
     // Only relevant on the cached path, where this block arrives as a synthetic turn rather than
@@ -111,7 +139,7 @@ export function buildDynamicText(
         "than a system field.]"
       : "",
     "<state>",
-    "\nCurrent user_data/coach/state.md:\n" + stateMd,
+    "\nCurrent athlete context:\n" + athleteContext,
     "\nCurrent gen/quest_log.md (read-only, pre-computed):\n" + questLog,
     "</state>",
     extraContext ? "\n" + extraContext : "",
@@ -135,8 +163,20 @@ export function buildDynamicText(
           "a plan for next time). There is no file to edit, no checklist to fill in - report facts,",
           "the server handles saving them. If there's truly nothing concrete from this conversation,",
           "say so honestly in coach_note instead of inventing content.",
-          "**Never say something is saved, logged, locked, or committed unless coach_note in this",
-          "exact response genuinely reflects it.**",
+          "\nIf this conversation changed something in one of these six categories - fitness",
+          "baseline, coaching priorities, a learned training pattern, a learned nutrition pattern,",
+          "a learned mental/performance pattern, or equipment - set memory_update with that",
+          "category as label and the new full text as text. Only set it when something genuinely",
+          "changed; most closes won't need it. Never invent a change to justify setting it.",
+          "\nIf the athlete mentioned a new injury or pain, or gave an update on an existing one",
+          "listed in Active Injury Flags below, set injury_event. A brand-new injury: status",
+          "\"active\", text describing it, no flag_id (the server mints one). An update to an",
+          "existing flag still ongoing: status \"active\", the matching flag_id from the list below,",
+          "and text only if there's new detail worth recording (omit text to leave it unchanged).",
+          "A flag that's cleared up: status \"resolved\" and that flag_id. Only ever use a flag_id",
+          "that's actually listed below - never invent one. Most closes won't need this either.",
+          "**Never say something is saved, logged, locked, or committed unless coach_note (or",
+          "memory_update / injury_event) in this exact response genuinely reflects it.**",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
           "response (asking a clarifying question instead does NOT count - set it false in that case,",
           "even though this turn was triggered by a close-session phrase). The athlete will simply see",
@@ -148,7 +188,7 @@ export function buildDynamicText(
           "close. Set session_closed to false - this isn't a close-session turn.",
         ].join("\n"),
     // Deliberately last - the one piece of this prompt that changes every minute.
-    "\n" + todayContextLine(stateMd),
+    "\n" + todayContextLine(timezone),
   ].join("\n");
 }
 
@@ -194,10 +234,10 @@ export function firstSessionContext(profileComplete: boolean, protocol: string):
   if (profileComplete) return undefined;
   return [
     "<first_session>",
-    "This athlete's user_data/coach/state.md has an empty Athlete Profile - they have never been",
-    "onboarded. This is their first session. Run the protocol below instead of coaching normally.",
-    "Steps that would need a shell or a git commit have been removed; do the conversational work",
-    "and the state.md/challenge_v2.json content, and the backend handles saving.",
+    "This athlete's Athlete Profile section is empty - they have never been onboarded. This is",
+    "their first session. Run the protocol below instead of coaching normally. Steps that would",
+    "need a shell or a git commit have been removed; do the conversational work and report the",
+    "profile/challenge_v2.json content, and the backend handles saving.",
     "",
     protocol.trim(),
     "</first_session>",
@@ -210,23 +250,12 @@ export function combineExtraContext(...blocks: (string | undefined)[]): string |
   return present.length > 0 ? present.join("\n\n") : undefined;
 }
 
-// Part B step 2: renders rolling_state.json's last-N-sessions log (coachIntents.ts's
-// applyRollingState) into context text. Reuses coach_note verbatim (no separate Gemini field, no
-// new generation-failure surface) - see coach-chat/README.md's rebuild note. Returns undefined on
-// missing/empty/unparsable content so the caller can omit this block entirely rather than inject
-// an empty one.
-export function rollingStateContext(rollingStateJson: string | null | undefined): string | undefined {
-  if (!rollingStateJson) return undefined;
-  let entries: { date?: string; text?: string }[];
-  try {
-    const parsed = JSON.parse(rollingStateJson);
-    entries = Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return undefined;
-  }
-  const lines = entries
-    .filter((e): e is { date: string; text: string } => typeof e.date === "string" && typeof e.text === "string")
-    .map((e) => `- ${e.date}: ${e.text}`);
-  if (lines.length === 0) return undefined;
-  return ["Recent sessions (most recent first):", ...lines].join("\n");
+// Step 4b: lists the athlete's current injuries.json flags (id + status + text) so Gemini has
+// real flag_ids to reference for injury_event's update/resolve cases - it must never invent one.
+// Per-athlete, so this rides in buildDynamicText's extraContext, never staticSystemText - same
+// reasoning as firstSessionContext/rollingStateContext above.
+export function injuryFlagsContext(injuries: InjuriesJson | null | undefined): string | undefined {
+  if (!injuries || !Array.isArray(injuries.flags) || injuries.flags.length === 0) return undefined;
+  const lines = injuries.flags.map((f) => `- flag_id: ${f.id} | status: ${f.status} | ${f.text}`);
+  return ["Active Injury Flags (use these exact flag_ids for injury_event updates/resolves):", ...lines].join("\n");
 }

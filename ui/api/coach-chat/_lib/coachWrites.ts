@@ -9,15 +9,7 @@ import { applyJsonMergePatch } from "../../_lib/fileEdits.js";
 import { getFileRaw } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
 
-export const COACH_NOTES_PATH = "user_data/coach/coach_notes.md";
 export const CHALLENGE_V2_PATH = "user_data/ledger/challenge_v2.json";
-
-// Append-only, immune to the exact-match/patch-parse failure modes a targeted edit has.
-// `currentContent` is null when coach_notes.md doesn't exist yet.
-export function appendCoachNote(currentContent: string | null, note: string, dateString: string): string {
-  const base = currentContent ?? "";
-  return `${base}\n\n## ${dateString}\n${note.trim()}`;
-}
 
 // Fetched on a closing turn purely for the server-side coach_since stamp (ADR 0018) - never
 // shown to Gemini.
@@ -38,7 +30,7 @@ export function injectCoachSinceIfNeeded(
   closingFiles: ClosingFileContext | undefined,
   wasProfileComplete: boolean,
   isProfileCompleteNow: boolean,
-  stateMd: string,
+  timezone: string,
 ): { path: string; content: string }[] {
   if (wasProfileComplete || !isProfileCompleteNow || !closingFiles) return validUpdates;
   const existing = validUpdates.find((u) => u.path === CHALLENGE_V2_PATH);
@@ -50,7 +42,7 @@ export function injectCoachSinceIfNeeded(
     console.warn("[coach-chat] challenge_v2.json unparsable - skipping coach_since stamp");
     return validUpdates;
   }
-  const patch = JSON.stringify({ coach_since: todayDateString(stateMd, new Date()) });
+  const patch = JSON.stringify({ coach_since: todayDateString(timezone, new Date()) });
   const result = applyJsonMergePatch(baseContent ?? null, patch);
   if (!result.ok) {
     console.warn(`[coach-chat] coach_since stamp failed - ${result.error}`);

@@ -23,13 +23,14 @@ const GEMINI_MODEL = "gemini-flash-latest";
 export async function askGemini(
   apiKey: string,
   soul: string,
-  stateMd: string,
+  athleteContext: string,
   questLog: string,
   history: ChatMessage[],
   userMessage: string,
   mode: TurnMode,
   extraContext?: string,
   traceId?: string,
+  timezone = "UTC",
 ): Promise<GeminiReply> {
   // Ordered for implicit-caching fallback: stable content (persona, instructions, few-shots,
   // usually state/quest_log) first, volatile today's-date last. See docs/eng-docs/gemini-flow.md.
@@ -46,7 +47,7 @@ export async function askGemini(
   const buildContents = (useCache: boolean) =>
     useCache
       ? [
-          { role: "user", parts: [{ text: buildDynamicText(stateMd, questLog, mode, extraContext, true) }] },
+          { role: "user", parts: [{ text: buildDynamicText(athleteContext, questLog, mode, extraContext, true, timezone) }] },
           {
             role: "model",
             parts: [{ text: "Understood - I'll follow those instructions exactly, same as my system instructions." }],
@@ -59,7 +60,7 @@ export async function askGemini(
   const buildRequestBody = (useCache: boolean) => ({
     ...(useCache
       ? { cachedContent: cachedName }
-      : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(stateMd, questLog, mode, extraContext, false) }] } }),
+      : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(athleteContext, questLog, mode, extraContext, false, timezone) }] } }),
     contents: buildContents(useCache),
     generationConfig: GENERATION_CONFIG,
   });

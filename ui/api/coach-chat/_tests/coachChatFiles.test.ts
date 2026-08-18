@@ -1,169 +1,84 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { isAthleteProfileComplete, loadCoachContext } from "../_lib/coachChatFiles.js";
+import type { ProfileJson, MemoryJson } from "../_lib/coachMemoryFiles.js";
 
-// B2: matches carve-skeleton.mjs's STATE_MD_TEMPLATE exactly - the blank template every new
-// athlete repo ships with. It had drifted (no Age/Height/Weight, and Timezone's italic note
-// missing) which is part of why #362 went unnoticed: the fixture was easier to satisfy than the
-// real template. Keep these in sync.
-const BLANK_TEMPLATE = `## Athlete Profile
-*(Filled in during First Session)*
-- **Name:**
-- **Sport(s) / Activities:**
-- **Goal:**
-- **Timeline / Upcoming events:**
-- **Coaching style preference:**
-- **Age:**
-- **Height:**
-- **Weight:**
-- **Timezone:**
-  *(inferred from the athlete's stated city/country, not asked directly — see FSP §10)*
+// coach-redesign-part1-memory.md, Step 3: replaces the old regex/section-matching read of
+// state.md's Athlete Profile with a simple field-presence check against profile.json/memory.json,
+// matching #362's reduced REQUIRED_PROFILE_FIELDS set exactly (name/sport/goal) - just spread
+// across two files now instead of one section.
+function profile(overrides: Partial<ProfileJson> = {}): ProfileJson {
+  return {
+    version: 1,
+    coach_since: null,
+    name: "Skanda",
+    dob: null,
+    timezone: "Asia/Kolkata",
+    height_cm: null,
+    weight_kg: null,
+    ...overrides,
+  };
+}
 
-## Current Season
-*(Defined during First Session)*
-`;
-
-const FILLED_TEMPLATE = `## Athlete Profile
-*(Filled in during First Session)*
-- **Name:** Skanda
-- **Sport(s) / Activities:** Badminton, running
-- **Goal:** Get back to competitive shape
-- **Timeline / Upcoming events:** Club tournament in October
-- **Coaching style preference:** Direct, no hand-holding
-- **Age:** 29
-- **Height:** 178cm
-- **Weight:** 74kg
-- **Timezone:** Asia/Kolkata (IST, UTC+5:30)
-
-## Current Season
-*(Defined during First Session)*
-`;
+function memory(overrides: Partial<MemoryJson> = {}): MemoryJson {
+  return {
+    version: 1,
+    _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
+    sports: ["Badminton"],
+    goal: "Get back to competitive shape",
+    timeline: "",
+    coaching_style: "",
+    notes: {
+      fitness_baseline: { text: "", updated_at: "", trace_id: "" },
+      coaching_priorities: { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.training": { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.nutrition": { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.mental": { text: "", updated_at: "", trace_id: "" },
+      equipment: { text: "", updated_at: "", trace_id: "" },
+    },
+    ...overrides,
+  };
+}
 
 describe("isAthleteProfileComplete", () => {
-  it("is false for the blank template every new athlete repo ships with", () => {
-    expect(isAthleteProfileComplete(BLANK_TEMPLATE)).toBe(false);
+  it("is true when name/sport/goal are all present", () => {
+    expect(isAthleteProfileComplete(profile(), memory())).toBe(true);
   });
 
-  it("is true once every field line has content", () => {
-    expect(isAthleteProfileComplete(FILLED_TEMPLATE)).toBe(true);
+  it("is false when profile.json is missing (null)", () => {
+    expect(isAthleteProfileComplete(null, memory())).toBe(false);
   });
 
-  // #362: the whole point of the fix. Age/Height/Weight are context the athlete may decline;
-  // requiring them meant one skipped answer re-injected the First Session Protocol on every
-  // turn, forever, re-onboarding someone who was already onboarded.
-  it("is true when the athlete declined the optional fields", () => {
-    const declined = `## Athlete Profile
-- **Name:** Skanda
-- **Sport(s) / Activities:** Badminton
-- **Goal:** Get back to competitive shape
-- **Timeline / Upcoming events:**
-- **Coaching style preference:**
-- **Age:**
-- **Height:**
-- **Weight:**
-- **Timezone:**
-
-## Current Season
-`;
-    expect(isAthleteProfileComplete(declined)).toBe(true);
+  it("is false when memory.json is missing (null)", () => {
+    expect(isAthleteProfileComplete(profile(), null)).toBe(false);
   });
 
-  it("is false when a required field is missing even if every optional one is filled", () => {
-    const noGoal = `## Athlete Profile
-- **Name:** Skanda
-- **Sport(s) / Activities:** Badminton
-- **Goal:**
-- **Age:** 29
-- **Height:** 178cm
-- **Weight:** 74kg
-- **Timezone:** Asia/Kolkata
-
-## Current Season
-`;
-    expect(isAthleteProfileComplete(noGoal)).toBe(false);
+  it("is false when name is blank", () => {
+    expect(isAthleteProfileComplete(profile({ name: "" }), memory())).toBe(false);
   });
 
-  // The Timezone line ships with an italic explainer. It used to sit after the colon, which made
-  // a blank field read as filled; it is now on its own line and must not count as a field.
-  it("does not treat the Timezone explainer note as an answer", () => {
-    const noteOnly = `## Athlete Profile
-- **Name:**
-- **Sport(s) / Activities:**
-- **Goal:**
-- **Timezone:**
-  *(inferred from the athlete's stated city/country, not asked directly — see FSP §10)*
-
-## Current Season
-`;
-    expect(isAthleteProfileComplete(noteOnly)).toBe(false);
+  it("is false when sports is empty", () => {
+    expect(isAthleteProfileComplete(profile(), memory({ sports: [] }))).toBe(false);
   });
 
-  // A renamed/reshaped profile must never block forever - that is the #362 failure mode itself.
-  it("falls back to 'answered anything' when no required label is recognisable", () => {
-    const renamed = `## Athlete Profile
-- **Who they are:** Skanda
-- **What they do:** Badminton
-
-## Current Season
-`;
-    expect(isAthleteProfileComplete(renamed)).toBe(true);
-    expect(isAthleteProfileComplete("## Athlete Profile\n- **Who they are:**\n")).toBe(false);
+  it("is false when sports only contains blank strings", () => {
+    expect(isAthleteProfileComplete(profile(), memory({ sports: ["", "  "] }))).toBe(false);
   });
 
-  it("is false when some fields are filled but others are still blank (mid-intake)", () => {
-    const partial = `## Athlete Profile
-*(Filled in during First Session)*
-- **Name:** Skanda
-- **Sport(s) / Activities:** Badminton
-- **Goal:**
-- **Timeline / Upcoming events:**
-- **Coaching style preference:**
-- **Timezone:**
-
-## Current Season
-`;
-    expect(isAthleteProfileComplete(partial)).toBe(false);
+  it("is false when goal is blank", () => {
+    expect(isAthleteProfileComplete(profile(), memory({ goal: "" }))).toBe(false);
   });
 
-  it("is false when the Athlete Profile section is missing entirely", () => {
-    expect(isAthleteProfileComplete("## Current Season\nsome content\n")).toBe(false);
-  });
-
-  it("is false for an empty string", () => {
-    expect(isAthleteProfileComplete("")).toBe(false);
-  });
-
-  it("still works when Athlete Profile is the last section in the file (no trailing ##)", () => {
-    const lastSection = `## Current Season
-whatever
-
-## Athlete Profile
-- **Name:** Skanda
-- **Sport(s) / Activities:** Running
-- **Goal:** Sub-20 5k
-- **Timeline / Upcoming events:** none
-- **Coaching style preference:** direct
-- **Timezone:** UTC
-`;
-    expect(isAthleteProfileComplete(lastSection)).toBe(true);
-  });
-
-  it("treats whitespace-only content after the colon as still blank", () => {
-    const whitespaceOnly = `## Athlete Profile
-- **Name:**
-- **Sport(s) / Activities:** Running
-- **Goal:** Sub-20 5k
-- **Timeline / Upcoming events:** none
-- **Coaching style preference:** direct
-- **Timezone:** UTC
-
-## Current Season
-`;
-    expect(isAthleteProfileComplete(whitespaceOnly)).toBe(false);
+  // #362: dob/height_cm/weight_kg/timeline/coaching_style are context the athlete may decline -
+  // never gate on them, same rule as before the redesign, just checked against the new files.
+  it("is true even when every optional field is declined", () => {
+    const p = profile({ dob: null, height_cm: null, weight_kg: null });
+    const m = memory({ timeline: "", coaching_style: "" });
+    expect(isAthleteProfileComplete(p, m)).toBe(true);
   });
 });
 
 // Audit fix: concurrent cache-miss callers for the same repo used to each independently hit
-// GitHub for the same three files - now they share one in-flight fetch.
+// GitHub for the same files - now they share one in-flight fetch.
 describe("loadCoachContext in-flight de-dup", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -183,10 +98,11 @@ describe("loadCoachContext in-flight de-dup", () => {
       loadCoachContext(repo, "token"),
     ]);
     expect(a).toEqual(b);
-    // 3 files (state.md, quest_log.md, rolling_state.json) fetched once, not once per caller -
-    // SOUL.md no longer comes from the athlete's repo at all (bundled from platform/SOUL.md, see
-    // build-soul.mjs).
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // 5 files (quest_log.md, profile.json, memory.json, injuries.json, coach_log.json) fetched
+    // once, not once per caller - SOUL.md no longer comes from the athlete's repo at all
+    // (bundled from platform/SOUL.md, see build-soul.mjs), and state.md/rolling_state.json are
+    // gone (coach-redesign-part1-memory.md).
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it("a fresh:true call never shares the in-flight de-dup, even if one is already pending", async () => {
@@ -196,7 +112,7 @@ describe("loadCoachContext in-flight de-dup", () => {
       loadCoachContext(repo, "token", { fresh: true }),
     ]);
     expect(cached).toEqual(fresh);
-    // Each call does its own independent 3-file fetch since one of them demanded freshness.
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    // Each call does its own independent 5-file fetch since one of them demanded freshness.
+    expect(fetchMock).toHaveBeenCalledTimes(10);
   });
 });
