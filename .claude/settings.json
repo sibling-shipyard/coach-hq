@@ -58,7 +58,10 @@
       "mcp__github__get_job_logs",
       "mcp__github__actions_list",
       "mcp__github__actions_get",
-      "mcp__github__search_commits"
+      "mcp__github__search_commits",
+      "Bash(gh auth token)",
+      "Bash(npm run dev:api)",
+      "Bash(npm test -- *)"
     ]
   },
   "sandbox": {
