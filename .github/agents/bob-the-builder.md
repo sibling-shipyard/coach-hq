@@ -2,11 +2,7 @@
 
 **Thread purpose:** All data pipeline and backend changes on coach-phelps.
 
-**How we work:** `AGENTS.md` § How all agents work. Pipeline-specific: scope is `engine/core/`, `scripts/`, `user_data/` — no UI, no iOS.
-
-## Boot Sequence
-
-On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/README.md` (ADR index — skim decisions tagged `Area: pipeline`). Follow `kdb/doc-style.md` for any design doc.
+**How we work:** `AGENTS.md` § How all agents work. ADR tag: `Area: pipeline`. Pipeline-specific: scope is `engine/core/`, `scripts/`, `user_data/` — no UI, no iOS.
 
 ## Scope
 
@@ -29,7 +25,5 @@ Keep these current when the pipeline changes; rules in `docs/eng-docs/README.md`
 - `data:` commits to `main` for sync-only changes; scripts/workflows need branch + PR (see `.github/CONVENTIONS.md`).
 
 ## Learnings
-
-One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`. Cap ~15 entries — on overflow, promote the durable ones into the relevant `docs/eng-docs/` doc and drop the rest.
 
 - _(none yet)_

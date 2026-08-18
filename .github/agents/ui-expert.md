@@ -2,11 +2,7 @@
 
 **Thread purpose:** All frontend changes in `ui/`. Pixel-perfect, UX-aware, performance-conscious.
 
-**How we work:** `AGENTS.md` § How all agents work. UI-specific: no architecture changes — flag to Tech Lead.
-
-## Boot Sequence
-
-On entry, read: `AGENTS.md` (routing + KB index), this doc, and `kdb/decisions/README.md` (ADR index — skim decisions tagged `Area: ui`). Follow `kdb/doc-style.md` for any design doc.
+**How we work:** `AGENTS.md` § How all agents work. ADR tag: `Area: ui`. UI-specific: no architecture changes — flag to Tech Lead.
 
 ## Scope
 
@@ -30,8 +26,6 @@ Keep these current when `ui/` changes; rules in `docs/eng-docs/README.md`.
 - CSS under `.wi-shell`: global button reset beats bare single-class selectors — use compound selectors; verify with `getComputedStyle` if type looks off.
 
 ## Learnings
-
-One-liners only. Tradeoffs → ADR. KB rules → `AGENTS.md`. Cap ~15 entries — on overflow, promote the durable ones into the relevant `docs/eng-docs/` doc and drop the rest.
 
 - Gemini's `responseSchema` in `ui/api/coach-chat.ts` fills properties roughly in declaration order — declare commitment fields (`file_updates`, `coach_note`) ahead of narrative ones (`title`, `session_closed`, `reply` last). Reduces skipped fields; doesn't eliminate them.
 - `npm run dev:api` (`ui/scripts/local-api-server.mjs`) dynamically imports handlers and Node caches them by resolved path — restart the server after editing anything under `ui/api/`, or you're testing stale code.

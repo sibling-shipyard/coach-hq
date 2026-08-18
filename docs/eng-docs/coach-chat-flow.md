@@ -1,6 +1,6 @@
 # Coach Chat — how it works
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-16
+> Status: Current · Owner: UI Expert · Verified: 2026-08-18
 
 ## Context
 
@@ -457,6 +457,15 @@ re-run Gemini and the commit a second time); a 5xx/429 *response* still retries,
 confirmed nothing committed. A 401 shows a "sign in again" state on both platforms: web's shared
 `AccessRevokedCard`; iOS sets `authManager.sessionExpired`, surfaced by `MainTabView`'s app-wide
 `SessionExpiredView` overlay.
+
+## When the backend takes over a SOUL job
+
+The backend keeps absorbing jobs SOUL used to do in prose — greeting, close detection, day
+number, timezone, the commit ritual — and nobody deletes the instructions it replaced. **Whenever
+`ui/api/coach-chat.ts` (or a `_lib` module) takes over a behaviour, delete SOUL's version of it in
+the same PR.** Left in, it is dead text the model still reads on every turn, and the two copies
+drift until they contradict each other. Edit the layer in `platform/soul/`, re-run
+`node platform/scripts/compose-soul.mjs`, ship both in the same diff.
 
 ## Endpoint count constraint (ADR 0017)
 
