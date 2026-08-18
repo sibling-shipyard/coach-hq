@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-16
+> Status: Current · Owner: UI Expert · Verified: 2026-08-18
 
 ## Context
 
@@ -158,6 +158,36 @@ spread the whole object anyway). It never reaches the athlete either way.
 `file_updates` picks exactly one of `edits` (markdown, exact-match string replacement) /
 `merge_patch` (JSON, RFC 7396) / `content` (session files, whole-new-file) per entry — see
 `ui/api/_lib/fileEdits.ts` and `coach-chat-flow.md`'s Write strategy (A7) section.
+
+## Action-field design rule (any new Gemini-facing field/action)
+
+Hard rule, not a suggestion — every field added to `responseSchema` for Gemini to report a fact
+(`coach_note`, `memory_update`, `quest_event`, `profile_update`, and anything future) must pass
+all four. Each one traces back to something that actually broke or actually worked in production,
+not a guess:
+
+1. **Server computes all bookkeeping — dates, ids, timestamps, trace ids.** Gemini never reports
+   them. `coach_note`'s date comes from `todayDateString(stateMd, new Date())`, computed
+   server-side and passed in as a parameter — Gemini only ever supplies the semantic fact. A
+   Gemini-reported date/id is an extra way to fail (stale, mistaken, hallucinated) that the server
+   already has the real answer for.
+2. **One new field at a time, shipped and tested in isolation** before the next one is added —
+   never two new fact fields in the same PR.
+3. **Prefer constrained values over free text.** An enum (`status`) or one of a small fixed set of
+   labels beats an open string wherever the shape allows it; only the field that's genuinely
+   prose (`text`, `value`) should be unconstrained, and there should be at most one such field per
+   action.
+4. **Commitment fields ordered before the narrative `reply`** in the schema declaration (Gemini
+   fills fields in declaration order — see the Reasoning field section above for the evidence this
+   is based on).
+
+**Why this is a hard rule, not a preference:** three independent free-text fields have each
+triggered the same failure mode — a runaway repetition loop that burns the output budget on
+degenerate rambling, sometimes taking `session_closed` down with it — `reasoning` (removed),
+`title` (removed, same symptom), `session_note` (tried during the 2026-08 coach-memory redesign,
+pulled after one live reproduction). `coach_note` is the one field that's been reliable across
+dozens of real closes: short, single-purpose, declared early, no bookkeeping asked of it. Every
+new action added to this schema is filtered through these four rules for that reason.
 
 ## Retries, timeouts, rate limits
 
