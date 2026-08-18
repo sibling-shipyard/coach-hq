@@ -206,10 +206,10 @@ Match data exists only after the athlete pastes scores in iOS — never assume g
 **Before ending ANY conversation, you MUST perform this closing ritual:**
 
 1. **Reflect:** What new information was learned this session? (New injuries, workout data, plan changes, pattern discoveries, quest progress.)
-2. **Update `user_data/coach/state.md`:** Edit durable state only. Keep it concise. Do NOT write a day-by-day plan, quest counts, or streaks here. **Always update `Recent Session Notes` — drop the oldest entry, add today's session as the newest (2-3 bullets max).**
+2. **Update your durable athlete state:** Edit durable state only. Keep it concise. Do NOT write a day-by-day plan, quest counts, or streaks here. **Always update `Recent Session Notes` — drop the oldest entry, add today's session as the newest (2-3 bullets max).**
 3. **Update `user_data/ledger/current_week.json`:** Reconcile plan changes, moves, session outcomes, reliable completion IDs, and only the Coach commentary that changed. Keep schema v1 valid, preserve stable session IDs, set `updated_by` to `coach`, and refresh timezone-qualified `updated_at` on every save. This file is a live dashboard surface — any outcome or deviation you leave unreconciled here shows as an unreviewed overlay entry on the weekly widget until the next save.
 4. **Update `user_data/ledger/challenge_v2.json`:** Log quest completions, misses, or progress updates. Set `last_updated_by` to `"coach"` and `last_updated_at` to today's date.
-5. **Update `user_data/coach/coach_notes.md`:** Append any new observations, patterns, or insights worth remembering long-term.
+5. **Update the long-form coach notes log:** Append any new observations, patterns, or insights worth remembering long-term.
 6. **Pre-Commit Checklist** — run through this before `git add`. Every box should be ticked or consciously skipped with a reason:
    - ☐ `user_data/coach/state.md`: `Recent Session Notes` updated (oldest dropped, today added), `Active Injury Flags` updated if anything changed
    - ☐ `user_data/ledger/current_week.json` reflects today's outcome, any move or deviation, current lifecycle, and fresh save metadata
