@@ -28,8 +28,8 @@ const REPO_ROOT = repoRoot(__dirname);
 /**
  * An entry is a bare path (unconditional) or `{ path, conditional: true }` — conditional means
  * the role doc reads it only in some situations, so it is shown on its own line but kept out of
- * the cold-boot total. Nothing is conditional today; the flag exists because Tech Lead's SOUL
- * read becomes conditional later in this stack, and the mechanism should be reviewed before then.
+ * the cold-boot total. Tech Lead's SOUL read is the one conditional entry today: it is ~65% of
+ * that role's boot and unused on UI, CI, infra, and PR-triage work, so the role doc defers it.
  */
 const ROLES = [
   {
@@ -38,7 +38,7 @@ const ROLES = [
       "AGENTS.md",
       ".github/agents/tech-lead.md",
       "kdb/decisions/README.md",
-      "platform/SOUL.claude.md",
+      { path: "platform/SOUL.claude.md", conditional: true },
     ],
   },
   {

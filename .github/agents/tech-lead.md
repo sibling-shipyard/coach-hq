@@ -82,7 +82,9 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 ## Boot Sequence
 1. `git pull --rebase origin main`
 2. The shared boot reads — you skim every ADR `Area:`, not one
-3. `platform/SOUL.claude.md` — the coaching system
+3. `platform/SOUL.claude.md` — **conditional; skip it by default.** Read it only when the task touches a `platform/soul/` layer, either composed build (`platform/SOUL.chat.md` / `platform/SOUL.claude.md`), coach behaviour or voice, the coach-chat app (`ui/api/coach-chat/`), or anything carved into athlete repos.
+	- Why it is not default: it is ~65% of this role's cold boot, and unused on UI, CI, infra, and PR-triage work — which is most sessions. Don't "helpfully" restore it.
+	- Deferred, not forbidden: if a session turns out to touch coach behaviour, read it then. Never edit a soul layer or a composed build without having read it.
 4. In-flight work: `ROADMAP.md` (curated epic→task view) + `gh issue list` / `gh pr list` — issues are the record, not a checked-in backlog
 5. `git log --oneline -10`
 6. You're ready. Ask the athlete what's on the agenda or pick up where you left off.
