@@ -26,6 +26,14 @@ export interface GeminiReply {
   // applyMemoryUpdate). `label` is a constrained enum, never free text - gemini-flow.md's
   // Action-field design rule. Closing turns only, same as coach_note.
   memory_update?: { label: MemoryNoteLabel; text: string };
+  // coaching_style is a separate field from memory_update, not a seventh label - it's a plain
+  // top-level string on memory.json, not a {text, updated_at, trace_id} notes box, and it needs a
+  // real constrained enum rather than free text (live verification found it had no write path at
+  // all - the athlete asked to change it, nothing committed). Values match B_engine.md's actual
+  // First Session Protocol question verbatim ("How do you respond to being pushed? -
+  // accountability vs encouragement vs analysis") - normally set once there, but genuinely
+  // changeable later via chat, not locked (per direction - it's just naturally infrequent).
+  coaching_style_update?: "accountability" | "encouragement" | "analysis";
   // Array (workout-backend-wiring live verification, same fix issue #410 already gave
   // quest_event): a single object silently dropped every injury update past the first when an
   // athlete reported more than one in the same message - found live, the reply claimed both were
@@ -47,12 +55,15 @@ export interface GeminiReply {
   // `{ type: "string" }`, so Gemini's structured output can never actually produce a number here
   // regardless of what a wider TS type might promise. Found in review.
   quest_event?: { quest_id: string; status: "completed" | "missed" | "excused"; value?: string }[];
-  // Part 2 ledger split: one field in profile.json changed this conversation (e.g. weight_kg
-  // after the athlete reports a new number). Server sets that one field, nothing else - Gemini
-  // only ever supplies field/value. Closing turns only, same as the fields above.
+  // Part 2 ledger split: one or more fields in profile.json changed this conversation (e.g.
+  // weight_kg after the athlete reports a new number). Server sets each field, nothing else -
+  // Gemini only ever supplies field/value pairs. Closing turns only, same as the fields above.
+  // Array (workout-backend-wiring live verification, same fix issue #410 already gave
+  // quest_event/injury_event) - a single object silently dropped every field past the first when
+  // the athlete reported more than one in the same message.
   // value is string-only, same reasoning as quest_event above - the responseSchema below
   // declares it as `{ type: "string" }`. Found in review as the same bug class left uncorrected.
-  profile_update?: { field: "name" | "dob" | "timezone" | "height_cm" | "weight_kg"; value: string };
+  profile_update?: { field: "name" | "dob" | "timezone" | "height_cm" | "weight_kg"; value: string }[];
   // coach-redesign workout-backend-wiring §3: the athlete asked for a PERMANENT structural change
   // to one of their own existing workout templates. Originally free-form (Gemini captured an
   // instruction, a second separate Gemini call generated a whole new template from it) - dropped
@@ -168,6 +179,13 @@ export const GENERATION_CONFIG = {
           text: { type: "string" },
         },
       },
+      // Constrained enum, not free text - matches B_engine.md's real FSP intake question
+      // ("How do you respond to being pushed?"). Also written by First Session Protocol; this
+      // is the chat-editable path for changing it later.
+      coaching_style_update: {
+        type: "string",
+        enum: ["accountability", "encouragement", "analysis"],
+      },
       // Array (workout-backend-wiring live verification, same fix issue #410 already gave
       // quest_event) - a turn can report more than one injury update.
       injury_event: {
@@ -197,11 +215,17 @@ export const GENERATION_CONFIG = {
         },
       },
       // Part 2 ledger split, step 3b - shipped after quest_event confirmed working live.
+      // Array (workout-backend-wiring live verification, same fix issue #410 already gave
+      // quest_event) - a turn can report more than one profile field at once.
       profile_update: {
-        type: "object",
-        properties: {
-          field: { type: "string", enum: ["name", "dob", "timezone", "height_cm", "weight_kg"] },
-          value: { type: "string" },
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            field: { type: "string", enum: ["name", "dob", "timezone", "height_cm", "weight_kg"] },
+            value: { type: "string" },
+          },
+          required: ["field", "value"],
         },
       },
       // coach-redesign workout-backend-wiring §3 - single object, same mechanical shape as
@@ -418,6 +442,12 @@ export function buildDynamicText(
           "a learned mental/performance pattern, or equipment - set memory_update with that",
           "category as label and the new full text as text. Only set it when something genuinely",
           "changed; most closes won't need it. Never invent a change to justify setting it.",
+          "\nIf the athlete explicitly asks to change how you coach them - more direct, easier on",
+          "them, more explanation of the why - set coaching_style_update to exactly one of",
+          "\"accountability\" (direct, holds them to what they said), \"encouragement\" (supportive,",
+          "leads with what's going well), or \"analysis\" (explains the why behind everything). Pick",
+          "the closest match to what they asked for. Only set it on an explicit request to change",
+          "this - never infer it from mood or a single tough session.",
           "\nIf the athlete mentioned a new injury or pain, or gave an update on an existing one",
           "listed in Active Injury Flags below, set injury_event to an array with one entry per",
           "injury being reported - if the athlete mentions TWO separate injuries changing in the",
@@ -435,8 +465,10 @@ export function buildDynamicText(
           "invent one. Include value only for a progress-type quest where the athlete gave a new",
           "cumulative number (e.g. chapters read so far) - other quest types never need value.",
           "This only logs today - don't use it to backfill an earlier day.",
-          "\nIf the athlete gave a new value for one of their profile basics (name, date of birth,",
-          "timezone, height, or weight), set profile_update with that field and the new value.",
+          "\nIf the athlete gave a new value for one or more of their profile basics (name, date of",
+          "birth, timezone, height, or weight), set profile_update to an array with one entry per",
+          "field changed - the athlete stating both a new weight and a new timezone in the same",
+          "message is two entries, not one.",
           "Only set it when the athlete actually stated a new value, never to fill in a guess.",
           "\nIf the athlete asked to PERMANENTLY change one of their own existing workout",
           "templates (see Current templates below) going forward, not just for today - set",

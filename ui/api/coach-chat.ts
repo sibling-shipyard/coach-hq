@@ -42,7 +42,7 @@ import {
   type ChatThread,
 } from "./coach-chat/_lib/chatThreads.js";
 import { loadClosingFileContext, injectCoachSinceIfNeeded, type ClosingFileContext } from "./coach-chat/_lib/coachWrites.js";
-import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate } from "./coach-chat/_lib/coachIntents.js";
+import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate, applyCoachingStyleUpdate } from "./coach-chat/_lib/coachIntents.js";
 import {
   generateInitialTemplates,
   applyTemplateEdit,
@@ -315,21 +315,38 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // close - most closes carry no memory_update at all. Fetched fresh at commit time, same
       // pattern as coachNoteWrite above.
       const memoryUpdate = reply.memory_update;
-      const memoryUpdateWrite: FileEntry | undefined = memoryUpdate?.label && memoryUpdate.text?.trim()
-        ? {
-            path: MEMORY_PATH,
-            resolve: async () => {
-              const fresh = await getFileRaw(repo, MEMORY_PATH, token);
-              return applyMemoryUpdate(
-                fresh,
-                memoryUpdate.label,
-                memoryUpdate.text,
-                todayDateString(timezone, new Date()),
-                traceId,
-              );
-            },
-          }
-        : undefined;
+      const hasMemoryUpdate = Boolean(memoryUpdate?.label && memoryUpdate.text?.trim());
+      const coachingStyleUpdate = reply.coaching_style_update;
+
+      // memory_update and coaching_style_update both write memory.json, so a turn reporting both
+      // (e.g. a new fitness_baseline note plus a style change) is chained in one resolve() against
+      // the same fresh read, the same pattern currentWeekWrite below uses for session_reconcile +
+      // plan_edit - two independent FileEntry writes to the same path would silently drop one of
+      // them (commitFilesAtomic has no per-path merge, last blob for a path wins).
+      const memoryFileWrite: FileEntry | undefined =
+        hasMemoryUpdate || coachingStyleUpdate
+          ? {
+              path: MEMORY_PATH,
+              resolve: async () => {
+                let working: string | null = await getFileRaw(repo, MEMORY_PATH, token);
+                if (hasMemoryUpdate) {
+                  working = applyMemoryUpdate(
+                    working,
+                    memoryUpdate!.label,
+                    memoryUpdate!.text,
+                    todayDateString(timezone, new Date()),
+                    traceId,
+                  );
+                }
+                if (coachingStyleUpdate) {
+                  working = applyCoachingStyleUpdate(working, coachingStyleUpdate, todayDateString(timezone, new Date()), traceId);
+                }
+                // At least one of hasMemoryUpdate/coachingStyleUpdate is true (the guard above),
+                // so at least one branch ran and working is a real applier output, never null.
+                return working as string;
+              },
+            }
+          : undefined;
 
       // Step 4b: reported only when the athlete opened/updated/resolved one or more injury flags
       // this close. Array (workout-backend-wiring live verification, same fix issue #410 already
@@ -388,15 +405,19 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
-      // Part 2 ledger split, step 3b: reported only when the athlete gave a new profile basic
-      // this close. Fetched fresh at commit time, same pattern as the other optional writes.
-      const profileUpdate = reply.profile_update;
-      const profileUpdateWrite: FileEntry | undefined = profileUpdate?.field && profileUpdate.value != null
+      // Part 2 ledger split, step 3b: reported only when the athlete gave one or more new profile
+      // basics this close. Array (same fix as injury_event/quest_event above) - a single object
+      // silently dropped every field past the first when the athlete reported more than one in
+      // the same message. Fetched fresh at commit time, same pattern as the other optional writes.
+      const profileUpdates = (reply.profile_update ?? []).filter(
+        (update) => update.field != null && update.value != null,
+      );
+      const profileUpdateWrite: FileEntry | undefined = profileUpdates.length > 0
         ? {
             path: PROFILE_PATH,
             resolve: async () => {
               const fresh = await getFileRaw(repo, PROFILE_PATH, token);
-              return applyProfileUpdate(fresh, profileUpdate);
+              return applyProfileUpdate(fresh, profileUpdates);
             },
           }
         : undefined;
@@ -534,7 +555,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // when needed, land in ONE atomic commit.
       const optionalWrites: FileEntry[] = [];
       if (coachNoteWrite) optionalWrites.push(coachNoteWrite);
-      if (memoryUpdateWrite) optionalWrites.push(memoryUpdateWrite);
+      if (memoryFileWrite) optionalWrites.push(memoryFileWrite);
       if (injuryEventWrite) optionalWrites.push(injuryEventWrite);
       if (questEventWrite) optionalWrites.push(questEventWrite);
       if (profileUpdateWrite) optionalWrites.push(profileUpdateWrite);
