@@ -19,6 +19,7 @@
 | [`eng-docs/HOW_IT_WORKS.md`](eng-docs/HOW_IT_WORKS.md) | Athlete daily workflow (HQ doc) |
 | [`eng-docs/ios-app-spec.md`](eng-docs/ios-app-spec.md) | iOS functional spec |
 | [`eng-docs/ios-sync.md`](eng-docs/ios-sync.md) | HealthKit sync contract |
+| [`eng-docs/healthkit-richer-signals.md`](eng-docs/healthkit-richer-signals.md) | **Proposal** — day-grain ledger + HR stream sidecar |
 | [`eng-docs/github-auth.md`](eng-docs/github-auth.md) | GitHub auth for athletes |
 | [`eng-docs/TODO.md`](eng-docs/TODO.md) | HQ backlog |
 
