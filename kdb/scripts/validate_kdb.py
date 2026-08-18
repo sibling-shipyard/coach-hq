@@ -191,11 +191,23 @@ def git(*args):
         return None
     return r.stdout.strip() if r.returncode == 0 else None
 
-def soul_history_guard():
+_DIFF_CACHE = {}
+
+def diff_vs_base():
+    """(base_ref, [changed paths]) for this branch vs its merge-base, or (None, reason).
+
+    Shared by the soul-history guard and the staleness check — both need "what does this
+    diff actually touch", and resolving it twice would let the two disagree.
+    """
+    if "v" not in _DIFF_CACHE:
+        _DIFF_CACHE["v"] = _resolve_diff()
+    return _DIFF_CACHE["v"]
+
+def _resolve_diff():
     if git("rev-parse", "--git-dir") is None:
-        return "soul-history guard skipped: git unavailable"
+        return None, "git unavailable"
     if git("rev-parse", "--is-shallow-repository") == "true":
-        return "soul-history guard skipped: shallow clone has no merge-base — set fetch-depth: 0"
+        return None, "shallow clone has no merge-base — set fetch-depth: 0"
     candidates = []
     base_ref = os.environ.get("GITHUB_BASE_REF", "").strip()
     if base_ref:
@@ -203,14 +215,24 @@ def soul_history_guard():
     candidates += ["origin/main", "main"]
     base = next((c for c in candidates if git("rev-parse", "--verify", "--quiet", c + "^{commit}")), None)
     if base is None:
-        return f"soul-history guard skipped: no base branch resolved (tried {', '.join(candidates)})"
+        return None, f"no base branch resolved (tried {', '.join(candidates)})"
     mb = git("merge-base", base, "HEAD")
     if not mb:
-        return f"soul-history guard skipped: no merge-base between {base} and HEAD"
+        return None, f"no merge-base between {base} and HEAD"
     out = git("diff", "--name-only", f"{mb}..HEAD")
     if out is None:
-        return f"soul-history guard skipped: could not diff {mb[:8]}..HEAD"
-    changed = [line for line in out.splitlines() if line]
+        return None, f"could not diff {mb[:8]}..HEAD"
+    return base, [line for line in out.splitlines() if line]
+
+def changed_paths_vs_base():
+    """Repo-relative paths this diff touches, or None when the diff cannot be seen."""
+    base, changed = diff_vs_base()
+    return set(changed) if base is not None else None
+
+def soul_history_guard():
+    base, changed = diff_vs_base()
+    if base is None:
+        return f"soul-history guard skipped: {changed}"
     layers = [f for f in changed if f.startswith(SOUL_LAYERS)]
     if layers and SOUL_HISTORY not in changed:
         errors.append(
@@ -224,14 +246,29 @@ if skip_reason:
 
 # `Verified:` staleness. Docs carry `> Status: Current - Owner: <role> - Verified: YYYY-MM-DD`.
 # Only Current docs are re-verified; Historical/Superseded are dated records of a tree that is
-# gone on purpose, so they reuse HISTORICAL_RE above and are skipped. Warn past 60 days, fail
-# past 90 — a doc nobody has looked at in a quarter is a liability, not a reference. A Current
-# doc with no parseable date warns rather than fails: missing front matter is a doc-hygiene
-# nit, not a reason to red-light someone else's build.
+# gone on purpose, so they reuse HISTORICAL_RE above and are skipped. A Current doc with no
+# parseable date warns rather than fails: missing front matter is a doc-hygiene nit, not a
+# reason to red-light someone else's build.
+#
+# WHY THE HARD FAIL IS SCOPED TO DOCS THE DIFF TOUCHES
+# Every doc in this repo was verified inside one three-week window, so an unscoped 90-day fail
+# does not ratchet — it CLIFFS. Measured at the time this was written: on 2026-11-26, 27 docs
+# cross 90 days on the same day, and from then on every `docs/**` PR is red until someone
+# re-reads all 27, including PRs that touch none of them. A check that red-lights work it has
+# no quarrel with gets switched off within a day, which is the same reasoning the soul-history
+# guard above uses to skip rather than fail when it cannot see the diff.
+#
+# So: stale past 90 days AND in this diff -> error, because you are editing a doc you did not
+# re-verify, and that is squarely your PR's business. Stale past 90 but untouched -> a loud
+# warning, visible on every run, actionable by whoever owns the doc. Past 60 -> warning. If the
+# diff cannot be resolved (shallow clone, no base), nothing hard-fails: the same fail-safe.
 STALE_WARN_DAYS, STALE_FAIL_DAYS = 60, 90
 CURRENT_RE = re.compile(r"^>\s*Status:\s*Current\b", re.M)
 VERIFIED_RE = re.compile(r"^>\s*Status:.*?\bVerified:\s*(\d{4})-(\d{2})-(\d{2})", re.M)
 TODAY = datetime.date.today()
+
+# Reuses the soul guard's base resolution. None -> the diff is unknown, so nothing hard-fails.
+changed_docs = changed_paths_vs_base()
 
 for fp in sorted((ROOT / "docs" / "eng-docs").glob("*.md")) + sorted((ROOT / "docs" / "plans").glob("*.md")):
     text = fp.read_text()
@@ -247,10 +284,16 @@ for fp in sorted((ROOT / "docs" / "eng-docs").glob("*.md")) + sorted((ROOT / "do
         warnings.append(f"{rel}: Status: Current but no parseable `Verified: YYYY-MM-DD` date")
         continue
     age = (TODAY - verified).days
-    if age > STALE_FAIL_DAYS:
-        errors.append(f"{rel}: Verified: {verified} is {age} days old (>{STALE_FAIL_DAYS}) — "
-                      "re-read it and bump the date, or mark it Historical")
-    elif age > STALE_WARN_DAYS:
+    if age <= STALE_WARN_DAYS:
+        continue
+    touched = changed_docs is not None and str(rel) in changed_docs
+    if age > STALE_FAIL_DAYS and touched:
+        errors.append(f"{rel}: Verified: {verified} is {age} days old (>{STALE_FAIL_DAYS}) and this "
+                      "diff edits it — re-read it and bump the date, or mark it Historical")
+    elif age > STALE_FAIL_DAYS:
+        warnings.append(f"{rel}: Verified: {verified} is {age} days old (>{STALE_FAIL_DAYS}) — overdue; "
+                        "fails the build on the next PR that edits it")
+    else:
         warnings.append(f"{rel}: Verified: {verified} is {age} days old (>{STALE_WARN_DAYS}) — due for a re-read")
 
 for w in warnings:
