@@ -147,9 +147,11 @@ coaching model can use, not carrying over one model's fields unchanged:
 ```
 
 One row shape for every quest type — this is the redesign's strongest simplification in the whole
-ledger split. `quest_event {quest_id, date, status}` writing to *the row for that quest on that
+ledger split. `quest_event {quest_id, status}` writing to *the row for that quest on today's
 date* means reporting the same tick twice is a no-op by construction (upsert on
-`quest_id`+`date`), which is real repeat-safety, not just a stated goal. `season_id` stamped on
+`quest_id`+`date`), which is real repeat-safety, not just a stated goal. `date` is stamped
+server-side (today's date, same as `coach_note`'s `todayDateString()` — see the action table
+below), not reported by Gemini. `season_id` stamped on
 every row (LLD's answered question #2) costs ~20 bytes/row and removes an implicit "later season
 wins on date overlap" rule from `generate_quest_history.py` — worth keeping, the cost is trivial
 next to what it makes explicit.
@@ -194,7 +196,7 @@ real). No field-level concerns; this is the smallest, least-changed of the four 
 
 | Reports | Shape | Server does | Repeat-safe because |
 |---|---|---|---|
-| `quest_event` | `{quest_id, date, status, value?}` | upserts the row in `progress.json` for that quest+date | same quest_id + date = same row |
+| `quest_event` | `{quest_id, status, value?}` | stamps today's date server-side, upserts the row in `progress.json` for that quest+date | same quest_id + date = same row |
 | `profile_update` | `{field, value}` | sets one field in `profile.json` | same field + trace_id |
 
 `quest_event`'s `value` is optional and only meaningful for `progress`-type quests (the "12/20
@@ -202,6 +204,16 @@ chapters" case) — `daily_streak`/`count_target`/`weekly_frequency` quests only
 `status`. Without this, there'd be no way for Gemini to actually write the `value` field
 `progress.json`'s rows carry for `progress`-type quests — caught while updating this section after
 restoring `progress` back into `quests.json`.
+
+**`date` dropped from the action, added server-side.** Checked how `coach_note` actually gets
+applied (`coachIntents.ts`, `coachWrites.ts`'s `appendCoachNote`) and found the real pattern is
+stricter than "one action, one new field": Gemini never reports a date, id, or timestamp for
+anything — `todayDateString(stateMd, new Date())` computes it server-side and gets passed in as a
+parameter. `quest_event` originally asked Gemini for `date` too; that's an extra field to get
+right (or wrong — a stale/mistaken date is its own failure mode) when the server already knows
+today's date the same way it does for `coach_note`. Standing rule for every action this redesign
+adds: Gemini supplies only the minimum semantic fact, never bookkeeping the server can compute
+itself.
 
 Same "add one new thing at a time" discipline as Part 1 — don't ship both in the same PR as Part
 1's `memory_update`. Order: `memory_update` lands with Part 1 (state.md split), `quest_event` +
