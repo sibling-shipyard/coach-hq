@@ -32,7 +32,7 @@ last. The collision between #286 and #287 exists already and is not caused by th
                    THEN  PR 1 move  ──►  PR 2 decompose
 ```
 
-#286 already extracts `ui/api/_lib/coachIntents.ts` — same direction as this plan, so it shrinks
+#286 already extracts `ui/api/coach-chat/_lib/coachIntents.ts` — same direction as this plan, so it shrinks
 the remaining split rather than fighting it. Re-measure the file after both land; if it drops
 under ~600 lines, drop `chatThreads` from the carve and revisit.
 
@@ -54,13 +54,13 @@ under ~600 lines, drop `chatThreads` from the carve and revisit.
                                (coaching)                     (security)
 ```
 
-All under `ui/api/_lib/`. No barrel files — the import path is the signal, hiding it defeats
+All under `ui/api/coach-chat/_lib/`. No barrel files — the import path is the signal, hiding it defeats
 the point. Comments in this file are load-bearing (`GEMINI_MODEL` deprecation history, the A8
 schema field ordering, the A5 staleness check); they move with their code or the move failed.
 
 ## Done when
 
-1. **PR 1** — `git diff -M -C` reports moves, not rewrites. The 5 tests in `ui/api/_tests/`
+1. **PR 1** — `git diff -M -C` reports moves, not rewrites. The 5 tests in `ui/api/coach-chat/_tests/`
    change exactly one import line each; any change to a test *body* means it stopped being a
    move. `npm test` green.
 2. **PR 2** — `handle()` is under ~150 lines, one function per lifecycle stage, same tests green

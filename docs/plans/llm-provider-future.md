@@ -69,7 +69,7 @@ for anything: close-session detection is a plain regex (`CLOSE_SESSION_PATTERN`,
   a cross-instance or provider-level cache.
 - **Shipped:** SOUL.md is no longer fetched from the athlete's own repo at all. It's verified
   100% generic (no per-athlete substitution anywhere in the carve process), so the backend now
-  bundles `platform/SOUL.md` at build time (`ui/scripts/build-soul.mjs`) instead — one fewer
+  bundles `platform/SOUL.chat.md` at build time (`ui/scripts/build-soul.mjs`) instead — one fewer
   GitHub API call every turn, and a coach-behavior change now reaches every athlete's chat
   immediately instead of waiting on their next carve. See the ADR amending 0011.
 
