@@ -145,4 +145,44 @@ describe("applySessionPlan", () => {
     expect(parsed.phases).toHaveLength(1);
     expect(parsed.phases[0].exercises.map((e: any) => e.num)).toEqual([1, 2, 3]);
   });
+
+  // skip_phases: Gemini is never shown exercise numbers (see GeminiReply's own comment on
+  // session_plan), so a real athlete request like "skip the warmup" or "skip the shoulder phase"
+  // has to be resolved server-side from the phase's plain-language name, not a number Gemini could
+  // never actually know.
+  it("resolves skip_phases by name (case-insensitive) to the phase's exercise nums", () => {
+    const { content } = applySessionPlan(
+      currentTemplateContent,
+      { template_id: "strength_b", session_date: "2026-08-18", skip_phases: ["warmup"] },
+      validIds,
+      "t1",
+    );
+    const parsed = JSON.parse(content);
+    expect(parsed.phases).toHaveLength(1);
+    expect(parsed.phases[0].exercises.map((e: any) => e.num)).toEqual([1, 2, 3]);
+  });
+
+  it("combines skip_phases and skip_exercise_nums together", () => {
+    const { content } = applySessionPlan(
+      currentTemplateContent,
+      { template_id: "strength_b", session_date: "2026-08-18", skip_phases: ["Warmup"], skip_exercise_nums: [5] },
+      validIds,
+      "t1",
+    );
+    const parsed = JSON.parse(content);
+    expect(parsed.phases).toHaveLength(1);
+    expect(parsed.phases[0].exercises.map((e: any) => e.num)).toEqual([1, 2]);
+  });
+
+  it("ignores an unrecognized phase name rather than throwing or failing the whole plan", () => {
+    const { content } = applySessionPlan(
+      currentTemplateContent,
+      { template_id: "strength_b", session_date: "2026-08-18", skip_phases: ["Cooldown Stretch"] },
+      validIds,
+      "t1",
+    );
+    const parsed = JSON.parse(content);
+    expect(parsed.phases).toHaveLength(2);
+    expect(parsed.phases.flatMap((p: any) => p.exercises.map((e: any) => e.num))).toEqual([1, 2, 3, 4, 5]);
+  });
 });

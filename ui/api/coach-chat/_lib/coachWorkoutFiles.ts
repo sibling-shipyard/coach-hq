@@ -471,8 +471,7 @@ export function sessionPath(sessionDate: string, templateId: string): string {
 // exercises down, then walks every phase in order re-assigning num 1, 2, 3... sequentially across
 // the whole workout (never gaps, never restarting per-phase) - B_engine.md's Persisting Session
 // Files rule #3 ("exercises removed (re-numbered sequentially, no gaps)"). Matches original
-// relative order since it only ever filters+re-labels, never reorders. A phase whose exercises are
-// all skipped is left with an empty exercises array rather than dropped or crashed on here -
+// relative order since it only ever filters+re-labels, never reorders.
 // A phase left with zero exercises after skipping is dropped entirely rather than kept and
 // rejected by validateWorkout downstream - skipping every exercise in a phase (e.g. "skip the
 // whole shoulder phase today, it's flared up") is a real, foreseeable request, not malformed
@@ -492,21 +491,42 @@ export function renumberAfterSkip(phases: Workout["phases"], skipNums: number[])
     .filter((phase) => phase.exercises.length > 0);
 }
 
+// Resolves plain-language phase names (skip_phases) to exercise nums, matched case-insensitively
+// against the real template's own phase names - Gemini is never shown exercise numbers (see
+// GeminiReply's comment on session_plan for why), so this is where a name like "shoulder & elbow"
+// actually becomes a set of numbers to drop. An unrecognized name is logged and skipped rather
+// than thrown - this is best-effort natural-language matching, not an id-hallucination guard like
+// template_id/quest_id; a near-miss name shouldn't fail the whole session_plan when
+// skip_exercise_nums or other matched phases might still be perfectly good.
+function resolvePhaseNames(phases: Workout["phases"], phaseNames: string[], traceId: string): number[] {
+  const nums: number[] = [];
+  for (const name of phaseNames) {
+    const target = name.trim().toLowerCase();
+    const phase = phases.find((p) => p.name.trim().toLowerCase() === target);
+    if (!phase) {
+      console.warn(`[coach-chat] session_plan: no phase named "${name}" in this template - ignoring`, { traceId });
+      continue;
+    }
+    nums.push(...phase.exercises.map((ex) => ex.num));
+  }
+  return nums;
+}
+
 /**
  * Applies a session_plan action field: builds an injury/periodization-adjusted snapshot of one of
  * the athlete's own templates for a specific day (B_engine.md's Persisting Session Files ritual).
  * Validates template_id against the athlete's real, already-committed template ids
  * (validTemplateIds, same manifest-based set applyTemplateEdit already established) before doing
- * anything else - same hallucinated-id guard. No Gemini call: skip_exercise_nums is purely
- * mechanical (renumberAfterSkip), matching the plan's explicit "no Gemini call needed" for this
- * shape. Validates the final result structurally (validateWorkout) before returning - never commit
- * invalid data, same discipline as applyTemplateEdit. Returns {path, content} rather than just
- * content since, unlike every other applier here, the write path itself is dynamic (per
- * session_date + template_id), not a fixed constant.
+ * anything else - same hallucinated-id guard. No Gemini call: skip_exercise_nums/skip_phases are
+ * purely mechanical (resolvePhaseNames + renumberAfterSkip), matching the plan's explicit "no
+ * Gemini call needed" for this shape. Validates the final result structurally (validateWorkout)
+ * before returning - never commit invalid data, same discipline as applyTemplateEdit. Returns
+ * {path, content} rather than just content since, unlike every other applier here, the write path
+ * itself is dynamic (per session_date + template_id), not a fixed constant.
  */
 export function applySessionPlan(
   templateContent: string | null,
-  plan: { template_id: string; session_date: string; skip_exercise_nums?: number[]; note?: string },
+  plan: { template_id: string; session_date: string; skip_exercise_nums?: number[]; skip_phases?: string[]; note?: string },
   validTemplateIds: ReadonlySet<string>,
   traceId: string,
 ): { path: string; content: string } {
@@ -519,8 +539,9 @@ export function applySessionPlan(
     throw new Error(`session_plan: template "${plan.template_id}" could not be read`);
   }
 
-  const skipNums = plan.skip_exercise_nums ?? [];
-  const phases = skipNums.length > 0 ? renumberAfterSkip(base.phases, skipNums) : base.phases;
+  const skipNums = new Set(plan.skip_exercise_nums ?? []);
+  for (const num of resolvePhaseNames(base.phases, plan.skip_phases ?? [], traceId)) skipNums.add(num);
+  const phases = skipNums.size > 0 ? renumberAfterSkip(base.phases, [...skipNums]) : base.phases;
 
   // coaching_note: append the athlete-facing reason rather than replace it outright, so any
   // durable context already on the base template (e.g. general session guidance) survives the

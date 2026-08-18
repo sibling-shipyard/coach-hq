@@ -74,11 +74,18 @@ export interface GeminiReply {
   // session planning shows up, that's a deliberate schema change later (add an explicit
   // Gemini-supplied session_date with its own validation), not a workaround here.
   // template_id must be one of the ids listed in context (activeTemplatesContext, same set
-  // template_edit uses) - never invented. skip_exercise_nums is the only supported modification
-  // this pass (free-form new-exercise insertion is a known gap, not built yet). Single object, not
-  // an array - one session prescription per closing turn, matching template_edit/profile_update's
-  // shape. Closing turns only, same as the fields above.
-  session_plan?: { template_id: string; skip_exercise_nums?: number[]; note?: string };
+  // template_edit uses) - never invented. Modification is skip_exercise_nums (exact numbers, if
+  // Coach happens to know them) and/or skip_phases (the phase's name in plain language, e.g.
+  // "Shoulder & Elbow") - free-form new-exercise insertion is a known gap, not built yet.
+  // skip_phases exists because Gemini is never shown the template's actual exercise numbers (that
+  // would mean fetching every template's full content into every closing turn's context, which is
+  // exactly the "too much field/context pressure" this design is trying to avoid) - so it names
+  // the phase the way an athlete actually talks about it, and coachWorkoutFiles.ts resolves that
+  // name against the one real template it already fetches at commit time, server-side, the same
+  // place skip_exercise_nums gets applied. Single object, not an array - one session prescription
+  // per closing turn, matching template_edit/profile_update's shape. Closing turns only, same as
+  // the fields above.
+  session_plan?: { template_id: string; skip_exercise_nums?: number[]; skip_phases?: string[]; note?: string };
   // coach-redesign workout-backend-wiring §5: the Weekly Kick-off Ritual (B_engine.md) - Coach is
   // writing the full Monday-to-Sunday plan. Single object, full rewrite of current_week.json's
   // days/sessions/week, not an incremental patch - matches how the ritual actually works (the
@@ -188,12 +195,15 @@ export const GENERATION_CONFIG = {
       },
       // coach-redesign workout-backend-wiring §4 - single object, matching template_edit's shape.
       // No session_date property here - server-stamped, see GeminiReply's own comment above for
-      // why. skip_exercise_nums is the only supported modification this pass.
+      // why. skip_exercise_nums/skip_phases together are the only supported modification this
+      // pass - see GeminiReply's own comment on session_plan for why skip_phases is plain-language
+      // rather than a constrained list.
       session_plan: {
         type: "object",
         properties: {
           template_id: { type: "string" },
           skip_exercise_nums: { type: "array", items: { type: "number" } },
+          skip_phases: { type: "array", items: { type: "string" } },
           note: { type: "string" },
         },
         // template_id is the only field the write guard in coach-chat.ts actually needs
@@ -383,13 +393,16 @@ export function buildDynamicText(
           "commits, so it's fine to close normally in the same response if the athlete is done.",
           "\nIf you are prescribing today's session as a modified version of one of the athlete's",
           "own templates (see Current templates below) - dropping exercises for an injury or a",
-          "time constraint - set session_plan with that template's exact template_id, an array",
-          "skip_exercise_nums of the exercise numbers to drop, and a short note explaining why.",
-          "Only set this when the session is genuinely modified from the template as written - if",
-          "today's session is the standard, unmodified template, do NOT set session_plan; the",
-          "athlete's timer app already falls back to the base template on its own. Only use a",
-          "template_id that's actually listed below - never invent one. This always applies to",
-          "today's session only, never a future date.",
+          "time constraint - set session_plan with that template's exact template_id and a short",
+          "note explaining why. You don't know the template's exact exercise numbers, so name what",
+          "to drop the way the athlete actually said it: skip_exercise_nums if you happen to know",
+          "specific numbers, skip_phases with the phase's plain-language name (e.g. \"Shoulder &",
+          "Elbow\") when the athlete means a whole section - either or both, whatever matches what",
+          "was actually asked. Only set this when the session is genuinely modified from the",
+          "template as written - if today's session is the standard, unmodified template, do NOT",
+          "set session_plan; the athlete's timer app already falls back to the base template on",
+          "its own. Only use a template_id that's actually listed below - never invent one. This",
+          "always applies to today's session only, never a future date.",
           "\nIf you are running the Weekly Kick-off Ritual (the athlete asked to plan the week, or",
           "it's Monday and there's no current live weekly plan) and are ready to commit the full",
           "week, set week_plan: focus, guardrails, headline/body (your one weekly coaching",
