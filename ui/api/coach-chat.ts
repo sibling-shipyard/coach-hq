@@ -41,13 +41,15 @@ import {
   type ChatThread,
 } from "./coach-chat/_lib/chatThreads.js";
 import { loadClosingFileContext, injectCoachSinceIfNeeded, type ClosingFileContext } from "./coach-chat/_lib/coachWrites.js";
-import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent } from "./coach-chat/_lib/coachIntents.js";
-import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
-import { renderCoachContext } from "./coach-chat/_lib/coachContext.js";
+import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate } from "./coach-chat/_lib/coachIntents.js";
+import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
+import { PROGRESS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
+import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import {
   combineExtraContext,
   injuryFlagsContext,
+  activeQuestsContext,
   firstSessionContext,
   onboardingHintsContext,
   type GeminiReply,
@@ -66,10 +68,11 @@ async function handleGreet(
   onboardingHints?: OnboardingHints,
 ): Promise<Response> {
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
-  const { soul, questLog, profile, memory, injuries, coachLog } = context;
+  const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
   const timezone = profile?.timezone?.trim() || "UTC";
   const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
+  const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
 
   let reply: GeminiReply;
   try {
@@ -77,7 +80,7 @@ async function handleGreet(
       apiKey,
       soul,
       athleteContext,
-      questLog ?? "",
+      questContext,
       [],
       "",
       "greeting",
@@ -85,6 +88,7 @@ async function handleGreet(
         firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
         onboardingHintsContext(onboardingHints),
         injuryFlagsContext(injuries),
+        activeQuestsContext(quests),
       ),
       undefined,
       timezone,
@@ -153,10 +157,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // A3: reuses the app-load preload's 60s cache, unless A5 just found it stale, in which
       // case force a fresh read.
-      const { soul, questLog, profile, memory, injuries, coachLog } = await loadCoachContext(repo, token, { fresh: stale });
+      const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions } = await loadCoachContext(repo, token, { fresh: stale });
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
       const timezone = profile?.timezone?.trim() || "UTC";
       const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
+      const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
 
       const priorMessages = messages ?? [];
       // Keyword match only triggers asking Gemini to consider closing - reply.session_closed is
@@ -183,7 +188,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           apiKey,
           soul,
           athleteContext,
-          questLog ?? "",
+          questContext,
           priorMessages,
           trimmed,
           closeIntent ? "closing" : "ordinary",
@@ -192,6 +197,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           combineExtraContext(
             firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
             injuryFlagsContext(injuries),
+            activeQuestsContext(quests),
           ),
           traceId,
           timezone,
@@ -312,6 +318,57 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
+      // Part 2 ledger split, step 3a: reported only when the athlete logged one or more quest
+      // completions/misses/excuses this close (issue #410: quest_event is now an array so a turn
+      // reporting several at once captures all of them). currentSeasonId comes from the pre-turn
+      // seasons.json read (not re-fetched at commit time) - a season change mid-conversation is
+      // not a case worth guarding against here, same trust level as the rest of this turn's
+      // context.
+      const questEvents = reply.quest_event ?? [];
+      const currentSeasonId = seasons?.current_season_id ?? "";
+      // Same real ids injected into the prompt (activeQuestsContext) that Gemini was told to use
+      // verbatim - applyQuestEvent throws on anything outside this set. Found in review: this
+      // used to include every quest regardless of status, but activeQuestsContext only ever
+      // shows status:"active" side quests (plus the main quest, which has no status to filter
+      // on) - a graduated/retired quest's id was accepted even though Gemini was never told about
+      // it. Filter to match activeQuestsContext exactly, not just "same variable name, different
+      // scope."
+      const validQuestIds = new Set<string>(
+        [quests?.main_quest?.id, ...(quests?.quests ?? []).filter((q) => q.status === "active").map((q) => q.id)].filter((id): id is string =>
+          Boolean(id),
+        ),
+      );
+      const questEventWrite: FileEntry | undefined = questEvents.length > 0
+        ? {
+            path: PROGRESS_PATH,
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, PROGRESS_PATH, token);
+              return applyQuestEvent(
+                fresh,
+                questEvents,
+                todayDateString(timezone, new Date()),
+                currentSeasonId,
+                traceId,
+                new Date(),
+                validQuestIds,
+              );
+            },
+          }
+        : undefined;
+
+      // Part 2 ledger split, step 3b: reported only when the athlete gave a new profile basic
+      // this close. Fetched fresh at commit time, same pattern as the other optional writes.
+      const profileUpdate = reply.profile_update;
+      const profileUpdateWrite: FileEntry | undefined = profileUpdate?.field && profileUpdate.value != null
+        ? {
+            path: PROFILE_PATH,
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, PROFILE_PATH, token);
+              return applyProfileUpdate(fresh, profileUpdate);
+            },
+          }
+        : undefined;
+
       // B2/ADR 0018: profile.json isn't edited here, so both sides of this transition check stay
       // the pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
       const wasProfileComplete = isAthleteProfileComplete(profile, memory);
@@ -328,6 +385,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       if (coachNoteWrite) optionalWrites.push(coachNoteWrite);
       if (memoryUpdateWrite) optionalWrites.push(memoryUpdateWrite);
       if (injuryEventWrite) optionalWrites.push(injuryEventWrite);
+      if (questEventWrite) optionalWrites.push(questEventWrite);
+      if (profileUpdateWrite) optionalWrites.push(profileUpdateWrite);
       const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
 
       let repoSha: string;

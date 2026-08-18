@@ -17,10 +17,19 @@ import {
   type InjuriesJson,
   type CoachLogJson,
 } from "./coachMemoryFiles.js";
+import {
+  SEASONS_PATH,
+  QUESTS_PATH,
+  PROGRESS_PATH,
+  PROGRESSIONS_PATH,
+  type SeasonsJson,
+  type QuestsJson,
+  type ProgressJson,
+  type ProgressionsJson,
+} from "./coachQuestFiles.js";
 
 // SOUL.md is 100% generic across athletes, so it's bundled at build time (ui/scripts/build-
 // soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
-export const QUEST_LOG_PATH = "gen/quest_log.md";
 
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -70,11 +79,17 @@ export async function getFileRaw(repo: string, path: string, token: string, atte
 
 export interface CoachContext {
   soul: string | null;
-  questLog: string | null;
   profile: ProfileJson | null;
   memory: MemoryJson | null;
   injuries: InjuriesJson | null;
   coachLog: CoachLogJson | null;
+  // Part 2 ledger split: replaces challenge_v2.json and gen/quest_log.md - these four feed
+  // renderQuestContext (coachContext.ts) directly. Found in review: quest_log.md was still being
+  // fetched here (dead network call every turn) after nothing was left reading it - removed.
+  seasons: SeasonsJson | null;
+  quests: QuestsJson | null;
+  progress: ProgressJson | null;
+  progressions: ProgressionsJson | null;
 }
 
 // Best-effort parse - a missing or malformed file (not yet migrated, or a transient bad commit)
@@ -130,20 +145,27 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 
   const promise = (async (): Promise<CoachContext> => {
-    const [questLog, profileRaw, memoryRaw, injuriesRaw, coachLogRaw] = await Promise.all([
-      getFileRaw(repo, QUEST_LOG_PATH, token),
-      getFileRaw(repo, PROFILE_PATH, token),
-      getFileRaw(repo, MEMORY_PATH, token),
-      getFileRaw(repo, INJURIES_PATH, token),
-      getFileRaw(repo, COACH_LOG_PATH, token),
-    ]);
+    const [profileRaw, memoryRaw, injuriesRaw, coachLogRaw, seasonsRaw, questsRaw, progressRaw, progressionsRaw] =
+      await Promise.all([
+        getFileRaw(repo, PROFILE_PATH, token),
+        getFileRaw(repo, MEMORY_PATH, token),
+        getFileRaw(repo, INJURIES_PATH, token),
+        getFileRaw(repo, COACH_LOG_PATH, token),
+        getFileRaw(repo, SEASONS_PATH, token),
+        getFileRaw(repo, QUESTS_PATH, token),
+        getFileRaw(repo, PROGRESS_PATH, token),
+        getFileRaw(repo, PROGRESSIONS_PATH, token),
+      ]);
     const value: CoachContext = {
       soul: SOUL,
-      questLog,
       profile: parseJsonOrNull<ProfileJson>(profileRaw),
       memory: parseJsonOrNull<MemoryJson>(memoryRaw),
       injuries: parseJsonOrNull<InjuriesJson>(injuriesRaw),
       coachLog: parseJsonOrNull<CoachLogJson>(coachLogRaw),
+      seasons: parseJsonOrNull<SeasonsJson>(seasonsRaw),
+      quests: parseJsonOrNull<QuestsJson>(questsRaw),
+      progress: parseJsonOrNull<ProgressJson>(progressRaw),
+      progressions: parseJsonOrNull<ProgressionsJson>(progressionsRaw),
     };
     contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
     return value;
@@ -160,12 +182,17 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
 // B2/coach-redesign-part1-memory.md: First Session Protocol completion check. Used to be a
 // regex/section-matching read of state.md's Athlete Profile section (see git history) - now a
 // simple field-presence check against profile.json/memory.json, matching #362's reduced
-// REQUIRED_PROFILE_FIELDS set exactly: `name` lives in profile.json, `sport`/`goal` moved to
-// memory.json in the Part 1 redesign, so this reads across both files rather than one.
+// REQUIRED_PROFILE_FIELDS set: `name` lives in profile.json, `sport` moved to memory.json in the
+// Part 1 redesign, so this reads across both files rather than one.
+//
+// Issue #408: `goal` dropped from memory.json entirely (seasons.json's name + quests.json's
+// main_quest now represent what it was trying to capture structurally), so it's dropped from
+// this gate too - name+sport is what's left. Whether First Session completeness should instead
+// check for a main_quest is a separate call the wiring-up-quests work should make deliberately,
+// not something to fold in here silently.
 export function isAthleteProfileComplete(profile: ProfileJson | null, memory: MemoryJson | null): boolean {
   if (!profile || !memory) return false;
   const hasName = Boolean(profile.name && profile.name.trim().length > 0);
   const hasSport = Array.isArray(memory.sports) && memory.sports.some((s) => s.trim().length > 0);
-  const hasGoal = Boolean(memory.goal && memory.goal.trim().length > 0);
-  return hasName && hasSport && hasGoal;
+  return hasName && hasSport;
 }

@@ -5,7 +5,8 @@
  * field gets wired in.
  */
 
-import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow } from "./coachMemoryFiles.js";
+import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
+import { type ProgressRow } from "./coachQuestFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 
 // coach_note: appends one row to coach_log.json - the single merged continuity log
@@ -52,8 +53,6 @@ export function applyMemoryUpdate(
     version: 1,
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
-    goal: parsed.goal ?? "",
-    timeline: parsed.timeline ?? "",
     coaching_style: parsed.coaching_style ?? "",
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
@@ -130,4 +129,129 @@ export function applyInjuryEvent(content: string | null, event: InjuryEvent, tod
   });
 
   return JSON.stringify({ flags: updated }, null, 2);
+}
+
+// quest_event { quest_id, status, value? }[]: Part 2 ledger split. Server owns date/id/ts/
+// trace_id/season_id entirely (gemini-flow.md's Action-field design rule #1) - Gemini only ever
+// supplies quest_id/status/value. Upserts on (quest_id, date) - reporting the same tick twice for
+// today is a no-op by construction, same repeat-safety story as coach-redesign-part2-ledger.md
+// describes. `value` only matters for progress-type quests (e.g. "12/20 chapters") - other quest
+// types only ever report status.
+//
+// Issue #410: was a single event, capping a turn to one quest completion even when the athlete
+// reported several at once. Now an array - each event applies the same upsert logic in sequence,
+// so two events for the same quest_id+date within one call still upsert onto each other in order
+// (last one wins), same as two separate calls would.
+export interface QuestEvent {
+  quest_id: string;
+  status: "completed" | "missed" | "excused";
+  // string-only - the Gemini responseSchema (coachPrompt.ts) declares value as
+  // `{ type: "string" }`, so `number` here was dead, unreachable type surface. Found in review.
+  value?: string;
+}
+
+export function applyQuestEvent(
+  content: string | null,
+  events: QuestEvent[],
+  today: string,
+  currentSeasonId: string,
+  traceId: string,
+  now: Date,
+  validQuestIds: ReadonlySet<string>,
+): string {
+  const parsed = parseJsonOrNull<{ rows?: ProgressRow[] }>(content);
+  let rows: ProgressRow[] = Array.isArray(parsed?.rows) ? parsed.rows : [];
+
+  for (const event of events) {
+    // Same discipline as applyInjuryEvent's flag_id guard - a hallucinated or stale quest_id
+    // (quests.json changed underneath Gemini's context since it was built) must not write a
+    // permanent bogus row with no rejection path. Found in review: applyProfileUpdate already
+    // guards its field enum, this had no equivalent guard at all.
+    if (!validQuestIds.has(event.quest_id)) {
+      throw new Error(`quest_event: no quest with id "${event.quest_id}" in quests.json`);
+    }
+    const existingIndex = rows.findIndex((r) => r.quest_id === event.quest_id && r.date === today);
+    const row: ProgressRow = {
+      id: existingIndex >= 0 ? rows[existingIndex].id : `pr_${event.quest_id}_${today}`,
+      quest_id: event.quest_id,
+      season_id: currentSeasonId,
+      date: today,
+      status: event.status,
+      value: event.value ?? null,
+      source: "model",
+      ts: now.toISOString(),
+      trace_id: traceId,
+    };
+    rows = existingIndex >= 0 ? rows.map((r, i) => (i === existingIndex ? row : r)) : [...rows, row];
+  }
+
+  return JSON.stringify({ version: 1, rows }, null, 2);
+}
+
+// profile_update { field, value }: Part 2 ledger split, step 3b - sets exactly one field in
+// profile.json. `coach_since` is deliberately not one of the allowed fields (server-only, per
+// ADR 0018 - it's stamped once at First Session, never something Gemini reports). Falls back to
+// a fresh, mostly-null profile.json on missing/unparsable content - same defensive default as
+// the other appliers in this file.
+export type ProfileUpdateField = "name" | "dob" | "timezone" | "height_cm" | "weight_kg";
+
+export interface ProfileUpdate {
+  field: ProfileUpdateField;
+  // string-only, same reasoning as QuestEvent.value above - the Gemini responseSchema
+  // (coachPrompt.ts) declares this as `{ type: "string" }` too, so `number` was equally dead
+  // type surface here. Found in review as the same bug class left uncorrected on this field.
+  value: string;
+}
+
+const PROFILE_UPDATE_FIELDS: readonly ProfileUpdateField[] = ["name", "dob", "timezone", "height_cm", "weight_kg"];
+
+export function applyProfileUpdate(content: string | null, update: ProfileUpdate): string {
+  // Runtime guard, not just the TS type - `coach_since` must never be settable through this
+  // action (ADR 0018), and this file's whole pattern is not trusting an upstream constraint
+  // alone (see the malformed-JSON handling every applier here already does). Without this, an
+  // unexpected `field` value would fall through to the numeric-coercion branch below, produce
+  // NaN, and silently null out whatever was passed in.
+  if (!PROFILE_UPDATE_FIELDS.includes(update.field)) {
+    throw new Error(`profile_update: "${update.field}" is not a settable field`);
+  }
+
+  const parsed = parseJsonOrNull<Partial<ProfileJson>>(content) ?? {};
+
+  const result: ProfileJson = {
+    version: 1,
+    coach_since: parsed.coach_since ?? null,
+    name: parsed.name ?? "",
+    dob: parsed.dob ?? null,
+    timezone: parsed.timezone ?? "UTC",
+    height_cm: parsed.height_cm ?? null,
+    weight_kg: parsed.weight_kg ?? null,
+  };
+
+  if (update.field === "name" || update.field === "dob" || update.field === "timezone") {
+    // Found in review: the numeric branch below got a blank-value guard, but this branch didn't
+    // get the same treatment - a blank value silently overwrote real name/dob/timezone data with
+    // "" instead of being rejected like every other invalid input this action guards against.
+    if (update.value.trim() === "") {
+      throw new Error(`profile_update: empty value is not valid for ${update.field}`);
+    }
+    result[update.field] = String(update.value);
+  } else {
+    // height_cm / weight_kg - numeric fields. Found in review: Number(update.value) was never
+    // checked for NaN, so a non-numeric value (e.g. Gemini passing along "about 180" verbatim)
+    // silently wrote NaN into profile.json - same silent-corruption shape the coach_since guard
+    // above exists to prevent, just for a value instead of a field. Second finding: Number("")
+    // (and whitespace-only strings) is 0, not NaN - JS's own quirk, not caught by isNaN alone -
+    // so an empty value slipped past the guard and silently wrote 0 instead of being rejected.
+    // Reject blank input explicitly before the numeric check.
+    if (update.value.trim() === "") {
+      throw new Error(`profile_update: empty value is not a valid number for ${update.field}`);
+    }
+    const parsedValue = Number(update.value);
+    if (Number.isNaN(parsedValue)) {
+      throw new Error(`profile_update: "${update.value}" is not a valid number for ${update.field}`);
+    }
+    result[update.field] = parsedValue;
+  }
+
+  return JSON.stringify(result, null, 2);
 }

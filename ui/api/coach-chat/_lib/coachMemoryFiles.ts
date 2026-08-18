@@ -46,8 +46,6 @@ export interface MemoryJson {
   version: 1;
   _meta: { updated_at: string; updated_by: string; trace_id: string };
   sports: string[];
-  goal: string;
-  timeline: string;
   coaching_style: string;
   notes: Record<MemoryNoteLabel, MemoryNote>;
 }

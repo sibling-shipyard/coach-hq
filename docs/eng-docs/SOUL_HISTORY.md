@@ -25,6 +25,34 @@ Write it so someone who has never opened this repo enjoys reading it. If an entr
 
 ---
 
+## v5.10 — "Seasons Without Ceremony" · Aug 18, 2026
+**Superpower gained:** a season is just a name, a start, and an end.
+
+Part 2 of the coach-memory redesign split `challenge_v2.json` into `seasons.json`/`quests.json`/
+`progress.json`/`progressions.json` (`coach-redesign-part2-ledger.md`). Season → phase → block was
+three tiers of structure nobody needed; a season now has no phase or block underneath it at all.
+
+- **Phase Awareness is gone.** SOUL no longer tracks phase boundaries or references a current
+  phase — a season is referenced naturally in conversation, not by date math against a phase.
+- **The season-closing recap ritual is dropped, for now.** Coach used to write a narrative
+  retrospective (`archive/seasons/<slug>/recap.md`) and move the outgoing season's JSON to cold
+  storage when a season ended. Both are gone — closing a season is now just flipping its status to
+  `completed`/`retired` and starting the next one; nothing moves anywhere. Confirmed, not an
+  oversight — issue #411 tracks revisiting whether some form of the recap ritual comes back later.
+- **Two new Gemini actions:** `quest_event {quest_id, status, value?}` and
+  `profile_update {field, value}` — both follow the same Action-field design rule as v5.9's
+  actions (server stamps every date/id, Gemini supplies only the semantic fact).
+- **`weekly_frequency` added** to the quest-type list Coach knows about (a target count within
+  the current week), alongside the existing `daily_streak`/`progress`/`count_target`.
+
+**What it cost:** real season history. Existing `recap.md`/`roadmap.md` files (prose retrospectives
+an athlete/Coach wrote, not just data) get removed by this step's migration along with the JSON
+snapshots — confirmed acceptable for now, but that content only survives in git history on
+whatever branch the migration ran on, not in the live file tree. See `coach-redesign-part2-ledger.md`
+for the full field-by-field spec, issue #411 for the recap-ritual follow-up.
+
+---
+
 ## v5.9 — "New Files, Same Sections" · Aug 18, 2026
 **Superpower gained:** memory keeps working across a full data-model rewrite underneath it.
 
