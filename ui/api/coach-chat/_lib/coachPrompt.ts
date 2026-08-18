@@ -49,6 +49,16 @@ export interface GeminiReply {
   // value is string-only, same reasoning as quest_event above - the responseSchema below
   // declares it as `{ type: "string" }`. Found in review as the same bug class left uncorrected.
   profile_update?: { field: "name" | "dob" | "timezone" | "height_cm" | "weight_kg"; value: string };
+  // coach-redesign workout-backend-wiring §3: the athlete asked to change one of their own
+  // existing workout templates (e.g. "add more exercises to strength B"). Gemini only captures
+  // the athlete's own words/intent here - it does not invent or perform the edit itself. A
+  // second, separate, small Gemini call (coachWorkoutFiles.ts's applyTemplateEdit) does the
+  // actual editing at commit time, scoped to just that template's JSON + this instruction.
+  // template_id must be one of the ids listed in context (activeTemplatesContext) - never
+  // invented. Single object, not an array - one edit request per closing turn is enough for a
+  // first pass, matching profile_update's shape rather than quest_event's. Closing turns only,
+  // same as the fields above.
+  template_edit?: { template_id: string; instruction: string };
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;
@@ -122,6 +132,17 @@ export const GENERATION_CONFIG = {
         properties: {
           field: { type: "string", enum: ["name", "dob", "timezone", "height_cm", "weight_kg"] },
           value: { type: "string" },
+        },
+      },
+      // coach-redesign workout-backend-wiring §3 - single object (not array), matching
+      // profile_update's shape. template_id is free text in the schema itself (Gemini's real ids
+      // come from context, per activeTemplatesContext below); coachWorkoutFiles.ts's
+      // applyTemplateEdit is the actual enforcement point.
+      template_edit: {
+        type: "object",
+        properties: {
+          template_id: { type: "string" },
+          instruction: { type: "string" },
         },
       },
       session_closed: { type: "boolean" },
@@ -233,9 +254,16 @@ export function buildDynamicText(
           "\nIf the athlete gave a new value for one of their profile basics (name, date of birth,",
           "timezone, height, or weight), set profile_update with that field and the new value.",
           "Only set it when the athlete actually stated a new value, never to fill in a guess.",
+          "\nIf the athlete clearly asked to change one of their own existing workout templates",
+          "(see Current templates below) - e.g. \"add more exercises to strength B\" or \"swap out",
+          "the burpees in foundation\" - set template_edit with that template's exact template_id",
+          "and an instruction capturing the athlete's own words/intent. Do not invent or perform",
+          "the edit yourself - instruction should describe what the athlete asked for, not the",
+          "result. Only use a template_id that's actually listed below - never invent one, and",
+          "never set this if the athlete has no templates listed.",
           "**Never say something is saved, logged, locked, or committed unless coach_note (or",
-          "memory_update / injury_event / quest_event / profile_update) in this exact response",
-          "genuinely reflects it.**",
+          "memory_update / injury_event / quest_event / profile_update / template_edit) in this",
+          "exact response genuinely reflects it.**",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
           "response (asking a clarifying question instead does NOT count - set it false in that case,",
           "even though this turn was triggered by a close-session phrase). The athlete will simply see",
@@ -331,4 +359,17 @@ export function activeQuestsContext(quests: QuestsJson | null | undefined): stri
   if (main) lines.push(`- quest_id: ${main.id} | type: ${main.type} | main quest`);
   for (const q of active) lines.push(`- quest_id: ${q.id} | type: ${q.type} | status: ${q.status}`);
   return ["Current quests (use these exact quest_ids for quest_event):", ...lines].join("\n");
+}
+
+// coach-redesign workout-backend-wiring §3: lists the athlete's real, already-committed template
+// ids (from the manifest coachWorkoutFiles.ts writes alongside generated templates) so Gemini has
+// real template_ids to reference for template_edit - it must never invent one. Same
+// reasoning/placement as activeQuestsContext/injuryFlagsContext above - per-athlete, so
+// extraContext not staticSystemText. Omitted entirely (undefined) when there are no valid ids -
+// e.g. the manifest doesn't exist yet for this athlete - so the prompt doesn't dangle an empty
+// section, matching injuryFlagsContext's own empty-case handling.
+export function activeTemplatesContext(templateIds: ReadonlySet<string>): string | undefined {
+  if (templateIds.size === 0) return undefined;
+  const lines = [...templateIds].map((id) => `- template_id: ${id}`);
+  return ["Current templates (use these exact template_ids for template_edit):", ...lines].join("\n");
 }

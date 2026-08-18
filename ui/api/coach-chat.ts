@@ -43,7 +43,13 @@ import {
 } from "./coach-chat/_lib/chatThreads.js";
 import { loadClosingFileContext, injectCoachSinceIfNeeded, type ClosingFileContext } from "./coach-chat/_lib/coachWrites.js";
 import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate } from "./coach-chat/_lib/coachIntents.js";
-import { generateInitialTemplates, TEMPLATES_MANIFEST_PATH } from "./coach-chat/_lib/coachWorkoutFiles.js";
+import {
+  generateInitialTemplates,
+  applyTemplateEdit,
+  validTemplateIdsFromManifest,
+  templatePath,
+  TEMPLATES_MANIFEST_PATH,
+} from "./coach-chat/_lib/coachWorkoutFiles.js";
 import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { PROGRESS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
@@ -52,6 +58,7 @@ import {
   combineExtraContext,
   injuryFlagsContext,
   activeQuestsContext,
+  activeTemplatesContext,
   firstSessionContext,
   onboardingHintsContext,
   type GeminiReply,
@@ -184,6 +191,17 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         closingFiles = await loadClosingFileContext(repo, token);
       }
 
+      // §3: template_edit is only relevant on a closing turn (same as the other action fields),
+      // so the manifest is only fetched lazily here rather than folded into every turn's
+      // loadCoachContext read - a missing/unparseable manifest just means no templates are
+      // editable via chat yet for this athlete (validTemplateIdsFromManifest's own defensive
+      // default), never thrown.
+      let validTemplateIds: ReadonlySet<string> = new Set();
+      if (closeIntent) {
+        const manifestRaw = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null);
+        validTemplateIds = validTemplateIdsFromManifest(manifestRaw);
+      }
+
       let reply: GeminiReply;
       try {
         reply = await askGemini(
@@ -200,6 +218,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
             firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
             injuryFlagsContext(injuries),
             activeQuestsContext(quests),
+            activeTemplatesContext(validTemplateIds),
           ),
           traceId,
           timezone,
@@ -362,6 +381,23 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
+      // §3: reported only when the athlete asked to change one of their own existing templates
+      // this close. template_id is re-validated at commit time against validTemplateIds (the
+      // same set Gemini was shown via activeTemplatesContext) inside applyTemplateEdit itself -
+      // guard condition here just checks both fields are present. resolve() re-fetches the
+      // template's current content fresh at commit time, same stale-read-avoidance pattern as
+      // coachNoteWrite/memoryUpdateWrite/etc above.
+      const templateEdit = reply.template_edit;
+      const templateEditWrite: FileEntry | undefined = templateEdit?.template_id && templateEdit.instruction?.trim()
+        ? {
+            path: templatePath(templateEdit.template_id),
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, templatePath(templateEdit.template_id), token);
+              return applyTemplateEdit(fresh, templateEdit, validTemplateIds, traceId, apiKey);
+            },
+          }
+        : undefined;
+
       // B2/ADR 0018: profile.json isn't edited here, so both sides of this transition check stay
       // the pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
       const wasProfileComplete = isAthleteProfileComplete(profile, memory);
@@ -380,6 +416,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       if (injuryEventWrite) optionalWrites.push(injuryEventWrite);
       if (questEventWrite) optionalWrites.push(questEventWrite);
       if (profileUpdateWrite) optionalWrites.push(profileUpdateWrite);
+      if (templateEditWrite) optionalWrites.push(templateEditWrite);
       const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
 
       let repoSha: string;

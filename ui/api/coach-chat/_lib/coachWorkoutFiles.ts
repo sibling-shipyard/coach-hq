@@ -22,6 +22,8 @@ import { fileURLToPath } from "node:url";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import type { FileEntry } from "../../_lib/githubGitData.js";
 import type { ProfileJson, MemoryJson, InjuriesJson } from "./coachMemoryFiles.js";
+import { parseJsonOrNull } from "./coachChatFiles.js";
+import { validateWorkout } from "./workoutSchema.js";
 import type { Workout } from "../../../client/src/lib/workouts.js";
 
 export const TEMPLATES_PATH_PREFIX = "user_data/activities/workout_plans/templates/";
@@ -348,4 +350,107 @@ export async function generateInitialTemplates(
   };
 
   return { templates: [...templateWrites, manifestWrite] };
+}
+
+// coach-redesign workout-backend-wiring §3: template_edit action field. The manifest
+// generateInitialTemplates writes above (template_ids) is this codebase's only listing of which
+// templates actually exist for an athlete - there's no directory-listing API in the GitHub
+// plumbing (see this file's own header comment), so the manifest is the source of truth for
+// "what template_ids can Gemini legitimately reference." A missing/unparseable manifest means no
+// templates exist yet (pre-migration athlete, or First Session hasn't closed yet) - treated as
+// "nothing is editable," never thrown, same defensive-default spirit as every other malformed-
+// content case in this pipeline.
+export function validTemplateIdsFromManifest(manifestContent: string | null): ReadonlySet<string> {
+  const parsed = parseJsonOrNull<{ template_ids?: string[] }>(manifestContent);
+  return new Set(Array.isArray(parsed?.template_ids) ? parsed.template_ids : []);
+}
+
+export function templatePath(templateId: string): string {
+  return `${TEMPLATES_PATH_PREFIX}${templateId}.json`;
+}
+
+// Injectable, same reasoning as AdjustTemplatesFn above - tests supply a fake so this suite never
+// needs real network access. Takes only the current template JSON + the athlete's instruction
+// (per the plan: keep Gemini under minimal field pressure, no other context leaks into this
+// call), returns the full updated Workout object.
+export type EditTemplateFn = (apiKey: string, template: Workout, instruction: string) => Promise<unknown>;
+
+export const editTemplateWithGemini: EditTemplateFn = async (apiKey, template, instruction) => {
+  const prompt = [
+    "The athlete asked for a change to one of their existing workout templates. Below is the",
+    "current template (full JSON) and the athlete's instruction, in their own words.",
+    "Return the complete updated template as a single JSON object matching the exact same shape -",
+    "same top-level fields, same phases/exercises structure. Keep the id field unchanged. Only",
+    "change what the instruction asks for; leave everything else as-is.",
+    `Athlete's instruction: ${instruction}`,
+    "Current template:",
+    JSON.stringify(template),
+  ].join("\n");
+
+  const body = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      maxOutputTokens: 4096,
+    },
+  };
+
+  const res = await fetchWithTimeout(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    20_000,
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Gemini template-edit call failed (${res.status}): ${detail}`);
+  }
+  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini template-edit call returned no content");
+  return JSON.parse(text);
+};
+
+/**
+ * Applies a template_edit action field. Validates template_id against the athlete's real,
+ * already-committed template ids (validTemplateIds, built from the manifest by
+ * validTemplateIdsFromManifest) before doing anything else - same "hallucinated id" guard
+ * coachIntents.ts's applyQuestEvent already established for quest_id. Makes one small, separate
+ * Gemini call scoped to just this template + the athlete's instruction, then validates the
+ * returned object structurally (workoutSchema.ts's validateWorkout) before accepting it - never
+ * commit invalid data, same discipline as every other applier in this pipeline. Stamps _meta the
+ * same way generateInitialTemplates does.
+ */
+export async function applyTemplateEdit(
+  templateContent: string | null,
+  edit: { template_id: string; instruction: string },
+  validTemplateIds: ReadonlySet<string>,
+  traceId: string,
+  apiKey: string,
+  editFn: EditTemplateFn = editTemplateWithGemini,
+): Promise<string> {
+  if (!validTemplateIds.has(edit.template_id)) {
+    throw new Error(`template_edit: no template with id "${edit.template_id}" in this athlete's templates`);
+  }
+
+  const current = parseJsonOrNull<Workout>(templateContent);
+  if (!current) {
+    throw new Error(`template_edit: template "${edit.template_id}" could not be read`);
+  }
+
+  const rawEdited = await editFn(apiKey, current, edit.instruction);
+  validateWorkout(rawEdited, `template_edit result for "${edit.template_id}"`);
+  const edited = rawEdited as Workout;
+
+  if (edited.id !== edit.template_id) {
+    throw new Error(
+      `template_edit: Gemini returned id "${edited.id}", expected "${edit.template_id}" to stay unchanged`,
+    );
+  }
+
+  const result: Workout = {
+    ...edited,
+    _meta: { updated_at: new Date().toISOString(), updated_by: "model", trace_id: traceId },
+  };
+
+  return JSON.stringify(result, null, 2);
 }
