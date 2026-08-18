@@ -57,6 +57,30 @@ Always include `fixes #N` in the PR body. PR bodies follow `.github/PULL_REQUEST
 
 ---
 
+## Stacked PRs
+
+**Default for multi-part work.** One PR per theme, each branching off the previous one, merged
+bottom-up. A seven-PR stack (#399–#405) is what proved this out. Small sequential PRs off `main`
+are still right for work that genuinely has no ordering.
+
+Four mechanics make it work — skip one and it turns into the mess stacking is famous for:
+
+1. **One PR per theme, not per arbitrary slice.** Each has to stand on its own in review. If you
+	can't say what a PR is *about* in one line, it's a slice, not a theme.
+2. **Fix at the lowest branch that owns the problem, then rebase-cascade upward** with
+	`git rebase --onto <fixed-base> <old-base>` and `git push --force-with-lease`. Never patch the
+	same bug at two levels.
+3. **Verify each PR's file list against the branch**, not against local `main` — a stale `main`
+	has under-reported a branch here before. `gh pr view <n> --json files`, or
+	`mcp__github__pull_request_read` with `method: get_files` in sessions with no `gh`.
+4. **Merge bottom-up**, and rebase the whole stack onto current `main` before you start.
+
+**Put late-arriving cross-cutting edits at the TOP of the stack, not the bottom** — even when
+they belong to the bottom PR semantically. An edit at the base forces a rebase of everything
+above it; the same edit on top costs nothing.
+
+---
+
 ## Direct-to-Main vs Branch + PR
 
 Paths below are the athlete-repo layout (`user_data/`, `gen/`) - HQ itself doesn't hold populated

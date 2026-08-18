@@ -41,9 +41,9 @@ have never matched anything. Combined with the `gh` entries the remote harness c
 third of the allowlist is dead. That makes the allowlist fix (T1.2) worth more than either plan
 scored it: it is not a tidy-up, it is a broken file.
 
-## Status — what the #399–#405 stack shipped
+## Status — what the #398–#405 stack shipped
 
-Updated 2026-08-18 after Tech Lead review of the whole stack.
+**All eight PRs (#398–#405) reviewed and merged to `main`, 2026-08-18.** Updated after that review.
 
 | Item | PR | State |
 |---|---|---|
@@ -84,6 +84,23 @@ itself a boot file (#414).
 **This is the number T3.1–T3.6 were gated on.** It says the boot-doc problem is nearly all
 Tech Lead's SOUL read, now fixed, plus iOS's two spec docs, which is #414 and not Tier 3. Tier 3
 buys isolation and tool scoping — real, but not tokens. Score it that way before starting it.
+
+### What is left
+
+Nothing in the stack is outstanding. These are the deliberate holds and the follow-ups:
+
+| | Item | Why it is still open |
+|---|---|---|
+| 1 | **Run `platform/scripts/check.sh` end to end, once** | Its three non-npm checks are proven; the `ui/` tsc and vitest legs have never run, because the container that wrote and reviewed it had no `ui/node_modules`. Until someone runs it on a full checkout, the script is unverified on its main path. |
+| 2 | **#414 — iOS boot (P1)** | The one P1 from review. Cheap now: #402 built the conditional-read mechanism, so applying it to `ios/DESIGN.md` and `docs/eng-docs/ios-app-spec.md` is a small PR. |
+| 3 | **T3.1–T3.6 — register roles, model tiers, tool scoping, worktrees, skills** | Held, and the measurement above is the reason. It says the boot-token problem was almost entirely Tech Lead's SOUL read, now fixed. Tier 3 buys isolation and tool scoping, which are real but are not tokens. Score it that way before starting. |
+| 4 | **T4.3 — re-verify or supersede `scaling-plan.md`** | Athlete's call: is our architecture doc still true? |
+| 5 | **T4.4 — delete the five Historical eng-docs** | Athlete's call. |
+| 6 | **#415, #416, #417 (P2)** | Validator gaps found in review. None blocking. |
+
+**This plan is not delete-on-ship yet.** `docs/plans/` is deleted when the work ships; items 3–5
+above are still open, so it stays. Delete it when they resolve, folding anything durable into
+`docs/eng-docs/` first.
 
 ### Found in review, filed as issues
 
@@ -209,11 +226,13 @@ if a scope-bleed incident makes isolation urgent. Do not run this plan to comple
 	survives a cold boot better than in-process state. **Record this as an ADR when Tier 2 ships** —
 	`docs/plans/` is delete-on-ship, so otherwise the reasoning leaves with the file and the next
 	agent re-litigates it.
-- **Stacked PRs.** Small PRs: yes, unreserved — the v5.8 soul trim ran five sequential PRs off `main`
-	against one issue and worked. Stacking costs us: PR B shows the wrong diff until A merges, review
-	changes on A cascade upward, CI runs against a stale base. The bottleneck is the athlete's review
-	time, and stacking makes review harder exactly when A needs changes. Stack only when a chunk
-	cannot be split and both are reviewed in one sitting.
+- ~~**Stacked PRs.**~~ **Reversed 2026-08-18 — stacking is now the default.** The original
+	objection was that PR B shows the wrong diff until A merges, review changes on A cascade
+	upward, and CI runs against a stale base. Shipping #399–#405 as a seven-deep stack answered
+	it: the cascade is one mechanical `rebase --onto` per level, GitHub tracks the bases, and one
+	sitting reviewed the whole thing. The mechanics that make it work are now in
+	`.github/CONVENTIONS.md` § Stacked PRs — not an ADR, because a shipping convention you can
+	abandon at any time does not meet the bar in `kdb/decisions/README.md`.
 - **Rewriting the 26 eng-docs.** Eats a week, produces 26 docs nobody reads. Delete about a third,
 	date the rest, fix `scaling-plan.md` properly. `soul-path-to-v6.md` is the template.
 - **Growing `AGENTS.md`, adding MCP servers, or building a memory system.** Simplest thing that works.
