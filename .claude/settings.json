@@ -6,8 +6,14 @@
       "Grep",
       "Glob",
       "Bash(npx tsc --noEmit)",
-      "Bash(npm run test)",
-      "Bash(npm run check)",
+      "Bash(npm test)",
+      "Bash(npm --prefix ui run check)",
+      "Bash(npm --prefix ui run test)",
+      "Bash(npm --prefix ui test)",
+      "Bash(bash platform/scripts/check.sh)",
+      "Bash(bash platform/scripts/check.sh --quiet)",
+      "Bash(node platform/scripts/boot-cost.mjs)",
+      "Bash(node platform/scripts/boot-cost.mjs --json)",
       "Bash(git fetch *)",
       "Bash(git merge-base *)",
       "Bash(git status)",
@@ -33,12 +39,33 @@
       "Bash(gh pr view *)",
       "Bash(gh issue list)",
       "Bash(gh issue list *)",
-      "Bash(gh issue view *)"
+      "Bash(gh issue view *)",
+      "mcp__github__get_me",
+      "mcp__github__list_pull_requests",
+      "mcp__github__pull_request_read",
+      "mcp__github__list_issues",
+      "mcp__github__issue_read",
+      "mcp__github__get_file_contents",
+      "mcp__github__get_commit",
+      "mcp__github__list_commits",
+      "mcp__github__list_branches",
+      "mcp__github__list_tags",
+      "mcp__github__search_code",
+      "mcp__github__search_issues",
+      "mcp__github__search_pull_requests",
+      "mcp__github__search_repositories",
+      "mcp__github__get_check_run",
+      "mcp__github__get_job_logs",
+      "mcp__github__actions_list",
+      "mcp__github__actions_get",
+      "mcp__github__search_commits"
     ]
   },
   "sandbox": {
     "network": {
-      "allowedDomains": ["*.strava.com"]
+      "allowedDomains": [
+        "*.strava.com"
+      ]
     }
   },
   "hooks": {
@@ -48,6 +75,17 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/deny-git-add-all.sh"
           }
         ]
       }
