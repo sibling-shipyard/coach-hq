@@ -157,9 +157,12 @@ describe("applyInjuryEvent", () => {
     expect(result.flags).toHaveLength(1);
   });
 
-  it("ignores an unknown flag_id gracefully (no matching flag changed)", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "resolved", flag_id: "inj_nonexistent" }, "2026-08-18"));
-    expect(result.flags).toHaveLength(2);
-    expect(result.flags.every((f: any) => f.resolved_at !== "2026-08-18" || f.id === "inj_knee")).toBe(true);
+  it("throws on an unknown flag_id instead of silently no-op'ing", () => {
+    // A silent no-op here would let the caller commit a write that looks successful but changed
+    // nothing - throwing lets the caller's existing error handling (commitFilesAtomic's catch)
+    // surface the failure instead.
+    expect(() =>
+      applyInjuryEvent(EXISTING, { status: "resolved", flag_id: "inj_nonexistent" }, "2026-08-18"),
+    ).toThrow('no flag with id "inj_nonexistent"');
   });
 });

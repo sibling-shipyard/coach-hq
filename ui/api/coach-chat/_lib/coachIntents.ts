@@ -6,6 +6,7 @@
  */
 
 import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow } from "./coachMemoryFiles.js";
+import { parseJsonOrNull } from "./coachChatFiles.js";
 
 // coach_note: appends one row to coach_log.json - the single merged continuity log
 // (coach-redesign-part1-memory.md) that absorbed what used to be split across coach_notes.md
@@ -16,15 +17,8 @@ import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryF
 // is treated as an empty log rather than thrown, same defensive default the other appliers below
 // use for their own files.
 export function applyCoachNote(content: string | null, note: string, dateString: string, traceId: string, now: Date): string {
-  let rows: CoachLogRow[] = [];
-  if (content && content.trim()) {
-    try {
-      const parsed = JSON.parse(content);
-      if (parsed && Array.isArray(parsed.rows)) rows = parsed.rows;
-    } catch {
-      rows = [];
-    }
-  }
+  const parsed = parseJsonOrNull<{ rows?: CoachLogRow[] }>(content);
+  const rows: CoachLogRow[] = Array.isArray(parsed?.rows) ? parsed.rows : [];
   const id = `sess_${dateString}_${Math.random().toString(36).slice(2, 6)}`;
   const row: CoachLogRow = { id, date: dateString, ts: now.toISOString(), type: "chat", text: note.trim(), trace_id: traceId };
   return JSON.stringify({ version: 1, rows: [...rows, row] }, null, 2);
@@ -37,8 +31,9 @@ export function applyCoachNote(content: string | null, note: string, dateString:
 // not free text, and every timestamp/id here is server-computed - Gemini only supplies text.
 //
 // Falls back to a fresh, empty-notes memory.json when content is null/unparsable - same
-// defensive default as applyRollingState's malformed-JSON handling - rather than throwing and
-// losing a real close over a corrupt file.
+// defensive default as applyCoachNote's malformed-JSON handling - rather than throwing and
+// losing a real close over a corrupt file. _meta is always freshly stamped below (this update is,
+// by definition, the file's newest write), not conditionally preserved from the parsed content.
 export function applyMemoryUpdate(
   content: string | null,
   label: MemoryNoteLabel,
@@ -46,15 +41,7 @@ export function applyMemoryUpdate(
   updatedAt: string,
   traceId: string,
 ): string {
-  let parsed: Partial<MemoryJson> = {};
-  if (content && content.trim()) {
-    try {
-      const candidate = JSON.parse(content);
-      if (candidate && typeof candidate === "object") parsed = candidate as Partial<MemoryJson>;
-    } catch {
-      parsed = {};
-    }
-  }
+  const parsed = parseJsonOrNull<Partial<MemoryJson>>(content) ?? {};
 
   const emptyNotes = () =>
     Object.fromEntries(
@@ -63,7 +50,7 @@ export function applyMemoryUpdate(
 
   const result: MemoryJson = {
     version: 1,
-    _meta: parsed._meta ?? { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
+    _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
     goal: parsed.goal ?? "",
     timeline: parsed.timeline ?? "",
@@ -72,7 +59,6 @@ export function applyMemoryUpdate(
   };
 
   result.notes[label] = { text: text.trim(), updated_at: updatedAt, trace_id: traceId };
-  result._meta = { updated_at: updatedAt, updated_by: "model", trace_id: traceId };
 
   return JSON.stringify(result, null, 2);
 }
@@ -93,15 +79,8 @@ export interface InjuryEvent {
 }
 
 export function applyInjuryEvent(content: string | null, event: InjuryEvent, today: string): string {
-  let flags: InjuryFlag[] = [];
-  if (content && content.trim()) {
-    try {
-      const parsed = JSON.parse(content);
-      if (parsed && Array.isArray(parsed.flags)) flags = parsed.flags;
-    } catch {
-      flags = [];
-    }
-  }
+  const parsed = parseJsonOrNull<{ flags?: InjuryFlag[] }>(content);
+  const flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
 
   if (!event.flag_id) {
     // New flag - text is required (enforced by the caller before this is invoked), id minted
@@ -120,6 +99,14 @@ export function applyInjuryEvent(content: string | null, event: InjuryEvent, tod
       resolved_at: null,
     };
     return JSON.stringify({ flags: [...flags, newFlag] }, null, 2);
+  }
+
+  if (!flags.some((flag) => flag.id === event.flag_id)) {
+    // Gemini reported a flag_id that doesn't exist in the current file - either it hallucinated
+    // one or the flags list changed underneath it since its context was built. Throwing here
+    // (instead of silently returning the array unchanged) is deliberate: a caller that commits
+    // this write should know the update didn't actually happen, not get a false "success".
+    throw new Error(`injury_event: no flag with id "${event.flag_id}" in injuries.json`);
   }
 
   const updated = flags.map((flag) => {

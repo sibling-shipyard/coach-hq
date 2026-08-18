@@ -78,8 +78,9 @@ export interface CoachContext {
 }
 
 // Best-effort parse - a missing or malformed file (not yet migrated, or a transient bad commit)
-// degrades to null rather than throwing, same defensive default coachIntents.ts's appliers use.
-function parseJsonOrNull<T>(raw: string | null): T | null {
+// degrades to null rather than throwing. Exported so coachIntents.ts's appliers share this same
+// parse+catch instead of each hand-rolling their own copy.
+export function parseJsonOrNull<T>(raw: string | null): T | null {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as T;
