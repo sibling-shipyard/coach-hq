@@ -92,12 +92,24 @@ const mainQuest = {
 };
 if (mainQuestSrc.count_pattern) mainQuest.count_pattern = mainQuestSrc.count_pattern;
 
+// Found in review: a "milestone"-type quest was being relabeled "progress" and kept in
+// quests.json, carrying its (usually prose, e.g. "3x5 negatives") current/target straight into a
+// type whose rendering assumes a numeric target (coachContext.ts renders progress-type quests as
+// "<value>/<target> <unit>" - a real fraction). Verified this is actually broken, not just
+// theoretical: built a synthetic milestone-type quest and ran it through the full pipeline
+// (migration -> renderQuestContext) - it rendered as "3x5 negatives/3x5 strict", nonsense as a
+// progress readout. The right fix isn't converting the type, it's routing the whole thing to
+// progressions.json instead - that file already has exactly this shape (current/target/unit as
+// prose, no numeric-fraction assumption anywhere it's rendered). A milestone-type quest never
+// becomes a quests.json entry or a progress.json row at all now.
 const questsSrc = Array.isArray(challenge.quests) ? challenge.quests : [];
-const quests = questsSrc.map((q) => {
+const milestoneQuestsSrc = questsSrc.filter((q) => q.type === "milestone");
+const realQuestsSrc = questsSrc.filter((q) => q.type !== "milestone");
+const quests = realQuestsSrc.map((q) => {
   const quest = {
     id: q.id,
     name: q.name,
-    type: q.type === "milestone" ? "progress" : q.type, // milestone type dropped - closest fit
+    type: q.type,
     start_date: q.start_date,
     end_date: q.status === "active" ? null : today,
     status: q.status === "active" ? "active" : q.status === "completed" ? "graduated" : "retired",
@@ -134,8 +146,10 @@ const questsJson = {
 // quest's own completed_dates/current if it had any. A count_target main quest (this athlete's
 // real data) computes its progress live from activity history, not stored dates, so this was a
 // no-op here - but the loop needs to cover main_quest generically, not just for this one athlete.
+// milestone-type quests are excluded here (realQuestsSrc, not questsSrc) - they route to
+// progressions.json below instead, never a progress.json row.
 const rowsByKey = new Map();
-for (const q of [mainQuestSrc, ...questsSrc]) {
+for (const q of [mainQuestSrc, ...realQuestsSrc]) {
   const questId = q === mainQuestSrc ? mainQuest.id : q.id;
   const upsertRow = (date, status, value) => {
     rowsByKey.set(`${questId}|${date}`, {
@@ -165,12 +179,25 @@ const progressJson = { version: 1, rows };
 
 // --- progressions.json -------------------------------------------------------------------------
 
-// No milestones/progressions data exists in challenge_v2.json today (confirmed via grep before
-// writing this script) - starts empty, same as any brand-new file.
+// No SEPARATE milestones[]/progressions data exists in challenge_v2.json today (confirmed via
+// grep before writing this script). What does exist, if any: milestone-TYPE quests inside the
+// quests[] array (VALID_QUEST_TYPES included "milestone" as a quest type, distinct from a real
+// milestones/progressions list) - those route here now instead of into quests.json/progress.json
+// (see the quests[] mapping above for why). current/target/unit are already prose-shaped for
+// this type, so no conversion needed - this is the shape they were always meant for.
+const migratedMilestones = milestoneQuestsSrc.map((q) => ({
+  id: q.id,
+  name: q.name,
+  current: q.current ?? "",
+  target: q.target ?? "",
+  unit: q.unit ?? null,
+  history: [],
+}));
+
 const progressionsJson = {
   version: 1,
   _meta: { updated_at: today, updated_by: "migration", trace_id: MIGRATION_TRACE_ID },
-  progressions: [],
+  progressions: migratedMilestones,
 };
 
 // --- write ---------------------------------------------------------------------------------

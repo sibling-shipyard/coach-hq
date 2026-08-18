@@ -31,6 +31,10 @@ export interface QuestContextStorage {
   quests: QuestsJson | null;
   progress: ProgressJson | null;
   progressions: ProgressionsJson | null;
+  // Athlete-local date (YYYY-MM-DD, same as todayDateString elsewhere) - needed to scope
+  // weekly_frequency quests to the current ISO week. Found in review: this quest type had no
+  // week-scoped handling at all before.
+  today: string;
 }
 
 const RECENT_SESSION_WINDOW = 3;
@@ -115,28 +119,65 @@ function learnedPatternsSection(memory: MemoryJson | null): string {
 // file - this doesn't touch generate_quest_log.py itself, and doesn't try to match it byte for
 // byte (pace/rate math is real work that script already does well; this just gives Gemini the
 // raw facts and real ids it needs).
-function questProgressCounts(progress: ProgressJson | null, questId: string): { completed: number; excused: number; missed: number; latestValue: string | null } {
-  const rows = (progress?.rows ?? []).filter((r) => r.quest_id === questId);
+// Monday-Sunday ISO week containing `today` (a YYYY-MM-DD string) - plain date-string math in
+// UTC, matching how ProgressRow.date is already compared elsewhere in this function, rather than
+// pulling in a timezone since `today` is already resolved to the athlete's local date by the
+// caller (todayDateString).
+function isoWeekBounds(today: string): { start: string; end: string } {
+  const d = new Date(`${today}T00:00:00Z`);
+  const isoDay = d.getUTCDay() || 7; // Sunday from getUTCDay() is 0 - treat as 7 so Monday=1..Sunday=7
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - isoDay + 1);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (x: Date) => x.toISOString().slice(0, 10);
+  return { start: fmt(monday), end: fmt(sunday) };
+}
+
+// Found in review, two separate gaps:
+// 1. No season_id filter - progress.json accumulates rows across every season forever
+//    (coach-redesign-part2-ledger.md: "seasons[] grows unbounded... season_id stamped on every
+//    row"), so a quest reused in a later season had its counts computed across ALL history, not
+//    just the current season. Now filters by season_id too, same as quest_id.
+// 2. weekly_frequency had no distinct handling - it fell into the same all-time completed/
+//    excused/missed tally as daily_streak, when its actual semantics ("a target count within the
+//    current week") need a week-scoped count instead. Now returns thisWeekCompleted alongside
+//    the all-time counts.
+function questProgressCounts(
+  progress: ProgressJson | null,
+  questId: string,
+  seasonId: string | null,
+  weekBounds: { start: string; end: string },
+): { completed: number; excused: number; missed: number; latestValue: string | null; thisWeekCompleted: number } {
+  const rows = (progress?.rows ?? []).filter((r) => r.quest_id === questId && (seasonId == null || r.season_id === seasonId));
   let completed = 0;
   let excused = 0;
   let missed = 0;
+  let thisWeekCompleted = 0;
   let latestValue: string | null = null;
   let latestDate = "";
   for (const row of rows) {
-    if (row.status === "completed") completed += 1;
-    else if (row.status === "excused") excused += 1;
-    else if (row.status === "missed") missed += 1;
+    if (row.status === "completed") {
+      completed += 1;
+      if (row.date >= weekBounds.start && row.date <= weekBounds.end) thisWeekCompleted += 1;
+    } else if (row.status === "excused") {
+      excused += 1;
+    } else if (row.status === "missed") {
+      missed += 1;
+    }
     if (row.value != null && row.date >= latestDate) {
       latestDate = row.date;
       latestValue = String(row.value);
     }
   }
-  return { completed, excused, missed, latestValue };
+  return { completed, excused, missed, latestValue, thisWeekCompleted };
 }
 
 export function renderQuestContext(storage: QuestContextStorage): string {
-  const { seasons, quests, progress, progressions } = storage;
+  const { seasons, quests, progress, progressions, today } = storage;
   const currentSeason = seasons?.seasons.find((s) => s.id === seasons.current_season_id) ?? null;
+  const currentSeasonId = seasons?.current_season_id ?? null;
+  const weekBounds = isoWeekBounds(today);
 
   const seasonLines = [
     "## Current Season",
@@ -151,9 +192,15 @@ export function renderQuestContext(storage: QuestContextStorage): string {
     // Found in review: this always used `completed` even for a progress-type main quest, same
     // bug the side-quest branch below already avoids - a progress-type main quest (e.g. tracking
     // a cumulative count) would render its completed-row count instead of its actual latest
-    // value. Match the side-quest branching exactly.
-    const { completed, latestValue } = questProgressCounts(progress, mainQuest.id);
-    const progressText = mainQuest.type === "progress" ? `${latestValue ?? "0"}/${mainQuest.target}` : `${completed}/${mainQuest.target}`;
+    // value. Match the side-quest branching exactly. Also now scoped to the current season and
+    // week-aware for weekly_frequency, same fixes as the side-quest branch below.
+    const { completed, latestValue, thisWeekCompleted } = questProgressCounts(progress, mainQuest.id, currentSeasonId, weekBounds);
+    const progressText =
+      mainQuest.type === "progress"
+        ? `${latestValue ?? "0"}/${mainQuest.target}`
+        : mainQuest.type === "weekly_frequency"
+          ? `${thisWeekCompleted}/${mainQuest.target} this week`
+          : `${completed}/${mainQuest.target}`;
     mainQuestLines.push(`- **${mainQuest.name}** (id: ${mainQuest.id}, type: ${mainQuest.type}): ${progressText}`);
   } else {
     mainQuestLines.push("*(None set)*");
@@ -163,9 +210,13 @@ export function renderQuestContext(storage: QuestContextStorage): string {
   const sideQuestLines = ["## Side Quests"];
   if (sideQuests.length > 0) {
     for (const q of sideQuests) {
-      const { completed, excused, missed, latestValue } = questProgressCounts(progress, q.id);
+      const { completed, excused, missed, latestValue, thisWeekCompleted } = questProgressCounts(progress, q.id, currentSeasonId, weekBounds);
       const progressText =
-        q.type === "progress" ? `${latestValue ?? "0"}/${q.target ?? "?"} ${q.unit ?? ""}`.trim() : `${completed} completed, ${excused} excused, ${missed} missed`;
+        q.type === "progress"
+          ? `${latestValue ?? "0"}/${q.target ?? "?"} ${q.unit ?? ""}`.trim()
+          : q.type === "weekly_frequency"
+            ? `${thisWeekCompleted}/${q.target ?? "?"} this week`
+            : `${completed} completed, ${excused} excused, ${missed} missed`;
       sideQuestLines.push(`- **${q.name}** (id: ${q.id}, type: ${q.type}): ${progressText}`);
     }
   } else {

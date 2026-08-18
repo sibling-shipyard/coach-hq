@@ -402,6 +402,21 @@ describe("applyProfileUpdate", () => {
     );
   });
 
+  // Found in review, second pass: Number("") is 0, not NaN - a JS quirk the isNaN guard above
+  // doesn't catch on its own, so an empty value slipped past it and silently wrote 0 instead of
+  // being rejected like any other invalid input.
+  it("throws on an empty value instead of silently writing 0 (Number('') === 0, not NaN)", () => {
+    expect(() => applyProfileUpdate(EXISTING, { field: "weight_kg", value: "" })).toThrow(
+      "profile_update: empty value is not a valid number for weight_kg",
+    );
+  });
+
+  it("throws on a whitespace-only value the same way", () => {
+    expect(() => applyProfileUpdate(EXISTING, { field: "weight_kg", value: "   " })).toThrow(
+      "profile_update: empty value is not a valid number for weight_kg",
+    );
+  });
+
   // coach_since is deliberately excluded from ProfileUpdateField (see coachIntents.ts) - it's
   // stamped once at First Session per ADR 0018 and is never a settable field via this action.
   // The type checker rejects it at compile time (@ts-expect-error below confirms that), AND

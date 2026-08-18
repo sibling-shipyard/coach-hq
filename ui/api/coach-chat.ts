@@ -72,7 +72,7 @@ async function handleGreet(
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
   const timezone = profile?.timezone?.trim() || "UTC";
   const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
-  const questContext = renderQuestContext({ seasons, quests, progress, progressions });
+  const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
 
   let reply: GeminiReply;
   try {
@@ -161,7 +161,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
       const timezone = profile?.timezone?.trim() || "UTC";
       const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
-      const questContext = renderQuestContext({ seasons, quests, progress, progressions });
+      const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
 
       const priorMessages = messages ?? [];
       // Keyword match only triggers asking Gemini to consider closing - reply.session_closed is

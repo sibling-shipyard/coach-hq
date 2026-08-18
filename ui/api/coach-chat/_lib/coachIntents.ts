@@ -233,7 +233,13 @@ export function applyProfileUpdate(content: string | null, update: ProfileUpdate
     // height_cm / weight_kg - numeric fields. Found in review: Number(update.value) was never
     // checked for NaN, so a non-numeric value (e.g. Gemini passing along "about 180" verbatim)
     // silently wrote NaN into profile.json - same silent-corruption shape the coach_since guard
-    // above exists to prevent, just for a value instead of a field.
+    // above exists to prevent, just for a value instead of a field. Second finding: Number("")
+    // (and whitespace-only strings) is 0, not NaN - JS's own quirk, not caught by isNaN alone -
+    // so an empty value slipped past the guard and silently wrote 0 instead of being rejected.
+    // Reject blank input explicitly before the numeric check.
+    if (update.value.trim() === "") {
+      throw new Error(`profile_update: empty value is not a valid number for ${update.field}`);
+    }
     const parsedValue = Number(update.value);
     if (Number.isNaN(parsedValue)) {
       throw new Error(`profile_update: "${update.value}" is not a valid number for ${update.field}`);
