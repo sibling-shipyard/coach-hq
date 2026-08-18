@@ -111,6 +111,12 @@ const quests = realQuestsSrc.map((q) => {
     name: q.name,
     type: q.type,
     start_date: q.start_date,
+    // Fabricated (migration date), not recovered - checked in review: no real end/completed/
+    // retired date exists anywhere in challenge_v2.json's quest schema (verified against every
+    // key on every quest in real data, active and otherwise) - `status` was the only lifecycle
+    // field the old schema ever tracked. There's no better date to pull forward here; `today` is
+    // the one date this migration can state with confidence, same reasoning as injuries.json's
+    // opened_at fallback.
     end_date: q.status === "active" ? null : today,
     status: q.status === "active" ? "active" : q.status === "completed" ? "graduated" : "retired",
     source: "model", // every quest in challenge_v2.json today was Coach-set, not athlete-requested

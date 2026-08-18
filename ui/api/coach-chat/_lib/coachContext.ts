@@ -149,7 +149,14 @@ function questProgressCounts(
   seasonId: string | null,
   weekBounds: { start: string; end: string },
 ): { completed: number; excused: number; missed: number; latestValue: string | null; thisWeekCompleted: number } {
-  const rows = (progress?.rows ?? []).filter((r) => r.quest_id === questId && (seasonId == null || r.season_id === seasonId));
+  // Found in review: `seasonId == null` used to bypass the season filter entirely (fall back to
+  // showing ALL history), which is backwards - a missing current season should mean nothing
+  // counts as "this season's" progress, not "show unscoped history across every season." That
+  // fallback would have reintroduced the exact leakage this filter exists to prevent, just
+  // triggered by a missing current_season_id instead of a genuinely reused quest_id. Dropping the
+  // bypass: `r.season_id === seasonId` alone naturally yields zero rows when seasonId is null,
+  // since no real row ever has a null season_id.
+  const rows = (progress?.rows ?? []).filter((r) => r.quest_id === questId && r.season_id === seasonId);
   let completed = 0;
   let excused = 0;
   let missed = 0;

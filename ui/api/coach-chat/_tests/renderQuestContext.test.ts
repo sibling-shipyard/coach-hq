@@ -112,6 +112,16 @@ describe("renderQuestContext", () => {
     expect(section).toContain("1/20"); // only the current-season row counts, not the 2 old-season ones too
   });
 
+  // Found in review, second pass: when there's no current season at all, the filter used to
+  // fall back to showing ALL history instead of nothing - backwards, since that reintroduces the
+  // exact season-leakage this filter exists to prevent.
+  it("shows zero progress (not all-time history) when there is no current season", () => {
+    const noSeasonSeasons: SeasonsJson = { ...seasons, current_season_id: "" };
+    const text = renderQuestContext({ seasons: noSeasonSeasons, quests, progress, progressions: null, today: "2026-08-18" });
+    const section = text.split("## Main Quest")[1].split("## Side Quests")[0];
+    expect(section).toContain("0/20"); // not 1/20 - no current season means nothing counts as current-season progress
+  });
+
   // Found in review: weekly_frequency fell into the generic all-time completed/excused/missed
   // tally, when its actual semantics need a week-scoped count instead.
   describe("weekly_frequency quests", () => {
