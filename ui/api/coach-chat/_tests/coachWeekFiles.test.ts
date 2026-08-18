@@ -202,4 +202,17 @@ describe("applySessionReconcile", () => {
       "could not be read",
     );
   });
+
+  it("throws (not silently corrupts) when reconciling against a stale session_id from before a same-turn week_plan rebuild", () => {
+    // PR #421 review: if Gemini ever sets week_plan and session_reconcile in the same turn (the
+    // prompt discourages this, but doesn't forbid it), coach-chat.ts feeds week_plan's freshly-
+    // rebuilt content straight into applySessionReconcile - so a session_reconcile event
+    // referencing a session_id from the PRE-rebuild week (which week_plan just replaced with
+    // brand-new ids) correctly fails loud here, same discipline as every other hallucinated-id
+    // guard in this pipeline, rather than silently patching the wrong session or corrupting data.
+    const rebuilt = applyWeekPlan(validPlan(), new Set(), "Asia/Kolkata", "t1", now);
+    expect(() => applySessionReconcile(rebuilt, [{ session_id: "sess_from_a_prior_week_plan", status: "done" }], "t1", now)).toThrow(
+      /no session with id "sess_from_a_prior_week_plan"/,
+    );
+  });
 });
