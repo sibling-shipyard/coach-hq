@@ -1,6 +1,6 @@
 # Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-15
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-18
 
 ## Overview
 The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
@@ -90,6 +90,34 @@ The app will replace the web-based workout timer with a native SwiftUI implement
 
 - **In-App Coach Chat:** Potential integration of LLM APIs (OpenAI/Anthropic) to allow direct conversation with Coach Phelps within the app, bypassing the need for Manus/Claude web interfaces. Users would provide their own API keys.
 - **Dashboard Port:** Migrating the Netlify web dashboard widgets into native SwiftUI views for a unified experience.
+
+## Client runtime rules
+
+Rules about app state and first paint. Breaking one fails silently, not loudly.
+(Widget-snapshot fetch/refresh rules live in [`ios-sync.md`](ios-sync.md).)
+
+- **Gate every first-paint GitHub call on `isSessionReady`** (plus `repoFullName` where the URL
+  needs it). A token in Keychain is not a discovered repo, and fetching from `configure()` races
+  bootstrap and fails silently. Applies to Home snapshots, Workouts sessions, and Activities
+  backfill alike. `GitHubAPIError.sessionNotReady` is silent — no toast; only surface
+  `notAuthenticated` when there is genuinely no token.
+- **Workouts tab TODAY badge follows coach session files** for the local date
+  (`sessions/YYYY-MM-DD_<id>.json` in the athlete repo), never a hardcoded weekday→template map —
+  coach can swap days. Matches web `ui/client/src/pages/Workouts.tsx`.
+- **Returning athlete on a new device or reinstall must not replay onboarding.**
+  `AppRouter.checkAccountSwitch`'s `stored == nil` branch calls `CoachSetupState.isComplete(repoFullName:)`
+  (fast, Keychain-backed, survives same-device reinstall), then falls back to the server signal
+  `CoachChatAPIClient.profileStatus()` (`/api/coach-chat-profile-status`, the same one
+  `CoachSetupBootstrap.shouldOpenChatFirst` uses). On either yes it jumps `onboardingPhase`
+  straight to `.complete`.
+- **Account-scoped data must be reset on _both_ exits.** `WorkoutService` and `WidgetSnapshotStore`
+  are app-lifetime `@StateObject`s that `GitHubAuthManager.signOut()` does not own: sign-out clears
+  them from `CoachHQApp`'s `.onChange(of: router.authManager.isAuthenticated)`, and account *switch*
+  clears them from `AppRouter.checkAccountSwitch()` (services bound in via
+  `bindAccountScopedServices`, called once from `CoachHQApp.onAppear`). Persisted caches need the
+  same scoping — `WidgetSnapshotStore` defers `loadCached()` to `configure(apiClient:)` (the account
+  is unknown in `init()`) and tags the cache with `apiClient.repoFullName`, refusing a mismatch.
+  Otherwise a prior account's Home paints on cold launch until the real fetch lands ~5s later.
 
 ## Tech Stack
 - **Language:** Swift
