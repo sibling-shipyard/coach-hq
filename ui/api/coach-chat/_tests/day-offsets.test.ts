@@ -12,11 +12,8 @@ describe("withComputedDayOffsets", () => {
   function thread(overrides: Partial<ChatThread> = {}): ChatThread {
     return {
       id: "t-1",
-      dayOffset: 0,
       title: "Some thread",
       preview: "preview text",
-      ageLabel: "NOW",
-      status: "active",
       messages: [],
       ...overrides,
     };
@@ -39,7 +36,7 @@ describe("withComputedDayOffsets", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-08T12:00:00Z"));
     // Created 4 days earlier, but ageLabel was written once as "NOW" back then and never updated.
-    const t = thread({ createdAt: new Date("2026-08-04T09:00:00Z").getTime(), ageLabel: "NOW" });
+    const t = thread({ createdAt: new Date("2026-08-04T09:00:00Z").getTime() });
     const [result] = withComputedDayOffsets([t], timezoneUTC);
     expect(result.dayOffset).toBe(4);
     expect(result.ageLabel).toBe("D-4");

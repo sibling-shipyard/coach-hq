@@ -709,8 +709,6 @@ const currentWeek = {
     start_date: toLocalDateStr(weekMonday),
     end_date: toLocalDateStr(weekEnd),
     status: "draft",
-    phase_name: "Build",
-    block_name: "Capacity without noise",
     focus: "Protect the two court anchors; let the support work stay supportive.",
     guardrails: [
       "Keep the hard-dose ceiling intact after the second court session.",
@@ -720,9 +718,6 @@ const currentWeek = {
   coach_read: {
     headline: "Two anchors. One restraint.",
     body: "The week has enough stimulus already. Win it by protecting Monday and Thursday, then keep Friday genuinely optional.",
-    tone: "steady",
-    confidence: "medium",
-    evidence_refs: ["current_week_plan", "weekly_load"],
     valid_from: toLocalDateStr(weekMonday),
     valid_until: toLocalDateStr(weekEnd),
   },
@@ -740,6 +735,7 @@ const currentWeek = {
   coach_comments: [],
   updated_at: NOW.toISOString(),
   updated_by: "golden-dataset-generator",
+  trace_id: "golden-dataset-generator",
 };
 
 // ─── Write ───────────────────────────────────────────────────────────────────

@@ -35,17 +35,35 @@ export type ChatMessage =
 // amendment). "deleted" never persists in chat_history.json - it's only the PATCH request shape.
 type ChatThreadStatus = "active" | "deleted";
 
+// What's actually written to/read from chat_history.json. ageLabel/dayOffset are dropped here -
+// coachDay.ts's withComputedDayOffsets recomputes both from createdAt on every read, so nothing
+// written to disk for either field is ever trusted. status is dropped too - a deleted thread is
+// filtered out of the array entirely on write (ADR 0012 amendment), never soft-marked, so the
+// persisted value only ever held "active" (part3-rollout).
 export interface ChatThread {
   id: string;
-  dayOffset: number;
   // Set once at creation, never overwritten - dayOffset is recomputed from this on every read
   // (coachDay.ts's withComputedDayOffsets), so it stays correct as real time passes.
   createdAt?: number;
   title: string;
   preview: string;
+  messages: ChatMessage[];
+}
+
+// What the API sends back to the client (browser + iOS): dayOffset/ageLabel/status computed
+// fresh by withComputedDayOffsets before every response, never read off disk. This is the shape
+// coachChatModel.ts's ChatThread type mirrors - keep it that way, part3-rollout says the
+// client-facing response shape does not change.
+export interface ApiChatThread extends ChatThread {
+  dayOffset: number;
   ageLabel: string;
   status: ChatThreadStatus;
-  messages: ChatMessage[];
+}
+
+interface ChatHistoryFileMeta {
+  updated_at: string;
+  updated_by: string;
+  trace_id: string;
 }
 
 interface ChatHistoryFile {
@@ -61,6 +79,14 @@ export async function loadChatHistory(repo: string, token: string): Promise<Chat
   } catch {
     return { threads: [] };
   }
+}
+
+// Serializes the persisted file shape, stamping _meta the same way coachMemoryFiles.ts's
+// MemoryJson._meta does - coach-chat is currently the only writer, so updated_by is always
+// "coach" for now.
+export function serializeChatHistory(threads: ChatThread[], updatedAt: string, traceId: string): string {
+  const meta: ChatHistoryFileMeta = { updated_at: updatedAt, updated_by: "coach", trace_id: traceId };
+  return JSON.stringify({ _meta: meta, threads }, null, 2);
 }
 
 // Puts `thread` at the front, replacing any existing entry with the same id - keeps the

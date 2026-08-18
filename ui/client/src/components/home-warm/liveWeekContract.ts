@@ -117,7 +117,6 @@ export function buildLiveWeekContract(
   const disciplines = new Set(
     weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity))),
   ).size;
-  const evidenceRefs = weekActivities.map((activity) => `activity:${activity.id}`);
   const latestTimestamp = weekActivities
     .map((activity) => activity.start_date_local)
     .sort()
@@ -131,17 +130,12 @@ export function buildLiveWeekContract(
       start_date: startDate,
       end_date: endDate,
       status: "active",
-      phase_name: challenge.phase?.name ?? challenge.challenge?.name ?? "Current block",
-      block_name: challenge.phase?.current_block.name ?? "This week",
       focus: "Recorded activity log for the current calendar week.",
       guardrails: [],
     },
     coach_read: {
       headline: `${weekActivities.length} session${weekActivities.length === 1 ? "" : "s"} logged.`,
       body: `${activeDays} active day${activeDays === 1 ? "" : "s"} · ${(totalMinutes / 60).toFixed(1)} hours · ${disciplines} discipline${disciplines === 1 ? "" : "s"}. Factual log summary; no training prescription is inferred.`,
-      tone: "steady",
-      confidence: "high",
-      evidence_refs: evidenceRefs,
       valid_from: startDate,
       valid_until: endDate,
     },
@@ -149,5 +143,6 @@ export function buildLiveWeekContract(
     coach_comments: [],
     updated_at: latestTimestamp,
     updated_by: "activity-log-adapter",
+    trace_id: "live-week-contract",
   };
 }

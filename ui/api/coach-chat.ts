@@ -37,6 +37,7 @@ import {
   loadChatHistory,
   mergeThreadToFront,
   applyRetention,
+  serializeChatHistory,
   type ChatMessage,
   type ChatThread,
 } from "./coach-chat/_lib/chatThreads.js";
@@ -241,28 +242,19 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         resolve: async () => {
           const fresh = await loadChatHistory(repo, token);
           const existing = fresh.threads.find((t) => t.id === finalThreadId);
-          if (existing && existing.status === "deleted") {
-            // Stale client closing into a thread deleted since this conversation started - fail
-            // loudly instead of silently resurrecting it. Defensive backstop; a hard-deleted
-            // thread is normally removed from the array entirely.
-            throw Object.assign(
-              new Error(`Thread ${finalThreadId} was ${existing.status} - refusing to reactivate it via close`),
-              { status: 400 }, // non-transient: don't burn retries on a real rejection
-            );
-          }
+          // No "deleted" check here anymore - part3-rollout dropped status from the persisted
+          // shape entirely (ADR 0012 amendment: a deleted thread is filtered out of the array on
+          // write, never soft-marked, so "deleted" could never actually be found on disk).
           const thread: ChatThread = {
             id: finalThreadId,
-            dayOffset: existing?.dayOffset ?? 0, // stale by design - recomputed from createdAt on every response
             createdAt: existing?.createdAt ?? now,
             title: existing?.title ?? computedTitle,
             preview: previewText,
-            ageLabel: "NOW",
-            status: "active",
             messages: allMessages,
           };
           const retained = applyRetention(mergeThreadToFront(fresh.threads, thread));
           latestThreads = retained;
-          return JSON.stringify({ threads: retained }, null, 2);
+          return serializeChatHistory(retained, new Date().toISOString(), traceId);
         },
       };
 

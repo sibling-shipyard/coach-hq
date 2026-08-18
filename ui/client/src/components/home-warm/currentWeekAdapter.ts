@@ -78,7 +78,7 @@ function mapDiscipline(discipline: string): SessionDiscipline {
 }
 
 /** schema-v1 tone carries an extra "recovery"; the widget tone stops at caution. */
-function mapTone(tone: RuntimeCoachRead["tone"]): CoachTone {
+function mapTone(tone: RuntimeCoachComment["tone"]): CoachTone {
   return tone === "recovery" ? "steady" : tone;
 }
 
@@ -127,9 +127,6 @@ function mapCoachRead(read: RuntimeCoachRead): CurrentWeekContract["coach_read"]
   return {
     headline: read.headline,
     body: read.body,
-    tone: mapTone(read.tone),
-    confidence: read.confidence,
-    evidence_refs: read.evidence_refs,
     valid_from: read.valid_from,
     valid_until: read.valid_until,
   };
@@ -253,8 +250,6 @@ export function adaptCurrentWeek(
       start_date: runtime.week.start_date,
       end_date: runtime.week.end_date,
       status: mapWeekStatus(availability.status),
-      phase_name: runtime.week.phase_name ?? "",
-      block_name: runtime.week.block_name ?? "",
       focus: runtime.week.focus ?? "",
       guardrails: runtime.week.guardrails,
     },
@@ -263,9 +258,6 @@ export function adaptCurrentWeek(
       : {
           headline: runtime.week.focus ?? "Current week",
           body: "",
-          tone: "steady",
-          confidence: "low",
-          evidence_refs: ["current_week_plan"],
           valid_from: runtime.week.start_date,
           valid_until: runtime.week.end_date,
         },
@@ -273,5 +265,6 @@ export function adaptCurrentWeek(
     coach_comments: runtime.coach_comments.map(mapCoachComment),
     updated_at: runtime.updated_at,
     updated_by: runtime.updated_by,
+    trace_id: runtime.trace_id,
   };
 }

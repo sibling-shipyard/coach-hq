@@ -6,7 +6,7 @@
  * field, read by the caller) rather than parsing it out of state.md prose - state.md no longer
  * exists (coach-redesign-part1-memory.md, Part 1).
  */
-import type { ChatThread } from "./chatThreads.js";
+import type { ApiChatThread, ChatThread } from "./chatThreads.js";
 
 // Calendar-day difference between a thread's createdAt and "today," both resolved in the
 // athlete's own timezone rather than UTC - a thread created at 11pm IST shouldn't already read
@@ -30,10 +30,10 @@ function ageLabelFor(dayOffset: number): string {
   return dayOffset === 0 ? "NOW" : `D-${dayOffset}`;
 }
 
-export function withComputedDayOffsets(threads: ChatThread[], timezone: string): ChatThread[] {
+export function withComputedDayOffsets(threads: ChatThread[], timezone: string): ApiChatThread[] {
   return threads.map((t) => {
     const dayOffset = computeDayOffset(t.createdAt ?? Date.now(), timezone);
-    return { ...t, dayOffset, ageLabel: ageLabelFor(dayOffset) };
+    return { ...t, dayOffset, ageLabel: ageLabelFor(dayOffset), status: "active" };
   });
 }
 
