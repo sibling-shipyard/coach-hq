@@ -29,6 +29,7 @@
 | 0023 | A signal ships only when something other than the athlete maintains it | cross-cutting |
 | 0024 | Paid checks run at named gates, not on every PR | cross-cutting |
 | 0025 | The soul fragments are called horcruxes, and they stay called horcruxes | platform |
+| 0026 | Agent loop: gates in docs, not a graph runtime | core |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.

@@ -19,19 +19,38 @@ docs, tests — goes to a subagent. Your hands stay on scope, sequencing, and re
 of the editor is what keeps you available to the athlete for discussion mid-task. If you catch
 yourself editing a file to satisfy an athlete request, stop and delegate it.
 
+- **Step 0 — freshness gate.** Before any worker spawns, diff the plan doc against HEAD. If the
+  files it names have moved or gone, propose a doc patch and get the athlete's approval first. A
+  brief written against a stale tree wastes the whole spawn.
 - **Delegate:** anything that produces a diff. One subagent per PR, or per independent chunk of
   a large one. Brief it cold — it inherits nothing: the goal, the plan doc, the scope boundary,
-  what's already done, and how to validate.
+  what's already done, and how to validate. The worker writes progress into that plan file as it
+  goes, so a respawn resumes instead of restarting from nothing.
+- **Report shape, fixed.** Every worker report comes back as: files touched · checks run, **with
+  their output** · what was deliberately not done. The output is what makes a report auditable
+  instead of a claim, and the shape stops you re-deriving what happened.
 - **Keep:** conversation, scope calls, plans, reviews, ADR and role-doc edits, and small fixes
   (~20 lines) you find *during* your own review of a subagent's diff. The point of the rule is
   that execution and review are separate passes — a short fix you write and then re-read cold
   still satisfies it. Anything bigger goes out, however urgent or mechanical it looks.
-- If a subagent fails or hits a limit, retry or respawn it. Taking over a whole task is allowed
+- If a subagent fails or hits a limit, retry or respawn it — **cap: 2 fix attempts.** Then stop
+  and take it to the athlete. Don't spiral. Taking over a whole task is allowed
   only when you tell the athlete plainly, in that same message, that you are doing so and why.
 - **Never delegate the review, the PR, or the push.** Read the actual diff and re-run the checks
   yourself — a subagent's report is a claim, not evidence. You open the PR.
-- Execution loop: plan → athlete approves → subagent implements → **you review** → PR → short
-  summary. Worker roles (Bob / UI Expert / iOS Builder) are the same thing with a scoped role doc.
+- Execution loop: freshness gate → plan → athlete approves → subagent implements → **you review**
+  → PR → short summary. Worker roles (Bob / UI Expert / iOS Builder) are the same thing with a
+  scoped role doc.
+
+### Review is five countable checks, not a verdict
+
+1. the named checks re-run by you, and green
+2. the diff is a subset of the phase's declared files
+3. explicit paths were staged
+4. the PR's file list verified against the branch — not against local `main`, which has
+	under-reported a branch here before. `gh pr view <n> --json files` locally; web and remote
+	sessions have no `gh`, so there use `mcp__github__pull_request_read` with `method: get_files`
+5. doc upkeep done (`AGENTS.md` § Doc upkeep)
 
 ### Which subagent, and how many of them
 
@@ -46,6 +65,9 @@ is the cost, not the work. Three ways to avoid paying it twice:
 3. **Cheap model for mechanical work.** Regenerating the ADR index, running compose and reporting
 	drift, a cross-file rename, a failing lint — anything a check can prove right. Never for soul
 	layers, coach voice, or a judgment call: cheap models flatten those.
+
+**Broad searches go to the `Explore` subagent.** It returns conclusions, not file dumps into your
+context. Use it when answering means sweeping many files or naming conventions.
 
 **No subagents available?** Some environments have no Agent tool; some harnesses forbid spawning
 one unless the athlete asks. Then you execute directly — say so in one line and carry on. Never
@@ -94,5 +116,4 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 - `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree (caused a CI-only failure in PR #294).
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
 - Check `gh issue list` before filing audit findings — the roadmap usually already tracks them (a SOUL audit produced 7 new issues out of 13 candidates; the rest were duplicates).
-- Verify what a PR actually published with `gh pr view <n> --json files`, not `git diff main --stat` — a stale local `main` reported 3 files while the branch carried 7.
 - Leave the primary checkout on `main` when a subagent finishes — a branch left checked out there catches the next session's commits. Before force-pushing a branch carrying unexpected commits, rescue them (`git branch rescue/... <sha>`, push it) or you orphan a colleague's only copy.
