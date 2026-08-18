@@ -35,6 +35,20 @@
   script may still be worth writing so an existing athlete's real templates/`current_week.json`
   can adopt the new bookkeeping (`_manifest.json`, `trace_id`, etc.) without waiting on a live
   chat turn to trigger it.
+- **Async closing — don't make the athlete wait on the commit.** Raised during workout-backend-
+  wiring's live verification: today the athlete's HTTP request blocks on the full closing
+  pipeline (Gemini call(s) + every write + the GitHub commit) before they see a reply at all —
+  worse when an action field triggers a second Gemini call (`template_edit`'s content generation,
+  `generateInitialTemplates`), since both calls have to succeed before anything returns. Proposed
+  split: keep the reply synchronous (one Gemini call, same as today), but detach the actual
+  write/commit/retry work to run in the background the moment that reply comes back — the athlete
+  never sees "saving" or a failure, same as they'd never see it today if everything just worked.
+  Vercel's `waitUntil` is the natural mechanism (extends execution past the returned response for
+  a bounded time) — this pipeline's existing atomic-commit + upsert-by-id discipline (Parts 1-3
+  onward) is a good sign it's safely retryable, not a rewrite. Open questions before building:
+  `waitUntil`'s actual time cap vs. worst-case turn latency (a `template_edit` chain), and what
+  happens on the rare case a background write still fails after every retry (silent forever, or
+  does it need to surface next time the athlete opens the app).
 - **`platform/scripts/carve-skeleton.mjs` regeneration.** The skeleton (`.skeleton-push/` →
   `coach-skeleton`) hasn't been re-run since workout-backend-wiring landed — it's a mechanical,
   low-risk regen, just needs doing once this branch's code is settled.
