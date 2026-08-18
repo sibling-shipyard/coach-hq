@@ -30,13 +30,16 @@ export interface GeminiReply {
   // coachIntents.ts's applyInjuryEvent for the exact new/update/resolve rules). Closing turns
   // only, same as coach_note/memory_update.
   injury_event?: { status: "active" | "resolved"; text?: string; flag_id?: string };
-  // Part 2 ledger split: the athlete logged a completion/miss/excuse on an existing quest this
-  // conversation. Server stamps date/id/ts/trace_id/season_id and upserts the row for that
-  // quest+date in progress.json (coachIntents.ts's applyQuestEvent) - Gemini only ever supplies
-  // quest_id/status/value. No `date` field - same rule as coach_note/injury_event, the server
-  // already knows today's date. `value` is optional and only meaningful for progress-type
-  // quests. Closing turns only, same as the fields above.
-  quest_event?: { quest_id: string; status: "completed" | "missed" | "excused"; value?: number | string };
+  // Part 2 ledger split: the athlete logged a completion/miss/excuse on one or more existing
+  // quests this conversation. Server stamps date/id/ts/trace_id/season_id and upserts the row for
+  // each quest+date in progress.json (coachIntents.ts's applyQuestEvent) - Gemini only ever
+  // supplies quest_id/status/value per event. No `date` field - same rule as coach_note/
+  // injury_event, the server already knows today's date. `value` is optional and only meaningful
+  // for progress-type quests. Closing turns only, same as the fields above.
+  //
+  // Issue #410: was a single object - a turn reporting two separate quest completions could only
+  // capture one. Now an array so every reported completion lands as its own row.
+  quest_event?: { quest_id: string; status: "completed" | "missed" | "excused"; value?: number | string }[];
   // Part 2 ledger split: one field in profile.json changed this conversation (e.g. weight_kg
   // after the athlete reports a new number). Server sets that one field, nothing else - Gemini
   // only ever supplies field/value. Closing turns only, same as the fields above.
@@ -95,13 +98,17 @@ export const GENERATION_CONFIG = {
         },
       },
       // Part 2 ledger split, step 3a - shipped and tested in isolation before profile_update
-      // (gemini-flow.md's Action-field design rule #2). No `date` - server stamps it.
+      // (gemini-flow.md's Action-field design rule #2). No `date` - server stamps it. Array
+      // (issue #410) so a turn reporting several quest completions at once captures all of them.
       quest_event: {
-        type: "object",
-        properties: {
-          quest_id: { type: "string" },
-          status: { type: "string", enum: ["completed", "missed", "excused"] },
-          value: { type: "string" },
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            quest_id: { type: "string" },
+            status: { type: "string", enum: ["completed", "missed", "excused"] },
+            value: { type: "string" },
+          },
         },
       },
       // Part 2 ledger split, step 3b - shipped after quest_event confirmed working live.
@@ -211,12 +218,13 @@ export function buildDynamicText(
           "and text only if there's new detail worth recording (omit text to leave it unchanged).",
           "A flag that's cleared up: status \"resolved\" and that flag_id. Only ever use a flag_id",
           "that's actually listed below - never invent one. Most closes won't need this either.",
-          "\nIf the athlete reported completing, missing, or being excused from one of today's",
-          "quests (see Current quests below), set quest_event with that quest's exact quest_id",
-          "and status \"completed\", \"missed\", or \"excused\". Only use a quest_id that's actually",
-          "listed below - never invent one. Include value only for a progress-type quest where the",
-          "athlete gave a new cumulative number (e.g. chapters read so far) - other quest types",
-          "never need value. This only logs today - don't use it to backfill an earlier day.",
+          "\nIf the athlete reported completing, missing, or being excused from one or more of",
+          "today's quests (see Current quests below), set quest_event to an array with one entry",
+          "per quest - each entry has that quest's exact quest_id and status \"completed\",",
+          "\"missed\", or \"excused\". Only use a quest_id that's actually listed below - never",
+          "invent one. Include value only for a progress-type quest where the athlete gave a new",
+          "cumulative number (e.g. chapters read so far) - other quest types never need value.",
+          "This only logs today - don't use it to backfill an earlier day.",
           "\nIf the athlete gave a new value for one of their profile basics (name, date of birth,",
           "timezone, height, or weight), set profile_update with that field and the new value.",
           "Only set it when the athlete actually stated a new value, never to fill in a guess.",

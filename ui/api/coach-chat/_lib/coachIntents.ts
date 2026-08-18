@@ -53,8 +53,6 @@ export function applyMemoryUpdate(
     version: 1,
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
-    goal: parsed.goal ?? "",
-    timeline: parsed.timeline ?? "",
     coaching_style: parsed.coaching_style ?? "",
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
@@ -133,12 +131,17 @@ export function applyInjuryEvent(content: string | null, event: InjuryEvent, tod
   return JSON.stringify({ flags: updated }, null, 2);
 }
 
-// quest_event { quest_id, status, value? }: Part 2 ledger split. Server owns date/id/ts/trace_id/
-// season_id entirely (gemini-flow.md's Action-field design rule #1) - Gemini only ever supplies
-// quest_id/status/value. Upserts on (quest_id, date) - reporting the same tick twice for today is
-// a no-op by construction, same repeat-safety story as coach-redesign-part2-ledger.md describes.
-// `value` only matters for progress-type quests (e.g. "12/20 chapters") - other quest types only
-// ever report status.
+// quest_event { quest_id, status, value? }[]: Part 2 ledger split. Server owns date/id/ts/
+// trace_id/season_id entirely (gemini-flow.md's Action-field design rule #1) - Gemini only ever
+// supplies quest_id/status/value. Upserts on (quest_id, date) - reporting the same tick twice for
+// today is a no-op by construction, same repeat-safety story as coach-redesign-part2-ledger.md
+// describes. `value` only matters for progress-type quests (e.g. "12/20 chapters") - other quest
+// types only ever report status.
+//
+// Issue #410: was a single event, capping a turn to one quest completion even when the athlete
+// reported several at once. Now an array - each event applies the same upsert logic in sequence,
+// so two events for the same quest_id+date within one call still upsert onto each other in order
+// (last one wins), same as two separate calls would.
 export interface QuestEvent {
   quest_id: string;
   status: "completed" | "missed" | "excused";
@@ -147,31 +150,32 @@ export interface QuestEvent {
 
 export function applyQuestEvent(
   content: string | null,
-  event: QuestEvent,
+  events: QuestEvent[],
   today: string,
   currentSeasonId: string,
   traceId: string,
   now: Date,
 ): string {
   const parsed = parseJsonOrNull<{ rows?: ProgressRow[] }>(content);
-  const rows: ProgressRow[] = Array.isArray(parsed?.rows) ? parsed.rows : [];
+  let rows: ProgressRow[] = Array.isArray(parsed?.rows) ? parsed.rows : [];
 
-  const existingIndex = rows.findIndex((r) => r.quest_id === event.quest_id && r.date === today);
-  const row: ProgressRow = {
-    id: existingIndex >= 0 ? rows[existingIndex].id : `pr_${event.quest_id}_${today}`,
-    quest_id: event.quest_id,
-    season_id: currentSeasonId,
-    date: today,
-    status: event.status,
-    value: event.value ?? null,
-    source: "model",
-    ts: now.toISOString(),
-    trace_id: traceId,
-  };
+  for (const event of events) {
+    const existingIndex = rows.findIndex((r) => r.quest_id === event.quest_id && r.date === today);
+    const row: ProgressRow = {
+      id: existingIndex >= 0 ? rows[existingIndex].id : `pr_${event.quest_id}_${today}`,
+      quest_id: event.quest_id,
+      season_id: currentSeasonId,
+      date: today,
+      status: event.status,
+      value: event.value ?? null,
+      source: "model",
+      ts: now.toISOString(),
+      trace_id: traceId,
+    };
+    rows = existingIndex >= 0 ? rows.map((r, i) => (i === existingIndex ? row : r)) : [...rows, row];
+  }
 
-  const updated = existingIndex >= 0 ? rows.map((r, i) => (i === existingIndex ? row : r)) : [...rows, row];
-
-  return JSON.stringify({ version: 1, rows: updated }, null, 2);
+  return JSON.stringify({ version: 1, rows }, null, 2);
 }
 
 // profile_update { field, value }: Part 2 ledger split, step 3b - sets exactly one field in

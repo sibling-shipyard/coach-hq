@@ -109,8 +109,6 @@ function splitList(raw) {
 }
 
 const sports = splitList(fieldLine(profileSection, "Sport\\(s\\) / Activities"));
-const goal = fieldLine(profileSection, "Goal");
-const timeline = fieldLine(profileSection, "Timeline / Upcoming events");
 const coaching_style = fieldLine(profileSection, "Coaching style preference");
 
 function note(text) {
@@ -128,8 +126,6 @@ const memoryJson = {
   version: 1,
   _meta: { updated_at: today, updated_by: "migration", trace_id: MIGRATION_TRACE_ID },
   sports,
-  goal,
-  timeline,
   coaching_style,
   notes: {
     fitness_baseline: note(fitnessBaselineSection),

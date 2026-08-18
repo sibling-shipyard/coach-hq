@@ -185,12 +185,17 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
 // B2/coach-redesign-part1-memory.md: First Session Protocol completion check. Used to be a
 // regex/section-matching read of state.md's Athlete Profile section (see git history) - now a
 // simple field-presence check against profile.json/memory.json, matching #362's reduced
-// REQUIRED_PROFILE_FIELDS set exactly: `name` lives in profile.json, `sport`/`goal` moved to
-// memory.json in the Part 1 redesign, so this reads across both files rather than one.
+// REQUIRED_PROFILE_FIELDS set: `name` lives in profile.json, `sport` moved to memory.json in the
+// Part 1 redesign, so this reads across both files rather than one.
+//
+// Issue #408: `goal` dropped from memory.json entirely (seasons.json's name + quests.json's
+// main_quest now represent what it was trying to capture structurally), so it's dropped from
+// this gate too - name+sport is what's left. Whether First Session completeness should instead
+// check for a main_quest is a separate call the wiring-up-quests work should make deliberately,
+// not something to fold in here silently.
 export function isAthleteProfileComplete(profile: ProfileJson | null, memory: MemoryJson | null): boolean {
   if (!profile || !memory) return false;
   const hasName = Boolean(profile.name && profile.name.trim().length > 0);
   const hasSport = Array.isArray(memory.sports) && memory.sports.some((s) => s.trim().length > 0);
-  const hasGoal = Boolean(memory.goal && memory.goal.trim().length > 0);
-  return hasName && hasSport && hasGoal;
+  return hasName && hasSport;
 }

@@ -53,8 +53,6 @@ describe("applyMemoryUpdate", () => {
     version: 1,
     _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
     sports: ["badminton"],
-    goal: "Get back to competitive shape",
-    timeline: "Club tournament in October",
     coaching_style: "Direct",
     notes: {
       fitness_baseline: { text: "old baseline", updated_at: "2026-08-01", trace_id: "old" },
@@ -73,12 +71,24 @@ describe("applyMemoryUpdate", () => {
     expect(result.notes.equipment.text).toBe("old equipment");
   });
 
-  it("preserves top-level sports/goal/timeline/coaching_style", () => {
+  it("preserves top-level sports/coaching_style", () => {
     const result = JSON.parse(applyMemoryUpdate(EXISTING, "equipment", "new gear", "2026-08-18", "t2"));
     expect(result.sports).toEqual(["badminton"]);
-    expect(result.goal).toBe("Get back to competitive shape");
-    expect(result.timeline).toBe("Club tournament in October");
     expect(result.coaching_style).toBe("Direct");
+  });
+
+  // Issue #408: goal/timeline dropped from memory.json entirely - seasons.json's name +
+  // quests.json's main_quest now represent what goal was trying to capture structurally.
+  it("no longer has goal/timeline in its output shape", () => {
+    const result = JSON.parse(applyMemoryUpdate(EXISTING, "equipment", "new gear", "2026-08-18", "t2"));
+    expect(result.goal).toBeUndefined();
+    expect(result.timeline).toBeUndefined();
+  });
+
+  it("does not resurrect goal/timeline when starting a fresh file from null", () => {
+    const result = JSON.parse(applyMemoryUpdate(null, "equipment", "new gear", "2026-08-18", "t1"));
+    expect(result.goal).toBeUndefined();
+    expect(result.timeline).toBeUndefined();
   });
 
   it("stamps _meta with the server-provided date/trace_id, never Gemini-supplied", () => {
@@ -205,7 +215,7 @@ describe("applyQuestEvent", () => {
 
   it("upserts a new row for a quest_id+date with no existing row", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, { quest_id: "morning_routine", status: "completed" }, "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
     );
     expect(result.rows).toHaveLength(3);
     const newRow = result.rows.find((r: any) => r.date === "2026-08-16");
@@ -215,7 +225,7 @@ describe("applyQuestEvent", () => {
 
   it("replaces the existing row for the same quest_id+date rather than adding a duplicate", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, { quest_id: "morning_routine", status: "missed" }, "2026-08-15", "s_2026_q2", "t2", new Date("2026-08-16T09:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "missed" }], "2026-08-15", "s_2026_q2", "t2", new Date("2026-08-16T09:00:00Z")),
     );
     const rowsForDate = result.rows.filter((r: any) => r.quest_id === "morning_routine" && r.date === "2026-08-15");
     expect(rowsForDate).toHaveLength(1);
@@ -226,7 +236,7 @@ describe("applyQuestEvent", () => {
 
   it("stores value when given (progress-type quest case)", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, { quest_id: "inner_game_of_tennis", status: "completed", value: 12 }, "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "inner_game_of_tennis", status: "completed", value: 12 }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
     );
     const row = result.rows.find((r: any) => r.date === "2026-08-16");
     expect(row.value).toBe(12);
@@ -234,7 +244,7 @@ describe("applyQuestEvent", () => {
 
   it("stores value as null when omitted", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, { quest_id: "morning_routine", status: "completed" }, "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
     );
     const row = result.rows.find((r: any) => r.date === "2026-08-16");
     expect(row.value).toBeNull();
@@ -242,7 +252,7 @@ describe("applyQuestEvent", () => {
 
   it("stamps id/date/ts/trace_id/season_id server-side, not from anything Gemini-influenced beyond quest_id/status/value", () => {
     const result = JSON.parse(
-      applyQuestEvent(null, { quest_id: "morning_routine", status: "completed" }, "2026-08-16", "s_2026_q3", "trace-xyz", new Date("2026-08-16T18:42:03Z")),
+      applyQuestEvent(null, [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q3", "trace-xyz", new Date("2026-08-16T18:42:03Z")),
     );
     const row = result.rows[0];
     expect(row.id).toBe("pr_morning_routine_2026-08-16");
@@ -255,21 +265,21 @@ describe("applyQuestEvent", () => {
 
   it("treats malformed JSON as an empty rows array rather than throwing", () => {
     const result = JSON.parse(
-      applyQuestEvent("{not valid json", { quest_id: "morning_routine", status: "completed" }, "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent("{not valid json", [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
     );
     expect(result.rows).toHaveLength(1);
   });
 
   it("treats missing/non-array rows as empty rather than throwing", () => {
     const result = JSON.parse(
-      applyQuestEvent('{"threads":[]}', { quest_id: "morning_routine", status: "completed" }, "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
+      applyQuestEvent('{"threads":[]}', [{ quest_id: "morning_routine", status: "completed" }], "2026-08-16", "s_2026_q2", "t1", new Date("2026-08-16T18:00:00Z")),
     );
     expect(result.rows).toHaveLength(1);
   });
 
   it("leaves other quests' rows untouched by an update to one quest", () => {
     const result = JSON.parse(
-      applyQuestEvent(EXISTING, { quest_id: "morning_routine", status: "excused" }, "2026-08-15", "s_2026_q2", "t2", new Date("2026-08-16T09:00:00Z")),
+      applyQuestEvent(EXISTING, [{ quest_id: "morning_routine", status: "excused" }], "2026-08-15", "s_2026_q2", "t2", new Date("2026-08-16T09:00:00Z")),
     );
     const other = result.rows.find((r: any) => r.quest_id === "inner_game_of_tennis");
     expect(other).toEqual({
@@ -282,6 +292,56 @@ describe("applyQuestEvent", () => {
       source: "model",
       ts: "2026-08-15T18:00:00.000Z",
       trace_id: "old",
+    });
+  });
+
+  // Issue #410: quest_event became an array so a single turn can report multiple quest
+  // completions - a message reporting two separate quests done at once used to only capture one.
+  describe("multiple events in one call (issue #410)", () => {
+    it("applies each event's upsert in sequence, updating multiple different rows", () => {
+      const result = JSON.parse(
+        applyQuestEvent(
+          EXISTING,
+          [
+            { quest_id: "morning_routine", status: "completed" },
+            { quest_id: "inner_game_of_tennis", status: "completed", value: 15 },
+          ],
+          "2026-08-16",
+          "s_2026_q2",
+          "t3",
+          new Date("2026-08-16T18:00:00Z"),
+        ),
+      );
+      expect(result.rows).toHaveLength(4);
+      const morning = result.rows.find((r: any) => r.quest_id === "morning_routine" && r.date === "2026-08-16");
+      const tennis = result.rows.find((r: any) => r.quest_id === "inner_game_of_tennis" && r.date === "2026-08-16");
+      expect(morning).toMatchObject({ status: "completed", value: null });
+      expect(tennis).toMatchObject({ status: "completed", value: 15 });
+    });
+
+    it("an empty array is a no-op - rows unchanged", () => {
+      const result = JSON.parse(
+        applyQuestEvent(EXISTING, [], "2026-08-16", "s_2026_q2", "t3", new Date("2026-08-16T18:00:00Z")),
+      );
+      expect(result.rows).toEqual(JSON.parse(EXISTING).rows);
+    });
+
+    it("a second event for the same quest_id+date within one call upserts onto the first (last one wins)", () => {
+      const result = JSON.parse(
+        applyQuestEvent(
+          null,
+          [
+            { quest_id: "morning_routine", status: "completed" },
+            { quest_id: "morning_routine", status: "missed" },
+          ],
+          "2026-08-16",
+          "s_2026_q2",
+          "t3",
+          new Date("2026-08-16T18:00:00Z"),
+        ),
+      );
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0].status).toBe("missed");
     });
   });
 });

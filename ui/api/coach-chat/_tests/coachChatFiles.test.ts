@@ -4,8 +4,9 @@ import type { ProfileJson, MemoryJson } from "../_lib/coachMemoryFiles.js";
 
 // coach-redesign-part1-memory.md, Step 3: replaces the old regex/section-matching read of
 // state.md's Athlete Profile with a simple field-presence check against profile.json/memory.json,
-// matching #362's reduced REQUIRED_PROFILE_FIELDS set exactly (name/sport/goal) - just spread
-// across two files now instead of one section.
+// matching #362's reduced REQUIRED_PROFILE_FIELDS set - just spread across two files now instead
+// of one section. Issue #408 dropped `goal` from memory.json entirely, so this gate is now
+// name/sport only (see coachChatFiles.ts's isAthleteProfileComplete).
 function profile(overrides: Partial<ProfileJson> = {}): ProfileJson {
   return {
     version: 1,
@@ -24,8 +25,6 @@ function memory(overrides: Partial<MemoryJson> = {}): MemoryJson {
     version: 1,
     _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
     sports: ["Badminton"],
-    goal: "Get back to competitive shape",
-    timeline: "",
     coaching_style: "",
     notes: {
       fitness_baseline: { text: "", updated_at: "", trace_id: "" },
@@ -40,7 +39,7 @@ function memory(overrides: Partial<MemoryJson> = {}): MemoryJson {
 }
 
 describe("isAthleteProfileComplete", () => {
-  it("is true when name/sport/goal are all present", () => {
+  it("is true when name/sport are both present", () => {
     expect(isAthleteProfileComplete(profile(), memory())).toBe(true);
   });
 
@@ -64,15 +63,11 @@ describe("isAthleteProfileComplete", () => {
     expect(isAthleteProfileComplete(profile(), memory({ sports: ["", "  "] }))).toBe(false);
   });
 
-  it("is false when goal is blank", () => {
-    expect(isAthleteProfileComplete(profile(), memory({ goal: "" }))).toBe(false);
-  });
-
-  // #362: dob/height_cm/weight_kg/timeline/coaching_style are context the athlete may decline -
-  // never gate on them, same rule as before the redesign, just checked against the new files.
+  // #362: dob/height_cm/weight_kg/coaching_style are context the athlete may decline - never
+  // gate on them, same rule as before the redesign, just checked against the new files.
   it("is true even when every optional field is declined", () => {
     const p = profile({ dob: null, height_cm: null, weight_kg: null });
-    const m = memory({ timeline: "", coaching_style: "" });
+    const m = memory({ coaching_style: "" });
     expect(isAthleteProfileComplete(p, m)).toBe(true);
   });
 });

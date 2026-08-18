@@ -22,8 +22,6 @@ describe("renderCoachContext section shape", () => {
     version: 1,
     _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
     sports: ["badminton", "strength"],
-    goal: "Get back to competitive shape",
-    timeline: "Club tournament in October",
     coaching_style: "Direct",
     notes: {
       fitness_baseline: { text: "Comfortable at moderate volume.", updated_at: "2026-08-01", trace_id: "t0" },
@@ -71,7 +69,6 @@ describe("renderCoachContext section shape", () => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog });
     expect(text).toContain("- **Name:** Test Athlete");
     expect(text).toContain("- **Sport(s) / Activities:** badminton, strength");
-    expect(text).toContain("- **Goal:** Get back to competitive shape");
     expect(text).toContain("- **Timezone:** Asia/Kolkata");
     expect(text).toContain("- **Height:** 178 cm");
     expect(text).toContain("- **Weight:** 74 kg");

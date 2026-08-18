@@ -318,20 +318,22 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
-      // Part 2 ledger split, step 3a: reported only when the athlete logged a quest completion/
-      // miss/excuse this close. currentSeasonId comes from the pre-turn seasons.json read (not
-      // re-fetched at commit time) - a season change mid-conversation is not a case worth
-      // guarding against here, same trust level as the rest of this turn's context.
-      const questEvent = reply.quest_event;
+      // Part 2 ledger split, step 3a: reported only when the athlete logged one or more quest
+      // completions/misses/excuses this close (issue #410: quest_event is now an array so a turn
+      // reporting several at once captures all of them). currentSeasonId comes from the pre-turn
+      // seasons.json read (not re-fetched at commit time) - a season change mid-conversation is
+      // not a case worth guarding against here, same trust level as the rest of this turn's
+      // context.
+      const questEvents = reply.quest_event ?? [];
       const currentSeasonId = seasons?.current_season_id ?? "";
-      const questEventWrite: FileEntry | undefined = questEvent?.quest_id && questEvent.status
+      const questEventWrite: FileEntry | undefined = questEvents.length > 0
         ? {
             path: PROGRESS_PATH,
             resolve: async () => {
               const fresh = await getFileRaw(repo, PROGRESS_PATH, token);
               return applyQuestEvent(
                 fresh,
-                questEvent,
+                questEvents,
                 todayDateString(timezone, new Date()),
                 currentSeasonId,
                 traceId,
