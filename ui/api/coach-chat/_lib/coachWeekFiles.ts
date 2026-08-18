@@ -223,11 +223,17 @@ export function applyWeekPlan(
 }
 
 // The small shape Gemini actually reports for session_reconcile - see coachPrompt.ts's
-// GeminiReply. Array, mirrors quest_event's upsert-by-id shape almost exactly.
+// GeminiReply. Array, mirrors quest_event's upsert-by-id shape almost exactly. `actual` is new
+// (per direction): only set when what really happened differs from what was planned (planned a
+// run, actually played badminton) - the session's discipline/kind/title get overwritten to match
+// reality, not just its status. template_id inside `actual` is validated against the athlete's
+// real templates the same way template_edit/session_plan/week_plan already do, so a relabel onto
+// a real structured workout stays timer-app-usable.
 export interface SessionReconcileEvent {
   session_id: string;
-  status: "done" | "skipped" | "cancelled";
+  status: "done" | "skipped";
   activity_ids?: string[];
+  actual?: { discipline: string; kind: string; title: string; template_id?: string };
 }
 
 // completion_activity_ids must be source-qualified ("healthkit:<uuid>", "strava:<id>" - see
@@ -244,7 +250,10 @@ function qualifyActivityId(id: string): string {
  * event's session by id across all 7 days (throws on a hallucinated/stale session_id - same
  * discipline as applyQuestEvent's flag_id/quest_id guards), patches status and
  * completion_activity_ids in place, leaves everything else untouched, re-stamps updated_at/
- * trace_id at the root. Validates the result with parseCurrentWeek before returning.
+ * trace_id at the root. When `actual` is present, also overwrites discipline/kind/title (and
+ * template_id, re-validated against validTemplateIds - never trust it unchecked) so a relabeled
+ * session reflects what genuinely happened, not the stale original plan. Validates the result
+ * with parseCurrentWeek before returning.
  *
  * All event session_ids are checked to exist BEFORE any patch is applied, so a batch with one bad
  * id fails the whole call rather than silently applying a partial patch.
@@ -252,6 +261,7 @@ function qualifyActivityId(id: string): string {
 export function applySessionReconcile(
   content: string | null,
   events: SessionReconcileEvent[],
+  validTemplateIds: ReadonlySet<string>,
   traceId: string,
   now: Date,
 ): string {
@@ -280,6 +290,18 @@ export function applySessionReconcile(
     session.status = event.status;
     session.completion_activity_ids =
       event.status === "done" ? (event.activity_ids ?? []).map(qualifyActivityId) : [];
+    if (event.actual) {
+      session.discipline = event.actual.discipline;
+      session.kind = event.actual.kind;
+      session.title = event.actual.title;
+      const actualTemplateId = event.actual.template_id?.trim();
+      if (actualTemplateId && !validTemplateIds.has(actualTemplateId)) {
+        console.warn(`[coach-chat] session_reconcile: actual.template_id "${actualTemplateId}" not in this athlete's templates - nulling it out`, { traceId });
+        session.template_id = null;
+      } else {
+        session.template_id = actualTemplateId ?? null;
+      }
+    }
   }
 
   const result: CurrentWeek = {
@@ -293,6 +315,82 @@ export function applySessionReconcile(
   const parsed = parseCurrentWeek(result, now);
   if (!parsed.data) {
     throw new Error(`session_reconcile: result failed current_week.json validation: ${parsed.issues.join("; ")}`);
+  }
+  return JSON.stringify(result, null, 2);
+}
+
+// The small shape Gemini reports for plan_edit - see coachPrompt.ts's GeminiReply. Edits an
+// EXISTING future (or today's) session's planned content in place, without touching the rest of
+// the week - the missing piece week_plan (full 7-day rewrite) and session_reconcile (status-only
+// patch) didn't cover: "swap tomorrow's badminton for football." session_id must be real, from
+// context (activeWeekSessionsContext), same guard as session_reconcile. Does not touch status -
+// a plan_edit session stays whatever status it already was (normally "planned").
+export interface PlanEditEvent {
+  session_id: string;
+  discipline: string;
+  kind: string;
+  title: string;
+  template_id?: string;
+}
+
+/**
+ * Applies a plan_edit action field: finds each event's session by id (throws on a
+ * hallucinated/stale id, same discipline as session_reconcile), overwrites discipline/kind/title
+ * (and template_id, validated against validTemplateIds) in place, leaves status and everything
+ * else on that session untouched. Validates the result with parseCurrentWeek before returning.
+ */
+export function applyPlanEdit(
+  content: string | null,
+  events: PlanEditEvent[],
+  validTemplateIds: ReadonlySet<string>,
+  traceId: string,
+  now: Date,
+): string {
+  const current = parseJsonOrNull<CurrentWeek>(content);
+  if (!current) {
+    throw new Error("plan_edit: current_week.json could not be read");
+  }
+
+  const sessionLocation = new Map<string, { dayIndex: number; sessionIndex: number }>();
+  current.days.forEach((day, dayIndex) => {
+    day.sessions.forEach((session, sessionIndex) => {
+      sessionLocation.set(session.id, { dayIndex, sessionIndex });
+    });
+  });
+
+  for (const event of events) {
+    if (!sessionLocation.has(event.session_id)) {
+      throw new Error(`plan_edit: no session with id "${event.session_id}" in current_week.json`);
+    }
+  }
+
+  const days = current.days.map((day) => ({ ...day, sessions: day.sessions.map((s) => ({ ...s })) }));
+  for (const event of events) {
+    const loc = sessionLocation.get(event.session_id)!;
+    const session = days[loc.dayIndex].sessions[loc.sessionIndex];
+    session.discipline = event.discipline;
+    session.kind = event.kind;
+    session.title = event.title;
+    const templateId = event.template_id?.trim();
+    if (templateId && !validTemplateIds.has(templateId)) {
+      console.warn(`[coach-chat] plan_edit: template_id "${templateId}" not in this athlete's templates - nulling it out`, { traceId });
+      session.template_id = null;
+    } else {
+      session.template_id = templateId ?? null;
+    }
+  }
+
+  const result: CurrentWeek = {
+    ...current,
+    days,
+    updated_at: now.toISOString(),
+    updated_by: "model",
+    trace_id: traceId,
+  };
+
+  const parsed = parseCurrentWeek(result, now);
+  if (!parsed.data) {
+    throw new Error(`plan_edit: result failed current_week.json validation: ${parsed.issues.join("; ")}`);
   }
   return JSON.stringify(result, null, 2);
 }

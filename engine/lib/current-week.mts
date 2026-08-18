@@ -3,7 +3,11 @@ export const CURRENT_WEEK_SCHEMA_VERSION = 1 as const;
 export type CurrentWeekDataStatus = "placeholder" | "draft" | "live";
 export type CurrentWeekSessionOrigin = "planned" | "unplanned";
 export type CurrentWeekSessionPriority = "anchor" | "support" | "optional";
-export type CurrentWeekSessionStatus = "planned" | "done" | "skipped" | "cancelled";
+// "cancelled" dropped (workout-backend-wiring live verification, per direction): only three
+// states, matching how the athlete actually thinks about a day - planned, done, or skipped.
+// Every prior "cancelled" use already mapped to the same UI outcome as "skipped" client-side
+// (currentWeekAdapter.ts's mapStatus), so this is a pure simplification, not a behavior change.
+export type CurrentWeekSessionStatus = "planned" | "done" | "skipped";
 export type CoachTone = "positive" | "steady" | "caution" | "recovery";
 export type CoachConfidence = "low" | "medium" | "high";
 
@@ -173,7 +177,7 @@ const COACH_COMMENT_KEYS = [
 const DATA_STATUSES: readonly CurrentWeekDataStatus[] = ["placeholder", "draft", "live"];
 const SESSION_ORIGINS: readonly CurrentWeekSessionOrigin[] = ["planned", "unplanned"];
 const SESSION_PRIORITIES: readonly CurrentWeekSessionPriority[] = ["anchor", "support", "optional"];
-const SESSION_STATUSES: readonly CurrentWeekSessionStatus[] = ["planned", "done", "skipped", "cancelled"];
+const SESSION_STATUSES: readonly CurrentWeekSessionStatus[] = ["planned", "done", "skipped"];
 const COACH_TONES: readonly CoachTone[] = ["positive", "steady", "caution", "recovery"];
 const COACH_CONFIDENCES: readonly CoachConfidence[] = ["low", "medium", "high"];
 

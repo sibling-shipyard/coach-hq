@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyWeekPlan, applySessionReconcile, CURRENT_WEEK_PATH, type WeekPlan } from "../_lib/coachWeekFiles.js";
+import { applyWeekPlan, applySessionReconcile, applyPlanEdit, CURRENT_WEEK_PATH, type WeekPlan } from "../_lib/coachWeekFiles.js";
 import { parseCurrentWeek } from "../../../../engine/lib/current-week.mts";
 
 // coach-redesign workout-backend-wiring §5: week_plan/session_reconcile action fields. Covers the
@@ -148,25 +148,25 @@ describe("applySessionReconcile", () => {
   const now = new Date("2026-08-18T18:00:00Z");
 
   it("throws when current_week.json content can't be read", () => {
-    expect(() => applySessionReconcile(null, [{ session_id: "sess_20260817_1", status: "done" }], "t1", now)).toThrow(
+    expect(() => applySessionReconcile(null, [{ session_id: "sess_20260817_1", status: "done" }], new Set(), "t1", now)).toThrow(
       "current_week.json could not be read",
     );
   });
 
   it("throws with the hallucinated-id message when session_id isn't found across any day", () => {
-    expect(() => applySessionReconcile(EXISTING, [{ session_id: "made_up", status: "done" }], "t1", now)).toThrow(
+    expect(() => applySessionReconcile(EXISTING, [{ session_id: "made_up", status: "done" }], new Set(), "t1", now)).toThrow(
       'no session with id "made_up" in current_week.json',
     );
   });
 
   it("applies a partial patch to no sessions when one event in the batch has a bad id (fails whole call)", () => {
     expect(() =>
-      applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done" }, { session_id: "bad", status: "done" }], "t1", now),
+      applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done" }, { session_id: "bad", status: "done" }], new Set(), "t1", now),
     ).toThrow('no session with id "bad"');
   });
 
   it("patches status and qualifies activity_ids with chat: prefix, leaving everything else untouched", () => {
-    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done", activity_ids: ["abc123"] }], "t2", now);
+    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done", activity_ids: ["abc123"] }], new Set(), "t2", now);
     const parsed = JSON.parse(content);
     const session = parsed.days[0].sessions[0];
     expect(session.status).toBe("done");
@@ -178,27 +178,27 @@ describe("applySessionReconcile", () => {
   });
 
   it("passes through an already-qualified activity id unchanged", () => {
-    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done", activity_ids: ["healthkit:xyz"] }], "t2", now);
+    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done", activity_ids: ["healthkit:xyz"] }], new Set(), "t2", now);
     const parsed = JSON.parse(content);
     expect(parsed.days[0].sessions[0].completion_activity_ids).toEqual(["healthkit:xyz"]);
   });
 
-  it("clears completion_activity_ids for a skipped or cancelled session even if activity_ids was passed", () => {
-    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "skipped", activity_ids: ["abc"] }], "t2", now);
+  it("clears completion_activity_ids for a skipped session even if activity_ids was passed", () => {
+    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "skipped", activity_ids: ["abc"] }], new Set(), "t2", now);
     const parsed = JSON.parse(content);
     expect(parsed.days[0].sessions[0].status).toBe("skipped");
     expect(parsed.days[0].sessions[0].completion_activity_ids).toEqual([]);
   });
 
   it("produces schema-valid output", () => {
-    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done" }], "t2", now);
+    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done" }], new Set(), "t2", now);
     const runtime = parseCurrentWeek(JSON.parse(content), now);
     expect(runtime.issues).toEqual([]);
     expect(runtime.data).not.toBeNull();
   });
 
   it("treats malformed JSON as unreadable, throwing rather than silently starting empty", () => {
-    expect(() => applySessionReconcile("{not valid json", [{ session_id: "sess_20260817_1", status: "done" }], "t1", now)).toThrow(
+    expect(() => applySessionReconcile("{not valid json", [{ session_id: "sess_20260817_1", status: "done" }], new Set(), "t1", now)).toThrow(
       "could not be read",
     );
   });
@@ -214,8 +214,136 @@ describe("applySessionReconcile", () => {
     // the narrower, still-true fact: applySessionReconcile itself throws on any id genuinely
     // absent from its input, which is what protects every OTHER caller of this function.
     const rebuilt = applyWeekPlan(validPlan(), new Set(), "Asia/Kolkata", "t1", now);
-    expect(() => applySessionReconcile(rebuilt, [{ session_id: "sess_genuinely_absent", status: "done" }], "t1", now)).toThrow(
+    expect(() => applySessionReconcile(rebuilt, [{ session_id: "sess_genuinely_absent", status: "done" }], new Set(), "t1", now)).toThrow(
       /no session with id "sess_genuinely_absent"/,
     );
+  });
+
+  // actual: relabels a session to what really happened, when it differs from the plan
+  // ("planned a run, actually played badminton"), per direction.
+  it("relabels discipline/kind/title when actual is given, alongside the status patch", () => {
+    const content = applySessionReconcile(
+      EXISTING,
+      [{ session_id: "sess_20260817_1", status: "done", actual: { discipline: "badminton", kind: "sport", title: "Badminton" } }],
+      new Set(),
+      "t2",
+      now,
+    );
+    const session = JSON.parse(content).days[0].sessions[0];
+    expect(session).toMatchObject({ status: "done", discipline: "badminton", kind: "sport", title: "Badminton", template_id: null });
+  });
+
+  it("links a real template_id in actual, but nulls out a hallucinated one", () => {
+    const validIds = new Set(["strength_b"]);
+    const linked = applySessionReconcile(
+      EXISTING,
+      [{ session_id: "sess_20260817_1", status: "done", actual: { discipline: "strength", kind: "gym", title: "Strength B", template_id: "strength_b" } }],
+      validIds,
+      "t2",
+      now,
+    );
+    expect(JSON.parse(linked).days[0].sessions[0].template_id).toBe("strength_b");
+
+    const hallucinated = applySessionReconcile(
+      EXISTING,
+      [{ session_id: "sess_20260817_1", status: "done", actual: { discipline: "strength", kind: "gym", title: "Strength B", template_id: "made_up" } }],
+      validIds,
+      "t2",
+      now,
+    );
+    expect(JSON.parse(hallucinated).days[0].sessions[0].template_id).toBeNull();
+  });
+
+  it("leaves discipline/kind/title untouched when actual is omitted", () => {
+    const content = applySessionReconcile(EXISTING, [{ session_id: "sess_20260817_1", status: "done" }], new Set(), "t2", now);
+    const session = JSON.parse(content).days[0].sessions[0];
+    expect(session).toMatchObject({ discipline: "run", kind: "easy", title: "Easy 5k" });
+  });
+});
+
+describe("applyPlanEdit", () => {
+  const EXISTING: string = JSON.stringify({
+    schema_version: 1,
+    data_status: "live",
+    timezone: "America/New_York",
+    week: { id: "2026-W34", start_date: "2026-08-17", end_date: "2026-08-23", focus: null, guardrails: [] },
+    coach_read: { headline: "Steady week ahead.", body: "Focus on consistency.", valid_from: "2026-08-17", valid_until: "2026-08-23" },
+    days: [
+      {
+        date: "2026-08-17",
+        intent: null,
+        coach_note: null,
+        sessions: [
+          {
+            id: "sess_20260817_1",
+            origin: "planned",
+            discipline: "football",
+            kind: "sport",
+            title: "Football",
+            priority: "support",
+            status: "planned",
+            planned_duration_min: null,
+            planned_load: null,
+            template_id: null,
+            session_file: null,
+            coach_note: null,
+            original_date: null,
+            completion_activity_ids: [],
+          },
+        ],
+      },
+      ...["2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23"].map((date) => ({
+        date,
+        intent: null,
+        coach_note: null,
+        sessions: [],
+      })),
+    ],
+    coach_comments: [],
+    updated_at: "2026-08-17T12:00:00.000Z",
+    updated_by: "model",
+    trace_id: "old",
+  });
+
+  const now = new Date("2026-08-18T18:00:00Z");
+
+  it("swaps a session's discipline/kind/title, leaving status untouched", () => {
+    const content = applyPlanEdit(
+      EXISTING,
+      [{ session_id: "sess_20260817_1", discipline: "badminton", kind: "sport", title: "Badminton" }],
+      new Set(),
+      "t1",
+      now,
+    );
+    const session = JSON.parse(content).days[0].sessions[0];
+    expect(session).toMatchObject({ discipline: "badminton", kind: "sport", title: "Badminton", status: "planned" });
+  });
+
+  it("links a real template_id, but nulls out a hallucinated one", () => {
+    const validIds = new Set(["strength_a"]);
+    const linked = applyPlanEdit(EXISTING, [{ session_id: "sess_20260817_1", discipline: "strength", kind: "gym", title: "Strength A", template_id: "strength_a" }], validIds, "t1", now);
+    expect(JSON.parse(linked).days[0].sessions[0].template_id).toBe("strength_a");
+
+    const hallucinated = applyPlanEdit(EXISTING, [{ session_id: "sess_20260817_1", discipline: "strength", kind: "gym", title: "Strength A", template_id: "made_up" }], validIds, "t1", now);
+    expect(JSON.parse(hallucinated).days[0].sessions[0].template_id).toBeNull();
+  });
+
+  it("throws with the hallucinated-id message when session_id isn't found across any day", () => {
+    expect(() =>
+      applyPlanEdit(EXISTING, [{ session_id: "made_up", discipline: "badminton", kind: "sport", title: "Badminton" }], new Set(), "t1", now),
+    ).toThrow('no session with id "made_up" in current_week.json');
+  });
+
+  it("throws when current_week.json content can't be read", () => {
+    expect(() =>
+      applyPlanEdit(null, [{ session_id: "sess_20260817_1", discipline: "badminton", kind: "sport", title: "Badminton" }], new Set(), "t1", now),
+    ).toThrow("could not be read");
+  });
+
+  it("produces schema-valid output", () => {
+    const content = applyPlanEdit(EXISTING, [{ session_id: "sess_20260817_1", discipline: "badminton", kind: "sport", title: "Badminton" }], new Set(), "t1", now);
+    const runtime = parseCurrentWeek(JSON.parse(content), now);
+    expect(runtime.issues).toEqual([]);
+    expect(runtime.data).not.toBeNull();
   });
 });

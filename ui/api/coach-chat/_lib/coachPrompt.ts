@@ -12,7 +12,7 @@ import type { ChatMessage } from "./chatThreads.js";
 import { todayContextLine } from "./coachDay.js";
 import { MEMORY_NOTE_LABELS, type MemoryNoteLabel, type InjuriesJson } from "./coachMemoryFiles.js";
 import type { QuestsJson } from "./coachQuestFiles.js";
-import type { WeekPlan, SessionReconcileEvent } from "./coachWeekFiles.js";
+import type { WeekPlan, SessionReconcileEvent, PlanEditEvent } from "./coachWeekFiles.js";
 
 export interface GeminiReply {
   reply: string;
@@ -99,12 +99,22 @@ export interface GeminiReply {
   // judgment-call comments for data_status/template_id handling. Closing turns only.
   week_plan?: WeekPlan;
   // coach-redesign workout-backend-wiring §5: B_engine.md's s10_logging_reconcile - reconciling a
-  // completed/skipped/cancelled session against current_week.json "now, not at the Sunday
-  // review". Array, mirrors quest_event's upsert-by-id shape - a turn can report more than one
-  // session's outcome. session_id must be one of the ids already in current_week.json (server
-  // re-validates at commit time, coachWeekFiles.ts's applySessionReconcile) - never invented.
-  // Closing turns only, same as the fields above.
+  // completed/skipped session against current_week.json "now, not at the Sunday review". Array,
+  // mirrors quest_event's upsert-by-id shape - a turn can report more than one session's outcome.
+  // session_id must be one of the ids already in current_week.json (server re-validates at commit
+  // time, coachWeekFiles.ts's applySessionReconcile) - never invented. `actual` is set only when
+  // what really happened differs from what was planned (planned a run, actually played
+  // badminton) - see SessionReconcileEvent's own comment. Closing turns only, same as the fields
+  // above.
   session_reconcile?: SessionReconcileEvent[];
+  // coach-redesign workout-backend-wiring §5 follow-up: edits ONE existing future (or today's)
+  // session's planned content without a full week_plan rewrite - "swap tomorrow's badminton for
+  // football." Array, same upsert-by-id shape as session_reconcile. Does not touch status - a
+  // plan_edit session stays whatever status it already was. session_id must be one of the ids
+  // already in current_week.json - never invented. The two-field swap pattern: report today's
+  // actual completion via session_reconcile's `actual`, report tomorrow's changed plan via
+  // plan_edit, both in the same turn if that's what the athlete described. Closing turns only.
+  plan_edit?: PlanEditEvent[];
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;
@@ -257,17 +267,44 @@ export const GENERATION_CONFIG = {
       },
       // coach-redesign workout-backend-wiring §5 - array, mirrors quest_event's shape.
       // session_id must be one of the ids listed in context (activeWeekSessionsContext below) -
-      // never invented.
+      // never invented. `actual` only when what happened differs from what was planned.
       session_reconcile: {
         type: "array",
         items: {
           type: "object",
           properties: {
             session_id: { type: "string" },
-            status: { type: "string", enum: ["done", "skipped", "cancelled"] },
+            status: { type: "string", enum: ["done", "skipped"] },
             activity_ids: { type: "array", items: { type: "string" } },
+            actual: {
+              type: "object",
+              properties: {
+                discipline: { type: "string" },
+                kind: { type: "string" },
+                title: { type: "string" },
+                template_id: { type: "string" },
+              },
+              required: ["discipline", "kind", "title"],
+            },
           },
           required: ["session_id", "status"],
+        },
+      },
+      // coach-redesign workout-backend-wiring §5 follow-up - array, edits an existing session's
+      // planned content without a full week_plan rewrite. session_id must be one of the ids
+      // listed in context (activeWeekSessionsContext below) - never invented.
+      plan_edit: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            session_id: { type: "string" },
+            discipline: { type: "string" },
+            kind: { type: "string" },
+            title: { type: "string" },
+            template_id: { type: "string" },
+          },
+          required: ["session_id", "discipline", "kind", "title"],
         },
       },
       session_closed: { type: "boolean" },
@@ -418,16 +455,28 @@ export function buildDynamicText(
           "have them). Only use a template_id that's actually listed below - never invent one.",
           "Only set this when you are genuinely committing the week now, not while still asking",
           "the athlete about competitions or schedule changes for it.",
-          "\nIf the athlete reported completing, skipping, or cancelling one or more of this week's",
-          "planned sessions (see Current week's sessions below) - do this the same session it",
-          "happens, not just at a weekly review - set session_reconcile to an array with one entry",
-          "per session: its exact session_id, the outcome status, and activity_ids if a real",
-          "completion id exists. Only use a session_id that's actually listed below - never invent",
-          "one.",
+          "\nIf the athlete reported completing or skipping one or more of this week's planned",
+          "sessions (see Current week's sessions below) - do this the same session it happens, not",
+          "just at a weekly review - set session_reconcile to an array with one entry per session:",
+          "its exact session_id, the outcome status (\"done\" or \"skipped\"), and activity_ids if a",
+          "real completion id exists. If what the athlete actually did is DIFFERENT from what was",
+          "planned (planned a run, actually played badminton instead) - also set actual on that",
+          "same entry: discipline/kind/title describing what really happened, and template_id only",
+          "if that actual activity is one of the athlete's real templates. Only use a session_id",
+          "that's actually listed below - never invent one.",
+          "\nIf the athlete wants to change what a future (or today's) already-planned session IS,",
+          "without replanning the whole week - e.g. \"swap tomorrow's badminton for football\" - set",
+          "plan_edit to an array with one entry per session being changed: its exact session_id and",
+          "the new discipline/kind/title (and template_id if it's one of the athlete's real",
+          "templates). This does not change status - use session_reconcile separately for that. A",
+          "swap like the example is normally TWO entries in the same turn: session_reconcile with",
+          "actual for today's session (mark it done as what really happened), and plan_edit for",
+          "tomorrow's session (change what it's planned to be). Only use a session_id that's",
+          "actually listed below - never invent one.",
           "**Never say something is saved, logged, locked, or committed unless coach_note (or",
           "memory_update / injury_event / quest_event / profile_update / template_edit /",
-          "session_plan / week_plan / session_reconcile) in this exact response genuinely reflects",
-          "it.**",
+          "session_plan / week_plan / session_reconcile / plan_edit) in this exact response",
+          "genuinely reflects it.**",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
           "response (asking a clarifying question instead does NOT count - set it false in that case,",
           "even though this turn was triggered by a close-session phrase). The athlete will simply see",

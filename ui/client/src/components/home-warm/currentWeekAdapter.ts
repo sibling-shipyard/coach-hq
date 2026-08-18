@@ -111,7 +111,6 @@ function mapStatus(session: RuntimeSession): SessionStatus {
     case "done":
       return "completed";
     case "skipped":
-    case "cancelled":
       return "skipped";
     default:
       return session.original_date ? "moved" : "planned";

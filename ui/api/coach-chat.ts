@@ -52,7 +52,7 @@ import {
   sessionPath,
   TEMPLATES_MANIFEST_PATH,
 } from "./coach-chat/_lib/coachWorkoutFiles.js";
-import { applyWeekPlan, applySessionReconcile, CURRENT_WEEK_PATH } from "./coach-chat/_lib/coachWeekFiles.js";
+import { applyWeekPlan, applySessionReconcile, applyPlanEdit, CURRENT_WEEK_PATH } from "./coach-chat/_lib/coachWeekFiles.js";
 import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { PROGRESS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
@@ -462,6 +462,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const weekPlan = reply.week_plan;
       const weekPlanRequested = Boolean(weekPlan?.headline?.trim() && weekPlan.body?.trim() && Array.isArray(weekPlan.days));
       const sessionReconcileEvents = reply.session_reconcile ?? [];
+      const planEditEvents = reply.plan_edit ?? [];
 
       let currentWeekWrite: FileEntry | undefined;
       if (weekPlanRequested) {
@@ -470,29 +471,41 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         // time against validTemplateIds inside applyWeekPlan itself (nulled out, not thrown - see
         // coachWeekFiles.ts's own comment for why this differs from template_edit/session_plan's
         // throw-on-hallucination discipline). No resolve() needed - week_plan is a full rewrite,
-        // not a patch onto existing content. If session_reconcile is also set this same turn, it's
-        // dropped (see the comment above this block) rather than chained against week_plan's fresh
-        // output - week_plan always wins outright.
-        if (sessionReconcileEvents.length > 0) {
+        // not a patch onto existing content. If session_reconcile/plan_edit are also set this same
+        // turn, both are dropped (see the comment above this block) rather than chained against
+        // week_plan's fresh output - week_plan always wins outright.
+        if (sessionReconcileEvents.length > 0 || planEditEvents.length > 0) {
           console.warn(
-            "[coach-chat] week_plan and session_reconcile both set in the same turn - dropping session_reconcile " +
-              "(its ids reference the pre-rebuild week and can't be safely matched against week_plan's fresh ids)",
+            "[coach-chat] week_plan and session_reconcile/plan_edit both set in the same turn - dropping the latter " +
+              "(their ids reference the pre-rebuild week and can't be safely matched against week_plan's fresh ids)",
             { traceId },
           );
         }
         currentWeekWrite = { path: CURRENT_WEEK_PATH, content: applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date()) };
-      } else if (sessionReconcileEvents.length > 0) {
-        // §5: session_reconcile - reported only when the athlete logged an outcome for one or
-        // more of this week's planned sessions this close. session_id is re-validated at commit
-        // time against the live current_week.json content inside applySessionReconcile itself
+      } else if (sessionReconcileEvents.length > 0 || planEditEvents.length > 0) {
+        // §5 + follow-up: session_reconcile (outcome + optional relabel) and plan_edit (change a
+        // future session's planned content) can both fire in the same turn - the two-fact swap
+        // pattern ("did badminton instead of today's plan, and move football to tomorrow").
+        // Chained in one resolve() the same way week_plan+session_reconcile used to be: reconcile
+        // runs first against fresh content, then plan_edit runs on that same result, so a turn
+        // reporting both never risks reading stale disk content between the two. Both ids are
+        // re-validated at commit time against whatever current_week.json actually contains
         // (throws on a hallucinated/stale id, same discipline as applyQuestEvent's quest_id
-        // guard) - resolve() re-fetches current_week.json fresh at commit time, same
-        // stale-read-avoidance pattern as templateEditWrite/sessionPlanWrite above.
+        // guard).
         currentWeekWrite = {
           path: CURRENT_WEEK_PATH,
           resolve: async () => {
-            const fresh = await getFileRaw(repo, CURRENT_WEEK_PATH, token);
-            return applySessionReconcile(fresh, sessionReconcileEvents, traceId, new Date());
+            let working: string | null = await getFileRaw(repo, CURRENT_WEEK_PATH, token);
+            if (sessionReconcileEvents.length > 0) {
+              working = applySessionReconcile(working, sessionReconcileEvents, validTemplateIds, traceId, new Date());
+            }
+            if (planEditEvents.length > 0) {
+              working = applyPlanEdit(working, planEditEvents, validTemplateIds, traceId, new Date());
+            }
+            if (working == null) {
+              throw new Error("session_reconcile/plan_edit: current_week.json could not be read");
+            }
+            return working;
           },
         };
       }
