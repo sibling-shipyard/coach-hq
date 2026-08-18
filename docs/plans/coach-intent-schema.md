@@ -58,7 +58,7 @@ Runs in parallel with P0. Only step 5 waits on Skanda.
 (`engine/scripts/generate_quest_log.py:542`). `quest_events` needs ids. Add an id column.
 → *Verify:* regenerate a quest log, ids visible. Without this, step 2 has nothing to assert on.
 
-**1 — Appliers, in a new file.** `ui/api/_lib/coachIntents.ts`. One pure function per field:
+**1 — Appliers, in a new file.** `ui/api/coach-chat/_lib/coachIntents.ts`. One pure function per field:
 current content in, new content out. No imports from `coach-chat.ts` — Skanda is editing
 `resolveFileUpdate` (~819-855) and the commit call (~1199), so a new file means zero conflict.
 → *Verify:* vitest, fixture in / string out. No GitHub, no Gemini.

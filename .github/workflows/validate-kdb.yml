@@ -13,6 +13,7 @@ on:
       - '.github/agents/**'
       - 'kdb/scripts/**'
       - 'docs/**'
+      - 'platform/soul/**'
   pull_request:
     paths:
       - 'kdb/**'
@@ -20,11 +21,14 @@ on:
       - '.github/agents/**'
       - 'kdb/scripts/**'
       - 'docs/**'
+      - 'platform/soul/**'
 
 jobs:
   validate-kdb:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # soul-history guard diffs against a merge-base; a shallow clone has none
       - name: Lint the knowledge base
         run: python3 kdb/scripts/validate_kdb.py
