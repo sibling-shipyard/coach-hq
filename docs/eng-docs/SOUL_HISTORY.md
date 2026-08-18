@@ -29,7 +29,7 @@ Write it so someone who has never opened this repo enjoys reading it. If an entr
 **Superpower gained:** memory keeps working across a full data-model rewrite underneath it.
 
 Part 1 of the coach-memory redesign split `state.md`/`coach_notes.md`/`rolling_state.json` into
-`profile.json`/`memory.json`/`injuries.json`/`sessions.json` (`coach-redesign-part1-memory.md`).
+`profile.json`/`memory.json`/`injuries.json`/`coach_log.json` (`coach-redesign-part1-memory.md`).
 SOUL never named a file path it didn't have to — it already referred to "Recent Session Notes"
 and "Learned Patterns" as sections, not files — so this landed as a rewording pass, not a
 restructuring.

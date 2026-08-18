@@ -1,22 +1,17 @@
 /**
- * Timezone/day-number math for coach-chat: the athlete's own IANA timezone (read out of state.md,
- * not the server's), calendar-day offsets for thread age labels, and the ADR 0018 coach_since
- * day-number anchor. All pure - no I/O, no GitHub/Gemini calls.
+ * Timezone/day-number math for coach-chat: calendar-day offsets for thread age labels, and the
+ * ADR 0018 coach_since day-number anchor. All pure - no I/O, no GitHub/Gemini calls.
+ *
+ * Every function here takes the athlete's IANA timezone directly (profile.json's `timezone`
+ * field, read by the caller) rather than parsing it out of state.md prose - state.md no longer
+ * exists (coach-redesign-part1-memory.md, Part 1).
  */
 import type { ChatThread } from "./chatThreads.js";
-
-// Pulls the IANA zone out of state.md's Athlete Profile line
-// (`- **Timezone:** Asia/Kolkata (IST, UTC+5:30)`), falling back to UTC when unset.
-function extractTimezone(stateMd: string): string {
-  const match = stateMd.match(/\*\*Timezone:\*\*\s*([A-Za-z_]+\/[A-Za-z_]+)/);
-  return match?.[1] ?? "UTC";
-}
 
 // Calendar-day difference between a thread's createdAt and "today," both resolved in the
 // athlete's own timezone rather than UTC - a thread created at 11pm IST shouldn't already read
 // as "yesterday" just because UTC rolled over.
-function computeDayOffset(createdAt: number, stateMd: string): number {
-  const timezone = extractTimezone(stateMd);
+function computeDayOffset(createdAt: number, timezone: string): number {
   try {
     const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }); // YYYY-MM-DD, sortable
     const createdDay = dayFormatter.format(new Date(createdAt));
@@ -35,15 +30,14 @@ function ageLabelFor(dayOffset: number): string {
   return dayOffset === 0 ? "NOW" : `D-${dayOffset}`;
 }
 
-export function withComputedDayOffsets(threads: ChatThread[], stateMd: string): ChatThread[] {
+export function withComputedDayOffsets(threads: ChatThread[], timezone: string): ChatThread[] {
   return threads.map((t) => {
-    const dayOffset = computeDayOffset(t.createdAt ?? Date.now(), stateMd);
+    const dayOffset = computeDayOffset(t.createdAt ?? Date.now(), timezone);
     return { ...t, dayOffset, ageLabel: ageLabelFor(dayOffset) };
   });
 }
 
-export function todayContextLine(stateMd: string): string {
-  const timezone = extractTimezone(stateMd);
+export function todayContextLine(timezone: string): string {
   try {
     const formatted = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
@@ -60,8 +54,7 @@ export function todayContextLine(stateMd: string): string {
   }
 }
 
-export function todayDividerLabel(stateMd: string): string {
-  const timezone = extractTimezone(stateMd);
+export function todayDividerLabel(timezone: string): string {
   try {
     const time = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" }).format(
       new Date(),
@@ -72,10 +65,9 @@ export function todayDividerLabel(stateMd: string): string {
   }
 }
 
-// Used to stamp coach_since (ADR 0018) and date a coach_note entry in the athlete's own
+// Used to stamp coach_since (ADR 0018) and date a coach_log.json row in the athlete's own
 // timezone, not the server's UTC clock.
-export function todayDateString(stateMd: string, now: Date): string {
-  const timezone = extractTimezone(stateMd);
+export function todayDateString(timezone: string, now: Date): string {
   try {
     return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(now);
   } catch {
@@ -87,7 +79,7 @@ export function todayDateString(stateMd: string, now: Date): string {
 // Coach at all," independent of season/challenge resets. Falls back to season.start_date, then
 // challenge.start_date, for repos not yet stamped. Not currently called from the closing-turn
 // prompt (kept exported/tested in case a day-N surface reappears).
-export function coachDayNumber(challengeJson: string | null | undefined, stateMd: string, now: Date): number | null {
+export function coachDayNumber(challengeJson: string | null | undefined, timezone: string, now: Date): number | null {
   if (!challengeJson) return null;
   let parsed: { coach_since?: string; season?: { start_date?: string }; challenge?: { start_date?: string } };
   try {
@@ -97,7 +89,6 @@ export function coachDayNumber(challengeJson: string | null | undefined, stateMd
   }
   const startRaw = parsed.coach_since ?? parsed.season?.start_date ?? parsed.challenge?.start_date;
   if (!startRaw) return null;
-  const timezone = extractTimezone(stateMd);
   try {
     const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
     const startDay = dayFormatter.format(new Date(`${startRaw}T00:00:00Z`));

@@ -1,18 +1,26 @@
 /**
- * Shared read helpers for the files coach-chat.ts injects into every Gemini call: state.md and
- * quest_log.md come from the athlete's own repo; SOUL.md does not (see below). Extracted out of
- * coach-chat.ts so coach-chat-context.ts (the app-load preload endpoint, A3) can fetch the same
- * files the same way without duplicating the GitHub-read plumbing.
+ * Shared read helpers for the files coach-chat.ts injects into every Gemini call: profile.json/
+ * memory.json/injuries.json/coach_log.json and quest_log.md come from the athlete's own repo;
+ * SOUL.md does not (see below). Extracted out of coach-chat.ts so coach-chat-context.ts (the
+ * app-load preload endpoint, A3) can fetch the same files the same way without duplicating the
+ * GitHub-read plumbing.
  */
 import { SOUL } from "../../_generated/soul.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { PROFILE_PATH, MEMORY_PATH, INJURIES_PATH, type ProfileJson, type MemoryJson, type InjuriesJson } from "./coachMemoryFiles.js";
+import {
+  PROFILE_PATH,
+  MEMORY_PATH,
+  INJURIES_PATH,
+  COACH_LOG_PATH,
+  type ProfileJson,
+  type MemoryJson,
+  type InjuriesJson,
+  type CoachLogJson,
+} from "./coachMemoryFiles.js";
 
 // SOUL.md is 100% generic across athletes, so it's bundled at build time (ui/scripts/build-
 // soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
-export const STATE_FILE_PATH = "user_data/coach/state.md";
 export const QUEST_LOG_PATH = "gen/quest_log.md";
-export const ROLLING_STATE_PATH = "user_data/coach/rolling_state.json";
 
 const GH_HEADERS_RAW = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -62,17 +70,15 @@ export async function getFileRaw(repo: string, path: string, token: string, atte
 
 export interface CoachContext {
   soul: string | null;
-  state: string | null;
   questLog: string | null;
-  rollingState: string | null;
   profile: ProfileJson | null;
   memory: MemoryJson | null;
   injuries: InjuriesJson | null;
+  coachLog: CoachLogJson | null;
 }
 
 // Best-effort parse - a missing or malformed file (not yet migrated, or a transient bad commit)
-// degrades to null rather than throwing, same defensive default coachIntents.ts's
-// applyRollingState uses for rolling_state.json.
+// degrades to null rather than throwing, same defensive default coachIntents.ts's appliers use.
 function parseJsonOrNull<T>(raw: string | null): T | null {
   if (!raw) return null;
   try {
@@ -123,22 +129,20 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 
   const promise = (async (): Promise<CoachContext> => {
-    const [state, questLog, rollingState, profileRaw, memoryRaw, injuriesRaw] = await Promise.all([
-      getFileRaw(repo, STATE_FILE_PATH, token),
+    const [questLog, profileRaw, memoryRaw, injuriesRaw, coachLogRaw] = await Promise.all([
       getFileRaw(repo, QUEST_LOG_PATH, token),
-      getFileRaw(repo, ROLLING_STATE_PATH, token),
       getFileRaw(repo, PROFILE_PATH, token),
       getFileRaw(repo, MEMORY_PATH, token),
       getFileRaw(repo, INJURIES_PATH, token),
+      getFileRaw(repo, COACH_LOG_PATH, token),
     ]);
     const value: CoachContext = {
       soul: SOUL,
-      state,
       questLog,
-      rollingState,
       profile: parseJsonOrNull<ProfileJson>(profileRaw),
       memory: parseJsonOrNull<MemoryJson>(memoryRaw),
       injuries: parseJsonOrNull<InjuriesJson>(injuriesRaw),
+      coachLog: parseJsonOrNull<CoachLogJson>(coachLogRaw),
     };
     contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
     return value;

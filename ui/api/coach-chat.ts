@@ -7,8 +7,8 @@
  * GET                        → load committed threads
  * POST {action: "greet"}     → Coach speaks first (A4), no athlete message, no repo write
  * POST {threadId?, messages, message} → send a message, get a reply. No repo write unless it
- *                               closes the session, in which case the whole thread (+ coach_note/
- *                               rolling_state.json, if any) commits in one batch.
+ *                               closes the session, in which case the whole thread (+ coach_note,
+ *                               if any) commits in one batch.
  *
  * No delete endpoint - retention is automatic (ADR 0012 amendment): 7 most recent threads kept,
  * oldest evicted on write.
@@ -21,8 +21,6 @@ import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
 import {
-  STATE_FILE_PATH,
-  ROLLING_STATE_PATH,
   getFileRaw,
   getHeadSha,
   isAthleteProfileComplete,
@@ -42,22 +40,16 @@ import {
   type ChatMessage,
   type ChatThread,
 } from "./coach-chat/_lib/chatThreads.js";
-import {
-  COACH_NOTES_PATH,
-  appendCoachNote,
-  loadClosingFileContext,
-  injectCoachSinceIfNeeded,
-  type ClosingFileContext,
-} from "./coach-chat/_lib/coachWrites.js";
-import { applyRollingState, applyMemoryUpdate, applyInjuryEvent } from "./coach-chat/_lib/coachIntents.js";
-import { MEMORY_PATH, INJURIES_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
+import { loadClosingFileContext, injectCoachSinceIfNeeded, type ClosingFileContext } from "./coach-chat/_lib/coachWrites.js";
+import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent } from "./coach-chat/_lib/coachIntents.js";
+import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
+import { renderCoachContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import {
   combineExtraContext,
   injuryFlagsContext,
   firstSessionContext,
   onboardingHintsContext,
-  rollingStateContext,
   type GeminiReply,
   type OnboardingHints,
 } from "./coach-chat/_lib/coachPrompt.js";
@@ -74,15 +66,17 @@ async function handleGreet(
   onboardingHints?: OnboardingHints,
 ): Promise<Response> {
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
-  const { soul, state: stateMd, questLog, rollingState, profile, memory, injuries } = context;
+  const { soul, questLog, profile, memory, injuries, coachLog } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
+  const timezone = profile?.timezone?.trim() || "UTC";
+  const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
 
   let reply: GeminiReply;
   try {
     reply = await askGemini(
       apiKey,
       soul,
-      stateMd ?? "",
+      athleteContext,
       questLog ?? "",
       [],
       "",
@@ -90,9 +84,10 @@ async function handleGreet(
       combineExtraContext(
         firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
         onboardingHintsContext(onboardingHints),
-        rollingStateContext(rollingState),
         injuryFlagsContext(injuries),
       ),
+      undefined,
+      timezone,
     );
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
@@ -110,7 +105,7 @@ async function handleGreet(
     // Neither client reads this - both mint their own local id for the uncommitted greeting.
     // Kept for response-shape stability.
     threadId: `t-${now}`,
-    threads: withComputedDayOffsets(history.threads, stateMd ?? ""),
+    threads: withComputedDayOffsets(history.threads, timezone),
     repoSha,
   });
 }
@@ -121,10 +116,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     const token = auth.gh_token;
 
     if (req.method === "GET") {
-      const [history, stateMd] = await Promise.all([loadChatHistory(repo, token), getFileRaw(repo, STATE_FILE_PATH, token)]);
+      const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
       // Retention is enforced on write, not here - a GET must never rewrite the file just
       // because it was read.
-      return Response.json({ threads: withComputedDayOffsets(history.threads, stateMd ?? "") });
+      const timezone = context.profile?.timezone?.trim() || "UTC";
+      return Response.json({ threads: withComputedDayOffsets(history.threads, timezone) });
     }
 
     if (req.method === "POST") {
@@ -157,8 +153,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // A3: reuses the app-load preload's 60s cache, unless A5 just found it stale, in which
       // case force a fresh read.
-      const { soul, state: stateMd, questLog, rollingState, profile, memory, injuries } = await loadCoachContext(repo, token, { fresh: stale });
+      const { soul, questLog, profile, memory, injuries, coachLog } = await loadCoachContext(repo, token, { fresh: stale });
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
+      const timezone = profile?.timezone?.trim() || "UTC";
+      const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
 
       const priorMessages = messages ?? [];
       // Keyword match only triggers asking Gemini to consider closing - reply.session_closed is
@@ -184,7 +182,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         reply = await askGemini(
           apiKey,
           soul,
-          stateMd ?? "",
+          athleteContext,
           questLog ?? "",
           priorMessages,
           trimmed,
@@ -193,10 +191,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           // greet-only would drop the protocol the moment the athlete answered the first question.
           combineExtraContext(
             firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
-            rollingStateContext(rollingState),
             injuryFlagsContext(injuries),
           ),
           traceId,
+          timezone,
         );
       } catch (err: unknown) {
         const status = (err as { status?: number }).status ?? 500;
@@ -218,7 +216,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // Closing: build the thread's final message list and merge into what's already committed.
       const allMessages: ChatMessage[] = priorMessages.length
         ? [...priorMessages, userMsg, coachMsg]
-        : [{ id: `d-${now}`, role: "divider", label: todayDividerLabel(stateMd ?? "") }, userMsg, coachMsg];
+        : [{ id: `d-${now}`, role: "divider", label: todayDividerLabel(timezone) }, userMsg, coachMsg];
 
       // Fixed outside the retry loop so the response's id/title/preview stay stable across
       // attempts.
@@ -262,35 +260,24 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         },
       };
 
-      // Only included in `writes` below when non-empty. Fetches coach_notes.md fresh at commit
-      // time, same pattern as chatWrite above.
+      // Only included in `writes` below when non-empty. Fetches coach_log.json fresh at commit
+      // time, same pattern as chatWrite above. coach_log.json is the single merged continuity
+      // log - it absorbed what used to be a separate coach_notes.md append plus a separate
+      // rolling_state.json array write.
       const trimmedCoachNote = reply.coach_note?.trim();
       const coachNoteWrite: FileEntry | undefined = trimmedCoachNote
         ? {
-            path: COACH_NOTES_PATH,
+            path: COACH_LOG_PATH,
             resolve: async () => {
-              const fresh = await getFileRaw(repo, COACH_NOTES_PATH, token);
-              return appendCoachNote(fresh, trimmedCoachNote, todayDateString(stateMd ?? "", new Date()));
-            },
-          }
-        : undefined;
-
-      // Reuses trimmedCoachNote verbatim (no new Gemini field) into rolling_state.json's bounded
-      // last-N-sessions log, read back into every future turn's prompt (rollingStateContext).
-      // Fetched fresh at commit time, same pattern as coachNoteWrite above.
-      const rollingStateWrite: FileEntry | undefined = trimmedCoachNote
-        ? {
-            path: ROLLING_STATE_PATH,
-            resolve: async () => {
-              const fresh = await getFileRaw(repo, ROLLING_STATE_PATH, token);
-              return applyRollingState(fresh, { date: todayDateString(stateMd ?? "", new Date()), text: trimmedCoachNote });
+              const fresh = await getFileRaw(repo, COACH_LOG_PATH, token);
+              return applyCoachNote(fresh, trimmedCoachNote, todayDateString(timezone, new Date()), traceId, new Date());
             },
           }
         : undefined;
 
       // Step 4a: reported only when the athlete's memory.json actually changed something this
       // close - most closes carry no memory_update at all. Fetched fresh at commit time, same
-      // pattern as coachNoteWrite/rollingStateWrite above.
+      // pattern as coachNoteWrite above.
       const memoryUpdate = reply.memory_update;
       const memoryUpdateWrite: FileEntry | undefined = memoryUpdate?.label && memoryUpdate.text?.trim()
         ? {
@@ -301,7 +288,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
                 fresh,
                 memoryUpdate.label,
                 memoryUpdate.text,
-                todayDateString(stateMd ?? "", new Date()),
+                todayDateString(timezone, new Date()),
                 traceId,
               );
             },
@@ -320,26 +307,25 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
             path: INJURIES_PATH,
             resolve: async () => {
               const fresh = await getFileRaw(repo, INJURIES_PATH, token);
-              return applyInjuryEvent(fresh, injuryEvent!, todayDateString(stateMd ?? "", new Date()));
+              return applyInjuryEvent(fresh, injuryEvent!, todayDateString(timezone, new Date()));
             },
           }
         : undefined;
 
-      // B2/ADR 0018: state.md isn't edited here, so both sides of this transition check stay the
-      // pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
+      // B2/ADR 0018: profile.json isn't edited here, so both sides of this transition check stay
+      // the pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
       const wasProfileComplete = isAthleteProfileComplete(profile, memory);
       const profileComplete = isAthleteProfileComplete(profile, memory);
-      const validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, stateMd ?? "");
+      const validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, timezone);
 
       if (validUpdates.length === 0 && !trimmedCoachNote) {
         console.warn("[coach-chat] close landed with no coach_note.", { athleteMessage: trimmed, traceId });
       }
 
-      // ADR 0012: chat_history.json plus coach_notes.md/rolling_state.json (when reported), plus
-      // a coach_since stamp when needed, land in ONE atomic commit.
+      // ADR 0012: chat_history.json plus coach_log.json (when reported), plus a coach_since stamp
+      // when needed, land in ONE atomic commit.
       const optionalWrites: FileEntry[] = [];
       if (coachNoteWrite) optionalWrites.push(coachNoteWrite);
-      if (rollingStateWrite) optionalWrites.push(rollingStateWrite);
       if (memoryUpdateWrite) optionalWrites.push(memoryUpdateWrite);
       if (injuryEventWrite) optionalWrites.push(injuryEventWrite);
       const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
@@ -386,7 +372,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         reply: reply.reply,
         closed: true,
         threadId: finalThreadId,
-        threads: withComputedDayOffsets(latestThreads, stateMd ?? ""),
+        threads: withComputedDayOffsets(latestThreads, timezone),
         repoSha,
         profileComplete,
         traceId,

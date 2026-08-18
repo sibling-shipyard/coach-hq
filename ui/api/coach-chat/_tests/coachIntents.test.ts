@@ -1,51 +1,43 @@
 import { describe, it, expect } from "vitest";
-import { applyRollingState, applyMemoryUpdate, applyInjuryEvent } from "../_lib/coachIntents.js";
+import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent } from "../_lib/coachIntents.js";
 
-describe("applyRollingState", () => {
-  it("starts a new log when content is null", () => {
-    const result = applyRollingState(null, { date: "2026-08-16", text: "First session logged." });
-    expect(JSON.parse(result)).toEqual([{ date: "2026-08-16", text: "First session logged." }]);
+describe("applyCoachNote", () => {
+  it("starts a new log with one row when content is null", () => {
+    const result = JSON.parse(applyCoachNote(null, "First session logged.", "2026-08-16", "t1", new Date("2026-08-16T18:00:00Z")));
+    expect(result.version).toBe(1);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({ date: "2026-08-16", type: "chat", text: "First session logged.", trace_id: "t1" });
+    expect(result.rows[0].id).toMatch(/^sess_2026-08-16_/);
+    expect(result.rows[0].ts).toBe("2026-08-16T18:00:00.000Z");
   });
 
-  it("prepends the new entry as newest and keeps the window under the cap", () => {
-    const existing = JSON.stringify([
-      { date: "2026-08-15", text: "Rest day." },
-      { date: "2026-08-14", text: "Strength session." },
-    ]);
-    const result = JSON.parse(applyRollingState(existing, { date: "2026-08-16", text: "5k run." }, 3));
-    expect(result).toEqual([
-      { date: "2026-08-16", text: "5k run." },
-      { date: "2026-08-15", text: "Rest day." },
-      { date: "2026-08-14", text: "Strength session." },
-    ]);
-  });
-
-  it("drops the oldest entry once the window is exceeded", () => {
-    const existing = JSON.stringify([
-      { date: "2026-08-15", text: "Rest day." },
-      { date: "2026-08-14", text: "Strength session." },
-      { date: "2026-08-13", text: "Badminton." },
-    ]);
-    const result = JSON.parse(applyRollingState(existing, { date: "2026-08-16", text: "5k run." }, 3));
-    expect(result).toHaveLength(3);
-    expect(result.map((e: { date: string }) => e.date)).toEqual(["2026-08-16", "2026-08-15", "2026-08-14"]);
-    expect(result.find((e: { date: string }) => e.date === "2026-08-13")).toBeUndefined();
+  it("appends to the end of the existing row log (oldest first, storage unbounded)", () => {
+    const existing = JSON.stringify({
+      version: 1,
+      rows: [
+        { id: "sess_2026-08-14_aaaa", date: "2026-08-14", ts: "2026-08-14T00:00:00Z", type: "chat", text: "Strength session.", trace_id: "t0" },
+        { id: "sess_2026-08-15_bbbb", date: "2026-08-15", ts: "2026-08-15T00:00:00Z", type: "chat", text: "Rest day.", trace_id: "t0" },
+      ],
+    });
+    const result = JSON.parse(applyCoachNote(existing, "5k run.", "2026-08-16", "t1", new Date("2026-08-16T18:00:00Z")));
+    expect(result.rows).toHaveLength(3);
+    expect(result.rows.map((r: { date: string }) => r.date)).toEqual(["2026-08-14", "2026-08-15", "2026-08-16"]);
+    expect(result.rows[2].text).toBe("5k run.");
   });
 
   it("treats malformed JSON as an empty log rather than throwing", () => {
-    const result = applyRollingState("{not valid json", { date: "2026-08-16", text: "5k run." });
-    expect(JSON.parse(result)).toEqual([{ date: "2026-08-16", text: "5k run." }]);
+    const result = JSON.parse(applyCoachNote("{not valid json", "5k run.", "2026-08-16", "t1", new Date("2026-08-16T18:00:00Z")));
+    expect(result.rows).toHaveLength(1);
   });
 
-  it("treats a non-array JSON value as an empty log", () => {
-    const result = applyRollingState('{"threads":[]}', { date: "2026-08-16", text: "5k run." });
-    expect(JSON.parse(result)).toEqual([{ date: "2026-08-16", text: "5k run." }]);
+  it("treats a value with no rows array as an empty log", () => {
+    const result = JSON.parse(applyCoachNote('{"threads":[]}', "5k run.", "2026-08-16", "t1", new Date("2026-08-16T18:00:00Z")));
+    expect(result.rows).toHaveLength(1);
   });
 
-  it("respects a custom window size", () => {
-    const existing = JSON.stringify([{ date: "2026-08-15", text: "Rest day." }]);
-    const result = JSON.parse(applyRollingState(existing, { date: "2026-08-16", text: "5k run." }, 1));
-    expect(result).toEqual([{ date: "2026-08-16", text: "5k run." }]);
+  it("trims the note before storing", () => {
+    const result = JSON.parse(applyCoachNote(null, "  padded on both sides  \n", "2026-08-16", "t1", new Date("2026-08-16T18:00:00Z")));
+    expect(result.rows[0].text).toBe("padded on both sides");
   });
 });
 

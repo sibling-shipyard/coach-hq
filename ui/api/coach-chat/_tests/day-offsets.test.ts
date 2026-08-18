@@ -7,7 +7,7 @@ import type { ChatThread } from "../_lib/chatThreads.js";
 // kept saying "NOW" forever even once dayOffset had correctly moved on. withComputedDayOffsets
 // now derives ageLabel from the freshly computed dayOffset on every read.
 describe("withComputedDayOffsets", () => {
-  const stateMdUTC = "- **Timezone:** UTC\n";
+  const timezoneUTC = "UTC";
 
   function thread(overrides: Partial<ChatThread> = {}): ChatThread {
     return {
@@ -30,7 +30,7 @@ describe("withComputedDayOffsets", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-04T12:00:00Z"));
     const t = thread({ createdAt: new Date("2026-08-04T09:00:00Z").getTime() });
-    const [result] = withComputedDayOffsets([t], stateMdUTC);
+    const [result] = withComputedDayOffsets([t], timezoneUTC);
     expect(result.dayOffset).toBe(0);
     expect(result.ageLabel).toBe("NOW");
   });
@@ -40,7 +40,7 @@ describe("withComputedDayOffsets", () => {
     vi.setSystemTime(new Date("2026-08-08T12:00:00Z"));
     // Created 4 days earlier, but ageLabel was written once as "NOW" back then and never updated.
     const t = thread({ createdAt: new Date("2026-08-04T09:00:00Z").getTime(), ageLabel: "NOW" });
-    const [result] = withComputedDayOffsets([t], stateMdUTC);
+    const [result] = withComputedDayOffsets([t], timezoneUTC);
     expect(result.dayOffset).toBe(4);
     expect(result.ageLabel).toBe("D-4");
   });
@@ -53,7 +53,7 @@ describe("withComputedDayOffsets", () => {
       thread({ id: "t-yesterday", createdAt: new Date("2026-08-07T01:00:00Z").getTime() }),
       thread({ id: "t-week-old", createdAt: new Date("2026-08-01T01:00:00Z").getTime() }),
     ];
-    const results = withComputedDayOffsets(threads, stateMdUTC);
+    const results = withComputedDayOffsets(threads, timezoneUTC);
     expect(results.map((r) => r.ageLabel)).toEqual(["NOW", "D-1", "D-7"]);
   });
 });

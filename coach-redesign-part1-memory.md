@@ -1,4 +1,4 @@
-# Coach redesign review — Part 1: state.md → profile.json + memory.json + injuries.json + sessions.json
+# Coach redesign review — Part 1: state.md → profile.json + memory.json + injuries.json + coach_log.json
 
 > Working doc for review, not a final eng-doc. Source: `docs/plans/coach-schema-redesign-lld.md`
 > (merged, #380). This is where you said you want to start.
@@ -9,7 +9,7 @@
 `coach_note` only — `validUpdates` starts empty). Three files already do the same "recent
 continuity" job a different way — `coach_notes.md` (write-only), `rolling_state.json` (last 3,
 just added), `state.md`'s own Recent Session Notes (nothing can write it). This step ends that
-split for good: `profile.json` (settings), `memory.json` (Coach's free-text notes), `sessions.json`
+split for good: `profile.json` (settings), `memory.json` (Coach's free-text notes), `coach_log.json`
 (the merged log — absorbs all three of the above, plus `archive/phases.md`/`archive/week_plans.md`
 if you decide to fold those in too — see Part 6, this is still undecided and now also depends on
 Part 2 having dropped the `phase` concept entirely from `seasons.json`).
@@ -112,7 +112,11 @@ mechanic can't represent.
 }
 ```
 
-## `sessions.json` — proposed shape
+## `coach_log.json` — proposed shape
+
+Named `coach_log.json` rather than `sessions.json` (the original name in this doc) - `sessions.json`
+collides with `activities/workout_plans/sessions/*.json`, the actual workout session files, and
+that's a real confusion risk in the athlete's repo, not a style nitpick.
 
 ```jsonc
 {

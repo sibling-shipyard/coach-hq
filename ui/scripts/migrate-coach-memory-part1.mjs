@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 /**
  * One-time migration: reads an athlete repo's CURRENT state.md + coach_notes.md +
- * rolling_state.json and writes profile.json/memory.json/injuries.json/sessions.json in the
- * shapes coach-redesign-part1-memory.md defines. Run once, on a scratch branch, never against
- * main directly - see AGENTS.md's git-push rule and the Part 1 rollout plan.
+ * rolling_state.json and writes profile.json/memory.json/injuries.json/coach_log.json in the
+ * shapes coach-redesign-part1-memory.md defines, then deletes the three old files. Run once, on a
+ * scratch branch, never against main directly - see AGENTS.md's git-push rule and the Part 1
+ * rollout plan.
  *
  * Usage:
  *   node ui/scripts/migrate-coach-memory-part1.mjs <path-to-athlete-repo-checkout>
  *
- * Writes the four new files into <repo>/user_data/coach/ - review and commit them yourself, this
- * script does not touch git.
+ * Writes the four new files into <repo>/user_data/coach/ and deletes state.md, coach_notes.md,
+ * rolling_state.json - review and commit the result yourself, this script does not touch git.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -246,14 +247,28 @@ const dedupedRows = rows.filter((r) => {
   return true;
 });
 
-const sessionsJson = { version: 1, rows: dedupedRows };
+const coachLogJson = { version: 1, rows: dedupedRows };
 
 // --- write ---------------------------------------------------------------------------------
 
 fs.writeFileSync(path.join(coachDir, "profile.json"), JSON.stringify(profileJson, null, 2) + "\n");
 fs.writeFileSync(path.join(coachDir, "memory.json"), JSON.stringify(memoryJson, null, 2) + "\n");
 fs.writeFileSync(path.join(coachDir, "injuries.json"), JSON.stringify(injuriesJson, null, 2) + "\n");
-fs.writeFileSync(path.join(coachDir, "sessions.json"), JSON.stringify(sessionsJson, null, 2) + "\n");
+fs.writeFileSync(path.join(coachDir, "coach_log.json"), JSON.stringify(coachLogJson, null, 2) + "\n");
 
-console.log(`Wrote profile.json, memory.json, injuries.json (${flags.length} flags), sessions.json (${dedupedRows.length} rows) to ${coachDir}`);
+// Full replace, not a parallel-file era: once the four new files are written, the old ones this
+// migration read from go away entirely (Skanda's direction - no permanent parallel-file period).
+const removed = [];
+for (const name of ["state.md", "coach_notes.md", "rolling_state.json"]) {
+  const p = path.join(coachDir, name);
+  if (fs.existsSync(p)) {
+    fs.rmSync(p);
+    removed.push(name);
+  }
+}
+
+console.log(
+  `Wrote profile.json, memory.json, injuries.json (${flags.length} flags), coach_log.json (${dedupedRows.length} rows) to ${coachDir}`,
+);
+console.log(`Removed: ${removed.length > 0 ? removed.join(", ") : "(none found)"}`);
 console.log("Review the diffs, then commit on your scratch branch yourself - this script does not touch git.");

@@ -1,15 +1,17 @@
 /**
  * Shapes and paths for the four files coach-redesign-part1-memory.md introduces:
  * profile.json (settings), memory.json (Coach's free-text notes), injuries.json (open/resolved
- * flags), sessions.json (the merged continuity log). Types only here - the read/write mechanics
- * live in coachChatFiles.ts (reads) and coachIntents.ts/coachWrites.ts (server-owned writes),
- * same split as today's state.md/coach_notes.md/rolling_state.json.
+ * flags), coach_log.json (the merged continuity log - named coach_log.json rather than
+ * sessions.json to avoid colliding with the unrelated activities/workout_plans/sessions/*.json
+ * workout files). Types only here - the read/write mechanics live in coachChatFiles.ts (reads)
+ * and coachIntents.ts (server-owned writes). state.md/coach_notes.md/rolling_state.json, which
+ * these four files replaced, no longer exist.
  */
 
 export const PROFILE_PATH = "user_data/coach/profile.json";
 export const MEMORY_PATH = "user_data/coach/memory.json";
 export const INJURIES_PATH = "user_data/coach/injuries.json";
-export const SESSIONS_PATH = "user_data/coach/sessions.json";
+export const COACH_LOG_PATH = "user_data/coach/coach_log.json";
 
 export interface ProfileJson {
   version: 1;
@@ -62,7 +64,7 @@ export interface InjuriesJson {
   flags: InjuryFlag[];
 }
 
-export interface SessionRow {
+export interface CoachLogRow {
   id: string;
   date: string;
   ts: string;
@@ -71,7 +73,7 @@ export interface SessionRow {
   trace_id: string;
 }
 
-export interface SessionsJson {
+export interface CoachLogJson {
   version: 1;
-  rows: SessionRow[];
+  rows: CoachLogRow[];
 }

@@ -1,40 +1,33 @@
 /**
  * Part B of coach-chat's write-authority rebuild: pure appliers for fields Gemini reports as
- * plain facts, where the server owns the file mechanic entirely. Same principle as
- * coachWrites.ts's appendCoachNote - Gemini never sees or edits the file's current shape, it
- * just states what happened. Grown one function at a time as each fact field gets wired in.
+ * plain facts, where the server owns the file mechanic entirely - Gemini never sees or edits the
+ * file's current shape, it just states what happened. Grown one function at a time as each fact
+ * field gets wired in.
  */
 
-import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag } from "./coachMemoryFiles.js";
+import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow } from "./coachMemoryFiles.js";
 
-export interface RollingStateEntry {
-  date: string; // YYYY-MM-DD
-  text: string;
-}
-
-// rolling_state.json: a bounded, newest-first log of the last N sessions, read back into every
-// turn's prompt (coachPrompt.ts's rollingStateContext) so Gemini has session-to-session
-// continuity - something coach_notes.md alone never provided, since it's never re-read.
-// Deliberately reuses coach_note verbatim rather than asking Gemini for a second field: a
-// dedicated session_note field was tried and pulled after it reproduced the exact repetition-
-// loop failure mode that got `title` removed from the schema (see
-// docs/eng-docs/coach-chat-design-history.md) - reusing an already-reliable field has zero new
-// generation-failure surface. Malformed/missing current content is treated as an empty log
-// rather than thrown, same defensive default as coachWrites.ts's appendCoachNote.
-const ROLLING_STATE_WINDOW = 3;
-
-export function applyRollingState(content: string | null, entry: RollingStateEntry, window = ROLLING_STATE_WINDOW): string {
-  let entries: RollingStateEntry[] = [];
+// coach_note: appends one row to coach_log.json - the single merged continuity log
+// (coach-redesign-part1-memory.md) that absorbed what used to be split across coach_notes.md
+// (write-only, append) and rolling_state.json (a separate bounded last-N-sessions array read back
+// into every turn's prompt). This is now the only write either of those did: an unbounded,
+// append-only row log. Windowing to "last N" happens at render time (coachContext.ts), not by
+// truncating storage here - the full history is worth keeping. Malformed/missing current content
+// is treated as an empty log rather than thrown, same defensive default the other appliers below
+// use for their own files.
+export function applyCoachNote(content: string | null, note: string, dateString: string, traceId: string, now: Date): string {
+  let rows: CoachLogRow[] = [];
   if (content && content.trim()) {
     try {
       const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) entries = parsed;
+      if (parsed && Array.isArray(parsed.rows)) rows = parsed.rows;
     } catch {
-      entries = [];
+      rows = [];
     }
   }
-  const updated = [entry, ...entries].slice(0, window);
-  return JSON.stringify(updated, null, 2);
+  const id = `sess_${dateString}_${Math.random().toString(36).slice(2, 6)}`;
+  const row: CoachLogRow = { id, date: dateString, ts: now.toISOString(), type: "chat", text: note.trim(), trace_id: traceId };
+  return JSON.stringify({ version: 1, rows: [...rows, row] }, null, 2);
 }
 
 // memory_update {label, text}: Gemini states which labelled box changed and its new text; the
