@@ -188,7 +188,11 @@ const HORCRUXES = [
     // Injected when isAthleteProfileComplete(state.md) is false — coach-chat.ts.
     out: "first-session.md",
     source: "B",
-    keys: ["s10_first_session_head", "s10_first_session_body", "s10_first_session_transition"],
+    keys: [
+      "s10_first_session_chat_head",
+      "s10_first_session_chat_body",
+      "s10_first_session_chat_transition",
+    ],
   },
 ];
 
