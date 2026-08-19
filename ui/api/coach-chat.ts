@@ -716,6 +716,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
               token,
             });
             repoSha = result.commitSha;
+            invalidateCoachContext(repo);
           } catch (err: unknown) {
             const errMessage = err instanceof Error ? err.message : String(err);
             return Response.json({ error: `Coach replied but saving failed: ${errMessage}`, traceId }, { status: 502 });
