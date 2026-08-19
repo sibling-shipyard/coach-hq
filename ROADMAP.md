@@ -13,7 +13,7 @@ This file is the curated view; issues are the record. Flip a box here or tell Un
 - [ ] #296 MVP chat commit works
 - [ ] #297 Gemini end-to-end in coach chat — web + iOS (checklist: #280)
 	a. #424 validate-soul can't fail CI — Skanda
-- [ ] #298 First-session protocol
+- [x] #298 First-session protocol
 
 ### 🟥 Epic: Onboard Nats (#299)
 
@@ -32,7 +32,7 @@ _Users 4–10 get a great first hour._
 - [ ] #304 Empty activity history handling
 - [ ] #305 Coach uses 1-year history patterns in FSP
 - [ ] #306 Coach chat works perfectly for FSP
-- [ ] #362 First-session predicate can never complete
+- [x] #362 First-session predicate can never complete
 
 ### Epic: Homescreen UX (#307)
 
@@ -75,7 +75,7 @@ _Scaling stops being hand-holding._
 - [ ] #329 Testing framework shape (decision)
 - [ ] #361 App writes current_week.json without validation
 - [ ] #363 Carve template drift
-- [ ] #366 validate-soul: lint SOUL against reality
+- [x] #366 validate-soul: lint SOUL against reality
 
 ### Epic: Stretch features — M3 (#330)
 
