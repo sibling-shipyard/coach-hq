@@ -12,24 +12,34 @@ import Foundation
 /// surviving a week of inactivity. If it's absent (reinstall, or the athlete does First Session
 /// via web instead), the protocol just asks fresh - graceful degradation, not an error case.
 enum OnboardingHints {
+    private static let nameKey = "onboardingHintName"
     private static let sportsKey = "onboardingHintSports"
     private static let goalKey = "onboardingHintGoal"
+
+    /// Name is collected on an earlier screen (NamePromptView) than sports/goal (the season
+    /// step), so it's saved separately rather than folded into save(sports:goal:) - neither
+    /// screen has the other's data at the point it writes.
+    static func save(name: String) {
+        UserDefaults.standard.set(name, forKey: nameKey)
+    }
 
     static func save(sports: [String], goal: String) {
         UserDefaults.standard.set(sports, forKey: sportsKey)
         UserDefaults.standard.set(goal, forKey: goalKey)
     }
 
-    static func load() -> (sports: [String], goal: String)? {
+    static func load() -> (name: String?, sports: [String], goal: String)? {
+        let name = UserDefaults.standard.string(forKey: nameKey)
         let sports = UserDefaults.standard.array(forKey: sportsKey) as? [String] ?? []
         let goal = UserDefaults.standard.string(forKey: goalKey) ?? ""
-        guard !sports.isEmpty || !goal.isEmpty else { return nil }
-        return (sports, goal)
+        guard !(name?.isEmpty ?? true) || !sports.isEmpty || !goal.isEmpty else { return nil }
+        return (name, sports, goal)
     }
 
     /// Cleared once the First Session Protocol genuinely finishes (state.md's Athlete Profile
     /// section is populated - see B2/B3's profileComplete check) - no longer needed after that.
     static func clear() {
+        UserDefaults.standard.removeObject(forKey: nameKey)
         UserDefaults.standard.removeObject(forKey: sportsKey)
         UserDefaults.standard.removeObject(forKey: goalKey)
     }

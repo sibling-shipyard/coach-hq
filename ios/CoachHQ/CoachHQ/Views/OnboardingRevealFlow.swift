@@ -660,6 +660,8 @@ private struct SeasonStepView: View {
     ]
 
     @State private var selectedSports: Set<String> = []
+    @State private var goal = ""
+    @FocusState private var goalFocused: Bool
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -677,8 +679,24 @@ private struct SeasonStepView: View {
                     .onboardingReveal(index: 1)
 
                 SportChipGrid(sports: Self.allSports, selected: $selectedSports)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 20)
                     .onboardingReveal(index: 2)
+
+                TextField("A race, a milestone, just staying consistent…", text: $goal, axis: .vertical)
+                    .font(.system(size: 15))
+                    .foregroundColor(WarmInstrument.ink)
+                    .focused($goalFocused)
+                    .lineLimit(1...3)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(WarmInstrument.paper)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(goalFocused ? WarmInstrument.ink.opacity(0.3) : WarmInstrument.border, lineWidth: 1)
+                    )
+                    .padding(.bottom, 16)
+                    .onboardingReveal(index: 3)
             }
             .padding(.horizontal, 28)
             .padding(.top, 24)
@@ -717,7 +735,7 @@ private struct SeasonStepView: View {
     }
 
     private func save() {
-        OnboardingHints.save(sports: selectedSports.sorted(), goal: "")
+        OnboardingHints.save(sports: selectedSports.sorted(), goal: goal.trimmingCharacters(in: .whitespacesAndNewlines))
         Haptics.success()
         onComplete()
     }

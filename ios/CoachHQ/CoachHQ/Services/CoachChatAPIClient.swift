@@ -163,11 +163,15 @@ final class CoachChatAPIClient {
     /// Protocol can reflect the athlete's native sport/goal picks back instead of asking cold.
     /// Only meaningful the server-side reuse path doesn't apply to, i.e. genuinely creating a
     /// new thread - harmless to pass on a reuse hit too, the server just ignores it there.
-    func greet(onboardingHints: (sports: [String], goal: String)? = nil) async throws -> ChatGreetResponse {
+    func greet(onboardingHints: (name: String?, sports: [String], goal: String)? = nil) async throws -> ChatGreetResponse {
         let auth = try await requireAuth()
         var body: [String: Any] = ["action": "greet"]
         if let onboardingHints {
-            body["onboardingHints"] = ["sports": onboardingHints.sports, "goal": onboardingHints.goal]
+            var hints: [String: Any] = ["sports": onboardingHints.sports, "goal": onboardingHints.goal]
+            if let name = onboardingHints.name, !name.isEmpty {
+                hints["name"] = name
+            }
+            body["onboardingHints"] = hints
         }
         let req = try request("POST", body: body, auth: auth)
         let data = try await send(req, operation: "Starting conversation", retryNetworkFailures: false)

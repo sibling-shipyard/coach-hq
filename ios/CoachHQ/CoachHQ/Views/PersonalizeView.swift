@@ -148,6 +148,7 @@ struct NamePromptView: View {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         preferredName = trimmed
+        OnboardingHints.save(name: trimmed)
         onComplete()
     }
 }
