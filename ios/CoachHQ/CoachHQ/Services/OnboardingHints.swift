@@ -1,11 +1,7 @@
 import Foundation
 
-/// B1: sport(s) + goal collected in native onboarding (the "season" step), cached locally only -
-/// never committed to the repo. The old approach committed a `user_data/profile.md` file that
-/// had zero consumers anywhere (confirmed via repo-wide search - neither the chat backend nor
-/// SOUL.md ever read it). Used instead to seed Coach's chat-based First Session Protocol intake
-/// with a pre-filled hint so it can reflect the athlete's picks back for confirmation rather than
-/// asking cold - see B4's platform/soul/B_engine.md edit.
+/// Name, sports, and coaching style collected in native onboarding, cached locally until the
+/// server records them during the First Session Protocol greeting.
 ///
 /// UserDefaults, not Keychain - this is a soft hint, not athlete identity. No TTL/expiry:
 /// UserDefaults persists indefinitely on-device until cleared, and there's no harm in a hint
@@ -14,26 +10,27 @@ import Foundation
 enum OnboardingHints {
     private static let nameKey = "onboardingHintName"
     private static let sportsKey = "onboardingHintSports"
-    private static let goalKey = "onboardingHintGoal"
+    private static let coachingStyleKey = "onboardingHintCoachingStyle"
 
-    /// Name is collected on an earlier screen (NamePromptView) than sports/goal (the season
-    /// step), so it's saved separately rather than folded into save(sports:goal:) - neither
-    /// screen has the other's data at the point it writes.
+    /// Each field is collected on its own screen, so the saves stay independent.
     static func save(name: String) {
         UserDefaults.standard.set(name, forKey: nameKey)
     }
 
-    static func save(sports: [String], goal: String) {
+    static func save(sports: [String]) {
         UserDefaults.standard.set(sports, forKey: sportsKey)
-        UserDefaults.standard.set(goal, forKey: goalKey)
     }
 
-    static func load() -> (name: String?, sports: [String], goal: String)? {
+    static func save(coachingStyle: String) {
+        UserDefaults.standard.set(coachingStyle, forKey: coachingStyleKey)
+    }
+
+    static func load() -> (name: String?, sports: [String], coachingStyle: String?)? {
         let name = UserDefaults.standard.string(forKey: nameKey)
         let sports = UserDefaults.standard.array(forKey: sportsKey) as? [String] ?? []
-        let goal = UserDefaults.standard.string(forKey: goalKey) ?? ""
-        guard !(name?.isEmpty ?? true) || !sports.isEmpty || !goal.isEmpty else { return nil }
-        return (name, sports, goal)
+        let coachingStyle = UserDefaults.standard.string(forKey: coachingStyleKey)
+        guard !(name?.isEmpty ?? true) || !sports.isEmpty || !(coachingStyle?.isEmpty ?? true) else { return nil }
+        return (name, sports, coachingStyle)
     }
 
     /// Cleared once the First Session Protocol genuinely finishes (state.md's Athlete Profile
@@ -41,6 +38,6 @@ enum OnboardingHints {
     static func clear() {
         UserDefaults.standard.removeObject(forKey: nameKey)
         UserDefaults.standard.removeObject(forKey: sportsKey)
-        UserDefaults.standard.removeObject(forKey: goalKey)
+        UserDefaults.standard.removeObject(forKey: coachingStyleKey)
     }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { isAthleteProfileComplete, loadCoachContext } from "../_lib/coachChatFiles.js";
+import { invalidateCoachContext, isAthleteProfileComplete, isFirstSessionRitualDone, loadCoachContext } from "../_lib/coachChatFiles.js";
 import type { ProfileJson, MemoryJson } from "../_lib/coachMemoryFiles.js";
+import type { QuestsJson, SeasonsJson } from "../_lib/coachQuestFiles.js";
 
 // coach-redesign-part1-memory.md, Step 3: replaces the old regex/section-matching read of
 // state.md's Athlete Profile with a simple field-presence check against profile.json/memory.json,
@@ -12,10 +13,10 @@ function profile(overrides: Partial<ProfileJson> = {}): ProfileJson {
     version: 1,
     coach_since: null,
     name: "Skanda",
-    dob: null,
+    dob: "2003-01-02",
     timezone: "Asia/Kolkata",
-    height_cm: null,
-    weight_kg: null,
+    height_cm: 180,
+    weight_kg: 75,
     ...overrides,
   };
 }
@@ -25,7 +26,7 @@ function memory(overrides: Partial<MemoryJson> = {}): MemoryJson {
     version: 1,
     _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
     sports: ["Badminton"],
-    coaching_style: "",
+    coaching_style: "analysis",
     notes: {
       fitness_baseline: { text: "", updated_at: "", trace_id: "" },
       coaching_priorities: { text: "", updated_at: "", trace_id: "" },
@@ -38,37 +39,96 @@ function memory(overrides: Partial<MemoryJson> = {}): MemoryJson {
   };
 }
 
+function seasons(overrides: Partial<SeasonsJson> = {}): SeasonsJson {
+  return {
+    version: 1,
+    _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
+    current_season_id: "season-1",
+    seasons: [{ id: "season-1", name: "Build", start_date: "2026-08-18", end_date: "2026-12-01", status: "active" }],
+    ...overrides,
+  };
+}
+
 describe("isAthleteProfileComplete", () => {
-  it("is true when name/sport are both present", () => {
-    expect(isAthleteProfileComplete(profile(), memory())).toBe(true);
+  it("is true when profile, sport, coaching style, and current season are complete", () => {
+    expect(isAthleteProfileComplete(profile(), memory(), seasons())).toBe(true);
   });
 
   it("is false when profile.json is missing (null)", () => {
-    expect(isAthleteProfileComplete(null, memory())).toBe(false);
+    expect(isAthleteProfileComplete(null, memory(), seasons())).toBe(false);
   });
 
   it("is false when memory.json is missing (null)", () => {
-    expect(isAthleteProfileComplete(profile(), null)).toBe(false);
+    expect(isAthleteProfileComplete(profile(), null, seasons())).toBe(false);
+  });
+
+  it("is false when seasons.json is missing (null)", () => {
+    expect(isAthleteProfileComplete(profile(), memory(), null)).toBe(false);
   });
 
   it("is false when name is blank", () => {
-    expect(isAthleteProfileComplete(profile({ name: "" }), memory())).toBe(false);
+    expect(isAthleteProfileComplete(profile({ name: "" }), memory(), seasons())).toBe(false);
+  });
+
+  it.each([
+    ["dob", { dob: null }],
+    ["timezone", { timezone: "" }],
+    ["height", { height_cm: null }],
+    ["weight", { weight_kg: null }],
+  ])("is false when %s is missing", (_label, missing) => {
+    expect(isAthleteProfileComplete(profile(missing), memory(), seasons())).toBe(false);
   });
 
   it("is false when sports is empty", () => {
-    expect(isAthleteProfileComplete(profile(), memory({ sports: [] }))).toBe(false);
+    expect(isAthleteProfileComplete(profile(), memory({ sports: [] }), seasons())).toBe(false);
   });
 
   it("is false when sports only contains blank strings", () => {
-    expect(isAthleteProfileComplete(profile(), memory({ sports: ["", "  "] }))).toBe(false);
+    expect(isAthleteProfileComplete(profile(), memory({ sports: ["", "  "] }), seasons())).toBe(false);
   });
 
-  // #362: dob/height_cm/weight_kg/coaching_style are context the athlete may decline - never
-  // gate on them, same rule as before the redesign, just checked against the new files.
-  it("is true even when every optional field is declined", () => {
-    const p = profile({ dob: null, height_cm: null, weight_kg: null });
-    const m = memory({ coaching_style: "" });
-    expect(isAthleteProfileComplete(p, m)).toBe(true);
+  it.each([null, "", "supportive"])("is false when coaching style is %j", (coachingStyle) => {
+    expect(isAthleteProfileComplete(profile(), memory({ coaching_style: coachingStyle as MemoryJson["coaching_style"] }), seasons())).toBe(false);
+  });
+
+  it("is false when current_season_id is unset", () => {
+    expect(isAthleteProfileComplete(profile(), memory(), seasons({ current_season_id: null }))).toBe(false);
+  });
+
+  it("is false when current_season_id does not match a season", () => {
+    expect(isAthleteProfileComplete(profile(), memory(), seasons({ current_season_id: "missing" }))).toBe(false);
+  });
+});
+
+// Live testing found a real bug: isAthleteProfileComplete flips true (unlocking daily chat) the
+// moment profile/sports/style/season land, which is also what firstSessionContext() used to gate
+// on directly - so an athlete who mentioned habit quests on the SAME turn that completed their
+// profile got no FSP prompt guidance for it at all, and quest_create silently never fired.
+// isFirstSessionRitualDone adds the one more thing SOUL's own ritual still wants before FSP is
+// truly over: a main_quest. It resolves to true forever once set, same as the other fields, so a
+// quest-declining athlete only sees it once, not indefinitely.
+function quests(overrides: Partial<QuestsJson> = {}): QuestsJson {
+  return {
+    version: 1,
+    _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
+    weekly_targets: {},
+    main_quest: { id: "q1", name: "Get faster", type: "progress", target: 100 },
+    quests: [],
+    ...overrides,
+  };
+}
+
+describe("isFirstSessionRitualDone", () => {
+  it("is true once profile is complete and a main_quest exists", () => {
+    expect(isFirstSessionRitualDone(profile(), memory(), seasons(), quests())).toBe(true);
+  });
+
+  it("is false when quests.json doesn't exist yet, even if profile is otherwise complete", () => {
+    expect(isFirstSessionRitualDone(profile(), memory(), seasons(), null)).toBe(false);
+  });
+
+  it("is false when profile isn't complete yet, regardless of quests", () => {
+    expect(isFirstSessionRitualDone(profile({ name: "" }), memory(), seasons(), quests())).toBe(false);
   });
 });
 
@@ -110,6 +170,17 @@ describe("loadCoachContext in-flight de-dup", () => {
     ]);
     expect(cached).toEqual(fresh);
     // Each call does its own independent 8-file fetch since one of them demanded freshness.
+    expect(fetchMock).toHaveBeenCalledTimes(16);
+  });
+
+  it("refetches every context file after the repo cache is invalidated", async () => {
+    const repo = `owner/repo-invalidated-${Date.now()}`;
+    await loadCoachContext(repo, "token");
+    await loadCoachContext(repo, "token");
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+
+    invalidateCoachContext(repo);
+    await loadCoachContext(repo, "token");
     expect(fetchMock).toHaveBeenCalledTimes(16);
   });
 });

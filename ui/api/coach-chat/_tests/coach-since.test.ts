@@ -52,10 +52,14 @@ describe("coachDayNumber", () => {
 
 describe("injectCoachSinceIfNeeded", () => {
   const timezoneUTC = "UTC";
-  const closingFiles = { coachNotes: null, challengeV2: '{"phase":"base"}', currentWeek: null, sleepLog: null };
+  // Found live testing Part A: this used to target user_data/ledger/challenge_v2.json - the file
+  // Part 2's ledger split deleted. coach_since lives in profile.json (ProfileJson.coach_since)
+  // and was never migrated when that redesign landed - the false->true transition this gates was
+  // dead code until Part A made it reachable, so the wrong target never surfaced until now.
+  const closingFiles = { profile: '{"name":"Skanda","timezone":"UTC"}' };
 
   it("does nothing when the profile was already complete before this turn", () => {
-    const updates = [{ path: "user_data/coach/state.md", content: "filled in" }];
+    const updates = [{ path: "user_data/coach/profile.json", content: "filled in" }];
     const result = injectCoachSinceIfNeeded(updates, closingFiles, true, true, timezoneUTC);
     expect(result).toBe(updates);
   });
@@ -72,36 +76,36 @@ describe("injectCoachSinceIfNeeded", () => {
     expect(result).toBe(updates);
   });
 
-  it("stamps coach_since onto challenge_v2.json on the false→true transition", () => {
+  it("stamps coach_since onto profile.json on the false→true transition", () => {
     const result = injectCoachSinceIfNeeded([], closingFiles, false, true, timezoneUTC);
-    const entry = result.find((u) => u.path === "user_data/ledger/challenge_v2.json");
+    const entry = result.find((u) => u.path === "user_data/coach/profile.json");
     expect(entry).toBeDefined();
     const parsed = JSON.parse(entry!.content);
-    expect(parsed.phase).toBe("base");
+    expect(parsed.name).toBe("Skanda");
     expect(typeof parsed.coach_since).toBe("string");
     expect(parsed.coach_since).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("merges onto a challenge_v2.json write Gemini already proposed this same turn, instead of adding a second write", () => {
-    const geminiUpdate = { path: "user_data/ledger/challenge_v2.json", content: '{"phase":"base","quests":["cold_shower"]}' };
+  it("merges onto a profile.json write Gemini already proposed this same turn, instead of adding a second write", () => {
+    const geminiUpdate = { path: "user_data/coach/profile.json", content: '{"name":"Skanda","timezone":"America/Chicago"}' };
     const result = injectCoachSinceIfNeeded([geminiUpdate], closingFiles, false, true, timezoneUTC);
-    const challengeEntries = result.filter((u) => u.path === "user_data/ledger/challenge_v2.json");
-    expect(challengeEntries).toHaveLength(1);
-    const parsed = JSON.parse(challengeEntries[0].content);
-    expect(parsed.quests).toEqual(["cold_shower"]);
+    const profileEntries = result.filter((u) => u.path === "user_data/coach/profile.json");
+    expect(profileEntries).toHaveLength(1);
+    const parsed = JSON.parse(profileEntries[0].content);
+    expect(parsed.timezone).toBe("America/Chicago");
     expect(typeof parsed.coach_since).toBe("string");
   });
 
   it("never overwrites an existing coach_since, even if the transition logic somehow fires again", () => {
-    const files = { ...closingFiles, challengeV2: '{"coach_since":"2026-01-01"}' };
+    const files = { profile: '{"coach_since":"2026-01-01"}' };
     const result = injectCoachSinceIfNeeded([], files, false, true, timezoneUTC);
     expect(result).toEqual([]);
   });
 
-  it("handles challenge_v2.json not existing yet (null)", () => {
-    const files = { ...closingFiles, challengeV2: null };
+  it("handles profile.json not existing yet (null)", () => {
+    const files = { profile: null };
     const result = injectCoachSinceIfNeeded([], files, false, true, timezoneUTC);
-    const entry = result.find((u) => u.path === "user_data/ledger/challenge_v2.json");
+    const entry = result.find((u) => u.path === "user_data/coach/profile.json");
     expect(entry).toBeDefined();
     const parsed = JSON.parse(entry!.content);
     expect(typeof parsed.coach_since).toBe("string");

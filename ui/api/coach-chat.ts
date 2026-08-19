@@ -5,10 +5,9 @@
  * authority, day math, and close-signal detection live under ui/api/coach-chat/_lib/.
  *
  * GET                        → load committed threads
- * POST {action: "greet"}     → Coach speaks first (A4), no athlete message, no repo write
- * POST {threadId?, messages, message} → send a message, get a reply. No repo write unless it
- *                               closes the session, in which case the whole thread (+ coach_note,
- *                               if any) commits in one batch.
+ * POST {action: "greet"}     → Coach speaks first (A4); native onboarding hints commit directly
+ * POST {threadId?, messages, message} → send a message, get a reply. First Session facts commit
+ *                               incrementally; returning-athlete content stays close-only.
  *
  * No delete endpoint - retention is automatic (ADR 0012 amendment): 7 most recent threads kept,
  * oldest evicted on write.
@@ -20,10 +19,13 @@
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
+import { applyJsonMergePatch } from "./_lib/fileEdits.js";
 import {
   getFileRaw,
   getHeadSha,
+  invalidateCoachContext,
   isAthleteProfileComplete,
+  isFirstSessionRitualDone,
   loadCoachContext,
   resolveCoachChatBranch,
 } from "./coach-chat/_lib/coachChatFiles.js";
@@ -54,7 +56,7 @@ import {
 } from "./coach-chat/_lib/coachWorkoutFiles.js";
 import { applyWeekPlan, applySessionReconcile, applyPlanEdit, CURRENT_WEEK_PATH } from "./coach-chat/_lib/coachWeekFiles.js";
 import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH, MEMORY_NOTE_LABELS, type ProfileJson, type MemoryJson } from "./coach-chat/_lib/coachMemoryFiles.js";
-import { PROGRESS_PATH, SEASONS_PATH, QUESTS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
+import { PROGRESS_PATH, SEASONS_PATH, QUESTS_PATH, type SeasonsJson } from "./coach-chat/_lib/coachQuestFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import { parseJsonOrNull } from "./coach-chat/_lib/coachChatFiles.js";
@@ -70,11 +72,11 @@ import {
   type OnboardingHints,
 } from "./coach-chat/_lib/coachPrompt.js";
 import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
+import { fspIncrementalWrites } from "./coach-chat/_lib/fspWrites.js";
+import { onboardingChanges } from "./coach-chat/_lib/onboardingWrites.js";
 
-// A4: coach speaks first. Generates a fresh opener via Gemini and hands back a not-yet-committed
-// thread id - nothing writes to the repo here. The greeting only lands if the athlete replies
-// and the conversation later closes (see the closing-turn path below, which handles a
-// client-supplied threadId that was never committed the same as any other new thread).
+// A4: coach speaks first. Native onboarding facts commit directly before Gemini runs, but the
+// greeting thread itself remains uncommitted until the conversation closes.
 async function handleGreet(
   repo: string,
   token: string,
@@ -85,6 +87,40 @@ async function handleGreet(
   const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
   const timezone = profile?.timezone?.trim() || "UTC";
+
+  const { name: hintedName, sports: hintedSports, coachingStyle: hintedCoachingStyle } =
+    onboardingChanges(onboardingHints, profile, memory);
+  const onboardingTraceId = `onboard-${Date.now().toString(36)}`;
+  const onboardingWrites: FileEntry[] = [];
+  if (hintedName) {
+    onboardingWrites.push({
+      path: PROFILE_PATH,
+      resolve: async () => applyProfileUpdate(await getFileRaw(repo, PROFILE_PATH, token), [{ field: "name", value: hintedName }]),
+    });
+  }
+  if (hintedSports || hintedCoachingStyle) {
+    onboardingWrites.push({
+      path: MEMORY_PATH,
+      resolve: async () => {
+        let working = await getFileRaw(repo, MEMORY_PATH, token);
+        if (hintedSports) {
+          working = applySportsUpdate(working, hintedSports, todayDateString(timezone, new Date()), onboardingTraceId);
+        }
+        if (hintedCoachingStyle) {
+          working = applyCoachingStyleUpdate(working, hintedCoachingStyle, todayDateString(timezone, new Date()), onboardingTraceId);
+        }
+        return working as string;
+      },
+    });
+  }
+  if (onboardingWrites.length > 0) {
+    await commitFilesAtomic(onboardingWrites, "coach: native onboarding details recorded", {
+      repo,
+      branch: resolveCoachChatBranch(),
+      token,
+    });
+    invalidateCoachContext(repo);
+  }
   const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
   const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
 
@@ -99,7 +135,7 @@ async function handleGreet(
       "",
       "greeting",
       combineExtraContext(
-        firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
+        firstSessionContext(isFirstSessionRitualDone(profile, memory, seasons, quests), FIRST_SESSION_PROTOCOL),
         onboardingHintsContext(onboardingHints),
         injuryFlagsContext(injuries),
         activeQuestsContext(quests),
@@ -189,8 +225,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const traceId = Math.random().toString(36).slice(2, 10);
       const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
 
-      // Only fetched on a closing turn, for the server-side coach_since stamp - Gemini never
-      // sees this content.
+      // Fetched on a closing turn, or later on the one incremental FSP turn that completes the
+      // profile, for the server-side coach_since stamp. Gemini never sees this content.
       let closingFiles: ClosingFileContext | undefined;
       if (closeIntent) {
         closingFiles = await loadClosingFileContext(repo, token);
@@ -232,7 +268,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           // First Session spans several turns, so this has to fire on ordinary turns too -
           // greet-only would drop the protocol the moment the athlete answered the first question.
           combineExtraContext(
-            firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
+            firstSessionContext(isFirstSessionRitualDone(profile, memory, seasons, quests), FIRST_SESSION_PROTOCOL),
             injuryFlagsContext(injuries),
             activeQuestsContext(quests),
             activeTemplatesContext(validTemplateIds),
@@ -250,18 +286,6 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       const coachMsg: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [reply.reply] };
       const closing = closeIntent && reply.session_closed === true;
-
-      if (!closing) {
-        // No repo write for an ordinary turn - client appends both messages to its own
-        // in-memory thread. Also covers a close-intent turn where Gemini asked a clarifying
-        // question instead of closing.
-        // Safe to drop reply.template_edit/session_plan/week_plan/plan_edit/session_reconcile
-        // here even though the responseSchema above doesn't itself gate those fields by mode
-        // (Gemini could technically emit one on a non-closing turn) - closing is only ever true
-        // when closeIntent was, so validTemplateIds/currentWeekRaw were fetched, and none of
-        // those fields are read again below this point since we return early.
-        return Response.json({ reply: reply.reply, closed: false, repoSha: currentSha, stale });
-      }
 
       // Closing: build the thread's final message list and merge into what's already committed.
       const allMessages: ChatMessage[] = priorMessages.length
@@ -590,34 +614,117 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // pre-turn value (unchanged objects) - this is what makes the false->true transition below
       // (coach_since stamping, initial template generation) able to fire at all; previously both
       // sides read the identical pre-turn objects and the transition was permanently dead.
-      const wasProfileComplete = isAthleteProfileComplete(profile, memory);
+      const wasProfileComplete = isAthleteProfileComplete(profile, memory, seasons);
       // profile/memory can be null (a genuinely brand-new athlete, profile.json/memory.json
       // don't exist yet) - project onto a fresh default shape rather than staying null, or a
       // turn that sets both name and sports for the first time (profile_update + sports_update
       // together) would incorrectly still read as incomplete this same turn.
-      const projectedName = profileUpdates.find((u) => u.field === "name")?.value ?? profile?.name ?? "";
+      const projectedField = (field: (typeof profileUpdates)[number]["field"]) =>
+        profileUpdates.find((update) => update.field === field)?.value;
       const projectedProfile: ProfileJson = {
         version: 1,
         coach_since: profile?.coach_since ?? null,
-        name: projectedName,
-        dob: profile?.dob ?? null,
-        timezone: profile?.timezone ?? "UTC",
-        height_cm: profile?.height_cm ?? null,
-        weight_kg: profile?.weight_kg ?? null,
+        name: (projectedField("name") as string | undefined) ?? profile?.name ?? "",
+        dob: (projectedField("dob") as string | undefined) ?? profile?.dob ?? null,
+        timezone: (projectedField("timezone") as string | undefined) ?? profile?.timezone ?? "UTC",
+        height_cm: projectedField("height_cm") != null ? Number(projectedField("height_cm")) : profile?.height_cm ?? null,
+        weight_kg: projectedField("weight_kg") != null ? Number(projectedField("weight_kg")) : profile?.weight_kg ?? null,
       };
       const projectedMemory: MemoryJson = {
         version: 1,
         _meta: memory?._meta ?? { updated_at: "", updated_by: "model", trace_id: "" },
         sports: hasSportsUpdate ? sportsUpdate : memory?.sports ?? [],
-        coaching_style: memory?.coaching_style ?? null,
+        coaching_style: coachingStyleUpdate ?? memory?.coaching_style ?? null,
         notes:
           memory?.notes ??
           (Object.fromEntries(
             MEMORY_NOTE_LABELS.map((l) => [l, { text: "", updated_at: "", trace_id: "" }]),
           ) as MemoryJson["notes"]),
       };
-      const profileComplete = isAthleteProfileComplete(projectedProfile, projectedMemory);
-      const validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, timezone);
+      const projectedSeasons = seasonStart?.name?.trim()
+        ? parseJsonOrNull<SeasonsJson>(applySeasonStart(seasons ? JSON.stringify(seasons) : null, seasonStart, traceId, new Date()))
+        : seasons;
+      const profileComplete = isAthleteProfileComplete(projectedProfile, projectedMemory, projectedSeasons);
+      // Incremental FSP writes can complete onboarding before the close turn. Fetch the
+      // coach_since source only on that transition so ADR 0018's stamp lands atomically with the
+      // facts that completed the profile instead of being lost behind the old close-only gate.
+      if (!wasProfileComplete && profileComplete && !closingFiles) {
+        closingFiles = await loadClosingFileContext(repo, token);
+      }
+      let validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, timezone);
+      // injectCoachSinceIfNeeded bases its patch on the pre-turn profile.json snapshot
+      // (closingFiles.profile) - correct when nothing else writes profile.json this turn, but
+      // profileUpdateWrite (built above from this turn's own profile_update fields) commonly
+      // fires on the EXACT turn that completes the profile (the athlete's last missing fields are
+      // often what crosses the bar). Both would then target PROFILE_PATH as separate FileEntry
+      // objects - commitFilesAtomic has no per-path merge, so the second one in `writes` would
+      // silently clobber the first. Fold the stamp into profileUpdateWrite's own resolve(),
+      // applied AFTER its profile_update transformation (not before, or the stamp would be based
+      // on stale content and the profile_update fields would be lost) - never as two writes.
+      const coachSinceStampNeeded = validUpdates.some((u) => u.path === PROFILE_PATH);
+      if (coachSinceStampNeeded && profileUpdateWrite) {
+        const baseResolve = profileUpdateWrite.resolve;
+        profileUpdateWrite.resolve = async () => {
+          const updated = await baseResolve();
+          const merged = applyJsonMergePatch(updated, JSON.stringify({ coach_since: todayDateString(timezone, new Date()) }));
+          return merged.ok ? merged.content : updated;
+        };
+        validUpdates = validUpdates.filter((u) => u.path !== PROFILE_PATH);
+      }
+
+      const generateTemplatesAfterCompletion = async () => {
+        if (wasProfileComplete || !profileComplete) return;
+        try {
+          const existingManifest = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token);
+          if (existingManifest == null) {
+            const { templates } = await generateInitialTemplates(
+              projectedProfile,
+              projectedMemory,
+              injuries ?? { flags: [] },
+              timezone,
+              traceId,
+              apiKey,
+            );
+            await commitFilesAtomic(templates, "coach: initial workout templates generated", {
+              repo,
+              branch: resolveCoachChatBranch(),
+              token,
+            });
+            console.log("[coach-chat] initial workout templates committed", { traceId, count: templates.length });
+          }
+        } catch (err) {
+          console.error("[coach-chat] initial workout template generation failed - continuing without it:", err, { traceId });
+        }
+      };
+
+      if (!closing) {
+        const fspWrites = fspIncrementalWrites(wasProfileComplete, [
+          ...validUpdates,
+          memoryFileWrite,
+          injuryEventWrite,
+          questEventWrite,
+          profileUpdateWrite,
+          seasonStartWrite,
+          questCreateWrite,
+        ]);
+        let repoSha = currentSha;
+        if (fspWrites.length > 0) {
+          try {
+            const result = await commitFilesAtomic(fspWrites, "coach: first session details recorded", {
+              repo,
+              branch: resolveCoachChatBranch(),
+              token,
+            });
+            repoSha = result.commitSha;
+            invalidateCoachContext(repo);
+          } catch (err: unknown) {
+            const errMessage = err instanceof Error ? err.message : String(err);
+            return Response.json({ error: `Coach replied but saving failed: ${errMessage}`, traceId }, { status: 502 });
+          }
+        }
+        await generateTemplatesAfterCompletion();
+        return Response.json({ reply: reply.reply, closed: false, repoSha, stale });
+      }
 
       if (validUpdates.length === 0 && !trimmedCoachNote) {
         console.warn("[coach-chat] close landed with no coach_note.", { athleteMessage: trimmed, traceId });
@@ -676,29 +783,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // coachWorkoutFiles.ts stamps alongside the templates it writes). A second, separate
       // commit, deliberately best-effort: a failure here must never fail the athlete's response -
       // template generation is a nice-to-have follow-up to onboarding, not a hard requirement.
-      if (!wasProfileComplete && profileComplete && profile && memory && injuries) {
-        try {
-          const existingManifest = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token);
-          if (existingManifest == null) {
-            const { templates } = await generateInitialTemplates(
-              profile,
-              memory,
-              injuries,
-              timezone,
-              traceId,
-              apiKey,
-            );
-            await commitFilesAtomic(templates, "coach: initial workout templates generated", {
-              repo,
-              branch: resolveCoachChatBranch(),
-              token,
-            });
-            console.log("[coach-chat] initial workout templates committed", { traceId, count: templates.length });
-          }
-        } catch (err) {
-          console.error("[coach-chat] initial workout template generation failed - continuing without it:", err, { traceId });
-        }
-      }
+      await generateTemplatesAfterCompletion();
 
       return Response.json({
         reply: reply.reply,
