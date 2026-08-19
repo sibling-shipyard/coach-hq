@@ -27,8 +27,8 @@ export default {
       if (resolved instanceof Response) return resolved;
       auth = resolved;
 
-      const { profile, memory } = await loadCoachContext(auth.repo_full_name, auth.gh_token);
-      const profileComplete = isAthleteProfileComplete(profile, memory);
+      const { profile, memory, seasons } = await loadCoachContext(auth.repo_full_name, auth.gh_token);
+      const profileComplete = isAthleteProfileComplete(profile, memory, seasons);
       return withSessionCookie(Response.json({ profileComplete }), auth.setCookie);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Coach chat profile status failed";

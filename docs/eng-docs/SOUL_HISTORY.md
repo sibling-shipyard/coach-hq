@@ -25,6 +25,26 @@ Write it so someone who has never opened this repo enjoys reading it. If an entr
 
 ---
 
+## v5.12 — "Write It While It's Fresh" · Aug 19, 2026
+**Superpower gained:** First Session remembers each answer as soon as the athlete gives it.
+
+Coach used to hold the whole intake in its head until the closing turn. Live testing showed the
+cost: a warm, convincing wrap-up could claim everything was saved while most facts never reached
+the repo.
+
+- Native onboarding now records name, sports, and coaching style directly before Coach greets.
+- Coach can use those recorded details warmly, but does not ask for them or file them again.
+- The goal moved back into chat, where it becomes the main quest.
+- Each ordinary First Session turn saves new profile, memory, injury, season, and quest facts.
+- A finished profile now means full profile fields, sports, coaching style, and a current season;
+  quests remain optional.
+- BYO Claude Code's First Session and `SOUL.claude.md` stay unchanged.
+
+**Why it mattered:** an interrupted intake now loses a transcript at worst, not the athlete facts
+already gathered. See `docs/eng-docs/coach-chat-flow.md`'s "First Session Protocol flow."
+
+---
+
 ## v5.11 — "First Session, For Real This Time" · Aug 19, 2026
 **Superpower gained:** chat's First Session Protocol asks questions that actually go somewhere.
 

@@ -1,6 +1,6 @@
 # Coach Chat — how it works
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-18
+> Status: Current · Owner: UI Expert · Verified: 2026-08-19
 
 ## Context
 
@@ -11,13 +11,6 @@ happens between the athlete opening the chat tab and anything landing on `main` 
 Companion to [`ios-sync.md`](ios-sync.md): that doc covers HealthKit ingestion, this one covers
 the coaching-conversation path. Commit/retention design: ADR 0012. Vercel function-count
 constraint that shapes the endpoint layout: ADR 0017.
-
-**Reliability-debug caveat:** as of the 2026-08-14/15 strip-down (see
-[`coach-chat-design-history.md`](coach-chat-design-history.md)), the code implements a reduced
-subset of the design below — `coach_note` on close only, no `file_updates`/JSON writes beyond the
-`coach_since` stamp, no model-generated title, no retry/honesty guard. This doc describes the
-intended full design Part B is rebuilding toward, incrementally; see `BACKLOG.md` and
-`docs/plans/coach-chat-follow-up.md` for exactly what's live right now.
 
 ## Two conversations this doc covers
 
@@ -36,7 +29,7 @@ separate systems.
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `ui/api/coach-chat.ts` | `GET` | Load committed threads (newest 7, always `status: "active"`) |
-| `ui/api/coach-chat.ts` | `POST {action: "greet"}` | Coach speaks first — reply only, no repo write (client materializes it locally) |
+| `ui/api/coach-chat.ts` | `POST {action: "greet"}` | Coach speaks first; FSP also records native onboarding fields directly |
 | `ui/api/coach-chat.ts` | `POST {threadId?, messages, message}` | Send a message, get a real reply |
 | `ui/api/coach-chat.ts` | `PATCH {threadId, status: "deleted"}` | Delete a thread — immediate, permanent |
 | `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL.md/state.md/quest_log.md ahead of chat opening |
@@ -294,8 +287,8 @@ restore, no second "delete forever" confirmation. The cap (`MAX_RETAINED_THREADS
 Deleting a thread below the cap does **not** backfill/evict anything on the next new thread,
 since a deleted thread was never counted against the cap.
 
-Since greet no longer commits (see A4 above), an unengaged conversation never consumes a
-retention slot at all — only threads that actually got a real close-out ever reach this list.
+Since greet never commits the thread itself (see A4 above), an unengaged conversation never
+consumes a retention slot — only threads that actually got a real close-out ever reach this list.
 
 ### Rendering
 
@@ -314,9 +307,8 @@ retention slot at all — only threads that actually got a real close-out ever r
 
 ## First Session Protocol flow
 
-Trigger: `isAthleteProfileComplete()` reads false — `profile.json`'s `name` is blank, or
-`memory.json`'s `sports` is empty (or both files don't exist yet). See "Completion signal" below
-for exactly how that's computed.
+Trigger: `isAthleteProfileComplete()` reads false. Completion requires a full profile, sports,
+coaching style, and a current season. See "Completion signal" below for the exact check.
 
 ```mermaid
 sequenceDiagram
@@ -326,37 +318,42 @@ sequenceDiagram
     participant Server as coach-chat.ts
     participant Gemini
     Native->>Hints: save(name) — name prompt screen
-    Native->>Hints: save(sports, goal) — season step
+    Native->>Hints: save(sports) — season step
+    Native->>Hints: save(coaching_style) — coaching-style step
     Native->>App: onboardingPhase = .complete
     App->>Server: GET coach-chat-profile-status
     Server-->>App: profileComplete: false
     App->>App: route to Chat tab
     App->>Server: POST {action: greet, onboardingHints}
-    Server->>Gemini: greeting mode + onboarding hints context
-    Gemini-->>Server: opener reflecting hints back
-    Server-->>App: reply only (no repo write)
+    Server->>Server: commit native name/sports/style directly
+    Server->>Gemini: greeting mode + recorded onboarding context
+    Gemini-->>Server: opener using recorded details
+    Server-->>App: reply (thread remains local)
     App->>App: materialize local thread, shown
     loop intake conversation
         App->>Server: POST {threadId, messages, message}
         Server->>Gemini: ordinary mode
+        Gemini-->>Server: profile/memory/injury/season/quest actions
+        Server->>Server: commit facts from this turn incrementally
     end
     App->>Server: "wrap this session" (close signal)
     Server->>Gemini: closing mode + full context
-    Gemini-->>Server: profile_update, sports_update, memory_update,\ninjury_event, coaching_style_update,\nseason_start, quest_create (as applicable)
-    Server->>Server: commit (one atomic commitFilesAtomic call,\nall reported files), project profileComplete\nfrom this turn's own writes
+    Gemini-->>Server: any remaining intake actions
+    Server->>Server: close thread and commit remaining writes
     Server-->>App: profileComplete: true, coach_since stamped
     App->>App: CoachSetupState.markComplete, OnboardingHints.clear()
 ```
 
-### 1. Native onboarding hands off hints, not a profile
+### 1. Native onboarding hands off deterministic fields
 
 `ios/CoachHQ/CoachHQ/Views/PersonalizeView.swift`'s name prompt and
-`ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift`'s season step (sport(s) + a one-line goal)
-each cache what they collect locally via `OnboardingHints` (UserDefaults, no TTL) — **not**
-committed to the repo. (An earlier design committed a `user_data/profile.md` with this data;
-confirmed zero consumers anywhere, removed.) If the athlete never returns, the hints just sit
-there indefinitely; if they reinstall or switch to web first, the hints are simply absent and the
-protocol asks fresh — graceful degradation either way.
+`ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift`'s sports and coaching-style steps cache
+what they collect locally via `OnboardingHints` (UserDefaults, no TTL). The first greet sends
+those fields to the backend, which writes name to `profile.json` and sports/coaching style to
+`memory.json` in a dedicated atomic commit before Gemini runs. Gemini receives the same values as
+same-request context so its opener can use the athlete's name without waiting for a second repo
+read. The native flow does not collect a goal; Coach always asks that in chat. If hints are absent,
+the protocol asks for the missing fields normally.
 
 ### 2. Routing: live check, not thread existence
 
@@ -377,39 +374,39 @@ more network call) and `OnboardingHints.clear()` removes the now-unneeded cached
 
 ### 3. The intake conversation itself
 
-Same `handleGreet()` / ordinary-turn / closing-turn mechanics as day-to-day chat — the First
-Session Protocol is entirely a **prompt difference** (`platform/soul/B_engine.md` §10, composed
-into `platform/SOUL.chat.md`), not a separate code path. `askGemini()`'s greeting-mode call includes
-`onboardingHintsContext()` — sport(s)/goal formatted from `OnboardingHints`, only when present —
-so Gemini reflects them back for confirmation instead of asking cold:
-
-> *"I see you picked running and strength during signup, and your goal was 'get back to
-> competitive shape' — still accurate, or has that shifted?"*
+First Session uses the same endpoint as day-to-day chat, with two narrow server differences:
+`handleGreet()` commits native onboarding fields directly, and ordinary turns may commit FSP facts
+before the conversation closes. `askGemini()`'s greeting-mode call includes
+`onboardingHintsContext()` so the opener can use the just-recorded name, sports, and coaching style.
+The prompt tells Coach not to re-ask or emit action fields for those recorded values.
 
 The chat-only intake text lives in its own composed fragment, `platform/horcruxes/first-session.md`
 (sourced from `B_engine.md`'s `s10_first_session_chat_*` keys, kept separate from the
 `CLAUDE_ONLY` `s10_first_session_*` keys that still describe the BYO-Claude-Code git-commit
 ritual for a terminal session — see `platform/scripts/compose-soul.mjs`'s `HORCRUXES` table).
-Chat's version walks through: warm intro → conversational intake, each answer mapped to a real
-action field → confirm → close. Name → `profile_update`; sports → `sports_update`; training
+Chat's version walks through: warm intro → conversational intake, each new answer mapped to a real
+action field → confirm → close. A missing name → `profile_update`; missing sports →
+`sports_update`; training
 frequency/fitness level → `memory_update` (`fitness_baseline`); the 3-6 month goal → `quest_create`'s
 `main_quest` (memory.json has no goal field — issue #408 moved that meaning to seasons/quests);
 upcoming events and a rough season timeline → `season_start` (no `phase` field, Part 2 dropped
-it); injuries → `injury_event`; the "how do you respond to being pushed" question →
-`coaching_style_update`'s three-way enum; date of birth/height/weight/city → `profile_update`
-(`dob`/`height_cm`/`weight_kg`/`timezone`); habit quests → `quest_create`'s `quests[]`. All of it
-lands in one atomic `commitFilesAtomic` call at close, same mechanism as an ordinary closing turn
-— `season_start`/`quest_create` are explicitly scoped in the prompt text to first-session/
+it); injuries → `injury_event`; a missing coaching style → `coaching_style_update`'s three-way
+enum; date of birth/height/weight/city → `profile_update`
+(`dob`/`height_cm`/`weight_kg`/`timezone`); habit quests → `quest_create`'s `quests[]`. While the
+profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
+writes it produced in a small atomic commit. Day-to-day chat remains write-on-close. The closing
+turn still commits the thread and any remaining writes through the normal close path.
+`season_start`/`quest_create` are explicitly scoped in the prompt text to first-session/
 new-athlete onboarding only, never for a returning athlete's season or quest changes (those go
 through the existing Weekly Kick-off / Sunday Session rituals).
 
 ### 4. Resumability
 
 If the athlete answers a few intake questions and kills the app, the thread never closed
-(`session_closed` never went `true`), and since greet doesn't commit either (see A4 above), the
-server has **no record of this thread at all**, not even the opener. Every in-progress
-conversation is purely client-side from the moment Coach speaks first until the moment it closes
-— neither an ordinary POST turn nor a greet ever calls `commitFilesAtomic`.
+(`session_closed` never went `true`), so the server has **no committed copy of the thread** or its
+opener. The facts already gathered are safe: greet commits native fields and each ordinary FSP
+turn commits its structured intake writes. The conversation transcript itself remains client-side
+until close.
 
 What restores the conversation is a client-side cache, not the server, on **both platforms**:
 - **iOS**: `CoachChatView` mirrors the thread's message array to `CoachChatLocalCache`
@@ -451,13 +448,13 @@ nothing for that thread at all until it closes.
 
 ### 5. Completion signal
 
-`isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/coachChatFiles.ts`) checks two structured
-fields directly: `profile.json`'s `name` (non-blank) and `memory.json`'s `sports` (at least one
-non-blank entry). Both must be true for the profile to read as complete. `coach-chat.ts` computes
-`profileComplete` by projecting this turn's own action-field writes (`profile_update`,
-`sports_update`) onto the pre-turn `profile`/`memory` objects in memory — not a stale pre-turn
-snapshot, and not a fresh GitHub read either, just this turn's already-computed writes applied
-locally before the completeness check. This is what gates `coach_since` stamping
+`isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/coachChatFiles.ts`) requires non-blank
+`profile.json` values for name, date of birth, timezone, height, and weight; at least one sport;
+one valid coaching style (`accountability`, `encouragement`, or `analysis`); and a
+`seasons.json.current_season_id` that names an existing season. Quests are optional.
+`coach-chat.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
+writes onto the pre-turn objects in memory, rather than relying on a stale snapshot or another
+GitHub read. This is what gates `coach_since` stamping
 (`injectCoachSinceIfNeeded`) and initial workout template generation
 (`generateInitialTemplates`) on the real false→true transition.
 
@@ -549,6 +546,6 @@ for the full module index.
 | `ios/CoachHQ/CoachHQ/Views/CoachChatView.swift` | iOS chat UI, greet/resume logic |
 | `ios/CoachHQ/CoachHQ/Views/CoachChatMarkdown.swift` | inline bold/italic (`AttributedString`) + list-aware block rendering |
 | `ios/CoachHQ/CoachHQ/Services/CoachSetupState.swift` | Keychain flag + `shouldOpenChatFirst()` |
-| `ios/CoachHQ/CoachHQ/Services/OnboardingHints.swift` | B1 locally-cached sport/goal hints |
+| `ios/CoachHQ/CoachHQ/Services/OnboardingHints.swift` | Locally cached native name/sports/coaching style handoff |
 | `ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift` | native onboarding, season step |
 | `platform/soul/B_engine.md` §10 | First Session Protocol prompt content |

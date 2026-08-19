@@ -34,10 +34,10 @@ describe("combineExtraContext", () => {
   it("keeps both blocks when first-session and onboarding hints fire together", () => {
     const combined = combineExtraContext(
       firstSessionContext(false, PROTOCOL),
-      onboardingHintsContext({ sports: ["badminton"], goal: "get strong" }),
+      onboardingHintsContext({ name: "Skanda", sports: ["badminton"], coaching_style: "analysis" }),
     );
     expect(combined).toContain("<first_session>");
-    expect(combined).toContain("Sport(s) selected: badminton");
+    expect(combined).toContain("Sport(s): badminton");
   });
 
   it("drops the empty one rather than leaving a blank gap", () => {
@@ -75,5 +75,20 @@ describe("cache safety", () => {
       true,
     );
     expect(dynamic).not.toContain("<first_session>");
+    expect(dynamic).toContain("Nothing about this turn gets saved anywhere");
+  });
+
+  it("tells Gemini to emit action fields immediately on an ordinary First Session turn", () => {
+    const dynamic = buildDynamicText(
+      "state",
+      "quests",
+      "ordinary",
+      firstSessionContext(false, PROTOCOL),
+      true,
+    );
+    expect(dynamic).toContain("Save each concrete fact on the same turn it is learned");
+    expect(dynamic).toContain("season_start as");
+    expect(dynamic).toContain("soon as the first season is agreed");
+    expect(dynamic).toContain("Do not set template_edit, session_plan, week_plan");
   });
 });

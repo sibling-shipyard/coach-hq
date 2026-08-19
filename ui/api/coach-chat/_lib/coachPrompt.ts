@@ -24,7 +24,7 @@ export interface GeminiReply {
   // Part 1 redesign, Step 4a: Coach states which one of memory.json's six labelled notes boxes
   // changed and its new text - the server owns replacing that box entirely (coachIntents.ts's
   // applyMemoryUpdate). `label` is a constrained enum, never free text - gemini-flow.md's
-  // Action-field design rule. Closing turns only, same as coach_note.
+  // Action-field design rule. Closing turns, plus incremental First Session turns.
   memory_update?: { label: MemoryNoteLabel; text: string };
   // coaching_style is a separate field from memory_update, not a seventh label - it's a plain
   // top-level string on memory.json, not a {text, updated_at, trace_id} notes box, and it needs a
@@ -38,8 +38,8 @@ export interface GeminiReply {
   // coaching_style_update just above - it's a plain top-level string array on memory.json, not a
   // notes box. Found live during First Session Protocol wiring: memory.json.sports had no write
   // path through chat at all, and isAthleteProfileComplete requires it non-empty - a first
-  // session could never actually complete via chat because of this alone. Closing turns only,
-  // same as coaching_style_update.
+  // session could never actually complete via chat because of this alone. Closing turns, plus
+  // incremental First Session turns.
   sports_update?: string[];
   // Array (workout-backend-wiring live verification, same fix issue #410 already gave
   // quest_event): a single object silently dropped every injury update past the first when an
@@ -47,14 +47,14 @@ export interface GeminiReply {
   // handled but only the first actually committed. One or more injury flags opened, updated, or
   // resolved this conversation. Server generates `id`/`opened_at`/`resolved_at` - Gemini only
   // ever supplies status/text/flag_id per event (see coachIntents.ts's applyInjuryEvent for the
-  // exact new/update/resolve rules). Closing turns only, same as coach_note/memory_update.
+  // exact new/update/resolve rules). Closing turns, plus incremental First Session turns.
   injury_event?: { status: "active" | "resolved"; text?: string; flag_id?: string }[];
   // Part 2 ledger split: the athlete logged a completion/miss/excuse on one or more existing
   // quests this conversation. Server stamps date/id/ts/trace_id/season_id and upserts the row for
   // each quest+date in progress.json (coachIntents.ts's applyQuestEvent) - Gemini only ever
   // supplies quest_id/status/value per event. No `date` field - same rule as coach_note/
   // injury_event, the server already knows today's date. `value` is optional and only meaningful
-  // for progress-type quests. Closing turns only, same as the fields above.
+  // for progress-type quests. Closing turns, plus incremental First Session turns.
   //
   // Issue #410: was a single object - a turn reporting two separate quest completions could only
   // capture one. Now an array so every reported completion lands as its own row.
@@ -64,7 +64,8 @@ export interface GeminiReply {
   quest_event?: { quest_id: string; status: "completed" | "missed" | "excused"; value?: string }[];
   // Part 2 ledger split: one or more fields in profile.json changed this conversation (e.g.
   // weight_kg after the athlete reports a new number). Server sets each field, nothing else -
-  // Gemini only ever supplies field/value pairs. Closing turns only, same as the fields above.
+  // Gemini only ever supplies field/value pairs. Closing turns, plus incremental First Session
+  // turns.
   // Array (workout-backend-wiring live verification, same fix issue #410 already gave
   // quest_event/injury_event) - a single object silently dropped every field past the first when
   // the athlete reported more than one in the same message.
@@ -141,14 +142,16 @@ export interface GeminiReply {
   // this (applyQuestEvent only ever logs progress against a season/quest that already exists).
   // First-session / new-athlete onboarding ONLY, not for a returning athlete changing their
   // season - that goes through the existing Weekly Kick-off / Sunday Session rituals instead.
-  // Server mints the season id and stamps it current_season_id. Closing turns only.
+  // Server mints the season id and stamps it current_season_id. Written as soon as agreed during
+  // First Session; closing is not required.
   season_start?: { name: string; start_date: string; end_date: string };
   // First Session Protocol only - same missing-write-path bug as season_start above, but for the
   // main quest and any habit quests FSP structures from the conversation. First-session /
   // new-athlete onboarding ONLY, not for a returning athlete's season/quest changes - those go
   // through the existing Weekly Kick-off / Sunday Session rituals instead. Server mints every id;
   // these quests are source "model" since Coach is structuring them from the conversation, not
-  // the athlete typing them directly. Closing turns only.
+  // the athlete typing them directly. Written as soon as agreed during First Session; closing is
+  // not required.
   quest_create?: {
     main_quest?: { name: string; type: "daily_streak" | "progress" | "count_target" | "weekly_frequency"; target: number; count_pattern?: string };
     quests?: {
@@ -476,6 +479,7 @@ export function buildDynamicText(
   useCache: boolean,
   timezone: string,
 ): string {
+  const firstSessionTurn = extraContext?.includes("<first_session>") === true;
   return [
     // Only relevant on the cached path, where this block arrives as a synthetic turn rather than
     // systemInstruction - spelled out explicitly since a plain instructions block dropped mid-
@@ -642,6 +646,20 @@ export function buildDynamicText(
           "even though this turn was triggered by a close-session phrase). The athlete will simply see",
           "your question and reply normally; you'll get another chance to close once they answer.",
         ].join("\n")
+      : firstSessionTurn
+      ? [
+          "\nThis is an ordinary First Session turn. Keep the conversation natural and set",
+          "session_closed to false. Save each concrete fact on the same turn it is learned - do",
+          "not hold facts for the final close. Use profile_update for name, date of birth,",
+          "timezone, height, and weight; sports_update for the full sports list;",
+          "coaching_style_update for accountability, encouragement, or analysis; memory_update",
+          "for durable baseline or habit context; injury_event for injury facts; season_start as",
+          "soon as the first season is agreed; and quest_create as soon as the main goal or habit",
+          "quests are agreed. Omit a field when this turn added no fact for it. Native onboarding",
+          "details marked already recorded are context only - never repeat them in an action field.",
+          "Do not set template_edit, session_plan, week_plan, session_reconcile, or plan_edit on",
+          "an ordinary turn; those remain close-only.",
+        ].join("\n")
       : [
           "\nThis is an ordinary turn, not a close-out - just talk with the athlete the way SOUL.md",
           "describes. Nothing about this turn gets saved anywhere; that only happens on a genuine",
@@ -663,18 +681,24 @@ export function buildHistoryContents(history: ChatMessage[]): { role: string; pa
     }));
 }
 
-// B4: sport(s)/goal from iOS's native onboarding, passed on the first greet() so the First
-// Session Protocol can reflect them back instead of asking cold - platform/soul/B_engine.md §10.
+// Native onboarding fields passed on the first greet(). These are committed directly before
+// Gemini runs; this context lets the same-request greeting use the athlete's name even though
+// loadCoachContext necessarily reflects the pre-commit snapshot.
 export interface OnboardingHints {
-  sports: string[];
-  goal: string;
+  name?: string;
+  sports?: string[];
+  coaching_style?: "accountability" | "encouragement" | "analysis";
 }
 
 export function onboardingHintsContext(hints: OnboardingHints | undefined): string | undefined {
-  if (!hints || (hints.sports.length === 0 && !hints.goal.trim())) return undefined;
-  const lines = ["Onboarding hints from the athlete's native app setup (see B_engine.md §10):"];
-  if (hints.sports.length > 0) lines.push(`- Sport(s) selected: ${hints.sports.join(", ")}`);
-  if (hints.goal.trim()) lines.push(`- Goal entered: ${hints.goal.trim()}`);
+  const name = hints?.name?.trim();
+  const sports = (hints?.sports ?? []).filter((sport) => sport.trim().length > 0);
+  const coachingStyle = hints?.coaching_style;
+  if (!name && sports.length === 0 && !coachingStyle) return undefined;
+  const lines = ["Native onboarding details already recorded for this athlete:"];
+  if (name) lines.push(`- Name: ${name}`);
+  if (sports.length > 0) lines.push(`- Sport(s): ${sports.join(", ")}`);
+  if (coachingStyle) lines.push(`- Coaching style: ${coachingStyle}`);
   return lines.join("\n");
 }
 

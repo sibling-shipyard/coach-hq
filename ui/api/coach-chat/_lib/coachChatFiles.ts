@@ -126,10 +126,20 @@ export async function getHeadSha(repo: string, token: string, branch = resolveCo
 // athlete/token - content is identical regardless of which device asked.
 const CONTEXT_CACHE_TTL_MS = 60_000;
 const contextCache = new Map<string, { value: CoachContext; expiresAt: number }>();
+const contextCacheGeneration = new Map<string, number>();
 
 // Shares one fetch across concurrent cache-miss callers for the same repo (e.g. web preload and
 // an iOS greet() firing together) instead of each hitting GitHub independently.
 const inFlight = new Map<string, Promise<CoachContext>>();
+
+// A successful server-side write makes this process's cached pre-write snapshot stale even when
+// the client already knows the new HEAD sha. Incrementing the generation also prevents an older
+// concurrent fetch from repopulating the cache after invalidation.
+export function invalidateCoachContext(repo: string): void {
+  contextCache.delete(repo);
+  contextCacheGeneration.set(repo, (contextCacheGeneration.get(repo) ?? 0) + 1);
+  inFlight.delete(repo);
+}
 
 export async function loadCoachContext(repo: string, token: string, opts?: { fresh?: boolean }): Promise<CoachContext> {
   const cached = contextCache.get(repo);
@@ -144,6 +154,7 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
     if (pending) return pending;
   }
 
+  const generation = contextCacheGeneration.get(repo) ?? 0;
   const promise = (async (): Promise<CoachContext> => {
     const [profileRaw, memoryRaw, injuriesRaw, coachLogRaw, seasonsRaw, questsRaw, progressRaw, progressionsRaw] =
       await Promise.all([
@@ -167,7 +178,9 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
       progress: parseJsonOrNull<ProgressJson>(progressRaw),
       progressions: parseJsonOrNull<ProgressionsJson>(progressionsRaw),
     };
-    contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
+    if ((contextCacheGeneration.get(repo) ?? 0) === generation) {
+      contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });
+    }
     return value;
   })();
 
@@ -175,24 +188,30 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   try {
     return await promise;
   } finally {
-    if (!opts?.fresh) inFlight.delete(repo);
+    if (!opts?.fresh && inFlight.get(repo) === promise) inFlight.delete(repo);
   }
 }
 
 // B2/coach-redesign-part1-memory.md: First Session Protocol completion check. Used to be a
 // regex/section-matching read of state.md's Athlete Profile section (see git history) - now a
-// simple field-presence check against profile.json/memory.json, matching #362's reduced
-// REQUIRED_PROFILE_FIELDS set: `name` lives in profile.json, `sport` moved to memory.json in the
-// Part 1 redesign, so this reads across both files rather than one.
-//
-// Issue #408: `goal` dropped from memory.json entirely (seasons.json's name + quests.json's
-// main_quest now represent what it was trying to capture structurally), so it's dropped from
-// this gate too - name+sport is what's left. Whether First Session completeness should instead
-// check for a main_quest is a separate call the wiring-up-quests work should make deliberately,
-// not something to fold in here silently.
-export function isAthleteProfileComplete(profile: ProfileJson | null, memory: MemoryJson | null): boolean {
-  if (!profile || !memory) return false;
+// field-presence check across profile.json, memory.json, and seasons.json. First Session is done
+// only after all profile basics, at least one sport, a real coaching-style enum, and a matching
+// current season exist. Quests stay optional by design.
+export function isAthleteProfileComplete(
+  profile: ProfileJson | null,
+  memory: MemoryJson | null,
+  seasons: SeasonsJson | null,
+): boolean {
+  if (!profile || !memory || !seasons) return false;
   const hasName = Boolean(profile.name && profile.name.trim().length > 0);
+  const hasDob = Boolean(profile.dob && profile.dob.trim().length > 0);
+  const hasTimezone = Boolean(profile.timezone && profile.timezone.trim().length > 0);
+  const hasHeight = profile.height_cm != null;
+  const hasWeight = profile.weight_kg != null;
   const hasSport = Array.isArray(memory.sports) && memory.sports.some((s) => s.trim().length > 0);
-  return hasName && hasSport;
+  const hasCoachingStyle = ["accountability", "encouragement", "analysis"].includes(memory.coaching_style ?? "");
+  const hasCurrentSeason = Boolean(
+    seasons.current_season_id && seasons.seasons.some((season) => season.id === seasons.current_season_id),
+  );
+  return hasName && hasDob && hasTimezone && hasHeight && hasWeight && hasSport && hasCoachingStyle && hasCurrentSeason;
 }
