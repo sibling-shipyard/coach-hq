@@ -53,7 +53,7 @@ import {
   TEMPLATES_MANIFEST_PATH,
 } from "./coach-chat/_lib/coachWorkoutFiles.js";
 import { applyWeekPlan, applySessionReconcile, applyPlanEdit, CURRENT_WEEK_PATH } from "./coach-chat/_lib/coachWeekFiles.js";
-import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
+import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH, MEMORY_NOTE_LABELS, type ProfileJson, type MemoryJson } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { PROGRESS_PATH, SEASONS_PATH, QUESTS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
@@ -591,9 +591,31 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // (coach_since stamping, initial template generation) able to fire at all; previously both
       // sides read the identical pre-turn objects and the transition was permanently dead.
       const wasProfileComplete = isAthleteProfileComplete(profile, memory);
-      const projectedName = profileUpdates.find((u) => u.field === "name")?.value ?? profile?.name;
-      const projectedProfile = profile ? { ...profile, name: projectedName ?? profile.name } : profile;
-      const projectedMemory = memory ? { ...memory, sports: hasSportsUpdate ? sportsUpdate : memory.sports } : memory;
+      // profile/memory can be null (a genuinely brand-new athlete, profile.json/memory.json
+      // don't exist yet) - project onto a fresh default shape rather than staying null, or a
+      // turn that sets both name and sports for the first time (profile_update + sports_update
+      // together) would incorrectly still read as incomplete this same turn.
+      const projectedName = profileUpdates.find((u) => u.field === "name")?.value ?? profile?.name ?? "";
+      const projectedProfile: ProfileJson = {
+        version: 1,
+        coach_since: profile?.coach_since ?? null,
+        name: projectedName,
+        dob: profile?.dob ?? null,
+        timezone: profile?.timezone ?? "UTC",
+        height_cm: profile?.height_cm ?? null,
+        weight_kg: profile?.weight_kg ?? null,
+      };
+      const projectedMemory: MemoryJson = {
+        version: 1,
+        _meta: memory?._meta ?? { updated_at: "", updated_by: "model", trace_id: "" },
+        sports: hasSportsUpdate ? sportsUpdate : memory?.sports ?? [],
+        coaching_style: memory?.coaching_style ?? null,
+        notes:
+          memory?.notes ??
+          (Object.fromEntries(
+            MEMORY_NOTE_LABELS.map((l) => [l, { text: "", updated_at: "", trace_id: "" }]),
+          ) as MemoryJson["notes"]),
+      };
       const profileComplete = isAthleteProfileComplete(projectedProfile, projectedMemory);
       const validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, timezone);
 
