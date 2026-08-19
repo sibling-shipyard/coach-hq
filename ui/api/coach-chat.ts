@@ -42,15 +42,28 @@ import {
   type ChatThread,
 } from "./coach-chat/_lib/chatThreads.js";
 import { loadClosingFileContext, injectCoachSinceIfNeeded, type ClosingFileContext } from "./coach-chat/_lib/coachWrites.js";
-import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate } from "./coach-chat/_lib/coachIntents.js";
+import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate, applyCoachingStyleUpdate } from "./coach-chat/_lib/coachIntents.js";
+import {
+  generateInitialTemplates,
+  applyTemplateEdit,
+  applySessionPlan,
+  validTemplateIdsFromManifest,
+  templatePath,
+  sessionPath,
+  TEMPLATES_MANIFEST_PATH,
+} from "./coach-chat/_lib/coachWorkoutFiles.js";
+import { applyWeekPlan, applySessionReconcile, applyPlanEdit, CURRENT_WEEK_PATH } from "./coach-chat/_lib/coachWeekFiles.js";
 import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { PROGRESS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
+import { parseJsonOrNull } from "./coach-chat/_lib/coachChatFiles.js";
 import {
   combineExtraContext,
   injuryFlagsContext,
   activeQuestsContext,
+  activeTemplatesContext,
+  activeWeekSessionsContext,
   firstSessionContext,
   onboardingHintsContext,
   type GeminiReply,
@@ -183,6 +196,29 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         closingFiles = await loadClosingFileContext(repo, token);
       }
 
+      // §3: template_edit is only relevant on a closing turn (same as the other action fields),
+      // so the manifest is only fetched lazily here rather than folded into every turn's
+      // loadCoachContext read - a missing/unparseable manifest just means no templates are
+      // editable via chat yet for this athlete (validTemplateIdsFromManifest's own defensive
+      // default), never thrown.
+      let validTemplateIds: ReadonlySet<string> = new Set();
+      // §5: same lazy, closing-turn-only fetch pattern as the manifest above - current_week.json
+      // is only relevant for week_plan/session_reconcile, both closing-only action fields.
+      // Malformed/missing content is treated as "no current week yet" (currentWeekRaw stays
+      // null), same defensive default as every other read in this pipeline.
+      let currentWeekRaw: string | null = null;
+      let weekSessionsForContext: { id: string; date: string; title: string; status: string }[] = [];
+      if (closeIntent) {
+        const manifestRaw = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null);
+        validTemplateIds = validTemplateIdsFromManifest(manifestRaw);
+
+        currentWeekRaw = await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null);
+        const parsedWeek = parseJsonOrNull<{ days?: { date: string; sessions?: { id: string; title: string; status: string }[] }[] }>(currentWeekRaw);
+        weekSessionsForContext = (parsedWeek?.days ?? []).flatMap((day) =>
+          (day.sessions ?? []).map((s) => ({ id: s.id, date: day.date, title: s.title, status: s.status })),
+        );
+      }
+
       let reply: GeminiReply;
       try {
         reply = await askGemini(
@@ -199,6 +235,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
             firstSessionContext(isAthleteProfileComplete(profile, memory), FIRST_SESSION_PROTOCOL),
             injuryFlagsContext(injuries),
             activeQuestsContext(quests),
+            activeTemplatesContext(validTemplateIds),
+            activeWeekSessionsContext(weekSessionsForContext),
           ),
           traceId,
           timezone,
@@ -217,6 +255,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         // No repo write for an ordinary turn - client appends both messages to its own
         // in-memory thread. Also covers a close-intent turn where Gemini asked a clarifying
         // question instead of closing.
+        // Safe to drop reply.template_edit/session_plan/week_plan/plan_edit/session_reconcile
+        // here even though the responseSchema above doesn't itself gate those fields by mode
+        // (Gemini could technically emit one on a non-closing turn) - closing is only ever true
+        // when closeIntent was, so validTemplateIds/currentWeekRaw were fetched, and none of
+        // those fields are read again below this point since we return early.
         return Response.json({ reply: reply.reply, closed: false, repoSha: currentSha, stale });
       }
 
@@ -277,38 +320,57 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // close - most closes carry no memory_update at all. Fetched fresh at commit time, same
       // pattern as coachNoteWrite above.
       const memoryUpdate = reply.memory_update;
-      const memoryUpdateWrite: FileEntry | undefined = memoryUpdate?.label && memoryUpdate.text?.trim()
-        ? {
-            path: MEMORY_PATH,
-            resolve: async () => {
-              const fresh = await getFileRaw(repo, MEMORY_PATH, token);
-              return applyMemoryUpdate(
-                fresh,
-                memoryUpdate.label,
-                memoryUpdate.text,
-                todayDateString(timezone, new Date()),
-                traceId,
-              );
-            },
-          }
-        : undefined;
+      const hasMemoryUpdate = Boolean(memoryUpdate?.label && memoryUpdate.text?.trim());
+      const coachingStyleUpdate = reply.coaching_style_update;
 
-      // Step 4b: reported only when the athlete opened/updated/resolved an injury flag this
-      // close. A new flag requires text (enforced here, before the write ever hits
-      // applyInjuryEvent) since a flag_id-less event with no text has nothing to record.
-      const injuryEvent = reply.injury_event;
-      const injuryEventValid =
-        injuryEvent?.status != null &&
-        (injuryEvent.flag_id != null || (injuryEvent.text?.trim().length ?? 0) > 0);
-      const injuryEventWrite: FileEntry | undefined = injuryEventValid
-        ? {
-            path: INJURIES_PATH,
-            resolve: async () => {
-              const fresh = await getFileRaw(repo, INJURIES_PATH, token);
-              return applyInjuryEvent(fresh, injuryEvent!, todayDateString(timezone, new Date()));
-            },
-          }
-        : undefined;
+      // memory_update and coaching_style_update both write memory.json, so a turn reporting both
+      // (e.g. a new fitness_baseline note plus a style change) is chained in one resolve() against
+      // the same fresh read, the same pattern currentWeekWrite below uses for session_reconcile +
+      // plan_edit - two independent FileEntry writes to the same path would silently drop one of
+      // them (commitFilesAtomic has no per-path merge, last blob for a path wins).
+      const memoryFileWrite: FileEntry | undefined =
+        hasMemoryUpdate || coachingStyleUpdate
+          ? {
+              path: MEMORY_PATH,
+              resolve: async () => {
+                let working: string | null = await getFileRaw(repo, MEMORY_PATH, token);
+                if (hasMemoryUpdate) {
+                  working = applyMemoryUpdate(
+                    working,
+                    memoryUpdate!.label,
+                    memoryUpdate!.text,
+                    todayDateString(timezone, new Date()),
+                    traceId,
+                  );
+                }
+                if (coachingStyleUpdate) {
+                  working = applyCoachingStyleUpdate(working, coachingStyleUpdate, todayDateString(timezone, new Date()), traceId);
+                }
+                // At least one of hasMemoryUpdate/coachingStyleUpdate is true (the guard above),
+                // so at least one branch ran and working is a real applier output, never null.
+                return working as string;
+              },
+            }
+          : undefined;
+
+      // Step 4b: reported only when the athlete opened/updated/resolved one or more injury flags
+      // this close. Array (workout-backend-wiring live verification, same fix issue #410 already
+      // gave quest_event) - a single object silently dropped every update past the first when an
+      // athlete reported more than one injury change in the same message. Each event needs text
+      // (a new flag) or a flag_id (an update to an existing one) to have anything to record.
+      const injuryEvents = (reply.injury_event ?? []).filter(
+        (event) => event.status != null && (event.flag_id != null || (event.text?.trim().length ?? 0) > 0),
+      );
+      const injuryEventWrite: FileEntry | undefined =
+        injuryEvents.length > 0
+          ? {
+              path: INJURIES_PATH,
+              resolve: async () => {
+                const fresh = await getFileRaw(repo, INJURIES_PATH, token);
+                return applyInjuryEvent(fresh, injuryEvents, todayDateString(timezone, new Date()));
+              },
+            }
+          : undefined;
 
       // Part 2 ledger split, step 3a: reported only when the athlete logged one or more quest
       // completions/misses/excuses this close (issue #410: quest_event is now an array so a turn
@@ -348,18 +410,143 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         : undefined;
 
-      // Part 2 ledger split, step 3b: reported only when the athlete gave a new profile basic
-      // this close. Fetched fresh at commit time, same pattern as the other optional writes.
-      const profileUpdate = reply.profile_update;
-      const profileUpdateWrite: FileEntry | undefined = profileUpdate?.field && profileUpdate.value != null
+      // Part 2 ledger split, step 3b: reported only when the athlete gave one or more new profile
+      // basics this close. Array (same fix as injury_event/quest_event above) - a single object
+      // silently dropped every field past the first when the athlete reported more than one in
+      // the same message. Fetched fresh at commit time, same pattern as the other optional writes.
+      const profileUpdates = (reply.profile_update ?? []).filter(
+        (update) => update.field != null && update.value != null,
+      );
+      const profileUpdateWrite: FileEntry | undefined = profileUpdates.length > 0
         ? {
             path: PROFILE_PATH,
             resolve: async () => {
               const fresh = await getFileRaw(repo, PROFILE_PATH, token);
-              return applyProfileUpdate(fresh, profileUpdate);
+              return applyProfileUpdate(fresh, profileUpdates);
             },
           }
         : undefined;
+
+      // §3: reported only when the athlete asked to permanently change one of their own existing
+      // templates this close. Purely mechanical (skip_exercise_nums/skip_phases, no Gemini call
+      // inside resolve()) since the free-form content-generation version was dropped after live
+      // verification - see coachWorkoutFiles.ts's applyTemplateEdit for why. template_id is
+      // re-validated at commit time against validTemplateIds (the same set Gemini was shown via
+      // activeTemplatesContext) inside applyTemplateEdit itself - guard condition here just checks
+      // the id is present. resolve() re-fetches the template's current content fresh at commit
+      // time, same stale-read-avoidance pattern as coachNoteWrite/memoryUpdateWrite/etc above.
+      const templateEdit = reply.template_edit;
+      const templateEditWrite: FileEntry | undefined = templateEdit?.template_id
+        ? {
+            path: templatePath(templateEdit.template_id),
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, templatePath(templateEdit.template_id), token);
+              return applyTemplateEdit(fresh, templateEdit, validTemplateIds, traceId);
+            },
+          }
+        : undefined;
+
+      // §4: reported only when Coach is prescribing today's session as a modified version of one
+      // of the athlete's own templates this close. session_date is server-computed here
+      // (todayDateString), never Gemini-supplied - see coachPrompt.ts's GeminiReply.session_plan
+      // comment for the reasoning. template_id is re-validated at commit time against
+      // validTemplateIds (same set Gemini was shown via activeTemplatesContext) inside
+      // applySessionPlan itself - guard condition here just checks the field is present.
+      // resolve() re-fetches the template's current content fresh at commit time, same
+      // stale-read-avoidance pattern as templateEditWrite above. No Gemini call inside
+      // applySessionPlan - skip_exercise_nums is purely mechanical - so the write path itself
+      // (session_date baked into the filename) can be computed up front rather than inside
+      // resolve().
+      const sessionPlan = reply.session_plan;
+      const sessionPlanDate = todayDateString(timezone, new Date());
+      const sessionPlanWrite: FileEntry | undefined = sessionPlan?.template_id
+        ? {
+            path: sessionPath(sessionPlanDate, sessionPlan.template_id),
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, templatePath(sessionPlan.template_id), token);
+              const { content } = applySessionPlan(
+                fresh,
+                { ...sessionPlan, session_date: sessionPlanDate },
+                validTemplateIds,
+                traceId,
+              );
+              return content;
+            },
+          }
+        : undefined;
+
+      // §5: week_plan / session_reconcile both target current_week.json - at most one FileEntry
+      // for that path can go in a single commitFilesAtomic call. Gemini isn't prompted to set both
+      // in the same turn, and if it ever did, session_reconcile's event(s) necessarily reference
+      // session_ids from the PRE-turn week (the "Current week's sessions" context it was shown) -
+      // but week_plan's ids are synthesized purely from date + array-index (coachWeekFiles.ts),
+      // with no dependence on content. A same-day re-plan can coincidentally regenerate the exact
+      // same id string for an entirely different, unrelated session, which would silently
+      // misattribute the reconcile event to the wrong session rather than throwing - worse than a
+      // crash. Rather than trying to make id-matching safe across a rebuild it can't meaningfully
+      // survive (the old session being reconciled no longer conceptually exists once the week is
+      // fully replaced), week_plan wins outright and session_reconcile is dropped with a loud
+      // warning - a full-week rewrite already supersedes whatever the reconcile was reporting on.
+      // Live verification: on a "busy" turn also carrying session_reconcile/plan_edit, Gemini
+      // repeatedly hallucinated a placeholder week_plan alongside them (non-empty headline/body
+      // like "Plan for week"/"Body", but days: []) - the old guard here only checked
+      // Array.isArray(days), so that placeholder still counted as "genuinely requested," wrongly
+      // won over the real reconcile/edit data, and then applyWeekPlan's own "exactly 7 days"
+      // guard failed the WHOLE commit. Requiring the real day count here means a hallucinated
+      // empty week_plan is ignored entirely, falling through to the session_reconcile/plan_edit
+      // branch instead of destroying real data.
+      const weekPlan = reply.week_plan;
+      const weekPlanRequested = Boolean(weekPlan?.headline?.trim() && weekPlan.body?.trim() && weekPlan.days?.length === 7);
+      const sessionReconcileEvents = reply.session_reconcile ?? [];
+      const planEditEvents = reply.plan_edit ?? [];
+
+      let currentWeekWrite: FileEntry | undefined;
+      if (weekPlanRequested) {
+        // §5: week_plan - reported only when Coach is genuinely committing the full week now
+        // (Weekly Kick-off Ritual). template_id inside each session is re-validated at commit
+        // time against validTemplateIds inside applyWeekPlan itself (nulled out, not thrown - see
+        // coachWeekFiles.ts's own comment for why this differs from template_edit/session_plan's
+        // throw-on-hallucination discipline). No resolve() needed - week_plan is a full rewrite,
+        // not a patch onto existing content. If session_reconcile/plan_edit are also set this same
+        // turn, both are dropped (see the comment above this block) rather than chained against
+        // week_plan's fresh output - week_plan always wins outright.
+        if (sessionReconcileEvents.length > 0 || planEditEvents.length > 0) {
+          console.warn(
+            "[coach-chat] week_plan and session_reconcile/plan_edit both set in the same turn - dropping the latter " +
+              "(their ids reference the pre-rebuild week and can't be safely matched against week_plan's fresh ids)",
+            { traceId },
+          );
+        }
+        currentWeekWrite = { path: CURRENT_WEEK_PATH, content: applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date()) };
+      } else if (sessionReconcileEvents.length > 0 || planEditEvents.length > 0) {
+        // §5 + follow-up: session_reconcile (outcome + optional relabel) and plan_edit (change a
+        // future session's planned content) can both fire in the same turn - the two-fact swap
+        // pattern ("did badminton instead of today's plan, and move football to tomorrow").
+        // Chained in one resolve() the same way week_plan+session_reconcile used to be: reconcile
+        // runs first against fresh content, then plan_edit runs on that same result, so a turn
+        // reporting both never risks reading stale disk content between the two. Both ids are
+        // re-validated at commit time against whatever current_week.json actually contains
+        // (throws on a hallucinated/stale id, same discipline as applyQuestEvent's quest_id
+        // guard).
+        currentWeekWrite = {
+          path: CURRENT_WEEK_PATH,
+          resolve: async () => {
+            let working: string | null = await getFileRaw(repo, CURRENT_WEEK_PATH, token);
+            if (sessionReconcileEvents.length > 0) {
+              working = applySessionReconcile(working, sessionReconcileEvents, validTemplateIds, traceId, new Date());
+            }
+            if (planEditEvents.length > 0) {
+              working = applyPlanEdit(working, planEditEvents, validTemplateIds, traceId, new Date());
+            }
+            // At least one of sessionReconcileEvents/planEditEvents is non-empty (the guard that
+            // got us into this branch), so at least one of the two calls above ran - and both
+            // applySessionReconcile and applyPlanEdit throw rather than return null when
+            // current_week.json can't be read, same "real applier output, never null" shape as
+            // memoryFileWrite's working above. working is a real string here.
+            return working as string;
+          },
+        };
+      }
 
       // B2/ADR 0018: profile.json isn't edited here, so both sides of this transition check stay
       // the pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
@@ -375,10 +562,13 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // when needed, land in ONE atomic commit.
       const optionalWrites: FileEntry[] = [];
       if (coachNoteWrite) optionalWrites.push(coachNoteWrite);
-      if (memoryUpdateWrite) optionalWrites.push(memoryUpdateWrite);
+      if (memoryFileWrite) optionalWrites.push(memoryFileWrite);
       if (injuryEventWrite) optionalWrites.push(injuryEventWrite);
       if (questEventWrite) optionalWrites.push(questEventWrite);
       if (profileUpdateWrite) optionalWrites.push(profileUpdateWrite);
+      if (templateEditWrite) optionalWrites.push(templateEditWrite);
+      if (sessionPlanWrite) optionalWrites.push(sessionPlanWrite);
+      if (currentWeekWrite) optionalWrites.push(currentWeekWrite);
       const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
 
       let repoSha: string;
@@ -411,6 +601,36 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         }));
         console.error("[coach-chat] closing commitFilesAtomic failed:", err, { traceId });
         return Response.json({ error: `Coach replied but saving failed: ${errMessage}`, traceId }, { status: 502 });
+      }
+
+      // Part 5 §2: post-first-session template generation, only on the false->true
+      // profileComplete transition (same trigger as injectCoachSinceIfNeeded above), and only if
+      // this hasn't already run for this athlete (write-once, checked via the manifest
+      // coachWorkoutFiles.ts stamps alongside the templates it writes). A second, separate
+      // commit, deliberately best-effort: a failure here must never fail the athlete's response -
+      // template generation is a nice-to-have follow-up to onboarding, not a hard requirement.
+      if (!wasProfileComplete && profileComplete && profile && memory && injuries) {
+        try {
+          const existingManifest = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token);
+          if (existingManifest == null) {
+            const { templates } = await generateInitialTemplates(
+              profile,
+              memory,
+              injuries,
+              timezone,
+              traceId,
+              apiKey,
+            );
+            await commitFilesAtomic(templates, "coach: initial workout templates generated", {
+              repo,
+              branch: resolveCoachChatBranch(),
+              token,
+            });
+            console.log("[coach-chat] initial workout templates committed", { traceId, count: templates.length });
+          }
+        } catch (err) {
+          console.error("[coach-chat] initial workout template generation failed - continuing without it:", err, { traceId });
+        }
       }
 
       return Response.json({

@@ -42,6 +42,14 @@ this doc gets written for real:
 4. **Commit step.** Today commits `state.md` + `challenge_v2.json` together. New version touches
    5 files (`profile.json`, `memory.json`, `injuries.json`, `seasons.json`, `quests.json`) —
    confirm still one atomic commit, all five, same pattern as today's two-file commit.
+5. **BACKLOG.md #1 — `wasProfileComplete`/`profileComplete` transition is dead.** Both sides of
+   the false→true check in `coach-chat.ts` (~line 366) are computed from the same pre-turn
+   `profile`/`memory` objects, so the transition `injectCoachSinceIfNeeded` (and, as of
+   `core/workout-backend-wiring`, the post-first-session template-generation hook) waits for can
+   never actually fire. Needs `profileComplete` to be computed from the post-write state once FSP
+   really writes `profile.json`/`memory.json` in this flow. `coach_since` has never once been
+   auto-stamped in the current codebase because of this — fix it here when FSP gets wired for
+   real, not before.
 
 ## Your annotations
 

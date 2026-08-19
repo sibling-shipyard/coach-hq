@@ -1,0 +1,116 @@
+{
+  "id": "realign_single_leg_balance",
+  "title": "Realign — Single-Leg Imbalance Correction",
+  "subtitle": "Address side-to-side strength and stability gaps",
+  "workout_type": "realign",
+  "estimated_duration_mins": 35,
+  "location": "Home",
+  "equipment": ["dumbbells"],
+  "coaching_note": "Almost everyone has a dominant side — the point here isn't to make both sides identical, it's to close the gap enough that it doesn't become an injury pattern. Do the weaker side first on every exercise, and match the stronger side to it rather than the other way around.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "6 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Single-Leg Balance Hold",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Stand on one foot, soft knee, eyes forward. Notice which side wobbles more — that's useful information for today.",
+          "why": "A quick, honest read on which side needs more attention before you load anything."
+        },
+        {
+          "num": 2,
+          "name": "Leg Swings (front-back and side-to-side)",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Hold a wall for balance, controlled swing through a full range, not a flail.",
+          "why": "Loosens the hips before single-leg loading and gives another chance to feel any side-to-side difference."
+        }
+      ]
+    },
+    {
+      "name": "Single-Leg Strength",
+      "duration": "20 min",
+      "default_rest_secs": 60,
+      "coaching_note": "Weaker side first, every exercise. Match the stronger side's reps to what the weaker side can do with good form — don't let the strong side pull ahead.",
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Bulgarian Split Squat",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Back foot on a chair or step. Front knee tracks over the ankle, not past the toes. Drop straight down with control.",
+          "why": "The clearest single-leg strength test there is — asymmetries hide easily in bilateral squats but show up immediately here."
+        },
+        {
+          "num": 4,
+          "name": "Single-Leg Romanian Deadlift",
+          "type": "reps",
+          "reps": 8,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Hinge forward on one leg, back leg extends behind you for balance, dumbbell stays close to your standing leg. Keep hips square to the floor.",
+          "why": "Trains single-leg hip stability and hamstring strength together — a common weak point on the non-dominant side."
+        },
+        {
+          "num": 5,
+          "name": "Lateral Step-Down",
+          "type": "reps",
+          "reps": 8,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Stand on a low step, slowly lower the opposite heel to tap the floor without letting your standing knee cave inward.",
+          "why": "Directly trains the glute medius to control knee alignment — the muscle most responsible for side-to-side knee stability."
+        }
+      ]
+    },
+    {
+      "name": "Stability & Cool-down",
+      "duration": "9 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 6,
+          "name": "Single-Leg Balance Reach",
+          "type": "reps",
+          "reps": 6,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Standing on one leg, reach your opposite hand toward your standing foot, keeping the standing knee soft and stable.",
+          "why": "Combines strength and balance under a real range of motion — closer to what your weaker side needs to handle in sport."
+        },
+        {
+          "num": 7,
+          "name": "Figure-4 Glute Stretch",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Lying on your back, cross one ankle over the opposite knee, pull the uncrossed thigh toward your chest.",
+          "why": "Releases the glute and hip on both sides after all the single-leg loading — spend extra time on the tighter side."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Once both sides can match reps and load with clean form, that's the signal the gap has closed — recheck the single-leg balance hold from the warm-up to confirm before dropping this from the rotation."
+}

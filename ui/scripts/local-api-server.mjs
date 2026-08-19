@@ -18,7 +18,7 @@ try {
   console.warn(`[local-api-server] no ${envLocalPath} found - real secrets won't be set`);
 }
 
-const PORT = 3001;
+const PORT = Number(process.env.PORT) || 3001;
 
 const ROUTES = [
   [/^\/api\/auth(\/|$)/, "../api/auth/[...action].ts"],

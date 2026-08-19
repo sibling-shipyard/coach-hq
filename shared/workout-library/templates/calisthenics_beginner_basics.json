@@ -1,0 +1,134 @@
+{
+  "id": "calisthenics_beginner_basics",
+  "title": "Calisthenics — Beginner Basics",
+  "subtitle": "Building the foundational push/pull/core patterns",
+  "workout_type": "calisthenics",
+  "estimated_duration_mins": 35,
+  "location": "Home",
+  "equipment": ["bodyweight"],
+  "coaching_note": "Calisthenics is a skill practice as much as a strength one — clean reps in a smaller range beat sloppy reps in a bigger one. Every exercise here has a regression built into the cue; use it without ego if the full version breaks down.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "6 min",
+      "default_rest_secs": 15,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Wrist Circles & Stretches",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Full range both directions, spend extra time on any stiff spot.",
+          "why": "Your wrists take load in every plank and push position — warm them up first, always."
+        },
+        {
+          "num": 2,
+          "name": "Cat-Cow",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Slow and deliberate, full spinal flexion and extension.",
+          "why": "Wakes the spine up and previews the hollow body shape you'll hold later."
+        }
+      ]
+    },
+    {
+      "name": "Push",
+      "duration": "10 min",
+      "default_rest_secs": 45,
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Incline Push-up",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Hands on a stable elevated surface, straight body line, chest touches the surface each rep.",
+          "why": "The incline reduces load compared to a floor push-up so you build clean full-range reps — that's what earns you the harder version."
+        },
+        {
+          "num": 4,
+          "name": "Wall Handstand Hold",
+          "type": "timed",
+          "duration_secs": 15,
+          "sets": 3,
+          "rest_between_sets_secs": 45,
+          "prep_secs": 5,
+          "optional": true,
+          "form_cue": "Face away from the wall, walk your feet up until your hands and shoulders are stacked. Push the floor away, squeeze your core.",
+          "why": "Introduces you to inverted body positions early — the entry point for every handstand skill later on."
+        }
+      ]
+    },
+    {
+      "name": "Pull",
+      "duration": "10 min",
+      "default_rest_secs": 45,
+      "exercises": [
+        {
+          "num": 5,
+          "name": "Doorframe Row (towel or sturdy edge)",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Lean back holding a sturdy anchor, pull your chest toward your hands, squeeze the shoulder blades together.",
+          "why": "Bodyweight pulling strength almost never gets trained without a bar — this is your entry into it."
+        },
+        {
+          "num": 6,
+          "name": "Dead Hang (if a bar is available)",
+          "type": "timed",
+          "duration_secs": 20,
+          "sets": 3,
+          "rest_between_sets_secs": 45,
+          "optional": true,
+          "form_cue": "Full grip, relaxed shoulders, let your body hang straight.",
+          "why": "Grip and shoulder capsule prep for every pull-up progression to come — start banking hang time now."
+        }
+      ]
+    },
+    {
+      "name": "Core",
+      "duration": "6 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 7,
+          "name": "Hollow Body Hold",
+          "type": "timed",
+          "duration_secs": 20,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "prep_secs": 5,
+          "form_cue": "Lower back pressed flat on the floor, arms overhead, legs straight and low. If your back arches, bring your legs higher.",
+          "why": "The hollow body shape underlies almost every calisthenics skill — start building the position and the endurance now."
+        }
+      ]
+    },
+    {
+      "name": "Cool-down",
+      "duration": "3 min",
+      "default_rest_secs": 10,
+      "exercises": [
+        {
+          "num": 8,
+          "name": "Chest Opener Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Arms behind your back, clasp your hands, squeeze your shoulder blades, open your chest toward the ceiling.",
+          "why": "Counters the pushing and pulling work — keeps posture from rounding forward as you build strength."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Once 3x10 incline push-ups feel controlled, lower the incline. Once 20s hollow body holds feel solid, extend to 25-30s before adding leg lowers."
+}

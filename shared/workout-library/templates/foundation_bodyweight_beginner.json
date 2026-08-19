@@ -1,0 +1,142 @@
+{
+  "id": "foundation_bodyweight_beginner",
+  "title": "Foundation — Bodyweight Beginner",
+  "subtitle": "Full-body base building, no equipment",
+  "workout_type": "foundation",
+  "estimated_duration_mins": 35,
+  "location": "Home",
+  "equipment": ["bodyweight"],
+  "coaching_note": "This is your entry point — the goal is consistency, not intensity. Every movement here is a building block for harder training later. If a rep count feels too easy, that's fine this week. Don't add reps on your own; we'll progress it together.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "6 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Marching in place",
+          "type": "timed",
+          "duration_secs": 60,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Drive knees up to hip height, swing arms naturally. Land soft on the balls of your feet.",
+          "why": "Raises heart rate and gets blood into the legs before anything else loads them."
+        },
+        {
+          "num": 2,
+          "name": "Arm circles",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Small circles first, then build to big ones. Both directions, 15 seconds each way.",
+          "why": "Loosens the shoulder joint before push-ups load it."
+        },
+        {
+          "num": 3,
+          "name": "Bodyweight squat to stand",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Feet shoulder-width, sit back like you're reaching for a chair. Go as low as feels controlled — don't force depth yet.",
+          "why": "Rehearses the squat pattern you'll load in the main block, at zero weight."
+        }
+      ]
+    },
+    {
+      "name": "Main Block",
+      "duration": "22 min",
+      "default_rest_secs": 45,
+      "coaching_note": "Two rounds through this list. Rest as needed between exercises — quality over speed today.",
+      "exercises": [
+        {
+          "num": 4,
+          "name": "Bodyweight Squat",
+          "type": "reps",
+          "reps": 12,
+          "sets": 2,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Chest up, knees track over toes, weight in your heels. Stand all the way up between reps — don't half-rep.",
+          "why": "Builds the quad and glute strength every other lower-body movement will stack on top of."
+        },
+        {
+          "num": 5,
+          "name": "Incline Push-up (hands on couch or table)",
+          "type": "reps",
+          "reps": 8,
+          "sets": 2,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Hands on a stable raised surface, body in a straight line from head to heel. Lower chest to the surface, push back up fully.",
+          "why": "The incline reduces the load compared to a floor push-up so you can build real reps with clean form — that's what earns you the floor version."
+        },
+        {
+          "num": 6,
+          "name": "Glute Bridge",
+          "type": "reps",
+          "reps": 15,
+          "sets": 2,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Feet flat, knees bent. Drive through your heels and squeeze your glutes hard at the top. Don't arch through the lower back to get there.",
+          "why": "Wakes up glutes that sitting all day switches off — protects your lower back in every other lower-body exercise."
+        },
+        {
+          "num": 7,
+          "name": "Standing Row (towel pull)",
+          "type": "reps",
+          "reps": 12,
+          "sets": 2,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Loop a towel around a sturdy post or doorframe, lean back, pull chest toward your hands, squeeze shoulder blades together.",
+          "why": "Balances out all the pushing you do in daily life and in push-ups — a weak upper back is where posture problems start."
+        },
+        {
+          "num": 8,
+          "name": "Dead Bug",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Lying on your back, lower back pressed into the floor the whole time. Extend opposite arm and leg slowly, return, switch sides.",
+          "why": "Teaches your core to resist movement instead of just crunching — the kind of strength that protects your spine under real load."
+        }
+      ]
+    },
+    {
+      "name": "Cool-down",
+      "duration": "7 min",
+      "default_rest_secs": 10,
+      "exercises": [
+        {
+          "num": 9,
+          "name": "Standing Quad Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Hold your ankle behind you, knees together, gentle pull. Hold a wall if you're wobbly.",
+          "why": "Quads did a lot of work in the squats — give them a stretch before they tighten up overnight."
+        },
+        {
+          "num": 10,
+          "name": "Child's Pose",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Knees wide, hips back to heels, arms extended forward, forehead down. Breathe slow.",
+          "why": "Decompresses the spine and brings your heart rate down before you're done."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Once 2x8 incline push-ups feels easy across two sessions, lower the incline (try a chair instead of a couch, then the floor). Once bodyweight squats feel light, we'll add a third set before we add load."
+}

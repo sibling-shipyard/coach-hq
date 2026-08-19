@@ -1,0 +1,112 @@
+{
+  "id": "realign_shoulder_prehab",
+  "title": "Realign — Shoulder Prehab",
+  "subtitle": "Rotator cuff and scapular stability for overhead sports",
+  "workout_type": "realign",
+  "estimated_duration_mins": 25,
+  "location": "Home",
+  "equipment": ["resistance_band"],
+  "coaching_note": "This is prevention work for anyone doing repeated overhead motion — racket sports, swimming, throwing. The muscles here are small and easy to skip, but they're what keeps the shoulder joint centered under load. Light weight, high control, every rep.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "5 min",
+      "default_rest_secs": 15,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Arm Circles",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 1,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Small circles first, build to big ones, both directions.",
+          "why": "Gets blood into the joint before you load the small stabilizer muscles."
+        },
+        {
+          "num": 2,
+          "name": "Band Overhead Pass-Through",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Wide grip, arms straight, move the band slowly from front of your hips to behind your back.",
+          "why": "Opens overhead range of motion before the rotator cuff work loads the joint."
+        }
+      ]
+    },
+    {
+      "name": "Rotator Cuff",
+      "duration": "12 min",
+      "default_rest_secs": 30,
+      "coaching_note": "These are small muscles — light band tension is correct here, not a heavier one. If you can't feel it working with control, the band is too heavy.",
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Band External Rotation",
+          "type": "reps",
+          "reps": 12,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Anchor the band at waist height. Elbow bent 90 degrees, pinned to your side, rotate the forearm outward only — the elbow doesn't move.",
+          "why": "Strengthens the infraspinatus and teres minor — the rotator cuff muscles that decelerate the arm on every overhead swing."
+        },
+        {
+          "num": 4,
+          "name": "Band Internal Rotation",
+          "type": "reps",
+          "reps": 12,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Same elbow-pinned setup, rotate the forearm inward across your body, slow and controlled on the way back.",
+          "why": "Balances the external rotation work — a shoulder that's strong in one rotational direction and weak in the other is an injury pattern waiting to happen."
+        },
+        {
+          "num": 5,
+          "name": "Band Y-Raise",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Slight forward lean, arms form a Y at 45 degrees, thumbs up, raise to shoulder height only.",
+          "why": "Targets the lower trapezius — weak here is one of the most common drivers of shoulder impingement in overhead athletes."
+        }
+      ]
+    },
+    {
+      "name": "Cool-down",
+      "duration": "8 min",
+      "default_rest_secs": 10,
+      "exercises": [
+        {
+          "num": 6,
+          "name": "Sleeper Stretch",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Lying on your side, shoulder and elbow both bent 90 degrees, gently press your forearm toward the floor with the other hand. Stop well before it pinches.",
+          "why": "Addresses internal rotation restriction that builds up in overhead athletes and is linked to shoulder impingement."
+        },
+        {
+          "num": 7,
+          "name": "Doorway Chest Stretch",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Forearm on the doorframe at shoulder height, lean through the doorway until you feel the stretch.",
+          "why": "Tight chest muscles pull the shoulder forward out of alignment — release them to let the cuff work actually hold."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Keep the band light here even as strength improves elsewhere — add reps before adding band tension on rotator cuff work specifically."
+}

@@ -1,0 +1,76 @@
+{
+  "id": "recovery_post_run_stretch",
+  "title": "Recovery — Post-Run Reset",
+  "subtitle": "Lower-body focused, for after run days",
+  "workout_type": "recovery",
+  "estimated_duration_mins": 20,
+  "location": "Home",
+  "equipment": ["bodyweight"],
+  "coaching_note": "Do this within a couple hours of your run if you can — the tissue is warm and responds better than stretching cold the next day.",
+  "phases": [
+    {
+      "name": "Stretch",
+      "duration": "17 min",
+      "default_rest_secs": 10,
+      "coaching_note": "Hold each stretch at least 45 seconds. No bouncing — ease in, breathe, let it release.",
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Standing Quad Stretch",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Hold your ankle behind you, knees together, gentle pull toward your glute. Hold a wall for balance.",
+          "why": "Quads absorb a lot of eccentric load on every run stride — they tighten up fast and need this."
+        },
+        {
+          "num": 2,
+          "name": "Standing Hamstring Stretch (foot elevated)",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Heel on a low step or curb, leg straight, hinge forward from the hips, keep your back flat.",
+          "why": "Tight hamstrings limit stride length and pull on the pelvis — a common source of lower back tightness after long runs."
+        },
+        {
+          "num": 3,
+          "name": "Kneeling Hip Flexor Stretch",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Back knee down, tuck your tailbone under first, then gently drive the hips forward.",
+          "why": "The hip flexors shorten with every running stride — this is the single highest-value stretch for a runner."
+        },
+        {
+          "num": 4,
+          "name": "Figure-4 Glute Stretch",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Lying on your back, cross one ankle over the opposite knee, pull the uncrossed thigh toward your chest.",
+          "why": "Releases the glute and piriformis — tightness here is a common driver of IT band and knee pain in runners."
+        },
+        {
+          "num": 5,
+          "name": "Standing Calf Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Heel down, toes up on a wall or step. Straight-knee version for the calf, slight bend for the soleus.",
+          "why": "Calves take huge eccentric load at push-off — leaving them tight is a direct path to Achilles and plantar issues."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "If one side consistently feels tighter than the other, spend an extra 15-20 seconds there rather than rushing to match the timer."
+}

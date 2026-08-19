@@ -1,0 +1,123 @@
+{
+  "id": "realign_posture_reset",
+  "title": "Realign — Desk Posture Reset",
+  "subtitle": "Counter forward-rounded, desk-driven posture",
+  "workout_type": "realign",
+  "estimated_duration_mins": 30,
+  "location": "Home",
+  "equipment": ["resistance_band"],
+  "coaching_note": "This is corrective work, not a hard workout — the goal is waking up muscles that have gone quiet from sitting, not fatiguing them. If you spend most of your day at a desk, this is worth two sessions a week minimum, not just when something already hurts.",
+  "phases": [
+    {
+      "name": "Release",
+      "duration": "8 min",
+      "default_rest_secs": 10,
+      "coaching_note": "Chest and hip flexors get tight from sitting — release those first so the activation work below actually sticks.",
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Doorway Chest Stretch",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Forearm on the doorframe at shoulder height, lean your body through the doorway until you feel the stretch across your chest.",
+          "why": "Tight pecs pull the shoulders forward and down — this is the single biggest driver of rounded desk posture."
+        },
+        {
+          "num": 2,
+          "name": "Kneeling Hip Flexor Stretch",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Back knee down, tuck your tailbone under first, then gently drive your hips forward.",
+          "why": "Hours of hip flexion at a desk shortens these muscles, which tilts the pelvis forward and loads the lower back."
+        }
+      ]
+    },
+    {
+      "name": "Activation",
+      "duration": "16 min",
+      "default_rest_secs": 30,
+      "coaching_note": "These muscles have usually gone quiet, not weak — expect them to feel awkward at first. That feeling fades in a few sessions.",
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Band Pull-Apart",
+          "type": "reps",
+          "reps": 15,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Arms straight, pull the band apart to touch your chest, squeeze your shoulder blades hard at the end range.",
+          "why": "Directly activates the mid-trapezius and rhomboids — the muscles that pull your shoulders back out of a rounded position."
+        },
+        {
+          "num": 4,
+          "name": "Band Y-Raise",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Slight forward lean, arms form a Y at about 45 degrees, thumbs up, raise to shoulder height only.",
+          "why": "Targets the lower trapezius specifically — the piece that's almost always the weakest link in rounded shoulder posture."
+        },
+        {
+          "num": 5,
+          "name": "Prone Cobra",
+          "type": "timed",
+          "duration_secs": 20,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Face down, arms at your sides, lift your chest and squeeze your shoulder blades together and down, thumbs point up.",
+          "why": "Builds endurance in the upper back extensors that fight gravity all day to keep you upright — bodyweight but genuinely hard when done right."
+        },
+        {
+          "num": 6,
+          "name": "Chin Tuck",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "rest_between_sets_secs": 20,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Sitting tall, glide your head straight back like making a double chin, don't tilt up or down.",
+          "why": "Directly retrains forward head posture — one of the most common and least-addressed desk postural faults."
+        }
+      ]
+    },
+    {
+      "name": "Cool-down",
+      "duration": "6 min",
+      "default_rest_secs": 10,
+      "exercises": [
+        {
+          "num": 7,
+          "name": "Thread the Needle",
+          "type": "reps",
+          "reps": 8,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "On all fours, thread one arm under your body and through, rotating your upper back, then unwind and reach it up toward the ceiling.",
+          "why": "Restores thoracic rotation that the activation work needs in order to hold — mobility and strength work together here."
+        },
+        {
+          "num": 8,
+          "name": "Standing Forward Fold",
+          "type": "timed",
+          "duration_secs": 40,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Soft knees, let your head and arms hang, breathe slow into your lower back.",
+          "why": "Decompresses the spine before you're done — a good close for any session that leaned on the upper back."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Once band pull-aparts and Y-raises feel easy at this volume, move to a heavier band rather than more reps — this work should stay in a low-fatigue, high-quality range."
+}

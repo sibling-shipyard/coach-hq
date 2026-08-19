@@ -1,0 +1,139 @@
+{
+  "id": "calisthenics_advanced_skills",
+  "title": "Calisthenics — Advanced Skills",
+  "subtitle": "Handstand and L-sit skill work for an established athlete",
+  "workout_type": "calisthenics",
+  "estimated_duration_mins": 55,
+  "location": "Home",
+  "equipment": ["parallettes", "resistance_band"],
+  "coaching_note": "Skill work needs a fresh nervous system — do this before any heavy strength session, not after. Quality attempts beat volume here; stop a block if your form is falling apart from fatigue, not just when the timer runs out.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "8 min",
+      "default_rest_secs": 15,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Wrist Prep (circles, stretches, weight shifts)",
+          "type": "timed",
+          "duration_secs": 60,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Full range circles, then rock your weight forward and back on flat hands on the floor.",
+          "why": "Wrists absorb heavy load in both handstand and parallette work — never skip this."
+        },
+        {
+          "num": 2,
+          "name": "Band Overhead Pass-Through",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "rest_between_sets_secs": 15,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Wide grip, arms straight, move slow through the full arc overhead and back.",
+          "why": "Opens the shoulder flexion range a handstand demands."
+        }
+      ]
+    },
+    {
+      "name": "Handstand Block",
+      "duration": "18 min",
+      "default_rest_secs": 60,
+      "transition_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Wall Walks",
+          "type": "reps",
+          "reps": 4,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "form_cue": "Hands shoulder-width, walk your feet up the wall until arms are vertical. Squeeze core and glutes at the top, walk back down slow.",
+          "why": "Builds the shoulder strength and stacked alignment a freestanding handstand needs."
+        },
+        {
+          "num": 4,
+          "name": "Freestanding Handstand Attempts",
+          "type": "timed",
+          "duration_secs": 15,
+          "sets": 4,
+          "rest_between_sets_secs": 60,
+          "prep_secs": 5,
+          "form_cue": "Kick up with control, find the balance point through your fingertips, not your wrist. Bail early and often — that's how you build the instinct.",
+          "why": "The freestanding hold is the actual skill — everything else in this block builds toward this specific practice."
+        },
+        {
+          "num": 5,
+          "name": "Handstand Push-up (wall, pike or full)",
+          "type": "reps",
+          "reps": 5,
+          "sets": 3,
+          "rest_between_sets_secs": 75,
+          "optional": true,
+          "form_cue": "Head lowers to just above the floor between your hands, press back to full lockout. Use a wall for balance if freestanding isn't there yet.",
+          "why": "Adds strength on top of the hold — once the hold is solid, this is the next natural progression."
+        }
+      ]
+    },
+    {
+      "name": "L-Sit Block",
+      "duration": "14 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 6,
+          "name": "Full L-Sit Hold (parallettes)",
+          "type": "timed",
+          "duration_secs": 10,
+          "sets": 5,
+          "rest_between_sets_secs": 60,
+          "prep_secs": 5,
+          "form_cue": "Arms locked straight on the parallettes, legs fully extended and parallel to the floor. Push your shoulders down away from your ears.",
+          "why": "The core and hip flexor strength built here transfers directly into handstand alignment and most other advanced skills."
+        },
+        {
+          "num": 7,
+          "name": "V-Sit Attempts",
+          "type": "timed",
+          "duration_secs": 5,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "prep_secs": 5,
+          "optional": true,
+          "form_cue": "From the L-sit, raise your legs above hip height toward a V shape. Small controlled attempts, not a grind to failure.",
+          "why": "The next step past L-sit — only attempt once 10s L-sit holds feel genuinely solid."
+        }
+      ]
+    },
+    {
+      "name": "Cool-down",
+      "duration": "6 min",
+      "default_rest_secs": 10,
+      "exercises": [
+        {
+          "num": 8,
+          "name": "Wrist Flexor Stretch",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 15,
+          "form_cue": "Arm straight, palm up, gently pull your fingers back with the other hand.",
+          "why": "Handstand and parallette work load the wrist hard — release it before you're done."
+        },
+        {
+          "num": 9,
+          "name": "Foam Roll: Lats and Shoulders",
+          "type": "timed",
+          "duration_secs": 90,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Slow passes, pause on tight spots for a few seconds.",
+          "why": "Releases the shoulder tension from all the pressing and holding work."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Add 3-5s to freestanding handstand holds once bailing becomes rare. Move from wall handstand push-ups to freestanding once holds pass 30s consistently. Add 2s to L-sit holds each week, attempt V-sit once 15s L-sit is solid."
+}

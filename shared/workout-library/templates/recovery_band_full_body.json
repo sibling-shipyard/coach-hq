@@ -1,0 +1,111 @@
+{
+  "id": "recovery_band_full_body",
+  "title": "Recovery — Band-Assisted Full Body",
+  "subtitle": "Light resistance-band mobility and activation",
+  "workout_type": "recovery",
+  "estimated_duration_mins": 30,
+  "location": "Home",
+  "equipment": ["resistance_band"],
+  "coaching_note": "This is a lighter, active recovery day — the band adds just enough tension to wake muscles up without adding real fatigue. If anything pinches or sharp-hurts, stop that exercise, don't push through it.",
+  "phases": [
+    {
+      "name": "Shoulder & Upper Back",
+      "duration": "14 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Band Pull-Apart",
+          "type": "reps",
+          "reps": 15,
+          "sets": 2,
+          "rest_between_sets_secs": 20,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Arms straight out in front, pull the band apart until it touches your chest, squeeze your shoulder blades together.",
+          "why": "Wakes up the mid-back muscles that counter all the forward-rounded posture from sitting and screens."
+        },
+        {
+          "num": 2,
+          "name": "Band Overhead Pass-Through",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "rest_between_sets_secs": 20,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Wide grip, arms straight, slowly move the band from in front of your hips to behind your back and back again.",
+          "why": "Gently opens shoulder flexion range without any real loading — good for a joint that's tired from training."
+        },
+        {
+          "num": 3,
+          "name": "Band External Rotation",
+          "type": "reps",
+          "reps": 12,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 20,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Elbow bent 90 degrees and pinned to your side, rotate your forearm outward only — the elbow doesn't travel.",
+          "why": "Activates the rotator cuff — the small stabilizers that protect the shoulder and are easy to neglect."
+        }
+      ]
+    },
+    {
+      "name": "Hip & Lower Body",
+      "duration": "14 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 4,
+          "name": "Band Lateral Walk",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 20,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Band around your ankles or just above the knees, slight squat, step sideways keeping tension on the band the whole time.",
+          "why": "Activates the glute medius — a muscle that quietly controls knee tracking and is easy to leave undertrained."
+        },
+        {
+          "num": 5,
+          "name": "Band Monster Walk (forward)",
+          "type": "reps",
+          "reps": 10,
+          "sets": 1,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Band above the knees, slight squat, small forward steps keeping tension on the band throughout.",
+          "why": "Reinforces the same glute activation pattern in a different plane — good general hip prep."
+        },
+        {
+          "num": 6,
+          "name": "Seated Band Hamstring Stretch",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 10,
+          "form_cue": "Lying on your back, loop the band around one foot, straighten the leg toward the ceiling, keep your lower back flat.",
+          "why": "Gives you a gentle assisted stretch with more control over the angle than a standing version."
+        }
+      ]
+    },
+    {
+      "name": "Cool-down",
+      "duration": "2 min",
+      "default_rest_secs": 0,
+      "exercises": [
+        {
+          "num": 7,
+          "name": "Standing Forward Fold",
+          "type": "timed",
+          "duration_secs": 60,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Soft knees, let your head and arms hang heavy, breathe slow.",
+          "why": "Decompresses the spine and brings your heart rate all the way back down."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "If glute activation exercises feel like nothing after a few weeks, move to a heavier band rather than adding more reps."
+}

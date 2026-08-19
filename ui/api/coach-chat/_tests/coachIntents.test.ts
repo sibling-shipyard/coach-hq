@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   applyCoachNote,
   applyMemoryUpdate,
+  applyCoachingStyleUpdate,
   applyInjuryEvent,
   applyQuestEvent,
   applyProfileUpdate,
@@ -114,6 +115,42 @@ describe("applyMemoryUpdate", () => {
   });
 });
 
+describe("applyCoachingStyleUpdate", () => {
+  const EXISTING = JSON.stringify({
+    version: 1,
+    _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+    sports: ["badminton"],
+    coaching_style: "encouragement",
+    notes: {
+      fitness_baseline: { text: "old baseline", updated_at: "2026-08-01", trace_id: "old" },
+      coaching_priorities: { text: "old priorities", updated_at: "2026-08-01", trace_id: "old" },
+      "learned_patterns.training": { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.nutrition": { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.mental": { text: "", updated_at: "", trace_id: "" },
+      equipment: { text: "old equipment", updated_at: "2026-08-01", trace_id: "old" },
+    },
+  });
+
+  it("sets coaching_style, leaves notes/sports untouched", () => {
+    const result = JSON.parse(applyCoachingStyleUpdate(EXISTING, "accountability", "2026-08-18", "t2"));
+    expect(result.coaching_style).toBe("accountability");
+    expect(result.sports).toEqual(["badminton"]);
+    expect(result.notes.equipment.text).toBe("old equipment");
+  });
+
+  it("throws on a value outside the enum instead of writing free text", () => {
+    expect(() => applyCoachingStyleUpdate(EXISTING, "very direct please", "2026-08-18", "t2")).toThrow(
+      'coaching_style_update: "very direct please" is not a valid coaching style',
+    );
+  });
+
+  it("starts a fresh file with the given style when content is null", () => {
+    const result = JSON.parse(applyCoachingStyleUpdate(null, "analysis", "2026-08-18", "t1"));
+    expect(result.coaching_style).toBe("analysis");
+    expect(result.sports).toEqual([]);
+  });
+});
+
 describe("applyInjuryEvent", () => {
   const EXISTING = JSON.stringify({
     flags: [
@@ -123,7 +160,7 @@ describe("applyInjuryEvent", () => {
   });
 
   it("opens a new flag with a server-minted id and no resolved_at", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "active", text: "Left ankle tweak" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "active", text: "Left ankle tweak" }], "2026-08-18"));
     expect(result.flags).toHaveLength(3);
     const newFlag = result.flags[2];
     expect(newFlag.text).toBe("Left ankle tweak");
@@ -134,13 +171,13 @@ describe("applyInjuryEvent", () => {
   });
 
   it("starts a fresh flags array when content is null", () => {
-    const result = JSON.parse(applyInjuryEvent(null, { status: "active", text: "First injury" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(null, [{ status: "active", text: "First injury" }], "2026-08-18"));
     expect(result.flags).toHaveLength(1);
     expect(result.flags[0].text).toBe("First injury");
   });
 
   it("updates an existing active flag's text without changing its id/opened_at", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "active", flag_id: "inj_elbow", text: "Worse today" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "active", flag_id: "inj_elbow", text: "Worse today" }], "2026-08-18"));
     const flag = result.flags.find((f: any) => f.id === "inj_elbow");
     expect(flag.text).toBe("Worse today");
     expect(flag.opened_at).toBe("2026-08-01");
@@ -148,7 +185,7 @@ describe("applyInjuryEvent", () => {
   });
 
   it("resolves a flag, stamping resolved_at and leaving text as-is when no new text given", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "resolved", flag_id: "inj_elbow" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "resolved", flag_id: "inj_elbow" }], "2026-08-18"));
     const flag = result.flags.find((f: any) => f.id === "inj_elbow");
     expect(flag.status).toBe("resolved");
     expect(flag.resolved_at).toBe("2026-08-18");
@@ -156,7 +193,7 @@ describe("applyInjuryEvent", () => {
   });
 
   it("reactivates a previously resolved flag, clearing resolved_at back to null", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "active", flag_id: "inj_knee", text: "Flared up again" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "active", flag_id: "inj_knee", text: "Flared up again" }], "2026-08-18"));
     const flag = result.flags.find((f: any) => f.id === "inj_knee");
     expect(flag.status).toBe("active");
     expect(flag.resolved_at).toBeNull();
@@ -164,13 +201,13 @@ describe("applyInjuryEvent", () => {
   });
 
   it("leaves other flags untouched", () => {
-    const result = JSON.parse(applyInjuryEvent(EXISTING, { status: "resolved", flag_id: "inj_elbow" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent(EXISTING, [{ status: "resolved", flag_id: "inj_elbow" }], "2026-08-18"));
     const untouched = result.flags.find((f: any) => f.id === "inj_knee");
     expect(untouched).toEqual({ id: "inj_knee", text: "Right knee discomfort", status: "resolved", opened_at: "2026-07-01", resolved_at: "2026-07-20" });
   });
 
   it("treats malformed JSON as an empty flags array rather than throwing", () => {
-    const result = JSON.parse(applyInjuryEvent("{not valid json", { status: "active", text: "New injury" }, "2026-08-18"));
+    const result = JSON.parse(applyInjuryEvent("{not valid json", [{ status: "active", text: "New injury" }], "2026-08-18"));
     expect(result.flags).toHaveLength(1);
   });
 
@@ -179,8 +216,40 @@ describe("applyInjuryEvent", () => {
     // nothing - throwing lets the caller's existing error handling (commitFilesAtomic's catch)
     // surface the failure instead.
     expect(() =>
-      applyInjuryEvent(EXISTING, { status: "resolved", flag_id: "inj_nonexistent" }, "2026-08-18"),
+      applyInjuryEvent(EXISTING, [{ status: "resolved", flag_id: "inj_nonexistent" }], "2026-08-18"),
     ).toThrow('no flag with id "inj_nonexistent"');
+  });
+
+  // workout-backend-wiring live verification: an athlete reporting two injuries changing in the
+  // same message used to silently lose the second one when this was a single object, same bug
+  // class issue #410 fixed for quest_event.
+  it("applies every event in the batch, not just the first, when the athlete reports two injuries at once", () => {
+    const result = JSON.parse(
+      applyInjuryEvent(
+        EXISTING,
+        [
+          { status: "resolved", flag_id: "inj_elbow" },
+          { status: "active", flag_id: "inj_knee", text: "Flared up again" },
+        ],
+        "2026-08-18",
+      ),
+    );
+    const elbow = result.flags.find((f: any) => f.id === "inj_elbow");
+    const knee = result.flags.find((f: any) => f.id === "inj_knee");
+    expect(elbow.status).toBe("resolved");
+    expect(knee).toMatchObject({ status: "active", resolved_at: null, text: "Flared up again" });
+  });
+
+  it("lets a batch open a brand-new flag and resolve it in the same turn", () => {
+    const result = JSON.parse(
+      applyInjuryEvent(null, [{ status: "active", text: "New wrist tweak" }], "2026-08-18"),
+    );
+    // Confirms new-flag events accumulate correctly across a batch (a second new flag doesn't
+    // clobber the first) - the id-less branch appends rather than replaces.
+    const second = JSON.parse(
+      applyInjuryEvent(JSON.stringify(result), [{ status: "active", text: "Separate shoulder niggle" }], "2026-08-18"),
+    );
+    expect(second.flags).toHaveLength(2);
   });
 });
 
@@ -373,7 +442,7 @@ describe("applyProfileUpdate", () => {
     // value is a string here (not a number literal) to match what the Gemini schema actually
     // produces (found in review: ProfileUpdate.value used to allow number too, which nothing
     // could ever really send).
-    const result = JSON.parse(applyProfileUpdate(EXISTING, { field: "height_cm", value: "178" }));
+    const result = JSON.parse(applyProfileUpdate(EXISTING, [{ field: "height_cm", value: "178" }]));
     expect(result.height_cm).toBe(178);
     expect(result.name).toBe("Akash");
     expect(result.dob).toBe("1998-05-01");
@@ -383,7 +452,7 @@ describe("applyProfileUpdate", () => {
   });
 
   it("sets a string field (timezone)", () => {
-    const result = JSON.parse(applyProfileUpdate(EXISTING, { field: "timezone", value: "America/New_York" }));
+    const result = JSON.parse(applyProfileUpdate(EXISTING, [{ field: "timezone", value: "America/New_York" }]));
     expect(result.timezone).toBe("America/New_York");
     expect(result.name).toBe("Akash");
   });
@@ -392,12 +461,12 @@ describe("applyProfileUpdate", () => {
   // string branch (name/dob/timezone) didn't get the same treatment - a blank value silently
   // wiped real data with "" instead of being rejected.
   it.each(["name", "dob", "timezone"] as const)("throws on a blank %s instead of silently wiping it with \"\"", (field) => {
-    expect(() => applyProfileUpdate(EXISTING, { field, value: "" })).toThrow(`profile_update: empty value is not valid for ${field}`);
-    expect(() => applyProfileUpdate(EXISTING, { field, value: "   " })).toThrow(`profile_update: empty value is not valid for ${field}`);
+    expect(() => applyProfileUpdate(EXISTING, [{ field, value: "" }])).toThrow(`profile_update: empty value is not valid for ${field}`);
+    expect(() => applyProfileUpdate(EXISTING, [{ field, value: "   " }])).toThrow(`profile_update: empty value is not valid for ${field}`);
   });
 
   it("coerces numeric fields even if given as a string", () => {
-    const result = JSON.parse(applyProfileUpdate(EXISTING, { field: "weight_kg", value: "72" }));
+    const result = JSON.parse(applyProfileUpdate(EXISTING, [{ field: "weight_kg", value: "72" }]));
     expect(result.weight_kg).toBe(72);
   });
 
@@ -405,7 +474,7 @@ describe("applyProfileUpdate", () => {
   // (Gemini passing along "about 180" verbatim, say) would silently write NaN into profile.json
   // instead of being rejected.
   it("throws instead of silently writing NaN for a non-numeric value on a numeric field", () => {
-    expect(() => applyProfileUpdate(EXISTING, { field: "height_cm", value: "about 180" })).toThrow(
+    expect(() => applyProfileUpdate(EXISTING, [{ field: "height_cm", value: "about 180" }])).toThrow(
       'profile_update: "about 180" is not a valid number for height_cm',
     );
   });
@@ -414,13 +483,13 @@ describe("applyProfileUpdate", () => {
   // doesn't catch on its own, so an empty value slipped past it and silently wrote 0 instead of
   // being rejected like any other invalid input.
   it("throws on an empty value instead of silently writing 0 (Number('') === 0, not NaN)", () => {
-    expect(() => applyProfileUpdate(EXISTING, { field: "weight_kg", value: "" })).toThrow(
+    expect(() => applyProfileUpdate(EXISTING, [{ field: "weight_kg", value: "" }])).toThrow(
       "profile_update: empty value is not a valid number for weight_kg",
     );
   });
 
   it("throws on a whitespace-only value the same way", () => {
-    expect(() => applyProfileUpdate(EXISTING, { field: "weight_kg", value: "   " })).toThrow(
+    expect(() => applyProfileUpdate(EXISTING, [{ field: "weight_kg", value: "   " }])).toThrow(
       "profile_update: empty value is not a valid number for weight_kg",
     );
   });
@@ -436,13 +505,37 @@ describe("applyProfileUpdate", () => {
     // @ts-expect-error - "coach_since" is not assignable to ProfileUpdateField.
     const invalid: ProfileUpdate = { field: "coach_since", value: "2026-01-01" };
     const bypassed = invalid as unknown as ProfileUpdate;
-    expect(() => applyProfileUpdate(EXISTING, bypassed)).toThrow(
+    expect(() => applyProfileUpdate(EXISTING, [bypassed])).toThrow(
       'profile_update: "coach_since" is not a settable field',
     );
   });
 
+  // Array (workout-backend-wiring live verification, same fix issue #410 already gave
+  // quest_event/injury_event) - a single object silently dropped every field past the first when
+  // the athlete reported more than one in the same message.
+  it("applies every entry in the array, not just the first", () => {
+    const result = JSON.parse(
+      applyProfileUpdate(EXISTING, [
+        { field: "weight_kg", value: "72" },
+        { field: "timezone", value: "America/New_York" },
+      ]),
+    );
+    expect(result.weight_kg).toBe(72);
+    expect(result.timezone).toBe("America/New_York");
+    expect(result.name).toBe("Akash");
+  });
+
+  it("throws before writing anything if any entry in the array is invalid (all-or-nothing)", () => {
+    expect(() =>
+      applyProfileUpdate(EXISTING, [
+        { field: "weight_kg", value: "72" },
+        { field: "height_cm", value: "not a number" },
+      ]),
+    ).toThrow('profile_update: "not a number" is not a valid number for height_cm');
+  });
+
   it("degrades malformed content to a sensible empty/null profile rather than throwing", () => {
-    const result = JSON.parse(applyProfileUpdate("{not valid json", { field: "name", value: "Akash" }));
+    const result = JSON.parse(applyProfileUpdate("{not valid json", [{ field: "name", value: "Akash" }]));
     expect(result.name).toBe("Akash");
     expect(result.coach_since).toBeNull();
     expect(result.dob).toBeNull();
@@ -452,7 +545,7 @@ describe("applyProfileUpdate", () => {
   });
 
   it("degrades missing content (null) to a sensible empty/null profile", () => {
-    const result = JSON.parse(applyProfileUpdate(null, { field: "dob", value: "1998-05-01" }));
+    const result = JSON.parse(applyProfileUpdate(null, [{ field: "dob", value: "1998-05-01" }]));
     expect(result.dob).toBe("1998-05-01");
     expect(result.coach_since).toBeNull();
     expect(result.name).toBe("");

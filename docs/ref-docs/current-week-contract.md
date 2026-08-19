@@ -82,7 +82,7 @@ The proposed shape is retained with the following revisions:
 | `kind` | string | Concise session type such as `competitive`, `strength`, or `recovery` |
 | `title` | string | Human-readable title |
 | `priority` | enum or `null` | `anchor`, `support`, or `optional`; `null` is allowed only for unplanned sessions |
-| `status` | enum | `planned`, `done`, `skipped`, or `cancelled` |
+| `status` | enum | `planned`, `done`, or `skipped` (workout-backend-wiring: `cancelled` dropped, folded into `skipped`) |
 | `planned_duration_min` | positive integer or `null` | Confirmed plan value only |
 | `planned_load` | positive number or `null` | Estimated zone-weighted load points; `null` means unknown, not zero |
 | `template_id` | string or `null` | Existing template identifier only |

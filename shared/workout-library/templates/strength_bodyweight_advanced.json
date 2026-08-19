@@ -1,0 +1,142 @@
+{
+  "id": "strength_bodyweight_advanced",
+  "title": "Strength — Bodyweight Advanced",
+  "subtitle": "Unilateral and leverage-based strength, no equipment",
+  "workout_type": "strength",
+  "estimated_duration_mins": 45,
+  "location": "Home",
+  "equipment": ["bodyweight"],
+  "coaching_note": "At this level, standard push-ups and squats aren't hard enough to build strength anymore — leverage and single-limb variations are how you keep loading without weights. Every exercise here has a full regression listed; use it if a rep breaks down rather than grinding out a bad one.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "6 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "World's Greatest Stretch",
+          "type": "reps",
+          "reps": 6,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Big step into a lunge, drop the back knee, plant the same-side hand, rotate the other arm up.",
+          "why": "Opens hips, hamstrings, and thoracic spine together before the harder single-leg and pressing work."
+        },
+        {
+          "num": 2,
+          "name": "Wrist Prep",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Circles, stretches, and weight shifts on flat hands.",
+          "why": "Pistol squats and archer push-ups both put unusual load through the wrist — prep it."
+        }
+      ]
+    },
+    {
+      "name": "Lower Body",
+      "duration": "16 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Pistol Squat (assisted or full)",
+          "type": "reps",
+          "reps": 6,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Hold a doorframe for the assisted version if needed. Standing leg goes all the way down, other leg stays straight out in front. Chest stays tall.",
+          "why": "Single-leg squat strength at full depth — a genuinely hard bodyweight strength standard that a regular squat can't reach anymore."
+        },
+        {
+          "num": 4,
+          "name": "Nordic Curl (partner or anchored feet)",
+          "type": "reps",
+          "reps": 5,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Kneeling, feet anchored, lower your torso forward as slowly as you can, catch yourself with your hands at the bottom if needed.",
+          "why": "The single best bodyweight hamstring exercise — eccentric hamstring strength is directly tied to reduced hamstring strain risk."
+        }
+      ]
+    },
+    {
+      "name": "Upper Body",
+      "duration": "16 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 5,
+          "name": "Archer Push-up",
+          "type": "reps",
+          "reps": 6,
+          "sets": 3,
+          "both_sides": true,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Hands wide, shift your weight over one arm as you lower, the other arm stays straight and just supports.",
+          "why": "Shifts near-full bodyweight onto one arm — the natural progression once standard push-ups stop being challenging."
+        },
+        {
+          "num": 6,
+          "name": "Pike Push-up (feet elevated)",
+          "type": "reps",
+          "reps": 8,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Feet on a chair or box, hips high, head lowers toward the floor between your hands.",
+          "why": "The elevated version increases the overhead-press demand — the closest bodyweight equivalent to a heavy shoulder press."
+        },
+        {
+          "num": 7,
+          "name": "Chin-up (if a bar is available)",
+          "type": "reps",
+          "reps": 6,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "optional": true,
+          "form_cue": "Full hang at the bottom, chin clears the bar, control the lowering all the way down.",
+          "why": "The best bodyweight pulling exercise available — if you have a bar, don't skip it in favor of the row substitute."
+        }
+      ]
+    },
+    {
+      "name": "Core & Cool-down",
+      "duration": "7 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 8,
+          "name": "Hollow Body Rock",
+          "type": "timed",
+          "duration_secs": 30,
+          "sets": 3,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Hold the hollow body shape and rock gently back and forth on your lower back and shoulder blades without losing the shape.",
+          "why": "Adds a dynamic, harder layer on top of a static hollow hold — real core control under motion."
+        },
+        {
+          "num": 9,
+          "name": "Couch Stretch",
+          "type": "timed",
+          "duration_secs": 45,
+          "sets": 1,
+          "both_sides": true,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Back shin up a wall or couch, front foot forward, tuck your tailbone under and lean into it.",
+          "why": "Pistol squats load the hip flexor hard on the trailing leg — release it before you're done."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Once assisted pistols feel solid for 3x6, remove the doorframe assist. Once archer push-ups feel controlled, work toward a full one-arm push-up progression next."
+}

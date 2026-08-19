@@ -17,18 +17,41 @@
 - Defining what Gemini can write back as output — `memory_update`, `quest_event`,
   `profile_update`, and whatever else Parts 1/2/5 need, each shipped one at a time per the
   existing "add one new field at a time" discipline.
-- Wiring `current_week.json` into coach-chat for real (currently has zero read/write path in the
-  backend — see Part 3) — including making it a genuine daily update, not the once-per-week
-  pattern found in the real `coach-skanda` data.
 - The testing plan for all of the above — eval harness coverage per new action/field, live
   verification against `test/close-verification` on `coach-skanda-2003` before anything ships.
 
 ## Known items already waiting here
 
-- **`current_week.json` needs to become a genuine daily update, not a once-per-week write.**
-  Confirmed via a real live file (`coach-skanda`, commit `a380c6e`) that today's actual practice is
-  "written once at week kick-off" despite SOUL's Commit Protocol saying to reconcile it every
-  session. Once this file is wired into coach-chat for real, it should update daily.
+- **Free-form template/session edits beyond the structured shapes built for `template_edit`/
+  `session_plan`.** Today those two action fields only support `skip_exercise_nums` (structured
+  skip-by-number), no free-form insertion/reordering. Follow-up once the structured version is
+  live and its real limits are visible.
+- **Regenerating templates for existing athletes (`coach-skanda`, `coach-akash`).** The
+  generic-library template pipeline only applies going forward — a possible future one-time
+  backfill, not required for the pipeline itself to work.
+- **Migration script for workout-backend-wiring's changes.** No migration script exists yet for
+  the `_manifest.json`/schema additions this branch introduces — nothing here retrofits existing
+  athlete data on its own (deliberate — new pipeline only, see above), but a Part 1/2/3-style
+  script may still be worth writing so an existing athlete's real templates/`current_week.json`
+  can adopt the new bookkeeping (`_manifest.json`, `trace_id`, etc.) without waiting on a live
+  chat turn to trigger it.
+- **Async closing — don't make the athlete wait on the commit.** Raised during workout-backend-
+  wiring's live verification: today the athlete's HTTP request blocks on the full closing
+  pipeline (Gemini call(s) + every write + the GitHub commit) before they see a reply at all —
+  worse when an action field triggers a second Gemini call (`template_edit`'s content generation,
+  `generateInitialTemplates`), since both calls have to succeed before anything returns. Proposed
+  split: keep the reply synchronous (one Gemini call, same as today), but detach the actual
+  write/commit/retry work to run in the background the moment that reply comes back — the athlete
+  never sees "saving" or a failure, same as they'd never see it today if everything just worked.
+  Vercel's `waitUntil` is the natural mechanism (extends execution past the returned response for
+  a bounded time) — this pipeline's existing atomic-commit + upsert-by-id discipline (Parts 1-3
+  onward) is a good sign it's safely retryable, not a rewrite. Open questions before building:
+  `waitUntil`'s actual time cap vs. worst-case turn latency (a `template_edit` chain), and what
+  happens on the rare case a background write still fails after every retry (silent forever, or
+  does it need to surface next time the athlete opens the app).
+- **`platform/scripts/carve-skeleton.mjs` regeneration.** The skeleton (`.skeleton-push/` →
+  `coach-skeleton`) hasn't been re-run since workout-backend-wiring landed — it's a mechanical,
+  low-risk regen, just needs doing once this branch's code is settled.
 
 ## Not started
 

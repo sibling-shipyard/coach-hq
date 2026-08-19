@@ -1,0 +1,138 @@
+{
+  "id": "foundation_full_gym_general",
+  "title": "Foundation — Full Gym",
+  "subtitle": "Machine and cable base-building circuit",
+  "workout_type": "foundation",
+  "estimated_duration_mins": 50,
+  "location": "Gym",
+  "equipment": ["full_gym"],
+  "coaching_note": "Machines are the right call here — they let you push effort without worrying about stabilizing a free weight while the pattern is new. Set the seat/pad height before you start each machine; a bad setup makes every rep worse.",
+  "phases": [
+    {
+      "name": "Warm-up",
+      "duration": "8 min",
+      "default_rest_secs": 20,
+      "exercises": [
+        {
+          "num": 1,
+          "name": "Treadmill Brisk Walk / Light Jog",
+          "type": "timed",
+          "duration_secs": 300,
+          "sets": 1,
+          "rest_after_exercise_secs": 30,
+          "form_cue": "Build from a walk to a light jog over the five minutes. You should be able to talk in short sentences by the end.",
+          "why": "Raises core temperature and heart rate before you load any machine."
+        },
+        {
+          "num": 2,
+          "name": "Band Pull-Apart",
+          "type": "reps",
+          "reps": 15,
+          "sets": 1,
+          "rest_after_exercise_secs": 20,
+          "form_cue": "Arms straight, pull the band apart until it touches your chest, squeeze your shoulder blades.",
+          "why": "Activates the upper back before pressing movements ask it to stabilize."
+        }
+      ]
+    },
+    {
+      "name": "Lower Body",
+      "duration": "16 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 3,
+          "name": "Leg Press",
+          "type": "reps",
+          "reps": 12,
+          "sets": 3,
+          "rest_between_sets_secs": 75,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Feet shoulder-width on the platform. Lower until your knees hit about 90 degrees, don't let your lower back round off the pad.",
+          "why": "Builds quad and glute strength with the machine handling balance, so you can focus purely on range and control."
+        },
+        {
+          "num": 4,
+          "name": "Seated Leg Curl",
+          "type": "reps",
+          "reps": 12,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Pad sits just above your heel. Curl through the full range, pause a beat at the bottom.",
+          "why": "Direct hamstring work most beginner programs skip — keeps the front and back of the thigh balanced."
+        }
+      ]
+    },
+    {
+      "name": "Upper Body",
+      "duration": "16 min",
+      "default_rest_secs": 60,
+      "exercises": [
+        {
+          "num": 5,
+          "name": "Lat Pulldown",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Wide grip, lead with your elbows down and back, pull to your upper chest. Don't lean back to muscle it down.",
+          "why": "Builds the back strength that a straight-arm cable movement teaches better than free weights at this stage."
+        },
+        {
+          "num": 6,
+          "name": "Chest Press Machine",
+          "type": "reps",
+          "reps": 10,
+          "sets": 3,
+          "rest_between_sets_secs": 60,
+          "rest_after_exercise_secs": 75,
+          "form_cue": "Handles at chest height, press straight out without locking your elbows out hard at the top.",
+          "why": "Guided path lets you push real effort into the chest and triceps without a spotter."
+        },
+        {
+          "num": 7,
+          "name": "Seated Cable Row",
+          "type": "reps",
+          "reps": 12,
+          "sets": 2,
+          "rest_between_sets_secs": 45,
+          "rest_after_exercise_secs": 60,
+          "form_cue": "Chest up, pull the handle to your stomach, squeeze your shoulder blades together at the end.",
+          "why": "More pulling volume to keep pushing and pulling balanced — most desk-bound bodies are pull-deficient."
+        }
+      ]
+    },
+    {
+      "name": "Core & Cool-down",
+      "duration": "10 min",
+      "default_rest_secs": 30,
+      "exercises": [
+        {
+          "num": 8,
+          "name": "Cable Woodchop",
+          "type": "reps",
+          "reps": 10,
+          "sets": 2,
+          "both_sides": true,
+          "rest_between_sets_secs": 30,
+          "rest_after_exercise_secs": 45,
+          "form_cue": "Set the pulley high, pull the handle diagonally across your body to the opposite hip, rotate through the torso not just the arms.",
+          "why": "Trains rotational core strength — most sports need force to transfer across the body, not just forward."
+        },
+        {
+          "num": 9,
+          "name": "Foam Roll: Quads and Lats",
+          "type": "timed",
+          "duration_secs": 90,
+          "sets": 1,
+          "rest_after_exercise_secs": 0,
+          "form_cue": "Slow passes, pause on any tender spot for a few seconds.",
+          "why": "Loosens what you just loaded before you leave the gym."
+        }
+      ]
+    }
+  ],
+  "progression_notes": "Once all three sets land at the top of the rep range with a clean last rep, bump the stack up one increment. Move from machine chest press to dumbbell bench press once machine press feels easy for two sessions running."
+}

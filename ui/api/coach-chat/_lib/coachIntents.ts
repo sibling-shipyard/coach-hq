@@ -5,7 +5,7 @@
  * field gets wired in.
  */
 
-import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
+import { MEMORY_NOTE_LABELS, COACHING_STYLES, type MemoryJson, type MemoryNoteLabel, type CoachingStyle, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
 import { type ProgressRow } from "./coachQuestFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 
@@ -53,11 +53,43 @@ export function applyMemoryUpdate(
     version: 1,
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
-    coaching_style: parsed.coaching_style ?? "",
+    coaching_style: parsed.coaching_style ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 
   result.notes[label] = { text: text.trim(), updated_at: updatedAt, trace_id: traceId };
+
+  return JSON.stringify(result, null, 2);
+}
+
+// coaching_style_update: a separate field from memory_update, not a seventh label - it's a plain
+// top-level enum on MemoryJson, not a {text, updated_at, trace_id} notes box. Found live:
+// coaching_style had no write path through chat at all - the athlete asked to change it, Coach's
+// reply said "locked in," nothing actually committed.
+export function applyCoachingStyleUpdate(
+  content: string | null,
+  style: string,
+  updatedAt: string,
+  traceId: string,
+): string {
+  if (!COACHING_STYLES.includes(style as CoachingStyle)) {
+    throw new Error(`coaching_style_update: "${style}" is not a valid coaching style`);
+  }
+
+  const parsed = parseJsonOrNull<Partial<MemoryJson>>(content) ?? {};
+
+  const emptyNotes = () =>
+    Object.fromEntries(
+      MEMORY_NOTE_LABELS.map((l) => [l, { text: "", updated_at: "", trace_id: "" }]),
+    ) as MemoryJson["notes"];
+
+  const result: MemoryJson = {
+    version: 1,
+    _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
+    sports: parsed.sports ?? [],
+    coaching_style: style as CoachingStyle,
+    notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
+  };
 
   return JSON.stringify(result, null, 2);
 }
@@ -77,58 +109,71 @@ export interface InjuryEvent {
   flag_id?: string;
 }
 
-export function applyInjuryEvent(content: string | null, event: InjuryEvent, today: string): string {
+// Array (workout-backend-wiring live verification, same bug class issue #410 fixed for
+// quest_event): a single object silently dropped every injury update past the first when an
+// athlete reported more than one in the same message (e.g. two separate flags resolving) -
+// found live, the reply claimed both were handled but only the first actually committed. Events
+// are applied in order against an accumulating flags array, so a turn reporting several updates
+// captures all of them, and a later event in the same batch sees an earlier one's new flag (e.g.
+// resolving a flag opened earlier in the same turn is possible, however unlikely in practice).
+export function applyInjuryEvent(content: string | null, events: InjuryEvent[], today: string): string {
   const parsed = parseJsonOrNull<{ flags?: InjuryFlag[] }>(content);
-  const flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
+  let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
 
-  if (!event.flag_id) {
-    // New flag - text is required (enforced by the caller before this is invoked), id minted
-    // server-side.
-    const slug = (event.text ?? "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 24);
-    const id = `inj_${today.replace(/-/g, "")}_${slug || Math.random().toString(36).slice(2, 6)}`;
-    const newFlag: InjuryFlag = {
-      id,
-      text: (event.text ?? "").trim(),
-      status: "active",
-      opened_at: today,
-      resolved_at: null,
-    };
-    return JSON.stringify({ flags: [...flags, newFlag] }, null, 2);
-  }
+  for (const event of events) {
+    if (!event.flag_id) {
+      // New flag - text is required (enforced by the caller before this is invoked), id minted
+      // server-side.
+      const slug = (event.text ?? "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 24);
+      const id = `inj_${today.replace(/-/g, "")}_${slug || Math.random().toString(36).slice(2, 6)}`;
+      const newFlag: InjuryFlag = {
+        id,
+        text: (event.text ?? "").trim(),
+        status: "active",
+        opened_at: today,
+        resolved_at: null,
+      };
+      flags = [...flags, newFlag];
+      continue;
+    }
 
-  if (!flags.some((flag) => flag.id === event.flag_id)) {
-    // Gemini reported a flag_id that doesn't exist in the current file - either it hallucinated
-    // one or the flags list changed underneath it since its context was built. Throwing here
-    // (instead of silently returning the array unchanged) is deliberate: a caller that commits
-    // this write should know the update didn't actually happen, not get a false "success".
-    throw new Error(`injury_event: no flag with id "${event.flag_id}" in injuries.json`);
-  }
+    if (!flags.some((flag) => flag.id === event.flag_id)) {
+      // Gemini reported a flag_id that doesn't exist in the current file - either it
+      // hallucinated one or the flags list changed underneath it since its context was built.
+      // Throwing here (instead of silently returning the array unchanged) is deliberate: a
+      // caller that commits this write should know the update didn't actually happen, not get a
+      // false "success". Throws for the WHOLE batch, same all-or-nothing discipline as
+      // applyWeekPlan's day-date validation - a batch with one bad id fails the whole call
+      // rather than silently applying a partial patch.
+      throw new Error(`injury_event: no flag with id "${event.flag_id}" in injuries.json`);
+    }
 
-  const updated = flags.map((flag) => {
-    if (flag.id !== event.flag_id) return flag;
-    if (event.status === "resolved") {
+    flags = flags.map((flag) => {
+      if (flag.id !== event.flag_id) return flag;
+      if (event.status === "resolved") {
+        return {
+          ...flag,
+          text: event.text?.trim() ? event.text.trim() : flag.text,
+          status: "resolved" as const,
+          resolved_at: today,
+        };
+      }
+      // status: "active" - either a text update on an already-active flag, or a reactivation of
+      // a previously resolved one (resolved_at cleared back to null).
       return {
         ...flag,
         text: event.text?.trim() ? event.text.trim() : flag.text,
-        status: "resolved" as const,
-        resolved_at: today,
+        status: "active" as const,
+        resolved_at: null,
       };
-    }
-    // status: "active" - either a text update on an already-active flag, or a reactivation of a
-    // previously resolved one (resolved_at cleared back to null).
-    return {
-      ...flag,
-      text: event.text?.trim() ? event.text.trim() : flag.text,
-      status: "active" as const,
-      resolved_at: null,
-    };
-  });
+    });
+  }
 
-  return JSON.stringify({ flags: updated }, null, 2);
+  return JSON.stringify({ flags }, null, 2);
 }
 
 // quest_event { quest_id, status, value? }[]: Part 2 ledger split. Server owns date/id/ts/
@@ -205,16 +250,13 @@ export interface ProfileUpdate {
 
 const PROFILE_UPDATE_FIELDS: readonly ProfileUpdateField[] = ["name", "dob", "timezone", "height_cm", "weight_kg"];
 
-export function applyProfileUpdate(content: string | null, update: ProfileUpdate): string {
-  // Runtime guard, not just the TS type - `coach_since` must never be settable through this
-  // action (ADR 0018), and this file's whole pattern is not trusting an upstream constraint
-  // alone (see the malformed-JSON handling every applier here already does). Without this, an
-  // unexpected `field` value would fall through to the numeric-coercion branch below, produce
-  // NaN, and silently null out whatever was passed in.
-  if (!PROFILE_UPDATE_FIELDS.includes(update.field)) {
-    throw new Error(`profile_update: "${update.field}" is not a settable field`);
-  }
-
+// Array (workout-backend-wiring live verification, same fix issue #410 already gave
+// quest_event / this PR already gave injury_event): a single object silently dropped every field
+// change past the first when an athlete reported two profile fields in one message (weight AND
+// timezone) - the reply falsely claimed both were updated, but only the last-reported field
+// actually committed. Events applied in order against an accumulating result, all-or-nothing on
+// a bad field (same discipline as applyInjuryEvent).
+export function applyProfileUpdate(content: string | null, updates: ProfileUpdate[]): string {
   const parsed = parseJsonOrNull<Partial<ProfileJson>>(content) ?? {};
 
   const result: ProfileJson = {
@@ -227,30 +269,42 @@ export function applyProfileUpdate(content: string | null, update: ProfileUpdate
     weight_kg: parsed.weight_kg ?? null,
   };
 
-  if (update.field === "name" || update.field === "dob" || update.field === "timezone") {
-    // Found in review: the numeric branch below got a blank-value guard, but this branch didn't
-    // get the same treatment - a blank value silently overwrote real name/dob/timezone data with
-    // "" instead of being rejected like every other invalid input this action guards against.
-    if (update.value.trim() === "") {
-      throw new Error(`profile_update: empty value is not valid for ${update.field}`);
+  for (const update of updates) {
+    // Runtime guard, not just the TS type - `coach_since` must never be settable through this
+    // action (ADR 0018), and this file's whole pattern is not trusting an upstream constraint
+    // alone (see the malformed-JSON handling every applier here already does). Without this, an
+    // unexpected `field` value would fall through to the numeric-coercion branch below, produce
+    // NaN, and silently null out whatever was passed in.
+    if (!PROFILE_UPDATE_FIELDS.includes(update.field)) {
+      throw new Error(`profile_update: "${update.field}" is not a settable field`);
     }
-    result[update.field] = String(update.value);
-  } else {
-    // height_cm / weight_kg - numeric fields. Found in review: Number(update.value) was never
-    // checked for NaN, so a non-numeric value (e.g. Gemini passing along "about 180" verbatim)
-    // silently wrote NaN into profile.json - same silent-corruption shape the coach_since guard
-    // above exists to prevent, just for a value instead of a field. Second finding: Number("")
-    // (and whitespace-only strings) is 0, not NaN - JS's own quirk, not caught by isNaN alone -
-    // so an empty value slipped past the guard and silently wrote 0 instead of being rejected.
-    // Reject blank input explicitly before the numeric check.
-    if (update.value.trim() === "") {
-      throw new Error(`profile_update: empty value is not a valid number for ${update.field}`);
+
+    if (update.field === "name" || update.field === "dob" || update.field === "timezone") {
+      // Found in review: the numeric branch below got a blank-value guard, but this branch
+      // didn't get the same treatment - a blank value silently overwrote real name/dob/timezone
+      // data with "" instead of being rejected like every other invalid input this action guards
+      // against.
+      if (update.value.trim() === "") {
+        throw new Error(`profile_update: empty value is not valid for ${update.field}`);
+      }
+      result[update.field] = String(update.value);
+    } else {
+      // height_cm / weight_kg - numeric fields. Found in review: Number(update.value) was never
+      // checked for NaN, so a non-numeric value (e.g. Gemini passing along "about 180" verbatim)
+      // silently wrote NaN into profile.json - same silent-corruption shape the coach_since guard
+      // above exists to prevent, just for a value instead of a field. Second finding: Number("")
+      // (and whitespace-only strings) is 0, not NaN - JS's own quirk, not caught by isNaN alone -
+      // so an empty value slipped past the guard and silently wrote 0 instead of being rejected.
+      // Reject blank input explicitly before the numeric check.
+      if (update.value.trim() === "") {
+        throw new Error(`profile_update: empty value is not a valid number for ${update.field}`);
+      }
+      const parsedValue = Number(update.value);
+      if (Number.isNaN(parsedValue)) {
+        throw new Error(`profile_update: "${update.value}" is not a valid number for ${update.field}`);
+      }
+      result[update.field] = parsedValue;
     }
-    const parsedValue = Number(update.value);
-    if (Number.isNaN(parsedValue)) {
-      throw new Error(`profile_update: "${update.value}" is not a valid number for ${update.field}`);
-    }
-    result[update.field] = parsedValue;
   }
 
   return JSON.stringify(result, null, 2);
