@@ -5,8 +5,8 @@
 
 ## Implementation progress — Part A (2026-08-19)
 
-**Status:** built and unit-tested on `core/fsp-reliability-part-a`; full live FSP verification is
-in progress. No commit or PR yet because the required live gate has not completed.
+**Status:** done. Built, unit-tested, and live-verified end to end on `core/fsp-reliability-part-a`
+(PR #432), including the quest_create fix below. Merge-ready.
 
 - [x] Branched Part A from `core/first-session-protocol-wiring` at `978cb0e`.
 - [x] A1: native name, sports, and coaching style write directly on greet; goal removed from iOS
@@ -109,9 +109,9 @@ in progress. No commit or PR yet because the required live gate has not complete
 
 ## Implementation progress — Part B (2026-08-19)
 
-**Status:** code complete on `core/fsp-end-conversation-part-b`; PR #434 is open against
-`core/fsp-reliability-part-a` (PR #432). Not merged. Independent live verification remains for
-the reviewer, per the athlete's direction to stop builder-side testing.
+**Status:** done. Code complete on `core/fsp-end-conversation-part-b`, rebased onto Part A's final
+tip, independently reviewed and live-verified end to end (see below). PR #434 open against
+`core/fsp-reliability-part-a` (PR #432). Merge-ready.
 
 - [x] Added `endConversationRequested: true` to the POST contract and ORed it into close intent.
   The flag selects closing mode but does not force `session_closed: true`; Coach may still ask a
@@ -134,14 +134,39 @@ the reviewer, per the athlete's direction to stop builder-side testing.
 - [x] Automated checks completed before builder-side testing was stopped: TypeScript clean; full
   Vitest suite 27 files / 332 tests; focused close-signal/chat-thread tests 26/26 after the final
   model-event fix. This Linux host could not compile or render the iOS app.
-- [ ] Reviewer live verification still required: disabled-to-enabled transition without reload,
-  web/iOS control placement, follow-up continuation, and final GitHub commit/file contents.
-- [ ] Extra Part A finding from the stopped live run: Gemini replied that it had created the
-  `Ten-minute mobility` habit, but commit `3de394d7` changed only `memory.json` and `seasons.json`;
-  `quests.json` remained absent (GitHub API returned 404). This is a Part A reliability follow-up,
-  not patched into Part B.
 - [x] Committed as `43b79b8` and pushed. PR #434 targets `core/fsp-reliability-part-a` and contains
   only the intended Part B implementation, tests, and `coach-chat-flow.md` update.
+- [x] Extra Part A finding from Codex's stopped live run (quest_create not firing) is the same
+  root cause independently found and fixed above - see the Part A `isFirstSessionRitualDone` entry.
+  Not a Part B issue.
+
+**Reviewer independent live verification (2026-08-19) - all confirmed, none self-reported.**
+Rebased `core/fsp-end-conversation-part-b` onto Part A's updated tip (`6c4acd8`, the quest_create
+fix) with `git rebase --onto`, force-pushed - clean, no conflicts. Read every file in the diff
+(backend: `coach-chat.ts`/`closeSignal.ts`/`chatThreads.ts`/`fspWrites.ts`; web:
+`CoachChatWidgets.tsx`/`coach-chat.css`/`coachChatModel.ts`/`CoachChat.tsx`; iOS:
+`CoachChatModels.swift`/`CoachChatAPIClient.swift`/`CoachChatView.swift`/`CoachChatWarmUI.swift`).
+Confirmed the dead `setThreadStatus`/PATCH path is fully removed. Independently ran
+`tsc --noEmit` (clean) and the full Vitest suite (27 files, 338 tests, all green - includes 4 new
+tests beyond the 332 the builder reported, from Part A's rebase). Confirmed button sizing/
+placement: web End Conversation button sits immediately right of Send, same 38px height (width
+differs by necessity - text label vs. icon-only Send); iOS both buttons are 32x32, immediately
+adjacent.
+- [x] Live-tested end to end on a fresh scratch branch (`core/verify-partb`, deleted after),
+  server pointed at it via `COACH_CHAT_BRANCH`, real Gemini calls, every claim checked against the
+  actual GitHub commit:
+  - `coach-chat-profile-status` and every greet/ordinary-turn response correctly reported
+    `profileComplete: false` through the early FSP turns, including one turn where Gemini didn't
+    set `coaching_style` (a Gemini-adherence gap on that turn, not a code defect - `sports`/
+    `season_start`/`dob`/`height`/`weight` all landed correctly).
+  - `profileComplete` flipped to `true` **mid-conversation**, without a close, the instant
+    `coaching_style` finally landed on a later ordinary turn - confirmed against a real commit
+    stamping `coach_since`. This is exactly the live transition the button's enabled state depends
+    on, and it worked with no reload needed.
+  - Pressed the button (`endConversationRequested: true`, empty message, no typed close phrase):
+    got `closed: true` back, and confirmed a real commit landed on GitHub (`621ac9c`, title derived
+    from the thread's first message) - the button reliably forces a close without any
+    natural-language phrase, exactly as designed.
 
 ## Orientation, for whoever implements this (no prior context assumed)
 
