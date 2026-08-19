@@ -372,7 +372,7 @@ export async function generateInitialTemplates(
   });
 
   const templateWrites: FileEntry[] = finalTemplates.map((t) => ({
-    path: `${TEMPLATES_PATH_PREFIX}${t.id}.json`,
+    path: templatePath(t.id),
     content: JSON.stringify(t, null, 2),
   }));
   const manifestWrite: FileEntry = {
