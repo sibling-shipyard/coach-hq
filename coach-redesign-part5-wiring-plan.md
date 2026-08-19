@@ -22,6 +22,17 @@
 
 ## Known items already waiting here
 
+- **A pile of docs/scripts still describe the entirely-old pre-redesign layout.** Found while
+  reorganizing `user_data/ledger/` vs `user_data/coach/`: `platform/soul/B_engine.md`,
+  `platform/soul/C_athlete.md`, `platform/scripts/carve-skeleton.mjs`,
+  `platform/scripts/provision-user.sh`, `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift`
+  (`readChallengeV2()`), `README.md`, and `docs/ref-docs/current-week-contract.md` /
+  `season-close.md` / `milestone-schema.md` all still reference `user_data/coach/state.md` /
+  `user_data/coach/coach_notes.md` / `user_data/ledger/challenge_v2.json` - the layout Parts 1-3
+  replaced. None were updated when those PRs shipped. Confirmed live: the real athlete repo's
+  `main` is still on the old layout entirely (`state.md`, `coach_notes.md`, no `profile.json`/etc
+  yet) - the Part 1-3 migration scripts have never actually been run against real `main`. A real
+  follow-up, not fixed here.
 - **`plan_edit` can't touch `week.guardrails[]`.** Found live (round-3 week-replanning test): an
   athlete asking to change a guardrail alongside a session swap has no structured field for it -
   `plan_edit` only edits one day's session content. Follow-up once real athlete asks surface how

@@ -9,9 +9,11 @@
  * Usage:
  *   node ui/scripts/migrate-coach-memory-part2.mjs <path-to-athlete-repo-checkout>
  *
- * Writes the four new files into <repo>/user_data/coach/ and deletes
- * user_data/ledger/challenge_v2.json plus user_data/coach/archive/seasons/ - review and commit
- * the result yourself, this script does not touch git.
+ * Writes the four new files into <repo>/user_data/ledger/ (structured gamification-ledger data,
+ * the same band challenge_v2.json itself occupied - not user_data/coach/, which is narrative/
+ * memory-band data only) and deletes user_data/ledger/challenge_v2.json plus
+ * user_data/coach/archive/seasons/ - review and commit the result yourself, this script does not
+ * touch git.
  *
  * Note: this only migrates the CURRENT season from challenge_v2.json. Past seasons under
  * archive/seasons/ (each with its own challenge_v2.json) are not replayed into
@@ -208,10 +210,10 @@ const progressionsJson = {
 
 // --- write ---------------------------------------------------------------------------------
 
-fs.writeFileSync(path.join(coachDir, "seasons.json"), JSON.stringify(seasonsJson, null, 2) + "\n");
-fs.writeFileSync(path.join(coachDir, "quests.json"), JSON.stringify(questsJson, null, 2) + "\n");
-fs.writeFileSync(path.join(coachDir, "progress.json"), JSON.stringify(progressJson, null, 2) + "\n");
-fs.writeFileSync(path.join(coachDir, "progressions.json"), JSON.stringify(progressionsJson, null, 2) + "\n");
+fs.writeFileSync(path.join(ledgerDir, "seasons.json"), JSON.stringify(seasonsJson, null, 2) + "\n");
+fs.writeFileSync(path.join(ledgerDir, "quests.json"), JSON.stringify(questsJson, null, 2) + "\n");
+fs.writeFileSync(path.join(ledgerDir, "progress.json"), JSON.stringify(progressJson, null, 2) + "\n");
+fs.writeFileSync(path.join(ledgerDir, "progressions.json"), JSON.stringify(progressionsJson, null, 2) + "\n");
 
 fs.rmSync(path.join(ledgerDir, "challenge_v2.json"));
 
@@ -227,7 +229,7 @@ if (fs.existsSync(archiveSeasonsDir)) {
 }
 
 console.log(
-  `Wrote seasons.json (1 season), quests.json (${quests.length} quests), progress.json (${rows.length} rows), progressions.json (empty) to ${coachDir}`,
+  `Wrote seasons.json (1 season), quests.json (${quests.length} quests), progress.json (${rows.length} rows), progressions.json (empty) to ${ledgerDir}`,
 );
 console.log(
   `Removed: user_data/ledger/challenge_v2.json${removedArchive ? ", user_data/coach/archive/seasons/ (recap ritual dropped for now - issue #411)" : ""}`,
