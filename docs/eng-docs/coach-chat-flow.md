@@ -314,8 +314,9 @@ retention slot at all — only threads that actually got a real close-out ever r
 
 ## First Session Protocol flow
 
-Trigger: `state.md`'s `## Athlete Profile` section is still the blank template (headings only, no
-data) that `platform/scripts/carve-skeleton.mjs` ships every new athlete repo with.
+Trigger: `isAthleteProfileComplete()` reads false — `profile.json`'s `name` is blank, or
+`memory.json`'s `sports` is empty (or both files don't exist yet). See "Completion signal" below
+for exactly how that's computed.
 
 ```mermaid
 sequenceDiagram
@@ -324,6 +325,7 @@ sequenceDiagram
     participant App as MainTabView / CoachChatView
     participant Server as coach-chat.ts
     participant Gemini
+    Native->>Hints: save(name) — name prompt screen
     Native->>Hints: save(sports, goal) — season step
     Native->>App: onboardingPhase = .complete
     App->>Server: GET coach-chat-profile-status
@@ -339,17 +341,18 @@ sequenceDiagram
         Server->>Gemini: ordinary mode
     end
     App->>Server: "wrap this session" (close signal)
-    Server->>Gemini: closing mode + full ledger context
-    Gemini-->>Server: file_updates (state.md edits + challenge_v2.json patch)
-    Server->>Server: commit, profileComplete: true
-    Server-->>App: profileComplete: true
+    Server->>Gemini: closing mode + full context
+    Gemini-->>Server: profile_update, sports_update, memory_update,\ninjury_event, coaching_style_update,\nseason_start, quest_create (as applicable)
+    Server->>Server: commit (one atomic commitFilesAtomic call,\nall reported files), project profileComplete\nfrom this turn's own writes
+    Server-->>App: profileComplete: true, coach_since stamped
     App->>App: CoachSetupState.markComplete, OnboardingHints.clear()
 ```
 
 ### 1. Native onboarding hands off hints, not a profile
 
-`ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift`'s season step collects sport(s) + a
-one-line goal and caches them locally via `OnboardingHints` (UserDefaults, no TTL) — **not**
+`ios/CoachHQ/CoachHQ/Views/PersonalizeView.swift`'s name prompt and
+`ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift`'s season step (sport(s) + a one-line goal)
+each cache what they collect locally via `OnboardingHints` (UserDefaults, no TTL) — **not**
 committed to the repo. (An earlier design committed a `user_data/profile.md` with this data;
 confirmed zero consumers anywhere, removed.) If the athlete never returns, the hints just sit
 there indefinitely; if they reinstall or switch to web first, the hints are simply absent and the
@@ -383,14 +386,22 @@ so Gemini reflects them back for confirmation instead of asking cold:
 > *"I see you picked running and strength during signup, and your goal was 'get back to
 > competitive shape' — still accurate, or has that shifted?"*
 
-§10 walks through: warm intro → conversational intake (name, sport/frequency — skipped if hints
-present, fitness self-assessment — skipped if activity history exists, goal depth, events,
-injuries, coaching style, timezone) → confirm → write `state.md`'s Athlete Profile + Active
-Injury Flags + Season/phase → set up quests → write `challenge_v2.json`. The doc text describes
-this the same way for a full Claude Code session (shell commands, `git commit`) and for chat —
-`askGemini()`'s own system-instruction prelude explicitly tells Gemini it has no shell/tool
-access in this context and to translate "commit" into the `file_updates`/close-turn mechanism
-described above instead of trying to run anything.
+The chat-only intake text lives in its own composed fragment, `platform/horcruxes/first-session.md`
+(sourced from `B_engine.md`'s `s10_first_session_chat_*` keys, kept separate from the
+`CLAUDE_ONLY` `s10_first_session_*` keys that still describe the BYO-Claude-Code git-commit
+ritual for a terminal session — see `platform/scripts/compose-soul.mjs`'s `HORCRUXES` table).
+Chat's version walks through: warm intro → conversational intake, each answer mapped to a real
+action field → confirm → close. Name → `profile_update`; sports → `sports_update`; training
+frequency/fitness level → `memory_update` (`fitness_baseline`); the 3-6 month goal → `quest_create`'s
+`main_quest` (memory.json has no goal field — issue #408 moved that meaning to seasons/quests);
+upcoming events and a rough season timeline → `season_start` (no `phase` field, Part 2 dropped
+it); injuries → `injury_event`; the "how do you respond to being pushed" question →
+`coaching_style_update`'s three-way enum; date of birth/height/weight/city → `profile_update`
+(`dob`/`height_cm`/`weight_kg`/`timezone`); habit quests → `quest_create`'s `quests[]`. All of it
+lands in one atomic `commitFilesAtomic` call at close, same mechanism as an ordinary closing turn
+— `season_start`/`quest_create` are explicitly scoped in the prompt text to first-session/
+new-athlete onboarding only, never for a returning athlete's season or quest changes (those go
+through the existing Weekly Kick-off / Sunday Session rituals).
 
 ### 4. Resumability
 
@@ -440,12 +451,15 @@ nothing for that thread at all until it closes.
 
 ### 5. Completion signal
 
-`isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/coachChatFiles.ts`) parses the `## Athlete Profile`
-section generically: every `- **Label:**` line found must have non-blank content after the
-colon, and the section must exist with at least one such line. Not hardcoded to the six current
-field names, so it stays correct if the template ever changes. Computed from whatever `state.md`
-content a close-turn **actually just committed** (not a stale pre-turn snapshot), returned as
-`profileComplete` on every close response.
+`isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/coachChatFiles.ts`) checks two structured
+fields directly: `profile.json`'s `name` (non-blank) and `memory.json`'s `sports` (at least one
+non-blank entry). Both must be true for the profile to read as complete. `coach-chat.ts` computes
+`profileComplete` by projecting this turn's own action-field writes (`profile_update`,
+`sports_update`) onto the pre-turn `profile`/`memory` objects in memory — not a stale pre-turn
+snapshot, and not a fresh GitHub read either, just this turn's already-computed writes applied
+locally before the completeness check. This is what gates `coach_since` stamping
+(`injectCoachSinceIfNeeded`) and initial workout template generation
+(`generateInitialTemplates`) on the real false→true transition.
 
 ## Auth
 

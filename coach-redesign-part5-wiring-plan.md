@@ -33,6 +33,12 @@
   `main` is still on the old layout entirely (`state.md`, `coach_notes.md`, no `profile.json`/etc
   yet) - the Part 1-3 migration scripts have never actually been run against real `main`. A real
   follow-up, not fixed here.
+- **`docs/eng-docs/coach-chat-flow.md` is broadly stale, beyond the one section fixed for FSP.**
+  Found while wiring First Session Protocol: the whole doc still describes the pre-Parts-1-3
+  "reliability-debug strip-down" state (`state.md`/`quest_log.md` throughout, "no file_updates/
+  JSON writes beyond the coach_since stamp") - not just the "Completion signal" section (fixed
+  here). Left the doc's `Verified:` date unbumped rather than falsely claim the whole thing is
+  current - a real rewrite is a separate, larger pass.
 - **`plan_edit` can't touch `week.guardrails[]`.** Found live (round-3 week-replanning test): an
   athlete asking to change a guardrail alongside a session swap has no structured field for it -
   `plan_edit` only edits one day's session content. Follow-up once real athlete asks surface how

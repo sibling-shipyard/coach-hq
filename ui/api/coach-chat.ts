@@ -42,7 +42,7 @@ import {
   type ChatThread,
 } from "./coach-chat/_lib/chatThreads.js";
 import { loadClosingFileContext, injectCoachSinceIfNeeded, type ClosingFileContext } from "./coach-chat/_lib/coachWrites.js";
-import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate, applyCoachingStyleUpdate } from "./coach-chat/_lib/coachIntents.js";
+import { applyCoachNote, applyMemoryUpdate, applyInjuryEvent, applyQuestEvent, applyProfileUpdate, applyCoachingStyleUpdate, applySportsUpdate, applySeasonStart, applyQuestCreate } from "./coach-chat/_lib/coachIntents.js";
 import {
   generateInitialTemplates,
   applyTemplateEdit,
@@ -53,8 +53,8 @@ import {
   TEMPLATES_MANIFEST_PATH,
 } from "./coach-chat/_lib/coachWorkoutFiles.js";
 import { applyWeekPlan, applySessionReconcile, applyPlanEdit, CURRENT_WEEK_PATH } from "./coach-chat/_lib/coachWeekFiles.js";
-import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
-import { PROGRESS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
+import { MEMORY_PATH, INJURIES_PATH, COACH_LOG_PATH, PROFILE_PATH, MEMORY_NOTE_LABELS, type ProfileJson, type MemoryJson } from "./coach-chat/_lib/coachMemoryFiles.js";
+import { PROGRESS_PATH, SEASONS_PATH, QUESTS_PATH } from "./coach-chat/_lib/coachQuestFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import { parseJsonOrNull } from "./coach-chat/_lib/coachChatFiles.js";
@@ -322,14 +322,17 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const memoryUpdate = reply.memory_update;
       const hasMemoryUpdate = Boolean(memoryUpdate?.label && memoryUpdate.text?.trim());
       const coachingStyleUpdate = reply.coaching_style_update;
+      const sportsUpdate = (reply.sports_update ?? []).filter((s) => s.trim().length > 0);
+      const hasSportsUpdate = sportsUpdate.length > 0;
 
-      // memory_update and coaching_style_update both write memory.json, so a turn reporting both
-      // (e.g. a new fitness_baseline note plus a style change) is chained in one resolve() against
-      // the same fresh read, the same pattern currentWeekWrite below uses for session_reconcile +
-      // plan_edit - two independent FileEntry writes to the same path would silently drop one of
-      // them (commitFilesAtomic has no per-path merge, last blob for a path wins).
+      // memory_update, coaching_style_update, and sports_update all write memory.json, so a turn
+      // reporting more than one (e.g. a new fitness_baseline note plus a first-session sports
+      // list) is chained in one resolve() against the same fresh read, the same pattern
+      // currentWeekWrite below uses for session_reconcile + plan_edit - independent FileEntry
+      // writes to the same path would silently drop all but the last (commitFilesAtomic has no
+      // per-path merge, last blob for a path wins).
       const memoryFileWrite: FileEntry | undefined =
-        hasMemoryUpdate || coachingStyleUpdate
+        hasMemoryUpdate || coachingStyleUpdate || hasSportsUpdate
           ? {
               path: MEMORY_PATH,
               resolve: async () => {
@@ -346,8 +349,12 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
                 if (coachingStyleUpdate) {
                   working = applyCoachingStyleUpdate(working, coachingStyleUpdate, todayDateString(timezone, new Date()), traceId);
                 }
-                // At least one of hasMemoryUpdate/coachingStyleUpdate is true (the guard above),
-                // so at least one branch ran and working is a real applier output, never null.
+                if (hasSportsUpdate) {
+                  working = applySportsUpdate(working, sportsUpdate, todayDateString(timezone, new Date()), traceId);
+                }
+                // At least one of hasMemoryUpdate/coachingStyleUpdate/hasSportsUpdate is true (the
+                // guard above), so at least one branch ran and working is a real applier output,
+                // never null.
                 return working as string;
               },
             }
@@ -548,10 +555,68 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         };
       }
 
-      // B2/ADR 0018: profile.json isn't edited here, so both sides of this transition check stay
-      // the pre-turn value until something actually edits the Athlete Profile section (see BACKLOG.md #1).
+      // First Session Protocol only - creates the athlete's first season. season_start/
+      // quest_create each touch their own file (seasons.json/quests.json), so each gets its own
+      // FileEntry, same pattern as templateEditWrite/sessionPlanWrite above (fetch fresh content
+      // at commit time, apply, return).
+      const seasonStart = reply.season_start;
+      const seasonStartWrite: FileEntry | undefined = seasonStart?.name?.trim()
+        ? {
+            path: SEASONS_PATH,
+            resolve: async () => {
+              const fresh = await getFileRaw(repo, SEASONS_PATH, token);
+              return applySeasonStart(fresh, seasonStart, traceId, new Date());
+            },
+          }
+        : undefined;
+
+      // First Session Protocol only - creates the athlete's main quest and any habit quests.
+      const questCreate = reply.quest_create;
+      const questCreateWrite: FileEntry | undefined =
+        questCreate?.main_quest || (questCreate?.quests?.length ?? 0) > 0
+          ? {
+              path: QUESTS_PATH,
+              resolve: async () => {
+                const fresh = await getFileRaw(repo, QUESTS_PATH, token);
+                return applyQuestCreate(fresh, questCreate!, todayDateString(timezone, new Date()), traceId, new Date());
+              },
+            }
+          : undefined;
+
+      // B2/ADR 0018 fix: profile.json isn't re-fetched from the repo here, but this turn's own
+      // writes (profileUpdates / sportsUpdate, computed above for the FileEntry resolvers) are
+      // projected in-memory onto the pre-turn profile/memory objects so profileComplete reflects
+      // what THIS turn just committed, not stale pre-turn state. wasProfileComplete stays the real
+      // pre-turn value (unchanged objects) - this is what makes the false->true transition below
+      // (coach_since stamping, initial template generation) able to fire at all; previously both
+      // sides read the identical pre-turn objects and the transition was permanently dead.
       const wasProfileComplete = isAthleteProfileComplete(profile, memory);
-      const profileComplete = isAthleteProfileComplete(profile, memory);
+      // profile/memory can be null (a genuinely brand-new athlete, profile.json/memory.json
+      // don't exist yet) - project onto a fresh default shape rather than staying null, or a
+      // turn that sets both name and sports for the first time (profile_update + sports_update
+      // together) would incorrectly still read as incomplete this same turn.
+      const projectedName = profileUpdates.find((u) => u.field === "name")?.value ?? profile?.name ?? "";
+      const projectedProfile: ProfileJson = {
+        version: 1,
+        coach_since: profile?.coach_since ?? null,
+        name: projectedName,
+        dob: profile?.dob ?? null,
+        timezone: profile?.timezone ?? "UTC",
+        height_cm: profile?.height_cm ?? null,
+        weight_kg: profile?.weight_kg ?? null,
+      };
+      const projectedMemory: MemoryJson = {
+        version: 1,
+        _meta: memory?._meta ?? { updated_at: "", updated_by: "model", trace_id: "" },
+        sports: hasSportsUpdate ? sportsUpdate : memory?.sports ?? [],
+        coaching_style: memory?.coaching_style ?? null,
+        notes:
+          memory?.notes ??
+          (Object.fromEntries(
+            MEMORY_NOTE_LABELS.map((l) => [l, { text: "", updated_at: "", trace_id: "" }]),
+          ) as MemoryJson["notes"]),
+      };
+      const profileComplete = isAthleteProfileComplete(projectedProfile, projectedMemory);
       const validUpdates = injectCoachSinceIfNeeded([], closingFiles, wasProfileComplete, profileComplete, timezone);
 
       if (validUpdates.length === 0 && !trimmedCoachNote) {
@@ -569,6 +634,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       if (templateEditWrite) optionalWrites.push(templateEditWrite);
       if (sessionPlanWrite) optionalWrites.push(sessionPlanWrite);
       if (currentWeekWrite) optionalWrites.push(currentWeekWrite);
+      if (seasonStartWrite) optionalWrites.push(seasonStartWrite);
+      if (questCreateWrite) optionalWrites.push(questCreateWrite);
       const writes: FileEntry[] = [...validUpdates, chatWrite, ...optionalWrites];
 
       let repoSha: string;

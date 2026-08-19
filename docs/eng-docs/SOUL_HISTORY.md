@@ -25,6 +25,35 @@ Write it so someone who has never opened this repo enjoys reading it. If an entr
 
 ---
 
+## v5.11 — "First Session, For Real This Time" · Aug 19, 2026
+**Superpower gained:** chat's First Session Protocol asks questions that actually go somewhere.
+
+The chat runtime's intake conversation was still describing the pre-redesign world - asking for
+"age" when `profile.json` only has `dob`, asking about a season "phase" Part 2 had already
+dropped, and structured around a `state.md`/`challenge_v2.json` git-commit ritual chat can't
+perform at all. Worse: `memory.json.sports` had no write path anywhere in the code, so a first
+session could never actually complete via chat regardless of what SOUL asked.
+
+- **Chat gets its own First Session text, split from BYOB's.** New `s10_first_session_chat_*`
+  keys in `B_engine.md`, feeding the `first-session.md` horcrux - the existing `CLAUDE_ONLY` keys
+  (BYO Claude Code's git-commit ritual) are untouched. `SOUL.claude.md` has zero diff from this
+  change.
+- **Every question now maps to a real write.** Sports, a from-scratch season, and the main/habit
+  quests all got their first-ever write path (`sports_update`, `season_start`, `quest_create`) -
+  before this, only name/dob/injuries/coaching-style had anywhere to land.
+- **The coaching-style question got sharper.** Reworded to map cleanly onto exactly one of three
+  enum values (accountability/encouragement/analysis) instead of an open-ended answer Gemini had
+  to interpret.
+- **`profileComplete` stopped comparing a value to itself.** The false→true transition gating
+  `coach_since` stamping and initial workout template generation had been dead code since the
+  ledger split - both sides of the check read the same pre-turn snapshot. Fixed by projecting
+  this turn's own writes before checking.
+
+**Why it mattered:** a first session that can't finish isn't a first session - it's a form nobody
+can submit. See `docs/eng-docs/coach-chat-flow.md`'s "First Session Protocol flow" for the wiring.
+
+---
+
 ## v5.10 — "Seasons Without Ceremony" · Aug 18, 2026
 **Superpower gained:** a season is just a name, a start, and an end.
 

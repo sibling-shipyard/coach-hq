@@ -13,8 +13,13 @@ import type { ChatMessage } from "./chatThreads.js";
 // type it that way; "done" alone is deliberately excluded ("done for today's hill reps" isn't a
 // close). "that's it/all" is anchored to the end of the message so "that's all, actually one
 // more thing" doesn't false-positive.
+// Found live during First Session Protocol testing: "let's wrap this up" - an extremely common,
+// completely natural close phrase - didn't match, since the filler alternation between "wrap"
+// and "up" only allowed "it "/"things ", not "this ". Gemini itself decided to close that turn
+// (session_closed: true) but the server discarded it because closeIntent gated the whole close
+// path and was false - a real athlete-facing bug, not just a missed edge case.
 const CLOSE_SESSION_PATTERN =
-  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |things )?up\b|^(let'?s|ok|okay|yeah|yep|alright|sure)?[,.]?\s*wrap[.!]?$|done for (today|the day)|that'?s (it|all)\b(\s+for (today|now|me))?[.!]?$|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
+  /\b(wrap|close|end)\b[\s\w]*\bsession\b|\bwrap(ping)? (it |this |things )?up\b|^(let'?s|ok|okay|yeah|yep|alright|sure)?[,.]?\s*wrap[.!]?$|done for (today|the day)|that'?s (it|all|everything)\b(\s+for (today|now|me))?[.!]?$|goodnight coach|\bbye coach\b|\bsee you tomorrow\b|\bcatch you later\b/i;
 
 export function isCloseSignal(message: string): boolean {
   return CLOSE_SESSION_PATTERN.test(message);
