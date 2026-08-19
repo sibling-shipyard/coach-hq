@@ -25,6 +25,7 @@ import {
   getHeadSha,
   invalidateCoachContext,
   isAthleteProfileComplete,
+  isFirstSessionRitualDone,
   loadCoachContext,
   resolveCoachChatBranch,
 } from "./coach-chat/_lib/coachChatFiles.js";
@@ -134,7 +135,7 @@ async function handleGreet(
       "",
       "greeting",
       combineExtraContext(
-        firstSessionContext(isAthleteProfileComplete(profile, memory, seasons), FIRST_SESSION_PROTOCOL),
+        firstSessionContext(isFirstSessionRitualDone(profile, memory, seasons, quests), FIRST_SESSION_PROTOCOL),
         onboardingHintsContext(onboardingHints),
         injuryFlagsContext(injuries),
         activeQuestsContext(quests),
@@ -267,7 +268,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           // First Session spans several turns, so this has to fire on ordinary turns too -
           // greet-only would drop the protocol the moment the athlete answered the first question.
           combineExtraContext(
-            firstSessionContext(isAthleteProfileComplete(profile, memory, seasons), FIRST_SESSION_PROTOCOL),
+            firstSessionContext(isFirstSessionRitualDone(profile, memory, seasons, quests), FIRST_SESSION_PROTOCOL),
             injuryFlagsContext(injuries),
             activeQuestsContext(quests),
             activeTemplatesContext(validTemplateIds),

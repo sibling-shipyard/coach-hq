@@ -91,4 +91,32 @@ describe("cache safety", () => {
     expect(dynamic).toContain("soon as the first season is agreed");
     expect(dynamic).toContain("Do not set template_edit, session_plan, week_plan");
   });
+
+  // Found live testing Part A: on the turn that both closes AND is still mid-First-Session, the
+  // mode==="closing" branch won outright and the dedicated FSP reminder (firstSessionTurn branch,
+  // tested above) was never reached - quest_create got buried as one paragraph among ~15 mostly
+  // irrelevant ones (template_edit/session_plan/week_plan/etc, none of which apply to a
+  // first-session athlete). Real athlete stated habit quests on a closing turn, Gemini's reply
+  // claimed they were saved, but quest_create never fired - confirmed from the raw response, not
+  // just the missing commit. Fixed with a dedicated, focused closing+FSP instruction block.
+  it("gives the closing turn its own focused FSP checklist when it's also a First Session close", () => {
+    const dynamic = buildDynamicText(
+      "state",
+      "quests",
+      "closing",
+      firstSessionContext(false, PROTOCOL),
+      true,
+    );
+    expect(dynamic).toContain("LAST CHANCE");
+    expect(dynamic).toContain("Their main goal AND any daily habits or routines they want to track");
+    expect(dynamic).toContain("quest_create's quests[]");
+    expect(dynamic).not.toContain("Weekly Kick-off Ritual");
+    expect(dynamic).not.toContain("the phase's plain-language name");
+  });
+
+  it("still uses the generic closing checklist for a returning athlete's close (not First Session)", () => {
+    const dynamic = buildDynamicText("state", "quests", "closing", undefined, true);
+    expect(dynamic).not.toContain("LAST CHANCE");
+    expect(dynamic).toContain("session-close signal");
+  });
 });

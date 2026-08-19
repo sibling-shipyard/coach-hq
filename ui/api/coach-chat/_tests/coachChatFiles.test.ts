@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { invalidateCoachContext, isAthleteProfileComplete, loadCoachContext } from "../_lib/coachChatFiles.js";
+import { invalidateCoachContext, isAthleteProfileComplete, isFirstSessionRitualDone, loadCoachContext } from "../_lib/coachChatFiles.js";
 import type { ProfileJson, MemoryJson } from "../_lib/coachMemoryFiles.js";
-import type { SeasonsJson } from "../_lib/coachQuestFiles.js";
+import type { QuestsJson, SeasonsJson } from "../_lib/coachQuestFiles.js";
 
 // coach-redesign-part1-memory.md, Step 3: replaces the old regex/section-matching read of
 // state.md's Athlete Profile with a simple field-presence check against profile.json/memory.json,
@@ -97,6 +97,38 @@ describe("isAthleteProfileComplete", () => {
 
   it("is false when current_season_id does not match a season", () => {
     expect(isAthleteProfileComplete(profile(), memory(), seasons({ current_season_id: "missing" }))).toBe(false);
+  });
+});
+
+// Live testing found a real bug: isAthleteProfileComplete flips true (unlocking daily chat) the
+// moment profile/sports/style/season land, which is also what firstSessionContext() used to gate
+// on directly - so an athlete who mentioned habit quests on the SAME turn that completed their
+// profile got no FSP prompt guidance for it at all, and quest_create silently never fired.
+// isFirstSessionRitualDone adds the one more thing SOUL's own ritual still wants before FSP is
+// truly over: a main_quest. It resolves to true forever once set, same as the other fields, so a
+// quest-declining athlete only sees it once, not indefinitely.
+function quests(overrides: Partial<QuestsJson> = {}): QuestsJson {
+  return {
+    version: 1,
+    _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
+    weekly_targets: {},
+    main_quest: { id: "q1", name: "Get faster", type: "progress", target: 100 },
+    quests: [],
+    ...overrides,
+  };
+}
+
+describe("isFirstSessionRitualDone", () => {
+  it("is true once profile is complete and a main_quest exists", () => {
+    expect(isFirstSessionRitualDone(profile(), memory(), seasons(), quests())).toBe(true);
+  });
+
+  it("is false when quests.json doesn't exist yet, even if profile is otherwise complete", () => {
+    expect(isFirstSessionRitualDone(profile(), memory(), seasons(), null)).toBe(false);
+  });
+
+  it("is false when profile isn't complete yet, regardless of quests", () => {
+    expect(isFirstSessionRitualDone(profile({ name: "" }), memory(), seasons(), quests())).toBe(false);
   });
 });
 

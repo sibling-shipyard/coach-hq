@@ -215,3 +215,22 @@ export function isAthleteProfileComplete(
   );
   return hasName && hasDob && hasTimezone && hasHeight && hasWeight && hasSport && hasCoachingStyle && hasCurrentSeason;
 }
+
+// isAthleteProfileComplete deliberately excludes quests - some athletes don't want them, and
+// that gate also unlocks daily chat, so it can't wait on an optional field. But the same boolean
+// was also the only thing deciding whether <first_session> prompt guidance kept showing - so the
+// instant profile/sports/style/season landed, FSP context vanished even if quest-setup (SOUL's
+// own Step 4) hadn't happened yet. Live testing: an athlete stated habit quests on the same turn
+// that completed their profile, and quest_create never fired because firstSessionContext() had
+// already stopped injecting by then. This is the bounded fix - main_quest is meant to be set
+// exactly once per athlete (habit quests are optional, main_quest isn't), so this naturally
+// resolves to false forever once it's ever set, same as isAthleteProfileComplete does for its
+// own fields - no risk of a quest-declining athlete getting stuck in FSP mode permanently.
+export function isFirstSessionRitualDone(
+  profile: ProfileJson | null,
+  memory: MemoryJson | null,
+  seasons: SeasonsJson | null,
+  quests: QuestsJson | null,
+): boolean {
+  return isAthleteProfileComplete(profile, memory, seasons) && Boolean(quests?.main_quest);
+}

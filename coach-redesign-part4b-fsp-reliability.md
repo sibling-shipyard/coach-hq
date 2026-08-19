@@ -72,17 +72,40 @@ in progress. No commit or PR yet because the required live gate has not complete
     (Gemini re-sent `dob` with the same value already on file) correctly produced **no diff** in
     the commit - `applyProfileUpdate` output was byte-identical, git saw nothing to write, exactly
     right.
-  - **`quest_create` did not fire for the stated habits - a real, live-found gap, not fixed here.**
-    The athlete clearly said "I want to stretch every day and get to bed by 10pm most nights" on
-    the closing turn, and Coach's reply claimed "everything is saved and locked in" - but
-    Gemini's actual structured response had no `quest_create` field at all (confirmed from the
-    server's raw response log, not just the missing commit diff). `quests.json` never got
-    touched. This is a prompt-adherence gap, not a code defect - `quest_create`'s wiring is
-    already proven correct when Gemini does emit it (worked fine for `season_start` on an earlier
-    turn in the same conversation); the model simply didn't follow through on the SOUL text's
-    Step 4 instruction this time. Given Gemini's heavy overload tonight, not chased further as a
-    prompt-tuning problem right now - flagged here for whoever picks this up next, likely worth a
-    stronger/more explicit Step 4 instruction or a live-testing pass once Gemini is less flaky.
+- [x] **`quest_create` gap root-caused and fixed - was a real code defect, not just prompt
+  flakiness.** Two layered bugs, found by tracing why a focused closing-turn instruction still
+  didn't fire in a live re-test:
+  1. `buildDynamicText`'s ternary checked `mode === "closing"` before `firstSessionTurn`, so a
+     turn that both closed and was mid-FSP got the fully generic ~15-paragraph closing block
+     (covering irrelevant returning-athlete fields like `template_edit`/`week_plan`), with
+     `quest_create` buried as one bullet among many. Fixed with a dedicated
+     `mode === "closing" && firstSessionTurn` branch ahead of the generic one, with an explicit
+     "LAST CHANCE" checklist calling out `quest_create` by name.
+  2. Deeper bug: that new branch still didn't fire in re-testing, because `firstSessionTurn` was
+     already `false` by the closing turn - `isAthleteProfileComplete()` (the sole gate behind
+     `firstSessionContext()`) had already flipped `true` on the *previous* turn, the moment dob/
+     height/weight/timezone landed, before quests were ever discussed. Quests are deliberately
+     excluded from that completeness bar (A3), but that same bar was also the only signal
+     deciding whether `<first_session>` prompt guidance kept showing at all - so it silently
+     stopped the instant profile/sports/style/season were done, cutting off SOUL's own Step 4
+     (quest setup) before it could run. Fixed with a new, narrower `isFirstSessionRitualDone()`
+     (`coachChatFiles.ts`) used only at the two `firstSessionContext()` call sites in
+     `coach-chat.ts` - identical to `isAthleteProfileComplete()` plus `quests?.main_quest` set.
+     Bounded, not open-ended: `main_quest` is meant to be set exactly once per athlete, so this
+     naturally resolves to `false` forever once it happens, same guarantee the other fields
+     already have - an athlete who declines quests entirely isn't stuck in FSP mode permanently,
+     they just see the reminder once on their close.
+  - Live-verified end-to-end on a fresh scratch branch (`core/verify-questfix2`, deleted after):
+    ran the exact previously-failing conversation (name/sports → dob/height/weight/timezone/
+    style/season, completing the profile mid-conversation → goal + two habits + "let's wrap this
+    up" on the same closing turn). Confirmed via the real GitHub commit, not reply text -
+    `quests.json` now contains `main_quest` ("Reach tournament quarterfinals") plus both stated
+    habit quests (daily stretching, bed by 10pm), all created on the same turn that closed the
+    session.
+  - Added unit coverage: `isFirstSessionRitualDone()` in `coachChatFiles.test.ts` (true only once
+    both profile-complete and `main_quest` exist; false if either is missing), plus the existing
+    focused-closing-checklist tests in `first-session-injection.test.ts`. 329/329 tests green,
+    `tsc --noEmit` clean.
 
 ## Orientation, for whoever implements this (no prior context assumed)
 
