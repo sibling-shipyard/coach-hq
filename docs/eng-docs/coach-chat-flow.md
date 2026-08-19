@@ -30,8 +30,7 @@ separate systems.
 |---|---|---|
 | `ui/api/coach-chat.ts` | `GET` | Load committed threads (newest 7, always `status: "active"`) |
 | `ui/api/coach-chat.ts` | `POST {action: "greet"}` | Coach speaks first; FSP also records native onboarding fields directly |
-| `ui/api/coach-chat.ts` | `POST {threadId?, messages, message}` | Send a message, get a real reply |
-| `ui/api/coach-chat.ts` | `PATCH {threadId, status: "deleted"}` | Delete a thread — immediate, permanent |
+| `ui/api/coach-chat.ts` | `POST {threadId?, messages, message, endConversationRequested?}` | Send a message or explicitly request a close |
 | `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL.md/state.md/quest_log.md ahead of chat opening |
 | `ui/api/coach-chat-profile-status.ts` | `GET` | `{profileComplete}` — is the First Session Protocol done? |
 
@@ -45,15 +44,15 @@ flowchart LR
     greet --> askGreeting["Gemini: greeting mode\n1-3 sentence opener\n(every open, no server reuse check)"]
     askGreeting --> local["Client materializes an\nuncommitted local thread\n- NO repo write"]
     local --> shown["Coach's opener shown\nbefore athlete types anything"]
-    shown --> typed["Athlete sends a message"]
-    typed --> ordinary["POST {threadId, messages, message}"]
+    shown --> typed["Athlete sends a message\nor taps End Conversation"]
+    typed --> ordinary["POST {threadId, messages, message,\nendConversationRequested?}"]
     ordinary --> stale{"knownSha !=\ncurrent HEAD?"}
     stale -- yes --> refresh["Force-refresh context\n(bypass 60s cache), stale:true"]
     stale -- no --> cached["Use cached context if warm"]
     refresh --> turn
     cached --> turn["Gemini: ordinary or closing mode"]
-    turn --> closeCheck{"Close-signal regex matched\n(or a close attempt was still\npending from a recent turn)\nAND session_closed:true?"}
-    closeCheck -- no --> noWrite["reply only, no repo write"]
+    turn --> closeCheck{"Typed/pending close signal\nor explicit button flag\nAND session_closed:true?"}
+    closeCheck -- no --> noClose["closed:false response\nFSP facts may commit incrementally"]
     closeCheck -- yes --> commitClose["commitFilesAtomic:\nfile_updates + coach_note + chat_history.json\n(greeting + full transcript,\nfirst write for this thread)"]
     commitClose --> done["closed:true, profileComplete,\nrepoSha returned"]
 ```
@@ -72,10 +71,10 @@ top of the Gemini call.
 ### 2. Coach speaks first (A4)
 
 Landing on the chat tab never shows an empty composer. The client calls
-`POST {action: "greet"}`, handled by `handleGreet()`, which **does not write anything to the
-repo.** Every single call generates a fresh opener via Gemini (`"greeting"` mode: 1-3 sentence
+`POST {action: "greet"}`, handled by `handleGreet()`. During First Session it first commits any
+native onboarding hints; it never commits the greeting thread itself. Every call generates a fresh opener via Gemini (`"greeting"` mode: 1-3 sentence
 contextual opener, no day-count, no stat dump, never proposes `file_updates`, informed by
-current `state.md`/`quest_log.md`) and returns just `{reply, threadId, threads}` — `threadId` is
+current athlete context) and returns `{reply, threadId, threads, repoSha, profileComplete}` — `threadId` is
 a fresh, never-persisted id (kept in the response only for shape stability; neither web nor iOS
 reads it) and `threads` is the existing committed list, unchanged.
 
@@ -102,9 +101,10 @@ call for a greeting nobody reads.
 
 ### 3. Ordinary turns
 
-`POST {threadId?, messages, message}`. `messages` is the client's own in-memory running history
+`POST {threadId?, messages, message, endConversationRequested?}`. `messages` is the client's own in-memory running history
 for the thread — nothing is persisted server-side for an unwrapped conversation, so the server is
-stateless per turn until a close signal. Every response echoes `repoSha` (see staleness below).
+stateless per turn until a close. Every response echoes `repoSha` and a fresh `profileComplete`
+(see staleness and First Session below).
 Gemini in `"ordinary"` mode only ever sees `state.md`/`quest_log.md` (not `coach_notes.md`/
 `challenge_v2.json`/`current_week.json`/`sleep_log.json` — those are only fetched on a closing
 turn, see below), so it's told it may only propose edits to `state.md` mid-conversation; anything
@@ -158,7 +158,11 @@ clarifying question instead of closing (still no commit); only `closeIntent && s
 true` actually closes. `closeIntent` is also true if a close-trigger message appeared in the last
 few turns (`wasCloseAttemptPending`) — otherwise, simply *answering* Coach's own clarifying
 question (e.g. "8hrs" in response to "how'd you sleep?") would route as an ordinary turn and never
-get a chance to actually close, even though the athlete is mid-close-attempt.
+get a chance to actually close, even though the athlete is mid-close-attempt. The web and iOS
+End Conversation buttons instead send `endConversationRequested: true`; `shouldRequestClose()`
+ORs that flag with the typed and pending checks. It deterministically enters closing mode but
+does not force the result: Gemini may still ask a closing follow-up and return
+`session_closed: false`.
 
 On a genuine close:
 - `challenge_v2.json`, `current_week.json`, `sleep_log.json` are fetched fresh
@@ -181,8 +185,8 @@ On a genuine close:
   network error (re-check whether the ref actually landed before deciding whether to retry — see
   the comment at that call site), since either way the response was lost and blindly retrying
   risks a double-commit.
-- The response includes `profileComplete` — computed from whatever `state.md` content this turn
-  actually just committed (see First Session Protocol below).
+- The response includes `profileComplete`, as greet and ordinary responses do — computed from
+  the projected profile, memory, and season content for this turn (see First Session Protocol).
 - `COACH_CHAT_BRANCH` (env var, defaults to `main`) controls which branch the commit lands on —
   lets a real close be tested end to end on a scratch branch instead of a live athlete's `main`.
 
@@ -281,16 +285,20 @@ outside this set (or `SESSIONS_PREFIX`) is dropped regardless of what the prompt
 
 ### Retention (ADR 0012, amended)
 
-No archive tier. A thread is `active` until deleted, which is immediate and permanent — no
-restore, no second "delete forever" confirmation. The cap (`MAX_RETAINED_THREADS = 7`) is a flat
-`threads.slice(0, 7)` on the newest-first array; creating an 8th thread evicts the oldest.
-Deleting a thread below the cap does **not** backfill/evict anything on the next new thread,
-since a deleted thread was never counted against the cap.
+No archive tier. The cap (`MAX_RETAINED_THREADS = 7`) is a flat `threads.slice(0, 7)` on the
+newest-first array; creating an 8th thread evicts the oldest. The endpoint implements GET and
+POST only; the old iOS `setThreadStatus`/PATCH path was dead code and has been removed.
 
 Since greet never commits the thread itself (see A4 above), an unengaged conversation never
 consumes a retention slot — only threads that actually got a real close-out ever reach this list.
 
 ### Rendering
+
+- **End Conversation**: web and iOS place this action immediately to the right of Send at the
+  same height. It starts disabled, is initialized by `GET coach-chat-profile-status`, and updates
+  from `profileComplete` on every greet, ordinary, and closing response. This lets it enable on
+  the exact FSP turn that completes the profile, without a reload. Tapping it sends no fake
+  athlete message; it posts `endConversationRequested: true` through the normal send path.
 
 - **Markdown**: coach replies render real bold/lists, on both platforms — the closing-turn
   prompt encourages markdown for structured content (workout plans, multi-step advice). Web uses
@@ -328,13 +336,14 @@ sequenceDiagram
     Server->>Server: commit native name/sports/style directly
     Server->>Gemini: greeting mode + recorded onboarding context
     Gemini-->>Server: opener using recorded details
-    Server-->>App: reply (thread remains local)
+    Server-->>App: reply + profileComplete (thread remains local)
     App->>App: materialize local thread, shown
     loop intake conversation
         App->>Server: POST {threadId, messages, message}
         Server->>Gemini: ordinary mode
         Gemini-->>Server: profile/memory/injury/season/quest actions
         Server->>Server: commit facts from this turn incrementally
+        Server-->>App: reply + fresh profileComplete
     end
     App->>Server: "wrap this session" (close signal)
     Server->>Gemini: closing mode + full context
@@ -368,7 +377,7 @@ Wired into `MainTabView.swift`'s `.task` block, right after the native-onboardin
 — this call site didn't exist before (the function was dead code, never invoked). Network
 failure/timeout (5s cap) falls back to Home rather than trapping a returning athlete in Chat.
 
-Once `profileComplete: true` comes back (from either this check or a close-turn response),
+Once `profileComplete: true` comes back (from the live check or any greet, ordinary, or closing response),
 `CoachSetupState.markComplete()` flips the Keychain flag (fast path for all future launches — no
 more network call) and `OnboardingHints.clear()` removes the now-unneeded cached hints.
 
@@ -440,7 +449,7 @@ match against, restore does three things on load, not just one:
 `shouldOpenChatFirst()` still sees `profileComplete: false` and routes back to Chat on relaunch;
 `todayThread`/`ensureTodayThread` select the restored local thread directly rather than calling
 `greetNow()`/`greet()` again. The cache for a thread is dropped once its close-commit actually
-lands (server copy becomes truth) or the thread comes back `.deleted`.
+lands and the server copy becomes truth.
 
 This is single-device only, by design — it does not sync the in-progress window across devices;
 that stays a known gap (issue #222 §D). A relaunch on a *different* device mid-conversation sees

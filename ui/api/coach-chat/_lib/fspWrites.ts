@@ -12,3 +12,12 @@ export function fspIncrementalWrites(
   if (wasProfileComplete) return [];
   return candidates.filter(Boolean) as FileEntry[];
 }
+
+export function ordinaryTurnResponse(
+  reply: string,
+  repoSha: string | null,
+  stale: boolean,
+  profileComplete: boolean,
+) {
+  return { reply, closed: false as const, repoSha, stale, profileComplete };
+}

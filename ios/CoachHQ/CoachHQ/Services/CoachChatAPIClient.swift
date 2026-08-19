@@ -205,13 +205,21 @@ final class CoachChatAPIClient {
 
     /// Mirrors coachChatModel.ts's sendMessage(): the client owns the running thread history
     /// until a `closed: true` response reports a real commit happened (coach-chat-flow.md).
-    func sendMessage(threadId: String?, priorMessages: [ChatMessage], message: String) async throws -> ChatSendResponse {
+    func sendMessage(
+        threadId: String?,
+        priorMessages: [ChatMessage],
+        message: String,
+        endConversationRequested: Bool = false
+    ) async throws -> ChatSendResponse {
         let auth = try await requireAuth()
         let messagesJSON = try priorMessages.map { msg -> [String: Any] in
             let data = try JSONEncoder().encode(msg)
             return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
         }
         var body: [String: Any] = ["messages": messagesJSON, "message": message]
+        if endConversationRequested {
+            body["endConversationRequested"] = true
+        }
         if let threadId {
             body["threadId"] = threadId
             if let knownSha = await Self.shaStore.sha(for: threadId) { body["knownSha"] = knownSha }
@@ -227,12 +235,4 @@ final class CoachChatAPIClient {
         return decoded
     }
 
-    func setThreadStatus(threadId: String, status: ChatThreadStatus) async throws -> [ChatThread] {
-        let auth = try await requireAuth()
-        let req = try request("PATCH", body: ["threadId": threadId, "status": status.rawValue], auth: auth)
-        let data = try await send(req, operation: "Updating conversation")
-        let threads = try JSONDecoder().decode(ChatThreadsResponse.self, from: data).threads
-        await Self.shaStore.rememberAndPrune(threadId: nil, sha: nil, currentThreadIds: threads.map(\.id))
-        return threads
-    }
 }

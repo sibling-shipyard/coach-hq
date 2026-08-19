@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isCloseSignal, wasCloseAttemptPending } from "../_lib/closeSignal.js";
+import { acceptedMessage, isCloseSignal, messageForGemini, shouldRequestClose, wasCloseAttemptPending } from "../_lib/closeSignal.js";
 import type { ChatMessage } from "../_lib/chatThreads.js";
 
 // A8: CLOSE_SESSION_PATTERN originally required "session" after wrap/close/end, so a bare "wrap"
@@ -75,6 +75,30 @@ describe("isCloseSignal", () => {
 
   it("still does not match 'that's everything' mid-sentence (anchored to end)", () => {
     expect(isCloseSignal("that's everything, actually one more thing about my shoulder")).toBe(false);
+  });
+});
+
+describe("shouldRequestClose", () => {
+  it("honors the explicit end-conversation flag without a matching typed phrase", () => {
+    expect(shouldRequestClose("I think that covers it", [], true)).toBe(true);
+  });
+
+  it("does not force a close when neither the flag nor typed intent is present", () => {
+    expect(shouldRequestClose("How should tomorrow look?", [], false)).toBe(false);
+  });
+});
+
+describe("acceptedMessage", () => {
+  it("accepts an empty message only for an explicit end request", () => {
+    expect(acceptedMessage("", true)).toBe("");
+    expect(acceptedMessage("", false)).toBeNull();
+  });
+});
+
+describe("messageForGemini", () => {
+  it("turns an empty button request into a model-only control event", () => {
+    expect(messageForGemini("", true)).toBe("[The athlete pressed End Conversation.]");
+    expect(messageForGemini("real answer", true)).toBe("real answer");
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { serializeChatHistory, applyRetention, mergeThreadToFront, type ChatThread } from "../_lib/chatThreads.js";
+import { appendConversationTurn, serializeChatHistory, applyRetention, mergeThreadToFront, type ChatThread } from "../_lib/chatThreads.js";
 import { withComputedDayOffsets } from "../_lib/coachDay.js";
 
 // part3-rollout: chat_history.json no longer persists ageLabel/status/dayOffset - both are
@@ -17,6 +17,19 @@ function thread(overrides: Partial<ChatThread> = {}): ChatThread {
     ...overrides,
   };
 }
+
+describe("appendConversationTurn", () => {
+  it("does not invent a user transcript message for an explicit button close", () => {
+    const prior = [{ id: "u-1", role: "user" as const, text: "My draft stays unsent" }];
+    const result = appendConversationTurn(
+      prior,
+      undefined,
+      { id: "c-1", role: "coach", paragraphs: ["Anything else before we close?"] },
+      { id: "d-1", role: "divider", label: "TODAY" },
+    );
+    expect(result).toEqual([...prior, { id: "c-1", role: "coach", paragraphs: ["Anything else before we close?"] }]);
+  });
+});
 
 describe("serializeChatHistory", () => {
   it("writes _meta plus threads, with no ageLabel/status/dayOffset on any thread", () => {

@@ -31,6 +31,16 @@ export type ChatMessage =
   | { id: string; role: "user"; text: string }
   | { id: string; role: "coach"; paragraphs: string[] };
 
+export function appendConversationTurn(
+  priorMessages: ChatMessage[],
+  userMessage: Extract<ChatMessage, { role: "user" }> | undefined,
+  coachMessage: Extract<ChatMessage, { role: "coach" }>,
+  divider: Extract<ChatMessage, { role: "divider" }>,
+): ChatMessage[] {
+  const turn = userMessage ? [userMessage, coachMessage] : [coachMessage];
+  return priorMessages.length ? [...priorMessages, ...turn] : [divider, ...turn];
+}
+
 // No archive state: a thread is "active" until deleted, immediate and permanent (ADR 0012
 // amendment). "deleted" never persists in chat_history.json - it's only the PATCH request shape.
 type ChatThreadStatus = "active" | "deleted";
