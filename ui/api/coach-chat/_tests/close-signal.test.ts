@@ -58,6 +58,24 @@ describe("isCloseSignal", () => {
     expect(isCloseSignal("ok wrap")).toBe(true);
     expect(isCloseSignal("yeah, wrap")).toBe(true);
   });
+
+  // Found live during First Session Protocol testing: "let's wrap this up" - an extremely common,
+  // natural close phrase - didn't match, since the filler alternation only allowed "it "/
+  // "things ", not "this ". Gemini decided to close that turn anyway (session_closed: true) but
+  // the server discarded it because closeIntent gated the whole close path.
+  it("matches 'wrap this up', not just 'wrap it up'/'wrap things up'", () => {
+    expect(isCloseSignal("let's wrap this up")).toBe(true);
+    expect(isCloseSignal("that's everything I think, let's wrap this up")).toBe(true);
+  });
+
+  it("matches 'that's everything', same as 'that's it'/'that's all'", () => {
+    expect(isCloseSignal("that's everything for now")).toBe(true);
+    expect(isCloseSignal("that's everything.")).toBe(true);
+  });
+
+  it("still does not match 'that's everything' mid-sentence (anchored to end)", () => {
+    expect(isCloseSignal("that's everything, actually one more thing about my shoulder")).toBe(false);
+  });
 });
 
 // A10: live testing found that answering Coach's own clarifying close-question ("how'd you
