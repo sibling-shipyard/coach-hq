@@ -153,6 +153,21 @@ describe("applySessionReconcile", () => {
     );
   });
 
+  it("throws a descriptive error instead of a raw TypeError when days isn't an array", () => {
+    const malformed = JSON.stringify({ ...JSON.parse(EXISTING), days: "not-an-array" });
+    expect(() => applySessionReconcile(malformed, [{ session_id: "sess_20260817_1", status: "done" }], new Set(), "t1", now)).toThrow(
+      "current_week.json is malformed (days is not an array)",
+    );
+  });
+
+  it("throws a descriptive error instead of a raw TypeError when a day's sessions isn't an array", () => {
+    const parsed = JSON.parse(EXISTING);
+    parsed.days[0].sessions = null;
+    expect(() => applySessionReconcile(JSON.stringify(parsed), [{ session_id: "sess_20260817_1", status: "done" }], new Set(), "t1", now)).toThrow(
+      "current_week.json is malformed (days[0].sessions is not an array)",
+    );
+  });
+
   it("throws with the hallucinated-id message when session_id isn't found across any day", () => {
     expect(() => applySessionReconcile(EXISTING, [{ session_id: "made_up", status: "done" }], new Set(), "t1", now)).toThrow(
       'no session with id "made_up" in current_week.json',
@@ -306,6 +321,21 @@ describe("applyPlanEdit", () => {
   });
 
   const now = new Date("2026-08-18T18:00:00Z");
+
+  it("throws a descriptive error instead of a raw TypeError when days isn't an array", () => {
+    const malformed = JSON.stringify({ ...JSON.parse(EXISTING), days: "not-an-array" });
+    expect(() =>
+      applyPlanEdit(malformed, [{ session_id: "sess_20260817_1", discipline: "badminton", kind: "sport", title: "Badminton" }], new Set(), "t1", now),
+    ).toThrow("current_week.json is malformed (days is not an array)");
+  });
+
+  it("throws a descriptive error instead of a raw TypeError when a day's sessions isn't an array", () => {
+    const parsed = JSON.parse(EXISTING);
+    parsed.days[0].sessions = null;
+    expect(() =>
+      applyPlanEdit(JSON.stringify(parsed), [{ session_id: "sess_20260817_1", discipline: "badminton", kind: "sport", title: "Badminton" }], new Set(), "t1", now),
+    ).toThrow("current_week.json is malformed (days[0].sessions is not an array)");
+  });
 
   it("swaps a session's discipline/kind/title, leaving status untouched", () => {
     const content = applyPlanEdit(

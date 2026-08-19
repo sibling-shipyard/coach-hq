@@ -111,6 +111,31 @@ describe("selectTemplates", () => {
     expect(ids.some((id) => injuryPreventionIds.has(id))).toBe(true);
   });
 
+  it("returns every eligible template when the library has fewer than MIN entries, without throwing", () => {
+    const library: WorkoutLibraryIndexEntry[] = [
+      { id: "a_only", sport_tags: ["running"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },
+      { id: "b_only", sport_tags: ["running"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },
+    ];
+    const ids = selectTemplates(profile(), memory({ sports: ["running"] }), injuries(), library);
+    // MIN (4) used to sit behind a no-op ternary that never actually enforced or relaxed
+    // anything - the real fix is just returning whatever's eligible when the pool itself is
+    // smaller than MIN, since there's nothing bigger to fall back to.
+    expect(ids.length).toBe(2);
+    expect(new Set(ids)).toEqual(new Set(["a_only", "b_only"]));
+  });
+
+  it("caps at TARGET (6) even when more than 6 templates are eligible", () => {
+    const library: WorkoutLibraryIndexEntry[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `foundation_${i}`,
+      sport_tags: ["running"],
+      equipment: ["bodyweight"],
+      goal_tags: ["endurance"],
+      level: "beginner" as const,
+    }));
+    const ids = selectTemplates(profile(), memory({ sports: ["running"] }), injuries(), library);
+    expect(ids.length).toBe(6);
+  });
+
   it("works against a synthetic library for a narrow deterministic check", () => {
     const library: WorkoutLibraryIndexEntry[] = [
       { id: "a_match", sport_tags: ["running"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },

@@ -223,7 +223,16 @@ export function selectTemplates(
     pickedIds.add(s.entry.id);
   }
 
-  return picked.slice(0, TARGET).length >= MIN ? picked.slice(0, TARGET) : picked;
+  // MIN used to be "enforced" by a ternary that was actually a no-op (picked.slice(0, TARGET) and
+  // picked are the same array whenever picked.length <= TARGET, so the "else" branch never fired
+  // anything different). There's no larger pool to draw from here - picked is already every
+  // eligible, scored entry - so there's nothing to relax into. Just warn when the athlete's real
+  // library leaves us under MIN (e.g. injuries knocked out most of it) so it's visible, and return
+  // what we have.
+  if (picked.length < MIN) {
+    console.warn(`[coach-chat] selectTemplates: only ${picked.length} eligible templates, below MIN (${MIN})`);
+  }
+  return picked.slice(0, TARGET);
 }
 
 const LEVEL_RANK: Record<"beginner" | "intermediate" | "advanced", number> = {

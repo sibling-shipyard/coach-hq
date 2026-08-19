@@ -236,6 +236,23 @@ export interface SessionReconcileEvent {
   actual?: { discipline: string; kind: string; title: string; template_id?: string };
 }
 
+// session_reconcile and plan_edit both load an existing current_week.json and walk current.days /
+// day.sessions before they've run it through parseCurrentWeek - a malformed file (days missing,
+// not an array, or a day with a non-array sessions field) would otherwise crash inside .forEach()
+// with a raw "Cannot read properties of undefined" instead of a message that says what's wrong.
+// Same discipline as the other guards in this file: throw a descriptive Error, don't let a bad
+// file surface a native TypeError.
+function assertValidCurrentWeekShape(actionName: string, current: CurrentWeek): void {
+  if (!Array.isArray(current.days)) {
+    throw new Error(`${actionName}: current_week.json is malformed (days is not an array)`);
+  }
+  current.days.forEach((day, dayIndex) => {
+    if (!Array.isArray(day?.sessions)) {
+      throw new Error(`${actionName}: current_week.json is malformed (days[${dayIndex}].sessions is not an array)`);
+    }
+  });
+}
+
 // completion_activity_ids must be source-qualified ("healthkit:<uuid>", "strava:<id>" - see
 // current-week-contract.md). An id the athlete reports through chat (not synced automatically)
 // has no real source to qualify it with, so this prefixes with "chat:" - a real, distinct source
@@ -269,6 +286,7 @@ export function applySessionReconcile(
   if (!current) {
     throw new Error("session_reconcile: current_week.json could not be read");
   }
+  assertValidCurrentWeekShape("session_reconcile", current);
 
   const sessionLocation = new Map<string, { dayIndex: number; sessionIndex: number }>();
   current.days.forEach((day, dayIndex) => {
@@ -350,6 +368,7 @@ export function applyPlanEdit(
   if (!current) {
     throw new Error("plan_edit: current_week.json could not be read");
   }
+  assertValidCurrentWeekShape("plan_edit", current);
 
   const sessionLocation = new Map<string, { dayIndex: number; sessionIndex: number }>();
   current.days.forEach((day, dayIndex) => {

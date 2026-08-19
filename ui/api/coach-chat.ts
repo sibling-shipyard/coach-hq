@@ -255,6 +255,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         // No repo write for an ordinary turn - client appends both messages to its own
         // in-memory thread. Also covers a close-intent turn where Gemini asked a clarifying
         // question instead of closing.
+        // Safe to drop reply.template_edit/session_plan/week_plan/plan_edit/session_reconcile
+        // here even though the responseSchema above doesn't itself gate those fields by mode
+        // (Gemini could technically emit one on a non-closing turn) - closing is only ever true
+        // when closeIntent was, so validTemplateIds/currentWeekRaw were fetched, and none of
+        // those fields are read again below this point since we return early.
         return Response.json({ reply: reply.reply, closed: false, repoSha: currentSha, stale });
       }
 
