@@ -7,10 +7,13 @@
  * coachMemoryFiles.ts from Part 1.
  */
 
-export const SEASONS_PATH = "user_data/coach/seasons.json";
-export const QUESTS_PATH = "user_data/coach/quests.json";
-export const PROGRESS_PATH = "user_data/coach/progress.json";
-export const PROGRESSIONS_PATH = "user_data/coach/progressions.json";
+// Live in ledger/, not coach/ - structured gamification-ledger data, same band challenge_v2.json
+// used to occupy before Part 2 replaced it. coach/ is narrative/memory-band data only
+// (profile/memory/injuries/coach_log/chat_history) - these four don't belong there.
+export const SEASONS_PATH = "user_data/ledger/seasons.json";
+export const QUESTS_PATH = "user_data/ledger/quests.json";
+export const PROGRESS_PATH = "user_data/ledger/progress.json";
+export const PROGRESSIONS_PATH = "user_data/ledger/progressions.json";
 
 export interface Season {
   id: string;
