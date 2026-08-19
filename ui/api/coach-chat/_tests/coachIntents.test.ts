@@ -3,9 +3,12 @@ import {
   applyCoachNote,
   applyMemoryUpdate,
   applyCoachingStyleUpdate,
+  applySportsUpdate,
   applyInjuryEvent,
   applyQuestEvent,
   applyProfileUpdate,
+  applySeasonStart,
+  applyQuestCreate,
   type ProfileUpdate,
 } from "../_lib/coachIntents.js";
 
@@ -550,5 +553,142 @@ describe("applyProfileUpdate", () => {
     expect(result.coach_since).toBeNull();
     expect(result.name).toBe("");
     expect(result.timezone).toBe("UTC");
+  });
+});
+
+describe("applySportsUpdate", () => {
+  const EXISTING = JSON.stringify({
+    version: 1,
+    _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+    sports: [],
+    coaching_style: "encouragement",
+    notes: {
+      fitness_baseline: { text: "old baseline", updated_at: "2026-08-01", trace_id: "old" },
+      coaching_priorities: { text: "old priorities", updated_at: "2026-08-01", trace_id: "old" },
+      "learned_patterns.training": { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.nutrition": { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.mental": { text: "", updated_at: "", trace_id: "" },
+      equipment: { text: "old equipment", updated_at: "2026-08-01", trace_id: "old" },
+    },
+  });
+
+  it("sets sports, leaves everything else untouched", () => {
+    const result = JSON.parse(applySportsUpdate(EXISTING, ["badminton", "running"], "2026-08-18", "t2"));
+    expect(result.sports).toEqual(["badminton", "running"]);
+    expect(result.coaching_style).toBe("encouragement");
+    expect(result.notes.equipment.text).toBe("old equipment");
+    expect(result._meta).toEqual({ updated_at: "2026-08-18", updated_by: "model", trace_id: "t2" });
+  });
+
+  it("trims each sport and drops blank entries", () => {
+    const result = JSON.parse(applySportsUpdate(EXISTING, ["  badminton  ", "", "  "], "2026-08-18", "t2"));
+    expect(result.sports).toEqual(["badminton"]);
+  });
+
+  it("throws when every given sport is blank", () => {
+    expect(() => applySportsUpdate(EXISTING, ["", "   "], "2026-08-18", "t2")).toThrow(/sports_update/);
+  });
+
+  it("starts a fresh file with the given sports when content is null", () => {
+    const result = JSON.parse(applySportsUpdate(null, ["swimming"], "2026-08-18", "t1"));
+    expect(result.sports).toEqual(["swimming"]);
+    expect(result.coaching_style).toBeNull();
+    expect(result.notes.equipment).toEqual({ text: "", updated_at: "", trace_id: "" });
+  });
+
+  it("treats malformed JSON as a fresh file rather than throwing", () => {
+    const result = JSON.parse(applySportsUpdate("{not valid json", ["badminton"], "2026-08-18", "t1"));
+    expect(result.sports).toEqual(["badminton"]);
+  });
+});
+
+describe("applySeasonStart", () => {
+  const EXISTING = JSON.stringify({
+    version: 1,
+    _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+    current_season_id: "season_old_aaaa",
+    seasons: [{ id: "season_old_aaaa", name: "Old Season", start_date: "2026-01-01", end_date: "2026-06-01", status: "completed" }],
+  });
+
+  it("mints a real id and sets current_season_id", () => {
+    const result = JSON.parse(
+      applySeasonStart(EXISTING, { name: "Marathon Build", start_date: "2026-08-18", end_date: "2026-12-01" }, "t1", new Date("2026-08-18T10:00:00Z")),
+    );
+    expect(result.current_season_id).toMatch(/^season_marathon_build_/);
+    expect(result.seasons[0].id).toBe(result.current_season_id);
+    expect(result.seasons[0]).toMatchObject({ name: "Marathon Build", start_date: "2026-08-18", end_date: "2026-12-01", status: "active" });
+    // Newest-first: prepended, old season still present after it.
+    expect(result.seasons[1].id).toBe("season_old_aaaa");
+    expect(result.seasons).toHaveLength(2);
+  });
+
+  it("never invents a phase field - Season has none", () => {
+    const result = JSON.parse(
+      applySeasonStart(EXISTING, { name: "Marathon Build", start_date: "2026-08-18", end_date: "2026-12-01" }, "t1", new Date("2026-08-18T10:00:00Z")),
+    );
+    expect(result.seasons[0].phase).toBeUndefined();
+  });
+
+  it("starts a fresh file with just the new season when content is null", () => {
+    const result = JSON.parse(
+      applySeasonStart(null, { name: "First Season", start_date: "2026-08-18", end_date: "2026-12-01" }, "t1", new Date("2026-08-18T10:00:00Z")),
+    );
+    expect(result.seasons).toHaveLength(1);
+    expect(result.current_season_id).toBe(result.seasons[0].id);
+  });
+});
+
+describe("applyQuestCreate", () => {
+  const EXISTING = JSON.stringify({
+    version: 1,
+    _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+    weekly_targets: {},
+    main_quest: { id: "mq_old_aaaa", name: "Old Goal", type: "count_target", target: 10 },
+    quests: [{ id: "q_old_bbbb", name: "Old habit", type: "daily_streak", start_date: "2026-01-01", end_date: null, status: "active", source: "athlete" }],
+  });
+
+  it("sets main_quest and appends new quests with source model", () => {
+    const result = JSON.parse(
+      applyQuestCreate(
+        EXISTING,
+        {
+          main_quest: { name: "Run a marathon", type: "count_target", target: 1 },
+          quests: [{ name: "Stretch daily", type: "daily_streak", polarity: "default_done" }],
+        },
+        "2026-08-18",
+        "t1",
+        new Date("2026-08-18T10:00:00Z"),
+      ),
+    );
+    expect(result.main_quest).toMatchObject({ name: "Run a marathon", type: "count_target", target: 1 });
+    expect(result.main_quest.id).toMatch(/^mq_run_a_marathon_/);
+    // Existing quest untouched, new one appended.
+    expect(result.quests).toHaveLength(2);
+    expect(result.quests[0].id).toBe("q_old_bbbb");
+    const newQuest = result.quests[1];
+    expect(newQuest).toMatchObject({
+      name: "Stretch daily",
+      type: "daily_streak",
+      polarity: "default_done",
+      status: "active",
+      start_date: "2026-08-18",
+      end_date: null,
+      source: "model",
+    });
+    expect(newQuest.id).toMatch(/^q_stretch_daily_/);
+  });
+
+  it("keeps the existing main_quest when none is given, only appending quests", () => {
+    const result = JSON.parse(
+      applyQuestCreate(EXISTING, { quests: [{ name: "Read daily", type: "daily_streak" }] }, "2026-08-18", "t1", new Date("2026-08-18T10:00:00Z")),
+    );
+    expect(result.main_quest.id).toBe("mq_old_aaaa");
+    expect(result.quests).toHaveLength(2);
+  });
+
+  it("throws when no main_quest is given and the file has none to fall back to", () => {
+    expect(() => applyQuestCreate(null, { quests: [{ name: "Read daily", type: "daily_streak" }] }, "2026-08-18", "t1", new Date("2026-08-18T10:00:00Z"))).toThrow(
+      /quest_create: no main_quest given/,
+    );
   });
 });

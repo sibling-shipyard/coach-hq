@@ -6,7 +6,7 @@
  */
 
 import { MEMORY_NOTE_LABELS, COACHING_STYLES, type MemoryJson, type MemoryNoteLabel, type CoachingStyle, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
-import { type ProgressRow } from "./coachQuestFiles.js";
+import { type ProgressRow, type Season, type SeasonsJson, type MainQuest, type Quest, type QuestType, type QuestsJson } from "./coachQuestFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 
 // coach_note: appends one row to coach_log.json - the single merged continuity log
@@ -88,6 +88,40 @@ export function applyCoachingStyleUpdate(
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
     coaching_style: style as CoachingStyle,
+    notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
+  };
+
+  return JSON.stringify(result, null, 2);
+}
+
+// sports_update: First Session Protocol bug fix - memory.json.sports had no write path at all
+// (isAthleteProfileComplete requires it non-empty, so a first session could never complete via
+// chat until this existed). A separate top-level field, not folded into memory_update's six
+// notes boxes, same reasoning as coaching_style_update above - it's a plain array on MemoryJson,
+// not a {text, updated_at, trace_id} box.
+export function applySportsUpdate(
+  content: string | null,
+  sports: string[],
+  updatedAt: string,
+  traceId: string,
+): string {
+  const cleaned = sports.map((s) => s.trim()).filter((s) => s.length > 0);
+  if (cleaned.length === 0) {
+    throw new Error(`sports_update: no non-blank sport in "${sports.join(", ")}"`);
+  }
+
+  const parsed = parseJsonOrNull<Partial<MemoryJson>>(content) ?? {};
+
+  const emptyNotes = () =>
+    Object.fromEntries(
+      MEMORY_NOTE_LABELS.map((l) => [l, { text: "", updated_at: "", trace_id: "" }]),
+    ) as MemoryJson["notes"];
+
+  const result: MemoryJson = {
+    version: 1,
+    _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
+    sports: cleaned,
+    coaching_style: parsed.coaching_style ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 
@@ -306,6 +340,117 @@ export function applyProfileUpdate(content: string | null, updates: ProfileUpdat
       result[update.field] = parsedValue;
     }
   }
+
+  return JSON.stringify(result, null, 2);
+}
+
+// Common id-minting shape reused by applySeasonStart/applyQuestCreate below - a slug of the name
+// plus a short random suffix, same "slug + random tail" convention applyInjuryEvent already uses
+// for flag ids above (there via today's date instead of a slug prefix, but the same idea: a
+// short, readable, collision-resistant id minted server-side, never left to Gemini).
+function mintId(prefix: string, name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 24);
+  return `${prefix}_${slug || "x"}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+// season_start { name, start_date, end_date }: First Session Protocol bug fix - there was no
+// write path to create a season at all, only applyQuestEvent logging progress against one that
+// already existed. FSP's quest-setup step needs to create the very first season. Server mints
+// the season id and sets it as current_season_id; the new season is prepended (newest-first, per
+// coachQuestFiles.ts's own doc comment on SeasonsJson.seasons) with status "active". No `phase`
+// field - Season doesn't have one, not inventing schema here.
+export function applySeasonStart(
+  content: string | null,
+  input: { name: string; start_date: string; end_date: string },
+  traceId: string,
+  now: Date,
+): string {
+  const parsed = parseJsonOrNull<Partial<SeasonsJson>>(content) ?? {};
+  const seasons: Season[] = Array.isArray(parsed.seasons) ? parsed.seasons : [];
+
+  const id = mintId("season", input.name);
+  const season: Season = {
+    id,
+    name: input.name.trim(),
+    start_date: input.start_date,
+    end_date: input.end_date,
+    status: "active",
+  };
+
+  const result: SeasonsJson = {
+    version: 1,
+    _meta: { updated_at: now.toISOString(), updated_by: "model", trace_id: traceId },
+    current_season_id: id,
+    seasons: [season, ...seasons],
+  };
+
+  return JSON.stringify(result, null, 2);
+}
+
+// quest_create { main_quest?, quests? }: First Session Protocol bug fix - applyQuestEvent only
+// ever logs progress against an existing quest_id and throws if it doesn't exist yet, so FSP's
+// quest-setup step (main goal, habit quests, season dates) had nothing to write to. Server mints
+// every id; FSP-created quests are source "model" (Coach is structuring them from the
+// conversation, not the athlete typing them directly into quests.json themselves) - the design
+// doc's own resolved question on this. main_quest, when given, replaces the file's current
+// main_quest entirely (there's only ever one). New quests are appended to quests[], status
+// "active", start_date today, end_date null - same "server owns bookkeeping" discipline as every
+// other applier in this file.
+export function applyQuestCreate(
+  content: string | null,
+  input: {
+    main_quest?: { name: string; type: QuestType; target: number; count_pattern?: string };
+    quests?: { name: string; type: QuestType; polarity?: "default_done" | "default_not_done"; target?: number; unit?: string }[];
+  },
+  today: string,
+  traceId: string,
+  now: Date,
+): string {
+  const parsed = parseJsonOrNull<Partial<QuestsJson>>(content) ?? {};
+  const existingQuests: Quest[] = Array.isArray(parsed.quests) ? parsed.quests : [];
+
+  let mainQuest: MainQuest | undefined = parsed.main_quest;
+  if (input.main_quest) {
+    mainQuest = {
+      id: mintId("mq", input.main_quest.name),
+      name: input.main_quest.name.trim(),
+      type: input.main_quest.type,
+      target: input.main_quest.target,
+      ...(input.main_quest.count_pattern ? { count_pattern: input.main_quest.count_pattern } : {}),
+    };
+  }
+
+  if (!mainQuest) {
+    // main_quest is required on QuestsJson (not optional) - a fresh file with no prior main_quest
+    // and no main_quest given in this call has nothing valid to write. Same "throw rather than
+    // silently write a broken shape" discipline as the guards elsewhere in this file.
+    throw new Error("quest_create: no main_quest given and quests.json has none to fall back to");
+  }
+
+  const newQuests: Quest[] = (input.quests ?? []).map((q) => ({
+    id: mintId("q", q.name),
+    name: q.name.trim(),
+    type: q.type,
+    start_date: today,
+    end_date: null,
+    status: "active",
+    ...(q.polarity ? { polarity: q.polarity } : {}),
+    ...(q.target != null ? { target: q.target } : {}),
+    ...(q.unit ? { unit: q.unit } : {}),
+    source: "model",
+  }));
+
+  const result: QuestsJson = {
+    version: 1,
+    _meta: { updated_at: now.toISOString(), updated_by: "model", trace_id: traceId },
+    weekly_targets: parsed.weekly_targets ?? {},
+    main_quest: mainQuest,
+    quests: [...existingQuests, ...newQuests],
+  };
 
   return JSON.stringify(result, null, 2);
 }

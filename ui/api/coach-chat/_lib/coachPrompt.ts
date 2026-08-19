@@ -34,6 +34,13 @@ export interface GeminiReply {
   // accountability vs encouragement vs analysis") - normally set once there, but genuinely
   // changeable later via chat, not locked (per direction - it's just naturally infrequent).
   coaching_style_update?: "accountability" | "encouragement" | "analysis";
+  // sports_update is a separate field from memory_update too, same reasoning as
+  // coaching_style_update just above - it's a plain top-level string array on memory.json, not a
+  // notes box. Found live during First Session Protocol wiring: memory.json.sports had no write
+  // path through chat at all, and isAthleteProfileComplete requires it non-empty - a first
+  // session could never actually complete via chat because of this alone. Closing turns only,
+  // same as coaching_style_update.
+  sports_update?: string[];
   // Array (workout-backend-wiring live verification, same fix issue #410 already gave
   // quest_event): a single object silently dropped every injury update past the first when an
   // athlete reported more than one in the same message - found live, the reply claimed both were
@@ -129,6 +136,29 @@ export interface GeminiReply {
   // actual completion via session_reconcile's `actual`, report tomorrow's changed plan via
   // plan_edit, both in the same turn if that's what the athlete described. Closing turns only.
   plan_edit?: PlanEditEvent[];
+  // First Session Protocol only - the FSP quest-setup step (main goal, season dates) needs to
+  // create the athlete's very first season, and there was no write path to do that at all before
+  // this (applyQuestEvent only ever logs progress against a season/quest that already exists).
+  // First-session / new-athlete onboarding ONLY, not for a returning athlete changing their
+  // season - that goes through the existing Weekly Kick-off / Sunday Session rituals instead.
+  // Server mints the season id and stamps it current_season_id. Closing turns only.
+  season_start?: { name: string; start_date: string; end_date: string };
+  // First Session Protocol only - same missing-write-path bug as season_start above, but for the
+  // main quest and any habit quests FSP structures from the conversation. First-session /
+  // new-athlete onboarding ONLY, not for a returning athlete's season/quest changes - those go
+  // through the existing Weekly Kick-off / Sunday Session rituals instead. Server mints every id;
+  // these quests are source "model" since Coach is structuring them from the conversation, not
+  // the athlete typing them directly. Closing turns only.
+  quest_create?: {
+    main_quest?: { name: string; type: "daily_streak" | "progress" | "count_target" | "weekly_frequency"; target: number; count_pattern?: string };
+    quests?: {
+      name: string;
+      type: "daily_streak" | "progress" | "count_target" | "weekly_frequency";
+      polarity?: "default_done" | "default_not_done";
+      target?: number;
+      unit?: string;
+    }[];
+  };
   // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
   // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
   session_closed?: boolean;
@@ -186,6 +216,9 @@ export const GENERATION_CONFIG = {
         type: "string",
         enum: ["accountability", "encouragement", "analysis"],
       },
+      // First Session Protocol - memory.json.sports had no write path at all before this. Set
+      // when the athlete first states their sport(s), or changes them later. Closing turns only.
+      sports_update: { type: "array", items: { type: "string" } },
       // Array (workout-backend-wiring live verification, same fix issue #410 already gave
       // quest_event) - a turn can report more than one injury update.
       injury_event: {
@@ -345,6 +378,49 @@ export const GENERATION_CONFIG = {
           required: ["session_id", "discipline", "kind", "title"],
         },
       },
+      // First Session Protocol only - creates the athlete's first season. Never used for a
+      // returning athlete's season change (Weekly Kick-off / Sunday Session own that).
+      season_start: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          start_date: { type: "string" },
+          end_date: { type: "string" },
+        },
+        required: ["name", "start_date", "end_date"],
+      },
+      // First Session Protocol only - creates the athlete's main quest and any habit quests.
+      // Never used for a returning athlete's quest changes (Weekly Kick-off / Sunday Session own
+      // that).
+      quest_create: {
+        type: "object",
+        properties: {
+          main_quest: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              type: { type: "string", enum: ["daily_streak", "progress", "count_target", "weekly_frequency"] },
+              target: { type: "number" },
+              count_pattern: { type: "string" },
+            },
+            required: ["name", "type", "target"],
+          },
+          quests: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                type: { type: "string", enum: ["daily_streak", "progress", "count_target", "weekly_frequency"] },
+                polarity: { type: "string", enum: ["default_done", "default_not_done"] },
+                target: { type: "number" },
+                unit: { type: "string" },
+              },
+              required: ["name", "type"],
+            },
+          },
+        },
+      },
       session_closed: { type: "boolean" },
       reply: { type: "string" },
     },
@@ -470,6 +546,22 @@ export function buildDynamicText(
           "field changed - the athlete stating both a new weight and a new timezone in the same",
           "message is two entries, not one.",
           "Only set it when the athlete actually stated a new value, never to fill in a guess.",
+          "\nIf the athlete first states their sport(s), or changes them later, set sports_update",
+          "to the full list of sports they do now (not just the newly mentioned one) - this is",
+          "what unlocks First Session completion, so never skip it once the athlete has actually",
+          "named a sport.",
+          "\nFirst-session / new-athlete onboarding ONLY, never for a returning athlete changing",
+          "their season - that goes through the existing Weekly Kick-off / Sunday Session rituals",
+          "instead: if this is the athlete's very first session and you are setting up their",
+          "season as part of the First Session Protocol, set season_start with a name and",
+          "start_date/end_date for the season you agreed on with the athlete.",
+          "\nFirst-session / new-athlete onboarding ONLY, same restriction as season_start above -",
+          "never for a returning athlete's season/quest changes: if this is the athlete's very",
+          "first session and you are setting up their main goal and any habit quests as part of",
+          "the First Session Protocol, set quest_create with main_quest (name/type/target from",
+          "what the athlete told you their main goal is) and, if they described any habits to",
+          "track, quests (name/type, plus polarity for daily_streak or target/unit for the",
+          "others).",
           "\nIf the athlete asked to PERMANENTLY change one of their own existing workout",
           "templates (see Current templates below) going forward, not just for today - set",
           "template_edit with that template's exact template_id and a short note explaining why.",
@@ -542,9 +634,9 @@ export function buildDynamicText(
           "plan_edit, never template_edit - template_edit is only for the athlete asking to",
           "permanently change the template going forward.",
           "**Never say something is saved, logged, locked, or committed unless coach_note (or",
-          "memory_update / injury_event / quest_event / profile_update / template_edit /",
-          "session_plan / week_plan / session_reconcile / plan_edit) in this exact response",
-          "genuinely reflects it.**",
+          "memory_update / coaching_style_update / sports_update / injury_event / quest_event /",
+          "profile_update / template_edit / session_plan / week_plan / session_reconcile /",
+          "plan_edit / season_start / quest_create) in this exact response genuinely reflects it.**",
           "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
           "response (asking a clarifying question instead does NOT count - set it false in that case,",
           "even though this turn was triggered by a close-session phrase). The athlete will simply see",
