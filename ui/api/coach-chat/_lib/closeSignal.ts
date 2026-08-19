@@ -35,3 +35,22 @@ const CLOSE_ATTEMPT_LOOKBACK = 4;
 export function wasCloseAttemptPending(priorMessages: ChatMessage[]): boolean {
   return priorMessages.slice(-CLOSE_ATTEMPT_LOOKBACK).some((m) => m.role === "user" && isCloseSignal(m.text));
 }
+
+export function shouldRequestClose(
+  message: string,
+  priorMessages: ChatMessage[],
+  endConversationRequested = false,
+): boolean {
+  return endConversationRequested || isCloseSignal(message) || wasCloseAttemptPending(priorMessages);
+}
+
+export function acceptedMessage(message: string | undefined, endConversationRequested = false): string | null {
+  const trimmed = (message ?? "").trim();
+  return trimmed || endConversationRequested ? trimmed : null;
+}
+
+// Gemini requires each request to end with a user turn. The explicit button has no athlete text,
+// so give the model a control event while keeping it out of the visible/committed transcript.
+export function messageForGemini(message: string, endConversationRequested = false): string {
+  return message || (endConversationRequested ? "[The athlete pressed End Conversation.]" : message);
+}

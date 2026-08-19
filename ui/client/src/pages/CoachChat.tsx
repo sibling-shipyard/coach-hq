@@ -13,13 +13,16 @@ import {
   computeLocalDayOffset,
   epochMsFromMessageId,
   fetchThreads,
+  fetchProfileComplete,
   findOrphanedLocalThreadIds,
   greet,
   restoreThreadMessagesLocally,
   saveThreadLocally,
   sendMessage,
+  shouldSendEndConversation,
   threadStatus,
   truncateTitle,
+  updatePendingEndThreads,
   type ChatMessage,
   type ChatThread,
   type GreetResult,
@@ -55,10 +58,18 @@ function CoachChatContent({ data }: { data: RepoData }) {
   // Audit fix: scoped per-thread (was a single global boolean) - sending in one thread must not
   // disable the composer of a different, unrelated thread the athlete has switched to.
   const [sendingThreadIds, setSendingThreadIds] = useState<Set<string>>(new Set());
+  const [pendingEndThreadIds, setPendingEndThreadIds] = useState<Set<string>>(new Set());
   const [loadAttempt, setLoadAttempt] = useState(0);
   // A4: coach speaks first - true while a greeting turn is in flight (either landing on the
   // page with no today-thread yet, or explicitly starting a new conversation).
   const [greeting, setGreeting] = useState(false);
+  const [profileComplete, setProfileComplete] = useState(false);
+  const profileCompleteFromResponseRef = useRef(false);
+
+  function applyResponseProfileComplete(complete: boolean) {
+    profileCompleteFromResponseRef.current = true;
+    setProfileComplete(complete);
+  }
 
   const activeThread = threads.find((thread) => thread.id === activeId) ?? null;
 
@@ -125,6 +136,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setGreeting(true);
     try {
       const result = await greetShared();
+      applyResponseProfileComplete(result.profileComplete);
       const greeted = materializeGreeting(result, list);
       setThreads([greeted, ...result.threads]);
       setActiveId(greeted.id);
@@ -216,6 +228,20 @@ function CoachChatContent({ data }: { data: RepoData }) {
   }, [loadAttempt]);
 
   useEffect(() => {
+    let cancelled = false;
+    fetchProfileComplete()
+      .then((complete) => {
+        if (!cancelled && !profileCompleteFromResponseRef.current) setProfileComplete(complete);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof CoachChatAccessRevokedError && !cancelled) setThreadsAccessRevoked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadAttempt]);
+
+  useEffect(() => {
     if (activeId && !threads.some((thread) => thread.id === activeId)) {
       setActiveId(threads.find((thread) => threadStatus(thread) === "active")?.id ?? null);
     }
@@ -231,6 +257,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setGreeting(true);
     greetShared()
       .then((result) => {
+        applyResponseProfileComplete(result.profileComplete);
         const greeted = materializeGreeting(result, threads);
         setThreads([greeted, ...result.threads]);
         setActiveId(greeted.id);
@@ -251,12 +278,18 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setMobileView("thread");
   }
 
-  async function appendUserMessage(text: string, targetId: string | null) {
+  async function appendUserMessage(text: string, targetId: string | null, endConversationRequested = false) {
     const trimmed = text.trim();
+    const shouldEndConversation = shouldSendEndConversation(
+      pendingEndThreadIds,
+      targetId,
+      endConversationRequested,
+    );
     // Audit fix: `sending` used to be one global flag, so sending in thread A left every OTHER
     // thread's composer disabled with "Coach is replying…" too, until A's request settled -
     // scoped to the specific thread being sent to instead, via sendingThreadIds below.
-    if (!trimmed || (targetId && sendingThreadIds.has(targetId))) return;
+    if ((!trimmed && !shouldEndConversation) || (targetId && sendingThreadIds.has(targetId))) return;
+    if (shouldEndConversation && !targetId) return;
 
     // Nothing is persisted server-side until the athlete says wrap/close - the server is
     // stateless per turn, so the client is the only place holding an in-progress conversation.
@@ -265,10 +298,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
     // reply to local state ourselves, same as before Gemini was ever in the loop.
     const priorMessages = targetId ? (threads.find((t) => t.id === targetId)?.messages ?? []) : [];
 
-    setDraft("");
+    if (!endConversationRequested) setDraft("");
     setMobileView("thread");
     const now = Date.now();
-    const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
+    const userMsg: ChatMessage | null = endConversationRequested
+      ? null
+      : { id: `u-${now}`, role: "user", text: trimmed };
 
     // Echo the athlete's own message immediately, matching iOS - don't make them wait for the
     // full Gemini round trip just to see what they typed. newThreadId is only set when this
@@ -278,7 +313,11 @@ function CoachChatContent({ data }: { data: RepoData }) {
     // Tracked explicitly rather than re-read from `threads` state later (that closure would be
     // stale mid-async-call) - this is the exact message list saved locally and is also the base
     // the eventual coach reply gets appended onto below.
-    const messagesBeforeReply = targetId ? [...priorMessages, userMsg] : [{ id: `d-${now}`, role: "divider" as const, label: "TODAY" }, userMsg];
+    const messagesBeforeReply = userMsg
+      ? targetId
+        ? [...priorMessages, userMsg]
+        : [{ id: `d-${now}`, role: "divider" as const, label: "TODAY" }, userMsg]
+      : priorMessages;
     if (targetId) {
       setThreads((prev) =>
         prev.map((thread) =>
@@ -304,12 +343,17 @@ function CoachChatContent({ data }: { data: RepoData }) {
     }
 
     const sendKey = targetId ?? newThreadId!;
+    if (shouldEndConversation) {
+      setPendingEndThreadIds((prev) => updatePendingEndThreads(prev, sendKey, true));
+    }
     setSendingThreadIds((prev) => new Set(prev).add(sendKey));
 
     try {
-      const result = await sendMessage(targetId, priorMessages, trimmed);
+      const result = await sendMessage(targetId, priorMessages, trimmed, shouldEndConversation);
+      applyResponseProfileComplete(result.profileComplete);
 
       if (result.closed) {
+        setPendingEndThreadIds((prev) => updatePendingEndThreads(prev, sendKey, false));
         // Now genuinely committed server-side - the local-only cache for this thread (keyed
         // under its pre-close local id, which no longer means anything once the real committed
         // thread is in result.threads) is done its job and would just be stale/orphaned clutter
@@ -360,7 +404,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
         setThreads((prev) =>
           prev.map((thread) =>
             thread.id === targetId
-              ? { ...thread, messages: thread.messages.filter((m) => m.id !== userMsg.id) }
+              ? { ...thread, messages: userMsg ? thread.messages.filter((m) => m.id !== userMsg.id) : thread.messages }
               : thread,
           ),
         );
@@ -373,7 +417,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
         // what happened, same toast treatment (including duration) as any other error.
         toast.error(err instanceof Error ? err.message : "Coach didn't reply — try again");
       }
-      setDraft(trimmed);
+      if (!endConversationRequested) setDraft(trimmed);
     } finally {
       setSendingThreadIds((prev) => {
         const next = new Set(prev);
@@ -440,6 +484,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   draft={draft}
                   onDraftChange={setDraft}
                   onSend={() => void appendUserMessage(draft, activeId)}
+                  onEndConversation={() => void appendUserMessage("", activeId, true)}
+                  profileComplete={profileComplete}
                   pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
                 />
               ) : (
@@ -483,6 +529,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   draft={draft}
                   onDraftChange={setDraft}
                   onSend={() => void appendUserMessage(draft, activeId)}
+                  onEndConversation={() => void appendUserMessage("", activeId, true)}
+                  profileComplete={profileComplete}
                   pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
                   showBack
                   onBack={() => setMobileView("list")}

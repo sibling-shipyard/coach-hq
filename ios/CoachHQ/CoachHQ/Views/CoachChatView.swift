@@ -16,6 +16,11 @@ struct CoachChatView: View {
     @State private var draft = ""
     @State private var threadsLoading = true
     @State private var sending = false
+    @State private var profileComplete = false
+    // An explicit close can legitimately produce a follow-up instead of closing. Keep that
+    // intent attached to the live thread so the athlete's answer stays in closing mode without
+    // inventing a user close phrase in the transcript.
+    @State private var pendingExplicitCloseThreadIds: Set<String> = []
     @State private var errorMessage: String?
     @State private var showErrorDialog = false
     @State private var showHistorySheet = false
@@ -304,10 +309,13 @@ struct CoachChatView: View {
                 draft: $draft,
                 isFocused: $composerFocused,
                 placeholder: sending ? "Coach is replying…" : composerPlaceholder,
-                isSending: sending
-            ) {
-                Task { await send(from: resolvedSendThreadId()) }
-            }
+                isSending: sending,
+                canEndConversation: profileComplete,
+                onSend: { Task { await send(from: resolvedSendThreadId()) } },
+                onEndConversation: {
+                    Task { await send(from: resolvedSendThreadId(), endConversationRequested: true) }
+                }
+            )
         }
         .padding(.top, 8)
         .padding(.bottom, keyboardVisible ? 8 : WarmMainDockLayout.dockHeight + 4)
@@ -427,15 +435,18 @@ struct CoachChatView: View {
     private func clearThreadState() {
         threads = []
         activeThreadId = nil
+        pendingExplicitCloseThreadIds.removeAll()
         threadsLoading = true
     }
 
     private func loadThreads() async {
         guard let apiClient else { return }
         threadsLoading = true
+        profileComplete = false
         defer { threadsLoading = false }
 
         do {
+            profileComplete = (try? await apiClient.profileStatus()) ?? false
             // B3: completion is decided ONLY by CoachSetupBootstrap.shouldOpenChatFirst()'s live
             // profileComplete check (MainTabView.swift's .task) - never inferred from thread
             // existence here. That used to be the premature-completion bug, and A4's coach-
@@ -443,6 +454,7 @@ struct CoachChatView: View {
             // view loads, before the athlete has said anything at all.
             let fetched = try await apiClient.fetchThreads()
             threads = authManager.repoFullName.map { CoachChatLocalCache.restoring(fetched, repoFullName: $0) } ?? fetched
+            pendingExplicitCloseThreadIds.formIntersection(threads.map(\.id))
             if let today = todayThread {
                 activeThreadId = today.id
             } else {
@@ -476,6 +488,9 @@ struct CoachChatView: View {
             // or once state.md's Athlete Profile is already filled in and there's nothing left
             // to reflect back).
             let result = try await apiClient.greet(onboardingHints: OnboardingHints.load())
+            if let complete = result.profileComplete {
+                profileComplete = complete
+            }
             // Supersede any previous unreplied local greeting instead of accumulating orphans -
             // repeated "New conversation" taps (or a retry after a failed first greet) would
             // otherwise each leave their own local-cache entry that's never cleared (found via
@@ -488,6 +503,7 @@ struct CoachChatView: View {
                     let real = existing.messages.filter { $0.role != .divider }
                     guard real.count == 1, real[0].role == .coach else { return false }
                     CoachChatLocalCache.clear(repoFullName: repo, threadId: existing.id)
+                    pendingExplicitCloseThreadIds.remove(existing.id)
                     return true
                 }
             }
@@ -586,33 +602,56 @@ struct CoachChatView: View {
         threads[idx].messages.removeAll { $0.id == message.id }
     }
 
-    private func send(from targetId: String?) async {
+    private func send(from targetId: String?, endConversationRequested: Bool = false) async {
         guard let apiClient else { return }
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !sending else { return }
+        guard !sending else { return }
+        guard endConversationRequested ? profileComplete : !trimmed.isEmpty else { return }
 
         if !chatWelcomeShown { chatWelcomeShown = true }
 
         let priorMessages = priorMessagesForSend(targetId: targetId)
-        draft = ""
-
-        let now = Date().timeIntervalSince1970 * 1000
-        let userMsg = ChatMessage.user(id: "u-\(now)", text: trimmed)
-        // Track whether this send is what created the thread, so a failure can roll back the
-        // whole thread (not just the message) for a brand-new conversation - matching web's
-        // CoachChat.tsx, which drops the whole optimistic thread on a failed first send instead
-        // of leaving an empty, message-less thread pinned in the sidebar.
+        // Track whether this send created the local thread so a failed typed reply can roll the
+        // thread back. An explicit close request deliberately keeps the thread and pending state
+        // across failure, ready for a retry or a follow-up answer.
         let threadExistedBefore = targetId != nil && threads.contains(where: { $0.id == targetId })
         let liveThreadId = materializeThreadIfNeeded(for: targetId)
-        appendUserMessage(userMsg, to: liveThreadId)
+        if endConversationRequested {
+            pendingExplicitCloseThreadIds.insert(liveThreadId)
+        }
+        let explicitClosePending = pendingExplicitCloseThreadIds.contains(liveThreadId)
+
+        if !endConversationRequested {
+            draft = ""
+        }
+
+        let now = Date().timeIntervalSince1970 * 1000
+        let userMsg = endConversationRequested ? nil : ChatMessage.user(id: "u-\(now)", text: trimmed)
+        if let userMsg {
+            appendUserMessage(userMsg, to: liveThreadId)
+        }
 
         sending = true
         defer { sending = false }
 
         do {
-            let result = try await apiClient.sendMessage(threadId: targetId, priorMessages: priorMessages, message: trimmed)
+            let result = try await apiClient.sendMessage(
+                threadId: targetId,
+                priorMessages: priorMessages,
+                message: endConversationRequested ? "" : trimmed,
+                endConversationRequested: explicitClosePending
+            )
+
+            if let complete = result.profileComplete {
+                profileComplete = complete
+                if complete, let repo = authManager.repoFullName {
+                    CoachSetupState.markComplete(repoFullName: repo)
+                    OnboardingHints.clear()
+                }
+            }
 
             if result.closed, let newThreads = result.threads {
+                pendingExplicitCloseThreadIds.remove(liveThreadId)
                 threads = newThreads
                 activeThreadId = result.threadId
                 // The close-commit just landed server-side, so the server copy is now the
@@ -624,10 +663,6 @@ struct CoachChatView: View {
                 // filled-in Athlete Profile. Every prior close (day-to-day chat, or an earlier
                 // First Session turn that wasn't actually the finishing one) must NOT mark
                 // complete - that was the premature-completion bug B3 replaces.
-                if result.profileComplete == true, let repo = authManager.repoFullName {
-                    CoachSetupState.markComplete(repoFullName: repo)
-                    OnboardingHints.clear()
-                }
                 return
             }
 
@@ -648,18 +683,22 @@ struct CoachChatView: View {
                 cacheThreadLocally(threads[idx])
             }
         } catch let error as GitHubAPIError {
-            rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
+            if let userMsg {
+                rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
+            }
             if case .notAuthenticated = error {
                 authManager.sessionExpired = true
                 clearThreadState()
             } else {
                 errorMessage = UserFacingError.friendlyMessage(for: error)
             }
-            draft = trimmed
+            if !endConversationRequested { draft = trimmed }
         } catch {
-            rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
+            if let userMsg {
+                rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
+            }
             errorMessage = "Coach didn't reply — try again"
-            draft = trimmed
+            if !endConversationRequested { draft = trimmed }
         }
     }
 
@@ -671,6 +710,7 @@ struct CoachChatView: View {
             }
         } else {
             threads.removeAll { $0.id == threadId }
+            pendingExplicitCloseThreadIds.remove(threadId)
             if activeThreadId == threadId { activeThreadId = nil }
             if let repo = authManager.repoFullName {
                 CoachChatLocalCache.clear(repoFullName: repo, threadId: threadId)

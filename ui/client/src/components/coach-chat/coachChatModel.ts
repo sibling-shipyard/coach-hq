@@ -207,6 +207,25 @@ export function rememberRepoSha(threadId: string | null | undefined, sha: string
   if (threadId && sha) lastKnownSha.set(threadId, sha);
 }
 
+export function shouldSendEndConversation(
+  pendingThreadIds: ReadonlySet<string>,
+  threadId: string | null,
+  explicitlyRequested: boolean,
+): boolean {
+  return explicitlyRequested || (threadId != null && pendingThreadIds.has(threadId));
+}
+
+export function updatePendingEndThreads(
+  pendingThreadIds: ReadonlySet<string>,
+  threadId: string,
+  pending: boolean,
+): Set<string> {
+  const next = new Set(pendingThreadIds);
+  if (pending) next.add(threadId);
+  else next.delete(threadId);
+  return next;
+}
+
 // Audit fix: lastKnownSha never had anything removing an entry once its thread was deleted or
 // aged out of the server's 7-thread retention cap - harmless in practice (a handful of small
 // string entries for as long as the tab stays open), but unbounded. Every call that returns a
@@ -223,13 +242,14 @@ function pruneRepoSha(currentThreadIds: readonly string[]): void {
 // `closed: true` response means an actual commit happened and `threads` reflects real repo state;
 // otherwise the caller is responsible for appending the reply to its own local thread.
 export type SendMessageResult =
-  | { closed: false; reply: string; stale?: boolean }
-  | { closed: true; reply: string; threadId: string; threads: ChatThread[] };
+  | { closed: false; reply: string; stale?: boolean; profileComplete: boolean }
+  | { closed: true; reply: string; threadId: string; threads: ChatThread[]; profileComplete: boolean };
 
 export async function sendMessage(
   threadId: string | null,
   priorMessages: ChatMessage[],
   message: string,
+  endConversationRequested = false,
 ): Promise<SendMessageResult> {
   const knownSha = threadId ? lastKnownSha.get(threadId) : undefined;
   const res = await fetchWithRetry(
@@ -237,7 +257,7 @@ export async function sendMessage(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message, knownSha }),
+      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message, knownSha, endConversationRequested }),
     },
     3,
     false,
@@ -263,6 +283,15 @@ export interface GreetResult {
   reply: string;
   threadId: string;
   threads: ChatThread[];
+  profileComplete: boolean;
+}
+
+export async function fetchProfileComplete(): Promise<boolean> {
+  const res = await fetchWithRetry("/api/coach-chat-profile-status");
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
+  if (!res.ok) throw new Error(`Failed to load coach profile status (${res.status})`);
+  const body = (await res.json()) as { profileComplete: boolean };
+  return body.profileComplete;
 }
 
 export async function greet(): Promise<GreetResult> {
@@ -365,4 +394,3 @@ export function computeLocalDayOffset(createdAt: number): number {
   const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   return Math.max(0, Math.round((todayDay.getTime() - createdDay.getTime()) / 86_400_000));
 }
-

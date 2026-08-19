@@ -557,6 +557,30 @@
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
+.cc-shell button.cc-composer__end {
+  flex: none;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--wi-rust);
+  border-radius: 11px;
+  color: var(--wi-rust);
+  background: var(--wi-surface);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.cc-shell button.cc-composer__end:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.cc-shell button.cc-composer__end:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .cc-composer.is-round button.cc-composer__send {
   width: 34px;
   height: 34px;
@@ -882,6 +906,7 @@
   .cc-shell button.cc-thread-row,
   .cc-mobile-list button.cc-thread-row,
   .cc-shell button.cc-composer__send,
+  .cc-shell button.cc-composer__end,
   .cc-shell button.cc-starter {
     transition: none;
   }

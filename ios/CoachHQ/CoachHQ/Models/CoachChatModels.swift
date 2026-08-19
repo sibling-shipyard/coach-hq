@@ -97,11 +97,10 @@ struct ChatThreadsResponse: Decodable {
     let threads: [ChatThread]
 }
 
-/// POST /api/coach-chat response - `closed: false` means nothing was written server-side
-/// (see coach-chat-flow.md "ordinary turn"), so `threadId`/`threads` are absent that turn.
-/// `repoSha`/`stale` are A5 (cross-device staleness detection). `profileComplete` is B2 - only
-/// meaningful when `closed` is true, computed from whatever state.md content this close-turn
-/// actually just committed.
+/// POST /api/coach-chat response. `threadId`/`threads` are absent on an ordinary turn even when
+/// FSP fields were incrementally committed; `closed` only reports the conversation close.
+/// `repoSha`/`stale` are A5 (cross-device staleness detection). `profileComplete` is refreshed
+/// after every turn so the explicit end-conversation control can enable as soon as FSP finishes.
 struct ChatSendResponse: Decodable {
     let reply: String
     let closed: Bool
@@ -117,14 +116,15 @@ struct ChatAPIErrorBody: Decodable {
 }
 
 /// POST {action: "greet"} response (A4). `threadId` is a fresh, never-committed id and `threads`
-/// is just the existing committed list unchanged - the server no longer commits anything on
-/// greet (see coach-chat.ts's handleGreet), so CoachChatView materializes the actual greeting as
-/// a local-only thread instead of trusting these fields to already represent it.
+/// is just the existing committed list unchanged. The server may commit native onboarding fields
+/// on greet, but it does not commit the greeting thread, so CoachChatView materializes the actual
+/// greeting as a local-only thread instead of trusting these fields to already represent it.
 struct ChatGreetResponse: Decodable {
     let reply: String
     let threadId: String
     let threads: [ChatThread]
     let repoSha: String?
+    let profileComplete: Bool?
 }
 
 /// GET /api/coach-chat-profile-status response (B2).

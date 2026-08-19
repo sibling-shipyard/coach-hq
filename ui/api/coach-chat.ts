@@ -30,7 +30,7 @@ import {
   resolveCoachChatBranch,
 } from "./coach-chat/_lib/coachChatFiles.js";
 import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./coach-chat/_lib/coachDay.js";
-import { isCloseSignal, wasCloseAttemptPending } from "./coach-chat/_lib/closeSignal.js";
+import { acceptedMessage, messageForGemini, shouldRequestClose } from "./coach-chat/_lib/closeSignal.js";
 import {
   CHAT_FILE_PATH,
   THREAD_TITLE_MAX_CHARS,
@@ -40,6 +40,7 @@ import {
   mergeThreadToFront,
   applyRetention,
   serializeChatHistory,
+  appendConversationTurn,
   type ChatMessage,
   type ChatThread,
 } from "./coach-chat/_lib/chatThreads.js";
@@ -72,7 +73,7 @@ import {
   type OnboardingHints,
 } from "./coach-chat/_lib/coachPrompt.js";
 import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
-import { fspIncrementalWrites } from "./coach-chat/_lib/fspWrites.js";
+import { fspIncrementalWrites, ordinaryTurnResponse } from "./coach-chat/_lib/fspWrites.js";
 import { onboardingChanges } from "./coach-chat/_lib/onboardingWrites.js";
 
 // A4: coach speaks first. Native onboarding facts commit directly before Gemini runs, but the
@@ -154,6 +155,9 @@ async function handleGreet(
 
   const now = Date.now();
   const repoSha = await getHeadSha(repo, token).catch(() => null); // A5: best-effort, never blocks a reply
+  const freshContext = onboardingWrites.length > 0
+    ? await loadCoachContext(repo, token, { fresh: true })
+    : context;
   return Response.json({
     reply: reply.reply,
     // Neither client reads this - both mint their own local id for the uncommitted greeting.
@@ -161,6 +165,7 @@ async function handleGreet(
     threadId: `t-${now}`,
     threads: withComputedDayOffsets(history.threads, timezone),
     repoSha,
+    profileComplete: isAthleteProfileComplete(freshContext.profile, freshContext.memory, freshContext.seasons),
   });
 }
 
@@ -182,7 +187,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       if (!apiKey) return Response.json({ error: "Coach chat isn't configured yet" }, { status: 500 });
 
       // `messages` is the client's own running history - nothing persists server-side until close.
-      const { threadId, messages, message, action, knownSha, onboardingHints } = (await req.json()) as {
+      const { threadId, messages, message, action, knownSha, onboardingHints, endConversationRequested } = (await req.json()) as {
         threadId?: string;
         messages?: ChatMessage[];
         message?: string;
@@ -192,14 +197,16 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
         knownSha?: string;
         // B4: only meaningful alongside action: "greet" - see onboardingHintsContext().
         onboardingHints?: OnboardingHints;
+        endConversationRequested?: boolean;
       };
 
       if (action === "greet") {
         return handleGreet(repo, token, apiKey, onboardingHints);
       }
 
-      const trimmed = (message ?? "").trim();
-      if (!trimmed) return Response.json({ error: "Message required" }, { status: 400 });
+      const trimmed = acceptedMessage(message, endConversationRequested === true);
+      if (trimmed == null) return Response.json({ error: "Message required" }, { status: 400 });
+      const geminiMessage = messageForGemini(trimmed, endConversationRequested === true);
 
       // A5: best-effort - a failed HEAD check just means staleness can't be detected this time.
       const currentSha = await getHeadSha(repo, token).catch(() => null);
@@ -218,12 +225,14 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // the real decision (see closing below). A10: also true if a close attempt is still
       // pending from a few messages back, since answering Coach's clarifying question doesn't
       // itself match CLOSE_SESSION_PATTERN.
-      const closeIntent = isCloseSignal(trimmed) || wasCloseAttemptPending(priorMessages);
+      const closeIntent = shouldRequestClose(trimmed, priorMessages, endConversationRequested === true);
       const now = Date.now();
       // Minted here so it's available to askGemini/finishGeminiResponse, taggable with the same
       // id the eventual commit-outcome log uses.
       const traceId = Math.random().toString(36).slice(2, 10);
-      const userMsg: ChatMessage = { id: `u-${now}`, role: "user", text: trimmed };
+      const userMsg: Extract<ChatMessage, { role: "user" }> | undefined = trimmed
+        ? { id: `u-${now}`, role: "user", text: trimmed }
+        : undefined;
 
       // Fetched on a closing turn, or later on the one incremental FSP turn that completes the
       // profile, for the server-side coach_since stamp. Gemini never sees this content.
@@ -263,7 +272,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           athleteContext,
           questContext,
           priorMessages,
-          trimmed,
+          geminiMessage,
           closeIntent ? "closing" : "ordinary",
           // First Session spans several turns, so this has to fire on ordinary turns too -
           // greet-only would drop the protocol the moment the athlete answered the first question.
@@ -288,9 +297,12 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       const closing = closeIntent && reply.session_closed === true;
 
       // Closing: build the thread's final message list and merge into what's already committed.
-      const allMessages: ChatMessage[] = priorMessages.length
-        ? [...priorMessages, userMsg, coachMsg]
-        : [{ id: `d-${now}`, role: "divider", label: todayDividerLabel(timezone) }, userMsg, coachMsg];
+      const allMessages = appendConversationTurn(
+        priorMessages,
+        userMsg,
+        coachMsg,
+        { id: `d-${now}`, role: "divider", label: todayDividerLabel(timezone) },
+      );
 
       // Fixed outside the retry loop so the response's id/title/preview stay stable across
       // attempts.
@@ -723,7 +735,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           }
         }
         await generateTemplatesAfterCompletion();
-        return Response.json({ reply: reply.reply, closed: false, repoSha, stale });
+        return Response.json(ordinaryTurnResponse(reply.reply, repoSha, stale, profileComplete));
       }
 
       if (validUpdates.length === 0 && !trimmedCoachNote) {
