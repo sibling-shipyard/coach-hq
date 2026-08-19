@@ -172,7 +172,20 @@ export function selectTemplates(
   const equipment = inferEquipment(memory);
   const level = inferLevel(memory);
 
-  const eligible = library.filter((entry) => !conflictsWithActiveInjuries(entry, injuries));
+  // An athlete with several active injury flags can, in principle, have every library entry
+  // conflict with at least one of them (conflictsWithActiveInjuries filters per-entry, not
+  // per-athlete, so nothing stops the intersection of "rules out" from covering the whole
+  // library). Falling back to the unfiltered library rather than returning nothing means First
+  // Session close never commits zero templates - a worse outcome for the athlete than a template
+  // that technically brushes against one of their injury tags. console.warn so this is visible
+  // rather than silently swallowed.
+  let eligible = library.filter((entry) => !conflictsWithActiveInjuries(entry, injuries));
+  if (eligible.length === 0) {
+    console.warn(
+      "[coach-chat] selectTemplates: every library entry conflicted with an active injury flag - falling back to the full library",
+    );
+    eligible = library;
+  }
   const activeInjuryTexts = (injuries.flags ?? []).filter((f) => f.status === "active").map((f) => f.text.toLowerCase());
 
   // Score: +2 per matching sport_tag (or "general_fitness" tag as a universal partial match),
@@ -184,7 +197,11 @@ export function selectTemplates(
   const scored = eligible.map((entry) => {
     let score = 0;
     if (entry.sport_tags.some((t) => sports.includes(t) || t === "general_fitness")) score += 2;
-    if (entry.equipment.every((e) => equipment.includes(e))) score += 2;
+    // entry.equipment.length === 0 is a bodyweight-only template - it needs nothing the athlete
+    // lacks, so it deliberately gets the same "no equipment blocker" bonus as an exact equipment
+    // match. Spelled out explicitly rather than leaning on .every() returning true on an empty
+    // array, which would happen to produce the same score by accident.
+    if (entry.equipment.length === 0 || entry.equipment.every((e) => equipment.includes(e))) score += 2;
     score += entry.goal_tags.filter((t) => goalTags.includes(t)).length;
     if (entry.level === level) score += 1;
     else if (Math.abs(LEVEL_RANK[entry.level] - LEVEL_RANK[level]) === 1) score += 0.5;
@@ -431,6 +448,13 @@ export function applyTemplateEdit(
   // number is trusted as-is until renumberAfterSkip actually runs). Only suppress the note in
   // that specific case - a note with no skip requested at all (a pure "just leaving context"
   // note) still gets appended normally.
+  // Fragility note: skipHappened is count-based, not identity-based - it only checks whether the
+  // total exercise count dropped, not which exercises actually left. That's fine today because
+  // this code path only ever removes exercises (renumberAfterSkip has no path that adds any), so
+  // a lower count can only mean a real skip landed. If a future change ever made this path both
+  // add and remove exercises in the same call, a count comparison could stay equal while the
+  // content genuinely changed, and this guard would wrongly suppress the note. Not a live bug -
+  // just don't reuse this pattern for a path that can add exercises without revisiting it.
   const skipRequested = (edit.skip_exercise_nums?.length ?? 0) > 0 || (edit.skip_phases?.length ?? 0) > 0;
   const skipHappened = countExercises(phases) < countExercises(current.phases);
   const trimmedNote = edit.note?.trim();
@@ -544,6 +568,9 @@ export function applySessionPlan(
   // i.e. only meaningful when something actually changed). A skip was requested but matched
   // nothing real (adversarial testing found this) - same guard as applyTemplateEdit, don't append
   // a note claiming a change that never happened.
+  // Same count-based-not-identity-based fragility as applyTemplateEdit's skipHappened above: this
+  // only checks whether the total count dropped, which is only a valid stand-in for "a real skip
+  // happened" because this path never adds exercises. Revisit if that ever changes.
   const skipRequested = (plan.skip_exercise_nums?.length ?? 0) > 0 || (plan.skip_phases?.length ?? 0) > 0;
   const skipHappened = countExercises(phases) < countExercises(base.phases);
   const trimmedNote = plan.note?.trim();

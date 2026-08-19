@@ -136,6 +136,36 @@ describe("selectTemplates", () => {
     expect(ids.length).toBe(6);
   });
 
+  it("falls back to the full library when every entry conflicts with an active injury flag", () => {
+    const library: WorkoutLibraryIndexEntry[] = [
+      { id: "a_shoulder", sport_tags: ["badminton"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },
+      { id: "b_shoulder", sport_tags: ["calisthenics"], equipment: ["bodyweight"], goal_tags: ["skill_development"], level: "beginner" },
+    ];
+    const shoulderInjuries = injuries([
+      { id: "inj_1", text: "sore rotator cuff, avoid overhead work", status: "active", opened_at: "2026-08-01", resolved_at: null },
+    ]);
+    // Both library entries conflict with the shoulder flag (badminton and calisthenics are both
+    // shoulder-conflicting sport_tags), so the injury filter alone would leave nothing eligible.
+    // selectTemplates should fall back to the full library rather than returning an empty array -
+    // an athlete should never end up with zero templates after onboarding.
+    const ids = selectTemplates(profile(), memory({ sports: ["badminton"] }), shoulderInjuries, library);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids)).toEqual(new Set(["a_shoulder", "b_shoulder"]));
+  });
+
+  it("gives a bodyweight (empty-equipment) entry the same equipment bonus as an exact match, for an athlete with no equipment", () => {
+    const library: WorkoutLibraryIndexEntry[] = [
+      { id: "a_bodyweight", sport_tags: ["running"], equipment: [], goal_tags: ["endurance"], level: "beginner" },
+      { id: "b_needs_gear", sport_tags: ["running"], equipment: ["dumbbells"], goal_tags: ["endurance"], level: "beginner" },
+    ];
+    // memory's equipment note is empty text, so inferEquipment resolves to just ["bodyweight"] -
+    // the athlete owns no real equipment. a_bodyweight's empty equipment array should still score
+    // the same +2 "no equipment blocker" bonus as an exact match would, via the explicit
+    // length === 0 check rather than relying on .every() on an empty array.
+    const ids = selectTemplates(profile(), memory({ sports: ["running"] }), injuries(), library);
+    expect(ids[0]).toBe("a_bodyweight");
+  });
+
   it("works against a synthetic library for a narrow deterministic check", () => {
     const library: WorkoutLibraryIndexEntry[] = [
       { id: "a_match", sport_tags: ["running"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },

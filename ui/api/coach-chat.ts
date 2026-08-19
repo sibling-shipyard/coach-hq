@@ -538,10 +538,12 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
             if (planEditEvents.length > 0) {
               working = applyPlanEdit(working, planEditEvents, validTemplateIds, traceId, new Date());
             }
-            if (working == null) {
-              throw new Error("session_reconcile/plan_edit: current_week.json could not be read");
-            }
-            return working;
+            // At least one of sessionReconcileEvents/planEditEvents is non-empty (the guard that
+            // got us into this branch), so at least one of the two calls above ran - and both
+            // applySessionReconcile and applyPlanEdit throw rather than return null when
+            // current_week.json can't be read, same "real applier output, never null" shape as
+            // memoryFileWrite's working above. working is a real string here.
+            return working as string;
           },
         };
       }
