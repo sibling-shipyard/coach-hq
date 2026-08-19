@@ -43,10 +43,22 @@ jobs:
 
       - name: Find changed activities
         if: github.event_name == 'push'
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
+          # A branch-creation push sends the zero SHA, and a force-push can leave `before`
+          # unreachable — either way `git diff` exits 128 and takes the whole sync job down
+          # with it. vs_usual is additive, so enrich nothing rather than block the pipeline.
+          if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            CHANGED=$(git diff --name-only --diff-filter=AM "$BEFORE" "$AFTER" -- user_data/activities/hist/)
+          else
+            echo "before-SHA $BEFORE is unusable — skipping vs_usual enrichment this run"
+            CHANGED=""
+          fi
           {
             echo 'CHANGED_ACTIVITY_PATHS<<EOF'
-            git diff --name-only --diff-filter=AM '${{ github.event.before }}' '${{ github.sha }}' -- user_data/activities/hist/
+            echo "$CHANGED"
             echo EOF
           } >> "$GITHUB_ENV"
 

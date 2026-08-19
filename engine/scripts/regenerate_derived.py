@@ -69,10 +69,15 @@ def maybe_run_badminton_analytics() -> None:
 
 
 def enrich_vs_usual() -> None:
-    raw_paths = os.environ.get("CHANGED_ACTIVITY_PATHS", "")
-    changed_paths = [REPO / line for line in raw_paths.splitlines() if line.strip()]
-    writes = enrich_activity_files(hist_dir(REPO), changed_paths)
-    log(f"Added vs_usual to {writes} new activity file(s)")
+    # Display-only baseline for the iOS detail view. Never fatal: a failure here must not
+    # stop quest_log, quest_history or sync_status from regenerating.
+    try:
+        raw_paths = os.environ.get("CHANGED_ACTIVITY_PATHS", "")
+        changed_paths = [REPO / line for line in raw_paths.splitlines() if line.strip()]
+        writes = enrich_activity_files(hist_dir(REPO), changed_paths)
+        log(f"Added vs_usual to {writes} new activity file(s)")
+    except Exception as e:
+        log(f"Warning: vs_usual enrichment skipped ({e})")
 
 
 def write_sync_status(error: Optional[str] = None) -> None:

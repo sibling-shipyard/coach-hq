@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-18
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-19
 
 ## Context
 
@@ -143,7 +143,9 @@ Before rebuilding those files, `regenerate_derived.py` adds `vs_usual` to each a
 by the triggering push. The block is the median of up to 20 prior same-sport activities and is
 omitted until two prior sessions exist. Missing HR metrics are omitted from their individual
 median; they are never treated as zero. The workflow commits the enriched activity JSON with the
-other generated outputs. Existing history is not backfilled.
+other generated outputs. Existing history is not backfilled. Enrichment is best-effort: if the
+push has no usable before-SHA (new branch, force-push) or the step itself fails, it is skipped
+and the rest of the pipeline still runs.
 
 ## Auth
 
