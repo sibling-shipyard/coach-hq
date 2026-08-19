@@ -107,6 +107,42 @@ in progress. No commit or PR yet because the required live gate has not complete
     focused-closing-checklist tests in `first-session-injection.test.ts`. 329/329 tests green,
     `tsc --noEmit` clean.
 
+## Implementation progress — Part B (2026-08-19)
+
+**Status:** code complete on `core/fsp-end-conversation-part-b`; PR #434 is open against
+`core/fsp-reliability-part-a` (PR #432). Not merged. Independent live verification remains for
+the reviewer, per the athlete's direction to stop builder-side testing.
+
+- [x] Added `endConversationRequested: true` to the POST contract and ORed it into close intent.
+  The flag selects closing mode but does not force `session_closed: true`; Coach may still ask a
+  closing follow-up.
+- [x] Added End Conversation controls immediately right of Send on web and iOS. Web matches the
+  38px Send height; iOS uses a matching 32x32 stop control with an accessibility label.
+- [x] Both controls start disabled, initialize from `coach-chat-profile-status`, and update from
+  fresh `profileComplete` values returned by greet, ordinary, and closing responses.
+- [x] Explicit close intent is thread-scoped and remains pending through Coach's closing
+  follow-up questions and request failures. The athlete's real follow-up answer stays visible and
+  is sent with the flag; intent clears only after a successful close.
+- [x] The button sends no fake athlete phrase, does not clear an unsent draft, and commits no
+  blank user message. The backend gives Gemini a model-only button event because Gemini rejects
+  requests whose history ends on a model turn; that event never enters visible or committed chat.
+- [x] Removed iOS's dead `setThreadStatus`/PATCH path and corrected the current coach-chat flow
+  documentation.
+- [x] Review found and fixed two interaction bugs after the first green implementation pass:
+  synthetic “End conversation” transcript text, and loss of explicit close intent after a Gemini
+  follow-up. Live work then found and fixed the model-turn rejection described above.
+- [x] Automated checks completed before builder-side testing was stopped: TypeScript clean; full
+  Vitest suite 27 files / 332 tests; focused close-signal/chat-thread tests 26/26 after the final
+  model-event fix. This Linux host could not compile or render the iOS app.
+- [ ] Reviewer live verification still required: disabled-to-enabled transition without reload,
+  web/iOS control placement, follow-up continuation, and final GitHub commit/file contents.
+- [ ] Extra Part A finding from the stopped live run: Gemini replied that it had created the
+  `Ten-minute mobility` habit, but commit `3de394d7` changed only `memory.json` and `seasons.json`;
+  `quests.json` remained absent (GitHub API returned 404). This is a Part A reliability follow-up,
+  not patched into Part B.
+- [x] Committed as `43b79b8` and pushed. PR #434 targets `core/fsp-reliability-part-a` and contains
+  only the intended Part B implementation, tests, and `coach-chat-flow.md` update.
+
 ## Orientation, for whoever implements this (no prior context assumed)
 
 **Branching - read this before creating anything.** Both PRs in this doc MUST stack on top of
