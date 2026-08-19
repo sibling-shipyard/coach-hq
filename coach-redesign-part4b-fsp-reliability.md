@@ -60,13 +60,29 @@ in progress. No commit or PR yet because the required live gate has not complete
     transition) fired correctly too.
 - [x] All independent checks green: `tsc --noEmit` clean, 324/324 tests, `SOUL.claude.md` zero-diff
   reconfirmed after the coach_since fix.
-- [ ] Not yet tested live: the full quest-setup step (`quest_create` for habits) and an actual
-  close (`session_closed: true`) on a completed-profile athlete - the conversation above stopped
-  once the reliability bug was found and fixed; A2's core mechanism is proven, this remainder is
-  lower-risk (same code path, already exercised by `season_start`/`memory_update` landing
-  correctly on ordinary turns).
 - [x] Committed and pushed to `core/fsp-reliability-part-a`, PR opened against
-  `core/first-session-protocol-wiring`.
+  `core/first-session-protocol-wiring` (#432).
+- [x] Live-tested the remaining piece: habit quests (`quest_create`) and an actual close on the
+  completed-profile athlete, on an isolated `git worktree` at #432's committed tip (not the
+  shared working directory - Part B was already in progress there) against a fresh scratch data
+  branch. Mixed result, reported honestly rather than marked fully passing:
+  - **Close mechanism confirmed working.** Sent "...that's everything, let's wrap this up" on the
+    completed-profile athlete: `session_closed: true` came back, a real commit landed
+    (`9d1a8592`), `chat_history.json`/`coach_log.json` both updated. A redundant `profile_update`
+    (Gemini re-sent `dob` with the same value already on file) correctly produced **no diff** in
+    the commit - `applyProfileUpdate` output was byte-identical, git saw nothing to write, exactly
+    right.
+  - **`quest_create` did not fire for the stated habits - a real, live-found gap, not fixed here.**
+    The athlete clearly said "I want to stretch every day and get to bed by 10pm most nights" on
+    the closing turn, and Coach's reply claimed "everything is saved and locked in" - but
+    Gemini's actual structured response had no `quest_create` field at all (confirmed from the
+    server's raw response log, not just the missing commit diff). `quests.json` never got
+    touched. This is a prompt-adherence gap, not a code defect - `quest_create`'s wiring is
+    already proven correct when Gemini does emit it (worked fine for `season_start` on an earlier
+    turn in the same conversation); the model simply didn't follow through on the SOUL text's
+    Step 4 instruction this time. Given Gemini's heavy overload tonight, not chased further as a
+    prompt-tuning problem right now - flagged here for whoever picks this up next, likely worth a
+    stronger/more explicit Step 4 instruction or a live-testing pass once Gemini is less flaky.
 
 ## Orientation, for whoever implements this (no prior context assumed)
 
