@@ -1,0 +1,18 @@
+{
+  "name": "plan-edit-future-day",
+  "description": "Athlete asks to change what a future day's already-planned session is, without replanning the whole week - should fire plan_edit on that one session_id, not week_plan or template_edit.",
+  "mode": "closing",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "Current week's sessions (use these exact session_ids for session_reconcile AND plan_edit - match the date to what the athlete actually means, never guess):\n- session_id: sess-thu-tempo | date: 2026-08-20 | Tempo Run | status: planned",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }
+  ],
+  "userMessage": "Can you change Thursday's session from the tempo run to an easy recovery jog instead? Legs need a break before the weekend. Wrap this up.",
+  "expect": {
+    "sessionClosed": true,
+    "coachNoteReported": true,
+    "actionFieldsPresent": ["plan_edit"],
+    "actionFieldsAbsent": ["week_plan", "template_edit"]
+  }
+}

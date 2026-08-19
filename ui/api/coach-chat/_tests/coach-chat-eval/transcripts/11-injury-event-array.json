@@ -1,0 +1,17 @@
+{
+  "name": "injury-event-array",
+  "description": "Live bug found and fixed tonight: a turn reporting two separate injury changes (one resolving, a different one flaring up) silently dropped the second when injury_event was a single object. Permanent regression transcript - both entries must be present.",
+  "mode": "closing",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "Active Injury Flags (use these exact flag_ids for injury_event updates/resolves):\n- flag_id: inj-knee1 | status: active | Mild right knee ache since last week's long run",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["How's the knee doing, and how was today's session?"] }
+  ],
+  "userMessage": "Good news, the knee thing is totally gone now, no pain at all today. Bad news, I tweaked my left ankle a bit on the trail run this afternoon, nothing serious but it's there. Let's wrap up.",
+  "expect": {
+    "sessionClosed": true,
+    "coachNoteReported": true,
+    "actionFieldsPresent": ["injury_event"]
+  }
+}

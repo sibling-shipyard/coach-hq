@@ -22,6 +22,10 @@
 
 ## Known items already waiting here
 
+- **`plan_edit` can't touch `week.guardrails[]`.** Found live (round-3 week-replanning test): an
+  athlete asking to change a guardrail alongside a session swap has no structured field for it -
+  `plan_edit` only edits one day's session content. Follow-up once real athlete asks surface how
+  often this matters.
 - **Free-form template/session edits beyond the structured shapes built for `template_edit`/
   `session_plan`.** Today those two action fields only support `skip_exercise_nums` (structured
   skip-by-number), no free-form insertion/reordering. Follow-up once the structured version is

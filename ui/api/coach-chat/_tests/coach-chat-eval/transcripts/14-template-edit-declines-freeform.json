@@ -1,0 +1,18 @@
+{
+  "name": "template-edit-declines-freeform",
+  "description": "Athlete asks to add a brand-new exercise to a template - this needs free-form content generation, which is explicitly not supported. Coach must decline honestly, not fabricate template_edit.",
+  "mode": "closing",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, strength\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "Current templates (use these exact template_ids for template_edit):\n- template_id: tpl-strength-a",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }
+  ],
+  "userMessage": "Can you permanently add a new single-leg deadlift exercise into my strength A template? Want it built in going forward. Wrap this up.",
+  "expect": {
+    "sessionClosed": true,
+    "coachNoteReported": true,
+    "noFabricatedSaveLanguage": true,
+    "actionFieldsAbsent": ["template_edit"]
+  }
+}

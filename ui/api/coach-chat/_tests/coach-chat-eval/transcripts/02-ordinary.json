@@ -1,6 +1,6 @@
 {
   "name": "ordinary",
-  "description": "Ordinary check-in turn, nothing that needs closing - should not close.",
+  "description": "Ordinary check-in turn, nothing that needs closing - should not close. Consistency touch for PR #428: added actionFieldsAbsent so 'nothing fires on an ordinary turn' is explicit and testable, not just implied by sessionClosed=false - all closing-only action fields must stay unset outside a closing turn. No extraContext added - none of these fields are reachable on an ordinary turn regardless of what context is available.",
   "mode": "ordinary",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
@@ -9,6 +9,17 @@
   ],
   "userMessage": "Legs feel a bit heavy today but nothing alarming, heading out for an easy run now.",
   "expect": {
-    "sessionClosed": false
+    "sessionClosed": false,
+    "actionFieldsAbsent": [
+      "memory_update",
+      "injury_event",
+      "quest_event",
+      "profile_update",
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
   }
 }

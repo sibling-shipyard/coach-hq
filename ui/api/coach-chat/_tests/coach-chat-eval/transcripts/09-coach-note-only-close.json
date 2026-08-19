@@ -1,6 +1,6 @@
 {
   "name": "coach-note-only-close",
-  "description": "Genuine close-out with real content that's narrative/reflective rather than a concrete training-log fact. Previously found (pre-strip-down) that this exact shape of conversation ('nothing to log today really') sometimes made Gemini skip coach_note entirely, treating 'nothing structural happened' as license to skip the note too - this transcript exists to catch that regression specifically.",
+  "description": "Genuine close-out with real content that's narrative/reflective rather than a concrete training-log fact. Previously found (pre-strip-down) that this exact shape of conversation ('nothing to log today really') sometimes made Gemini skip coach_note entirely, treating 'nothing structural happened' as license to skip the note too - this transcript exists to catch that regression specifically. Consistency touch for PR #428: added actionFieldsAbsent - the athlete explicitly says there's nothing concrete to log (no injury, no quest, no template ask), so every closing-only action field besides coach_note should stay unset here, and that's now asserted directly rather than left implicit. No extraContext added - this transcript's whole point is a close with nothing structural to reference, so giving Gemini real ids here would blur what it's actually testing.",
   "mode": "closing",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
@@ -13,6 +13,17 @@
   "userMessage": "That's all for now, wrap this session.",
   "expect": {
     "sessionClosed": true,
-    "coachNoteReported": true
+    "coachNoteReported": true,
+    "actionFieldsAbsent": [
+      "memory_update",
+      "injury_event",
+      "quest_event",
+      "profile_update",
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
   }
 }

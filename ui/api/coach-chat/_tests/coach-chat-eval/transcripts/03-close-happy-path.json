@@ -1,9 +1,10 @@
 {
   "name": "close-happy-path",
-  "description": "Genuine close-out with real content given - should close and produce a real coach_note. This is the core signal the reliability-debug branch exists to measure: does the smallest possible ask reliably produce a non-empty coach_note.",
+  "description": "Genuine close-out with real content given - should close and produce a real coach_note. This is the core signal the reliability-debug branch exists to measure: does the smallest possible ask reliably produce a non-empty coach_note. Consistency touch for PR #428: added extraContext with real quest ids that are in scope but never mentioned in the conversation, plus actionFieldsAbsent for every closing-only action field - the athlete talks about the interval session and how legs feel, nothing that implies a quest/injury/template/plan action, so this now proves Gemini stays quiet on all of them even when real ids ARE available to reference, not just when they're absent from context (that's the weaker case 01/02/07/09 cover).",
   "mode": "closing",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "Current quests (use these exact quest_ids for quest_event):\n- quest_id: q-sub45 | type: main | main quest\n- quest_id: q-coldshower | type: streak | status: active",
   "history": [
     { "id": "1", "role": "coach", "paragraphs": ["Morning - how'd the intervals go?"] },
     { "id": "2", "role": "user", "text": "Ran 6x800m, felt strong throughout, hit all my splits." },
@@ -14,6 +15,17 @@
   "expect": {
     "sessionClosed": true,
     "coachNoteReported": true,
-    "noFabricatedSaveLanguage": true
+    "noFabricatedSaveLanguage": true,
+    "actionFieldsAbsent": [
+      "memory_update",
+      "injury_event",
+      "quest_event",
+      "profile_update",
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
   }
 }

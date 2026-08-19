@@ -1,6 +1,6 @@
 {
   "name": "false-positive-close-signal",
-  "description": "Message superficially matches CLOSE_SESSION_PATTERN (server routes this to mode=closing) but the athlete isn't actually ending the conversation - must not fabricate a close.",
+  "description": "Message superficially matches CLOSE_SESSION_PATTERN (server routes this to mode=closing) but the athlete isn't actually ending the conversation - must not fabricate a close. Consistency touch for PR #428: added actionFieldsAbsent - since Gemini correctly reads this as not a real close, none of the closing-only action fields should fire either, and that's now an explicit assertion instead of only checking sessionClosed. No extraContext added - nothing in this exchange gives Gemini a real id to act on regardless.",
   "mode": "closing",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
@@ -9,6 +9,17 @@
   ],
   "userMessage": "I'm done for today's hill reps, moving on to the flat tempo section now.",
   "expect": {
-    "sessionClosed": false
+    "sessionClosed": false,
+    "actionFieldsAbsent": [
+      "memory_update",
+      "injury_event",
+      "quest_event",
+      "profile_update",
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
   }
 }

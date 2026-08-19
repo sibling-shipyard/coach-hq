@@ -57,6 +57,12 @@ interface Transcript {
   mode: TurnMode;
   stateMd: string;
   questLog: string;
+  // Optional per-turn extra context block - mirrors askGemini()'s extraContext parameter
+  // (coachPrompt.ts's injuryFlagsContext/activeQuestsContext/activeTemplatesContext/
+  // activeWeekSessionsContext, concatenated). Needed for any transcript exercising an action
+  // field that references a real id (template_edit/session_plan/session_reconcile/plan_edit),
+  // since Gemini is instructed to only ever use an id that's actually listed in context.
+  extraContext?: string;
   history: ChatMessage[];
   userMessage: string;
   expect: {
@@ -65,6 +71,12 @@ interface Transcript {
     // coach-chat-reliability-debug: asserts reply.coach_note came back as a real, non-empty
     // (after trimming) plain-English note.
     coachNoteReported?: boolean;
+    // Which structured action field(s) this transcript expects Gemini to set (or, prefixed with
+    // "!", explicitly NOT set) on the reply - e.g. "plan_edit" or "!template_edit". This is what
+    // actually catches a wrong-action-picked regression (the plan_edit/template_edit and
+    // quest_event/injury_event array bugs found live) rather than just the reply-level rubric.
+    actionFieldsPresent?: string[];
+    actionFieldsAbsent?: string[];
   };
 }
 
@@ -135,6 +147,7 @@ async function askWithRetry(t: Transcript): Promise<Awaited<ReturnType<typeof as
         t.history,
         t.userMessage,
         t.mode,
+        t.extraContext,
       );
     } catch (err) {
       lastErr = err;
@@ -169,6 +182,24 @@ function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemi
     if (hasFabricatedClaim) {
       failures.push(`reply claims something was saved with an empty coach_note: "${reply.reply}"`);
     }
+  }
+
+  // Which structured action field(s) actually fired - this is what catches a wrong-action
+  // regression (e.g. plan_edit vs template_edit, or a dropped array entry) that the reply-level
+  // rubric above can't see at all.
+  const replyRecord = reply as unknown as Record<string, unknown>;
+  const isSet = (field: string) => {
+    const value = replyRecord[field];
+    if (value === undefined || value === null) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    return true;
+  };
+
+  for (const field of t.expect.actionFieldsPresent ?? []) {
+    if (!isSet(field)) failures.push(`expected action field "${field}" to be set, but it was absent/empty`);
+  }
+  for (const field of t.expect.actionFieldsAbsent ?? []) {
+    if (isSet(field)) failures.push(`expected action field "${field}" to be absent, but it was set: ${JSON.stringify(replyRecord[field])}`);
   }
 
   return failures;
