@@ -1,31 +1,102 @@
-# api/coach-chat/ — coach-chat internals
+# `api/coach-chat/` — hosted Coach internals
 
-The HTTP routes for this feature (`coach-chat.ts`, `coach-chat-context.ts`,
-`coach-chat-profile-status.ts`) stay one level up at `api/` — Vercel routes by literal file path,
-so nesting them here would change their URLs (see [`../README.md`](../README.md)). This folder
-holds everything those routes call into.
+This folder owns the hosted Coach Phelps implementation shared by web and iOS. The routed entry
+points stay one level up because Vercel maps literal file paths to URLs:
 
-Full design: [`docs/eng-docs/coach-chat-flow.md`](../../../docs/eng-docs/coach-chat-flow.md).
-Commit/retention design: [ADR 0012](../../../kdb/decisions/0012-coach-chat-atomic-commits-and-retention.md).
-`coach_since` day-number design: [ADR 0018](../../../kdb/decisions/0018-coach-since-day-number.md).
+| Route file | Endpoint | Responsibility |
+|---|---|---|
+| `../coach-chat.ts` | `/api/coach-chat` | GET history; POST greet, message, and close; validate actions; commit writes |
+| `../coach-chat-context.ts` | `/api/coach-chat-context` | Preload the same cached context used by chat |
+| `../coach-chat-profile-status.ts` | `/api/coach-chat-profile-status` | Report whether First Session setup is complete |
 
-## `_lib/`
+Do not move those files here without intentionally changing every client URL. See
+[`../README.md`](../README.md) and ADR 0017.
 
-| File | Role |
+## Turn flow
+
+```mermaid
+flowchart LR
+    read["Load bundled SOUL + split athlete data"] --> render["Render athlete and quest context"]
+    render --> prompt["Select prompt text + mode schema"]
+    prompt --> gemini["Gemini returns semantic actions"]
+    gemini --> apply["Server validates ids and applies actions"]
+    apply --> commit["Atomic Git commit on close\nor incremental FSP save"]
+```
+
+- SOUL and the First Session horcrux are build outputs in `api/_generated/soul.ts`, not athlete-repo files.
+- Athlete context comes from `profile.json`, `memory.json`, `injuries.json`, the last five
+  `coach_log.json` rows, the split quest ledger, and `gen/athlete_insights.json`.
+- Greetings and returning ordinary turns expose no write actions. First Session turns expose only
+  intake actions. Returning close turns expose the operational actions relevant to existing data.
+- Gemini reports facts and requested operations. The server owns ids, dates, timestamps, file
+  shapes, commit messages, thread titles, validation, and atomic persistence.
+
+Full lifecycle: [`coach-chat-flow.md`](../../../docs/eng-docs/coach-chat-flow.md). Gemini request,
+schema, caching, and retry details: [`gemini-flow.md`](../../../docs/eng-docs/gemini-flow.md).
+Atomic commit/retention design: [ADR 0012](../../../kdb/decisions/0012-coach-chat-atomic-commits-and-retention.md).
+Day-number design: [ADR 0018](../../../kdb/decisions/0018-coach-since-day-number.md).
+
+## `_lib/` map
+
+### Context and time
+
+| File | Responsibility |
 |---|---|
-| `coachChatFiles.ts` | Raw repo file reads + split `CoachContext` loading, with an in-flight/short-TTL cache; profile-complete checks |
-| `coachMemoryFiles.ts` | Paths and shapes for `profile.json`/`memory.json`/`injuries.json`/`coach_log.json` |
-| `coachContext.ts` | Renders the athlete-context prompt block (Athlete Profile, Equipment, Fitness Baseline, Learned Patterns, Active Injury Flags, Recent Session Notes) from the four files above - same section headers state.md used to carry |
-| `soulCache.ts` | Gemini explicit prompt caching for the static SOUL/instructions text |
-| `chatThreads.ts` | Thread data model + `chat_history.json` persistence, retention (ADR 0012), title cleanup |
-| `closeSignal.ts` | Deterministic close-intent detection — regex trigger + pending-close-attempt lookback |
-| `coachDay.ts` | Timezone/day-number math (age labels, day dividers, `coach_since`-aware day count) - takes the athlete's timezone directly (`profile.json`), no more state.md-prose parsing |
-| `coachReplySchema.ts` | Gemini reply types and mode-specific response schemas |
-| `coachPromptText.ts` | Static/cacheable text, per-turn dynamic text, and context helpers |
-| `geminiClient.ts` | Gemini transport — combines prompt text, response schema, and cache state; retries transient failures once |
-| `coachWrites.ts` | Shared write helpers and `coach_since` stamping |
-| `coachIntents.ts` | Pure appliers for server-owned file writes — `coach_note` (a new row in `coach_log.json`, the single merged continuity log), `memory_update`, `injury_event` |
+| `coachChatFiles.ts` | Read bundled SOUL and the nine athlete context files; in-flight/60-second cache; completion checks |
+| `coachMemoryFiles.ts` | Paths and types for profile, memory, injuries, and coach log |
+| `coachQuestFiles.ts` | Paths and types for seasons, quests, progress, and progressions |
+| `coachContext.ts` | Render compact athlete, Fitness Snapshot, season, quest, and milestone prompt sections |
+| `coachDay.ts` | IANA-timezone dates, thread offsets, and `coach_since` day-number math |
 
-`_tests/` mirrors `_lib/` one file at a time (drop the `coach-chat-` prefix other repos use —
-redundant once you're already inside this folder), plus `_tests/coach-chat-eval/transcripts/`,
-the golden-transcript fixtures `ui/scripts/eval-coach-chat.ts` runs against a live Gemini key.
+### Gemini boundary
+
+| File | Responsibility |
+|---|---|
+| `coachPromptText.ts` | Static cached prefix, dynamic mode instructions, history window, and optional context blocks |
+| `coachReplySchema.ts` | `GeminiReply`, `TurnMode`, and the mode-specific structured-output schemas |
+| `geminiClient.ts` | Build cached/non-cached requests, call Gemini, retry once where allowed, parse replies |
+| `soulCache.ts` | Two-hour explicit Gemini cache keyed by static-prefix hash and model; fail-open storage in Vercel Edge Config |
+
+`coachPromptText.ts` may import the `TurnMode` type from `coachReplySchema.ts`; the schema module
+must not depend on prompt text.
+
+### Server-owned actions and writes
+
+| File | Responsibility |
+|---|---|
+| `coachIntents.ts` | Apply profile, memory, coaching-style, sports, injury, season, quest, progress, and coach-log actions |
+| `coachWeekFiles.ts` | Validate and apply full week plans, session reconciliation, and dated plan edits |
+| `coachWorkoutFiles.ts` | Select/generate initial templates; validate template edits and today's modified session |
+| `workoutSchema.ts` | Structural runtime validation for workout/template JSON |
+| `coachWrites.ts` | Shared write helpers and `coach_since` stamping |
+| `onboardingWrites.ts` | Normalize native onboarding hints and suppress duplicate greet commits |
+| `fspWrites.ts` | Restrict ordinary-turn persistence to incremental First Session writes |
+
+### Conversation lifecycle
+
+| File | Responsibility |
+|---|---|
+| `chatThreads.ts` | Thread/message model, `chat_history.json`, seven-thread retention, server-derived titles |
+| `closeSignal.ts` | Typed/button/pending close-intent detection before Gemini makes the final close decision |
+
+## Tests
+
+`_tests/` covers the pure modules and cross-module behavior. Golden live-Gemini transcripts live
+under `_tests/coach-chat-eval/transcripts/` and are run by `ui/scripts/eval-coach-chat.ts`.
+
+```bash
+cd ui
+npx tsc --noEmit
+npm test -- --run
+```
+
+`npm run eval:coach-chat` is a paid/live gate. Run it only when that gate is explicitly requested;
+ordinary deterministic verification must not call Gemini.
+
+## Scope boundaries
+
+- Generic GitHub commit and timeout infrastructure stays in `api/_lib/`.
+- Client rendering/state stays in `client/`; native client behavior stays in `ios/`.
+- Coach identity and behavior originate in `platform/soul/`, never in this folder.
+- Route consolidation and the remaining `coach-chat.ts` lifecycle decomposition are tracked
+  separately. Do not fold them into prompt/schema maintenance.
