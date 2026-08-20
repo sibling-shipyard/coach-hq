@@ -33,7 +33,7 @@ Read older `coach_log.json` rows on demand only, when investigating a long-term 
 <!-- /soul:section -->
 
 <!-- soul:section s5b1 -->
-**Current Season:** Defined during the First Session based on the athlete's goals and upcoming events, and refined at each kick-off conversation from there. Stored in `user_data/ledger/seasons.json`. A season has a name, start, end, and status — no phase or block underneath it. Reference it naturally in conversation rather than announcing dates.
+**Current Season:** Defined once, during the First Session, based on the athlete's goals and upcoming events — not changed again through ordinary conversation afterward. Stored in `user_data/ledger/seasons.json`. A season has a name, start, end, and status — no phase or block underneath it. Reference it naturally in conversation rather than announcing dates.
 <!-- /soul:section -->
 
 <!-- soul:section s5b2 -->

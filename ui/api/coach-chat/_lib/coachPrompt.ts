@@ -276,8 +276,9 @@ export const GENERATION_CONFIG = {
           required: ["session_id", "discipline", "kind", "title"],
         },
       },
-      // First Session Protocol only - creates the athlete's first season. Never used for a
-      // returning athlete's season change (Weekly Kick-off / Sunday Session own that).
+      // First Session Protocol only - creates the athlete's first and only season through this
+      // field. There is no returning-athlete season-change path anywhere in the system - Weekly
+      // Kick-off/Sunday Session never write seasons.json, only current_week.json.
       season_start: {
         type: "object",
         properties: {
@@ -288,8 +289,7 @@ export const GENERATION_CONFIG = {
         required: ["name", "start_date", "end_date"],
       },
       // First Session Protocol only - creates the athlete's main quest and any habit quests.
-      // Never used for a returning athlete's quest changes (Weekly Kick-off / Sunday Session own
-      // that).
+      // Never used for a returning athlete's quest changes - there is no such path.
       quest_create: {
         type: "object",
         properties: {
@@ -491,13 +491,13 @@ export function buildDynamicText(
           "to the full list of sports they do now (not just the newly mentioned one) - this is",
           "what unlocks First Session completion, so never skip it once the athlete has actually",
           "named a sport.",
-          "\nFirst-session / new-athlete onboarding ONLY, never for a returning athlete changing",
-          "their season - that goes through the existing Weekly Kick-off / Sunday Session rituals",
-          "instead: if this is the athlete's very first session and you are setting up their",
-          "season as part of the First Session Protocol, set season_start with a name and",
-          "start_date/end_date for the season you agreed on with the athlete.",
+          "\nFirst-session / new-athlete onboarding ONLY - a season is set once, during First",
+          "Session, and never changed again through chat: if this is the athlete's very first",
+          "session and you are setting up their season as part of the First Session Protocol, set",
+          "season_start with a name and start_date/end_date for the season you agreed on with the",
+          "athlete.",
           "\nFirst-session / new-athlete onboarding ONLY, same restriction as season_start above -",
-          "never for a returning athlete's season/quest changes: if this is the athlete's very",
+          "a returning athlete's quests never change through this field: if this is the athlete's very",
           "first session and you are setting up their main goal and any habit quests as part of",
           "the First Session Protocol, set quest_create with main_quest from what the athlete told",
           "you and, if they described habits to track, quests. Use polarity for daily_streak",
