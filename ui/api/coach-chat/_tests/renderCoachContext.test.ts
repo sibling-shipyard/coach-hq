@@ -115,9 +115,18 @@ describe("renderCoachContext section shape", () => {
       sports: { badminton: { sessions_365d: 120, sessions_per_week_recent_4w: 3,
         sessions_per_week_prior_12w: 2.25, longest_gap_days_365d: 9, days_since_last_session: 2 } },
     } });
-    expect(text).toContain("## Fitness Snapshot (last 12 months)");
-    expect(text).toContain("**Badminton:** ~3x/week recently (~2.3x/week in the prior 12 weeks)");
+    expect(text).toContain("## Fitness Snapshot (last 365 days)");
+    expect(text).toContain("**Badminton:** 120 sessions in the window; ~3x/week recently (~2.3x/week in the prior 12 weeks)");
     expect(text).toContain("longest gap 9 days; last session 2 days ago.");
+  });
+
+  it("uses the insight file's own window_days in the section heading", () => {
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
+      generated_at: "2026-08-20T00:00:00Z", window_days: 90,
+      sports: { run: { sessions_365d: 20, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 0.5,
+        longest_gap_days_365d: 14, days_since_last_session: 5 } },
+    } });
+    expect(text).toContain("## Fitness Snapshot (last 90 days)");
   });
 
   it.each([

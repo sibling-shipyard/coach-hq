@@ -99,14 +99,16 @@ function sportLabel(sport: string): string {
 
 function fitnessSnapshotSection(insights: AthleteInsightsJson | null): string | null {
   if (!insights?.sports || typeof insights.sports !== "object" || Array.isArray(insights.sports)) return null;
+  const windowDays = Number.isFinite(insights.window_days) && insights.window_days > 0 ? insights.window_days : 365;
   const lines = Object.entries(insights.sports)
     .filter(([sport, insight]) => sport.trim().length > 0 && isSportInsight(insight))
     .map(([sport, insight]) =>
-      `- **${sportLabel(sport)}:** ~${formatRate(insight.sessions_per_week_recent_4w)}x/week recently ` +
+      `- **${sportLabel(sport)}:** ${insight.sessions_365d} sessions in the window; ` +
+      `~${formatRate(insight.sessions_per_week_recent_4w)}x/week recently ` +
       `(~${formatRate(insight.sessions_per_week_prior_12w)}x/week in the prior 12 weeks); ` +
       `longest gap ${insight.longest_gap_days_365d} days; last session ${insight.days_since_last_session} days ago.`,
     );
-  return lines.length > 0 ? ["## Fitness Snapshot (last 12 months)", ...lines].join("\n") : null;
+  return lines.length > 0 ? [`## Fitness Snapshot (last ${windowDays} days)`, ...lines].join("\n") : null;
 }
 
 function fitnessBaselineSection(memory: MemoryJson | null): string {
