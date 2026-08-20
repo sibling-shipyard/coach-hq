@@ -107,6 +107,7 @@ _Truth-checked before wider exposure._
 
 - #68 calories 12k hardcode · #21 Vercel KV races · #239 silent re-auth · #265 BYO-Claude cleanup
 - #247 bob: prune unwanted keys from old activities (Skanda & Akash repos)
+- #436 coach_log.json grows unbounded — cap/rotate storage
 
 ## 🔀 Decisions to take
 

@@ -43,6 +43,8 @@ describe("renderCoachContext section shape", () => {
   const coachLog: CoachLogJson = {
     version: 1,
     rows: [
+      { id: "sess_2026-08-12_a", date: "2026-08-12", ts: "2026-08-12T00:00:00Z", type: "chat", text: "Easy recovery ride.", trace_id: "t0" },
+      { id: "sess_2026-08-13_b", date: "2026-08-13", ts: "2026-08-13T00:00:00Z", type: "chat", text: "Mobility and stretching.", trace_id: "t0" },
       { id: "sess_2026-08-14_a", date: "2026-08-14", ts: "2026-08-14T00:00:00Z", type: "chat", text: "Rest day.", trace_id: "t0" },
       { id: "sess_2026-08-15_b", date: "2026-08-15", ts: "2026-08-15T00:00:00Z", type: "chat", text: "Ran intervals, felt strong.", trace_id: "t0" },
       { id: "sess_2026-08-16_c", date: "2026-08-16", ts: "2026-08-16T00:00:00Z", type: "chat", text: "Strength session, all sets hit.", trace_id: "t0" },
@@ -80,13 +82,15 @@ describe("renderCoachContext section shape", () => {
     expect(text).not.toContain("inj_elbow");
   });
 
-  it("windows Recent Session Notes to the last 3 rows, most recent first", () => {
+  it("windows Recent Session Notes to the last 5 rows, most recent first", () => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog });
     const section = text.split("## Recent Session Notes")[1].split("## Fitness Baseline")[0];
     expect(section).toContain("2026-08-17");
     expect(section).toContain("2026-08-16");
     expect(section).toContain("2026-08-15");
-    expect(section).not.toContain("2026-08-14"); // oldest, outside the 3-row window
+    expect(section).toContain("2026-08-14");
+    expect(section).toContain("2026-08-13");
+    expect(section).not.toContain("2026-08-12"); // oldest, outside the 5-row window
     // most recent first
     expect(section.indexOf("2026-08-17")).toBeLessThan(section.indexOf("2026-08-16"));
   });
