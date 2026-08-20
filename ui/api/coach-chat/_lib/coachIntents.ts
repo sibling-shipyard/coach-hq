@@ -1,9 +1,4 @@
-/**
- * Part B of coach-chat's write-authority rebuild: pure appliers for fields Gemini reports as
- * plain facts, where the server owns the file mechanic entirely - Gemini never sees or edits the
- * file's current shape, it just states what happened. Grown one function at a time as each fact
- * field gets wired in.
- */
+/** Pure server-owned appliers for semantic actions reported by Gemini. */
 
 import { MEMORY_NOTE_LABELS, COACHING_STYLES, type MemoryJson, type MemoryNoteLabel, type CoachingStyle, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
 import { type ProgressRow, type Season, type SeasonsJson, type MainQuest, type Quest, type QuestType, type QuestsJson } from "./coachQuestFiles.js";

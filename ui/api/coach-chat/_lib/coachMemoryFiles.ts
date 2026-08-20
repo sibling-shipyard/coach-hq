@@ -1,11 +1,11 @@
 /**
- * Shapes and paths for the four files coach-redesign-part1-memory.md introduces:
- * profile.json (settings), memory.json (Coach's free-text notes), injuries.json (open/resolved
- * flags), coach_log.json (the merged continuity log - named coach_log.json rather than
- * sessions.json to avoid colliding with the unrelated activities/workout_plans/sessions/*.json
- * workout files). Types only here - the read/write mechanics live in coachChatFiles.ts (reads)
- * and coachIntents.ts (server-owned writes). state.md/coach_notes.md/rolling_state.json, which
- * these four files replaced, no longer exist.
+ * Paths and shapes for structured coach profile, memory, injuries, and continuity: profile.json
+ * (settings), memory.json (Coach's free-text notes), injuries.json (open/resolved flags),
+ * coach_log.json (the merged continuity log - named coach_log.json rather than sessions.json to
+ * avoid colliding with the unrelated activities/workout_plans/sessions/*.json workout files).
+ * Types only here - the read/write mechanics live in coachChatFiles.ts (reads) and
+ * coachIntents.ts (server-owned writes). state.md/coach_notes.md/rolling_state.json, which these
+ * four files replaced, no longer exist.
  */
 
 export const PROFILE_PATH = "user_data/coach/profile.json";
@@ -24,7 +24,7 @@ export interface ProfileJson {
 }
 
 // The six memory_update labels - fixed set, per gemini-flow.md's "constrained values over free
-// text" rule. `equipment` moved here from profile.json (coach-redesign-part1-memory.md).
+// text" rule. `equipment` moved here from profile.json.
 export const MEMORY_NOTE_LABELS = [
   "fitness_baseline",
   "coaching_priorities",

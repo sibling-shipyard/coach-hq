@@ -1,8 +1,4 @@
-/**
- * Coach-chat's thread data model and chat_history.json persistence: the shape of a thread/message,
- * loading the committed thread list, merging/retention rules (ADR 0012 amendment - count-based,
- * no archive tier), and title cleanup. No Gemini/commit logic here - just the thread model.
- */
+/** Thread model, persistence, title cleanup, and count-based retention (ADR 0012). */
 import { getFileRaw } from "./coachChatFiles.js";
 
 export const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
@@ -11,9 +7,8 @@ export const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 // as a defensive backstop.
 export const THREAD_TITLE_MAX_CHARS = 28;
 
-// Strips anything outside printable ASCII rather than attempting script detection. Titles are no
-// longer model-generated (see coachReplySchema.ts) - this now only ever runs against the athlete's
-// own first message, kept as a safety net against a stray typed character.
+// Titles are no longer model-generated (see coachReplySchema.ts) - this now only ever runs
+// against the athlete's own first message, kept as a safety net against a stray typed character.
 export function sanitizeTitle(title: string): string {
   return title.replace(/[^\x20-\x7E]/g, "").replace(/\s+/g, " ").trim();
 }
@@ -49,7 +44,7 @@ type ChatThreadStatus = "active" | "deleted";
 // coachDay.ts's withComputedDayOffsets recomputes both from createdAt on every read, so nothing
 // written to disk for either field is ever trusted. status is dropped too - a deleted thread is
 // filtered out of the array entirely on write (ADR 0012 amendment), never soft-marked, so the
-// persisted value only ever held "active" (part3-rollout).
+// persisted value only ever held "active".
 export interface ChatThread {
   id: string;
   // Set once at creation, never overwritten - dayOffset is recomputed from this on every read
@@ -62,8 +57,8 @@ export interface ChatThread {
 
 // What the API sends back to the client (browser + iOS): dayOffset/ageLabel/status computed
 // fresh by withComputedDayOffsets before every response, never read off disk. This is the shape
-// coachChatModel.ts's ChatThread type mirrors - keep it that way, part3-rollout says the
-// client-facing response shape does not change.
+// coachChatModel.ts's ChatThread type mirrors - keep it that way, the client-facing response
+// shape does not change.
 export interface ApiChatThread extends ChatThread {
   dayOffset: number;
   ageLabel: string;

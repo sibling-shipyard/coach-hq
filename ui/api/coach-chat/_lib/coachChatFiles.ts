@@ -1,11 +1,4 @@
-/**
- * Shared read helpers for the files coach-chat.ts injects into every Gemini call: profile.json/
- * memory.json/injuries.json/coach_log.json, the split quest ledger, and athlete_insights.json come
- * from the athlete's own repo;
- * SOUL.md does not (see below). Extracted out of coach-chat.ts so coach-chat-context.ts (the
- * app-load preload endpoint, A3) can fetch the same files the same way without duplicating the
- * GitHub-read plumbing.
- */
+/** Shared bundled-SOUL and athlete-context reads for chat and preload routes. */
 import { SOUL } from "../../_generated/soul.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import {
@@ -56,7 +49,7 @@ const GH_HEADERS_RAW = (token: string) => ({
 
 // COACH_CHAT_BRANCH lets a real close be tested end to end on a scratch branch instead of a
 // live athlete's main. Every read (this file) and write (commitFilesAtomic's branch option in
-// coach-chat.ts) must resolve the same way, or a scratch-branch test silently reads real main
+// coachTurn.ts) must resolve the same way, or a scratch-branch test silently reads real main
 // content while writing to the scratch branch - found and fixed after exactly that happened
 // (coach_notes.md kept re-appending from main's stale baseline instead of building on the
 // previous test commit).
@@ -211,11 +204,11 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
   }
 }
 
-// B2/coach-redesign-part1-memory.md: First Session Protocol completion check. Used to be a
-// regex/section-matching read of state.md's Athlete Profile section (see git history) - now a
-// field-presence check across profile.json, memory.json, and seasons.json. First Session is done
-// only after all profile basics, at least one sport, a real coaching-style enum, and a matching
-// current season exist. Quests stay optional by design.
+// First Session Protocol completion check. Used to be a regex/section-matching read of state.md's
+// Athlete Profile section (see git history) - now a field-presence check across profile.json,
+// memory.json, and seasons.json. First Session is done only after all profile basics, at least
+// one sport, a real coaching-style enum, and a matching current season exist. Quests stay
+// optional by design.
 export function isAthleteProfileComplete(
   profile: ProfileJson | null,
   memory: MemoryJson | null,

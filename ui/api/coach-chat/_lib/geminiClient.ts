@@ -1,9 +1,4 @@
-/**
- * Coach-chat's Gemini transport: builds the actual request (combining coachPromptText.ts with
- * explicit-cache state from soulCache.ts), calls generateContent, retries transient failures
- * (stale cache, timeout, overload) exactly once, and parses the response. Prompt *content* lives
- * in coachPromptText.ts - this module only owns getting a request to Gemini and a reply back.
- */
+/** Gemini request construction, explicit-cache use, one retry, and response parsing. */
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
 import type { ChatMessage } from "./chatThreads.js";

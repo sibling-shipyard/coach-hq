@@ -151,7 +151,7 @@ const RESPONSE_PROPERTIES = {
           skip_phases: { type: "array", items: { type: "string" } },
           note: { type: "string" },
         },
-        // template_id is the only field the write guard in coach-chat.ts actually needs
+        // template_id is the only field the write guard in coachTurn.ts actually needs
         // (skip_exercise_nums/note are genuinely optional content) - required here so Gemini
         // can't set this field at all without it, same "no silently-partial commitment object"
         // discipline as template_edit above.

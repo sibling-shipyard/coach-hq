@@ -48,10 +48,13 @@ const REPO_ROOT = repoRoot(__dirname);
 const BASELINE_PATH = path.join(REPO_ROOT, "platform", "validate-soul-baseline.json");
 const CARVE_SCRIPT = path.join(REPO_ROOT, "platform", "scripts", "carve-skeleton.mjs");
 const TEMPLATE_SRC_DIR = path.join(REPO_ROOT, "platform", "skeleton-templates");
-const COACH_WRITES_TS = path.join(
-  REPO_ROOT,
-  "ui/api/coach-chat/_lib/coachWrites.ts",
-);
+const COACH_WRITE_MODULES = [
+  "chatThreads.ts",
+  "coachMemoryFiles.ts",
+  "coachQuestFiles.ts",
+  "coachWeekFiles.ts",
+  "coachWorkoutFiles.ts",
+].map((file) => path.join(REPO_ROOT, "ui/api/coach-chat/_lib", file));
 
 const CHECKS = {
   PATHS: "paths-exist",
@@ -142,17 +145,18 @@ function inventory(root) {
 }
 
 function loadChatWritableSet() {
-  const src = fs.readFileSync(COACH_WRITES_TS, "utf-8");
-  const paths = [...src.matchAll(/export const [A-Z0-9_]+_PATH\s*=\s*"([^"]+)"/g)].map(
-    (m) => m[1],
-  );
+  const paths = COACH_WRITE_MODULES.flatMap((modulePath) => {
+    const src = fs.readFileSync(modulePath, "utf-8");
+    const exact = [...src.matchAll(/export const [A-Z0-9_]+_PATH\s*=\s*"([^"]+)"/g)].map((m) => m[1]);
+    const prefixes = [...src.matchAll(/export const [A-Z0-9_]+_PATH_PREFIX\s*=\s*"([^"]+)"/g)].map((m) => `${m[1]}*`);
+    return [...exact, ...prefixes];
+  });
   if (paths.length === 0) {
     throw new Error(
-      `No *_PATH exports found in ${path.relative(REPO_ROOT, COACH_WRITES_TS)} — ` +
-        "coach-chat's writable set moved; fix this reader rather than linting against nothing.",
+      "No writable path exports found in coach-chat's path modules — fix this reader rather than linting against nothing.",
     );
   }
-  return paths;
+  return [...new Set(paths)];
 }
 
 /** BYOB's writable set is SOUL's own §2 guardrail bullet — parsed, not duplicated here. */

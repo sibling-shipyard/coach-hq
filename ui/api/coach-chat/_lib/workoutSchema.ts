@@ -1,12 +1,12 @@
 /**
  * Structural validation for the Workout/Phase/Exercise shape (ui/client/src/lib/workouts.ts).
- * Extracted out of _tests/workoutLibrary.test.ts's inline validator (coach-redesign
- * workout-backend-wiring §1) because §3's applyTemplateEdit needs the same check as a real
- * runtime guard, not just a test assertion - a Gemini-produced template edit that doesn't
- * conform must never get committed (this pipeline's "never commit invalid data" discipline,
- * same spirit as every other applier in coachIntents.ts throwing rather than writing something
- * malformed). Throws with a descriptive message on the first violation found rather than
- * collecting every one - callers only need to know "reject this", not a full report.
+ * Extracted out of _tests/workoutLibrary.test.ts's inline validator because applyTemplateEdit
+ * needs the same check as a real runtime guard, not just a test assertion - a Gemini-produced
+ * template edit that doesn't conform must never get committed (this pipeline's "never commit
+ * invalid data" discipline, same spirit as every other applier in coachIntents.ts throwing
+ * rather than writing something malformed). Throws with a descriptive message on the first
+ * violation found rather than collecting every one - callers only need to know "reject this",
+ * not a full report.
  */
 import type { Workout } from "../../../client/src/lib/workouts.js";
 
@@ -93,11 +93,7 @@ function validatePhase(phase: any, path_: string): void {
   }
 }
 
-/**
- * Validates that `workout` structurally conforms to the Workout/Phase/Exercise schema. Throws a
- * descriptive Error on the first violation - callers (applyTemplateEdit, this file's own test
- * suite counterpart) treat any thrown error as "reject this, never commit it".
- */
+/** Throws on the first structural violation so invalid workouts cannot be committed. */
 export function validateWorkout(workout: any, label: string): asserts workout is Workout {
   if (workout == null || typeof workout !== "object") {
     throw new Error(`workout schema: ${label} is not an object`);
