@@ -45,6 +45,16 @@ class HealthKitSyncManager: ObservableObject {
         }
     }
 
+    /// How far back every sync re-scans HealthKit, regardless of `hk_last_synced`.
+    ///
+    /// A watch workout can reach the phone hours or days after it started, and the HealthKit
+    /// query filters on *start* time. A watermark of "when we last ran" therefore steps
+    /// straight over a late arrival and never looks back — the workout is lost for good.
+    /// Re-scanning a fixed window costs one local HealthKit query and lets dedup drop what is
+    /// already committed. It also gives multi-source copies (Garmin, Strava) a chance to land
+    /// in the same batch, which is what makes cross-source dedup work at all.
+    static let lookbackWindowDays = 14
+
     private let healthStore = HKHealthStore()
     private var apiClient: GitHubAPIClient?
     private var widgetStore: WidgetSnapshotStore?
@@ -182,7 +192,11 @@ class HealthKitSyncManager: ObservableObject {
 
             let since: Date
             if let ts = syncState.hkLastSynced, let date = ISO8601DateFormatter().date(from: ts) {
-                since = date
+                // Never trust the watermark alone — see `lookbackWindowDays`.
+                let windowFloor = Calendar.current.date(
+                    byAdding: .day, value: -Self.lookbackWindowDays, to: Date()
+                )!
+                since = min(date, windowFloor)
             } else {
                 // First sync — pull the last year of history.
                 since = Calendar.current.date(byAdding: .day, value: -365, to: Date())!
@@ -196,8 +210,7 @@ class HealthKitSyncManager: ObservableObject {
             syncProgress = 0.05
 
             let rawWorkouts = try await fetchWorkouts(since: since)
-            let workouts = Self.deduplicate(rawWorkouts)
-            guard !workouts.isEmpty else {
+            guard !rawWorkouts.isEmpty else {
                 if !extraFiles.isEmpty {
                     // No new workouts but extra files need committing (e.g. profile on first sync).
                     syncProgressText = "Saving profile…"
@@ -213,7 +226,6 @@ class HealthKitSyncManager: ObservableObject {
             }
 
             syncProgress = 0.08
-            syncProgressText = "\(workouts.count) workout\(workouts.count == 1 ? "" : "s") found — reading HR data…"
 
             // hist/ directory doesn't exist until the first commit — treat 404 as empty.
             let existingFiles: [GitHubFileEntry]
@@ -233,6 +245,14 @@ class HealthKitSyncManager: ObservableObject {
 
             // existingFileNames uses the full list to avoid overwriting any committed file.
             var existingFileNames = Set(existingFiles.map { $0.name })
+
+            // Dedup runs after the file list, not before it: picking a winner between
+            // multi-source copies of one session needs to know which copy is already in
+            // the repo, or a late-arriving higher-priority source commits a second file
+            // for a session already in hist/. See WorkoutDeduplicator.selectWinners.
+            let committedUUIDs = Set(existingFiles.compactMap { Self.uuid(fromHistoryFileName: $0.name) })
+            let workouts = Self.deduplicate(rawWorkouts, committedUUIDs: committedUUIDs)
+            syncProgressText = "\(workouts.count) workout\(workouts.count == 1 ? "" : "s") found — reading HR data…"
             let counterReferenceYear = syncState.counterYear
                 ?? Self.year(fromISO8601: syncState.hkLastSynced)
                 ?? Calendar.current.component(.year, from: Date())
@@ -257,6 +277,17 @@ class HealthKitSyncManager: ObservableObject {
                 let timePart = base.startDateLocal.dropFirst(11).prefix(8)
                     .replacingOccurrences(of: ":", with: "")
                 if recentFiles.contains(where: { $0.name.hasPrefix("\(datePart)_\(timePart)_") }) { continue }
+
+                // Every dedup check that can run on `base` runs here, before the HR samples
+                // are read and before assignName() advances a counter. The sync window
+                // deliberately re-scans days that are already synced, so a check that fires
+                // later would burn a HealthKit query per already-committed workout and skip a
+                // name number on every round — leaving permanent gaps in "WeightTraining #N".
+                // The uuid filename is deterministic (ADR 0014), so it is known from `base`.
+                if let uuid = base.activityId {
+                    if existingFileNames.contains(ActivityNamer.fileName(for: base)) { continue }
+                    if recentFiles.contains(where: { $0.name.contains("_\(uuid).json") }) { continue }
+                }
 
                 // Fetch HR samples and compute stats + zones
                 let hrSamples = (try? await fetchHeartRateSamples(for: workout)) ?? []
@@ -291,12 +322,9 @@ class HealthKitSyncManager: ObservableObject {
 
                 let named = ActivityNamer.assignName(activity: withHR, counters: &counters)
 
-                // Cheap uuid-filename dedup: the uuid filename is deterministic,
-                // so if this workout's uuid already appears in any committed
-                // filename, it's already synced. Filename-only (no file reads).
-                if let uuid = named.activityId,
-                   recentFiles.contains(where: { $0.name.contains("_\(uuid).json") }) { continue }
-
+                // Safety net for the slug fallback path, whose filename depends on the
+                // assigned name and so cannot be known before this point. Workouts with a
+                // uuid were already cleared above.
                 let fileName = ActivityNamer.fileName(for: named)
                 if existingFileNames.contains(fileName) { continue }
 
@@ -415,6 +443,17 @@ class HealthKitSyncManager: ObservableObject {
         return Calendar.current.component(.year, from: date)
     }
 
+    /// Extracts the canonical uuid from a `hk_<date>_<uuid>.json` history filename.
+    /// Returns nil for Strava-era and slug-named files, which carry no uuid.
+    private static func uuid(fromHistoryFileName fileName: String) -> String? {
+        guard fileName.hasPrefix("hk_"), fileName.hasSuffix(".json") else { return nil }
+        let stem = String(fileName.dropLast(".json".count))
+        guard let candidate = stem.split(separator: "_").last else { return nil }
+        // Normalised through UUID so the comparison against `workout.uuid.uuidString`
+        // can never miss on casing.
+        return UUID(uuidString: String(candidate))?.uuidString
+    }
+
     /// Extracts the `YYYY-MM-DD` embedded in a history filename — works for both
     /// the legacy Strava shape (`2026-07-01_095844_<id>.json`) and the HealthKit
     /// shape (`hk_2026-07-02_hit_run_34.json`).
@@ -428,47 +467,32 @@ class HealthKitSyncManager: ObservableObject {
 
     // MARK: - Multi-source dedup
 
-    /// Removes lower-priority duplicates from a batch of HKWorkouts.
-    /// Two workouts are duplicates if they share the same loose activity group and their
-    /// time windows overlap by ≥50% of the shorter workout's duration.
-    /// When a duplicate pair is found, the higher-priority source wins
-    /// (apple native > garmin > strava > unknown). Ties keep the first encountered.
-    static func deduplicate(_ workouts: [HKWorkout]) -> [HKWorkout] {
-        let sorted = workouts.sorted {
-            ActivityMapper.sourcePriority(bundleId: $0.sourceRevision.source.bundleIdentifier) >
-            ActivityMapper.sourcePriority(bundleId: $1.sourceRevision.source.bundleIdentifier)
+    /// Removes duplicate recordings of the same session from a batch of HKWorkouts.
+    ///
+    /// Thin adapter over `WorkoutDeduplicator`, which holds the rules in a HealthKit-free
+    /// form so they can be verified by `ios/scripts/verify_workout_dedup.swift`.
+    ///
+    /// Pass `committedUUIDs` (uuids already present in `hist/` filenames) so a copy already
+    /// in the repo outranks a higher-priority source that shows up in a later round.
+    static func deduplicate(_ workouts: [HKWorkout], committedUUIDs: Set<String> = []) -> [HKWorkout] {
+        let candidates = workouts.map { workout in
+            DedupCandidate(
+                uuid: workout.uuid.uuidString,
+                sportType: ActivityMapper.sportType(for: workout.workoutActivityType),
+                start: workout.startDate,
+                end: workout.endDate,
+                sourcePriority: ActivityMapper.sourcePriority(
+                    bundleId: workout.sourceRevision.source.bundleIdentifier
+                ),
+                isCommitted: committedUUIDs.contains(workout.uuid.uuidString)
+            )
         }
-        var accepted: [HKWorkout] = []
-        for candidate in sorted {
-            if !accepted.contains(where: { areDuplicateWorkouts(candidate, $0) }) {
-                accepted.append(candidate)
-            }
-        }
+        let winners = Set(WorkoutDeduplicator.selectWinners(candidates))
         // Re-sort by startDate so ActivityNamer assigns counters in chronological order,
         // matching the invariant in engine/scripts/migrate_activity_naming.py.
-        return accepted.sorted { $0.startDate < $1.startDate }
-    }
-
-    private static func areDuplicateWorkouts(_ a: HKWorkout, _ b: HKWorkout) -> Bool {
-        let sportA = ActivityMapper.sportType(for: a.workoutActivityType)
-        let sportB = ActivityMapper.sportType(for: b.workoutActivityType)
-        guard sameActivityGroup(sportA, sportB) else { return false }
-
-        let overlapStart = max(a.startDate, b.startDate)
-        let overlapEnd = min(a.endDate, b.endDate)
-        guard overlapEnd > overlapStart else { return false }
-
-        let overlap = overlapEnd.timeIntervalSince(overlapStart)
-        let shorter = min(a.duration, b.duration)
-        return shorter > 0 && overlap / shorter >= 0.5
-    }
-
-    /// Walk and Hiking are treated as the same activity group for dedup purposes
-    /// since different apps commonly disagree on the type for the same outdoor session.
-    private static func sameActivityGroup(_ a: String, _ b: String) -> Bool {
-        if a == b { return true }
-        let walkHike: Set<String> = ["Walk", "Hiking"]
-        return walkHike.contains(a) && walkHike.contains(b)
+        return workouts
+            .filter { winners.contains($0.uuid.uuidString) }
+            .sorted { $0.startDate < $1.startDate }
     }
 
     // MARK: - HealthKit Queries
