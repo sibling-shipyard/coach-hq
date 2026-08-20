@@ -8,9 +8,9 @@ import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
 import type { ChatMessage } from "./chatThreads.js";
 import {
-  GENERATION_CONFIG,
   buildDynamicText,
   buildHistoryContents,
+  generationConfigFor,
   staticSystemText,
   type GeminiReply,
   type TurnMode,
@@ -28,6 +28,7 @@ export async function askGemini(
   history: ChatMessage[],
   userMessage: string,
   mode: TurnMode,
+  firstSession: boolean,
   extraContext?: string,
   traceId?: string,
   timezone = "UTC",
@@ -47,7 +48,7 @@ export async function askGemini(
   const buildContents = (useCache: boolean) =>
     useCache
       ? [
-          { role: "user", parts: [{ text: buildDynamicText(athleteContext, questLog, mode, extraContext, true, timezone) }] },
+          { role: "user", parts: [{ text: buildDynamicText(athleteContext, questLog, mode, firstSession, extraContext, true, timezone) }] },
           {
             role: "model",
             parts: [{ text: "Understood - I'll follow those instructions exactly, same as my system instructions." }],
@@ -60,9 +61,9 @@ export async function askGemini(
   const buildRequestBody = (useCache: boolean) => ({
     ...(useCache
       ? { cachedContent: cachedName }
-      : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(athleteContext, questLog, mode, extraContext, false, timezone) }] } }),
+      : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(athleteContext, questLog, mode, firstSession, extraContext, false, timezone) }] } }),
     contents: buildContents(useCache),
-    generationConfig: GENERATION_CONFIG,
+    generationConfig: generationConfigFor(mode, firstSession),
   });
 
   // Closing turns carry a larger prompt (full history) than the shared UPSTREAM_TIMEOUT_MS (25s,

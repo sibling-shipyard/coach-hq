@@ -20,14 +20,14 @@ see `ui/api/coach-chat/_lib/geminiClient.ts`), called via raw `fetch` to `genera
 ```mermaid
 flowchart LR
     subgraph static["Static (cached, one entry for every athlete)"]
-        persona["persona\nSOUL.md, ~13K tok"]
-        instr["fixed instructions\n+ reasoning-field cue"]
-        examples["3 few-shot examples"]
+        persona["persona\nSOUL.chat.md"]
+        instr["fixed web-runtime instructions"]
+        examples["2 few-shot examples"]
     end
     subgraph dynamic["Dynamic (fresh every call)"]
-        state["state.md + rendered quest context\n(+ closing files on close turns)"]
+        state["split athlete + quest context\n+ optional Fitness Snapshot"]
         mode["mode-specific instructions\ngreeting / ordinary / closing"]
-        format["file-edit-format\n+ commit-message instructions"]
+        schema["mode-specific response schema"]
         ts["todayContextLine()\nchanges every minute"]
     end
     static -->|cachedContent name| call["generateContent"]
@@ -122,42 +122,23 @@ round-trip, silently.
   entry, last write winning. Harmless — every created cache is independently valid, Gemini just
   ends up with a few short-lived orphaned entries that age out via their own TTL.
 
-## Reasoning field
-
-`responseSchema` declares `reasoning` before `reply` (Gemini fills fields in declaration order).
-OpenAI's structured-outputs guide reports a large accuracy gain on schema-shaped tasks from a
-reasoning field ahead of the final answer, even for non-reasoning-first models like Flash. The
-model briefly checks itself — is this genuinely a close, is every proposed file edit backed by
-real content it was actually shown — before committing to `reply`.
-
-On a closing turn specifically, `finishGeminiResponse` logs the model's own `reasoning` text
-(`console.log("[coach-chat] closing-turn reasoning:", ...)`) before stripping it — added
-2026-08-06 after real closes were found landing with zero `file_updates` and no way to tell why.
-This is the only place `reasoning` is ever available: it's deleted from the object immediately
-after (not just omitted from responses — genuinely `delete`d, so `eval-coach-chat.ts`'s leak
-check (`"reasoning" in reply`) holds on `askGemini`'s actual return contract, not just on
-`coach-chat.ts`'s own `Response.json(...)` call sites, which all pick explicit fields and never
-spread the whole object anyway). It never reaches the athlete either way.
-
 ## Response schema
 
-```json
-{
-  "reasoning": "string, stripped before return",
-  "reply": "string, required",
-  "session_closed": "boolean",
-  "commit_message": "string",
-  "title": "string, only on session_closed:true",
-  "checklist_covered": "boolean, only meaningful on session_closed:true — diagnostic only, logged not enforced",
-  "file_updates": [
-    { "path": "string", "edits": [{ "old_string": "string", "new_string": "string" }], "merge_patch": "string", "content": "string" }
-  ]
-}
-```
+`generationConfigFor(mode, firstSession)` sends only fields legal for that turn. `reply` and
+`session_closed` are always required; forbidden actions are absent from the schema rather than
+discouraged only through prose.
 
-`file_updates` picks exactly one of `edits` (markdown, exact-match string replacement) /
-`merge_patch` (JSON, RFC 7396) / `content` (session files, whole-new-file) per entry — see
-`ui/api/_lib/fileEdits.ts` and `coach-chat-flow.md`'s Write strategy (A7) section.
+| Turn | Additional fields |
+|---|---|
+| Greeting | None |
+| Returning ordinary | None |
+| First Session ordinary | Incremental profile, memory, coaching-style, sports, injury, season, and quest setup actions |
+| First Session close | The same intake actions plus `coach_note` |
+| Returning close | `coach_note` plus memory/profile/injury/quest, template/session/week-plan actions |
+
+The server owns dates, generated ids, timestamps, commit messages, and thread titles. Gemini
+reports semantic actions only. `firstSession` is passed explicitly from the profile-completion
+check; prompt construction does not infer mode by searching injected text.
 
 ## Action-field design rule (any new Gemini-facing field/action)
 
@@ -177,9 +158,7 @@ not a guess:
    labels beats an open string wherever the shape allows it; only the field that's genuinely
    prose (`text`, `value`) should be unconstrained, and there should be at most one such field per
    action.
-4. **Commitment fields ordered before the narrative `reply`** in the schema declaration (Gemini
-   fills fields in declaration order — see the Reasoning field section above for the evidence this
-   is based on).
+4. **Commitment fields ordered before the narrative `reply`** in each mode-specific schema.
 
 **Why this is a hard rule, not a preference:** three independent free-text fields have each
 triggered the same failure mode — a runaway repetition loop that burns the output budget on
@@ -194,7 +173,7 @@ new action added to this schema is filtered through these four rules for that re
 - The actual `generateContent` call uses its own longer timeout (`GEMINI_GENERATE_TIMEOUT_MS`,
   45s, `geminiClient.ts`) rather than the shared file-read default (`UPSTREAM_TIMEOUT_MS`, 25s,
   `ui/api/_lib/httpTimeout.ts`) — closing turns routinely carry the largest prompts in the system (full
-  chat history + 5 extra files) and the hardest output (a structured close-out), so they're the
+  chat history and operational context) and the hardest output (a structured close-out), so they're the
   turn most likely to legitimately need more than 25s. `ui/vercel.json` sets an explicit
   `maxDuration: 300` for `api/coach-chat.ts` so the platform's own ceiling doesn't silently become
   the real limit underneath this — confirmed against the live account (Fluid Compute is enabled),
@@ -240,7 +219,7 @@ new action added to this schema is filtered through these four rules for that re
   given deploy frequency vs. the 2h TTL, revisit if that ratio changes.
 - P3: `getCachedSoulName`'s read-then-write race under concurrent cold starts, documented above -
   not fixed, harmless in practice.
-- Close-turn prompt reliability (does `session_closed: true` actually come with real
-  `file_updates`) is a genuine compliance gap, not something this file's caching/retry mechanics
-  can fix — see `coach-chat-flow.md`'s close-session detection section for the logging and prompt
-  reinforcement added 2026-08-06.
+- P3: per-mode cached prefixes are not justified yet. They would multiply cache keys and lifecycle
+  state; mode-specific schemas and compact dynamic prose remove the larger per-turn waste first.
+- Paid/live behavior checks remain the named gate for prompt changes; deterministic tests verify
+  request shape and forbid illegal fields before that gate.

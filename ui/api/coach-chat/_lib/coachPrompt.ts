@@ -10,8 +10,7 @@
  */
 import type { ChatMessage } from "./chatThreads.js";
 import { todayContextLine } from "./coachDay.js";
-import { MEMORY_NOTE_LABELS, type MemoryNoteLabel, type InjuriesJson } from "./coachMemoryFiles.js";
-import type { QuestsJson } from "./coachQuestFiles.js";
+import { MEMORY_NOTE_LABELS, type MemoryNoteLabel } from "./coachMemoryFiles.js";
 import type { WeekPlan, SessionReconcileEvent, PlanEditEvent } from "./coachWeekFiles.js";
 
 export interface GeminiReply {
@@ -77,25 +76,10 @@ const FEW_SHOT_EXAMPLES = [
   "</example_2>",
 ].join("\n");
 
-// Shared between the primary call and the stale-cache retry in geminiClient.ts - the response
-// shape doesn't depend on whether cachedContent was used.
-export const GENERATION_CONFIG = {
-  responseMimeType: "application/json",
-  // Was 2048 (shrunk from 16384 when the ask was a handful of short fields). Raised after live
-  // verification hit a real truncation - a turn combining coach_note/reply with a
-  // session_reconcile actual{} and a plan_edit entry produced an "Unterminated string in JSON"
-  // error, not a network failure. The schema has grown a lot since 2048 was chosen (week_plan,
-  // session_reconcile+actual, plan_edit, template_edit, session_plan all coexist as possible
-  // fields now) - 4096 gives real headroom for a turn that legitimately needs several of them at
-  // once, while still well short of the original 16384 (and its repetition-loop risk).
-  maxOutputTokens: 4096,
-  responseSchema: {
-    type: "object",
-    properties: {
-      // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4) -
-      // there's nothing else to commit to first.
-      // Closing-turn continuity note appended to coach_log.json; never shown to the athlete.
-      coach_note: { type: "string" },
+const RESPONSE_PROPERTIES = {
+  // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4).
+  // Closing-turn continuity note appended to coach_log.json; never shown to the athlete.
+  coach_note: { type: "string" },
       // Replaces one of memory.json's constrained labelled note boxes in full.
       memory_update: {
         type: "object",
@@ -319,17 +303,64 @@ export const GENERATION_CONFIG = {
           },
         },
       },
-      session_closed: { type: "boolean" },
-      reply: { type: "string" },
-    },
-    // session_closed is required, not optional: live verification found Gemini intermittently
-    // omitting it on longer closing-turn responses (a real week_plan, a template_edit) since it
-    // wasn't enforced - the prompt always instructs a value either way (true/false depending on
-    // mode), so this just makes the schema match what's already asked of the model, rather than
-    // letting the close silently die whenever the field goes missing.
-    required: ["reply", "session_closed"],
-  },
+  session_closed: { type: "boolean" },
+  reply: { type: "string" },
 } as const;
+
+type ResponseField = keyof typeof RESPONSE_PROPERTIES;
+
+const FSP_ACTIONS = [
+  "memory_update",
+  "coaching_style_update",
+  "sports_update",
+  "injury_event",
+  "profile_update",
+  "season_start",
+  "quest_create",
+] as const satisfies readonly ResponseField[];
+
+const RETURNING_CLOSE_ACTIONS = [
+  "coach_note",
+  "memory_update",
+  "coaching_style_update",
+  "sports_update",
+  "injury_event",
+  "quest_event",
+  "profile_update",
+  "template_edit",
+  "session_plan",
+  "week_plan",
+  "session_reconcile",
+  "plan_edit",
+] as const satisfies readonly ResponseField[];
+
+function responsePropertiesFor(mode: TurnMode, firstSession: boolean) {
+  const actionFields: readonly ResponseField[] =
+    mode === "greeting" || (mode === "ordinary" && !firstSession)
+      ? []
+      : firstSession
+        ? mode === "closing"
+          ? ["coach_note", ...FSP_ACTIONS]
+          : FSP_ACTIONS
+        : RETURNING_CLOSE_ACTIONS;
+  const fields: ResponseField[] = [...actionFields, "session_closed", "reply"];
+  return Object.fromEntries(fields.map((key) => [key, RESPONSE_PROPERTIES[key]]));
+}
+
+/** The smallest legal response shape for this turn; forbidden actions are absent structurally. */
+export function generationConfigFor(mode: TurnMode, firstSession: boolean) {
+  return {
+    responseMimeType: "application/json",
+    // Complex returning closes can legitimately combine several actions. Smaller modes keep the
+    // same ceiling; the schema, not truncation pressure, controls their output.
+    maxOutputTokens: 4096,
+    responseSchema: {
+      type: "object",
+      properties: responsePropertiesFor(mode, firstSession),
+      required: ["reply", "session_closed"],
+    },
+  } as const;
+}
 
 // The static half of the prompt - byte-identical every call, uploaded once via Gemini's
 // explicit-caching API (geminiClient.ts) instead of resent per request. Kept separate from the
@@ -365,7 +396,7 @@ const SESSION_CLOSE_DECISION = [
   "ask a clarifying question, set it false; you can close after the athlete answers.",
 ].join("\n");
 
-// The per-turn dynamic half of the prompt: current state/quest_log, mode-specific instructions,
+// The per-turn dynamic half of the prompt: rendered athlete/quest context, mode instructions,
 // and (deliberately last, since it changes every minute) today's date/time. `useCache` only
 // changes the framing sentence at the top - it ships as a synthetic turn when a cache is active,
 // or gets concatenated into systemInstruction directly when it isn't.
@@ -378,11 +409,11 @@ export function buildDynamicText(
   athleteContext: string,
   questContext: string,
   mode: TurnMode,
+  firstSession: boolean,
   extraContext: string | undefined,
   useCache: boolean,
-  timezone: string,
+  timezone = "UTC",
 ): string {
-  const firstSessionTurn = extraContext?.includes("<first_session>") === true;
   return [
     // Only relevant on the cached path, where this block arrives as a synthetic turn rather than
     // systemInstruction - spelled out explicitly since a plain instructions block dropped mid-
@@ -411,7 +442,7 @@ export function buildDynamicText(
           "by itself.",
           SESSION_STAYS_OPEN,
         ].join("\n")
-      : mode === "closing" && firstSessionTurn
+      : mode === "closing" && firstSession
       ? [
           "\nThe athlete's latest message is a session-close signal, and this is also a First",
           "Session close - the turn that wraps up intake. This is your LAST CHANCE to capture",
@@ -456,6 +487,8 @@ export function buildDynamicText(
           "a plan for next time). There is no file to edit, no checklist to fill in - report facts,",
           "the server handles saving them. If there's truly nothing concrete from this conversation,",
           "say so honestly in coach_note instead of inventing content.",
+          "\nEvery flag_id, quest_id, template_id, and session_id must come from the supplied",
+          "context. Never invent an id.",
           "\nIf this conversation changed something in one of these six categories - fitness",
           "baseline, coaching priorities, a learned training pattern, a learned nutrition pattern,",
           "a learned mental/performance pattern, or equipment - set memory_update with that",
@@ -472,14 +505,12 @@ export function buildDynamicText(
           "not one. Use the schema's status enum. A brand-new injury needs text and no flag_id (the",
           "server mints one). An update to an existing flag still ongoing uses the",
           "matching flag_id from the list below, and text only if there's new detail worth",
-          "recording (omit text to leave it unchanged). A cleared flag needs that flag_id. Only",
-          "ever use a flag_id that's actually listed below -",
-          "never invent one. Most closes won't need this either.",
+          "recording (omit text to leave it unchanged). A cleared flag needs that flag_id. Most",
+          "closes won't need this either.",
           "\nIf the athlete reported completing, missing, or being excused from one or more of",
           "today's quests (see Current quests below), set quest_event to an array with one entry",
-          "per quest - each entry has that quest's exact quest_id and a schema-enum status. Only",
-          "use a quest_id that's actually listed below - never",
-          "invent one. Include value only for a progress-type quest where the athlete gave a new",
+          "per quest - each entry has that quest's exact quest_id and a schema-enum status.",
+          "Include value only for a progress-type quest where the athlete gave a new",
           "cumulative number (e.g. chapters read so far) - other quest types never need value.",
           "This only logs today - don't use it to backfill an earlier day.",
           "\nIf the athlete gave a new value for one or more schema-listed profile basics, set",
@@ -488,64 +519,22 @@ export function buildDynamicText(
           "message is two entries, not one.",
           "Only set it when the athlete actually stated a new value, never to fill in a guess.",
           "\nIf the athlete first states their sport(s), or changes them later, set sports_update",
-          "to the full list of sports they do now (not just the newly mentioned one) - this is",
-          "what unlocks First Session completion, so never skip it once the athlete has actually",
-          "named a sport.",
-          "\nFirst-session / new-athlete onboarding ONLY - a season is set once, during First",
-          "Session, and never changed again through chat: if this is the athlete's very first",
-          "session and you are setting up their season as part of the First Session Protocol, set",
-          "season_start with a name and start_date/end_date for the season you agreed on with the",
-          "athlete.",
-          "\nFirst-session / new-athlete onboarding ONLY, same restriction as season_start above -",
-          "a returning athlete's quests never change through this field: if this is the athlete's very",
-          "first session and you are setting up their main goal and any habit quests as part of",
-          "the First Session Protocol, set quest_create with main_quest from what the athlete told",
-          "you and, if they described habits to track, quests. Use polarity for daily_streak",
-          "habits; use target/unit for other quest types where applicable. Use the schema enums.",
+          "to the full list of sports they do now, not just the newly mentioned one.",
           "\nIf the athlete asked to PERMANENTLY change one of their own existing workout",
-          "templates (see Current templates below) going forward, not just for today - set",
-          "template_edit with that template's exact template_id and a short note explaining why.",
-          "template_edit is NOT for changing what a single day's already-planned session is (\"swap",
-          "Friday's session for something else\") - that's plan_edit, see below. template_edit only",
-          "when the athlete means the template itself, permanently, for every future session built",
-          "from it.",
-          "You don't know the template's exact exercise numbers, so name what to drop the way the",
-          "athlete actually said it: skip_exercise_nums if you happen to know specific numbers,",
-          "skip_phases with the phase's plain-language name (e.g. \"Shoulder & Elbow\") when the",
-          "athlete means a whole section - either or both. You can only remove exercises this way,",
-          "never invent new ones or write new exercise content - if the athlete asks to add a new",
-          "exercise or swap in something that doesn't already exist in the template, tell them",
-          "that's not something you can do yourself right now, don't set template_edit for it. The",
-          "note must never claim a removal happened unless you actually set skip_exercise_nums or",
-          "skip_phases for it - if the athlete names one specific exercise you have no way to",
-          "reference (not a whole phase, not a number you know), say so honestly in your reply",
-          "instead of writing a note that claims it was removed when it wasn't.",
-          "Only use a template_id that's actually listed below - never invent one, and never set",
-          "this if the athlete has no templates listed. Setting template_edit does not mean the",
-          "session stays open - the edit is applied by the server the moment this turn commits, so",
-          "it's fine to close normally in the same response if the athlete is done.",
+          "templates, set template_edit. It permanently removes referenced exercises or phases",
+          "from that reusable template. It cannot add or invent exercise content.",
           "\nIf you are prescribing today's session as a modified version of one of the athlete's",
-          "own templates (see Current templates below) - dropping exercises for an injury or a",
-          "time constraint - set session_plan with that template's exact template_id and a short",
-          "note explaining why. You don't know the template's exact exercise numbers, so name what",
-          "to drop the way the athlete actually said it: skip_exercise_nums if you happen to know",
-          "specific numbers, skip_phases with the phase's plain-language name (e.g. \"Shoulder &",
-          "Elbow\") when the athlete means a whole section - either or both, whatever matches what",
-          "was actually asked. Only set this when the session is genuinely modified from the",
-          "template as written - if today's session is the standard, unmodified template, do NOT",
-          "set session_plan; the athlete's timer app already falls back to the base template on",
-          "its own. The note must never claim a removal happened unless you actually set",
-          "skip_exercise_nums or skip_phases for it - if the athlete names one specific exercise",
-          "you have no way to reference, say so honestly in your reply instead of writing a note",
-          "that claims it was dropped when it wasn't. Only use a template_id that's actually listed",
-          "below - never invent one. This always applies to today's session only, never a future",
-          "date.",
+          "own templates, set session_plan only when it differs from the base template. It applies",
+          "today only; an unmodified session needs no action.",
+          "\nFor template_edit and session_plan, use skip_exercise_nums when exact numbers are",
+          "known and skip_phases for a named section. A note may claim a removal only when one of",
+          "those fields represents it. If the request cannot be represented, say so honestly.",
           "\nIf you are running the Weekly Kick-off Ritual (the athlete asked to plan the week, or",
           "it's Monday and there's no current live weekly plan) and are ready to commit the full",
           "week, set week_plan: focus, guardrails, headline/body (your one weekly coaching",
           "conclusion), and exactly 7 days (Monday through Sunday) each with intent and a sessions",
           "array (discipline/kind/title, and priority/planned_duration_min/template_id where you",
-          "have them). Only use a template_id that's actually listed below - never invent one.",
+          "have them).",
           "Only set this when you are genuinely committing the week now, not while still asking",
           "the athlete about competitions or schedule changes for it.",
           "\nIf the athlete reported completing or skipping one or more of this week's planned",
@@ -555,8 +544,7 @@ export function buildDynamicText(
           "real completion id exists. If what the athlete actually did is DIFFERENT from what was",
           "planned (planned a run, actually played badminton instead) - also set actual on that",
           "same entry: discipline/kind/title describing what really happened, and template_id only",
-          "if that actual activity is one of the athlete's real templates. Only use a session_id",
-          "that's actually listed below - never invent one.",
+          "if that actual activity is one of the athlete's real templates.",
           "\nIf the athlete wants to change what a future (or today's) already-planned session IS,",
           "without replanning the whole week - e.g. \"swap tomorrow's badminton for football\" - set",
           "plan_edit to an array with one entry per session being changed: its exact session_id and",
@@ -564,19 +552,12 @@ export function buildDynamicText(
           "templates). This does not change status - use session_reconcile separately for that. A",
           "swap like the example is normally TWO entries in the same turn: session_reconcile with",
           "actual for today's session (mark it done as what really happened), and plan_edit for",
-          "tomorrow's session (change what it's planned to be). Only use a session_id that's",
-          "actually listed below - never invent one. plan_edit and template_edit are NOT",
-          "interchangeable: plan_edit changes what ONE day's session in this week's plan is (by",
-          "session_id, from Current week's sessions below) and never touches the reusable template",
-          "file itself. template_edit permanently changes the base template FILE (by template_id,",
-          "from Current templates below), affecting every future session built from it, not just",
-          "one day. \"Swap Friday's session\" or \"change what's planned for tomorrow\" is always",
-          "plan_edit, never template_edit - template_edit is only for the athlete asking to",
-          "permanently change the template going forward.",
+          "tomorrow's session (change what it's planned to be). plan_edit changes one dated plan",
+          "entry; template_edit permanently changes a reusable template.",
           SAVE_CLAIM_GUARD,
           "\n" + SESSION_CLOSE_DECISION,
         ].join("\n")
-      : firstSessionTurn
+      : firstSession
       ? [
           "\nThis is an ordinary First Session turn. Keep the conversation natural.",
           "Save each concrete fact on the same turn it is learned - do",
@@ -646,14 +627,14 @@ export function onboardingHintsContext(hints: OnboardingHints | undefined): stri
  * lines every athlete would otherwise carry on every turn forever to serve one conversation.
  * The claude build keeps it inline; BYOB has no injection seam and no per-turn cost.
  */
-export function firstSessionContext(profileComplete: boolean, protocol: string): string | undefined {
-  if (profileComplete) return undefined;
+export function firstSessionContext(firstSession: boolean, protocol: string): string | undefined {
+  if (!firstSession) return undefined;
   return [
     "<first_session>",
-    "This athlete's Athlete Profile section is empty - they have never been onboarded. This is",
-    "their first session. Run the protocol below instead of coaching normally. Steps that would",
+    "This athlete's split First Session setup is incomplete. Run the protocol below instead of",
+    "coaching normally. Steps that would",
     "need a shell or a git commit have been removed; do the conversational work and report the",
-    "profile/challenge_v2.json content, and the backend handles saving.",
+    "structured action fields, and the backend handles saving.",
     "",
     protocol.trim(),
     "</first_session>",
@@ -666,37 +647,10 @@ export function combineExtraContext(...blocks: (string | undefined)[]): string |
   return present.length > 0 ? present.join("\n\n") : undefined;
 }
 
-// Step 4b: lists the athlete's current injuries.json flags (id + status + text) so Gemini has
-// real flag_ids to reference for injury_event's update/resolve cases - it must never invent one.
-// Per-athlete, so this rides in buildDynamicText's extraContext, never staticSystemText - same
-// reasoning as firstSessionContext/rollingStateContext above.
-export function injuryFlagsContext(injuries: InjuriesJson | null | undefined): string | undefined {
-  if (!injuries || !Array.isArray(injuries.flags) || injuries.flags.length === 0) return undefined;
-  const lines = injuries.flags.map((f) => `- flag_id: ${f.id} | status: ${f.status} | ${f.text}`);
-  return ["Active Injury Flags (use these exact flag_ids for injury_event updates/resolves):", ...lines].join("\n");
-}
-
-// Part 2 ledger split, step 3a: lists the athlete's current active quests (id + type + status) so
-// Gemini has real quest_ids to reference for quest_event - it must never invent one. Same
-// reasoning/placement as injuryFlagsContext above - per-athlete, so extraContext not
-// staticSystemText.
-export function activeQuestsContext(quests: QuestsJson | null | undefined): string | undefined {
-  const active = (quests?.quests ?? []).filter((q) => q.status === "active");
-  const main = quests?.main_quest;
-  if (!main && active.length === 0) return undefined;
-  const lines: string[] = [];
-  if (main) lines.push(`- quest_id: ${main.id} | type: ${main.type} | main quest`);
-  for (const q of active) lines.push(`- quest_id: ${q.id} | type: ${q.type} | status: ${q.status}`);
-  return ["Current quests (use these exact quest_ids for quest_event):", ...lines].join("\n");
-}
-
 // coach-redesign workout-backend-wiring §3: lists the athlete's real, already-committed template
 // ids (from the manifest coachWorkoutFiles.ts writes alongside generated templates) so Gemini has
-// real template_ids to reference for template_edit - it must never invent one. Same
-// reasoning/placement as activeQuestsContext/injuryFlagsContext above - per-athlete, so
-// extraContext not staticSystemText. Omitted entirely (undefined) when there are no valid ids -
-// e.g. the manifest doesn't exist yet for this athlete - so the prompt doesn't dangle an empty
-// section, matching injuryFlagsContext's own empty-case handling.
+// real template_ids to reference for template_edit - it must never invent one. Per-athlete, so
+// this rides in extraContext, not staticSystemText. Omitted when there are no valid ids.
 export function activeTemplatesContext(templateIds: ReadonlySet<string>): string | undefined {
   if (templateIds.size === 0) return undefined;
   const lines = [...templateIds].map((id) => `- template_id: ${id}`);
@@ -706,7 +660,7 @@ export function activeTemplatesContext(templateIds: ReadonlySet<string>): string
 // coach-redesign workout-backend-wiring §5: lists the current week's real, already-committed
 // session ids (from the current_week.json read at the top of the turn) so Gemini has real
 // session_ids to reference for session_reconcile - it must never invent one. Same
-// reasoning/placement as activeTemplatesContext above. Omitted entirely when there's no current
+// placement as activeTemplatesContext above. Omitted entirely when there's no current
 // live week yet, matching the other context helpers' empty-case handling.
 export function activeWeekSessionsContext(
   sessions: readonly { id: string; date: string; title: string; status: string }[],

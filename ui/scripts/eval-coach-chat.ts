@@ -55,11 +55,11 @@ interface Transcript {
   name: string;
   description: string;
   mode: TurnMode;
+  firstSession?: boolean;
   stateMd: string;
   questLog: string;
   // Optional per-turn extra context block - mirrors askGemini()'s extraContext parameter
-  // (coachPrompt.ts's injuryFlagsContext/activeQuestsContext/activeTemplatesContext/
-  // activeWeekSessionsContext, concatenated). Needed for any transcript exercising an action
+  // (first-session, template, and week-session context, concatenated). Needed for any transcript exercising an action
   // field that references a real id (template_edit/session_plan/session_reconcile/plan_edit),
   // since Gemini is instructed to only ever use an id that's actually listed in context.
   extraContext?: string;
@@ -147,6 +147,7 @@ async function askWithRetry(t: Transcript): Promise<Awaited<ReturnType<typeof as
         t.history,
         t.userMessage,
         t.mode,
+        t.firstSession ?? false,
         t.extraContext,
       );
     } catch (err) {
@@ -163,8 +164,7 @@ async function askWithRetry(t: Transcript): Promise<Awaited<ReturnType<typeof as
 function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemini>>): string[] {
   const failures: string[] = [];
 
-  // reasoning must never leak into what the athlete sees - askGemini() already strips it before
-  // returning, this is a belt-and-suspenders check against a regression in that stripping.
+  // The retired reasoning field must never return if an older model/cache shape resurfaces.
   if ("reasoning" in reply) failures.push("`reasoning` field leaked through into the returned reply");
 
   if (t.expect.sessionClosed !== undefined && Boolean(reply.session_closed) !== t.expect.sessionClosed) {
