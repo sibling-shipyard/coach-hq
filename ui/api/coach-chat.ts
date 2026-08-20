@@ -67,9 +67,9 @@ import {
   activeWeekSessionsContext,
   firstSessionContext,
   onboardingHintsContext,
-  type GeminiReply,
   type OnboardingHints,
-} from "./coach-chat/_lib/coachPrompt.js";
+} from "./coach-chat/_lib/coachPromptText.js";
+import type { GeminiReply } from "./coach-chat/_lib/coachReplySchema.js";
 import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
 import { fspIncrementalWrites, ordinaryTurnResponse } from "./coach-chat/_lib/fspWrites.js";
 import { onboardingChanges } from "./coach-chat/_lib/onboardingWrites.js";
@@ -485,7 +485,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // §4: reported only when Coach is prescribing today's session as a modified version of one
       // of the athlete's own templates this close. session_date is server-computed here
-      // (todayDateString), never Gemini-supplied - see coachPrompt.ts's GeminiReply.session_plan
+      // (todayDateString), never Gemini-supplied - see coachReplySchema.ts's GeminiReply.session_plan
       // comment for the reasoning. template_id is re-validated at commit time against
       // validTemplateIds (same set Gemini was shown via activeTemplatesContext) inside
       // applySessionPlan itself - guard condition here just checks the field is present.

@@ -1,5 +1,5 @@
 import type { MemoryJson, ProfileJson, CoachingStyle } from "./coachMemoryFiles.js";
-import type { OnboardingHints } from "./coachPrompt.js";
+import type { OnboardingHints } from "./coachPromptText.js";
 
 export interface OnboardingChanges {
   name?: string;

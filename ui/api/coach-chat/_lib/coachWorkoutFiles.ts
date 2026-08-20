@@ -259,7 +259,7 @@ const LEVEL_RANK: Record<"beginner" | "intermediate" | "advanced", number> = {
 };
 
 // Small, separate schema - per the plan's explicit instruction to keep Gemini under minimal
-// field pressure here. Not the main per-turn GeminiReply schema (coachPrompt.ts) - this is its
+// field pressure here. Not the main per-turn GeminiReply schema (coachReplySchema.ts) - this is its
 // own light call with its own response shape.
 interface TemplateAdjustment {
   template_id: string;

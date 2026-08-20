@@ -35,7 +35,7 @@ flowchart LR
     history["conversation history\n(last 40 msgs)"] --> call
 ```
 
-`geminiClient.ts`'s `askGemini()` builds these as two separate strings (`coachPrompt.ts`'s
+`geminiClient.ts`'s `askGemini()` builds these as two separate strings (`coachPromptText.ts`'s
 `staticSystemText()` and `buildDynamicText()`), not one array, because of a hard API constraint
 below.
 

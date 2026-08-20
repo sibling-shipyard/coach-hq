@@ -439,7 +439,8 @@ for the full module index.
 | `ui/api/coach-chat/_lib/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
 | `ui/api/coach-chat/_lib/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
 | `ui/api/coach-chat/_lib/geminiClient.ts` | Gemini transport — `askGemini()`, retry logic |
-| `ui/api/coach-chat/_lib/coachPrompt.ts` | prompt text construction, response schema |
+| `ui/api/coach-chat/_lib/coachPromptText.ts` | prompt text and dynamic context construction |
+| `ui/api/coach-chat/_lib/coachReplySchema.ts` | reply types and mode-specific response schemas |
 | `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, retention |
 | `ui/api/coach-chat/_lib/closeSignal.ts` | close-intent detection |
 | `ui/api/coach-chat/_lib/coachDay.ts` | timezone/day-number math |

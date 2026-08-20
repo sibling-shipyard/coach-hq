@@ -12,7 +12,7 @@ export const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 export const THREAD_TITLE_MAX_CHARS = 28;
 
 // Strips anything outside printable ASCII rather than attempting script detection. Titles are no
-// longer model-generated (see coachPrompt.ts) - this now only ever runs against the athlete's
+// longer model-generated (see coachReplySchema.ts) - this now only ever runs against the athlete's
 // own first message, kept as a safety net against a stray typed character.
 export function sanitizeTitle(title: string): string {
   return title.replace(/[^\x20-\x7E]/g, "").replace(/\s+/g, " ").trim();

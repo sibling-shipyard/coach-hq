@@ -1,8 +1,8 @@
 /**
- * Coach-chat's Gemini transport: builds the actual request (combining coachPrompt.ts's text with
+ * Coach-chat's Gemini transport: builds the actual request (combining coachPromptText.ts with
  * explicit-cache state from soulCache.ts), calls generateContent, retries transient failures
  * (stale cache, timeout, overload) exactly once, and parses the response. Prompt *content* lives
- * in coachPrompt.ts - this module only owns getting a request to Gemini and a reply back.
+ * in coachPromptText.ts - this module only owns getting a request to Gemini and a reply back.
  */
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
@@ -10,11 +10,13 @@ import type { ChatMessage } from "./chatThreads.js";
 import {
   buildDynamicText,
   buildHistoryContents,
-  generationConfigFor,
   staticSystemText,
+} from "./coachPromptText.js";
+import {
+  generationConfigFor,
   type GeminiReply,
   type TurnMode,
-} from "./coachPrompt.js";
+} from "./coachReplySchema.js";
 
 // Dated model ids (gemini-2.0-flash, then gemini-2.5-flash) kept getting cut early. Google's
 // "-latest" alias always points at the current recommended flash model instead.

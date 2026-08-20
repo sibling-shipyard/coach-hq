@@ -20,8 +20,9 @@ Commit/retention design: [ADR 0012](../../../kdb/decisions/0012-coach-chat-atomi
 | `chatThreads.ts` | Thread data model + `chat_history.json` persistence, retention (ADR 0012), title cleanup |
 | `closeSignal.ts` | Deterministic close-intent detection — regex trigger + pending-close-attempt lookback |
 | `coachDay.ts` | Timezone/day-number math (age labels, day dividers, `coach_since`-aware day count) - takes the athlete's timezone directly (`profile.json`), no more state.md-prose parsing |
-| `coachPrompt.ts` | Gemini prompt construction — mode-specific response schemas, static/cacheable text, per-turn dynamic text, onboarding-hint context. Pure text-building, no I/O |
-| `geminiClient.ts` | Gemini transport — builds the request from `coachPrompt.ts`'s text + `soulCache.ts`'s caching, retries transient failures once, parses the response |
+| `coachReplySchema.ts` | Gemini reply types and mode-specific response schemas |
+| `coachPromptText.ts` | Static/cacheable text, per-turn dynamic text, and context helpers |
+| `geminiClient.ts` | Gemini transport — combines prompt text, response schema, and cache state; retries transient failures once |
 | `coachWrites.ts` | Shared write helpers and `coach_since` stamping |
 | `coachIntents.ts` | Pure appliers for server-owned file writes — `coach_note` (a new row in `coach_log.json`, the single merged continuity log), `memory_update`, `injury_event` |
 

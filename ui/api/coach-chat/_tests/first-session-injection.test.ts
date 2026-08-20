@@ -3,10 +3,10 @@ import {
   buildDynamicText,
   combineExtraContext,
   firstSessionContext,
-  generationConfigFor,
   onboardingHintsContext,
   staticSystemText,
-} from "../_lib/coachPrompt.js";
+} from "../_lib/coachPromptText.js";
+import { generationConfigFor } from "../_lib/coachReplySchema.js";
 
 // PR 4 of the SOUL v5.8 trim: the First Session Protocol left SOUL.chat.md and is injected
 // per-turn instead, gated on isAthleteProfileComplete(). The trap these tests exist to catch is

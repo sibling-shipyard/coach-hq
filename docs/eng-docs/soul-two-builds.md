@@ -42,7 +42,7 @@ entry serves every athlete.** Anything per-athlete in there forks the cache per 
 discount silently disappears. Nothing fails — the bill just goes up.
 
 So conditional blocks ride in the **dynamic** half, `buildDynamicText()`'s `extraContext` in
-`ui/api/coach-chat/_lib/coachPrompt.ts`. They are not in `SOUL.chat.md` at all: they compose into
+`ui/api/coach-chat/_lib/coachPromptText.ts`. They are not in `SOUL.chat.md` at all: they compose into
 `platform/horcruxes/` (ADR 0025 — a piece of soul, severed, summoned by a backend predicate) and
 `build-soul.mjs` bundles them separately. First Session is the first one, gated on
 `isAthleteProfileComplete()`.
