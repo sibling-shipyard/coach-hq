@@ -60,7 +60,8 @@ flowchart LR
 ### 1. Preload (A3)
 
 `ui/api/coach-chat-context.ts` warms `loadCoachContext()`'s 60-second in-memory server cache
-(`ui/api/coach-chat/_lib/coachChatFiles.ts`) for state.md and rendered quest context — SOUL.md is no longer fetched
+(`ui/api/coach-chat/_lib/coachChatFiles.ts`) for profile, memory, injuries, recent coach notes,
+the split quest ledger, and the generated athlete fitness snapshot — SOUL.md is no longer fetched
 from the athlete's repo at all (see below). Web fires this once
 per app load from `App.tsx`'s `Gate` component (`ui/client/src/lib/prefetchCoachContext.ts`,
 fire-and-forget); iOS fires it from `MainTabView.swift`'s `.task` block as soon as the app is

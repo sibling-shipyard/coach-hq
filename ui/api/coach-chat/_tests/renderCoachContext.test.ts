@@ -53,7 +53,7 @@ describe("renderCoachContext section shape", () => {
   };
 
   it("produces every section header Coach/SOUL expects to find by name", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog });
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
     for (const header of [
       "## Athlete Profile",
       "## Equipment",
@@ -68,7 +68,7 @@ describe("renderCoachContext section shape", () => {
   });
 
   it("fills the Athlete Profile section from profile.json + memory.json", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog });
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
     expect(text).toContain("- **Name:** Test Athlete");
     expect(text).toContain("- **Sport(s) / Activities:** badminton, strength");
     expect(text).toContain("- **Timezone:** Asia/Kolkata");
@@ -77,13 +77,13 @@ describe("renderCoachContext section shape", () => {
   });
 
   it("only lists active injury flags, using the exact flag_id", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog });
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
     expect(text).toContain("inj_knee");
     expect(text).not.toContain("inj_elbow");
   });
 
   it("windows Recent Session Notes to the last 5 rows, most recent first", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog });
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
     const section = text.split("## Recent Session Notes")[1].split("## Fitness Baseline")[0];
     expect(section).toContain("2026-08-17");
     expect(section).toContain("2026-08-16");
@@ -96,16 +96,36 @@ describe("renderCoachContext section shape", () => {
   });
 
   it("renders the three Learned Patterns subsections from their three separate notes labels", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog });
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
     expect(text).toContain("Responds well to short intervals.");
     expect(text).toContain("Under-eats on heavy training days.");
     expect(text).toContain("Motivation dips mid-week.");
   });
 
   it("degrades gracefully when every file is null (new/unmigrated athlete)", () => {
-    const text = renderCoachContext({ profile: null, memory: null, injuries: null, coachLog: null });
+    const text = renderCoachContext({ profile: null, memory: null, injuries: null, coachLog: null, athleteInsights: null });
     expect(text).toContain("## Athlete Profile");
     expect(text).toContain("- **Timezone:** UTC");
     expect(text).toContain("*(Empty)*");
+  });
+
+  it("renders a compact fitness snapshot for populated athlete insights", () => {
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
+      generated_at: "2026-08-20T00:00:00Z", window_days: 365,
+      sports: { badminton: { sessions_365d: 120, sessions_per_week_recent_4w: 3,
+        sessions_per_week_prior_12w: 2.25, longest_gap_days_365d: 9, days_since_last_session: 2 } },
+    } });
+    expect(text).toContain("## Fitness Snapshot (last 12 months)");
+    expect(text).toContain("**Badminton:** ~3x/week recently (~2.3x/week in the prior 12 weeks)");
+    expect(text).toContain("longest gap 9 days; last session 2 days ago.");
+  });
+
+  it.each([
+    ["absent", null],
+    ["empty", { generated_at: "2026-08-20T00:00:00Z", window_days: 365, sports: {} }],
+    ["malformed", { generated_at: "", window_days: 365, sports: { run: { sessions_365d: "many" } } }],
+  ])("cleanly omits the fitness snapshot when insights are %s", (_case, athleteInsights) => {
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: athleteInsights as never });
+    expect(text).not.toContain("Fitness Snapshot");
   });
 });

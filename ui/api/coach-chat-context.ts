@@ -1,6 +1,6 @@
 /**
  * coach-chat-context.ts — warm the files coach-chat.ts injects into every Gemini call
- * (SOUL plus profile/memory/injuries/coach_log and the split quest ledger), ahead of the athlete
+ * (SOUL plus profile/memory/injuries/coach_log, the split quest ledger, and athlete insights), ahead of the athlete
  * ever opening the chat page/tab (A3).
  *
  * GET → the full CoachContext returned by loadCoachContext
