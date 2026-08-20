@@ -5,6 +5,37 @@
 > speculative/unused in the UI specifically. Implementation/wiring work lives in Part 5
 > (`coach-redesign-part5-wiring-plan.md`) instead. Add to this as each part gets reviewed.
 
+## Stack-wide: real end-to-end verification, once, after part 11 lands
+
+Every PR in the SOUL-catchup stack (#435 → part 8 → part 9 → part 10 → part 11) has been verified
+mechanically per-PR — unit tests, `tsc --noEmit`, `compose-soul.mjs --check` where relevant — but
+**nothing in the whole stack has been run against a real athlete repo yet.** No real
+`gen/athlete_insights.json` has been generated from real activity history, no actual rendered
+Gemini prompt/context has been inspected, no live chat turn has happened, no browser has opened
+the dashboard against a migrated repo. This has been flagged PR by PR (#439, #443) as a known gap
+rather than blocking each individual PR — but it needs to actually happen once, for the stack as a
+whole, before calling this effort done. Do this after part 11 merges (or is ready to merge), not
+before — SOUL needs to be in its final state for this to be a meaningful end-to-end check, not a
+partial one that gets re-run again anyway once part 11 lands:
+
+1. Fresh scratch branch off a real athlete repo (per the verification discipline in
+   `coach-redesign-part4b-fsp-reliability.md`).
+2. Run the sync/generator pipeline for real (the GitHub Actions sync workflow, or the equivalent
+   local scripts) so `gen/dashboard_snapshot.json` and `gen/athlete_insights.json` are real,
+   generated output, not synthetic test fixtures.
+3. A full first session (fresh athlete) and a few turns of ordinary chat (returning athlete) via
+   the hosted chat API, checking real committed files via the GitHub API after each turn, not
+   trusting reply text.
+4. Open the webapp dashboard against that migrated repo and confirm quest/season widgets actually
+   render (this is the literal bug #439 fixed — confirm it stays fixed against real data, not just
+   the unit-test fixtures that already pass).
+5. Confirm the rendered Fitness Snapshot section (part 10) actually reads sensibly for a real
+   athlete's real activity mix, and that Coach's FSP behavior (part 11's SOUL rewrite) references
+   it the way the new SOUL text says it should.
+6. BYOB, separately: a first session and ordinary chat via Claude Code against the same or a
+   different scratch branch, confirming part 11's SOUL text works for the terminal runtime too,
+   not just hosted chat.
+
 ## From Part 1 (`coach_log.json`)
 
 - **`actor`** — dropped from `coach_log.json`. Coach is the only writer today, so the field only
