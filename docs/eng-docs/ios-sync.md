@@ -143,9 +143,34 @@ swiftc ios/CoachHQ/CoachHQ/Services/WorkoutDeduplicator.swift \
        ios/scripts/verify_workout_dedup.swift -o /tmp/verify_dedup && /tmp/verify_dedup
 ```
 
-**Known gap:** a workout arriving more than 14 days after it started is still missed. The manual
-import list (issue #441) is the escape hatch; widen the window or move to `HKAnchoredObjectQuery`
-(whose anchor tracks insertion, not start time) if it ever bites.
+**Known gap:** a workout arriving more than 14 days after it started is still missed by the
+automatic window. Manual import (below) is the escape hatch; widen the window or move to
+`HKAnchoredObjectQuery` (whose anchor tracks insertion, not start time) if it ever bites.
+
+## Manual import — Health Settings
+
+`HealthSettingsView`, reached from Settings → Sync → Health Settings, lists the last 90 days of
+HealthKit workouts with a per-row sync state, and imports anything the automatic window missed.
+It is read-only until the athlete taps Import.
+
+`HealthKitSyncManager.loadHealthImportRows(daysBack:)` builds the list from one local HealthKit
+query plus the `hist/` file listing — no file contents, same as dedup. Four states:
+
+| State | Means |
+|---|---|
+| **synced** | A file for this uuid is committed in `hist/`. |
+| **duplicate** | Another recording of the same session won dedup. Already synced under that copy. |
+| **can't check** | The day holds committed files with no uuid in the name (pre-ADR-0014 slug names, Strava-era history), so we cannot match them to a HealthKit workout. Import is blocked rather than risk a duplicate. |
+| **not synced** | Nothing committed for it — the only state with an Import button. |
+
+Import reuses the whole sync round rather than a second commit path:
+`syncNewWorkouts(importing:)` takes an `ImportRequest` (the uuids, and a query floor reaching
+back to the oldest of them) and restricts the batch to those workouts. Dedup, heart-rate
+sampling, naming, the atomic commit, and the cache upsert are all the ordinary path.
+
+**Known gap:** an imported workout takes the next name counter for its sport, so importing an old
+workout numbers it after newer ones. `engine/scripts/migrate_activity_naming.py` is the fix if
+that ever needs tidying — it is true of any late arrival, not just manual imports.
 
 ## What does NOT happen in this action
 
