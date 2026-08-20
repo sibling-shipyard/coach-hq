@@ -32,10 +32,6 @@
       "cause": "not-yet-rebuilt"
     },
     {
-      "id": "chat::writable::user_data/coach/state.md",
-      "cause": "not-yet-rebuilt"
-    },
-    {
       "id": "chat::writable::user_data/ledger/current_week.json",
       "cause": "not-yet-rebuilt"
     },
@@ -88,16 +84,8 @@
       "cause": "unclassified"
     },
     {
-      "id": "claude::writable::engine/scripts/generate_quest_log.py",
-      "cause": "unclassified"
-    },
-    {
       "id": "claude::writable::engine/scripts/validate-current-week",
       "cause": "unclassified"
-    },
-    {
-      "id": "claude::writable::gen/quest_log.md",
-      "cause": "rot"
     },
     {
       "id": "claude::writable::user_data/activities/hist",

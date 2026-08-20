@@ -71,9 +71,6 @@ const KNOWN_GENERATED = [
   "user_data/activities/hist/*.json",
   // Coach writes session snapshots into the carved sessions/ dir (SOUL §10).
   "user_data/activities/workout_plans/sessions/*",
-  // Coach writes at season close; engine/scripts/generate_quest_history.py globs
-  // seasons_dir()/*/challenge_v2.json (engine/lib/repo_layout.py:146).
-  "user_data/coach/archive/seasons/**",
   // Athlete-supplied reference material; the carve ships the dir with a .gitkeep for it.
   "user_data/coach/reference/*",
 ];
@@ -102,8 +99,8 @@ const PATH_RE = new RegExp(
  * Check 2's heuristic: a path is "written" when a write verb appears on the same line.
  * Deliberately simple and biased toward reporting — a false positive costs one baseline entry,
  * a false negative is the class of bug this linter exists to catch. Negations are the one
- * exception ("Never edit `gen/quest_log.md`"): a verb preceded by not/never/don't within ~40
- * chars doesn't count as an instruction to write.
+ * exception: a verb preceded by not/never/don't within ~40 chars doesn't count as an
+ * instruction to write.
  */
 const WRITE_VERB_RE =
   /\b(write|writes|writing|written|append|appends|appended|appending|update|updates|updated|updating|save|saves|saved|saving|commit|commits|committed|committing|edit|edits|edited|editing|populate|populates|populated|log to|logs to|add to)\b/gi;
@@ -425,8 +422,8 @@ function checkXrefs(soul, report) {
  *
  * The "intended design" is read out of docs/eng-docs/coach-chat-flow.md rather than hardcoded:
  * a path counts as intended when the doc mentions it on a line that also talks about writing
- * (edit / patch / append / full-content), so a read-only mention — quest_log.md is warmed and
- * read, never written — is not mistaken for write authority.
+ * (edit / patch / append / full-content), so a read-only mention is not mistaken for write
+ * authority.
  */
 const CAUSES = { ROT: "rot", NOT_YET_REBUILT: "not-yet-rebuilt", UNCLASSIFIED: "unclassified" };
 

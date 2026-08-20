@@ -101,6 +101,8 @@ const ASSEMBLY = [
       "s10_first_session_trigger",
       "s10_first_session_pull",
       "s10_first_session_body",
+      "s10_first_session_claude_runtime",
+      "s10_first_session_finish",
       "s10_first_session_commit",
       "s10_first_session_transition",
       "s10_greeting",
@@ -144,6 +146,8 @@ const ASSEMBLY = [
       s10_first_session_trigger: CLAUDE_ONLY,
       s10_first_session_pull: CLAUDE_ONLY,
       s10_first_session_body: CLAUDE_ONLY,
+      s10_first_session_claude_runtime: CLAUDE_ONLY,
+      s10_first_session_finish: CLAUDE_ONLY,
       s10_first_session_commit: CLAUDE_ONLY,
       s10_first_session_transition: CLAUDE_ONLY,
       // The file map, score format and taxonomy rules moved to an on-demand doc; the gate and
@@ -186,10 +190,16 @@ const ASSEMBLY = [
  */
 const HORCRUXES = [
   {
-    // Injected when isAthleteProfileComplete(state.md) is false — coach-chat.ts.
+    // Injected while the split profile/memory/season intake or main-quest setup is incomplete.
     out: "first-session.md",
     source: "B",
-    keys: ["s10_first_session_head", "s10_first_session_body", "s10_first_session_transition"],
+    keys: [
+      "s10_first_session_head",
+      "s10_first_session_body",
+      "s10_first_session_chat_runtime",
+      "s10_first_session_finish",
+      "s10_first_session_transition",
+    ],
   },
 ];
 

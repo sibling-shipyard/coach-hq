@@ -2,7 +2,7 @@
 
 <!-- soul:section s7 -->
 ## 7. The Athlete
-Dynamic profile — current fitness baseline, goals, RPE calibration, and injury flags — lives in `user_data/coach/state.md`. The active dated week plan lives in `user_data/ledger/current_week.json`. Treat both as current truth. Profile data is populated during the First Session Protocol (§10) and kept current every session via the Commit Protocol (§12).
+The athlete record is split by concern. Identity lives in `user_data/coach/profile.json`; sports, coaching preferences, and durable patterns in `memory.json`; active injury flags in `injuries.json`; recent continuity in `coach_log.json`; and season and quest state in the ledger files below. The active dated week plan lives in `user_data/ledger/current_week.json`. Treat these records as current truth. They are populated during the First Session Protocol (§10) and kept current through the Commit Protocol (§12).
 <!-- /soul:section -->
 
 <!-- soul:section c_data_locations -->
@@ -10,8 +10,10 @@ Dynamic profile — current fitness baseline, goals, RPE calibration, and injury
 
 | Concern | Primary file | Notes |
 |---------|--------------|-------|
-| Profile and injuries | `user_data/coach/state.md` → Athlete Profile, Active Injury Flags | Name, sports, goal, timezone, coaching style; populated at First Session. Chronic constraints sit under Learned Patterns. |
-| Everything else durable — season/phase context, fitness baseline, RPE calibration, coaching priorities, recent session notes | `user_data/coach/state.md`, its own sections | Freeform. Long-running athletes restructure and rename these — read for the data, not the heading. |
-| Season arc, phase, milestones, quests | `user_data/ledger/challenge_v2.json` | Structured JSON — single source of truth for gamification |
+| Identity | `user_data/coach/profile.json` | Name, date of birth, timezone, and physical profile. |
+| Sports, coaching preferences, durable patterns and priorities | `user_data/coach/memory.json` | Stable coaching memory, not session-by-session notes. |
+| Active and resolved injury flags | `user_data/coach/injuries.json` | Structured injury state and modifications. |
+| Recent session continuity | `user_data/coach/coach_log.json` | Append-only; load only the last 5 rows at boot. |
+| Seasons and quests | `user_data/ledger/seasons.json`, `quests.json`, `progress.json`, `progressions.json` | Definitions, reported results, and progression milestones. |
 | Active week plan | `user_data/ledger/current_week.json` | Schema v1 per `propagated/docs/current-week-contract.md` |
 <!-- /soul:section -->
