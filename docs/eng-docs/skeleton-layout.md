@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-07-31 · Locked: 2026-07-26 · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Locked: 2026-07-26 · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
@@ -33,7 +33,7 @@ flowchart TB
     core["core/ — taxonomy, naming, query"]
   end
   subgraph gen["gen/ — pipeline output, rebuildable"]
-    agg["aggregate.json, quest_log, sync_status, widget_snapshots"]
+    agg["dashboard_snapshot.json, athlete_insights, sync_status, widget_snapshots"]
   end
   subgraph ud["user_data/ — athlete + coach memory"]
     act["activities/hist/, workout_plans/"]
@@ -72,9 +72,9 @@ coach-skeleton/  (= coach-user after fork)
 │   └── core/             # taxonomy, activity naming, local query_history.py
 │
 ├── gen/
-│   ├── aggregate.json
+│   ├── dashboard_snapshot.json
 │   ├── widget_snapshots.json
-│   ├── quest_log.md
+│   ├── athlete_insights.json
 │   ├── quest_history.json
 │   └── sync_status.json
 │
@@ -104,6 +104,18 @@ coach-skeleton/  (= coach-user after fork)
 ---
 
 ## Lifecycle bands
+
+### Dashboard snapshot ledger contract
+
+`gen/dashboard_snapshot.json` exposes one ledger mode at a time. A complete
+`seasons.json`/`quests.json`/`progress.json`/`progressions.json` set produces
+`ledger_schema: "split_v1"`, the four files under `ledger`, and `challenge_v2: null`.
+An unmigrated repo produces `ledger_schema: "challenge_v2_v4"`, `ledger: null`, and the whole
+legacy file under `challenge_v2`. A partial split never mixes with legacy fields: it falls back
+to the whole legacy file when present, or reports `ledger_schema: "unavailable"`.
+
+`gen/athlete_insights.json` is also rebuilt after activity sync. It holds only trailing-window
+session frequency and gap summaries by sport; raw activity history remains canonical.
 
 | Band | Paths | Lifecycle |
 |---|---|---|
@@ -151,11 +163,10 @@ For `provision-user.sh --migrate` and HQ consumer updates (PR 2).
 | `training/sync_state.json` | `user_data/activities/sync_state.json` |
 | `training/sync_status.json` | `gen/sync_status.json` |
 | `training/widget_snapshots.json` | `gen/widget_snapshots.json` |
-| `training/activities/quest_log.md` | `gen/quest_log.md` |
 | `training/activities/quest_history.json` | `gen/quest_history.json` |
 | `training/chat_history.json` | `user_data/coach/chat_history.json` |
 | `training/reference/` | `user_data/coach/reference/` |
-| `data/aggregate.json` | `gen/aggregate.json` |
+| `data/dashboard_snapshot.json` | `gen/dashboard_snapshot.json` |
 | `sessions/` | `user_data/activities/workout_plans/sessions/` |
 | `templates/` | `user_data/activities/workout_plans/templates/` |
 | `scripts/`, `lib/` | `engine/scripts/`, `engine/lib/` |

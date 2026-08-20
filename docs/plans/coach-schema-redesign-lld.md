@@ -223,7 +223,7 @@ table when we get to step 5.
 
 **What this removes:** `generate_quest_history.py` currently walks day by day through old season
 snapshots to work out what happened; now it just formats rows that are already in order and already
-complete. And `build-aggregate.mjs` stops sending completion data twice (once as raw
+complete. And `build-dashboard-snapshot.mjs` stops sending completion data twice (once as raw
 `challenge_v2`, once as `quest_history`).
 
 ---

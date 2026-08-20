@@ -108,7 +108,7 @@ that's out of date.) SOUL is basically free too: it's identical for everyone and
 shared Gemini cache (`soulCache.ts`).
 
 **So everything we actually pay for, every turn, is the athlete's own material — the full 14KB
-`state.md` plus `quest_log.md`, sent in full each time.** That's precisely what this redesign
+`state.md` plus `rendered quest context`, sent in full each time.** That's precisely what this redesign
 controls, and splitting it into JSON is what makes it possible to send only the parts we need.
 Markdown was all-or-nothing.
 
@@ -142,7 +142,7 @@ flowchart LR
 |---|---|---|
 | **1** | translation layer both ways — one that builds what Coach reads, one that applies what Coach reports (PR #374 starts this); `trace_id` carried into writes | the prompt comes out character-for-character identical to today; `npm run eval:coach-chat` unchanged |
 | **2** | `profile.json` + `memory.json` + `sessions.json`; `state.md` deleted; `memory_update` added | rebuilt view is character-for-character identical to today's `state.md`; one real session saves a memory note |
-| **3** | the four ledger files; `quest_event` + `profile_update` added; `generate_quest_history.py` stops replaying day by day | `generate_quest_log.py` prints exactly the same text before and after |
+| **3** | the four ledger files; `quest_event` + `profile_update` added; `generate_quest_history.py` stops replaying day by day | `renderQuestContext` prints exactly the same text before and after |
 | **4** | size limits, load-on-demand, training history summary (`coach-memory.md`) | measured drop in `[coach-chat] Gemini usage:` |
 | **5** | move to a database — every file is already a table | not covered here; `backend-decision.md` owns it |
 

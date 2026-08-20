@@ -1,6 +1,6 @@
 # User-repo sync (coach-skeleton / coach-<user>). iOS path only — the HealthKit app commits
-# history directly, this just regenerates derived files (quest_log, quest_history, sync_status,
-# gen/aggregate.json) on every push.
+# history directly, this just regenerates derived files (quest_history, sync_status,
+# dashboard_snapshot, athlete_insights) on every push.
 
 name: Sync
 
@@ -10,7 +10,7 @@ on:
     branches: [main]
     paths:
       - 'user_data/activities/hist/**'
-      - 'user_data/ledger/challenge_v2.json'
+      - 'user_data/ledger/**'
       - 'user_data/coach/sleep_log.json'
 
 permissions:
@@ -49,15 +49,17 @@ jobs:
         with:
           node-version: 20
 
-      - name: Build aggregate
-        run: node engine/scripts/build-aggregate.mjs --aggregate
+      - name: Build dashboard snapshot and athlete insights
+        run: |
+          node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
+          node engine/scripts/generate-athlete-insights.mjs
 
       - name: Commit pipeline changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f gen/aggregate.json
-          git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
+          git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
+          git add gen/quest_history.json gen/sync_status.json
           if git diff --cached --quiet; then
             echo "No changes"
             exit 0
@@ -73,9 +75,10 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             python3 engine/scripts/regenerate_derived.py
-            node engine/scripts/build-aggregate.mjs --aggregate
-            git add -f gen/aggregate.json
-            git add gen/quest_log.md gen/quest_history.json gen/sync_status.json
+            node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
+            node engine/scripts/generate-athlete-insights.mjs
+            git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
+            git add gen/quest_history.json gen/sync_status.json
             if git diff --cached --quiet; then
               echo "No changes after re-run"
               exit 0

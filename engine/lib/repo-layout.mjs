@@ -113,10 +113,10 @@ export function templatesDir(repoRootPath) {
     : path.join(repoRootPath, "templates");
 }
 
-export function aggregatePath(repoRootPath) {
+export function dashboardSnapshotPath(repoRootPath) {
   return usesNewLayout(repoRootPath)
-    ? path.join(repoRootPath, "gen", "aggregate.json")
-    : path.join(repoRootPath, "data", "aggregate.json");
+    ? path.join(repoRootPath, "gen", "dashboard_snapshot.json")
+    : path.join(repoRootPath, "data", "dashboard_snapshot.json");
 }
 
 export function sleepLogPath(repoRootPath) {
@@ -135,12 +135,6 @@ export function syncStatusPath(repoRootPath) {
   return usesNewLayout(repoRootPath)
     ? path.join(repoRootPath, "gen", "sync_status.json")
     : path.join(repoRootPath, "training", "sync_status.json");
-}
-
-export function questLogPath(repoRootPath) {
-  return usesNewLayout(repoRootPath)
-    ? path.join(repoRootPath, "gen", "quest_log.md")
-    : path.join(repoRootPath, "training", "activities", "quest_log.md");
 }
 
 export function questHistoryPath(repoRootPath) {

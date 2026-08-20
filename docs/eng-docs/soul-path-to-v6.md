@@ -1,6 +1,6 @@
 # SOUL: the path to v6
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-18
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-20
 
 Where Coach's brain is going, and why. Written after a line-by-line audit of SOUL v5.7 (509
 lines, every section, both runtimes). Readable on its own — the plans it names are
@@ -109,7 +109,7 @@ mid-conversation, so the timer app shows the modified workout rather than the ba
 Backend work. SOUL barely changes — a few instructions come *back* once they stop being lies.
 
 **2. Memory.** The thing the athlete says he'd miss most. A **rhythms digest** — a computed
-summary of training the way `gen/quest_log.md` is a computed summary of quests — which doubles as
+summary of training the way `rendered quest context` is a computed summary of quests — which doubles as
 the activity history thread 1 needs. And a **compaction pass**: Coach reads its own journal and
 promotes durable patterns into running memory. This already worked once by hand — an insight
 drawn from three April data points is still shaping how Coach reads the athlete in August — but

@@ -142,7 +142,7 @@ final class CoachChatAPIClient {
         }
     }
 
-    /// A3: warm the server's context read-through cache (SOUL.md/state.md/quest_log.md, 60s
+    /// A3: warm the server's memory and split-ledger read-through cache (60s
     /// TTL - ui/api/_lib/coachChatFiles.ts) as soon as the app becomes active, so the eventual
     /// greeting turn / first message doesn't pay a fresh GitHub round-trip on top of the Gemini
     /// call. Best-effort - a failure here just means the real turn pays full latency, same as

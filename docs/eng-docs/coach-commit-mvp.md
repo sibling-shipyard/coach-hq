@@ -1,6 +1,6 @@
 # Coach commit MVP — one file, append-only
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-12 · Author: Skanda · **Split 1 of 2** (Split 2 = ledger simplification + full intent schema, Akash — [`../plans/coach-intent-schema.md`](../plans/coach-intent-schema.md))
+> Status: Current · Owner: UI Expert · Verified: 2026-08-20 · Author: Skanda · **Split 1 of 2** (Split 2 = ledger simplification + full intent schema, Akash — [`../plans/coach-intent-schema.md`](../plans/coach-intent-schema.md))
 
 ## Context
 
@@ -104,7 +104,7 @@ shape rather than replacing it. Field names locked here so the two splits don't 
 
 - P2 — remaining coach files behind the same intent pattern → Split 2.
 - P2 — `platform/soul/B_engine.md` §12 still instructs 8 paths the server allowlist rejects
-  (`roadmap.md`, `gen/quest_log.md`, `archive/**`). Rewrite belongs to Split 2, not here.
+  (`roadmap.md`, `rendered quest context`, `archive/**`). Rewrite belongs to Split 2, not here.
 - P3 — background commit + client polling (see `docs/plans/coach-chat-follow-up.md`). UX, not reliability.
 
 ## Scope guard

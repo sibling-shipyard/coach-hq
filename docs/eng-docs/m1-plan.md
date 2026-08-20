@@ -1,6 +1,6 @@
 # M1 Plan — Skeleton Carve + Operator Onboarding
 
-> Status: Historical · Owner: Tech Lead · Verified: 2026-07-29 · M1a structure locked · Layout: [`skeleton-layout.md`](skeleton-layout.md) · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-20 · M1a structure locked · Layout: [`skeleton-layout.md`](skeleton-layout.md) · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1
 >
 > **Superseded in part:** Strava ingestion (referenced throughout as "Option A") was removed
 > entirely — see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md).
@@ -131,7 +131,7 @@ Two production clones onboarded: **`akash-suresh/coach-akash`** (iOS) and **`ska
 | Akash | iOS HealthKit | iOS app commits `hk_*.json` |
 | Skanda | Strava Premium | `engine/strava/` pipeline when secrets set |
 
-Post-ingestion: `engine/scripts/regenerate_derived.py` → `build-aggregate.mjs` → dashboard reads `gen/aggregate.json`.
+Post-ingestion: `engine/scripts/regenerate_derived.py` → `build-dashboard-snapshot.mjs` → dashboard reads `gen/dashboard_snapshot.json`.
 
 ---
 
@@ -158,7 +158,7 @@ Refresh: `node platform/scripts/carve-skeleton.mjs --push`
 
 | Consumer | Key path changes |
 |---|---|
-| `ui/api/repo-file.ts` | `gen/aggregate.json` |
+| `ui/api/repo-file.ts` | `gen/dashboard_snapshot.json` |
 | `ui/api/list-my-repos.ts` | `user_data/ledger/challenge_v2.json` |
 | `ui/api/coach-chat.ts` | `user_data/coach/*`, sessions path |
 | iOS | `hist/`, `gen/widget_snapshots.json`, sessions path |
@@ -221,7 +221,7 @@ flowchart LR
 
 - [ ] `validate-data.yml` green
 - [ ] Log in on shared site → repo resolves to new clone
-- [ ] Dashboard loads (`gen/aggregate.json`)
+- [ ] Dashboard loads (`gen/dashboard_snapshot.json`)
 - [ ] BYO Claude boot uses migrated `user_data/coach/state.md`
 - [ ] Sync: Strava (Skanda) or iOS push (Akash) regenerates aggregate
 

@@ -42,7 +42,7 @@ anywhere in SOUL.** Checked all three places it would live:
 |---|---|
 | §2 guardrails | read `coach_notes.md` on-demand "when investigating a long-term pattern" — reactive, athlete-initiated |
 | §5 closing a phase | write a retrospective. Never says read the notes first |
-| §5 closing a season | pull the side-quest record from `quest_log.md`. Never mentions the notes |
+| §5 closing a season | pull the side-quest record from `rendered quest context`. Never mentions the notes |
 
 **And it worked, once, by hand.** From three PRE data points in April 2026, Coach drew an insight
 and promoted it into `state.md`'s Learned Patterns:
@@ -56,7 +56,7 @@ mechanism is right; it just never runs.
 
 ## Two pieces
 
-**1. Rhythms digest.** A computed summary of training, the way `gen/quest_log.md` is a computed
+**1. Rhythms digest.** A computed summary of training, the way `rendered quest context` is a computed
 summary of quests. Pipeline writes it, Coach reads it read-only, SOUL says don't compute it
 yourself.
 

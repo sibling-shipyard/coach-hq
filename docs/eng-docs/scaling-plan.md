@@ -1,6 +1,6 @@
 # Scaling Plan — Coach Phelps → Multi-Tenant
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-07-29
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-20
 
 Moving Coach Phelps from single-tenant (one hand-built repo per person) to ~10 users on a shared hosted
 UI. Supersedes the old root scaling plan for architecture (deleted — see git history; its Friend-#3
@@ -57,7 +57,7 @@ flowchart LR
   app --> repo["coach-user repo<br/>private, per user"]
   subgraph repo_contents["Inside each user repo"]
     soul["soul/ layers → SOUL.md<br/>composed A+B+C"]
-    cdata["user_data/* + gen/aggregate.json<br/>Layer C data"]
+    cdata["user_data/* + gen/dashboard_snapshot.json<br/>Layer C data"]
     wf["sync.yml / validate-data.yml"]
   end
   repo --- repo_contents
@@ -176,7 +176,7 @@ contracts so either runtime executes it — validators enforcing the guarantees 
 - **post-init** — accumulates in use (ledger, workout activities). The only precious band — protect and back up.
 - **gen** — machine-generated (web-build, iOS widget payload, housekeeping). Rebuildable; keep out of git
   where possible, commit only the small typed snapshot contract (ADR 0005). Do **not** commit build output
-  to a user repo — the trap the restructure already hit with `aggregate.json`.
+  to a user repo — the trap the restructure already hit with `dashboard_snapshot.json`.
 
 ### 5.3 Data flow
 
@@ -185,7 +185,7 @@ flowchart LR
   strava["Strava Premium<br/>API + secrets"] --> sync["sync.yml pipeline"]
   ios["iOS HealthKit app"] -->|push history| hist["user_data/activities/hist/*.json<br/>same shape either source"]
   sync --> hist
-  hist --> agg["build-data.mjs --aggregate<br/>writes gen/aggregate.json"]
+  hist --> agg["build-data.mjs --dashboard-snapshot<br/>writes gen/dashboard_snapshot.json"]
   agg --> ghcdn["GitHub = data store + CDN"]
   ghcdn -->|repo-file.ts .raw, cached| dash["Dashboard (useRepoData)"]
 ```
@@ -213,7 +213,7 @@ sequenceDiagram
   participant GH as GitHub (user token)
   participant G as Gemini
   U->>API: POST message + running thread
-  API->>GH: read SOUL.md + state.md + quest_log.md
+  API->>GH: read SOUL.md + state.md + rendered quest context
   API->>G: system=SOUL + context, contents=history
   G-->>API: reply (+ optional file_updates)
   alt ordinary turn
@@ -327,6 +327,6 @@ Not committed; recorded so the design doesn't box us in.
 
 Auth: `ui/api/auth/[...action].ts`, `_lib/session.ts`, `_lib/pkce.ts` · Repo resolution: `list-my-repos` action ·
 Runtime data: `repo-file.ts`, `hooks/useRepoData.ts` · Server coach:
-`coach-chat.ts` · Build: `build-data.mjs --aggregate` · Athlete workflows (carved from `engine/.github/workflows/`):
+`coach-chat.ts` · Build: `build-data.mjs --dashboard-snapshot` · Athlete workflows (carved from `engine/.github/workflows/`):
 `sync.yml`, `validate-data.yml`, `apply-coach-patch.yml` · HQ workflows: `validate-soul.yml`, `validate-kdb.yml` ·
 Engine: `soul/` layers + composed `SOUL.md` · Prior: `docs/eng-docs/website-unification-history.md`.

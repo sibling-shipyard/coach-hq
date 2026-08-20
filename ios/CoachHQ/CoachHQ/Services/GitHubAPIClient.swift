@@ -229,7 +229,7 @@ class GitHubAPIClient {
     }
 
     /// Fetches live Warm Instrument snapshots from the hosted dashboard API (ADR 0005).
-    /// HQ runs the TS generator server-side from `gen/aggregate.json` — athlete repos
+    /// HQ runs the TS generator server-side from `gen/dashboard_snapshot.json` — athlete repos
     /// do not need a committed `gen/widget_snapshots.json`.
     func fetchWidgetSnapshots() async throws -> WidgetSnapshotsFile {
         guard let token = await authManager.validToken() else {

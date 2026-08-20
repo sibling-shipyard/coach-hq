@@ -7,7 +7,7 @@
  *   `ui/client/src/data/*` — those files are exclusively pipeline-managed (AGENTS.md) and
  *   reflect whatever real repo is configured, not a stable local fixture.
  * - Hosted deployment: fetches /api/repo-file once (the signed-in user's resolved
- *   repo's gen/aggregate.json), cached module-wide so navigating between pages
+ *   repo's gen/dashboard_snapshot.json), cached module-wide so navigating between pages
  *   doesn't refetch.
  *
  * Returned shape mirrors the old per-file static imports so each page only needs
@@ -15,17 +15,13 @@
  * loading/error check - not a rewrite of page logic.
  */
 import { useEffect, useRef, useState } from "react";
-import activitiesData from "@golden/repo-data/activities.json";
-import challengeDataRaw from "@golden/repo-data/challenge_v2.json";
-import syncStatusData from "@golden/repo-data/sync_status.json";
-import workoutsData from "@golden/repo-data/workouts.json";
-import sleepLogRaw from "@golden/repo-data/sleep_log.json";
-import questHistoryRaw from "@golden/repo-data/quest_history.json";
-import currentWeekRaw from "@golden/repo-data/current_week.json";
+import dashboardSnapshotRaw from "../data/dashboard_snapshot.json";
+import { splitLedgerAsChallenge } from "../lib/splitLedgerChallenge";
 
 export interface RepoData {
   activities: unknown[];
   challenge_v2: unknown;
+  ledger?: Parameters<typeof splitLedgerAsChallenge>[0] | null;
   workouts: unknown;
   sync_status: unknown;
   sleep_log: unknown[];
@@ -38,19 +34,16 @@ export interface RepoData {
   schema_version?: number;
 }
 
-const LOCAL_DATA: RepoData = {
-  activities: activitiesData as unknown[],
-  challenge_v2: challengeDataRaw,
-  workouts: workoutsData,
-  sync_status: syncStatusData,
-  sleep_log: sleepLogRaw as unknown[],
-  quest_history: questHistoryRaw,
-  current_week: currentWeekRaw,
-  plugins: { enabled: ["badminton"] },
-  badminton_analytics_available: true,
-};
+function withDashboardCompatibility(snapshot: RepoData): RepoData {
+  if (!snapshot.challenge_v2 && snapshot.ledger) {
+    return { ...snapshot, challenge_v2: splitLedgerAsChallenge(snapshot.ledger) };
+  }
+  return snapshot;
+}
 
-// Bump when the aggregate shape changes in a way old dashboards can't render
+const LOCAL_DATA = withDashboardCompatibility(dashboardSnapshotRaw as RepoData);
+
+// Bump when the dashboard snapshot shape changes in a way old dashboards can't render
 // safely. Kept in sync with build-data.mjs's SCHEMA_VERSION.
 const SUPPORTED_SCHEMA_VERSION = 1;
 
@@ -96,7 +89,7 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
         return;
       }
 
-      const aggregate = (await res.json()) as RepoData;
+      const aggregate = withDashboardCompatibility((await res.json()) as RepoData);
       if (
         typeof aggregate.schema_version === "number" &&
         aggregate.schema_version > SUPPORTED_SCHEMA_VERSION

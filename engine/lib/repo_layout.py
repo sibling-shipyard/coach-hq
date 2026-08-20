@@ -95,10 +95,10 @@ def templates_dir(repo: Path) -> Path:
     return repo / "templates"
 
 
-def aggregate_path(repo: Path) -> Path:
+def dashboard_snapshot_path(repo: Path) -> Path:
     if uses_new_layout(repo):
-        return repo / "gen" / "aggregate.json"
-    return repo / "data" / "aggregate.json"
+        return repo / "gen" / "dashboard_snapshot.json"
+    return repo / "data" / "dashboard_snapshot.json"
 
 
 def sleep_log_path(repo: Path) -> Path:
@@ -118,11 +118,6 @@ def sync_status_path(repo: Path) -> Path:
         return repo / "gen" / "sync_status.json"
     return repo / "training" / "sync_status.json"
 
-
-def quest_log_path(repo: Path) -> Path:
-    if uses_new_layout(repo):
-        return repo / "gen" / "quest_log.md"
-    return repo / "training" / "activities" / "quest_log.md"
 
 
 def quest_history_path(repo: Path) -> Path:

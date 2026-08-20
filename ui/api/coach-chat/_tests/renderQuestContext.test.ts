@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderQuestContext } from "../_lib/coachContext.js";
 import type { SeasonsJson, QuestsJson, ProgressJson, ProgressionsJson } from "../_lib/coachQuestFiles.js";
 
-// Part 2 ledger split (coach-redesign-part2-ledger.md) replaces gen/quest_log.md with
+// Part 2 ledger split (coach-redesign-part2-ledger.md) replaces the retired precomputed artifact with
 // seasons.json/quests.json/progress.json/progressions.json read directly.
 describe("renderQuestContext", () => {
   const seasons: SeasonsJson = {

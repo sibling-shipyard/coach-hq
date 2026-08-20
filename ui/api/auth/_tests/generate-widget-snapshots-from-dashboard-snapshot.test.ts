@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { needsLiveRecomputation } from "../_lib/generate-widget-snapshots-from-aggregate.js";
+import { needsLiveRecomputation, splitLedgerAsChallenge } from "../_lib/generate-widget-snapshots-from-dashboard-snapshot.js";
+
+it("adapts a complete split ledger for the existing widget models", () => {
+  const challenge = splitLedgerAsChallenge({
+    seasons: { version: 1, _meta: { updated_at: "", updated_by: "", trace_id: "" }, current_season_id: "s1", seasons: [{ id: "s1", name: "Build", start_date: "2026-01-01", end_date: "2026-12-31", status: "active" }] },
+    quests: { version: 1, _meta: { updated_at: "", updated_by: "", trace_id: "" }, weekly_targets: { run: { target: 3 } }, main_quest: { id: "main", name: "Run", type: "count_target", target: 20 }, quests: [{ id: "q1", name: "Mobility", type: "daily_streak", start_date: "2026-01-01", end_date: null, status: "active", source: "model" }] },
+    progress: { version: 1, rows: [{ id: "r1", quest_id: "q1", season_id: "s1", date: "2026-08-19", status: "completed", value: null, source: "model", ts: "2026-08-19T00:00:00Z", trace_id: "t" }] },
+    progressions: {},
+  });
+  expect(challenge?.season?.name).toBe("Build");
+  expect(challenge?.weekly_targets).toMatchObject({ run: 3 });
+  expect(challenge?.quests[0].completed_dates).toEqual(["2026-08-19"]);
+});
 
 // Regression coverage for the stale current_week bug: a "placeholder" week (the real value the
 // ledger ships once the coach has planned a week) used to pass straight through unmodified even

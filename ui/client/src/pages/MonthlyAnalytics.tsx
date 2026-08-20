@@ -53,7 +53,7 @@ function MonthlyAnalyticsContent({ data }: { data: RepoData }) {
   const activities = data.activities as Activity[];
   const challengeData = data.challenge_v2 as unknown as ChallengeV2;
   const syncStatusData = data.sync_status as SyncStatusPayload;
-  // Fallback matches build-aggregate.mjs's own default for a repo that never ran
+  // Fallback matches build-dashboard-snapshot.mjs's own default for a repo that never ran
   // generate_quest_history.py.
   const questHistory = (data.quest_history as QuestHistory | undefined) ?? {
     generated_at: "",

@@ -113,12 +113,9 @@ function learnedPatternsSection(memory: MemoryJson | null): string {
   ].join("\n");
 }
 
-// Part 2 ledger split: replaces gen/quest_log.md as the quest-context source. Reproduces the
-// same rough shape (Current Season, Main Quest, Side Quests) generate_quest_log.py's markdown
-// carries, built directly from seasons.json/quests.json/progress.json instead of a pre-computed
-// file - this doesn't touch generate_quest_log.py itself, and doesn't try to match it byte for
-// byte (pace/rate math is real work that script already does well; this just gives Gemini the
-// raw facts and real ids it needs).
+// Part 2 ledger split retired the precomputed quest artifact. renderQuestContext now builds the
+// same useful sections (Current Season, Main Quest, Side Quests) directly from
+// seasons.json/quests.json/progress.json, including the real ids Gemini needs for writes.
 // Monday-Sunday ISO week containing `today` (a YYYY-MM-DD string) - plain date-string math in
 // UTC, matching how ProgressRow.date is already compared elsewhere in this function, rather than
 // pulling in a timezone since `today` is already resolved to the athlete's local date by the

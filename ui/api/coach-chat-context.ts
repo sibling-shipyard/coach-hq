@@ -1,9 +1,9 @@
 /**
  * coach-chat-context.ts — warm the files coach-chat.ts injects into every Gemini call
- * (SOUL.md, quest_log.md, profile/memory/injuries/coach_log.json), ahead of the athlete ever
- * opening the chat page/tab (A3).
+ * (SOUL plus profile/memory/injuries/coach_log and the split quest ledger), ahead of the athlete
+ * ever opening the chat page/tab (A3).
  *
- * GET → {soul, questLog, profile, memory, injuries, coachLog}
+ * GET → the full CoachContext returned by loadCoachContext
  *
  * Not tied to a chat turn - exposes loadCoachContext's read-through cache (60s TTL) so the app
  * shell can trigger it on load, and the eventual greeting/first message skips a redundant round-trip.

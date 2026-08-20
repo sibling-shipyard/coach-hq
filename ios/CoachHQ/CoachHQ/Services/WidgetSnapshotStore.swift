@@ -4,7 +4,7 @@ import WidgetKit
 
 /// Observable store for Warm Instrument Home snapshots (ADR 0005).
 /// Fetches live snapshots from the hosted dashboard API (`/api/widget-snapshots`), which
-/// runs the TS generator server-side from `gen/aggregate.json`. Caches the last good snapshot
+/// runs the TS generator server-side from `gen/dashboard_snapshot.json`. Caches the last good snapshot
 /// locally and mirrors it to the App Group for WidgetKit.
 @MainActor
 class WidgetSnapshotStore: ObservableObject {
@@ -114,7 +114,7 @@ class WidgetSnapshotStore: ObservableObject {
     }
 
     /// Polls Home snapshots after a HealthKit commit until the user-repo sync workflow
-    /// has regenerated `gen/aggregate.json` (timestamp in `home.sync`) or attempts exhaust.
+    /// has regenerated `gen/dashboard_snapshot.json` (timestamp in `home.sync`) or attempts exhaust.
     func refreshAfterSync(since commitFinishedAt: Date) async {
         let waitSeconds: [UInt64] = [0, 15, 15, 20, 20, 30]
         for (attempt, delay) in waitSeconds.enumerated() {

@@ -1,6 +1,6 @@
 # User 3+ Onboarding Gate — Must-Do Before Friends Sign Up
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-02 · Locked requirement: 2026-07-26 · Blocks: any athlete beyond Akash + Skanda · Authority: [`scaling-plan.md`](scaling-plan.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Locked requirement: 2026-07-26 · Blocks: any athlete beyond Akash + Skanda · Authority: [`scaling-plan.md`](scaling-plan.md)
 >
 > **Update (#189):** Step 1 (eliminate athlete-facing PAT) is **done** — Sync and Apply Coach Patch now run under the built-in `GITHUB_TOKEN`. `PAT_TOKEN` references below describe the pre-fix state. Remaining gate items (auto repo on sign-up, etc.) still open.
 
@@ -89,7 +89,7 @@ Exit test for each new friend repo:
 - [ ] Push to `user_data/activities/hist/` (or manual Sync) → workflow **success** (not missing token)
 - [ ] Dashboard login → repo resolves
 - [ ] Dashboard Sync button → workflow success
-- [ ] `gen/aggregate.json` loads
+- [ ] `gen/dashboard_snapshot.json` loads
 - [ ] BYO Claude boot reads `user_data/coach/state.md`
 
 ### 4. Athlete-facing docs

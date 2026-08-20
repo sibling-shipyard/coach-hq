@@ -1,6 +1,6 @@
 # Provision Runbook — M1b Operator Checklist
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-02 · Authority: [`m1-plan.md`](m1-plan.md) M1b
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Authority: [`m1-plan.md`](m1-plan.md) M1b
 
 ## Context
 
@@ -64,7 +64,7 @@ platform/scripts/provision-user.sh --migrate \
   --legacy skanda-2003/coach-phelps
 ```
 
-After overlay, the script **regenerates `gen/`** (`regenerate_derived.py` + `build-aggregate.mjs`) and **verifies** ledger is not still the skeleton template.
+After overlay, the script **regenerates `gen/`** (`regenerate_derived.py` + `build-dashboard-snapshot.mjs`) and **verifies** ledger is not still the skeleton template.
 
 Inspect locally without push:
 
@@ -85,7 +85,7 @@ platform/scripts/provision-user.sh --migrate \
 | `training/activities/history/` | `user_data/activities/hist/` |
 | `sessions/` | `user_data/activities/workout_plans/sessions/` |
 | `templates/` | `user_data/activities/workout_plans/templates/` |
-| `data/aggregate.json` | `gen/aggregate.json` |
+| `data/dashboard_snapshot.json` | `gen/dashboard_snapshot.json` |
 | `training/sync_status.json` | `gen/sync_status.json` |
 
 Full map: [`skeleton-layout.md`](skeleton-layout.md) § Path migration.

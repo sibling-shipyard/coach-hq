@@ -451,7 +451,7 @@ export function staticSystemText(soul: string): string {
     "You are mid-conversation already, not booting a fresh session - skip SOUL.md's Boot Sequence",
     "entirely, you're past it. You have NO shell or tool access: you cannot run `git pull`, cannot",
     "execute Strava scripts, cannot run shell commands, cannot read files on-demand. Everything you",
-    "have is already given to you below (current athlete context and quest_log.md) or in this",
+    "have is already given to you below (current athlete context and current quest context) or in this",
     "conversation. If SOUL.md instructs you to read a file or run a command you don't have access",
     "to here, ignore that instruction rather than acting like you did it.",
     "You are Coach Phelps ONLY. Never act as Tech Lead, UI Expert, Bob the Builder, iOS Builder, or any",
@@ -467,7 +467,7 @@ export function staticSystemText(soul: string): string {
 // changes the framing sentence at the top - it ships as a synthetic turn when a cache is active,
 // or gets concatenated into systemInstruction directly when it isn't.
 // questContext is now built server-side from seasons.json/quests.json/progress.json
-// (coachContext.ts's renderQuestContext) rather than being gen/quest_log.md's raw markdown -
+// (coachContext.ts's renderQuestContext) rather than a fetched precomputed markdown artifact -
 // Part 2 ledger split retired challenge_v2.json, which is what generated that file. Kept as its
 // own parameter (not merged into athleteContext) since it's a genuinely separate concern with
 // its own real ids Gemini needs to reference for quest_event.

@@ -9,10 +9,13 @@ import { buildLiveWeekContract } from "../../../client/src/components/home-warm/
 import { buildWidgetSnapshotsFile } from "../../../client/src/components/home-warm/warmHomeSnapshots.js";
 import type { SyncStatusPayload } from "../../../client/src/components/home-warm/warmHomeModel.js";
 import type { WidgetSnapshotsFile } from "../../../client/src/components/home-warm/snapshots.js";
+import { splitLedgerAsChallenge } from "../../../client/src/lib/splitLedgerChallenge.js";
+import type { ProgressJson, QuestsJson, SeasonsJson } from "../../coach-chat/_lib/coachQuestFiles.js";
 
-export interface RepoAggregateInput {
+export interface DashboardSnapshotInput {
   activities?: Activity[];
   challenge_v2?: ChallengeV2 | null;
+  ledger?: { seasons: SeasonsJson; quests: QuestsJson; progress: ProgressJson; progressions: unknown } | null;
   current_week?: CurrentWeekContract | { data_status?: string };
   sync_status?: SyncStatusPayload;
 }
@@ -45,7 +48,7 @@ function isPlaceholderWeekStale(week: { week?: { start_date?: unknown; end_date?
   return today < startDate || today > endDate;
 }
 
-export function needsLiveRecomputation(week: RepoAggregateInput["current_week"]): boolean {
+export function needsLiveRecomputation(week: DashboardSnapshotInput["current_week"]): boolean {
   if (!week || week.data_status === "unavailable") return true;
   if (week.data_status === "placeholder") {
     return isPlaceholderWeekStale(week as { week?: { start_date?: unknown; end_date?: unknown } });
@@ -53,10 +56,10 @@ export function needsLiveRecomputation(week: RepoAggregateInput["current_week"])
   return false;
 }
 
-export function generateWidgetSnapshotsFromAggregate(
-  aggregate: RepoAggregateInput,
+export function generateWidgetSnapshotsFromDashboardSnapshot(
+  aggregate: DashboardSnapshotInput,
 ): WidgetSnapshotsFile | null {
-  const challenge = aggregate.challenge_v2 ?? null;
+  const challenge = aggregate.ledger ? splitLedgerAsChallenge(aggregate.ledger) : aggregate.challenge_v2 ?? null;
   if (!challenge) return null;
 
   const activities = aggregate.activities ?? [];
@@ -72,3 +75,5 @@ export function generateWidgetSnapshotsFromAggregate(
 
   return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live");
 }
+
+export { splitLedgerAsChallenge } from "../../../client/src/lib/splitLedgerChallenge.js";

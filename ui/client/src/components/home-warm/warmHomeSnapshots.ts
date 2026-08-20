@@ -263,7 +263,7 @@ export function buildEngineSnapshot(
 }
 
 // Eligible days for a daily_streak quest: start_date through today, or through its own
-// end_date if that's already passed - mirrors generate_quest_log.py's
+// end_date if that's already passed - mirrors renderQuestContext's
 // compute_daily_streak_stats "effective_end = min(end_date ?? today, today)".
 function eligibleDaysSince(startDate: string, endDate: string | undefined, today: Date): number {
   const start = new Date(`${startDate}T00:00:00`);
@@ -289,7 +289,7 @@ export function buildQuestSnapshot(
       if (item.polarity === "default_done") {
         // Every day counts unless missed or excused (both reduce the completed count the same
         // way - excused only protects the *streak*, a separate concept this widget doesn't
-        // render). Kept for parity with generate_quest_log.py; no live quest uses this polarity
+        // render). Kept for parity with renderQuestContext; no live quest uses this polarity
         // any more after the challenge_v2 unification, but the formula stays correct if one does.
         const missed = item.missed_dates?.length ?? 0;
         const excused = item.excused_dates?.length ?? 0;
@@ -297,7 +297,7 @@ export function buildQuestSnapshot(
         target = eligible;
       } else {
         // default_not_done (also the polarity-absent default, matching
-        // generate_quest_log.py's compute_daily_streak_stats) - the standard shape for every
+        // renderQuestContext's equivalent calculation) - the standard shape for every
         // quest going forward. Only completed_dates counts; excused_dates is tracked for
         // monthly analytics but doesn't move this ratio.
         value = item.completed_dates?.length ?? 0;

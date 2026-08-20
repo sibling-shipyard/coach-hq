@@ -25,7 +25,7 @@ Types live in `ui/client/src/lib/challenge.ts` (`MilestoneProgress`); the widget
 is `buildPhaseSnapshot` in
 `ui/client/src/components/home-warm/WarmInstrumentHome.tsx` + `BuildPhaseCard`
 in `WarmInstrumentWidgets.tsx`; the schema validator is in
-`scripts/generate_quest_log.py`.
+`coachContext.ts renderQuestContext`.
 
 ### Remaining: pipeline-computed ETA (`projected_date`)
 

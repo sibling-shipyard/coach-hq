@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /**
- * build-aggregate.mjs — Writes gen/aggregate.json (skeleton) or data/aggregate.json (HQ legacy).
+ * build-dashboard-snapshot.mjs — Writes the dashboard's generated data bundle.
  *
- * Slim extract from ui/scripts/build-data.mjs buildAggregate() — reads athlete data
- * via repo-layout path helpers. Matches HQ aggregate shape for the shared dashboard
- * contract (schema_version: 1).
+ * Reads athlete data via repo-layout path helpers. Matches the HQ snapshot shape for the shared dashboard
+ * contract (schema_version: 1). A complete split ledger is atomic: partial split files are
+ * ignored, and the legacy challenge_v2 fallback is used whole when available.
  *
  * Usage:
- *   node engine/scripts/build-aggregate.mjs --aggregate
+ *   node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  aggregatePath,
+  dashboardSnapshotPath,
   histDir,
   ledgerDir,
   questHistoryPath,
@@ -40,31 +40,57 @@ const UNAVAILABLE_CURRENT_WEEK = {
   days: [],
   coach_comments: [],
   updated_at: null,
-  updated_by: "build-aggregate",
+  updated_by: "build-dashboard-snapshot",
 };
 
-function buildAggregate() {
+export function loadActivities(repoRootPath) {
+  const historyDir = histDir(repoRootPath);
+  if (!fs.existsSync(historyDir)) return [];
+  const activities = [];
+  for (const file of fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"))) {
+    try {
+      activities.push(projectActivity(JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8"))));
+    } catch (e) {
+      console.warn(`⚠ Skipping ${file}: ${e.message}`);
+    }
+  }
+  activities.sort((a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime());
+  return activities;
+}
+
+export function loadLedger(repoRootPath) {
+  const directory = ledgerDir(repoRootPath);
+  const names = ["seasons", "quests", "progress", "progressions"];
+  const paths = names.map((name) => path.join(directory, `${name}.json`));
+  if (paths.every((file) => fs.existsSync(file))) {
+    return {
+      ledger_schema: "split_v1",
+      ledger: Object.fromEntries(names.map((name, index) => [name, JSON.parse(fs.readFileSync(paths[index], "utf-8"))])),
+      challenge_v2: null,
+    };
+  }
+  const legacyPath = path.join(directory, "challenge_v2.json");
+  if (fs.existsSync(legacyPath)) {
+    return {
+      ledger_schema: "challenge_v2_v4",
+      ledger: null,
+      challenge_v2: JSON.parse(fs.readFileSync(legacyPath, "utf-8")),
+    };
+  }
+  return { ledger_schema: "unavailable", ledger: null, challenge_v2: null };
+}
+
+export function buildDashboardSnapshot(repoRootPath = REPO_ROOT) {
   const result = {};
 
-  const historyDir = histDir(REPO_ROOT);
+  const historyDir = histDir(repoRootPath);
   if (fs.existsSync(historyDir)) {
     const files = fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"));
     if (files.length === 0) {
       result.activities = [];
       console.log("✓ activities — no local history files, using empty array");
     } else {
-      const activities = [];
-      for (const file of files) {
-        try {
-          const raw = JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8"));
-          activities.push(projectActivity(raw));
-        } catch (e) {
-          console.warn(`⚠ Skipping ${file}: ${e.message}`);
-        }
-      }
-      activities.sort(
-        (a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime(),
-      );
+      const activities = loadActivities(repoRootPath);
       result.activities = activities;
       console.log(`✓ activities — ${activities.length} activities`);
     }
@@ -73,16 +99,9 @@ function buildAggregate() {
     result.activities = [];
   }
 
-  const challengeSrc = path.join(ledgerDir(REPO_ROOT), "challenge_v2.json");
-  if (fs.existsSync(challengeSrc)) {
-    result.challenge_v2 = JSON.parse(fs.readFileSync(challengeSrc, "utf-8"));
-    console.log("✓ challenge_v2 loaded");
-  } else {
-    console.warn(`⚠ No challenge_v2.json found at ${challengeSrc}`);
-    result.challenge_v2 = null;
-  }
+  Object.assign(result, loadLedger(repoRootPath));
 
-  const currentWeekSrc = path.join(ledgerDir(REPO_ROOT), "current_week.json");
+  const currentWeekSrc = path.join(ledgerDir(repoRootPath), "current_week.json");
   if (fs.existsSync(currentWeekSrc)) {
     try {
       result.current_week = JSON.parse(fs.readFileSync(currentWeekSrc, "utf-8"));
@@ -96,8 +115,8 @@ function buildAggregate() {
     console.warn(`⚠ No current_week.json found at ${currentWeekSrc}; using unavailable fallback`);
   }
 
-  const templatesDirPath = templatesDir(REPO_ROOT);
-  const sessionsDirPath = sessionsDir(REPO_ROOT);
+  const templatesDirPath = templatesDir(repoRootPath);
+  const sessionsDirPath = sessionsDir(repoRootPath);
   const workouts = { templates: [], sessions: [] };
 
   if (fs.existsSync(templatesDirPath)) {
@@ -136,7 +155,7 @@ function buildAggregate() {
   }
   result.workouts = workouts;
 
-  const syncStatusSrc = syncStatusPath(REPO_ROOT);
+  const syncStatusSrc = syncStatusPath(repoRootPath);
   if (fs.existsSync(syncStatusSrc)) {
     result.sync_status = JSON.parse(fs.readFileSync(syncStatusSrc, "utf-8"));
     console.log("✓ sync_status loaded");
@@ -152,18 +171,18 @@ function buildAggregate() {
     console.log("✓ sync_status — no data, using default");
   }
 
-  const sleepLogFile = sleepLogPath(REPO_ROOT);
+  const sleepLogFile = sleepLogPath(repoRootPath);
   result.sleep_log = fs.existsSync(sleepLogFile)
     ? JSON.parse(fs.readFileSync(sleepLogFile, "utf-8"))
     : [];
 
-  const questHistoryFile = questHistoryPath(REPO_ROOT);
+  const questHistoryFile = questHistoryPath(repoRootPath);
   result.quest_history = fs.existsSync(questHistoryFile)
     ? JSON.parse(fs.readFileSync(questHistoryFile, "utf-8"))
     : { generated_at: "", quests: {} };
 
-  result.plugins = loadPlugins(REPO_ROOT);
-  result.badminton_analytics_available = badmintonAnalyticsAvailable(REPO_ROOT);
+  result.plugins = loadPlugins(repoRootPath);
+  result.badminton_analytics_available = badmintonAnalyticsAvailable(repoRootPath);
 
   result.schema_version = SCHEMA_VERSION;
   result.generated_at = new Date().toISOString();
@@ -171,13 +190,16 @@ function buildAggregate() {
   return result;
 }
 
-if (!process.argv.includes("--aggregate")) {
-  console.error("Usage: node engine/scripts/build-aggregate.mjs --aggregate");
-  process.exit(1);
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  if (!process.argv.includes("--dashboard-snapshot")) {
+    console.error("Usage: node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot");
+    process.exit(1);
+  }
+  const rootFlag = process.argv.indexOf("--repo-root");
+  const runtimeRoot = rootFlag >= 0 && process.argv[rootFlag + 1] ? path.resolve(process.argv[rootFlag + 1]) : REPO_ROOT;
+  const snapshot = buildDashboardSnapshot(runtimeRoot);
+  const outPath = dashboardSnapshotPath(runtimeRoot);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(snapshot, null, 0));
+  console.log(`✓ ${path.relative(runtimeRoot, outPath)} written`);
 }
-
-const aggregate = buildAggregate();
-const outPath = aggregatePath(REPO_ROOT);
-fs.mkdirSync(path.dirname(outPath), { recursive: true });
-fs.writeFileSync(outPath, JSON.stringify(aggregate, null, 0));
-console.log(`✓ ${path.relative(REPO_ROOT, outPath)} written`);

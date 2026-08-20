@@ -1,5 +1,5 @@
 /**
- * Fire-and-forget warm-up for coach chat's context files (SOUL.md/state.md/quest_log.md), A3.
+ * Fire-and-forget warm-up for coach chat's memory files and split quest ledger, A3.
  *
  * Doesn't hold onto the response - the point isn't to cache content client-side, it's to make
  * sure /api/coach-chat-context.ts's server-side read-through cache (60s TTL, see

@@ -1,6 +1,6 @@
 /**
  * Shared read helpers for the files coach-chat.ts injects into every Gemini call: profile.json/
- * memory.json/injuries.json/coach_log.json and quest_log.md come from the athlete's own repo;
+ * memory.json/injuries.json/coach_log.json and the split quest ledger come from the athlete's own repo;
  * SOUL.md does not (see below). Extracted out of coach-chat.ts so coach-chat-context.ts (the
  * app-load preload endpoint, A3) can fetch the same files the same way without duplicating the
  * GitHub-read plumbing.
@@ -83,9 +83,8 @@ export interface CoachContext {
   memory: MemoryJson | null;
   injuries: InjuriesJson | null;
   coachLog: CoachLogJson | null;
-  // Part 2 ledger split: replaces challenge_v2.json and gen/quest_log.md - these four feed
-  // renderQuestContext (coachContext.ts) directly. Found in review: quest_log.md was still being
-  // fetched here (dead network call every turn) after nothing was left reading it - removed.
+  // Part 2's four split-ledger files replace challenge_v2.json and the dead precomputed quest
+  // fetch. They feed renderQuestContext (coachContext.ts) directly on every turn.
   seasons: SeasonsJson | null;
   quests: QuestsJson | null;
   progress: ProgressJson | null;

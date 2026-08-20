@@ -1,8 +1,8 @@
 /**
- * repo-file.ts — fetches the signed-in user's resolved repo's gen/aggregate.json via the
+ * repo-file.ts — fetches the signed-in user's resolved repo's gen/dashboard_snapshot.json via the
  * GitHub Contents API (Repo-as-CDN model).
  * Uses `.raw` media type, not the default JSON+base64 wrapper - Contents API only inlines
- * base64 for files under ~1MB, and a real aggregate.json blows past that (~2.8MB observed).
+ * base64 for files under ~1MB, and a real dashboard snapshot can exceed that.
  */
 import { ensureFreshSession, withSessionCookie } from "./auth/_lib/session.js";
 
@@ -28,7 +28,7 @@ export default {
     let contentsRes: Response;
     try {
       contentsRes = await fetch(
-        `https://api.github.com/repos/${session.repo_full_name}/contents/gen/aggregate.json`,
+        `https://api.github.com/repos/${session.repo_full_name}/contents/gen/dashboard_snapshot.json`,
         { headers: GH_HEADERS(session.gh_token) }
       );
     } catch {
@@ -52,7 +52,7 @@ export default {
     if (contentsRes.status === 404) {
       return withSessionCookie(
         Response.json(
-          { error: "gen/aggregate.json not found in your repo - has it synced yet?" },
+          { error: "gen/dashboard_snapshot.json not found in your repo - has it synced yet?" },
           { status: 404 }
         ),
         setCookie,
@@ -67,7 +67,7 @@ export default {
       aggregate = await contentsRes.json();
     } catch {
       return withSessionCookie(
-        Response.json({ error: "gen/aggregate.json is not valid JSON" }, { status: 502 }),
+        Response.json({ error: "gen/dashboard_snapshot.json is not valid JSON" }, { status: 502 }),
         setCookie,
       );
     }

@@ -23,7 +23,7 @@ Cover every section below. Length varies with how eventful the season was.
    whatever else the season was tracking.
 4. **What actually happened** — the real narrative. Setbacks, what got in the way, what changed
    mid-season. Not just the highlight reel.
-5. **The side quests' final record** — pulled from `gen/quest_log.md` at close: progress, best
+5. **The side quests' final record** — pulled from `rendered quest context` at close: progress, best
    streak, completion rate per quest.
 6. **Patterns worth carrying forward** — what this season taught, stated as something the *next*
    season should act on, not just observe.

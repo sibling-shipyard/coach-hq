@@ -47,15 +47,15 @@ file's current content.
 - `applyStringEdits` / `applyJsonMergePatch` call sites for these four files (`ui/api/_lib/fileEdits.ts`).
 - The "How to propose a file change" prompt block, `ui/api/coach-chat.ts:602-624` (~20 lines).
 - `platform/soul/B_engine.md` §12's git commands and pre-commit checklist. It names 8 paths the
-  server allowlist rejects (`roadmap.md`, `gen/quest_log.md`, `archive/**`) — dead since ADR 0021.
+  server allowlist rejects (`roadmap.md`, `rendered quest context`, `archive/**`) — dead since ADR 0021.
   Rewrite as: reflect, report, confirm. Recompose via `platform/scripts/compose-soul.mjs`.
 
 ## Build order
 
 Runs in parallel with P0. Only step 5 waits on Skanda.
 
-**0 — Prerequisite: quest ids.** `gen/quest_log.md` renders quest **names**, not ids
-(`engine/scripts/generate_quest_log.py:542`). `quest_events` needs ids. Add an id column.
+**0 — Prerequisite: quest ids.** `rendered quest context` renders quest **names**, not ids
+(`ui/api/coach-chat/_lib/coachContext.ts:542`). `quest_events` needs ids. Add an id column.
 → *Verify:* regenerate a quest log, ids visible. Without this, step 2 has nothing to assert on.
 
 **1 — Appliers, in a new file.** `ui/api/coach-chat/_lib/coachIntents.ts`. One pure function per field:
@@ -75,7 +75,7 @@ commands and the 8 rejected paths. Recompose via `platform/scripts/compose-soul.
 → *Verify:* evals still pass; closing prompt token count drops (`[coach-chat] Gemini usage:`).
 
 **4 — Drop the closing fetch from 5 files to 2.** Once the server owns the mutations, the model
-only needs `state.md` + `quest_log.md`. This kills the `currentContent === undefined` drop path
+only needs `state.md` + `rendered quest context`. This kills the `currentContent === undefined` drop path
 (`coach-chat.ts:823`) outright.
 → *Verify:* token count drops again; no `proposed without its current content` lines remain.
 
@@ -96,7 +96,7 @@ end-to-end testing can't write to a live athlete's `main`.
   provenance, schema v1). Needs its own intent design, not a rushed field.
 - P2 — `injury_flags` stays free-form for now. Same reason.
 - P2 — kill the sleep duplication. One source of truth, coach reads it from generated context the
-  way it already reads `quest_log.md`. Falls out of the ledger split naturally.
+  way it already reads `rendered quest context`. Falls out of the ledger split naturally.
 - P3 — Gemini function-calling so the coach reads data on demand instead of pre-loaded files.
   Attacks prompt size, costs round trips. Own ADR.
 
