@@ -469,10 +469,11 @@ const PROPAGATED_DOCS = [
 ];
 
 function copyByobBoot(outDir) {
-  fs.copyFileSync(
-    path.join(PLATFORM_DIR, "SOUL.claude.md"),
-    path.join(outDir, "SOUL.claude.md"),
-  );
+  const soulSrc = path.join(PLATFORM_DIR, "SOUL.claude.md");
+  if (!fs.existsSync(soulSrc)) {
+    throw new Error(`Missing ${soulSrc} — run \`node platform/scripts/compose-soul.mjs\` first`);
+  }
+  fs.copyFileSync(soulSrc, path.join(outDir, "SOUL.claude.md"));
   writeText(outDir, "CLAUDE.md", CLAUDE_MD_TEMPLATE);
   writeText(outDir, ".claude/hooks/session-start.sh", SESSION_START_SH);
   fs.chmodSync(path.join(outDir, ".claude/hooks/session-start.sh"), 0o755);

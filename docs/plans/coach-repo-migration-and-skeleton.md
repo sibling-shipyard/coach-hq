@@ -107,7 +107,7 @@ four new-schema files.
 
 Confirmed direction (supersedes #265, which wanted these files *deleted*): both athlete repos
 keep working BYOB (terminal Claude Code) access. That means `SOUL.claude.md`, `.claude/`, and
-root `CLAUDE.md` get fixed to boot correctly (see Part B step 7), not removed.
+root `CLAUDE.md` get fixed to boot correctly (see Part B step 8), not removed.
 
 `SOUL.chat.md` is different — it never leaves HQ (its own header comment, ADR 0022) and is read
 directly by the hosted coach-chat backend, not from the athlete repo. So "new users see both
