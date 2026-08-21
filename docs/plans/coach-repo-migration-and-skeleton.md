@@ -1,6 +1,6 @@
 # Migrate coach-skanda, coach-akash, and fix carve-skeleton.mjs
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-22
 
 ## Branch
 
@@ -11,28 +11,27 @@ everything else in this stack.
 
 **Not a coach-hq PR in the usual sense for the athlete-repo halves.** `carve-skeleton.mjs` (Part
 A below) is an HQ PR — stacks on the chain, needs Tech Lead review same as any code change.
-Migrating `coach-skanda`/`coach-akash` (Parts B/C) is a direct-commit operation in *those* repos
+Migrating `coach-skanda`/`coach-akash` (Part B) is a direct-commit operation in *those* repos
 (per `AGENTS.md`, Coach's own commit target — no coach-hq PR gates that).
 
 ## Why — confirmed by direct inspection this session, not assumption
 
 `coach-skanda` and `coach-akash` are both pinned to
-`hq_sha=13cc80403fd516e15c923e2d7863ae689d179359` (pre-redesign).
+`hq_sha=13cc80403fd516e15c923e2d7863ae689d179359` (pre-redesign), and **both `main` branches are
+still on the old schema entirely** — `user_data/coach/state.md`, `coach_notes.md`,
+`user_data/ledger/challenge_v2.json`. None of `profile.json`/`memory.json`/`injuries.json`/
+`coach_log.json`/`seasons.json`/`quests.json`/`progress.json`/`progressions.json` exist on either
+`main`. (An earlier version of this doc claimed `coach-skanda` was "half-migrated by hand" — that
+was wrong, a read of a scratch branch's working tree mistaken for `main`'s real state. Corrected
+2026-08-22, see "Migration scripts already exist" below for what that scratch branch actually
+was.)
 
-- **`coach-akash` is still on the old schema entirely**: `user_data/coach/state.md`,
-  `coach_notes.md`, `opponent_notes.md`, `user_data/ledger/challenge_v2.json`. None of
-  `profile.json`/`memory.json`/`injuries.json`/`coach_log.json`/`seasons.json`/`quests.json`/
-  `progress.json`/`progressions.json` exist.
-- **`coach-skanda` is half-migrated by hand**: it has the new files (`profile.json`,
-  `memory.json`, `injuries.json`, `coach_log.json`, `seasons.json`, `quests.json`,
-  `progress.json`, `progressions.json`) but all of them sit in `user_data/coach/`, not
-  `user_data/ledger/` — PR #430 moved the four ledger files (`seasons`/`quests`/`progress`/
-  `progressions`) to `user_data/ledger/`, and `coach-skanda` predates that move. It also still
-  carries dead leftovers: `sleep_log.json`, `archive/`.
+- `coach-akash` also has `opponent_notes.md`, which `coach-skanda` doesn't — see "Files the
+  scripts don't touch" below.
 - **Both repos boot Claude Code from `propagated/SOUL.md`** (`CLAUDE.md` says "Read
   `propagated/SOUL.md` §1 and boot from `user_data/coach/state.md`") — the retired bare-`SOUL.md`
   name (ADR 0022 split it into `SOUL.chat.md`/`SOUL.claude.md`), pointing at a `state.md` that no
-  longer exists in the new schema on either repo.
+  longer exists once this migration lands.
 - **`coach-skeleton` (the carved output repo) does not exist locally** — there's no
   `sibling-shipyard/coach-skeleton` checkout to inspect. The real, current source of truth for
   what a fresh carve looks like is `platform/scripts/carve-skeleton.mjs`, and it's confirmed
@@ -44,6 +43,50 @@ Migrating `coach-skanda`/`coach-akash` (Parts B/C) is a direct-commit operation 
 Relevant open issues to link, not re-derive: **#358** (carve ships no SOUL), **#327** ("How
 updates reach athlete repos" — currently empty body, this migration work is exactly what it
 should end up describing), **#378** (the epic these PRs close).
+
+## Migration scripts already exist — use them, don't hand-edit
+
+`ui/scripts/migrate-coach-memory-part1.mjs`, `-part2.mjs`, `-part3.mjs` already do this exact
+migration, each with a docstring saying "run once, on a scratch branch, never against main
+directly":
+
+- **Part 1** — `state.md` + `coach_notes.md` + `rolling_state.json` → `profile.json` +
+  `memory.json` + `injuries.json` + `coach_log.json` in `user_data/coach/`. Deletes the three old
+  files.
+- **Part 2** — `user_data/ledger/challenge_v2.json` → `seasons.json` + `quests.json` +
+  `progress.json` + `progressions.json` in `user_data/ledger/`. Deletes `challenge_v2.json` and
+  `user_data/coach/archive/seasons/`. Own docstring flags a real limitation: it migrates only the
+  **current** season — past seasons under `archive/seasons/` are not replayed into
+  `seasons.json`/`progress.json`; a retired season just gets a row in `seasons[]`, no daily
+  history. Accept that gap or reconstruct it by hand later — not this script's job.
+- **Part 3** — smaller field-level fixups to `chat_history.json` (adds `_meta`, drops
+  `ageLabel`/`status`/`dayOffset` per thread) and `current_week.json` (drops a few dead fields,
+  adds `trace_id`). Idempotent — safe to run twice.
+
+**Already proved out once.** `coach-skanda`'s local checkout has a branch
+(`core/final-verification`, one commit ahead of `main`) that's exactly this migration's output —
+clearly produced by running these scripts, per the memory guidance to verify coach-chat changes on
+a scratch branch before calling anything done. That branch predates recent schema tweaks though
+(don't reuse it) — rerun the scripts fresh off current `main` for the real migration.
+
+**Decision: script, not hand.** ~18 months of real training/injury/season history across two
+people is exactly where hand-transcription introduces silent mistakes. The scripts exist, are
+already scoped to scratch-branch-only use, and already proved out once on real data. Rerun them
+fresh, diff the result by hand before committing (the scripts don't touch git — review is a
+separate, deliberate step), then PR.
+
+### Files the scripts don't touch
+
+- **`opponent_notes.md`** (`coach-akash` only) — none of the three scripts reference it. It will
+  be left in place untouched, neither migrated nor deleted. Check whether anything still reads it
+  (grep `ui/api/coach-chat/_lib/` and `platform/soul/`) before deciding: drop it if dead, carry it
+  over unchanged if live. Do this check as part of Part B below, don't let the script's silence on
+  it stand in for a decision.
+- **`sleep_log.json`** — sleep tracking was dropped; confirm nothing reads it, then delete by hand
+  (scripts don't touch it either).
+- **`opponent_notes.md`/`sleep_log.json` aside, everything else under `user_data/` the scripts
+  don't name** (activity history, workout templates, `reference/`) is untouched by design — this
+  migration is schema-shape only, not a full repo rewrite.
 
 ## Part A — fix `carve-skeleton.mjs` (HQ PR, closes #358)
 
@@ -69,40 +112,45 @@ should end up describing), **#378** (the epic these PRs close).
    present and nothing old-schema is written; confirm a Claude Code session in the scratch carve
    actually boots as Coach (reads `AGENTS.md` routing → `SOUL.claude.md`, not a dead-end).
 
-## Part B — migrate `coach-akash` (direct commits in that repo, full migration from old schema)
+## Part B — migrate both athlete repos (direct commits, one PR per repo, script-driven)
 
-Old → new mapping, to be nailed down precisely by the agent against the *actual* field-level
-shapes in `ui/api/coach-chat/_lib/coach*Files.ts` (this plan names the files, not every field):
+Both `coach-skanda` and `coach-akash` need the identical procedure — neither is ahead of the
+other, per the corrected "Why" section above. Do both, same steps, separately (separate branches,
+separate PRs, separate review — don't let one repo's diff hide inside the other's).
 
-- `user_data/coach/state.md` → split across `profile.json` + `memory.json` + `injuries.json` +
-  `coach_log.json` (state.md's prose sections map roughly 1:1 to these per
-  `coach-redesign-part1-memory.md`, already shipped as #407 — reread that doc, or its equivalent
-  content folded into the survivor doc if part 2 already merged it, for the exact field mapping
-  the agent that built #407 used; don't reinvent it).
-- `user_data/coach/coach_notes.md` → folded into `coach_log.json` rows (per #322).
-- `user_data/ledger/challenge_v2.json` → `seasons.json` + `quests.json` + `progress.json` +
-  `progressions.json` in `user_data/ledger/` (per `coach-redesign-part2-ledger.md`, shipped as
-  #413/#430 — same instruction: reread it, or its survivor-doc equivalent, for the real mapping).
-- `opponent_notes.md` — check whether anything still reads this (grep
-  `ui/api/coach-chat/_lib/` and `platform/soul/`); if dead, drop it; if live, it's out of scope
-  for this schema migration and should carry over unchanged.
-- Update `CLAUDE.md`/boot files to the fixed carve-skeleton shape from Part A.
-- `.coach-engine-version` bump to the current HQ sha post-migration.
+**Per repo:**
 
-## Part C — finish `coach-skanda`'s partial migration (direct commits, smaller diff)
+1. `git pull --rebase origin main` (or plain `git pull`, no local commits expected) — start from
+   the real current `main`, not a stale local checkout or the old `core/final-verification`
+   scratch branch.
+2. Create a new branch (naming per that repo's own convention — check its recent branch names,
+   this plan doesn't assume coach-hq's `.github/CONVENTIONS.md` applies verbatim to athlete
+   repos).
+3. Back up first: tag the pre-migration commit or note its SHA before running anything, in
+   addition to the branch itself being a natural rollback point.
+4. Run the three scripts in order, pointed at the repo checkout:
+   ```
+   node ui/scripts/migrate-coach-memory-part1.mjs <path-to-repo>
+   node ui/scripts/migrate-coach-memory-part2.mjs <path-to-repo>
+   node ui/scripts/migrate-coach-memory-part3.mjs <path-to-repo>
+   ```
+5. `opponent_notes.md` (coach-akash only) and `sleep_log.json` — handle per "Files the scripts
+   don't touch" above; these are the two places this migration still needs a human judgment call,
+   not a mechanical script run.
+6. **Show the full diff before committing** — every field mapping, not just a file-count summary.
+   This is the real athlete's training/injury/season history; a silent value-transposition here is
+   the actual risk, not a missing file.
+7. Update `CLAUDE.md`/boot files to the fixed carve-skeleton shape from Part A (do Part A first if
+   sequencing allows, so both repos copy the corrected boot files rather than hand-writing them
+   twice).
+8. `.coach-engine-version` bump to the current HQ sha.
+9. Commit, push, open the PR in that repo (per `AGENTS.md`, this is Coach's own commit target in
+   athlete repos — no coach-hq PR gates it, but it still gets a real PR + diff review before
+   merging to that repo's `main`, same discipline as everything else in this stack).
 
-- Move `seasons.json`, `quests.json`, `progress.json`, `progressions.json` from
-  `user_data/coach/` → `user_data/ledger/` (git mv, preserve history).
-- Remove dead leftovers: `sleep_log.json` (sleep tracking was dropped, confirm nothing reads it
-  before deleting), `archive/` (folded into `coach_log.json` per #359 — confirm its contents are
-  actually represented in `coach_log.json` before deleting, don't silently lose data if the
-  by-hand migration missed something).
-- Same `CLAUDE.md`/boot-file fix as Part B.
-- `.coach-engine-version` bump.
+## Part C — close out the epic
 
-## Part D — close out the epic
-
-Once Parts B/C land: check off #322, #359, #362, #360, #316, #361 in #378 if each is genuinely
+Once Part B lands for both repos: check off #322, #359, #362, #360, #316, #361 in #378 if each is genuinely
 now true on both repos (verify, don't assume from the epic's own table) and close #378 itself
 once verified. Comment `#327` ("How updates reach athlete repos") with a link to what this
 migration plan actually did, since that issue's body is currently empty and this is real prior
