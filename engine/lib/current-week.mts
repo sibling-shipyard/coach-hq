@@ -162,16 +162,16 @@ const COACH_READ_KEYS = [
   "valid_until",
 ] as const;
 
+// CoachComment carries every CoachRead field plus its own (id, topic, tone, confidence,
+// evidence_refs) - spread COACH_READ_KEYS instead of repeating headline/body/valid_from/
+// valid_until by hand, so a future CoachRead field doesn't need manual mirroring here too.
 const COACH_COMMENT_KEYS = [
   "id",
   "topic",
-  "headline",
-  "body",
+  ...COACH_READ_KEYS,
   "tone",
   "confidence",
   "evidence_refs",
-  "valid_from",
-  "valid_until",
 ] as const;
 
 const DATA_STATUSES: readonly CurrentWeekDataStatus[] = ["placeholder", "draft", "live"];
