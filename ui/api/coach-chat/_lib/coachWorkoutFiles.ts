@@ -1,7 +1,7 @@
 /**
  * Post-first-session template generation (coach-redesign workout-backend-wiring §2). On the
- * false→true profileComplete transition (same trigger as coachWrites.ts's
- * injectCoachSinceIfNeeded / ADR 0018), coach-chat.ts calls generateInitialTemplates to pick 4-6
+ * false→true profileComplete transition (same trigger as coachSinceStamp.ts's
+ * injectCoachSinceIfNeeded / ADR 0018), coachTurn.ts calls generateInitialTemplates to pick 4-6
  * templates out of shared/workout-library/ for the athlete, lightly personalize them with one
  * small Gemini call, and commit them into the athlete's own
  * user_data/activities/workout_plans/templates/. Selection itself is deterministic - no Gemini
@@ -30,11 +30,11 @@ export const TEMPLATES_PATH_PREFIX = "user_data/activities/workout_plans/templat
 // coach-redesign workout-backend-wiring §4: session snapshot write path. Same directory
 // B_engine.md's "Persisting Session Files" ritual already writes to by hand
 // (sessions/YYYY-MM-DD_<workout_id>.json) - this just gives that path a named constant like
-// TEMPLATES_PATH_PREFIX has, so coach-chat.ts doesn't hand-roll the string.
+// TEMPLATES_PATH_PREFIX has, so coachTurn.ts doesn't hand-roll the string.
 export const SESSIONS_PATH_PREFIX = "user_data/activities/workout_plans/sessions/";
 // Write-once sentinel: no directory-listing API exists in this codebase's GitHub plumbing
 // (githubGitData.ts only ever reads/writes single known paths), so rather than invent one, this
-// mirrors coachWrites.ts's own write-once pattern (a single known file, checked with the existing
+// mirrors coachSinceStamp.ts's write-once pattern (a single known file, checked with the existing
 // getFileRaw) - a manifest listing the generated template ids, written alongside the templates in
 // the same commit.
 export const TEMPLATES_MANIFEST_PATH = `${TEMPLATES_PATH_PREFIX}_manifest.json`;
@@ -334,9 +334,9 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
 /**
  * Generates the athlete's initial workout templates on First Session close: deterministic
  * selection (selectTemplates), one light Gemini adjustment pass, then a FileEntry[] ready for
- * commitFilesAtomic (a separate commit from the main closing-turn one - see coach-chat.ts).
+ * commitFilesAtomic (a separate commit from the main closing-turn one - see coachTurn.ts).
  * Never throws for a Gemini failure - falls back to the unadjusted templates from the library
- * so onboarding always produces *something*, and the caller in coach-chat.ts is expected not to
+ * so onboarding always produces *something*, and the caller in coachTurn.ts is expected not to
  * let this block or fail the athlete's response either way.
  */
 export async function generateInitialTemplates(

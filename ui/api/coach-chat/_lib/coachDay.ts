@@ -1,10 +1,9 @@
 /**
- * Timezone/day-number math for coach-chat: calendar-day offsets for thread age labels, and the
- * ADR 0018 coach_since day-number anchor. All pure - no I/O, no GitHub/Gemini calls.
+ * Pure timezone, thread-age, and ADR 0018 day-number calculations.
  *
  * Every function here takes the athlete's IANA timezone directly (profile.json's `timezone`
  * field, read by the caller) rather than parsing it out of state.md prose - state.md no longer
- * exists (coach-redesign-part1-memory.md, Part 1).
+ * exists.
  */
 import type { ApiChatThread, ChatThread } from "./chatThreads.js";
 

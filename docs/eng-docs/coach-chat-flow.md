@@ -433,7 +433,7 @@ for the full module index.
 
 | File | Role |
 |---|---|
-| `ui/api/coach-chat.ts` | request handler, Gemini call, commit orchestration |
+| `ui/api/coach-chat.ts` | authentication, greet handling, and HTTP-stage dispatch |
 | `ui/api/coach-chat-context.ts` | A3 preload endpoint |
 | `ui/api/coach-chat-profile-status.ts` | B2 First Session Protocol completion check |
 | `ui/api/coach-chat/_lib/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
@@ -444,7 +444,8 @@ for the full module index.
 | `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, retention |
 | `ui/api/coach-chat/_lib/closeSignal.ts` | close-intent detection |
 | `ui/api/coach-chat/_lib/coachDay.ts` | timezone/day-number math |
-| `ui/api/coach-chat/_lib/coachWrites.ts` | write authority — `appendCoachNote`, `coach_since` stamping |
+| `ui/api/coach-chat/_lib/coachSinceStamp.ts` | server-owned `coach_since` completion stamp |
+| `ui/api/coach-chat/_lib/coachTurn.ts` | message-turn orchestration, write assembly, and commit responses |
 | `ui/api/_lib/fileEdits.ts` | A7 write strategies — `applyStringEdits`, `applyJsonMergePatch` |
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API) |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |

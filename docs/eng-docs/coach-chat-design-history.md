@@ -16,6 +16,13 @@ planned" and "what actually happened since," not two files that drift apart.
 
 ---
 
+## 2026-08-20 — Turn-stage decomposition
+
+The message path moved from one 635-line `handle()` into explicit stages in `coachTurn.ts`:
+request parsing, context loading, Gemini, write assembly, ordinary commit, closing commit, and
+best-effort template generation. `coach-chat.ts` now authenticates and dispatches those stages.
+The narrow `coachWrites.ts` helper was renamed `coachSinceStamp.ts` to match its real role.
+
 ## 2026-07-29 — Atomic commits foundation (PR #128)
 
 First version of the current commit model: `chat_history.json` + any file updates land in **one**
@@ -375,7 +382,7 @@ there's no known code fix yet.
 `coach-chat.ts` mixed HTTP handling, Gemini prompt/transport, thread persistence, day/timezone
 math, close-signal detection, and write authority in one file (1614 lines at peak, ~1049 after
 the reliability-debug strip-down above). Split into `ui/api/coach-chat/_lib/`: `coachDay.ts`,
-`closeSignal.ts`, `chatThreads.ts`, `coachPrompt.ts`, `geminiClient.ts`, `coachWrites.ts`, plus
+`closeSignal.ts`, `chatThreads.ts`, `coachPrompt.ts`, `geminiClient.ts`, `coachSinceStamp.ts`, plus
 the two pre-existing coach-chat-specific `_lib` files (`coachChatFiles.ts`, `soulCache.ts`)
 moved in alongside them. `coach-chat.ts` itself is now just the HTTP handler. Pure move - no
 behavior change, verified via `tsc`, the full test suite (same 102 tests, only import lines

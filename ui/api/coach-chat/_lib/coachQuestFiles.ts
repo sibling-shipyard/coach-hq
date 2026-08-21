@@ -1,15 +1,7 @@
-/**
- * Shapes and paths for the four files coach-redesign-part2-ledger.md introduces: seasons.json,
- * quests.json, progress.json, progressions.json. These replace challenge_v2.json (and the old
- * per-season archive snapshots it needed for history) with one append-only progress ledger plus
- * three small definition files. Types only here - the read/write mechanics live in
- * coachChatFiles.ts (reads) and coachIntents.ts (server-owned writes), same split as
- * coachMemoryFiles.ts from Part 1.
- */
+/** Paths and shapes for seasons, quests, progress rows, and progression milestones. */
 
-// Live in ledger/, not coach/ - structured gamification-ledger data, same band challenge_v2.json
-// used to occupy before Part 2 replaced it. coach/ is narrative/memory-band data only
-// (profile/memory/injuries/coach_log/chat_history) - these four don't belong there.
+// Live in ledger/, not coach/ - structured gamification-ledger data. coach/ is narrative/memory-
+// band data only (profile/memory/injuries/coach_log/chat_history) - these four don't belong there.
 export const SEASONS_PATH = "user_data/ledger/seasons.json";
 export const QUESTS_PATH = "user_data/ledger/quests.json";
 export const PROGRESS_PATH = "user_data/ledger/progress.json";

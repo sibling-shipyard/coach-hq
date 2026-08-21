@@ -1,5 +1,5 @@
 /**
- * Explicit Gemini context caching for the static system-prompt prefix (persona + fixed
+ * Shared, fail-open Gemini cache for the static system-prompt prefix (persona + fixed
  * instructions + few-shot examples). Guarantees the caching discount instead of implicit
  * caching's best-effort one. See docs/eng-docs/gemini-flow.md for the full design and numbers.
  *

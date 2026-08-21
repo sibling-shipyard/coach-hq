@@ -1,9 +1,5 @@
 /**
- * Translation layer between stored athlete data and the prompt text Gemini sees. Part 1 of the
- * coach-memory redesign (coach-redesign-part1-memory.md). Reads profile.json/memory.json/
- * injuries.json/coach_log.json and reproduces the same section shape (same headers, same content
- * under each) that state.md's prose used to carry - SOUL refers to these sections by name, never
- * by file path, so the section structure is the contract, not byte-for-byte prose.
+ * Render structured athlete and ledger data into the named prompt sections SOUL expects.
  *
  * This is no longer byte-identical to the old state.md-based output (the underlying data source
  * changed - state.md is gone), but every section SOUL expects to find (Athlete Profile, Equipment,
@@ -12,9 +8,8 @@
  *
  * Only reconstructs the sections backed by the four files this redesign step actually migrated.
  * state.md's Current Season / Phase-Block / RPE Calibration / Sleep Log / Current Week Plan
- * sections were never moved into profile/memory/injuries/coach_log - coach-redesign-part1-
- * memory.md scopes those to a later part - so they're not reproduced here. Flagged in the PR
- * report as a judgment call, not silently dropped.
+ * sections were never moved into profile/memory/injuries/coach_log, so they're not reproduced
+ * here - a judgment call, not silently dropped.
  */
 import type { ProfileJson, MemoryJson, InjuriesJson, CoachLogJson } from "./coachMemoryFiles.js";
 import type { SeasonsJson, QuestsJson, ProgressJson, ProgressionsJson } from "./coachQuestFiles.js";
@@ -145,9 +140,6 @@ function learnedPatternsSection(memory: MemoryJson | null): string {
   ].join("\n");
 }
 
-// Part 2 ledger split retired the precomputed quest artifact. renderQuestContext now builds the
-// same useful sections (Current Season, Main Quest, Side Quests) directly from
-// seasons.json/quests.json/progress.json, including the real ids Gemini needs for writes.
 // Monday-Sunday ISO week containing `today` (a YYYY-MM-DD string) - plain date-string math in
 // UTC, matching how ProgressRow.date is already compared elsewhere in this function, rather than
 // pulling in a timezone since `today` is already resolved to the athlete's local date by the
@@ -165,9 +157,9 @@ function isoWeekBounds(today: string): { start: string; end: string } {
 
 // Found in review, two separate gaps:
 // 1. No season_id filter - progress.json accumulates rows across every season forever
-//    (coach-redesign-part2-ledger.md: "seasons[] grows unbounded... season_id stamped on every
-//    row"), so a quest reused in a later season had its counts computed across ALL history, not
-//    just the current season. Now filters by season_id too, same as quest_id.
+//    (seasons[] grows unbounded, season_id stamped on every row), so a quest reused in a later
+//    season had its counts computed across ALL history, not just the current season. Now filters
+//    by season_id too, same as quest_id.
 // 2. weekly_frequency had no distinct handling - it fell into the same all-time completed/
 //    excused/missed tally as daily_streak, when its actual semantics ("a target count within the
 //    current week") need a week-scoped count instead. Now returns thisWeekCompleted alongside
@@ -176,8 +168,8 @@ function questProgressCounts(
   progress: ProgressJson | null,
   questId: string,
   // "" (not null) is "no current season" - matches ProgressRow.season_id's non-nullable string
-  // type and the write path's own fallback (coach-chat.ts). Found in review: this was typed
-  // `string | null` while the write side never produces null, only "".
+  // type and the write path's own fallback. Found in review: this was typed `string | null` while
+  // the write side never produces null, only "".
   seasonId: string,
   weekBounds: { start: string; end: string },
 ): { completed: number; excused: number; missed: number; latestValue: string | null; thisWeekCompleted: number } {
@@ -279,12 +271,12 @@ export function renderQuestContext(storage: QuestContextStorage): string {
   }
 
   // ADR 0016: stored as "progressions", stays "Milestone" everywhere Coach and the athlete talk
-  // about it - the section header uses the athlete-facing word, same convention as "Active
-  // Injury Flags" above rather than the raw file/field name.
-  //
-  // Found in review: progressions.json was fetched into CoachContext every turn but never
-  // rendered into the prompt at all - Coach had zero visibility into milestone progress despite
-  // paying for the fetch. Fixed.
+// about it - the section header uses the athlete-facing word, same convention as "Active
+// Injury Flags" above rather than the raw file/field name.
+//
+// Found in review: progressions.json was fetched into CoachContext every turn but never
+// rendered into the prompt at all - Coach had zero visibility into milestone progress despite
+// paying for the fetch. Fixed.
   const milestoneEntries = progressions?.progressions ?? [];
   const milestoneLines = ["## Milestones"];
   if (milestoneEntries.length > 0) {
@@ -301,8 +293,6 @@ export function renderQuestContext(storage: QuestContextStorage): string {
   );
 }
 
-// Builds the athlete-context block that goes where state.md's raw prose used to go in
-// buildDynamicText's <state> block - same section headers, sourced from the four new files.
 export function renderCoachContext(storage: CoachContextStorage): string {
   const sections = [
     profileSection(storage.profile, storage.memory),
