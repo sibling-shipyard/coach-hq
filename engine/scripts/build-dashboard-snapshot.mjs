@@ -31,16 +31,35 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(__dirname);
 const SCHEMA_VERSION = 1;
 
+// "unavailable" is not a legal data_status (see engine/lib/current-week.mts's
+// CurrentWeekDataStatus - "placeholder" | "draft" | "live" only; "unavailable" is an
+// availability *result*, never a value the file itself holds). "placeholder" produces the same
+// observable outcome (available: false) without failing parseCurrentWeek's own schema check.
 const UNAVAILABLE_CURRENT_WEEK = {
-  schema_version: null,
-  data_status: "unavailable",
-  timezone: "Europe/London",
-  week: null,
+  schema_version: 1,
+  data_status: "placeholder",
+  timezone: "UTC",
+  week: {
+    id: "2026-W02",
+    start_date: "2026-01-05",
+    end_date: "2026-01-11",
+    focus: null,
+    guardrails: [],
+  },
   coach_read: null,
-  days: [],
+  days: [
+    { date: "2026-01-05", intent: null, coach_note: null, sessions: [] },
+    { date: "2026-01-06", intent: null, coach_note: null, sessions: [] },
+    { date: "2026-01-07", intent: null, coach_note: null, sessions: [] },
+    { date: "2026-01-08", intent: null, coach_note: null, sessions: [] },
+    { date: "2026-01-09", intent: null, coach_note: null, sessions: [] },
+    { date: "2026-01-10", intent: null, coach_note: null, sessions: [] },
+    { date: "2026-01-11", intent: null, coach_note: null, sessions: [] },
+  ],
   coach_comments: [],
-  updated_at: null,
+  updated_at: "2026-01-05T00:00:00Z",
   updated_by: "build-dashboard-snapshot",
+  trace_id: "build-dashboard-snapshot",
 };
 
 export function loadActivities(repoRootPath) {
