@@ -67,12 +67,13 @@ const ASSEMBLY = [
   { source: "A", keys: ["s3", "s4"] },
   {
     merge: "s5",
-    keys: ["s5a1", "s5b1", "s5a2", "s5a3", "s5b3_closing_archives", "s5b4", "s5a4"],
+    keys: ["s5a1", "s5b1", "s5a2", "s5a3", "s5b2", "s5b3_closing_archives", "s5b4", "s5a4"],
     sources: {
       s5a1: "A",
       s5b1: "B",
       s5a2: "A",
       s5a3: "A",
+      s5b2: "B",
       s5b3_closing_archives: "B",
       s5b4: "B",
       s5a4: "A",
@@ -188,11 +189,7 @@ const HORCRUXES = [
     // Injected when isAthleteProfileComplete(state.md) is false — coach-chat.ts.
     out: "first-session.md",
     source: "B",
-    keys: [
-      "s10_first_session_chat_head",
-      "s10_first_session_chat_body",
-      "s10_first_session_chat_transition",
-    ],
+    keys: ["s10_first_session_head", "s10_first_session_body", "s10_first_session_transition"],
   },
 ];
 

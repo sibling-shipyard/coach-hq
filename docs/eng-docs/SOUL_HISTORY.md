@@ -25,6 +25,28 @@ Write it so someone who has never opened this repo enjoys reading it. If an entr
 
 ---
 
+## v5.13 — "Back to the Trim" · Aug 20, 2026
+**Superpower gained:** none — this is a revert, not a feature.
+
+v5.9 through v5.12 landed as side effects of the coach-data and chat-reliability redesigns,
+without the deliberate review v5.8's trim itself went through. Akash reviewed the First Session
+chat-runtime text added in v5.11/v5.12 and called it out as not properly thought through.
+
+- `platform/soul/B_engine.md` and `platform/scripts/compose-soul.mjs` reverted to their exact
+  v5.8 (`8d8cba8`) state — this also un-does v5.9/v5.10's `profile.json`/`memory.json`/
+  `seasons.json`/`quests.json` renames, a deliberate full revert rather than a partial one.
+- `SOUL.chat.md`, `SOUL.claude.md`, and the `first-session.md` horcrux regenerated from that
+  layer via `compose-soul.mjs` — none hand-edited.
+- The chat-handler TypeScript code (direct writes, incremental FSP commits, expanded
+  `isAthleteProfileComplete`) is untouched and now describes SOUL concepts this reverted text no
+  longer has — expected, temporary, and closed by a follow-up PR once Akash signs off on the
+  wording.
+
+**What it cost:** SOUL and the chat code are out of sync until the follow-up lands. See the
+stacked PR for that follow-up's plan.
+
+---
+
 ## v5.12 — "Write It While It's Fresh" · Aug 19, 2026
 **Superpower gained:** First Session remembers each answer as soon as the athlete gives it.
 
