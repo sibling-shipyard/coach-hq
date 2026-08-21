@@ -4,7 +4,6 @@ import {
   getFileRaw,
   getHeadSha,
   invalidateCoachContext,
-  isAthleteProfileComplete,
   isFirstSessionRitualDone,
   loadCoachContext,
   parseJsonOrNull,
@@ -21,15 +20,8 @@ import {
   shouldRequestClose,
 } from "./closeSignal.js";
 import {
-  CHAT_FILE_PATH,
-  THREAD_TITLE_MAX_CHARS,
-  sanitizeTitle,
-  truncateTitle,
-  loadChatHistory,
-  mergeThreadToFront,
-  applyRetention,
-  serializeChatHistory,
   appendConversationTurn,
+  loadChatHistory,
   type ChatMessage,
   type ChatThread,
 } from "./chatThreads.js";
@@ -38,47 +30,9 @@ import {
   injectCoachSinceIfNeeded,
   type ClosingFileContext,
 } from "./coachSinceStamp.js";
-import {
-  applyCoachNote,
-  applyMemoryUpdate,
-  applyInjuryEvent,
-  applyQuestEvent,
-  applyProfileUpdate,
-  applyCoachingStyleUpdate,
-  applySportsUpdate,
-  applySeasonStart,
-  applyQuestCreate,
-} from "./coachIntents.js";
-import {
-  generateInitialTemplates,
-  applyTemplateEdit,
-  applySessionPlan,
-  validTemplateIdsFromManifest,
-  templatePath,
-  sessionPath,
-  TEMPLATES_MANIFEST_PATH,
-} from "./coachWorkoutFiles.js";
-import {
-  applyWeekPlan,
-  applySessionReconcile,
-  applyPlanEdit,
-  CURRENT_WEEK_PATH,
-} from "./coachWeekFiles.js";
-import {
-  MEMORY_PATH,
-  INJURIES_PATH,
-  COACH_LOG_PATH,
-  PROFILE_PATH,
-  MEMORY_NOTE_LABELS,
-  type ProfileJson,
-  type MemoryJson,
-} from "./coachMemoryFiles.js";
-import {
-  PROGRESS_PATH,
-  SEASONS_PATH,
-  QUESTS_PATH,
-  type SeasonsJson,
-} from "./coachQuestFiles.js";
+import { generateInitialTemplates, validTemplateIdsFromManifest, TEMPLATES_MANIFEST_PATH } from "./coachWorkoutFiles.js";
+import { CURRENT_WEEK_PATH } from "./coachWeekFiles.js";
+import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coachContext.js";
 import { askGemini } from "./geminiClient.js";
 import {
@@ -91,6 +45,15 @@ import {
 import type { GeminiReply } from "./coachReplySchema.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
 import { fspIncrementalWrites, ordinaryTurnResponse } from "./fspWrites.js";
+import { buildChatWrite } from "./turnWrites/chatWrite.js";
+import { buildCoachNoteWrite } from "./turnWrites/coachNoteWrite.js";
+import { buildMemoryFileWrite } from "./turnWrites/memoryWrite.js";
+import { buildInjuryEventWrite } from "./turnWrites/injuryWrite.js";
+import { buildQuestEventWrite, buildQuestCreateWrite } from "./turnWrites/questWrite.js";
+import { buildSeasonStartWrite } from "./turnWrites/seasonWrite.js";
+import { buildProfileUpdateWrite, projectProfileCompletion } from "./turnWrites/profileWrite.js";
+import { buildTemplateEditWrite, buildSessionPlanWrite } from "./turnWrites/workoutWrite.js";
+import { buildCurrentWeekWrite } from "./turnWrites/weekWrite.js";
 
 interface PostBody {
   threadId?: string;
@@ -346,7 +309,7 @@ export async function requestCoachReply(
 
 export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const { repo, token, timezone, traceId, reply } = turn;
-  const { profile, memory, injuries, seasons, quests } = turn.context;
+  const { profile, memory, seasons, quests } = turn.context;
   const coachMsg: ChatMessage = {
     id: `c-${turn.now}`,
     role: "coach",
@@ -362,120 +325,37 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       label: todayDividerLabel(timezone),
     },
   );
-  const finalThreadId = turn.threadId ?? `t-${turn.now}`;
-  const firstUserText =
-    allMessages.find(
-      (message): message is Extract<ChatMessage, { role: "user" }> =>
-        message.role === "user",
-    )?.text ?? turn.trimmed;
-  const computedTitle = truncateTitle(
-    sanitizeTitle(firstUserText),
-    THREAD_TITLE_MAX_CHARS,
-  );
-  let latestThreads: ChatThread[] = [];
-  const chatWrite: FileEntry = {
-    path: CHAT_FILE_PATH,
-    resolve: async () => {
-      const fresh = await loadChatHistory(repo, token);
-      const existing = fresh.threads.find(
-        (thread) => thread.id === finalThreadId,
-      );
-      const thread: ChatThread = {
-        id: finalThreadId,
-        createdAt: existing?.createdAt ?? turn.now,
-        title: existing?.title ?? computedTitle,
-        preview: reply.reply.slice(0, 80),
-        messages: allMessages,
-      };
-      const retained = applyRetention(
-        mergeThreadToFront(fresh.threads, thread),
-      );
-      latestThreads.splice(0, latestThreads.length, ...retained);
-      return serializeChatHistory(retained, new Date().toISOString(), traceId);
-    },
-  };
+
+  const { chatWrite, latestThreads, finalThreadId, computedTitle } = buildChatWrite({
+    repo,
+    token,
+    traceId,
+    now: turn.now,
+    threadId: turn.threadId,
+    trimmed: turn.trimmed,
+    allMessages,
+    replyText: reply.reply,
+  });
 
   const trimmedCoachNote = reply.coach_note?.trim();
-  const coachNoteWrite: FileEntry | undefined = trimmedCoachNote
-    ? {
-        path: COACH_LOG_PATH,
-        resolve: async () =>
-          applyCoachNote(
-            await getFileRaw(repo, COACH_LOG_PATH, token),
-            trimmedCoachNote,
-            todayDateString(timezone, new Date()),
-            traceId,
-            new Date(),
-          ),
-      }
-    : undefined;
+  const coachNoteWrite = buildCoachNoteWrite(repo, token, timezone, traceId, reply.coach_note);
 
-  const memoryUpdate = reply.memory_update;
-  const hasMemoryUpdate = Boolean(
-    memoryUpdate?.label && memoryUpdate.text?.trim(),
-  );
-  const coachingStyleUpdate = reply.coaching_style_update;
   const sportsUpdate = (reply.sports_update ?? []).filter(
     (sport) => sport.trim().length > 0,
   );
   const hasSportsUpdate = sportsUpdate.length > 0;
-  const memoryFileWrite: FileEntry | undefined =
-    hasMemoryUpdate || coachingStyleUpdate || hasSportsUpdate
-      ? {
-          path: MEMORY_PATH,
-          resolve: async () => {
-            let working: string | null = await getFileRaw(
-              repo,
-              MEMORY_PATH,
-              token,
-            );
-            if (hasMemoryUpdate) {
-              working = applyMemoryUpdate(
-                working,
-                memoryUpdate!.label,
-                memoryUpdate!.text,
-                todayDateString(timezone, new Date()),
-                traceId,
-              );
-            }
-            if (coachingStyleUpdate) {
-              working = applyCoachingStyleUpdate(
-                working,
-                coachingStyleUpdate,
-                todayDateString(timezone, new Date()),
-                traceId,
-              );
-            }
-            if (hasSportsUpdate) {
-              working = applySportsUpdate(
-                working,
-                sportsUpdate,
-                todayDateString(timezone, new Date()),
-                traceId,
-              );
-            }
-            return working as string;
-          },
-        }
-      : undefined;
+  const memoryFileWrite = buildMemoryFileWrite(repo, token, timezone, traceId, {
+    memoryUpdate: reply.memory_update,
+    coachingStyleUpdate: reply.coaching_style_update,
+    sportsUpdate,
+  });
 
   const injuryEvents = (reply.injury_event ?? []).filter(
     (event) =>
       event.status != null &&
       (event.flag_id != null || (event.text?.trim().length ?? 0) > 0),
   );
-  const injuryEventWrite: FileEntry | undefined =
-    injuryEvents.length > 0
-      ? {
-          path: INJURIES_PATH,
-          resolve: async () =>
-            applyInjuryEvent(
-              await getFileRaw(repo, INJURIES_PATH, token),
-              injuryEvents,
-              todayDateString(timezone, new Date()),
-            ),
-        }
-      : undefined;
+  const injuryEventWrite = buildInjuryEventWrite(repo, token, timezone, injuryEvents);
 
   const questEvents = reply.quest_event ?? [];
   const validQuestIds = new Set<string>(
@@ -486,214 +366,67 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
         .map((quest) => quest.id),
     ].filter((id): id is string => Boolean(id)),
   );
-  const questEventWrite: FileEntry | undefined =
-    questEvents.length > 0
-      ? {
-          path: PROGRESS_PATH,
-          resolve: async () =>
-            applyQuestEvent(
-              await getFileRaw(repo, PROGRESS_PATH, token),
-              questEvents,
-              todayDateString(timezone, new Date()),
-              seasons?.current_season_id ?? "",
-              traceId,
-              new Date(),
-              validQuestIds,
-            ),
-        }
-      : undefined;
+  const questEventWrite = buildQuestEventWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    questEvents,
+    seasons?.current_season_id ?? "",
+    validQuestIds,
+  );
 
   const profileUpdates = (reply.profile_update ?? []).filter(
     (update) => update.field != null && update.value != null,
   );
-  const profileUpdateWrite: FileEntry | undefined =
-    profileUpdates.length > 0
-      ? {
-          path: PROFILE_PATH,
-          resolve: async () =>
-            applyProfileUpdate(
-              await getFileRaw(repo, PROFILE_PATH, token),
-              profileUpdates,
-            ),
-        }
-      : undefined;
+  const profileUpdateWrite = buildProfileUpdateWrite(repo, token, profileUpdates);
 
-  const templateEdit = reply.template_edit;
-  const templateEditWrite: FileEntry | undefined = templateEdit?.template_id
-    ? {
-        path: templatePath(templateEdit.template_id),
-        resolve: async () =>
-          applyTemplateEdit(
-            await getFileRaw(
-              repo,
-              templatePath(templateEdit.template_id),
-              token,
-            ),
-            templateEdit,
-            turn.validTemplateIds,
-            traceId,
-          ),
-      }
-    : undefined;
-
-  const sessionPlan = reply.session_plan;
-  const sessionPlanDate = todayDateString(timezone, new Date());
-  const sessionPlanWrite: FileEntry | undefined = sessionPlan?.template_id
-    ? {
-        path: sessionPath(sessionPlanDate, sessionPlan.template_id),
-        resolve: async () => {
-          const fresh = await getFileRaw(
-            repo,
-            templatePath(sessionPlan.template_id),
-            token,
-          );
-          return applySessionPlan(
-            fresh,
-            { ...sessionPlan, session_date: sessionPlanDate },
-            turn.validTemplateIds,
-            traceId,
-          ).content;
-        },
-      }
-    : undefined;
-
-  const weekPlan = reply.week_plan;
-  const weekPlanRequested = Boolean(
-    weekPlan?.headline?.trim() &&
-    weekPlan.body?.trim() &&
-    weekPlan.days?.length === 7,
+  const templateEditWrite = buildTemplateEditWrite(
+    repo,
+    token,
+    traceId,
+    reply.template_edit,
+    turn.validTemplateIds,
   );
-  const sessionReconcileEvents = reply.session_reconcile ?? [];
-  const planEditEvents = reply.plan_edit ?? [];
-  let currentWeekWrite: FileEntry | undefined;
-  if (weekPlanRequested) {
-    if (sessionReconcileEvents.length > 0 || planEditEvents.length > 0) {
-      console.warn(
-        "[coach-chat] week_plan and session_reconcile/plan_edit both set - dropping the latter because their ids reference the old week",
-        { traceId },
-      );
-    }
-    currentWeekWrite = {
-      path: CURRENT_WEEK_PATH,
-      content: applyWeekPlan(
-        weekPlan!,
-        turn.validTemplateIds,
-        timezone,
-        traceId,
-        new Date(),
-      ),
-    };
-  } else if (sessionReconcileEvents.length > 0 || planEditEvents.length > 0) {
-    currentWeekWrite = {
-      path: CURRENT_WEEK_PATH,
-      resolve: async () => {
-        let working = await getFileRaw(repo, CURRENT_WEEK_PATH, token);
-        if (sessionReconcileEvents.length > 0) {
-          working = applySessionReconcile(
-            working,
-            sessionReconcileEvents,
-            turn.validTemplateIds,
-            traceId,
-            new Date(),
-          );
-        }
-        if (planEditEvents.length > 0) {
-          working = applyPlanEdit(
-            working,
-            planEditEvents,
-            turn.validTemplateIds,
-            traceId,
-            new Date(),
-          );
-        }
-        return working as string;
-      },
-    };
-  }
+
+  const sessionPlanWrite = buildSessionPlanWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    reply.session_plan,
+    turn.validTemplateIds,
+  );
+
+  const currentWeekWrite = buildCurrentWeekWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    reply.week_plan,
+    reply.session_reconcile ?? [],
+    reply.plan_edit ?? [],
+    turn.validTemplateIds,
+  );
 
   const seasonStart = reply.season_start;
-  const seasonStartWrite: FileEntry | undefined = seasonStart?.name?.trim()
-    ? {
-        path: SEASONS_PATH,
-        resolve: async () =>
-          applySeasonStart(
-            await getFileRaw(repo, SEASONS_PATH, token),
-            seasonStart,
-            traceId,
-            new Date(),
-          ),
-      }
-    : undefined;
-  const questCreate = reply.quest_create;
-  const questCreateWrite: FileEntry | undefined =
-    questCreate?.main_quest || (questCreate?.quests?.length ?? 0) > 0
-      ? {
-          path: QUESTS_PATH,
-          resolve: async () =>
-            applyQuestCreate(
-              await getFileRaw(repo, QUESTS_PATH, token),
-              questCreate!,
-              todayDateString(timezone, new Date()),
-              traceId,
-              new Date(),
-            ),
-        }
-      : undefined;
+  const seasonStartWrite = buildSeasonStartWrite(repo, token, traceId, seasonStart);
 
-  const wasProfileComplete = isAthleteProfileComplete(profile, memory, seasons);
-  const projectedField = (field: (typeof profileUpdates)[number]["field"]) =>
-    profileUpdates.find((update) => update.field === field)?.value;
-  const projectedProfile: ProfileJson = {
-    version: 1,
-    coach_since: profile?.coach_since ?? null,
-    name: (projectedField("name") as string | undefined) ?? profile?.name ?? "",
-    dob: (projectedField("dob") as string | undefined) ?? profile?.dob ?? null,
-    timezone:
-      (projectedField("timezone") as string | undefined) ??
-      profile?.timezone ??
-      "UTC",
-    height_cm:
-      projectedField("height_cm") != null
-        ? Number(projectedField("height_cm"))
-        : (profile?.height_cm ?? null),
-    weight_kg:
-      projectedField("weight_kg") != null
-        ? Number(projectedField("weight_kg"))
-        : (profile?.weight_kg ?? null),
-  };
-  const projectedMemory: MemoryJson = {
-    version: 1,
-    _meta: memory?._meta ?? {
-      updated_at: "",
-      updated_by: "model",
-      trace_id: "",
-    },
-    sports: hasSportsUpdate ? sportsUpdate : (memory?.sports ?? []),
-    coaching_style: coachingStyleUpdate ?? memory?.coaching_style ?? null,
-    notes:
-      memory?.notes ??
-      (Object.fromEntries(
-        MEMORY_NOTE_LABELS.map((label) => [
-          label,
-          { text: "", updated_at: "", trace_id: "" },
-        ]),
-      ) as MemoryJson["notes"]),
-  };
-  const projectedSeasons = seasonStart?.name?.trim()
-    ? parseJsonOrNull<SeasonsJson>(
-        applySeasonStart(
-          seasons ? JSON.stringify(seasons) : null,
-          seasonStart,
-          traceId,
-          new Date(),
-        ),
-      )
-    : seasons;
-  const profileComplete = isAthleteProfileComplete(
-    projectedProfile,
-    projectedMemory,
-    projectedSeasons,
-  );
+  const questCreate = reply.quest_create;
+  const questCreateWrite = buildQuestCreateWrite(repo, token, timezone, traceId, questCreate);
+
+  const { wasProfileComplete, profileComplete, projectedProfile, projectedMemory } =
+    projectProfileCompletion({
+      profile,
+      memory,
+      seasons,
+      profileUpdates,
+      sportsUpdate,
+      hasSportsUpdate,
+      coachingStyleUpdate: reply.coaching_style_update,
+      seasonStart,
+      traceId,
+    });
 
   let closingFiles = turn.closingFiles;
   if (!wasProfileComplete && profileComplete && !closingFiles) {
