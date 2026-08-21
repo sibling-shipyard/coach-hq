@@ -75,6 +75,7 @@ _Scaling stops being hand-holding._
 - [ ] #329 Testing framework shape (decision)
 - [ ] #361 App writes current_week.json without validation
 - [ ] #363 Carve template drift
+- [ ] #454 Athlete-repo leftovers: keep BYOB files, decide fate of sleep_log/opponent_notes/archived seasons later (supersedes #265)
 - [x] #366 validate-soul: lint SOUL against reality
 
 ### Epic: Stretch features — M3 (#330)
@@ -105,7 +106,7 @@ _Truth-checked before wider exposure._
 
 ## 🧊 Backlog — P2
 
-- #68 calories 12k hardcode · #21 Vercel KV races · #239 silent re-auth · #265 BYO-Claude cleanup
+- #68 calories 12k hardcode · #21 Vercel KV races · #239 silent re-auth
 - #247 bob: prune unwanted keys from old activities (Skanda & Akash repos)
 - #436 coach_log.json grows unbounded — cap/rotate storage
 

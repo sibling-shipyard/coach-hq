@@ -77,16 +77,45 @@ separate, deliberate step), then PR.
 
 ### Files the scripts don't touch
 
-- **`opponent_notes.md`** (`coach-akash` only) — none of the three scripts reference it. It will
-  be left in place untouched, neither migrated nor deleted. Check whether anything still reads it
-  (grep `ui/api/coach-chat/_lib/` and `platform/soul/`) before deciding: drop it if dead, carry it
-  over unchanged if live. Do this check as part of Part B below, don't let the script's silence on
-  it stand in for a decision.
-- **`sleep_log.json`** — sleep tracking was dropped; confirm nothing reads it, then delete by hand
-  (scripts don't touch it either).
-- **`opponent_notes.md`/`sleep_log.json` aside, everything else under `user_data/` the scripts
-  don't name** (activity history, workout templates, `reference/`) is untouched by design — this
-  migration is schema-shape only, not a full repo rewrite.
+Parked, don't delete or hand-migrate any of these three as part of this pass — decision deferred
+to **#454** ("Athlete-repo leftovers," supersedes the now-closed #265):
+
+- **`opponent_notes.md`** (`coach-akash` only) — none of the three scripts reference it. Leave in
+  place untouched.
+- **`sleep_log.json`** (both repos) — sleep tracking was dropped from the new schema; nothing
+  reads it today, but it stays for now.
+- **Archived seasons** (`user_data/coach/archive/seasons/`) — Part 2's script only migrates the
+  *current* season; past seasons stay in the old archive shape, untouched, not replayed into
+  `seasons.json`/`progress.json`. Keep the archive directory as-is.
+
+`opponent_notes.md`/`sleep_log.json`/archived-seasons aside, everything else under `user_data/`
+the scripts don't name (activity history, workout templates, `reference/`) is untouched by
+design — this migration is schema-shape only, not a full repo rewrite.
+
+### Leftover coach-notes — capture what the new schema doesn't
+
+`coach_notes.md` (and any prose in `state.md`) likely holds real coaching context that
+`profile.json`/`memory.json`/`injuries.json`/`coach_log.json` have no field for — the old files
+were free text, the new ones are structured. Don't let that information silently vanish on
+delete. Per repo, before deleting `state.md`/`coach_notes.md`: read them, diff against what the
+new schema actually captures, and write whatever's not represented into a new
+`user_data/coach/leftover_coach_notes.md` — plain prose, no schema, just "this was in the old
+notes and has nowhere to live yet." This is a new file this migration creates, not one of the
+four new-schema files.
+
+### BYOB stays — both SOULs get verified, not both shipped everywhere
+
+Confirmed direction (supersedes #265, which wanted these files *deleted*): both athlete repos
+keep working BYOB (terminal Claude Code) access. That means `SOUL.claude.md`, `.claude/`, and
+root `CLAUDE.md` get fixed to boot correctly (see Part B step 7), not removed.
+
+`SOUL.chat.md` is different — it never leaves HQ (its own header comment, ADR 0022) and is read
+directly by the hosted coach-chat backend, not from the athlete repo. So "new users see both
+Claude and in-app Gemini, for FSP and normal chat" is already true structurally once
+`SOUL.claude.md` boots correctly — there's nothing to carve or copy for the Gemini/hosted side.
+Verify, don't build: after migration, confirm (a) a Claude Code session in each repo boots as
+Coach via the fixed `CLAUDE.md` → `SOUL.claude.md`, and (b) the hosted coach-chat app still
+serves both repos normally (it never depended on repo content for this).
 
 ## Part A — fix `carve-skeleton.mjs` (HQ PR, closes #358)
 
@@ -128,25 +157,27 @@ separate PRs, separate review — don't let one repo's diff hide inside the othe
    repos).
 3. Back up first: tag the pre-migration commit or note its SHA before running anything, in
    addition to the branch itself being a natural rollback point.
-4. Run the three scripts in order, pointed at the repo checkout:
+4. Before running the scripts: read `state.md`/`coach_notes.md`, diff against the new schema's
+   actual fields, and draft `user_data/coach/leftover_coach_notes.md` per "Leftover coach-notes"
+   above — do this first, while the old files still exist to read from.
+5. Run the three scripts in order, pointed at the repo checkout:
    ```
    node ui/scripts/migrate-coach-memory-part1.mjs <path-to-repo>
    node ui/scripts/migrate-coach-memory-part2.mjs <path-to-repo>
    node ui/scripts/migrate-coach-memory-part3.mjs <path-to-repo>
    ```
-5. `opponent_notes.md` (coach-akash only) and `sleep_log.json` — handle per "Files the scripts
-   don't touch" above; these are the two places this migration still needs a human judgment call,
-   not a mechanical script run.
-6. **Show the full diff before committing** — every field mapping, not just a file-count summary.
+6. `opponent_notes.md`, `sleep_log.json`, and archived seasons — leave untouched, per "Files the
+   scripts don't touch" above (#454 tracks the deferred decision on these, not this migration).
+7. **Show the full diff before committing** — every field mapping, not just a file-count summary.
    This is the real athlete's training/injury/season history; a silent value-transposition here is
    the actual risk, not a missing file.
-7. Update `CLAUDE.md`/boot files to the fixed carve-skeleton shape from Part A (do Part A first if
+8. Update `CLAUDE.md`/boot files to the fixed carve-skeleton shape from Part A (do Part A first if
    sequencing allows, so both repos copy the corrected boot files rather than hand-writing them
-   twice).
-8. `.coach-engine-version` bump to the current HQ sha.
-9. Commit, push, open the PR in that repo (per `AGENTS.md`, this is Coach's own commit target in
-   athlete repos — no coach-hq PR gates it, but it still gets a real PR + diff review before
-   merging to that repo's `main`, same discipline as everything else in this stack).
+   twice). This restores/fixes BYOB, it does not remove it — see "BYOB stays" above.
+9. `.coach-engine-version` bump to the current HQ sha.
+10. Commit, push, open the PR in that repo (per `AGENTS.md`, this is Coach's own commit target in
+    athlete repos — no coach-hq PR gates it, but it still gets a real PR + diff review before
+    merging to that repo's `main`, same discipline as everything else in this stack).
 
 ## Part C — close out the epic
 
@@ -161,7 +192,10 @@ than this one-time migration answers.
 
 After Parts A-C, boot Coach (Claude Code) in both `coach-skanda` and `coach-akash` and confirm a
 real turn (greet, one ordinary exchange) writes to the right new-schema files with no crash;
-confirm `platform/scripts/carve-skeleton.mjs`'s scratch output also boots clean.
+confirm `platform/scripts/carve-skeleton.mjs`'s scratch output also boots clean. Also confirm the
+hosted coach-chat app (web + iOS) still works normally for both repos post-migration — per "BYOB
+stays" above, it never depended on repo content, so this should be a no-op, but confirm it rather
+than assume it.
 
 **This is data-loss-risk work** — real athlete history in `state.md`/`challenge_v2.json`. The
 agent should back up (`git log`/tag or a throwaway branch) before rewriting either repo's
