@@ -15,7 +15,7 @@ the canonical ADR 0018 value the server stamps onto `profile.json`:
 - **iOS**: `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`
   (~lines 211-219) reads `user_data/ledger/challenge_v2.json` directly and decodes it into
   `ChallengeV2Summary` — actively called from `CoachChatView.swift`. Once an athlete repo migrates
-  to the split ledger (`skanda-part3-migration-and-skeleton.md`), this reads a file that no longer
+  to the split ledger (`coach-repo-migration-and-skeleton.md`), this reads a file that no longer
   exists at all (a `readFile` 404, not a graceful fallback).
 - **Web**: `CoachChat.tsx` computes the badge via `challengeDayNumber()` (`coachChatModel.ts`)
   against `data.challenge_v2` from the prebuilt dashboard snapshot. For a repo with a real
@@ -39,14 +39,13 @@ makes the mechanical fix; the web half is UI Expert's.
 
 ## Async closing (design decision needed, not built)
 
-The athlete's HTTP request blocks on the full closing pipeline (Gemini call, every write, the
-GitHub commit) — worse when an action field triggers a second Gemini call (`template_edit`'s
-content generation, `generateInitialTemplates`). Proposed shape: keep the reply synchronous,
-detach write/commit/retry to run via Vercel's `waitUntil` after the response returns. The
-pipeline's atomic-commit + upsert-by-id discipline is a good sign this is safely retryable, not a
-rewrite.
+Same idea `docs/plans/coach-chat-follow-up.md`'s item 6 already tracks in full (origin, prior
+`ASYNC-CLOSE-PLAN.md` design, PR #283/#287 history) — re-raised independently here for a second
+motivation: the redesign's split-file writes add their own commit latency on top of the Gemini
+call. One design, don't build twice; see that doc for the shape (`waitUntil`, synchronous reply,
+detached write/commit).
 
-**Two open questions, need an explicit answer before building:**
+**Two open questions, need an explicit answer before building either version:**
 - `waitUntil`'s actual time cap vs. worst-case turn latency (a `template_edit` chain triggering a
   second Gemini call) — confirm the cap is sufficient before committing to this design.
 - What happens when a background write still fails after every retry — silent forever, or does it
@@ -55,7 +54,7 @@ rewrite.
 
 ## `provision-user.sh`'s legacy-repo migration overlay
 
-Separate from `skanda-part3-migration-and-skeleton.md` (which covers `carve-skeleton.mjs` and the
+Separate from `coach-repo-migration-and-skeleton.md` (which covers `carve-skeleton.mjs` and the
 two live athlete repos specifically) — `platform/scripts/provision-user.sh`'s legacy-repo
 migration overlay (confirmed as of a prior review: lines ~142-147, 278-315, 399) still copies
 whole old-shape directories verbatim, producing the old layout in a "migrated" repo. Needs the
@@ -108,21 +107,9 @@ extreme-value case (a 0-day gap, a single-session sport).
 - `plan_edit` can't touch `week.guardrails[]`; free-form template/session edits beyond structured
   skip-by-number — real feature gaps, unrelated to wiring/efficiency.
 - Regenerating templates for existing athletes, migration script for workout-backend-wiring's
-  schema additions — migration/backfill territory, same owner as `skanda-part3`.
+  schema additions — migration/backfill territory, same owner as `coach-repo-migration-and-skeleton.md`.
 
-## Stack-wide real end-to-end verification (once, after the current stack merges)
+## Stack-wide real end-to-end verification
 
-Every PR in the SOUL-catchup stack has been verified mechanically per-PR (unit tests, `tsc
---noEmit`, `compose-soul.mjs --check` where relevant), but nothing has been run against a real
-athlete repo yet:
-
-1. Fresh scratch branch off a real athlete repo.
-2. Run the sync/generator pipeline for real so `gen/dashboard_snapshot.json` and
-   `gen/athlete_insights.json` are genuinely generated, not synthetic fixtures.
-3. A full first session and a few turns of ordinary chat via the hosted API, checking real
-   committed files via the GitHub API after each turn.
-4. Open the webapp dashboard against a migrated repo, confirm quest/season widgets render.
-5. Confirm the Fitness Snapshot section reads sensibly for a real athlete's real activity mix, and
-   Coach's FSP behavior references it correctly.
-6. BYOB, separately: a first session and ordinary chat via Claude Code, confirming the SOUL text
-   works for the terminal runtime too.
+Promoted to its own file — `docs/plans/coach-chat-redesign-testing.md` — since it's the biggest
+single piece of remaining risk in this redesign, not a minor item on this list. See that doc.

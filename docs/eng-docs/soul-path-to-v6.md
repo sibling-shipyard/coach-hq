@@ -114,7 +114,9 @@ the activity history thread 1 needs. And a **compaction pass**: Coach reads its 
 promotes durable patterns into running memory. This already worked once by hand — an insight
 drawn from three April data points is still shaping how Coach reads the athlete in August — but
 `coach_notes.md` is otherwise never read, and the trigger it was meant to hang on almost never
-fires. Pre-design in `docs/plans/coach-memory.md`.
+fires. The memory-file split (profile/memory/injuries/coach_log) that was pre-designed here has
+since shipped — see `coach-data-schema.md`; a rhythms digest and compaction pass specifically
+remain unbuilt, no pre-design doc for those yet.
 
 **3. Add back what we cut, properly.** Sleep via HealthKit instead of asking. Season and phase
 archiving through a server-side ritual. Template personalisation, so a new athlete doesn't

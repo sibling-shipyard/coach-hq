@@ -1,6 +1,6 @@
 # Layer C Schema — Declarative Athlete Seam (MVP)
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Design only — Tech Lead sign-off gate for S2
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-21 · Design only — Tech Lead sign-off gate for S2 (superseded — see coach-data-schema.md for the shape that actually shipped)
 > **Source:** the SOUL split plan's MVP shape (S0–S3, shipped — plan deleted, see git history) + v5.7 runtime files  
 > **Scope:** Schema definition only. `tracking_modules{}` is **reserved and empty** in MVP.
 
