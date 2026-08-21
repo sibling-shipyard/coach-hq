@@ -79,6 +79,15 @@ still exists). Delete `ChallengeV2` the type if nothing reads it anymore.
 same work either way. Read `profile.json.coach_since` directly (mirrors what `coachDay.ts`'s
 `coachDayNumber()` already does server-side), not through `challenge_v2`'s shape.
 
+## Note — carve-skeleton's placeholder is already schema-clean
+
+`platform/scripts/carve-skeleton.mjs`'s `DASHBOARD_SNAPSHOT_PLACEHOLDER` (fixed in the
+carve-skeleton PR alongside issue #358) seeds `ledger_schema: "split_v1"` and a real (empty)
+`ledger` object — matching exactly what `build-dashboard-snapshot.mjs`'s own `loadLedger()`
+would produce reading a fresh carve's split files. No `challenge_v2_v4` tag, no bare
+`challenge_v2: null` with no real ledger. That's a data-shape fix only, not a UI change — the
+dashboard still reads it through the compat shim below until this plan rewires the pages.
+
 ## Out of scope
 
 - iOS's equivalent bug (`GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`) — iOS Builder's

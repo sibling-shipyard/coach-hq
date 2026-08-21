@@ -132,16 +132,23 @@ const CURRENT_WEEK_TEMPLATE = {
   trace_id: null,
 };
 
-// Snapshot shape itself (ledger_schema/challenge_v2 vs. split-ledger fields) is
-// docs/plans/ui-dashboard-rewiring.md's decision to make, not this script's — left as the
-// pre-existing legacy shape here (challenge_v2: null since that template no longer exists)
-// until that plan picks option A or B and updates this placeholder to match.
+// Matches exactly what engine/scripts/build-dashboard-snapshot.mjs's own loadLedger() would
+// produce reading this carve's (all-empty) split-ledger files — ledger_schema: "split_v1", a
+// real (empty) ledger object, challenge_v2: null. Not a legacy placeholder: this is the real
+// split-schema shape a fresh carve actually has before any sync has run. The UI's compat shim
+// (useRepoData.ts, splitLedgerAsChallenge()) already handles this shape for pages not yet
+// rewired — docs/plans/ui-dashboard-rewiring.md still owns retiring that shim, not this script.
 const DASHBOARD_SNAPSHOT_PLACEHOLDER = {
   schema_version: 1,
   generated_at: "1970-01-01T00:00:00.000Z",
   activities: [],
-  ledger_schema: "challenge_v2_v4",
-  ledger: null,
+  ledger_schema: "split_v1",
+  ledger: {
+    seasons: SEASONS_TEMPLATE,
+    quests: QUESTS_TEMPLATE,
+    progress: PROGRESS_TEMPLATE,
+    progressions: PROGRESSIONS_TEMPLATE,
+  },
   challenge_v2: null,
   current_week: CURRENT_WEEK_TEMPLATE,
   sync_status: {
@@ -343,9 +350,9 @@ your repo.
 
 ## 4. Open the Coach Phelps app
 
-Sign in on the web dashboard or the iOS app and connect this repo. Coach detects the blank
-Athlete Profile in \`user_data/coach/state.md\` and runs the First Session intake automatically
-the first time you open chat.
+Sign in on the web dashboard or the iOS app and connect this repo. Coach detects the empty
+\`user_data/coach/profile.json\` and runs the First Session intake automatically the first time
+you open chat.
 
 ---
 
