@@ -16,8 +16,8 @@ constraint that shapes the endpoint layout: ADR 0017.
 
 1. **Day-to-day chat** — every session after the athlete's profile is set up. Coach speaks first,
    files are edited (not regenerated), retention keeps the newest 7 threads.
-2. **First Session Protocol** — the one-time intake conversation that fills in a blank
-   `state.md`. Same backend endpoint, same mechanics, different system-prompt instructions and a
+2. **First Session Protocol** — the one-time intake conversation that fills the split profile,
+   memory, injury, season, and quest records. Same backend endpoint, same mechanics, focused prompt instructions and a
    client-side routing layer that makes sure a not-yet-intake'd athlete actually lands there.
 
 Both are one endpoint (`ui/api/coach-chat.ts`) and one companion (`ui/api/coach-chat-context.ts`
@@ -31,7 +31,7 @@ separate systems.
 | `ui/api/coach-chat.ts` | `GET` | Load committed threads (newest 7, always `status: "active"`) |
 | `ui/api/coach-chat.ts` | `POST {action: "greet"}` | Coach speaks first; FSP also records native onboarding fields directly |
 | `ui/api/coach-chat.ts` | `POST {threadId?, messages, message, endConversationRequested?}` | Send a message or explicitly request a close |
-| `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL.md/state.md/rendered quest context ahead of chat opening |
+| `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL plus the split athlete, quest, and Fitness Snapshot context ahead of chat opening |
 | `ui/api/coach-chat-profile-status.ts` | `GET` | `{profileComplete}` — is the First Session Protocol done? |
 
 ## Day-to-day flow
@@ -390,12 +390,11 @@ before the conversation closes. `askGemini()`'s greeting-mode call includes
 `onboardingHintsContext()` so the opener can use the just-recorded name, sports, and coaching style.
 The prompt tells Coach not to re-ask or emit action fields for those recorded values.
 
-The chat-only intake text lives in its own composed fragment, `platform/horcruxes/first-session.md`
-(sourced from `B_engine.md`'s `s10_first_session_chat_*` keys, kept separate from the
-`CLAUDE_ONLY` `s10_first_session_*` keys that still describe the BYO-Claude-Code git-commit
-ritual for a terminal session — see `platform/scripts/compose-soul.mjs`'s `HORCRUXES` table).
-Chat's version walks through: warm intro → conversational intake, each new answer mapped to a real
-action field → confirm → close. A missing name → `profile_update`; missing sports →
+The shared intake questions live in `B_engine.md`'s `s10_first_session_body` section. BYOB carries
+that section inline; hosted chat receives the same section through
+`platform/horcruxes/first-session.md`. Only recording differs: BYOB writes confirmed facts to the
+split JSON files, while chat emits structured actions as each answer lands. Chat walks through:
+warm intro → conversational intake → confirm → quest setup → transition. A missing name → `profile_update`; missing sports →
 `sports_update`; training
 frequency/fitness level → `memory_update` (`fitness_baseline`); the 3-6 month goal → `quest_create`'s
 `main_quest` (memory.json has no goal field — issue #408 moved that meaning to seasons/quests);

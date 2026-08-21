@@ -25,6 +25,27 @@ Write it so someone who has never opened this repo enjoys reading it. If an entr
 
 ---
 
+## v5.14 — "The Catch-Up" · Aug 20, 2026
+**Superpower gained:** one coaching brain that understands the files both runtimes actually use.
+
+The data model had moved while SOUL was deliberately held at the reviewed v5.8 baseline. Coach
+was still looking for two prose files and a generated quest dashboard that no longer existed.
+
+- Profile, memory, injuries, and continuity now point to their split JSON records; only the last
+  five continuity rows ride in prompt context.
+- Seasons are names and dates, without phase math or an archive ritual.
+- Quest definitions and reported results stay separate. BYOB reasons from recorded rows and says
+  when an exact derived number cannot be known instead of fabricating one.
+- First Session uses one shared question list. Hosted chat records structured actions as answers
+  land; BYOB writes the same confirmed facts to the split files.
+- Native setup's name, sports, and coaching style are treated as already recorded, never re-asked
+  or re-written. Date of birth and inferred timezone keep their stricter rules.
+- The old chat-only duplicate intake script is gone. Most recording mechanics remain in the
+  runtime prompt where they belong.
+
+**Why it mattered:** Coach can now meet a new athlete without describing retired storage or
+making either runtime carry a second copy of the conversation. See `docs/eng-docs/coach-chat-flow.md`.
+
 ## v5.13 — "Back to the Trim" · Aug 20, 2026
 **Superpower gained:** none — this is a revert, not a feature.
 

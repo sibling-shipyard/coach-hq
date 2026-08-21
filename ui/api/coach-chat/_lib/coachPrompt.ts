@@ -16,142 +16,33 @@ import type { WeekPlan, SessionReconcileEvent, PlanEditEvent } from "./coachWeek
 
 export interface GeminiReply {
   reply: string;
-  // Closing turns only - a short plain-English note appended (with today's date) as a new row in
-  // coach_log.json at commit time (coachIntents.ts's applyCoachNote). Never shown to the athlete.
-  // coach_log.json is the single merged continuity log - it absorbs what used to be split across
-  // coach_notes.md and rolling_state.json.
+  // See responseSchema's coach_note and coachIntents.ts's applyCoachNote.
   coach_note?: string;
-  // Part 1 redesign, Step 4a: Coach states which one of memory.json's six labelled notes boxes
-  // changed and its new text - the server owns replacing that box entirely (coachIntents.ts's
-  // applyMemoryUpdate). `label` is a constrained enum, never free text - gemini-flow.md's
-  // Action-field design rule. Closing turns, plus incremental First Session turns.
+  // See responseSchema's memory_update and coachIntents.ts's applyMemoryUpdate.
   memory_update?: { label: MemoryNoteLabel; text: string };
-  // coaching_style is a separate field from memory_update, not a seventh label - it's a plain
-  // top-level string on memory.json, not a {text, updated_at, trace_id} notes box, and it needs a
-  // real constrained enum rather than free text (live verification found it had no write path at
-  // all - the athlete asked to change it, nothing committed). Values match B_engine.md's actual
-  // First Session Protocol question verbatim ("How do you respond to being pushed? -
-  // accountability vs encouragement vs analysis") - normally set once there, but genuinely
-  // changeable later via chat, not locked (per direction - it's just naturally infrequent).
+  // See responseSchema's coaching_style_update for rationale and legal values.
   coaching_style_update?: "accountability" | "encouragement" | "analysis";
-  // sports_update is a separate field from memory_update too, same reasoning as
-  // coaching_style_update just above - it's a plain top-level string array on memory.json, not a
-  // notes box. Found live during First Session Protocol wiring: memory.json.sports had no write
-  // path through chat at all, and isAthleteProfileComplete requires it non-empty - a first
-  // session could never actually complete via chat because of this alone. Closing turns, plus
-  // incremental First Session turns.
+  // See responseSchema's sports_update for rationale.
   sports_update?: string[];
-  // Array (workout-backend-wiring live verification, same fix issue #410 already gave
-  // quest_event): a single object silently dropped every injury update past the first when an
-  // athlete reported more than one in the same message - found live, the reply claimed both were
-  // handled but only the first actually committed. One or more injury flags opened, updated, or
-  // resolved this conversation. Server generates `id`/`opened_at`/`resolved_at` - Gemini only
-  // ever supplies status/text/flag_id per event (see coachIntents.ts's applyInjuryEvent for the
-  // exact new/update/resolve rules). Closing turns, plus incremental First Session turns.
+  // See responseSchema's injury_event for the array rationale and wire shape.
   injury_event?: { status: "active" | "resolved"; text?: string; flag_id?: string }[];
-  // Part 2 ledger split: the athlete logged a completion/miss/excuse on one or more existing
-  // quests this conversation. Server stamps date/id/ts/trace_id/season_id and upserts the row for
-  // each quest+date in progress.json (coachIntents.ts's applyQuestEvent) - Gemini only ever
-  // supplies quest_id/status/value per event. No `date` field - same rule as coach_note/
-  // injury_event, the server already knows today's date. `value` is optional and only meaningful
-  // for progress-type quests. Closing turns, plus incremental First Session turns.
-  //
-  // Issue #410: was a single object - a turn reporting two separate quest completions could only
-  // capture one. Now an array so every reported completion lands as its own row.
-  // value is string-only, not string | number - the responseSchema below declares it as
-  // `{ type: "string" }`, so Gemini's structured output can never actually produce a number here
-  // regardless of what a wider TS type might promise. Found in review.
+  // See responseSchema's quest_event for the array, server-owned fields, and value rationale.
   quest_event?: { quest_id: string; status: "completed" | "missed" | "excused"; value?: string }[];
-  // Part 2 ledger split: one or more fields in profile.json changed this conversation (e.g.
-  // weight_kg after the athlete reports a new number). Server sets each field, nothing else -
-  // Gemini only ever supplies field/value pairs. Closing turns, plus incremental First Session
-  // turns.
-  // Array (workout-backend-wiring live verification, same fix issue #410 already gave
-  // quest_event/injury_event) - a single object silently dropped every field past the first when
-  // the athlete reported more than one in the same message.
-  // value is string-only, same reasoning as quest_event above - the responseSchema below
-  // declares it as `{ type: "string" }`. Found in review as the same bug class left uncorrected.
+  // See responseSchema's profile_update for the array and value rationale.
   profile_update?: { field: "name" | "dob" | "timezone" | "height_cm" | "weight_kg"; value: string }[];
-  // coach-redesign workout-backend-wiring §3: the athlete asked for a PERMANENT structural change
-  // to one of their own existing workout templates. Originally free-form (Gemini captured an
-  // instruction, a second separate Gemini call generated a whole new template from it) - dropped
-  // after live verification found that second call doubling the failure surface of every edit
-  // turn, and per direction, no free-form content generation for templates at all, ever. Same
-  // mechanical shape as session_plan now (skip_exercise_nums/skip_phases, zero Gemini-generated
-  // content, resolved server-side against the real template at commit time) - the only difference
-  // is this writes back to the template itself, not a dated session snapshot. A request that
-  // needs real new content (inventing an exercise, swapping in unrelated content) simply isn't
-  // supported via chat - matches this subsystem's original "Coach must never modify templates"
-  // instinct from before this redesign existed. template_id must be one of the ids listed in
-  // context (activeTemplatesContext) - never invented. Single object, not an array - one edit per
-  // closing turn, matching session_plan's shape. Closing turns only, same as the fields above.
+  // See responseSchema's template_edit for rationale and wire shape.
   template_edit?: { template_id: string; skip_exercise_nums?: number[]; skip_phases?: string[]; note?: string };
-  // coach-redesign workout-backend-wiring §4: Coach is prescribing a modified version of one of
-  // the athlete's templates for a specific day (injury/periodization adjustment), per
-  // B_engine.md's Persisting Session Files ritual. No `session_date` field here - per
-  // gemini-flow.md's Action-field design rule #1 ("server computes all bookkeeping - dates, ids,
-  // timestamps"), the server stamps session_date itself (coach-chat.ts, todayDateString), same as
-  // coach_note/quest_event/injury_event never carry a Gemini-supplied date. Judgment call: this
-  // means session_plan can only ever apply to *today's* session, not a future date. B_engine.md's
-  // trigger text ("whenever you prescribe a workout modified for injury or periodization") reads
-  // as an in-the-moment same-day prescription in every example in that section, not "plan
-  // Thursday's session now" - and the existing hand-written ritual only ever runs at the point the
-  // athlete is about to do the session, not ahead of time. If a genuine need for future-dated
-  // session planning shows up, that's a deliberate schema change later (add an explicit
-  // Gemini-supplied session_date with its own validation), not a workaround here.
-  // template_id must be one of the ids listed in context (activeTemplatesContext, same set
-  // template_edit uses) - never invented. Modification is skip_exercise_nums (exact numbers, if
-  // Coach happens to know them) and/or skip_phases (the phase's name in plain language, e.g.
-  // "Shoulder & Elbow") - free-form new-exercise insertion is a known gap, not built yet.
-  // skip_phases exists because Gemini is never shown the template's actual exercise numbers (that
-  // would mean fetching every template's full content into every closing turn's context, which is
-  // exactly the "too much field/context pressure" this design is trying to avoid) - so it names
-  // the phase the way an athlete actually talks about it, and coachWorkoutFiles.ts resolves that
-  // name against the one real template it already fetches at commit time, server-side, the same
-  // place skip_exercise_nums gets applied. Single object, not an array - one session prescription
-  // per closing turn, matching template_edit/profile_update's shape. Closing turns only, same as
-  // the fields above.
+  // See responseSchema's session_plan for the server-owned date and skip_phases rationale.
   session_plan?: { template_id: string; skip_exercise_nums?: number[]; skip_phases?: string[]; note?: string };
-  // coach-redesign workout-backend-wiring §5: the Weekly Kick-off Ritual (B_engine.md) - Coach is
-  // writing the full Monday-to-Sunday plan. Single object, full rewrite of current_week.json's
-  // days/sessions/week, not an incremental patch - matches how the ritual actually works (the
-  // whole week is authored in one pass). headline/body are the coach_read content, kept in this
-  // same small schema rather than a second Gemini call (coachWeekFiles.ts's applyWeekPlan owns
-  // that reasoning). Server computes every id/date/status field - see applyWeekPlan's own
-  // judgment-call comments for data_status/template_id handling. Closing turns only.
+  // See responseSchema's week_plan and coachWeekFiles.ts's applyWeekPlan.
   week_plan?: WeekPlan;
-  // coach-redesign workout-backend-wiring §5: B_engine.md's s10_logging_reconcile - reconciling a
-  // completed/skipped session against current_week.json "now, not at the Sunday review". Array,
-  // mirrors quest_event's upsert-by-id shape - a turn can report more than one session's outcome.
-  // session_id must be one of the ids already in current_week.json (server re-validates at commit
-  // time, coachWeekFiles.ts's applySessionReconcile) - never invented. `actual` is set only when
-  // what really happened differs from what was planned (planned a run, actually played
-  // badminton) - see SessionReconcileEvent's own comment. Closing turns only, same as the fields
-  // above.
+  // See responseSchema's session_reconcile and SessionReconcileEvent.
   session_reconcile?: SessionReconcileEvent[];
-  // coach-redesign workout-backend-wiring §5 follow-up: edits ONE existing future (or today's)
-  // session's planned content without a full week_plan rewrite - "swap tomorrow's badminton for
-  // football." Array, same upsert-by-id shape as session_reconcile. Does not touch status - a
-  // plan_edit session stays whatever status it already was. session_id must be one of the ids
-  // already in current_week.json - never invented. The two-field swap pattern: report today's
-  // actual completion via session_reconcile's `actual`, report tomorrow's changed plan via
-  // plan_edit, both in the same turn if that's what the athlete described. Closing turns only.
+  // See responseSchema's plan_edit and PlanEditEvent.
   plan_edit?: PlanEditEvent[];
-  // First Session Protocol only - the FSP quest-setup step (main goal, season dates) needs to
-  // create the athlete's very first season, and there was no write path to do that at all before
-  // this (applyQuestEvent only ever logs progress against a season/quest that already exists).
-  // First-session / new-athlete onboarding ONLY, not for a returning athlete changing their
-  // season - that goes through the existing Weekly Kick-off / Sunday Session rituals instead.
-  // Server mints the season id and stamps it current_season_id. Written as soon as agreed during
-  // First Session; closing is not required.
+  // See responseSchema's season_start for scope and rationale.
   season_start?: { name: string; start_date: string; end_date: string };
-  // First Session Protocol only - same missing-write-path bug as season_start above, but for the
-  // main quest and any habit quests FSP structures from the conversation. First-session /
-  // new-athlete onboarding ONLY, not for a returning athlete's season/quest changes - those go
-  // through the existing Weekly Kick-off / Sunday Session rituals instead. Server mints every id;
-  // these quests are source "model" since Coach is structuring them from the conversation, not
-  // the athlete typing them directly. Written as soon as agreed during First Session; closing is
-  // not required.
+  // See responseSchema's quest_create for scope and rationale.
   quest_create?: {
     main_quest?: { name: string; type: "daily_streak" | "progress" | "count_target" | "weekly_frequency"; target: number; count_pattern?: string };
     quests?: {
@@ -162,8 +53,7 @@ export interface GeminiReply {
       unit?: string;
     }[];
   };
-  // Closing turns only - the athlete's keyword match just triggers asking Gemini to consider
-  // closing, not a guarantee it did. False means Gemini asked a clarifying question instead.
+  // See responseSchema's session_closed for the required-field rationale.
   session_closed?: boolean;
 }
 
@@ -204,7 +94,9 @@ export const GENERATION_CONFIG = {
     properties: {
       // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4) -
       // there's nothing else to commit to first.
+      // Closing-turn continuity note appended to coach_log.json; never shown to the athlete.
       coach_note: { type: "string" },
+      // Replaces one of memory.json's constrained labelled note boxes in full.
       memory_update: {
         type: "object",
         properties: {
@@ -219,8 +111,8 @@ export const GENERATION_CONFIG = {
         type: "string",
         enum: ["accountability", "encouragement", "analysis"],
       },
-      // First Session Protocol - memory.json.sports had no write path at all before this. Set
-      // when the athlete first states their sport(s), or changes them later. Closing turns only.
+      // Separate top-level memory.json field, not a labelled memory note. First Session Protocol
+      // writes it when first stated; later chat may replace the full list.
       sports_update: { type: "array", items: { type: "string" } },
       // Array (workout-backend-wiring live verification, same fix issue #410 already gave
       // quest_event) - a turn can report more than one injury update.
@@ -239,6 +131,7 @@ export const GENERATION_CONFIG = {
       // Part 2 ledger split, step 3a - shipped and tested in isolation before profile_update
       // (gemini-flow.md's Action-field design rule #2). No `date` - server stamps it. Array
       // (issue #410) so a turn reporting several quest completions at once captures all of them.
+      // value is string-only because that is all structured output can produce here.
       quest_event: {
         type: "array",
         items: {
@@ -252,7 +145,8 @@ export const GENERATION_CONFIG = {
       },
       // Part 2 ledger split, step 3b - shipped after quest_event confirmed working live.
       // Array (workout-backend-wiring live verification, same fix issue #410 already gave
-      // quest_event) - a turn can report more than one profile field at once.
+      // quest_event) - a turn can report more than one profile field at once. value is
+      // string-only because that is all structured output can produce here.
       profile_update: {
         type: "array",
         items: {
@@ -264,8 +158,9 @@ export const GENERATION_CONFIG = {
           required: ["field", "value"],
         },
       },
-      // coach-redesign workout-backend-wiring §3 - single object, same mechanical shape as
-      // session_plan below (no free-form content generation - see GeminiReply's own comment).
+      // Permanent structural removal from an existing template. Single object: one edit per
+      // closing turn. Free-form generation was removed because its second model call doubled the
+      // failure surface; unsupported additions must not be represented as edits.
       // template_id is free text in the schema itself (Gemini's real ids come from context, per
       // activeTemplatesContext below); coachWorkoutFiles.ts's applyTemplateEdit is the actual
       // enforcement point.
@@ -279,11 +174,11 @@ export const GENERATION_CONFIG = {
         },
         required: ["template_id"],
       },
-      // coach-redesign workout-backend-wiring §4 - single object, matching template_edit's shape.
-      // No session_date property here - server-stamped, see GeminiReply's own comment above for
-      // why. skip_exercise_nums/skip_phases together are the only supported modification this
-      // pass - see GeminiReply's own comment on session_plan for why skip_phases is plain-language
-      // rather than a constrained list.
+      // Today's modified session from an existing template. Single object: one prescription per
+      // closing turn. The server stamps session_date, deliberately limiting this action to today;
+      // future-dated prescriptions require an explicit later schema change. skip_phases is plain
+      // language because Gemini does not receive full template exercise numbers; the server
+      // resolves the phase against the real template at commit time.
       session_plan: {
         type: "object",
         properties: {
@@ -381,8 +276,9 @@ export const GENERATION_CONFIG = {
           required: ["session_id", "discipline", "kind", "title"],
         },
       },
-      // First Session Protocol only - creates the athlete's first season. Never used for a
-      // returning athlete's season change (Weekly Kick-off / Sunday Session own that).
+      // First Session Protocol only - creates the athlete's first and only season through this
+      // field. There is no returning-athlete season-change path anywhere in the system - Weekly
+      // Kick-off/Sunday Session never write seasons.json, only current_week.json.
       season_start: {
         type: "object",
         properties: {
@@ -393,8 +289,7 @@ export const GENERATION_CONFIG = {
         required: ["name", "start_date", "end_date"],
       },
       // First Session Protocol only - creates the athlete's main quest and any habit quests.
-      // Never used for a returning athlete's quest changes (Weekly Kick-off / Sunday Session own
-      // that).
+      // Never used for a returning athlete's quest changes - there is no such path.
       quest_create: {
         type: "object",
         properties: {
@@ -462,6 +357,14 @@ export function staticSystemText(soul: string): string {
   ].join("\n");
 }
 
+const SAVE_CLAIM_GUARD =
+  "Never say something is saved, logged, locked, or committed unless the matching action field in this exact response reflects it.";
+const SESSION_STAYS_OPEN = "Set session_closed to false; this response does not close the session.";
+const SESSION_CLOSE_DECISION = [
+  "Set session_closed to true only if you are genuinely closing in this response. If you need to",
+  "ask a clarifying question, set it false; you can close after the athlete answers.",
+].join("\n");
+
 // The per-turn dynamic half of the prompt: current state/quest_log, mode-specific instructions,
 // and (deliberately last, since it changes every minute) today's date/time. `useCache` only
 // changes the framing sentence at the top - it ships as a synthetic turn when a cache is active,
@@ -504,8 +407,9 @@ export function buildDynamicText(
           "Check-in behavior describes: 1-3 sentences, no day-count recitation, no stat dump - just a",
           "genuine, contextual opener referencing whatever's actually relevant (recent activity, an",
           "open thread from earlier, how the week is shaping up). Do not ask a form-style checklist of",
-          "questions - open a conversation, don't interrogate. Always set session_closed to false - a",
-          "greeting never closes a session by itself.",
+          "questions - open a conversation, don't interrogate. A greeting never closes a session",
+          "by itself.",
+          SESSION_STAYS_OPEN,
         ].join("\n")
       : mode === "closing" && firstSessionTurn
       ? [
@@ -539,11 +443,8 @@ export function buildDynamicText(
           "in an action field. Do not set template_edit, session_plan, week_plan,",
           "session_reconcile, or plan_edit - a first-session athlete has no existing templates or",
           "week plan yet.",
-          "**Never say something is saved, logged, locked, or committed unless the matching action",
-          "field in this exact response genuinely reflects it.**",
-          "\nSet session_closed to true only if you are genuinely closing out in this exact",
-          "response - if you're still missing something you need to ask about, set it false and",
-          "ask instead; you'll get another chance to close once they answer.",
+          SAVE_CLAIM_GUARD,
+          "\n" + SESSION_CLOSE_DECISION,
         ].join("\n")
       : mode === "closing"
       ? [
@@ -561,30 +462,28 @@ export function buildDynamicText(
           "category as label and the new full text as text. Only set it when something genuinely",
           "changed; most closes won't need it. Never invent a change to justify setting it.",
           "\nIf the athlete explicitly asks to change how you coach them - more direct, easier on",
-          "them, more explanation of the why - set coaching_style_update to exactly one of",
-          "\"accountability\" (direct, holds them to what they said), \"encouragement\" (supportive,",
-          "leads with what's going well), or \"analysis\" (explains the why behind everything). Pick",
-          "the closest match to what they asked for. Only set it on an explicit request to change",
+          "them, or more explanation of the why - set coaching_style_update to the closest enum",
+          "value. Only set it on an explicit request to change",
           "this - never infer it from mood or a single tough session.",
           "\nIf the athlete mentioned a new injury or pain, or gave an update on an existing one",
           "listed in Active Injury Flags below, set injury_event to an array with one entry per",
           "injury being reported - if the athlete mentions TWO separate injuries changing in the",
           "same message (e.g. one resolving and a different one flaring up), that's two entries,",
-          "not one. A brand-new injury: status \"active\", text describing it, no flag_id (the",
-          "server mints one). An update to an existing flag still ongoing: status \"active\", the",
+          "not one. Use the schema's status enum. A brand-new injury needs text and no flag_id (the",
+          "server mints one). An update to an existing flag still ongoing uses the",
           "matching flag_id from the list below, and text only if there's new detail worth",
-          "recording (omit text to leave it unchanged). A flag that's cleared up: status",
-          "\"resolved\" and that flag_id. Only ever use a flag_id that's actually listed below -",
+          "recording (omit text to leave it unchanged). A cleared flag needs that flag_id. Only",
+          "ever use a flag_id that's actually listed below -",
           "never invent one. Most closes won't need this either.",
           "\nIf the athlete reported completing, missing, or being excused from one or more of",
           "today's quests (see Current quests below), set quest_event to an array with one entry",
-          "per quest - each entry has that quest's exact quest_id and status \"completed\",",
-          "\"missed\", or \"excused\". Only use a quest_id that's actually listed below - never",
+          "per quest - each entry has that quest's exact quest_id and a schema-enum status. Only",
+          "use a quest_id that's actually listed below - never",
           "invent one. Include value only for a progress-type quest where the athlete gave a new",
           "cumulative number (e.g. chapters read so far) - other quest types never need value.",
           "This only logs today - don't use it to backfill an earlier day.",
-          "\nIf the athlete gave a new value for one or more of their profile basics (name, date of",
-          "birth, timezone, height, or weight), set profile_update to an array with one entry per",
+          "\nIf the athlete gave a new value for one or more schema-listed profile basics, set",
+          "profile_update to an array with one entry per",
           "field changed - the athlete stating both a new weight and a new timezone in the same",
           "message is two entries, not one.",
           "Only set it when the athlete actually stated a new value, never to fill in a guess.",
@@ -592,18 +491,17 @@ export function buildDynamicText(
           "to the full list of sports they do now (not just the newly mentioned one) - this is",
           "what unlocks First Session completion, so never skip it once the athlete has actually",
           "named a sport.",
-          "\nFirst-session / new-athlete onboarding ONLY, never for a returning athlete changing",
-          "their season - that goes through the existing Weekly Kick-off / Sunday Session rituals",
-          "instead: if this is the athlete's very first session and you are setting up their",
-          "season as part of the First Session Protocol, set season_start with a name and",
-          "start_date/end_date for the season you agreed on with the athlete.",
+          "\nFirst-session / new-athlete onboarding ONLY - a season is set once, during First",
+          "Session, and never changed again through chat: if this is the athlete's very first",
+          "session and you are setting up their season as part of the First Session Protocol, set",
+          "season_start with a name and start_date/end_date for the season you agreed on with the",
+          "athlete.",
           "\nFirst-session / new-athlete onboarding ONLY, same restriction as season_start above -",
-          "never for a returning athlete's season/quest changes: if this is the athlete's very",
+          "a returning athlete's quests never change through this field: if this is the athlete's very",
           "first session and you are setting up their main goal and any habit quests as part of",
-          "the First Session Protocol, set quest_create with main_quest (name/type/target from",
-          "what the athlete told you their main goal is) and, if they described any habits to",
-          "track, quests (name/type, plus polarity for daily_streak or target/unit for the",
-          "others).",
+          "the First Session Protocol, set quest_create with main_quest from what the athlete told",
+          "you and, if they described habits to track, quests. Use polarity for daily_streak",
+          "habits; use target/unit for other quest types where applicable. Use the schema enums.",
           "\nIf the athlete asked to PERMANENTLY change one of their own existing workout",
           "templates (see Current templates below) going forward, not just for today - set",
           "template_edit with that template's exact template_id and a short note explaining why.",
@@ -653,7 +551,7 @@ export function buildDynamicText(
           "\nIf the athlete reported completing or skipping one or more of this week's planned",
           "sessions (see Current week's sessions below) - do this the same session it happens, not",
           "just at a weekly review - set session_reconcile to an array with one entry per session:",
-          "its exact session_id, the outcome status (\"done\" or \"skipped\"), and activity_ids if a",
+          "its exact session_id, a schema-enum outcome status, and activity_ids if a",
           "real completion id exists. If what the athlete actually did is DIFFERENT from what was",
           "planned (planned a run, actually played badminton instead) - also set actual on that",
           "same entry: discipline/kind/title describing what really happened, and template_id only",
@@ -675,19 +573,13 @@ export function buildDynamicText(
           "one day. \"Swap Friday's session\" or \"change what's planned for tomorrow\" is always",
           "plan_edit, never template_edit - template_edit is only for the athlete asking to",
           "permanently change the template going forward.",
-          "**Never say something is saved, logged, locked, or committed unless coach_note (or",
-          "memory_update / coaching_style_update / sports_update / injury_event / quest_event /",
-          "profile_update / template_edit / session_plan / week_plan / session_reconcile /",
-          "plan_edit / season_start / quest_create) in this exact response genuinely reflects it.**",
-          "\nSet session_closed to true only if you are genuinely closing out the session in this exact",
-          "response (asking a clarifying question instead does NOT count - set it false in that case,",
-          "even though this turn was triggered by a close-session phrase). The athlete will simply see",
-          "your question and reply normally; you'll get another chance to close once they answer.",
+          SAVE_CLAIM_GUARD,
+          "\n" + SESSION_CLOSE_DECISION,
         ].join("\n")
       : firstSessionTurn
       ? [
-          "\nThis is an ordinary First Session turn. Keep the conversation natural and set",
-          "session_closed to false. Save each concrete fact on the same turn it is learned - do",
+          "\nThis is an ordinary First Session turn. Keep the conversation natural.",
+          "Save each concrete fact on the same turn it is learned - do",
           "not hold facts for the final close. Use profile_update for name, date of birth,",
           "timezone, height, and weight; sports_update for the full sports list;",
           "coaching_style_update for accountability, encouragement, or analysis; memory_update",
@@ -697,11 +589,13 @@ export function buildDynamicText(
           "details marked already recorded are context only - never repeat them in an action field.",
           "Do not set template_edit, session_plan, week_plan, session_reconcile, or plan_edit on",
           "an ordinary turn; those remain close-only.",
+          SESSION_STAYS_OPEN,
         ].join("\n")
       : [
           "\nThis is an ordinary turn, not a close-out - just talk with the athlete the way SOUL.md",
           "describes. Nothing about this turn gets saved anywhere; that only happens on a genuine",
-          "close. Set session_closed to false - this isn't a close-session turn.",
+          "close.",
+          SESSION_STAYS_OPEN,
         ].join("\n"),
     // Deliberately last - the one piece of this prompt that changes every minute.
     "\n" + todayContextLine(timezone),
