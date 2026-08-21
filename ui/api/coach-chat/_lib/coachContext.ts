@@ -37,7 +37,7 @@ export interface QuestContextStorage {
   today: string;
 }
 
-const RECENT_SESSION_WINDOW = 3;
+const RECENT_SESSION_WINDOW = 5;
 
 function computeAge(dob: string | null): string {
   if (!dob) return "";
@@ -76,7 +76,7 @@ function recentSessionNotesSection(coachLog: CoachLogJson | null): string {
   const rows = coachLog?.rows ?? [];
   const recent = rows.slice(-RECENT_SESSION_WINDOW).reverse(); // most recent first
   const body = recent.length > 0 ? recent.map((r) => `- **${r.date}:** ${r.text}`).join("\n") : "*(Empty)*";
-  return ["## Recent Session Notes *(rolling — last 3 sessions)*", body].join("\n");
+  return [`## Recent Session Notes *(rolling — last ${RECENT_SESSION_WINDOW} sessions)*`, body].join("\n");
 }
 
 function fitnessBaselineSection(memory: MemoryJson | null): string {
