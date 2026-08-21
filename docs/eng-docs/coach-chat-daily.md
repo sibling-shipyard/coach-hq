@@ -203,11 +203,26 @@ consumes a retention slot — only threads that actually got a real close-out ev
   line-based split for `- `/`* `/`1. ` prefixed lines into indented bullet/numbered rows.
 
 - **Thread age labels**: the history list shows two distinct badges per thread — an *absolute*
-  day-count badge (`D-101`, from `profile.json`'s `coach_since`) and a *relative* age badge next
-  to it, which shows a real date ("5th AUG") rather than a `D-N` count, using `ChatThread.createdAt`
-  (raw epoch ms). The leading conversation-pane divider works the same way: "TODAY" for the
-  active same-day thread, otherwise the thread's real date, computed fresh from
-  `dayOffset`/`createdAt` at render time rather than a stored string — never a time-of-day.
+  day-count badge (`D-101`) and a *relative* age badge next to it, which shows a real date ("5th
+  AUG") rather than a `D-N` count, using `ChatThread.createdAt` (raw epoch ms). The leading
+  conversation-pane divider works the same way: "TODAY" for the active same-day thread, otherwise
+  the thread's real date, computed fresh from `dayOffset`/`createdAt` at render time rather than a
+  stored string — never a time-of-day.
+
+  **The absolute badge is not actually read from `profile.json`'s `coach_since` today, despite
+  that being the canonical ADR 0018 value the server stamps.** Web's `CoachChat.tsx` computes it
+  via `challengeDayNumber()` (`coachChatModel.ts`) against `data.challenge_v2` from the prebuilt
+  dashboard snapshot — a legacy shape, not a live `profile.json` read. For a repo that still has a
+  real `challenge_v2.json` on disk, that object's own `coach_since` field (one-time backfilled per
+  issue #179) is what's used. For a repo migrated to the split ledger (no `challenge_v2.json`
+  anymore), `useRepoData.ts` falls back to `splitLedgerAsChallenge()`
+  (`lib/splitLedgerChallenge.ts`) to project a legacy-shaped object from `seasons.json`/
+  `quests.json`/`progress.json` — and that projection **does not carry `coach_since` through at
+  all**, so `challengeDayNumber()` silently falls back to `season.start_date`, resetting the badge
+  on every new season exactly like the bug #179 was originally filed to fix. This is a real,
+  previously undocumented regression, tracked in `docs/plans/coach-chat-open-items.md`. iOS has
+  the same root cause on its own `challenge_v2.json`-reading path (`GitHubAPIClient.swift`'s
+  `readCoachDayAnchorDate()`), already tracked there.
 
 ## Auth
 
@@ -250,10 +265,10 @@ diverging.
   (the structured-JSON response schema is the real complication, not just wiring SSE).
 - P2: inline chips/highlights ("engine load" pills) have no backend data — Gemini's response
   schema has no field for them. Unbuilt, needs product design.
-- P3: the *absolute* day-number badge (`D-101`, left-side in the history sheet) still resets with
-  each new challenge/season instead of counting from when the athlete started using Coach at all
-  — tracked in issue #179. (Distinct from the *relative* age badge, which shows a real date — see
-  Rendering above.)
+- Issue #179 (the *absolute* day-number badge resetting per-challenge/season) is closed — ADR
+  0018 fixed it for repos still on `challenge_v2.json`. It has since regressed for split-ledger
+  repos via a different path; see the "Thread age labels" note above rather than this stale
+  reference to #179.
 - P1, real but not chasing without a reproduction: close-save reliability is a prompt-compliance
   problem, not a code-guaranteed one — the logging lets a real occurrence be diagnosed, but
   there's no guarantee Gemini follows the self-check every time.
