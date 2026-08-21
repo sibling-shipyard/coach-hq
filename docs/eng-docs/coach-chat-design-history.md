@@ -1,20 +1,39 @@
 # Coach Chat — design history
 
-> Status: Historical · Owner: UI Expert · Verified: 2026-08-20
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-21
 
 ## Context
 
 Coach chat has gone through a foundational redesign plus two follow-on passes, all in real
 production use across two live athlete repos. This is the dated record of what changed, why, and
-which PR shipped it — **for how the system works today, see
-[`coach-chat-flow.md`](coach-chat-flow.md)** (request lifecycle) and
-[`gemini-flow.md`](gemini-flow.md) (the Gemini integration specifically). Neither of those docs
-carries history; this one does. Originally drafted as a pre-implementation plan
+which PR shipped it — **for how the system works today, see [`coach-chat-flow.md`](coach-chat-flow.md)**,
+now an index into [`coach-chat-daily.md`](coach-chat-daily.md), [`coach-chat-fsp.md`](coach-chat-fsp.md),
+[`gemini-flow.md`](gemini-flow.md), and [`coach-data-schema.md`](coach-data-schema.md). None of
+those docs carry history; this one does. Originally drafted as a pre-implementation plan
 (`coach-chat-redesign-plan.md`, repo root) before Part A/B shipped — moved here and expanded into
 a running log once the plan itself was fully implemented, so a single doc covers "what was
 planned" and "what actually happened since," not two files that drift apart.
 
 ---
+
+## 2026-08-21 — Doc verification pass, split-ledger day-count regression found
+
+Re-verified `coach-chat-flow.md` (split into `coach-chat-daily.md`/`coach-chat-fsp.md`),
+`gemini-flow.md`, and the new `coach-data-schema.md` against current source directly — every
+claim checked against the actual TypeScript/Swift, not carried forward from the prior write-up.
+Backend (`coachTurn.ts`, `geminiClient.ts`, `coachPromptText.ts`, `closeSignal.ts`,
+`chatThreads.ts`, `coachChatFiles.ts`) held up exactly as documented. Client side did not:
+
+Found a real, previously undocumented regression — the absolute day-count badge ("D-101") on
+**both** web and iOS does not read `profile.json`'s `coach_since` (the canonical value ADR 0018
+made the server stamp there). Web's `challengeDayNumber()` and iOS's `readCoachDayAnchorDate()`
+both still go through a legacy `challenge_v2`-shaped object; on a repo migrated to the split
+ledger, the compatibility projection that produces that shape
+(`ui/client/src/lib/splitLedgerChallenge.ts`'s `splitLedgerAsChallenge()`) drops `coach_since`
+entirely, so the badge silently resets to `season.start_date` — functionally the same bug issue
+#179 was filed and closed for, regressed by the ledger split. Also found and fixed: a stale
+"Deferred" entry in the old doc still cited #179 as open; it's closed. Logged as a real open item
+in `docs/plans/coach-chat-open-items.md`, not fixed in this pass (docs-only).
 
 ## 2026-08-20 — Turn-stage decomposition
 

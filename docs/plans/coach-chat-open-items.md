@@ -6,18 +6,36 @@ Running list of real, still-open work, replacing the accumulated `coach-redesign
 files and `BACKLOG.md` (deleted — their shipped scope is done, this doc keeps only what's still
 true). Delete each item once it's actually fixed, not just remembered.
 
-## iOS — stale read of the retired ledger shape (iOS Builder's territory)
+## Day-count badge doesn't actually read `profile.json`'s `coach_since` on either platform
 
-`ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift`'s `readCoachDayAnchorDate()` (~lines 211-219)
-reads `user_data/ledger/challenge_v2.json` and decodes it into `ChallengeV2Summary` for the
-day-count header label — actively called from `CoachChatView.swift`. Once an athlete repo
-migrates to the split ledger (`skanda-part3-migration-and-skeleton.md`), this reads a file that no
-longer exists. Fix: read `profile.json.coach_since` directly instead (already the correct source
-per ADR 0018 — `coachDay.ts`'s `coachDayNumber()` already does this server-side). Also fix
-`UserFacingError.swift:66`'s `raw.contains("challenge_v2")` string match (stops matching once
-migrated) and stale comments at `CoachSetupState.swift:48`, `OnboardingHints.swift:36`,
-`CoachChatView.swift:39,43,488,662`, `CoachChatPreviewData.swift:8`. Flag for iOS Builder review
-even if a Tech Lead-directed agent makes the mechanical fix.
+Confirmed by direct code read (2026-08-21), not carried forward from an old doc. Both platforms'
+"D-101" absolute day-count badge reads a legacy `challenge_v2`-shaped `coach_since` field, never
+the canonical ADR 0018 value the server stamps onto `profile.json`:
+
+- **iOS**: `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`
+  (~lines 211-219) reads `user_data/ledger/challenge_v2.json` directly and decodes it into
+  `ChallengeV2Summary` — actively called from `CoachChatView.swift`. Once an athlete repo migrates
+  to the split ledger (`skanda-part3-migration-and-skeleton.md`), this reads a file that no longer
+  exists at all (a `readFile` 404, not a graceful fallback).
+- **Web**: `CoachChat.tsx` computes the badge via `challengeDayNumber()` (`coachChatModel.ts`)
+  against `data.challenge_v2` from the prebuilt dashboard snapshot. For a repo with a real
+  `challenge_v2.json` still on disk, that file's own `coach_since` field (one-time backfilled per
+  issue #179) is used. For a repo migrated to the split ledger, `useRepoData.ts` falls back to
+  `splitLedgerAsChallenge()` (`ui/client/src/lib/splitLedgerChallenge.ts`) to project a
+  legacy-shaped object from `seasons.json`/`quests.json`/`progress.json` — and that projection
+  **drops `coach_since` entirely**, so the badge silently resets to `season.start_date` on every
+  new season. This is functionally the same bug issue #179 was filed and closed for, regressed by
+  the ledger split and never re-caught because nothing tests the split-ledger path against this
+  badge specifically.
+
+**Fix, both platforms**: read `profile.json.coach_since` directly instead of going through
+`challenge_v2`'s shape at all (already the correct source per ADR 0018 — `coachDay.ts`'s
+`coachDayNumber()` already does this server-side, just isn't currently wired to either client's
+badge). Also fix `UserFacingError.swift:66`'s `raw.contains("challenge_v2")` string match (stops
+matching once migrated) and stale comments at `CoachSetupState.swift:48`, `OnboardingHints.swift:36`,
+`CoachChatView.swift:39,43,488,662`, `CoachChatPreviewData.swift:8`. The iOS half is iOS Builder's
+territory per `AGENTS.md` routing — flag for iOS Builder review even if a Tech Lead-directed agent
+makes the mechanical fix; the web half is UI Expert's.
 
 ## Async closing (design decision needed, not built)
 
