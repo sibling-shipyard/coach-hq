@@ -1,9 +1,13 @@
-# Part 3 — migrate coach-skanda, coach-akash, and fix carve-skeleton.mjs
+# Migrate coach-skanda, coach-akash, and fix carve-skeleton.mjs
+
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
 
 ## Branch
 
-Stacks after part 2's tip (doesn't need any code from parts 1/2, just sequenced there per the
-stack order).
+Moved here from repo-root `skanda-part3-migration-and-skeleton.md` once parts 1, 2, and 4 of that
+4-file plan shipped (docs rewrite, plan-root cleanup, eng/ref-docs triage — PRs #452, #451, #453).
+This is the one part of that plan still open. Stacks on top of the current PR chain's tip, same as
+everything else in this stack.
 
 **Not a coach-hq PR in the usual sense for the athlete-repo halves.** `carve-skeleton.mjs` (Part
 A below) is an HQ PR — stacks on the chain, needs Tech Lead review same as any code change.

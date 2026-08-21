@@ -28,7 +28,7 @@ unmigrated athlete repos, not the shape every page is written against.
 
 ## Plan
 
-**Branch:** stacks after `skanda-part3-migration-and-skeleton.md` (both live athlete repos need to
+**Branch:** stacks after `coach-repo-migration-and-skeleton.md` (both live athlete repos need to
 actually be migrated before this can retire the legacy path for real) and
 `docs/plans/coach-chat-redesign-testing.md`'s frontend section (need to know both schema shapes
 render correctly *today*, via the shim, before rewiring — a regression during rewiring is easier

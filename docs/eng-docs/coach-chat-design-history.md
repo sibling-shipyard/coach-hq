@@ -320,7 +320,7 @@ eng-doc since it shipped as designed). Split 2's design (`docs/plans/coach-inten
 "model reports facts as constrained actions, server writes") was never built as a direct
 continuation of this PR's stack — it's now shipped anyway, via the later #378 redesign's
 Action-field design rule (`gemini-flow.md`) instead. `coach-intent-schema.md` itself was deleted
-once confirmed superseded (skanda-part4-eng-ref-docs-cleanup.md).
+once confirmed superseded (the eng/ref-docs triage PR (#453)).
 
 **Split 1 / P0 (shipped as designed):**
 - `resolveFileUpdate` returns `{ok, path, reason}` instead of a bare `null` — every silent drop

@@ -29,7 +29,7 @@ by construction test the code against inputs someone already thought of.
 
 ## Plan
 
-**Branch:** stacks after `skanda-part3-migration-and-skeleton.md` lands (needs a migrated repo to
+**Branch:** stacks after `coach-repo-migration-and-skeleton.md` lands (needs a migrated repo to
 test the split-ledger path for real) — but can start against `coach-akash` pre-migration too, to
 separately confirm the legacy-schema path still works. Do both, not just the migrated one.
 
