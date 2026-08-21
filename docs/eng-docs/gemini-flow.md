@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-20
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
 
 ## Context
 
