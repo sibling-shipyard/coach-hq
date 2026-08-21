@@ -70,6 +70,7 @@ must not depend on prompt text.
 | `workoutSchema.ts`     | Structural runtime validation for workout/template JSON                                               |
 | `coachSinceStamp.ts`   | Load profile state and stamp `coach_since` once when First Session completes                          |
 | `coachTurn.ts`         | Orchestrate message parsing, context loading, Gemini, write assembly, and commit responses            |
+| `turnWrites/`          | One file per `GeminiReply` action field's write-builder — see its own [README](_lib/turnWrites/README.md) |
 | `onboardingWrites.ts`  | Normalize native onboarding hints and suppress duplicate greet commits                                |
 | `fspWrites.ts`         | Restrict ordinary-turn persistence to incremental First Session writes                                |
 
