@@ -109,19 +109,7 @@ extreme-value case (a 0-day gap, a single-session sport).
 - Regenerating templates for existing athletes, migration script for workout-backend-wiring's
   schema additions — migration/backfill territory, same owner as `skanda-part3`.
 
-## Stack-wide real end-to-end verification (once, after the current stack merges)
+## Stack-wide real end-to-end verification
 
-Every PR in the SOUL-catchup stack has been verified mechanically per-PR (unit tests, `tsc
---noEmit`, `compose-soul.mjs --check` where relevant), but nothing has been run against a real
-athlete repo yet:
-
-1. Fresh scratch branch off a real athlete repo.
-2. Run the sync/generator pipeline for real so `gen/dashboard_snapshot.json` and
-   `gen/athlete_insights.json` are genuinely generated, not synthetic fixtures.
-3. A full first session and a few turns of ordinary chat via the hosted API, checking real
-   committed files via the GitHub API after each turn.
-4. Open the webapp dashboard against a migrated repo, confirm quest/season widgets render.
-5. Confirm the Fitness Snapshot section reads sensibly for a real athlete's real activity mix, and
-   Coach's FSP behavior references it correctly.
-6. BYOB, separately: a first session and ordinary chat via Claude Code, confirming the SOUL text
-   works for the terminal runtime too.
+Promoted to its own file — `docs/plans/coach-chat-redesign-testing.md` — since it's the biggest
+single piece of remaining risk in this redesign, not a minor item on this list. See that doc.
