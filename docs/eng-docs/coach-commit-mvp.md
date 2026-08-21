@@ -1,6 +1,6 @@
 # Coach commit MVP — one file, append-only
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-20 · Author: Skanda · **Split 1 of 2** (Split 2 = ledger simplification + full intent schema, Akash — [`../plans/coach-intent-schema.md`](../plans/coach-intent-schema.md))
+> Status: Current · Owner: UI Expert · Verified: 2026-08-21 · Author: Skanda · **Split 1 of 2** (Split 2 = ledger simplification + full intent schema, Akash — shipped since via the full #378 redesign rather than as a direct continuation of this doc's plan; see `coach-data-schema.md`)
 
 ## Context
 

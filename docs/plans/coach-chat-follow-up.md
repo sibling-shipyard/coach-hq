@@ -24,10 +24,11 @@ and whether the added cost is worth it.
 
 ## 3. More golden transcripts
 
-The harness ships a small set of transcripts (greeting, ordinary, close happy-path, false-
-positive close signal, coach-note-only-close) - enough to exercise the main branches, short of
-the original 15-25 target from the first eval plan. More are cheap to add once real usage data
-shows which scenarios are actually worth extra coverage.
+The harness now ships 15 transcripts (greeting, ordinary, close happy-path, false-positive close
+signal, coach-note-only-close, plus one per action field added since: quest_event, injury_event,
+profile_update, template_edit x2, session_plan, week_plan, session_reconcile, plan_edit x2) - at
+the low end of the original 15-25 target. More are cheap to add once real usage data shows which
+scenarios are actually worth extra coverage.
 
 ## 4. CI wiring for the eval harness
 
@@ -35,10 +36,12 @@ shows which scenarios are actually worth extra coverage.
 manual for now, not a GitHub Actions gate. Worth reconsidering once cost/rate-limit headroom is
 less of a concern.
 
-## 5. Pre-existing gaps in coach-chat-flow.md's own "Deferred" section
+## 5. Pre-existing gaps in coach-chat-daily.md's own "Deferred" section
 
-No streaming responses, dead `EmptyChatPane` code, day-number/season-reset semantics
-(issue #179). Untouched by any recent pass.
+No streaming responses, dead `EmptyChatPane` code. Day-number/season-reset semantics (issue #179)
+is no longer accurately described as "untouched" - it was fixed by ADR 0018, then regressed by
+the ledger split for migrated repos on a different code path; see
+`docs/plans/coach-chat-open-items.md`'s day-count-badge entry for the current, verified state.
 
 ## 6. Background-finish redesign for closing turns ("async close")
 
@@ -56,29 +59,24 @@ latency variance, which isn't fully in our control. Full three-state-response/po
 `ASYNC-CLOSE-PLAN.md` as of PR #287 - see git history for the full spec if this gets picked up.
 Pick this up whenever it's worth the engineering time relative to other priorities.
 
-## 7. Gemini reliability gap — promising lead, not yet confirmed durable
+The redesign stack independently re-raised this same idea for a different reason (write/commit
+latency after Parts 1-3's split-file writes, not just Gemini call latency) - see
+`docs/plans/coach-chat-open-items.md`'s "Async closing" entry for the two open product questions
+that need answering before either version gets built. One design, two motivations - don't build
+twice.
 
-The full-featured closing-turn ask (checklist gate, `file_updates`, retry-on-mismatch safety net,
-per PR #287) was found unreliable via extensive live testing: Gemini could claim in `reasoning`
-that it saved specific content while leaving the actual structured fields empty, and once
-produced a degenerate repetition loop inside `title` that broke JSON validity outright. See
-`docs/eng-docs/coach-chat-design-history.md`'s 2026-08-14/15 entry for the full account.
+## 7. Gemini reliability gap — resolved by the redesign's Action-field design rule
 
-A follow-on branch (`coach-chat-reliability-debug`) stripped the closing-turn ask down in stages -
-removing the checklist/`file_updates`/retry machinery, then `title`, then `reasoning` itself
-(theory: `reasoning` was acting as a release valve, letting the model narrate its intent without
-transcribing it into the real field). With the ask down to just `coach_note` + `session_closed`
-(+ required `reply`), saves became reliable across every scenario tested: 6/6 manual live tests
-(concrete facts, soft/reflective content with no hard facts - previously the least reliable case -
-bare "wrap" with nothing said, multi-fact conversations, answered/unanswered clarifying
-questions) and 4/5 on the eval harness (the one failure was a transient Gemini 503, not a code
-issue).
-
-**Not yet decided:** whether this generalizes beyond the tested scenarios, and if so, how (or
-whether) to build back up from this minimal baseline - the original file_updates/checklist
-mechanism existed for real reasons (state.md injury flags, challenge_v2.json quest tracking,
-sleep_log.json) that a coach_note-only design doesn't cover at all. More testing needed before
-committing to this direction for real.
+Was: "not yet decided whether the stripped-down `coach_note`-only design generalizes, or how to
+build back real coverage for injury flags/quest tracking/etc. without it." Confirmed resolved -
+the redesign's Action-field design rule (`gemini-flow.md`) is exactly that answer: every new fact
+field (`profile_update`, `quest_event`, `injury_event`, `memory_update`, and the rest) is built to
+the same four constraints the `coach_note` strip-down discovered by accident (server owns all
+bookkeeping, one field shipped and tested in isolation at a time, constrained values over free
+text, commitment fields ordered before `reply`). The full-featured retry/honesty-guard/`title`
+machinery this section originally worried about rebuilding was never brought back - the schema
+grew back to real coverage through many small constrained fields instead, and stayed reliable
+doing it. See `coach-data-schema.md`'s "What Gemini can write" table for the current full set.
 
 ## 8. Model options ruled out while chasing the reliability gap (reference)
 
@@ -92,11 +90,8 @@ Confirmed directly against the API, not assumed - worth knowing before re-trying
 - `gemini-3.7-flash` (pinned) - same repetition-loop instability as `gemini-flash-latest`, so
   pinning away from the moving "-latest" alias didn't isolate or fix anything on its own.
 
-## 9. Close-trace / honesty-guard cross-reference (P2, deferred from #287's re-review)
+## 9. Close-trace / honesty-guard cross-reference — moot, removed
 
-Applies to the full-featured (pre-strip-down) design: the zero-file_updates-and-no-coach_note
-warning and `hasUnsavedContentMismatch`'s retry/honesty guard were two independently-computed
-diagnostics with no shared correlation - they check overlapping but not identical conditions, so
-they could disagree with nothing in the logs saying they're describing the same event. Not a
-data-loss risk, just an observability gap. Only relevant if the full-featured retry/honesty-guard
-mechanism comes back in some form - moot if the stripped-down design (item 7) is kept instead.
+Applied only to the full-featured (pre-strip-down) design's retry/honesty-guard machinery. Item 7
+confirms that machinery was never rebuilt - the redesign took the constrained-action-field path
+instead - so this observability gap has no surface to exist on. Nothing to do.

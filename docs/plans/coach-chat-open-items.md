@@ -39,14 +39,13 @@ makes the mechanical fix; the web half is UI Expert's.
 
 ## Async closing (design decision needed, not built)
 
-The athlete's HTTP request blocks on the full closing pipeline (Gemini call, every write, the
-GitHub commit) — worse when an action field triggers a second Gemini call (`template_edit`'s
-content generation, `generateInitialTemplates`). Proposed shape: keep the reply synchronous,
-detach write/commit/retry to run via Vercel's `waitUntil` after the response returns. The
-pipeline's atomic-commit + upsert-by-id discipline is a good sign this is safely retryable, not a
-rewrite.
+Same idea `docs/plans/coach-chat-follow-up.md`'s item 6 already tracks in full (origin, prior
+`ASYNC-CLOSE-PLAN.md` design, PR #283/#287 history) — re-raised independently here for a second
+motivation: the redesign's split-file writes add their own commit latency on top of the Gemini
+call. One design, don't build twice; see that doc for the shape (`waitUntil`, synchronous reply,
+detached write/commit).
 
-**Two open questions, need an explicit answer before building:**
+**Two open questions, need an explicit answer before building either version:**
 - `waitUntil`'s actual time cap vs. worst-case turn latency (a `template_edit` chain triggering a
   second Gemini call) — confirm the cap is sufficient before committing to this design.
 - What happens when a background write still fails after every retry — silent forever, or does it

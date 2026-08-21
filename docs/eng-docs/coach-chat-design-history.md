@@ -315,9 +315,12 @@ commits over 30 days, 0 wrote a coach file — only `chat_history.json` landed e
 `coach-akash-suresh` showed the same shape. Split into two design docs to keep scope tight:
 `coach-commit-mvp.md` (Split 1/P0 — prove a minimal fix on one file) and `docs/plans/coach-intent-schema.md`
 (Split 2/P1 — extend the same pattern to the rest of the coach files). Summarized here as the
-dated historical record; see those docs directly for full detail (`coach-commit-mvp.md` stays a
-live eng-doc since Split 1 shipped as designed, `coach-intent-schema.md` lives in `docs/plans/`
-since Split 2 was never built).
+dated historical record; see `coach-commit-mvp.md` for Split 1's full detail (stays a live
+eng-doc since it shipped as designed). Split 2's design (`docs/plans/coach-intent-schema.md`,
+"model reports facts as constrained actions, server writes") was never built as a direct
+continuation of this PR's stack — it's now shipped anyway, via the later #378 redesign's
+Action-field design rule (`gemini-flow.md`) instead. `coach-intent-schema.md` itself was deleted
+once confirmed superseded (skanda-part4-eng-ref-docs-cleanup.md).
 
 **Split 1 / P0 (shipped as designed):**
 - `resolveFileUpdate` returns `{ok, path, reason}` instead of a bare `null` — every silent drop

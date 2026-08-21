@@ -1,6 +1,6 @@
 # challenge_v2.json — Canonical Schema (version 4)
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Locked: 2026-07-26 · ADR: [0006](../../kdb/decisions/0006-unified-challenge-v2-schema.md) · Path: `user_data/ledger/challenge_v2.json`
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-21 · Locked: 2026-07-26 · ADR: [0006](../../kdb/decisions/0006-unified-challenge-v2-schema.md) · Path: `user_data/ledger/challenge_v2.json` (retired for any repo migrated to the split ledger — see `coach-data-schema.md`; this doc describes the shape a not-yet-migrated repo, e.g. `coach-akash`, still has on disk)
 
 ## Context
 
