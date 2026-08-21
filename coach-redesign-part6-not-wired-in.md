@@ -75,6 +75,59 @@ logged workout, not deferred to a weekly rewrite. Nothing left to revisit here.)
   templates are backend-generated per athlete rather than hand-authored and shipped with the app.
   iOS Builder's territory — revisit once the generic-library pipeline has run for real athletes.
 
+## From part 9 (`dashboard_snapshot.json`/`generate_quest_log.py` retirement, PR #439)
+
+Found during PR #439 review, deliberately deferred rather than fixed in that PR (out of scope,
+not blocking):
+
+- **Stale doc references to `quest_log`/`aggregate`, outside `platform/soul/`**:
+  `docs/plans/coach-intent-schema.md` still says to regenerate a quest log; several older
+  design/history docs still use "quest log" or "aggregate" terminology. Mostly historical
+  (`docs/plans/` is delete-on-ship anyway — see `AGENTS.md`), not runtime instructions. Fix
+  opportunistically if you're already touching one of these files for something else; not worth a
+  dedicated pass.
+- **Naming-only cosmetics, not bugs, don't bother**: UI code has local variables still named
+  `aggregate`; ADR 0020 and some architecture prose still use "aggregate" as the general concept
+  word, not a reference to the deleted file. Renaming these would be cosmetic/historical
+  rewriting, not a correctness fix — leave them.
+- **`platform/scripts/provision-user.sh`'s legacy overlay** maps `data/dashboard_snapshot.json`
+  from a very old (`training/`-era) legacy repo layout as an *optional* copy (`required=0` — a
+  missing source just warns and skips, doesn't fail provisioning). Old legacy source repos likely
+  still have `data/aggregate.json` under the old name, so this specific copy will warn-and-skip on
+  them. Confirmed non-fatal and confirmed this script is one-time-operator tooling, not part of
+  any current athlete's ongoing pipeline — leave it, not worth chasing.
+
+(Already fixed directly, not deferred: `engine/README.md`'s "aggregate, quest log/history"
+description and `docs/plans/coach-chat-modularization.md`'s reference to the deleted
+`generate-widget-snapshots-from-aggregate.bundle.js` — both were live enough to be actively
+misleading, not just historical, so they were corrected rather than listed here.)
+
+## Pre-existing findings surfaced during PR #439 review (neither introduced nor worsened by it)
+
+Both checked directly: PR #439's diff doesn't touch either file, and its new split-ledger code
+path doesn't change either bug's reachability. Real, but the wrong PR to fix them in — filed as
+separate issues instead of folded into #439's scope.
+
+- **`ui/client/src/components/home-warm/warmHomeModel.ts:497`** —
+  `challenge.phase?.current_block.name` optional-chains `phase` but not `current_block` under it.
+  Introduced by PR #420 (Part 3), already on `main`, unrelated to #439. Not reachable via #439's
+  new `splitLedgerAsChallenge()` bridge (it never sets `phase` at all — migrated athletes always
+  short-circuit safely at `.phase?.`). Only a real crash risk for an **unmigrated** athlete whose
+  legacy `challenge_v2.json` has `phase` set without `current_block` — the type declares
+  `current_block` required under `Phase`, so this depends on real-world data not honoring that
+  type, same class of risk this codebase has hit before (`CurrentWeekContract`'s `coach_read`
+  shipping `null` despite being typed required, per `generate-widget-snapshots-from-dashboard-
+  snapshot.ts`'s own comment). Fix: guard with `?.` on `current_block` too, or confirm no live
+  unmigrated repo can actually produce that shape and drop the guard requirement.
+- **`ui/client/src/lib/activities.ts:100-102`** — `getTrainingCategory()` trusts
+  `activity.category` as already a valid `TrainingCategory` the moment it's truthy
+  (`if (activity.category) return activity.category as TrainingCategory;`), skipping the
+  name-regex fallback classification entirely whenever `category` is set to anything, even a
+  mismatched/misspelled value. Predates #439 (from `412fe9d`), untouched by it. Risk is silent
+  misclassification, not a crash — worth validating `activity.category` against the real
+  `TrainingCategory` enum before trusting it, falling through to the regex classifier when it
+  doesn't match, rather than trusting it blindly.
+
 ## Your annotations
 
 (space for anything else that falls out of parts 2-5 review)

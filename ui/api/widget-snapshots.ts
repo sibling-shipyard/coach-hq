@@ -1,15 +1,15 @@
 /**
  * widget-snapshots.ts — compute Warm Instrument Home snapshots server-side (ADR 0005).
  *
- * Fetches gen/aggregate.json from the athlete's GitHub repo, runs the same TS models as
+ * Fetches gen/dashboard_snapshot.json from the athlete's GitHub repo, runs the same TS models as
  * the web home dashboard, and returns WidgetSnapshotsFile JSON. Athlete repos never need
  * carved model code or a committed widget_snapshots.json.
  *
  * Auth: session cookie (web) or Bearer token + X-Coach-Repo (iOS).
  */
-import { fetchRepoAggregate } from "./auth/_lib/github-aggregate.js";
-import type { RepoAggregateInput } from "./auth/_lib/generate-widget-snapshots-from-aggregate.js";
-import { generateWidgetSnapshotsFromAggregate } from "./auth/_lib/generate-widget-snapshots-from-aggregate.bundle.js";
+import { fetchRepoDashboardSnapshot } from "./auth/_lib/github-dashboard-snapshot.js";
+import type { DashboardSnapshotInput } from "./auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.js";
+import { generateWidgetSnapshotsFromDashboardSnapshot } from "./auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
 
@@ -28,18 +28,18 @@ export default {
       if (resolved instanceof Response) return resolved;
       auth = resolved;
 
-      const fetched = await fetchRepoAggregate(auth.repo_full_name, auth.gh_token);
+      const fetched = await fetchRepoDashboardSnapshot(auth.repo_full_name, auth.gh_token);
       if ("error" in fetched) {
         return withSessionCookie(Response.json({ error: fetched.error }, { status: fetched.status }), auth.setCookie);
       }
 
-      const snapshots = generateWidgetSnapshotsFromAggregate(
-        fetched.aggregate as RepoAggregateInput,
+      const snapshots = generateWidgetSnapshotsFromDashboardSnapshot(
+        fetched.dashboardSnapshot as DashboardSnapshotInput,
       );
       if (!snapshots) {
         return withSessionCookie(
           Response.json(
-            { error: "No challenge_v2.json in aggregate — complete coach intake first" },
+            { error: "No complete quest ledger in dashboard snapshot — complete coach intake first" },
             { status: 404 },
           ),
           auth.setCookie,

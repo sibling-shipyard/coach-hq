@@ -53,10 +53,10 @@ Per-user data lives entirely as files in `user_data/`:
 | `coach/state.md` | ~14KB cited as a risk in scaling-plan | free text, rewritten each session | grows slowly, no pruning |
 | `coach/coach_notes.md` | — | append-only journal | unbounded |
 | `coach/sleep_log.json` | ~1KB/6mo | one entry/night | linear, small |
-| `gen/aggregate.json` | **~2.8MB** (confirmed in `ui/api/repo-file.ts` comments — base64 wrapping is avoided specifically because it exceeds ~1MB) | fully regenerated every sync run, whole-file | not persistent state, rebuildable, but this is the one file the *entire dashboard* fetches on every session |
+| `gen/dashboard_snapshot.json` | **~2.8MB** (confirmed in `ui/api/repo-file.ts` comments — base64 wrapping is avoided specifically because it exceeds ~1MB) | fully regenerated every sync run, whole-file | not persistent state, rebuildable, but this is the one file the *entire dashboard* fetches on every session |
 
 **Raw byte growth is roughly linear per user** — maybe 300-500KB/year of real source data.
-The 2.8MB `aggregate.json` is a derived/rebuildable artifact, not new information, but it's
+The 2.8MB `dashboard_snapshot.json` is a derived/rebuildable artifact, not new information, but it's
 the file the UI actually pays to fetch every session (see "Read path" below).
 
 **The actual scaling problem is git-specific, not data-volume:** every sync is a new commit;
@@ -86,17 +86,17 @@ flowchart TB
 
     subgraph GH["GitHub"]
         UserRepo["coach-&lt;user&gt; repo\n(user_data/*, gen/*)"]
-        Actions["sync.user.yml\n(regenerate gen/aggregate.json)"]
+        Actions["sync.user.yml\n(regenerate gen/dashboard_snapshot.json)"]
     end
 
     Gemini["Gemini API"]
 
     Web -- "fetch /api/repo-file" --> RepoFile
-    RepoFile -- "GET contents/gen/aggregate.json\n(~2.8MB, every session)" --> UserRepo
+    RepoFile -- "GET contents/gen/dashboard_snapshot.json\n(~2.8MB, every session)" --> UserRepo
 
     Web -- "chat turn" --> CoachChat
     iOS -- "chat turn" --> CoachChat
-    CoachChat -- "read SOUL.md, state.md, quest_log.md" --> UserRepo
+    CoachChat -- "read SOUL.md, state.md, rendered quest context" --> UserRepo
     CoachChat -- "call LLM" --> Gemini
     CoachChat -- "close: atomic commit\n(blob→tree→commit→ref)" --> UserRepo
 
@@ -160,13 +160,13 @@ key can't ship to the client. No background regeneration job — derived views u
 I read the real code (`ui/api/coach-chat.ts`, `ui/api/_lib/githubGitData.ts`,
 `ios/CoachHQ/CoachHQ/Services/{GitHubAuthManager,HealthKitSyncManager,GitHubAPIClient}.swift`,
 `ui/api/repo-file.ts`, `ui/client/src/hooks/useRepoData.ts`, `engine/.github/workflows/sync.user.yml`,
-`engine/scripts/{regenerate_derived.py,build-aggregate.mjs}`) to get this exactly right, not
+`engine/scripts/{regenerate_derived.py,build-dashboard-snapshot.mjs}`) to get this exactly right, not
 from the design docs alone.
 
 ### Coach chat (web + iOS), today
 
 Both clients hit one endpoint, `ui/api/coach-chat.ts`. Per ordinary turn: reads exactly two
-files fresh from GitHub (`user_data/coach/state.md`, `gen/quest_log.md` — **not**
+files fresh from GitHub (`user_data/coach/state.md`, `rendered quest context` — **not**
 `chat_history.json`, which is only touched at close/list time; SOUL is no longer fetched per repo,
 it's bundled at build time into `ui/api/_generated/soul.ts` per ADR 0022 and held in a shared
 Gemini explicit cache, `coach-chat/_lib/soulCache.ts`), calls Gemini (`gemini-flash-latest`,
@@ -217,7 +217,7 @@ GitHub-specific `selectedRepo` (repo slug) concept with no non-GitHub analog.
 
 ### Dashboard read path, today
 
-One file, one call: `ui/api/repo-file.ts` fetches `gen/aggregate.json` (~2.8MB) from GitHub's
+One file, one call: `ui/api/repo-file.ts` fetches `gen/dashboard_snapshot.json` (~2.8MB) from GitHub's
 Contents API using the raw media type (base64 would blow past GitHub's ~1MB inline cap).
 Caching is exactly two layers, both thin: `Cache-Control: private, max-age=180` on the HTTP
 response (comment: "data changes at most once/day, short cache is plenty"), and a
@@ -227,11 +227,11 @@ session (cleared on hard reload). No server-side cache, no ETag, no partial/incr
 (`Home`, `Workouts`, `MonthlyAnalytics`, `CoachChat`, sport-analytics pages, workout timer)
 reads its own slice off this one shared object rather than fetching independently.
 
-`gen/aggregate.json` itself is produced by real computation, not passthrough: `sync.user.yml`
+`gen/dashboard_snapshot.json` itself is produced by real computation, not passthrough: `sync.user.yml`
 (triggered only by iOS pushes touching `hist/**`/`challenge_v2.json`/`sleep_log.json`) runs
-`regenerate_derived.py` (thin orchestrator calling `generate_quest_log.py`,
+`regenerate_derived.py` (thin orchestrator calling `renderQuestContext`,
 `generate_quest_history.py`, ~700+ lines total of quest-state derivation) then
-`build-aggregate.mjs` (assembles the aggregate, applies a 7-day cutoff prune to sessions,
+`build-dashboard-snapshot.mjs` (assembles the aggregate, applies a 7-day cutoff prune to sessions,
 sorts activities). The web "Sync" trigger button (`trigger-sync.ts`) was already removed
 (commit `b281cfe`) — sync is iOS-push-only today, another sign the git-centric design keeps
 narrowing rather than widening.
@@ -399,8 +399,8 @@ out from HQ, per `scaling-plan.md` §4).
 - `ui/api/repo-file.ts`'s single 2.8MB-file fetch goes away. Instead, the dashboard queries
   exactly the tables/columns each page actually needs — `Home.tsx` doesn't need to download
   workout templates or full chat history just to render the quest widget.
-- The **real computation** currently done by `generate_quest_log.py` / `generate_quest_history.py`
-  / `build-aggregate.mjs` becomes either: (a) Postgres views/materialized views recomputed on
+- The **real computation** currently done by `renderQuestContext` / `generate_quest_history.py`
+  / `build-dashboard-snapshot.mjs` becomes either: (a) Postgres views/materialized views recomputed on
   write, or (b) computed on read in the API layer with normal SQL aggregation instead of
   Python/Node scripts reading whole JSON files into memory. Either removes the "regenerate
   and commit the entire aggregate file on every sync" pattern — updates become incremental
@@ -411,7 +411,7 @@ out from HQ, per `scaling-plan.md` §4).
   of only refreshing on next full load — direct UX improvement, not just an internals
   simplification.
 - The current `schema_version` gate (`SUPPORTED_SCHEMA_VERSION` duplicated across
-  `useRepoData.ts`/`build-data.mjs`/`build-aggregate.mjs`) maps onto normal Postgres schema
+  `useRepoData.ts`/`build-data.mjs`/`build-dashboard-snapshot.mjs`) maps onto normal Postgres schema
   migrations (a migrations table + versioned SQL files) — a much more standard mechanism than
   a hand-checked integer in three separate files.
 - Local dev (`import.meta.env.DEV` path using `shared/golden-dataset/`) is unaffected — that's
@@ -479,7 +479,7 @@ users is more likely the Gemini API bill (unchanged by this migration) than Supa
    `coach-chat.ts` → Supabase transaction, deleting `githubGitData.ts`'s retry/idempotency
    code (Postgres transactions replace it outright).
 4. Port read paths: `ui/api/repo-file.ts` + `useRepoData.ts`'s single-file fetch → targeted
-   Supabase queries per page; retire `gen/aggregate.json` and the Actions pipeline that builds it.
+   Supabase queries per page; retire `gen/dashboard_snapshot.json` and the Actions pipeline that builds it.
 5. Decide what (if anything) still needs git: nothing per-user. The **engineering** repo
    (`coach-phelps-hq`) keeps using git normally — only the per-user data layer changes.
    `SOUL.md` propagation (currently a committed copy per fork) could simplify to "shared,

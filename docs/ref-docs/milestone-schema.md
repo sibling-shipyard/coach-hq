@@ -6,7 +6,7 @@
 
 **Source of truth:** `user_data/ledger/challenge_v2.json` → `milestones[]`
 
-**Consumers:** Build Phase widget on the web dashboard; `scripts/generate_quest_log.py` (milestones table).
+**Consumers:** Build Phase widget on the web dashboard; `coachContext.ts renderQuestContext` (milestones table).
 
 ## Decision
 

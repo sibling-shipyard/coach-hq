@@ -1,5 +1,8 @@
 // client/src/lib/activities.ts
 function getTrainingCategory(activity) {
+  if (activity.category) {
+    return activity.category;
+  }
   const name = activity.name;
   if (/^Run\s*#/i.test(name)) return "run";
   if (/^Foundation\s*#/i.test(name)) return "foundation";
@@ -130,7 +133,7 @@ function recordedDays(activities, monday) {
           template_id: null,
           session_file: null,
           coach_note: null,
-          completion_activity_ids: [activity.id]
+          completion_activity_ids: [String(activity.id)]
         };
       })
     };
@@ -155,7 +158,6 @@ function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new 
   const disciplines = new Set(
     weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity)))
   ).size;
-  const evidenceRefs = weekActivities.map((activity) => `activity:${activity.id}`);
   const latestTimestamp = weekActivities.map((activity) => activity.start_date_local).sort().at(-1) ?? `${startDate}T00:00:00`;
   return {
     schema_version: 1,
@@ -165,24 +167,20 @@ function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new 
       start_date: startDate,
       end_date: endDate,
       status: "active",
-      phase_name: challenge.phase?.name ?? challenge.challenge?.name ?? "Current block",
-      block_name: challenge.phase?.current_block.name ?? "This week",
       focus: "Recorded activity log for the current calendar week.",
       guardrails: []
     },
     coach_read: {
       headline: `${weekActivities.length} session${weekActivities.length === 1 ? "" : "s"} logged.`,
       body: `${activeDays} active day${activeDays === 1 ? "" : "s"} \xB7 ${(totalMinutes / 60).toFixed(1)} hours \xB7 ${disciplines} discipline${disciplines === 1 ? "" : "s"}. Factual log summary; no training prescription is inferred.`,
-      tone: "steady",
-      confidence: "high",
-      evidence_refs: evidenceRefs,
       valid_from: startDate,
       valid_until: endDate
     },
     days: recordedDays(weekActivities, monday),
     coach_comments: [],
     updated_at: latestTimestamp,
-    updated_by: "activity-log-adapter"
+    updated_by: "activity-log-adapter",
+    trace_id: "live-week-contract"
   };
 }
 
@@ -972,6 +970,23 @@ function buildQuest(mainQuest) {
     percent: floor > 0 ? Math.min(100, completed / floor * 100) : 0
   };
 }
+function buildCountTargetQuest(mainQuest, activities, challenge) {
+  const sinceRaw = challenge.season?.start_date ?? challenge.challenge?.start_date;
+  const since = sinceRaw ?? "0000-01-01";
+  const pattern = mainQuest.count_pattern ? new RegExp(mainQuest.count_pattern, "i") : null;
+  const completed = pattern ? activities.filter(
+    (a) => a.start_date_local.slice(0, 10) >= since && pattern.test(a.name)
+  ).length : 0;
+  const floor = mainQuest.target ?? 0;
+  return {
+    name: mainQuest.name,
+    completed,
+    floor,
+    loaded: 0,
+    skill: 0,
+    percent: floor > 0 ? Math.min(100, completed / floor * 100) : 0
+  };
+}
 function buildWarmHomeModel(activities, challenge, syncStatus, contract) {
   const syncHealthy = syncStatus.status === "success" || syncStatus.status === "none";
   const start = /* @__PURE__ */ new Date(`${contract.week.start_date}T00:00:00`);
@@ -982,8 +997,11 @@ function buildWarmHomeModel(activities, challenge, syncStatus, contract) {
       day: "numeric",
       month: "long"
     }),
-    phaseName: contract.week.phase_name || challenge.phase?.name || challenge.challenge?.name || "Current block",
-    blockName: contract.week.block_name || challenge.phase?.current_block.name || "This week",
+    // part3-rollout dropped week.phase_name/week.block_name from current_week.json (dead
+    // references to the phase/current_block concept Part 2 already removed from seasons.json) -
+    // fall back straight to challenge.phase, same source SportSpine.tsx/Home.tsx still use.
+    phaseName: challenge.phase?.name || challenge.challenge?.name || "Current block",
+    blockName: challenge.phase?.current_block.name || "This week",
     syncLabel: formatSyncAge(latestActivityTimestamp(activities) ?? syncStatus.timestamp),
     syncHealthy,
     dataStatus: contract.data_status,
@@ -993,7 +1011,7 @@ function buildWarmHomeModel(activities, challenge, syncStatus, contract) {
     coachRead: contract.coach_read,
     commitments: buildCommitments(activities),
     planDays: buildPlanDays(contract),
-    quest: buildQuest(challenge.main_quest)
+    quest: challenge.main_quest.type === "count_target" ? buildCountTargetQuest(challenge.main_quest, activities, challenge) : buildQuest(challenge.main_quest)
   };
 }
 
@@ -1166,12 +1184,35 @@ function buildEngineSnapshot(activities, engine) {
     doseRows
   };
 }
+function eligibleDaysSince(startDate, endDate, today) {
+  const start = /* @__PURE__ */ new Date(`${startDate}T00:00:00`);
+  const end = endDate ? /* @__PURE__ */ new Date(`${endDate}T00:00:00`) : today;
+  const effectiveEnd = end.getTime() < today.getTime() ? end : today;
+  if (effectiveEnd < start) return 0;
+  return Math.floor((effectiveEnd.getTime() - start.getTime()) / DAY_MS3) + 1;
+}
 function buildQuestSnapshot(challenge, quest) {
   const palette = ["#7c6f9e", "#a8702c"];
+  const today = /* @__PURE__ */ new Date();
   const sideQuests = challenge.quests.slice(0, 2).map((item, index) => {
-    const completedDates = item.completed_dates?.length ?? 0;
-    const value = item.current ?? completedDates;
-    const target = item.target ?? Math.max(value, 1);
+    let value;
+    let target;
+    if (item.type === "daily_streak") {
+      const eligible = eligibleDaysSince(item.start_date, item.end_date, today);
+      if (item.polarity === "default_done") {
+        const missed = item.missed_dates?.length ?? 0;
+        const excused = item.excused_dates?.length ?? 0;
+        value = Math.max(0, eligible - missed - excused);
+        target = eligible;
+      } else {
+        value = item.completed_dates?.length ?? 0;
+        target = eligible;
+      }
+    } else {
+      const completedDates = item.completed_dates?.length ?? 0;
+      value = item.current ?? completedDates;
+      target = item.target ?? Math.max(value, 1);
+    }
     return {
       id: item.id,
       name: item.name,
@@ -1494,7 +1535,7 @@ function buildCoachReadSnapshot(model, engine, quest, dataMode) {
       month: "short",
       day: "numeric"
     }).toUpperCase(),
-    body: [model.coachRead.headline, model.coachRead.body].filter(Boolean).join(" "),
+    body: [model.coachRead?.headline, model.coachRead?.body].filter(Boolean).join(" "),
     eyebrow: dataMode === "live" ? "LOG" : void 0,
     signature: dataMode === "live" ? "\u2014 COACH" : void 0,
     actionLabel: dataMode === "live" ? "Inspect evidence" : void 0,
@@ -1592,12 +1633,57 @@ function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contrac
   };
 }
 
-// api/auth/_lib/generate-widget-snapshots-from-aggregate.ts
-function isUnavailableWeek(week) {
-  return !week || week.data_status === "unavailable";
+// client/src/lib/splitLedgerChallenge.ts
+function splitLedgerAsChallenge(ledger) {
+  const season = ledger.seasons.seasons.find((item) => item.id === ledger.seasons.current_season_id);
+  if (!season || !ledger.quests.main_quest) return null;
+  const rowsFor = (questId) => ledger.progress.rows.filter((row) => row.quest_id === questId);
+  const questWithProgress = (quest) => {
+    const rows = rowsFor(quest.id);
+    const latestValue = [...rows].reverse().find((row) => row.value != null)?.value;
+    return {
+      ...quest,
+      status: quest.status === "graduated" ? "completed" : quest.status,
+      completed_dates: rows.filter((row) => row.status === "completed").map((row) => row.date),
+      missed_dates: rows.filter((row) => row.status === "missed").map((row) => row.date),
+      excused_dates: rows.filter((row) => row.status === "excused").map((row) => row.date),
+      ...latestValue != null ? { current: Number(latestValue) } : {}
+    };
+  };
+  const mainRows = rowsFor(ledger.quests.main_quest.id);
+  return {
+    version: 4,
+    season: { name: season.name, start_date: season.start_date, end_date: season.end_date },
+    weekly_targets: Object.fromEntries(Object.entries(ledger.quests.weekly_targets).map(([key, value]) => [key, value.target])),
+    main_quest: { ...ledger.quests.main_quest, completed_dates: mainRows.filter((row) => row.status === "completed").map((row) => row.date) },
+    quests: ledger.quests.quests.map(questWithProgress)
+  };
 }
-function generateWidgetSnapshotsFromAggregate(aggregate) {
-  const challenge = aggregate.challenge_v2 ?? null;
+
+// api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts
+function localDateKey3(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+function isPlaceholderWeekStale(week) {
+  const startDate = week.week?.start_date;
+  const endDate = week.week?.end_date;
+  if (typeof startDate !== "string" || typeof endDate !== "string") return true;
+  const today = localDateKey3(/* @__PURE__ */ new Date());
+  return today < startDate || today > endDate;
+}
+function needsLiveRecomputation(week) {
+  if (!week || week.data_status === "unavailable") return true;
+  if (week.data_status === "placeholder") {
+    return isPlaceholderWeekStale(week);
+  }
+  return false;
+}
+function generateWidgetSnapshotsFromDashboardSnapshot(aggregate) {
+  const challenge = aggregate.ledger ? splitLedgerAsChallenge(aggregate.ledger) : aggregate.challenge_v2 ?? null;
   if (!challenge) return null;
   const activities = aggregate.activities ?? [];
   const syncStatus = aggregate.sync_status ?? {
@@ -1605,9 +1691,11 @@ function generateWidgetSnapshotsFromAggregate(aggregate) {
     timestamp: null,
     warnings: []
   };
-  const contract = isUnavailableWeek(aggregate.current_week) ? buildLiveWeekContract(activities, challenge) : aggregate.current_week;
+  const contract = needsLiveRecomputation(aggregate.current_week) ? buildLiveWeekContract(activities, challenge) : aggregate.current_week;
   return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live");
 }
 export {
-  generateWidgetSnapshotsFromAggregate
+  generateWidgetSnapshotsFromDashboardSnapshot,
+  needsLiveRecomputation,
+  splitLedgerAsChallenge
 };

@@ -1,6 +1,6 @@
 # How the Shared Coach Phelps Website Came Together
 
-> Status: Historical · Owner: UI Expert · Verified: 2026-07-29
+> Status: Historical · Owner: UI Expert · Verified: 2026-08-20
 
 This is the story of how Skanda's and Akash's separate personal coaching dashboards became one
 shared site (`coach-phelps-hq.vercel.app`), what problems came up along the way, and why the
@@ -62,7 +62,7 @@ already trust each other, and the only reasonable choice once friends are the re
 **3. Live data, not baked into the build.** The old personal deployments each baked one person's
 data into the site at build time — works fine for a single-user site, completely wrong for a
 shared one. The fix: each person's own sync pipeline now publishes a single merged
-`data/aggregate.json` file to their own repo, and the shared site fetches that file live, per
+`data/dashboard_snapshot.json` file to their own repo, and the shared site fetches that file live, per
 logged-in user, via GitHub's API. One real bug only showed up once this ran against real, full
 activity history: GitHub's file-reading API silently fails to return the file content for
 anything over roughly 1MB, and a real multi-year activity archive blows past that easily — fixed

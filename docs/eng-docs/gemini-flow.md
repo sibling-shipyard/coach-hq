@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-18
+> Status: Current · Owner: UI Expert · Verified: 2026-08-20
 
 ## Context
 
@@ -25,7 +25,7 @@ flowchart LR
         examples["3 few-shot examples"]
     end
     subgraph dynamic["Dynamic (fresh every call)"]
-        state["state.md + quest_log.md\n(+ closing files on close turns)"]
+        state["state.md + rendered quest context\n(+ closing files on close turns)"]
         mode["mode-specific instructions\ngreeting / ordinary / closing"]
         format["file-edit-format\n+ commit-message instructions"]
         ts["todayContextLine()\nchanges every minute"]

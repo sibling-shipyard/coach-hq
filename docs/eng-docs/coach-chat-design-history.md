@@ -1,6 +1,6 @@
 # Coach Chat — design history
 
-> Status: Historical · Owner: UI Expert · Verified: 2026-08-16
+> Status: Historical · Owner: UI Expert · Verified: 2026-08-20
 
 ## Context
 
@@ -28,7 +28,7 @@ passes below build on. See ADR 0012.
 ## 2026-08-03 — Ground-up redesign, Part A + Part B (PRs #215, #216, #221)
 
 The original plan covered three real problems: no caching (every turn re-fetched SOUL.md/
-state.md/quest_log.md from GitHub from scratch), the athlete always had to type first with
+state.md/rendered quest context from GitHub from scratch), the athlete always had to type first with
 all-or-nothing full-file regeneration on close, and the First Session Protocol's iOS wiring was
 broken (`shouldOpenChatFirst()` was dead code, so a not-yet-intake'd athlete could get stuck on
 Home forever).
@@ -38,7 +38,7 @@ Home forever).
   is immediate and permanent, no restore. `MAX_RETAINED_THREADS = 7`, flat cap on active threads.
 - **A2** Confirmed no per-day chat limit existed anywhere — documented, not changed.
 - **A3** Preload: new `GET /api/coach-chat-context` warms a 60s in-memory server cache
-  (`ui/api/_lib/coachChatFiles.ts`) for state.md/quest_log.md, fired once per app load on both
+  (`ui/api/_lib/coachChatFiles.ts`) for state.md/rendered quest context, fired once per app load on both
   platforms, ahead of the eventual Gemini call.
 - **A4** Coach speaks first: new `POST {action: "greet"}`. At this point in the design, greet
   *did* commit a thread server-side (same-day reuse check prevented repeated-open duplicates) —

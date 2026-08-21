@@ -51,11 +51,11 @@ for anything: close-session detection is a plain regex (`CLOSE_SESSION_PATTERN`,
 
 **What's in every request:**
 - `systemInstruction` floor ≈ **13,000 input tokens on every single turn**: full `SOUL.md`
-  (49,716 bytes ≈ ~12,400 tokens) + `state.md` + `quest_log.md`, sent in full every time
+  (49,716 bytes ≈ ~12,400 tokens) + `state.md` + `rendered quest context`, sent in full every time
   (`coach-chat.ts:346-361`). Closing turns add four more full files on top
   (`coach_notes.md`, `challenge_v2.json`, `current_week.json`, `sleep_log.json`,
   `coach-chat.ts:362-371`). Only skeleton-template sizes were measurable here (state.md 1.7KB,
-  quest_log.md 260B) — a real athlete's files run larger (`docs/eng-docs/scaling-plan.md:231`
+  rendered quest context 260B) — a real athlete's files run larger (`docs/eng-docs/scaling-plan.md:231`
   already flags a real `state.md` around 14KB).
 - `maxOutputTokens: 16384` (`coach-chat.ts:476-479`).
 - `contents` — **the entire prior conversation, unbounded** (`coach-chat.ts:456-464`). Nothing
@@ -121,7 +121,7 @@ client shape either way.
 been on by default for every Gemini 2.5+ model since 2025 (no opt-in, no code, 90% discount on
 cached tokens, minimum cacheable prefix 1,024 tokens). The only reason it wasn't paying off was
 the `todayContextLine()` bug: the per-minute-changing "Today is ..." line sat between `soul` and
-`state.md`/`quest_log.md` in the prefix, breaking the cache on every single call. **Fixed** —
+`state.md`/`rendered quest context` in the prefix, breaking the cache on every single call. **Fixed** —
 `todayContextLine()` is now the last element in the `systemInstruction` array instead of the 3rd,
 so the persona/instructions/few-shot/state block stays a stable, cacheable prefix. Also added: 3
 worked few-shot examples inside that same cached prefix (persona consistency + fewer
@@ -171,7 +171,7 @@ holds:
 2. **Structured output fits the existing contract.** GA, schema-based, same
    `reply`/`commit_message`/`file_updates` shape `coach-chat.ts` already produces for Gemini —
    closer to a client-call swap than a response-handling rewrite.
-3. **Prompt caching.** `SOUL.md` + `state.md` + `quest_log.md` get resent every turn; Claude's
+3. **Prompt caching.** `SOUL.md` + `state.md` + `rendered quest context` get resent every turn; Claude's
    cache-hit pricing (10% of input rate) could cut effective cost well below the sticker price.
 
 **Cheapest viable fallback — Kimi K2.5.** Real JSON schema support, prompt caching, roughly half

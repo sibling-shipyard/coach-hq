@@ -350,7 +350,7 @@ class HealthKitSyncManager: ObservableObject {
             // call (e.g. from SyncStepView tapping Proceed) isn't blocked for up to 5 min.
             isSyncing = false
 
-            // Home reads live snapshots from aggregate.json; the user-repo sync workflow
+            // Home reads live snapshots from dashboard_snapshot.json; the user-repo sync workflow
             // regenerates that file ~30s after this commit. Run in background — don't hold
             // isSyncing for this; it only affects the widget home cache, not the sync flow.
             let ws = widgetStore

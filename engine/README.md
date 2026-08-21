@@ -8,7 +8,7 @@ Layout: [`docs/eng-docs/skeleton-layout.md`](../docs/eng-docs/skeleton-layout.md
 
 | Path | Role |
 |---|---|
-| `scripts/` | Sync pipeline — regenerate derived, aggregate, quest log/history, validate current week |
+| `scripts/` | Sync pipeline — regenerate derived, dashboard snapshot, athlete insights, quest history, validate current week |
 | `lib/` | Shared layout + schema helpers |
 | `core/` | Taxonomy, query_history, rename_core |
 | `.github/workflows/` | sync, validate-data, apply-coach-patch |

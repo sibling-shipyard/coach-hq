@@ -118,7 +118,7 @@ _Truth-checked before wider exposure._
 
 **Aug 2026 — M2 push:** chat persists across refresh · onboarding text + step clarity · 365-day review · workouts autopopulate from previous step · iOS-setup page redesign (#166)
 
-**M1 + since:** unified UI, GitHub login, product page · skeleton trimmed · badminton plugin (singles) · aggregate.json structure · iOS Testflight · activity renaming unified · monthly analytics fix
+**M1 + since:** unified UI, GitHub login, product page · skeleton trimmed · badminton plugin (singles) · dashboard_snapshot.json structure · iOS Testflight · activity renaming unified · monthly analytics fix
 
 ## 🧭 Vision — north star, unscheduled
 

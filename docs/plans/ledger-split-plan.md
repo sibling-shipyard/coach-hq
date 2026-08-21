@@ -13,7 +13,7 @@
 (config, daily quest events, block-boundary skill progressions, archive) in one blob. That's not
 just messy — it's why three consumers already re-derive the same completion data three different
 ways: `gen/quest_history.json` replays `completed_dates`/`missed_dates`/`excused_dates` day-by-day
-across every `user_data/coach/archive/seasons/*/challenge_v2.json` snapshot, `gen/aggregate.json`
+across every `user_data/coach/archive/seasons/*/challenge_v2.json` snapshot, `gen/dashboard_snapshot.json`
 passes the whole blob through raw *in addition to* that, and season close snapshots the entire
 file just so the replay has something to walk. Splitting along concern lines removes the
 duplication now and gives each new file a 1:1 target table for the eventual Postgres migration
@@ -43,11 +43,11 @@ which file each field lives in changes. `current_week.json` and `plugins.json` (
 |---|---|
 | `generate_quest_history.py` — O(days) replay across archived seasons | Thin formatter over `progress.json` rows (already sorted, already complete) |
 | `user_data/coach/archive/seasons/*/challenge_v2.json` (whole-file snapshot per season close) | Retired — season boundary is a `season_id` column, not a file copy |
-| `build-aggregate.mjs`'s raw `challenge_v2` passthrough | Reads the 5 files directly — no more shipping completion data twice |
-| `generate_quest_log.py` | Unchanged shape, reads `quests.json`/`progress.json` instead of arrays |
+| `build-dashboard-snapshot.mjs`'s raw `challenge_v2` passthrough | Reads the 5 files directly — no more shipping completion data twice |
+| `renderQuestContext` | Unchanged shape, reads `quests.json`/`progress.json` instead of arrays |
 
-**Consumers to update** (same list ADR 0006 tracked): `engine/scripts/generate_quest_log.py`,
-`engine/scripts/generate_quest_history.py`, `engine/scripts/build-aggregate.mjs`,
+**Consumers to update** (same list ADR 0006 tracked): `ui/api/coach-chat/_lib/coachContext.ts`,
+`engine/scripts/generate_quest_history.py`, `engine/scripts/build-dashboard-snapshot.mjs`,
 `ui/client/src/lib/challenge.ts`, `engine/.github/workflows/validate-data.yml`,
 `platform/scripts/carve-skeleton.mjs`, `engine/lib/challenge_schema.py`,
 `engine/lib/repo_layout.py` + `repo-layout.mjs` (new path helpers, retire `seasons_dir`),
@@ -58,9 +58,9 @@ which file each field lives in changes. `current_week.json` and `plugins.json` (
 - `validate-data.yml` enforces the 5-file shape; `challenge_v2.json` no longer exists in new repos.
 - `generate_quest_history.py` has no per-day replay loop — it formats `progress.json` rows.
 - `archive/seasons/` is empty in new/migrated repos; season boundary lives on the row.
-- `aggregate.json` size drops (no duplicated completion data) — spot-check against ADR 0020's budget.
+- `dashboard_snapshot.json` size drops (no duplicated completion data) — spot-check against ADR 0020's budget.
 - One-shot migration script converts a live repo (Akash's) end to end, output diffs clean against
-  `generate_quest_log.py`'s current rendering (same quest log text before/after).
+  `renderQuestContext`'s current rendering (same quest log text before/after).
 
 ## Open questions (not decided — need athlete input)
 

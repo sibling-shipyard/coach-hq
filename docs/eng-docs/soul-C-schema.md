@@ -1,6 +1,6 @@
 # Layer C Schema — Declarative Athlete Seam (MVP)
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-16 · Design only — Tech Lead sign-off gate for S2  
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Design only — Tech Lead sign-off gate for S2
 > **Source:** the SOUL split plan's MVP shape (S0–S3, shipped — plan deleted, see git history) + v5.7 runtime files  
 > **Scope:** Schema definition only. `tracking_modules{}` is **reserved and empty** in MVP.
 
@@ -74,7 +74,7 @@ tracking_modules: {}        # RESERVED — empty in MVP. Future signals (cycle, 
 | PRE / mental state tone | `state.md` Pre-Session table *(until tracking_modules)* | Low/high PRE behavior |
 | Season / phase awareness | `state.md` + `challenge_v2.json` season/phase blocks | Check dates, reference phase naturally |
 
-B does **not** manually count quest streaks (reads `quest_log.md`), store day-by-day plans in `state.md`, or embed sport-specific scouting inline.
+B does **not** manually count quest streaks (reads `rendered quest context`), store day-by-day plans in `state.md`, or embed sport-specific scouting inline.
 
 ## Physical data locations (today)
 

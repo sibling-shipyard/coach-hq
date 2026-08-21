@@ -83,8 +83,6 @@ def write_sync_status(error: Optional[str] = None) -> None:
 
 def main() -> None:
     try:
-        log("Generating quest_log.md...")
-        run("generate_quest_log.py")
         log("Generating quest_history.json...")
         run("generate_quest_history.py")
         maybe_run_badminton_analytics()

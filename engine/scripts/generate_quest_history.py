@@ -74,8 +74,8 @@ def process_season(data: dict, is_current: bool, quests_out: dict) -> None:
         qid = quest["id"]
         qname = quest["name"]
         # default_not_done is the schema-wide default (unified challenge_v2 shape) - must match
-        # generate_quest_log.py's compute_daily_streak_stats and warmHomeSnapshots.ts's
-        # buildQuestSnapshot, which both default an absent polarity the same way.
+        # renderQuestContext and warmHomeSnapshots.ts's buildQuestSnapshot, which both default
+        # an absent polarity the same way.
         polarity = quest.get("polarity", "default_not_done")
         start = quest["start_date"]
 

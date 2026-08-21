@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * build-data.mjs — Pre-build script: merge athlete data into ui/client/src/data/
- * for Vite, and (with --aggregate) write gen/aggregate.json at repo root.
+ * for Vite, and (with --dashboard-snapshot) write gen/dashboard_snapshot.json at repo root.
  *
  * HQ monorepo: early-exits after copying shared/golden-dataset/ → OUT_DIR
  * (no user_data/ or gen/ at root). Athlete repos: paths via repo-layout.mjs.
@@ -12,167 +12,18 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import {
-  aggregatePath,
+  dashboardSnapshotPath,
   goldenRepoDataDir,
-  histDir,
   isHqMonorepo,
-  ledgerDir,
-  questHistoryPath,
   repoRoot,
-  sessionsDir,
-  sleepLogPath,
-  syncStatusPath,
-  templatesDir,
 } from "../../engine/lib/repo-layout.mjs";
-import { projectActivity } from "../../engine/lib/projectActivity.mjs";
+import { buildDashboardSnapshot } from "../../engine/scripts/build-dashboard-snapshot.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(path.join(__dirname, ".."));
 const UI_DIR = path.join(REPO_ROOT, "ui");
 const OUT_DIR = path.join(UI_DIR, "client", "src", "data");
 const SCHEMA_VERSION = 1;
-
-const UNAVAILABLE_CURRENT_WEEK = {
-  schema_version: null,
-  data_status: "unavailable",
-  timezone: "Europe/London",
-  week: null,
-  coach_read: null,
-  days: [],
-  coach_comments: [],
-  updated_at: null,
-  updated_by: "build-data",
-};
-
-function buildAggregate() {
-  const result = {};
-
-  const historyDir = histDir(REPO_ROOT);
-  const existingActivitiesPath = path.join(OUT_DIR, "activities.json");
-  if (fs.existsSync(historyDir)) {
-    const files = fs.readdirSync(historyDir).filter((f) => f.endsWith(".json"));
-    if (files.length === 0) {
-      const rawActivities = fs.existsSync(existingActivitiesPath)
-        ? JSON.parse(fs.readFileSync(existingActivitiesPath, "utf-8"))
-        : [];
-      result.activities = rawActivities.map((a) => projectActivity(a));
-      console.log("✓ activities — no local history files, keeping committed version");
-    } else {
-      const activities = [];
-      for (const file of files) {
-        try {
-          const raw = JSON.parse(fs.readFileSync(path.join(historyDir, file), "utf-8"));
-          activities.push(projectActivity(raw));
-        } catch (e) {
-          console.warn(`⚠ Skipping ${file}: ${e.message}`);
-        }
-      }
-      activities.sort(
-        (a, b) => new Date(b.start_date_local).getTime() - new Date(a.start_date_local).getTime(),
-      );
-      result.activities = activities;
-      console.log(`✓ activities — ${activities.length} activities`);
-    }
-  } else {
-    console.warn(`⚠ No history directory at ${historyDir}`);
-    result.activities = [];
-  }
-
-  const challengeSrc = path.join(ledgerDir(REPO_ROOT), "challenge_v2.json");
-  if (fs.existsSync(challengeSrc)) {
-    result.challenge_v2 = JSON.parse(fs.readFileSync(challengeSrc, "utf-8"));
-    console.log("✓ challenge_v2 loaded");
-  } else {
-    console.warn(`⚠ No challenge_v2.json at ${challengeSrc}`);
-    result.challenge_v2 = null;
-  }
-
-  const currentWeekSrc = path.join(ledgerDir(REPO_ROOT), "current_week.json");
-  if (fs.existsSync(currentWeekSrc)) {
-    try {
-      result.current_week = JSON.parse(fs.readFileSync(currentWeekSrc, "utf-8"));
-      console.log("✓ current_week loaded");
-    } catch (e) {
-      result.current_week = UNAVAILABLE_CURRENT_WEEK;
-      console.warn(`⚠ Invalid current_week.json; using unavailable fallback: ${e.message}`);
-    }
-  } else {
-    result.current_week = UNAVAILABLE_CURRENT_WEEK;
-    console.warn(`⚠ No current_week.json at ${currentWeekSrc}; using unavailable fallback`);
-  }
-
-  const templatesDirPath = templatesDir(REPO_ROOT);
-  const sessionsDirPath = sessionsDir(REPO_ROOT);
-  const workouts = { templates: [], sessions: [] };
-
-  if (fs.existsSync(templatesDirPath)) {
-    for (const file of fs.readdirSync(templatesDirPath).filter((f) => f.endsWith(".json"))) {
-      try {
-        workouts.templates.push(JSON.parse(fs.readFileSync(path.join(templatesDirPath, file), "utf-8")));
-      } catch (e) {
-        console.warn(`⚠ Skipping template ${file}: ${e.message}`);
-      }
-    }
-    console.log(`✓ ${workouts.templates.length} workout templates loaded`);
-  } else {
-    console.warn(`⚠ No templates at ${templatesDirPath}`);
-  }
-
-  if (fs.existsSync(sessionsDirPath)) {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 7);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-    let skippedOld = 0;
-    for (const file of fs.readdirSync(sessionsDirPath).filter((f) => f.endsWith(".json"))) {
-      try {
-        const session = JSON.parse(fs.readFileSync(path.join(sessionsDirPath, file), "utf-8"));
-        if (session.session_date && session.session_date < cutoffStr) {
-          skippedOld++;
-          continue;
-        }
-        workouts.sessions.push(session);
-      } catch (e) {
-        console.warn(`⚠ Skipping session ${file}: ${e.message}`);
-      }
-    }
-    workouts.sessions.sort((a, b) => (b.session_date ?? "").localeCompare(a.session_date ?? ""));
-    console.log(`✓ ${workouts.sessions.length} workout sessions loaded (${skippedOld} older than 7d pruned)`);
-  } else {
-    console.warn(`⚠ No sessions at ${sessionsDirPath}`);
-  }
-  result.workouts = workouts;
-
-  const syncStatusSrc = syncStatusPath(REPO_ROOT);
-  if (fs.existsSync(syncStatusSrc)) {
-    result.sync_status = JSON.parse(fs.readFileSync(syncStatusSrc, "utf-8"));
-    console.log("✓ sync_status loaded");
-  } else {
-    result.sync_status = {
-      status: "none",
-      timestamp: null,
-      activities_synced: 0,
-      activities_renamed: 0,
-      descriptions_parsed: 0,
-      warnings: [],
-    };
-    console.log("✓ sync_status — no data, using default");
-  }
-
-  const sleepLogFile = sleepLogPath(REPO_ROOT);
-  result.sleep_log = fs.existsSync(sleepLogFile)
-    ? JSON.parse(fs.readFileSync(sleepLogFile, "utf-8"))
-    : [];
-
-  const questHistoryFile = questHistoryPath(REPO_ROOT);
-  result.quest_history = fs.existsSync(questHistoryFile)
-    ? JSON.parse(fs.readFileSync(questHistoryFile, "utf-8"))
-    : { generated_at: "", quests: {} };
-
-  result.schema_version = SCHEMA_VERSION;
-  result.generated_at = new Date().toISOString();
-
-  return result;
-}
 
 function copyGoldenToOutDir() {
   const gen = spawnSync("node", [path.join(REPO_ROOT, "shared/golden-dataset/generate-repo-data.mjs")], {
@@ -184,6 +35,15 @@ function copyGoldenToOutDir() {
   for (const file of fs.readdirSync(goldenDir).filter((f) => f.endsWith(".json"))) {
     fs.copyFileSync(path.join(goldenDir, file), path.join(OUT_DIR, file));
   }
+  const readGolden = (name) => JSON.parse(fs.readFileSync(path.join(goldenDir, `${name}.json`), "utf-8"));
+  const dashboardSnapshot = {
+    activities: readGolden("activities"), challenge_v2: readGolden("challenge_v2"),
+    ledger_schema: "challenge_v2_v4", ledger: null, current_week: readGolden("current_week"),
+    workouts: readGolden("workouts"), sync_status: readGolden("sync_status"),
+    sleep_log: readGolden("sleep_log"), quest_history: readGolden("quest_history"),
+    schema_version: SCHEMA_VERSION, generated_at: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(OUT_DIR, "dashboard_snapshot.json"), JSON.stringify(dashboardSnapshot));
   const widgetSrc = path.join(REPO_ROOT, "shared/golden-dataset/widget_snapshots.json");
   if (fs.existsSync(widgetSrc)) {
     fs.copyFileSync(widgetSrc, path.join(OUT_DIR, "widget_snapshots.json"));
@@ -205,21 +65,25 @@ spawnSync("node", ["scripts/generate-wi-tokens.mjs"], { cwd: UI_DIR, stdio: "inh
 if (isHqMonorepo(REPO_ROOT)) {
   copyGoldenToOutDir();
   console.log("✓ Data build complete");
-  if (process.argv.includes("--aggregate")) {
-    console.warn("⚠ --aggregate ignored on HQ (no gen/ band)");
+  if (process.argv.includes("--dashboard-snapshot")) {
+    console.warn("⚠ --dashboard-snapshot ignored on HQ (no gen/ band)");
   }
   process.exit(0);
 }
 
-const aggregate = buildAggregate();
+const dashboardSnapshot = buildDashboardSnapshot(REPO_ROOT);
 
-fs.writeFileSync(path.join(OUT_DIR, "activities.json"), JSON.stringify(aggregate.activities, null, 0));
-if (aggregate.challenge_v2) {
-  fs.writeFileSync(path.join(OUT_DIR, "challenge_v2.json"), JSON.stringify(aggregate.challenge_v2, null, 2));
+fs.writeFileSync(path.join(OUT_DIR, "activities.json"), JSON.stringify(dashboardSnapshot.activities, null, 0));
+if (dashboardSnapshot.challenge_v2) {
+  fs.writeFileSync(path.join(OUT_DIR, "challenge_v2.json"), JSON.stringify(dashboardSnapshot.challenge_v2, null, 2));
 }
-fs.writeFileSync(path.join(OUT_DIR, "current_week.json"), JSON.stringify(aggregate.current_week, null, 2));
-fs.writeFileSync(path.join(OUT_DIR, "workouts.json"), JSON.stringify(aggregate.workouts, null, 2));
-fs.writeFileSync(path.join(OUT_DIR, "sync_status.json"), JSON.stringify(aggregate.sync_status, null, 2));
+fs.writeFileSync(path.join(OUT_DIR, "current_week.json"), JSON.stringify(dashboardSnapshot.current_week, null, 2));
+fs.writeFileSync(path.join(OUT_DIR, "workouts.json"), JSON.stringify(dashboardSnapshot.workouts, null, 2));
+fs.writeFileSync(path.join(OUT_DIR, "sync_status.json"), JSON.stringify(dashboardSnapshot.sync_status, null, 2));
+// Vite bundles useRepoData.ts's static import of this file, so it has to land in OUT_DIR on
+// every build regardless of --dashboard-snapshot (that flag only controls the extra gen/ copy
+// below, for tooling that reads the snapshot outside the Vite build).
+fs.writeFileSync(path.join(OUT_DIR, "dashboard_snapshot.json"), JSON.stringify(dashboardSnapshot, null, 0));
 
 const snapshotResult = spawnSync(
   "npx",
@@ -232,9 +96,9 @@ if (snapshotResult.status !== 0) {
 
 console.log("✓ Data build complete");
 
-if (process.argv.includes("--aggregate")) {
-  const outPath = aggregatePath(REPO_ROOT);
+if (process.argv.includes("--dashboard-snapshot")) {
+  const outPath = dashboardSnapshotPath(REPO_ROOT);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify(aggregate, null, 0));
+  fs.writeFileSync(outPath, JSON.stringify(dashboardSnapshot, null, 0));
   console.log(`✓ ${path.relative(REPO_ROOT, outPath)} written`);
 }

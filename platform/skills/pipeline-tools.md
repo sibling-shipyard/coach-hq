@@ -66,31 +66,3 @@ Activities are named at ingestion time by the iOS app (see `ActivityNamer.swift`
 `engine/core/rename_core.py`'s classification/naming rules). There's no separate rename script
 anymore — if a name is genuinely wrong, edit the `name` field directly in the activity's JSON
 under `user_data/activities/hist/`.
-
----
-
-## generate_quest_log.py
-
-Regenerates `gen/quest_log.md` from `user_data/ledger/challenge_v2.json` + `user_data/activities/hist/*.json`. Run this before every coach commit.
-
-```bash
-python3 engine/scripts/generate_quest_log.py [flags]
-```
-
-| Flag | Description |
-|------|-------------|
-| *(no flags)* | Regenerate and write `gen/quest_log.md` |
-| `--dry-run` | Print output to stdout instead of writing the file |
-| `--date YYYY-MM-DD` | Override today's date (for testing) |
-| `--validate` | Validate `challenge_v2.json` schema and exit |
-
-```bash
-# Standard usage before commit
-python3 engine/scripts/generate_quest_log.py
-
-# Preview without writing
-python3 engine/scripts/generate_quest_log.py --dry-run
-
-# Validate the challenge JSON is well-formed
-python3 engine/scripts/generate_quest_log.py --validate
-```

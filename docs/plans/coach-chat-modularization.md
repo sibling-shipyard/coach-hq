@@ -76,5 +76,5 @@ schema field ordering, the A5 staleness check); they move with their code or the
   Worth a shared `lensCore.ts` only if a fourth lens is coming.
 - **P3** — `ios/CoachHQ/CoachHQ/Views/WarmInstrumentHomeView.swift` is 1797 lines, the largest in
   the repo, with no tests to protect a split. iOS Builder's call, not now.
-- **Not touching** — `generate-widget-snapshots-from-aggregate.bundle.js` (generated),
+- **Not touching** — `generate-widget-snapshots-from-dashboard-snapshot.bundle.js` (generated),
   `ui/client/src/components/ui/` (vendored shadcn).

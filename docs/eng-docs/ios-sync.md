@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-18
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-20
 
 ## Context
 
@@ -111,8 +111,8 @@ Those downstream artifacts only get regenerated when the sync workflow runs. On 
 `engine/.github/workflows/sync.user.yml` has a `push` trigger on `user_data/activities/hist/**`
 and `user_data/activities/sync_state.json` — exactly the files this iOS commit touches. So an
 iOS sync **does indirectly trigger a second, automatic GitHub Actions run**, which calls
-`engine/scripts/regenerate_derived.py` and `engine/scripts/build-aggregate.mjs` to rebuild
-`gen/aggregate.json`, `gen/quest_log.md`, etc.
+`engine/scripts/regenerate_derived.py` and `engine/scripts/build-dashboard-snapshot.mjs` to rebuild
+`gen/dashboard_snapshot.json`, `gen/athlete_insights.json`, and the other derived JSON files.
 
 **So the app must wait for that second run, not for its own commit.** That regeneration takes
 ~30s. A single immediate `WidgetSnapshotStore.refresh()` races the pipeline and then caches stale

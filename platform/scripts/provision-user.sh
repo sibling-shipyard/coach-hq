@@ -152,9 +152,8 @@ apply_legacy_overlay() {
   copy_tree "training/sync_state.json" "user_data/activities/sync_state.json"
   copy_tree "training/sync_status.json" "gen/sync_status.json"
   copy_tree "training/widget_snapshots.json" "gen/widget_snapshots.json"
-  copy_tree "training/activities/quest_log.md" "gen/quest_log.md"
   copy_tree "training/activities/quest_history.json" "gen/quest_history.json"
-  copy_tree "data/aggregate.json" "gen/aggregate.json"
+  copy_tree "data/dashboard_snapshot.json" "gen/dashboard_snapshot.json"
 
   copy_tree "training/ebadders_history.json" "training/ebadders_history.json"
   copy_tree "plugins/badminton/data/badminton_match_data.json" "user_data/activities/badminton_match_data.json"
@@ -228,7 +227,7 @@ legacy_wants_badminton_plugin() {
   return 1
 }
 
-# Rebuild gen/ from migrated user_data/ (quest_log, quest_history, aggregate).
+# Rebuild gen/ from migrated user_data/.
 regenerate_gen() {
   local target_root="$1"
   local hq_root
@@ -249,10 +248,10 @@ regenerate_gen() {
     cp "${hq_root}/engine/lib/plugins.mjs" "${target_root}/engine/lib/plugins.mjs"
     cp "${hq_root}/engine/lib/challenge_schema.py" "${target_root}/engine/lib/challenge_schema.py"
     cp "${hq_root}/engine/lib/current-week.mts" "${target_root}/engine/lib/current-week.mts"
-    cp "${hq_root}/engine/scripts/generate_quest_log.py" "${target_root}/engine/scripts/generate_quest_log.py"
     cp "${hq_root}/engine/scripts/generate_quest_history.py" "${target_root}/engine/scripts/generate_quest_history.py"
     cp "${hq_root}/engine/scripts/regenerate_derived.py" "${target_root}/engine/scripts/regenerate_derived.py"
-    cp "${hq_root}/engine/scripts/build-aggregate.mjs" "${target_root}/engine/scripts/build-aggregate.mjs"
+    cp "${hq_root}/engine/scripts/build-dashboard-snapshot.mjs" "${target_root}/engine/scripts/build-dashboard-snapshot.mjs"
+    cp "${hq_root}/engine/scripts/generate-athlete-insights.mjs" "${target_root}/engine/scripts/generate-athlete-insights.mjs"
     cp "${hq_root}/engine/scripts/validate-current-week.mts" "${target_root}/engine/scripts/validate-current-week.mts"
     cp "${hq_root}/engine/scripts/validate-current-week" "${target_root}/engine/scripts/validate-current-week"
     chmod +x "${target_root}/engine/scripts/validate-current-week"
@@ -266,17 +265,18 @@ regenerate_gen() {
 
   log "Regenerating gen/ from migrated user_data/..."
   if ! (cd "$target_root" && python3 engine/scripts/regenerate_derived.py); then
-    warn "regenerate_derived.py failed (schema mismatch?) — legacy gen/ copies kept; rebuilding aggregate"
+    warn "regenerate_derived.py failed (schema mismatch?) — legacy gen/ copies kept; rebuilding dashboard snapshot"
   fi
-  (cd "$target_root" && node engine/scripts/build-aggregate.mjs --aggregate)
-  log "  gen/ regenerated (aggregate + best-effort quest files)"
+  (cd "$target_root" && node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot)
+  (cd "$target_root" && node engine/scripts/generate-athlete-insights.mjs)
+  log "  gen/ regenerated"
 }
 
 # Fail fast if overlay left skeleton seeds in place.
 verify_migration() {
   local target_root="$1"
   local challenge="${target_root}/user_data/ledger/challenge_v2.json"
-  local aggregate="${target_root}/gen/aggregate.json"
+  local dashboard_snapshot="${target_root}/gen/dashboard_snapshot.json"
 
   [[ -f "$challenge" ]] || die "Missing user_data/ledger/challenge_v2.json after overlay"
 
@@ -284,15 +284,15 @@ verify_migration() {
     die "challenge_v2.json still skeleton template — legacy overlay did not run"
   fi
 
-  [[ -f "$aggregate" ]] || die "Missing gen/aggregate.json after regen"
+  [[ -f "$dashboard_snapshot" ]] || die "Missing gen/dashboard_snapshot.json after regen"
 
-  if grep -q '"generated_at": "1970-01-01' "$aggregate" 2>/dev/null; then
-    die "aggregate.json still skeleton placeholder — run regen or check hist/ + ledger/"
+  if grep -q '"generated_at": "1970-01-01' "$dashboard_snapshot" 2>/dev/null; then
+    die "dashboard_snapshot.json still skeleton placeholder — run regen or check hist/ + ledger/"
   fi
 
   local activity_count
-  activity_count="$(python3 -c "import json; print(len(json.load(open('${aggregate}')).get('activities',[])))")"
-  log "  verified: challenge migrated, aggregate has ${activity_count} activities"
+  activity_count="$(python3 -c "import json; print(len(json.load(open('${dashboard_snapshot}')).get('activities',[])))")"
+  log "  verified: challenge migrated, dashboard snapshot has ${activity_count} activities"
 
   local hist_dir="${target_root}/user_data/activities/hist"
   local hist_count=0
@@ -300,7 +300,7 @@ verify_migration() {
     hist_count="$(find "$hist_dir" -name '*.json' | wc -l | tr -d ' ')"
   fi
   if [[ "$hist_count" -eq 0 && "$activity_count" -gt 0 ]]; then
-    warn "hist/ empty but aggregate has activities — ensure git add -f hist/ on push"
+    warn "hist/ empty but dashboard snapshot has activities — ensure git add -f hist/ on push"
   elif [[ "$hist_count" -gt 0 ]]; then
     log "  verified: ${hist_count} activity files in hist/"
   fi
@@ -395,7 +395,7 @@ Next steps (operator + athlete):
   3. Validation (docs/eng-docs/m1-plan.md §7):
      - validate-data.yml green on first push
      - Shared site login → repo resolves
-     - Dashboard loads gen/aggregate.json
+     - Dashboard loads gen/dashboard_snapshot.json
      - BYO boot reads user_data/coach/state.md
      - Sync: iOS push
 

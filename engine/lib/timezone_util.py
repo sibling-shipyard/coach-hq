@@ -1,7 +1,7 @@
 """Resolve "today" in the athlete's own timezone instead of the host machine's clock.
 
-Issue #45: scripts/generate_quest_log.py and generate_quest_history.py used bare
-date.today() - correct on a developer's laptop, wrong on a GitHub Actions runner (UTC),
+Issue #45: the retired quest-log generator and generate_quest_history.py used bare date.today() -
+correct on a developer's laptop, wrong on a GitHub Actions runner (UTC),
 which can disagree with the athlete's own wall-clock day by several hours right at the
 UTC rollover. current_week.json's `timezone` field is a required, schema-validated field
 (engine/lib/current-week.mts's REQUIRED_FIELDS + validateTimeZone) - already the same

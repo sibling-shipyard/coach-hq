@@ -1,6 +1,6 @@
 # Coach Chat — how it works
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-19
+> Status: Current · Owner: UI Expert · Verified: 2026-08-20
 
 ## Context
 
@@ -31,7 +31,7 @@ separate systems.
 | `ui/api/coach-chat.ts` | `GET` | Load committed threads (newest 7, always `status: "active"`) |
 | `ui/api/coach-chat.ts` | `POST {action: "greet"}` | Coach speaks first; FSP also records native onboarding fields directly |
 | `ui/api/coach-chat.ts` | `POST {threadId?, messages, message, endConversationRequested?}` | Send a message or explicitly request a close |
-| `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL.md/state.md/quest_log.md ahead of chat opening |
+| `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL.md/state.md/rendered quest context ahead of chat opening |
 | `ui/api/coach-chat-profile-status.ts` | `GET` | `{profileComplete}` — is the First Session Protocol done? |
 
 ## Day-to-day flow
@@ -60,7 +60,7 @@ flowchart LR
 ### 1. Preload (A3)
 
 `ui/api/coach-chat-context.ts` warms `loadCoachContext()`'s 60-second in-memory server cache
-(`ui/api/coach-chat/_lib/coachChatFiles.ts`) for state.md and quest_log.md — SOUL.md is no longer fetched
+(`ui/api/coach-chat/_lib/coachChatFiles.ts`) for state.md and rendered quest context — SOUL.md is no longer fetched
 from the athlete's repo at all (see below). Web fires this once
 per app load from `App.tsx`'s `Gate` component (`ui/client/src/lib/prefetchCoachContext.ts`,
 fire-and-forget); iOS fires it from `MainTabView.swift`'s `.task` block as soon as the app is
@@ -105,7 +105,7 @@ call for a greeting nobody reads.
 for the thread — nothing is persisted server-side for an unwrapped conversation, so the server is
 stateless per turn until a close. Every response echoes `repoSha` and a fresh `profileComplete`
 (see staleness and First Session below).
-Gemini in `"ordinary"` mode only ever sees `state.md`/`quest_log.md` (not `coach_notes.md`/
+Gemini in `"ordinary"` mode only ever sees `state.md`/`rendered quest context` (not `coach_notes.md`/
 `challenge_v2.json`/`current_week.json`/`sleep_log.json` — those are only fetched on a closing
 turn, see below), so it's told it may only propose edits to `state.md` mid-conversation; anything
 else waits for the close-out.
@@ -113,7 +113,7 @@ else waits for the close-out.
 ### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/geminiClient.ts`)
 
 The prompt splits into a **static** half (persona, fixed instructions, few-shot examples — byte-
-identical for every athlete, every turn) and a **dynamic** half (current state.md/quest_log.md,
+identical for every athlete, every turn) and a **dynamic** half (current state.md/rendered quest context,
 mode-specific instructions, `todayContextLine()`). The static half is uploaded once via Gemini's
 explicit-caching API and referenced by name on every call instead of being resent; the dynamic
 half ships fresh every request. Full design, the caching mechanics, the response schema, and the

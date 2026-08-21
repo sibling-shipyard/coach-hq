@@ -1,6 +1,6 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-16
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-20
 
 ## Context
 
@@ -15,7 +15,7 @@ close that question, it just removes the reason it was urgent.
 ## Options
 
 Baseline: 4 athletes, ~8 turns/athlete/day → ~960 turns/mo, ~15K input + ~1.5K output tokens/turn
-(SOUL.md + state.md + quest_log.md resent uncached every turn — see Caching below).
+(SOUL.md + state.md + rendered quest context resent uncached every turn — see Caching below).
 
 Rate limits below are verified against each provider's own docs (Aug 2026), not estimated —
 several of the original numbers here were wrong or unverifiable and have been corrected:
@@ -51,7 +51,7 @@ Verified against `ui/api/coach-chat.ts`: one Gemini call per turn, no separate/c
 anything (close-session detection is a plain regex, `CLOSE_SESSION_PATTERN`,
 `coach-chat.ts:216-217`, not a model call — it just sets prompt `mode`; the model's own
 `session_closed` field in that same response is what gates a commit). The `systemInstruction`
-floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` + `quest_log.md`, sent
+floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` + `rendered quest context`, sent
 in full every turn — roughly matches the ~15K input tokens/turn assumed above. Closing turns add
 four more full files on top.
 
@@ -73,7 +73,7 @@ provider, and one of them needs no work at all:
 - **GPT-5 mini:** automatic for prompts over 1,024 tokens, same as Gemini — no code change.
 
 **Fixed.** `todayContextLine()` (`coach-chat.ts:133-149`, "Today is `<date/time>`") used to sit
-right after `soul` in the system-instruction prefix, ahead of `state.md`/`quest_log.md` — a value
+right after `soul` in the system-instruction prefix, ahead of `state.md`/`rendered quest context` — a value
 that changes every minute broke any cache placed after it. It's now the *last* element in the
 `systemInstruction` array instead of the 3rd, so persona + instructions + state + quest_log stay
 a stable, cacheable prefix and only the timestamp changes turn to turn. Same pass also added 3
