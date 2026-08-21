@@ -1,6 +1,7 @@
 /**
  * Shared read helpers for the files coach-chat.ts injects into every Gemini call: profile.json/
- * memory.json/injuries.json/coach_log.json and the split quest ledger come from the athlete's own repo;
+ * memory.json/injuries.json/coach_log.json, the split quest ledger, and athlete_insights.json come
+ * from the athlete's own repo;
  * SOUL.md does not (see below). Extracted out of coach-chat.ts so coach-chat-context.ts (the
  * app-load preload endpoint, A3) can fetch the same files the same way without duplicating the
  * GitHub-read plumbing.
@@ -27,6 +28,22 @@ import {
   type ProgressJson,
   type ProgressionsJson,
 } from "./coachQuestFiles.js";
+
+export const ATHLETE_INSIGHTS_PATH = "gen/athlete_insights.json";
+
+export interface AthleteSportInsight {
+  sessions_365d: number;
+  sessions_per_week_recent_4w: number;
+  sessions_per_week_prior_12w: number;
+  longest_gap_days_365d: number;
+  days_since_last_session: number;
+}
+
+export interface AthleteInsightsJson {
+  generated_at: string;
+  window_days: number;
+  sports: Record<string, AthleteSportInsight>;
+}
 
 // SOUL.md is 100% generic across athletes, so it's bundled at build time (ui/scripts/build-
 // soul.mjs) rather than fetched from each athlete's repo per turn - see the ADR amending 0011.
@@ -89,6 +106,7 @@ export interface CoachContext {
   quests: QuestsJson | null;
   progress: ProgressJson | null;
   progressions: ProgressionsJson | null;
+  athleteInsights: AthleteInsightsJson | null;
 }
 
 // Best-effort parse - a missing or malformed file (not yet migrated, or a transient bad commit)
@@ -155,7 +173,7 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
 
   const generation = contextCacheGeneration.get(repo) ?? 0;
   const promise = (async (): Promise<CoachContext> => {
-    const [profileRaw, memoryRaw, injuriesRaw, coachLogRaw, seasonsRaw, questsRaw, progressRaw, progressionsRaw] =
+    const [profileRaw, memoryRaw, injuriesRaw, coachLogRaw, seasonsRaw, questsRaw, progressRaw, progressionsRaw, athleteInsightsRaw] =
       await Promise.all([
         getFileRaw(repo, PROFILE_PATH, token),
         getFileRaw(repo, MEMORY_PATH, token),
@@ -165,6 +183,7 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
         getFileRaw(repo, QUESTS_PATH, token),
         getFileRaw(repo, PROGRESS_PATH, token),
         getFileRaw(repo, PROGRESSIONS_PATH, token),
+        getFileRaw(repo, ATHLETE_INSIGHTS_PATH, token),
       ]);
     const value: CoachContext = {
       soul: SOUL,
@@ -176,6 +195,7 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
       quests: parseJsonOrNull<QuestsJson>(questsRaw),
       progress: parseJsonOrNull<ProgressJson>(progressRaw),
       progressions: parseJsonOrNull<ProgressionsJson>(progressionsRaw),
+      athleteInsights: parseJsonOrNull<AthleteInsightsJson>(athleteInsightsRaw),
     };
     if ((contextCacheGeneration.get(repo) ?? 0) === generation) {
       contextCache.set(repo, { value, expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS });

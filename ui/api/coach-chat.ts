@@ -85,7 +85,7 @@ async function handleGreet(
   onboardingHints?: OnboardingHints,
 ): Promise<Response> {
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
-  const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions } = context;
+  const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions, athleteInsights } = context;
   if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
   const timezone = profile?.timezone?.trim() || "UTC";
 
@@ -122,7 +122,7 @@ async function handleGreet(
     });
     invalidateCoachContext(repo);
   }
-  const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
+  const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights });
   const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
 
   let reply: GeminiReply;
@@ -214,10 +214,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // A3: reuses the app-load preload's 60s cache, unless A5 just found it stale, in which
       // case force a fresh read.
-      const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions } = await loadCoachContext(repo, token, { fresh: stale });
+      const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions, athleteInsights } = await loadCoachContext(repo, token, { fresh: stale });
       if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
       const timezone = profile?.timezone?.trim() || "UTC";
-      const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog });
+      const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights });
       const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
 
       const priorMessages = messages ?? [];

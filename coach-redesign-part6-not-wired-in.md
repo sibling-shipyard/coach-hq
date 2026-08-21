@@ -5,6 +5,37 @@
 > speculative/unused in the UI specifically. Implementation/wiring work lives in Part 5
 > (`coach-redesign-part5-wiring-plan.md`) instead. Add to this as each part gets reviewed.
 
+## Stack-wide: real end-to-end verification, once, after part 11 lands
+
+Every PR in the SOUL-catchup stack (#435 → part 8 → part 9 → part 10 → part 11) has been verified
+mechanically per-PR — unit tests, `tsc --noEmit`, `compose-soul.mjs --check` where relevant — but
+**nothing in the whole stack has been run against a real athlete repo yet.** No real
+`gen/athlete_insights.json` has been generated from real activity history, no actual rendered
+Gemini prompt/context has been inspected, no live chat turn has happened, no browser has opened
+the dashboard against a migrated repo. This has been flagged PR by PR (#439, #443) as a known gap
+rather than blocking each individual PR — but it needs to actually happen once, for the stack as a
+whole, before calling this effort done. Do this after part 11 merges (or is ready to merge), not
+before — SOUL needs to be in its final state for this to be a meaningful end-to-end check, not a
+partial one that gets re-run again anyway once part 11 lands:
+
+1. Fresh scratch branch off a real athlete repo (per the verification discipline in
+   `coach-redesign-part4b-fsp-reliability.md`).
+2. Run the sync/generator pipeline for real (the GitHub Actions sync workflow, or the equivalent
+   local scripts) so `gen/dashboard_snapshot.json` and `gen/athlete_insights.json` are real,
+   generated output, not synthetic test fixtures.
+3. A full first session (fresh athlete) and a few turns of ordinary chat (returning athlete) via
+   the hosted chat API, checking real committed files via the GitHub API after each turn, not
+   trusting reply text.
+4. Open the webapp dashboard against that migrated repo and confirm quest/season widgets actually
+   render (this is the literal bug #439 fixed — confirm it stays fixed against real data, not just
+   the unit-test fixtures that already pass).
+5. Confirm the rendered Fitness Snapshot section (part 10) actually reads sensibly for a real
+   athlete's real activity mix, and that Coach's FSP behavior (part 11's SOUL rewrite) references
+   it the way the new SOUL text says it should.
+6. BYOB, separately: a first session and ordinary chat via Claude Code against the same or a
+   different scratch branch, confirming part 11's SOUL text works for the terminal runtime too,
+   not just hosted chat.
+
 ## From Part 1 (`coach_log.json`)
 
 - **`actor`** — dropped from `coach_log.json`. Coach is the only writer today, so the field only
@@ -127,6 +158,45 @@ separate issues instead of folded into #439's scope.
   misclassification, not a crash — worth validating `activity.category` against the real
   `TrainingCategory` enum before trusting it, falling through to the regex classifier when it
   doesn't match, rather than trusting it blindly.
+
+## From part 10 (wiring athlete insights into coach-chat context, PR #443)
+
+2a (unused `sessions_365d`) and 2b (hardcoded "last 12 months" heading) from review were fixed
+directly in #443 — not deferred, since both were quick and directly improved prompt accuracy.
+Everything below is genuinely deferred:
+
+- **Singular wording** — `fitnessSnapshotSection()` always renders plural ("1 days ago",
+  "longest gap 1 days") regardless of value. Prompt-quality polish, not a functional failure —
+  fold into Part 11's FSP/SOUL wording pass, or fix standalone if someone's already in this file.
+- **Sport ordering** — `Object.entries(insights.sports)` renders in JSON insertion order (which
+  is itself whatever order `generate-athlete-insights.mjs` wrote them, currently alphabetical
+  since it sorts before building `sports`). No explicit ordering by session count/relevance in the
+  render layer itself — low priority, the input happens to already be sorted today.
+- **Rate rounding display** — `formatRate()` shows one decimal (2.25 → "2.3"), which is coarser
+  than the source data's two decimals. Deliberate simplicity for prompt brevity, not a bug — leave
+  as-is unless it causes a real coaching-accuracy issue.
+- **No token-size cap** — the section emits one line per valid sport with no upper bound. Not a
+  problem for any athlete with a normal handful of sports; would only matter for a pathological
+  case (dozens of distinct sport strings in `activities/hist/`). Not worth guarding against
+  speculatively — revisit only if it's ever actually observed.
+- **Test coverage gaps**: no true end-to-end test proving a real file survives
+  `loadCoachContext()` → `renderCoachContext()` → the actual `handleGreet`/ordinary-turn handler
+  call sites (the wiring itself was reviewed statically, not test-covered end to end); no test for
+  multiple sports rendering together, sport-label normalization edge cases, or extreme values
+  (e.g. a 0-day gap, a sport with only ever 1 session). The unit-level coverage that exists (load
+  degradation, render degradation, one populated happy-path) is solid; this is about the seam
+  between layers specifically, not missing coverage everywhere.
+- **No schema-version/freshness check** on `gen/athlete_insights.json` — Part 10 trusts whatever
+  Part 9's generator wrote, whenever it last ran. If the generator's output shape ever changes
+  incompatibly, or the file goes stale (sync stopped working for an athlete), nothing here detects
+  it — same class of gap the rest of `loadCoachContext`'s files already have (none of the 9 fetched
+  files carry a version/freshness check today), so this isn't a new inconsistency, just not solved
+  for insights specifically either.
+- **Still externally unverified** (carried over from #439's same gap, now doubled up): no real
+  athlete's generated `athlete_insights.json` has been used, no actual rendered Gemini request has
+  been inspected, no live API/Gemini/eval/browser flow has been run for either #439 or #443.
+  Recommend a real-repo check before the whole stack (#435 → part 8-11) is considered done, not
+  gating each individual PR on it.
 
 ## Your annotations
 

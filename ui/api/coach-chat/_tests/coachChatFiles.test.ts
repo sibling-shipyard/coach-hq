@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { invalidateCoachContext, isAthleteProfileComplete, isFirstSessionRitualDone, loadCoachContext } from "../_lib/coachChatFiles.js";
+import { ATHLETE_INSIGHTS_PATH, invalidateCoachContext, isAthleteProfileComplete, isFirstSessionRitualDone, loadCoachContext } from "../_lib/coachChatFiles.js";
 import type { ProfileJson, MemoryJson } from "../_lib/coachMemoryFiles.js";
 import type { QuestsJson, SeasonsJson } from "../_lib/coachQuestFiles.js";
 
@@ -153,13 +153,13 @@ describe("loadCoachContext in-flight de-dup", () => {
       loadCoachContext(repo, "token"),
     ]);
     expect(a).toEqual(b);
-    // 8 files (profile.json, memory.json, injuries.json, coach_log.json, seasons.json,
-    // quests.json, progress.json, progressions.json) fetched once, not once per caller -
+    // 9 files (profile.json, memory.json, injuries.json, coach_log.json, seasons.json,
+    // quests.json, progress.json, progressions.json, athlete_insights.json) fetched once -
     // SOUL.md no longer comes from the athlete's repo at all (bundled from platform/SOUL.md, see
     // build-soul.mjs), and state.md/rolling_state.json/challenge_v2.json/the precomputed quest artifact are all
     // gone (coach-redesign-part1-memory.md, coach-redesign-part2-ledger.md; the dead quest-artifact fetch
     // was dead weight found in review - renderQuestContext never read it).
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(fetchMock).toHaveBeenCalledTimes(9);
   });
 
   it("a fresh:true call never shares the in-flight de-dup, even if one is already pending", async () => {
@@ -169,18 +169,33 @@ describe("loadCoachContext in-flight de-dup", () => {
       loadCoachContext(repo, "token", { fresh: true }),
     ]);
     expect(cached).toEqual(fresh);
-    // Each call does its own independent 8-file fetch since one of them demanded freshness.
-    expect(fetchMock).toHaveBeenCalledTimes(16);
+    // Each call does its own independent 9-file fetch since one of them demanded freshness.
+    expect(fetchMock).toHaveBeenCalledTimes(18);
   });
 
   it("refetches every context file after the repo cache is invalidated", async () => {
     const repo = `owner/repo-invalidated-${Date.now()}`;
     await loadCoachContext(repo, "token");
     await loadCoachContext(repo, "token");
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(fetchMock).toHaveBeenCalledTimes(9);
 
     invalidateCoachContext(repo);
     await loadCoachContext(repo, "token");
-    expect(fetchMock).toHaveBeenCalledTimes(16);
+    expect(fetchMock).toHaveBeenCalledTimes(18);
   });
+
+  it.each([["absent", null], ["malformed", "{not-json"]])(
+    "degrades to no athlete insights when the file is %s",
+    async (caseName, raw) => {
+      const repo = `owner/repo-insights-${caseName}-${Date.now()}`;
+      fetchMock.mockImplementation(async (input: string | URL | Request) => {
+        if (String(input).includes(ATHLETE_INSIGHTS_PATH)) {
+          return raw == null ? new Response(null, { status: 404 }) : new Response(raw, { status: 200 });
+        }
+        return new Response("content", { status: 200 });
+      });
+      await expect(loadCoachContext(repo, "token")).resolves.toMatchObject({ athleteInsights: null });
+      expect(fetchMock).toHaveBeenCalledTimes(9);
+    },
+  );
 });

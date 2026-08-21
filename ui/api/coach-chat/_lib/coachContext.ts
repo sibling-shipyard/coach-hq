@@ -18,12 +18,14 @@
  */
 import type { ProfileJson, MemoryJson, InjuriesJson, CoachLogJson } from "./coachMemoryFiles.js";
 import type { SeasonsJson, QuestsJson, ProgressJson, ProgressionsJson } from "./coachQuestFiles.js";
+import type { AthleteInsightsJson, AthleteSportInsight } from "./coachChatFiles.js";
 
 export interface CoachContextStorage {
   profile: ProfileJson | null;
   memory: MemoryJson | null;
   injuries: InjuriesJson | null;
   coachLog: CoachLogJson | null;
+  athleteInsights: AthleteInsightsJson | null;
 }
 
 export interface QuestContextStorage {
@@ -77,6 +79,36 @@ function recentSessionNotesSection(coachLog: CoachLogJson | null): string {
   const recent = rows.slice(-RECENT_SESSION_WINDOW).reverse(); // most recent first
   const body = recent.length > 0 ? recent.map((r) => `- **${r.date}:** ${r.text}`).join("\n") : "*(Empty)*";
   return [`## Recent Session Notes *(rolling — last ${RECENT_SESSION_WINDOW} sessions)*`, body].join("\n");
+}
+
+function isSportInsight(value: unknown): value is AthleteSportInsight {
+  if (!value || typeof value !== "object") return false;
+  const insight = value as Partial<AthleteSportInsight>;
+  return [insight.sessions_365d, insight.sessions_per_week_recent_4w, insight.sessions_per_week_prior_12w,
+    insight.longest_gap_days_365d, insight.days_since_last_session]
+    .every((metric) => typeof metric === "number" && Number.isFinite(metric) && metric >= 0);
+}
+
+function formatRate(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+}
+
+function sportLabel(sport: string): string {
+  return sport.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function fitnessSnapshotSection(insights: AthleteInsightsJson | null): string | null {
+  if (!insights?.sports || typeof insights.sports !== "object" || Array.isArray(insights.sports)) return null;
+  const windowDays = Number.isFinite(insights.window_days) && insights.window_days > 0 ? insights.window_days : 365;
+  const lines = Object.entries(insights.sports)
+    .filter(([sport, insight]) => sport.trim().length > 0 && isSportInsight(insight))
+    .map(([sport, insight]) =>
+      `- **${sportLabel(sport)}:** ${insight.sessions_365d} sessions in the window; ` +
+      `~${formatRate(insight.sessions_per_week_recent_4w)}x/week recently ` +
+      `(~${formatRate(insight.sessions_per_week_prior_12w)}x/week in the prior 12 weeks); ` +
+      `longest gap ${insight.longest_gap_days_365d} days; last session ${insight.days_since_last_session} days ago.`,
+    );
+  return lines.length > 0 ? [`## Fitness Snapshot (last ${windowDays} days)`, ...lines].join("\n") : null;
 }
 
 function fitnessBaselineSection(memory: MemoryJson | null): string {
@@ -272,13 +304,15 @@ export function renderQuestContext(storage: QuestContextStorage): string {
 // Builds the athlete-context block that goes where state.md's raw prose used to go in
 // buildDynamicText's <state> block - same section headers, sourced from the four new files.
 export function renderCoachContext(storage: CoachContextStorage): string {
-  return [
+  const sections = [
     profileSection(storage.profile, storage.memory),
     equipmentSection(storage.memory),
     recentSessionNotesSection(storage.coachLog),
+    fitnessSnapshotSection(storage.athleteInsights),
     fitnessBaselineSection(storage.memory),
     activeInjuryFlagsSection(storage.injuries),
     coachingPrioritiesSection(storage.memory),
     learnedPatternsSection(storage.memory),
-  ].join("\n\n");
+  ];
+  return sections.filter((section): section is string => section != null).join("\n\n");
 }
