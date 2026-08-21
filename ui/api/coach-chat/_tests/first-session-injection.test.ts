@@ -5,7 +5,8 @@ import {
   firstSessionContext,
   onboardingHintsContext,
   staticSystemText,
-} from "../_lib/coachPrompt.js";
+} from "../_lib/coachPromptText.js";
+import { generationConfigFor } from "../_lib/coachReplySchema.js";
 
 // PR 4 of the SOUL v5.8 trim: the First Session Protocol left SOUL.chat.md and is injected
 // per-turn instead, gated on isAthleteProfileComplete(). The trap these tests exist to catch is
@@ -14,13 +15,56 @@ import {
 const PROTOCOL = "### First Session Protocol\n\n**Step 1 — Warm intro:** say hi.";
 const SOUL = "# Coach Phelps: SOUL.md\n\nBe a coach.";
 
+function schemaFields(mode: "greeting" | "ordinary" | "closing", firstSession: boolean): string[] {
+  return Object.keys(generationConfigFor(mode, firstSession).responseSchema.properties);
+}
+
+describe("mode-specific response schemas", () => {
+  it("allows no write actions on greetings or returning ordinary turns", () => {
+    expect(schemaFields("greeting", true)).toEqual(["session_closed", "reply"]);
+    expect(schemaFields("ordinary", false)).toEqual(["session_closed", "reply"]);
+  });
+
+  it("allows only incremental intake actions during an ordinary First Session turn", () => {
+    expect(schemaFields("ordinary", true)).toEqual([
+      "memory_update",
+      "coaching_style_update",
+      "sports_update",
+      "injury_event",
+      "profile_update",
+      "season_start",
+      "quest_create",
+      "session_closed",
+      "reply",
+    ]);
+  });
+
+  it("adds coach_note at First Session close but excludes returning-athlete actions", () => {
+    const fields = schemaFields("closing", true);
+    expect(fields).toContain("coach_note");
+    expect(fields).toContain("quest_create");
+    expect(fields).not.toContain("quest_event");
+    expect(fields).not.toContain("template_edit");
+    expect(fields).not.toContain("week_plan");
+  });
+
+  it("allows operational actions at returning close but excludes intake creation", () => {
+    const fields = schemaFields("closing", false);
+    expect(fields).toContain("quest_event");
+    expect(fields).toContain("template_edit");
+    expect(fields).toContain("week_plan");
+    expect(fields).not.toContain("season_start");
+    expect(fields).not.toContain("quest_create");
+  });
+});
+
 describe("firstSessionContext", () => {
   it("returns undefined once the profile is complete", () => {
-    expect(firstSessionContext(true, PROTOCOL)).toBeUndefined();
+    expect(firstSessionContext(false, PROTOCOL)).toBeUndefined();
   });
 
   it("carries the protocol when the profile is empty", () => {
-    const ctx = firstSessionContext(false, PROTOCOL);
+    const ctx = firstSessionContext(true, PROTOCOL);
     expect(ctx).toContain("**Step 1 — Warm intro:**");
     expect(ctx).toContain("<first_session>");
   });
@@ -33,7 +77,7 @@ describe("combineExtraContext", () => {
 
   it("keeps both blocks when first-session and onboarding hints fire together", () => {
     const combined = combineExtraContext(
-      firstSessionContext(false, PROTOCOL),
+      firstSessionContext(true, PROTOCOL),
       onboardingHintsContext({ name: "Skanda", sports: ["badminton"], coaching_style: "analysis" }),
     );
     expect(combined).toContain("<first_session>");
@@ -59,7 +103,8 @@ describe("cache safety", () => {
       "state",
       "quests",
       "greeting",
-      firstSessionContext(false, PROTOCOL),
+      true,
+      firstSessionContext(true, PROTOCOL),
       true,
     );
     expect(dynamic).toContain("<first_session>");
@@ -71,7 +116,8 @@ describe("cache safety", () => {
       "state",
       "quests",
       "ordinary",
-      firstSessionContext(true, PROTOCOL),
+      false,
+      firstSessionContext(false, PROTOCOL),
       true,
     );
     expect(dynamic).not.toContain("<first_session>");
@@ -83,7 +129,8 @@ describe("cache safety", () => {
       "state",
       "quests",
       "ordinary",
-      firstSessionContext(false, PROTOCOL),
+      true,
+      firstSessionContext(true, PROTOCOL),
       true,
     );
     expect(dynamic).toContain("Save each concrete fact on the same turn it is learned");
@@ -104,7 +151,8 @@ describe("cache safety", () => {
       "state",
       "quests",
       "closing",
-      firstSessionContext(false, PROTOCOL),
+      true,
+      firstSessionContext(true, PROTOCOL),
       true,
     );
     expect(dynamic).toContain("LAST CHANCE");
@@ -115,7 +163,7 @@ describe("cache safety", () => {
   });
 
   it("still uses the generic closing checklist for a returning athlete's close (not First Session)", () => {
-    const dynamic = buildDynamicText("state", "quests", "closing", undefined, true);
+    const dynamic = buildDynamicText("state", "quests", "closing", false, undefined, true);
     expect(dynamic).not.toContain("LAST CHANCE");
     expect(dynamic).toContain("session-close signal");
   });

@@ -1,20 +1,22 @@
 /**
- * Coach-chat's Gemini transport: builds the actual request (combining coachPrompt.ts's text with
+ * Coach-chat's Gemini transport: builds the actual request (combining coachPromptText.ts with
  * explicit-cache state from soulCache.ts), calls generateContent, retries transient failures
  * (stale cache, timeout, overload) exactly once, and parses the response. Prompt *content* lives
- * in coachPrompt.ts - this module only owns getting a request to Gemini and a reply back.
+ * in coachPromptText.ts - this module only owns getting a request to Gemini and a reply back.
  */
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
 import type { ChatMessage } from "./chatThreads.js";
 import {
-  GENERATION_CONFIG,
   buildDynamicText,
   buildHistoryContents,
   staticSystemText,
+} from "./coachPromptText.js";
+import {
+  generationConfigFor,
   type GeminiReply,
   type TurnMode,
-} from "./coachPrompt.js";
+} from "./coachReplySchema.js";
 
 // Dated model ids (gemini-2.0-flash, then gemini-2.5-flash) kept getting cut early. Google's
 // "-latest" alias always points at the current recommended flash model instead.
@@ -28,6 +30,7 @@ export async function askGemini(
   history: ChatMessage[],
   userMessage: string,
   mode: TurnMode,
+  firstSession: boolean,
   extraContext?: string,
   traceId?: string,
   timezone = "UTC",
@@ -47,7 +50,7 @@ export async function askGemini(
   const buildContents = (useCache: boolean) =>
     useCache
       ? [
-          { role: "user", parts: [{ text: buildDynamicText(athleteContext, questLog, mode, extraContext, true, timezone) }] },
+          { role: "user", parts: [{ text: buildDynamicText(athleteContext, questLog, mode, firstSession, extraContext, true, timezone) }] },
           {
             role: "model",
             parts: [{ text: "Understood - I'll follow those instructions exactly, same as my system instructions." }],
@@ -60,9 +63,9 @@ export async function askGemini(
   const buildRequestBody = (useCache: boolean) => ({
     ...(useCache
       ? { cachedContent: cachedName }
-      : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(athleteContext, questLog, mode, extraContext, false, timezone) }] } }),
+      : { systemInstruction: { parts: [{ text: staticText + "\n" + buildDynamicText(athleteContext, questLog, mode, firstSession, extraContext, false, timezone) }] } }),
     contents: buildContents(useCache),
-    generationConfig: GENERATION_CONFIG,
+    generationConfig: generationConfigFor(mode, firstSession),
   });
 
   // Closing turns carry a larger prompt (full history) than the shared UPSTREAM_TIMEOUT_MS (25s,

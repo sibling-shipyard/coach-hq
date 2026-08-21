@@ -50,7 +50,7 @@ function getIsoWeekId(dateString: string): string {
   return `${isoYear}-W${String(week).padStart(2, "0")}`;
 }
 
-// The small shape Gemini actually reports for week_plan - see coachPrompt.ts's GeminiReply.
+// The small shape Gemini actually reports for week_plan - see coachReplySchema.ts's GeminiReply.
 // headline/body are the coach_read content, kept in this one small schema per the plan's explicit
 // "don't add a second Gemini call for this" instruction.
 export interface WeekPlanSession {
@@ -222,7 +222,7 @@ export function applyWeekPlan(
   return JSON.stringify(result, null, 2);
 }
 
-// The small shape Gemini actually reports for session_reconcile - see coachPrompt.ts's
+// The small shape Gemini actually reports for session_reconcile - see coachReplySchema.ts's
 // GeminiReply. Array, mirrors quest_event's upsert-by-id shape almost exactly. `actual` is new
 // (per direction): only set when what really happened differs from what was planned (planned a
 // run, actually played badminton) - the session's discipline/kind/title get overwritten to match
@@ -337,7 +337,7 @@ export function applySessionReconcile(
   return JSON.stringify(result, null, 2);
 }
 
-// The small shape Gemini reports for plan_edit - see coachPrompt.ts's GeminiReply. Edits an
+// The small shape Gemini reports for plan_edit - see coachReplySchema.ts's GeminiReply. Edits an
 // EXISTING future (or today's) session's planned content in place, without touching the rest of
 // the week - the missing piece week_plan (full 7-day rewrite) and session_reconcile (status-only
 // patch) didn't cover: "swap tomorrow's badminton for football." session_id must be real, from

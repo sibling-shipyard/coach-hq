@@ -53,7 +53,7 @@ flowchart LR
     cached --> turn["Gemini: ordinary or closing mode"]
     turn --> closeCheck{"Typed/pending close signal\nor explicit button flag\nAND session_closed:true?"}
     closeCheck -- no --> noClose["closed:false response\nFSP facts may commit incrementally"]
-    closeCheck -- yes --> commitClose["commitFilesAtomic:\nfile_updates + coach_note + chat_history.json\n(greeting + full transcript,\nfirst write for this thread)"]
+    closeCheck -- yes --> commitClose["commitFilesAtomic:\nvalidated action writes + chat_history.json\n(greeting + full transcript,\nfirst write for this thread)"]
     commitClose --> done["closed:true, profileComplete,\nrepoSha returned"]
 ```
 
@@ -74,7 +74,7 @@ top of the Gemini call.
 Landing on the chat tab never shows an empty composer. The client calls
 `POST {action: "greet"}`, handled by `handleGreet()`. During First Session it first commits any
 native onboarding hints; it never commits the greeting thread itself. Every call generates a fresh opener via Gemini (`"greeting"` mode: 1-3 sentence
-contextual opener, no day-count, no stat dump, never proposes `file_updates`, informed by
+contextual opener, no day-count, no stat dump, no write actions in its schema, informed by
 current athlete context) and returns `{reply, threadId, threads, repoSha, profileComplete}` — `threadId` is
 a fresh, never-persisted id (kept in the response only for shape stability; neither web nor iOS
 reads it) and `threads` is the existing committed list, unchanged.
@@ -106,19 +106,19 @@ call for a greeting nobody reads.
 for the thread — nothing is persisted server-side for an unwrapped conversation, so the server is
 stateless per turn until a close. Every response echoes `repoSha` and a fresh `profileComplete`
 (see staleness and First Session below).
-Gemini in `"ordinary"` mode only ever sees `state.md`/`rendered quest context` (not `coach_notes.md`/
-`challenge_v2.json`/`current_week.json`/`sleep_log.json` — those are only fetched on a closing
-turn, see below), so it's told it may only propose edits to `state.md` mid-conversation; anything
-else waits for the close-out.
+Gemini sees the rendered split athlete context, rendered quest context, and optional Fitness
+Snapshot. A returning ordinary turn has no write actions in its response schema. An ordinary
+First Session turn receives only incremental intake actions, so confirmed facts can be recorded
+as they arrive instead of being reconstructed at close.
 
 ### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/geminiClient.ts`)
 
-The prompt splits into a **static** half (persona, fixed instructions, few-shot examples — byte-
-identical for every athlete, every turn) and a **dynamic** half (current state.md/rendered quest context,
+The prompt splits into a **static** half (persona, fixed instructions, two few-shot examples —
+byte-identical for every athlete, every turn) and a **dynamic** half (rendered split context,
 mode-specific instructions, `todayContextLine()`). The static half is uploaded once via Gemini's
 explicit-caching API and referenced by name on every call instead of being resent; the dynamic
-half ships fresh every request. Full design, the caching mechanics, the response schema, and the
-`reasoning` field are covered in `docs/eng-docs/gemini-flow.md` — that's the one reference for
+half ships fresh every request. Each turn also gets the smallest response schema legal for its
+mode. Full design, caching mechanics, and response schemas live in `docs/eng-docs/gemini-flow.md` — the reference for
 everything Gemini-specific, this doc stays focused on the request lifecycle around it.
 
 SOUL itself is bundled from `platform/SOUL.chat.md` — the coach-chat build of the two composed
@@ -166,123 +166,24 @@ does not force the result: Gemini may still ask a closing follow-up and return
 `session_closed: false`.
 
 On a genuine close:
-- `challenge_v2.json`, `current_week.json`, `sleep_log.json` are fetched fresh
-  (`loadClosingFileContext()`) and injected into the prompt — the only turns Gemini sees their
-  current content. `coach_notes.md` is **not** fetched here — see `coach_note` below, its
-  current-content is only read server-side, at commit time.
-- Today's *other* already-committed threads' previews are summarized into the prompt
-  (`todaysOtherThreadsSummary()`, A6) so side quests already covered earlier the same day aren't
-  re-asked.
-- Gemini returns `file_updates` describing what changed (see write strategy below), plus a
-  separate `coach_note` fact (see below), plus `commit_message`.
-- `resolveFileUpdate()` resolves each proposed `file_updates` entry against real current content,
-  drops anything unwritable/unresolvable/blank (every drop now names a reason, not just a bare
-  `null`), and the survivors plus the updated `chat_history.json` (plus `coach_notes.md`, when
-  `coach_note` was reported) land in **one** atomic commit (`commitFilesAtomic()`, ADR 0012 —
-  blob → tree → commit → ref, retried on a non-fast-forward conflict). Every GitHub call in this
-  sequence goes through `fetchWithTimeout` (25s default) rather than a bare `fetch()`, so a
-  stalled write fails fast into the retry instead of hanging until Vercel's platform ceiling
-  kills the function; a timeout on the ref-move step specifically is treated the same as a raw
-  network error (re-check whether the ref actually landed before deciding whether to retry — see
-  the comment at that call site), since either way the response was lost and blindly retrying
-  risks a double-commit.
+- The server fetches the template manifest and `current_week.json` so the prompt can carry only
+  real template and session ids.
+- A returning athlete receives operational action fields. A First Session close instead receives
+  the intake actions plus `coach_note`; template and week actions are structurally unavailable.
+- Server-side intent appliers validate ids, add dates and timestamps, and resolve each action
+  against fresh file content. The resulting split JSON files and `chat_history.json` land in one
+  atomic commit (`commitFilesAtomic()`, ADR 0012).
 - The response includes `profileComplete`, as greet and ordinary responses do — computed from
   the projected profile, memory, and season content for this turn (see First Session Protocol).
 - `COACH_CHAT_BRANCH` (env var, defaults to `main`) controls which branch the commit lands on —
   lets a real close be tested end to end on a scratch branch instead of a live athlete's `main`.
 
-**`coach_note` — the append-only fact.** `file_updates` requires the model to either produce an
-exact-match string edit (state.md) or a valid merge patch (the JSON files) — both can silently
-fail to apply. `coach_note` sidesteps that: the model reports a short (2-3 sentence) plain-English
-note of what happened, and the server appends it with today's date to `coach_notes.md`
-(`appendCoachNote()`) — no exact-match, no patch parse, nothing to reject. `coach_notes.md` was
-fully removed from the edits-eligible set for this reason (see Write strategy below).
-
-**Close-save observability:** nothing in code requires `session_closed: true` to actually carry
-non-empty `file_updates`/`coach_note` — a genuinely content-free close ("just wanted to say hi,
-bye") is legitimate and the prompt allows it honestly, so this isn't a hard block, just visibility
-plus a stronger prompt, plus a retry-and-caveat safety net for the specific case where the model's
-own reasoning contradicts what it actually returned:
-- A structured `close-trace` log line fires on every close (traceId, threadId, what was proposed,
-  what committed/dropped and why, timing) — replaces the older scattered `console.warn`s. The
-  model's own `reasoning` for every closing turn is separately logged in `finishGeminiResponse`
-  before being stripped, correlatable by request time — see `gemini-flow.md`'s Reasoning field
-  section.
-- The closing-turn prompt asks for an explicit, mechanical self-check before deciding
-  `file_updates`/`coach_note`: list every concrete fact the conversation contains that `state.md`
-  doesn't already reflect, one per line, and require each line to have either a save (an entry in
-  `file_updates`, or duplicated into `coach_note` as a guaranteed fallback if the model isn't
-  confident a `file_updates` edit will match exactly) or an explicit reason it doesn't need one.
-- If `reasoning` describes real content but both `file_updates` and `coach_note` still come back
-  empty (`hasUnsavedContentMismatch()`), `askGemini` fires one automatic follow-up call replaying
-  the model's own prior turn with a nudge to actually populate one of them. If the mismatch still
-  holds after that retry, the athlete-facing `reply` gets an honest caveat appended
-  server-side ("I ran into trouble saving today's notes...") instead of an unqualified "saved"
-  claim — this is what prevents a close from confidently lying about what happened.
-
-**Thread title:** generated by Gemini, not derived from the transcript server-side. The same
-closing-turn response that carries `session_closed: true` also carries an optional `title` — a
-short, specific summary of that conversation (e.g. "Sore shoulder, modified session"), prompted
-for once, at close, since that's the only moment a real commit happens (mid-conversation titles
-are never visible to begin with — see Resumability below). The prompt now explicitly asks for
-plain English only (no mixed scripts/languages) and the few-shot examples model a plain-English
-title alongside the rest of the expected JSON shape, after a real production title once came back
-with stray CJK characters mixed into otherwise-English text. As a fallback net, `sanitizeTitle()`
-strips anything outside printable ASCII from Gemini's `title` before it's used. Capped at
-`THREAD_TITLE_MAX_CHARS = 28`, applied three ways: the prompt tells Gemini the budget, the
-fallback (below) is truncated to it, and Gemini's own `title` is truncated to it again as a
-backstop in case a response ignores the instruction — truncation uses `truncateTitle()`
-(codepoint-based, `Array.from`) rather than `.slice()`, so a multi-byte character never gets cut
-in half at the truncation point. If `title` is missing (an older/misbehaving response), falls
-back to the athlete's first message in the thread, truncated the same way — the original behavior
-before title generation existed, kept only as a safety net now. iOS applies its own
-`lineLimit`/truncation on every surface that renders a title (header, history list, pick-up
-banner), independent of this budget; iOS truncation is already grapheme-safe (Swift's
-`String.prefix` operates on `Character`, not UTF-16 code units), so no equivalent fix was needed
-there.
-
-Separately, a `checklist_covered: boolean` field on the closing response is logged (not enforced)
-alongside `reasoning` in `finishGeminiResponse` — purely diagnostic, so a report of "coach closed
-without asking about sleep" can be told apart from the prompt's own intentional "close anyway"
-escape hatch on a second close attempt (see below) instead of guessing from the reply text.
-
-### Write strategy (A7)
-
-`file_updates` entries carry exactly one of three shapes, chosen by file type:
-
-```mermaid
-flowchart TD
-    update["Gemini proposes a file_update"] --> writable{"isCoachWritable(path)?"}
-    writable -- no --> drop1["dropped"]
-    writable -- yes --> kind{"file type"}
-    kind -- "state.md" --> edits["edits: [{old_string, new_string}]\napplyStringEdits() — exact, unique match required"]
-    kind -- "challenge_v2.json, current_week.json, sleep_log.json" --> patch["merge_patch: JSON string\napplyJsonMergePatch() — RFC 7396"]
-    kind -- "session files" --> content["content: full new file\n(usually a whole-new-file write)"]
-    edits --> matched{"old_string matches\nexactly once?"}
-    matched -- no --> drop2["that edit skipped\n(not fatal to other edits)"]
-    matched -- yes --> applied["applied"]
-    patch --> validJson{"valid JSON\nmerge patch?"}
-    validJson -- no --> drop3["dropped"]
-    validJson -- yes --> merged["shallow-merged onto current object\nnull deletes a key, arrays replace wholesale"]
-```
-
-`state.md` uses exact-match string edits — mirrors this session's own Edit tool discipline. An
-`old_string` that's absent or appears more than once is rejected and that specific edit skipped
-(not fatal to the rest of the turn). If every edit in an update fails, the whole update is dropped
-rather than committing a no-op write. `coach_notes.md` used to be on this same path; it was moved
-off entirely onto the `coach_note` fact (above) since append-only has no exact-match to fail.
-
-JSON files (`challenge_v2.json`, `current_week.json`, `sleep_log.json`) use RFC 7396 JSON Merge
-Patch, sent as a JSON-encoded **string** (not a nested object — Gemini's structured-output schema
-doesn't reliably support open-ended objects). Only changed keys need to be included; a `null`
-value deletes a key; arrays always replace wholesale, never merge element-by-element.
-
-Session files (`user_data/activities/workout_plans/sessions/*.json`) keep full-content
-replacement — these are almost always whole-new-file writes, not edits to an existing one.
-
-`COACH_WRITABLE_FILES` is the defense-in-depth allowlist — derived from the union of the
-markdown-edit and JSON-merge-patch sets, so it can't drift from them. Anything Gemini proposes
-outside this set (or `SESSIONS_PREFIX`) is dropped regardless of what the prompt already told it.
+**Write strategy.** Gemini never edits files or supplies patches. It returns constrained semantic
+actions such as `profile_update`, `injury_event`, `quest_event`, `week_plan`, or `plan_edit`.
+Each server-side applier validates the action against real context, preserves server-owned
+bookkeeping, and produces the next full JSON content. `coach_note` becomes one append-only row in
+`coach_log.json`. Thread titles are derived server-side from the athlete's first message and
+sanitized to the display limit; Gemini does not generate them.
 
 ### Retention (ADR 0012, amended)
 
@@ -308,7 +209,7 @@ consumes a retention slot — only threads that actually got a real close-out ev
   line-based split for `- `/`* `/`1. ` prefixed lines into indented bullet/numbered rows, since
   `AttributedString` can't lay out block-level lists in SwiftUI `Text` on its own.
 - **Thread age labels**: the history list shows two distinct badges per thread — an *absolute*
-  day-count badge (`D-101`, from `challenge_v2.json`'s day count) and a *relative* age badge next
+  day-count badge (`D-101`, from `profile.json`'s `coach_since`) and a *relative* age badge next
   to it, which shows a real date ("5th AUG") rather than a `D-N` count, using `ChatThread.createdAt`
   (raw epoch ms). The leading conversation-pane divider works the same way: "TODAY" for the
   active same-day thread, otherwise the thread's real date, computed fresh from
@@ -498,8 +399,8 @@ rather than assuming a fresh top-level file is free.
 ## Done when
 
 Landing on Coach Chat always shows Coach having already spoken, never an empty composer; a
-close-session commit lands as one atomic commit with only the files that genuinely changed;
-editing a 14KB `state.md` mid-conversation touches only the changed lines, not the whole file;
+close-session commit lands as one atomic commit with only the split records that genuinely changed;
+ordinary First Session facts commit through constrained actions as they are confirmed;
 two devices on the same thread self-correct via the staleness toast instead of silently
 diverging; a not-yet-intake'd athlete always lands back in the same in-progress First Session
 thread on relaunch, never re-asked what they already answered.
@@ -538,7 +439,8 @@ for the full module index.
 | `ui/api/coach-chat/_lib/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
 | `ui/api/coach-chat/_lib/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
 | `ui/api/coach-chat/_lib/geminiClient.ts` | Gemini transport — `askGemini()`, retry logic |
-| `ui/api/coach-chat/_lib/coachPrompt.ts` | prompt text construction, response schema |
+| `ui/api/coach-chat/_lib/coachPromptText.ts` | prompt text and dynamic context construction |
+| `ui/api/coach-chat/_lib/coachReplySchema.ts` | reply types and mode-specific response schemas |
 | `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, retention |
 | `ui/api/coach-chat/_lib/closeSignal.ts` | close-intent detection |
 | `ui/api/coach-chat/_lib/coachDay.ts` | timezone/day-number math |

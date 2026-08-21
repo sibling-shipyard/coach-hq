@@ -63,15 +63,13 @@ import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import { parseJsonOrNull } from "./coach-chat/_lib/coachChatFiles.js";
 import {
   combineExtraContext,
-  injuryFlagsContext,
-  activeQuestsContext,
   activeTemplatesContext,
   activeWeekSessionsContext,
   firstSessionContext,
   onboardingHintsContext,
-  type GeminiReply,
   type OnboardingHints,
-} from "./coach-chat/_lib/coachPrompt.js";
+} from "./coach-chat/_lib/coachPromptText.js";
+import type { GeminiReply } from "./coach-chat/_lib/coachReplySchema.js";
 import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
 import { fspIncrementalWrites, ordinaryTurnResponse } from "./coach-chat/_lib/fspWrites.js";
 import { onboardingChanges } from "./coach-chat/_lib/onboardingWrites.js";
@@ -86,7 +84,7 @@ async function handleGreet(
 ): Promise<Response> {
   const [history, context] = await Promise.all([loadChatHistory(repo, token), loadCoachContext(repo, token)]);
   const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions, athleteInsights } = context;
-  if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
+  if (!soul) return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
   const timezone = profile?.timezone?.trim() || "UTC";
 
   const { name: hintedName, sports: hintedSports, coachingStyle: hintedCoachingStyle } =
@@ -124,6 +122,7 @@ async function handleGreet(
   }
   const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights });
   const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
+  const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
 
   let reply: GeminiReply;
   try {
@@ -135,11 +134,10 @@ async function handleGreet(
       [],
       "",
       "greeting",
+      firstSession,
       combineExtraContext(
-        firstSessionContext(isFirstSessionRitualDone(profile, memory, seasons, quests), FIRST_SESSION_PROTOCOL),
+        firstSessionContext(firstSession, FIRST_SESSION_PROTOCOL),
         onboardingHintsContext(onboardingHints),
-        injuryFlagsContext(injuries),
-        activeQuestsContext(quests),
       ),
       undefined,
       timezone,
@@ -215,9 +213,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // A3: reuses the app-load preload's 60s cache, unless A5 just found it stale, in which
       // case force a fresh read.
       const { soul, profile, memory, injuries, coachLog, seasons, quests, progress, progressions, athleteInsights } = await loadCoachContext(repo, token, { fresh: stale });
-      if (!soul) return Response.json({ error: "SOUL.md not found in your repo" }, { status: 400 });
+      if (!soul) return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
       const timezone = profile?.timezone?.trim() || "UTC";
       const athleteContext = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights });
+      const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
       const questContext = renderQuestContext({ seasons, quests, progress, progressions, today: todayDateString(timezone, new Date()) });
 
       const priorMessages = messages ?? [];
@@ -274,12 +273,11 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           priorMessages,
           geminiMessage,
           closeIntent ? "closing" : "ordinary",
+          firstSession,
           // First Session spans several turns, so this has to fire on ordinary turns too -
           // greet-only would drop the protocol the moment the athlete answered the first question.
           combineExtraContext(
-            firstSessionContext(isFirstSessionRitualDone(profile, memory, seasons, quests), FIRST_SESSION_PROTOCOL),
-            injuryFlagsContext(injuries),
-            activeQuestsContext(quests),
+            firstSessionContext(firstSession, FIRST_SESSION_PROTOCOL),
             activeTemplatesContext(validTemplateIds),
             activeWeekSessionsContext(weekSessionsForContext),
           ),
@@ -423,13 +421,9 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
       // context.
       const questEvents = reply.quest_event ?? [];
       const currentSeasonId = seasons?.current_season_id ?? "";
-      // Same real ids injected into the prompt (activeQuestsContext) that Gemini was told to use
-      // verbatim - applyQuestEvent throws on anything outside this set. Found in review: this
-      // used to include every quest regardless of status, but activeQuestsContext only ever
-      // shows status:"active" side quests (plus the main quest, which has no status to filter
-      // on) - a graduated/retired quest's id was accepted even though Gemini was never told about
-      // it. Filter to match activeQuestsContext exactly, not just "same variable name, different
-      // scope."
+      // Same real ids rendered into Current quests that Gemini was told to use verbatim;
+      // applyQuestEvent throws on anything outside this set. Keep this filter aligned with
+      // renderQuestContext: the main quest plus active side quests only.
       const validQuestIds = new Set<string>(
         [quests?.main_quest?.id, ...(quests?.quests ?? []).filter((q) => q.status === "active").map((q) => q.id)].filter((id): id is string =>
           Boolean(id),
@@ -491,7 +485,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
       // §4: reported only when Coach is prescribing today's session as a modified version of one
       // of the athlete's own templates this close. session_date is server-computed here
-      // (todayDateString), never Gemini-supplied - see coachPrompt.ts's GeminiReply.session_plan
+      // (todayDateString), never Gemini-supplied - see coachReplySchema.ts's GeminiReply.session_plan
       // comment for the reasoning. template_id is re-validated at commit time against
       // validTemplateIds (same set Gemini was shown via activeTemplatesContext) inside
       // applySessionPlan itself - guard condition here just checks the field is present.

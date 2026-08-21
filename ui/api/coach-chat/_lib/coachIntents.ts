@@ -224,7 +224,7 @@ export function applyInjuryEvent(content: string | null, events: InjuryEvent[], 
 export interface QuestEvent {
   quest_id: string;
   status: "completed" | "missed" | "excused";
-  // string-only - the Gemini responseSchema (coachPrompt.ts) declares value as
+  // string-only - the Gemini responseSchema (coachReplySchema.ts) declares value as
   // `{ type: "string" }`, so `number` here was dead, unreachable type surface. Found in review.
   value?: string;
 }
@@ -277,7 +277,7 @@ export type ProfileUpdateField = "name" | "dob" | "timezone" | "height_cm" | "we
 export interface ProfileUpdate {
   field: ProfileUpdateField;
   // string-only, same reasoning as QuestEvent.value above - the Gemini responseSchema
-  // (coachPrompt.ts) declares this as `{ type: "string" }` too, so `number` was equally dead
+  // (coachReplySchema.ts) declares this as `{ type: "string" }` too, so `number` was equally dead
   // type surface here. Found in review as the same bug class left uncorrected on this field.
   value: string;
 }
