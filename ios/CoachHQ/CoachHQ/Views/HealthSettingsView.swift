@@ -66,7 +66,7 @@ struct HealthSettingsView: View {
 
     private var header: some View {
         HStack {
-            MonoLabel("Workouts in the last \(Self.windowDays) days", size: 11, tracking: 1.4)
+            MonoLabel("Sessions in the last \(Self.windowDays) days", size: 11, tracking: 1.4)
             Spacer()
             if case .loaded(let rows) = loadState {
                 Text("\(rows.count)")
@@ -161,17 +161,17 @@ struct HealthSettingsView: View {
 
     @ViewBuilder
     private func footnote(_ rows: [Row]) -> some View {
-        let duplicates = rows.filter { $0.state == .duplicate }.count
+        let multiSource = rows.filter { $0.sources.count > 1 }.count
         let unknowns = rows.filter { $0.state == .unknown }.count
 
         VStack(alignment: .leading, spacing: 6) {
-            Text("Sync picks these up automatically. Import is for anything that reached the phone too late for it.")
+            Text("One row per session. Sync picks these up automatically — Import is for anything that reached the phone too late for it.")
                 .font(.system(size: 12))
                 .foregroundColor(WarmInstrument.inkFaint)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if duplicates > 0 {
-                Text("\(duplicates) marked Duplicate — the same session recorded by a second app. Already synced under the other copy.")
+            if multiSource > 0 {
+                Text("\(multiSource) recorded by more than one app. Each is stored once, under the first source listed.")
                     .font(.system(size: 12))
                     .foregroundColor(WarmInstrument.inkFaint)
                     .fixedSize(horizontal: false, vertical: true)
@@ -244,7 +244,7 @@ private struct WorkoutImportRow: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Theme.ink)
 
-                Text("\(Self.timeLabel(for: row.start)) · \(Self.durationLabel(for: row.duration)) · \(row.sourceName)")
+                Text("\(Self.timeLabel(for: row.start)) · \(Self.durationLabel(for: row.duration)) · \(row.sources.joined(separator: " + "))")
                     .font(WarmInstrument.figures(11))
                     .foregroundColor(WarmInstrument.inkFaint)
                     .lineLimit(1)
@@ -266,9 +266,6 @@ private struct WorkoutImportRow: View {
                 .font(.system(size: 15, weight: .bold))
                 .foregroundColor(WarmInstrument.sportColor(.foundation))
                 .accessibilityLabel("Synced")
-
-        case .duplicate:
-            MonoLabel("Duplicate", size: 9, color: WarmInstrument.inkFaint)
 
         case .unknown:
             MonoLabel("Can't check", size: 9, color: WarmInstrument.inkFaint)

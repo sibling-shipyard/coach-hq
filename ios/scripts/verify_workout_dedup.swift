@@ -167,6 +167,81 @@ struct Verify {
             t.check("test_08: both kept", WorkoutDeduplicator.selectWinners([empty, real]).count == 2)
         }
 
+        // ── Test 9: a cluster keeps every recording of the session ──────────
+        // The Health Settings list shows one row per session and names each app on it, so
+        // the losing copies have to survive grouping instead of being discarded.
+        do {
+            let window = at(0, minutes: 60)
+            let clusters = WorkoutDeduplicator.cluster([
+                candidate("STRAVA", "Ride", window, source: strava),
+                candidate("APPLE", "Ride", window, source: apple),
+                candidate("GARMIN", "Ride", window, source: garmin),
+            ])
+            t.check("test_09: one cluster", clusters.count == 1)
+            t.check("test_09: apple wins", clusters.first?.winner.uuid == "APPLE")
+            t.check("test_09: all three recordings kept", clusters.first?.all.count == 3)
+            t.check("test_09: winner listed first",
+                    clusters.first?.all.map(\.uuid) == ["APPLE", "GARMIN", "STRAVA"])
+        }
+
+        // ── Test 10: synced is a property of the cluster, not the winner ────
+        // If any recording of the session is committed we already hold the session, so the
+        // row must not offer Import.
+        do {
+            let window = at(0, minutes: 60)
+            let clusters = WorkoutDeduplicator.cluster([
+                candidate("GARMIN", "Ride", window, source: garmin),
+                candidate("STRAVA", "Ride", window, source: strava, committed: true),
+            ])
+            t.check("test_10: one cluster", clusters.count == 1)
+            t.check("test_10: cluster reads synced", clusters.first?.isSynced == true)
+
+            let neither = WorkoutDeduplicator.cluster([
+                candidate("GARMIN", "Ride", window, source: garmin),
+                candidate("STRAVA", "Ride", window, source: strava),
+            ])
+            t.check("test_10: nothing committed reads not-synced", neither.first?.isSynced == false)
+        }
+
+        // ── Test 11: grouping is greedy, not transitive ─────────────────────
+        // A overlaps B, B overlaps C, A and C do not. Transitive grouping would merge all
+        // three and hide a real session; greedy grouping splits, which is the safe failure.
+        do {
+            let a = candidate("A", "Ride", at(0, minutes: 60), source: apple)
+            let b = candidate("B", "Ride", at(0.5, minutes: 60), source: apple)
+            let c = candidate("C", "Ride", at(1.0, minutes: 60), source: apple)
+            let clusters = WorkoutDeduplicator.cluster([a, b, c])
+            t.check("test_11: splits into two clusters", clusters.count == 2)
+            t.check("test_11: A takes B", clusters.first?.all.map(\.uuid) == ["A", "B"])
+            t.check("test_11: C stands alone", clusters.last?.all.map(\.uuid) == ["C"])
+        }
+
+        // ── Test 12: separate sessions stay separate rows ───────────────────
+        do {
+            let clusters = WorkoutDeduplicator.cluster([
+                candidate("MORNING", "WeightTraining", at(0), source: apple, committed: true),
+                candidate("EVENING", "WeightTraining", at(8), source: apple),
+            ])
+            t.check("test_12: two clusters", clusters.count == 2)
+            t.check("test_12: neither absorbs the other",
+                    clusters.allSatisfy { $0.others.isEmpty })
+        }
+
+        // ── Test 13: selectWinners still agrees with cluster ────────────────
+        // selectWinners is now built on cluster(); this pins them together so the sync path
+        // and the list can never disagree about which copy is the real one.
+        do {
+            let window = at(0, minutes: 60)
+            let batch = [
+                candidate("STRAVA", "Ride", window, source: strava),
+                candidate("GARMIN", "Ride", window, source: garmin),
+                candidate("SOLO", "Run", at(5), source: apple),
+            ]
+            t.check("test_13: same answer",
+                    WorkoutDeduplicator.selectWinners(batch)
+                        == WorkoutDeduplicator.cluster(batch).map(\.winner.uuid))
+        }
+
         exit(t.summary() ? 0 : 1)
     }
 }

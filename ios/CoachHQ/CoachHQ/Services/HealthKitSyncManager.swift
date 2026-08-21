@@ -486,27 +486,29 @@ class HealthKitSyncManager: ObservableObject {
         let since: Date
     }
 
-    /// One HealthKit workout as the Health Settings list shows it.
+    /// One real-world session as the Health Settings list shows it — not one HealthKit
+    /// record. Garmin and Strava mirror the same session into HealthKit, so a ride can exist
+    /// two or three times; the list shows it once, with every app that recorded it.
     struct HealthImportRow: Identifiable, Equatable {
         enum State: Equatable {
-            /// A file for this uuid is committed in `hist/`.
+            /// A file for one of this session's uuids is committed in `hist/`.
             case synced
-            /// Another recording of the same session won dedup — importing this one would
-            /// duplicate an activity we already have.
-            case duplicate
             /// Nothing committed for it; the athlete can import it.
             case notSynced
             /// The day holds committed files that carry no uuid (legacy slug or Strava-era
-            /// names), so we cannot tell whether this workout is one of them. Import is
+            /// names), so we cannot tell whether this session is one of them. Import is
             /// blocked rather than risk a duplicate.
             case unknown
         }
 
-        let id: String          // HKWorkout.uuid.uuidString
+        /// The winning recording's uuid — the one import commits.
+        let id: String
         let sportType: String
+        /// The winner's start and duration. Sources disagree by seconds; we show what we commit.
         let start: Date
         let duration: TimeInterval
-        let sourceName: String
+        /// Every app that recorded this session, winner first (e.g. ["Apple Watch", "Garmin"]).
+        let sources: [String]
         let state: State
     }
 
@@ -536,12 +538,9 @@ class HealthKitSyncManager: ObservableObject {
         }
 
         let committedUUIDs = Set(existingFiles.compactMap { Self.uuid(fromHistoryFileName: $0.name) })
-        let winners = Set(
-            Self.deduplicate(rawWorkouts, committedUUIDs: committedUUIDs).map { $0.uuid.uuidString }
-        )
         // Days that hold a committed file with no uuid in its name — pre-ADR-0014 slug names
         // and Strava-era history. We can't match those to a HealthKit workout, so every
-        // workout on such a day is `.unknown` rather than a false "not synced".
+        // session on such a day is `.unknown` rather than a false "not synced".
         let calendar = Calendar.current
         let ambiguousDays = Set(
             existingFiles
@@ -550,28 +549,41 @@ class HealthKitSyncManager: ObservableObject {
                 .map { calendar.startOfDay(for: $0) }
         )
 
-        return rawWorkouts.map { workout in
-            let uuid = workout.uuid.uuidString
-            let state: HealthImportRow.State
-            if committedUUIDs.contains(uuid) {
-                state = .synced
-            } else if !winners.contains(uuid) {
-                state = .duplicate
-            } else if ambiguousDays.contains(calendar.startOfDay(for: workout.startDate)) {
-                state = .unknown
-            } else {
-                state = .notSynced
+        // Source names stay out of DedupCandidate — dedup does not need them, and the type
+        // is kept to the fields it does. Look them back up by uuid when building the rows.
+        let sourceNames = Dictionary(
+            rawWorkouts.map { ($0.uuid.uuidString, $0.sourceRevision.source.name) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        return WorkoutDeduplicator.cluster(Self.dedupCandidates(rawWorkouts, committedUUIDs: committedUUIDs))
+            .map { cluster in
+                let winner = cluster.winner
+                let state: HealthImportRow.State
+                if cluster.isSynced {
+                    state = .synced
+                } else if ambiguousDays.contains(calendar.startOfDay(for: winner.start)) {
+                    state = .unknown
+                } else {
+                    state = .notSynced
+                }
+                return HealthImportRow(
+                    id: winner.uuid,
+                    sportType: winner.sportType,
+                    start: winner.start,
+                    duration: winner.duration,
+                    sources: Self.distinct(cluster.all.compactMap { sourceNames[$0.uuid] }),
+                    state: state
+                )
             }
-            return HealthImportRow(
-                id: uuid,
-                sportType: ActivityMapper.sportType(for: workout.workoutActivityType),
-                start: workout.startDate,
-                duration: workout.duration,
-                sourceName: workout.sourceRevision.source.name,
-                state: state
-            )
-        }
-        .sorted { $0.start > $1.start }
+            .sorted { $0.start > $1.start }
+    }
+
+    /// Drops repeats while keeping first-seen order — two recordings from the same app
+    /// should read "Garmin", not "Garmin + Garmin".
+    private static func distinct(_ names: [String]) -> [String] {
+        var seen = Set<String>()
+        return names.filter { seen.insert($0).inserted }
     }
 
     /// Commits one workout the athlete picked from the Health Settings list.
@@ -596,7 +608,22 @@ class HealthKitSyncManager: ObservableObject {
     /// Pass `committedUUIDs` (uuids already present in `hist/` filenames) so a copy already
     /// in the repo outranks a higher-priority source that shows up in a later round.
     static func deduplicate(_ workouts: [HKWorkout], committedUUIDs: Set<String> = []) -> [HKWorkout] {
-        let candidates = workouts.map { workout in
+        let winners = Set(
+            WorkoutDeduplicator.selectWinners(dedupCandidates(workouts, committedUUIDs: committedUUIDs))
+        )
+        // Re-sort by startDate so ActivityNamer assigns counters in chronological order,
+        // matching the invariant in engine/scripts/migrate_activity_naming.py.
+        return workouts
+            .filter { winners.contains($0.uuid.uuidString) }
+            .sorted { $0.startDate < $1.startDate }
+    }
+
+    /// Reduces HKWorkouts to the fields the dedup rules use.
+    static func dedupCandidates(
+        _ workouts: [HKWorkout],
+        committedUUIDs: Set<String>
+    ) -> [DedupCandidate] {
+        workouts.map { workout in
             DedupCandidate(
                 uuid: workout.uuid.uuidString,
                 sportType: ActivityMapper.sportType(for: workout.workoutActivityType),
@@ -608,12 +635,6 @@ class HealthKitSyncManager: ObservableObject {
                 isCommitted: committedUUIDs.contains(workout.uuid.uuidString)
             )
         }
-        let winners = Set(WorkoutDeduplicator.selectWinners(candidates))
-        // Re-sort by startDate so ActivityNamer assigns counters in chronological order,
-        // matching the invariant in engine/scripts/migrate_activity_naming.py.
-        return workouts
-            .filter { winners.contains($0.uuid.uuidString) }
-            .sorted { $0.startDate < $1.startDate }
     }
 
     // MARK: - HealthKit Queries

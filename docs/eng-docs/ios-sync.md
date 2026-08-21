@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-20
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-22
 
 ## Context
 
@@ -123,8 +123,8 @@ The cost is one local HealthKit query and a set of filename comparisons — no e
 self-heals on the next background sync.
 
 **Garmin and Strava mirror the same session into HealthKit.** One ride can appear two or three
-times with different uuids. `WorkoutDeduplicator.selectWinners` collapses a cluster — same loose
-activity group, time windows overlapping by ≥50% of the shorter one — down to a single activity:
+times with different uuids. `WorkoutDeduplicator.cluster` groups the recordings of one session —
+same loose activity group, time windows overlapping by ≥50% of the shorter one — and ranks them:
 
 1. **already committed wins** — whichever copy is in `hist/` stays, whatever its source.
 2. then **source priority** — apple > garmin > strava > unknown.
@@ -134,6 +134,16 @@ Rule 1 exists because the copies can arrive on different days. If Strava's copy 
 Garmin's copy only reaches the phone Wednesday, ranking by source alone would commit a *second*
 file for a session already in `hist/`. Keeping the committed copy is stable across rounds and
 never needs a delete.
+
+Sync only needs the winners, so `selectWinners` is a thin wrapper over `cluster`. The Health
+Settings list needs the losers too — it shows one row per session and names every app that
+recorded it — which is why grouping is the primitive and winner-picking the wrapper.
+
+**Grouping is greedy, not transitive.** A recording joins the first winner it overlaps and starts
+its own cluster if it overlaps none, so a chain — A overlaps B, B overlaps C, A and C do not —
+splits into two clusters instead of merging into one. Deliberate: transitive grouping lets a run
+of near-misses swallow genuinely separate back-to-back sessions, and hiding a real workout is the
+worse failure.
 
 The rules live in `WorkoutDeduplicator.swift`, deliberately free of HealthKit types — `HKWorkout`
 cannot be constructed outside a device store, so anything touching it is untestable. Verify with:
@@ -154,12 +164,16 @@ HealthKit workouts with a per-row sync state, and imports anything the automatic
 It is read-only until the athlete taps Import.
 
 `HealthKitSyncManager.loadHealthImportRows(daysBack:)` builds the list from one local HealthKit
-query plus the `hist/` file listing — no file contents, same as dedup. Four states:
+query plus the `hist/` file listing — no file contents, same as dedup.
+
+**One row per session, not per HealthKit record.** Rows are clusters, so a ride recorded by the
+watch and mirrored by Garmin is one row naming both (`Apple Watch + Garmin`), not two rows with
+one of them labelled a duplicate. The row shows the winner's start, duration and stats, because
+the winner is the copy we commit. Three states:
 
 | State | Means |
 |---|---|
-| **synced** | A file for this uuid is committed in `hist/`. |
-| **duplicate** | Another recording of the same session won dedup. Already synced under that copy. |
+| **synced** | A file for one of the session's uuids is committed in `hist/`. Asked of the whole cluster, not just the winner. |
 | **can't check** | The day holds committed files with no uuid in the name (pre-ADR-0014 slug names, Strava-era history), so we cannot match them to a HealthKit workout. Import is blocked rather than risk a duplicate. |
 | **not synced** | Nothing committed for it — the only state with an Import button. |
 

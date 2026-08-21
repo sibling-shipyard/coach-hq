@@ -28,7 +28,23 @@ struct DedupCandidate: Equatable {
 /// in the same batch even when they arrive days apart.
 enum WorkoutDeduplicator {
 
-    /// Returns the uuids to keep, one per duplicate cluster.
+    /// One real-world session and every recording of it we found.
+    struct Cluster: Equatable {
+        /// The recording we keep — the one that gets committed, and whose stats the UI shows.
+        let winner: DedupCandidate
+        /// The other recordings of the same session, in the same rank order. Usually empty.
+        let others: [DedupCandidate]
+
+        /// Every recording in the cluster, winner first.
+        var all: [DedupCandidate] { [winner] + others }
+
+        /// True when any recording of this session is already committed — the honest answer
+        /// to "do we have this session?". Ranking committed copies first means the winner is
+        /// normally the committed one, but asking the whole cluster does not rely on that.
+        var isSynced: Bool { all.contains(where: \.isCommitted) }
+    }
+
+    /// Groups recordings of the same session together and picks the one to keep from each.
     ///
     /// Winner order within a cluster:
     /// 1. **already committed** — whichever copy is in the repo stays, whatever its source.
@@ -39,7 +55,13 @@ enum WorkoutDeduplicator {
     /// Strava copy syncs on Monday and the Garmin copy only reaches the phone on Wednesday,
     /// preferring Garmin would commit a *second* file for a session already in `hist/`.
     /// Keeping the committed copy is stable and never needs a delete.
-    static func selectWinners(_ candidates: [DedupCandidate]) -> [String] {
+    ///
+    /// Grouping is greedy, not transitive: a recording joins the first winner it overlaps
+    /// with, and starts its own cluster if it overlaps none. So a chain — A overlaps B,
+    /// B overlaps C, A and C do not — splits rather than merging into one. That is
+    /// deliberate. Transitive grouping lets a run of near-misses swallow genuinely separate
+    /// back-to-back sessions, which is the worse failure: it would hide a real workout.
+    static func cluster(_ candidates: [DedupCandidate]) -> [Cluster] {
         let ordered = candidates.enumerated().sorted { lhs, rhs in
             if lhs.element.isCommitted != rhs.element.isCommitted { return lhs.element.isCommitted }
             if lhs.element.sourcePriority != rhs.element.sourcePriority {
@@ -48,11 +70,22 @@ enum WorkoutDeduplicator {
             return lhs.offset < rhs.offset
         }
 
-        var accepted: [DedupCandidate] = []
-        for (_, candidate) in ordered where !accepted.contains(where: { areDuplicates(candidate, $0) }) {
-            accepted.append(candidate)
+        var winners: [DedupCandidate] = []
+        var others: [[DedupCandidate]] = []
+        for (_, candidate) in ordered {
+            if let index = winners.firstIndex(where: { areDuplicates(candidate, $0) }) {
+                others[index].append(candidate)
+            } else {
+                winners.append(candidate)
+                others.append([])
+            }
         }
-        return accepted.map(\.uuid)
+        return zip(winners, others).map { Cluster(winner: $0.0, others: $0.1) }
+    }
+
+    /// Returns the uuids to keep, one per duplicate cluster. See `cluster(_:)` for the rules.
+    static func selectWinners(_ candidates: [DedupCandidate]) -> [String] {
+        cluster(candidates).map(\.winner.uuid)
     }
 
     /// Two workouts are duplicates when they share a loose activity group and their time
