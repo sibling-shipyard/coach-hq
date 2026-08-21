@@ -80,6 +80,10 @@ if (dashboardSnapshot.challenge_v2) {
 fs.writeFileSync(path.join(OUT_DIR, "current_week.json"), JSON.stringify(dashboardSnapshot.current_week, null, 2));
 fs.writeFileSync(path.join(OUT_DIR, "workouts.json"), JSON.stringify(dashboardSnapshot.workouts, null, 2));
 fs.writeFileSync(path.join(OUT_DIR, "sync_status.json"), JSON.stringify(dashboardSnapshot.sync_status, null, 2));
+// Vite bundles useRepoData.ts's static import of this file, so it has to land in OUT_DIR on
+// every build regardless of --dashboard-snapshot (that flag only controls the extra gen/ copy
+// below, for tooling that reads the snapshot outside the Vite build).
+fs.writeFileSync(path.join(OUT_DIR, "dashboard_snapshot.json"), JSON.stringify(dashboardSnapshot, null, 0));
 
 const snapshotResult = spawnSync(
   "npx",
