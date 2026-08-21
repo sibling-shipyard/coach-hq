@@ -129,7 +129,7 @@ const CURRENT_WEEK_TEMPLATE = {
   coach_comments: [],
   updated_at: null,
   updated_by: "skeleton-init",
-  trace_id: null,
+  trace_id: "skeleton-init",
 };
 
 // Matches exactly what engine/scripts/build-dashboard-snapshot.mjs's own loadLedger() would

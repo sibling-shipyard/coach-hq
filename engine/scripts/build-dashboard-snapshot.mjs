@@ -41,6 +41,7 @@ const UNAVAILABLE_CURRENT_WEEK = {
   coach_comments: [],
   updated_at: null,
   updated_by: "build-dashboard-snapshot",
+  trace_id: "build-dashboard-snapshot",
 };
 
 export function loadActivities(repoRootPath) {
