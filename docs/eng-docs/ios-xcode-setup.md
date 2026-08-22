@@ -1,6 +1,6 @@
 # iOS App: Xcode Setup Instructions
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-18 · Partial — see "Unverified claims"
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-22 · Partial — see "Unverified claims"
 
 How to get the Coach HQ iOS app building and running on a physical iPhone from `main`.
 
@@ -73,7 +73,7 @@ It already declares:
   `ios/CoachHQ/CoachHQ/Shared/AppGroupSnapshotBridge.swift`)
 
 `ios/CoachHQ/CoachHQWidget/CoachHQWidget.entitlements` declares the same App Group for the
-extension.
+extension and is wired on the widget target via `CODE_SIGN_ENTITLEMENTS`.
 
 Likewise **do not delete `Info.plist`** (older versions of this doc said to). The project sets
 both `INFOPLIST_FILE = CoachHQ/Info.plist` and `GENERATE_INFOPLIST_FILE = YES`, which is the
@@ -160,7 +160,7 @@ could not be checked without a Mac with Xcode open, and are carried over unconfi
    extension and its App Group. Assume you may need a paid account until someone confirms.
 2. The exact Xcode UI paths in Steps 4–6 (tab names, menu items) and the 7-day free-provisioning
    expiry behaviour.
-3. That the widget target actually picks up `CoachHQWidget.entitlements` — the file exists, but
-   no `CODE_SIGN_ENTITLEMENTS` build setting references it in `project.pbxproj`, only the app's.
-   The simulator CI build passes with `CODE_SIGNING_ALLOWED=NO`, which would not catch this.
-   Check on a real device install before trusting the App Group on the widget side.
+3. That the widget can actually *read* the App Group on a signed device. Both widget Debug and
+   Release now set `CODE_SIGN_ENTITLEMENTS = CoachHQWidget/CoachHQWidget.entitlements` (same App
+   Group as the app). Simulator CI uses `CODE_SIGNING_ALLOWED=NO`, so it will not catch a
+   signing miss — confirm on a real device install.
