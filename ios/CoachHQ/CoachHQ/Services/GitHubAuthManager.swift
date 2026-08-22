@@ -221,10 +221,14 @@ class GitHubAuthManager: ObservableObject {
             isSessionReady = true
             return
         }
-        // Couldn't resolve a repo at all - route back into Setup instead of leaving
-        // CoachHQApp stuck on a broken MainTabView with no repo.
         if selectedRepo == nil {
             pendingSetupLogin = user?.login
+        } else {
+            // Repo resolved — clear any lingering setup state so deriveState() routes
+            // to .active. Without this, a needs_setup=1 callback that set pendingSetupLogin
+            // would keep the app stuck on SetupView even after the installation completes
+            // and resolveRepoIfNeeded() finds the repo.
+            pendingSetupLogin = nil
         }
         // Token present but user and repo both unresolvable — stale or revoked token.
         // signOut() clears the keychain so the next launch gets a clean LoginView
