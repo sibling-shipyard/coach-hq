@@ -11,9 +11,15 @@ function dateKey(activity) {
   return typeof activity.start_date_local === "string" ? activity.start_date_local.slice(0, 10) : null;
 }
 
+// Bucket on sport_type only. `category` is a sub-tag within a sport (RNK/FRN/CAS are all
+// Badminton; CAL/FDN are both WeightTraining) — keying on it shatters one sport across several
+// buckets and mixes two field namespaces into one map. See #459.
 function sportKey(activity) {
-  const value = activity.category ?? activity.sport_type;
-  return typeof value === "string" && value.trim() ? value.trim().toLowerCase() : null;
+  const value = activity.sport_type;
+  if (typeof value !== "string" || !value.trim()) return null;
+  // Split camelCase before lowercasing so the renderer's underscore->space title-case yields
+  // "Weight Training", not "Weighttraining".
+  return value.trim().replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
 }
 
 function daysBetween(later, earlier) {
