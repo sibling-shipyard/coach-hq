@@ -57,7 +57,17 @@ else:
 # checked — that skips athlete-repo paths (user_data/**, sessions/**), external repo slugs
 # (owner/repo), API routes (/api/*), import aliases (@/*) and placeholders (<N>, *).
 TOP_DIRS = {p.name for p in ROOT.iterdir() if p.is_dir()}
-PATH_RE = re.compile(r"`([^`\n]+)`")
+# Fenced blocks are dropped before scanning so their ticks cannot hide later
+# paths. A span is only a candidate when it contains `/` — otherwise a stray
+# tick (`a`, or a lone `) consumes the pair and the real path after it is
+# never seen. Repro: "Run `a` then ` and see `ui/api/_lib/gone.ts` here"
+# used to match ['a', ' and see '] and miss gone.ts.
+FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+PATH_RE = re.compile(r"`([^`\n]*/[^`\n]*)`")
+
+def extract_path_tokens(text):
+    """Backticked path candidates after dropping fenced ``` blocks."""
+    return PATH_RE.findall(FENCE_RE.sub("", text))
 
 def gitignored(rel):
     # Directory-only patterns (trailing slash, e.g. `ui/client/src/data/`) only match when git
@@ -91,7 +101,7 @@ def check_repo_path(fp, tok, sink=None):
 
 doc_files = ([AGENTS] if AGENTS.exists() else []) + sorted((ROOT / ".github" / "agents").glob("*.md"))
 for fp in doc_files:
-    for tok in dict.fromkeys(PATH_RE.findall(fp.read_text())):
+    for tok in dict.fromkeys(extract_path_tokens(fp.read_text())):
         check_repo_path(fp, tok)
 
 # Wider scan: workflows + HQ docs. Same path rules, plus two extra matchers, because paths
@@ -108,16 +118,20 @@ LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
 HISTORICAL_RE = re.compile(r"^>\s*Status:\s*(Historical|Superseded)", re.M)
 
 # `docs/plans/` is in-flight work that names files it proposes to create, so a missing path
-# there is a forward reference, not a dead one — warn, never fail. Workflows and `docs/eng-docs/`
-# describe the system as it is today: missing means broken.
+# there is a forward reference, not a dead one — warn, never fail. Workflows, hooks, and
+# `docs/eng-docs/` describe the system as it is today: missing means broken.
+hook_dir = ROOT / ".claude" / "hooks"
+hook_files = sorted(fp for fp in hook_dir.glob("*") if fp.is_file()) if hook_dir.is_dir() else []
 wide_files = ([(fp, errors) for fp in sorted((ROOT / ".github" / "workflows").glob("*.yml"))]
               + [(fp, errors) for fp in sorted((ROOT / "docs" / "eng-docs").glob("*.md"))]
+              + [(fp, errors) for fp in hook_files]
               + [(fp, warnings) for fp in sorted((ROOT / "docs" / "plans").glob("*.md"))])
 for fp, sink in wide_files:
-    text = fp.read_text()
-    if HISTORICAL_RE.search(text):
+    raw = fp.read_text()
+    if HISTORICAL_RE.search(raw):
         continue  # dated records — they describe a tree that is gone on purpose
-    for tok in dict.fromkeys(PATH_RE.findall(text)):
+    text = FENCE_RE.sub("", raw)
+    for tok in dict.fromkeys(extract_path_tokens(raw)):
         check_repo_path(fp, tok, sink)
     for tok in dict.fromkeys(BARE_RE.findall(text)):
         tok = tok.strip("`\"'.,;:()[]")
@@ -323,7 +337,9 @@ lint_soul_history_entries()
 # Only Current docs are re-verified; Historical/Superseded are dated records of a tree that is
 # gone on purpose, so they reuse HISTORICAL_RE above and are skipped. A Current doc with no
 # parseable date warns rather than fails: missing front matter is a doc-hygiene nit, not a
-# reason to red-light someone else's build.
+# reason to red-light someone else's build. An eng-doc with no `> Status:` line at all
+# used to opt out of this loop by omission — that is now a warning (never an error).
+# `docs/plans/` stay exempt: they are in-flight and often have no header yet.
 #
 # WHY THE HARD FAIL IS SCOPED TO DOCS THE DIFF TOUCHES
 # Every doc in this repo was verified inside one three-week window, so an unscoped 90-day fail
@@ -338,6 +354,7 @@ lint_soul_history_entries()
 # warning, visible on every run, actionable by whoever owns the doc. Past 60 -> warning. If the
 # diff cannot be resolved (shallow clone, no base), nothing hard-fails: the same fail-safe.
 STALE_WARN_DAYS, STALE_FAIL_DAYS = 60, 90
+STATUS_RE = re.compile(r"^>\s*Status:", re.M)
 CURRENT_RE = re.compile(r"^>\s*Status:\s*Current\b", re.M)
 VERIFIED_RE = re.compile(r"^>\s*Status:.*?\bVerified:\s*(\d{4})-(\d{2})-(\d{2})", re.M)
 TODAY = datetime.date.today()
@@ -345,10 +362,14 @@ TODAY = datetime.date.today()
 # Reuses the soul guard's base resolution. None -> the diff is unknown, so nothing hard-fails.
 changed_docs = changed_paths_vs_base()
 
+for fp in sorted((ROOT / "docs" / "eng-docs").glob("*.md")):
+    if not STATUS_RE.search(fp.read_text()):
+        warnings.append(f"{fp.relative_to(ROOT)}: no `> Status:` front matter")
+
 for fp in sorted((ROOT / "docs" / "eng-docs").glob("*.md")) + sorted((ROOT / "docs" / "plans").glob("*.md")):
     text = fp.read_text()
     if HISTORICAL_RE.search(text) or not CURRENT_RE.search(text):
-        continue  # dated record, or no front matter at all — nothing to re-verify
+        continue  # dated record, or not Current — nothing to re-verify
     rel = fp.relative_to(ROOT)
     m = VERIFIED_RE.search(text)
     try:
