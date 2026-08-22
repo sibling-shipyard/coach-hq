@@ -244,6 +244,81 @@ skip_reason = soul_history_guard()
 if skip_reason:
     warnings.append(skip_reason)
 
+# SOUL_HISTORY: lint only post-cutover entries (above `<!-- soul-history-cutover`).
+# Soft cap ~12 non-empty lines: Superpower + optional scene + ≤3 bullets + Why/What it cost.
+# Archive below the cutover is grandfathered — do not homogenize.
+ENTRY_MAX_LINES = 12
+CUTOVER_MARK = "<!-- soul-history-cutover"
+ENTRY_HEADER_RE = re.compile(r"^##\s+v\d", re.I)  # version entries only — skip "Archive" etc.
+SUPERPOWER_RE = re.compile(r"^\*\*Superpower gained:\*\*", re.I)
+WHY_RE = re.compile(r"^\*\*(?:Why it mattered|What it cost):\*\*", re.I)
+BULLET_RE = re.compile(r"^- ")
+BAN_RE = re.compile(
+    r"(?:"
+    r"§|"                          # section refs
+    r"#\d+|"                       # issue / PR numbers
+    r"\bPR\s*#?\d+|"
+    r"`[^`]+/[^`]+`|"              # backticked paths
+    r"\b(?:platform|docs|engine|ui|ios|kdb|user_data|sessions)/[\w./-]+|"
+    r"\b[\w-]+\.(?:py|mjs|ts|tsx|js|sh|json)\b"  # scripts / JSON filenames
+    r")"
+)
+
+def lint_soul_history_entries():
+    hist = ROOT / SOUL_HISTORY
+    if not hist.exists():
+        errors.append(f"{SOUL_HISTORY} missing")
+        return
+    lines = hist.read_text().splitlines()
+    cutover_at = next((i for i, l in enumerate(lines) if CUTOVER_MARK in l), None)
+    if cutover_at is None:
+        errors.append(
+            f"{SOUL_HISTORY}: missing cutover marker `{CUTOVER_MARK}` — refuse to lint the archive")
+        return
+
+    entries, cur = [], None
+    for i, line in enumerate(lines[:cutover_at], 1):
+        if ENTRY_HEADER_RE.match(line):
+            if cur is not None:
+                entries.append(cur)
+            cur = {"start": i, "title": line, "body": []}
+        elif cur is not None:
+            if line.strip() == "" or line.strip() == "---":
+                continue
+            cur["body"].append((i, line))
+    if cur is not None:
+        entries.append(cur)
+
+    if not entries:
+        errors.append(f"{SOUL_HISTORY}: no post-cutover version entries found above cutover")
+        return
+
+    for ent in entries:
+        n = 1 + len(ent["body"])
+        if n > ENTRY_MAX_LINES:
+            errors.append(
+                f"{SOUL_HISTORY}:{ent['start']}: entry has {n} lines (max {ENTRY_MAX_LINES}) — "
+                f"{ent['title'][:60]}")
+        body_texts = [t for _, t in ent["body"]]
+        if not any(SUPERPOWER_RE.match(t) for t in body_texts):
+            errors.append(
+                f"{SOUL_HISTORY}:{ent['start']}: missing **Superpower gained:** — {ent['title'][:60]}")
+        if not any(WHY_RE.match(t) for t in body_texts):
+            errors.append(
+                f"{SOUL_HISTORY}:{ent['start']}: missing **Why it mattered:** / **What it cost:** — "
+                f"{ent['title'][:60]}")
+        bullets = sum(1 for t in body_texts if BULLET_RE.match(t))
+        if bullets > 3:
+            errors.append(
+                f"{SOUL_HISTORY}:{ent['start']}: {bullets} bullets (max 3) — {ent['title'][:60]}")
+        for ln, text in ent["body"]:
+            if BAN_RE.search(text):
+                errors.append(
+                    f"{SOUL_HISTORY}:{ln}: banned token in entry "
+                    f"(path / § / issue# / script / JSON name) — {text[:80]}")
+
+lint_soul_history_entries()
+
 # `Verified:` staleness. Docs carry `> Status: Current - Owner: <role> - Verified: YYYY-MM-DD`.
 # Only Current docs are re-verified; Historical/Superseded are dated records of a tree that is
 # gone on purpose, so they reuse HISTORICAL_RE above and are skipped. A Current doc with no

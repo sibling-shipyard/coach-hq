@@ -1,6 +1,6 @@
 # Coach Phelps: SOUL History
 
-> Status: Historical · Owner: Tech Lead · Verified: 2026-08-16
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-22
 
 How a generic motivational chatbot became Coach Phelps. Every version, what it gained, and what
 it cost.
@@ -10,63 +10,47 @@ and describes itself as "direct & no-nonsense". Five months later it has a voice
 conscience about injuries, and the discipline to save its own notes before it leaves. Somewhere
 in the middle it stopped being a dashboard with a personality.
 
-**Entry format — one entry per version, ~25 lines max:**
+**New entries (v5.9+)** — soft cap ~12 non-empty lines:
 
 1. **Superpower gained** — one line. What can Coach do now that it couldn't before?
-2. Two or three sentences on what was wrong. Plain English, and it's allowed to be fun.
-3. Five to seven bullets: what changed and why it mattered. Not how it was implemented.
-4. **Why it mattered** (or **what it cost**) — the honest closing line, plus a pointer to the
-   eng-doc or ADR carrying the detail.
+2. Optional 2–3 sentence scene — the feeling / what broke. Plain English; sentimental is allowed.
+3. **2–3 bullets** — what changed for the athlete / coaching. Not how it was implemented.
+4. **Why it mattered** (or **What it cost**) — one honest closing line. Link an eng-doc once if needed.
 
-Never one section per PR — a version ships across several, and the reader doesn't care which one
-carried what. File paths, function names and baseline counts belong in the eng-doc; link to it.
-Write it so someone who has never opened this repo enjoys reading it. If an entry needs more than
-25 lines, the extra belongs somewhere else.
+No 5–7 bullet dumps. No eng-report disguised as history. File paths, `§`, PR/issue numbers, script
+names, and JSON field names belong in the eng-doc.
+
+**Archive (v5.8 and older)** is grandfathered. Do not homogenize it to fit the contract. Only trim
+an old entry if it is truly bloated *and* you can compress without bleaching the voice.
 
 ---
 
 ## v5.14 — "The Catch-Up" · Aug 20, 2026
 **Superpower gained:** one coaching brain that understands the files both runtimes actually use.
 
-The data model had moved while SOUL was deliberately held at the reviewed v5.8 baseline. Coach
-was still looking for two prose files and a generated quest dashboard that no longer existed.
+The data model had moved while SOUL sat on the last reviewed trim. Coach was still looking for
+two prose files and a quest dashboard that no longer existed — meeting new athletes with a map of
+a country that had been redrawn.
 
-- Profile, memory, injuries, and continuity now point to their split JSON records; only the last
-  five continuity rows ride in prompt context.
-- Seasons are names and dates, without phase math or an archive ritual.
-- Quest definitions and reported results stay separate. BYOB reasons from recorded rows and says
-  when an exact derived number cannot be known instead of fabricating one.
-- First Session uses one shared question list. Hosted chat records structured actions as answers
-  land; BYOB writes the same confirmed facts to the split files.
-- Native setup's name, sports, and coaching style are treated as already recorded, never re-asked
-  or re-written. Date of birth and inferred timezone keep their stricter rules.
-- The old chat-only duplicate intake script is gone. Most recording mechanics remain in the
-  runtime prompt where they belong.
-
-**Why it mattered:** Coach can now meet a new athlete without describing retired storage or
-making either runtime carry a second copy of the conversation. See `docs/eng-docs/coach-chat-flow.md`.
+- Profile, memory, injuries, and continuity follow the live split records; only recent continuity
+  rides in prompt context.
+- First Session uses one shared question list; hosted chat and BYOB save the same facts.
+- Native setup's name, sports, and style are never re-asked.
+**Why it mattered:** a new athlete no longer meets a Coach describing retired storage, and neither
+runtime carries a second copy of the conversation.
 
 ## v5.13 — "Back to the Trim" · Aug 20, 2026
 **Superpower gained:** none — this is a revert, not a feature.
 
-v5.9 through v5.12 landed as side effects of the coach-data and chat-reliability redesigns,
-without the deliberate review v5.8's trim itself went through. Akash reviewed the First Session
-chat-runtime text added in v5.11/v5.12 and called it out as not properly thought through.
+v5.9 through v5.12 had landed as side effects of the data and chat redesigns, without the
+deliberate review the trim itself got. The First Session wording that slipped in was called out as
+not properly thought through — so it went back.
 
-- `platform/soul/B_engine.md` and `platform/scripts/compose-soul.mjs` reverted to their exact
-  v5.8 (`8d8cba8`) state — this also un-does v5.9/v5.10's `profile.json`/`memory.json`/
-  `seasons.json`/`quests.json` renames, a deliberate full revert rather than a partial one.
-- `SOUL.chat.md`, `SOUL.claude.md`, and the `first-session.md` horcrux regenerated from that
-  layer via `compose-soul.mjs` — none hand-edited.
-- The chat-handler TypeScript code (direct writes, incremental FSP commits, expanded
-  `isAthleteProfileComplete`) is untouched and now describes SOUL concepts this reverted text no
-  longer has — expected, temporary, and closed by a follow-up PR once Akash signs off on the
-  wording.
-
-**What it cost:** SOUL and the chat code are out of sync until the follow-up lands. See the
-stacked PR for that follow-up's plan.
-
----
+- Brain text rolled back to the last reviewed trim; composed builds regenerated from that, not
+  hand-edited.
+- Chat's new save behavior stayed put — only the unreviewed coaching copy was undone.
+**What it cost:** SOUL and chat were briefly out of sync until the follow-up landed. Better a
+temporary mismatch than shipping unreviewed intake as the voice.
 
 ## v5.12 — "Write It While It's Fresh" · Aug 19, 2026
 **Superpower gained:** First Session remembers each answer as soon as the athlete gives it.
@@ -75,98 +59,57 @@ Coach used to hold the whole intake in its head until the closing turn. Live tes
 cost: a warm, convincing wrap-up could claim everything was saved while most facts never reached
 the repo.
 
-- Native onboarding now records name, sports, and coaching style directly before Coach greets.
-- Coach can use those recorded details warmly, but does not ask for them or file them again.
-- The goal moved back into chat, where it becomes the main quest.
-- Each ordinary First Session turn saves new profile, memory, injury, season, and quest facts.
-- A finished profile now means full profile fields, sports, coaching style, and a current season;
-  quests remain optional.
-- BYO Claude Code's First Session and `SOUL.claude.md` stay unchanged.
-
+- Native setup still records name, sports, and style before Coach greets — Coach uses them warmly,
+  and does not ask or file them again.
+- The goal moved back into chat as the main quest; each ordinary First Session turn can save new
+  facts as they land.
 **Why it mattered:** an interrupted intake now loses a transcript at worst, not the athlete facts
-already gathered. See `docs/eng-docs/coach-chat-flow.md`'s "First Session Protocol flow."
-
----
+already gathered.
 
 ## v5.11 — "First Session, For Real This Time" · Aug 19, 2026
-**Superpower gained:** chat's First Session Protocol asks questions that actually go somewhere.
+**Superpower gained:** chat's First Session asks questions that actually go somewhere.
 
-The chat runtime's intake conversation was still describing the pre-redesign world - asking for
-"age" when `profile.json` only has `dob`, asking about a season "phase" Part 2 had already
-dropped, and structured around a `state.md`/`challenge_v2.json` git-commit ritual chat can't
-perform at all. Worse: `memory.json.sports` had no write path anywhere in the code, so a first
-session could never actually complete via chat regardless of what SOUL asked.
+The intake conversation was still describing a world chat could not write to — asking questions
+with nowhere to land. A first session could feel finished in the room and leave almost nothing in
+the repo.
 
-- **Chat gets its own First Session text, split from BYOB's.** New `s10_first_session_chat_*`
-  keys in `B_engine.md`, feeding the `first-session.md` horcrux - the existing `CLAUDE_ONLY` keys
-  (BYO Claude Code's git-commit ritual) are untouched. `SOUL.claude.md` has zero diff from this
-  change.
-- **Every question now maps to a real write.** Sports, a from-scratch season, and the main/habit
-  quests all got their first-ever write path (`sports_update`, `season_start`, `quest_create`) -
-  before this, only name/dob/injuries/coaching-style had anywhere to land.
-- **The coaching-style question got sharper.** Reworded to map cleanly onto exactly one of three
-  enum values (accountability/encouragement/analysis) instead of an open-ended answer Gemini had
-  to interpret.
-- **`profileComplete` stopped comparing a value to itself.** The false→true transition gating
-  `coach_since` stamping and initial workout template generation had been dead code since the
-  ledger split - both sides of the check read the same pre-turn snapshot. Fixed by projecting
-  this turn's own writes before checking.
-
-**Why it mattered:** a first session that can't finish isn't a first session - it's a form nobody
-can submit. See `docs/eng-docs/coach-chat-flow.md`'s "First Session Protocol flow" for the wiring.
-
----
+- Sports, a from-scratch season, and starting quests finally got real write paths.
+- The coaching-style question maps cleanly onto one of three real choices instead of an open answer
+  the model had to guess at.
+**Why it mattered:** a first session that can't finish isn't a first session — it's a form nobody
+can submit.
 
 ## v5.10 — "Seasons Without Ceremony" · Aug 18, 2026
 **Superpower gained:** a season is just a name, a start, and an end.
 
-Part 2 of the coach-memory redesign split `challenge_v2.json` into `seasons.json`/`quests.json`/
-`progress.json`/`progressions.json` (`coach-redesign-part2-ledger.md`). Season → phase → block was
-three tiers of structure nobody needed; a season now has no phase or block underneath it at all.
+Season → phase → block was three tiers of structure nobody needed. A season is something you talk
+about, not something you date-math against.
 
-- **Phase Awareness is gone.** SOUL no longer tracks phase boundaries or references a current
-  phase — a season is referenced naturally in conversation, not by date math against a phase.
-- **The season-closing recap ritual is dropped, for now.** Coach used to write a narrative
-  retrospective (`archive/seasons/<slug>/recap.md`) and move the outgoing season's JSON to cold
-  storage when a season ended. Both are gone — closing a season is now just flipping its status to
-  `completed`/`retired` and starting the next one; nothing moves anywhere. Confirmed, not an
-  oversight — issue #411 tracks revisiting whether some form of the recap ritual comes back later.
-- **Two new Gemini actions:** `quest_event {quest_id, status, value?}` and
-  `profile_update {field, value}` — both follow the same Action-field design rule as v5.9's
-  actions (server stamps every date/id, Gemini supplies only the semantic fact).
-- **`weekly_frequency` added** to the quest-type list Coach knows about (a target count within
-  the current week), alongside the existing `daily_streak`/`progress`/`count_target`.
-
-**What it cost:** real season history. Existing `recap.md`/`roadmap.md` files (prose retrospectives
-an athlete/Coach wrote, not just data) get removed by this step's migration along with the JSON
-snapshots — confirmed acceptable for now, but that content only survives in git history on
-whatever branch the migration ran on, not in the live file tree. See `coach-redesign-part2-ledger.md`
-for the full field-by-field spec, issue #411 for the recap-ritual follow-up.
-
----
+- Phase awareness dropped — no more tracking boundaries Coach never used in conversation.
+- Closing a season no longer writes a long retrospective ritual; status flips and the next one
+  starts.
+**What it cost:** real season history. Prose recaps an athlete and Coach wrote only survive in git
+now, not in the live tree. Revisit later if the ritual earns its way back.
 
 ## v5.9 — "New Files, Same Sections" · Aug 18, 2026
 **Superpower gained:** memory keeps working across a full data-model rewrite underneath it.
 
-Part 1 of the coach-memory redesign split `state.md`/`coach_notes.md`/`rolling_state.json` into
-`profile.json`/`memory.json`/`injuries.json`/`coach_log.json` (`coach-redesign-part1-memory.md`).
-SOUL never named a file path it didn't have to — it already referred to "Recent Session Notes"
-and "Learned Patterns" as sections, not files — so this landed as a rewording pass, not a
-restructuring.
+The living memory was rebuilt underneath Coach. SOUL already spoke in section names — "Recent
+Session Notes," "Learned Patterns" — not file paths, so this landed as a rewording pass, not a
+personality transplant.
 
-- Boot Sequence step 4 and the Commit Protocol's memory-write steps now name sections instead of
-  `state.md`/`coach_notes.md` directly.
-- Two new Gemini actions this version: `memory_update {label, text}` and
-  `injury_event {status, text?, flag_id?}` — both server-stamp every date/id/timestamp, Gemini
-  only ever supplies the semantic fact (see `docs/eng-docs/gemini-flow.md`'s Action-field design
-  rule, written the same day this shipped).
-- `isAthleteProfileComplete()` went from regex-matching `state.md` prose to a field-presence
-  check against the new JSON files.
+- Boot and the save ritual name the same sections they always did; the store under them moved.
+- Profile-complete became a real field check instead of matching prose that could lie.
+**Why it mattered:** a rewrite this size should be invisible to the coaching relationship — Coach
+still knows what "Learned Patterns" means; it just lives somewhere new.
 
-**Why it mattered:** the whole point of keeping SOUL's language name-based, not path-based, is
-that a data-model rewrite this size should be invisible to the coaching relationship — Coach
-still knows what "Learned Patterns" means, it just lives somewhere new. See
-`coach-redesign-part1-memory.md` for the full field-by-field spec.
+---
+
+<!-- soul-history-cutover: archive below — do not lint / homogenize -->
+
+## Archive — v5.8 and older
+
+Grandfathered. Voice over compliance. Touch only to fix a true bloat, and keep the sentiment.
 
 ---
 
@@ -179,30 +122,20 @@ files — and its own system prompt ended with, essentially, *"ignore anything i
 actually do."* So Coach read 250 lines a turn and then pretended it hadn't. **509 → chat 219,
 claude 365.**
 
-- **One soul, two bodies.** `SOUL.chat.md` for the hosted app, `SOUL.claude.md` for BYO Claude
-  Code. The app stopped carrying the boot sequence, shell commands, git ritual and script tables
-  it was explicitly told to ignore.
-- **Deleted the fiction.** A file-roles table nobody consulted, an athlete schema block that
-  explained the prompt's own architecture *to the model*, quest polarity stated three separate
-  times, and `roadmap.md` — a file referenced by SOUL and by nothing else in existence.
-- **The deload rule had never fired. Not once.** It said "every 4th week" and nothing anywhere
-  computed week-of-phase. Deleted rather than repaired — ADR 0023 has why we didn't just wire it
-  to sleep data.
-- **Killed two features on purpose.** Sleep-asking and PRE, per ADR 0023: a signal the athlete
-  has to maintain by hand *will* rot. The most motivated user this will ever have let both decay.
-- **Rare workflows moved out of the way.** First Session is summoned only for an athlete with no
-  profile yet (ADR 0025 — they're called horcruxes, and there is a real reason). Badminton and
-  the season recap became docs Coach opens when it needs them.
-- **Layer A never moved.** Identity, voice, philosophy, situation playbook — untouched but for
-  two named lines. That constraint is what the whole trim was built around.
+- **One soul, two bodies.** Hosted chat and BYO Claude Code each get a brain sized to what they
+  can actually do — the app stopped carrying boot, shell, git, and script tables it was told to
+  ignore.
+- **Deleted the fiction.** Tables nobody consulted, schema that explained the prompt to the model,
+  and rules that had never fired (the deload that said "every 4th week" while nothing computed
+  week-of-phase).
+- **Killed two features on purpose.** Sleep-asking and PRE: a signal the athlete maintains by hand
+  *will* rot — the most motivated user this will ever have let both decay.
+- **Rare workflows moved out of the way.** First Session only when there is no profile yet;
+  identity and voice (Layer A) barely touched — that constraint is what the trim was built around.
 
 **What it cost:** nothing yet, and that's the worry. The eval covers structure, not voice, and
 BYOB isn't covered at all. We removed 290 lines from a file whose entire value is voice, and the
 safety net was reading it line by line.
-
-*Mechanism: `soul-two-builds.md`. Decisions: ADR 0022, 0023, 0024, 0025.*
-
----
 
 ## v5.7 (hq-adopted) — "Personal Brain on Main" · Jul 26, 2026
 **Superpower gained:** the good brain became everyone's brain.
@@ -221,8 +154,6 @@ was the one about to be forked to every future athlete. We nearly shipped the do
 **Why it mattered:** splitting the thin version would have baked a worse Coach into every fork
 forever. Land the good brain first, split it after.
 
----
-
 ## v5.7 — "Canonical Layout" · Jul 25, 2026
 **Superpower gained:** knowing where its own things are.
 
@@ -237,8 +168,6 @@ stale path doesn't throw an error — it quietly finds nothing.
 **Why it mattered:** no behaviour change at all, which is the point. Stale path strings are the
 failure mode that never announces itself.
 
----
-
 ## v5.6 — "Milestone Record Contract" · Jul 22, 2026
 **Superpower gained:** milestones the dashboard could draw.
 
@@ -250,8 +179,6 @@ Coach was being asked to hand-compute progress percentages for a UI widget. That
 **Why it mattered:** same trick as the weekly contract — prose stays canonical for Coach,
 structured fields feed the UI, and neither has to know about the other.
 
----
-
 ## v5.5 — "Live Weekly Plan" · Jul 20, 2026
 **Superpower gained:** the plan Coach writes is the plan the athlete sees.
 
@@ -260,8 +187,6 @@ structured fields feed the UI, and neither has to know about the other.
 
 **Why it mattered:** v5.4 built the contract; this wired it to glass. From here an unreconciled
 session isn't untidy data, it's visibly wrong on the athlete's screen.
-
----
 
 ## v5.4 — "The Bounded Week" · Jul 19, 2026
 **Superpower gained:** a week with an expiry date.
@@ -280,8 +205,6 @@ tell a stale plan from a live one nor stop the file swelling.
 **Why it mattered:** a one-week file creates a hard freshness boundary. Downstream clients get an
 honest "unavailable" instead of a confidently stale plan, and durable state stays small.
 
----
-
 ## v5.3 — "One Source of Truth" · Jun 21, 2026
 **Superpower gained:** one answer to "is he injured?"
 
@@ -295,8 +218,6 @@ taping and the shoulder flared after intensity, weeks after both were cleared.
 
 **Why it mattered:** the two-file architecture exists to stop exactly this drift. The moment a
 status list lives in both files one of them is lying, and Coach cannot tell which.
-
----
 
 ## v5.2 — "Build Phase" · Jun 21, 2026
 **Superpower gained:** catching up before saying hello.
@@ -320,8 +241,6 @@ just vibes. And Coach still opened every conversation waiting to be told what ha
 gap life-excused. Tracking those was bookkeeping a foregone conclusion, and it cluttered every
 check-in with questions that didn't need asking.
 
----
-
 ## v5.1 — "Drop Per-Game Notation" · Apr 11, 2026
 **Superpower gained:** shutting up between games.
 
@@ -330,8 +249,6 @@ check-in with questions that didn't need asking.
 **Why it mattered:** logging state per game meant writing notes between matches — exactly when
 attention belongs on recovery and the next point. The friction wasn't neutral, it was hurting
 performance. First time we deleted a feature because using it made the athlete worse.
-
----
 
 ## v5.0 — "Lean Boot + Calibration" · Apr 6, 2026
 **Superpower gained:** travelling light.
@@ -354,8 +271,6 @@ drifting from the actual scripts; eight numbered rules for saving one session fi
 **Why it mattered:** "one file, too many jobs" is the direct ancestor of the A/B/C layer split.
 v5 separated the jobs *inside* one file; the split later separated them into three.
 
----
-
 ## v4.1 — "Protocol Tightening" · Apr 3, 2026
 **Superpower gained:** a memory that fits in your pocket.
 
@@ -368,8 +283,6 @@ v5 separated the jobs *inside* one file; the split later separated them into thr
 **Why it mattered:** three real sessions hit the same friction every time. Don't read the whole
 archive; keep the last three sessions visible. Small change, and the difference between a protocol
 that holds under pressure and one that drifts.
-
----
 
 ## v4.0 — "The Phelps Rewrite" · Mar 29, 2026
 **Superpower gained:** an actual personality. This is the big one.
@@ -396,8 +309,6 @@ person.
 visible public failure, comeback through process discipline. Voice was synthesized from 15+
 primary sources; see `../ref-docs/phelps-voice-profile.md` and `phelps-research-notes.md`.
 
----
-
 ## v3.1 — "Pipeline Aware" · Mar 28, 2026
 **Superpower gained:** understanding its own plumbing.
 
@@ -414,15 +325,11 @@ timer with unadjusted sets.
 **Why it mattered:** operational clarity, not features. The bar was that no agent should ever have
 to read the pipeline's own README to work out what was going on.
 
----
-
 ## v1.6–v3.0 — Undocumented · Mar 25–28, 2026
 
 *Three days, five version numbers, no record. These predate the repo's git history and never made
 it into coach_notes.md. Best guess: the pipeline was being built fast and the version number
 climbed quicker than the documentation did. A gap in the fossil record.*
-
----
 
 ## v1.5 — "Forward Sync" · Mar 25, 2026
 **Superpower gained:** not losing yesterday.
@@ -434,8 +341,6 @@ climbed quicker than the documentation did. A gap in the fossil record.*
 *after* the last sync point, so new sessions vanished unless saved by hand. Run once, get
 everything.
 
----
-
 ## v1.4 — "History as Ground Truth" · Mar 24, 2026
 **Superpower gained:** data it could actually query.
 
@@ -445,8 +350,6 @@ everything.
 
 **Why it mattered:** the original design stored workouts in markdown — lovely to read, miserable to
 query. The log stayed for humans; the JSON became the truth.
-
----
 
 ## v1.3 — "The Consolidation" · Mar 24, 2026
 **Superpower gained:** the discipline to save before leaving.
@@ -459,8 +362,6 @@ query. The log stayed for humans; the JSON became the truth.
 kept in parallel as a safety net until real sessions proved the new structure. The ritual shipped
 the same day, because an architecture built on living memory only works if the memory is always
 written down.
-
----
 
 ## v1.0–v1.2 — "The Foundation" · Mar 17–24, 2026
 **Superpower gained:** existing.

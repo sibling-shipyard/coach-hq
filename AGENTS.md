@@ -115,8 +115,8 @@ Athlete may reference `1a` — match that item exactly.
 
 **Doc upkeep — before opening a PR:**
 1. Update any eng-doc your change invalidates (`grep -rl <changed-path> docs/eng-docs/` finds them) and bump its `Verified:` date.
-2. Changed a soul layer or a composed build? Add the version entry to `docs/eng-docs/SOUL_HISTORY.md`. Called out on its own because the grep above cannot find it — a SOUL version change need not touch any path.
-3. If a plan you worked from shipped, fold the durable part into its eng-doc, then delete the plan — `docs/plans/` is delete-on-ship, git history is the archive.
+2. Changed a soul layer or a composed build? Add a version entry to `docs/eng-docs/SOUL_HISTORY.md` that matches that file's **post-cutover** contract (Superpower + short scene + 2–3 bullets + Why, ~12 lines). Archive below the cutover is grandfathered. Called out on its own because the grep above cannot find it — a SOUL version change need not touch any path.
+3. **Plan delete-on-last-PR:** if this PR finishes the plan's work (closes its issues / last stack PR), fold any durable bit into its eng-doc, then **delete** `docs/plans/<file>` in this same PR. Mid-stack PRs leave the plan in place and update progress only. Git history is the archive.
 4. New eng-docs follow the naming + front-matter rules in `docs/eng-docs/README.md`.
 5. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.
 
@@ -124,7 +124,7 @@ Athlete may reference `1a` — match that item exactly.
 
 - Commit/branch/PR naming: see `.github/CONVENTIONS.md`
 - All code changes (scripts, workflows, templates, UI) require a branch + PR reviewed by Tech Lead
-- PRs must reference issues: `fixes #N`
+- PRs must link issues: `Refs: #N` mid-stack, `Fixes: #N` on the finishing PR (see CONVENTIONS)
 
 ## Monorepo-Specific Rules
 

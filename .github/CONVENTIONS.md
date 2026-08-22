@@ -52,8 +52,18 @@ Examples:
 - `fix: clamp quest streak display at 0 (#7)`
 - `core: soul layers — periodization overhaul` (regenerates both composed SOUL builds via compose)
 
-Always include `fixes #N` in the PR body. PR bodies follow `.github/PULL_REQUEST_TEMPLATE.md`
-(GitHub prefills it); issues follow `.github/agents/issue-template.md`.
+## PR Body
+
+Prefill: `.github/PULL_REQUEST_TEMPLATE.md`. Issues: `.github/agents/issue-template.md`.
+
+1. **For humans** — ≤5 lines plain English at the top. What landed and why a human cares.
+   Paths, checklists, and agent plans stay *below* the divider — do not replace them with the blurb.
+2. **Issue link — required** (keeps the project board alive):
+	- Mid-stack or partial ship → `Refs: #N` (links; **does not** close the issue)
+	- Last PR that finishes the issue's Done when → `Fixes: #N` (closes on merge)
+	- Same `#N` on every PR in the stack. Never ship with neither keyword.
+3. Closing keywords (`Fixes` / `Closes` / `Resolves`) only on the finishing PR — first merge
+   must not close a multi-PR issue.
 
 ---
 
@@ -74,10 +84,14 @@ Four mechanics make it work — skip one and it turns into the mess stacking is 
 	has under-reported a branch here before. `gh pr view <n> --json files`, or
 	`mcp__github__pull_request_read` with `method: get_files` in sessions with no `gh`.
 4. **Merge bottom-up**, and rebase the whole stack onto current `main` before you start.
+5. **`Refs: #N` on PRs 1…n−1; `Fixes: #N` only on PR n.** Board stays linked; issue closes once.
 
 **Put late-arriving cross-cutting edits at the TOP of the stack, not the bottom** — even when
 they belong to the bottom PR semantically. An edit at the base forces a rebase of everything
 above it; the same edit on top costs nothing.
+
+**Plan docs:** the last PR that finishes a `docs/plans/` plan deletes that plan file in the same
+PR (`AGENTS.md` § Doc upkeep). Git history is the archive.
 
 ---
 

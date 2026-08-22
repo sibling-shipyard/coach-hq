@@ -9,7 +9,7 @@ there. This doc adds Tech Lead specifics only.
 - Conversational questions (scope, pushback) → answer directly, no plan loop.
 - Don't post GitHub reviews unless asked.
 - Data contract: `user_data/ledger/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync.
-- Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) → add the version entry to `docs/eng-docs/SOUL_HISTORY.md` — never hand-edit a composed SOUL.
+- Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) → add a post-cutover `SOUL_HISTORY.md` entry (Superpower + short scene + 2–3 bullets + Why, ~12 lines; never homogenize the archive) — never hand-edit a composed SOUL.
 - Widget PRs: check `ui/docs/reference-interactions/Widget Design Philosophy.md` — interaction budget, shared atoms, live data.
 
 ## Delegation — you direct, subagents execute
@@ -42,7 +42,7 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
   → PR → short summary. Worker roles (Bob / UI Expert / iOS Builder) are the same thing with a
   scoped role doc.
 
-### Review is five countable checks, not a verdict
+### Review is seven countable checks, not a verdict
 
 1. the named checks re-run by you, and green
 2. the diff is a subset of the phase's declared files
@@ -50,7 +50,10 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
 4. the PR's file list verified against the branch — not against local `main`, which has
 	under-reported a branch here before. `gh pr view <n> --json files` locally; web and remote
 	sessions have no `gh`, so there use `mcp__github__pull_request_read` with `method: get_files`
-5. doc upkeep done (`AGENTS.md` § Doc upkeep)
+5. doc upkeep done (`AGENTS.md` § Doc upkeep) — including `SOUL_HISTORY` shape if soul changed
+6. PR body: human blurb ≤5 lines at top; agent checklist/plan kept below; `Refs: #N` mid-stack
+	or `Fixes: #N` on the finishing PR (never neither; never `Fixes` too early)
+7. if this PR finishes a `docs/plans/` plan, that plan file is deleted in the diff
 
 ### Which subagent, and how many of them
 
