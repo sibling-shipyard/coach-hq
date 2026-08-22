@@ -1,15 +1,20 @@
 import SwiftUI
 
-/// Native equivalent of Setup.tsx's wizard. Shown when pendingSetupLogin is set - signed in
-/// but no installation yet. Both steps use the shared in-app WKWebView cookie jar from sign-in.
+/// Native equivalent of Setup.tsx's wizard. Shown when pendingSetupLogin is set — signed in
+/// but setup not complete. Checks two conditions directly against GitHub's API so returning
+/// users aren't blocked by an expired server session:
+///   Step 1 — does `coach-<login>` repo exist?
+///   Step 2 — does the coach-phelps App have access to it?
+/// When both pass, activateDirectly() sets auth state immediately — no OAuth round-trip.
 struct SetupView: View {
     let login: String
     @EnvironmentObject var authManager: GitHubAuthManager
     @AppStorage(UserFacingError.devModeKey) private var devModeEnabled = false
 
     @State private var repoStepComplete = false
+    @State private var installStepComplete = false
+    @State private var isChecking = true
     @State private var isInstalling = false
-    @State private var isCheckingRepo = true
     @State private var errorMessage: String?
 
     private var generateURL: URL? {
@@ -64,7 +69,7 @@ struct SetupView: View {
             .padding(.top, 12)
         }
         .task(id: login) {
-            await refreshRepoStatus()
+            await refreshSetupStatus()
         }
     }
 
@@ -86,7 +91,7 @@ struct SetupView: View {
             }
             .onboardingReveal(index: 1)
 
-            if isCheckingRepo {
+            if isChecking {
                 ProgressView()
                     .scaleEffect(0.65)
                     .tint(WarmInstrument.inkMuted)
@@ -106,17 +111,24 @@ struct SetupView: View {
                 .onboardingReveal(index: 0)
                 .padding(.bottom, 28)
 
-            VStack(alignment: .leading, spacing: 18) {
-                numberedStep(1,
-                    prefix: "When GitHub asks which repositories to share, choose ",
-                    bold: "Only select repositories",
-                    suffix: ".")
-                numberedStep(2,
-                    prefix: "Pick ",
-                    bold: "coach-\(login)",
-                    suffix: ". Don't grant access to everything.")
+            if isChecking {
+                ProgressView()
+                    .scaleEffect(0.65)
+                    .tint(WarmInstrument.inkMuted)
+                    .onboardingReveal(index: 1)
+            } else {
+                VStack(alignment: .leading, spacing: 18) {
+                    numberedStep(1,
+                        prefix: "When GitHub asks which repositories to share, choose ",
+                        bold: "Only select repositories",
+                        suffix: ".")
+                    numberedStep(2,
+                        prefix: "Pick ",
+                        bold: "coach-\(login)",
+                        suffix: ". Don't grant access to everything.")
+                }
+                .onboardingReveal(index: 1)
             }
-            .onboardingReveal(index: 1)
         }
         .padding(.horizontal, 32)
     }
@@ -153,18 +165,12 @@ struct SetupView: View {
 
     private var actionSection: some View {
         VStack(spacing: 12) {
-            if let error = errorMessage ?? authManager.lastNetworkError {
-                Text(UserFacingError.friendlyAPIError(error))
+            if let error = errorMessage {
+                Text(error)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(WarmInstrument.alarmFg)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 4)
-                if devModeEnabled {
-                    Text(error)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                        .multilineTextAlignment(.center)
-                }
             }
 
             Button {
@@ -190,6 +196,21 @@ struct SetupView: View {
             .buttonStyle(WarmSetupButtonStyle(primary: true))
             .disabled(primaryButtonDisabled)
             .onboardingReveal(index: 5)
+
+            // Escape hatch — re-checks GitHub API immediately without opening a browser.
+            // Useful when the auto-check on load failed transiently and the conditions are
+            // now met (e.g. user installed the App on a different device, or API was slow).
+            if repoStepComplete && !isChecking && !isInstalling {
+                Button {
+                    Haptics.tap()
+                    Task { await refreshSetupStatus() }
+                } label: {
+                    Text("Already linked? Check again")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(WarmInstrument.inkMuted)
+                }
+                .onboardingReveal(index: 6)
+            }
         }
         .animation(PremiumMotion.onboardingReveal, value: repoStepComplete)
     }
@@ -203,31 +224,54 @@ struct SetupView: View {
 
     private var primaryButtonDisabled: Bool {
         if repoStepComplete {
-            return isInstalling
+            return isInstalling || isChecking
         }
-        return generateURL == nil || isCheckingRepo
+        return generateURL == nil || isChecking
+    }
+
+    // MARK: - Status checks
+
+    /// Checks both prerequisites directly against GitHub's API. If both pass, activates
+    /// the session directly — no OAuth round-trip needed, the token is already proven valid
+    /// by the API calls themselves.
+    private func refreshSetupStatus() async {
+        isChecking = true
+        errorMessage = nil
+        defer { isChecking = false }
+
+        // Step 1 — repo (skip the network call if already confirmed this session)
+        if !repoStepComplete {
+            let repoExists = await authManager.coachRepoExists(for: login)
+            if !repoExists {
+                // One retry — GitHub can lag a second after repo create.
+                try? await Task.sleep(for: .seconds(1))
+                repoStepComplete = await authManager.coachRepoExists(for: login)
+            } else {
+                repoStepComplete = true
+            }
+            guard repoStepComplete else { return }
+        }
+
+        // Step 2 — GitHub App installation (direct API, no server session dependency).
+        // nil = check failed (network/token issue), false = confirmed not installed.
+        switch await authManager.coachAppInstalled(for: login) {
+        case true:
+            installStepComplete = true
+            await authManager.activateDirectly(for: login)
+        case false:
+            // App genuinely not installed — show the Link Your Log button, no error.
+            break
+        case nil:
+            // GitHub API unreachable or token rejected. Surface a specific message so the
+            // user doesn't assume they need to redo the install — they may just need to
+            // retry once their connection or token is restored.
+            errorMessage = devModeEnabled
+                ? "GitHub App check failed — token may be expired or network unavailable."
+                : "Couldn't verify your GitHub access. Check your connection and try again."
+        }
     }
 
     // MARK: - Actions
-
-    private func refreshRepoStatus() async {
-        isCheckingRepo = true
-        defer { isCheckingRepo = false }
-
-        // Never downgrade — URL detection may mark complete before the REST API catches up.
-        if await authManager.coachRepoExists(for: login) {
-            repoStepComplete = true
-            return
-        }
-
-        // One retry after browse dismiss — GitHub can lag a second after repo create.
-        if !repoStepComplete {
-            try? await Task.sleep(for: .seconds(1))
-            if await authManager.coachRepoExists(for: login) {
-                repoStepComplete = true
-            }
-        }
-    }
 
     @MainActor
     private func markRepoComplete() {
@@ -251,7 +295,7 @@ struct SetupView: View {
             },
             onDismiss: {
                 Task { @MainActor in
-                    await refreshRepoStatus()
+                    await refreshSetupStatus()
                 }
             }
         )
@@ -264,12 +308,16 @@ struct SetupView: View {
         Task {
             do {
                 try await authManager.continueToInstall()
-                Haptics.success()
+                // If handleCallback() routed to .active, SetupView is already gone.
+                // If needs_setup=1 or cancel, we fall through and re-check below.
             } catch {
                 errorMessage = UserFacingError.message(for: error, devMode: devModeEnabled)
                 Haptics.error()
             }
             isInstalling = false
+            // Re-check GitHub API directly. activateDirectly() routes to .active without
+            // opening any browser, so there is no loop risk here.
+            await refreshSetupStatus()
         }
     }
 }
