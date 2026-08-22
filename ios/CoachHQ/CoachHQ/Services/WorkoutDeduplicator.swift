@@ -1,0 +1,79 @@
+import Foundation
+
+/// A workout reduced to the handful of fields deduplication actually needs.
+///
+/// The dedup rules live behind this type rather than `HKWorkout` for one reason: HealthKit
+/// samples cannot be constructed outside a real device store, so anything that touches
+/// `HKWorkout` directly is untestable. Kept Foundation-only so
+/// `ios/scripts/verify_workout_dedup.swift` can compile it with the plain `swiftc` CLI.
+struct DedupCandidate: Equatable {
+    /// `HKWorkout.uuid.uuidString` — the canonical id (ADR 0014).
+    let uuid: String
+    let sportType: String
+    let start: Date
+    let end: Date
+    /// `ActivityMapper.sourcePriority` — apple 3 > garmin 2 > strava 1 > unknown 0.
+    let sourcePriority: Int
+    /// True when a file for this uuid is already committed to the athlete repo.
+    let isCommitted: Bool
+
+    var duration: TimeInterval { end.timeIntervalSince(start) }
+}
+
+/// Collapses the same real-world session recorded by several apps down to one activity.
+///
+/// Garmin and Strava both mirror Apple Watch workouts into HealthKit, so one session can
+/// appear two or three times with different uuids. Sync re-scans a fixed window on every
+/// round (see `HealthKitSyncManager.lookbackWindowDays`), which means those copies now land
+/// in the same batch even when they arrive days apart.
+enum WorkoutDeduplicator {
+
+    /// Returns the uuids to keep, one per duplicate cluster.
+    ///
+    /// Winner order within a cluster:
+    /// 1. **already committed** — whichever copy is in the repo stays, whatever its source.
+    /// 2. **source priority** — apple > garmin > strava > unknown.
+    /// 3. first encountered (input order) on a tie.
+    ///
+    /// Committed beats source priority because the alternative rewrites history: if the
+    /// Strava copy syncs on Monday and the Garmin copy only reaches the phone on Wednesday,
+    /// preferring Garmin would commit a *second* file for a session already in `hist/`.
+    /// Keeping the committed copy is stable and never needs a delete.
+    static func selectWinners(_ candidates: [DedupCandidate]) -> [String] {
+        let ordered = candidates.enumerated().sorted { lhs, rhs in
+            if lhs.element.isCommitted != rhs.element.isCommitted { return lhs.element.isCommitted }
+            if lhs.element.sourcePriority != rhs.element.sourcePriority {
+                return lhs.element.sourcePriority > rhs.element.sourcePriority
+            }
+            return lhs.offset < rhs.offset
+        }
+
+        var accepted: [DedupCandidate] = []
+        for (_, candidate) in ordered where !accepted.contains(where: { areDuplicates(candidate, $0) }) {
+            accepted.append(candidate)
+        }
+        return accepted.map(\.uuid)
+    }
+
+    /// Two workouts are duplicates when they share a loose activity group and their time
+    /// windows overlap by at least half of the shorter workout's duration.
+    static func areDuplicates(_ a: DedupCandidate, _ b: DedupCandidate) -> Bool {
+        guard sameActivityGroup(a.sportType, b.sportType) else { return false }
+
+        let overlapStart = max(a.start, b.start)
+        let overlapEnd = min(a.end, b.end)
+        guard overlapEnd > overlapStart else { return false }
+
+        let overlap = overlapEnd.timeIntervalSince(overlapStart)
+        let shorter = min(a.duration, b.duration)
+        return shorter > 0 && overlap / shorter >= 0.5
+    }
+
+    /// Walk and Hiking are treated as the same activity group for dedup purposes
+    /// since different apps commonly disagree on the type for the same outdoor session.
+    static func sameActivityGroup(_ a: String, _ b: String) -> Bool {
+        if a == b { return true }
+        let walkHike: Set<String> = ["Walk", "Hiking"]
+        return walkHike.contains(a) && walkHike.contains(b)
+    }
+}

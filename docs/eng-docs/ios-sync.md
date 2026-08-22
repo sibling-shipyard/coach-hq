@@ -43,9 +43,10 @@ sequenceDiagram
     participant GH as GitHub API
     U->>M: tap Sync Now
     M->>GH: read user_data/activities/sync_state.json
-    M->>HK: query workouts since hk_last_synced
+    M->>HK: query workouts since min(hk_last_synced, now - 14d)
     M->>GH: list files in user_data/activities/hist/ (dedup)
-    loop each new workout
+    M->>M: WorkoutDeduplicator drops already-synced + multi-source copies
+    loop each remaining workout
         M->>M: ActivityMapper.map (schema + HR zones)
         M->>M: ActivityNamer assigns name + filename
     end
@@ -55,18 +56,22 @@ sequenceDiagram
 ```
 
 1. **Read sync state** — `apiClient.readSyncState()` fetches
-   `user_data/activities/sync_state.json` from GitHub to get `hk_last_synced` (defaults to 7 days
-   back if missing).
-2. **Query HealthKit** — pulls `HKWorkout` samples since that date. Local device data, not a repo
-   file. If nothing new, stops here.
-3. **List existing history** — fetches the file list in `user_data/activities/hist/` from GitHub,
-   for dedup.
-4. **Per new workout:**
+   `user_data/activities/sync_state.json` from GitHub to get `hk_last_synced`. Missing (first
+   sync) means a full year of history.
+2. **Query HealthKit** — pulls `HKWorkout` samples since **`min(hk_last_synced, now − 14 days)`**
+   — see "Late arrivals" below for why the watermark alone is not enough. Local device data, not
+   a repo file. If nothing new, stops here.
+3. **List existing history** — fetches the file list in `user_data/activities/hist/` from GitHub.
+   This is the dedup index: both the filenames and the uuids parsed out of them.
+4. **Deduplicate the batch** — `WorkoutDeduplicator` collapses one real session recorded by
+   several apps down to one activity (see "Late arrivals").
+5. **Per remaining workout:**
    - `ActivityMapper.map()` converts the `HKWorkout` to the shared Activity schema (sport type,
      times, calories, distance, device).
-   - Dedup-checks the filename against Strava-style naming, so a workout that also later syncs
-     from Strava (e.g. via an Apple Watch → Strava → this repo's Strava sync) doesn't get counted
-     twice.
+   - Dedup-checks the filename — the deterministic `hk_<date>_<uuid>.json` name against the
+     committed file list, plus Strava-style naming for legacy history. **This runs before the
+     heart-rate fetch and before naming**, so a re-scanned day costs no HealthKit queries and
+     never advances a name counter for a workout that is not committed.
    - Fetches heart-rate samples for the workout window, computes avg/max HR and zone 1-5 time
      distribution.
    - `ActivityNamer` assigns a generic sequential name (`{SportType} #{N}`, e.g. "WeightTraining #30") and the filename —
@@ -74,6 +79,14 @@ sequenceDiagram
      distinguishes it from Strava-sourced files; the `YYYY-MM-DD` prefix is kept for browsability
      and the pipeline's date-prefilter. Counters are keyed by sport type in `sync_state.json`.
    - The optional `category` field is **not** auto-assigned at sync (left nil). Manual tagging only until Phase 3 config-driven rules land.
+
+6. **Commit** — `GitHubAPIClient.commitFiles()` batches the new activity file(s) plus the updated
+   `sync_state.json` into **one atomic commit** using GitHub's Git Data API (create blobs → read
+   HEAD → build tree → create commit → move the branch ref), retried against a fresh HEAD on a
+   non-fast-forward conflict. Pushed straight to `main`.
+7. **Locally only** — updates an on-device cache for instant list rendering, and refreshes the
+   local widget snapshot cache from whatever `gen/widget_snapshots.json` **already** contains on
+   GitHub. It does not regenerate that file — it just re-reads it.
 
 ### Canonical id — HKWorkout uuid
 
@@ -85,20 +98,54 @@ places:
   `id` as a JSON number, still decode when the app reads them (cache warming).
 - **In the filename** — `hk_<date>_<uuid>.json`. Because the uuid is deterministic, re-syncing the
   same workout produces the exact same filename, so dedup is a pure filename check (two guards:
-  exact-name match, plus a `_<uuid>.json` substring guard right before commit). No file contents
-  are read for dedup, keeping sync cheap.
+  exact-name match, plus a `_<uuid>.json` substring guard, both run before the heart-rate fetch).
+  No file contents are read for dedup, keeping sync cheap.
 
 **Accepted gap — no migration.** Pre-existing slug-named files (`hk_<date>_<category>_<n>.json`)
-are **not** migrated: they keep their slug filenames and have no `id`/`id_str`. This is fine
-because sync only moves forward from the `hk_last_synced` watermark and nothing looks activities up
-by uuid — the old files are never re-examined.
-5. **Commit** — `GitHubAPIClient.commitFiles()` batches the new activity file(s) plus the updated
-   `sync_state.json` into **one atomic commit** using GitHub's Git Data API (create blobs → read
-   HEAD → build tree → create commit → move the branch ref), retried against a fresh HEAD on a
-   non-fast-forward conflict. Pushed straight to `main`.
-6. **Locally only** — updates an on-device cache for instant list rendering, and refreshes the
-   local widget snapshot cache from whatever `gen/widget_snapshots.json` **already** contains on
-   GitHub. It does not regenerate that file — it just re-reads it.
+are **not** migrated: they keep their slug filenames and have no `id`/`id_str`. Nothing looks
+activities up by uuid, and every slug-named file predates uuid naming by far more than the
+14-day sync window, so the window never re-examines them.
+
+## Late arrivals and multi-source copies
+
+Two ways one real session can go wrong, both handled in the same place.
+
+**A workout can reach the phone long after it started.** An Apple Watch session only lands in
+the iPhone's HealthKit when the watch next syncs — hours, sometimes days. The HealthKit query
+filters on *start* time, so a `hk_last_synced` watermark set to "when we last ran" steps straight
+past a workout that started before the run but arrived after it, and never looks back. That
+workout is lost permanently.
+
+So the query floor is **`min(hk_last_synced, now − HealthKitSyncManager.lookbackWindowDays)`**,
+14 days today. Every round re-scans that window and lets dedup drop what is already committed.
+The cost is one local HealthKit query and a set of filename comparisons — no extra network. The
+`HKObserverQuery` fires when the watch transfers data, so in practice a late arrival now
+self-heals on the next background sync.
+
+**Garmin and Strava mirror the same session into HealthKit.** One ride can appear two or three
+times with different uuids. `WorkoutDeduplicator.selectWinners` collapses a cluster — same loose
+activity group, time windows overlapping by ≥50% of the shorter one — down to a single activity:
+
+1. **already committed wins** — whichever copy is in `hist/` stays, whatever its source.
+2. then **source priority** — apple > garmin > strava > unknown.
+3. then input order.
+
+Rule 1 exists because the copies can arrive on different days. If Strava's copy syncs Monday and
+Garmin's copy only reaches the phone Wednesday, ranking by source alone would commit a *second*
+file for a session already in `hist/`. Keeping the committed copy is stable across rounds and
+never needs a delete.
+
+The rules live in `WorkoutDeduplicator.swift`, deliberately free of HealthKit types — `HKWorkout`
+cannot be constructed outside a device store, so anything touching it is untestable. Verify with:
+
+```bash
+swiftc ios/CoachHQ/CoachHQ/Services/WorkoutDeduplicator.swift \
+       ios/scripts/verify_workout_dedup.swift -o /tmp/verify_dedup && /tmp/verify_dedup
+```
+
+**Known gap:** a workout arriving more than 14 days after it started is still missed. The manual
+import list (issue #441) is the escape hatch; widen the window or move to `HKAnchoredObjectQuery`
+(whose anchor tracks insertion, not start time) if it ever bites.
 
 ## What does NOT happen in this action
 
