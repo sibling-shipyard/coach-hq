@@ -8,25 +8,27 @@ This file is the curated view; issues are the record. Flip a box here or tell Un
 
 ## 🎯 Now — M2: Onboard Nats
 
-### 🟥 Epic: Chat reliability — THE GATE (#295)
+### ✅ Epic: Chat reliability — THE GATE (#295) — CLOSED Aug 22
 
-- [ ] #296 MVP chat commit works
-- [ ] #297 Gemini end-to-end in coach chat — web + iOS (checklist: #280)
-	a. #424 validate-soul can't fail CI — Skanda
+- [x] #296 MVP chat commit works
+- [x] #297 Gemini end-to-end in coach chat — web + iOS (checklist: #280)
 - [x] #298 First-session protocol
+- [x] #280 Coach chat: consolidated manual test checklist
+- [x] #347 Refactor coach-chat.ts
+- [x] #424 validate-soul can't fail CI
 
-### 🟥 Epic: Onboard Nats (#299)
+### 🟥 Epic: Onboard Nats (#299) — OPEN (1 left)
 
-- [ ] #300 Remove sleep analytics (simplify onboarding)
-- [ ] #301 Remove PRE
-- [ ] #358 Carve ships no SOUL — a fresh repo cannot run BYOB
+- [x] #300 Remove sleep analytics (simplify onboarding)
+- [x] #301 Remove PRE
+- [x] #358 Carve ships no SOUL — a fresh repo cannot run BYOB
+- [ ] #292 bob: pre-populate vs_usual baseline — moved to M3 (p1) per 2026-08-22, not blocking Nats
 
-_Supporting:_ #292 bob sync baseline
+_Supporting:_ #292 now in M3
 
 ## 🔜 Next — M3: Scale to 10
 
 ### Epic: New-user magic (#302)
-_Users 4–10 get a great first hour._
 
 - [ ] #303 Review: setup flow becomes a beautiful journey
 - [ ] #304 Empty activity history handling
@@ -41,9 +43,9 @@ _Users 4–10 get a great first hour._
 - [ ] #310 Webapp: better SVG activity icons
 - [ ] #311 Webapp: reuse color system from iOS
 - [ ] #312 Webapp bug batch: items from Skanda's WhatsApp list
+- [ ] #354 ios: CoachHQWidget.entitlements not referenced
 
 ### Epic: Sport-agnostic core (#313)
-_Any athlete, not just Akash's sports._
 
 - [ ] #314 Generalize home widgets beyond current sports
 - [ ] #315 Badminton + calisthenics analytics
@@ -51,11 +53,11 @@ _Any athlete, not just Akash's sports._
 - [ ] #156 healthkit-enrichment
 - [ ] #365 Workout templates aren't generic — Coach can't personalise them
 - [ ] #367 Audit the quest/gamification system end to end
+- [ ] #460 athlete_insights: expose category as sub-tag breakdown
 
 ### Epic: Coach depth (#317)
-_The coach feels wise, not generic._
 
-- [ ] #357 SOUL v5.8 trim (509 → ~232 app / ~289 BYOB)
+- [x] #357 SOUL v5.8 trim (509 → ~232 app / ~289 BYOB)
 - [ ] #318 SOUL split (post-trim)
 - [ ] #359 App silently drops archive writes
 - [ ] #360 What does an ordinary turn need in context?
@@ -65,18 +67,30 @@ _The coach feels wise, not generic._
 - [ ] #322 Coach memory: shrink coach-notes
 - [ ] #323 Chat UI polish + layered prompts (incl #270)
 - [ ] #324 Nuances: cycles, injuries, pregnancy, new sports, cross-sport load
+- [ ] #270 [coach-chat] Stream Gemini responses instead of full-response wait
 
 ### Epic: Platform hardening (#325)
-_Scaling stops being hand-holding._
 
 - [ ] #326 Plugin install flow
 - [ ] #327 How updates reach athlete repos
-- [ ] #328 Docs audit + agent framework: prune role files, clean docs (incl #130)
+- [x] #328 Docs audit + agent framework: prune role files, clean docs (incl #130)
 - [ ] #329 Testing framework shape (decision)
+- [x] #130 [core] Prune and separate eng vs coach docs; add path CI
 - [ ] #361 App writes current_week.json without validation
-- [ ] #363 Carve template drift
-- [ ] #454 Athlete-repo leftovers: keep BYOB files, decide fate of sleep_log/opponent_notes/archived seasons later (supersedes #265)
+- [x] #363 Carve template drift
 - [x] #366 validate-soul: lint SOUL against reality
+- [ ] #454 Athlete-repo leftovers: keep BYOB files, decide fate of sleep_log/opponent_notes/archived seasons later
+- [ ] #292 bob: pre-populate vs_usual baseline (moved from M2)
+- [ ] #414 iOS Builder's boot is the heaviest, and the role-doc diet barely moved it
+- [ ] #415 validate_kdb path checker silently skips paths after an odd backtick
+- [ ] #416 Staleness rule only polices docs that opted in via Status: Current
+- [ ] #417 Widen validate_kdb path-checking to .claude/hooks/
+- [ ] #419 decide schema-version migration policy before version:2
+- [ ] #436 coach_log.json grows unbounded — cap/rotate storage
+- [ ] #440 [ios] Sync permanently misses workouts that reach the phone after the last sync — p0, merging tonight, not blocking M2 per Akash
+- [ ] #441 [ios] Health Settings: list recent HealthKit workouts with synced state + manual import
+- [ ] #462 Hard caps on agent-written free text — per-entry limits in SOUL + validate-data
+- [ ] #392 Delegation rule charges a cold boot for every task
 
 ### Epic: Stretch features — M3 (#330)
 
@@ -84,6 +98,16 @@ _Scaling stops being hand-holding._
 - [ ] #332 Product page: web margins
 - [ ] #333 Product page: animation improvements
 - [ ] #334 Codebase refactor: remove dead code (#288 #223 #224)
+- [ ] #348 ui: drop explicit opponent name mapping (nameAliases.ts)
+
+### Epic: Coach data redesign — group files by how often they change (#378) — OPEN
+
+Schema migration done (Part 1 #406, Part 2 #409/#412, #408, #410). Epic tracks final verification + closing.
+- [x] #406 Part 1 — profile/memory/injuries/sessions
+- [x] #408 memory_update batch-job rework
+- [x] #409/#412 Part 2 — seasons/quests/progress/progressions
+- [x] #410 quest_event multi-quest fix
+- [ ] #411 season-closing recap/archive ritual — revisit whether to bring it back (follow-up)
 
 ## 🚀 M4: Beyond 10+
 
@@ -97,7 +121,6 @@ _Scaling stops being hand-holding._
 - [ ] #341 Sleep analytics (rebuild)
 
 ### Epic: Ready for strangers — M4 (#342)
-_Truth-checked before wider exposure._
 
 - [ ] #343 Testing framework: LLM benchmarks + iOS UI tests
 - [ ] #344 Product page dashboard check
@@ -108,19 +131,19 @@ _Truth-checked before wider exposure._
 
 - #68 calories 12k hardcode · #21 Vercel KV races · #239 silent re-auth
 - #247 bob: prune unwanted keys from old activities (Skanda & Akash repos)
-- #436 coach_log.json grows unbounded — cap/rotate storage
 
 ## 🔀 Decisions to take
 
-- [ ] **Gemini vs Claude** — blocks M2 chat
+- [x] **Gemini vs Claude** — blocks M2 chat — RESOLVED, Gemini e2e shipped (#297 closed Aug 22)
 - [ ] backend+DB (P2)
 
 ## ✅ Done
 
-**Aug 2026 — M2 push:** chat persists across refresh · onboarding text + step clarity · 365-day review · workouts autopopulate from previous step · iOS-setup page redesign (#166)
-
-**M1 + since:** unified UI, GitHub login, product page · skeleton trimmed · badminton plugin (singles) · dashboard_snapshot.json structure · iOS Testflight · activity renaming unified · monthly analytics fix
+**Aug 22 2026 — M2 Chat gate closed:** #295 epic closed, #296 MVP chat, #297 Gemini e2e, #298 FSP, #424 validate-soul CI, #358 carve SOUL fix, #459 athlete_insights bucket fix
+**Aug 22 — Auto-sync:** Auto-sync when new activity lands — already works (moved from Vision)
+**Aug 16-21 — Schema + trim:** #300 sleep analytics removed, #301 PRE removed, #406 Part 1 schema, #408/#409/#412 Part 2 schema, #357 SOUL trim, #362 predicate, #363 carve drift, #366 validate-soul lint, #455 carve-skeleton + migration plan
 
 ## 🧭 Vision — north star, unscheduled
 
-- Auto-sync when new activity lands · lock-screen tracking · coach pre-reads + drops proactive comments · widgets inside chat · configurable widget sets · crazy narrative dashboards / unique insights
+- lock-screen tracking · coach pre-reads + drops proactive comments · widgets inside chat · configurable widget sets · crazy narrative dashboards / unique insights
+
