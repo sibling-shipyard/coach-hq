@@ -1,6 +1,6 @@
 # Coach Phelps — Roadmap
 
-Structure: **Epic → Task** (two levels). Epics are GitHub issues with linked sub-issues and live progress bars; they span workstreams — the stream stays a label on each task.
+Structure: **Epic → parent → task**. Epics are GitHub issues with linked sub-issues and live progress bars. Effort lives on the GitHub issue (Low / Medium / High), not as a label.
 
 This file is the curated view; issues are the record. Flip a box here or tell Uno — it regenerates from issues, never drifts.
 
@@ -22,7 +22,7 @@ This file is the curated view; issues are the record. Flip a box here or tell Un
 - [x] #300 Remove sleep analytics (simplify onboarding)
 - [x] #301 Remove PRE
 - [x] #358 Carve ships no SOUL — a fresh repo cannot run BYOB
-- [x] #292 bob: pre-populate vs_usual baseline — moved to M3 (p1) per 2026-08-22, not blocking Nats
+- [x] #292 bob: pre-populate vs_usual baseline — moved to M3, not blocking Nats
 
 _Supporting:_ #292 now in M3
 
@@ -30,82 +30,85 @@ _Supporting:_ #292 now in M3
 
 ### Epic: New-user magic (#302)
 
-- [ ] #303 Review: setup flow becomes a beautiful journey
-- [ ] #304 Empty activity history handling
-- [ ] #305 Coach uses 1-year history patterns in FSP
-- [ ] #306 Coach chat works perfectly for FSP
+- [ ] #303 Setup flow becomes a beautiful journey — Medium
+- [ ] #304 Empty activity history handling — Low
+- [x] #305 First-session 1-year history — absorbed into #360
+- [ ] #306 First-session chat works — Medium (exit test; real work)
 - [x] #362 First-session predicate can never complete
 
 ### Epic: Homescreen UX (#307)
 
-- [ ] #308 iOS bug batch: couldn't-load-home error, navbar moves lower
-- [ ] #309 Redesign home page
-- [ ] #310 Webapp: better SVG activity icons
-- [ ] #311 Webapp: reuse color system from iOS
-- [ ] #312 Webapp bug batch: items from Skanda's WhatsApp list
-- [ ] #354 ios: CoachHQWidget.entitlements not referenced
+- [ ] #308 iOS home bug batch — Low (needs the list)
+- [ ] #309 Redesign home page — High
+- [ ] #311 Web visual tokens: reuse iOS colors — Low
+	- [ ] #310 Better SVG activity icons — Low
+- [ ] #312 Webapp bug batch (WhatsApp list) — Medium (needs the list)
+- [ ] #354 Widget entitlements not referenced — Low
 
 ### Epic: Sport-agnostic core (#313)
 
-- [ ] #314 Generalize home widgets beyond current sports
-- [ ] #315 Badminton + calisthenics analytics
-- [x] #316 challenge_v2 seasons/phases + quest_history — absorbed into #86/#378; leftover is #411
-- [ ] #156 healthkit-enrichment
-- [ ] #365 Workout templates aren't generic — Coach can't personalise them
-- [ ] #367 Audit the quest/gamification system end to end
-- [ ] #460 athlete_insights: expose category as sub-tag breakdown
+- [ ] #460 Category sub-tags under each sport — Low
+- [ ] #315 Badminton + calisthenics analytics — Medium
+- [ ] #314 Home widgets not sport-hardcoded — Medium
+- [ ] #365 Generic workout templates — Medium (blocked until #360 loads templates)
+- [ ] #367 Quest / gamification audit — Medium
+- [ ] #156 HealthKit enrichment — High (pick old PR vs day-grain proposal first)
+- [x] #316 seasons/phases + quest_history — absorbed into #86/#378; leftover is #411
 
 ### Epic: Coach depth (#317)
 
-- [x] #357 SOUL v5.8 trim (509 → ~232 app / ~289 BYOB)
+- [x] #357 SOUL v5.8 trim
 - [x] #318 SOUL split (post-trim)
-- [ ] #359 App silently drops archive writes
-- [ ] #360 What does an ordinary turn need in context?
-- [ ] #319 Coach patterns per user
-- [ ] #320 Coach comment widget powered properly
-- [ ] #321 Narrative to 5/5: first-week experience, strength benchmark
-- [ ] #322 Coach memory: shrink coach-notes
-- [ ] #323 Chat UI polish + layered prompts (incl #270)
-- [ ] #324 Nuances: cycles, injuries, pregnancy, new sports, cross-sport load
-- [ ] #270 [coach-chat] Stream Gemini responses instead of full-response wait
+- [ ] #360 Ordinary-turn context — Medium
+	- [ ] #322 Shrink coach-notes — Low
+- [ ] #323 Chat polish — Medium
+	- [ ] #270 Stream Gemini replies — Medium
+- [ ] #320 Comment widget powered properly — Medium
+- [ ] #319 Coach patterns per user — High
+- [ ] #321 First-week narrative / strength benchmark — High
+- [ ] #324 Cycles, injuries, pregnancy, new sports — High
 
 ### Epic: Platform hardening (#325)
 
-- [ ] #326 Plugin install flow
-- [ ] #327 How updates reach athlete repos
-- [x] #328 Docs audit + agent framework: prune role files, clean docs (incl #130)
-- [ ] #329 Testing framework shape (decision)
-- [x] #130 [core] Prune and separate eng vs coach docs; add path CI
-- [ ] #361 App writes current_week.json without validation
+- [ ] #473 Coach-chat write path — Medium
+	- [ ] #411 Season recap ritual — Medium (later)
+	- [ ] #359 Archive writes silently dropped — Low
+	- [ ] #361 Validate week file before save — Low
+- [ ] #462 Storage caps (free-text limits) — Low
+	- [ ] #436 Rotate coach_log.json — Low
+- [ ] #327 How updates reach athlete repos — High (hold: may die if we go backend)
+	- [ ] #326 Plugin install flow — High
+- [ ] #454 Athlete-repo leftovers — Medium
+	- [ ] #419 Schema version-2 policy — Medium
+- [ ] #329 Coach-chat eval + clean view — Medium
+- [ ] #292 vs_usual baseline during sync — Low (PR open)
+- [x] #328 Docs audit + agent framework (incl #130)
+- [x] #130 Prune and separate eng vs coach docs
 - [x] #363 Carve template drift
 - [x] #366 validate-soul: lint SOUL against reality
-- [ ] #454 Athlete-repo leftovers: keep BYOB files, decide fate of sleep_log/opponent_notes/archived seasons later
-- [ ] #292 bob: pre-populate vs_usual baseline (moved from M2)
-- [ ] #414 iOS Builder's boot is the heaviest, and the role-doc diet barely moved it
-- [ ] #415 validate_kdb path checker silently skips paths after an odd backtick
-- [ ] #416 Staleness rule only polices docs that opted in via Status: Current
-- [ ] #417 Widen validate_kdb path-checking to .claude/hooks/
-- [ ] #419 decide schema-version migration policy before version:2
-- [ ] #436 coach_log.json grows unbounded — cap/rotate storage
-- [ ] #462 Hard caps on agent-written free text — per-entry limits in SOUL + validate-data
-- [x] #392 Delegation rule charges a cold boot for every task
+- [x] #414 iOS Builder boot — spec/DESIGN conditional
+- [x] #392 Delegation rule cold-boot cost
+- [x] #416 Stale-doc header warn
+- [x] #417 Path-check `.claude/hooks/`
 
 ### Epic: Stretch features — M3 (#330)
 
-- [ ] #331 Per-activity screens
-- [ ] #332 Product page: web margins
-- [ ] #333 Product page: animation improvements
-- [ ] #334 Codebase refactor: remove dead code (#288 #223 #224)
-- [ ] #348 ui: drop explicit opponent name mapping (nameAliases.ts)
+- [ ] #332 Product page polish — Low
+	- [ ] #333 Animations — Low
+- [ ] #331 Per-activity screens — High
+- [x] #334 Remove dead code (parent)
+- [x] #288 Split coach-chat.ts
+- [x] #223 Unused web chat starters
+- [x] #224 Unused iOS post-workout chips
+- [x] #348 Opponent nickname map
 
-### ✅ Epic: Coach data redesign — group files by how often they change (#378) — CLOSED Aug 22
+### ✅ Epic: Coach data redesign (#378) — CLOSED Aug 22
 
-Schema migration done (Part 1 #406, Part 2 #409/#412, #408, #410). Epic tracks final verification + closing.
+Schema migration done. Season recap leftover moved to #473 / #411.
 - [x] #406 Part 1 — profile/memory/injuries/sessions
 - [x] #408 memory_update batch-job rework
 - [x] #409/#412 Part 2 — seasons/quests/progress/progressions
 - [x] #410 quest_event multi-quest fix
-- [ ] #411 season-closing recap/archive ritual — revisit whether to bring it back (follow-up)
 
 ## 🚀 M4: Beyond 10+
 
@@ -132,11 +135,14 @@ Schema migration done (Part 1 #406, Part 2 #409/#412, #408, #410). Epic tracks f
 
 ## 🔀 Decisions to take
 
-- [x] **Gemini vs Claude** — blocks M2 chat — RESOLVED, Gemini e2e shipped (#297 closed Aug 22)
-- [ ] backend+DB (P2)
+- [x] **Gemini vs Claude** — RESOLVED, Gemini e2e shipped (#297 closed Aug 22)
+- [ ] **backend+DB** (P2) — repo-update path (#327 / #326) waits on this; do not start those
+- [ ] **HealthKit shape** — old richer-ingestion PR vs day-grain + sidecar; blocks #156
+- [ ] **Season recap** — later (#411)
 
 ## ✅ Done
 
+**Aug 22 — M3 board sync:** nested parents, Effort on issues, shipped docs-checker / leftover-UI / iOS-boot / write-path grouping
 **Aug 22 — M3 board hygiene:** #299 M2 epic closed (#292 lives in M3), #316 absorbed into #411, #318/#392 closed as shipped, #440/#441 iOS sync+Health Settings shipped
 **Aug 22 2026 — M2 Chat gate closed:** #295 epic closed, #296 MVP chat, #297 Gemini e2e, #298 FSP, #424 validate-soul CI, #358 carve SOUL fix, #459 athlete_insights bucket fix
 **Aug 22 — Auto-sync:** Auto-sync when new activity lands — already works (moved from Vision)
@@ -145,4 +151,3 @@ Schema migration done (Part 1 #406, Part 2 #409/#412, #408, #410). Epic tracks f
 ## 🧭 Vision — north star, unscheduled
 
 - lock-screen tracking · coach pre-reads + drops proactive comments · widgets inside chat · configurable widget sets · crazy narrative dashboards / unique insights
-
