@@ -16,6 +16,7 @@ test("one activity has stable small-sample math", () => {
     sessions_per_week_prior_12w: 0,
     longest_gap_days_365d: 0,
     days_since_last_session: 2,
+    duration_buckets: { under_30m: 0, "30_to_60m": 0, "60_to_120m": 0, over_120m: 0 },
   });
 });
 
@@ -57,4 +58,33 @@ test("skips activities with no sport_type rather than falling back to category",
 test("splits camelCase sport names so they render as two words", () => {
   const result = buildAthleteInsights([activity("WeightTraining", "2026-08-19")], now);
   assert.deepEqual(Object.keys(result.sports), ["weight_training"]);
+});
+
+test("counts sessions into duration buckets from elapsed_time seconds", () => {
+  const timed = (elapsed, date) => ({ ...activity("Run", date), elapsed_time: elapsed });
+  const result = buildAthleteInsights([
+    timed(1799, "2026-08-19"),
+    timed(1800, "2026-08-18"),
+    timed(3599, "2026-08-17"),
+    timed(3600, "2026-08-16"),
+    timed(7199, "2026-08-15"),
+    timed(7200, "2026-08-14"),
+  ], now);
+  assert.deepEqual(result.sports.run.duration_buckets, {
+    under_30m: 1, "30_to_60m": 2, "60_to_120m": 2, over_120m: 1,
+  });
+  assert.equal(result.sports.run.sessions_365d, 6);
+});
+
+test("skips missing or non-numeric elapsed_time from the histogram only", () => {
+  const result = buildAthleteInsights([
+    { ...activity("Ride", "2026-08-19"), elapsed_time: 2400 },
+    activity("Ride", "2026-08-18"),
+    { ...activity("Ride", "2026-08-17"), elapsed_time: "3600" },
+    { ...activity("Ride", "2026-08-16"), elapsed_time: Number.NaN },
+  ], now);
+  assert.equal(result.sports.ride.sessions_365d, 4);
+  assert.deepEqual(result.sports.ride.duration_buckets, {
+    under_30m: 0, "30_to_60m": 1, "60_to_120m": 0, over_120m: 0,
+  });
 });
