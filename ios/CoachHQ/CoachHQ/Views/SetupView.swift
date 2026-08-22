@@ -9,6 +9,7 @@ struct SetupView: View {
 
     @State private var repoStepComplete = false
     @State private var isInstalling = false
+    @State private var isSigningInAgain = false
     @State private var isCheckingRepo = true
     @State private var errorMessage: String?
 
@@ -190,6 +191,26 @@ struct SetupView: View {
             .buttonStyle(WarmSetupButtonStyle(primary: true))
             .disabled(primaryButtonDisabled)
             .onboardingReveal(index: 5)
+
+            if repoStepComplete {
+                Button {
+                    Haptics.tap()
+                    signInAgain()
+                } label: {
+                    HStack(spacing: 6) {
+                        if isSigningInAgain {
+                            ProgressView().scaleEffect(0.7).tint(WarmInstrument.inkMuted)
+                        }
+                        Text(isSigningInAgain ? "Signing in…" : "Already linked? Sign in again")
+                            .contentTransition(.opacity)
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(WarmInstrument.inkMuted)
+                    .animation(PremiumMotion.press, value: isSigningInAgain)
+                }
+                .disabled(isInstalling || isSigningInAgain)
+                .onboardingReveal(index: 6)
+            }
         }
         .animation(PremiumMotion.onboardingReveal, value: repoStepComplete)
     }
@@ -270,6 +291,25 @@ struct SetupView: View {
                 Haptics.error()
             }
             isInstalling = false
+        }
+    }
+
+    // Fallback for returning users who already have the GitHub App installed but whose
+    // server session expired — re-runs the full sign-in so the server can re-discover
+    // the existing installation and issue a fresh token without re-installing the App.
+    private func signInAgain() {
+        isSigningInAgain = true
+        errorMessage = nil
+
+        Task {
+            do {
+                try await authManager.signIn()
+                Haptics.success()
+            } catch {
+                errorMessage = UserFacingError.message(for: error, devMode: devModeEnabled)
+                Haptics.error()
+            }
+            isSigningInAgain = false
         }
     }
 }

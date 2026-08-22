@@ -83,17 +83,18 @@ class GitHubAuthManager: ObservableObject {
             )
             try await handleCallback(callbackURL)
         } catch WebAuthError.cancelled {
-            // The user dismissed the WebView (GitHub's post-install redirect may not have
-            // produced a coachhq:// callback). Try bootstrapSession() — if the installation
-            // completed on GitHub's side, resolveRepoIfNeeded() will find the repo and
-            // clear pendingSetupLogin, routing the app forward without the callback URL.
+            // Browser dismissed without a coachhq:// callback — fall through to recovery.
+        }
+
+        // Recovery for two scenarios where pendingSetupLogin stays set after the install flow:
+        // 1. needs_setup=1 came back again in the callback (handleCallback set pendingSetupLogin
+        //    and returned normally — no error, no cancel — leaving the user silently on SetupView).
+        // 2. Browser was dismissed without producing a coachhq:// callback.
+        // In both cases: try list-my-repos with the current token. Returning users whose
+        // GitHub App is installed but whose server session expired will resolve here.
+        if pendingSetupLogin != nil {
             await bootstrapSession()
-            if pendingSetupLogin != nil {
-                // Session is still in setup state — installation didn't complete yet.
-                throw AuthError.missingCallback
-            }
-            // Repo resolved — bootstrapSession() doesn't set isAuthenticated, so set it
-            // now so deriveState() routes to .active instead of .unauthenticated.
+            guard pendingSetupLogin == nil else { throw AuthError.missingCallback }
             isAuthenticated = true
         }
     }
