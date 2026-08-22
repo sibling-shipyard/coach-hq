@@ -14,10 +14,17 @@ def repo_root_from_here(file: str | Path) -> Path:
             return dir
         if (dir / "engine" / "soul").is_dir():
             return dir
-        if (dir / "propagated" / "SOUL.md").is_file() and (dir / "user_data").is_dir():
-            return dir
-        if (dir / "SOUL.md").is_file() and (
-            (dir / "user_data").is_dir() or (dir / "training").is_dir()
+        # Athlete repo: a composed SOUL at the propagated/ or repo root. Both the post-ADR-0022
+        # `SOUL.claude.md` name and the pre-split `SOUL.md` count - repos carved before the
+        # split still carry the old name and must keep resolving.
+        has_athlete_band = (dir / "user_data").is_dir() or (dir / "training").is_dir()
+        if (
+            (dir / "propagated" / "SOUL.claude.md").is_file()
+            or (dir / "propagated" / "SOUL.md").is_file()
+            or (
+                ((dir / "SOUL.claude.md").is_file() or (dir / "SOUL.md").is_file())
+                and has_athlete_band
+            )
         ):
             return dir
         # Flat skeleton: soul/ at repo root — not HQ platform/soul/ subtree
@@ -153,13 +160,22 @@ def activities_dir(repo: Path) -> Path:
     return repo / "training" / "activities"
 
 
-def soul_file_path(repo: Path) -> Path:
-    """Composed SOUL — HQ: platform/SOUL.md; athlete repos: propagated/SOUL.md."""
+def soul_file_path(repo: Path, target: str = "claude") -> Path:
+    """Composed SOUL path for a build target (ADR 0022) - HQ: platform/SOUL.<target>.md;
+    athlete repos: propagated/SOUL.claude.md, then repo root.
+
+    The bare `SOUL.md` name is retired at HQ but still probed last in athlete repos:
+    `coach-akash` and `coach-skanda` were carved before the split and still carry
+    `propagated/SOUL.md`, so dropping the fallback would break the engine scripts running
+    inside them.
+    """
     if is_hq_monorepo(repo):
-        hq = repo / "platform" / "SOUL.md"
-        if hq.is_file():
-            return hq
-    propagated = repo / "propagated" / "SOUL.md"
-    if propagated.is_file():
-        return propagated
+        return repo / "platform" / f"SOUL.{target}.md"
+    for candidate in (
+        repo / "propagated" / f"SOUL.{target}.md",
+        repo / "propagated" / "SOUL.md",
+        repo / f"SOUL.{target}.md",
+    ):
+        if candidate.is_file():
+            return candidate
     return repo / "SOUL.md"

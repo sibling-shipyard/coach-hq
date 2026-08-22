@@ -10,13 +10,13 @@
 
 ## Decision
 
-The live weekly plan and short-lived coaching commentary live in `user_data/ledger/current_week.json`, not `user_data/coach/state.md`. This keeps durable memory separate from a bounded, replaceable product snapshot while giving every product surface one structured contract.
+The live weekly plan and short-lived coaching commentary live in `user_data/ledger/current_week.json`, not `user_data/coach/profile.json`/`memory.json`. This keeps durable memory separate from a bounded, replaceable product snapshot while giving every product surface one structured contract.
 
 | File | Time horizon | Responsibility |
 |---|---:|---|
-| `user_data/coach/state.md` | Months | Durable athlete state, constraints, priorities, phase context, and learned patterns |
+| `user_data/coach/profile.json` + `memory.json` | Months | Durable athlete state, constraints, priorities, and learned patterns |
 | `user_data/ledger/current_week.json` | One week | Active dated plan, completion state, one primary Coach conclusion, and expiring semantic comments |
-| `user_data/coach/coach_notes.md` | Long-term, append-only | Private observations, pattern history, and analytical memory |
+| `user_data/coach/coach_log.json` | Long-term, append-only | Session-continuity rows — the current schema's replacement for the old free-text coach_notes.md |
 | `user_data/activities/workout_plans/templates/*.json` | Stable | Base exercise prescriptions |
 | `sessions/*.json` | One workout | Coach-adjusted timer prescriptions with sets, phases, and rest |
 
@@ -167,4 +167,4 @@ A change to `user_data/ledger/current_week.json` must trigger the dashboard buil
 
 ## Migration rule
 
-Closed weekly history moves to `user_data/coach/archive/week_plans.md`. Durable cut/block context remains in `user_data/coach/state.md`. The next Week 30 snapshot is seeded as `placeholder` because its schedule has not yet been confirmed; it must not become `live` until Sky and Coach agree the real week.
+Closed weekly history moves to `user_data/coach/archive/week_plans.md`. Durable cut/block context lives in `coach_log.json`'s narrative rows and `memory.json`'s `coaching_priorities` note. The next Week 30 snapshot is seeded as `placeholder` because its schedule has not yet been confirmed; it must not become `live` until Sky and Coach agree the real week.
