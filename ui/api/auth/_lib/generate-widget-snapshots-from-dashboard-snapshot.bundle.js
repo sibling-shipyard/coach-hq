@@ -1,4 +1,105 @@
-// client/src/lib/activities.ts
+// shared/warm-instrument/tokens.json
+var tokens_default = {
+  palette: {
+    paper: "#fbf8f1",
+    desk: "#e8e2d7",
+    surfaceMuted: "#f3eee3",
+    ink: "#2b2d29",
+    inkMuted: "#75746b",
+    inkFaint: "#98998f",
+    accent: "#7f3728",
+    accentDark: "#652b20",
+    alarmBg: "#e4e4ec",
+    alarmFg: "#4b5578"
+  },
+  lines: {
+    border: "rgba(84, 76, 65, 0.16)",
+    borderDashed: "rgba(84, 76, 65, 0.35)",
+    headerRule: "#d8d2c6"
+  },
+  shadows: {
+    card: "0 8px 20px rgba(57, 52, 42, 0.08)",
+    engine: "0 18px 36px rgba(101, 43, 32, 0.18)"
+  },
+  radius: {
+    cardWebPx: 26,
+    cardIosPt: 18
+  },
+  sports: {
+    badminton: { hex: "#1A4731", label: "BDM", mixHex: "#9fc0ad" },
+    calisthenics: { hex: "#4F587A", label: "CAL", mixHex: "#aeb2c9" },
+    foundation: { hex: "#6D7D4E", label: "FDN", mixHex: "#cdd3a8" },
+    cycling: { hex: "#A8702C", label: "RIDE", mixHex: "#e0b06e" },
+    run: { hex: "#374151", label: "RUN", mixHex: "#c44020" },
+    strength: { hex: "#2D3A5A", label: "STR", mixHex: "#111111" },
+    weight_training: { hex: "#3B4A6B", label: "WGT", mixHex: "#3b4a6b" },
+    hike: { hex: "#7A5C3A", label: "HIK", mixHex: "#8b6f47" },
+    walk: { hex: "#6B7280", label: "WLK", mixHex: "#a8a29e" },
+    cricket: { hex: "#4A6741", label: "CRK", mixHex: "#2dd4bf" },
+    football: { hex: "#166534", label: "FBL", mixHex: "#e11d48" },
+    workout: { hex: "#5B6472", label: "WKT", mixHex: "#6b7280" },
+    swim: { hex: "#005F7A", label: "SWM", mixHex: "#0ea5e9" },
+    tennis: { hex: "#B5532A", label: "TEN", mixHex: "#B5532A" },
+    other: { hex: "#8A8A8A", label: "OTH", mixHex: "#8A8A8A" }
+  },
+  workouts: {
+    foundation: { hex: "#4F587A" },
+    calisthenics: { hex: "#7F3728" },
+    recovery: { hex: "#315A4A" },
+    realign: { hex: "#A8702C" },
+    strength: { hex: "#3B4A6B" }
+  },
+  typography: {
+    ui: "Space Grotesk, system-ui, sans-serif",
+    figures: "Space Mono, ui-monospace, monospace",
+    coachVoice: "Newsreader, Georgia, serif"
+  }
+};
+
+// ui/client/src/lib/wiTokens.ts
+function sportHex(id) {
+  return tokens_default.sports[id].hex;
+}
+function sportMixHex(id) {
+  return tokens_default.sports[id].mixHex;
+}
+function workoutHex(id) {
+  return tokens_default.workouts[id].hex;
+}
+
+// ui/client/src/lib/activities.ts
+var CATEGORY_CONFIG = {
+  foundation: { label: "FOUNDATION", shortLabel: "FDN", color: sportHex("foundation"), group: "foundation" },
+  strength: { label: "STRENGTH", shortLabel: "STR", color: sportHex("strength"), group: "strength" },
+  weight_training: { label: "WEIGHTS", shortLabel: "WGT", color: sportHex("weight_training"), group: "weight_training" },
+  calisthenics: { label: "CALISTHENICS", shortLabel: "CAL", color: sportHex("calisthenics"), group: "calisthenics" },
+  recovery: { label: "RECOVERY", shortLabel: "REC", color: workoutHex("recovery"), group: "other" },
+  realign: { label: "REALIGN", shortLabel: "RLN", color: workoutHex("realign"), group: "other" },
+  badminton_ranked: { label: "RANKED", shortLabel: "RNK", color: sportHex("badminton"), group: "badminton" },
+  badminton_league: { label: "LEAGUE", shortLabel: "LGE", color: sportHex("badminton"), group: "badminton" },
+  badminton_friendly: { label: "FRIENDLY", shortLabel: "FRN", color: sportHex("badminton"), group: "badminton" },
+  badminton_casual: { label: "CASUAL", shortLabel: "CAS", color: sportHex("badminton"), group: "badminton" },
+  hike: { label: "HIKE", shortLabel: "HIK", color: sportHex("hike"), group: "hike" },
+  walk: { label: "WALK", shortLabel: "WLK", color: sportHex("walk"), group: "other" },
+  cricket: { label: "CRICKET", shortLabel: "CRK", color: sportHex("cricket"), group: "other" },
+  football: { label: "FOOTBALL", shortLabel: "FBL", color: sportHex("football"), group: "other" },
+  workout: { label: "WORKOUT", shortLabel: "WKT", color: sportHex("workout"), group: "other" },
+  swim: { label: "SWIM", shortLabel: "SWM", color: sportHex("swim"), group: "other" },
+  ride: { label: "RIDE", shortLabel: "RDE", color: sportHex("cycling"), group: "ride" },
+  run: { label: "RUN", shortLabel: "RUN", color: sportHex("run"), group: "other" },
+  other: { label: "OTHER", shortLabel: "OTH", color: sportHex("other"), group: "other" }
+};
+var GROUP_CONFIG = {
+  foundation: { label: "FOUNDATION", color: sportHex("foundation"), categories: ["foundation"] },
+  strength: { label: "STRENGTH", color: sportHex("strength"), categories: ["strength"] },
+  calisthenics: { label: "CALISTHENICS", color: sportHex("calisthenics"), categories: ["calisthenics"] },
+  run: { label: "RUN", color: sportHex("run"), categories: ["run"] },
+  hike: { label: "HIKE", color: sportHex("hike"), categories: ["hike"] },
+  badminton: { label: "BADMINTON", color: sportHex("badminton"), categories: ["badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual"] },
+  swim: { label: "SWIM", color: sportHex("swim"), categories: ["swim"] },
+  weight_training: { label: "WEIGHTS", color: sportHex("weight_training"), categories: ["weight_training"] },
+  ride: { label: "RIDES", color: sportHex("cycling"), categories: ["ride"] }
+};
 function getTrainingCategory(activity) {
   if (activity.category) {
     return activity.category;
@@ -31,6 +132,16 @@ function getTrainingCategory(activity) {
   }
   return "other";
 }
+var SPORT_CONFIG = {
+  Badminton: { label: "BADMINTON", color: sportHex("badminton"), cssClass: "sport-bar-badminton" },
+  WeightTraining: { label: "WEIGHTS", color: sportHex("weight_training"), cssClass: "sport-bar-weights" },
+  Ride: { label: "RIDE", color: sportHex("cycling"), cssClass: "sport-bar-ride" },
+  Run: { label: "RUN", color: sportHex("run"), cssClass: "sport-bar-run" },
+  Workout: { label: "WORKOUT", color: sportHex("workout"), cssClass: "sport-bar-workout" },
+  Swim: { label: "SWIM", color: sportHex("swim"), cssClass: "sport-bar-swim" },
+  Walk: { label: "WALK", color: sportHex("walk"), cssClass: "sport-bar-walk" },
+  Others: { label: "OTHERS", color: sportHex("other"), cssClass: "sport-bar-others" }
+};
 function parseLocal(dateStr) {
   return new Date(dateStr.replace(/Z$/, ""));
 }
@@ -66,7 +177,7 @@ function parseWinLoss(description) {
   };
 }
 
-// client/src/components/home-warm/liveWeekContract.ts
+// ui/client/src/components/home-warm/liveWeekContract.ts
 var DAY_MS = 24 * 60 * 60 * 1e3;
 function getMonday(date = /* @__PURE__ */ new Date()) {
   const monday = new Date(date);
@@ -184,21 +295,11 @@ function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new 
   };
 }
 
-// client/src/lib/nameAliases.ts
-var NAME_ALIASES = {
-  johndoe: "John Doe"
-};
+// ui/client/src/lib/matchParser.ts
 var UNICODE_DECORATIONS = /[\u2654-\u265F\u2660-\u2667\u2668-\u2671\u2672-\u267F\u2680-\u269F\u26A0-\u26FF\u2700-\u27BF\u{1F300}-\u{1F9FF}]/gu;
 function normalizeName(name) {
-  let cleaned = name.replace(UNICODE_DECORATIONS, "").trim();
-  const key = cleaned.toLowerCase();
-  if (NAME_ALIASES[key]) {
-    return NAME_ALIASES[key];
-  }
-  return cleaned;
+  return name.replace(UNICODE_DECORATIONS, "").trim();
 }
-
-// client/src/lib/matchParser.ts
 var WL_SUMMARY_RE = /(\d+)W[–-](\d+)L\s*\((\d+)%?\)/;
 var GAME_LINE_RE = /^(W|L)\s+(\d+)[–-](\d+)\s+(?:w\/\s+(.+?)\s+)?vs\s+(.+)$/i;
 function parseGameLine(line, gameNumber, isFriendly) {
@@ -308,7 +409,7 @@ function getRankedGames(match) {
   return match.games;
 }
 
-// client/src/components/sport-analytics/badmintonLensModel.ts
+// ui/client/src/components/sport-analytics/badmintonLensModel.ts
 var ALL_CATEGORIES = /* @__PURE__ */ new Set([
   "badminton_ranked",
   "badminton_league",
@@ -689,13 +790,13 @@ function buildBadmintonLensModel(activities, mode, now = Date.now()) {
   };
 }
 
-// client/src/components/home-warm/formatUtils.ts
+// ui/client/src/components/home-warm/formatUtils.ts
 function formatMinutesLabel(value) {
   const minutes = Math.round(value);
   return minutes >= 60 ? `${Math.floor(minutes / 60)}H${String(minutes % 60).padStart(2, "0")}` : `${minutes} MIN`;
 }
 
-// client/src/components/home-warm/warmHomeModel.ts
+// ui/client/src/components/home-warm/warmHomeModel.ts
 var DAY_MS2 = 24 * 60 * 60 * 1e3;
 function getMonday2(date = /* @__PURE__ */ new Date()) {
   const day = date.getDay();
@@ -1015,7 +1116,7 @@ function buildWarmHomeModel(activities, challenge, syncStatus, contract) {
   };
 }
 
-// client/src/components/home-warm/warmHomeSnapshots.ts
+// ui/client/src/components/home-warm/warmHomeSnapshots.ts
 var DAY_MS3 = 24 * 60 * 60 * 1e3;
 function localDateKey2(date) {
   return [
@@ -1106,19 +1207,19 @@ function formatDuration(activity) {
 function buildEngineSnapshot(activities, engine) {
   const thisWeek = getThisWeekActivities(activities);
   const mixDefinition = [
-    { id: "badminton", label: "Badminton", shortLabel: "BDM", color: "#9fc0ad" },
-    { id: "foundation", label: "Foundation", shortLabel: "FDN", color: "#cdd3a8" },
-    { id: "calisthenics", label: "Calisthenics", shortLabel: "CAL", color: "#aeb2c9" },
-    { id: "cycling", label: "Ride", shortLabel: "RIDE", color: "#e0b06e" },
-    { id: "run", label: "Run", shortLabel: "RUN", color: "#c44020" },
-    { id: "strength", label: "Strength", shortLabel: "STR", color: "#111111" },
-    { id: "weight_training", label: "Weights", shortLabel: "WGT", color: "#3b4a6b" },
-    { id: "hike", label: "Hike", shortLabel: "HIK", color: "#8b6f47" },
-    { id: "walk", label: "Walk", shortLabel: "WLK", color: "#a8a29e" },
-    { id: "cricket", label: "Cricket", shortLabel: "CRK", color: "#2dd4bf" },
-    { id: "football", label: "Football", shortLabel: "FBL", color: "#e11d48" },
-    { id: "workout", label: "Workout", shortLabel: "WKT", color: "#6b7280" },
-    { id: "swim", label: "Swim", shortLabel: "SWM", color: "#0ea5e9" }
+    { id: "badminton", label: "Badminton", shortLabel: "BDM", color: sportMixHex("badminton") },
+    { id: "foundation", label: "Foundation", shortLabel: "FDN", color: sportMixHex("foundation") },
+    { id: "calisthenics", label: "Calisthenics", shortLabel: "CAL", color: sportMixHex("calisthenics") },
+    { id: "cycling", label: "Ride", shortLabel: "RIDE", color: sportMixHex("cycling") },
+    { id: "run", label: "Run", shortLabel: "RUN", color: sportHex("run") },
+    { id: "strength", label: "Strength", shortLabel: "STR", color: sportHex("strength") },
+    { id: "weight_training", label: "Weights", shortLabel: "WGT", color: sportHex("weight_training") },
+    { id: "hike", label: "Hike", shortLabel: "HIK", color: sportHex("hike") },
+    { id: "walk", label: "Walk", shortLabel: "WLK", color: sportHex("walk") },
+    { id: "cricket", label: "Cricket", shortLabel: "CRK", color: sportHex("cricket") },
+    { id: "football", label: "Football", shortLabel: "FBL", color: sportHex("football") },
+    { id: "workout", label: "Workout", shortLabel: "WKT", color: sportHex("workout") },
+    { id: "swim", label: "Swim", shortLabel: "SWM", color: sportHex("swim") }
   ];
   const mix = mixDefinition.map((item) => ({
     ...item,
@@ -1633,7 +1734,7 @@ function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contrac
   };
 }
 
-// client/src/lib/splitLedgerChallenge.ts
+// ui/client/src/lib/splitLedgerChallenge.ts
 function splitLedgerAsChallenge(ledger) {
   const season = ledger.seasons.seasons.find((item) => item.id === ledger.seasons.current_season_id);
   if (!season || !ledger.quests.main_quest) return null;
@@ -1660,7 +1761,7 @@ function splitLedgerAsChallenge(ledger) {
   };
 }
 
-// api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts
+// ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts
 function localDateKey3(date) {
   return [
     date.getFullYear(),

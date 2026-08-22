@@ -11,6 +11,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@golden": path.resolve(import.meta.dirname, "..", "shared", "golden-dataset"),
+      "@warm-instrument": path.resolve(import.meta.dirname, "..", "shared", "warm-instrument"),
     },
   },
   test: {

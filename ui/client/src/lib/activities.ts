@@ -3,6 +3,7 @@
  * Formatting, filtering, aggregation, and training category classification.
  */
 import { toLocalDateStr } from "@/lib/challenge";
+import { sportHex, workoutHex } from "@/lib/wiTokens";
 
 export interface HrZone {
   low: number | null;
@@ -63,38 +64,38 @@ export interface CategoryConfig {
 }
 
 export const CATEGORY_CONFIG: Record<TrainingCategory, CategoryConfig> = {
-  foundation:       { label: "FOUNDATION",   shortLabel: "FDN",  color: "#60a5fa", group: "foundation" },
-  strength:         { label: "STRENGTH",     shortLabel: "STR",  color: "#111111", group: "strength" },
-  weight_training:  { label: "WEIGHTS",      shortLabel: "WGT",  color: "#3b4a6b", group: "weight_training" },
-  calisthenics:     { label: "CALISTHENICS", shortLabel: "CAL",  color: "#f59e0b", group: "calisthenics" },
-  recovery:         { label: "RECOVERY",     shortLabel: "REC",  color: "#7c3aed", group: "other" },
-  realign:          { label: "REALIGN",      shortLabel: "RLN",  color: "#a78bfa", group: "other" },
-  badminton_ranked:   { label: "RANKED",   shortLabel: "RNK", color: "#dc2626", group: "badminton" },
-  badminton_league:   { label: "LEAGUE",   shortLabel: "LGE", color: "#7c3aed", group: "badminton" },
-  badminton_friendly: { label: "FRIENDLY", shortLabel: "FRN", color: "#2563eb", group: "badminton" },
-  badminton_casual:   { label: "CASUAL",   shortLabel: "CAS", color: "#6b7280", group: "badminton" },
-  hike:             { label: "HIKE",         shortLabel: "HIK",  color: "#8b6f47", group: "hike" },
-  walk:             { label: "WALK",         shortLabel: "WLK",  color: "#a8a29e", group: "other" },
-  cricket:          { label: "CRICKET",      shortLabel: "CRK",  color: "#2dd4bf", group: "other" },
-  football:         { label: "FOOTBALL",     shortLabel: "FBL",  color: "#e11d48", group: "other" },
-  workout:          { label: "WORKOUT",      shortLabel: "WKT",  color: "#6b7280", group: "other" },
-  swim:             { label: "SWIM",         shortLabel: "SWM",  color: "#0ea5e9", group: "other" },
-  ride:             { label: "RIDE",         shortLabel: "RDE",  color: "#c47a20", group: "ride" },
-  run:              { label: "RUN",          shortLabel: "RUN",  color: "#c44020", group: "other" },
-  other:            { label: "OTHER",        shortLabel: "OTH",  color: "#777",    group: "other" },
+  foundation:       { label: "FOUNDATION",   shortLabel: "FDN",  color: sportHex("foundation"), group: "foundation" },
+  strength:         { label: "STRENGTH",     shortLabel: "STR",  color: sportHex("strength"), group: "strength" },
+  weight_training:  { label: "WEIGHTS",      shortLabel: "WGT",  color: sportHex("weight_training"), group: "weight_training" },
+  calisthenics:     { label: "CALISTHENICS", shortLabel: "CAL",  color: sportHex("calisthenics"), group: "calisthenics" },
+  recovery:         { label: "RECOVERY",     shortLabel: "REC",  color: workoutHex("recovery"), group: "other" },
+  realign:          { label: "REALIGN",      shortLabel: "RLN",  color: workoutHex("realign"), group: "other" },
+  badminton_ranked:   { label: "RANKED",   shortLabel: "RNK", color: sportHex("badminton"), group: "badminton" },
+  badminton_league:   { label: "LEAGUE",   shortLabel: "LGE", color: sportHex("badminton"), group: "badminton" },
+  badminton_friendly: { label: "FRIENDLY", shortLabel: "FRN", color: sportHex("badminton"), group: "badminton" },
+  badminton_casual:   { label: "CASUAL",   shortLabel: "CAS", color: sportHex("badminton"), group: "badminton" },
+  hike:             { label: "HIKE",         shortLabel: "HIK",  color: sportHex("hike"), group: "hike" },
+  walk:             { label: "WALK",         shortLabel: "WLK",  color: sportHex("walk"), group: "other" },
+  cricket:          { label: "CRICKET",      shortLabel: "CRK",  color: sportHex("cricket"), group: "other" },
+  football:         { label: "FOOTBALL",     shortLabel: "FBL",  color: sportHex("football"), group: "other" },
+  workout:          { label: "WORKOUT",      shortLabel: "WKT",  color: sportHex("workout"), group: "other" },
+  swim:             { label: "SWIM",         shortLabel: "SWM",  color: sportHex("swim"), group: "other" },
+  ride:             { label: "RIDE",         shortLabel: "RDE",  color: sportHex("cycling"), group: "ride" },
+  run:              { label: "RUN",          shortLabel: "RUN",  color: sportHex("run"), group: "other" },
+  other:            { label: "OTHER",        shortLabel: "OTH",  color: sportHex("other"), group: "other" },
 };
 
 // Group-level config for summary cards
 export const GROUP_CONFIG: Record<string, { label: string; color: string; categories: TrainingCategory[] }> = {
-  foundation:    { label: "FOUNDATION",   color: "#60a5fa", categories: ["foundation"] },
-  strength:      { label: "STRENGTH",     color: "#111111", categories: ["strength"] },
-  calisthenics:  { label: "CALISTHENICS", color: "#f59e0b", categories: ["calisthenics"] },
-  run:          { label: "RUN",          color: "#c44020", categories: ["run"] },
-  hike:         { label: "HIKE",         color: "#8b6f47", categories: ["hike"] },
-  badminton:    { label: "BADMINTON",    color: "#2d8a4e", categories: ["badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual"] },
-  swim:         { label: "SWIM",         color: "#0ea5e9", categories: ["swim"] },
-  weight_training: { label: "WEIGHTS",       color: "#3b4a6b", categories: ["weight_training"] },
-  ride:         { label: "RIDES",        color: "#c47a20", categories: ["ride"] },
+  foundation:    { label: "FOUNDATION",   color: sportHex("foundation"), categories: ["foundation"] },
+  strength:      { label: "STRENGTH",     color: sportHex("strength"), categories: ["strength"] },
+  calisthenics:  { label: "CALISTHENICS", color: sportHex("calisthenics"), categories: ["calisthenics"] },
+  run:          { label: "RUN",          color: sportHex("run"), categories: ["run"] },
+  hike:         { label: "HIKE",         color: sportHex("hike"), categories: ["hike"] },
+  badminton:    { label: "BADMINTON",    color: sportHex("badminton"), categories: ["badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual"] },
+  swim:         { label: "SWIM",         color: sportHex("swim"), categories: ["swim"] },
+  weight_training: { label: "WEIGHTS",       color: sportHex("weight_training"), categories: ["weight_training"] },
+  ride:         { label: "RIDES",        color: sportHex("cycling"), categories: ["ride"] },
 };
 
 export function getTrainingCategory(activity: Activity): TrainingCategory {
@@ -172,14 +173,14 @@ const SPORT_TYPE_ALIASES: Record<string, string> = {
 };
 
 export const SPORT_CONFIG: Record<string, { label: string; color: string; cssClass: string }> = {
-  Badminton: { label: "BADMINTON", color: "#2d8a4e", cssClass: "sport-bar-badminton" },
-  WeightTraining: { label: "WEIGHTS", color: "#3b4a6b", cssClass: "sport-bar-weights" },
-  Ride: { label: "RIDE", color: "#c47a20", cssClass: "sport-bar-ride" },
-  Run: { label: "RUN", color: "#c44020", cssClass: "sport-bar-run" },
-  Workout: { label: "WORKOUT", color: "#6b7280", cssClass: "sport-bar-workout" },
-  Swim: { label: "SWIM", color: "#0ea5e9", cssClass: "sport-bar-swim" },
-  Walk: { label: "WALK", color: "#a8a29e", cssClass: "sport-bar-walk" },
-  Others: { label: "OTHERS", color: "#777", cssClass: "sport-bar-others" },
+  Badminton: { label: "BADMINTON", color: sportHex("badminton"), cssClass: "sport-bar-badminton" },
+  WeightTraining: { label: "WEIGHTS", color: sportHex("weight_training"), cssClass: "sport-bar-weights" },
+  Ride: { label: "RIDE", color: sportHex("cycling"), cssClass: "sport-bar-ride" },
+  Run: { label: "RUN", color: sportHex("run"), cssClass: "sport-bar-run" },
+  Workout: { label: "WORKOUT", color: sportHex("workout"), cssClass: "sport-bar-workout" },
+  Swim: { label: "SWIM", color: sportHex("swim"), cssClass: "sport-bar-swim" },
+  Walk: { label: "WALK", color: sportHex("walk"), cssClass: "sport-bar-walk" },
+  Others: { label: "OTHERS", color: sportHex("other"), cssClass: "sport-bar-others" },
 };
 
 export function getSportGroup(sportType: string): string {
@@ -189,7 +190,7 @@ export function getSportGroup(sportType: string): string {
 
 export function getSportConfig(sportType: string) {
   const group = getSportGroup(sportType);
-  return SPORT_CONFIG[group] || { label: "OTHERS", color: "#777", cssClass: "" };
+  return SPORT_CONFIG[group] || { label: "OTHERS", color: sportHex("other"), cssClass: "" };
 }
 
 export const DISPLAY_SPORT_TYPES = ["Badminton", "Ride", "WeightTraining", "Run", "Others"] as const;

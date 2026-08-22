@@ -2,13 +2,12 @@ import SwiftUI
 
 /// Design tokens matching the Coach HQ website (coach-phelps.netlify.app).
 ///
-/// Source of truth: `ui/client/src/lib/activities.ts` (SPORT_CONFIG) for sport colors, and
-/// `shared/warm-instrument/tokens.json` (see `ios-token-mapping.md`) for the Warm Instrument
-/// surface tokens below — warm paper background, warm ink foreground, 18pt card radius,
-/// 10pt bold uppercase tracked section headers, sport-colored left bars, and a green accent
-/// for progress/active states. The old neo-brutalist tokens (white cards, 12pt radius,
-/// `brandRed`) are retired; see `WarmInstrument` for the load-only terracotta accent and the
-/// rest of the Warm Instrument palette.
+/// Shared file: `shared/warm-instrument/tokens.json` (see `ios-token-mapping.md`).
+/// `WarmInstrument.Sport` and `Theme.workoutColor` authored the sport and workout hexes;
+/// web consumes them. Surface tokens below — warm paper, warm ink, 18pt card radius,
+/// 10pt bold uppercase tracked section headers, sport-colored left bars — still map
+/// by hand until codegen. The old neo-brutalist tokens (white cards, 12pt radius,
+/// `brandRed`) are retired; see `WarmInstrument` for the load-only terracotta accent.
 enum Theme {
     // MARK: - Appearance
 
@@ -70,21 +69,20 @@ enum Theme {
     /// tokenized instead of a bare `.red` literal.
     static let heartRateColor = hrZoneColors[4]
 
-    // MARK: - Sport colors (mirror SPORT_CONFIG in ui/client/src/lib/activities.ts)
+    // MARK: - Sport colors (authored in WarmInstrument.Sport; held in tokens.json)
 
-    static let weightsColor = Color(red: 0x3B / 255.0, green: 0x4A / 255.0, blue: 0x6B / 255.0)   // WEIGHTS  #3b4a6b
-    static let badmintonColor = Color(red: 0x2D / 255.0, green: 0x8A / 255.0, blue: 0x4E / 255.0) // BADMINTON #2d8a4e
-    static let rideColor = Color(red: 0xC4 / 255.0, green: 0x7A / 255.0, blue: 0x20 / 255.0)      // RIDE     #c47a20
-    static let runColor = Color(red: 0xC4 / 255.0, green: 0x40 / 255.0, blue: 0x20 / 255.0)       // RUN      #c44020
-    static let otherColor = Color(red: 0x77 / 255.0, green: 0x77 / 255.0, blue: 0x77 / 255.0)     // OTHERS   #777
+    static let weightsColor = WarmInstrument.Sport.weightTraining
+    static let badmintonColor = WarmInstrument.Sport.badminton
+    static let rideColor = WarmInstrument.Sport.cycling
+    static let runColor = WarmInstrument.Sport.run
+    static let otherColor = WarmInstrument.Sport.other
 
-    // MARK: - Workout type colors (Warm Instrument timer palette — mirrors WORKOUT_TYPE_ACCENT on web)
+    // MARK: - Workout type colors (authored here; held in tokens.json `workouts`)
 
     static let foundationColor        = Color(red: 0x4F / 255.0, green: 0x58 / 255.0, blue: 0x7A / 255.0)
     static let calisthenicsTimerColor = Color(red: 0x7F / 255.0, green: 0x37 / 255.0, blue: 0x28 / 255.0)
     static let recoveryColor          = Color(red: 0x31 / 255.0, green: 0x5A / 255.0, blue: 0x4A / 255.0)
     static let realignColor           = Color(red: 0xA8 / 255.0, green: 0x70 / 255.0, blue: 0x2C / 255.0)
-    // Matches web's dedicated `strength: "#3b4a6b"` in WORKOUT_TYPE_ACCENT.
     static let strengthColor          = Color(red: 0x3B / 255.0, green: 0x4A / 255.0, blue: 0x6B / 255.0)
 
     static func workoutColor(for type: WorkoutType?) -> Color {
@@ -128,19 +126,20 @@ enum Theme {
         }
     }
 
-    /// Maps a HealthKit/Strava sport type string to its website badge label + color.
+    /// Maps a HealthKit/Strava sport type string to its badge label + color.
+    /// Colors come from `WarmInstrument.Sport` (shared file: tokens.json).
     static func sportBadge(for sportType: String) -> (label: String, color: Color) {
         switch sportType {
         case "Badminton":
-            return ("BADMINTON", badmintonColor)
+            return ("BADMINTON", WarmInstrument.sportColor(.badminton))
         case "WeightTraining", "Foundation", "TraditionalStrengthTraining", "FunctionalStrengthTraining":
-            return ("WEIGHTS", weightsColor)
+            return ("WEIGHTS", WarmInstrument.sportColor(.weightTraining))
         case "Ride", "EBikeRide", "Cycling":
-            return ("RIDE", rideColor)
+            return ("RIDE", WarmInstrument.sportColor(.cycling))
         case "Run", "Running":
-            return ("RUN", runColor)
+            return ("RUN", WarmInstrument.sportColor(.run))
         default:
-            return ("OTHER", otherColor)
+            return ("OTHER", WarmInstrument.sportColor(.other))
         }
     }
 

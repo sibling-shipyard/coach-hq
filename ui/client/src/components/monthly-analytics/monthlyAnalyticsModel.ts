@@ -2,6 +2,7 @@ import type { Activity, TrainingCategory } from "@/lib/activities";
 import { getTrainingCategory, parseLocal, totalCalories } from "@/lib/activities";
 import { getActivityZoneLoad } from "@/components/home-warm/warmHomeModel";
 import type { WarmSportId } from "@/components/home-warm/WarmInstrumentWidgets";
+import { sportHex } from "@/lib/wiTokens";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -14,86 +15,86 @@ const SPORT_ROWS: Array<{
   {
     id: "badminton",
     label: "BADMINTON",
-    color: "var(--wi-badminton)",
+    color: sportHex("badminton"),
     match: (category) => category.startsWith("badminton"),
   },
   {
     id: "foundation",
     label: "FOUNDATION",
-    color: "var(--wi-foundation)",
+    color: sportHex("foundation"),
     match: (category) =>
       category === "foundation" || category === "recovery" || category === "realign",
   },
   {
     id: "cycling",
     label: "RIDE",
-    color: "var(--wi-cycling)",
+    color: sportHex("cycling"),
     match: (category) => category === "ride",
   },
   {
     id: "calisthenics",
     label: "CALISTHENICS",
-    color: "var(--wi-calisthenics)",
+    color: sportHex("calisthenics"),
     match: (category) => category === "calisthenics",
   },
   {
     id: "run",
     label: "RUN",
-    color: "#c44020",
+    color: sportHex("run"),
     match: (category) => category === "run",
   },
   {
     id: "strength",
     label: "STRENGTH",
-    color: "#111111",
+    color: sportHex("strength"),
     match: (category) => category === "strength",
   },
   {
     id: "weight_training",
     label: "WEIGHTS",
-    color: "#3b4a6b",
+    color: sportHex("weight_training"),
     match: (category) => category === "weight_training",
   },
   {
     id: "hike",
     label: "HIKE",
-    color: "#8b6f47",
+    color: sportHex("hike"),
     match: (category) => category === "hike",
   },
   {
     id: "walk",
     label: "WALK",
-    color: "#a8a29e",
+    color: sportHex("walk"),
     match: (category) => category === "walk",
   },
   {
     id: "cricket",
     label: "CRICKET",
-    color: "#2dd4bf",
+    color: sportHex("cricket"),
     match: (category) => category === "cricket",
   },
   {
     id: "football",
     label: "FOOTBALL",
-    color: "#e11d48",
+    color: sportHex("football"),
     match: (category) => category === "football",
   },
   {
     id: "workout",
     label: "WORKOUT",
-    color: "#6b7280",
+    color: sportHex("workout"),
     match: (category) => category === "workout",
   },
   {
     id: "swim",
     label: "SWIM",
-    color: "#0ea5e9",
+    color: sportHex("swim"),
     match: (category) => category === "swim",
   },
   {
     id: "other",
     label: "OTHER",
-    color: "#9a9b90",
+    color: sportHex("other"),
     match: (category) => category === "other",
   },
 ];

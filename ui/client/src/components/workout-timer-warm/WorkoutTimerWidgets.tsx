@@ -1,19 +1,18 @@
 import { CSSProperties, ReactNode } from "react";
 import { Link } from "wouter";
 import { Exercise, Phase, Workout, WorkoutType, formatTimer } from "@/lib/workouts";
+import { workoutHex } from "@/lib/wiTokens";
 import "@/components/home-warm/warm-instrument.css";
 import "./workout-timer-warm.css";
 
 // ─── Shared tokens ───────────────────────────────────────────────────────
 
 export const WORKOUT_TYPE_ACCENT: Record<WorkoutType, string> = {
-  foundation: "#4f587a",
-  calisthenics: "#7f3728",
-  recovery: "#315a4a",
-  realign: "#a8702c",
-  // Target-only workout type (see lib/workouts.ts) - not part of source's Warm Instrument
-  // palette, picked to sit near foundation's blue-slate family without colliding.
-  strength: "#3b4a6b",
+  foundation: workoutHex("foundation"),
+  calisthenics: workoutHex("calisthenics"),
+  recovery: workoutHex("recovery"),
+  realign: workoutHex("realign"),
+  strength: workoutHex("strength"),
 };
 
 const AMBER = "#a8702c";
