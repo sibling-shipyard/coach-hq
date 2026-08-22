@@ -7,6 +7,7 @@ import {
   applyWeekPlan,
   applySessionReconcile,
   applyPlanEdit,
+  assertCurrentWeekCommitReady,
   CURRENT_WEEK_PATH,
   type WeekPlan,
   type SessionReconcileEvent,
@@ -36,7 +37,9 @@ export function buildCurrentWeekWrite(
     }
     return {
       path: CURRENT_WEEK_PATH,
-      content: applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date()),
+      content: assertCurrentWeekCommitReady(
+        applyWeekPlan(weekPlan!, validTemplateIds, timezone, traceId, new Date()),
+      ),
     };
   }
 
@@ -58,7 +61,7 @@ export function buildCurrentWeekWrite(
       if (planEditEvents.length > 0) {
         working = applyPlanEdit(working, planEditEvents, validTemplateIds, traceId, new Date());
       }
-      return working as string;
+      return assertCurrentWeekCommitReady(working as string);
     },
   };
 }
