@@ -88,6 +88,19 @@ would produce reading a fresh carve's split files. No `challenge_v2_v4` tag, no 
 `challenge_v2: null` with no real ledger. That's a data-shape fix only, not a UI change — the
 dashboard still reads it through the compat shim below until this plan rewires the pages.
 
+## Note — generate_quest_history.py doesn't read the split ledger yet
+
+Found during the athlete-repo migration cleanup (coach-akash's own review, `core/fix-stale-engine-refs`
+PR): `engine/scripts/generate_quest_history.py` only reads `challenge_v2.json` (current +
+archived seasons) to build `quest_history.json`, which `MonthlyAnalytics.tsx` consumes. For a
+migrated repo `challenge_v2.json` doesn't exist, so `regenerate_derived.py` doesn't crash (the
+script has a `FileNotFoundError` guard) but silently produces `quest_history.json` missing the
+current season's daily-streak data entirely — Monthly Analytics quietly goes stale for any
+migrated athlete going forward. Needs the same treatment as `splitLedgerAsChallenge()`: read
+`quests.json`/`progress.json` directly instead of (or as a fallback alongside) the legacy file.
+Not fixed as part of the engine-refs cleanup — this is a real rewrite, in this plan's scope, not
+a stale-reference fix.
+
 ## Out of scope
 
 - iOS's equivalent bug (`GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`) — iOS Builder's
