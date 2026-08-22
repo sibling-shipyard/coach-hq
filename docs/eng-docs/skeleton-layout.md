@@ -94,7 +94,10 @@ coach-skeleton/  (= coach-user after fork)
     │   ├── chat_history.json
     │   └── reference/
     └── ledger/
-        ├── challenge_v2.json        # legacy ledger (deleted by the Part-2 split migration)
+        ├── seasons.json             # split ledger — challenge_v2.json is not carved (#430)
+        ├── quests.json
+        ├── progress.json
+        ├── progressions.json
         ├── plugins.json             # optional sport plugins gate
         └── current_week.json
 ```
