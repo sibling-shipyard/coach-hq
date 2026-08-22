@@ -209,8 +209,7 @@ class HealthKitSyncManager: ObservableObject {
                 since = Calendar.current.date(byAdding: .day, value: -365, to: Date())!
             }
 
-            let lookbackDays = max(1, Calendar.current.dateComponents([.day], from: since, to: Date()).day ?? 7)
-            let isFirstSync = importing == nil && lookbackDays > 30
+            let isFirstSync = importing == nil && syncState.hkLastSynced == nil
             syncProgressText = isFirstSync
                 ? "Scanning a year of HealthKit data…"
                 : "Checking for new workouts…"
@@ -225,8 +224,8 @@ class HealthKitSyncManager: ObservableObject {
                     // No new workouts but extra files need committing (e.g. profile on first sync).
                     syncProgressText = "Saving profile…"
                     try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
-                    syncProgressText = ""
                 }
+                syncProgressText = ""
                 syncProgress = 0
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
@@ -348,8 +347,9 @@ class HealthKitSyncManager: ObservableObject {
                     // All workouts were deduped but extra files still need committing.
                     syncProgressText = "Saving profile…"
                     try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
-                    syncProgressText = ""
                 }
+                syncProgressText = ""
+                syncProgress = 0
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
@@ -361,7 +361,9 @@ class HealthKitSyncManager: ObservableObject {
             let flattened = ActivityNamer.flattenCounters(counters)
             syncState.counters = flattened.flat
             syncState.counterYear = flattened.latestYear
-            syncState.hkLastSynced = ISO8601DateFormatter().string(from: Date())
+            if importing == nil {
+                syncState.hkLastSynced = ISO8601DateFormatter().string(from: Date())
+            }
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
             filesToCommit.append(contentsOf: extraFiles)
 
@@ -394,15 +396,20 @@ class HealthKitSyncManager: ObservableObject {
             let ws = widgetStore
             Task { await ws?.refreshAfterSync(since: commitFinishedAt) }
         } catch is CancellationError {
-            // Task was cancelled (e.g. view torn down mid-sync) — not a real
-            // failure; stay quiet instead of showing a scary "cancelled" error.
+            // Task was cancelled (e.g. view torn down mid-sync) — not a real failure.
+            syncProgressText = ""
+            lastSyncResult = nil
         } catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
-            // Same: URLSession-level cancellation, not a sync failure.
+            // URLSession-level cancellation, same treatment.
+            syncProgressText = ""
+            lastSyncResult = nil
         } catch let apiError as GitHubAPIError where {
             if case .sessionNotReady = apiError { return true }
             return false
         }() {
             // Session not ready yet — silently ignore, same as WidgetSnapshotStore.
+            syncProgressText = ""
+            lastSyncResult = nil
         } catch {
             let friendly = UserFacingError.friendlyMessage(for: error)
             syncError = friendly
@@ -524,11 +531,15 @@ class HealthKitSyncManager: ObservableObject {
     func loadHealthImportRows(daysBack: Int = 90) async -> [HealthImportRow]? {
         guard let apiClient = apiClient else { return nil }
         let since = Calendar.current.date(byAdding: .day, value: -daysBack, to: Date()) ?? Date()
-        guard let rawWorkouts = try? await fetchWorkouts(since: since) else { return nil }
+        async let workoutsFetch = fetchWorkouts(since: since)
+        async let filesFetch = apiClient.listFiles(path: "user_data/activities/hist")
+
+        let rawWorkouts: [HKWorkout]
+        do { rawWorkouts = try await workoutsFetch } catch { return nil }
 
         let existingFiles: [GitHubFileEntry]
         do {
-            existingFiles = try await apiClient.listFiles(path: "user_data/activities/hist")
+            existingFiles = try await filesFetch
         } catch let e as GitHubAPIError {
             // hist/ not existing yet is a real, empty answer — anything else is a failed read.
             guard case .notFound = e else { return nil }

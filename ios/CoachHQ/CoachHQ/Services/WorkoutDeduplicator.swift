@@ -70,17 +70,15 @@ enum WorkoutDeduplicator {
             return lhs.offset < rhs.offset
         }
 
-        var winners: [DedupCandidate] = []
-        var others: [[DedupCandidate]] = []
+        var clusters: [(winner: DedupCandidate, others: [DedupCandidate])] = []
         for (_, candidate) in ordered {
-            if let index = winners.firstIndex(where: { areDuplicates(candidate, $0) }) {
-                others[index].append(candidate)
+            if let index = clusters.firstIndex(where: { areDuplicates(candidate, $0.winner) }) {
+                clusters[index].others.append(candidate)
             } else {
-                winners.append(candidate)
-                others.append([])
+                clusters.append((winner: candidate, others: []))
             }
         }
-        return zip(winners, others).map { Cluster(winner: $0.0, others: $0.1) }
+        return clusters.map { Cluster(winner: $0.winner, others: $0.others) }
     }
 
     /// Returns the uuids to keep, one per duplicate cluster. See `cluster(_:)` for the rules.

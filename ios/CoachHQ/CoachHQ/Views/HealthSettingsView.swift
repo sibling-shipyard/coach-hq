@@ -161,8 +161,10 @@ struct HealthSettingsView: View {
 
     @ViewBuilder
     private func footnote(_ rows: [Row]) -> some View {
-        let multiSource = rows.filter { $0.sources.count > 1 }.count
-        let unknowns = rows.filter { $0.state == .unknown }.count
+        let (multiSource, unknowns) = rows.reduce(into: (0, 0)) { counts, row in
+            if row.sources.count > 1 { counts.0 += 1 }
+            if row.state == .unknown { counts.1 += 1 }
+        }
 
         VStack(alignment: .leading, spacing: 6) {
             Text("One row per session. Sync picks these up automatically — Import is for anything that reached the phone too late for it.")
