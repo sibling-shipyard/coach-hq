@@ -15,7 +15,6 @@ struct SetupView: View {
     @State private var installStepComplete = false
     @State private var isChecking = true
     @State private var isInstalling = false
-    @State private var isAutoAdvancing = false
     @State private var errorMessage: String?
 
     private var generateURL: URL? {
@@ -112,8 +111,7 @@ struct SetupView: View {
                 .onboardingReveal(index: 0)
                 .padding(.bottom, 28)
 
-            if isChecking || isAutoAdvancing {
-                // Checking installation or auto-advancing — show spinner instead of instructions
+            if isChecking {
                 ProgressView()
                     .scaleEffect(0.65)
                     .tint(WarmInstrument.inkMuted)
@@ -175,41 +173,39 @@ struct SetupView: View {
                     .padding(.horizontal, 4)
             }
 
-            // Primary button — hidden while auto-advancing (sign-in runs automatically)
-            if !isAutoAdvancing {
-                Button {
-                    Haptics.tap()
-                    if repoStepComplete {
-                        continueToInstall()
-                    } else {
-                        openCreateRepo()
-                    }
-                } label: {
-                    HStack(spacing: 10) {
-                        if isInstalling {
-                            ProgressView()
-                                .tint(WarmInstrument.paper)
-                                .scaleEffect(0.85)
-                                .transition(.scale.combined(with: .opacity))
-                        }
-                        Text(primaryButtonLabel)
-                            .contentTransition(.opacity)
-                    }
-                    .animation(PremiumMotion.press, value: isInstalling)
+            Button {
+                Haptics.tap()
+                if repoStepComplete {
+                    continueToInstall()
+                } else {
+                    openCreateRepo()
                 }
-                .buttonStyle(WarmSetupButtonStyle(primary: true))
-                .disabled(primaryButtonDisabled)
-                .onboardingReveal(index: 5)
+            } label: {
+                HStack(spacing: 10) {
+                    if isInstalling {
+                        ProgressView()
+                            .tint(WarmInstrument.paper)
+                            .scaleEffect(0.85)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                    Text(primaryButtonLabel)
+                        .contentTransition(.opacity)
+                }
+                .animation(PremiumMotion.press, value: isInstalling)
             }
+            .buttonStyle(WarmSetupButtonStyle(primary: true))
+            .disabled(primaryButtonDisabled)
+            .onboardingReveal(index: 5)
 
-            // Secondary: re-run full sign-in for users whose server session expired.
-            // Only shown on step 2 when not currently in-progress.
-            if repoStepComplete && !isChecking && !isAutoAdvancing && !isInstalling {
+            // Escape hatch — re-checks GitHub API immediately without opening a browser.
+            // Useful when the auto-check on load failed transiently and the conditions are
+            // now met (e.g. user installed the App on a different device, or API was slow).
+            if repoStepComplete && !isChecking && !isInstalling {
                 Button {
                     Haptics.tap()
-                    signInAgain()
+                    Task { await refreshSetupStatus() }
                 } label: {
-                    Text("Already linked? Sign in again")
+                    Text("Already linked? Check again")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(WarmInstrument.inkMuted)
                 }
@@ -217,7 +213,6 @@ struct SetupView: View {
             }
         }
         .animation(PremiumMotion.onboardingReveal, value: repoStepComplete)
-        .animation(PremiumMotion.state, value: isAutoAdvancing)
     }
 
     private var primaryButtonLabel: String {
@@ -236,17 +231,16 @@ struct SetupView: View {
 
     // MARK: - Status checks
 
-    /// Checks both prerequisites directly against GitHub's API.
-    /// Step 1: does the coach-<login> repo exist?
-    /// Step 2: does the coach-phelps App have access to it?
-    /// When both pass, re-runs sign-in automatically to establish a server session.
+    /// Checks both prerequisites directly against GitHub's API. If both pass, activates
+    /// the session directly — no OAuth round-trip needed, the token is already proven valid
+    /// by the API calls themselves.
     private func refreshSetupStatus() async {
         isChecking = true
         defer { isChecking = false }
 
-        // Step 1 — repo
-        let repoExists = await authManager.coachRepoExists(for: login)
+        // Step 1 — repo (skip the network call if already confirmed this session)
         if !repoStepComplete {
+            let repoExists = await authManager.coachRepoExists(for: login)
             if !repoExists {
                 // One retry — GitHub can lag a second after repo create.
                 try? await Task.sleep(for: .seconds(1))
@@ -254,37 +248,16 @@ struct SetupView: View {
             } else {
                 repoStepComplete = true
             }
+            guard repoStepComplete else { return }
         }
-
-        guard repoStepComplete else { return }
 
         // Step 2 — GitHub App installation (direct API, no server session dependency)
         let appInstalled = await authManager.coachAppInstalled(for: login)
         guard appInstalled else { return }
         installStepComplete = true
 
-        // Both conditions met — re-run sign-in so the server can re-discover the
-        // installation and issue a fresh session token.
-        await autoAdvance()
-    }
-
-    /// Re-runs the full OAuth sign-in. GitHub cookies from the preceding sign-in make this
-    /// silent for the user (WKWebView opens and closes without interaction). The server
-    /// re-discovers the existing installation and issues a proper session token.
-    private func autoAdvance() async {
-        isAutoAdvancing = true
-        defer { isAutoAdvancing = false }
-        do {
-            try await authManager.signIn()
-            // Success: state transitions to .active and SetupView disappears.
-            // If needs_setup=1 came back again, pendingSetupLogin stays set and this view
-            // remains — fall through to show "Link Your Log" as a manual fallback.
-        } catch {
-            // Cancelled or network error — surface through errorMessage only if non-trivial.
-            if !(error is WebAuthError) {
-                errorMessage = UserFacingError.message(for: error, devMode: devModeEnabled)
-            }
-        }
+        // Both conditions confirmed via GitHub API. Activate directly — no browser, no loop.
+        await authManager.activateDirectly(for: login)
     }
 
     // MARK: - Actions
@@ -324,29 +297,16 @@ struct SetupView: View {
         Task {
             do {
                 try await authManager.continueToInstall()
-                Haptics.success()
+                // If handleCallback() routed to .active, SetupView is already gone.
+                // If needs_setup=1 or cancel, we fall through and re-check below.
             } catch {
                 errorMessage = UserFacingError.message(for: error, devMode: devModeEnabled)
                 Haptics.error()
             }
             isInstalling = false
-            // Intentionally no refreshSetupStatus() here — calling it re-arms autoAdvance()
-            // because installStepComplete is already true, causing a browser open/close loop.
-            // Use "Already linked? Sign in again" for manual recovery if the install succeeded
-            // but the server callback didn't arrive.
-        }
-    }
-
-    private func signInAgain() {
-        errorMessage = nil
-        Task {
-            do {
-                try await authManager.signIn()
-                Haptics.success()
-            } catch {
-                errorMessage = UserFacingError.message(for: error, devMode: devModeEnabled)
-                Haptics.error()
-            }
+            // Re-check GitHub API directly. activateDirectly() routes to .active without
+            // opening any browser, so there is no loop risk here.
+            await refreshSetupStatus()
         }
     }
 }
