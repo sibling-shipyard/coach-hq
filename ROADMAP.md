@@ -100,7 +100,7 @@ _Supporting:_ #292 now in M3
 - [ ] #334 Codebase refactor: remove dead code (#288 #223 #224)
 - [ ] #348 ui: drop explicit opponent name mapping (nameAliases.ts)
 
-### Epic: Coach data redesign — group files by how often they change (#378) — OPEN
+### ✅ Epic: Coach data redesign — group files by how often they change (#378) — CLOSED Aug 22
 
 Schema migration done (Part 1 #406, Part 2 #409/#412, #408, #410). Epic tracks final verification + closing.
 - [x] #406 Part 1 — profile/memory/injuries/sessions
