@@ -30,7 +30,7 @@ import {
   resolveInstallationId,
   resolveOwnedRepos,
   isOwnedBy,
-  hasMarkerFile,
+  checkMarkerFile,
   InstallationLookupFailedError,
   MarkerLookupFailedError,
 } from "./_lib/repo-resolution.js";
@@ -539,13 +539,21 @@ export async function handleListMyRepos(req: Request): Promise<Response> {
 async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promise<Response> {
   // Re-confirm an already-resolved repo still exists and is owned by this account before
   // trusting it. Bearer auth never has a cached repo_full_name.
-  if (ctx.repo_full_name) {
-    const stillOwned = isOwnedBy(ctx.repo_full_name, ctx.login);
-    const stillOk = stillOwned && (await hasMarkerFile(ctx.repo_full_name, ctx.gh_token));
-    if (stillOk) {
+  if (ctx.repo_full_name && isOwnedBy(ctx.repo_full_name, ctx.login)) {
+    const marker = await checkMarkerFile(ctx.repo_full_name, ctx.gh_token);
+    if (marker === "found") {
       return withSessionCookie(Response.json({ repo_full_name: ctx.repo_full_name }), ctx.rotatedCookie);
     }
-    // Falls through to re-resolve if not owned or it 404s (deleted/renamed/access lost).
+    // A transient GitHub failure is not evidence this repo went bad. Re-resolving here would
+    // fan out into a repo list plus a marker check per owned repo - the most expensive path in
+    // this file - while GitHub is already refusing us, and it ends in the same 502 anyway.
+    if (marker === "lookup_failed") {
+      return withSessionCookie(
+        Response.json({ error: "Failed to check your repos - try again" }, { status: 502 }),
+        ctx.rotatedCookie,
+      );
+    }
+    // Genuine not_found falls through to re-resolve (deleted/renamed/access lost).
   }
 
   let confirmed: string[];

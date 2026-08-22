@@ -184,7 +184,7 @@ describe("callback.ts iOS success/setup branches", () => {
           repositories: [{ full_name: "ios-user/coach-ios-user", name: "coach-ios-user", owner: { login: "ios-user" } }],
         });
       }
-      if (url === ghUrl("/repos/ios-user/coach-ios-user/contents/user_data/ledger/challenge_v2.json")) {
+      if (url === ghUrl("/repos/ios-user/coach-ios-user/contents/.coach-engine-version")) {
         return new Response(null, { status: 200 });
       }
       throw new Error(`unexpected fetch: ${url}`);
@@ -200,6 +200,78 @@ describe("callback.ts iOS success/setup branches", () => {
     expect(location).toMatch(/^coachhq:\/\/callback\?token=gh-token/);
     expect(location).toContain("login=ios-user");
     expect(location).toContain(`repo=${encodeURIComponent("ios-user/coach-ios-user")}`);
+  });
+
+  it("resolves a pre-pin repo via the legacy ledger marker when .coach-engine-version 404s", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+      }
+      if (url === ghUrl("/user")) {
+        return Response.json({ id: 3, login: "ios-user" });
+      }
+      if (url === ghUrl("/user/installations")) {
+        return Response.json({
+          installations: [{ id: 99, app_slug: "coach-phelps", account: { login: "ios-user" } }],
+        });
+      }
+      if (url === ghUrl("/user/installations/99/repositories?per_page=100")) {
+        return Response.json({
+          repositories: [{ full_name: "ios-user/coach-ios-user", name: "coach-ios-user", owner: { login: "ios-user" } }],
+        });
+      }
+      if (url === ghUrl("/repos/ios-user/coach-ios-user/contents/.coach-engine-version")) {
+        return new Response(null, { status: 404 });
+      }
+      if (url === ghUrl("/repos/ios-user/coach-ios-user/contents/user_data/ledger/challenge_v2.json")) {
+        return new Response(null, { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const req = new Request(
+      await makeCallbackUrl("abc", { codeVerifier: "verifier", platform: "ios", popup: false }),
+    );
+
+    const res = await handler.fetch(req);
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    expect(location).toContain(`repo=${encodeURIComponent("ios-user/coach-ios-user")}`);
+  });
+
+  it("does not hand iOS a repo when neither marker is present", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+      }
+      if (url === ghUrl("/user")) {
+        return Response.json({ id: 3, login: "ios-user" });
+      }
+      if (url === ghUrl("/user/installations")) {
+        return Response.json({
+          installations: [{ id: 99, app_slug: "coach-phelps", account: { login: "ios-user" } }],
+        });
+      }
+      if (url === ghUrl("/user/installations/99/repositories?per_page=100")) {
+        return Response.json({
+          repositories: [{ full_name: "ios-user/some-other-repo", name: "some-other-repo", owner: { login: "ios-user" } }],
+        });
+      }
+      if (url.includes("/contents/")) {
+        return new Response(null, { status: 404 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const req = new Request(
+      await makeCallbackUrl("abc", { codeVerifier: "verifier", platform: "ios", popup: false }),
+    );
+
+    const res = await handler.fetch(req);
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location") ?? "";
+    expect(location).toMatch(/^coachhq:\/\/callback\?token=gh-token/);
+    expect(location).not.toContain("repo=");
   });
 
   it("redirects to coachhq://callback?needs_setup=1 with a token when there's no installation yet", async () => {

@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Locked: 2026-07-26 · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-22 · Locked: 2026-07-26 · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
@@ -58,7 +58,7 @@ coach-skeleton/  (= coach-user after fork)
 ├── CLAUDE.md
 ├── README.md
 ├── SETUP.md
-├── .coach-engine-version
+├── .coach-engine-version         # repo marker for GitHub App auth
 ├── .gitignore
 │
 ├── .github/workflows/
@@ -94,7 +94,10 @@ coach-skeleton/  (= coach-user after fork)
     │   ├── chat_history.json
     │   └── reference/
     └── ledger/
-        ├── challenge_v2.json        # repo marker for GitHub App
+        ├── seasons.json             # split ledger — challenge_v2.json is not carved (#430)
+        ├── quests.json
+        ├── progress.json
+        ├── progressions.json
         ├── plugins.json             # optional sport plugins gate
         └── current_week.json
 ```

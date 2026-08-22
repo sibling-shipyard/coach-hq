@@ -1,6 +1,6 @@
 # Provision Runbook — M1b Operator Checklist
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Authority: [`m1-plan.md`](m1-plan.md) M1b
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-22 · Authority: [`m1-plan.md`](m1-plan.md) M1b
 
 ## Context
 
@@ -133,4 +133,4 @@ Re-run `regenerate_gen()` only if HQ changed quest/aggregate scripts — not nee
 | Template create fails | Script falls back to clone skeleton + push; or mark `coach-skeleton` as org template |
 | No access to athlete legacy repo | Athlete adds operator as collaborator read-only, or runs script on their machine |
 | `validate-data.yml` fails | Check migrated JSON paths; run pipeline locally in cloned repo |
-| Dashboard can't find repo | App not installed on new repo, or missing `user_data/ledger/challenge_v2.json` |
+| Dashboard can't find repo | App not installed on new repo, or missing the `.coach-engine-version` marker at the repo root |

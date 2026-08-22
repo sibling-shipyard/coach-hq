@@ -1,9 +1,11 @@
 /**
  * repo-resolution.ts — shared installation/repo lookup logic.
  *
- * Used by callback.ts (resolving installation_id right after OAuth exchange, and giving iOS
- * a repo in its coachhq:// redirect when there's exactly one candidate) and list-my-repos.ts
- * (the web onboarding screen's picker, plus iOS's fallback for the 0-or-2+ candidate case).
+ * Both callers live in [...action].ts (ADR 0017 folded every auth endpoint into that one
+ * catch-all route): handleCallback resolves installation_id right after the OAuth exchange and
+ * gives iOS a repo in its coachhq:// redirect when there's exactly one candidate;
+ * listMyReposImpl re-confirms an already-resolved repo and is iOS's fallback for the 0-or-2+
+ * case. There is no repo picker - 2+ candidates is a hard block, not a choice (ADR 0019).
  * Kept in one place so the ownership + marker-file rules can't drift between the two callers.
  */
 
@@ -46,13 +48,19 @@ export async function resolveInstallationId(
   return match?.id ?? null;
 }
 
-type MarkerCheck = "found" | "not_found" | "lookup_failed";
+export type MarkerCheck = "found" | "not_found" | "lookup_failed";
 
-async function checkMarkerFile(repoFullName: string, token: string): Promise<MarkerCheck> {
-  const res = await fetch(
-    `https://api.github.com/repos/${repoFullName}/contents/user_data/ledger/challenge_v2.json`,
-    { headers: GH_HEADERS(token) },
-  );
+/** Stamped into every carved repo by platform/scripts/carve-skeleton.mjs - a real "this is a
+ * coach repo" pin, untouched by any data migration. */
+const MARKER_PATH = ".coach-engine-version";
+/** Pre-pin repos only: the old marker was a ledger data file, which the Part-2 ledger migration
+ * deletes (#471). Removable once every live repo is confirmed to carry .coach-engine-version. */
+const LEGACY_MARKER_PATH = "user_data/ledger/challenge_v2.json";
+
+async function checkPath(repoFullName: string, path: string, token: string): Promise<MarkerCheck> {
+  const res = await fetch(`https://api.github.com/repos/${repoFullName}/contents/${path}`, {
+    headers: GH_HEADERS(token),
+  });
   if (res.status === 200) return "found";
   if (res.status === 404) return "not_found";
   // 403 rate-limited / 5xx - don't conflate with a genuine "not found", or a transient API
@@ -60,10 +68,17 @@ async function checkMarkerFile(repoFullName: string, token: string): Promise<Mar
   return "lookup_failed";
 }
 
-/** Single-repo check for list-my-repos.ts's `?select=`/already-resolved call sites - those
- * already fall through to a sensible outcome on failure, so no 3-state distinction needed. */
-export async function hasMarkerFile(repoFullName: string, token: string): Promise<boolean> {
-  return (await checkMarkerFile(repoFullName, token)) === "found";
+/**
+ * 3-state on purpose. Callers must not collapse this to a boolean: "the marker isn't there" and
+ * "GitHub wouldn't tell me right now" need different handling, and treating the second as the
+ * first is how a rate-limit turns into "your repo isn't set up".
+ */
+export async function checkMarkerFile(repoFullName: string, token: string): Promise<MarkerCheck> {
+  const primary = await checkPath(repoFullName, MARKER_PATH, token);
+  // Only a genuine 404 falls back - a transient failure must stay lookup_failed, never get
+  // rescued into a miss (or worse, into a "found") by the second check.
+  if (primary !== "not_found") return primary;
+  return checkPath(repoFullName, LEGACY_MARKER_PATH, token);
 }
 
 /** True only if the logged-in user actually owns this repo - not just has access to it. */

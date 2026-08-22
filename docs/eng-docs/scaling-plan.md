@@ -1,6 +1,6 @@
 # Scaling Plan — Coach Phelps → Multi-Tenant
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-20
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-22
 
 Moving Coach Phelps from single-tenant (one hand-built repo per person) to ~10 users on a shared hosted
 UI. Supersedes the old root scaling plan for architecture (deleted — see git history; its Friend-#3
@@ -69,7 +69,8 @@ flowchart LR
 
 ### 2.2 Gaps
 
-- **No skeleton onboarding.** Login assumes the user already owns a repo with the marker file (#32).
+- **No skeleton onboarding.** Login assumes the user already owns a repo carrying the marker file
+  `.coach-engine-version` (#32).
 - **Per-user forks may still carry a monolithic `SOUL.md` copy** — HQ has split `soul/` layers with composed `SOUL.md`; propagation to forks is not yet automated.
 - **The server coach is a *second* engine.** `coach-chat.ts` re-encodes Layer B in TS + a prompt that
   dumps `SOUL.md` at Gemini. BYO-Claude and Gemini now run *different copies* of the rules — the central
