@@ -9,7 +9,7 @@ there. This doc adds Tech Lead specifics only.
 - Conversational questions (scope, pushback) → answer directly, no plan loop.
 - Don't post GitHub reviews unless asked.
 - Data contract: `user_data/ledger/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync.
-- Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) → add a `SOUL_HISTORY.md` entry that matches that file's contract (≤5 lines) — never hand-edit a composed SOUL.
+- Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) → add a `SOUL_HISTORY.md` entry that matches that file's contract (Superpower + 2–3 bullets + Why, ≤8 lines) — never hand-edit a composed SOUL.
 - Widget PRs: check `ui/docs/reference-interactions/Widget Design Philosophy.md` — interaction budget, shared atoms, live data.
 
 ## Delegation — you direct, subagents execute
@@ -51,8 +51,8 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
 	under-reported a branch here before. `gh pr view <n> --json files` locally; web and remote
 	sessions have no `gh`, so there use `mcp__github__pull_request_read` with `method: get_files`
 5. doc upkeep done (`AGENTS.md` § Doc upkeep) — including `SOUL_HISTORY` shape if soul changed
-6. PR body: Summary ≤5 lines plain English; `Refs: #N` mid-stack or `Fixes: #N` on the
-	finishing PR (never neither; never `Fixes` too early)
+6. PR body: human blurb ≤5 lines at top; agent checklist/plan kept below; `Refs: #N` mid-stack
+	or `Fixes: #N` on the finishing PR (never neither; never `Fixes` too early)
 7. if this PR finishes a `docs/plans/` plan, that plan file is deleted in the diff
 
 ### Which subagent, and how many of them

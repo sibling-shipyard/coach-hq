@@ -56,7 +56,8 @@ Examples:
 
 Prefill: `.github/PULL_REQUEST_TEMPLATE.md`. Issues: `.github/agents/issue-template.md`.
 
-1. **Summary** — ≤5 lines plain English. What landed and why a human cares. No paths, no jargon.
+1. **For humans** — ≤5 lines plain English at the top. What landed and why a human cares.
+   Paths, checklists, and agent plans stay *below* the divider — do not replace them with the blurb.
 2. **Issue link — required** (keeps the project board alive):
 	- Mid-stack or partial ship → `Refs: #N` (links; **does not** close the issue)
 	- Last PR that finishes the issue's Done when → `Fixes: #N` (closes on merge)

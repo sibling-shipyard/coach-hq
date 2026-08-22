@@ -115,7 +115,7 @@ Athlete may reference `1a` — match that item exactly.
 
 **Doc upkeep — before opening a PR:**
 1. Update any eng-doc your change invalidates (`grep -rl <changed-path> docs/eng-docs/` finds them) and bump its `Verified:` date.
-2. Changed a soul layer or a composed build? Add a version entry to `docs/eng-docs/SOUL_HISTORY.md` that matches that file's contract (≤5 lines, coach evolution only). Called out on its own because the grep above cannot find it — a SOUL version change need not touch any path.
+2. Changed a soul layer or a composed build? Add a version entry to `docs/eng-docs/SOUL_HISTORY.md` that matches that file's contract (Superpower + 2–3 bullets + Why, ≤8 lines). Called out on its own because the grep above cannot find it — a SOUL version change need not touch any path.
 3. **Plan delete-on-last-PR:** if this PR finishes the plan's work (closes its issues / last stack PR), fold any durable bit into its eng-doc, then **delete** `docs/plans/<file>` in this same PR. Mid-stack PRs leave the plan in place and update progress only. Git history is the archive.
 4. New eng-docs follow the naming + front-matter rules in `docs/eng-docs/README.md`.
 5. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.

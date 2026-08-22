@@ -244,12 +244,13 @@ skip_reason = soul_history_guard()
 if skip_reason:
     warnings.append(skip_reason)
 
-# SOUL_HISTORY entry contract (docs/eng-docs/SOUL_HISTORY.md header). Always lint the file when
-# it exists: ≤5 non-empty lines per version entry; ban paths / § / issue# / scripts / JSON names.
-# When soul layers change, also require the *newest* entry (first ## after the contract) to be
-# present — the guard above already requires the file in the diff.
-ENTRY_MAX_LINES = 5
+# SOUL_HISTORY entry contract: Superpower + ≤3 bullets + Why/What it cost; ≤8 non-empty lines;
+# ban paths / § / issue# / scripts / JSON names in entry bodies.
+ENTRY_MAX_LINES = 8
 ENTRY_HEADER_RE = re.compile(r"^##\s+")
+SUPERPOWER_RE = re.compile(r"^\*\*Superpower gained:\*\*", re.I)
+WHY_RE = re.compile(r"^\*\*(?:Why it mattered|What it cost):\*\*", re.I)
+BULLET_RE = re.compile(r"^- ")
 BAN_RE = re.compile(
     r"(?:"
     r"§|"                          # section refs
@@ -260,13 +261,13 @@ BAN_RE = re.compile(
     r"\b[\w-]+\.(?:py|mjs|ts|tsx|js|sh|json)\b"  # scripts / JSON filenames
     r")"
 )
+
 def lint_soul_history_entries():
     hist = ROOT / SOUL_HISTORY
     if not hist.exists():
         errors.append(f"{SOUL_HISTORY} missing")
         return
     lines = hist.read_text().splitlines()
-    # Split into entries on ## headers; ignore the intro before the first ##
     entries, cur = [], None
     for i, line in enumerate(lines, 1):
         if ENTRY_HEADER_RE.match(line):
@@ -285,12 +286,23 @@ def lint_soul_history_entries():
         return
 
     for ent in entries:
-        # Non-empty lines = header + body lines
         n = 1 + len(ent["body"])
         if n > ENTRY_MAX_LINES:
             errors.append(
                 f"{SOUL_HISTORY}:{ent['start']}: entry has {n} lines (max {ENTRY_MAX_LINES}) — "
                 f"{ent['title'][:60]}")
+        body_texts = [t for _, t in ent["body"]]
+        if not any(SUPERPOWER_RE.match(t) for t in body_texts):
+            errors.append(
+                f"{SOUL_HISTORY}:{ent['start']}: missing **Superpower gained:** — {ent['title'][:60]}")
+        if not any(WHY_RE.match(t) for t in body_texts):
+            errors.append(
+                f"{SOUL_HISTORY}:{ent['start']}: missing **Why it mattered:** / **What it cost:** — "
+                f"{ent['title'][:60]}")
+        bullets = sum(1 for t in body_texts if BULLET_RE.match(t))
+        if bullets > 3:
+            errors.append(
+                f"{SOUL_HISTORY}:{ent['start']}: {bullets} bullets (max 3) — {ent['title'][:60]}")
         for ln, text in ent["body"]:
             if BAN_RE.search(text):
                 errors.append(
