@@ -5,7 +5,7 @@ import SwiftUI
 /// users aren't blocked by an expired server session:
 ///   Step 1 — does `coach-<login>` repo exist?
 ///   Step 2 — does the coach-phelps App have access to it?
-/// When both pass, sign-in is re-run automatically to re-establish the server session.
+/// When both pass, activateDirectly() sets auth state immediately — no OAuth round-trip.
 struct SetupView: View {
     let login: String
     @EnvironmentObject var authManager: GitHubAuthManager
@@ -236,6 +236,7 @@ struct SetupView: View {
     /// by the API calls themselves.
     private func refreshSetupStatus() async {
         isChecking = true
+        errorMessage = nil
         defer { isChecking = false }
 
         // Step 1 — repo (skip the network call if already confirmed this session)
@@ -251,13 +252,23 @@ struct SetupView: View {
             guard repoStepComplete else { return }
         }
 
-        // Step 2 — GitHub App installation (direct API, no server session dependency)
-        let appInstalled = await authManager.coachAppInstalled(for: login)
-        guard appInstalled else { return }
-        installStepComplete = true
-
-        // Both conditions confirmed via GitHub API. Activate directly — no browser, no loop.
-        await authManager.activateDirectly(for: login)
+        // Step 2 — GitHub App installation (direct API, no server session dependency).
+        // nil = check failed (network/token issue), false = confirmed not installed.
+        switch await authManager.coachAppInstalled(for: login) {
+        case true:
+            installStepComplete = true
+            await authManager.activateDirectly(for: login)
+        case false:
+            // App genuinely not installed — show the Link Your Log button, no error.
+            break
+        case nil:
+            // GitHub API unreachable or token rejected. Surface a specific message so the
+            // user doesn't assume they need to redo the install — they may just need to
+            // retry once their connection or token is restored.
+            errorMessage = devModeEnabled
+                ? "GitHub App check failed — token may be expired or network unavailable."
+                : "Couldn't verify your GitHub access. Check your connection and try again."
+        }
     }
 
     // MARK: - Actions
