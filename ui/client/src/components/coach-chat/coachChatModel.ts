@@ -51,12 +51,6 @@ export type ChatThread = {
   messages: ChatMessage[];
 };
 
-export type ChatStarter = {
-  id: string;
-  label: string;
-  icon: "week" | "cold" | "match";
-};
-
 /**
  * Day since coach_since (ADR 0018) - durable, never resets with a new season/challenge. Falls
  * back to season.start_date, then challenge.start_date, for repos not yet stamped (pre-existing
@@ -118,12 +112,6 @@ export function threadAgeDisplay(thread: ChatThread): string {
 export function threadDividerLabel(thread: ChatThread): string {
   return thread.dayOffset === 0 ? "TODAY" : formatThreadDate(thread.createdAt) || "TODAY";
 }
-
-export const CHAT_STARTERS: ChatStarter[] = [
-  { id: "week", label: "Review my week", icon: "week" },
-  { id: "cold", label: "Why was the bar cold?", icon: "cold" },
-  { id: "match", label: "Plan Thursday's match", icon: "match" },
-];
 
 export function threadStatus(thread: ChatThread): ChatThreadStatus {
   return thread.status ?? "active";
