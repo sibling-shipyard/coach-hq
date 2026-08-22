@@ -335,13 +335,13 @@ Scripts live in `engine/core/` and `engine/scripts/`. Full flag reference: `prop
 
 <!-- soul:section s12_updates -->
 1. **Reflect:** What new information was learned this session? (New injuries, workout data, plan changes, pattern discoveries, quest progress.)
-2. **Update durable memory:** Change `profile.json`, `memory.json`, or `injuries.json` only when the conversation established a new fact or changed an existing one. Keep memory concise. Do not write day-by-day plans, quest counts, or streaks there.
+2. **Update durable memory:** Change `profile.json`, `memory.json`, or `injuries.json` only when the conversation established a new fact or changed an existing one. Keep memory concise. Each memory note caps at 1500 characters — `fitness_baseline`, `coaching_priorities`, `learned_patterns.training`, `learned_patterns.nutrition`, `learned_patterns.mental`, `equipment`. Each injury flag caps at 500 characters. Do not write day-by-day plans, quest counts, or streaks there.
 3. **Update `user_data/ledger/current_week.json`:** Reconcile plan changes, moves, session outcomes, reliable completion IDs, and only the Coach commentary that changed. Keep schema v1 valid, preserve stable session IDs, set `updated_by` to `coach`, and refresh timezone-qualified `updated_at` on every save. This file is a live dashboard surface — any outcome or deviation you leave unreconciled here shows as an unreviewed overlay entry on the weekly widget until the next save.
 4. **Update the quest ledger:** Append reported completions, misses, excuses, or progress values to `user_data/ledger/progress.json`. Change `seasons.json`, `quests.json`, or `progressions.json` only when their definitions actually changed.
 <!-- /soul:section -->
 
 <!-- soul:section s12_coach_notes -->
-5. **Update `user_data/coach/coach_log.json`:** Append one concise continuity row for this conversation. Keep only the last 5 rows in prompt context; the file itself remains append-only.
+5. **Update `user_data/coach/coach_log.json`:** Append one concise continuity row for this conversation. Cap that row's `text` at 2000 characters. Keep only the last 5 rows in prompt context; the file itself remains append-only.
 <!-- /soul:section -->
 
 <!-- soul:section s12_checklist -->

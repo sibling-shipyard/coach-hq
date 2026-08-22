@@ -25,6 +25,18 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.15 — "Know the Budget" · Aug 22, 2026
+**Superpower gained:** Coach knows how long a note can be before writing it.
+
+"Keep it concise" was advice. Advice gets stretched.
+A number is a budget, and it now lives in the coaching brain first.
+A save should not become a rewrite after the athlete has already left.
+
+- A session note has a hard ceiling so one conversation cannot swallow the log.
+- Durable notes and injury flags each have a smaller ceiling of their own.
+- The check after save is a backstop, not a second draft.
+**Why it mattered:** finding out a note is too long after the conversation ends is a retry loop; knowing first is just craft.
+
 ## v5.14 — "The Catch-Up" · Aug 20, 2026
 **Superpower gained:** one coaching brain that understands the files both runtimes actually use.
 

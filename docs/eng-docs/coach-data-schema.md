@@ -48,7 +48,7 @@ Sports, coaching style, and Coach's labelled free-text notes. Written by
 `coaching_priorities`, `learned_patterns.training`, `learned_patterns.nutrition`,
 `learned_patterns.mental`, `equipment`.
 
-**`MemoryNote` shape:** `{ text: string; updated_at: string; trace_id: string }`.
+**`MemoryNote` shape:** `{ text: string (max 1500 chars); updated_at: string; trace_id: string }`.
 
 ### `user_data/coach/injuries.json`
 
@@ -58,7 +58,7 @@ Open/resolved injury flags. Written by `turnWrites/injuryWrite.ts` (`buildInjury
 |---|---|---|
 | `flags` | `InjuryFlag[]` | |
 
-**`InjuryFlag` shape:** `{ id, text, status: "active" \| "resolved", opened_at, resolved_at: string \| null }`.
+**`InjuryFlag` shape:** `{ id, text (max 500 chars), status: "active" \| "resolved", opened_at, resolved_at: string \| null }`.
 
 ### `user_data/coach/coach_log.json`
 
@@ -70,7 +70,7 @@ Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`).
 | `version` | `1` | |
 | `rows` | `CoachLogRow[]` | |
 
-**`CoachLogRow` shape:** `{ id, date, ts, type: "chat", text, trace_id }` — `type` is currently
+**`CoachLogRow` shape:** `{ id, date, ts, type: "chat", text (max 2000 chars), trace_id }` — `type` is currently
 always `"chat"`; `"phase_close"`/`"week_close"` row types are a deferred, documented-only item
 (see `docs/plans/coach-chat-open-items.md`).
 

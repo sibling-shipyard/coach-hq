@@ -27,6 +27,7 @@ on:
       - 'user_data/ledger/challenge_v2.json'
       - 'gen/widget_snapshots.json'
       - 'user_data/activities/workout_plans/sessions/*.json'
+      - 'engine/scripts/validate-text-caps.py'
   pull_request:
     paths:
       - 'user_data/coach/profile.json'
@@ -40,6 +41,7 @@ on:
       - 'user_data/ledger/challenge_v2.json'
       - 'gen/widget_snapshots.json'
       - 'user_data/activities/workout_plans/sessions/*.json'
+      - 'engine/scripts/validate-text-caps.py'
 
 jobs:
   validate-json:
@@ -130,6 +132,9 @@ jobs:
               sys.exit(1)
           print(f"Validated {checked} current-schema file(s) — required keys present.")
           PY
+
+      - name: Validate Coach free-text length caps
+        run: python3 engine/scripts/validate-text-caps.py
 
       - name: Validate legacy challenge_v2.json shape
         run: |
