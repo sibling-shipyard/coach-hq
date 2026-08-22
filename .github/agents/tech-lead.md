@@ -9,7 +9,7 @@ there. This doc adds Tech Lead specifics only.
 - Conversational questions (scope, pushback) → answer directly, no plan loop.
 - Don't post GitHub reviews unless asked.
 - Data contract: `user_data/ledger/challenge_v2.json` ↔ `ui/client/src/data/challenge_v2.json` must stay in sync.
-- Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) → add a `SOUL_HISTORY.md` entry that matches that file's contract (Superpower + 2–3 bullets + Why, ≤8 lines) — never hand-edit a composed SOUL.
+- Soul: edit `platform/soul/*.md` layers → `node platform/scripts/compose-soul.mjs` → commit layers + both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`; ADR 0022) → add a post-cutover `SOUL_HISTORY.md` entry (Superpower + short scene + 2–3 bullets + Why, ~12 lines; never homogenize the archive) — never hand-edit a composed SOUL.
 - Widget PRs: check `ui/docs/reference-interactions/Widget Design Philosophy.md` — interaction budget, shared atoms, live data.
 
 ## Delegation — you direct, subagents execute

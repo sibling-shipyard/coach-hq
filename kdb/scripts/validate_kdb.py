@@ -244,10 +244,12 @@ skip_reason = soul_history_guard()
 if skip_reason:
     warnings.append(skip_reason)
 
-# SOUL_HISTORY entry contract: Superpower + ≤3 bullets + Why/What it cost; ≤8 non-empty lines;
-# ban paths / § / issue# / scripts / JSON names in entry bodies.
-ENTRY_MAX_LINES = 8
-ENTRY_HEADER_RE = re.compile(r"^##\s+")
+# SOUL_HISTORY: lint only post-cutover entries (above `<!-- soul-history-cutover`).
+# Soft cap ~12 non-empty lines: Superpower + optional scene + ≤3 bullets + Why/What it cost.
+# Archive below the cutover is grandfathered — do not homogenize.
+ENTRY_MAX_LINES = 12
+CUTOVER_MARK = "<!-- soul-history-cutover"
+ENTRY_HEADER_RE = re.compile(r"^##\s+v\d", re.I)  # version entries only — skip "Archive" etc.
 SUPERPOWER_RE = re.compile(r"^\*\*Superpower gained:\*\*", re.I)
 WHY_RE = re.compile(r"^\*\*(?:Why it mattered|What it cost):\*\*", re.I)
 BULLET_RE = re.compile(r"^- ")
@@ -268,8 +270,14 @@ def lint_soul_history_entries():
         errors.append(f"{SOUL_HISTORY} missing")
         return
     lines = hist.read_text().splitlines()
+    cutover_at = next((i for i, l in enumerate(lines) if CUTOVER_MARK in l), None)
+    if cutover_at is None:
+        errors.append(
+            f"{SOUL_HISTORY}: missing cutover marker `{CUTOVER_MARK}` — refuse to lint the archive")
+        return
+
     entries, cur = [], None
-    for i, line in enumerate(lines, 1):
+    for i, line in enumerate(lines[:cutover_at], 1):
         if ENTRY_HEADER_RE.match(line):
             if cur is not None:
                 entries.append(cur)
@@ -282,7 +290,7 @@ def lint_soul_history_entries():
         entries.append(cur)
 
     if not entries:
-        errors.append(f"{SOUL_HISTORY}: no version entries found")
+        errors.append(f"{SOUL_HISTORY}: no post-cutover version entries found above cutover")
         return
 
     for ent in entries:
