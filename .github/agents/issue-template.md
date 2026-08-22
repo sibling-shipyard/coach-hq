@@ -21,7 +21,7 @@ One sentence — what and why.
 ## P2/P3 (do NOT build)
 - [deferred nice-to-haves, one line each]
 
-Branch: `feat/<N>-<brief>` · PR: `fixes #N`
+Branch: `feat/<N>-<brief>` · mid-stack PR: `Refs: #N` · finishing PR: `Fixes: #N`
 ```
 
 Tech Lead writes issues this way. Workers implement **Done when** only; **P2/P3** goes to backlog, not the PR.

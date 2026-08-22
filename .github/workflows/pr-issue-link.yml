@@ -1,0 +1,18 @@
+name: PR issue link
+
+# Project board stays fresh only when every PR links its issue. Mid-stack uses Refs;
+# finishing PR uses Fixes (CONVENTIONS § PR Body). This check only requires one of them.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+jobs:
+  issue-link:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require Refs or Fixes in PR body
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 kdb/scripts/check_pr_issue_link.py
