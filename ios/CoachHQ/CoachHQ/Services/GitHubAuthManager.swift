@@ -64,6 +64,8 @@ class GitHubAuthManager: ObservableObject {
     }
 
     /// SetupView's step 2 — authorize the GitHub App on the new repo (not a second sign-in).
+    /// After this returns (success or cancel), SetupView calls refreshSetupStatus() which
+    /// calls activateDirectly() if the App installation is now confirmed via GitHub API.
     func continueToInstall() async throws {
         guard var components = URLComponents(string: Secrets.dashboardBaseURL + "/api/auth/install-redirect") else {
             throw AuthError.invalidBaseURL
@@ -83,17 +85,25 @@ class GitHubAuthManager: ObservableObject {
                 callbackScheme: callbackScheme
             )
             try await handleCallback(callbackURL)
+            // handleCallback with token+repo routes directly to .active.
         } catch WebAuthError.cancelled {
-            // Browser dismissed without a coachhq:// callback — fall through.
+            // Browser dismissed — SetupView's refreshSetupStatus will check GitHub directly.
         }
+        // needs_setup=1 callback: handleCallback set pendingSetupLogin and returned normally.
+        // Other errors (serverError, missingCode) propagate to SetupView for display.
+    }
 
-        // If pendingSetupLogin is still set the install didn't produce a usable callback.
-        // Don't call bootstrapSession() here — it resets isSessionReady which unmounts
-        // SetupView and triggers a re-mount loop via .task → refreshSetupStatus → autoAdvance.
-        // SetupView's "Already linked? Sign in again" button is the recovery path.
-        if pendingSetupLogin != nil {
-            throw AuthError.missingCallback
-        }
+    /// Activates the session directly when both the repo and App installation have been
+    /// verified via GitHub's API, without requiring a fresh OAuth round-trip. Used by SetupView
+    /// when returning users are blocked by an expired server session — their token is valid
+    /// (proven by the API checks that just succeeded) so we can set state without re-running OAuth.
+    func activateDirectly(for login: String) async {
+        pendingSetupLogin = nil
+        selectedRepo = "\(login)/coach-\(login)"
+        sessionExpired = false
+        isAuthenticated = true
+        if user == nil { await fetchUser() }
+        isSessionReady = true
     }
 
     /// Whether the coach-phelps GitHub App is installed and has access to `coach-<login>`.
