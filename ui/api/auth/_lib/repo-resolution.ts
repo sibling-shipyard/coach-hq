@@ -48,16 +48,30 @@ export async function resolveInstallationId(
 
 type MarkerCheck = "found" | "not_found" | "lookup_failed";
 
-async function checkMarkerFile(repoFullName: string, token: string): Promise<MarkerCheck> {
-  const res = await fetch(
-    `https://api.github.com/repos/${repoFullName}/contents/user_data/ledger/challenge_v2.json`,
-    { headers: GH_HEADERS(token) },
-  );
+/** Stamped into every carved repo by platform/scripts/carve-skeleton.mjs - a real "this is a
+ * coach repo" pin, untouched by any data migration. */
+const MARKER_PATH = ".coach-engine-version";
+/** Pre-pin repos only: the old marker was a ledger data file, which the Part-2 ledger migration
+ * deletes (#471). Removable once every live repo is confirmed to carry .coach-engine-version. */
+const LEGACY_MARKER_PATH = "user_data/ledger/challenge_v2.json";
+
+async function checkPath(repoFullName: string, path: string, token: string): Promise<MarkerCheck> {
+  const res = await fetch(`https://api.github.com/repos/${repoFullName}/contents/${path}`, {
+    headers: GH_HEADERS(token),
+  });
   if (res.status === 200) return "found";
   if (res.status === 404) return "not_found";
   // 403 rate-limited / 5xx - don't conflate with a genuine "not found", or a transient API
   // hiccup silently reads as the repo being unconfigured.
   return "lookup_failed";
+}
+
+async function checkMarkerFile(repoFullName: string, token: string): Promise<MarkerCheck> {
+  const primary = await checkPath(repoFullName, MARKER_PATH, token);
+  // Only a genuine 404 falls back - a transient failure must stay lookup_failed, never get
+  // rescued into a miss (or worse, into a "found") by the second check.
+  if (primary !== "not_found") return primary;
+  return checkPath(repoFullName, LEGACY_MARKER_PATH, token);
 }
 
 /** Single-repo check for list-my-repos.ts's `?select=`/already-resolved call sites - those

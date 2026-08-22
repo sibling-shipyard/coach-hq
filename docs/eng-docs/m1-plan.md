@@ -1,6 +1,6 @@
 # M1 Plan — Skeleton Carve + Operator Onboarding
 
-> Status: Historical · Owner: Tech Lead · Verified: 2026-08-20 · M1a structure locked · Layout: [`skeleton-layout.md`](skeleton-layout.md) · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-22 · M1a structure locked · Layout: [`skeleton-layout.md`](skeleton-layout.md) · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1
 >
 > **Superseded in part:** Strava ingestion (referenced throughout as "Option A") was removed
 > entirely — see [ADR 0010](../kdb/decisions/0010-remove-strava-relocate-activity-tools.md).
@@ -121,7 +121,7 @@ Two production clones onboarded: **`akash-suresh/coach-akash`** (iOS) and **`ska
 |---|---|---|
 | `user_data/coach/state.md` | Profile, injuries, recent 3 sessions | **Yes** |
 | `user_data/coach/coach_notes.md` | Long-form scratchpad | On-demand |
-| `user_data/ledger/challenge_v2.json` | Quests — **repo marker** | Via quest_log |
+| `user_data/ledger/challenge_v2.json` | Quests (legacy — split by the Part-2 migration) | Via quest_log |
 | `user_data/ledger/current_week.json` | Active week plan | When live |
 
 ### Ingestion
@@ -148,7 +148,7 @@ Source: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-ske
 | Workflows | athlete `.github/workflows/` — `sync.yml`, `validate-data.yml`, `apply-coach-patch.yml` (carved from `engine/.github/workflows/`) |
 | Gen | Placeholders under `gen/` |
 | User data | Seeds under `user_data/` + 2 sample templates |
-| Pin | `.coach-engine-version` |
+| Pin | `.coach-engine-version` — also the GitHub App repo marker (#471) |
 
 **Not carved:** agents, `platform/soul/`, compose script, plugins, UI, iOS.
 
@@ -159,7 +159,7 @@ Refresh: `node platform/scripts/carve-skeleton.mjs --push`
 | Consumer | Key path changes |
 |---|---|
 | `ui/api/repo-file.ts` | `gen/dashboard_snapshot.json` |
-| `ui/api/list-my-repos.ts` | `user_data/ledger/challenge_v2.json` |
+| `ui/api/auth/[...action].ts` (list-my-repos) | `.coach-engine-version` — **repo marker** (legacy `user_data/ledger/challenge_v2.json` kept as a 404-only fallback, #471) |
 | `ui/api/coach-chat.ts` | `user_data/coach/*`, sessions path |
 | iOS | `hist/`, `gen/widget_snapshots.json`, sessions path |
 
