@@ -167,18 +167,12 @@ struct SetupView: View {
 
     private var actionSection: some View {
         VStack(spacing: 12) {
-            if let error = errorMessage ?? authManager.lastNetworkError {
-                Text(UserFacingError.friendlyAPIError(error))
+            if let error = errorMessage {
+                Text(error)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(WarmInstrument.alarmFg)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 4)
-                if devModeEnabled {
-                    Text(error)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                        .multilineTextAlignment(.center)
-                }
             }
 
             // Primary button — hidden while auto-advancing (sign-in runs automatically)
@@ -336,8 +330,10 @@ struct SetupView: View {
                 Haptics.error()
             }
             isInstalling = false
-            // Re-check both conditions — the install may have completed.
-            await refreshSetupStatus()
+            // Intentionally no refreshSetupStatus() here — calling it re-arms autoAdvance()
+            // because installStepComplete is already true, causing a browser open/close loop.
+            // Use "Already linked? Sign in again" for manual recovery if the install succeeded
+            // but the server callback didn't arrive.
         }
     }
 
