@@ -23,6 +23,7 @@ struct SettingsView: View {
     @State private var nameDraft = ""
     @State private var showDiagHelp = false
     @State private var showSignOutConfirmation = false
+    @State private var showHealthSettings = false
 
     var body: some View {
         NavigationStack {
@@ -55,8 +56,12 @@ struct SettingsView: View {
             .background(WarmInstrument.desk.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .toast($toast)
+            .sheet(isPresented: $showHealthSettings) { HealthSettingsView() }
             .onChange(of: syncManager.lastSyncResult) { _, result in
                 guard let result else { return }
+                // The Health Settings sheet reports its own import result — a second toast
+                // and haptic from here would fire behind it.
+                guard !showHealthSettings else { return }
                 switch result.outcome {
                 case .synced(let n):
                     Haptics.success()
@@ -222,6 +227,39 @@ struct SettingsView: View {
                 .font(.system(size: 12))
                 .foregroundColor(WarmInstrument.inkFaint)
                 .fixedSize(horizontal: false, vertical: true)
+
+            WarmSettingsDivider()
+
+            Button {
+                Haptics.tap()
+                showHealthSettings = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Theme.heartRateColor)
+                        .frame(width: 22)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Health Settings")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.ink)
+                        Text("Every Apple Health workout, and import for anything sync missed")
+                            .font(.system(size: 11))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(RowPressButtonStyle())
 
             if let repo = authManager.selectedRepo {
                 WarmSettingsDivider()

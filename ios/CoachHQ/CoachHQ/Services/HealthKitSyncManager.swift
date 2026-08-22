@@ -172,7 +172,10 @@ class HealthKitSyncManager: ObservableObject {
     /// Pass `extraFiles` to fold additional files into the same commit (no current caller does -
     /// onboarding used to via a now-removed user_data/profile.md write, see B1). If there are no
     /// new workouts but `extraFiles` is non-empty, commits those files alone.
-    func syncNewWorkouts(extraFiles: [(path: String, data: Data)] = []) async {
+    func syncNewWorkouts(
+        extraFiles: [(path: String, data: Data)] = [],
+        importing: ImportRequest? = nil
+    ) async {
         guard let apiClient = apiClient else { return }
         guard !isSyncing else { return }
 
@@ -191,7 +194,11 @@ class HealthKitSyncManager: ObservableObject {
             }
 
             let since: Date
-            if let ts = syncState.hkLastSynced, let date = ISO8601DateFormatter().date(from: ts) {
+            if let importing {
+                // Manual import (Health Settings): the athlete picked specific workouts, so
+                // the window is whatever reaches the oldest of them, not the watermark.
+                since = importing.since
+            } else if let ts = syncState.hkLastSynced, let date = ISO8601DateFormatter().date(from: ts) {
                 // Never trust the watermark alone — see `lookbackWindowDays`.
                 let windowFloor = Calendar.current.date(
                     byAdding: .day, value: -Self.lookbackWindowDays, to: Date()
@@ -202,21 +209,23 @@ class HealthKitSyncManager: ObservableObject {
                 since = Calendar.current.date(byAdding: .day, value: -365, to: Date())!
             }
 
-            let lookbackDays = max(1, Calendar.current.dateComponents([.day], from: since, to: Date()).day ?? 7)
-            let isFirstSync = lookbackDays > 30
+            let isFirstSync = importing == nil && syncState.hkLastSynced == nil
             syncProgressText = isFirstSync
                 ? "Scanning a year of HealthKit data…"
                 : "Checking for new workouts…"
             syncProgress = 0.05
 
-            let rawWorkouts = try await fetchWorkouts(since: since)
+            var rawWorkouts = try await fetchWorkouts(since: since)
+            if let importing {
+                rawWorkouts = rawWorkouts.filter { importing.uuids.contains($0.uuid.uuidString) }
+            }
             guard !rawWorkouts.isEmpty else {
                 if !extraFiles.isEmpty {
                     // No new workouts but extra files need committing (e.g. profile on first sync).
                     syncProgressText = "Saving profile…"
                     try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
-                    syncProgressText = ""
                 }
+                syncProgressText = ""
                 syncProgress = 0
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
@@ -338,8 +347,9 @@ class HealthKitSyncManager: ObservableObject {
                     // All workouts were deduped but extra files still need committing.
                     syncProgressText = "Saving profile…"
                     try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
-                    syncProgressText = ""
                 }
+                syncProgressText = ""
+                syncProgress = 0
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
@@ -351,7 +361,9 @@ class HealthKitSyncManager: ObservableObject {
             let flattened = ActivityNamer.flattenCounters(counters)
             syncState.counters = flattened.flat
             syncState.counterYear = flattened.latestYear
-            syncState.hkLastSynced = ISO8601DateFormatter().string(from: Date())
+            if importing == nil {
+                syncState.hkLastSynced = ISO8601DateFormatter().string(from: Date())
+            }
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
             filesToCommit.append(contentsOf: extraFiles)
 
@@ -384,15 +396,20 @@ class HealthKitSyncManager: ObservableObject {
             let ws = widgetStore
             Task { await ws?.refreshAfterSync(since: commitFinishedAt) }
         } catch is CancellationError {
-            // Task was cancelled (e.g. view torn down mid-sync) — not a real
-            // failure; stay quiet instead of showing a scary "cancelled" error.
+            // Task was cancelled (e.g. view torn down mid-sync) — not a real failure.
+            syncProgressText = ""
+            lastSyncResult = nil
         } catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
-            // Same: URLSession-level cancellation, not a sync failure.
+            // URLSession-level cancellation, same treatment.
+            syncProgressText = ""
+            lastSyncResult = nil
         } catch let apiError as GitHubAPIError where {
             if case .sessionNotReady = apiError { return true }
             return false
         }() {
             // Session not ready yet — silently ignore, same as WidgetSnapshotStore.
+            syncProgressText = ""
+            lastSyncResult = nil
         } catch {
             let friendly = UserFacingError.friendlyMessage(for: error)
             syncError = friendly
@@ -465,6 +482,133 @@ class HealthKitSyncManager: ObservableObject {
         return formatter.date(from: String(fileName[range]))
     }
 
+    // MARK: - Manual import (Health Settings)
+
+    /// Restricts a sync round to workouts the athlete picked by hand, instead of whatever
+    /// the automatic window turns up. Everything else about the round is unchanged — same
+    /// dedup, same naming, same atomic commit.
+    struct ImportRequest: Equatable {
+        let uuids: Set<String>
+        /// Query floor. Must reach the oldest workout being imported.
+        let since: Date
+    }
+
+    /// One real-world session as the Health Settings list shows it — not one HealthKit
+    /// record. Garmin and Strava mirror the same session into HealthKit, so a ride can exist
+    /// two or three times; the list shows it once, with every app that recorded it.
+    struct HealthImportRow: Identifiable, Equatable {
+        enum State: Equatable {
+            /// A file for one of this session's uuids is committed in `hist/`.
+            case synced
+            /// Nothing committed for it; the athlete can import it.
+            case notSynced
+            /// The day holds committed files that carry no uuid (legacy slug or Strava-era
+            /// names), so we cannot tell whether this session is one of them. Import is
+            /// blocked rather than risk a duplicate.
+            case unknown
+        }
+
+        /// The winning recording's uuid — the one import commits.
+        let id: String
+        let sportType: String
+        /// The winner's start and duration. Sources disagree by seconds; we show what we commit.
+        let start: Date
+        let duration: TimeInterval
+        /// Every app that recorded this session, winner first (e.g. ["Apple Watch", "Garmin"]).
+        let sources: [String]
+        let state: State
+    }
+
+    /// Lists recent HealthKit workouts with their sync state, for the Health Settings screen.
+    ///
+    /// Read-only: one local HealthKit query plus the `hist/` file listing, no commits. The
+    /// synced test is the uuid embedded in the committed filename (ADR 0014), so it needs no
+    /// file contents.
+    ///
+    /// Returns nil when either read fails. An empty list means "no workouts"; the screen has to
+    /// be able to tell those apart, because a failed listing would otherwise render as every
+    /// workout being unsynced and invite the athlete to import duplicates.
+    func loadHealthImportRows(daysBack: Int = 90) async -> [HealthImportRow]? {
+        guard let apiClient = apiClient else { return nil }
+        let since = Calendar.current.date(byAdding: .day, value: -daysBack, to: Date()) ?? Date()
+        async let workoutsFetch = fetchWorkouts(since: since)
+        async let filesFetch = apiClient.listFiles(path: "user_data/activities/hist")
+
+        let rawWorkouts: [HKWorkout]
+        do { rawWorkouts = try await workoutsFetch } catch { return nil }
+
+        let existingFiles: [GitHubFileEntry]
+        do {
+            existingFiles = try await filesFetch
+        } catch let e as GitHubAPIError {
+            // hist/ not existing yet is a real, empty answer — anything else is a failed read.
+            guard case .notFound = e else { return nil }
+            existingFiles = []
+        } catch {
+            return nil
+        }
+
+        let committedUUIDs = Set(existingFiles.compactMap { Self.uuid(fromHistoryFileName: $0.name) })
+        // Days that hold a committed file with no uuid in its name — pre-ADR-0014 slug names
+        // and Strava-era history. We can't match those to a HealthKit workout, so every
+        // session on such a day is `.unknown` rather than a false "not synced".
+        let calendar = Calendar.current
+        let ambiguousDays = Set(
+            existingFiles
+                .filter { Self.uuid(fromHistoryFileName: $0.name) == nil }
+                .compactMap { Self.date(fromHistoryFileName: $0.name) }
+                .map { calendar.startOfDay(for: $0) }
+        )
+
+        // Source names stay out of DedupCandidate — dedup does not need them, and the type
+        // is kept to the fields it does. Look them back up by uuid when building the rows.
+        let sourceNames = Dictionary(
+            rawWorkouts.map { ($0.uuid.uuidString, $0.sourceRevision.source.name) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        return WorkoutDeduplicator.cluster(Self.dedupCandidates(rawWorkouts, committedUUIDs: committedUUIDs))
+            .map { cluster in
+                let winner = cluster.winner
+                let state: HealthImportRow.State
+                if cluster.isSynced {
+                    state = .synced
+                } else if ambiguousDays.contains(calendar.startOfDay(for: winner.start)) {
+                    state = .unknown
+                } else {
+                    state = .notSynced
+                }
+                return HealthImportRow(
+                    id: winner.uuid,
+                    sportType: winner.sportType,
+                    start: winner.start,
+                    duration: winner.duration,
+                    sources: Self.distinct(cluster.all.compactMap { sourceNames[$0.uuid] }),
+                    state: state
+                )
+            }
+            .sorted { $0.start > $1.start }
+    }
+
+    /// Drops repeats while keeping first-seen order — two recordings from the same app
+    /// should read "Garmin", not "Garmin + Garmin".
+    private static func distinct(_ names: [String]) -> [String] {
+        var seen = Set<String>()
+        return names.filter { seen.insert($0).inserted }
+    }
+
+    /// Commits one workout the athlete picked from the Health Settings list.
+    func importWorkout(_ row: HealthImportRow) async {
+        await syncNewWorkouts(
+            importing: ImportRequest(
+                uuids: [row.id],
+                // A minute below the start, so `.strictStartDate` cannot miss it on a
+                // boundary.
+                since: row.start.addingTimeInterval(-60)
+            )
+        )
+    }
+
     // MARK: - Multi-source dedup
 
     /// Removes duplicate recordings of the same session from a batch of HKWorkouts.
@@ -475,7 +619,22 @@ class HealthKitSyncManager: ObservableObject {
     /// Pass `committedUUIDs` (uuids already present in `hist/` filenames) so a copy already
     /// in the repo outranks a higher-priority source that shows up in a later round.
     static func deduplicate(_ workouts: [HKWorkout], committedUUIDs: Set<String> = []) -> [HKWorkout] {
-        let candidates = workouts.map { workout in
+        let winners = Set(
+            WorkoutDeduplicator.selectWinners(dedupCandidates(workouts, committedUUIDs: committedUUIDs))
+        )
+        // Re-sort by startDate so ActivityNamer assigns counters in chronological order,
+        // matching the invariant in engine/scripts/migrate_activity_naming.py.
+        return workouts
+            .filter { winners.contains($0.uuid.uuidString) }
+            .sorted { $0.startDate < $1.startDate }
+    }
+
+    /// Reduces HKWorkouts to the fields the dedup rules use.
+    static func dedupCandidates(
+        _ workouts: [HKWorkout],
+        committedUUIDs: Set<String>
+    ) -> [DedupCandidate] {
+        workouts.map { workout in
             DedupCandidate(
                 uuid: workout.uuid.uuidString,
                 sportType: ActivityMapper.sportType(for: workout.workoutActivityType),
@@ -487,12 +646,6 @@ class HealthKitSyncManager: ObservableObject {
                 isCommitted: committedUUIDs.contains(workout.uuid.uuidString)
             )
         }
-        let winners = Set(WorkoutDeduplicator.selectWinners(candidates))
-        // Re-sort by startDate so ActivityNamer assigns counters in chronological order,
-        // matching the invariant in engine/scripts/migrate_activity_naming.py.
-        return workouts
-            .filter { winners.contains($0.uuid.uuidString) }
-            .sorted { $0.startDate < $1.startDate }
     }
 
     // MARK: - HealthKit Queries

@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-20
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-22
 
 ## Context
 
@@ -123,8 +123,8 @@ The cost is one local HealthKit query and a set of filename comparisons — no e
 self-heals on the next background sync.
 
 **Garmin and Strava mirror the same session into HealthKit.** One ride can appear two or three
-times with different uuids. `WorkoutDeduplicator.selectWinners` collapses a cluster — same loose
-activity group, time windows overlapping by ≥50% of the shorter one — down to a single activity:
+times with different uuids. `WorkoutDeduplicator.cluster` groups the recordings of one session —
+same loose activity group, time windows overlapping by ≥50% of the shorter one — and ranks them:
 
 1. **already committed wins** — whichever copy is in `hist/` stays, whatever its source.
 2. then **source priority** — apple > garmin > strava > unknown.
@@ -135,6 +135,16 @@ Garmin's copy only reaches the phone Wednesday, ranking by source alone would co
 file for a session already in `hist/`. Keeping the committed copy is stable across rounds and
 never needs a delete.
 
+Sync only needs the winners, so `selectWinners` is a thin wrapper over `cluster`. The Health
+Settings list needs the losers too — it shows one row per session and names every app that
+recorded it — which is why grouping is the primitive and winner-picking the wrapper.
+
+**Grouping is greedy, not transitive.** A recording joins the first winner it overlaps and starts
+its own cluster if it overlaps none, so a chain — A overlaps B, B overlaps C, A and C do not —
+splits into two clusters instead of merging into one. Deliberate: transitive grouping lets a run
+of near-misses swallow genuinely separate back-to-back sessions, and hiding a real workout is the
+worse failure.
+
 The rules live in `WorkoutDeduplicator.swift`, deliberately free of HealthKit types — `HKWorkout`
 cannot be constructed outside a device store, so anything touching it is untestable. Verify with:
 
@@ -143,9 +153,38 @@ swiftc ios/CoachHQ/CoachHQ/Services/WorkoutDeduplicator.swift \
        ios/scripts/verify_workout_dedup.swift -o /tmp/verify_dedup && /tmp/verify_dedup
 ```
 
-**Known gap:** a workout arriving more than 14 days after it started is still missed. The manual
-import list (issue #441) is the escape hatch; widen the window or move to `HKAnchoredObjectQuery`
-(whose anchor tracks insertion, not start time) if it ever bites.
+**Known gap:** a workout arriving more than 14 days after it started is still missed by the
+automatic window. Manual import (below) is the escape hatch; widen the window or move to
+`HKAnchoredObjectQuery` (whose anchor tracks insertion, not start time) if it ever bites.
+
+## Manual import — Health Settings
+
+`HealthSettingsView`, reached from Settings → Sync → Health Settings, lists the last 90 days of
+HealthKit workouts with a per-row sync state, and imports anything the automatic window missed.
+It is read-only until the athlete taps Import.
+
+`HealthKitSyncManager.loadHealthImportRows(daysBack:)` builds the list from one local HealthKit
+query plus the `hist/` file listing — no file contents, same as dedup.
+
+**One row per session, not per HealthKit record.** Rows are clusters, so a ride recorded by the
+watch and mirrored by Garmin is one row naming both (`Apple Watch + Garmin`), not two rows with
+one of them labelled a duplicate. The row shows the winner's start, duration and stats, because
+the winner is the copy we commit. Three states:
+
+| State | Means |
+|---|---|
+| **synced** | A file for one of the session's uuids is committed in `hist/`. Asked of the whole cluster, not just the winner. |
+| **can't check** | The day holds committed files with no uuid in the name (pre-ADR-0014 slug names, Strava-era history), so we cannot match them to a HealthKit workout. Import is blocked rather than risk a duplicate. |
+| **not synced** | Nothing committed for it — the only state with an Import button. |
+
+Import reuses the whole sync round rather than a second commit path:
+`syncNewWorkouts(importing:)` takes an `ImportRequest` (the uuids, and a query floor reaching
+back to the oldest of them) and restricts the batch to those workouts. Dedup, heart-rate
+sampling, naming, the atomic commit, and the cache upsert are all the ordinary path.
+
+**Known gap:** an imported workout takes the next name counter for its sport, so importing an old
+workout numbers it after newer ones. `engine/scripts/migrate_activity_naming.py` is the fix if
+that ever needs tidying — it is true of any late arrival, not just manual imports.
 
 ## What does NOT happen in this action
 
