@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-22
 
 ## Context
 
@@ -188,6 +188,12 @@ section. No schema-version/freshness check exists yet (documented gap, see
 
 **`AthleteSportInsight` shape:** `{ sessions_365d, sessions_per_week_recent_4w,
 sessions_per_week_prior_12w, longest_gap_days_365d, days_since_last_session }` — all numbers.
+
+**`sports` keys are normalized `sport_type` values** — lowercased, with camelCase split on `_`
+(`WeightTraining` -> `weight_training`). The activity `category` field is a **sub-tag within** a
+sport (`RNK`/`FRN`/`CAS` are all Badminton; `CAL`/`FDN` are both WeightTraining) and is
+deliberately **not** part of the key — bucketing on it shatters one sport across several buckets
+(#459). Exposing the sub-tag as a nested breakdown is tracked in #460.
 
 ## What Gemini gets as input
 
