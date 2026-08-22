@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { applyWeekPlan, applySessionReconcile, applyPlanEdit, CURRENT_WEEK_PATH, type WeekPlan } from "../_lib/coachWeekFiles.js";
+import {
+  applyWeekPlan,
+  applySessionReconcile,
+  applyPlanEdit,
+  assertCurrentWeekCommitReady,
+  CURRENT_WEEK_PATH,
+  type WeekPlan,
+} from "../_lib/coachWeekFiles.js";
 import { parseCurrentWeek } from "../../../../engine/lib/current-week.mts";
 
 // coach-redesign workout-backend-wiring §5: week_plan/session_reconcile action fields. Covers the
@@ -29,6 +36,27 @@ function validPlan(overrides: Partial<WeekPlan> = {}): WeekPlan {
 describe("CURRENT_WEEK_PATH", () => {
   it("points at the ledger path", () => {
     expect(CURRENT_WEEK_PATH).toBe("user_data/ledger/current_week.json");
+  });
+});
+
+describe("assertCurrentWeekCommitReady", () => {
+  const now = new Date("2026-08-18T18:00:00Z");
+
+  it("returns the same string when the file is schema-valid", () => {
+    const content = applyWeekPlan(validPlan(), new Set(["strength_b"]), "America/New_York", "t1", now);
+    expect(assertCurrentWeekCommitReady(content, now)).toBe(content);
+  });
+
+  it("rejects invalid JSON and never treats it as success", () => {
+    expect(() => assertCurrentWeekCommitReady("{not json", now)).toThrow("not valid JSON");
+  });
+
+  it("rejects a missing required field and never treats it as success", () => {
+    const valid = JSON.parse(applyWeekPlan(validPlan(), new Set(["strength_b"]), "America/New_York", "t1", now));
+    delete valid.updated_by;
+    expect(() => assertCurrentWeekCommitReady(JSON.stringify(valid), now)).toThrow(
+      /failed validation:.*updated_by/,
+    );
   });
 });
 

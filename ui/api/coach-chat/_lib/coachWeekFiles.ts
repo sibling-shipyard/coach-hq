@@ -24,6 +24,33 @@ import { todayDateString } from "./coachDay.js";
 
 export const CURRENT_WEEK_PATH = "user_data/ledger/current_week.json";
 
+/**
+ * Commit-boundary gate: same fail rule as `validate-current-week` — parseCurrentWeek
+ * must accept the file, and availability must not be "invalid". Throws so a bad
+ * payload cannot be handed to commitFilesAtomic.
+ *
+ * Hosted appliers stamp `updated_by: "model"`. The CLI `--coach-write` extra
+ * (`updated_by` must be `"coach"`) is the BYOB/Claude-Code author check and is
+ * not applied here — changing hosted stamps would reject every legitimate save.
+ */
+export function assertCurrentWeekCommitReady(content: string, now = new Date()): string {
+  let input: unknown;
+  try {
+    input = JSON.parse(content);
+  } catch (err) {
+    throw new Error(
+      `current_week.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  const runtime = parseCurrentWeek(input, now);
+  if (runtime.issues.length > 0 || runtime.availability.status === "invalid" || !runtime.data) {
+    const detail =
+      runtime.issues.length > 0 ? runtime.issues.join("; ") : runtime.availability.reason;
+    throw new Error(`current_week.json failed validation: ${detail}`);
+  }
+  return content;
+}
+
 // engine/lib/current-week.mts doesn't export its own date helpers (addDays/getIsoWeekId are
 // private to the validator) - small local copies, same logic, so this file stays self-contained
 // rather than reaching into another module's internals.
