@@ -33,6 +33,7 @@ const SKELETON_SCRIPT_FILES = [
   "scripts/generate-athlete-insights.mjs",
   "scripts/generate_quest_history.py",
   "scripts/validate-current-week.mts",
+  "scripts/validate-text-caps.py",
 ];
 
 /** Dirs carved into engine/ */
