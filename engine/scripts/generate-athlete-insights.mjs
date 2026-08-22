@@ -26,6 +26,24 @@ function daysBetween(later, earlier) {
   return Math.floor((Date.parse(`${later}T00:00:00Z`) - Date.parse(`${earlier}T00:00:00Z`)) / DAY_MS);
 }
 
+function emptyDurationBuckets() {
+  return { under_30m: 0, "30_to_60m": 0, "60_to_120m": 0, over_120m: 0 };
+}
+
+// Histogram only. Missing or non-numeric elapsed_time is skipped — do not invent a duration
+// (those sessions still count in sessions_365d). Boundaries are seconds: <1800, <3600, <7200, else.
+function countDurationBuckets(elapsedTimes) {
+  const buckets = emptyDurationBuckets();
+  for (const elapsed of elapsedTimes) {
+    if (typeof elapsed !== "number" || !Number.isFinite(elapsed)) continue;
+    if (elapsed < 1800) buckets.under_30m += 1;
+    else if (elapsed < 3600) buckets["30_to_60m"] += 1;
+    else if (elapsed < 7200) buckets["60_to_120m"] += 1;
+    else buckets.over_120m += 1;
+  }
+  return buckets;
+}
+
 export function buildAthleteInsights(activities, now = new Date()) {
   const today = now.toISOString().slice(0, 10);
   const bySport = new Map();
@@ -35,13 +53,14 @@ export function buildAthleteInsights(activities, now = new Date()) {
     if (!sport || !date || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) continue;
     const age = daysBetween(today, date);
     if (age < 0 || age >= 365) continue;
-    const dates = bySport.get(sport) ?? [];
-    dates.push(date);
-    bySport.set(sport, dates);
+    const sessions = bySport.get(sport) ?? [];
+    sessions.push({ date, elapsed: activity.elapsed_time });
+    bySport.set(sport, sessions);
   }
 
   const sports = {};
-  for (const [sport, rawDates] of [...bySport].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [sport, sessions] of [...bySport].sort(([a], [b]) => a.localeCompare(b))) {
+    const rawDates = sessions.map((session) => session.date);
     const dates = [...new Set(rawDates)].sort();
     let longestGap = 0;
     for (let i = 1; i < dates.length; i++) longestGap = Math.max(longestGap, daysBetween(dates[i], dates[i - 1]));
@@ -56,6 +75,7 @@ export function buildAthleteInsights(activities, now = new Date()) {
       sessions_per_week_prior_12w: Number((prior / 12).toFixed(2)),
       longest_gap_days_365d: longestGap,
       days_since_last_session: daysBetween(today, dates.at(-1)),
+      duration_buckets: countDurationBuckets(sessions.map((session) => session.elapsed)),
     };
   }
   return { generated_at: now.toISOString().replace(".000Z", "Z"), window_days: 365, sports };

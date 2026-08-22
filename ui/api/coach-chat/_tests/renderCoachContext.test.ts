@@ -113,18 +113,31 @@ describe("renderCoachContext section shape", () => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
       generated_at: "2026-08-20T00:00:00Z", window_days: 365,
       sports: { badminton: { sessions_365d: 120, sessions_per_week_recent_4w: 3,
-        sessions_per_week_prior_12w: 2.25, longest_gap_days_365d: 9, days_since_last_session: 2 } },
+        sessions_per_week_prior_12w: 2.25, longest_gap_days_365d: 9, days_since_last_session: 2,
+        duration_buckets: { under_30m: 10, "30_to_60m": 40, "60_to_120m": 50, over_120m: 20 } } },
     } });
     expect(text).toContain("## Fitness Snapshot (last 365 days)");
     expect(text).toContain("**Badminton:** 120 sessions in the window; ~3x/week recently (~2.3x/week in the prior 12 weeks)");
-    expect(text).toContain("longest gap 9 days; last session 2 days ago.");
+    expect(text).toContain("longest gap 9 days; last session 2 days ago; 10 under 30m, 40 30-60m, 50 60-120m, 20 over 120m.");
+  });
+
+  it("still renders a sport when older insights omit duration_buckets", () => {
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
+      generated_at: "2026-08-20T00:00:00Z", window_days: 365,
+      sports: { run: { sessions_365d: 20, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 0.5,
+        longest_gap_days_365d: 14, days_since_last_session: 5 } },
+    } as never });
+    expect(text).toContain("**Run:** 20 sessions in the window");
+    expect(text).toContain("longest gap 14 days; last session 5 days ago.");
+    expect(text).not.toContain("under 30m");
   });
 
   it("uses the insight file's own window_days in the section heading", () => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
       generated_at: "2026-08-20T00:00:00Z", window_days: 90,
       sports: { run: { sessions_365d: 20, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 0.5,
-        longest_gap_days_365d: 14, days_since_last_session: 5 } },
+        longest_gap_days_365d: 14, days_since_last_session: 5,
+        duration_buckets: { under_30m: 5, "30_to_60m": 10, "60_to_120m": 4, over_120m: 1 } } },
     } });
     expect(text).toContain("## Fitness Snapshot (last 90 days)");
   });
