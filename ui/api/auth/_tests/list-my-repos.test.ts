@@ -207,4 +207,35 @@ describe("list-my-repos", () => {
     const body = await res.json();
     expect(body).toEqual({ repo_full_name: "alice/coach-alice" });
   });
+
+  it("does not re-resolve when the cached repo's marker check fails transiently", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes(MARKER)) return new Response(null, { status: 403 });
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const res = await handler.fetch(await sessionRequest({ repo_full_name: "alice/coach-alice" }));
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "Failed to check your repos - try again" });
+    // The point of the fix: a rate-limited re-confirm must NOT fan out into a full re-resolve
+    // (repo list + a marker check per owned repo) while GitHub is already refusing us.
+    expect(
+      fetchMock.mock.calls.some(([u]: [string]) => u.includes("/repositories?per_page=100")),
+    ).toBe(false);
+  });
+
+  it("still re-resolves when the cached repo's marker is genuinely gone", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/repos/alice/coach-old/contents/")) return new Response(null, { status: 404 });
+      if (url === ghUrl("/user/installations/42/repositories?per_page=100")) {
+        return Response.json(mockRepoList([{ full_name: "alice/coach-alice", owner: "alice" }]));
+      }
+      if (url.includes(MARKER)) return new Response(null, { status: 200 });
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const res = await handler.fetch(await sessionRequest({ repo_full_name: "alice/coach-old" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ repo_full_name: "alice/coach-alice" });
+  });
 });

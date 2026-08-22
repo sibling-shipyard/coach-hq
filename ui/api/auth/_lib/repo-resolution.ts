@@ -1,9 +1,11 @@
 /**
  * repo-resolution.ts — shared installation/repo lookup logic.
  *
- * Used by callback.ts (resolving installation_id right after OAuth exchange, and giving iOS
- * a repo in its coachhq:// redirect when there's exactly one candidate) and list-my-repos.ts
- * (the web onboarding screen's picker, plus iOS's fallback for the 0-or-2+ candidate case).
+ * Both callers live in [...action].ts (ADR 0017 folded every auth endpoint into that one
+ * catch-all route): handleCallback resolves installation_id right after the OAuth exchange and
+ * gives iOS a repo in its coachhq:// redirect when there's exactly one candidate;
+ * listMyReposImpl re-confirms an already-resolved repo and is iOS's fallback for the 0-or-2+
+ * case. There is no repo picker - 2+ candidates is a hard block, not a choice (ADR 0019).
  * Kept in one place so the ownership + marker-file rules can't drift between the two callers.
  */
 
@@ -46,7 +48,7 @@ export async function resolveInstallationId(
   return match?.id ?? null;
 }
 
-type MarkerCheck = "found" | "not_found" | "lookup_failed";
+export type MarkerCheck = "found" | "not_found" | "lookup_failed";
 
 /** Stamped into every carved repo by platform/scripts/carve-skeleton.mjs - a real "this is a
  * coach repo" pin, untouched by any data migration. */
@@ -66,18 +68,17 @@ async function checkPath(repoFullName: string, path: string, token: string): Pro
   return "lookup_failed";
 }
 
-async function checkMarkerFile(repoFullName: string, token: string): Promise<MarkerCheck> {
+/**
+ * 3-state on purpose. Callers must not collapse this to a boolean: "the marker isn't there" and
+ * "GitHub wouldn't tell me right now" need different handling, and treating the second as the
+ * first is how a rate-limit turns into "your repo isn't set up".
+ */
+export async function checkMarkerFile(repoFullName: string, token: string): Promise<MarkerCheck> {
   const primary = await checkPath(repoFullName, MARKER_PATH, token);
   // Only a genuine 404 falls back - a transient failure must stay lookup_failed, never get
   // rescued into a miss (or worse, into a "found") by the second check.
   if (primary !== "not_found") return primary;
   return checkPath(repoFullName, LEGACY_MARKER_PATH, token);
-}
-
-/** Single-repo check for list-my-repos.ts's `?select=`/already-resolved call sites - those
- * already fall through to a sensible outcome on failure, so no 3-state distinction needed. */
-export async function hasMarkerFile(repoFullName: string, token: string): Promise<boolean> {
-  return (await checkMarkerFile(repoFullName, token)) === "found";
 }
 
 /** True only if the logged-in user actually owns this repo - not just has access to it. */
