@@ -31,9 +31,7 @@ struct CoachChatView: View {
     @State private var toast: Toast?
     @FocusState private var composerFocused: Bool
     @State private var keyboardVisible = false
-    @State private var postWorkoutChips: [String]? = nil
     @AppStorage("chatHasUnread") private var chatHasUnread = false
-    @AppStorage("pendingWorkoutType") private var pendingWorkoutType = ""
     @AppStorage("chatWelcomeShown") private var chatWelcomeShown = false
 
     /// Real challenge day, fetched once per session from challenge_v2.json (see loadHeaderContext()
@@ -147,10 +145,6 @@ struct CoachChatView: View {
             apiClient = CoachChatAPIClient(authManager: authManager)
             await loadThreads()
             await loadHeaderContext()
-            if !pendingWorkoutType.isEmpty {
-                postWorkoutChips = Self.chips(forWorkoutType: pendingWorkoutType)
-                pendingWorkoutType = ""
-            }
         }
         .sheet(isPresented: $showHistorySheet) {
             CoachChatHistorySheet(
@@ -193,11 +187,6 @@ struct CoachChatView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             keyboardVisible = false
-        }
-        .onChange(of: pendingWorkoutType) { _, type in
-            guard !type.isEmpty else { return }
-            postWorkoutChips = Self.chips(forWorkoutType: type)
-            pendingWorkoutType = ""
         }
     }
 
@@ -365,16 +354,6 @@ struct CoachChatView: View {
                 )
                 Spacer(minLength: 40)
             }
-        }
-    }
-
-    private static func chips(forWorkoutType type: String) -> [String] {
-        switch type {
-        case "foundation":   return ["That felt good", "Legs were heavy", "How was my form?"]
-        case "calisthenics": return ["That felt good", "Struggled with reps", "How was my form?"]
-        case "recovery":     return ["Feeling restored", "Still feel tired", "Good call today"]
-        case "realign":      return ["That helped", "Still feeling off", "How was my form?"]
-        default:             return ["That felt good", "Legs were heavy", "How was my form?"]
         }
     }
 

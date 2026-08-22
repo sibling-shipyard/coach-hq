@@ -9,9 +9,7 @@ import {
 import { Link } from "wouter";
 import ReactMarkdown from "react-markdown";
 import {
-  CHAT_STARTERS,
   type ChatMessage,
-  type ChatStarter,
   type ChatThread,
   type CoachChip,
   threadAgeDisplay,
@@ -53,46 +51,6 @@ function BackIcon() {
   return (
     <svg aria-hidden="true" fill="none" height="20" viewBox="0 0 24 24" width="20">
       <polyline points="15 18 9 12 15 6" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  );
-}
-
-function CoachMarkIcon() {
-  return (
-    <svg aria-hidden="true" fill="none" height="26" viewBox="0 0 24 24" width="26">
-      <path d="M4 15a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.8" />
-      <line x1="12" y1="15" x2="16.5" y2="10.5" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="12" cy="15" r="1.6" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function StarterIcon({ icon }: { icon: ChatStarter["icon"] }) {
-  if (icon === "week") {
-    return (
-      <svg aria-hidden="true" fill="none" height="17" viewBox="0 0 24 24" width="17">
-        <path d="M3 3v18h18" stroke="#7f3728" strokeWidth="1.8" />
-        <path d="M7 14l3-4 3 2 4-6" stroke="#7f3728" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-  if (icon === "cold") {
-    return (
-      <svg aria-hidden="true" fill="none" height="17" viewBox="0 0 24 24" width="17">
-        <circle cx="12" cy="12" r="9" stroke="#4f587a" strokeWidth="1.8" />
-        <line x1="12" y1="8" x2="12" y2="12" stroke="#4f587a" strokeWidth="1.8" />
-        <line x1="12" y1="16" x2="12.01" y2="16" stroke="#4f587a" strokeWidth="1.8" />
-      </svg>
-    );
-  }
-  return (
-    <svg aria-hidden="true" fill="none" height="17" viewBox="0 0 24 24" width="17">
-      <circle cx="12" cy="18.4" r="2.4" stroke="#315a4a" strokeWidth="1.8" />
-      <path
-        d="M10.7 16.4 6.6 6M12 16V5M13.3 16.4 17.4 6M6.6 6Q12 8.6 17.4 6"
-        stroke="#315a4a"
-        strokeWidth="1.8"
-      />
     </svg>
   );
 }
@@ -486,121 +444,6 @@ export function ConversationPane({
         <p className="cc-pane__footnote">
           COACH SEES YOUR LOAD, LEDGER, PLAN &amp; SPORT ANALYTICS · NOT SHARED BETWEEN ACCOUNTS
         </p>
-      </div>
-    </section>
-  );
-}
-
-export function EmptyChatPane({
-  dayNumber,
-  engineLoad,
-  draft,
-  onDraftChange,
-  onSend,
-  onStarter,
-  onBack,
-  showBack,
-  pending,
-  pickupThread,
-  onPickup,
-}: {
-  dayNumber: number;
-  engineLoad: number | null;
-  draft: string;
-  onDraftChange: (value: string) => void;
-  onSend: () => void;
-  onStarter: (starter: ChatStarter) => void;
-  onBack?: () => void;
-  showBack?: boolean;
-  pending?: boolean;
-  /** Most recent still-open (active, non-today) thread, if any - offered as a shortcut. */
-  pickupThread?: ChatThread | null;
-  onPickup?: (id: string) => void;
-}) {
-  const loadLabel = engineLoad !== null ? String(engineLoad) : "—";
-  const mobileChrome = Boolean(showBack);
-
-  return (
-    <section className="cc-pane cc-pane--empty" aria-label="New conversation">
-      <div className={`cc-pane__header ${mobileChrome ? "cc-pane__header--mobile" : ""}`}>
-        {showBack ? (
-          <button aria-label="Back to conversations" className="cc-back" onClick={onBack} type="button">
-            <BackIcon />
-          </button>
-        ) : null}
-        <span className="cc-pane__day">D-{dayNumber}</span>
-        <span className="cc-pane__title">New conversation</span>
-        {mobileChrome ? (
-          <span className="cc-pane__status cc-pane__status--icon-only" aria-hidden="true">
-            <ReadingIcon />
-          </span>
-        ) : null}
-      </div>
-
-      <div className={`cc-empty ${mobileChrome ? "" : "cc-empty--desktop"}`}>
-        <div className="cc-empty__hero">
-          <div className="cc-empty__mark">
-            <CoachMarkIcon />
-          </div>
-          <p className="cc-empty__greeting">
-            Morning. I&apos;ve got your week open —{" "}
-            <span className="cc-empty__load">{loadLabel}</span>
-            {engineLoad !== null ? ", still in the band" : ""}. What&apos;s on your mind?
-          </p>
-          <div className="cc-signature">— PHELPS</div>
-        </div>
-
-        {pickupThread ? (
-          <div className="cc-starters">
-            <div className="cc-starters__label">PICK UP WHERE YOU LEFT OFF</div>
-            <button
-              className="cc-starter"
-              type="button"
-              onClick={() => onPickup?.(pickupThread.id)}
-            >
-              <StarterIcon icon="week" />
-              <span>{pickupThread.title}</span>
-            </button>
-          </div>
-        ) : null}
-
-        <div className="cc-starters">
-          <div className="cc-starters__label">START WITH</div>
-          {CHAT_STARTERS.map((starter) => (
-            <button
-              className="cc-starter"
-              key={starter.id}
-              onClick={() => onStarter(starter)}
-              type="button"
-            >
-              <StarterIcon icon={starter.icon} />
-              <span>{starter.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {pending ? (
-          <div className="cc-coach-wrap cc-coach-wrap--empty">
-            <div className="cc-bubble cc-bubble--coach cc-bubble--thinking">
-              <span className="cc-thinking-dot" />
-              <span className="cc-thinking-dot" />
-              <span className="cc-thinking-dot" />
-            </div>
-          </div>
-        ) : null}
-        <Composer
-          placeholder={pending ? "Coach is replying…" : mobileChrome ? "Message Coach…" : "Ask Coach anything…"}
-          value={draft}
-          onChange={onDraftChange}
-          onSubmit={onSend}
-          round={mobileChrome}
-          disabled={pending}
-        />
-        {!mobileChrome ? (
-          <p className="cc-pane__footnote">
-            COACH SEES YOUR LOAD, LEDGER, PLAN &amp; SPORT ANALYTICS · NOT SHARED BETWEEN ACCOUNTS
-          </p>
-        ) : null}
       </div>
     </section>
   );

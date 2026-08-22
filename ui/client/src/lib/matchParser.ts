@@ -9,7 +9,13 @@
  */
 
 import type { Activity } from "./activities";
-import { normalizeName } from "./nameAliases";
+
+/** Unicode prefixes/suffixes to strip (e.g., eBadders crowns) */
+const UNICODE_DECORATIONS = /[\u2654-\u265F\u2660-\u2667\u2668-\u2671\u2672-\u267F\u2680-\u269F\u26A0-\u26FF\u2700-\u27BF\u{1F300}-\u{1F9FF}]/gu;
+
+function normalizeName(name: string): string {
+  return name.replace(UNICODE_DECORATIONS, "").trim();
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
