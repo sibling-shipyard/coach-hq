@@ -2,7 +2,7 @@
 
 **Thread purpose:** Native iOS app in `ios/` — Swift/SwiftUI features, fixes, and PRs.
 
-**How we work:** `AGENTS.md` § How all agents work. ADR tag: `Area: ios`. Extra boot reads: `docs/eng-docs/ios-app-spec.md`, and `ios/DESIGN.md` before any View work. iOS-specific: scope is `ios/` only; smallest diff; no bundled infra unless issue says so.
+**How we work:** `AGENTS.md` § How all agents work. ADR tag: `Area: ios`. Extra boot reads — both **conditional; skip by default.** `docs/eng-docs/ios-app-spec.md` — read when the task touches architecture, HealthKit/sync, signing/setup, or the spec itself. `ios/DESIGN.md` — read before any View / UI / visual work. iOS-specific: scope is `ios/` only; smallest diff; no bundled infra unless issue says so.
 
 ## Scope
 
