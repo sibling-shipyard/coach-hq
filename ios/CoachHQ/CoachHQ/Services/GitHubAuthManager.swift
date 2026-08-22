@@ -59,6 +59,7 @@ class GitHubAuthManager: ObservableObject {
     /// Identical entry point for new and returning users, matching the web "Log in with
     /// GitHub" button. PKCE/state/token-exchange all live server-side in start.ts + callback.ts.
     func signIn() async throws {
+        lastNetworkError = nil
         try await runAuthSession(path: "/api/auth/start")
     }
 
@@ -204,7 +205,10 @@ class GitHubAuthManager: ObservableObject {
 
         if value("needs_setup") == "1" {
             // Server now includes the GitHub token so we can fetch user.id before the
-            // install step. isAuthenticated stays false — no coach-phelps installation yet.
+            // install step. isAuthenticated must be false — no coach-phelps installation yet.
+            // Explicitly clear it: init() may have set it to true when a stored token was
+            // found, and it must not stay true while pendingSetupLogin is set.
+            isAuthenticated = false
             if let token = value("token") {
                 saveToken(token)
                 if let rt = value("refresh_token"), let expiresAtRaw = value("expires_at"),
@@ -247,6 +251,7 @@ class GitHubAuthManager: ObservableObject {
     /// a stored token.
     func bootstrapSession() async {
         isSessionReady = false
+        lastNetworkError = nil
         await fetchUser()
         normalizeSelectedRepo()
         await resolveRepoIfNeeded()
@@ -286,10 +291,19 @@ class GitHubAuthManager: ObservableObject {
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode == 409,
+            guard let http = response as? HTTPURLResponse else { return }
+            if http.statusCode == 409,
                let result = try? JSONDecoder().decode(RepoResolution.self, from: data),
                result.reason == "multiple_repos_granted" {
                 multipleReposDetected = true
+                return
+            }
+            // Non-2xx responses (e.g. 401 token rejected by server) return an error body
+            // that won't decode as RepoResolution — treat them as no-repo-found rather than
+            // silently discarding. selectedRepo stays nil and bootstrapSession routes
+            // to pendingSetupLogin or zombie-token cleanup as appropriate.
+            guard (200..<300).contains(http.statusCode) else {
+                print("list-my-repos HTTP \(http.statusCode) — treating as unresolved")
                 return
             }
             if let result = try? JSONDecoder().decode(RepoResolution.self, from: data) {
