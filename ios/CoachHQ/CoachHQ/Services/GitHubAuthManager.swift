@@ -99,6 +99,45 @@ class GitHubAuthManager: ObservableObject {
         }
     }
 
+    /// Whether the coach-phelps GitHub App is installed and has access to `coach-<login>`.
+    /// Calls GitHub directly (no server session dependency) so it works for returning users
+    /// whose server session has expired. Two calls: one for the installation list, one to
+    /// confirm repo access when repository_selection is "selected" (not "all").
+    func coachAppInstalled(for login: String) async -> Bool {
+        guard let token = await validToken() else { return false }
+        guard let url = URL(string: "https://api.github.com/user/installations") else { return false }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return false }
+            let result = try JSONDecoder().decode(AppInstallationsResponse.self, from: data)
+
+            guard let installation = result.installations.first(where: { $0.appSlug == "coach-phelps" }) else {
+                return false
+            }
+            // "all" selection covers every repo the user owns.
+            if installation.repositorySelection == "all" { return true }
+
+            // "selected" — confirm the coach-<login> repo is in the allowed list.
+            guard let reposURL = URL(string: "https://api.github.com/user/installations/\(installation.id)/repositories") else {
+                return false
+            }
+            var reposRequest = URLRequest(url: reposURL)
+            reposRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            reposRequest.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            let (reposData, reposResponse) = try await URLSession.shared.data(for: reposRequest)
+            guard (reposResponse as? HTTPURLResponse)?.statusCode == 200 else { return false }
+            let repos = try JSONDecoder().decode(AppInstallationReposResponse.self, from: reposData)
+            return repos.repositories.contains { $0.name.lowercased() == "coach-\(login)".lowercased() }
+        } catch {
+            print("coachAppInstalled check failed: \(error)")
+            return false
+        }
+    }
+
     /// Whether `coach-<login>` exists on GitHub (repo created, install may still be pending).
     func coachRepoExists(for login: String) async -> Bool {
         guard let token = await validToken() else { return false }
@@ -463,6 +502,30 @@ struct GitHubUser: Codable {
         case id
         case login
         case avatarUrl = "avatar_url"
+    }
+}
+
+private struct AppInstallationsResponse: Codable {
+    let installations: [AppInstallation]
+}
+
+private struct AppInstallation: Codable {
+    let id: Int
+    let appSlug: String
+    let repositorySelection: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case appSlug = "app_slug"
+        case repositorySelection = "repository_selection"
+    }
+}
+
+private struct AppInstallationReposResponse: Codable {
+    let repositories: [AppInstallationRepo]
+
+    struct AppInstallationRepo: Codable {
+        let name: String
     }
 }
 
