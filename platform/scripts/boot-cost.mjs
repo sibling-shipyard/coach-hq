@@ -28,8 +28,8 @@ const REPO_ROOT = repoRoot(__dirname);
 /**
  * An entry is a bare path (unconditional) or `{ path, conditional: true }` — conditional means
  * the role doc reads it only in some situations, so it is shown on its own line but kept out of
- * the cold-boot total. Tech Lead's SOUL read is the one conditional entry today: it is ~65% of
- * that role's boot and unused on UI, CI, infra, and PR-triage work, so the role doc defers it.
+ * the cold-boot total. Conditional entries today: Tech Lead's SOUL (unused on UI, CI, infra,
+ * and PR-triage work) and iOS Builder's spec + DESIGN (architecture/sync vs View work).
  */
 const ROLES = [
   {
@@ -55,8 +55,8 @@ const ROLES = [
       "AGENTS.md",
       ".github/agents/ios-builder.md",
       "kdb/decisions/README.md",
-      "docs/eng-docs/ios-app-spec.md",
-      "ios/DESIGN.md",
+      { path: "docs/eng-docs/ios-app-spec.md", conditional: true },
+      { path: "ios/DESIGN.md", conditional: true },
     ],
   },
 ];
