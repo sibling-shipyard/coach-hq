@@ -255,6 +255,41 @@ describe("activity-sync turn contract", () => {
     expect(JSON.stringify(coach.attachments)).not.toContain("CLIENT SPORT");
   });
 
+  it("orders attachment rows by start time, not id", async () => {
+    listDirectory.mockResolvedValue([histEntry(UUID_A), histEntry(UUID_B)]);
+    getFileRaw.mockImplementation(async (_repo: string, path: string) => {
+      if (path.endsWith(`_${UUID_A}.json`)) {
+        return JSON.stringify(activityJson({
+          name: "Later",
+          start_date_local: "2026-08-22T09:00:00",
+        }));
+      }
+      if (path.endsWith(`_${UUID_B}.json`)) {
+        return JSON.stringify(activityJson({
+          name: "Earlier",
+          start_date_local: "2026-08-22T06:00:00",
+        }));
+      }
+      return null;
+    });
+    const parsed = await parseBody({
+      action: "activity_sync",
+      activity_ids: [ID_A, ID_B],
+    });
+    if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
+      throw new Error("expected an activity_sync request");
+    }
+    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    const body = await response.json();
+    const coach = body.threads[0].messages.find(
+      (message: { role: string }) => message.role === "coach",
+    );
+    expect(coach.attachments[0].activities.map((row: { title: string }) => row.title)).toEqual([
+      "Earlier",
+      "Later",
+    ]);
+  });
+
   it("rejects an unknown activity_ids prefix with 400", async () => {
     const parsed = await parseBody({
       action: "activity_sync",

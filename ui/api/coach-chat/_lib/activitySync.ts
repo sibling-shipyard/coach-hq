@@ -172,5 +172,7 @@ export async function loadVerifiedActivities(
     }),
   );
   if (fetched.some((row) => row == null)) return { ok: false };
-  return { ok: true, rows: fetched as SyncedActivityRow[] };
+  const rows = fetched as SyncedActivityRow[];
+  rows.sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
+  return { ok: true, rows };
 }

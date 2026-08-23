@@ -30,7 +30,7 @@ flowchart LR
     end
     subgraph dynamic["Dynamic (fresh every call)"]
         state["split athlete + quest context\n+ optional Fitness Snapshot"]
-        mode["mode-specific instructions\ngreeting / ordinary / closing"]
+        mode["mode-specific instructions\ngreeting / activity_sync / ordinary / closing"]
         schema["mode-specific response schema"]
         ts["todayContextLine()\nchanges every minute"]
     end
@@ -135,6 +135,7 @@ discouraged only through prose.
 | Turn | Additional fields |
 |---|---|
 | Greeting | None |
+| Activity sync | None |
 | Returning ordinary | None |
 | First Session ordinary | Incremental profile, memory, coaching-style, sports, injury, season, and quest setup actions |
 | First Session close | The same intake actions plus `coach_note` |
