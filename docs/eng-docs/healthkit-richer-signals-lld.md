@@ -17,7 +17,8 @@ and merge rules only — rationale lives in the main doc.
 ## 2. Zone integration (full samples, gap-aware)
 
 Input is the complete `[(Date, Double)]` from `fetchHeartRateSamples`, never the decimated
-curve. Midpoint integration as in PR #162, with three changes:
+curve. Midpoint integration as PR #162 had it, with three changes — shipped in
+`ios/CoachHQ/CoachHQ/Services/HRAnalysis.swift`:
 
 1. Each sample's owned interval is clamped to `GAP_THRESHOLD/2` on either side.
 2. The last sample extends toward `workoutEnd` by at most `GAP_THRESHOLD/2`.
@@ -59,7 +60,7 @@ reader judge fidelity without refetching HealthKit.
 
 **Guarantee:** global max and min HR always survive, so an interval session keeps its spikes.
 
-**Rejected:** uniform stride (PR #162's current `downsample` — silently drops peaks between
+**Rejected:** uniform stride (PR #162's `downsample` — silently drops peaks between
 strides); mean-per-bucket (erases intervals outright); LTTB (prettier curves, no extremum
 guarantee — the peak is the signal here, not the aesthetic).
 

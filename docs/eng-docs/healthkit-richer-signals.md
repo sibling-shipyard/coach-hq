@@ -1,10 +1,15 @@
 # HealthKit richer signals — day-grain ledger + HR stream sidecar
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-23 · ADR: 0027 · Issues: [#156](https://github.com/sibling-shipyard/coach-hq/issues/156)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23 · ADR: 0027 · Issues: [#156](https://github.com/sibling-shipyard/coach-hq/issues/156), [#501](https://github.com/sibling-shipyard/coach-hq/issues/501)
 
-Architecture, approved. Detail in [`healthkit-richer-signals-lld.md`](healthkit-richer-signals-lld.md);
-build order in [`../plans/ios-healthkit-rollout.md`](../plans/ios-healthkit-rollout.md). Extends ADR 0020
-(same grain logic, one level down) and ADR 0014 (uuid match key). Supersedes PR #162 as-shaped.
+Architecture, approved. Detail in [`healthkit-richer-signals-lld.md`](healthkit-richer-signals-lld.md).
+Extends ADR 0020 (same grain logic, one level down) and ADR 0014 (uuid match key). Supersedes
+PR #162 as-shaped.
+
+**Shipped:** the activity-grain half — HR timestamps kept, gap-aware zone integration, and the
+`streams/<uuid>.json` sidecar, rendered as the "how it was spent" ribbon (#497, #156).
+**Not shipped:** the day-grain ledger. Split out to #501 with its two open questions.
+**Dropped:** stream backfill for existing history — see below.
 
 ## Context
 
@@ -17,9 +22,9 @@ reconstructed from it. That already blocks us — `buildVo2Snapshot()` in
 `ui/client/src/components/home-warm/warmHomeSnapshots.ts:639` is hard-stubbed `"unavailable"`
 pending a real VO₂ series, and the widget wants `trend: TrendPointSnapshot[]`.
 
-Separately, PR #162 is 284 commits behind main and its widget/UI half has already landed
-there independently. Only the ingestion diff — `Activity.swift`, `ActivityMapper.swift`,
-`HealthKitSyncManager.swift` — is still live.
+PR #162 was the original attempt. Its widget/UI half had already landed on main
+independently, and only its ingestion diff was still worth taking; that diff was cherry-picked
+and corrected under #497. #162 and #427 are closed.
 
 ## Decision
 
@@ -39,8 +44,9 @@ flowchart LR
 
 Three write targets, three grains. `Activity` keeps the four new scalars **off** it entirely;
 `hr_stream` moves out of the activity record into a sidecar keyed by `activityId` (the
-`HKWorkout` uuid, ADR 0014). Daily rows are written for every day sync touches, workout or not,
-one file per month to keep commits small.
+`HKWorkout` uuid, ADR 0014). Daily rows would be written for every day sync touches, workout or
+not, one file per month to keep commits small — **deferred to #501**, so the third target does
+not exist yet.
 
 | Concern | Lives in | Read by |
 |---|---|---|
@@ -62,49 +68,80 @@ blob/tree API, so writes to new paths cost the same as overwrites. Price: the de
 one extra fetch, on demand. Idempotency is by `schema_version` + `generator` inside the file,
 not by file existence, so a future format change can re-run cleanly.
 
-**Backfill is a separate discovery path.** Normal sync derives its window from
-`syncState.hkLastSynced` (`HealthKitSyncManager.swift:201`), so a backfill riding that path
-would find nothing. It gets its own entry point querying an explicit range, writes `streams/`
-only, and never advances the watermark.
+**Backfill was dropped** — reasoning below. Had it been built it would have needed its own
+entry point: normal sync derives its window from `syncState.hkLastSynced`
+(`HealthKitSyncManager.swift:201`), so a backfill riding that path finds nothing.
 
-**Ship order.** Six phases with an explicit file/deps table in
-[`../plans/ios-healthkit-rollout.md`](../plans/ios-healthkit-rollout.md). PR #162 and PR #427 close
-when phase 0 lands.
+**What shipped.** ADR 0027, then ingestion (gap-aware zones + the stream sidecar, with the
+repo's first XCTest target) under #497, then the ribbon coloured from real heart rate under #156.
+The plan doc that sequenced it was deleted on completion — git history is the archive. The
+day-grain half is #501; stream backfill was dropped for the reasons above.
 
-**Fix before ingestion lands.** `fetchSleepHours` uses `.strictStartDate` on a fixed 9pm–8am
-window, so a sleep block starting 8:45pm is dropped rather than clipped — needs interval overlap
-(**P1**). HRV and resting HR use `.discreteAverage` across the whole day, folding in post-workout
-readings; the morning-window rule in the LLD replaces it (**P1**).
+**Carried into #501.** Two defects in PR #162's day-grain fetches were never fixed because that
+code was not taken: `fetchSleepHours` used `.strictStartDate` on a fixed 9pm–8am window, so a
+sleep block starting 8:45pm was dropped rather than clipped — it needs interval overlap. And HRV
+and resting HR used `.discreteAverage` across the whole day, folding in post-workout readings;
+the morning-window rule in the LLD replaces it. Both are **P1** for whoever picks up #501.
 
-**Signals in scope.** Seven of the eight authorized HealthKit types. `activeEnergyBurned` is
-already read (`ActivityMapper.swift:45` derives `calories`). `sleepAnalysis` returns here because
-ADR 0023 named this sync as the condition for its return — it was removed in #300 for being
-manual, not for being useless; the manual `user_data/coach/sleep_log.json` it supersedes is
-retired under #454. `stepCount` stays authorized and unread: nothing reads it, but it is the only
-signal a phone-only athlete produces, so the call belongs to #487.
+## What backfill would have bought, and why it was dropped
 
-**Zone boundaries are a separate hole.** Exact integration against wrong boundaries is
-confidently wrong. Thresholds are defined three times over (`Activity.swift:143` in device-local
-`UserDefaults`, `query_history.py:41`, `activities.ts:283`) and only the first is athlete-fixable.
-Tracked in #495, sequenced after phase 2a so heart-rate-reserve zones can derive from real
-`resting_hr`. Not in scope here.
+The plan carried a fourth phase: walk history and write sidecars for already-synced workouts.
+Measured against the real repo, it does not earn its build.
+
+| | Count | Source |
+|---|---|---|
+| Older activities | 876 | Garmin Forerunner 935 → Strava |
+| HealthKit activities | 36 | Apple Watch, all after 2026-07-31 |
+
+Two findings kill it:
+
+1. **HealthKit does not hold the Garmin data.** Those 876 came in through Strava, whose
+	ingestion was removed under ADR 0010. No amount of code recovers a real curve for 96% of the
+	history. Their `hr_zones` are also *correct* — computed by the Strava pipeline over the full
+	Garmin stream, never by the `duration / count` estimate this work replaced. The overcount was
+	only ever on the HealthKit path.
+2. **The value decays to nothing.** `ActivityListView.recentEntries` shows a 7-day window. Every
+	new workout gets a real ribbon at sync, so within a week of install that list is entirely
+	real without any backfill. The feature is a one-week head start on 16 activities.
+
+**Residual, accepted:** those 36 HealthKit activities keep slightly inflated zone totals — one
+measured 685s of Zone 1 reported as 896s. They are recent, and Coach weights recent sessions, so
+it is a real if small distortion. It self-corrects as new sessions accumulate. Revisit only if
+something downstream is shown to care.
 
 ## Done when
 
-1. `Σ zone_seconds + uncovered_seconds == elapsed_time` (±1s) — verified on a workout with a
-   deliberate mid-session sensor dropout, not just on full coverage.
-2. A sidecar with a >60s dropout renders as a visible gap, not an interpolated line.
-3. A rest day with no workout still produces a `health/daily/` row.
-4. A second sync on a day whose row already has `sleep_hours` but not `vo2_max` leaves
-   `sleep_hours` intact.
-5. `buildVo2Snapshot()` returns `status: "available"` with ≥2 trend points from real HK data.
-6. Decoding a pre-change activity JSON does not crash — no migration required.
-7. Backfill run twice at the same generator version produces zero commits on the second pass.
-8. `gen/aggregate.json` stays under 1MB with streams present (ADR 0020's bound holds).
+Shipped and verified:
+
+1. `Σ zone_seconds + uncovered_seconds == elapsed_time` (±1s) — asserted in
+	`ios/CoachHQ/CoachHQTests/HRAnalysisTests.swift` against a synthetic mid-session dropout, not
+	just full coverage.
+2. Global max and min HR survive decimation to 200 points — an interval session keeps its peaks.
+3. Uncovered time is excluded from zone totals rather than smeared into a zone. Confirmed on real
+	data: an 896s session with 211s uncovered reported 685s of Zone 1, where the old estimate
+	claimed 896s.
+4. Decoding a pre-change activity JSON does not crash — no migration required.
+5. `gen/aggregate.json` stays under 1MB with sidecars present (ADR 0020's bound holds).
+
+Note on rendering: a gap does **not** draw as a hole. The "how it was spent" ribbon carries the
+neighbouring zone across it, because a blank cell in a 29-cell ribbon reads as a rendering fault
+rather than as missing data. The honest accounting is in the legend beneath, which never counts
+uncovered time.
+
+Belonging to #501, not this doc:
+
+6. A rest day with no workout still produces a `health/daily/` row.
+7. A second sync on a day whose row already has `sleep_hours` but not `vo2_max` leaves
+	`sleep_hours` intact.
+8. `buildVo2Snapshot()` returns `status: "available"` with ≥2 trend points from real HK data.
 
 ## Deferred
 
-- P2 — zone seconds now span `elapsed`, not `moving`; state the choice, don't silently change it.
-- P2 — sleep window is fixed 9pm–8am; naps and late sleepers under-count.
-- P3 — backfill day-grain signals as well as HR streams (needs a per-day HK sweep, not a workout walk).
-- P3 — expose the HR curve to Coach as a summarized shape (drift, decoupling) rather than raw points.
+- P2 — zone seconds span `elapsed`, not `moving`. Stated here rather than changed silently.
+- P2 — zone *boundaries* are hardcoded in three places and only the iOS copy is athlete-editable
+	(#495). Exact integration against wrong thresholds is still wrong; it waits on #501 for real
+	`resting_hr`.
+- P2 — the 876 Garmin-sourced activities can never show a measured ribbon. Whether to mark them
+	visually as estimated is undecided.
+- P3 — expose the HR curve to Coach as a summarized shape (drift, decoupling) rather than raw
+	points.

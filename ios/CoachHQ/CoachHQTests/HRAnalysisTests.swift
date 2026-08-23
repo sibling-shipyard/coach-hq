@@ -228,9 +228,9 @@ final class HRAnalysisTests: XCTestCase {
 
 /// Round-trip tests for the sidecar the detail view reads.
 ///
-/// The view's own gap splitting is exercised through `HRAnalysis.decimate`, whose gap output is
-/// the input `HRCurveView` splits on — a curve drawn straight across a dropout is the one
-/// rendering bug that would put invented data on screen.
+/// Gap detection is exercised through `HRAnalysis.decimate`, whose gap output is what the
+/// ribbon carries a zone across — getting it wrong is the one bug that would put invented
+/// structure on screen.
 final class HRStreamDecodingTests: XCTestCase {
 
     func testSidecarSurvivesEncodeDecode() throws {
