@@ -903,9 +903,9 @@ button.wi-commitment-card:hover {
 
 .wi-plan-day__slot.is-run {
   border-style: solid;
-  border-color: rgba(127, 55, 40, 0.35);
-  color: var(--wi-rust);
-  background: rgba(127, 55, 40, 0.08);
+  border-color: color-mix(in srgb, var(--wi-run) 35%, transparent);
+  color: var(--wi-run);
+  background: color-mix(in srgb, var(--wi-run) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-strength {
@@ -1113,7 +1113,7 @@ button.wi-commitment-card:hover {
 
 .wi-training-card__legend i.is-run,
 .wi-activity-month__grid i.is-run {
-  background: var(--wi-rust);
+  background: var(--wi-run);
 }
 
 .wi-training-card__legend i.is-strength,
@@ -1481,9 +1481,12 @@ button.wi-commitment-card:hover {
   background: var(--wi-ink-faint);
 }
 
-.wi-session-row__vein.is-badminton,
-.wi-session-row__vein.is-run {
+.wi-session-row__vein.is-badminton {
   background: var(--wi-badminton);
+}
+
+.wi-session-row__vein.is-run {
+  background: var(--wi-run);
 }
 
 .wi-session-row__vein.is-calisthenics {
@@ -1558,9 +1561,12 @@ button.wi-commitment-card:hover {
   text-align: right;
 }
 
-.wi-session-row > b.is-badminton,
-.wi-session-row > b.is-run {
+.wi-session-row > b.is-badminton {
   color: var(--wi-badminton);
+}
+
+.wi-session-row > b.is-run {
+  color: var(--wi-run);
 }
 
 .wi-session-row > b.is-calisthenics {
@@ -2402,9 +2408,12 @@ button.wi-commitment-card:hover {
     font-size: 11px;
   }
 
-  .wi-open-engine__dose > div > b.is-badminton,
-  .wi-open-engine__dose > div > b.is-run {
+  .wi-open-engine__dose > div > b.is-badminton {
     color: var(--wi-badminton);
+  }
+
+  .wi-open-engine__dose > div > b.is-run {
+    color: var(--wi-run);
   }
 
   .wi-open-engine__dose > div > b.is-foundation {

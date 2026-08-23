@@ -1211,15 +1211,15 @@ function buildEngineSnapshot(activities, engine) {
     { id: "foundation", label: "Foundation", shortLabel: "FDN", color: sportMixHex("foundation") },
     { id: "calisthenics", label: "Calisthenics", shortLabel: "CAL", color: sportMixHex("calisthenics") },
     { id: "cycling", label: "Ride", shortLabel: "RIDE", color: sportMixHex("cycling") },
-    { id: "run", label: "Run", shortLabel: "RUN", color: sportMixHex("run") },
-    { id: "strength", label: "Strength", shortLabel: "STR", color: sportMixHex("strength") },
-    { id: "weight_training", label: "Weights", shortLabel: "WGT", color: sportMixHex("weight_training") },
-    { id: "hike", label: "Hike", shortLabel: "HIK", color: sportMixHex("hike") },
-    { id: "walk", label: "Walk", shortLabel: "WLK", color: sportMixHex("walk") },
-    { id: "cricket", label: "Cricket", shortLabel: "CRK", color: sportMixHex("cricket") },
-    { id: "football", label: "Football", shortLabel: "FBL", color: sportMixHex("football") },
-    { id: "workout", label: "Workout", shortLabel: "WKT", color: sportMixHex("workout") },
-    { id: "swim", label: "Swim", shortLabel: "SWM", color: sportMixHex("swim") }
+    { id: "run", label: "Run", shortLabel: "RUN", color: sportHex("run") },
+    { id: "strength", label: "Strength", shortLabel: "STR", color: sportHex("strength") },
+    { id: "weight_training", label: "Weights", shortLabel: "WGT", color: sportHex("weight_training") },
+    { id: "hike", label: "Hike", shortLabel: "HIK", color: sportHex("hike") },
+    { id: "walk", label: "Walk", shortLabel: "WLK", color: sportHex("walk") },
+    { id: "cricket", label: "Cricket", shortLabel: "CRK", color: sportHex("cricket") },
+    { id: "football", label: "Football", shortLabel: "FBL", color: sportHex("football") },
+    { id: "workout", label: "Workout", shortLabel: "WKT", color: sportHex("workout") },
+    { id: "swim", label: "Swim", shortLabel: "SWM", color: sportHex("swim") }
   ];
   const mix = mixDefinition.map((item) => ({
     ...item,
