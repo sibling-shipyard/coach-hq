@@ -118,6 +118,14 @@ users). When a P2 becomes an issue, label it by the roadmap scale — never carr
 
 **Docs:** One page max per `kdb/doc-style.md`. No long plans in issues or PR bodies.
 
+**Comments: write the constraint, not the chronology.** A comment about what changed earns its
+place only when the past still binds the present — *"optional because history files written before
+#292 have no `vs_usual`"* stops the next agent deleting that optional. A comment that only records
+what happened does not: git, `kdb/decisions/`, and `SOUL_HISTORY.md` are the archive. Test: **would
+this change what a reader does?** If it only says what the code used to be, cut it. `legacy`,
+`no longer`, `used to`, `now uses`, `existing`, `for backward compatibility` are the tells — grep
+them in review. They also rot: "new" and "existing" stop being true on the next change.
+
 **Doc upkeep — before opening a PR:**
 1. Update any eng-doc your change invalidates (`grep -rl <changed-path> docs/eng-docs/` finds them) and bump its `Verified:` date.
 2. Changed a soul layer or a composed build? Add a version entry to `docs/eng-docs/SOUL_HISTORY.md` that matches that file's **post-cutover** contract (Superpower + short scene + 2–3 bullets + Why, ~12 lines). Archive below the cutover is grandfathered. Called out on its own because the grep above cannot find it — a SOUL version change need not touch any path.
