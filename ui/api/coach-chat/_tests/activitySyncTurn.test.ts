@@ -61,8 +61,11 @@ vi.mock("../_lib/chatThreads.js", async (importOriginal) => {
 import {
   ACTIVITY_SYNC_USER_TEXT,
   activitySyncBatchId,
+  commitActivitySyncHistory,
+  findThreadForActivitySyncBatch,
 } from "../_lib/activitySync.js";
 import { handleActivitySync } from "../_lib/activitySyncTurn.js";
+import type { ChatThread } from "../_lib/chatThreads.js";
 import {
   isActivitySyncRequest,
   parseTurnRequest,
@@ -115,9 +118,21 @@ function stubVerifiedBatch() {
   });
 }
 
+function defaultCommitImpl(writes: { resolve?: () => Promise<string> }[]) {
+  return (async () => {
+    for (const write of writes) await write.resolve?.();
+    return { commitSha: "commit-sha" };
+  })();
+}
+
+function matchingBatchThreads(threads: ChatThread[], batchId: string): ChatThread[] {
+  return threads.filter((thread) => findThreadForActivitySyncBatch([thread], batchId));
+}
+
 describe("activity-sync turn contract", () => {
   beforeEach(() => {
-    commitFilesAtomic.mockClear();
+    commitFilesAtomic.mockReset();
+    commitFilesAtomic.mockImplementation(defaultCommitImpl);
     askGemini.mockClear();
     getFileRaw.mockReset();
     getFileRaw.mockResolvedValue(null);
@@ -356,5 +371,110 @@ describe("activity-sync turn contract", () => {
         (message: { role: string }) => message.role === "user",
       ),
     ).toBe(false);
+  });
+
+  it("commitActivitySyncHistory does not add a thread when the batch already exists", () => {
+    const batchId = activitySyncBatchId([ID_A]);
+    const existing: ChatThread = {
+      id: "t-existing",
+      createdAt: 1,
+      title: "Easy Run",
+      preview: "Already said.",
+      messages: [
+        { id: "d-1", role: "divider", label: "TODAY" },
+        {
+          id: "c-1",
+          role: "coach",
+          paragraphs: ["Already said."],
+          attachments: [
+            {
+              version: 1,
+              kind: "synced_activity_list",
+              batch_id: batchId,
+              activities: [],
+            },
+          ],
+        },
+      ],
+    };
+    const incoming: ChatThread = {
+      id: "t-new",
+      createdAt: 2,
+      title: "Easy Run",
+      preview: "Second reply.",
+      messages: [
+        { id: "d-2", role: "divider", label: "TODAY" },
+        {
+          id: "c-2",
+          role: "coach",
+          paragraphs: ["Second reply."],
+          attachments: [
+            {
+              version: 1,
+              kind: "synced_activity_list",
+              batch_id: batchId,
+              activities: [],
+            },
+          ],
+        },
+      ],
+    };
+    const result = commitActivitySyncHistory([existing], batchId, incoming);
+    expect(result.duplicate).toBe(true);
+    expect(result.thread).toBe(existing);
+    expect(result.threads).toEqual([existing]);
+    expect(result.threads).toHaveLength(1);
+  });
+
+  it("keeps one thread when two concurrent writes race the same batch", async () => {
+    stubVerifiedBatch();
+    const batchId = activitySyncBatchId([ID_A]);
+    let storedThreads: ChatThread[] = [];
+    loadChatHistory.mockImplementation(async () => ({
+      version: 1,
+      threads: structuredClone(storedThreads),
+    }));
+
+    let writeChain = Promise.resolve();
+    commitFilesAtomic.mockImplementation(async (writes: { resolve?: () => Promise<string> }[]) => {
+      const run = writeChain.then(async () => {
+        for (const write of writes) {
+          const content = await write.resolve?.();
+          if (typeof content === "string") {
+            const parsed = JSON.parse(content) as { threads?: ChatThread[] };
+            storedThreads = parsed.threads ?? [];
+          }
+        }
+        return { commitSha: "commit-sha" };
+      });
+      writeChain = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
+    });
+
+    const parsed = await parseBody({
+      action: "activity_sync",
+      activity_ids: [ID_A],
+    });
+    if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
+      throw new Error("expected an activity_sync request");
+    }
+
+    const [first, second] = await Promise.all([
+      handleActivitySync("owner/repo", "token", "key", parsed),
+      handleActivitySync("owner/repo", "token", "key", parsed),
+    ]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(commitFilesAtomic).toHaveBeenCalledTimes(2);
+
+    const bodies = [await first.json(), await second.json()];
+    expect(matchingBatchThreads(storedThreads, batchId)).toHaveLength(1);
+    expect(
+      bodies.some((body) => body.duplicate === true) ||
+        matchingBatchThreads(storedThreads, batchId).length === 1,
+    ).toBe(true);
   });
 });

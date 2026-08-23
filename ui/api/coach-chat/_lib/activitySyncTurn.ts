@@ -1,5 +1,8 @@
 /** Persist-on-sync Coach turn: one committed thread per verified activity batch. */
-import { commitFilesAtomic } from "../../_lib/githubGitData.js";
+import {
+  commitFilesAtomic,
+  type ResolvedFileWrite,
+} from "../../_lib/githubGitData.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -9,7 +12,17 @@ import {
   resolveCoachChatBranch,
 } from "./coachChatFiles.js";
 import { todayDateString, todayDividerLabel, withComputedDayOffsets } from "./coachDay.js";
-import { appendConversationTurn, loadChatHistory, type ChatMessage } from "./chatThreads.js";
+import {
+  appendConversationTurn,
+  CHAT_FILE_PATH,
+  loadChatHistory,
+  sanitizeTitle,
+  serializeChatHistory,
+  THREAD_TITLE_MAX_CHARS,
+  truncateTitle,
+  type ChatMessage,
+  type ChatThread,
+} from "./chatThreads.js";
 import { renderCoachContext, renderQuestContext } from "./coachContext.js";
 import { askGemini } from "./geminiClient.js";
 import {
@@ -18,11 +31,11 @@ import {
   combineExtraContext,
 } from "./coachPromptText.js";
 import { CURRENT_WEEK_PATH } from "./coachWeekFiles.js";
-import { buildChatWrite } from "./turnWrites/chatWrite.js";
 import {
   ACTIVITY_SYNC_USER_TEXT,
   activitySyncBatchId,
   coachReplyText,
+  commitActivitySyncHistory,
   findThreadForActivitySyncBatch,
   loadVerifiedActivities,
   syncedActivityListAttachment,
@@ -155,16 +168,28 @@ export async function handleActivitySync(
       label: todayDividerLabel(timezone),
     },
   );
-  const { chatWrite, latestThreads, finalThreadId } = buildChatWrite({
-    repo,
-    token,
-    traceId: `sync-${now.toString(36)}`,
-    now,
-    threadId: undefined,
-    trimmed: title,
-    allMessages,
-    replyText,
-  });
+  const newThread: ChatThread = {
+    id: `t-${now}`,
+    createdAt: now,
+    title: truncateTitle(sanitizeTitle(title), THREAD_TITLE_MAX_CHARS),
+    preview: replyText.slice(0, 80),
+    messages: allMessages,
+  };
+  let writeOutcome:
+    | { threads: ChatThread[]; duplicate: boolean; thread: ChatThread }
+    | undefined;
+  const chatWrite: ResolvedFileWrite = {
+    path: CHAT_FILE_PATH,
+    resolve: async () => {
+      const fresh = await loadChatHistory(repo, token);
+      writeOutcome = commitActivitySyncHistory(fresh.threads, batchId, newThread);
+      return serializeChatHistory(
+        writeOutcome.threads,
+        new Date().toISOString(),
+        `sync-${now.toString(36)}`,
+      );
+    },
+  };
 
   try {
     const result = await commitFilesAtomic(
@@ -176,12 +201,19 @@ export async function handleActivitySync(
         token,
       },
     );
+    const outcome = writeOutcome;
+    if (!outcome) {
+      return Response.json(
+        { error: "Coach replied but saving failed: history write did not resolve" },
+        { status: 502 },
+      );
+    }
     return Response.json({
-      reply: replyText,
+      reply: outcome.duplicate ? coachReplyText(outcome.thread) : replyText,
       closed: false,
-      duplicate: false,
-      threadId: finalThreadId,
-      threads: withComputedDayOffsets(latestThreads, timezone),
+      duplicate: outcome.duplicate,
+      threadId: outcome.thread.id,
+      threads: withComputedDayOffsets(outcome.threads, timezone),
       repoSha: result.commitSha,
       profileComplete,
     });

@@ -5,11 +5,13 @@ import {
   listDirectory,
   parseJsonOrNull,
 } from "./coachChatFiles.js";
-import type {
-  ChatAttachment,
-  ChatThread,
-  SyncedActivityListAttachment,
-  SyncedActivityRow,
+import {
+  applyRetention,
+  mergeThreadToFront,
+  type ChatAttachment,
+  type ChatThread,
+  type SyncedActivityListAttachment,
+  type SyncedActivityRow,
 } from "./chatThreads.js";
 
 export interface ActivitySyncRequest {
@@ -118,6 +120,23 @@ export function findThreadForActivitySyncBatch(
       );
     }),
   );
+}
+
+/** Write-time merge: one batch_id keeps the first thread; a retry must not add another. */
+export function commitActivitySyncHistory(
+  threads: ChatThread[],
+  batchId: string,
+  newThread: ChatThread,
+): { threads: ChatThread[]; duplicate: boolean; thread: ChatThread } {
+  const existing = findThreadForActivitySyncBatch(threads, batchId);
+  if (existing) {
+    return { threads, duplicate: true, thread: existing };
+  }
+  return {
+    threads: applyRetention(mergeThreadToFront(threads, newThread)),
+    duplicate: false,
+    thread: newThread,
+  };
 }
 
 export function coachReplyText(thread: ChatThread): string {
