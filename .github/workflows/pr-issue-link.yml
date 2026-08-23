@@ -2,6 +2,9 @@ name: PR issue link
 
 # Project board stays fresh only when every PR links its issue. Mid-stack uses Refs;
 # finishing PR uses Fixes (CONVENTIONS § PR Body). This check only requires one of them.
+#
+# Also enforces AGENTS.md § Doc upkeep rule 3: a PR whose `Plan delete?` answer is Yes
+# must actually delete a docs/plans/ file (#521) - the rule wasn't holding on its own.
 
 on:
   pull_request:
@@ -16,3 +19,9 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: python3 kdb/scripts/check_pr_issue_link.py
+      - name: Enforce plan-delete-on-last-PR
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 kdb/scripts/check_plan_delete.py
