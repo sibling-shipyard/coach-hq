@@ -5,6 +5,7 @@
  * empty/opt-in state rather than guessing.
  */
 import { type Activity, getTrainingCategory, parseLocal } from "@/lib/activities";
+import { zoneRamp } from "@/lib/wiTokens";
 import {
   getAllGames,
   getRankedGames,
@@ -551,7 +552,7 @@ export interface EffortSnapshot {
 
 // Z5 stays inside the warm palette — the alarm indigo (--wi ink-alarm) is
 // reserved for real "something's wrong" states and must never appear here.
-const ZONE_COLORS = ["#adc2b7", "#315a4a", "#a8702c", "#7f3728", "#4a241a"];
+const ZONE_COLORS = zoneRamp();
 
 function buildEffort(sessions: BadmintonSession[]): EffortSnapshot {
   const totals = [0, 0, 0, 0, 0];

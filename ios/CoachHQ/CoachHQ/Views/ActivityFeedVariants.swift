@@ -46,8 +46,7 @@ struct ZoneDots: View {
     let zones: [String: HRZoneEntry]?
 
     private var fractions: [Double] {
-        let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-        let vals = order.map { zones?[$0]?.seconds ?? 0 }
+        let vals = HRZone.keys.map { zones?[$0]?.seconds ?? 0 }
         let total = vals.reduce(0, +)
         guard total > 0 else { return Array(repeating: 0, count: 5) }
         return vals.map { $0 / total }
@@ -87,8 +86,7 @@ struct CompactZoneBar: View {
     }
 
     private var fractions: [Double] {
-        let order = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-        let vals = order.map { zones?[$0]?.seconds ?? 0 }
+        let vals = HRZone.keys.map { zones?[$0]?.seconds ?? 0 }
         let total = vals.reduce(0, +)
         guard total > 0 else { return [] }
         return vals.map { $0 / total }

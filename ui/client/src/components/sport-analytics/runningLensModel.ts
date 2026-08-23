@@ -5,6 +5,7 @@
  * empty/opt-in state rather than guessing.
  */
 import { type Activity, getTrainingCategory, parseLocal } from "@/lib/activities";
+import { zoneRamp } from "@/lib/wiTokens";
 import type { EffortSnapshot } from "./badmintonLensModel";
 
 export type RunningScope = "8w" | "52w";
@@ -20,7 +21,7 @@ const STANDARD_DISTANCES: Array<{ label: string; meters: number; tolerance: numb
   { label: "HALF · 21K", meters: 21097.5, tolerance: 0.04 },
 ];
 
-const ZONE_COLORS = ["#adc2b7", "#315a4a", "#a8702c", "#7f3728", "#4a241a"];
+const ZONE_COLORS = zoneRamp();
 
 export interface RunSession {
   activity: Activity;

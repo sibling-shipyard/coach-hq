@@ -36,11 +36,11 @@ HISTORY_DIR = hist_dir(REPO_DIR)
 
 _HR_ZONE_BOUNDARIES = load_hr_zones(REPO_DIR)
 HR_ZONES = [
-    ("Zone 1", None, _HR_ZONE_BOUNDARIES[0]),  # Recovery
-    ("Zone 2", _HR_ZONE_BOUNDARIES[0] + 1, _HR_ZONE_BOUNDARIES[1]),  # Aerobic base
-    ("Zone 3", _HR_ZONE_BOUNDARIES[1] + 1, _HR_ZONE_BOUNDARIES[2]),  # Aerobic
-    ("Zone 4", _HR_ZONE_BOUNDARIES[2] + 1, _HR_ZONE_BOUNDARIES[3]),  # Threshold
-    ("Zone 5", _HR_ZONE_BOUNDARIES[3] + 1, None),  # Max effort
+    ("Zone 1", None, _HR_ZONE_BOUNDARIES[0]),
+    ("Zone 2", _HR_ZONE_BOUNDARIES[0] + 1, _HR_ZONE_BOUNDARIES[1]),
+    ("Zone 3", _HR_ZONE_BOUNDARIES[1] + 1, _HR_ZONE_BOUNDARIES[2]),
+    ("Zone 4", _HR_ZONE_BOUNDARIES[2] + 1, _HR_ZONE_BOUNDARIES[3]),
+    ("Zone 5", _HR_ZONE_BOUNDARIES[3] + 1, None),
 ]
 
 

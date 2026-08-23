@@ -15,4 +15,8 @@ export function workoutHex(id: WorkoutTokenId): string {
   return tokens.workouts[id].hex;
 }
 
+export function zoneRamp(): string[] {
+  return tokens.zones.map((zone) => zone.hex);
+}
+
 export { tokens };
