@@ -60,9 +60,19 @@ class HealthKitSyncManager: ObservableObject {
     static let lookbackWindowDays = 14
 
     private let healthStore = HKHealthStore()
+    private let hrZoneStore: HRZoneStore
     private var apiClient: GitHubAPIClient?
     private var widgetStore: WidgetSnapshotStore?
     private var observerRegistered = false
+    private(set) var pendingHRZoneFile: (path: String, data: Data)?
+
+    init() {
+        self.hrZoneStore = HRZoneStore()
+    }
+
+    init(hrZoneStore: HRZoneStore) {
+        self.hrZoneStore = hrZoneStore
+    }
 
     // HealthKit data types we request access to
     private var readTypes: Set<HKObjectType> {
@@ -172,22 +182,47 @@ class HealthKitSyncManager: ObservableObject {
 
     // MARK: - Sync
 
+    func saveHRZoneSettings(custom: Bool, config: HRZoneConfig) async {
+        do {
+            let file = try hrZoneStore.settingsFile(custom: custom, config: config)
+            guard !isSyncing else {
+                pendingHRZoneFile = file
+                return
+            }
+            await syncNewWorkouts(extraFiles: [file])
+        } catch {
+            syncError = "Zone upper limits must increase from Zone 1 through Zone 4."
+        }
+    }
+
     /// Fetches new workouts since last sync and commits them to GitHub in a single commit.
-    /// Pass `extraFiles` to fold additional files into the same commit (no current caller does -
-    /// onboarding used to via a now-removed user_data/profile.md write, see B1). If there are no
-    /// new workouts but `extraFiles` is non-empty, commits those files alone.
+    /// Pass `extraFiles` to fold settings writes into the same commit. If there are no new
+    /// workouts but settings changed, commits those files alone.
     func syncNewWorkouts(
         extraFiles: [(path: String, data: Data)] = [],
         importing: ImportRequest? = nil
     ) async {
         guard let apiClient = apiClient else { return }
-        guard !isSyncing else { return }
+        guard !isSyncing else {
+            if let latestZoneFile = extraFiles.last(where: { $0.path == HRZoneStore.path }) {
+                pendingHRZoneFile = latestZoneFile
+            }
+            return
+        }
 
         isSyncing = true
         syncError = nil
         syncProgress = 0.02
 
         do {
+            var roundExtraFiles = extraFiles
+            if !roundExtraFiles.contains(where: { $0.path == HRZoneStore.path }),
+               let seed = try await hrZoneStore.prepareForSync(
+                   read: { try await apiClient.readFile(path: HRZoneStore.path) }
+               ) {
+                roundExtraFiles.append(seed)
+            }
+
             // sync_state.json doesn't exist on a fresh repo — treat .notFound as first sync.
             var syncState: SyncState
             do {
@@ -224,17 +259,20 @@ class HealthKitSyncManager: ObservableObject {
                 rawWorkouts = rawWorkouts.filter { importing.uuids.contains($0.uuid.uuidString) }
             }
             guard !rawWorkouts.isEmpty else {
-                if !extraFiles.isEmpty {
-                    // No new workouts but extra files need committing (e.g. profile on first sync).
-                    syncProgressText = "Saving profile…"
-                    try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
+                if !roundExtraFiles.isEmpty {
+                    // No new workouts, but repo-backed settings still need committing.
+                    syncProgressText = "Saving settings…"
+                    try await apiClient.commitFiles(
+                        roundExtraFiles,
+                        message: "data: update repo settings"
+                    )
                 }
                 syncProgressText = ""
                 syncProgress = 0
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
-                isSyncing = false
+                await finishSyncAndDrainPendingZoneSave()
                 return
             }
 
@@ -378,17 +416,20 @@ class HealthKitSyncManager: ObservableObject {
             }
 
             guard !filesToCommit.isEmpty else {
-                if !extraFiles.isEmpty {
-                    // All workouts were deduped but extra files still need committing.
-                    syncProgressText = "Saving profile…"
-                    try await apiClient.commitFiles(extraFiles, message: "onboarding: athlete profile")
+                if !roundExtraFiles.isEmpty {
+                    // All workouts were deduped, but repo-backed settings still need committing.
+                    syncProgressText = "Saving settings…"
+                    try await apiClient.commitFiles(
+                        roundExtraFiles,
+                        message: "data: update repo settings"
+                    )
                 }
                 syncProgressText = ""
                 syncProgress = 0
                 lastRoundSynced = [:]
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
-                isSyncing = false
+                await finishSyncAndDrainPendingZoneSave()
                 return
             }
 
@@ -400,7 +441,7 @@ class HealthKitSyncManager: ObservableObject {
                 syncState.hkLastSynced = ISO8601DateFormatter().string(from: Date())
             }
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
-            filesToCommit.append(contentsOf: extraFiles)
+            filesToCommit.append(contentsOf: roundExtraFiles)
 
             // Workouts, not files. Each one now commits a hist/ record *and* a streams/
             // sidecar, so counting files double-counts every activity.
@@ -427,7 +468,7 @@ class HealthKitSyncManager: ObservableObject {
             lastSyncResult = SyncResult(outcome: .synced(n), id: UUID())
             // Release the lock before the post-commit refresh so a second syncNewWorkouts()
             // call (e.g. from SyncStepView tapping Proceed) isn't blocked for up to 5 min.
-            isSyncing = false
+            await finishSyncAndDrainPendingZoneSave()
 
             // Home reads live snapshots from dashboard_snapshot.json; the user-repo sync workflow
             // regenerates that file ~30s after this commit. Run in background — don't hold
@@ -461,7 +502,17 @@ class HealthKitSyncManager: ObservableObject {
             lastSyncResult = SyncResult(outcome: .failed(friendly), id: UUID())
         }
 
+        await finishSyncAndDrainPendingZoneSave()
+    }
+
+    private func finishSyncAndDrainPendingZoneSave() async {
         isSyncing = false
+        guard let pendingHRZoneFile else { return }
+        self.pendingHRZoneFile = nil
+
+        // Drain before yielding the manager to another caller so an older queued save cannot
+        // race a newer direct save and overwrite it afterward.
+        await syncNewWorkouts(extraFiles: [pendingHRZoneFile])
     }
 
     /// Replaces only this round's cache entries after the downstream workflow has
