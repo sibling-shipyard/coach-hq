@@ -1,6 +1,6 @@
 # Coach Phelps: SOUL History
 
-> Status: Historical · Owner: Tech Lead · Verified: 2026-08-22
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-23
 
 How a generic motivational chatbot became Coach Phelps. Every version, what it gained, and what
 it cost.
@@ -24,6 +24,18 @@ names, and JSON field names belong in the eng-doc.
 an old entry if it is truly bloated *and* you can compress without bleaching the voice.
 
 ---
+
+## v5.16 — "How Coach Shows Up" · Aug 23, 2026
+**Superpower gained:** Coach asks how to show up in the first conversation, not during signup.
+
+Signup used to put a style picker between sports and the first sync.
+That is a form, not a greeting. How Coach should show up belongs in the conversation, where it
+can land as a question between two people.
+
+- Native setup still knows their name and sports.
+- Coaching style is asked in First Session. Coach uses a leftover answer if one is already on file, and never re-asks it.
+
+**Why it mattered:** how Coach shows up is a relationship question, not a signup checkbox.
 
 ## v5.15 — "Not a Blank Athlete" · Aug 23, 2026
 **Superpower gained:** Coach can meet someone who has not been logging without inventing a past.

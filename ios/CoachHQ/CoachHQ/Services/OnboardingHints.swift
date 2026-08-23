@@ -1,7 +1,9 @@
 import Foundation
 
-/// Name, sports, and coaching style collected in native onboarding, cached locally until the
-/// server records them during the First Session Protocol greeting.
+/// Name and sports collected in native onboarding, cached locally until the server records
+/// them during the First Session Protocol greeting. Coaching style is asked in First Session
+/// chat, not native setup. A leftover cached style from testers who already picked may still
+/// be present and should still load.
 ///
 /// UserDefaults, not Keychain - this is a soft hint, not athlete identity. No TTL/expiry:
 /// UserDefaults persists indefinitely on-device until cleared, and there's no harm in a hint
@@ -19,10 +21,6 @@ enum OnboardingHints {
 
     static func save(sports: [String]) {
         UserDefaults.standard.set(sports, forKey: sportsKey)
-    }
-
-    static func save(coachingStyle: String) {
-        UserDefaults.standard.set(coachingStyle, forKey: coachingStyleKey)
     }
 
     static func load() -> (name: String?, sports: [String], coachingStyle: String?)? {

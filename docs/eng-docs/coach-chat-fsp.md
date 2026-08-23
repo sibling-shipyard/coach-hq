@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
 
 ## Context
 
@@ -23,7 +23,6 @@ sequenceDiagram
     participant Gemini
     Native->>Hints: save(name) — name prompt screen
     Native->>Hints: save(sports) — season step
-    Native->>Hints: save(coaching_style) — coaching-style step
     Native->>App: onboardingPhase = .complete
     App->>Server: GET coach-chat-profile-status
     Server-->>App: profileComplete: false
@@ -52,12 +51,14 @@ sequenceDiagram
 ### 1. Native onboarding hands off deterministic fields
 
 `ios/CoachHQ/CoachHQ/Views/PersonalizeView.swift`'s name prompt and
-`ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift`'s sports and coaching-style steps cache
-what they collect locally via `OnboardingHints` (UserDefaults, no TTL). The first greet sends
-those fields to the backend, which writes name to `profile.json` and sports/coaching style to
-`memory.json` in a dedicated atomic commit before Gemini runs. Gemini receives the same values as
-same-request context so its opener can use the athlete's name without waiting for a second repo
-read. The native flow does not collect a goal; Coach always asks that in chat. If hints are
+`ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift`'s sports step cache
+what they collect locally via `OnboardingHints` (UserDefaults, no TTL). Native does not collect
+coaching style; Coach asks in chat when it is absent. Hints may still include a leftover style
+from testers who already picked. The first greet sends those fields to the backend, which writes
+name to `profile.json` and sports/coaching style to `memory.json` in a dedicated atomic commit
+before Gemini runs — whatever hints arrive still get committed. Gemini receives the same values
+as same-request context so its opener can use the athlete's name without waiting for a second
+repo read. The native flow does not collect a goal; Coach always asks that in chat. If hints are
 absent, the protocol asks for the missing fields normally.
 
 ### 2. Routing: live check, not thread existence
@@ -80,7 +81,8 @@ hints.
 First Session uses the same endpoint as day-to-day chat, with two narrow server differences:
 `handleGreet()` commits native onboarding fields directly, and ordinary turns may commit FSP facts
 before the conversation closes. `askGemini()`'s greeting-mode call includes
-`onboardingHintsContext()` so the opener can use the just-recorded name, sports, and coaching style.
+`onboardingHintsContext()` so the opener can use the recorded name and sports (and style only if
+a leftover hint is present).
 The prompt tells Coach not to re-ask or emit action fields for those recorded values.
 
 The shared intake questions live in `B_engine.md`'s `s10_first_session_body` section. BYOB carries
