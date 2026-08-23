@@ -109,6 +109,13 @@ export interface CoachReadSnapshot {
   evidence?: string[];
 }
 
+export interface CoachMessageSnapshot {
+  id: string;
+  created_at: string;
+  body: string;
+  conversation_seed_id: string;
+}
+
 export interface CommitmentSnapshot {
   id: "cycling" | "badminton" | "calisthenics" | "foundation";
   label: string;
@@ -246,6 +253,7 @@ export interface BuildPhaseSnapshot {
 }
 
 export interface WarmHomeSnapshots {
+  coachMessage?: CoachMessageSnapshot;
   engine: EngineSnapshot;
   quest: QuestSnapshot;
   coachRead: CoachReadSnapshot;

@@ -10,6 +10,7 @@ import { buildWarmHomeSnapshots } from "./warmHomeSnapshots";
 import {
   BuildPhaseCard,
   CaloriesCard,
+  CoachMessageCard,
   CoachReadCard,
   DesktopHomeGrid,
   EngineCard,
@@ -21,6 +22,7 @@ import {
   Vo2Card,
   WeeklyPlanCard,
 } from "./WarmInstrumentWidgets";
+import type { CoachMessageSnapshot } from "./snapshots";
 import "./warm-instrument.css";
 
 interface WarmInstrumentHomeProps {
@@ -29,6 +31,7 @@ interface WarmInstrumentHomeProps {
   syncStatus: SyncStatusPayload;
   currentWeek?: CurrentWeekContract;
   dataMode?: "reference" | "live";
+  coachMessage?: CoachMessageSnapshot;
 }
 
 export {
@@ -47,6 +50,7 @@ export function WarmInstrumentHome({
   syncStatus,
   currentWeek,
   dataMode = "reference",
+  coachMessage,
 }: WarmInstrumentHomeProps) {
   const snapshots = useMemo(() => {
     const effectiveWeek = currentWeek ?? (dataMode === "live"
@@ -86,6 +90,8 @@ export function WarmInstrumentHome({
             Training data may be incomplete. Check the latest sync before acting on the signal.
           </div>
         ) : null}
+
+        {coachMessage ? <CoachMessageCard message={coachMessage} /> : null}
 
         <DesktopHomeGrid>
           <div className="wi-hero-row">

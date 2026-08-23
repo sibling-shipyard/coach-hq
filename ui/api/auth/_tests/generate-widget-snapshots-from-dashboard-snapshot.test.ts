@@ -1,6 +1,59 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { needsLiveRecomputation, splitLedgerAsChallenge } from "../_lib/generate-widget-snapshots-from-dashboard-snapshot.js";
+import {
+  needsLiveRecomputation,
+  projectLatestCoachMessage,
+  splitLedgerAsChallenge,
+} from "../_lib/generate-widget-snapshots-from-dashboard-snapshot.js";
 
+const VALID_LATEST_MESSAGE = {
+  schema_version: 1,
+  message: {
+    id: "cm-11111111-2222-4333-8444-555555555555",
+    created_at: "2026-08-23T09:00:00.000Z",
+    activity_ids: ["healthkit:AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE"],
+    body: "You held that together late.  That's the part I noticed.",
+    conversation_seed_id: "local-proactive-cm-11111111-2222-4333-8444-555555555555",
+  },
+};
+
+describe("projectLatestCoachMessage", () => {
+  it("projects exactly the public fields and preserves body text byte-for-byte", () => {
+    const projected = projectLatestCoachMessage(JSON.stringify(VALID_LATEST_MESSAGE));
+    expect(projected).toEqual({
+      id: VALID_LATEST_MESSAGE.message.id,
+      created_at: VALID_LATEST_MESSAGE.message.created_at,
+      body: VALID_LATEST_MESSAGE.message.body,
+      conversation_seed_id: VALID_LATEST_MESSAGE.message.conversation_seed_id,
+    });
+    expect(Object.keys(projected ?? {})).toEqual([
+      "id",
+      "created_at",
+      "body",
+      "conversation_seed_id",
+    ]);
+    expect(projected?.body).toBe(VALID_LATEST_MESSAGE.message.body);
+  });
+
+  it("omits a null message", () => {
+    expect(projectLatestCoachMessage({ schema_version: 1, message: null })).toBeUndefined();
+  });
+
+  it("omits a missing message file", () => {
+    expect(projectLatestCoachMessage(undefined)).toBeUndefined();
+  });
+
+  it.each([
+    "not json",
+    { schema_version: 1, message: { ...VALID_LATEST_MESSAGE.message, body: "" } },
+    {
+      schema_version: 1,
+      message: { ...VALID_LATEST_MESSAGE.message, conversation_seed_id: "another-thread" },
+    },
+    { ...VALID_LATEST_MESSAGE, unexpected: true },
+  ])("fails closed for malformed latest-message data", (value) => {
+    expect(projectLatestCoachMessage(value)).toBeUndefined();
+  });
+});
 it("adapts a complete split ledger for the existing widget models", () => {
   const challenge = splitLedgerAsChallenge({
     seasons: { version: 1, _meta: { updated_at: "", updated_by: "", trace_id: "" }, current_season_id: "s1", seasons: [{ id: "s1", name: "Build", start_date: "2026-01-01", end_date: "2026-12-31", status: "active" }] },

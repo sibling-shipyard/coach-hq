@@ -6,6 +6,7 @@ export type {
   ActivityMonthSnapshot,
   BuildPhaseSnapshot,
   CaloriesSnapshot,
+  CoachMessageSnapshot,
   CoachReadSnapshot,
   CommitmentSnapshot,
   DoseRowSnapshot,
@@ -31,6 +32,7 @@ export type {
 export { DEFAULT_SPORT_ANALYTICS_LINKS, InstrumentHeader } from "./InstrumentHeader";
 export { BuildPhaseCard } from "./widgets/BuildPhaseCard";
 export { CaloriesCard } from "./widgets/CaloriesCard";
+export { CoachMessageCard } from "./widgets/CoachMessageCard";
 export { CoachReadCard } from "./widgets/CoachReadCard";
 export { DesktopHomeGrid } from "./widgets/DesktopHomeGrid";
 export { EngineCard } from "./widgets/EngineCard";

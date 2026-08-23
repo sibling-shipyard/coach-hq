@@ -10,8 +10,8 @@ Warm Instrument treats training data like a well-loved analog instrument panel: 
 
 ## Global interaction principles (v1 — final)
 
-1. **Hover reveals, tap does nothing.** In this release cards are read-only glances. All hover affordances (scrubs, tooltips) are web-only enrichments; iOS gets the same visual state without them. Deep-links are deferred — do not build tap targets.
-2. **The exceptions are deliberate:** long-press → jiggle/size-swap (iOS home), drag plan chips between days, swipe session row → Edit (never Delete — deletion lives in session detail only), heatmap month paging arrows.
+1. **Hover reveals, tap usually does nothing.** Cards are read-only glances unless they are one of the named exceptions below. All hover affordances (scrubs, tooltips) are web-only enrichments; iOS gets the same visual state without them. Do not infer new tap targets from the proactive Coach exception.
+2. **The exceptions are deliberate:** the Home-only proactive Coach message deep-links to its exact local chat seed, long-press → jiggle/size-swap (iOS home), drag plan chips between days, swipe session row → Edit (never Delete — deletion lives in session detail only), heatmap month paging arrows.
 3. **Data states are always live.** A widget never shows placeholder numbers; with no data it collapses to its opt-in/empty state.
 4. **One alarm color.** The cold indigo-grey (#e4e4ec / #4b5578) flood is the only "something's wrong" treatment. It should feel like a cold barbell, not a red alert. Never stack alarms.
 5. **Motion is physical and brief.** Lifts of 3–4px on hover, 150–250ms ease, jiggle at ±1.4°. Nothing loops for attention.
@@ -72,6 +72,11 @@ Warm Instrument treats training data like a well-loved analog instrument panel: 
 - **Meaning:** the human voice of the system — the only widget in italic serif throughout, on the flat paper tint (#f3eee3), signed. It interprets the day's numbers so no other widget has to editorialize.
 - **Interaction:** none in v1. The thread lives in the coach tab.
 - **Reuse:** never truncate mid-sentence; at small sizes show fewer sentences, always signed.
+
+### Proactive Coach message · Home delivery card
+- **Meaning:** the durable post-session note, shown before the dashboard so the athlete sees Coach's read before the numbers.
+- **Interaction:** the entire card is one accessible link to the message's `conversation_seed_id` in Coach Chat. This is the explicit deep-link exception; it does not make other widgets tappable.
+- **Reuse:** render the snapshot body exactly and never truncate it mid-sentence. Missing or invalid message data removes the card without replacing it with an empty state.
 
 ### 11 · Build phase
 - **Meaning:** where the athlete is in the block, and what lands *if the plan holds*. Milestone dates are honest projections — "every missed bar day slides them right" is the widget's whole ethic.

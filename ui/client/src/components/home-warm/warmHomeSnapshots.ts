@@ -14,6 +14,7 @@ import type {
   ActivityInspectionSnapshot,
   BuildPhaseSnapshot,
   CaloriesSnapshot,
+  CoachMessageSnapshot,
   CoachReadSnapshot,
   CommitmentSnapshot,
   EngineSnapshot,
@@ -808,14 +809,18 @@ export function buildWidgetSnapshotsFile(
   syncStatus: SyncStatusPayload,
   contract: CurrentWeekContract,
   dataMode: "reference" | "live" = "live",
+  coachMessage?: CoachMessageSnapshot,
 ): WidgetSnapshotsFile {
-  const home = buildWarmHomeSnapshots(
+  const computedHome = buildWarmHomeSnapshots(
     activities,
     challengeData,
     syncStatus,
     contract,
     dataMode,
   );
+  const home: WarmHomeSnapshots = coachMessage
+    ? { ...computedHome, coachMessage }
+    : computedHome;
 
   return {
     schema_version: 1,

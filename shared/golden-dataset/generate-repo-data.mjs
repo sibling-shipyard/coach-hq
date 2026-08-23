@@ -20,7 +20,7 @@
  * exercised locally, not just the all-green path. See shared/golden-dataset/README.md,
  * ADR-0005, ADR-0007.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,6 +28,9 @@ import { DEFAULT_HR_ZONES } from "../../engine/lib/hrZones.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, "repo-data");
+const latestMessage = JSON.parse(
+  readFileSync(path.join(__dirname, "latest_message.json"), "utf8"),
+);
 
 const NOW = new Date();
 
@@ -752,6 +755,7 @@ const files = {
   "sleep_log.json": sleepLog,
   "quest_history.json": questHistory,
   "current_week.json": currentWeek,
+  "latest_message.json": latestMessage,
 };
 for (const [name, content] of Object.entries(files)) {
   writeFileSync(path.join(OUT_DIR, name), JSON.stringify(content, null, 2) + "\n");

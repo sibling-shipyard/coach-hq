@@ -12,10 +12,13 @@ import {
   challengeDayNumber,
   computeLocalDayOffset,
   epochMsFromMessageId,
+  fetchProactiveCoachMessage,
   fetchThreads,
   fetchProfileComplete,
   findOrphanedLocalThreadIds,
   greet,
+  parseProactiveSeed,
+  resolveProactiveThread,
   restoreThreadMessagesLocally,
   saveThreadLocally,
   sendMessage,
@@ -47,6 +50,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
   const syncStatusData = data.sync_status as SyncStatusPayload;
 
   const dayNumber = useMemo(() => challengeDayNumber(challengeData), [challengeData]);
+  const requestedProactiveSeed = useMemo(
+    () => parseProactiveSeed(window.location.search),
+    [],
+  );
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
@@ -160,8 +167,13 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setThreadsLoading(true);
     setThreadsAccessRevoked(false);
     setThreadsError(null);
-    fetchThreads()
-      .then((loaded) => {
+    Promise.all([
+      fetchThreads(),
+      requestedProactiveSeed
+        ? fetchProactiveCoachMessage(requestedProactiveSeed)
+        : Promise.resolve(null),
+    ])
+      .then(([loaded, proactiveMessage]) => {
         if (cancelled) return;
         // Restore any conversation that was never committed (nothing writes to the repo until a
         // close - see coachChatModel.ts's saveThreadLocally doc comment) and so has no
@@ -187,8 +199,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
           // than let it linger forever as a single-message "ghost" thread (correctly dated by
           // the fix above, but still shown), drop it here: clear its cache entry and don't
           // materialize it at all. A same-day unreplied greeting is untouched by this - that's
-          // still "come back to what Coach just said," not clutter.
-          if (!firstUser && dayOffset > 0) {
+          // still "come back to what Coach just said," not clutter. An explicitly requested
+          // proactive seed is also retained: that URL is the athlete asking to reopen the exact
+          // notification thread, even after the latest snapshot has advanced.
+          if (!firstUser && dayOffset > 0 && id !== requestedProactiveSeed) {
             clearThreadLocally(id);
             return [];
           }
@@ -205,8 +219,35 @@ function CoachChatContent({ data }: { data: RepoData }) {
           return [thread];
         });
         const combined = [...restored, ...loaded];
+        const existingProactiveThread = requestedProactiveSeed
+          ? combined.find((thread) => thread.id === requestedProactiveSeed)
+          : null;
+        const proactiveThread = resolveProactiveThread(
+          requestedProactiveSeed,
+          proactiveMessage,
+          combined,
+          requestedProactiveSeed
+            ? restoreThreadMessagesLocally(requestedProactiveSeed)
+            : null,
+        );
+        if (proactiveThread) {
+          const seededThreads = existingProactiveThread
+            ? combined
+            : [proactiveThread, ...combined];
+          if (!existingProactiveThread) {
+            saveThreadLocally(proactiveThread.id, proactiveThread.messages);
+          }
+          setThreads(seededThreads);
+          setActiveId(proactiveThread.id);
+          setMobileView("thread");
+          return;
+        }
         setThreads(combined);
-        void ensureTodayThread(combined);
+        void ensureTodayThread(
+          requestedProactiveSeed
+            ? combined.filter((thread) => thread.id !== requestedProactiveSeed)
+            : combined,
+        );
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -225,7 +266,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     return () => {
       cancelled = true;
     };
-  }, [loadAttempt]);
+  }, [loadAttempt, requestedProactiveSeed]);
 
   useEffect(() => {
     let cancelled = false;

@@ -8,7 +8,10 @@ import type { CurrentWeekContract } from "../../../client/src/components/home-wa
 import { buildLiveWeekContract } from "../../../client/src/components/home-warm/liveWeekContract.js";
 import { buildWidgetSnapshotsFile } from "../../../client/src/components/home-warm/warmHomeSnapshots.js";
 import type { SyncStatusPayload } from "../../../client/src/components/home-warm/warmHomeModel.js";
-import type { WidgetSnapshotsFile } from "../../../client/src/components/home-warm/snapshots.js";
+import type {
+  CoachMessageSnapshot,
+  WidgetSnapshotsFile,
+} from "../../../client/src/components/home-warm/snapshots.js";
 import { splitLedgerAsChallenge } from "../../../client/src/lib/splitLedgerChallenge.js";
 import type { ProgressJson, QuestsJson, SeasonsJson } from "../../coach-chat/_lib/coachQuestFiles.js";
 
@@ -18,6 +21,85 @@ export interface DashboardSnapshotInput {
   ledger?: { seasons: SeasonsJson; quests: QuestsJson; progress: ProgressJson; progressions: unknown } | null;
   current_week?: CurrentWeekContract | { data_status?: string };
   sync_status?: SyncStatusPayload;
+}
+
+interface LatestCoachMessageFile {
+  schema_version: 1;
+  message: {
+    id: string;
+    created_at: string;
+    activity_ids: string[];
+    body: string;
+    conversation_seed_id: string;
+  };
+}
+
+const HEALTHKIT_ACTIVITY_ID =
+  /^healthkit:[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
+const STRAVA_ACTIVITY_ID = /^strava:[0-9]{1,32}$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, keys: string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length
+    && actual.every((key, index) => key === expected[index]);
+}
+
+function isLatestCoachMessageFile(value: unknown): value is LatestCoachMessageFile {
+  if (!isRecord(value) || !hasExactKeys(value, ["message", "schema_version"])) return false;
+  if (value.schema_version !== 1 || value.message === null || !isRecord(value.message)) return false;
+  const message = value.message;
+  if (!hasExactKeys(message, [
+    "activity_ids",
+    "body",
+    "conversation_seed_id",
+    "created_at",
+    "id",
+  ])) return false;
+  if (
+    typeof message.id !== "string"
+    || !/^cm-[A-Za-z0-9-]{1,160}$/.test(message.id)
+    || typeof message.created_at !== "string"
+    || !Number.isFinite(Date.parse(message.created_at))
+    || typeof message.body !== "string"
+    || message.body.trim().length === 0
+    || message.body.length > 360
+    || message.conversation_seed_id !== `local-proactive-${message.id}`
+    || !Array.isArray(message.activity_ids)
+    || message.activity_ids.length === 0
+    || message.activity_ids.length > 20
+  ) return false;
+  const activityIds = message.activity_ids;
+  if (
+    activityIds.some((id) =>
+      typeof id !== "string"
+      || id.length > 80
+      || (!HEALTHKIT_ACTIVITY_ID.test(id) && !STRAVA_ACTIVITY_ID.test(id)))
+    || activityIds.some((id, index) => index > 0 && id <= activityIds[index - 1])
+  ) return false;
+  return true;
+}
+
+export function projectLatestCoachMessage(value: unknown): CoachMessageSnapshot | undefined {
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!isLatestCoachMessageFile(parsed)) return undefined;
+  return {
+    id: parsed.message.id,
+    created_at: parsed.message.created_at,
+    body: parsed.message.body,
+    conversation_seed_id: parsed.message.conversation_seed_id,
+  };
 }
 
 // Same "local calendar day" format buildLiveWeekContract itself uses for start_date/end_date
@@ -58,6 +140,7 @@ export function needsLiveRecomputation(week: DashboardSnapshotInput["current_wee
 
 export function generateWidgetSnapshotsFromDashboardSnapshot(
   aggregate: DashboardSnapshotInput,
+  latestCoachMessageFile?: unknown,
 ): WidgetSnapshotsFile | null {
   const challenge = aggregate.ledger ? splitLedgerAsChallenge(aggregate.ledger) : aggregate.challenge_v2 ?? null;
   if (!challenge) return null;
@@ -73,7 +156,14 @@ export function generateWidgetSnapshotsFromDashboardSnapshot(
     ? buildLiveWeekContract(activities, challenge)
     : (aggregate.current_week as CurrentWeekContract);
 
-  return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live");
+  return buildWidgetSnapshotsFile(
+    activities,
+    challenge,
+    syncStatus,
+    contract,
+    "live",
+    projectLatestCoachMessage(latestCoachMessageFile),
+  );
 }
 
 export { splitLedgerAsChallenge } from "../../../client/src/lib/splitLedgerChallenge.js";
