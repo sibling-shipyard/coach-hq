@@ -1,6 +1,6 @@
 # Vercel environment variables
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-16
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
 
 ## Context
 
@@ -18,7 +18,7 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 | `GITHUB_APP_CLIENT_SECRET` | `ui/api/auth/[...action].ts` | Same as above. Also silently becomes the OAuth-state HMAC key if `SESSION_SECRET` is unset (see below). |
 | `SESSION_SECRET` | `ui/api/auth/_lib/session.ts`, `ui/api/auth/[...action].ts` | `session.ts` throws outright for web sessions (must be 32 random bytes, base64-encoded). For the OAuth `state` HMAC specifically, falls back to `CLIENT_SECRET` instead of throwing — logs a `[auth]` warning on cold start if this happens. |
 | `GITHUB_APP_SLUG` | `ui/api/auth/[...action].ts` | Falls back to `"coach-phelps"` — only matters if the App is ever renamed. |
-| `GEMINI_API_KEY` | `ui/api/coach-chat.ts` | Every POST request (including `action: "greet"`) fails with a clean 500 — checked once at the top of the handler before any branch. |
+| `GEMINI_API_KEY` | `ui/api/coach-chat.ts`, `ui/api/coach-message.ts` | Chat and post-sync Coach generation fail with a clean 500 before a model call. |
 | `WAITLIST_GITHUB_TOKEN` (or `GITHUB_PAT`) | `ui/api/waitlist.ts` | Waitlist signups fail (`waitlistConfig()` returns null). |
 | `WAITLIST_GITHUB_REPO` | `ui/api/waitlist.ts` | Falls back to `sibling-shipyard/coach-phelps-hq` — logs a `[waitlist]` warning on first use if unset. Only matters if the waitlist should write elsewhere. |
 
