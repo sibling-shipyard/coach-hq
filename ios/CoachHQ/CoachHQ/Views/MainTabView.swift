@@ -57,6 +57,80 @@ enum AppTab: Hashable, CaseIterable {
     }
 }
 
+/// Account-scoped handoff from Home or a local notification into the exact proactive thread.
+struct CoachMessageRoute: Codable, Equatable {
+    let repoFullName: String
+    let conversationSeedId: String
+    let body: String
+    let createdAt: String?
+
+    private static let storageKey = "pendingCoachMessageRoute"
+
+    init?(
+        repoFullName: String,
+        conversationSeedId: String,
+        body: String,
+        createdAt: String? = nil
+    ) {
+        let messageId = String(conversationSeedId.dropFirst("local-proactive-".count))
+        guard repoFullName.range(
+                of: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+                options: .regularExpression
+              ) != nil,
+              conversationSeedId == "local-proactive-\(messageId)",
+              messageId.range(
+                of: "^cm-[A-Za-z0-9-]{1,160}$",
+                options: .regularExpression
+              ) != nil,
+              !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              body.count <= 360 else { return nil }
+        self.repoFullName = repoFullName
+        self.conversationSeedId = conversationSeedId
+        self.body = body
+        self.createdAt = createdAt
+    }
+
+    init?(userInfo: [AnyHashable: Any]) {
+        guard let repo = userInfo["repoFullName"] as? String,
+              let seed = userInfo["conversationSeedId"] as? String,
+              let body = userInfo["coachMessageBody"] as? String else { return nil }
+        self.init(
+            repoFullName: repo,
+            conversationSeedId: seed,
+            body: body,
+            createdAt: userInfo["createdAt"] as? String
+        )
+    }
+
+    func persist() {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        UserDefaults.standard.set(data, forKey: Self.storageKey)
+    }
+
+    /// Returns the persisted route only for the matching repo. A nil match leaves
+    /// storage so a cold-launch notification survives until the repo is known.
+    static func load(matching repoFullName: String?) -> CoachMessageRoute? {
+        guard let repoFullName else { return nil }
+        guard let data = UserDefaults.standard.data(forKey: storageKey),
+              let decoded = try? JSONDecoder().decode(CoachMessageRoute.self, from: data),
+              let route = CoachMessageRoute(
+                repoFullName: decoded.repoFullName,
+                conversationSeedId: decoded.conversationSeedId,
+                body: decoded.body,
+                createdAt: decoded.createdAt
+              ),
+              route.repoFullName == repoFullName else {
+            clear()
+            return nil
+        }
+        return route
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: storageKey)
+    }
+}
+
 struct MainTabView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var syncManager: HealthKitSyncManager
@@ -68,6 +142,7 @@ struct MainTabView: View {
     @State private var tabBarHidden = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
+    @State private var pendingCoachMessageRoute: CoachMessageRoute?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -76,7 +151,7 @@ struct MainTabView: View {
                     WarmInstrumentHomeView()
                 }
                 tabRoot(.chat) {
-                    CoachChatView()
+                    CoachChatView(requestedProactiveRoute: $pendingCoachMessageRoute)
                         .environmentObject(authManager)
                 }
                 tabRoot(.workouts) {
@@ -123,16 +198,32 @@ struct MainTabView: View {
         .animation(PremiumMotion.dock, value: tabBarHidden)
         .background(WarmInstrument.desk.ignoresSafeArea())
         .onAppear {
+            pendingCoachMessageRoute = CoachMessageRoute.load(matching: authManager.repoFullName)
             if pendingChatNavigation {
                 pendingChatNavigation = false
                 selectedTab = .chat
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { notification in
+            if let route = notification.object as? CoachMessageRoute {
+                if route.repoFullName == authManager.repoFullName {
+                    route.persist()
+                    pendingCoachMessageRoute = route
+                } else {
+                    CoachMessageRoute.clear()
+                    pendingCoachMessageRoute = nil
+                }
+            } else {
+                pendingCoachMessageRoute = CoachMessageRoute.load(matching: authManager.repoFullName)
+            }
+            pendingChatNavigation = false
             withAnimation(PremiumMotion.state) { selectedTab = .chat }
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToHome)) { _ in
             withAnimation(PremiumMotion.state) { selectedTab = .home }
+        }
+        .onChange(of: authManager.repoFullName) { _, repoFullName in
+            pendingCoachMessageRoute = CoachMessageRoute.load(matching: repoFullName)
         }
         .onChange(of: selectedTab) { _, newTab in
             if newTab == .chat { chatHasUnread = false }
@@ -175,7 +266,11 @@ struct MainTabView: View {
         // 401 never fires system permission dialogs over the session-expired screen.
         .task {
             let client = GitHubAPIClient(authManager: authManager)
-            syncManager.configure(apiClient: client, widgetStore: widgetStore)
+            syncManager.configure(
+                apiClient: client,
+                widgetStore: widgetStore,
+                coachMessageClient: CoachMessageAPIClient(authManager: authManager)
+            )
             workoutService.configure(apiClient: client)
             widgetStore.configure(apiClient: client)
             // A3: warm coach-chat's context cache as soon as the app is active with a valid

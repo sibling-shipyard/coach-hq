@@ -2,6 +2,12 @@
   "schema_version": 1,
   "generated_at": "2026-07-20T00:00:00.000Z",
   "home": {
+    "coachMessage": {
+      "id": "cm-11111111-2222-4333-8444-555555555555",
+      "created_at": "2026-07-20T00:05:00.000Z",
+      "body": "The quiet work landed. Nothing clever to add today, but I noticed.",
+      "conversation_seed_id": "local-proactive-cm-11111111-2222-4333-8444-555555555555"
+    },
     "engine": {
       "weekLabel": "WK 29",
       "load": 549,

@@ -9,6 +9,7 @@ import SwiftUI
 /// 5. `historyThreads` — enforce 7-day window server-side; client already groups by `dayOffset`.
 struct CoachChatView: View {
     @EnvironmentObject private var authManager: GitHubAuthManager
+    @Binding private var requestedProactiveRoute: CoachMessageRoute?
 
     @State private var apiClient: CoachChatAPIClient?
     @State private var threads: [ChatThread] = []
@@ -37,6 +38,10 @@ struct CoachChatView: View {
     /// Real challenge day, fetched once per session from challenge_v2.json (see loadHeaderContext()
     /// below) - nil until that fetch resolves, at which point headerContext below reflects it.
     @State private var liveDayNumber: Int?
+
+    init(requestedProactiveRoute: Binding<CoachMessageRoute?>) {
+        _requestedProactiveRoute = requestedProactiveRoute
+    }
 
     /// Day label comes from a live fetch of challenge_v2.json's start_date (same math as web's
     /// challengeDayNumber() in coachChatModel.ts). Day-only header now (week label dropped, see
@@ -187,6 +192,16 @@ struct CoachChatView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             keyboardVisible = false
+        }
+        .onChange(of: requestedProactiveRoute) { _, route in
+            guard route != nil, !threadsLoading else { return }
+            if !openRequestedProactiveRoute(), let apiClient {
+                if let today = todayThread {
+                    activeThreadId = today.id
+                } else {
+                    Task { await greetNow(apiClient: apiClient) }
+                }
+            }
         }
     }
 
@@ -432,9 +447,22 @@ struct CoachChatView: View {
             // speaks-first design made it worse: a greeting thread now exists the instant this
             // view loads, before the athlete has said anything at all.
             let fetched = try await apiClient.fetchThreads()
-            threads = authManager.repoFullName.map { CoachChatLocalCache.restoring(fetched, repoFullName: $0) } ?? fetched
+            let requestedSeed = requestedProactiveRoute.flatMap { route in
+                route.repoFullName == authManager.repoFullName
+                    ? route.conversationSeedId
+                    : nil
+            }
+            threads = authManager.repoFullName.map {
+                CoachChatLocalCache.restoring(
+                    fetched,
+                    repoFullName: $0,
+                    preservingThreadId: requestedSeed
+                )
+            } ?? fetched
             pendingExplicitCloseThreadIds.formIntersection(threads.map(\.id))
-            if let today = todayThread {
+            if openRequestedProactiveRoute() {
+                return
+            } else if let today = todayThread {
                 activeThreadId = today.id
             } else {
                 await greetNow(apiClient: apiClient)
@@ -450,6 +478,30 @@ struct CoachChatView: View {
         } catch {
             errorMessage = "Couldn't load conversations"
         }
+    }
+
+    /// Opens one exact local proactive seed. A repeated Home/notification tap selects the
+    /// cached thread instead of appending the opener again.
+    @discardableResult
+    private func openRequestedProactiveRoute() -> Bool {
+        guard let route = requestedProactiveRoute else { return false }
+        guard route.repoFullName == authManager.repoFullName else {
+            requestedProactiveRoute = nil
+            CoachMessageRoute.clear()
+            return false
+        }
+
+        if threads.contains(where: { $0.id == route.conversationSeedId }) {
+            activeThreadId = route.conversationSeedId
+        } else {
+            let thread = CoachChatLocalCache.proactiveThread(for: route)
+            threads.insert(thread, at: 0)
+            activeThreadId = thread.id
+            cacheThreadLocally(thread)
+        }
+        requestedProactiveRoute = nil
+        CoachMessageRoute.clear()
+        return true
     }
 
     /// A4: coach speaks first. coach-chat.ts's handleGreet() no longer commits anything
@@ -478,7 +530,9 @@ struct CoachChatView: View {
             // cache entry can ever exist at a time.
             if let repo = authManager.repoFullName {
                 threads.removeAll { existing in
-                    guard existing.id.hasPrefix("local-"), existing.dayOffset == 0 else { return false }
+                    guard existing.id.hasPrefix("local-"),
+                          !existing.id.hasPrefix("local-proactive-"),
+                          existing.dayOffset == 0 else { return false }
                     let real = existing.messages.filter { $0.role != .divider }
                     guard real.count == 1, real[0].role == .coach else { return false }
                     CoachChatLocalCache.clear(repoFullName: repo, threadId: existing.id)

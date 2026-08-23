@@ -10,11 +10,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        if (response.notification.request.content.userInfo["navigateTo"] as? String) == "chat" {
+        let userInfo = response.notification.request.content.userInfo
+        if (userInfo["navigateTo"] as? String) == "chat" {
+            let route = CoachMessageRoute(userInfo: userInfo)
+            if let route {
+                route.persist()
+            } else {
+                CoachMessageRoute.clear()
+            }
             // Store flag so MainTabView can read it on appear — handles cold-launch case
             // where MainTabView isn't mounted when this fires.
             UserDefaults.standard.set(true, forKey: "pendingChatNavigation")
-            NotificationCenter.default.post(name: .navigateToChat, object: nil)
+            NotificationCenter.default.post(name: .navigateToChat, object: route)
         }
         completionHandler()
     }
@@ -102,6 +109,7 @@ struct CoachHQApp: App {
                 if !isAuthenticated {
                     workoutService.reset()
                     widgetStore.reset()
+                    CoachMessageRoute.clear()
                 }
             }
             .onAppear {

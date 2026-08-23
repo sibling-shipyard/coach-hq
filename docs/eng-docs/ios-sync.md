@@ -46,6 +46,7 @@ sequenceDiagram
     participant M as HealthKitSyncManager
     participant HK as HealthKit
     participant GH as GitHub API
+    participant C as Coach message API
     U->>M: tap Sync Now
     M->>GH: read user_data/health/zones.json
     M->>M: mirror boundaries, or seed when absent
@@ -59,7 +60,10 @@ sequenceDiagram
     end
     M->>GH: commitFiles() - atomic multi-file commit
     GH-->>M: push to main
-    M->>M: refresh local cache + widget snapshot cache (read-only)
+    M->>M: wait for fresh pipeline snapshot
+    M->>C: POST sorted source-qualified activity ids
+    C-->>M: exact durable message + should_notify
+    M->>M: refresh Home; notify only when requested
 ```
 
 1. **Read sync state** — `apiClient.readSyncState()` fetches
@@ -92,9 +96,16 @@ sequenceDiagram
    sidecars, plus the updated `sync_state.json` into **one atomic commit** using GitHub's Git Data API (create blobs → read
    HEAD → build tree → create commit → move the branch ref), retried against a fresh HEAD on a
    non-fast-forward conflict. Pushed straight to `main`.
-7. **Locally only** — updates an on-device cache for instant list rendering, and refreshes the
-   local widget snapshot cache from whatever `gen/widget_snapshots.json` **already** contains on
-   GitHub. It does not regenerate that file — it just re-reads it.
+7. **Wait for derived data** — updates the on-device activity cache immediately, then
+   `refreshAfterSync` polls until `home.sync.timestamp` proves the user-repo pipeline has rebuilt
+   fresh derived context.
+8. **Ask Coach once** — sends the round's sorted `healthkit:<UUID>` ids to
+   `/api/coach-message`. A valid response triggers one more widget-snapshot refresh so Home reads
+   the durable `latest_message.json` projection. Generation, write, decode, or refresh failure
+   never changes sync success.
+9. **Notify only after delivery** — the generic “Coach is reviewing” notification does not
+   exist. A local notification is scheduled only when the endpoint returns `should_notify: true`;
+   its body is the exact Coach body and its account-scoped route carries the same body and seed.
 
 ### What a round writes
 
@@ -253,6 +264,12 @@ body after those attempts. The poll and refetch run after ordinary sync completi
 total read failure, or an unavailable optional widget store leaves the original device-cache
 entries in place without turning sync into a failure.
 
+Only after that freshness proof does iOS call `/api/coach-message` with 1–20 canonical HealthKit
+ids from the committed round. The client sends no metrics and accepts at most a 16KB response. A
+successful response always triggers a second snapshot fetch; `should_notify` alone controls the
+notification. Idempotent replay refreshes Home but does not notify. The route stored for a cold
+notification tap includes the athlete repo and is consumed only when the signed-in repo matches.
+
 iOS Home also depends on HQ's `/api/widget-snapshots` being deployed and healthy. A 401 from it
 without auth headers is expected; a **500 is a server-side bug** — historically Vercel not
 resolving TS `@/` path aliases, fixed by the pre-build bundle in
@@ -327,3 +344,4 @@ files.
 | `ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift` | sequential naming, filenames |
 | `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | Git Data API commits, reads |
 | `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift` | OAuth + Keychain token storage |
+| `ios/CoachHQ/CoachHQ/Services/CoachMessageAPIClient.swift` | bounded post-sync Coach generation client |

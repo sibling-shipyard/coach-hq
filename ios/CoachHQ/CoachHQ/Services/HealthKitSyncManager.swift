@@ -63,6 +63,7 @@ class HealthKitSyncManager: ObservableObject {
     private let hrZoneStore: HRZoneStore
     private var apiClient: GitHubAPIClient?
     private var widgetStore: WidgetSnapshotStore?
+    private var coachMessageClient: CoachMessageGenerating?
     private var observerRegistered = false
     private(set) var pendingHRZoneFile: (path: String, data: Data)?
 
@@ -89,9 +90,14 @@ class HealthKitSyncManager: ObservableObject {
         return types
     }
 
-    func configure(apiClient: GitHubAPIClient, widgetStore: WidgetSnapshotStore? = nil) {
+    func configure(
+        apiClient: GitHubAPIClient,
+        widgetStore: WidgetSnapshotStore? = nil,
+        coachMessageClient: CoachMessageGenerating? = nil
+    ) {
         self.apiClient = apiClient
         self.widgetStore = widgetStore
+        self.coachMessageClient = coachMessageClient
         Task { await loadSyncState() }
     }
 
@@ -138,8 +144,8 @@ class HealthKitSyncManager: ObservableObject {
         hkAuthorizationGranted = true
     }
 
-    /// Registers an HKObserverQuery that fires whenever new workouts arrive in HealthKit,
-    /// syncs them, and posts a local notification so the user knows Coach is aware.
+    /// Registers an HKObserverQuery that fires whenever new workouts arrive in HealthKit.
+    /// Coach notification is gated later on a fresh pipeline snapshot and a durable message.
     /// Guard prevents duplicate queries accumulating across cold launches.
     func setupWorkoutObserver() {
         guard !observerRegistered else { return }
@@ -151,10 +157,6 @@ class HealthKitSyncManager: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { completionHandler(); return }
                 await self.syncNewWorkouts()
-                if case .synced(let n) = self.lastSyncResult?.outcome, n > 0,
-                   self.syncNotificationsEnabled {
-                    await self.postSyncNotification(count: n)
-                }
                 completionHandler()
             }
         }
@@ -166,14 +168,23 @@ class HealthKitSyncManager: ObservableObject {
         _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
     }
 
-    private func postSyncNotification(count: Int) async {
+    private func postCoachMessageNotification(
+        _ message: CoachMessageRecord,
+        repoFullName: String
+    ) async {
         let content = UNMutableNotificationContent()
-        content.title = count == 1 ? "Session logged" : "\(count) sessions logged"
-        content.body = "Coach is reviewing your latest workout."
+        content.title = "Coach Phelps"
+        content.body = message.body
         content.sound = .default
-        content.userInfo = ["navigateTo": "chat"]
+        content.userInfo = [
+            "navigateTo": "chat",
+            "repoFullName": repoFullName,
+            "conversationSeedId": message.conversationSeedId,
+            "coachMessageBody": message.body,
+            "createdAt": message.createdAt,
+        ]
         let request = UNNotificationRequest(
-            identifier: "hk-sync-latest",
+            identifier: message.id,
             content: content,
             trigger: nil
         )
@@ -483,10 +494,37 @@ class HealthKitSyncManager: ObservableObject {
             // isSyncing for this; it only affects the widget home cache, not the sync flow.
             let ws = widgetStore
             let syncedFileNames = syncedForCache.map(\.fileName)
+            let coachActivityIds = syncedForCache.compactMap { item -> String? in
+                guard let raw = item.activity.activityId,
+                      let uuid = UUID(uuidString: raw) else { return nil }
+                return "healthkit:\(uuid.uuidString.uppercased())"
+            }.sorted()
+            let coachClient = coachMessageClient
+            let repoFullName = apiClient.repoFullName
             Task {
                 guard let ws,
                       await ws.refreshAfterSync(since: pipelineFreshnessLowerBound) else { return }
                 await self.refreshEnrichedActivities(fileNames: syncedFileNames)
+                guard let coachClient,
+                      let repoFullName,
+                      apiClient.repoFullName == repoFullName,
+                      !coachActivityIds.isEmpty else { return }
+                await CoachMessagePostSyncDelivery.run(
+                    activityIds: coachActivityIds,
+                    repoFullName: repoFullName,
+                    client: coachClient,
+                    refreshSnapshots: {
+                        await ws.refresh(showSpinner: false)
+                    },
+                    notify: { message in
+                        guard apiClient.repoFullName == repoFullName,
+                              self.syncNotificationsEnabled else { return }
+                        await self.postCoachMessageNotification(
+                            message,
+                            repoFullName: repoFullName
+                        )
+                    }
+                )
             }
         } catch is CancellationError {
             // Task was cancelled (e.g. view torn down mid-sync) — not a real failure.

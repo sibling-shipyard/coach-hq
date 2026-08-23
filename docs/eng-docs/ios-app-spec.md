@@ -1,6 +1,6 @@
 # Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-18
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-23
 
 ## Overview
 The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
@@ -15,7 +15,9 @@ The app is a **silent, fast, native iOS utility** — the on-device executor for
 coach), not a second place the coach lives. It provides the native sensors, timers, and data
 ingestion that make the system seamless, and nothing else. Strict design boundaries:
 
-- **Silent Utility:** No push notifications, no chat interface, no AI personality inside the sync/timer surfaces. The app moves data and runs timers; coaching conversation happens in coach-chat.
+- **Quiet Utility:** Sync and timer surfaces stay operational. The app never sends a generic
+  “Coach is reviewing” notice; after a fresh pipeline run it may deliver one durable Coach message
+  whose exact body opens the matching coach-chat seed.
 - **Native Aesthetic:** Built entirely in SwiftUI using system colors, SF Symbols, and standard iOS typography. Fully supports Light and Dark mode without custom theming.
 - **Offline-First:** GitHub is the ultimate source of truth, but the app caches data locally so it opens instantly and works in the gym with poor connectivity.
 - **GitHub as Backend:** No traditional backend or database of its own — it authenticates via GitHub and reads/writes directly to the athlete's repo.
@@ -86,10 +88,18 @@ The app will replace the web-based workout timer with a native SwiftUI implement
 - Native audio cues and haptics for phase transitions.
 - Supports background execution (timer continues while screen is locked).
 
-## Phase 3 (v0.3+): Future Considerations
+## Native Home and Coach chat
 
-- **In-App Coach Chat:** Potential integration of LLM APIs (OpenAI/Anthropic) to allow direct conversation with Coach Phelps within the app, bypassing the need for Manus/Claude web interfaces. Users would provide their own API keys.
-- **Dashboard Port:** Migrating the Netlify web dashboard widgets into native SwiftUI views for a unified experience.
+Home decodes the same widget-snapshot contract as web (ADR 0005). An optional
+`home.coachMessage` renders before dashboard cards and opens its exact `conversation_seed_id`.
+Coach chat materializes that local proactive thread as divider plus exact Coach body, sends the
+opener as prior context on the athlete's first reply, and uses the normal close path and seven-slot
+retention rule (ADR 0012).
+
+The Home/notification handoff is account-scoped. Its persisted body, seed, timestamp, and repo are
+accepted only for the matching authenticated repo, then cleared after consumption. A load before
+the repo is known returns nil without clearing, so a cold-launch notification survives until auth
+finishes. Missing or invalid routes use normal greeting behavior.
 
 ## Client runtime rules
 
@@ -118,6 +128,9 @@ Rules about app state and first paint. Breaking one fails silently, not loudly.
   same scoping — `WidgetSnapshotStore` defers `loadCached()` to `configure(apiClient:)` (the account
   is unknown in `init()`) and tags the cache with `apiClient.repoFullName`, refusing a mismatch.
   Otherwise a prior account's Home paints on cold launch until the real fetch lands ~5s later.
+- **Persisted Coach-message routes are account-scoped too.** A notification can arrive before
+  `MainTabView` mounts, so its exact body and seed survive in `UserDefaults` with the repo identity.
+  `MainTabView` rejects and clears an invalid or mismatched route before Chat can read it.
 
 ## Tech Stack
 - **Language:** Swift
