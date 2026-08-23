@@ -33,3 +33,4 @@ Keep these current when `ui/` changes; rules in `docs/eng-docs/README.md`.
 - Vite caches JSON imports aggressively — restart dev server after data changes.
 - WorkoutTimer: call `setTimer(-1)` before any `setState()` to prevent race conditions between timer init and tick effects.
 - `milestoneProgress.ts`-style helpers read `milestone.progress` (`MilestoneProgress` in `challenge.ts`) — not a separate `tracking` schema.
+- Activity glyphs (`ActivityGlyph.tsx`): closed-shape icons (rings, target/crosshair) hold their form at the 15-18px sizes used in nav/chip contexts; limbed figure icons (pull-up bar, human silhouette) blur into noise below ~24px. Prefer closed/geometric primitives for new activity glyphs.
