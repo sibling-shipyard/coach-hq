@@ -40,8 +40,8 @@ reply (no free-form file edits) - full schema and field-by-field detail in
 | File | Written by | Purpose |
 |------|-----------|---------|
 | `SOUL.claude.md` / `SOUL.chat.md` | Template (generated) | Composed coach brain — generated from `platform/soul/` via `platform/scripts/compose-soul.mjs`; do not hand-edit |
-| `user_data/coach/profile.json` | Coach | Athlete profile fields (name, sports, coaching style, `coach_since`, ...) |
-| `user_data/coach/memory.json` | Coach | Standing notes and preferences |
+| `user_data/coach/profile.json` | Coach | Athlete profile fields (name, `coach_since`, ...) |
+| `user_data/coach/memory.json` | Coach | Sports and standing notes |
 | `user_data/coach/injuries.json` | Coach | Injury/limitation log |
 | `user_data/coach/coach_log.json` | Coach | Rolling session log |
 | `user_data/coach/chat_history.json` | Coach | Recent turn transcript |

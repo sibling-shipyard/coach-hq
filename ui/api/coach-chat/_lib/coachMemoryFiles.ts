@@ -42,19 +42,10 @@ export interface MemoryNote {
   trace_id: string;
 }
 
-// coaching_style: constrained enum, not free text (gemini-flow.md's Action-field design rule).
-// Values match B_engine.md's real First Session Protocol intake question verbatim ("How do you
-// respond to being pushed? - accountability vs encouragement vs analysis"). Normally set once
-// during First Session Protocol, but changeable later via chat (coaching_style_update) - no
-// write-once guard, it's just naturally infrequent in practice.
-export const COACHING_STYLES = ["accountability", "encouragement", "analysis"] as const;
-export type CoachingStyle = (typeof COACHING_STYLES)[number];
-
 export interface MemoryJson {
   version: 1;
   _meta: { updated_at: string; updated_by: string; trace_id: string };
   sports: string[];
-  coaching_style: CoachingStyle | null;
   notes: Record<MemoryNoteLabel, MemoryNote>;
 }
 

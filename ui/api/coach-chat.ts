@@ -21,7 +21,6 @@ import {
 import { loadChatHistory } from "./coach-chat/_lib/chatThreads.js";
 import {
   applyProfileUpdate,
-  applyCoachingStyleUpdate,
   applySportsUpdate,
 } from "./coach-chat/_lib/coachIntents.js";
 import {
@@ -85,7 +84,6 @@ async function handleGreet(
   const {
     name: hintedName,
     sports: hintedSports,
-    coachingStyle: hintedCoachingStyle,
   } = onboardingChanges(onboardingHints, profile, memory);
   const traceId = `onboard-${Date.now().toString(36)}`;
   const onboardingWrites: FileEntry[] = [];
@@ -98,29 +96,16 @@ async function handleGreet(
         ]),
     });
   }
-  if (hintedSports || hintedCoachingStyle) {
+  if (hintedSports) {
     onboardingWrites.push({
       path: MEMORY_PATH,
-      resolve: async () => {
-        let working = await getFileRaw(repo, MEMORY_PATH, token);
-        if (hintedSports) {
-          working = applySportsUpdate(
-            working,
-            hintedSports,
-            todayDateString(timezone, new Date()),
-            traceId,
-          );
-        }
-        if (hintedCoachingStyle) {
-          working = applyCoachingStyleUpdate(
-            working,
-            hintedCoachingStyle,
-            todayDateString(timezone, new Date()),
-            traceId,
-          );
-        }
-        return working as string;
-      },
+      resolve: async () =>
+        applySportsUpdate(
+          await getFileRaw(repo, MEMORY_PATH, token),
+          hintedSports,
+          todayDateString(timezone, new Date()),
+          traceId,
+        ),
     });
   }
   if (onboardingWrites.length > 0) {

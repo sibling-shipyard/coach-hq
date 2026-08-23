@@ -16,8 +16,6 @@ export interface GeminiReply {
   coach_note?: string;
   // See responseSchema's memory_update and coachIntents.ts's applyMemoryUpdate.
   memory_update?: { label: MemoryNoteLabel; text: string };
-  // See responseSchema's coaching_style_update for rationale and legal values.
-  coaching_style_update?: "accountability" | "encouragement" | "analysis";
   // See responseSchema's sports_update for rationale.
   sports_update?: string[];
   // See responseSchema's injury_event for the array rationale and wire shape.
@@ -67,13 +65,6 @@ const RESPONSE_PROPERTIES = {
           label: { type: "string", enum: [...MEMORY_NOTE_LABELS] },
           text: { type: "string" },
         },
-      },
-      // Constrained enum, not free text - matches B_engine.md's real FSP intake question
-      // ("How do you respond to being pushed?"). Also written by First Session Protocol; this
-      // is the chat-editable path for changing it later.
-      coaching_style_update: {
-        type: "string",
-        enum: ["accountability", "encouragement", "analysis"],
       },
       // Separate top-level memory.json field, not a labelled memory note. First Session Protocol
       // writes it when first stated; later chat may replace the full list.
@@ -291,7 +282,6 @@ type ResponseField = keyof typeof RESPONSE_PROPERTIES;
 
 const FSP_ACTIONS = [
   "memory_update",
-  "coaching_style_update",
   "sports_update",
   "injury_event",
   "profile_update",
@@ -302,7 +292,6 @@ const FSP_ACTIONS = [
 const RETURNING_CLOSE_ACTIONS = [
   "coach_note",
   "memory_update",
-  "coaching_style_update",
   "sports_update",
   "injury_event",
   "quest_event",

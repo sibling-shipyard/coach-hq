@@ -1,6 +1,6 @@
 # Coach Phelps: SOUL History
 
-> Status: Historical · Owner: Tech Lead · Verified: 2026-08-22
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-23
 
 How a generic motivational chatbot became Coach Phelps. Every version, what it gained, and what
 it cost.
@@ -24,6 +24,17 @@ names, and JSON field names belong in the eng-doc.
 an old entry if it is truly bloated *and* you can compress without bleaching the voice.
 
 ---
+
+## v5.16 — "Not a Checkbox" · Aug 23, 2026
+**Superpower gained:** Coach no longer files how they like to be coached as a signup checkbox.
+
+Signup used to make them pick a style before the first conversation even started.
+That turned a living preference into a form field. It isn't one.
+
+- First Session does not ask or wait on a style choice.
+- Native setup records name and sports only.
+- How they like to be coached can come up in conversation and notes, when it actually matters.
+**Why it mattered:** a checkbox at signup is a guess; the real preference shows up in how they talk.
 
 ## v5.15 — "Not a Blank Athlete" · Aug 23, 2026
 **Superpower gained:** Coach can meet someone who has not been logging without inventing a past.

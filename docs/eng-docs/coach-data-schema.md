@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-22
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
 
 ## Context
 
@@ -30,7 +30,7 @@ Athlete identity fields. Written by `turnWrites/profileWrite.ts` (`buildProfileU
 
 ### `user_data/coach/memory.json`
 
-Sports, coaching style, and Coach's labelled free-text notes. Written by
+Sports and Coach's labelled free-text notes. Written by
 `turnWrites/memoryWrite.ts` (`buildMemoryFileWrite`).
 
 | Field | Type | Notes |
@@ -38,11 +38,7 @@ Sports, coaching style, and Coach's labelled free-text notes. Written by
 | `version` | `1` | |
 | `_meta` | `{updated_at, updated_by, trace_id}` | |
 | `sports` | `string[]` | |
-| `coaching_style` | `CoachingStyle \| null` | |
 | `notes` | `Record<MemoryNoteLabel, MemoryNote>` | |
-
-**`CoachingStyle` enum:** `"accountability" \| "encouragement" \| "analysis"` — matches
-`B_engine.md`'s real First Session Protocol intake question verbatim.
 
 **`MemoryNoteLabel` enum** (`MEMORY_NOTE_LABELS`, fixed set): `fitness_baseline`,
 `coaching_priorities`, `learned_patterns.training`, `learned_patterns.nutrition`,
@@ -228,9 +224,9 @@ mode/session-state combination shouldn't expose, rather than just discouraging i
 |---|---|
 | Greeting | none (plus always `reply`, `session_closed`) |
 | Returning ordinary | none |
-| First Session ordinary | `memory_update`, `coaching_style_update`, `sports_update`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
+| First Session ordinary | `memory_update`, `sports_update`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
 | First Session close | the same, plus `coach_note` |
-| Returning close | `coach_note`, `memory_update`, `coaching_style_update`, `sports_update`, `injury_event`, `quest_event`, `profile_update`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
+| Returning close | `coach_note`, `memory_update`, `sports_update`, `injury_event`, `quest_event`, `profile_update`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
 
 Each field's write path — which `turnWrites/*.ts` file consumes it, which JSON file it lands in —
 is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/turnWrites/README.md); this

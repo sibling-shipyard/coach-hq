@@ -95,7 +95,7 @@ jobs:
           # parser for these files yet.
           REQUIRED_KEYS = {
               "user_data/coach/profile.json": ["version", "coach_since", "name", "timezone"],
-              "user_data/coach/memory.json": ["version", "_meta", "sports", "coaching_style", "notes"],
+              "user_data/coach/memory.json": ["version", "_meta", "sports", "notes"],
               "user_data/coach/injuries.json": ["flags"],
               "user_data/coach/coach_log.json": ["version", "rows"],
               "user_data/ledger/seasons.json": ["version", "_meta", "current_season_id", "seasons"],
