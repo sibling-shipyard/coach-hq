@@ -4,16 +4,21 @@ name: Platform Tests
 # runner at all - same failure shape as issue #194 which is why ui-tests.yml exists: tests
 # existed locally but nothing ran them automatically.
 
+# Self-included in both path filters on purpose: a gate that cannot run on its own PR
+# ships unproven, which is how this workflow reached main with zero executions (#533).
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'platform/tests/**'
       - 'engine/**'
+      - '.github/workflows/platform-tests.yml'
   pull_request:
     paths:
       - 'platform/tests/**'
       - 'engine/**'
+      - '.github/workflows/platform-tests.yml'
 
 jobs:
   platform-tests:
