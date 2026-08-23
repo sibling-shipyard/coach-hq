@@ -221,13 +221,8 @@ struct ActivityDetailView: View {
         if let zones = activity?.hrZones, hrZoneTotal > 0 {
             WarmCard {
                 VStack(alignment: .leading, spacing: 13) {
-                    if let stream = hrStream, !stream.points.isEmpty {
-                        MonoLabel("HEART RATE")
-                        HRCurveView(stream: stream, zoneColors: detailZoneColors, config: .current)
-                    } else {
-                        MonoLabel("HOW IT WAS SPENT")
-                        zoneDistributionBar(zones: zones)
-                    }
+                    MonoLabel("HOW IT WAS SPENT")
+                    activityRibbon(zones: zones)
                     zoneLegend(zones: zones)
                 }
             }
@@ -235,28 +230,137 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// Zone totals as a proportion bar, zones in order.
+    /// Cell count for a ribbon drawn from recorded heart rate: ~1 cell per 30s, clamped 5–48.
     ///
-    /// This replaced a ribbon that shuffled zone totals into a plausible-looking *time* order
-    /// with a seeded RNG. It read as a session narrative and was not one — we only ever had
-    /// totals. Ordered left-to-right by zone, it says exactly what it knows. The real ordering
-    /// is the curve above, when a stream sidecar exists for the activity.
-    private func zoneDistributionBar(zones: [String: HRZoneEntry]) -> some View {
-        let total = hrZoneKeys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
-        return GeometryReader { geo in
-            HStack(spacing: 1.5) {
-                ForEach(hrZoneKeys.indices, id: \.self) { i in
-                    let secs = zones[hrZoneKeys[i]]?.seconds ?? 0
-                    if secs > 0 {
-                        detailZoneColors[i]
-                            .frame(width: max(2, geo.size.width * CGFloat(secs / max(total, 1))))
-                    }
-                }
+    /// The ribbon is a fixed ~321pt wide (phone width less screen and card padding) with 1.5pt
+    /// between cells, so cell count and cell width trade off directly. 48 cells is 5.4pt each —
+    /// past roughly 50 a cell is thinner than the gap beside it and the ribbon reads as a smear
+    /// rather than as bands. That cap is what keeps a 90-minute session legible; without it,
+    /// 30s cells would put 180 sub-pixel slivers across the same width.
+    ///
+    /// The estimated ribbon keeps its own coarser count (~1 cell per 4 min, cap 41) — there is
+    /// no real ordering behind it, so extra resolution would only be extra invention.
+    private func measuredCellCount(elapsedSeconds: Int) -> Int {
+        min(48, max(5, elapsedSeconds / 30))
+    }
+
+    /// Real zone-per-cell, read off the recorded heart rate.
+    ///
+    /// Each cell is a time slice of the session; its colour is the zone the athlete was
+    /// actually in during that slice. Where the watch recorded nothing, the neighbouring
+    /// readings carry across — the ribbon is a shape-of-session view, and a hole punched in it
+    /// reads as a rendering fault rather than as missing data. The honest per-zone minutes are
+    /// in the legend directly below, which never counts uncovered time.
+    private func measuredRibbon(stream: HRStreamFile) -> [Color]? {
+        guard !stream.points.isEmpty, stream.elapsedSeconds > 0 else { return nil }
+        let cells = measuredCellCount(elapsedSeconds: stream.elapsedSeconds)
+        let slice = Double(stream.elapsedSeconds) / Double(cells)
+        let config = HRZoneConfig.current
+
+        var out: [Color] = []
+        var lastKnown: Int?
+
+        for i in 0..<cells {
+            let lo = Double(i) * slice
+            let hi = Double(i + 1) * slice
+            let inSlice = stream.points.filter { Double($0.t) >= lo && Double($0.t) < hi }
+
+            let index: Int?
+            if inSlice.isEmpty {
+                index = nil
+            } else {
+                // Mean bpm across the slice, then bucket — steadier than picking one sample.
+                let mean = Double(inSlice.reduce(0) { $0 + $1.bpm }) / Double(inSlice.count)
+                index = zoneIndex(forBPM: mean, config: config)
+            }
+
+            if let index {
+                lastKnown = index
+                out.append(detailZoneColors[index])
+            } else {
+                // Hold the previous cell's zone; before any reading exists, reach forward to
+                // the first one so the ribbon opens in the right colour rather than at zero.
+                let carried = lastKnown ?? firstZone(stream: stream, config: config) ?? 0
+                out.append(detailZoneColors[carried])
+            }
+        }
+        return out
+    }
+
+    private func firstZone(stream: HRStreamFile, config: HRZoneConfig) -> Int? {
+        guard let first = stream.points.first else { return nil }
+        return zoneIndex(forBPM: Double(first.bpm), config: config)
+    }
+
+    private func zoneIndex(forBPM bpm: Double, config: HRZoneConfig) -> Int {
+        let v = Int(bpm.rounded())
+        if v <= config.zone1Upper { return 0 }
+        if v <= config.zone2Upper { return 1 }
+        if v <= config.zone3Upper { return 2 }
+        if v <= config.zone4Upper { return 3 }
+        return 4
+    }
+
+    /// Generates a time-series-like ribbon: work zones shuffled in bursts with recovery
+    /// spread evenly between them — matching the mock's `zoneSequence` algorithm.
+    private func ribbonSequence(zones: [String: HRZoneEntry]) -> [Color] {
+        // Scale cell count to session length: ~1 cell per 4 min, clamped 5–41.
+        // Avoids ultra-thin barcode look on short sessions (e.g. 12-min foundation).
+        let cellCount = min(41, max(5, entry.elapsedTime / 240))
+        let totalSecs = hrZoneKeys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
+        guard totalSecs > 0 else { return [] }
+
+        // Largest-remainder allocation of cellCount across zones
+        let rawCounts = hrZoneKeys.map { Double(zones[$0]?.seconds ?? 0) / totalSecs * Double(cellCount) }
+        var counts = rawCounts.map { Int($0) }
+        let leftover = cellCount - counts.reduce(0, +)
+        rawCounts.enumerated()
+            .map { (idx: $0.offset, frac: $0.element - Double(counts[$0.offset])) }
+            .sorted { $0.frac > $1.frac }
+            .prefix(leftover)
+            .forEach { counts[$0.idx] += 1 }
+
+        // Build work array (zones 1–4 = Base through VO₂ Max) and shuffle with seeded RNG
+        var work: [Int] = []
+        for i in 1...4 { for _ in 0..<counts[i] { work.append(i) } }
+
+        var seed = UInt64(bitPattern: Int64(truncatingIfNeeded: entry.fileName.hashValue))
+        for i in stride(from: work.count - 1, through: 1, by: -1) {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            let j = Int(seed >> 33) % (i + 1)
+            work.swapAt(i, j)
+        }
+
+        // Group work cells into bursts of 3, spread recovery between gaps
+        var groups: [[Int]] = []
+        var i = 0
+        while i < work.count { groups.append(Array(work[i..<min(i + 3, work.count)])); i += 3 }
+
+        let recCount = counts[0]
+        let gapCount = groups.count + 1
+        var seq: [Int] = []
+        for (g, group) in groups.enumerated() {
+            let from = g * recCount / gapCount
+            let to   = (g + 1) * recCount / gapCount
+            for _ in 0..<(to - from) { seq.append(0) }
+            seq.append(contentsOf: group)
+        }
+        let lastFrom = groups.count * recCount / gapCount
+        for _ in lastFrom..<recCount { seq.append(0) }
+
+        return seq.map { detailZoneColors[$0] }
+    }
+
+    private func activityRibbon(zones: [String: HRZoneEntry]) -> some View {
+        // Real ordering when the heart rate was recorded; the estimate otherwise.
+        let colors = hrStream.flatMap(measuredRibbon) ?? ribbonSequence(zones: zones)
+        return HStack(spacing: 1.5) {
+            ForEach(colors.indices, id: \.self) { i in
+                colors[i].frame(maxWidth: .infinity)
             }
         }
         .frame(height: 64)
         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-        .accessibilityLabel("Time in each heart rate zone, shown in proportion.")
     }
 
     @ViewBuilder
