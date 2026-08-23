@@ -27,8 +27,9 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
   what's already done, and how to validate. The worker writes progress into that plan file as it
   goes, so a respawn resumes instead of restarting from nothing.
 - **Report shape, fixed.** Every worker report comes back as: files touched · checks run, **with
-  their output** · what was deliberately not done. The output is what makes a report auditable
-  instead of a claim, and the shape stops you re-deriving what happened.
+  their evidence** — the CI run where a runner exists, pasted output only where one doesn't · what
+  was deliberately not done. Evidence is what makes a report auditable instead of a claim, and the
+  shape stops you re-deriving what happened.
 - **Keep:** conversation, scope calls, plans, reviews, ADR and role-doc edits, and small fixes
   (~20 lines) you find *during* your own review of a subagent's diff. The point of the rule is
   that execution and review are separate passes — a short fix you write and then re-read cold
@@ -36,7 +37,7 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
 - If a subagent fails or hits a limit, retry or respawn it — **cap: 2 fix attempts.** Then stop
   and take it to the athlete. Don't spiral. Taking over a whole task is allowed
   only when you tell the athlete plainly, in that same message, that you are doing so and why.
-- **Never delegate the review, the PR, or the push.** Read the actual diff and re-run the checks
+- **Never delegate the review, the PR, or the push.** Read the actual diff and check the evidence
   yourself — a subagent's report is a claim, not evidence. You open the PR.
 - Execution loop: freshness gate → plan → athlete approves → subagent implements → **you review**
   → PR → short summary. Worker roles (Bob / UI Expert / iOS Builder) are the same thing with a
@@ -44,7 +45,14 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
 
 ### Review is seven countable checks, not a verdict
 
-1. the named checks re-run by you, and green
+1. the named checks green — **read the evidence, don't re-run it.** CI is the evidence: it runs
+	on the pushed SHA, not on your laptop. `ios-build.yml` builds + tests `ios/**` on every PR;
+	`ui-tests.yml` covers `ui/`. `gh pr checks <n>` is the check. A local `xcodebuild test` costs
+	~10 min and proves *less* — it can pass on a dirty tree, or fail only on a gitignored
+	`Secrets.swift`. Run locally when CI is red and you need the failure, or the PR changes the
+	build itself. A worker's pasted output is a claim, so ask for the CI run, not a longer report.
+	Where no runner exists (`platform/tests/*.py`, #343/#329) you run it — and the fix is to land
+	the runner, not to keep re-running by hand.
 2. the diff is a subset of the phase's declared files
 3. explicit paths were staged
 4. the PR's file list verified against the branch — not against local `main`, which has
