@@ -12,6 +12,7 @@ enum HRAnalysis {
     static let gapThreshold: TimeInterval = 60
 
     /// Display budget for the sidecar curve. ADR 0020's payload discipline.
+    /// Hard bound on the result is `max(streamBudget, 2 * segmentCount)` — see `decimate`.
     static let streamBudget = 200
 
     // MARK: - Zones
@@ -159,8 +160,18 @@ enum HRAnalysis {
                   to: Int($0.to.timeIntervalSince(start).rounded()))
         }
 
-        // Allocate the budget across segments in proportion to covered duration, minimum 2
-        // so a short segment still contributes its endpoints.
+        // Every segment must keep at least its two endpoints or a covered run vanishes from the
+        // curve entirely. That floor is what can push the total past `budget`: with 38 segments
+        // the floor alone is 76 points before any proportional share is handed out, and the
+        // endpoint re-insertion below can add two more per segment. So the honest bound is
+        // `max(budget, 2 * segments)`, and the proportional share is drawn from what is left
+        // after the floor rather than from the whole budget — the previous version allocated
+        // `max(2, budget * share)` per segment, which overshot to 297 points on a 38-gap workout
+        // while the file and the LLD both promised 200.
+        let floor = 2
+        let reserved = floor * segs.count
+        let spare = max(0, budget - reserved)
+
         let durations = segs.map { seg -> TimeInterval in
             guard let first = seg.first, let last = seg.last else { return 0 }
             return max(last.date.timeIntervalSince(first.date), 1)
@@ -170,7 +181,7 @@ enum HRAnalysis {
         var points: [HRPoint] = []
         for (i, seg) in segs.enumerated() {
             let share = total > 0 ? durations[i] / total : 1.0 / Double(segs.count)
-            let segBudget = max(2, Int((Double(budget) * share).rounded(.down)))
+            let segBudget = floor + Int((Double(spare) * share).rounded(.down))
             points.append(contentsOf: decimateSegment(seg, start: start, budget: segBudget))
         }
 
@@ -219,9 +230,15 @@ enum HRAnalysis {
             }
         }
 
-        // Endpoints are load-bearing for the chart — make sure bucketing did not lose them.
-        if let f = out.first, f.t != point(first).t { out.insert(point(first), at: 0) }
-        if let l = out.last, l.t != point(last).t { out.append(point(last)) }
+        // Endpoints are load-bearing — a run that does not start and end where it really did
+        // misplaces the whole segment. Re-insert by *replacing* the neighbouring point rather
+        // than appending, so a segment never exceeds the budget it was allocated.
+        if let f = out.first, f.t != point(first).t {
+            if out.count >= budget { out[0] = point(first) } else { out.insert(point(first), at: 0) }
+        }
+        if let l = out.last, l.t != point(last).t {
+            if out.count >= budget { out[out.count - 1] = point(last) } else { out.append(point(last)) }
+        }
 
         return out
     }

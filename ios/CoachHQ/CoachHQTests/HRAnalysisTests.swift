@@ -106,9 +106,54 @@ final class HRAnalysisTests: XCTestCase {
 
         let out = HRAnalysis.decimate(samples: s, start: start, budget: 200)
 
-        XCTAssertLessThanOrEqual(out.points.count, 220, "budget plus retained endpoints")
+        XCTAssertLessThanOrEqual(out.points.count, 200, "single segment must respect the budget")
         XCTAssertEqual(out.points.map(\.bpm).max(), 191, "global max must survive")
         XCTAssertEqual(out.points.map(\.bpm).min(), 71, "global min must survive")
+    }
+
+    /// The budget is a payload promise, so it needs a test that actually stresses it. A
+    /// many-gap workout is the shape that breaks naive allocation: an earlier version handed
+    /// every segment `max(2, budget * share)` and reached 297 points against a stated cap of 200.
+    func testManyGapsStayWithinTheStatedBound() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        var samples: [(date: Date, bpm: Double)] = []
+        var t: TimeInterval = 0
+        for i in 0..<40 {
+            for k in stride(from: 0.0, to: 300.0, by: 5.0) {
+                samples.append((date: start.addingTimeInterval(t + k),
+                                bpm: 120 + Double(i % 40)))
+            }
+            t += 300 + 120   // 120s hole — well past the 60s gap threshold
+        }
+
+        let out = HRAnalysis.decimate(samples: samples, start: start, budget: 200)
+        let segmentCount = out.gaps.count + 1
+        let bound = max(200, 2 * segmentCount)
+
+        XCTAssertEqual(segmentCount, 40)
+        XCTAssertLessThanOrEqual(
+            out.points.count, bound,
+            "hard bound is max(budget, 2 per segment) — every run keeps its two endpoints"
+        )
+    }
+
+    /// Each covered run must survive decimation, however tight the budget. A run that loses both
+    /// endpoints disappears from the ribbon, and the athlete sees a session that never happened.
+    func testEverySegmentKeepsAtLeastTwoPoints() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        var samples: [(date: Date, bpm: Double)] = []
+        var t: TimeInterval = 0
+        for _ in 0..<30 {
+            for k in stride(from: 0.0, to: 200.0, by: 5.0) {
+                samples.append((date: start.addingTimeInterval(t + k), bpm: 150))
+            }
+            t += 200 + 90
+        }
+
+        let out = HRAnalysis.decimate(samples: samples, start: start, budget: 40)
+
+        XCTAssertGreaterThanOrEqual(out.points.count, 2 * (out.gaps.count + 1),
+                                    "budget below the floor must not erase runs")
     }
 
     func testDecimatedPointsAreInTimestampOrder() {

@@ -20,6 +20,8 @@ struct HRStreamFile: Codable, Equatable {
     let coveredSeconds: Int
     let uncoveredSeconds: Int
     let gaps: [HRGap]
+    /// At most `max(200, 2 * covered runs)` — every run keeps its two endpoints, so a workout
+    /// broken into many runs by sensor dropouts costs more than the flat budget.
     let points: [HRPoint]
 
     /// Bumping this forces backfill to rewrite the file (LLD §5 — idempotency is by
