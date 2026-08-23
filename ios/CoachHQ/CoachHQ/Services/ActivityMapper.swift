@@ -95,36 +95,6 @@ struct ActivityMapper {
         )
     }
 
-    /// Computes HR zone distribution from raw heart rate samples.
-    static func computeHRZones(samples: [Double], config: HRZoneConfig, duration: TimeInterval) -> [String: HRZoneEntry] {
-        let timePerSample = duration / Double(samples.count)
-
-        var z1: Double = 0, z2: Double = 0, z3: Double = 0, z4: Double = 0, z5: Double = 0
-
-        for hr in samples {
-            let bpm = Int(hr)
-            if bpm <= config.zone1Upper {
-                z1 += timePerSample
-            } else if bpm <= config.zone2Upper {
-                z2 += timePerSample
-            } else if bpm <= config.zone3Upper {
-                z3 += timePerSample
-            } else if bpm <= config.zone4Upper {
-                z4 += timePerSample
-            } else {
-                z5 += timePerSample
-            }
-        }
-
-        return [
-            "Zone 1": HRZoneEntry(low: 0,                    high: config.zone1Upper,     seconds: z1),
-            "Zone 2": HRZoneEntry(low: config.zone1Upper + 1, high: config.zone2Upper,     seconds: z2),
-            "Zone 3": HRZoneEntry(low: config.zone2Upper + 1, high: config.zone3Upper,     seconds: z3),
-            "Zone 4": HRZoneEntry(low: config.zone3Upper + 1, high: config.zone4Upper,     seconds: z4),
-            "Zone 5": HRZoneEntry(low: config.zone4Upper + 1, high: nil,                   seconds: z5),
-        ]
-    }
-
     /// Computes average and max HR from samples.
     static func computeHRStats(samples: [Double]) -> (average: Double?, max: Double?) {
         guard !samples.isEmpty else { return (nil, nil) }

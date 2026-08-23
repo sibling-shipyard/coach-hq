@@ -10,7 +10,7 @@ and merge rules only — rationale lives in the main doc.
 | Name | Value | Why |
 |---|---|---|
 | `GAP_THRESHOLD` | 60s | Apple Watch workout HR samples ~5s apart; 60s is a generous multiple |
-| `STREAM_BUDGET` | 200 points | ADR 0020's payload discipline |
+| `STREAM_BUDGET` | 200 points | ADR 0020's payload discipline. Soft target: the hard bound is `max(200, 2 × segments)`, since every covered run keeps both endpoints or it vanishes from the curve |
 | `MORNING_WINDOW` | local 00:00 → 11:00 | covers sleep + wake, excludes training load |
 | `STREAM_SCHEMA` / `DAILY_SCHEMA` | 1 | bump forces backfill rewrite |
 
@@ -50,7 +50,9 @@ reader judge fidelity without refetching HealthKit.
 ### Downsampling — min/max decimation
 
 1. Split the series at every gap `> GAP_THRESHOLD`. Gaps are never bridged.
-2. Allocate the 200-point budget across segments proportional to covered duration, minimum 2.
+2. Reserve 2 points per segment first, then allocate what remains proportional to covered
+   duration. Allocating `max(2, budget × share)` per segment instead overshoots — measured at
+   297 points on a 38-gap workout against a stated cap of 200.
 3. Per segment: divide into `⌊budget/2⌋ ` equal-time buckets; emit each bucket's min and max
    sample **in timestamp order**; collapse to one point when they are the same sample.
 4. Always retain each segment's first and last sample.
