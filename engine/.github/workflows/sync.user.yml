@@ -41,6 +41,15 @@ jobs:
       - name: Install Python dependencies
         run: pip install requests
 
+      - name: Find changed activities
+        if: github.event_name == 'push'
+        run: |
+          {
+            echo 'CHANGED_ACTIVITY_PATHS<<EOF'
+            git diff --name-only --diff-filter=AM '${{ github.event.before }}' '${{ github.sha }}' -- user_data/activities/hist/ || true
+            echo EOF
+          } >> "$GITHUB_ENV"
+
       - name: Run pipeline
         run: python3 engine/scripts/regenerate_derived.py
 
@@ -58,6 +67,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add user_data/activities/hist/
           git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
           git add gen/quest_history.json gen/sync_status.json
           if git diff --cached --quiet; then
@@ -75,6 +85,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             python3 engine/scripts/regenerate_derived.py
+            git add user_data/activities/hist/
             node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
             node engine/scripts/generate-athlete-insights.mjs
             git add -f gen/dashboard_snapshot.json gen/athlete_insights.json

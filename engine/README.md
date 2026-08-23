@@ -10,7 +10,7 @@ Layout: [`docs/eng-docs/skeleton-layout.md`](../docs/eng-docs/skeleton-layout.md
 |---|---|
 | `scripts/` | Sync pipeline — regenerate derived, dashboard snapshot, athlete insights, quest history, validate current week |
 | `lib/` | Shared layout + schema helpers |
-| `core/` | Taxonomy, query_history, rename_core |
+| `core/` | Taxonomy, query_history, rename_core, vs-usual baselines |
 | `.github/workflows/` | sync, validate-data, apply-coach-patch |
 
 The composed SOUL lives once, in HQ, and the coach-chat backend bundles `platform/SOUL.chat.md`

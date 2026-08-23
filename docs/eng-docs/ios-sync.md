@@ -214,11 +214,12 @@ snapshot pipeline "runs on the next sync/build" — this action just picks up wh
 there.
 
 Those downstream artifacts only get regenerated when the sync workflow runs. On a user fork,
-`engine/.github/workflows/sync.user.yml` has a `push` trigger on `user_data/activities/hist/**`
-and `user_data/activities/sync_state.json` — exactly the files this iOS commit touches. So an
-iOS sync **does indirectly trigger a second, automatic GitHub Actions run**, which calls
-`engine/scripts/regenerate_derived.py` and `engine/scripts/build-dashboard-snapshot.mjs` to rebuild
-`gen/dashboard_snapshot.json`, `gen/athlete_insights.json`, and the other derived JSON files.
+`engine/.github/workflows/sync.user.yml` has a `push` trigger on `user_data/activities/hist/**`,
+which every workout sync writes. So an iOS sync **does indirectly trigger a second, automatic
+GitHub Actions run**. The workflow records only added or modified history paths, adds a stored
+`vs_usual` baseline to eligible files that do not already contain one, and rebuilds
+`gen/dashboard_snapshot.json`, `gen/athlete_insights.json`, `gen/quest_history.json`, and
+`gen/sync_status.json`. Deleted or older activity files are not enriched.
 
 **So the app must wait for that second run, not for its own commit.** That regeneration takes
 ~30s. A single immediate `WidgetSnapshotStore.refresh()` races the pipeline and then caches stale
@@ -244,6 +245,13 @@ the safe idempotent check: a no-op if the user already decided.
 `GitHubAPIClient.listFiles` (filenames encode the date, so a lexical sort is enough for
 newest-first) and paginates activity-body fetches in memory. Nothing touches `SyncCache`, so
 nothing gets evicted out from under the list.
+
+Before rebuilding those files, `regenerate_derived.py` adds `vs_usual` to each activity changed
+by the triggering push. The block is the median of up to 20 prior same-sport activities and is
+omitted until two prior sessions exist and at least one metric has two valid observations. Missing
+metrics are omitted from their individual median; they are never treated as zero. The workflow
+commits the enriched activity JSON with the other generated outputs. Existing history is not
+backfilled.
 
 ## Auth
 
