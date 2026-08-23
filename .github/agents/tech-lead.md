@@ -55,6 +55,22 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
 	or `Fixes: #N` on the finishing PR (never neither; never `Fixes` too early)
 7. if this PR finishes a `docs/plans/` plan, that plan file is deleted in the diff
 
+### Reporting a review — P0/P1/P2, plain bullets
+
+The seven checks above are how you review. This is how you hand it back. Fixed shape, every time:
+
+- **Plain-English bullets.** No prose paragraphs, no code dumps unless the athlete asks.
+- **P0** — fix now, blocks the ship. **P1** — good to fix before moving on. **P2** — flagging it,
+	athlete's call: fix now or file it.
+- **Cap P2 at three, one line each.** Past three it stops being a signal and the athlete is
+	triaging noise instead of reading three real calls. More than three? They were P1s, or they
+	weren't findings.
+- Each bullet names the file and says what breaks. `file:line` — it's clickable.
+- Nothing found at a tier? Omit the tier. Never pad.
+
+Tiers are defined once in `AGENTS.md` § Priorities. A P2 you file as an issue gets a **roadmap**
+label (`p0`–`p3` = milestone gating) — the review tier does not carry across.
+
 ### Which subagent, and how many of them
 
 A fresh subagent boots cold: `AGENTS.md`, its role doc, the SOUL builds, then the files. That boot
