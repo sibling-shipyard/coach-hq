@@ -54,7 +54,7 @@ sequenceDiagram
     M->>GH: list files in user_data/activities/hist/ (dedup)
     M->>M: WorkoutDeduplicator drops already-synced + multi-source copies
     loop each remaining workout
-        M->>M: ActivityMapper.map (schema + HR zones)
+        M->>M: ActivityMapper.map (schema + full-sample HR analysis)
         M->>M: ActivityNamer assigns name + filename
     end
     M->>GH: commitFiles() - atomic multi-file commit
@@ -79,8 +79,9 @@ sequenceDiagram
      committed file list, plus Strava-style naming for legacy history. **This runs before the
      heart-rate fetch and before naming**, so a re-scanned day costs no HealthKit queries and
      never advances a name counter for a workout that is not committed.
-   - Fetches heart-rate samples for the workout window, computes avg/max HR and zone 1-5 time
-     distribution.
+   - Fetches the complete heart-rate sample set for the workout window, computes avg/max HR,
+     zone 1-5 time distribution, and the compact `effort_shape`. The display curve is decimated
+     only after those summaries are complete.
    - `ActivityNamer` assigns a generic sequential name (`{SportType} #{N}`, e.g. "WeightTraining #30") and the filename —
      `hk_YYYY-MM-DD_<uuid>.json`, where `<uuid>` is the `HKWorkout.uuid`. The `hk_` prefix
      distinguishes it from Strava-sourced files; the `YYYY-MM-DD` prefix is kept for browsability
@@ -102,7 +103,7 @@ Two paths per workout, not one (ADR 0027):
 | Path | Grain | Holds |
 |---|---|---|
 | `user_data/activities/hist/<name>.json` | activity | scalars + `hr_zones` |
-| `user_data/activities/streams/<uuid>.json` | activity | HR display curve, ≤200 points |
+| `user_data/activities/streams/<uuid>.json` | activity | HR display curve, ≤200 points; optional full-sample `effort_shape`, ≤12 blocks |
 
 The round can also write `user_data/health/zones.json` when the file is absent or the athlete saves
 a custom override. It uses `syncNewWorkouts(extraFiles:)`, so there is no second commit path. If a
@@ -119,6 +120,13 @@ and elapsed time no sample owns accrues to `uncovered_seconds` rather than enter
 invariant `Σ zone_seconds + uncovered_seconds == elapsed_time` is asserted in
 `ios/CoachHQ/CoachHQTests/HRAnalysisTests.swift`. Curve decimation is min/max per bucket so an
 interval session keeps its peaks.
+
+**Coach receives a summary, not the curve.** `effort_shape` targets five-minute elapsed-time
+buckets and caps the result at 12, so blocks widen on sessions longer than one hour. Each covered
+block stores its relative start/end seconds, raw-sample median and nearest-rank p90 BPM,
+coverage-time-weighted dominant zone, and covered seconds. Fully uncovered buckets are omitted;
+partial buckets report only sample-owned coverage. The same repo-backed `HRZoneConfig.current`
+used for `hr_zones` supplies the boundaries. The field is optional, so sidecars without it decode.
 
 ### Canonical id — HKWorkout uuid
 

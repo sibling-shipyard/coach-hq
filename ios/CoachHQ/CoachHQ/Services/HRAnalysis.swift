@@ -15,6 +15,18 @@ enum HRAnalysis {
     /// Hard bound on the result is `max(streamBudget, 2 * segmentCount)` — see `decimate`.
     static let streamBudget = 200
 
+    /// Coach summaries target five-minute blocks, widening them on long sessions to keep the
+    /// payload bounded. Empty-coverage blocks are omitted rather than assigned invented BPM.
+    static let effortBlockSeconds: TimeInterval = 5 * 60
+    static let effortBlockLimit = 12
+
+    private struct CoveredSlice {
+        let start: Date
+        let end: Date
+        let bpm: Double
+        let zone: Int
+    }
+
     // MARK: - Zones
 
     /// Integrates zone seconds over the full sample set, gap-aware.
@@ -32,7 +44,6 @@ enum HRAnalysis {
         end: Date
     ) -> HRZoneResult {
         let elapsed = max(0, end.timeIntervalSince(start))
-        let half = gapThreshold / 2
 
         guard !samples.isEmpty else {
             return HRZoneResult(zones: zoneDict(config: config, seconds: [0, 0, 0, 0, 0]),
@@ -40,32 +51,12 @@ enum HRAnalysis {
                                 coveredSeconds: 0)
         }
 
-        let ordered = samples.sorted { $0.date < $1.date }
         var seconds = [Double](repeating: 0, count: 5)
         var covered: Double = 0
 
-        for (i, sample) in ordered.enumerated() {
-            // Backward reach: to the midpoint with the previous sample, or to the workout
-            // start for the first one — never more than half a gap threshold.
-            let backBoundary: TimeInterval
-            if i == 0 {
-                backBoundary = min(half, sample.date.timeIntervalSince(start))
-            } else {
-                backBoundary = min(half, sample.date.timeIntervalSince(ordered[i - 1].date) / 2)
-            }
-
-            // Forward reach: symmetric, ending at the workout end for the last sample.
-            let forwardBoundary: TimeInterval
-            if i == ordered.count - 1 {
-                forwardBoundary = min(half, end.timeIntervalSince(sample.date))
-            } else {
-                forwardBoundary = min(half, ordered[i + 1].date.timeIntervalSince(sample.date) / 2)
-            }
-
-            let owned = max(0, backBoundary) + max(0, forwardBoundary)
-            guard owned > 0 else { continue }
-
-            seconds[zoneIndex(for: sample.bpm, config: config)] += owned
+        for slice in coveredSlices(samples: samples, config: config, start: start, end: end) {
+            let owned = slice.end.timeIntervalSince(slice.start)
+            seconds[slice.zone] += owned
             covered += owned
         }
 
@@ -76,6 +67,125 @@ enum HRAnalysis {
         return HRZoneResult(zones: zoneDict(config: config, seconds: seconds),
                             uncoveredSeconds: elapsed - covered,
                             coveredSeconds: covered)
+    }
+
+    // MARK: - Effort shape
+
+    /// Summarizes the complete HR sample set into at most 12 elapsed-time blocks.
+    ///
+    /// The buckets cover workout elapsed time, not the display curve. Median and p90 use every
+    /// raw sample whose owned coverage intersects the bucket. Dominant zone is weighted by that
+    /// owned coverage, and a bucket with no coverage is left out so gaps stay visible.
+    static func effortShape(
+        samples: [(date: Date, bpm: Double)],
+        config: HRZoneConfig,
+        start: Date,
+        end: Date
+    ) -> [HREffortBlock] {
+        let elapsedSeconds = max(0, Int(end.timeIntervalSince(start).rounded()))
+        guard elapsedSeconds > 0, !samples.isEmpty else { return [] }
+
+        let nominalCount = Int(ceil(Double(elapsedSeconds) / effortBlockSeconds))
+        let blockCount = min(effortBlockLimit, max(1, nominalCount))
+        let slices = coveredSlices(samples: samples, config: config, start: start, end: end)
+        guard !slices.isEmpty else { return [] }
+
+        var blocks: [HREffortBlock] = []
+        for index in 0..<blockCount {
+            let blockStart = index * elapsedSeconds / blockCount
+            let blockEnd = (index + 1) * elapsedSeconds / blockCount
+            var bpmValues: [Double] = []
+            var zoneSeconds = [Double](repeating: 0, count: 5)
+
+            for slice in slices {
+                let sliceStart = slice.start.timeIntervalSince(start)
+                let sliceEnd = slice.end.timeIntervalSince(start)
+                let overlapStart = max(Double(blockStart), sliceStart)
+                let overlapEnd = min(Double(blockEnd), sliceEnd)
+                guard overlapEnd > overlapStart else { continue }
+
+                bpmValues.append(slice.bpm)
+                zoneSeconds[slice.zone] += overlapEnd - overlapStart
+            }
+
+            let covered = zoneSeconds.reduce(0, +)
+            guard covered > 0, !bpmValues.isEmpty else { continue }
+
+            var dominantZone = 0
+            for zone in 1..<zoneSeconds.count where zoneSeconds[zone] > zoneSeconds[dominantZone] {
+                dominantZone = zone
+            }
+
+            blocks.append(HREffortBlock(
+                startSeconds: blockStart,
+                endSeconds: blockEnd,
+                medianBpm: median(bpmValues),
+                p90Bpm: percentile90(bpmValues),
+                dominantZone: "Zone \(dominantZone + 1)",
+                coveredSeconds: Int(covered.rounded())
+            ))
+        }
+
+        return blocks
+    }
+
+    private static func coveredSlices(
+        samples: [(date: Date, bpm: Double)],
+        config: HRZoneConfig,
+        start: Date,
+        end: Date
+    ) -> [CoveredSlice] {
+        let ordered = samples.sorted { $0.date < $1.date }
+        let half = gapThreshold / 2
+
+        return ordered.enumerated().compactMap { index, sample in
+            let backBoundary: TimeInterval
+            if index == 0 {
+                backBoundary = min(half, sample.date.timeIntervalSince(start))
+            } else {
+                backBoundary = min(
+                    half,
+                    sample.date.timeIntervalSince(ordered[index - 1].date) / 2
+                )
+            }
+
+            let forwardBoundary: TimeInterval
+            if index == ordered.count - 1 {
+                forwardBoundary = min(half, end.timeIntervalSince(sample.date))
+            } else {
+                forwardBoundary = min(
+                    half,
+                    ordered[index + 1].date.timeIntervalSince(sample.date) / 2
+                )
+            }
+
+            let sliceStart = max(start, sample.date.addingTimeInterval(-max(0, backBoundary)))
+            let sliceEnd = min(end, sample.date.addingTimeInterval(max(0, forwardBoundary)))
+            guard sliceEnd > sliceStart else { return nil }
+
+            return CoveredSlice(
+                start: sliceStart,
+                end: sliceEnd,
+                bpm: sample.bpm,
+                zone: zoneIndex(for: sample.bpm, config: config)
+            )
+        }
+    }
+
+    private static func median(_ values: [Double]) -> Int {
+        let ordered = values.sorted()
+        let middle = ordered.count / 2
+        let value = ordered.count.isMultiple(of: 2)
+            ? (ordered[middle - 1] + ordered[middle]) / 2
+            : ordered[middle]
+        return Int(value.rounded())
+    }
+
+    /// Nearest-rank p90: the smallest observed value at or above the 90th percentile.
+    private static func percentile90(_ values: [Double]) -> Int {
+        let ordered = values.sorted()
+        let rank = max(1, Int(ceil(0.9 * Double(ordered.count))))
+        return Int(ordered[rank - 1].rounded())
     }
 
     /// Zone bucket for one reading. Boundaries are inclusive uppers, matching `HRZoneConfig`.
