@@ -646,12 +646,13 @@ struct ActivityDetailView: View {
             Text(current)
                 .font(WarmInstrument.monoLabel(10))
                 .tracking(1.0)
-                .foregroundColor(WarmInstrument.inkMuted)
+                .foregroundColor(badge.color)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
+                .background(badge.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .strokeBorder(WarmInstrument.border, lineWidth: 1)
+                        .strokeBorder(badge.color.opacity(0.45), lineWidth: 1)
                 )
                 .opacity(isSavingCategory ? 0.5 : 1)
         } else {
@@ -668,54 +669,32 @@ struct ActivityDetailView: View {
     }
 
     private func saveCategory(_ code: String?) async {
+        // Menu is disabled when activity == nil, but guard defensively
+        guard let base = activity ?? entry.activity else { return }
+
+        // Optimistic update — UI and cache reflect the change immediately,
+        // so navigating away before the commit finishes doesn't lose the tag.
+        var updated = base
+        updated.category = code
+        activity = updated
+        SyncCache.updateActivity(fileName: entry.fileName, activity: updated)
+
         isSavingCategory = true
         defer { isSavingCategory = false }
         do {
-            let currentActivity: Activity
-            if let activity {
-                currentActivity = activity
-            } else if let cached = entry.activity {
-                currentActivity = cached
-            } else {
-                currentActivity = try await readActivityWithPropagationRetry()
-            }
-            let updatedActivity = Activity(
-                name: currentActivity.name,
-                category: code,
-                sportType: currentActivity.sportType,
-                startDateLocal: currentActivity.startDateLocal,
-                elapsedTime: currentActivity.elapsedTime,
-                movingTime: currentActivity.movingTime,
-                calories: currentActivity.calories,
-                distance: currentActivity.distance,
-                totalElevationGain: currentActivity.totalElevationGain,
-                averageHeartrate: currentActivity.averageHeartrate,
-                maxHeartrate: currentActivity.maxHeartrate,
-                hasHeartrate: currentActivity.hasHeartrate,
-                hrZones: currentActivity.hrZones,
-                description: currentActivity.description,
-                totalPhotoCount: currentActivity.totalPhotoCount,
-                averageSpeed: currentActivity.averageSpeed,
-                maxSpeed: currentActivity.maxSpeed,
-                deviceName: currentActivity.deviceName,
-                source: currentActivity.source,
-                sourceApp: currentActivity.sourceApp,
-                preMentalState: currentActivity.preMentalState,
-                activityId: currentActivity.activityId,
-                idStr: currentActivity.idStr
-            )
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(updatedActivity)
+            let data = try encoder.encode(updated)
             try await apiClient.commitFiles(
                 [(path: "user_data/activities/hist/\(entry.fileName)", data: data)],
-                message: code.map { "ios: tag \(currentActivity.name) [\($0)]" } ?? "ios: remove category from \(currentActivity.name)"
+                message: code.map { "ios: tag \(base.name) [\($0)]" } ?? "ios: remove category from \(base.name)"
             )
-            SyncCache.updateActivity(fileName: entry.fileName, activity: updatedActivity)
-            activity = updatedActivity
             toast = Toast(kind: .success, message: code.map { "Tagged \($0)" } ?? "Category removed")
             Haptics.success()
         } catch {
+            // Roll back optimistic change on failure
+            activity = base
+            SyncCache.updateActivity(fileName: entry.fileName, activity: base)
             errorMessage = UserFacingError.friendlyMessage(for: error)
             Haptics.error()
         }
