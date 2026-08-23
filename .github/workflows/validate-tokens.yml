@@ -1,0 +1,35 @@
+name: Validate generated tokens
+
+# tokens.json lives in shared/warm-instrument/, outside ui/ and ios/. ui-tests.yml
+# only watches ui/** and ios-build.yml only watches ios/**, so a token-only edit
+# would leave generated CSS/Swift stale. This job regenerates and diffs.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'shared/warm-instrument/**'
+      - 'ui/client/src/components/home-warm/wi-tokens.generated.css'
+      - 'ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift'
+      - '.github/workflows/validate-tokens.yml'
+  pull_request:
+    paths:
+      - 'shared/warm-instrument/**'
+      - 'ui/client/src/components/home-warm/wi-tokens.generated.css'
+      - 'ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift'
+      - '.github/workflows/validate-tokens.yml'
+
+jobs:
+  validate-tokens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Regenerate tokens and fail on drift
+        run: |
+          node shared/warm-instrument/generate.mjs
+          git diff --exit-code -- ui/client/src/components/home-warm/wi-tokens.generated.css ios/CoachHQ/CoachHQ/Views/WarmInstrumentTokens.generated.swift
