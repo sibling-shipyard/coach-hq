@@ -27,24 +27,21 @@ from pathlib import Path
 
 _BOOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(_BOOT.parent / "lib"))
+from hr_zones import load_hr_zones  # noqa: E402
 from repo_layout import hist_dir, repo_root_from_here  # noqa: E402
 from timezone_util import now_in_timezone, resolve_athlete_timezone  # noqa: E402
 
 REPO_DIR = repo_root_from_here(__file__)
 HISTORY_DIR = hist_dir(REPO_DIR)
 
-# ── CUSTOMIZE: HR zone boundaries ──────────────────────────────────────────
-# Update these to match your personal HR zones.
-# Simple estimate: Zone 2 upper = 70% of max HR (220 - age).
-# Or use a lab test / Garmin/Polar zone calculator for accuracy.
+_HR_ZONE_BOUNDARIES = load_hr_zones(REPO_DIR)
 HR_ZONES = [
-    ("Zone 1", None, 131),   # Recovery
-    ("Zone 2", 132, 145),    # Aerobic base
-    ("Zone 3", 146, 158),    # Aerobic
-    ("Zone 4", 159, 172),    # Threshold
-    ("Zone 5", 173, None),   # Max effort
+    ("Zone 1", None, _HR_ZONE_BOUNDARIES[0]),  # Recovery
+    ("Zone 2", _HR_ZONE_BOUNDARIES[0] + 1, _HR_ZONE_BOUNDARIES[1]),  # Aerobic base
+    ("Zone 3", _HR_ZONE_BOUNDARIES[1] + 1, _HR_ZONE_BOUNDARIES[2]),  # Aerobic
+    ("Zone 4", _HR_ZONE_BOUNDARIES[2] + 1, _HR_ZONE_BOUNDARIES[3]),  # Threshold
+    ("Zone 5", _HR_ZONE_BOUNDARIES[3] + 1, None),  # Max effort
 ]
-# ──────────────────────────────────────────────────────────────────────────
 
 
 def load_all_activities():
