@@ -67,6 +67,7 @@
 				Shared/AppGroupSnapshotBridge.swift,
 				Shared/GoldenDataset.swift,
 				Views/Theme.swift,
+				Views/WarmInstrumentTokens.generated.swift,
 				Views/WarmInstrumentAtoms.swift,
 			);
 			target = 33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */;
