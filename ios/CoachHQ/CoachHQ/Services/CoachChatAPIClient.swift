@@ -232,4 +232,23 @@ final class CoachChatAPIClient {
         return decoded
     }
 
+    /// Persist-on-sync Coach turn. Same activity_ids are idempotent server-side (`duplicate: true`
+    /// returns the stored thread). Network failures are not retried — the commit may have landed.
+    func activitySync(activityIds: [String]) async throws -> ChatActivitySyncResponse {
+        let auth = try await requireAuth()
+        let body: [String: Any] = [
+            "action": "activity_sync",
+            "activity_ids": activityIds,
+        ]
+        let req = try request("POST", body: body, auth: auth)
+        let data = try await send(req, operation: "Reviewing synced activities", retryNetworkFailures: false)
+        let decoded = try JSONDecoder().decode(ChatActivitySyncResponse.self, from: data)
+        await Self.shaStore.rememberAndPrune(
+            threadId: decoded.threadId,
+            sha: decoded.repoSha,
+            currentThreadIds: decoded.threads.map(\.id)
+        )
+        return decoded
+    }
+
 }

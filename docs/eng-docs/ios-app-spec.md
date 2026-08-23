@@ -131,6 +131,10 @@ Rules about app state and first paint. Breaking one fails silently, not loudly.
 - **Persisted Coach-message routes are account-scoped too.** A notification can arrive before
   `MainTabView` mounts, so its exact body and seed survive in `UserDefaults` with the repo identity.
   `MainTabView` rejects and clears an invalid or mismatched route before Chat can read it.
+- **Post-sync Coach turn is not part of HealthKit commit success.** After a batch lands, Chat
+  lists those activities, waits for fresh Home snapshots without thinking dots, then POSTs
+  `activity_sync`. A Coach 4xx/5xx leaves sync successful, the list visible, and Retry in Chat.
+  Onboarding skips this turn. See [`ios-sync.md`](ios-sync.md).
 
 ## Tech Stack
 - **Language:** Swift

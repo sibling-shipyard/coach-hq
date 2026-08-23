@@ -102,3 +102,6 @@ opened on the other platform.
 - **W · web list:** done
 - Files: `ui/client/src/components/coach-chat/{coachChatModel.ts,coachChatModel.test.ts,CoachChatWidgets.tsx,CoachChatWidgets.test.ts,coach-chat.css}`, `ui/client/src/pages/CoachChat.tsx`, `docs/eng-docs/coach-chat-daily.md`
 - Checks: `npm test` (30 files / 370 tests) and `npm run check` (`tsc --noEmit`) from `ui/`
+- **I · iOS trigger + list:** done
+- Files: `ios/CoachHQ/CoachHQ/Services/{HealthKitSyncManager,CoachChatAPIClient}.swift`, `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift`, `ios/CoachHQ/CoachHQ/Views/{CoachChatView,CoachChatWarmUI,WarmInstrumentHomeView}.swift`, `ios/CoachHQ/CoachHQTests/ActivitySyncCoachTurnTests.swift`, `docs/eng-docs/{ios-sync,ios-app-spec}.md`
+- Checks: `xcodebuild test` on `CoachHQTests` when Xcode is available; CI `ios-build.yml` after push
