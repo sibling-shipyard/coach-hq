@@ -13,8 +13,8 @@ real, grounded Coach message that opens a conversation, without turning every me
 
 Coach speaks once after each sync batch, after derived data is fresh. The exact message appears in
 the notification, as the first card on Home, and as the opening turn when tapped. It lives in a new
-athlete-owned `user_data/coach/latest_message.json`, not in the weekly `coach_read` and not in
-`coach_log.json`; those remain weekly judgement and private continuity respectively.
+athlete-owned `user_data/coach/latest_message.json`, not in the weekly `coach_read` or private
+`coach_log.json`. A fresh carve seeds `{ "schema_version": 1, "message": null }`.
 
 ```mermaid
 flowchart LR
@@ -22,23 +22,30 @@ flowchart LR
   pipeline --> endpoint["Authenticated Coach-message endpoint"]
   endpoint --> gemini["Gemini writes one grounded message"]
   gemini --> record["latest_message.json"]
-  record --> home["First card on Home"]
+  record --> snapshot["home.coachMessage snapshot"]
+  snapshot --> home["First card on Home"]
   record --> notice["Coach notification"]
   home -->|tap| chat["Chat opens with the same message"]
   notice -->|tap| chat
   chat --> reply["Athlete replies, normal thread continues"]
 ```
 
-For MVP, iOS calls the endpoint after `WidgetSnapshotStore.refreshAfterSync` observes a fresh
-dashboard snapshot. The endpoint uses the signed-in athlete's existing GitHub token and the shared
-Gemini key. Athlete repos gain no Gemini secret, and sync still succeeds if Coach generation fails.
+For MVP, iOS calls `ui/api/coach-message.ts` after `WidgetSnapshotStore.refreshAfterSync` observes a
+fresh dashboard snapshot. The route is one new Vercel function; the current 8-of-12 count leaves
+ADR 0017 headroom. It uses the athlete's existing GitHub token and the shared Gemini key, so athlete
+repos gain no Gemini secret and sync still succeeds if Coach generation fails.
 
 ## Message contract
 
-`latest_message.json` carries `schema_version`, a unique `id`, `created_at`, the source-qualified
-`activity_ids`, `body`, and a `conversation_seed_id`. Replaying the same activity set is idempotent.
-Several workouts in one sync produce one message. A newer successful message replaces the previous
-one; failure leaves the previous message untouched and sends no false Coach notification.
+`latest_message.json.message` is null or carries a unique `id`, `created_at`, source-qualified
+`activity_ids`, `body`, and `conversation_seed_id`. Replaying the same sorted activity-id set is
+idempotent. Several workouts in one sync produce one message. A newer successful message replaces
+the previous one; failure leaves the previous message untouched and sends no false notification.
+
+The route writes through ADR 0012's `commitFilesAtomic` with a resolved entry. If the sync bot moves
+athlete `main`, the helper retries from fresh HEAD and re-reads `latest_message.json`; the resolver
+keeps an identical or newer message rather than clobbering it. Exhausted retries return failure,
+leave the prior message intact, and schedule no Coach notification.
 
 Heart rate is summarized, never dumped into Gemini. Before iOS reduces the full sample set to the
 display curve, it also writes an `effort_shape` into `user_data/activities/streams/<uuid>.json`:
@@ -50,9 +57,20 @@ Missing coverage stays explicit. HR alone cannot prove fatigue, fitness, recover
 those claims need pace or power, repeated-session evidence, or the athlete's report. Coach receives
 the effort shape whenever HR exists, but mentions it only when it adds something useful.
 
-Tap must not call the ordinary fresh greeting. Web routes to `/coach-chat` with the conversation
-seed; iOS selects Chat with the same seed. The first athlete reply sends that Coach turn as prior
-conversation context, then the existing chat lifecycle takes over.
+ADR 0005 stays the Home boundary. `ui/api/widget-snapshots.ts` fetches `latest_message.json` beside
+the existing dashboard snapshot and emits optional `home.coachMessage` with message id, timestamp,
+body, and seed id; it does not wait for or trigger a second pipeline run. Web Home and iOS
+`WidgetSnapshotStore` both consume that field.
+
+`conversation_seed_id` is `local-proactive-<message.id>`, a local-only thread not yet present in
+`chat_history.json`. Web opens `/coach-chat?seed=<id>`; iOS Home and notification `userInfo` pass the
+same id through `MainTabView`. Neither calls the fresh greeting: each client materializes the divider
+plus exact Coach message, caches it, and sends it as prior context on the athlete's first reply. The
+existing close path writes that same thread through `buildChatWrite`, applying ADR 0012's seven-thread
+retention. An unopened seed consumes no history slot.
+
+The implementation adds an ADR for the new latest-message lifecycle and snapshot projection. The
+activity-grain `effort_shape` extends ADR 0027's existing HR sidecar decision without a new grain.
 
 ## Voice contract
 
@@ -71,15 +89,35 @@ diagnosis, generic praise, or forced question.
 Few-shots cover these five shapes and an eval checks grounding, warmth, brevity, safety, and whether
 the question was earned. Challenging messages are welcome; relentless congratulations are not trust.
 
+## Implementation phases
+
+```mermaid
+flowchart LR
+  C0["C0 contract + seed"] --> A1["A1 endpoint"]
+  H1["H1 HR effort shape"] --> A1
+  A1 --> W1["W1 snapshot + web Home"]
+  W1 --> I1["I1 iOS delivery + chat handoff"]
+  H1 --> I1
+```
+
+| id | files | deps | owner |
+|---|---|---|---|
+| **C0 · contract + seed (S)** | `kdb/decisions/0029-proactive-coach-message.md`<br/>`kdb/decisions/README.md`<br/>`platform/scripts/carve-skeleton.mjs`<br/>`docs/eng-docs/skeleton-layout.md`<br/>`docs/eng-docs/coach-data-schema.md` | none | Tech Lead |
+| **H1 · HR effort shape (M)** | `ios/CoachHQ/CoachHQ/Models/HRStream.swift`<br/>`ios/CoachHQ/CoachHQ/Services/HRAnalysis.swift`<br/>`ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift`<br/>`ios/CoachHQ/CoachHQTests/HRAnalysisTests.swift`<br/>`docs/eng-docs/ios-sync.md`<br/>`docs/eng-docs/healthkit-richer-signals.md`<br/>`docs/eng-docs/healthkit-richer-signals-lld.md` | none | iOS Builder |
+| **A1 · generation + atomic write (M)** | `ui/api/coach-message.ts`<br/>`ui/api/coach-message/_lib/coachMessage.ts`<br/>`ui/api/coach-message/_tests/coachMessage.test.ts`<br/>`ui/api/README.md` | C0, H1 | UI Expert |
+| **W1 · snapshot + web Home (M)** | `ui/api/widget-snapshots.ts`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.js`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.d.ts`<br/>`ui/api/auth/_tests/generate-widget-snapshots-from-dashboard-snapshot.test.ts`<br/>`ui/client/src/components/home-warm/snapshots.ts`<br/>`ui/client/src/components/home-warm/warmHomeSnapshots.ts`<br/>`ui/client/src/components/home-warm/WarmInstrumentHome.tsx`<br/>`ui/client/src/components/home-warm/WarmInstrumentWidgets.tsx`<br/>`ui/client/src/components/home-warm/widgets/CoachReadCard.tsx`<br/>`ui/client/src/components/home-warm/widgets/CoachMessageCard.tsx`<br/>`ui/client/src/components/home-warm/warm-instrument.css`<br/>`ui/client/src/hooks/useWidgetSnapshots.ts`<br/>`ui/client/src/pages/Home.tsx`<br/>`shared/golden-dataset/README.md`<br/>`shared/golden-dataset/latest_message.json`<br/>`shared/golden-dataset/generate-repo-data.mjs`<br/>`shared/golden-dataset/widget_snapshots.json` | C0, A1 | UI Expert |
+| **I1 · iOS delivery + chat handoff (L)** | `ios/CoachHQ/CoachHQ.xcodeproj/project.pbxproj`<br/>`ios/CoachHQ/CoachHQ/CoachHQApp.swift`<br/>`ios/CoachHQ/CoachHQ/Models/WidgetSnapshots.swift`<br/>`ios/CoachHQ/CoachHQ/Services/CoachMessageAPIClient.swift`<br/>`ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift`<br/>`ios/CoachHQ/CoachHQ/Services/WidgetSnapshotStore.swift`<br/>`ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift`<br/>`ios/CoachHQ/CoachHQ/Views/MainTabView.swift`<br/>`ios/CoachHQ/CoachHQ/Views/WarmInstrumentHomeView.swift`<br/>`ios/CoachHQ/CoachHQ/Views/CoachChatView.swift`<br/>`ios/CoachHQ/CoachHQTests/CoachMessageSeedTests.swift`<br/>`docs/plans/coach-proactive-message.md` | H1, A1, W1 | iOS Builder |
+
 ## Done when
 
-1. One new sync batch creates at most one message after derived data is fresh.
-2. Notification, Home, and Chat show the same Coach words; Home shows them first.
-3. Tapping continues from that message with no duplicate greeting.
-4. Retries and duplicate workflow commits cannot create duplicate messages.
-5. Gemini or write failure cannot fail sync, erase the last message, or claim Coach responded.
-6. HR summaries use full samples, preserve gaps, stay within 12 blocks, and never reach Gemini as raw points.
-7. Golden cases for strong, easy, rough, batched, HR, missing-HR, and partial-coverage sessions pass review.
+1. A fresh carve contains a valid null `latest_message.json`; one sync batch creates at most one message.
+2. A sync-bot HEAD move retries safely; duplicate or newer messages are never overwritten.
+3. `home.coachMessage` carries the exact notification text without a second pipeline run.
+4. Home shows it first, and tap continues the same local seed with no duplicate greeting.
+5. Closing that conversation persists one normal retained `chat_history.json` thread.
+6. Gemini or write failure cannot fail sync, erase the last message, or claim Coach responded.
+7. HR summaries use full samples, preserve gaps, stay within 12 blocks, and never send raw points.
+8. Strong, easy, rough, batch, HR, missing-HR, partial-coverage, conflict, and seed cases pass review.
 
 ## Deferred
 
@@ -88,7 +126,8 @@ the question was earned. Challenging messages are welcome; relentless congratula
 - A message inbox or history beyond the single latest conversation seed.
 - Proactive Coach messages triggered by recovery, plan drift, or milestones rather than a sync.
 
-Current touchpoints: `ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift`,
-`ios/CoachHQ/CoachHQ/Models/HRStream.swift`, `ios/CoachHQ/CoachHQ/Services/WidgetSnapshotStore.swift`,
-`engine/.github/workflows/sync.user.yml`, `docs/eng-docs/healthkit-richer-signals.md`,
-`ui/client/src/components/home-warm/widgets/CoachReadCard.tsx`, and `ui/api/coach-chat.ts`.
+Current touchpoints: `platform/scripts/carve-skeleton.mjs`, `docs/eng-docs/skeleton-layout.md`,
+`docs/eng-docs/ios-sync.md`, `docs/eng-docs/healthkit-richer-signals-lld.md`,
+`ui/api/_lib/githubGitData.ts`, `ui/api/widget-snapshots.ts`, `ui/api/coach-chat/_lib/chatThreads.ts`,
+`ui/client/src/components/home-warm/WarmInstrumentHome.tsx`, and
+`ios/CoachHQ/CoachHQ/Services/WidgetSnapshotStore.swift`.
