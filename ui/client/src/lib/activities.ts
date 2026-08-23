@@ -279,14 +279,6 @@ export function formatZoneTime(seconds: number): string {
   return `${s}s`;
 }
 
-export const HR_ZONE_LABELS = [
-  { key: "Zone 1", label: "Z1", range: "<131", color: "#bfdbfe" },
-  { key: "Zone 2", label: "Z2", range: "132-145", color: "#22c55e" },
-  { key: "Zone 3", label: "Z3", range: "146-158", color: "#eab308" },
-  { key: "Zone 4", label: "Z4", range: "159-172", color: "#f97316" },
-  { key: "Zone 5", label: "Z5", range: "173+", color: "#ef4444" },
-];
-
 // ─── Aggregation ────────────────────────────────────────────────────────────
 
 export function getWeekKey(dateStr: string): string {

@@ -49,6 +49,13 @@ var tokens_default = {
     realign: { hex: "#A8702C" },
     strength: { hex: "#3B4A6B" }
   },
+  zones: [
+    { hex: "#c3d1c8", label: "Z1", name: "Recovery" },
+    { hex: "#6f9080", label: "Z2", name: "Base" },
+    { hex: "#315a4a", label: "Z3", name: "Aerobic" },
+    { hex: "#a8702c", label: "Z4", name: "Threshold" },
+    { hex: "#7f3728", label: "Z5", name: "VO\u2082 Max" }
+  ],
   typography: {
     ui: "Space Grotesk, system-ui, sans-serif",
     figures: "Space Mono, ui-monospace, monospace",
@@ -65,6 +72,9 @@ function sportMixHex(id) {
 }
 function workoutHex(id) {
   return tokens_default.workouts[id].hex;
+}
+function zoneRamp() {
+  return tokens_default.zones.map((zone) => zone.hex);
 }
 
 // client/src/lib/activities.ts
@@ -753,7 +763,7 @@ function buildAmIImproving(sessions, mode, now, shape) {
   }
   return { available: true, rows };
 }
-var ZONE_COLORS = ["#adc2b7", "#315a4a", "#a8702c", "#7f3728", "#4a241a"];
+var ZONE_COLORS = zoneRamp();
 function buildEffort(sessions) {
   const totals = [0, 0, 0, 0, 0];
   let anyZones = false;

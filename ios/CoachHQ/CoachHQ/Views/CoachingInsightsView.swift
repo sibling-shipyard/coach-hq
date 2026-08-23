@@ -213,8 +213,7 @@ struct ZoneRingWidget: View {
     }
 
     private var zoneTotals: [Double] {
-        let keys = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-        return keys.map { key in
+        return HRZone.keys.map { key in
             thisWeek.compactMap { $0.activity?.hrZones?[key]?.seconds }.reduce(0, +)
         }
     }

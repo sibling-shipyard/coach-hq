@@ -3,20 +3,6 @@ import SwiftUI
 /// Shows a synced activity's stats and (for Badminton) lets the user log match scores.
 /// Layout: headerBar → Beat 01 hero → Beat 02 ribbon → Beat 03 vs-usual → Beat 04 scores
 
-private let hrZoneKeys  = ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"]
-private let hrZoneNames = ["Recovery", "Base", "Aerobic", "Threshold", "VO₂ Max"]
-
-/// Earthy zone palette matching the mock — Recovery (sage) through VO₂ Max (terracotta).
-/// Intentionally separate from Theme.hrZoneColors (used in widgets) so each surface
-/// can evolve independently.
-private let detailZoneColors: [Color] = [
-    Color(red: 0xc3/255, green: 0xd1/255, blue: 0xc8/255), // Z1 Recovery  #c3d1c8
-    Color(red: 0xad/255, green: 0xc2/255, blue: 0xb7/255), // Z2 Base      #adc2b7
-    Color(red: 0x31/255, green: 0x5a/255, blue: 0x4a/255), // Z3 Aerobic   #315a4a
-    Color(red: 0xa8/255, green: 0x70/255, blue: 0x2c/255), // Z4 Threshold #a8702c
-    Color(red: 0x7f/255, green: 0x37/255, blue: 0x28/255), // Z5 VO₂ Max   #7f3728
-]
-
 private let matchWinColor  = Color(red: 0x1A/255, green: 0x47/255, blue: 0x31/255) // deep green
 private let matchLossColor = Color(red: 0xa3/255, green: 0x46/255, blue: 0x2c/255) // warm red
 
@@ -69,7 +55,7 @@ struct ActivityDetailView: View {
 
     private var hrZoneTotal: Double {
         guard let zones = activity?.hrZones else { return 0 }
-        return hrZoneKeys.reduce(0) { $0 + (zones[$1]?.seconds ?? 0) }
+        return HRZone.keys.reduce(0) { $0 + (zones[$1]?.seconds ?? 0) }
     }
 
     // MARK: - Body
@@ -241,7 +227,7 @@ struct ActivityDetailView: View {
         let config = RibbonBuilder.storedConfig(from: zones)
         let cells = RibbonBuilder.cellCount(elapsedSeconds: stream.elapsedSeconds)
         let perCell = RibbonBuilder.zonesPerCell(stream: stream, config: config, cells: cells)
-        return RibbonBuilder.carryGaps(perCell).map { detailZoneColors[$0] }
+        return RibbonBuilder.carryGaps(perCell).map { HRZone.colors[$0] }
     }
 
     /// Generates a time-series-like ribbon: work zones shuffled in bursts with recovery
@@ -250,11 +236,11 @@ struct ActivityDetailView: View {
         // Scale cell count to session length: ~1 cell per 4 min, clamped 5–41.
         // Avoids ultra-thin barcode look on short sessions (e.g. 12-min foundation).
         let cellCount = min(41, max(5, entry.elapsedTime / 240))
-        let totalSecs = hrZoneKeys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
+        let totalSecs = HRZone.keys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
         guard totalSecs > 0 else { return [] }
 
         // Largest-remainder allocation of cellCount across zones
-        let rawCounts = hrZoneKeys.map { Double(zones[$0]?.seconds ?? 0) / totalSecs * Double(cellCount) }
+        let rawCounts = HRZone.keys.map { Double(zones[$0]?.seconds ?? 0) / totalSecs * Double(cellCount) }
         var counts = rawCounts.map { Int($0) }
         let leftover = cellCount - counts.reduce(0, +)
         rawCounts.enumerated()
@@ -291,7 +277,7 @@ struct ActivityDetailView: View {
         let lastFrom = groups.count * recCount / gapCount
         for _ in lastFrom..<recCount { seq.append(0) }
 
-        return seq.map { detailZoneColors[$0] }
+        return seq.map { HRZone.colors[$0] }
     }
 
     private func activityRibbon(zones: [String: HRZoneEntry]) -> some View {
@@ -309,9 +295,9 @@ struct ActivityDetailView: View {
 
     @ViewBuilder
     private func zoneLegend(zones: [String: HRZoneEntry]) -> some View {
-        let items: [(index: Int, name: String, secs: Double)] = hrZoneKeys.indices.compactMap { i in
-            let s = zones[hrZoneKeys[i]]?.seconds ?? 0
-            return s > 0 ? (i, hrZoneNames[i].uppercased(), s) : nil
+        let items: [(index: Int, name: String, secs: Double)] = HRZone.keys.indices.compactMap { i in
+            let s = zones[HRZone.keys[i]]?.seconds ?? 0
+            return s > 0 ? (i, HRZone.names[i].uppercased(), s) : nil
         }
         let row1 = Array(items.prefix(3))
         let row2 = Array(items.dropFirst(3))
@@ -337,7 +323,7 @@ struct ActivityDetailView: View {
     private func zoneLegendChip(index: Int, name: String, secs: Double) -> some View {
         HStack(spacing: 4) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(detailZoneColors[index])
+                .fill(HRZone.colors[index])
                 .frame(width: 7, height: 7)
             Text(name)
                 .font(WarmInstrument.monoLabel(9, weight: .regular))

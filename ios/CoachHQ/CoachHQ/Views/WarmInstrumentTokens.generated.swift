@@ -27,4 +27,14 @@ enum WITokens {
         static let realign = Color(red: 0xA8 / 255.0, green: 0x70 / 255.0, blue: 0x2C / 255.0)
         static let strength = Color(red: 0x3B / 255.0, green: 0x4A / 255.0, blue: 0x6B / 255.0)
     }
+
+    enum Zones {
+        static let ramp: [Color] = [
+            Color(red: 0xC3 / 255.0, green: 0xD1 / 255.0, blue: 0xC8 / 255.0),
+            Color(red: 0x6F / 255.0, green: 0x90 / 255.0, blue: 0x80 / 255.0),
+            Color(red: 0x31 / 255.0, green: 0x5A / 255.0, blue: 0x4A / 255.0),
+            Color(red: 0xA8 / 255.0, green: 0x70 / 255.0, blue: 0x2C / 255.0),
+            Color(red: 0x7F / 255.0, green: 0x37 / 255.0, blue: 0x28 / 255.0)
+        ]
+    }
 }

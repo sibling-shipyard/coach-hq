@@ -56,14 +56,7 @@ enum Theme {
     /// Card corner radius — Warm Instrument's `radius.cardIosPt` (18pt).
     static let cornerRadius: CGFloat = 18
 
-    /// HR zone colors matching the website's HR_ZONE_LABELS (Z1 → Z5).
-    static let hrZoneColors: [Color] = [
-        Color(red: 0x93/255.0, green: 0xC5/255.0, blue: 0xFD/255.0), // Z1 light blue
-        Color(red: 0x22/255.0, green: 0xC5/255.0, blue: 0x5E/255.0), // Z2 green
-        Color(red: 0xEA/255.0, green: 0xB3/255.0, blue: 0x08/255.0), // Z3 yellow
-        Color(red: 0xF9/255.0, green: 0x73/255.0, blue: 0x16/255.0), // Z4 orange
-        Color(red: 0xEF/255.0, green: 0x44/255.0, blue: 0x44/255.0), // Z5 red
-    ]
+    static let hrZoneColors = WITokens.Zones.ramp
 
     /// Heart/vitals red — an alias onto the Z5 zone color so the Settings heart icon stays
     /// tokenized instead of a bare `.red` literal.
