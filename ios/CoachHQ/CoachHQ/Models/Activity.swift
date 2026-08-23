@@ -148,7 +148,7 @@ struct HRZoneEntry: Codable, Hashable {
 }
 
 /// User-configurable HR zone boundaries
-struct HRZoneConfig: Codable {
+struct HRZoneConfig: Codable, Equatable {
     let zone1Upper: Int
     let zone2Upper: Int
     let zone3Upper: Int
@@ -159,6 +159,7 @@ struct HRZoneConfig: Codable {
     static let zone2UpperKey = "hrZone2Upper"
     static let zone3UpperKey = "hrZone3Upper"
     static let zone4UpperKey = "hrZone4Upper"
+    static let mirrorKey = "hrZoneBoundariesMirror"
 
     static let defaultZone1Upper = 131
     static let defaultZone2Upper = 145
@@ -172,17 +173,57 @@ struct HRZoneConfig: Codable {
         zone4Upper: defaultZone4Upper
     )
 
-    /// Reads zone boundaries from UserDefaults, falling back to defaults.
+    var boundaries: [Int] {
+        [zone1Upper, zone2Upper, zone3Upper, zone4Upper]
+    }
+
+    var isStrictlyIncreasing: Bool {
+        zip(boundaries, boundaries.dropFirst()).allSatisfy { $0.0 < $0.1 }
+    }
+
+    init(zone1Upper: Int, zone2Upper: Int, zone3Upper: Int, zone4Upper: Int) {
+        self.zone1Upper = zone1Upper
+        self.zone2Upper = zone2Upper
+        self.zone3Upper = zone3Upper
+        self.zone4Upper = zone4Upper
+    }
+
+    init?(boundaries: [Int]) {
+        guard boundaries.count == 4 else { return nil }
+        self.init(
+            zone1Upper: boundaries[0],
+            zone2Upper: boundaries[1],
+            zone3Upper: boundaries[2],
+            zone4Upper: boundaries[3]
+        )
+        guard isStrictlyIncreasing else { return nil }
+    }
+
+    /// Reads the repo mirror first, then legacy device keys, then today's defaults.
     static var current: HRZoneConfig {
+        current(in: .standard)
+    }
+
+    static func current(in defaults: UserDefaults) -> HRZoneConfig {
+        if let data = defaults.data(forKey: mirrorKey),
+           let boundaries = try? JSONDecoder().decode([Int].self, from: data),
+           let mirrored = HRZoneConfig(boundaries: boundaries) {
+            return mirrored
+        }
+        return legacy(in: defaults)
+    }
+
+    static func legacy(in defaults: UserDefaults) -> HRZoneConfig {
         func read(_ key: String, fallback: Int) -> Int {
-            let v = UserDefaults.standard.integer(forKey: key)
+            let v = defaults.integer(forKey: key)
             return v > 0 ? v : fallback
         }
-        return HRZoneConfig(
+        let config = HRZoneConfig(
             zone1Upper: read(zone1UpperKey, fallback: defaultZone1Upper),
             zone2Upper: read(zone2UpperKey, fallback: defaultZone2Upper),
             zone3Upper: read(zone3UpperKey, fallback: defaultZone3Upper),
             zone4Upper: read(zone4UpperKey, fallback: defaultZone4Upper)
         )
+        return config.isStrictlyIncreasing ? config : .default
     }
 }

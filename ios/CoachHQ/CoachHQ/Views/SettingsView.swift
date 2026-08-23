@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(HRZoneConfig.zone2UpperKey) private var zone2Upper = HRZoneConfig.defaultZone2Upper
     @AppStorage(HRZoneConfig.zone3UpperKey) private var zone3Upper = HRZoneConfig.defaultZone3Upper
     @AppStorage(HRZoneConfig.zone4UpperKey) private var zone4Upper = HRZoneConfig.defaultZone4Upper
+    @AppStorage(HRZoneStore.customZonesEnabledKey) private var customZonesEnabled = false
 
     @State private var isResetting = false
     @State private var resetResult: String?
@@ -113,7 +114,9 @@ struct SettingsView: View {
 
                     Spacer(minLength: 8)
 
-                    Text("\(zone1Upper)/\(zone2Upper)/\(zone3Upper)/\(zone4Upper)")
+                    Text(customZonesEnabled
+                         ? "\(zone1Upper)/\(zone2Upper)/\(zone3Upper)/\(zone4Upper)"
+                         : "Automatic")
                         .font(WarmInstrument.figures(11))
                         .foregroundColor(WarmInstrument.inkFaint)
 
@@ -128,18 +131,84 @@ struct SettingsView: View {
                 WarmSettingsDivider()
 
                 VStack(spacing: 12) {
-                    WarmZoneStepper(label: "Zone 1 upper", value: $zone1Upper, range: 100...160)
-                    WarmZoneStepper(label: "Zone 2 upper", value: $zone2Upper, range: 120...170)
-                    WarmZoneStepper(label: "Zone 3 upper", value: $zone3Upper, range: 140...180)
-                    WarmZoneStepper(label: "Zone 4 upper", value: $zone4Upper, range: 150...200)
+                    WarmSettingsToggleRow(
+                        title: "Custom zones",
+                        icon: "slider.horizontal.3",
+                        iconColor: Theme.heartRateColor,
+                        isOn: $customZonesEnabled
+                    )
+                    .disabled(syncManager.isSyncing)
 
-                    Text("Zone 5: above \(zone4Upper) bpm")
-                        .font(WarmInstrument.monoLabel(10))
-                        .foregroundColor(WarmInstrument.inkFaint)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if customZonesEnabled {
+                        WarmZoneStepper(label: "Zone 1 upper", value: $zone1Upper, range: 100...160)
+                        WarmZoneStepper(label: "Zone 2 upper", value: $zone2Upper, range: 120...170)
+                        WarmZoneStepper(label: "Zone 3 upper", value: $zone3Upper, range: 140...180)
+                        WarmZoneStepper(label: "Zone 4 upper", value: $zone4Upper, range: 150...200)
+
+                        Text("Zone 5: above \(zone4Upper) bpm")
+                            .font(WarmInstrument.monoLabel(10))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if !pendingHRZoneConfig.isStrictlyIncreasing {
+                            Text("Zone upper limits must increase from Zone 1 through Zone 4.")
+                                .font(.system(size: 12))
+                                .foregroundColor(WarmInstrument.accent)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        Button {
+                            Haptics.tap()
+                            Task {
+                                await syncManager.saveHRZoneSettings(
+                                    custom: true,
+                                    config: pendingHRZoneConfig
+                                )
+                            }
+                        } label: {
+                            Text("Save custom zones")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(WarmInstrument.paper)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 40)
+                                .background(WarmInstrument.accent)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                        .buttonStyle(TimerWarmPressStyle())
+                        .disabled(!pendingHRZoneConfig.isStrictlyIncreasing || syncManager.isSyncing)
+                        .opacity(!pendingHRZoneConfig.isStrictlyIncreasing || syncManager.isSyncing ? 0.5 : 1)
+                    } else {
+                        Text("Uses the repo-backed default. Turn this on only for a measured override.")
+                            .font(.system(size: 12))
+                            .foregroundColor(WarmInstrument.inkFaint)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
         }
+        .onChange(of: customZonesEnabled) { _, enabled in
+            if enabled && !pendingHRZoneConfig.isStrictlyIncreasing {
+                applyHRZoneConfig(.default)
+            }
+            let config = enabled ? pendingHRZoneConfig : .default
+            Task { await syncManager.saveHRZoneSettings(custom: enabled, config: config) }
+        }
+    }
+
+    private var pendingHRZoneConfig: HRZoneConfig {
+        HRZoneConfig(
+            zone1Upper: zone1Upper,
+            zone2Upper: zone2Upper,
+            zone3Upper: zone3Upper,
+            zone4Upper: zone4Upper
+        )
+    }
+
+    private func applyHRZoneConfig(_ config: HRZoneConfig) {
+        zone1Upper = config.zone1Upper
+        zone2Upper = config.zone2Upper
+        zone3Upper = config.zone3Upper
+        zone4Upper = config.zone4Upper
     }
 
     // MARK: - Sync

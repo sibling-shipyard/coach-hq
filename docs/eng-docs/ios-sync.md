@@ -33,6 +33,11 @@ All of them call `HealthKitSyncManager.syncNewWorkouts()` directly, on-device. *
 dispatched** — this is the structural difference from Strava sync, which always goes through
 GitHub Actions.
 
+Before reading workouts, `HRZoneStore` reads `user_data/health/zones.json` and mirrors valid
+boundaries into `UserDefaults` for synchronous, offline-safe integration. A missing file is seeded
+from the device's current settings through the same atomic commit. Malformed content or a failed
+settings read preserves the device mirror and never blocks workout sync.
+
 ## What `syncNewWorkouts()` does, in order
 
 ```mermaid
@@ -42,6 +47,8 @@ sequenceDiagram
     participant HK as HealthKit
     participant GH as GitHub API
     U->>M: tap Sync Now
+    M->>GH: read user_data/health/zones.json
+    M->>M: mirror boundaries, or seed when absent
     M->>GH: read user_data/activities/sync_state.json
     M->>HK: query workouts since min(hk_last_synced, now - 14d)
     M->>GH: list files in user_data/activities/hist/ (dedup)
@@ -96,6 +103,11 @@ Two paths per workout, not one (ADR 0027):
 |---|---|---|
 | `user_data/activities/hist/<name>.json` | activity | scalars + `hr_zones` |
 | `user_data/activities/streams/<uuid>.json` | activity | HR display curve, ≤200 points |
+
+The round can also write `user_data/health/zones.json` when the file is absent or the athlete saves
+a custom override. It uses `syncNewWorkouts(extraFiles:)`, so there is no second commit path. If a
+save arrives during an active round, the manager keeps the latest encoded file and starts a
+follow-up round when the current one releases the sync lock.
 
 The sidecar is written only for workouts that have a HealthKit uuid and at least one HR sample —
 the pre-ADR-0014 slug fallback has no stable key to file one under. Both land in the same
@@ -285,6 +297,7 @@ Not referenced in the iOS codebase. `AGENTS.md` no longer documents it as a phon
 |---|---|---|
 | `user_data/activities/hist/hk_<date>_<uuid>.json` | `HealthKitSyncManager` | one per new HealthKit workout; filename + JSON `id`/`id_str` = HKWorkout uuid |
 | `user_data/activities/sync_state.json` | `HealthKitSyncManager` | `hk_last_synced` + naming counters |
+| `user_data/health/zones.json` | `HRZoneStore` through `HealthKitSyncManager` | seeded when absent; rewritten for a saved override |
 
 That's the entire write set for the sync action itself — much shorter than Strava's, because
 everything else (quest log, ledger, snapshots) is deferred to the downstream pipeline run
@@ -301,6 +314,7 @@ files.
 | `ios/CoachHQ/CoachHQ/Views/SettingsView.swift` | Sync Now button, pull-to-refresh |
 | `ios/CoachHQ/CoachHQ/Views/ActivityListView.swift` | secondary sync trigger |
 | `ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift` | orchestrates the whole flow |
+| `ios/CoachHQ/CoachHQ/Services/HRZoneStore.swift` | reads, mirrors, seeds and encodes repo-backed zone boundaries |
 | `ios/CoachHQ/CoachHQ/Services/ActivityMapper.swift` | HKWorkout → Activity schema, HR zones |
 | `ios/CoachHQ/CoachHQ/Services/ActivityNamer.swift` | sequential naming, filenames |
 | `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift` | Git Data API commits, reads |
