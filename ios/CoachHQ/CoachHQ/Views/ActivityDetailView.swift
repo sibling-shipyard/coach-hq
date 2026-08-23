@@ -381,6 +381,70 @@ struct ActivityDetailView: View {
     }
 
     private var usualRows: [UsualRow] {
+        if let stored = activity?.vsUsual ?? entry.activity?.vsUsual {
+            let rows = storedUsualRows(stored)
+            if !rows.isEmpty { return rows }
+        }
+
+        return cachedUsualRows
+    }
+
+    /// A stored block is one coherent historical snapshot. Missing metrics stay
+    /// missing rather than being filled from the shorter on-device cache.
+    private func storedUsualRows(_ stored: VsUsual) -> [UsualRow] {
+        var rows: [UsualRow] = []
+        let currentDuration = Double(entry.elapsedTime)
+
+        if let usual = stored.durationMedianS, usual > 0 {
+            let pct = ((currentDuration - usual) / usual * 100).rounded()
+            let sign = pct >= 0 ? "+" : ""
+            rows.append(UsualRow(
+                label: "Duration",
+                currentValue: currentDuration,
+                usualValue: usual,
+                minVal: 0,
+                maxVal: max(currentDuration, usual) * 1.2,
+                deltaLabel: "\(sign)\(Int(pct))%"
+            ))
+        }
+
+        if let usual = stored.avgHRMedian,
+           let currentHR = activity?.averageHeartrate {
+            let diff = currentHR - usual
+            let sign = diff >= 0 ? "+" : ""
+            rows.append(UsualRow(
+                label: "Avg HR",
+                currentValue: currentHR,
+                usualValue: usual,
+                minVal: min(currentHR, usual) * 0.92,
+                maxVal: max(currentHR, usual) * 1.08,
+                deltaLabel: "\(sign)\(Int(diff.rounded())) bpm"
+            ))
+        }
+
+        if let usual = stored.aboveThresholdMedianS,
+           usual > 30,
+           let currentZones = activity?.hrZones {
+            let currentAbove = (currentZones["Zone 4"]?.seconds ?? 0)
+                + (currentZones["Zone 5"]?.seconds ?? 0)
+            let pct = ((currentAbove - usual) / usual * 100).rounded()
+            let sign = pct >= 0 ? "+" : ""
+            rows.append(UsualRow(
+                label: "Above threshold",
+                currentValue: currentAbove,
+                usualValue: usual,
+                minVal: 0,
+                maxVal: max(currentAbove, usual) * 1.2,
+                deltaLabel: "\(sign)\(Int(pct))%"
+            ))
+        }
+
+        return rows
+    }
+
+    /// Legacy fallback for activity JSON with no stored baseline. Kept as the
+    /// existing ten-entry SyncCache calculation for backward compatibility.
+    private var cachedUsualRows: [UsualRow] {
         let allEntries = SyncCache.load()
         let prior = Array(
             allEntries
@@ -842,6 +906,7 @@ struct ActivityDetailView: View {
                 preMentalState: parsed.preMentalState.map {
                     PreMentalState(score: $0.score, word: $0.word)
                 } ?? currentActivity.preMentalState,
+                vsUsual: currentActivity.vsUsual,
                 activityId: currentActivity.activityId,
                 idStr: currentActivity.idStr
             )

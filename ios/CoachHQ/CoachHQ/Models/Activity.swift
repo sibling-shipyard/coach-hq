@@ -30,6 +30,9 @@ struct Activity: Codable, Identifiable, Hashable {
     let source: String            // "healthkit" or "strava"
     var sourceApp: String? = nil  // bundle ID of the app that wrote the HKWorkout (e.g. "com.garmin.connect2")
     var preMentalState: PreMentalState? = nil // absent from older history files; optional keeps decoding safe
+    /// Same-sport medians computed from repository history after sync. Optional so
+    /// activity JSON written before issue #292 keeps decoding unchanged.
+    var vsUsual: VsUsual? = nil
 
     /// Canonical stable id persisted to JSON `"id"`. For HealthKit activities this
     /// is the `HKWorkout.uuid`. Optional (default nil) so legacy files (no id, or a
@@ -64,6 +67,7 @@ struct Activity: Codable, Identifiable, Hashable {
         case source
         case sourceApp = "source_app"
         case preMentalState = "pre_mental_state"
+        case vsUsual = "vs_usual"
     }
 }
 
@@ -108,6 +112,22 @@ extension Activity {
         self.source = try c.decode(String.self, forKey: .source)
         self.sourceApp = try c.decodeIfPresent(String.self, forKey: .sourceApp)
         self.preMentalState = try c.decodeIfPresent(PreMentalState.self, forKey: .preMentalState)
+        self.vsUsual = try c.decodeIfPresent(VsUsual.self, forKey: .vsUsual)
+    }
+}
+
+/// Durable same-sport baseline attached by the user-repo sync workflow.
+/// Individual medians are optional because each metric needs two valid historical
+/// observations even when the block itself has enough prior activities to exist.
+struct VsUsual: Codable, Hashable {
+    let durationMedianS: Double?
+    let avgHRMedian: Double?
+    let aboveThresholdMedianS: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case durationMedianS = "duration_median_s"
+        case avgHRMedian = "avg_hr_median"
+        case aboveThresholdMedianS = "above_threshold_median_s"
     }
 }
 

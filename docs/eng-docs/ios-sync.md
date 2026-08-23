@@ -223,8 +223,15 @@ GitHub Actions run**. The workflow records only added or modified history paths,
 
 **So the app must wait for that second run, not for its own commit.** That regeneration takes
 ~30s. A single immediate `WidgetSnapshotStore.refresh()` races the pipeline and then caches stale
-Home data for 5 minutes. Use `refreshAfterSync(since:)`, which polls until `home.sync.timestamp`
-passes the commit time.
+Home data for 5 minutes. `refreshAfterSync(since:)` polls until `home.sync.timestamp` passes the
+lower bound captured immediately before the commit request. Once fresh, `HealthKitSyncManager`
+refetches only the activity files written in that sync round, replaces their `SyncCache` entries
+with the enriched GitHub copies, and tells a mounted Activity list to reload those value-type
+entries. Each file read gets three short-delay attempts: the first body containing `vs_usual`
+wins, while a legitimate activity with no qualifying baseline uses the last successfully decoded
+body after those attempts. The poll and refetch run after ordinary sync completion; timeout,
+total read failure, or an unavailable optional widget store leaves the original device-cache
+entries in place without turning sync into a failure.
 
 iOS Home also depends on HQ's `/api/widget-snapshots` being deployed and healthy. A 401 from it
 without auth headers is expected; a **500 is a server-side bug** — historically Vercel not
@@ -251,7 +258,10 @@ by the triggering push. The block is the median of up to 20 prior same-sport act
 omitted until two prior sessions exist and at least one metric has two valid observations. Missing
 metrics are omitted from their individual median; they are never treated as zero. The workflow
 commits the enriched activity JSON with the other generated outputs. Existing history is not
-backfilled.
+backfilled. The block stores only qualifying medians; it does not persist a sample count. Activity
+Detail treats a stored block that renders at least one row as one coherent baseline: it never fills
+a missing stored metric from `SyncCache`. JSON without the block, or with a block that cannot render
+any current comparison, uses the original ten-session device-cache calculation.
 
 ## Auth
 
