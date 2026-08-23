@@ -20,6 +20,10 @@ class HealthKitSyncManager: ObservableObject {
     /// Set exactly once per finished round (success or failure) with a fresh id.
     @Published var lastSyncResult: SyncResult?
 
+    /// Changes only when at least one post-workflow activity refresh succeeds.
+    /// Mounted activity lists observe this to reload their value-type cache entries.
+    @Published private(set) var enrichedCacheRevision = 0
+
     struct SyncResult: Equatable {
         enum Outcome: Equatable { case synced(Int), nothingNew, failed(String) }
         let outcome: Outcome
@@ -332,6 +336,7 @@ class HealthKitSyncManager: ObservableObject {
                     deviceName: base.deviceName,
                     source: base.source,
                     sourceApp: base.sourceApp,
+                    vsUsual: base.vsUsual,
                     activityId: base.activityId,
                     idStr: base.idStr
                 )
@@ -402,7 +407,9 @@ class HealthKitSyncManager: ObservableObject {
             let n = syncedForCache.count
             syncProgressText = "Uploading \(n) workout\(n == 1 ? "" : "s") to GitHub…"
             syncProgress = 0.93
-            let commitFinishedAt = Date()
+            // This is a lower bound, not the API-return time: even a very fast workflow
+            // must write a snapshot timestamp after the instant that triggered its push.
+            let pipelineFreshnessLowerBound = Date()
             try await apiClient.commitFiles(filesToCommit, message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")")
 
             // Freshly-synced HealthKit activities never have a description yet.
@@ -426,7 +433,12 @@ class HealthKitSyncManager: ObservableObject {
             // regenerates that file ~30s after this commit. Run in background — don't hold
             // isSyncing for this; it only affects the widget home cache, not the sync flow.
             let ws = widgetStore
-            Task { await ws?.refreshAfterSync(since: commitFinishedAt) }
+            let syncedFileNames = syncedForCache.map(\.fileName)
+            Task {
+                guard let ws,
+                      await ws.refreshAfterSync(since: pipelineFreshnessLowerBound) else { return }
+                await self.refreshEnrichedActivities(fileNames: syncedFileNames)
+            }
         } catch is CancellationError {
             // Task was cancelled (e.g. view torn down mid-sync) — not a real failure.
             syncProgressText = ""
@@ -450,6 +462,47 @@ class HealthKitSyncManager: ObservableObject {
         }
 
         isSyncing = false
+    }
+
+    /// Replaces only this round's cache entries after the downstream workflow has
+    /// committed their repository-history baselines. Any read failure is silent:
+    /// the freshly written on-device activities remain valid cache fallbacks.
+    private func refreshEnrichedActivities(fileNames: [String]) async {
+        guard let apiClient else { return }
+        var refreshedAny = false
+        for fileName in fileNames {
+            guard let activity = await readPostWorkflowActivity(
+                fileName: fileName,
+                apiClient: apiClient
+            ) else { continue }
+            SyncCache.upsert(SyncCacheEntry(
+                fileName: fileName,
+                activity: activity,
+                hasDescription: !(activity.description ?? "").isEmpty
+            ))
+            refreshedAny = true
+        }
+        if refreshedAny { enrichedCacheRevision += 1 }
+    }
+
+    /// Contents reads can briefly return 404 or a successfully decoded pre-workflow body.
+    /// Retry each file without adding another workflow poll. A real no-baseline activity
+    /// still refreshes from the last decoded body once the bounded attempts are exhausted.
+    private func readPostWorkflowActivity(
+        fileName: String,
+        apiClient: GitHubAPIClient
+    ) async -> Activity? {
+        var lastDecoded: Activity?
+        for attempt in 0..<3 {
+            if let activity = try? await apiClient.readActivity(fileName: fileName) {
+                lastDecoded = activity
+                if activity.vsUsual != nil { return activity }
+            }
+            if attempt < 2 {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+            }
+        }
+        return lastDecoded
     }
 
     // MARK: - Cache backfill

@@ -102,6 +102,11 @@ struct ActivityListView: View {
             }
             Task { await backfillStats() }
         }
+        .onChange(of: syncManager.enrichedCacheRevision) {
+            withAnimation(PremiumMotion.state) {
+                entries = SyncCache.load()
+            }
+        }
         .onChange(of: syncManager.lastSyncResult) { _, result in
             guard let result else { return }
             switch result.outcome {

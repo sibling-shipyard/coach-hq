@@ -115,15 +115,17 @@ class WidgetSnapshotStore: ObservableObject {
 
     /// Polls Home snapshots after a HealthKit commit until the user-repo sync workflow
     /// has regenerated `gen/dashboard_snapshot.json` (timestamp in `home.sync`) or attempts exhaust.
-    func refreshAfterSync(since commitFinishedAt: Date) async {
+    @discardableResult
+    func refreshAfterSync(since commitFinishedAt: Date) async -> Bool {
         let waitSeconds: [UInt64] = [0, 15, 15, 20, 20, 30]
         for (attempt, delay) in waitSeconds.enumerated() {
             if attempt > 0 {
                 try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
             }
             await refresh(showSpinner: false)
-            if snapshotsAreFresh(since: commitFinishedAt) { return }
+            if snapshotsAreFresh(since: commitFinishedAt) { return true }
         }
+        return false
     }
 
     private func snapshotsAreFresh(since commitFinishedAt: Date) -> Bool {

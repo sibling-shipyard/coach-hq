@@ -76,6 +76,7 @@ struct ActivityNamer {
             source: activity.source,
             sourceApp: activity.sourceApp,
             preMentalState: activity.preMentalState,
+            vsUsual: activity.vsUsual,
             activityId: activity.activityId,
             idStr: activity.idStr
         )
