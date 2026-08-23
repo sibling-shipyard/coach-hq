@@ -2,9 +2,8 @@ import SwiftUI
 
 /// Design tokens matching the Coach HQ website (coach-phelps.netlify.app).
 ///
-/// Source of truth: `ui/client/src/lib/activities.ts` (SPORT_CONFIG) for sport colors, and
-/// `shared/warm-instrument/tokens.json` (see `ios-token-mapping.md`) for the Warm Instrument
-/// surface tokens below — warm paper background, warm ink foreground, 18pt card radius,
+/// Sport / workout hexes come from `WITokens` (generated from
+/// `shared/warm-instrument/tokens.json`). Warm Instrument surface tokens below — warm paper background, warm ink foreground, 18pt card radius,
 /// 10pt bold uppercase tracked section headers, sport-colored left bars, and a green accent
 /// for progress/active states. The old neo-brutalist tokens (white cards, 12pt radius,
 /// `brandRed`) are retired; see `WarmInstrument` for the load-only terracotta accent and the
@@ -70,22 +69,21 @@ enum Theme {
     /// tokenized instead of a bare `.red` literal.
     static let heartRateColor = hrZoneColors[4]
 
-    // MARK: - Sport colors (mirror SPORT_CONFIG in ui/client/src/lib/activities.ts)
+    // MARK: - Sport colors (lookups into WITokens.Sports)
 
-    static let weightsColor = Color(red: 0x3B / 255.0, green: 0x4A / 255.0, blue: 0x6B / 255.0)   // WEIGHTS  #3b4a6b
-    static let badmintonColor = Color(red: 0x2D / 255.0, green: 0x8A / 255.0, blue: 0x4E / 255.0) // BADMINTON #2d8a4e
-    static let rideColor = Color(red: 0xC4 / 255.0, green: 0x7A / 255.0, blue: 0x20 / 255.0)      // RIDE     #c47a20
-    static let runColor = Color(red: 0xC4 / 255.0, green: 0x40 / 255.0, blue: 0x20 / 255.0)       // RUN      #c44020
-    static let otherColor = Color(red: 0x77 / 255.0, green: 0x77 / 255.0, blue: 0x77 / 255.0)     // OTHERS   #777
+    static let weightsColor = WITokens.Sports.weightTraining
+    static let badmintonColor = WITokens.Sports.badminton
+    static let rideColor = WITokens.Sports.cycling
+    static let runColor = WITokens.Sports.run
+    static let otherColor = WITokens.Sports.other
 
-    // MARK: - Workout type colors (Warm Instrument timer palette — mirrors WORKOUT_TYPE_ACCENT on web)
+    // MARK: - Workout type colors (lookups into WITokens.Workouts)
 
-    static let foundationColor        = Color(red: 0x4F / 255.0, green: 0x58 / 255.0, blue: 0x7A / 255.0)
-    static let calisthenicsTimerColor = Color(red: 0x7F / 255.0, green: 0x37 / 255.0, blue: 0x28 / 255.0)
-    static let recoveryColor          = Color(red: 0x31 / 255.0, green: 0x5A / 255.0, blue: 0x4A / 255.0)
-    static let realignColor           = Color(red: 0xA8 / 255.0, green: 0x70 / 255.0, blue: 0x2C / 255.0)
-    // Matches web's dedicated `strength: "#3b4a6b"` in WORKOUT_TYPE_ACCENT.
-    static let strengthColor          = Color(red: 0x3B / 255.0, green: 0x4A / 255.0, blue: 0x6B / 255.0)
+    static let foundationColor        = WITokens.Workouts.foundation
+    static let calisthenicsTimerColor = WITokens.Workouts.calisthenics
+    static let recoveryColor          = WITokens.Workouts.recovery
+    static let realignColor           = WITokens.Workouts.realign
+    static let strengthColor          = WITokens.Workouts.strength
 
     static func workoutColor(for type: WorkoutType?) -> Color {
         switch type {
@@ -179,8 +177,7 @@ enum Theme {
 
 /// Warm Instrument design tokens for the Home surface (Engine, commitments, quest, sessions,
 /// plan, heatmap, coach's read, build phase, VO2, calories). Source of truth:
-/// `shared/warm-instrument/tokens.json`; keep this block in sync per `ios-token-mapping.md`
-/// until codegen exists. Card shell / ink / border here intentionally duplicate `Theme`'s
+/// `shared/warm-instrument/tokens.json` via `WITokens`. Card shell / ink / border here intentionally duplicate `Theme`'s
 /// updated tokens by value (not by reference) so this enum reads standalone against the JSON
 /// spec — see `Theme.cardBackground` / `Theme.ink` / `Theme.cardBorder` for the app-wide copy.
 enum WarmInstrument {
@@ -262,24 +259,24 @@ enum WarmInstrument {
         )
     }
 
-    /// Sport color palette — single source of truth for every sport tint in the app.
-    /// Reference these via `sportColor(_:)` at call sites so the palette can evolve here.
+    /// Sport color palette — lookups into `WITokens.Sports`.
+    /// Reference these via `sportColor(_:)` at call sites so call sites stay stable.
     enum Sport {
-        static let badminton     = color(hex: "#1A4731") // deep forest green
-        static let run           = color(hex: "#374151") // asphalt road grey
-        static let swim          = color(hex: "#005F7A") // deep ocean teal
-        static let tennis        = color(hex: "#B5532A") // clay court terracotta
-        static let cycling       = color(hex: "#A8702C") // warm amber
-        static let calisthenics  = color(hex: "#4F587A") // slate blue
-        static let foundation    = color(hex: "#6D7D4E") // sage olive
-        static let strength      = color(hex: "#2D3A5A") // deep navy
-        static let weightTraining = color(hex: "#3B4A6B") // standard weights navy
-        static let football      = color(hex: "#166534") // pitch grass green
-        static let cricket       = color(hex: "#4A6741") // sage green
-        static let hike          = color(hex: "#7A5C3A") // earth brown
-        static let walk          = color(hex: "#6B7280") // stone grey
-        static let workout       = color(hex: "#5B6472") // neutral slate
-        static let other         = color(hex: "#8A8A8A") // fallback grey
+        static let badminton      = WITokens.Sports.badminton
+        static let run            = WITokens.Sports.run
+        static let swim           = WITokens.Sports.swim
+        static let tennis         = WITokens.Sports.tennis
+        static let cycling        = WITokens.Sports.cycling
+        static let calisthenics   = WITokens.Sports.calisthenics
+        static let foundation     = WITokens.Sports.foundation
+        static let strength       = WITokens.Sports.strength
+        static let weightTraining = WITokens.Sports.weightTraining
+        static let football       = WITokens.Sports.football
+        static let cricket        = WITokens.Sports.cricket
+        static let hike           = WITokens.Sports.hike
+        static let walk           = WITokens.Sports.walk
+        static let workout        = WITokens.Sports.workout
+        static let other          = WITokens.Sports.other
     }
 
     /// Sport color lookup — keyed by `WarmSportId`, backed by `Sport` named constants.
