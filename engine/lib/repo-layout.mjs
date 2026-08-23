@@ -91,6 +91,12 @@ export function ledgerDir(repoRootPath) {
     : path.join(repoRootPath, "training", "ledger");
 }
 
+export function healthDir(repoRootPath) {
+  return usesNewLayout(repoRootPath)
+    ? path.join(repoRootPath, "user_data", "health")
+    : path.join(repoRootPath, "training", "health");
+}
+
 export function histDir(repoRootPath) {
   return usesNewLayout(repoRootPath)
     ? path.join(repoRootPath, "user_data", "activities", "hist")

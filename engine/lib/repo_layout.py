@@ -78,6 +78,12 @@ def ledger_dir(repo: Path) -> Path:
     return repo / "training" / "ledger"
 
 
+def health_dir(repo: Path) -> Path:
+    if uses_new_layout(repo):
+        return repo / "user_data" / "health"
+    return repo / "training" / "health"
+
+
 def hist_dir(repo: Path) -> Path:
     if uses_new_layout(repo):
         return repo / "user_data" / "activities" / "hist"
