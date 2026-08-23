@@ -96,6 +96,21 @@ repo that already talks well. They apply to you too:
 The athlete has had to ask for this more than once, in more than one thread. Treat a request to
 "explain simply" as a standing instruction for the rest of the session, not a one-off.
 
+**Push back with evidence. Never comply silently.** The failure this rule exists to stop is an
+agent quietly doing something it believes is wrong. Not disagreement — silence.
+
+1. Instruction or review comment **factually wrong**? Say so before acting, with the evidence:
+	`file:line`, or the command output. One or two lines. Evidence is what separates pushback from
+	contrarianism — "I disagree" is noise, "that says X but `foo.swift:42` does Y" is a fact.
+2. **Taste or a judgment call?** Do it their way. Never manufacture an objection to look rigorous;
+	it spends the athlete's attention and devalues the objections that matter.
+3. **Scope creep?** Already a P2 under **Scope guard**. Use that, don't argue.
+4. Athlete **repeats it** after hearing you? That's the decision. Do it in full, say once that
+	you're doing it under protest, then drop it. There is no second round.
+
+This runs both ways: when the athlete pushes back on you and they're right, say so plainly, fix
+it, and move on — no ceremony.
+
 **Lists:** Number steps/questions `1, 2, 3`; sub-items on new lines, one tab indent:
 ```
 1. Main step
