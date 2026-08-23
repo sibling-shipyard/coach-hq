@@ -397,7 +397,9 @@ class HealthKitSyncManager: ObservableObject {
             filesToCommit.append((path: "user_data/activities/sync_state.json", data: try encoder.encode(syncState)))
             filesToCommit.append(contentsOf: extraFiles)
 
-            let n = filesToCommit.count - 1 - extraFiles.count
+            // Workouts, not files. Each one now commits a hist/ record *and* a streams/
+            // sidecar, so counting files double-counts every activity.
+            let n = syncedForCache.count
             syncProgressText = "Uploading \(n) workout\(n == 1 ? "" : "s") to GitHub…"
             syncProgress = 0.93
             let commitFinishedAt = Date()
