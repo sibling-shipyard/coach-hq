@@ -103,4 +103,50 @@ final class ActivitySyncCoachTurnTests: XCTestCase {
             "Nice work."
         )
     }
+
+    func testOlderPostDoesNotApplyWhenEpochIsNewer() {
+        XCTAssertFalse(ActivitySyncEpoch.shouldApply(turnEpoch: 1, currentEpoch: 2))
+    }
+
+    func testMatchingEpochApplies() {
+        XCTAssertTrue(ActivitySyncEpoch.shouldApply(turnEpoch: 2, currentEpoch: 2))
+    }
+
+    func testStalePostDoesNotOverwriteNewerBatch() {
+        let since = Date()
+        let turnA = ActivitySyncTurn(
+            activities: [Self.draft(id: "A")],
+            freshnessSince: since,
+            epoch: 1,
+            phase: .requestingCoach
+        )
+        let turnB = ActivitySyncTurn(
+            activities: [Self.draft(id: "B")],
+            freshnessSince: since,
+            epoch: 2,
+            phase: .waitingForSnapshots
+        )
+        var published = turnA
+        published = turnB
+        var aDone = turnA
+        aDone.phase = .complete
+        aDone.reply = "Batch A"
+        published = ActivitySyncEpoch.apply(incoming: aDone, onto: published)
+        XCTAssertEqual(published.epoch, 2)
+        XCTAssertEqual(published.phase, .waitingForSnapshots)
+        XCTAssertEqual(published.activities.map(\.activityId), ["B"])
+        XCTAssertNil(published.reply)
+    }
+
+    private static func draft(id: String) -> SyncedActivityDraft {
+        SyncedActivityDraft(
+            activityId: id,
+            fileName: "\(id).json",
+            title: "Run",
+            sport: "Run",
+            start: "2026-08-23T07:00:00",
+            durationSeconds: 2400,
+            load: 18
+        )
+    }
 }

@@ -241,6 +241,7 @@ class HealthKitSyncManager: ObservableObject {
         activitySyncTurn = ActivitySyncTurn(
             activities: drafts,
             freshnessSince: freshnessSince,
+            epoch: activitySyncEpoch,
             phase: .waitingForSnapshots
         )
     }
@@ -252,6 +253,7 @@ class HealthKitSyncManager: ObservableObject {
             activitySyncEpoch += 1
             let epoch = activitySyncEpoch
             var waiting = turn
+            waiting.epoch = epoch
             waiting.phase = .waitingForSnapshots
             activitySyncTurn = waiting
             let fresh: Bool
@@ -263,9 +265,11 @@ class HealthKitSyncManager: ObservableObject {
             if fresh {
                 await refreshEnrichedActivities(fileNames: turn.activities.map(\.fileName))
             }
-            guard epoch == activitySyncEpoch else { return }
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
             await advanceActivitySyncTurn(snapshotsFresh: fresh)
         case .retryPost:
+            let epoch = activitySyncEpoch
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: turn.epoch, currentEpoch: epoch) else { return }
             await postActivitySync(for: turn)
         default:
             break
@@ -273,7 +277,9 @@ class HealthKitSyncManager: ObservableObject {
     }
 
     private func advanceActivitySyncTurn(snapshotsFresh: Bool) async {
+        let epoch = activitySyncEpoch
         guard var turn = activitySyncTurn else { return }
+        guard ActivitySyncEpoch.shouldApply(turnEpoch: turn.epoch, currentEpoch: epoch) else { return }
         guard turn.phase == .waitingForSnapshots || turn.phase == .retryWait else { return }
         if !snapshotsFresh {
             turn.phase = .retryWait
@@ -284,6 +290,8 @@ class HealthKitSyncManager: ObservableObject {
     }
 
     private func postActivitySync(for turn: ActivitySyncTurn) async {
+        let epoch = activitySyncEpoch
+        guard ActivitySyncEpoch.shouldApply(turnEpoch: turn.epoch, currentEpoch: epoch) else { return }
         guard let coachChatClient else {
             var waiting = turn
             waiting.phase = .retryPost
@@ -297,6 +305,7 @@ class HealthKitSyncManager: ObservableObject {
             let result = try await coachChatClient.activitySync(
                 activityIds: turn.activities.map(\.qualifiedId)
             )
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
             var done = turn
             done.phase = .complete
             done.duplicate = result.duplicate
@@ -306,6 +315,7 @@ class HealthKitSyncManager: ObservableObject {
             activitySyncTurn = done
             announceCoachReplyIfNeeded(result.reply, duplicate: result.duplicate, count: turn.activities.count)
         } catch let apiError as GitHubAPIError {
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
             var failed = turn
             if case .requestFailed(_, let status, _) = apiError, status == 422 {
                 failed.phase = .retryWait
@@ -314,6 +324,7 @@ class HealthKitSyncManager: ObservableObject {
             }
             activitySyncTurn = failed
         } catch {
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
             var failed = turn
             failed.phase = .retryPost
             activitySyncTurn = failed
@@ -692,10 +703,12 @@ class HealthKitSyncManager: ObservableObject {
                 if fresh {
                     await self.refreshEnrichedActivities(fileNames: syncedFileNames)
                 }
-                if shouldStartCoachTurn, epoch == self.activitySyncEpoch {
+                if shouldStartCoachTurn,
+                   ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch) {
                     await self.advanceActivitySyncTurn(snapshotsFresh: fresh)
                 }
                 guard fresh,
+                      ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch),
                       let coachClient,
                       let repoFullName,
                       apiClient.repoFullName == repoFullName,

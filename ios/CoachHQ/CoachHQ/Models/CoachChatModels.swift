@@ -137,6 +137,8 @@ struct ActivitySyncTurn: Equatable {
 
     let activities: [SyncedActivityDraft]
     let freshnessSince: Date
+    /// Generation of this batch. Bumped when a newer sync publishes; stale POSTs must not apply.
+    var epoch: Int
     var phase: Phase
     var completedThreads: [ChatThread] = []
     var completedThreadId: String?
@@ -149,6 +151,18 @@ struct ActivitySyncTurn: Equatable {
 
     var isThinking: Bool {
         phase == .requestingCoach
+    }
+}
+
+/// Pure gate so a POST that started on batch A cannot complete onto batch B.
+enum ActivitySyncEpoch {
+    static func shouldApply(turnEpoch: Int, currentEpoch: Int) -> Bool {
+        turnEpoch == currentEpoch
+    }
+
+    /// Keep `current` when `incoming` is from a superseded batch.
+    static func apply(incoming: ActivitySyncTurn, onto current: ActivitySyncTurn) -> ActivitySyncTurn {
+        shouldApply(turnEpoch: incoming.epoch, currentEpoch: current.epoch) ? incoming : current
     }
 }
 
