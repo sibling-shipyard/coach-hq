@@ -101,9 +101,14 @@ The athlete has had to ask for this more than once, in more than one thread. Tre
 ```
 Athlete may reference `1a` — match that item exactly.
 
-**Priorities:** Quality compromise → **P0/P1** (must fix now). Overengineering / nice-to-have → **P2/P3** (follow-up ticket, one line — don't build unless asked).
+**Priorities:** Three tiers, used for review findings and mid-task calls alike.
+**P0** — fix now, blocks the ship. **P1** — good to fix, do it before moving on.
+**P2** — flagging it, athlete's call: follow-up ticket, one line, don't build unless asked.
+(`P3` still exists for issue bodies — see `.github/agents/issue-template.md`. A review never emits one.)
+These are **not** the lowercase GitHub `p0`–`p3` labels, which gate milestones (`p1` = unblocks 10
+users). When a P2 becomes an issue, label it by the roadmap scale — never carry the review tier across.
 
-**Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2/P3, don't implement. If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
+**Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2, don't implement. If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
 
 **Execution loop (tasks, not chat):**
 1. Plan (~10–20 lines): goal, end state, how we validate.
