@@ -141,6 +141,16 @@ them in review. They also rot: "new" and "existing" stop being true on the next 
 
 ## Monorepo-Specific Rules
 
+**Work in a worktree:** Cut your branch as a worktree off `origin/main`. Never switch branches in
+the primary checkout:
+```bash
+git fetch origin main && git worktree add -b <branch> /tmp/wt-<brief> origin/main
+```
+Remove it once the PR is open (`git worktree remove <path> --force`). Agents run concurrently here,
+and the shared checkout has already handed one agent's commits to another's branch: a branch cut
+from what looked like `main` inherited five commits off a detached HEAD (#522). The primary
+checkout is not yours — leave it where you found it.
+
 **Git push:** Always use:
 ```bash
 git pull --rebase origin main && git push origin main
