@@ -27,6 +27,7 @@ await esbuild.build({
   packages: "external",
   alias: {
     "@": path.join(uiRoot, "client/src"),
+    "@warm-instrument": path.join(uiRoot, "../shared/warm-instrument"),
   },
   logLevel: "info",
 });

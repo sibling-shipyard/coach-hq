@@ -19,7 +19,8 @@
     "types": ["node", "vite/client"],
     "paths": {
       "@/*": ["./client/src/*"],
-      "@golden/*": ["../shared/golden-dataset/*"]
+      "@golden/*": ["../shared/golden-dataset/*"],
+      "@warm-instrument/*": ["../shared/warm-instrument/*"]
     }
   }
 }

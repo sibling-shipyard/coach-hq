@@ -3,6 +3,7 @@
  * Types for workout templates, sessions, and timer logic.
  */
 import { toLocalDateStr } from "@/lib/challenge";
+import { workoutHex } from "@/lib/wiTokens";
 
 export type WorkoutType = "foundation" | "strength" | "recovery" | "realign" | "calisthenics";
 export type ExerciseType = "timed" | "reps";
@@ -67,11 +68,11 @@ export interface WorkoutsData {
 // ─── Workout Type Config ───────────────────────────────────────────────────
 
 export const WORKOUT_TYPE_CONFIG: Record<WorkoutType, { label: string; color: string; icon: string }> = {
-  calisthenics: { label: "CALISTHENICS", color: "#f59e0b", icon: "🤸" },
-  foundation:   { label: "FOUNDATION",   color: "#60a5fa", icon: "⚡" },
-  strength:     { label: "STRENGTH",     color: "#111111", icon: "💪" },
-  recovery:     { label: "RECOVERY",     color: "#2dd4bf", icon: "🧘" },
-  realign:      { label: "REALIGN",      color: "#a78bfa", icon: "🔧" },
+  calisthenics: { label: "CALISTHENICS", color: workoutHex("calisthenics"), icon: "🤸" },
+  foundation:   { label: "FOUNDATION",   color: workoutHex("foundation"), icon: "⚡" },
+  strength:     { label: "STRENGTH",     color: workoutHex("strength"), icon: "💪" },
+  recovery:     { label: "RECOVERY",     color: workoutHex("recovery"), icon: "🧘" },
+  realign:      { label: "REALIGN",      color: workoutHex("realign"), icon: "🔧" },
 };
 
 // ─── Utilities ─────────────────────────────────────────────────────────────

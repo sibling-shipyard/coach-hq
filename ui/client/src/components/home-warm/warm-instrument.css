@@ -903,65 +903,65 @@ button.wi-commitment-card:hover {
 
 .wi-plan-day__slot.is-run {
   border-style: solid;
-  border-color: rgba(127, 55, 40, 0.35);
-  color: var(--wi-rust);
-  background: rgba(127, 55, 40, 0.08);
+  border-color: color-mix(in srgb, var(--wi-run) 35%, transparent);
+  color: var(--wi-run);
+  background: color-mix(in srgb, var(--wi-run) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-strength {
   border-style: solid;
-  border-color: rgba(17, 17, 17, 0.35);
-  color: #111111;
-  background: rgba(17, 17, 17, 0.08);
+  border-color: color-mix(in srgb, var(--wi-strength) 35%, transparent);
+  color: var(--wi-strength);
+  background: color-mix(in srgb, var(--wi-strength) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-weight_training {
   border-style: solid;
-  border-color: rgba(59, 74, 107, 0.35);
-  color: #3b4a6b;
-  background: rgba(59, 74, 107, 0.1);
+  border-color: color-mix(in srgb, var(--wi-weights) 35%, transparent);
+  color: var(--wi-weights);
+  background: color-mix(in srgb, var(--wi-weights) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-hike {
   border-style: solid;
-  border-color: rgba(139, 111, 71, 0.35);
-  color: #8b6f47;
-  background: rgba(139, 111, 71, 0.1);
+  border-color: color-mix(in srgb, var(--wi-hike) 35%, transparent);
+  color: var(--wi-hike);
+  background: color-mix(in srgb, var(--wi-hike) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-walk {
   border-style: solid;
-  border-color: rgba(168, 162, 158, 0.4);
-  color: #a8a29e;
-  background: rgba(168, 162, 158, 0.1);
+  border-color: color-mix(in srgb, var(--wi-walk) 35%, transparent);
+  color: var(--wi-walk);
+  background: color-mix(in srgb, var(--wi-walk) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-cricket {
   border-style: solid;
-  border-color: rgba(45, 212, 191, 0.35);
-  color: #2dd4bf;
-  background: rgba(45, 212, 191, 0.1);
+  border-color: color-mix(in srgb, var(--wi-cricket) 35%, transparent);
+  color: var(--wi-cricket);
+  background: color-mix(in srgb, var(--wi-cricket) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-football {
   border-style: solid;
-  border-color: rgba(225, 29, 72, 0.35);
-  color: #e11d48;
-  background: rgba(225, 29, 72, 0.1);
+  border-color: color-mix(in srgb, var(--wi-football) 35%, transparent);
+  color: var(--wi-football);
+  background: color-mix(in srgb, var(--wi-football) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-workout {
   border-style: solid;
-  border-color: rgba(107, 114, 128, 0.35);
-  color: #6b7280;
-  background: rgba(107, 114, 128, 0.1);
+  border-color: color-mix(in srgb, var(--wi-workout) 35%, transparent);
+  color: var(--wi-workout);
+  background: color-mix(in srgb, var(--wi-workout) 10%, transparent);
 }
 
 .wi-plan-day__slot.is-swim {
   border-style: solid;
-  border-color: rgba(14, 165, 233, 0.35);
-  color: #0ea5e9;
-  background: rgba(14, 165, 233, 0.1);
+  border-color: color-mix(in srgb, var(--wi-swim) 35%, transparent);
+  color: var(--wi-swim);
+  background: color-mix(in srgb, var(--wi-swim) 10%, transparent);
 }
 
 .wi-plan-day__slot > span {
@@ -1113,47 +1113,47 @@ button.wi-commitment-card:hover {
 
 .wi-training-card__legend i.is-run,
 .wi-activity-month__grid i.is-run {
-  background: var(--wi-rust);
+  background: var(--wi-run);
 }
 
 .wi-training-card__legend i.is-strength,
 .wi-activity-month__grid i.is-strength {
-  background: #111111;
+  background: var(--wi-strength);
 }
 
 .wi-training-card__legend i.is-weight_training,
 .wi-activity-month__grid i.is-weight_training {
-  background: #3b4a6b;
+  background: var(--wi-weights);
 }
 
 .wi-training-card__legend i.is-hike,
 .wi-activity-month__grid i.is-hike {
-  background: #8b6f47;
+  background: var(--wi-hike);
 }
 
 .wi-training-card__legend i.is-walk,
 .wi-activity-month__grid i.is-walk {
-  background: #a8a29e;
+  background: var(--wi-walk);
 }
 
 .wi-training-card__legend i.is-cricket,
 .wi-activity-month__grid i.is-cricket {
-  background: #2dd4bf;
+  background: var(--wi-cricket);
 }
 
 .wi-training-card__legend i.is-football,
 .wi-activity-month__grid i.is-football {
-  background: #e11d48;
+  background: var(--wi-football);
 }
 
 .wi-training-card__legend i.is-workout,
 .wi-activity-month__grid i.is-workout {
-  background: #6b7280;
+  background: var(--wi-workout);
 }
 
 .wi-training-card__legend i.is-swim,
 .wi-activity-month__grid i.is-swim {
-  background: #0ea5e9;
+  background: var(--wi-swim);
 }
 
 .wi-training-card__legend i.is-planned-missed,
@@ -1481,9 +1481,12 @@ button.wi-commitment-card:hover {
   background: var(--wi-ink-faint);
 }
 
-.wi-session-row__vein.is-badminton,
-.wi-session-row__vein.is-run {
+.wi-session-row__vein.is-badminton {
   background: var(--wi-badminton);
+}
+
+.wi-session-row__vein.is-run {
+  background: var(--wi-run);
 }
 
 .wi-session-row__vein.is-calisthenics {
@@ -1499,35 +1502,35 @@ button.wi-commitment-card:hover {
 }
 
 .wi-session-row__vein.is-strength {
-  background: #111111;
+  background: var(--wi-strength);
 }
 
 .wi-session-row__vein.is-weight_training {
-  background: #3b4a6b;
+  background: var(--wi-weights);
 }
 
 .wi-session-row__vein.is-hike {
-  background: #8b6f47;
+  background: var(--wi-hike);
 }
 
 .wi-session-row__vein.is-walk {
-  background: #a8a29e;
+  background: var(--wi-walk);
 }
 
 .wi-session-row__vein.is-cricket {
-  background: #2dd4bf;
+  background: var(--wi-cricket);
 }
 
 .wi-session-row__vein.is-football {
-  background: #e11d48;
+  background: var(--wi-football);
 }
 
 .wi-session-row__vein.is-workout {
-  background: #6b7280;
+  background: var(--wi-workout);
 }
 
 .wi-session-row__vein.is-swim {
-  background: #0ea5e9;
+  background: var(--wi-swim);
 }
 
 .wi-session-row > strong {
@@ -1558,9 +1561,12 @@ button.wi-commitment-card:hover {
   text-align: right;
 }
 
-.wi-session-row > b.is-badminton,
-.wi-session-row > b.is-run {
+.wi-session-row > b.is-badminton {
   color: var(--wi-badminton);
+}
+
+.wi-session-row > b.is-run {
+  color: var(--wi-run);
 }
 
 .wi-session-row > b.is-calisthenics {
@@ -1576,35 +1582,35 @@ button.wi-commitment-card:hover {
 }
 
 .wi-session-row > b.is-strength {
-  color: #111111;
+  color: var(--wi-strength);
 }
 
 .wi-session-row > b.is-weight_training {
-  color: #3b4a6b;
+  color: var(--wi-weights);
 }
 
 .wi-session-row > b.is-hike {
-  color: #8b6f47;
+  color: var(--wi-hike);
 }
 
 .wi-session-row > b.is-walk {
-  color: #a8a29e;
+  color: var(--wi-walk);
 }
 
 .wi-session-row > b.is-cricket {
-  color: #2dd4bf;
+  color: var(--wi-cricket);
 }
 
 .wi-session-row > b.is-football {
-  color: #e11d48;
+  color: var(--wi-football);
 }
 
 .wi-session-row > b.is-workout {
-  color: #6b7280;
+  color: var(--wi-workout);
 }
 
 .wi-session-row > b.is-swim {
-  color: #0ea5e9;
+  color: var(--wi-swim);
 }
 
 .wi-build-card {
@@ -2402,9 +2408,12 @@ button.wi-commitment-card:hover {
     font-size: 11px;
   }
 
-  .wi-open-engine__dose > div > b.is-badminton,
-  .wi-open-engine__dose > div > b.is-run {
+  .wi-open-engine__dose > div > b.is-badminton {
     color: var(--wi-badminton);
+  }
+
+  .wi-open-engine__dose > div > b.is-run {
+    color: var(--wi-run);
   }
 
   .wi-open-engine__dose > div > b.is-foundation {
@@ -2420,35 +2429,35 @@ button.wi-commitment-card:hover {
   }
 
   .wi-open-engine__dose > div > b.is-strength {
-    color: #111111;
+    color: var(--wi-strength);
   }
 
   .wi-open-engine__dose > div > b.is-weight_training {
-    color: #3b4a6b;
+    color: var(--wi-weights);
   }
 
   .wi-open-engine__dose > div > b.is-hike {
-    color: #8b6f47;
+    color: var(--wi-hike);
   }
 
   .wi-open-engine__dose > div > b.is-walk {
-    color: #a8a29e;
+    color: var(--wi-walk);
   }
 
   .wi-open-engine__dose > div > b.is-cricket {
-    color: #2dd4bf;
+    color: var(--wi-cricket);
   }
 
   .wi-open-engine__dose > div > b.is-football {
-    color: #e11d48;
+    color: var(--wi-football);
   }
 
   .wi-open-engine__dose > div > b.is-workout {
-    color: #6b7280;
+    color: var(--wi-workout);
   }
 
   .wi-open-engine__dose > div > b.is-swim {
-    color: #0ea5e9;
+    color: var(--wi-swim);
   }
 
   .wi-open-engine__dose > div.is-rest strong,
