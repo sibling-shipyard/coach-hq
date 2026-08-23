@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-22 · Locked: 2026-07-26 · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23 · Locked: 2026-07-26 · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
@@ -92,6 +92,7 @@ coach-skeleton/  (= coach-user after fork)
     │   ├── coach_notes.md
     │   ├── sleep_log.json
     │   ├── chat_history.json
+    │   ├── latest_message.json       # schema v1; null until Coach speaks after sync
     │   └── reference/
     └── ledger/
         ├── seasons.json             # split ledger — challenge_v2.json is not carved (#430)
@@ -122,7 +123,7 @@ session frequency and gap summaries by sport; raw activity history remains canon
 
 | Band | Paths | Lifecycle |
 |---|---|---|
-| **init** | `user_data/coach/*`, `user_data/activities/hist/` | Seeded at fork or migration |
+| **init** | `user_data/coach/*` (including null `latest_message.json`), `user_data/activities/hist/` | Seeded at fork or migration |
 | **post-init** | `user_data/ledger/*`, `user_data/.../sessions/` | Precious — grows in use |
 | **gen** | `gen/*` | Rebuildable — pipeline-owned |
 | **engine** | `engine/*` | Carved from HQ — coach must not edit |

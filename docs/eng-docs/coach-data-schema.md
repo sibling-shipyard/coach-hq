@@ -70,6 +70,22 @@ Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`).
 always `"chat"`; `"phase_close"`/`"week_close"` row types are a deferred, documented-only item
 (see `docs/plans/coach-chat-open-items.md`).
 
+### `user_data/coach/latest_message.json`
+
+The athlete-owned delivery record for the latest proactive Coach message (ADR 0029). It is
+separate from the expiring weekly `coach_read` and private continuity in `coach_log.json`.
+A fresh carve seeds `{ "schema_version": 1, "message": null }`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `schema_version` | `1` | |
+| `message` | `LatestCoachMessage \| null` | A successful newer sync batch replaces the prior message; failure leaves it untouched |
+
+**`LatestCoachMessage` shape:** `{ id, created_at, activity_ids, body, conversation_seed_id }`.
+`activity_ids` is the sorted source-qualified synced batch and defines idempotency. The optional
+`home.coachMessage` widget-snapshot projection carries `id`, `created_at`, `body`, and
+`conversation_seed_id`; this file remains canonical.
+
 ### `user_data/ledger/seasons.json`
 
 Written by `turnWrites/seasonWrite.ts` (`buildSeasonStartWrite`) — First Session Protocol only,
