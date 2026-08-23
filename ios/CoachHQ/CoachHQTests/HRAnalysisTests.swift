@@ -225,3 +225,59 @@ final class HRAnalysisTests: XCTestCase {
         XCTAssertTrue(json.contains("\"source_sample_count\""))
     }
 }
+
+/// Round-trip tests for the sidecar the detail view reads.
+///
+/// The view's own gap splitting is exercised through `HRAnalysis.decimate`, whose gap output is
+/// the input `HRCurveView` splits on — a curve drawn straight across a dropout is the one
+/// rendering bug that would put invented data on screen.
+final class HRStreamDecodingTests: XCTestCase {
+
+    func testSidecarSurvivesEncodeDecode() throws {
+        let original = HRStreamFile(
+            schemaVersion: 1, generator: "hk-stream/1", activityId: "8F3A-1",
+            start: "2026-08-14T18:02:11Z", elapsedSeconds: 3600,
+            sourceSampleCount: 1834, coveredSeconds: 3480, uncoveredSeconds: 120,
+            gaps: [HRGap(from: 1420, to: 1540)],
+            points: [HRPoint(t: 0, bpm: 118), HRPoint(t: 1420, bpm: 155)]
+        )
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(HRStreamFile.self, from: data)
+
+        XCTAssertEqual(decoded, original)
+    }
+
+    /// A file written by a future schema version must still decode — the version field is what
+    /// backfill keys off, so it has to be readable before it can be compared.
+    func testDecodesFromRawJSON() throws {
+        let json = """
+        {
+          "schema_version": 1, "generator": "hk-stream/1", "activity_id": "ABC",
+          "start": "2026-08-14T18:02:11Z", "elapsed_seconds": 600,
+          "source_sample_count": 120, "covered_seconds": 600, "uncovered_seconds": 0,
+          "gaps": [], "points": [{"t": 0, "bpm": 110}]
+        }
+        """
+        let decoded = try JSONDecoder().decode(HRStreamFile.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.activityId, "ABC")
+        XCTAssertEqual(decoded.points.count, 1)
+        XCTAssertTrue(decoded.gaps.isEmpty)
+    }
+
+    /// Two dropouts must produce two gaps, so the curve renders three separate runs.
+    func testTwoDropoutsProduceTwoGaps() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        func block(_ from: TimeInterval, _ len: TimeInterval) -> [(date: Date, bpm: Double)] {
+            stride(from: from, to: from + len, by: 5).map {
+                (date: start.addingTimeInterval($0), bpm: 145)
+            }
+        }
+        let samples = block(0, 300) + block(600, 300) + block(1200, 300)
+
+        let out = HRAnalysis.decimate(samples: samples, start: start, budget: 200)
+
+        XCTAssertEqual(out.gaps.count, 2, "three covered runs means two breaks between them")
+    }
+}

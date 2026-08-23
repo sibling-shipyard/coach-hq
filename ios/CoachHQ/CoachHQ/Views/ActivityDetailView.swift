@@ -27,6 +27,7 @@ struct ActivityDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var activity: Activity?
+    @State private var hrStream: HRStreamFile?
     @State private var descriptionText: String = ""
     @State private var isLoading = false
     @State private var isSaving = false
@@ -220,8 +221,13 @@ struct ActivityDetailView: View {
         if let zones = activity?.hrZones, hrZoneTotal > 0 {
             WarmCard {
                 VStack(alignment: .leading, spacing: 13) {
-                    MonoLabel("HOW IT WAS SPENT")
-                    activityRibbon(zones: zones)
+                    if let stream = hrStream, !stream.points.isEmpty {
+                        MonoLabel("HEART RATE")
+                        HRCurveView(stream: stream, zoneColors: detailZoneColors, config: .current)
+                    } else {
+                        MonoLabel("HOW IT WAS SPENT")
+                        zoneDistributionBar(zones: zones)
+                    }
                     zoneLegend(zones: zones)
                 }
             }
@@ -229,65 +235,28 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// Generates a time-series-like ribbon: work zones shuffled in bursts with recovery
-    /// spread evenly between them — matching the mock's `zoneSequence` algorithm.
-    private func ribbonSequence(zones: [String: HRZoneEntry]) -> [Color] {
-        // Scale cell count to session length: ~1 cell per 4 min, clamped 5–41.
-        // Avoids ultra-thin barcode look on short sessions (e.g. 12-min foundation).
-        let cellCount = min(41, max(5, entry.elapsedTime / 240))
-        let totalSecs = hrZoneKeys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
-        guard totalSecs > 0 else { return [] }
-
-        // Largest-remainder allocation of cellCount across zones
-        let rawCounts = hrZoneKeys.map { Double(zones[$0]?.seconds ?? 0) / totalSecs * Double(cellCount) }
-        var counts = rawCounts.map { Int($0) }
-        let leftover = cellCount - counts.reduce(0, +)
-        rawCounts.enumerated()
-            .map { (idx: $0.offset, frac: $0.element - Double(counts[$0.offset])) }
-            .sorted { $0.frac > $1.frac }
-            .prefix(leftover)
-            .forEach { counts[$0.idx] += 1 }
-
-        // Build work array (zones 1–4 = Base through VO₂ Max) and shuffle with seeded RNG
-        var work: [Int] = []
-        for i in 1...4 { for _ in 0..<counts[i] { work.append(i) } }
-
-        var seed = UInt64(bitPattern: Int64(truncatingIfNeeded: entry.fileName.hashValue))
-        for i in stride(from: work.count - 1, through: 1, by: -1) {
-            seed = seed &* 6364136223846793005 &+ 1442695040888963407
-            let j = Int(seed >> 33) % (i + 1)
-            work.swapAt(i, j)
-        }
-
-        // Group work cells into bursts of 3, spread recovery between gaps
-        var groups: [[Int]] = []
-        var i = 0
-        while i < work.count { groups.append(Array(work[i..<min(i + 3, work.count)])); i += 3 }
-
-        let recCount = counts[0]
-        let gapCount = groups.count + 1
-        var seq: [Int] = []
-        for (g, group) in groups.enumerated() {
-            let from = g * recCount / gapCount
-            let to   = (g + 1) * recCount / gapCount
-            for _ in 0..<(to - from) { seq.append(0) }
-            seq.append(contentsOf: group)
-        }
-        let lastFrom = groups.count * recCount / gapCount
-        for _ in lastFrom..<recCount { seq.append(0) }
-
-        return seq.map { detailZoneColors[$0] }
-    }
-
-    private func activityRibbon(zones: [String: HRZoneEntry]) -> some View {
-        let colors = ribbonSequence(zones: zones)
-        return HStack(spacing: 1.5) {
-            ForEach(colors.indices, id: \.self) { i in
-                colors[i].frame(maxWidth: .infinity)
+    /// Zone totals as a proportion bar, zones in order.
+    ///
+    /// This replaced a ribbon that shuffled zone totals into a plausible-looking *time* order
+    /// with a seeded RNG. It read as a session narrative and was not one — we only ever had
+    /// totals. Ordered left-to-right by zone, it says exactly what it knows. The real ordering
+    /// is the curve above, when a stream sidecar exists for the activity.
+    private func zoneDistributionBar(zones: [String: HRZoneEntry]) -> some View {
+        let total = hrZoneKeys.reduce(0.0) { $0 + (zones[$1]?.seconds ?? 0) }
+        return GeometryReader { geo in
+            HStack(spacing: 1.5) {
+                ForEach(hrZoneKeys.indices, id: \.self) { i in
+                    let secs = zones[hrZoneKeys[i]]?.seconds ?? 0
+                    if secs > 0 {
+                        detailZoneColors[i]
+                            .frame(width: max(2, geo.size.width * CGFloat(secs / max(total, 1))))
+                    }
+                }
             }
         }
         .frame(height: 64)
         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .accessibilityLabel("Time in each heart rate zone, shown in proportion.")
     }
 
     @ViewBuilder
@@ -740,6 +709,7 @@ struct ActivityDetailView: View {
     private func loadExistingActivity() async {
         if let cached = entry.activity {
             activity = cached
+            await loadHRStream(for: cached)
             return
         }
         isLoading = true
@@ -748,8 +718,25 @@ struct ActivityDetailView: View {
             let fetched = try await readActivityWithPropagationRetry()
             activity = fetched
             SyncCache.updateStats(fileName: entry.fileName, activity: fetched)
+            await loadHRStream(for: fetched)
         } catch {
             errorMessage = UserFacingError.friendlyMessage(for: error)
+        }
+    }
+
+    /// Fetches the HR stream sidecar on demand (ADR 0027) — it is deliberately not part of the
+    /// activity record, so opening this screen is the only thing that pays for it.
+    ///
+    /// A missing sidecar is the normal case, not an error: every activity synced before the
+    /// stream format existed has none, and one will only appear for those after a backfill.
+    /// Failures are swallowed on purpose — the screen still has zones to show.
+    private func loadHRStream(for activity: Activity) async {
+        guard let uuid = activity.activityId, hrStream == nil else { return }
+        do {
+            let data = try await apiClient.readFile(path: "user_data/activities/streams/\(uuid).json")
+            hrStream = try JSONDecoder().decode(HRStreamFile.self, from: data)
+        } catch {
+            hrStream = nil
         }
     }
 
