@@ -72,6 +72,25 @@ final class ActivitySyncCoachTurnTests: XCTestCase {
         XCTAssertNil(message.syncedActivityList?.activities[0].load)
     }
 
+    func testWrongAttachmentVersionIsIgnored() throws {
+        let json = """
+        {
+          "id": "c-3",
+          "role": "coach",
+          "paragraphs": ["Keep the prose."],
+          "attachments": [{
+            "version": 9,
+            "kind": "synced_activity_list",
+            "batch_id": "nope",
+            "activities": []
+          }]
+        }
+        """
+        let message = try JSONDecoder().decode(ChatMessage.self, from: Data(json.utf8))
+        XCTAssertEqual(message.paragraphs, ["Keep the prose."])
+        XCTAssertNil(message.syncedActivityList)
+    }
+
     func testDuplicateSkipsNotificationAndHomeCopy() {
         XCTAssertFalse(ActivitySyncCopy.shouldAnnounceReply(duplicate: true, chatVisible: false))
         XCTAssertFalse(ActivitySyncCopy.shouldAnnounceReply(duplicate: false, chatVisible: true))

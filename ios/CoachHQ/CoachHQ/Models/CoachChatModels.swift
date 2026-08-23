@@ -59,7 +59,8 @@ extension ChatAttachment: Codable {
         let keyed = try decoder.container(keyedBy: KindKey.self)
         let kind = try keyed.decodeIfPresent(String.self, forKey: .kind)
         if kind == "synced_activity_list",
-           let list = try? SyncedActivityListAttachment(from: decoder) {
+           let list = try? SyncedActivityListAttachment(from: decoder),
+           list.version == 1 {
             self = .syncedActivityList(list)
         } else {
             self = .unknown
