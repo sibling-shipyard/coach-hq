@@ -1,14 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  activitySync,
   fetchProactiveCoachMessage,
   materializeProactiveThread,
+  normalizeThread,
   parseProactiveSeed,
   resolveProactiveThread,
+  retryActivityIdsFromThread,
   selectProactiveCoachMessage,
   sendMessage,
   shouldSendEndConversation,
+  syncedActivityList,
   updatePendingEndThreads,
+  type ChatAttachment,
   type ChatMessage,
+  type ChatThread,
 } from "./coachChatModel";
 
 const MESSAGE_ID = "cm-11111111-2222-4333-8444-555555555555";
@@ -117,6 +123,36 @@ describe("proactive Coach seed", () => {
   });
 });
 
+const listAttachment: ChatAttachment = {
+  version: 1,
+  kind: "synced_activity_list",
+  batch_id: "batch-1",
+  activities: [
+    {
+      id: "11111111-1111-1111-1111-111111111111",
+      title: "Easy Run",
+      sport: "Run",
+      start: "2026-08-22T06:12:00",
+      duration_s: 2400,
+      load: 48,
+    },
+  ],
+};
+
+function threadWithAttachments(attachments: ChatAttachment[]): ChatThread {
+  return {
+    id: "thread-1",
+    dayOffset: 0,
+    title: "Easy Run",
+    preview: "Nice work.",
+    ageLabel: "NOW",
+    messages: [
+      { id: "d-1", role: "divider", label: "TODAY" },
+      { id: "c-1", role: "coach", paragraphs: ["Nice work."], attachments },
+    ],
+  };
+}
+
 describe("sendMessage", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -145,6 +181,80 @@ describe("sendMessage", () => {
       message: "",
       endConversationRequested: true,
     });
+  });
+});
+
+describe("activitySync", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("POSTs action activity_sync with the given activity_ids", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          reply: "Nice work on Easy Run.",
+          closed: false,
+          duplicate: false,
+          threadId: "thread-sync",
+          threads: [threadWithAttachments([listAttachment])],
+          profileComplete: true,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await activitySync(["hk:11111111-1111-1111-1111-111111111111"]);
+
+    expect(result.closed).toBe(false);
+    expect(result.duplicate).toBe(false);
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(request.body as string)).toEqual({
+      action: "activity_sync",
+      activity_ids: ["hk:11111111-1111-1111-1111-111111111111"],
+    });
+    const coach = result.threads[0]?.messages.find((m) => m.role === "coach");
+    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([listAttachment]);
+  });
+});
+
+describe("attachments on a thread", () => {
+  it("round-trips synced_activity_list through normalizeThread", () => {
+    const normalized = normalizeThread(threadWithAttachments([listAttachment]));
+    const coach = normalized.messages.find((m) => m.role === "coach");
+    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([listAttachment]);
+    expect(syncedActivityList(coach && coach.role === "coach" ? coach.attachments : undefined)).toEqual(
+      listAttachment,
+    );
+  });
+
+  it("keeps unknown attachment kinds on the thread but ignores them in the list helper", () => {
+    const unknown: ChatAttachment = { version: 1, kind: "future_widget", payload: { n: 1 } };
+    const wrongVersion: ChatAttachment = {
+      version: 2,
+      kind: "synced_activity_list",
+      batch_id: "nope",
+      activities: [],
+    };
+    const normalized = normalizeThread(threadWithAttachments([unknown, wrongVersion, listAttachment]));
+    const coach = normalized.messages.find((m) => m.role === "coach");
+    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([unknown, wrongVersion, listAttachment]);
+    expect(syncedActivityList([unknown, wrongVersion])).toBeNull();
+    expect(syncedActivityList([unknown, listAttachment])).toEqual(listAttachment);
+  });
+
+  it("does not offer Retry once the Coach reply is on the turn", () => {
+    expect(retryActivityIdsFromThread(threadWithAttachments([listAttachment]))).toBeNull();
+  });
+
+  it("offers Retry from a list-only pending turn", () => {
+    const pending = threadWithAttachments([listAttachment]);
+    pending.messages = [
+      { id: "d-1", role: "divider", label: "TODAY" },
+      { id: "c-1", role: "coach", paragraphs: [], attachments: [listAttachment] },
+    ];
+    expect(retryActivityIdsFromThread(pending)).toEqual(["hk:11111111-1111-1111-1111-111111111111"]);
   });
 });
 

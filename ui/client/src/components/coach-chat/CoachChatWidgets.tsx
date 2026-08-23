@@ -5,13 +5,18 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
 } from "react";
 import { Link } from "wouter";
 import ReactMarkdown from "react-markdown";
+import { formatDate, formatDuration, formatTime } from "@/lib/activities";
 import {
-  type ChatMessage,
   type ChatThread,
   type CoachChip,
+  type SyncedActivityRow,
+  coachMessageHasCopy,
+  findClientActivity,
+  syncedActivityList,
   threadAgeDisplay,
   threadDayLabel,
   threadDividerLabel,
@@ -139,6 +144,114 @@ function CoachChips({ chips }: { chips: CoachChip[] }) {
   );
 }
 
+function formatSyncStart(start: string): string {
+  if (!start) return "";
+  try {
+    return `${formatDate(start)} · ${formatTime(start)}`;
+  } catch {
+    return start;
+  }
+}
+
+export function formatSyncRowMeta(row: SyncedActivityRow): string {
+  const bits = [row.sport, formatSyncStart(row.start), formatDuration(row.duration_s)].filter(
+    (bit) => bit.length > 0,
+  );
+  return bits.join(" · ");
+}
+
+function SyncedActivityList({
+  rows,
+  onOpen,
+}: {
+  rows: SyncedActivityRow[];
+  onOpen: (row: SyncedActivityRow) => void;
+}) {
+  return (
+    <div className="cc-sync-list" aria-label="Synced activities">
+      {rows.map((row) => (
+        <button
+          className="cc-sync-row"
+          key={row.id}
+          onClick={() => onOpen(row)}
+          type="button"
+        >
+          <span className="cc-sync-row__title">{row.title || "Untitled"}</span>
+          <span className="cc-sync-row__meta">{formatSyncRowMeta(row)}</span>
+          {row.load != null ? <span className="cc-sync-row__load">+{row.load}</span> : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ActivityDetailSheet({
+  row,
+  activities,
+  onClose,
+}: {
+  row: SyncedActivityRow;
+  activities: unknown;
+  onClose: () => void;
+}) {
+  const extra = findClientActivity(activities, row.id);
+  const start = row.start || extra?.start_date_local || "";
+  const duration = row.duration_s || extra?.elapsed_time || 0;
+  const sport = row.sport || extra?.sport_type || "";
+  const title = row.title || extra?.name || "Untitled";
+  const load = row.load;
+
+  return (
+    <div className="cc-activity-sheet" role="dialog" aria-label="Activity detail">
+      <div className="cc-activity-sheet__head">
+        <button aria-label="Close activity detail" className="cc-back" onClick={onClose} type="button">
+          <BackIcon />
+        </button>
+        <span className="cc-pane__title">{title}</span>
+      </div>
+      <div className="cc-activity-sheet__body">
+        {sport ? (
+          <div className="cc-activity-sheet__row">
+            <span className="cc-activity-sheet__label">Sport</span>
+            <span>{sport}</span>
+          </div>
+        ) : null}
+        {start ? (
+          <div className="cc-activity-sheet__row">
+            <span className="cc-activity-sheet__label">Start</span>
+            <span>{formatSyncStart(start)}</span>
+          </div>
+        ) : null}
+        {duration ? (
+          <div className="cc-activity-sheet__row">
+            <span className="cc-activity-sheet__label">Duration</span>
+            <span>{formatDuration(duration)}</span>
+          </div>
+        ) : null}
+        {load != null ? (
+          <div className="cc-activity-sheet__row">
+            <span className="cc-activity-sheet__label">Load</span>
+            <span className="cc-sync-row__load">+{load}</span>
+          </div>
+        ) : null}
+        {extra?.calories != null && extra.calories > 0 ? (
+          <div className="cc-activity-sheet__row">
+            <span className="cc-activity-sheet__label">Calories</span>
+            <span>{extra.calories}</span>
+          </div>
+        ) : null}
+        {extra?.average_heartrate != null ? (
+          <div className="cc-activity-sheet__row">
+            <span className="cc-activity-sheet__label">Avg HR</span>
+            <span>{extra.average_heartrate} bpm</span>
+          </div>
+        ) : null}
+        {extra?.description ? <p className="cc-activity-sheet__note">{extra.description}</p> : null}
+      </div>
+    </div>
+  );
+}
+
 function ThinkingBubble() {
   return (
     <div className="cc-coach-wrap" aria-label="Coach is thinking">
@@ -151,7 +264,17 @@ function ThinkingBubble() {
   );
 }
 
-function MessageList({ thread, pending }: { thread: ChatThread; pending?: boolean }) {
+function MessageList({
+  thread,
+  pending,
+  onOpenActivity,
+  onRetrySync,
+}: {
+  thread: ChatThread;
+  pending?: boolean;
+  onOpenActivity: (row: SyncedActivityRow) => void;
+  onRetrySync?: () => void;
+}) {
   const messages = thread.messages;
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -197,17 +320,28 @@ function MessageList({ thread, pending }: { thread: ChatThread; pending?: boolea
         // Sign only the most recent reply, not every bubble - a real conversation doesn't
         // re-sign every line, and it read as noisy repeated on every turn.
         const isLastMessage = messageIndex === lastCoachIndex;
+        const list = syncedActivityList(message.attachments);
+        const hasCopy = coachMessageHasCopy(message);
+        const showRetry = Boolean(list && !hasCopy && !pending && isLastMessage && onRetrySync);
         return (
           <div className="cc-coach-wrap" key={message.id}>
-            <div className="cc-bubble cc-bubble--coach">
-              {message.paragraphs.map((paragraph, index) => (
-                <div className="cc-coach-copy" key={`${message.id}-p${index}`}>
-                  {renderCoachText(paragraph, message.highlights)}
-                  {index === 0 && message.chips ? <CoachChips chips={message.chips} /> : null}
-                </div>
-              ))}
-              {isLastMessage ? <div className="cc-signature">— PHELPS</div> : null}
-            </div>
+            {list ? <SyncedActivityList rows={list.activities} onOpen={onOpenActivity} /> : null}
+            {hasCopy ? (
+              <div className="cc-bubble cc-bubble--coach">
+                {message.paragraphs.map((paragraph, index) => (
+                  <div className="cc-coach-copy" key={`${message.id}-p${index}`}>
+                    {renderCoachText(paragraph, message.highlights)}
+                    {index === 0 && message.chips ? <CoachChips chips={message.chips} /> : null}
+                  </div>
+                ))}
+                {isLastMessage ? <div className="cc-signature">— PHELPS</div> : null}
+              </div>
+            ) : null}
+            {showRetry ? (
+              <button className="cc-sync-retry" onClick={onRetrySync} type="button">
+                Retry
+              </button>
+            ) : null}
           </div>
         );
       })}
@@ -401,6 +535,8 @@ export function ConversationPane({
   pending,
   profileComplete,
   onEndConversation,
+  activities,
+  onRetrySync,
 }: {
   dayNumber: number;
   thread: ChatThread;
@@ -412,39 +548,58 @@ export function ConversationPane({
   pending?: boolean;
   profileComplete: boolean;
   onEndConversation: () => void;
+  activities?: unknown;
+  onRetrySync?: () => void;
 }) {
+  const [openActivity, setOpenActivity] = useState<SyncedActivityRow | null>(null);
+
   return (
     <section className="cc-pane" aria-label={thread.title}>
-      <div className="cc-pane__header">
-        {showBack ? (
-          <button aria-label="Back to conversations" className="cc-back" onClick={onBack} type="button">
-            <BackIcon />
-          </button>
-        ) : null}
-        <span className="cc-pane__day">{threadDayLabel(dayNumber, thread.dayOffset)}</span>
-        <span className="cc-pane__title">{thread.title}</span>
-        {thread.statusLabel ? (
-          <span className="cc-pane__status">
-            <ReadingIcon />
-            {thread.statusLabel}
-          </span>
-        ) : null}
-      </div>
-      <MessageList thread={thread} pending={pending} />
-      <div className="cc-pane__footer">
-        <Composer
-          placeholder={pending ? "Coach is replying…" : "Ask Coach anything…"}
-          value={draft}
-          onChange={onDraftChange}
-          onSubmit={onSend}
-          disabled={pending}
-          endConversationEnabled={profileComplete}
-          onEndConversation={onEndConversation}
+      {openActivity ? (
+        <ActivityDetailSheet
+          row={openActivity}
+          activities={activities}
+          onClose={() => setOpenActivity(null)}
         />
-        <p className="cc-pane__footnote">
-          COACH SEES YOUR LOAD, LEDGER, PLAN &amp; SPORT ANALYTICS · NOT SHARED BETWEEN ACCOUNTS
-        </p>
-      </div>
+      ) : (
+        <>
+          <div className="cc-pane__header">
+            {showBack ? (
+              <button aria-label="Back to conversations" className="cc-back" onClick={onBack} type="button">
+                <BackIcon />
+              </button>
+            ) : null}
+            <span className="cc-pane__day">{threadDayLabel(dayNumber, thread.dayOffset)}</span>
+            <span className="cc-pane__title">{thread.title}</span>
+            {thread.statusLabel ? (
+              <span className="cc-pane__status">
+                <ReadingIcon />
+                {thread.statusLabel}
+              </span>
+            ) : null}
+          </div>
+          <MessageList
+            thread={thread}
+            pending={pending}
+            onOpenActivity={setOpenActivity}
+            onRetrySync={onRetrySync}
+          />
+          <div className="cc-pane__footer">
+            <Composer
+              placeholder={pending ? "Coach is replying…" : "Ask Coach anything…"}
+              value={draft}
+              onChange={onDraftChange}
+              onSubmit={onSend}
+              disabled={pending}
+              endConversationEnabled={profileComplete}
+              onEndConversation={onEndConversation}
+            />
+            <p className="cc-pane__footnote">
+              COACH SEES YOUR LOAD, LEDGER, PLAN &amp; SPORT ANALYTICS · NOT SHARED BETWEEN ACCOUNTS
+            </p>
+          </div>
+        </>
+      )}
     </section>
   );
 }

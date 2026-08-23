@@ -3,38 +3,71 @@ import { toast } from "sonner";
 import { RepoDataGate, AccessRevokedCard } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import type { ChallengeV2 } from "@/lib/challenge";
-import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
+import { getActivityZoneLoad, type SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
+import type { Activity } from "@/lib/activities";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
 import { ConversationPane, MobileThreadList, ThreadSidebar } from "@/components/coach-chat/CoachChatWidgets";
 import {
   clearThreadLocally,
   CoachChatAccessRevokedError,
+  activitySync,
   challengeDayNumber,
   computeLocalDayOffset,
   epochMsFromMessageId,
   fetchProactiveCoachMessage,
   fetchThreads,
   fetchProfileComplete,
+  findClientActivity,
   findOrphanedLocalThreadIds,
   greet,
+  PENDING_SYNC_THREAD_ID,
   parseProactiveSeed,
   resolveProactiveThread,
   restoreThreadMessagesLocally,
+  retryActivityIdsFromThread,
   saveThreadLocally,
   sendMessage,
   shouldSendEndConversation,
+  syncedActivityList,
   threadStatus,
   truncateTitle,
   updatePendingEndThreads,
   type ChatMessage,
   type ChatThread,
   type GreetResult,
+  type SyncedActivityRow,
 } from "@/components/coach-chat/coachChatModel";
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/login/login.css";
 import "@/components/coach-chat/coach-chat.css";
 
 type MobileView = "list" | "thread" | "new";
+
+function provisionalSyncRows(activityIds: string[], activities: unknown): SyncedActivityRow[] {
+  return activityIds.map((qualified) => {
+    const found = findClientActivity(activities, qualified);
+    const id = qualified.includes(":") ? qualified.slice(qualified.indexOf(":") + 1) : qualified;
+    const load = found?.hr_zones
+      ? getActivityZoneLoad({ hr_zones: found.hr_zones } as Activity)
+      : null;
+    return {
+      id: found?.id ?? id,
+      title: found?.name ?? "",
+      sport: found?.sport_type ?? "",
+      start: found?.start_date_local ?? "",
+      duration_s: found?.elapsed_time ?? 0,
+      load: load == null ? null : Math.round(load),
+    };
+  });
+}
+
+function syncThreadTitle(rows: SyncedActivityRow[]): string {
+  if (rows.length === 1) {
+    const title = rows[0]?.title.trim();
+    return title && title.length > 0 ? title : "1 session synced";
+  }
+  return `${rows.length} sessions synced`;
+}
 
 export default function CoachChat() {
   const { data, loading, error, schemaUnsupported } = useRepoData();
@@ -95,6 +128,84 @@ function CoachChatContent({ data }: { data: RepoData }) {
     return promise;
   }
 
+  const syncInFlightRef = useRef(false);
+  const runActivitySyncRef = useRef<(activityIds: string[]) => Promise<void>>(async () => {});
+
+  async function runActivitySync(activityIds: string[]) {
+    if (activityIds.length === 0 || syncInFlightRef.current) return;
+    syncInFlightRef.current = true;
+
+    const rows = provisionalSyncRows(activityIds, data.activities);
+    const now = Date.now();
+    const title = syncThreadTitle(rows);
+    const pendingMessages: ChatMessage[] = [
+      { id: `d-${now}`, role: "divider", label: "TODAY" },
+      {
+        id: `c-${now}`,
+        role: "coach",
+        paragraphs: [],
+        attachments: [
+          {
+            version: 1,
+            kind: "synced_activity_list",
+            batch_id: "pending",
+            activities: rows,
+          },
+        ],
+      },
+    ];
+    const pendingThread: ChatThread = {
+      id: PENDING_SYNC_THREAD_ID,
+      dayOffset: 0,
+      createdAt: now,
+      title,
+      preview: rows[0]?.title || "Activity sync",
+      ageLabel: "NOW",
+      status: "active",
+      messages: pendingMessages,
+    };
+
+    setThreads((prev) => [pendingThread, ...prev.filter((thread) => thread.id !== PENDING_SYNC_THREAD_ID)]);
+    setActiveId(PENDING_SYNC_THREAD_ID);
+    setMobileView("thread");
+    saveThreadLocally(PENDING_SYNC_THREAD_ID, pendingMessages);
+    setSendingThreadIds((prev) => new Set(prev).add(PENDING_SYNC_THREAD_ID));
+
+    try {
+      const result = await activitySync(activityIds);
+      applyResponseProfileComplete(result.profileComplete);
+      clearThreadLocally(PENDING_SYNC_THREAD_ID);
+      setThreads((prev) => {
+        const local = prev.filter((thread) => thread.id.startsWith("local-") && thread.id !== PENDING_SYNC_THREAD_ID);
+        return [...local, ...result.threads];
+      });
+      setActiveId(result.threadId);
+    } catch (err: unknown) {
+      if (err instanceof CoachChatAccessRevokedError) {
+        setThreadsAccessRevoked(true);
+      }
+      // Keep the list. Dots stop in finally. Retry is inferred from the list-only turn.
+    } finally {
+      syncInFlightRef.current = false;
+      setSendingThreadIds((prev) => {
+        const next = new Set(prev);
+        next.delete(PENDING_SYNC_THREAD_ID);
+        return next;
+      });
+    }
+  }
+  runActivitySyncRef.current = runActivitySync;
+
+  useEffect(() => {
+    function onActivitySyncEvent(event: Event) {
+      const ids = (event as CustomEvent<{ activityIds?: unknown }>).detail?.activityIds;
+      if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string") || ids.length === 0) return;
+      void runActivitySyncRef.current(ids as string[]);
+    }
+    window.addEventListener("coach-chat:activity-sync", onActivitySyncEvent);
+    return () => window.removeEventListener("coach-chat:activity-sync", onActivitySyncEvent);
+  }, []);
+
   // coach-chat.ts's handleGreet() no longer commits anything - the server-returned `threadId` is
   // just a fresh, never-persisted id, and `threads` is the existing committed list unchanged.
   // Materialize the greeting as a local-only thread here instead (same "local-" convention
@@ -108,6 +219,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
     // means at most one unreplied local greeting's cache entry can ever exist at a time.
     for (const thread of currentThreads) {
       if (!thread.id.startsWith("local-") || thread.dayOffset !== 0) continue;
+      if (thread.id === PENDING_SYNC_THREAD_ID) continue;
       const real = thread.messages.filter((m) => m.role !== "divider");
       if (real.length === 1 && real[0].role === "coach") clearThreadLocally(thread.id);
     }
@@ -186,7 +298,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
           if (!messages || messages.length === 0) return [];
           const lastCoach = [...messages].reverse().find((m): m is Extract<ChatMessage, { role: "coach" }> => m.role === "coach");
           const firstUser = messages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user");
-          const title = firstUser ? truncateTitle(firstUser.text, 28) : "New conversation";
+          const restoredList = lastCoach ? syncedActivityList(lastCoach.attachments) : null;
+          const title = firstUser
+            ? truncateTitle(firstUser.text, 28)
+            : restoredList
+              ? syncThreadTitle(restoredList.activities)
+              : "New conversation";
           // An orphaned thread never had a server-committed dayOffset - recover a real creation
           // time from the divider message's own id instead of hardcoding "today" (a real bug,
           // found via code review: a stale unreplied greeting from days ago would get treated as
@@ -201,8 +318,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
           // materialize it at all. A same-day unreplied greeting is untouched by this - that's
           // still "come back to what Coach just said," not clutter. An explicitly requested
           // proactive seed is also retained: that URL is the athlete asking to reopen the exact
-          // notification thread, even after the latest snapshot has advanced.
-          if (!firstUser && dayOffset > 0 && id !== requestedProactiveSeed) {
+          // notification thread, even after the latest snapshot has advanced. A list-only
+          // activity-sync turn is kept so Retry still has something to re-POST.
+          if (!firstUser && dayOffset > 0 && id !== requestedProactiveSeed && !restoredList) {
             clearThreadLocally(id);
             return [];
           }
@@ -211,7 +329,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
             dayOffset,
             createdAt,
             title,
-            preview: lastCoach ? lastCoach.paragraphs.join(" ").slice(0, 80) : "",
+            preview: lastCoach?.paragraphs.join(" ").trim()
+              ? lastCoach.paragraphs.join(" ").slice(0, 80)
+              : restoredList?.activities[0]?.title || "",
             ageLabel: dayOffset === 0 ? "NOW" : `D-${dayOffset}`,
             status: "active",
             messages,
@@ -528,6 +648,15 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   onEndConversation={() => void appendUserMessage("", activeId, true)}
                   profileComplete={profileComplete}
                   pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
+                  activities={data.activities}
+                  onRetrySync={
+                    activeThread && retryActivityIdsFromThread(activeThread)
+                      ? () => {
+                          const ids = retryActivityIdsFromThread(activeThread);
+                          if (ids) void runActivitySync(ids);
+                        }
+                      : undefined
+                  }
                 />
               ) : (
                 <section className="cc-pane cc-pane--empty cc-loading" aria-label="Starting conversation">
@@ -575,6 +704,15 @@ function CoachChatContent({ data }: { data: RepoData }) {
                   pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
                   showBack
                   onBack={() => setMobileView("list")}
+                  activities={data.activities}
+                  onRetrySync={
+                    activeThread && retryActivityIdsFromThread(activeThread)
+                      ? () => {
+                          const ids = retryActivityIdsFromThread(activeThread);
+                          if (ids) void runActivitySync(ids);
+                        }
+                      : undefined
+                  }
                 />
               ) : null}
               {mobileView === "new" || (mobileView === "thread" && !activeThread) ? (
