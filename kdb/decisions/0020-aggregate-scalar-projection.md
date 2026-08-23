@@ -1,6 +1,6 @@
 # 0020 — Aggregate scalar projection boundary
 
-- **Status:** Accepted · 2026-08-03 · Tech Lead
+- **Status:** Accepted · 2026-08-03 · Tech Lead · **Narrowed by 0027** — the projection boundary stands. The passing claim below that `hr_stream` *remains in* `hist/*.json` does not: it now lives in `streams/<uuid>.json`.
 - **Area:** cross-cutting
 - **Context:** The `gen/dashboard_snapshot.json` file produced by `build-dashboard-snapshot.mjs` and used by the UI loads the full history on boot. Currently, it includes 85+ legacy Strava fields predating ADR 0010. Furthermore, upcoming features like PR 162 will introduce `hr_stream` (9,413 bytes per activity on average). Without intervention, time-series arrays and heavy fields (like `hr_stream`, `segment_efforts`, `map`, `laps`, `splits_metric`, `splits_standard`) make the JSON payload balloon to >7MB.
 - **Decision:** Project activities entering the aggregate down to a strict 20-field scalar allowlist (e.g., `id`, `name`, `distance`, `moving_time`, `average_heartrate`).
