@@ -230,75 +230,18 @@ struct ActivityDetailView: View {
         }
     }
 
-    /// Cell count for a ribbon drawn from recorded heart rate: ~1 cell per 30s, clamped 5–48.
-    ///
-    /// The ribbon is a fixed ~321pt wide (phone width less screen and card padding) with 1.5pt
-    /// between cells, so cell count and cell width trade off directly. 48 cells is 5.4pt each —
-    /// past roughly 50 a cell is thinner than the gap beside it and the ribbon reads as a smear
-    /// rather than as bands. That cap is what keeps a 90-minute session legible; without it,
-    /// 30s cells would put 180 sub-pixel slivers across the same width.
-    ///
-    /// The estimated ribbon keeps its own coarser count (~1 cell per 4 min, cap 41) — there is
-    /// no real ordering behind it, so extra resolution would only be extra invention.
-    private func measuredCellCount(elapsedSeconds: Int) -> Int {
-        min(48, max(5, elapsedSeconds / 30))
-    }
-
     /// Real zone-per-cell, read off the recorded heart rate.
     ///
-    /// Each cell is a time slice of the session; its colour is the zone the athlete was
-    /// actually in during that slice. Where the watch recorded nothing, the neighbouring
-    /// readings carry across — the ribbon is a shape-of-session view, and a hole punched in it
-    /// reads as a rendering fault rather than as missing data. The honest per-zone minutes are
-    /// in the legend directly below, which never counts uncovered time.
-    private func measuredRibbon(stream: HRStreamFile) -> [Color]? {
+    /// All of the arithmetic lives in `RibbonBuilder` so it can be tested without SwiftUI.
+    /// Boundaries come from the activity's own stored `hr_zones`, never from live settings —
+    /// otherwise changing the steppers in Settings would recolour history into disagreement
+    /// with the legend printed directly beneath it.
+    private func measuredRibbon(stream: HRStreamFile, zones: [String: HRZoneEntry]) -> [Color]? {
         guard !stream.points.isEmpty, stream.elapsedSeconds > 0 else { return nil }
-        let cells = measuredCellCount(elapsedSeconds: stream.elapsedSeconds)
-        let slice = Double(stream.elapsedSeconds) / Double(cells)
-        let config = HRZoneConfig.current
-
-        var out: [Color] = []
-        var lastKnown: Int?
-
-        for i in 0..<cells {
-            let lo = Double(i) * slice
-            let hi = Double(i + 1) * slice
-            let inSlice = stream.points.filter { Double($0.t) >= lo && Double($0.t) < hi }
-
-            let index: Int?
-            if inSlice.isEmpty {
-                index = nil
-            } else {
-                // Mean bpm across the slice, then bucket — steadier than picking one sample.
-                let mean = Double(inSlice.reduce(0) { $0 + $1.bpm }) / Double(inSlice.count)
-                index = zoneIndex(forBPM: mean, config: config)
-            }
-
-            if let index {
-                lastKnown = index
-                out.append(detailZoneColors[index])
-            } else {
-                // Hold the previous cell's zone; before any reading exists, reach forward to
-                // the first one so the ribbon opens in the right colour rather than at zero.
-                let carried = lastKnown ?? firstZone(stream: stream, config: config) ?? 0
-                out.append(detailZoneColors[carried])
-            }
-        }
-        return out
-    }
-
-    private func firstZone(stream: HRStreamFile, config: HRZoneConfig) -> Int? {
-        guard let first = stream.points.first else { return nil }
-        return zoneIndex(forBPM: Double(first.bpm), config: config)
-    }
-
-    private func zoneIndex(forBPM bpm: Double, config: HRZoneConfig) -> Int {
-        let v = Int(bpm.rounded())
-        if v <= config.zone1Upper { return 0 }
-        if v <= config.zone2Upper { return 1 }
-        if v <= config.zone3Upper { return 2 }
-        if v <= config.zone4Upper { return 3 }
-        return 4
+        let config = RibbonBuilder.storedConfig(from: zones)
+        let cells = RibbonBuilder.cellCount(elapsedSeconds: stream.elapsedSeconds)
+        let perCell = RibbonBuilder.zonesPerCell(stream: stream, config: config, cells: cells)
+        return RibbonBuilder.carryGaps(perCell).map { detailZoneColors[$0] }
     }
 
     /// Generates a time-series-like ribbon: work zones shuffled in bursts with recovery
@@ -353,7 +296,8 @@ struct ActivityDetailView: View {
 
     private func activityRibbon(zones: [String: HRZoneEntry]) -> some View {
         // Real ordering when the heart rate was recorded; the estimate otherwise.
-        let colors = hrStream.flatMap(measuredRibbon) ?? ribbonSequence(zones: zones)
+        let colors = hrStream.flatMap { measuredRibbon(stream: $0, zones: zones) }
+            ?? ribbonSequence(zones: zones)
         return HStack(spacing: 1.5) {
             ForEach(colors.indices, id: \.self) { i in
                 colors[i].frame(maxWidth: .infinity)

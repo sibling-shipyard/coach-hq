@@ -281,3 +281,113 @@ final class HRStreamDecodingTests: XCTestCase {
         XCTAssertEqual(out.gaps.count, 2, "three covered runs means two breaks between them")
     }
 }
+
+/// The ribbon is the only place an athlete reads the shape of a session, and it sits directly
+/// above a legend computed from different numbers. These cover the two ways they can disagree.
+final class RibbonBuilderTests: XCTestCase {
+
+    private let config = HRZoneConfig.default   // 131 / 145 / 158 / 172
+
+    private func stream(elapsed: Int, points: [(Int, Int)]) -> HRStreamFile {
+        HRStreamFile(
+            schemaVersion: 1, generator: "hk-stream/1", activityId: "T",
+            start: "2026-08-23T08:00:00Z", elapsedSeconds: elapsed,
+            sourceSampleCount: points.count, coveredSeconds: elapsed, uncoveredSeconds: 0,
+            gaps: [], points: points.map { HRPoint(t: $0.0, bpm: $0.1) }
+        )
+    }
+
+    // MARK: - Time weighting
+
+    /// A brief spike must not colour a whole cell.
+    ///
+    /// The points are min/max decimated, so a 2s peak is stored with the same weight as a 58s
+    /// plateau. Averaging them evenly gives (110 + 200) / 2 = 155 — Zone 3. Time-weighted, the
+    /// cell is Zone 1, which is where the athlete actually spent it.
+    func testBriefSpikeDoesNotColourTheWholeCell() {
+        let s = stream(elapsed: 60, points: [(0, 110), (58, 200)])
+        let zones = RibbonBuilder.zonesPerCell(stream: s, config: config, cells: 1)
+
+        XCTAssertEqual(zones, [0], "58s at 110bpm outweighs 2s at 200bpm")
+    }
+
+    func testSustainedHighZoneStillWins() {
+        let s = stream(elapsed: 60, points: [(0, 200), (55, 110)])
+        let zones = RibbonBuilder.zonesPerCell(stream: s, config: config, cells: 1)
+
+        XCTAssertEqual(zones, [4], "55s at 200bpm is genuinely Zone 5")
+    }
+
+    func testEachCellReadsItsOwnSlice() {
+        let s = stream(elapsed: 100, points: [(0, 100), (50, 165)])
+        let zones = RibbonBuilder.zonesPerCell(stream: s, config: config, cells: 2)
+
+        XCTAssertEqual(zones, [0, 3], "first half recovery, second half threshold")
+    }
+
+    // MARK: - Stored boundaries
+
+    /// Changing the steppers in Settings must not recolour history.
+    ///
+    /// The legend beneath the ribbon renders seconds stored at sync time against the boundaries
+    /// stored with them. If the ribbon read live `UserDefaults`, one card would show two
+    /// different answers for the same session.
+    func testRibbonUsesTheActivitysOwnBoundaries() {
+        let stored: [String: HRZoneEntry] = [
+            "Zone 1": HRZoneEntry(low: 0, high: 100, seconds: 10),
+            "Zone 2": HRZoneEntry(low: 101, high: 120, seconds: 10),
+            "Zone 3": HRZoneEntry(low: 121, high: 140, seconds: 10),
+            "Zone 4": HRZoneEntry(low: 141, high: 160, seconds: 10),
+            "Zone 5": HRZoneEntry(low: 161, high: nil, seconds: 10),
+        ]
+        let recovered = RibbonBuilder.storedConfig(from: stored)
+
+        XCTAssertEqual(recovered.zone1Upper, 100)
+        XCTAssertEqual(recovered.zone4Upper, 160)
+
+        // 130bpm is Zone 1 under today's defaults but Zone 3 under what this activity was scored
+        // against. The stored answer is the one the legend agrees with.
+        let s = stream(elapsed: 60, points: [(0, 130)])
+        XCTAssertEqual(RibbonBuilder.zonesPerCell(stream: s, config: recovered, cells: 1), [2])
+        XCTAssertEqual(RibbonBuilder.zonesPerCell(stream: s, config: .default, cells: 1), [0])
+    }
+
+    func testFallsBackToCurrentSettingsWhenNoBoundariesStored() {
+        XCTAssertEqual(RibbonBuilder.storedConfig(from: nil).zone1Upper,
+                       HRZoneConfig.current.zone1Upper)
+        XCTAssertEqual(RibbonBuilder.storedConfig(from: [:]).zone1Upper,
+                       HRZoneConfig.current.zone1Upper)
+    }
+
+    // MARK: - Gaps and sizing
+
+    func testGapCarriesTheNeighbouringZone() {
+        XCTAssertEqual(RibbonBuilder.carryGaps([1, nil, nil, 3]), [1, 1, 1, 3])
+    }
+
+    func testLeadingGapReachesForwardToTheFirstReading() {
+        XCTAssertEqual(RibbonBuilder.carryGaps([nil, nil, 2, 2]), [2, 2, 2, 2],
+                       "a session opening before the watch locks on must not open at Zone 1")
+    }
+
+    func testUncoveredCellsAreReportedAsNilBeforeCarrying() {
+        // Readings only in the first half of a 100s session, split into 2 cells.
+        let s = stream(elapsed: 100, points: [(0, 150), (10, 150), (20, 150)])
+        let zones = RibbonBuilder.zonesPerCell(stream: s, config: config, cells: 2)
+
+        XCTAssertEqual(zones.count, 2)
+        XCTAssertNotNil(zones[0])
+    }
+
+    func testCellCountIsClampedAtBothEnds() {
+        XCTAssertEqual(RibbonBuilder.cellCount(elapsedSeconds: 60), 5, "floor")
+        XCTAssertEqual(RibbonBuilder.cellCount(elapsedSeconds: 896), 29, "~30s per cell")
+        XCTAssertEqual(RibbonBuilder.cellCount(elapsedSeconds: 5400), 48, "cap at 48")
+    }
+
+    func testEmptyStreamYieldsNoZones() {
+        let s = stream(elapsed: 600, points: [])
+        XCTAssertEqual(RibbonBuilder.zonesPerCell(stream: s, config: config, cells: 4),
+                       [nil, nil, nil, nil])
+    }
+}
