@@ -93,3 +93,9 @@ opened on the other platform.
 - The Home-first Coach card and inline widget previews outside Chat.
 - Delivery after iOS has been terminated, quiet hours, and notification privacy controls.
 - Proactive messages driven by plan drift, recovery, milestones, or time rather than an activity sync.
+
+## Progress
+
+- **C · turn contract:** done
+- Files: `ui/api/coach-chat.ts`, `ui/api/coach-chat/_lib/{activitySync,activitySyncTurn,chatThreads,coachChatFiles,coachTurn,coachReplySchema,coachPromptText}.ts`, `ui/api/coach-chat/_tests/activitySyncTurn.test.ts`, `docs/eng-docs/coach-chat-daily.md`, `docs/eng-docs/coach-data-schema.md`
+- Checks: `npm test -- --run` (29 files / 362 tests) and `npm run check` (`tsc --noEmit`) from `ui/`

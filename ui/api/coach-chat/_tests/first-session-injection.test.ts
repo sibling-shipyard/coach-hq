@@ -6,7 +6,7 @@ import {
   onboardingHintsContext,
   staticSystemText,
 } from "../_lib/coachPromptText.js";
-import { generationConfigFor } from "../_lib/coachReplySchema.js";
+import { generationConfigFor, type TurnMode } from "../_lib/coachReplySchema.js";
 
 // PR 4 of the SOUL v5.8 trim: the First Session Protocol left SOUL.chat.md and is injected
 // per-turn instead, gated on isAthleteProfileComplete(). The trap these tests exist to catch is
@@ -15,13 +15,14 @@ import { generationConfigFor } from "../_lib/coachReplySchema.js";
 const PROTOCOL = "### First Session Protocol\n\n**Step 1 — Warm intro:** say hi.";
 const SOUL = "# Coach Phelps: SOUL.md\n\nBe a coach.";
 
-function schemaFields(mode: "greeting" | "ordinary" | "closing", firstSession: boolean): string[] {
+function schemaFields(mode: TurnMode, firstSession: boolean): string[] {
   return Object.keys(generationConfigFor(mode, firstSession).responseSchema.properties);
 }
 
 describe("mode-specific response schemas", () => {
   it("allows no write actions on greetings or returning ordinary turns", () => {
     expect(schemaFields("greeting", true)).toEqual(["session_closed", "reply"]);
+    expect(schemaFields("activity_sync", false)).toEqual(["session_closed", "reply"]);
     expect(schemaFields("ordinary", false)).toEqual(["session_closed", "reply"]);
   });
 

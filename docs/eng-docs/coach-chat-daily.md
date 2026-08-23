@@ -24,6 +24,7 @@ for the intake-completion check) — not separate systems.
 |---|---|---|
 | `ui/api/coach-chat.ts` | `GET` | Load committed threads (newest 7, always `status: "active"`) |
 | `ui/api/coach-chat.ts` | `POST {action: "greet"}` | Coach speaks first; FSP also records native onboarding fields directly |
+| `ui/api/coach-chat.ts` | `POST {action: "activity_sync", activity_ids}` | After a HealthKit sync: persist one Coach turn for that verified batch |
 | `ui/api/coach-chat.ts` | `POST {threadId?, messages, message, endConversationRequested?}` | Send a message or explicitly request a close |
 | `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL plus the split athlete, quest, and Fitness Snapshot context ahead of chat opening |
 | `ui/api/coach-chat-profile-status.ts` | `GET` | `{profileComplete}` — is the First Session Protocol done? |
@@ -121,6 +122,14 @@ for the thread — nothing is persisted server-side for an unwrapped conversatio
 stateless per turn until a close. Every response echoes `repoSha` and a fresh `profileComplete`.
 Gemini sees the rendered split athlete context, rendered quest context, and optional Fitness
 Snapshot. A returning ordinary turn has no write actions in its response schema.
+
+### 3b. Activity-sync turns (persist immediately)
+
+`POST {action: "activity_sync", activity_ids: ["hk:<uuid>", ...]}`. This is the exception to
+persist-on-close: after Gemini replies, the server atomically writes only `chat_history.json`
+(divider + one Coach message with a `synced_activity_list` attachment). Same `batch_id` returns
+the existing thread (`duplicate: true`) with no second Gemini call. Missing hist files → 422, no
+write. Card values are reread from the athlete repo; the request carries ids only.
 
 ### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/geminiClient.ts`)
 
@@ -307,10 +316,12 @@ for the write-builder table.
 
 | File | Role |
 |---|---|
-| `ui/api/coach-chat.ts` | authentication, greet handling, and HTTP-stage dispatch |
+| `ui/api/coach-chat.ts` | authentication, greet/sync handling, and HTTP-stage dispatch |
 | `ui/api/coach-chat-context.ts` | A3 preload endpoint |
 | `ui/api/coach-chat-profile-status.ts` | B2 First Session Protocol completion check |
 | `ui/api/coach-chat/_lib/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
+| `ui/api/coach-chat/_lib/activitySync.ts` | activity-sync batch id, hist lookup, attachment rows |
+| `ui/api/coach-chat/_lib/activitySyncTurn.ts` | persist-on-sync Coach turn |
 | `ui/api/coach-chat/_lib/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
 | `ui/api/coach-chat/_lib/geminiClient.ts` | Gemini transport — `askGemini()`, retry logic |
 | `ui/api/coach-chat/_lib/coachPromptText.ts` | prompt text and dynamic context construction |

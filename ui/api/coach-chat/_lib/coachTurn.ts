@@ -55,11 +55,17 @@ import { buildProfileUpdateWrite, projectProfileCompletion } from "./turnWrites/
 import { buildTemplateEditWrite, buildSessionPlanWrite } from "./turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./turnWrites/weekWrite.js";
 
+import {
+  parseActivityIds,
+  type ActivitySyncRequest,
+} from "./activitySync.js";
+
 interface PostBody {
   threadId?: string;
   messages?: ChatMessage[];
   message?: string;
-  action?: "greet";
+  action?: "greet" | "activity_sync";
+  activity_ids?: unknown;
   knownSha?: string;
   onboardingHints?: OnboardingHints;
   endConversationRequested?: boolean;
@@ -140,10 +146,20 @@ export async function handleHistory(
 
 export async function parseTurnRequest(
   req: Request,
-): Promise<Response | GreetRequest | TurnRequest> {
+): Promise<Response | GreetRequest | TurnRequest | ActivitySyncRequest> {
   const body = (await req.json()) as PostBody;
   if (body.action === "greet")
     return { action: "greet", onboardingHints: body.onboardingHints };
+  if (body.action === "activity_sync") {
+    const parsedIds = parseActivityIds(body.activity_ids);
+    if (!parsedIds.ok)
+      return Response.json({ error: parsedIds.error }, { status: 400 });
+    return {
+      action: "activity_sync",
+      activity_ids: parsedIds.activityIds,
+      knownSha: body.knownSha,
+    };
+  }
 
   const endConversationRequested = body.endConversationRequested === true;
   const trimmed = acceptedMessage(body.message, endConversationRequested);
@@ -160,9 +176,15 @@ export async function parseTurnRequest(
 }
 
 export function isGreetRequest(
-  value: GreetRequest | TurnRequest,
+  value: GreetRequest | TurnRequest | ActivitySyncRequest,
 ): value is GreetRequest {
   return "action" in value && value.action === "greet";
+}
+
+export function isActivitySyncRequest(
+  value: GreetRequest | TurnRequest | ActivitySyncRequest,
+): value is ActivitySyncRequest {
+  return "action" in value && value.action === "activity_sync";
 }
 
 export async function loadTurnState(

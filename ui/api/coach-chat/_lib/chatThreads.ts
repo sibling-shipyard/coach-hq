@@ -21,10 +21,31 @@ export function truncateTitle(title: string, maxChars: number): string {
   return chars.length > maxChars ? `${chars.slice(0, maxChars).join("")}…` : title;
 }
 
+export interface SyncedActivityRow {
+  id: string;
+  title: string;
+  sport: string;
+  start: string;
+  duration_s: number;
+  load: number | null;
+}
+
+export interface SyncedActivityListAttachment {
+  version: 1;
+  kind: "synced_activity_list";
+  batch_id: string;
+  activities: SyncedActivityRow[];
+}
+
+// Unknown kinds/versions persist as written; do not strip on read or write.
+export type ChatAttachment =
+  | SyncedActivityListAttachment
+  | { version: number; kind: string; [key: string]: unknown };
+
 export type ChatMessage =
   | { id: string; role: "divider"; label: string }
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "coach"; paragraphs: string[] };
+  | { id: string; role: "coach"; paragraphs: string[]; attachments?: ChatAttachment[] };
 
 export function appendConversationTurn(
   priorMessages: ChatMessage[],
