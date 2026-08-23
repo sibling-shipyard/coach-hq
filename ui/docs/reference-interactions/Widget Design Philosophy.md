@@ -88,6 +88,6 @@ Warm Instrument treats training data like a well-loved analog instrument panel: 
 | **iOS app (Home)** | scrolling column of M widgets | long-press jiggle + S/M/L, chip drag, swipe→Edit, month paging |
 | **iOS home screen widgets** | S/M/L WidgetKit snapshots | glance-only: no scrubs, no tooltips; long-press uses the native widget editor; every widget must be legible with zero interaction |
 
-**Shared atoms** (build once, reuse everywhere): sport icon set (shuttlecock / parallettes / sun-salutation / bicycle) with fixed sport colors (BDM #315a4a · CAL #4f587a · FDN #6d7d4e · RIDE #a8702c), the mono-label style (9–11px Space Mono, .1em+ tracking), the session row, the sport chip, the hairline progress underline, and the card shell (26px radius, 1px warm border, soft 8/20 shadow).
+**Shared atoms** (build once, reuse everywhere): sport icon set (shuttlecock / parallettes / sun-salutation / bicycle) with fixed sport colors (BDM #1A4731 · CAL #4F587A · FDN #6D7D4E · RIDE #A8702C), the mono-label style (9–11px Space Mono, .1em+ tracking), the session row, the sport chip, the hairline progress underline, and the card shell (26px radius, 1px warm border, soft 8/20 shadow).
 
 **Type + palette:** Space Grotesk (UI), Space Mono (figures/labels), Newsreader italic (voice). Paper #fbf8f1, desk #e8e2d7, ink #2b2d29, accent #7f3728, alarm #e4e4ec/#4b5578.

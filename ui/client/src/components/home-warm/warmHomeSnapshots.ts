@@ -35,6 +35,7 @@ import {
   type WarmHomeModel,
 } from "./warmHomeModel";
 import type { CurrentWeekContract } from "./currentWeek.fixture";
+import { sportHex, sportMixHex } from "@/lib/wiTokens";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -153,19 +154,19 @@ export function buildEngineSnapshot(
     shortLabel: string;
     color: string;
   }> = [
-    { id: "badminton", label: "Badminton", shortLabel: "BDM", color: "#9fc0ad" },
-    { id: "foundation", label: "Foundation", shortLabel: "FDN", color: "#cdd3a8" },
-    { id: "calisthenics", label: "Calisthenics", shortLabel: "CAL", color: "#aeb2c9" },
-    { id: "cycling", label: "Ride", shortLabel: "RIDE", color: "#e0b06e" },
-    { id: "run", label: "Run", shortLabel: "RUN", color: "#c44020" },
-    { id: "strength", label: "Strength", shortLabel: "STR", color: "#111111" },
-    { id: "weight_training", label: "Weights", shortLabel: "WGT", color: "#3b4a6b" },
-    { id: "hike", label: "Hike", shortLabel: "HIK", color: "#8b6f47" },
-    { id: "walk", label: "Walk", shortLabel: "WLK", color: "#a8a29e" },
-    { id: "cricket", label: "Cricket", shortLabel: "CRK", color: "#2dd4bf" },
-    { id: "football", label: "Football", shortLabel: "FBL", color: "#e11d48" },
-    { id: "workout", label: "Workout", shortLabel: "WKT", color: "#6b7280" },
-    { id: "swim", label: "Swim", shortLabel: "SWM", color: "#0ea5e9" },
+    { id: "badminton", label: "Badminton", shortLabel: "BDM", color: sportMixHex("badminton") },
+    { id: "foundation", label: "Foundation", shortLabel: "FDN", color: sportMixHex("foundation") },
+    { id: "calisthenics", label: "Calisthenics", shortLabel: "CAL", color: sportMixHex("calisthenics") },
+    { id: "cycling", label: "Ride", shortLabel: "RIDE", color: sportMixHex("cycling") },
+    { id: "run", label: "Run", shortLabel: "RUN", color: sportMixHex("run") },
+    { id: "strength", label: "Strength", shortLabel: "STR", color: sportMixHex("strength") },
+    { id: "weight_training", label: "Weights", shortLabel: "WGT", color: sportMixHex("weight_training") },
+    { id: "hike", label: "Hike", shortLabel: "HIK", color: sportMixHex("hike") },
+    { id: "walk", label: "Walk", shortLabel: "WLK", color: sportMixHex("walk") },
+    { id: "cricket", label: "Cricket", shortLabel: "CRK", color: sportMixHex("cricket") },
+    { id: "football", label: "Football", shortLabel: "FBL", color: sportMixHex("football") },
+    { id: "workout", label: "Workout", shortLabel: "WKT", color: sportMixHex("workout") },
+    { id: "swim", label: "Swim", shortLabel: "SWM", color: sportMixHex("swim") },
   ];
   const mix = mixDefinition.map((item) => ({
     ...item,
@@ -405,12 +406,12 @@ export function buildCommitmentSnapshots(
       status,
       progress,
       accent: id === "badminton"
-        ? "#315a4a"
+        ? sportHex("badminton")
         : id === "calisthenics"
-          ? "#4f587a"
+          ? sportHex("calisthenics")
           : id === "foundation"
-            ? "#6d7d4e"
-            : "#a8702c",
+            ? sportHex("foundation")
+            : sportHex("cycling"),
       alarm,
       allRecord: source?.allRecord,
       rankedRecord: source?.rankedRecord,
@@ -842,7 +843,7 @@ export function buildWidgetSnapshotsFile(
             note: "NO DATA",
             status: "ALL",
             progress: 0,
-            accent: "#315a4a",
+            accent: sportHex("badminton"),
           },
         M: home.commitments,
       },
