@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-22
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-23
 
 ## Context
 
@@ -80,13 +80,33 @@ sequenceDiagram
      and the pipeline's date-prefilter. Counters are keyed by sport type in `sync_state.json`.
    - The optional `category` field is **not** auto-assigned at sync (left nil). Manual tagging only until Phase 3 config-driven rules land.
 
-6. **Commit** — `GitHubAPIClient.commitFiles()` batches the new activity file(s) plus the updated
-   `sync_state.json` into **one atomic commit** using GitHub's Git Data API (create blobs → read
+6. **Commit** — `GitHubAPIClient.commitFiles()` batches the new activity file(s), any HR stream
+   sidecars, plus the updated `sync_state.json` into **one atomic commit** using GitHub's Git Data API (create blobs → read
    HEAD → build tree → create commit → move the branch ref), retried against a fresh HEAD on a
    non-fast-forward conflict. Pushed straight to `main`.
 7. **Locally only** — updates an on-device cache for instant list rendering, and refreshes the
    local widget snapshot cache from whatever `gen/widget_snapshots.json` **already** contains on
    GitHub. It does not regenerate that file — it just re-reads it.
+
+### What a round writes
+
+Two paths per workout, not one (ADR 0027):
+
+| Path | Grain | Holds |
+|---|---|---|
+| `user_data/activities/hist/<name>.json` | activity | scalars + `hr_zones` |
+| `user_data/activities/streams/<uuid>.json` | activity | HR display curve, ≤200 points |
+
+The sidecar is written only for workouts that have a HealthKit uuid and at least one HR sample —
+the pre-ADR-0014 slug fallback has no stable key to file one under. Both land in the same
+`commitFiles` tree, so a round stays atomic.
+
+**Zones are integrated, not estimated.** `HRAnalysis.integrateZones` walks the full sample set
+gap-aware: each sample owns the midpoint interval to its neighbours, clamped to 30s either side,
+and elapsed time no sample owns accrues to `uncovered_seconds` rather than entering a zone. The
+invariant `Σ zone_seconds + uncovered_seconds == elapsed_time` is asserted in
+`ios/CoachHQ/CoachHQTests/HRAnalysisTests.swift`. Curve decimation is min/max per bucket so an
+interval session keeps its peaks.
 
 ### Canonical id — HKWorkout uuid
 

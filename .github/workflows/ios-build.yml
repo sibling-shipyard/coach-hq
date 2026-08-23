@@ -1,10 +1,12 @@
 name: iOS Build
 
-# Compiles the CoachHQ app + CoachHQWidgetExtension on every ios/ change. Doesn't run tests
-# (no XCTest target exists yet - platform/tests/*.py has the same gap, tracked in #343/#329)
-# or need code signing (simulator build only) - it exists purely to catch compile errors like
-# the WorkoutType enum change in #256/#257, which had to be reviewed by hand since there's no
-# Mac in this dev loop otherwise.
+# Compiles the CoachHQ app + CoachHQWidgetExtension on every ios/ change, and runs the
+# CoachHQTests unit suite. No code signing needed (simulator only). It exists to catch compile
+# errors like the WorkoutType enum change in #256/#257, which had to be reviewed by hand since
+# there's no Mac in this dev loop otherwise.
+#
+# The test job needs a concrete simulator, not 'generic/platform=iOS Simulator' - a generic
+# destination can build but cannot run. platform/tests/*.py still has no runner (#343/#329).
 
 on:
   push:
@@ -48,5 +50,17 @@ jobs:
             -project CoachHQ.xcodeproj \
             -scheme ${{ matrix.scheme }} \
             -destination 'generic/platform=iOS Simulator' \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Run unit tests
+        # Only on the app scheme - the widget extension has no test target of its own, and
+        # running this twice would just re-run the same suite.
+        if: matrix.scheme == 'CoachHQ'
+        run: |
+          xcodebuild test \
+            -project CoachHQ.xcodeproj \
+            -scheme CoachHQ \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO

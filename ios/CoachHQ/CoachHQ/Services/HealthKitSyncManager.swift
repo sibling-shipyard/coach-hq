@@ -272,6 +272,7 @@ class HealthKitSyncManager: ObservableObject {
 
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let isoFormatter = ISO8601DateFormatter()
             var filesToCommit: [(path: String, data: Data)] = []
             var syncedForCache: [(fileName: String, activity: Activity)] = []
 
@@ -300,10 +301,16 @@ class HealthKitSyncManager: ObservableObject {
 
                 // Fetch HR samples and compute stats + zones
                 let hrSamples = (try? await fetchHeartRateSamples(for: workout)) ?? []
-                let hrStats = ActivityMapper.computeHRStats(samples: hrSamples)
-                let hrZones = hrSamples.isEmpty ? nil : ActivityMapper.computeHRZones(
-                    samples: hrSamples, config: .current, duration: workout.duration
+                let hrStats = ActivityMapper.computeHRStats(samples: hrSamples.map(\.bpm))
+                // Integrated once and reused by the sidecar below — a 4h workout at 1s sampling
+                // is 14,400 samples, and this used to run twice per activity.
+                let hrCoverage = hrSamples.isEmpty ? nil : HRAnalysis.integrateZones(
+                    samples: hrSamples,
+                    config: .current,
+                    start: workout.startDate,
+                    end: workout.endDate
                 )
+                let hrZones = hrCoverage?.zones
 
                 let withHR = Activity(
                     name: base.name,
@@ -339,6 +346,29 @@ class HealthKitSyncManager: ObservableObject {
 
                 filesToCommit.append((path: "user_data/activities/hist/\(fileName)", data: try encoder.encode(named)))
                 existingFileNames.insert(fileName)
+
+                // Stream sidecar (ADR 0027). Keyed by the workout uuid, written into the same
+                // commitFiles tree as the activity so a round stays atomic. Only workouts with
+                // a uuid get one — the pre-0014 slug fallback has no stable key to file it under.
+                if let uuid = named.activityId, let coverage = hrCoverage {
+                    let decimated = HRAnalysis.decimate(samples: hrSamples, start: workout.startDate)
+                    let stream = HRStreamFile(
+                        schemaVersion: HRStreamFile.currentSchemaVersion,
+                        generator: HRStreamFile.currentGenerator,
+                        activityId: uuid,
+                        start: isoFormatter.string(from: workout.startDate),
+                        elapsedSeconds: Int(workout.duration.rounded()),
+                        sourceSampleCount: hrSamples.count,
+                        coveredSeconds: Int(coverage.coveredSeconds.rounded()),
+                        uncoveredSeconds: Int(coverage.uncoveredSeconds.rounded()),
+                        gaps: decimated.gaps,
+                        points: decimated.points
+                    )
+                    filesToCommit.append((
+                        path: "user_data/activities/streams/\(uuid).json",
+                        data: try encoder.encode(stream)
+                    ))
+                }
                 syncedForCache.append((fileName, named))
             }
 
@@ -665,8 +695,13 @@ class HealthKitSyncManager: ObservableObject {
         return try await descriptor.result(for: healthStore)
     }
 
-    /// Fetches heart rate samples for a specific workout.
-    func fetchHeartRateSamples(for workout: HKWorkout) async throws -> [Double] {
+    /// Fetches heart rate samples for a specific workout, timestamps intact.
+    ///
+    /// The timestamps are the whole point (ADR 0027): zone seconds are integrated over the real
+    /// sample spacing rather than estimated as `duration / count`, and the display curve needs
+    /// them to place points. Previously this returned bare `[Double]` and the times were thrown
+    /// away at the source.
+    func fetchHeartRateSamples(for workout: HKWorkout) async throws -> [(date: Date, bpm: Double)] {
         let hrType = HKQuantityType(.heartRate)
         let predicate = HKQuery.predicateForSamples(
             withStart: workout.startDate,
@@ -684,8 +719,9 @@ class HealthKitSyncManager: ObservableObject {
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
+                    let unit = HKUnit.count().unitDivided(by: .minute())
                     let hrValues = (samples as? [HKQuantitySample])?.map {
-                        $0.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                        (date: $0.startDate, bpm: $0.quantity.doubleValue(for: unit))
                     } ?? []
                     continuation.resume(returning: hrValues)
                 }
