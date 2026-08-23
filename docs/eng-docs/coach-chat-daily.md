@@ -127,9 +127,13 @@ Snapshot. A returning ordinary turn has no write actions in its response schema.
 
 `POST {action: "activity_sync", activity_ids: ["hk:<uuid>", ...]}`. This is the exception to
 persist-on-close: after Gemini replies, the server atomically writes only `chat_history.json`
-(divider + one Coach message with a `synced_activity_list` attachment). Same `batch_id` returns
-the existing thread (`duplicate: true`) with no second Gemini call. Missing hist files → 422, no
-write. Card values are reread from the athlete repo; the request carries ids only.
+(divider + one Coach message with a `synced_activity_list` attachment). `batch_id` is the first
+16 hex of sha256 of the sorted unique ids — the same set always returns the existing thread
+(`duplicate: true`) with no second Gemini call. Missing hist files → 422, no write. Gemini
+failure or a failed commit returns an error and writes nothing; the client keeps the list and
+offers Retry. Card values are reread from the athlete repo; the request carries ids only. Gemini's
+schema is reply-only. The prompt sees the verified batch, fresh insights, live week when present,
+injuries, and recent continuity; the reply must stand alone and invent no cause.
 
 ### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/geminiClient.ts`)
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatSyncRowMeta } from "./CoachChatWidgets";
 import { syncedActivityList, type ChatAttachment, type SyncedActivityRow } from "./coachChatModel";
+import fixture from "./m0ActivitySync.fixture.json";
 
 const row: SyncedActivityRow = {
   id: "abc",
@@ -16,6 +17,8 @@ describe("synced activity list widget helpers", () => {
     expect(formatSyncRowMeta(row)).toContain("Run");
     expect(formatSyncRowMeta(row)).toContain("40m");
     expect(formatSyncRowMeta({ ...row, sport: "", start: "", duration_s: 0 })).toBe("0m");
+    expect(formatSyncRowMeta(fixture.attachment.activities[0] as SyncedActivityRow)).toContain("Run");
+    expect(formatSyncRowMeta(fixture.attachment.activities[1] as SyncedActivityRow)).toContain("Ride");
   });
 
   it("ignores unknown attachment kinds and versions when picking the list", () => {

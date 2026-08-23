@@ -477,4 +477,42 @@ describe("activity-sync turn contract", () => {
         matchingBatchThreads(storedThreads, batchId).length === 1,
     ).toBe(true);
   });
+
+  it("returns an error and writes nothing when Gemini fails", async () => {
+    stubVerifiedBatch();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    askGemini.mockRejectedValueOnce(Object.assign(new Error("model down"), { status: 503 }));
+    const parsed = await parseBody({
+      action: "activity_sync",
+      activity_ids: [ID_A],
+    });
+    if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
+      throw new Error("expected an activity_sync request");
+    }
+    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: "model down" });
+    expect(commitFilesAtomic).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("returns 502 and does not persist when the commit fails after Gemini", async () => {
+    stubVerifiedBatch();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    commitFilesAtomic.mockRejectedValueOnce(new Error("github 409"));
+    const parsed = await parseBody({
+      action: "activity_sync",
+      activity_ids: [ID_A],
+    });
+    if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
+      throw new Error("expected an activity_sync request");
+    }
+    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
+    expect(response.status).toBe(502);
+    expect(askGemini).toHaveBeenCalledTimes(1);
+    expect(await response.json()).toMatchObject({
+      error: expect.stringContaining("saving failed"),
+    });
+    errorSpy.mockRestore();
+  });
 });
