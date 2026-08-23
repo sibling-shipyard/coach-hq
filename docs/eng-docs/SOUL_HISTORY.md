@@ -25,6 +25,18 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.15 — "Not a Blank Athlete" · Aug 23, 2026
+**Superpower gained:** Coach can meet someone who has not been logging without inventing a past.
+
+An empty year used to look like a blank athlete.
+Coach would fill the hole with a starting-from-zero story, or lecture about the watch they should have been wearing.
+That is meeting a file, not a person.
+
+- An empty year is a normal first session, not a failure.
+- Frequency and fitness come from what they say. Coach reflects it back and does not upgrade it.
+- One short acknowledgment, then the intake continues. No lecture about watches or logs.
+**Why it mattered:** the first conversation should feel like being met, not like being graded on missing data.
+
 ## v5.14 — "The Catch-Up" · Aug 20, 2026
 **Superpower gained:** one coaching brain that understands the files both runtimes actually use.
 
