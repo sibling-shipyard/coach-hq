@@ -27,6 +27,7 @@ struct ActivityDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var activity: Activity?
+    @State private var hrStream: HRStreamFile?
     @State private var descriptionText: String = ""
     @State private var isLoading = false
     @State private var isSaving = false
@@ -229,6 +230,20 @@ struct ActivityDetailView: View {
         }
     }
 
+    /// Real zone-per-cell, read off the recorded heart rate.
+    ///
+    /// All of the arithmetic lives in `RibbonBuilder` so it can be tested without SwiftUI.
+    /// Boundaries come from the activity's own stored `hr_zones`, never from live settings —
+    /// otherwise changing the steppers in Settings would recolour history into disagreement
+    /// with the legend printed directly beneath it.
+    private func measuredRibbon(stream: HRStreamFile, zones: [String: HRZoneEntry]) -> [Color]? {
+        guard !stream.points.isEmpty, stream.elapsedSeconds > 0 else { return nil }
+        let config = RibbonBuilder.storedConfig(from: zones)
+        let cells = RibbonBuilder.cellCount(elapsedSeconds: stream.elapsedSeconds)
+        let perCell = RibbonBuilder.zonesPerCell(stream: stream, config: config, cells: cells)
+        return RibbonBuilder.carryGaps(perCell).map { detailZoneColors[$0] }
+    }
+
     /// Generates a time-series-like ribbon: work zones shuffled in bursts with recovery
     /// spread evenly between them — matching the mock's `zoneSequence` algorithm.
     private func ribbonSequence(zones: [String: HRZoneEntry]) -> [Color] {
@@ -280,7 +295,9 @@ struct ActivityDetailView: View {
     }
 
     private func activityRibbon(zones: [String: HRZoneEntry]) -> some View {
-        let colors = ribbonSequence(zones: zones)
+        // Real ordering when the heart rate was recorded; the estimate otherwise.
+        let colors = hrStream.flatMap { measuredRibbon(stream: $0, zones: zones) }
+            ?? ribbonSequence(zones: zones)
         return HStack(spacing: 1.5) {
             ForEach(colors.indices, id: \.self) { i in
                 colors[i].frame(maxWidth: .infinity)
@@ -740,6 +757,7 @@ struct ActivityDetailView: View {
     private func loadExistingActivity() async {
         if let cached = entry.activity {
             activity = cached
+            await loadHRStream(for: cached)
             return
         }
         isLoading = true
@@ -748,8 +766,25 @@ struct ActivityDetailView: View {
             let fetched = try await readActivityWithPropagationRetry()
             activity = fetched
             SyncCache.updateStats(fileName: entry.fileName, activity: fetched)
+            await loadHRStream(for: fetched)
         } catch {
             errorMessage = UserFacingError.friendlyMessage(for: error)
+        }
+    }
+
+    /// Fetches the HR stream sidecar on demand (ADR 0027) — it is deliberately not part of the
+    /// activity record, so opening this screen is the only thing that pays for it.
+    ///
+    /// A missing sidecar is the normal case, not an error: every activity synced before the
+    /// stream format existed has none, and one will only appear for those after a backfill.
+    /// Failures are swallowed on purpose — the screen still has zones to show.
+    private func loadHRStream(for activity: Activity) async {
+        guard let uuid = activity.activityId, hrStream == nil else { return }
+        do {
+            let data = try await apiClient.readFile(path: "user_data/activities/streams/\(uuid).json")
+            hrStream = try JSONDecoder().decode(HRStreamFile.self, from: data)
+        } catch {
+            hrStream = nil
         }
     }
 
