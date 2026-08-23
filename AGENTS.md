@@ -76,6 +76,9 @@ Every agent (Tech Lead + workers) follows this. Role docs add scope; they don't 
 **Learnings:** one-liners in your role doc's `## Learnings`; tradeoffs → ADR. That block is capped at
 1536 bytes and `kdb/scripts/validate_kdb.py` fails over it — on overflow, promote the durable entries
 into the matching `docs/eng-docs/` doc and drop the rest. Never delete a rule with nowhere to live.
+Each entry cites the PR or issue that produced it — without that you cannot tell a stale rule from
+a live one. And a Learning is a temporary state: the **third** time you hand-check the same thing,
+it becomes a check or it gets deleted. Norms decay; checks compound.
 
 **Talk:** Co-worker mode. Replies and plans **10–20 lines max** unless the athlete asks for depth.
 
@@ -125,6 +128,12 @@ what happened does not: git, `kdb/decisions/`, and `SOUL_HISTORY.md` are the arc
 this change what a reader does?** If it only says what the code used to be, cut it. `legacy`,
 `no longer`, `used to`, `now uses`, `existing`, `for backward compatibility` are the tells — grep
 them in review. They also rot: "new" and "existing" stop being true on the next change.
+
+**Doc feedback:** After handing over a plan or an eng-doc, ask the athlete to rate it 1-5 on
+ease-of-reading, comment optional — one line, not a form. The rating is a trigger, not a metric:
+nothing tracks the average, and the comment is the payload. Anything 3 or below becomes a line in
+`kdb/doc-style.md` that same session, or the question was theatre. Plans and eng-docs only — ask on
+PR bodies and review replies as well and you will stop getting honest answers.
 
 **Doc upkeep — before opening a PR:**
 1. Update any eng-doc your change invalidates (`grep -rl <changed-path> docs/eng-docs/` finds them) and bump its `Verified:` date.
