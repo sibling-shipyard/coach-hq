@@ -129,6 +129,14 @@ this change what a reader does?** If it only says what the code used to be, cut 
 `no longer`, `used to`, `now uses`, `existing`, `for backward compatibility` are the tells — grep
 them in review. They also rot: "new" and "existing" stop being true on the next change.
 
+**Big output:** Build and install commands dump five figures of tokens into context for no
+information — one `xcodebuild test` pasted an entire `swift-frontend` invocation. Redirect, then
+grep the log:
+```bash
+xcodebuild test ... > /tmp/build.log 2>&1; grep -E "error:|Executed [0-9]+ test|\*\* TEST" /tmp/build.log
+```
+Same for `npm ci`, `pip install`, and any verbose build. Never pipe one straight into your context.
+
 **Doc feedback:** After handing over a plan or an eng-doc, ask the athlete to rate it 1-5 on
 ease-of-reading, comment optional — one line, not a form. The rating is a trigger, not a metric:
 nothing tracks the average, and the comment is the payload. Anything 3 or below becomes a line in
