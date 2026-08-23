@@ -24,6 +24,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DEFAULT_HR_ZONES } from "../../engine/lib/hrZones.mjs";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, "repo-data");
 
@@ -83,12 +85,13 @@ function mondayOf(date) {
 }
 
 function hrZones(seconds) {
+  const [z1High, z2High, z3High, z4High] = DEFAULT_HR_ZONES;
   return {
-    "Zone 1": { low: null, high: 131, seconds: Math.round(seconds * 0.25) },
-    "Zone 2": { low: 132, high: 145, seconds: Math.round(seconds * 0.35) },
-    "Zone 3": { low: 146, high: 158, seconds: Math.round(seconds * 0.25) },
-    "Zone 4": { low: 159, high: 172, seconds: Math.round(seconds * 0.1) },
-    "Zone 5": { low: 173, high: null, seconds: Math.round(seconds * 0.05) },
+    "Zone 1": { low: null, high: z1High, seconds: Math.round(seconds * 0.25) },
+    "Zone 2": { low: z1High + 1, high: z2High, seconds: Math.round(seconds * 0.35) },
+    "Zone 3": { low: z2High + 1, high: z3High, seconds: Math.round(seconds * 0.25) },
+    "Zone 4": { low: z3High + 1, high: z4High, seconds: Math.round(seconds * 0.1) },
+    "Zone 5": { low: z4High + 1, high: null, seconds: Math.round(seconds * 0.05) },
   };
 }
 
