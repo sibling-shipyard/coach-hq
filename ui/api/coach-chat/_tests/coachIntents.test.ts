@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   applyCoachNote,
   applyMemoryUpdate,
-  applyCoachingStyleUpdate,
   applySportsUpdate,
   applyInjuryEvent,
   applyQuestEvent,
@@ -57,7 +56,6 @@ describe("applyMemoryUpdate", () => {
     version: 1,
     _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
     sports: ["badminton"],
-    coaching_style: "Direct",
     notes: {
       fitness_baseline: { text: "old baseline", updated_at: "2026-08-01", trace_id: "old" },
       coaching_priorities: { text: "old priorities", updated_at: "2026-08-01", trace_id: "old" },
@@ -75,10 +73,9 @@ describe("applyMemoryUpdate", () => {
     expect(result.notes.equipment.text).toBe("old equipment");
   });
 
-  it("preserves top-level sports/coaching_style", () => {
+  it("preserves top-level sports", () => {
     const result = JSON.parse(applyMemoryUpdate(EXISTING, "equipment", "new gear", "2026-08-18", "t2"));
     expect(result.sports).toEqual(["badminton"]);
-    expect(result.coaching_style).toBe("Direct");
   });
 
   // Issue #408: goal/timeline dropped from memory.json entirely - seasons.json's name +
@@ -115,42 +112,6 @@ describe("applyMemoryUpdate", () => {
   it("trims the incoming text", () => {
     const result = JSON.parse(applyMemoryUpdate(EXISTING, "equipment", "  padded text  ", "2026-08-18", "t1"));
     expect(result.notes.equipment.text).toBe("padded text");
-  });
-});
-
-describe("applyCoachingStyleUpdate", () => {
-  const EXISTING = JSON.stringify({
-    version: 1,
-    _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
-    sports: ["badminton"],
-    coaching_style: "encouragement",
-    notes: {
-      fitness_baseline: { text: "old baseline", updated_at: "2026-08-01", trace_id: "old" },
-      coaching_priorities: { text: "old priorities", updated_at: "2026-08-01", trace_id: "old" },
-      "learned_patterns.training": { text: "", updated_at: "", trace_id: "" },
-      "learned_patterns.nutrition": { text: "", updated_at: "", trace_id: "" },
-      "learned_patterns.mental": { text: "", updated_at: "", trace_id: "" },
-      equipment: { text: "old equipment", updated_at: "2026-08-01", trace_id: "old" },
-    },
-  });
-
-  it("sets coaching_style, leaves notes/sports untouched", () => {
-    const result = JSON.parse(applyCoachingStyleUpdate(EXISTING, "accountability", "2026-08-18", "t2"));
-    expect(result.coaching_style).toBe("accountability");
-    expect(result.sports).toEqual(["badminton"]);
-    expect(result.notes.equipment.text).toBe("old equipment");
-  });
-
-  it("throws on a value outside the enum instead of writing free text", () => {
-    expect(() => applyCoachingStyleUpdate(EXISTING, "very direct please", "2026-08-18", "t2")).toThrow(
-      'coaching_style_update: "very direct please" is not a valid coaching style',
-    );
-  });
-
-  it("starts a fresh file with the given style when content is null", () => {
-    const result = JSON.parse(applyCoachingStyleUpdate(null, "analysis", "2026-08-18", "t1"));
-    expect(result.coaching_style).toBe("analysis");
-    expect(result.sports).toEqual([]);
   });
 });
 
@@ -561,7 +522,6 @@ describe("applySportsUpdate", () => {
     version: 1,
     _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
     sports: [],
-    coaching_style: "encouragement",
     notes: {
       fitness_baseline: { text: "old baseline", updated_at: "2026-08-01", trace_id: "old" },
       coaching_priorities: { text: "old priorities", updated_at: "2026-08-01", trace_id: "old" },
@@ -575,7 +535,6 @@ describe("applySportsUpdate", () => {
   it("sets sports, leaves everything else untouched", () => {
     const result = JSON.parse(applySportsUpdate(EXISTING, ["badminton", "running"], "2026-08-18", "t2"));
     expect(result.sports).toEqual(["badminton", "running"]);
-    expect(result.coaching_style).toBe("encouragement");
     expect(result.notes.equipment.text).toBe("old equipment");
     expect(result._meta).toEqual({ updated_at: "2026-08-18", updated_by: "model", trace_id: "t2" });
   });
@@ -592,7 +551,6 @@ describe("applySportsUpdate", () => {
   it("starts a fresh file with the given sports when content is null", () => {
     const result = JSON.parse(applySportsUpdate(null, ["swimming"], "2026-08-18", "t1"));
     expect(result.sports).toEqual(["swimming"]);
-    expect(result.coaching_style).toBeNull();
     expect(result.notes.equipment).toEqual({ text: "", updated_at: "", trace_id: "" });
   });
 

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Name, sports, and coaching style collected in native onboarding, cached locally until the
+/// Name and sports collected in native onboarding, cached locally until the
 /// server records them during the First Session Protocol greeting.
 ///
 /// UserDefaults, not Keychain - this is a soft hint, not athlete identity. No TTL/expiry:
@@ -10,7 +10,6 @@ import Foundation
 enum OnboardingHints {
     private static let nameKey = "onboardingHintName"
     private static let sportsKey = "onboardingHintSports"
-    private static let coachingStyleKey = "onboardingHintCoachingStyle"
 
     /// Each field is collected on its own screen, so the saves stay independent.
     static func save(name: String) {
@@ -21,23 +20,17 @@ enum OnboardingHints {
         UserDefaults.standard.set(sports, forKey: sportsKey)
     }
 
-    static func save(coachingStyle: String) {
-        UserDefaults.standard.set(coachingStyle, forKey: coachingStyleKey)
-    }
-
-    static func load() -> (name: String?, sports: [String], coachingStyle: String?)? {
+    static func load() -> (name: String?, sports: [String])? {
         let name = UserDefaults.standard.string(forKey: nameKey)
         let sports = UserDefaults.standard.array(forKey: sportsKey) as? [String] ?? []
-        let coachingStyle = UserDefaults.standard.string(forKey: coachingStyleKey)
-        guard !(name?.isEmpty ?? true) || !sports.isEmpty || !(coachingStyle?.isEmpty ?? true) else { return nil }
-        return (name, sports, coachingStyle)
+        guard !(name?.isEmpty ?? true) || !sports.isEmpty else { return nil }
+        return (name, sports)
     }
 
-    /// Cleared once the First Session Protocol genuinely finishes (state.md's Athlete Profile
-    /// section is populated - see B2/B3's profileComplete check) - no longer needed after that.
+    /// Cleared once the First Session Protocol genuinely finishes (see B2/B3's profileComplete
+    /// check) - no longer needed after that.
     static func clear() {
         UserDefaults.standard.removeObject(forKey: nameKey)
         UserDefaults.standard.removeObject(forKey: sportsKey)
-        UserDefaults.standard.removeObject(forKey: coachingStyleKey)
     }
 }

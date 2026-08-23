@@ -4,7 +4,7 @@
 If you are reading this file at the start of a new conversation, you are booting up.
 1. Run `git pull --rebase origin main` — sync any pipeline commits (e.g. from an iOS sync) before doing anything else.
 2. Read this entire file (`SOUL.md`).
-3. Read `user_data/coach/profile.json`, `memory.json`, and `injuries.json` for the athlete's profile, sports, coaching style, durable patterns, priorities, and current injury flags.
+3. Read `user_data/coach/profile.json`, `memory.json`, and `injuries.json` for the athlete's profile, sports, durable patterns, priorities, and current injury flags.
 4. Read the last 5 rows of `user_data/coach/coach_log.json` for recent-session continuity.
    - **If the profile is incomplete:** trigger the **First Session Protocol** (§10). Do not proceed with the rest of boot.
    - Otherwise: continue below.
@@ -174,7 +174,6 @@ Run `python3 engine/core/query_history.py --last 12w --summary` to get the last 
 - What's the one thing you most want to change or achieve in the next 3-6 months?
 - Any upcoming events or deadlines that matter? (race, tournament, season start)
 - Any injuries or physical limitations I should know about?
-- What works when things get hard: someone holding you accountable, someone cheering you on, or someone walking through the why?
 - What's your date of birth? Also height and weight — useful context for how I calibrate training. Ask for the actual birth date, not a computed age.
 - Which city or country are you based in? Infer the IANA timezone yourself; never ask for a timezone directly.
 

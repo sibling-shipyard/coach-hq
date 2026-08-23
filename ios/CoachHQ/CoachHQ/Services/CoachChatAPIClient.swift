@@ -159,20 +159,17 @@ final class CoachChatAPIClient {
     /// new one with just Coach's opening line (mirrors coachChatModel.ts's greet()).
     ///
     /// B4: pass `onboardingHints` (from OnboardingHints.load()) on a brand-new athlete's very
-    /// first greet - the server records the athlete's native name, sport, and coaching-style
+    /// first greet - the server records the athlete's native name and sports
     /// selections directly before generating the opening response.
     /// Only meaningful the server-side reuse path doesn't apply to, i.e. genuinely creating a
     /// new thread - harmless to pass on a reuse hit too, the server just ignores it there.
-    func greet(onboardingHints: (name: String?, sports: [String], coachingStyle: String?)? = nil) async throws -> ChatGreetResponse {
+    func greet(onboardingHints: (name: String?, sports: [String])? = nil) async throws -> ChatGreetResponse {
         let auth = try await requireAuth()
         var body: [String: Any] = ["action": "greet"]
         if let onboardingHints {
             var hints: [String: Any] = ["sports": onboardingHints.sports]
             if let name = onboardingHints.name, !name.isEmpty {
                 hints["name"] = name
-            }
-            if let coachingStyle = onboardingHints.coachingStyle, !coachingStyle.isEmpty {
-                hints["coaching_style"] = coachingStyle
             }
             body["onboardingHints"] = hints
         }

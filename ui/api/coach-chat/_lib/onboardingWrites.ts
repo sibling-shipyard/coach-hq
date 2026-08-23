@@ -1,10 +1,9 @@
-import type { MemoryJson, ProfileJson, CoachingStyle } from "./coachMemoryFiles.js";
+import type { MemoryJson, ProfileJson } from "./coachMemoryFiles.js";
 import type { OnboardingHints } from "./coachPromptText.js";
 
 export interface OnboardingChanges {
   name?: string;
   sports?: string[];
-  coachingStyle?: CoachingStyle;
 }
 
 // Greet can be retried after Gemini fails. Compare exactly the normalized values the appliers
@@ -16,7 +15,6 @@ export function onboardingChanges(
 ): OnboardingChanges {
   const name = hints?.name?.trim();
   const sports = (hints?.sports ?? []).map((sport) => sport.trim()).filter(Boolean);
-  const coachingStyle = hints?.coaching_style;
   const currentSports = (memory?.sports ?? []).map((sport) => sport.trim()).filter(Boolean);
 
   return {
@@ -26,6 +24,5 @@ export function onboardingChanges(
       (sports.length !== currentSports.length || sports.some((sport, index) => sport !== currentSports[index]))
         ? sports
         : undefined,
-    coachingStyle: coachingStyle && coachingStyle !== memory?.coaching_style ? coachingStyle : undefined,
   };
 }

@@ -4,7 +4,7 @@ import UIKit
 // MARK: - Step enum
 
 enum OnboardingRevealStep: Int, CaseIterable {
-    case reveal, rhythms, season, coachingStyle, sync
+    case reveal, rhythms, season, sync
 }
 
 // MARK: - Coordinator
@@ -30,8 +30,8 @@ struct OnboardingRevealFlow: View {
 
                     Spacer()
 
-                    // HK is step 0, reveal=1, rhythms=2, season=3, style=4, sync=5
-                    OnboardingDots(step: step.rawValue + 1, total: 6)
+                    // HK is step 0, reveal=1, rhythms=2, season=3, sync=4
+                    OnboardingDots(step: step.rawValue + 1, total: 5)
 
                     Spacer()
 
@@ -62,14 +62,6 @@ struct OnboardingRevealFlow: View {
                             ))
                     } else if step == .season {
                         SeasonStepView(summary: summary) {
-                            withAnimation(PremiumMotion.state) { step = .coachingStyle }
-                        }
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing),
-                            removal: .move(edge: .leading)
-                        ))
-                    } else if step == .coachingStyle {
-                        CoachingStyleStepView {
                             withAnimation(PremiumMotion.state) { step = .sync }
                         }
                         .transition(.asymmetric(
@@ -86,7 +78,7 @@ struct OnboardingRevealFlow: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if step != .season && step != .coachingStyle && step != .sync {
+                if step != .season && step != .sync {
                     Button {
                         Haptics.tap()
                         withAnimation(PremiumMotion.state) {
@@ -94,7 +86,6 @@ struct OnboardingRevealFlow: View {
                             case .reveal:  step = .rhythms
                             case .rhythms: step = .season
                             case .season:  break
-                            case .coachingStyle: break
                             case .sync:    break
                             }
                         }
@@ -744,108 +735,6 @@ private struct SeasonStepView: View {
         case "Basketball": return "Basketball"
         case "Badminton": return "Badminton"
         default:          return "Other"
-        }
-    }
-}
-
-// MARK: - Step 4: Coaching style
-
-private struct CoachingStyleStepView: View {
-    let onComplete: () -> Void
-
-    private struct Choice: Identifiable {
-        let id: String
-        let title: String
-        let detail: String
-        let icon: String
-    }
-
-    private static let choices = [
-        Choice(id: "accountability", title: "Accountability", detail: "Keep me honest and call out the gaps.", icon: "checkmark.seal.fill"),
-        Choice(id: "encouragement", title: "Encouragement", detail: "Build me up and help me keep momentum.", icon: "heart.fill"),
-        Choice(id: "analysis", title: "Analysis", detail: "Lead with patterns, evidence, and tradeoffs.", icon: "chart.xyaxis.line")
-    ]
-
-    @State private var selection: String?
-
-    var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("How should Coach show up?")
-                    .font(WarmInstrument.coachVoice(30))
-                    .foregroundColor(WarmInstrument.ink)
-                    .padding(.bottom, 8)
-                    .onboardingReveal(index: 0)
-
-                Text("Pick the style that helps you do your best work.")
-                    .font(.system(size: 15))
-                    .foregroundColor(WarmInstrument.inkMuted)
-                    .padding(.bottom, 28)
-                    .onboardingReveal(index: 1)
-
-                VStack(spacing: 12) {
-                    ForEach(Array(Self.choices.enumerated()), id: \.element.id) { index, choice in
-                        Button {
-                            Haptics.tap()
-                            withAnimation(PremiumMotion.state) { selection = choice.id }
-                        } label: {
-                            HStack(spacing: 14) {
-                                Image(systemName: choice.icon)
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(WarmInstrument.ink)
-                                    .frame(width: 28)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(choice.title)
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(WarmInstrument.ink)
-                                    Text(choice.detail)
-                                        .font(.system(size: 13))
-                                        .foregroundColor(WarmInstrument.inkMuted)
-                                        .multilineTextAlignment(.leading)
-                                }
-
-                                Spacer()
-
-                                Image(systemName: selection == choice.id ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(selection == choice.id ? WarmInstrument.ink : WarmInstrument.inkFaint)
-                            }
-                            .padding(16)
-                            .background(WarmInstrument.paper)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
-                                    .strokeBorder(selection == choice.id ? WarmInstrument.ink.opacity(0.35) : WarmInstrument.border, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(CardPressButtonStyle())
-                        .onboardingReveal(index: index + 2)
-                    }
-                }
-            }
-            .padding(.horizontal, 28)
-            .padding(.top, 24)
-        }
-        .safeAreaInset(edge: .bottom) {
-            Button {
-                guard let selection else { return }
-                OnboardingHints.save(coachingStyle: selection)
-                Haptics.success()
-                onComplete()
-            } label: {
-                Text("Next")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(selection == nil ? WarmInstrument.inkFaint.opacity(0.2) : WarmInstrument.ink)
-                    .foregroundColor(selection == nil ? WarmInstrument.inkFaint : WarmInstrument.desk)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
-            }
-            .buttonStyle(CardPressButtonStyle())
-            .disabled(selection == nil)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 36)
         }
     }
 }

@@ -22,7 +22,6 @@ describe("renderCoachContext section shape", () => {
     version: 1,
     _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
     sports: ["badminton", "strength"],
-    coaching_style: "Direct",
     notes: {
       fitness_baseline: { text: "Comfortable at moderate volume.", updated_at: "2026-08-01", trace_id: "t0" },
       coaching_priorities: { text: "Rebuild consistency.", updated_at: "2026-08-01", trace_id: "t0" },

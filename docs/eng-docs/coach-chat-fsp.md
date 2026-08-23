@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
 
 ## Context
 
@@ -12,7 +12,7 @@ shipped as #431/#432/#434: incremental writes as facts are given (not batched at
 End Conversation button gated on live completion state rather than thread existence.
 
 Trigger: `isAthleteProfileComplete()` reads false. Completion requires a full profile, sports,
-coaching style, and a current season — see "Completion signal" below for the exact check.
+and a current season — see "Completion signal" below for the exact check.
 
 ```mermaid
 sequenceDiagram
@@ -23,13 +23,12 @@ sequenceDiagram
     participant Gemini
     Native->>Hints: save(name) — name prompt screen
     Native->>Hints: save(sports) — season step
-    Native->>Hints: save(coaching_style) — coaching-style step
     Native->>App: onboardingPhase = .complete
     App->>Server: GET coach-chat-profile-status
     Server-->>App: profileComplete: false
     App->>App: route to Chat tab
     App->>Server: POST {action: greet, onboardingHints}
-    Server->>Server: commit native name/sports/style directly
+    Server->>Server: commit native name/sports directly
     Server->>Gemini: greeting mode + recorded onboarding context
     Gemini-->>Server: opener using recorded details
     Server-->>App: reply + profileComplete (thread remains local)
@@ -52,9 +51,9 @@ sequenceDiagram
 ### 1. Native onboarding hands off deterministic fields
 
 `ios/CoachHQ/CoachHQ/Views/PersonalizeView.swift`'s name prompt and
-`ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift`'s sports and coaching-style steps cache
+`ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift`'s sports step cache
 what they collect locally via `OnboardingHints` (UserDefaults, no TTL). The first greet sends
-those fields to the backend, which writes name to `profile.json` and sports/coaching style to
+those fields to the backend, which writes name to `profile.json` and sports to
 `memory.json` in a dedicated atomic commit before Gemini runs. Gemini receives the same values as
 same-request context so its opener can use the athlete's name without waiting for a second repo
 read. The native flow does not collect a goal; Coach always asks that in chat. If hints are
@@ -80,7 +79,7 @@ hints.
 First Session uses the same endpoint as day-to-day chat, with two narrow server differences:
 `handleGreet()` commits native onboarding fields directly, and ordinary turns may commit FSP facts
 before the conversation closes. `askGemini()`'s greeting-mode call includes
-`onboardingHintsContext()` so the opener can use the just-recorded name, sports, and coaching style.
+`onboardingHintsContext()` so the opener can use the just-recorded name and sports.
 The prompt tells Coach not to re-ask or emit action fields for those recorded values.
 
 The shared intake questions live in `B_engine.md`'s `s10_first_session_body` section. BYOB carries
@@ -92,8 +91,7 @@ warm intro → conversational intake → confirm → quest setup → transition.
 frequency/fitness level → `memory_update` (`fitness_baseline`); the 3-6 month goal → `quest_create`'s
 `main_quest` (`memory.json` has no goal field — issue #408 moved that meaning to seasons/quests);
 upcoming events and a rough season timeline → `season_start` (no `phase` field, Part 2 dropped
-it); injuries → `injury_event`; a missing coaching style → `coaching_style_update`'s three-way
-enum; date of birth/height/weight/city → `profile_update`
+it); injuries → `injury_event`; date of birth/height/weight/city → `profile_update`
 (`dob`/`height_cm`/`weight_kg`/`timezone`); habit quests → `quest_create`'s `quests[]`. While the
 profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
 writes it produced in a small atomic commit. Day-to-day chat remains write-on-close. The closing
@@ -144,8 +142,7 @@ at all until it closes.
 
 `isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/coachChatFiles.ts`) requires non-blank
 `profile.json` values for name, date of birth, timezone, height, and weight; at least one sport;
-one valid coaching style (`accountability`, `encouragement`, or `analysis`); and a
-`seasons.json.current_season_id` that names an existing season. Quests are optional.
+and a `seasons.json.current_season_id` that names an existing season. Quests are optional.
 `coach-chat.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
 writes onto the pre-turn objects in memory, rather than relying on a stale snapshot or another
 GitHub read (`turnWrites/profileWrite.ts`'s `projectProfileCompletion`). This is what gates
@@ -174,7 +171,7 @@ Session thread on relaunch, never re-asked what they already answered.
 | `ui/api/coach-chat/_lib/fspWrites.ts` | Restricts ordinary-turn persistence to incremental FSP writes |
 | `ui/api/coach-chat/_lib/onboardingWrites.ts` | Normalizes native onboarding hints, suppresses duplicate greet commits |
 | `ui/api/coach-chat/_lib/turnWrites/profileWrite.ts` | `projectProfileCompletion` — the false→true completion projection |
-| `ios/CoachHQ/CoachHQ/Services/OnboardingHints.swift` | Locally cached native name/sports/coaching-style handoff |
+| `ios/CoachHQ/CoachHQ/Services/OnboardingHints.swift` | Locally cached native name/sports handoff |
 | `ios/CoachHQ/CoachHQ/Services/CoachSetupState.swift` | Keychain flag + `shouldOpenChatFirst()` |
 | `ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift` | UserDefaults resumability cache, orphaned-local-thread restore |
 | `ios/CoachHQ/CoachHQ/Views/OnboardingRevealFlow.swift` | native onboarding, season step |

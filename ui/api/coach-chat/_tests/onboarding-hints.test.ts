@@ -27,15 +27,9 @@ describe("onboardingHintsContext", () => {
     expect(result).toContain("Sport(s): Running, Strength");
   });
 
-  it("includes coaching style when present", () => {
-    const result = onboardingHintsContext({ coaching_style: "analysis" });
-    expect(result).toContain("Coaching style: analysis");
-  });
-
-  it("includes all recorded fields together", () => {
-    const result = onboardingHintsContext({ name: "Skanda", sports: ["Badminton"], coaching_style: "accountability" });
+  it("includes name and sports together", () => {
+    const result = onboardingHintsContext({ name: "Skanda", sports: ["Badminton"] });
     expect(result).toContain("Name: Skanda");
     expect(result).toContain("Sport(s): Badminton");
-    expect(result).toContain("Coaching style: accountability");
   });
 });

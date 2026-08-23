@@ -1,12 +1,10 @@
-// memory_update / coaching_style_update / sports_update: all three land in memory.json, so they
-// share one FileEntry and one usecase file - see coachIntents.ts for the pure appliers this wraps
-// with I/O.
+// memory_update / sports_update: both land in memory.json, so they share one FileEntry and one
+// usecase file - see coachIntents.ts for the pure appliers this wraps with I/O.
 import type { FileEntry } from "../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import {
   applyMemoryUpdate,
-  applyCoachingStyleUpdate,
   applySportsUpdate,
 } from "../coachIntents.js";
 import { MEMORY_PATH, type MemoryNoteLabel } from "../coachMemoryFiles.js";
@@ -23,14 +21,13 @@ export function buildMemoryFileWrite(
   traceId: string,
   params: {
     memoryUpdate: MemoryUpdateInput | undefined;
-    coachingStyleUpdate: string | undefined;
     sportsUpdate: string[];
   },
 ): FileEntry | undefined {
-  const { memoryUpdate, coachingStyleUpdate, sportsUpdate } = params;
+  const { memoryUpdate, sportsUpdate } = params;
   const hasMemoryUpdate = Boolean(memoryUpdate?.label && memoryUpdate.text?.trim());
   const hasSportsUpdate = sportsUpdate.length > 0;
-  if (!hasMemoryUpdate && !coachingStyleUpdate && !hasSportsUpdate) return undefined;
+  if (!hasMemoryUpdate && !hasSportsUpdate) return undefined;
 
   return {
     path: MEMORY_PATH,
@@ -41,14 +38,6 @@ export function buildMemoryFileWrite(
           working,
           memoryUpdate!.label,
           memoryUpdate!.text,
-          todayDateString(timezone, new Date()),
-          traceId,
-        );
-      }
-      if (coachingStyleUpdate) {
-        working = applyCoachingStyleUpdate(
-          working,
-          coachingStyleUpdate,
           todayDateString(timezone, new Date()),
           traceId,
         );

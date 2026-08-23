@@ -88,7 +88,6 @@ export function buildDynamicText(
           "- Name, date of birth, timezone, height, weight → profile_update (one entry per field",
           "  discussed, not just this message)",
           "- Sport(s) → sports_update, the full list, not just what's newly mentioned",
-          "- How they respond to being pushed → coaching_style_update",
           "- Training frequency/fitness level, or any other durable baseline/habit context →",
           "  memory_update", "- Injuries or physical limitations → injury_event",
           "- Their season (name, start/end dates) → season_start, if not already set earlier this",
@@ -122,10 +121,6 @@ export function buildDynamicText(
           "a learned mental/performance pattern, or equipment - set memory_update with that",
           "category as label and the new full text as text. Only set it when something genuinely",
           "changed; most closes won't need it. Never invent a change to justify setting it.",
-          "\nIf the athlete explicitly asks to change how you coach them - more direct, easier on",
-          "them, or more explanation of the why - set coaching_style_update to the closest enum",
-          "value. Only set it on an explicit request to change",
-          "this - never infer it from mood or a single tough session.",
           "\nIf the athlete mentioned a new injury or pain, or gave an update on an existing one",
           "listed in Active Injury Flags below, set injury_event to an array with one entry per",
           "injury being reported - if the athlete mentions TWO separate injuries changing in the",
@@ -188,8 +183,7 @@ export function buildDynamicText(
           "\nThis is an ordinary First Session turn. Keep the conversation natural.",
           "Save each concrete fact on the same turn it is learned - do",
           "not hold facts for the final close. Use profile_update for name, date of birth,",
-          "timezone, height, and weight; sports_update for the full sports list;",
-          "coaching_style_update for accountability, encouragement, or analysis; memory_update",
+          "timezone, height, and weight; sports_update for the full sports list; memory_update",
           "for durable baseline or habit context; injury_event for injury facts; season_start as",
           "soon as the first season is agreed; and quest_create as soon as the main goal or habit",
           "quests are agreed. Omit a field when this turn added no fact for it. Native onboarding",
@@ -219,18 +213,15 @@ export function buildHistoryContents(history: ChatMessage[]): { role: string; pa
 export interface OnboardingHints {
   name?: string;
   sports?: string[];
-  coaching_style?: "accountability" | "encouragement" | "analysis";
 }
 
 export function onboardingHintsContext(hints: OnboardingHints | undefined): string | undefined {
   const name = hints?.name?.trim();
   const sports = (hints?.sports ?? []).filter((sport) => sport.trim().length > 0);
-  const coachingStyle = hints?.coaching_style;
-  if (!name && sports.length === 0 && !coachingStyle) return undefined;
+  if (!name && sports.length === 0) return undefined;
   const lines = ["Native onboarding details already recorded for this athlete:"];
   if (name) lines.push(`- Name: ${name}`);
   if (sports.length > 0) lines.push(`- Sport(s): ${sports.join(", ")}`);
-  if (coachingStyle) lines.push(`- Coaching style: ${coachingStyle}`);
   return lines.join("\n");
 }
 

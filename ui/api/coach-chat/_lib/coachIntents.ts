@@ -1,6 +1,6 @@
 /** Pure server-owned appliers for semantic actions reported by Gemini. */
 
-import { MEMORY_NOTE_LABELS, COACHING_STYLES, type MemoryJson, type MemoryNoteLabel, type CoachingStyle, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
+import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
 import { type ProgressRow, type Season, type SeasonsJson, type MainQuest, type Quest, type QuestType, type QuestsJson } from "./coachQuestFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 
@@ -48,7 +48,6 @@ export function applyMemoryUpdate(
     version: 1,
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: parsed.sports ?? [],
-    coaching_style: parsed.coaching_style ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 
@@ -57,43 +56,10 @@ export function applyMemoryUpdate(
   return JSON.stringify(result, null, 2);
 }
 
-// coaching_style_update: a separate field from memory_update, not a seventh label - it's a plain
-// top-level enum on MemoryJson, not a {text, updated_at, trace_id} notes box. Found live:
-// coaching_style had no write path through chat at all - the athlete asked to change it, Coach's
-// reply said "locked in," nothing actually committed.
-export function applyCoachingStyleUpdate(
-  content: string | null,
-  style: string,
-  updatedAt: string,
-  traceId: string,
-): string {
-  if (!COACHING_STYLES.includes(style as CoachingStyle)) {
-    throw new Error(`coaching_style_update: "${style}" is not a valid coaching style`);
-  }
-
-  const parsed = parseJsonOrNull<Partial<MemoryJson>>(content) ?? {};
-
-  const emptyNotes = () =>
-    Object.fromEntries(
-      MEMORY_NOTE_LABELS.map((l) => [l, { text: "", updated_at: "", trace_id: "" }]),
-    ) as MemoryJson["notes"];
-
-  const result: MemoryJson = {
-    version: 1,
-    _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
-    sports: parsed.sports ?? [],
-    coaching_style: style as CoachingStyle,
-    notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
-  };
-
-  return JSON.stringify(result, null, 2);
-}
-
 // sports_update: First Session Protocol bug fix - memory.json.sports had no write path at all
 // (isAthleteProfileComplete requires it non-empty, so a first session could never complete via
 // chat until this existed). A separate top-level field, not folded into memory_update's six
-// notes boxes, same reasoning as coaching_style_update above - it's a plain array on MemoryJson,
-// not a {text, updated_at, trace_id} box.
+// notes boxes - it's a plain array on MemoryJson, not a {text, updated_at, trace_id} box.
 export function applySportsUpdate(
   content: string | null,
   sports: string[],
@@ -116,7 +82,6 @@ export function applySportsUpdate(
     version: 1,
     _meta: { updated_at: updatedAt, updated_by: "model", trace_id: traceId },
     sports: cleaned,
-    coaching_style: parsed.coaching_style ?? null,
     notes: { ...emptyNotes(), ...(parsed.notes ?? {}) },
   };
 

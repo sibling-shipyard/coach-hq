@@ -26,7 +26,6 @@ function memory(overrides: Partial<MemoryJson> = {}): MemoryJson {
     version: 1,
     _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
     sports: ["Badminton"],
-    coaching_style: "analysis",
     notes: {
       fitness_baseline: { text: "", updated_at: "", trace_id: "" },
       coaching_priorities: { text: "", updated_at: "", trace_id: "" },
@@ -50,7 +49,7 @@ function seasons(overrides: Partial<SeasonsJson> = {}): SeasonsJson {
 }
 
 describe("isAthleteProfileComplete", () => {
-  it("is true when profile, sport, coaching style, and current season are complete", () => {
+  it("is true when profile, sport, and current season are complete", () => {
     expect(isAthleteProfileComplete(profile(), memory(), seasons())).toBe(true);
   });
 
@@ -87,10 +86,6 @@ describe("isAthleteProfileComplete", () => {
     expect(isAthleteProfileComplete(profile(), memory({ sports: ["", "  "] }), seasons())).toBe(false);
   });
 
-  it.each([null, "", "supportive"])("is false when coaching style is %j", (coachingStyle) => {
-    expect(isAthleteProfileComplete(profile(), memory({ coaching_style: coachingStyle as MemoryJson["coaching_style"] }), seasons())).toBe(false);
-  });
-
   it("is false when current_season_id is unset", () => {
     expect(isAthleteProfileComplete(profile(), memory(), seasons({ current_season_id: null }))).toBe(false);
   });
@@ -101,7 +96,7 @@ describe("isAthleteProfileComplete", () => {
 });
 
 // Live testing found a real bug: isAthleteProfileComplete flips true (unlocking daily chat) the
-// moment profile/sports/style/season land, which is also what firstSessionContext() used to gate
+// moment profile/sports/season land, which is also what firstSessionContext() used to gate
 // on directly - so an athlete who mentioned habit quests on the SAME turn that completed their
 // profile got no FSP prompt guidance for it at all, and quest_create silently never fired.
 // isFirstSessionRitualDone adds the one more thing SOUL's own ritual still wants before FSP is

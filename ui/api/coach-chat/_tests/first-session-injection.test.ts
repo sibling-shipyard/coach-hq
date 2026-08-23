@@ -28,7 +28,6 @@ describe("mode-specific response schemas", () => {
   it("allows only incremental intake actions during an ordinary First Session turn", () => {
     expect(schemaFields("ordinary", true)).toEqual([
       "memory_update",
-      "coaching_style_update",
       "sports_update",
       "injury_event",
       "profile_update",
@@ -78,7 +77,7 @@ describe("combineExtraContext", () => {
   it("keeps both blocks when first-session and onboarding hints fire together", () => {
     const combined = combineExtraContext(
       firstSessionContext(true, PROTOCOL),
-      onboardingHintsContext({ name: "Skanda", sports: ["badminton"], coaching_style: "analysis" }),
+      onboardingHintsContext({ name: "Skanda", sports: ["badminton"] }),
     );
     expect(combined).toContain("<first_session>");
     expect(combined).toContain("Sport(s): badminton");
