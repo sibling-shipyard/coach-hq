@@ -187,13 +187,18 @@ section. No schema-version/freshness check exists yet (documented gap, see
 | `sports` | `Record<string, AthleteSportInsight>` |
 
 **`AthleteSportInsight` shape:** `{ sessions_365d, sessions_per_week_recent_4w,
-sessions_per_week_prior_12w, longest_gap_days_365d, days_since_last_session }` — all numbers.
+sessions_per_week_prior_12w, longest_gap_days_365d, days_since_last_session,
+duration_buckets }` — session metrics are numbers. `duration_buckets` is
+`{ under_30m, 30_to_60m, 60_to_120m, over_120m }`, counts of sessions in the window by
+`elapsed_time` seconds (`<1800`, `1800–3599`, `3600–7199`, `≥7200`). Sessions with missing
+or non-numeric `elapsed_time` are omitted from the histogram only — they still count in
+`sessions_365d`.
 
 **`sports` keys are normalized `sport_type` values** — lowercased, with camelCase split on `_`
 (`WeightTraining` -> `weight_training`). The activity `category` field is a **sub-tag within** a
 sport (`RNK`/`FRN`/`CAS` are all Badminton; `CAL`/`FDN` are both WeightTraining) and is
 deliberately **not** part of the key — bucketing on it shatters one sport across several buckets
-(#459). Exposing the sub-tag as a nested breakdown is tracked in #460.
+(#459).
 
 ## What Gemini gets as input
 

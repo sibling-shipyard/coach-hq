@@ -24,12 +24,20 @@ import {
 
 export const ATHLETE_INSIGHTS_PATH = "gen/athlete_insights.json";
 
+export interface DurationBuckets {
+  under_30m: number;
+  "30_to_60m": number;
+  "60_to_120m": number;
+  over_120m: number;
+}
+
 export interface AthleteSportInsight {
   sessions_365d: number;
   sessions_per_week_recent_4w: number;
   sessions_per_week_prior_12w: number;
   longest_gap_days_365d: number;
   days_since_last_session: number;
+  duration_buckets: DurationBuckets;
 }
 
 export interface AthleteInsightsJson {

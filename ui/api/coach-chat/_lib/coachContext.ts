@@ -13,7 +13,7 @@
  */
 import type { ProfileJson, MemoryJson, InjuriesJson, CoachLogJson } from "./coachMemoryFiles.js";
 import type { SeasonsJson, QuestsJson, ProgressJson, ProgressionsJson } from "./coachQuestFiles.js";
-import type { AthleteInsightsJson, AthleteSportInsight } from "./coachChatFiles.js";
+import type { AthleteInsightsJson, AthleteSportInsight, DurationBuckets } from "./coachChatFiles.js";
 
 export interface CoachContextStorage {
   profile: ProfileJson | null;
@@ -76,12 +76,25 @@ function recentSessionNotesSection(coachLog: CoachLogJson | null): string {
   return [`## Recent Session Notes *(rolling — last ${RECENT_SESSION_WINDOW} sessions)*`, body].join("\n");
 }
 
+function isFiniteCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+// Five session metrics are enough to keep a sport on the snapshot. duration_buckets is required
+// on new files, but older athlete_insights.json omit it — still render those sports.
 function isSportInsight(value: unknown): value is AthleteSportInsight {
   if (!value || typeof value !== "object") return false;
   const insight = value as Partial<AthleteSportInsight>;
   return [insight.sessions_365d, insight.sessions_per_week_recent_4w, insight.sessions_per_week_prior_12w,
     insight.longest_gap_days_365d, insight.days_since_last_session]
-    .every((metric) => typeof metric === "number" && Number.isFinite(metric) && metric >= 0);
+    .every(isFiniteCount);
+}
+
+function isDurationBuckets(value: unknown): value is DurationBuckets {
+  if (!value || typeof value !== "object") return false;
+  const buckets = value as Partial<DurationBuckets>;
+  return [buckets.under_30m, buckets["30_to_60m"], buckets["60_to_120m"], buckets.over_120m]
+    .every(isFiniteCount);
 }
 
 function formatRate(value: number): string {
@@ -97,12 +110,18 @@ function fitnessSnapshotSection(insights: AthleteInsightsJson | null): string | 
   const windowDays = Number.isFinite(insights.window_days) && insights.window_days > 0 ? insights.window_days : 365;
   const lines = Object.entries(insights.sports)
     .filter(([sport, insight]) => sport.trim().length > 0 && isSportInsight(insight))
-    .map(([sport, insight]) =>
-      `- **${sportLabel(sport)}:** ${insight.sessions_365d} sessions in the window; ` +
-      `~${formatRate(insight.sessions_per_week_recent_4w)}x/week recently ` +
-      `(~${formatRate(insight.sessions_per_week_prior_12w)}x/week in the prior 12 weeks); ` +
-      `longest gap ${insight.longest_gap_days_365d} days; last session ${insight.days_since_last_session} days ago.`,
-    );
+    .map(([sport, insight]) => {
+      const line =
+        `- **${sportLabel(sport)}:** ${insight.sessions_365d} sessions in the window; ` +
+        `~${formatRate(insight.sessions_per_week_recent_4w)}x/week recently ` +
+        `(~${formatRate(insight.sessions_per_week_prior_12w)}x/week in the prior 12 weeks); ` +
+        `longest gap ${insight.longest_gap_days_365d} days; last session ${insight.days_since_last_session} days ago.`;
+      if (!isDurationBuckets(insight.duration_buckets)) return line;
+      const buckets = insight.duration_buckets;
+      return line.slice(0, -1) +
+        `; ${buckets.under_30m} under 30m, ${buckets["30_to_60m"]} 30-60m, ` +
+        `${buckets["60_to_120m"]} 60-120m, ${buckets.over_120m} over 120m.`;
+    });
   return lines.length > 0 ? [`## Fitness Snapshot (last ${windowDays} days)`, ...lines].join("\n") : null;
 }
 
