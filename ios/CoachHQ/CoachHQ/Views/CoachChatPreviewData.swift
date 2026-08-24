@@ -5,7 +5,7 @@ import Foundation
 // Placeholder content for the Coach Chat Warm Instrument UI (`Coach Chat Mobile.dc.html`).
 // Skanda: replace preview fallbacks in `CoachChatView` once `/api/coach-chat` returns:
 //   1. Seeded today thread on new-day open (continuous landing)
-//   2. Header context (`D-143 · WK 4/4`) from challenge_v2 / snapshots — today only
+//   2. Header context (`D-143 · WK 4/4`) from profile.json / snapshots — today only
 //   3. Inline chips on coach morning-read messages (engine + commitments)
 //   4. 7-day thread window (no search)
 
