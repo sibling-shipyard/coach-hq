@@ -14,9 +14,9 @@ hosted API since this stack landed. `docs/eng-docs/coach-chat-daily.md` and
 `docs/eng-docs/coach-chat-fsp.md` (written this session) describe what the code does — neither
 has been verified against a live conversation.
 
-This absorbs and supersedes the "Stack-wide real end-to-end verification" checklist already sitting
-in `docs/plans/coach-chat-open-items.md` — same content, promoted to its own file because it's the
-biggest single piece of remaining risk in this whole redesign, not a minor list item.
+This absorbs and supersedes a "Stack-wide real end-to-end verification" checklist that used to sit
+in the coach-chat open-items doc (since removed) — same content, promoted to its own file because
+it's the biggest single piece of remaining risk in this whole redesign, not a minor list item.
 
 ## Why this matters more than it looks
 
@@ -79,8 +79,9 @@ can be tested for real against either.
    `challenge_v2.json` path still renders correctly, since both shapes are live in production
    simultaneously right now.
 3. Confirm the Fitness Snapshot section reads sensibly for a real athlete's real activity mix.
-4. Confirm the day-count badge fix (once `coach-chat-open-items.md`'s entry is fixed) actually
-   shows the right number on both platforms, both schema shapes.
+4. Confirm the day-count badge fix (once `ui-dashboard-rewiring-web.md` step 5 and
+   `ui-dashboard-rewiring-ios.md` step 1 land) actually shows the right number on both platforms,
+   both schema shapes.
 
 ## Done when
 
@@ -92,6 +93,6 @@ happens gets fixed in the doc or the code, whichever is wrong, and logged in
 
 ## Scope guard
 
-This is verification, not a redesign. If a step surfaces a real bug, file it (or add it to
-`coach-chat-open-items.md`) rather than fixing it inline mid-test-pass — keep this pass focused on
-finding out what's actually true, not on rebuilding anything discovered broken.
+This is verification, not a redesign. If a step surfaces a real bug, file an issue rather than
+fixing it inline mid-test-pass — keep this pass focused on finding out what's actually true, not
+on rebuilding anything discovered broken.

@@ -56,7 +56,7 @@ before starting, don't assume from this list alone.
   delete the branch, not just note it. Known instance to start from:
   `engine/scripts/build-dashboard-snapshot.mjs`'s `loadLedger()` legacy `challenge_v2.json`
   fallback (and the `ledger_schema`/`challenge_v2` fields it emits into
-  `gen/dashboard_snapshot.json`) — tracked in `coach-chat-open-items.md`.
+  `gen/dashboard_snapshot.json`) — tracked to be fixed by `ui-dashboard-rewiring-web.md` step 1.
 - Unused exports across `ui/client/src/lib/` — a lint pass (`ts-prune` or equivalent) rather than
   manual grep, given the size of the client tree.
 

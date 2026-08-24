@@ -32,8 +32,9 @@ ledger, the compatibility projection that produces that shape
 (`ui/client/src/lib/splitLedgerChallenge.ts`'s `splitLedgerAsChallenge()`) drops `coach_since`
 entirely, so the badge silently resets to `season.start_date` — functionally the same bug issue
 #179 was filed and closed for, regressed by the ledger split. Also found and fixed: a stale
-"Deferred" entry in the old doc still cited #179 as open; it's closed. Logged as a real open item
-in `docs/plans/coach-chat-open-items.md`, not fixed in this pass (docs-only).
+"Deferred" entry in the old doc still cited #179 as open; it's closed. Logged as a real open item,
+not fixed in this pass (docs-only) - tracked to be fixed in `ui-dashboard-rewiring-web.md`
+step 5 / `ui-dashboard-rewiring-ios.md` step 1.
 
 ## 2026-08-20 — Turn-stage decomposition
 
