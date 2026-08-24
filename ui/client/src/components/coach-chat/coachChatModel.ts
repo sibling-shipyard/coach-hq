@@ -24,6 +24,27 @@ export type CoachChip =
   | { kind: "engine"; label: string; value: string; status: string }
   | { kind: "sport"; color: string; label: string; note: string };
 
+// Mirrors ui/api/coach-chat/_lib/chatThreads.ts. Do not import API files into Vite.
+export interface SyncedActivityRow {
+  id: string;
+  title: string;
+  sport: string;
+  start: string;
+  duration_s: number;
+  load: number | null;
+}
+
+export interface SyncedActivityListAttachment {
+  version: 1;
+  kind: "synced_activity_list";
+  batch_id: string;
+  activities: SyncedActivityRow[];
+}
+
+export type ChatAttachment =
+  | SyncedActivityListAttachment
+  | { version: number; kind: string; [key: string]: unknown };
+
 export type ChatMessage =
   | { id: string; role: "divider"; label: string }
   | { id: string; role: "user"; text: string }
@@ -34,7 +55,11 @@ export type ChatMessage =
       chips?: CoachChip[];
       /** Inline mono highlight segments keyed as {{token}} in paragraphs. */
       highlights?: Record<string, { text: string; color: string }>;
+      attachments?: ChatAttachment[];
     };
+
+/** Local-only thread shown while an activity_sync POST is in flight (or failed, awaiting Retry). */
+export const PENDING_SYNC_THREAD_ID = "local-sync-pending";
 
 export type ChatThreadStatus = "active" | "deleted";
 
@@ -229,8 +254,105 @@ export function threadStatus(thread: ChatThread): ChatThreadStatus {
   return thread.status ?? "active";
 }
 
+function normalizeAttachments(raw: unknown): ChatAttachment[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const kept: ChatAttachment[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const version = (item as { version?: unknown }).version;
+    const kind = (item as { kind?: unknown }).kind;
+    if (typeof version !== "number" || typeof kind !== "string") continue;
+    kept.push(item as ChatAttachment);
+  }
+  return kept.length > 0 ? kept : undefined;
+}
+
+export function normalizeMessage(message: ChatMessage): ChatMessage {
+  if (message.role !== "coach") return message;
+  const attachments = normalizeAttachments(message.attachments);
+  return attachments ? { ...message, attachments } : { ...message, attachments: undefined };
+}
+
 export function normalizeThread(thread: ChatThread): ChatThread {
-  return { ...thread, status: threadStatus(thread) };
+  return {
+    ...thread,
+    status: threadStatus(thread),
+    messages: thread.messages.map(normalizeMessage),
+  };
+}
+
+/** Trial kind only. Unknown kinds/versions return null — callers must not crash. */
+export function syncedActivityList(
+  attachments: ChatAttachment[] | undefined,
+): SyncedActivityListAttachment | null {
+  if (!attachments) return null;
+  for (const attachment of attachments) {
+    if (attachment.kind !== "synced_activity_list" || attachment.version !== 1) continue;
+    if (!Array.isArray(attachment.activities)) continue;
+    return attachment as SyncedActivityListAttachment;
+  }
+  return null;
+}
+
+export function coachMessageHasCopy(message: Extract<ChatMessage, { role: "coach" }>): boolean {
+  return message.paragraphs.some((paragraph) => paragraph.trim().length > 0);
+}
+
+export function qualifiedActivityId(id: string): string {
+  return id.includes(":") ? id : `hk:${id}`;
+}
+
+export function retryActivityIdsFromThread(thread: ChatThread): string[] | null {
+  const coach = [...thread.messages]
+    .reverse()
+    .find((message): message is Extract<ChatMessage, { role: "coach" }> => message.role === "coach");
+  if (!coach) return null;
+  const list = syncedActivityList(coach.attachments);
+  if (!list || coachMessageHasCopy(coach)) return null;
+  return list.activities.map((row) => qualifiedActivityId(row.id));
+}
+
+export function findClientActivity(activities: unknown, id: string): {
+  id: string;
+  name: string;
+  sport_type: string;
+  start_date_local: string;
+  elapsed_time: number;
+  calories?: number;
+  average_heartrate?: number | null;
+  description?: string | null;
+  hr_zones?: unknown;
+} | undefined {
+  if (!Array.isArray(activities)) return undefined;
+  const bare = id.includes(":") ? id.slice(id.indexOf(":") + 1) : id;
+  for (const item of activities) {
+    if (!item || typeof item !== "object" || !("id" in item)) continue;
+    const aid = String((item as { id: unknown }).id);
+    if (aid !== id && aid !== bare) continue;
+    const row = item as {
+      id: unknown;
+      name?: unknown;
+      sport_type?: unknown;
+      start_date_local?: unknown;
+      elapsed_time?: unknown;
+      calories?: unknown;
+      average_heartrate?: unknown;
+      description?: unknown;
+      hr_zones?: unknown;
+    };
+    return {
+      id: aid,
+      name: typeof row.name === "string" ? row.name : "",
+      sport_type: typeof row.sport_type === "string" ? row.sport_type : "",
+      start_date_local: typeof row.start_date_local === "string" ? row.start_date_local : "",
+      elapsed_time: typeof row.elapsed_time === "number" ? row.elapsed_time : 0,
+      calories: typeof row.calories === "number" ? row.calories : undefined,
+      average_heartrate: typeof row.average_heartrate === "number" ? row.average_heartrate : row.average_heartrate === null ? null : undefined,
+      description: typeof row.description === "string" ? row.description : row.description === null ? null : undefined,
+      hr_zones: row.hr_zones,
+    };
+  }
+  return undefined;
 }
 
 /** Thrown instead of a plain Error on a 401 from /api/coach-chat - the session cookie is
@@ -376,6 +498,38 @@ export async function sendMessage(
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
 
+export type ActivitySyncResult = {
+  reply: string;
+  closed: false;
+  duplicate: boolean;
+  threadId: string;
+  threads: ChatThread[];
+  profileComplete: boolean;
+};
+
+export async function activitySync(activityIds: string[]): Promise<ActivitySyncResult> {
+  const res = await fetchWithRetry(
+    "/api/coach-chat",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "activity_sync", activity_ids: activityIds }),
+    },
+    3,
+    false,
+  );
+  if (res.status === 401) throw new CoachChatAccessRevokedError();
+  if (res.status === 429) throw new CoachChatRateLimitedError();
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
+  }
+  const body = (await res.json()) as ActivitySyncResult & { repoSha?: string };
+  rememberRepoSha(body.threadId, body.repoSha);
+  pruneRepoSha(body.threads.map((t) => t.id));
+  return { ...body, threads: body.threads.map(normalizeThread) };
+}
+
 // A4: coach speaks first. Called on landing on "new conversation" - no athlete message yet.
 // The server either reuses today's still-unanswered greeting thread or creates + commits a new
 // one with just Coach's opening line (see coach-chat.ts's handleGreet).
@@ -437,7 +591,9 @@ export function saveThreadLocally(threadId: string, messages: ChatMessage[]): vo
 export function restoreThreadMessagesLocally(threadId: string): ChatMessage[] | null {
   try {
     const raw = localStorage.getItem(LOCAL_CACHE_PREFIX + threadId);
-    return raw ? (JSON.parse(raw) as ChatMessage[]) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ChatMessage[];
+    return Array.isArray(parsed) ? parsed.map(normalizeMessage) : null;
   } catch {
     return null;
   }

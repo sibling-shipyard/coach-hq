@@ -230,6 +230,14 @@ consumes a retention slot — only threads that actually got a real close-out ev
   (`CoachChatMarkdown.attributed`) plus a `CoachChatMarkdownBlock` that does a minimal
   line-based split for `- `/`* `/`1. ` prefixed lines into indented bullet/numbered rows.
 
+- **Synced activity list**: a Coach message may carry `attachments` with trial kind
+  `synced_activity_list`. Web renders those rows *with* the coach bubble (terracotta is load
+  only). Tap a row opens an in-chat activity detail sheet — attachment fields always, extra
+  dashboard activity fields when the id is in client data. Thinking dots stay the existing
+  `ThinkingBubble`, only while a send or `activity_sync` POST is in flight. A failed sync keeps
+  the list and shows Retry; it does not roll back the way a failed user send does. Web does not
+  start HealthKit sync.
+
 - **Thread age labels**: the history list shows two distinct badges per thread — an *absolute*
   day-count badge (`D-101`) and a *relative* age badge next to it, which shows a real date ("5th
   AUG") rather than a `D-N` count, using `ChatThread.createdAt` (raw epoch ms). The leading
@@ -337,7 +345,7 @@ for the write-builder table.
 | `ui/api/_lib/githubGitData.ts` | atomic multi-file commit helper (Git Data API) |
 | `ui/client/src/pages/CoachChat.tsx` | web chat page |
 | `ui/client/src/components/coach-chat/CoachChatWidgets.tsx` | web presentational components |
-| `ui/client/src/components/coach-chat/coachChatModel.ts` | client fetch helpers, `greet()`, SHA tracking, localStorage cache |
+| `ui/client/src/components/coach-chat/coachChatModel.ts` | client fetch helpers, `greet()`, `activitySync()`, SHA tracking, localStorage cache |
 | `ui/client/src/lib/prefetchCoachContext.ts` | web A3 trigger (`App.tsx`'s `Gate`) |
 | `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift` | iOS client (Bearer + X-Coach-Repo) |
 | `ios/CoachHQ/CoachHQ/Services/CoachMessageAPIClient.swift` | bounded proactive-message client and delivery gate |

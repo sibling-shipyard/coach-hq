@@ -99,3 +99,6 @@ opened on the other platform.
 - **C · turn contract:** done — write-time resolve re-reads history so one batch still commits one thread under concurrent writes
 - Files: `ui/api/coach-chat.ts`, `ui/api/coach-chat/_lib/{activitySync,activitySyncTurn,chatThreads,coachChatFiles,coachTurn,coachReplySchema,coachPromptText}.ts`, `ui/api/coach-chat/_tests/activitySyncTurn.test.ts`, `docs/eng-docs/coach-chat-daily.md`, `docs/eng-docs/coach-data-schema.md`
 - Checks: `npm test -- --run` (29 files / 362 tests) and `npm run check` (`tsc --noEmit`) from `ui/`
+- **W · web list:** done
+- Files: `ui/client/src/components/coach-chat/{coachChatModel.ts,coachChatModel.test.ts,CoachChatWidgets.tsx,CoachChatWidgets.test.ts,coach-chat.css}`, `ui/client/src/pages/CoachChat.tsx`, `docs/eng-docs/coach-chat-daily.md`
+- Checks: `npm test` (30 files / 370 tests) and `npm run check` (`tsc --noEmit`) from `ui/`
