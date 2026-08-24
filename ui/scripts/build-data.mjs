@@ -37,8 +37,8 @@ function copyGoldenToOutDir() {
   }
   const readGolden = (name) => JSON.parse(fs.readFileSync(path.join(goldenDir, `${name}.json`), "utf-8"));
   const dashboardSnapshot = {
-    activities: readGolden("activities"), challenge_v2: readGolden("challenge_v2"),
-    ledger_schema: "challenge_v2_v4", ledger: null, current_week: readGolden("current_week"),
+    activities: readGolden("activities"),
+    ledger_schema: "split_v1", ledger: readGolden("ledger"), current_week: readGolden("current_week"),
     workouts: readGolden("workouts"), sync_status: readGolden("sync_status"),
     sleep_log: readGolden("sleep_log"), quest_history: readGolden("quest_history"),
     schema_version: SCHEMA_VERSION, generated_at: new Date().toISOString(),
@@ -74,9 +74,6 @@ if (isHqMonorepo(REPO_ROOT)) {
 const dashboardSnapshot = buildDashboardSnapshot(REPO_ROOT);
 
 fs.writeFileSync(path.join(OUT_DIR, "activities.json"), JSON.stringify(dashboardSnapshot.activities, null, 0));
-if (dashboardSnapshot.challenge_v2) {
-  fs.writeFileSync(path.join(OUT_DIR, "challenge_v2.json"), JSON.stringify(dashboardSnapshot.challenge_v2, null, 2));
-}
 fs.writeFileSync(path.join(OUT_DIR, "current_week.json"), JSON.stringify(dashboardSnapshot.current_week, null, 2));
 fs.writeFileSync(path.join(OUT_DIR, "workouts.json"), JSON.stringify(dashboardSnapshot.workouts, null, 2));
 fs.writeFileSync(path.join(OUT_DIR, "sync_status.json"), JSON.stringify(dashboardSnapshot.sync_status, null, 2));
