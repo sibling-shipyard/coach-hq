@@ -62,7 +62,7 @@ export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, 
     );
   }
 
-  // challenge_v2 is null until Coach's first session runs - a freshly-provisioned repo
+  // ledger is null until Coach's first session runs - a freshly-provisioned repo
   // genuinely has no data yet. Not an error, just day zero.
   if (notOnboarded) {
     return (

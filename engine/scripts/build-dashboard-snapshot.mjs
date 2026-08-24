@@ -23,6 +23,7 @@ import {
   sleepLogPath,
   syncStatusPath,
   templatesDir,
+  usesNewLayout,
 } from "../lib/repo-layout.mjs";
 import { badmintonAnalyticsAvailable, loadPlugins } from "../lib/plugins.mjs";
 import { projectActivity } from "../lib/projectActivity.mjs";
@@ -189,6 +190,13 @@ export function buildDashboardSnapshot(repoRootPath = REPO_ROOT) {
   result.quest_history = fs.existsSync(questHistoryFile)
     ? JSON.parse(fs.readFileSync(questHistoryFile, "utf-8"))
     : { generated_at: "", quests: {} };
+
+  const profileFile = usesNewLayout(repoRootPath)
+    ? path.join(repoRootPath, "user_data", "coach", "profile.json")
+    : path.join(repoRootPath, "training", "coach", "profile.json");
+  result.profile = fs.existsSync(profileFile)
+    ? JSON.parse(fs.readFileSync(profileFile, "utf-8"))
+    : null;
 
   result.plugins = loadPlugins(repoRootPath);
   result.badminton_analytics_available = badmintonAnalyticsAvailable(repoRootPath);
