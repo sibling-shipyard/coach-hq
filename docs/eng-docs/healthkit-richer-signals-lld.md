@@ -11,6 +11,8 @@ and merge rules only — rationale lives in the main doc.
 |---|---|---|
 | `GAP_THRESHOLD` | 60s | Apple Watch workout HR samples ~5s apart; 60s is a generous multiple |
 | `STREAM_BUDGET` | 200 points | ADR 0020's payload discipline. Soft target: the hard bound is `max(200, 2 × segments)`, since every covered run keeps both endpoints or it vanishes from the curve |
+| `EFFORT_BLOCK_SECONDS` | 300s | nominal human-sized Coach summary block |
+| `EFFORT_BLOCK_LIMIT` | 12 | prompt payload bound; longer sessions widen blocks |
 | `MORNING_WINDOW` | local 00:00 → 11:00 | covers sleep + wake, excludes training load |
 | `STREAM_SCHEMA` / `DAILY_SCHEMA` | 1 | bump forces backfill rewrite |
 
@@ -40,6 +42,14 @@ with a 10-minute sensor dropout reports 600s uncovered, not 600s smeared into Zo
   "covered_seconds": 3480,
   "uncovered_seconds": 120,
   "gaps": [{ "from": 1420, "to": 1540 }],
+  "effort_shape": [{
+    "start_seconds": 0,
+    "end_seconds": 300,
+    "median_bpm": 141,
+    "p90_bpm": 162,
+    "dominant_zone": "Zone 2",
+    "covered_seconds": 275
+  }],
   "points": [{ "t": 0, "bpm": 118 }]
 }
 ```
@@ -47,6 +57,21 @@ with a 10-minute sensor dropout reports 600s uncovered, not 600s smeared into Zo
 `t` and `gaps` are integer seconds from `start` — an int per point instead of a 25-byte ISO
 string is most of why the file stays small. `source_sample_count` and `covered_seconds` let a
 reader judge fidelity without refetching HealthKit.
+
+### Effort shape — full samples, ≤12 blocks
+
+1. Divide activity-relative elapsed time into nominal 300s buckets. If that would exceed 12,
+   divide the full duration evenly into 12 wider buckets.
+2. Use the same midpoint-owned sample intervals as zone integration. Intersect those intervals
+   with each bucket; never read the decimated `points` array.
+3. For every bucket with coverage, store raw-sample median BPM, nearest-rank p90 BPM, the zone
+   with the most owned seconds, and total owned seconds. Zone boundaries come from the same
+   `HRZoneConfig` supplied to `integrateZones` (ADR 0028).
+4. Omit buckets with zero coverage. Keep partially covered buckets with their real
+   `covered_seconds`; the top-level `gaps` remain the explicit dropout record.
+
+`effort_shape` is optional. A missing field means no compact coaching summary was written and
+does not invalidate the display stream.
 
 ### Downsampling — min/max decimation
 

@@ -344,11 +344,12 @@ class HealthKitSyncManager: ObservableObject {
                 // Fetch HR samples and compute stats + zones
                 let hrSamples = (try? await fetchHeartRateSamples(for: workout)) ?? []
                 let hrStats = ActivityMapper.computeHRStats(samples: hrSamples.map(\.bpm))
+                let hrZoneConfig = HRZoneConfig.current
                 // Integrated once and reused by the sidecar below — a 4h workout at 1s sampling
                 // is 14,400 samples, and this used to run twice per activity.
                 let hrCoverage = hrSamples.isEmpty ? nil : HRAnalysis.integrateZones(
                     samples: hrSamples,
-                    config: .current,
+                    config: hrZoneConfig,
                     start: workout.startDate,
                     end: workout.endDate
                 )
@@ -394,6 +395,12 @@ class HealthKitSyncManager: ObservableObject {
                 // commitFiles tree as the activity so a round stays atomic. Only workouts with
                 // a uuid get one — the pre-0014 slug fallback has no stable key to file it under.
                 if let uuid = named.activityId, let coverage = hrCoverage {
+                    let effortShape = HRAnalysis.effortShape(
+                        samples: hrSamples,
+                        config: hrZoneConfig,
+                        start: workout.startDate,
+                        end: workout.endDate
+                    )
                     let decimated = HRAnalysis.decimate(samples: hrSamples, start: workout.startDate)
                     let stream = HRStreamFile(
                         schemaVersion: HRStreamFile.currentSchemaVersion,
@@ -405,6 +412,7 @@ class HealthKitSyncManager: ObservableObject {
                         coveredSeconds: Int(coverage.coveredSeconds.rounded()),
                         uncoveredSeconds: Int(coverage.uncoveredSeconds.rounded()),
                         gaps: decimated.gaps,
+                        effortShape: effortShape,
                         points: decimated.points
                     )
                     filesToCommit.append((

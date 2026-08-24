@@ -33,12 +33,12 @@ flowchart LR
   hk["HealthKit"]
   full["full HR samples<br/>in memory, never stored"]
   hist["user_data/activities/hist/uuid.json<br/>activity grain — scalars + hr_zones"]
-  streams["user_data/activities/streams/uuid.json<br/>activity grain — display curve, ≤200 pts"]
+  streams["user_data/activities/streams/uuid.json<br/>activity grain — display curve + effort shape"]
   daily["user_data/health/daily/YYYY-MM.json<br/>day grain — resting HR, HRV, sleep, VO₂"]
 
   hk --> full
   full -->|"integrate, gap-aware"| hist
-  full -->|"min/max decimate"| streams
+  full -->|"summarize, then min/max decimate"| streams
   hk --> daily
 ```
 
@@ -52,12 +52,19 @@ not exist yet.
 |---|---|---|
 | Scalars + `hr_zones` | `hist/*.json` | aggregate (via `projectActivity` allowlist), coach, list views |
 | Display HR curve | `streams/<uuid>.json` | iOS detail view only, fetched on demand |
+| HR effort shape | `streams/<uuid>.json` | Coach prompt renderer; ≤12 full-sample blocks |
 | Recovery + fitness | `health/daily/YYYY-MM.json` | new `daily_health` aggregate key → VO₂ trend widget |
 
 **Zones come from the full sample set, never the sidecar.** The ≤200-point curve is display
 data. Zone seconds are integrated over every raw sample, gap-aware: a dropout accrues to
 `uncovered_seconds`, and no sample is stretched across it. Partial sensor coverage must read as
 partial, not as false precision.
+
+`effort_shape` is also derived before display decimation. It targets five-minute elapsed-time
+blocks, capped at 12 by widening blocks on long sessions. Every emitted block carries median BPM,
+nearest-rank p90 BPM, the coverage-time-weighted dominant zone, and covered seconds. Blocks with
+no coverage are absent, while the sidecar's `gaps` and each partial block's `covered_seconds` keep
+missing data explicit. Boundaries are the same athlete-owned values used for `hr_zones` (ADR 0028).
 
 **Why the sidecar.** `engine/lib/projectActivity.mjs` already keeps time series out of the
 aggregate. Sidecar extends that to the source file, which buys two things: Coach reading a raw
@@ -122,6 +129,8 @@ Shipped and verified:
 	claimed 896s.
 4. Decoding a pre-change activity JSON does not crash — no migration required.
 5. `gen/aggregate.json` stays under 1MB with sidecars present (ADR 0020's bound holds).
+6. `effort_shape` stays at ≤12 time-ordered blocks and is computed from full samples with gaps
+   and partial coverage preserved; sidecars without the optional field still decode.
 
 Note on rendering: a gap does **not** draw as a hole. The "how it was spent" ribbon carries the
 neighbouring zone across it, because a blank cell in a 29-cell ribbon reads as a rendering fault
@@ -130,10 +139,10 @@ uncovered time.
 
 Belonging to #501, not this doc:
 
-6. A rest day with no workout still produces a `health/daily/` row.
-7. A second sync on a day whose row already has `sleep_hours` but not `vo2_max` leaves
+7. A rest day with no workout still produces a `health/daily/` row.
+8. A second sync on a day whose row already has `sleep_hours` but not `vo2_max` leaves
 	`sleep_hours` intact.
-8. `buildVo2Snapshot()` returns `status: "available"` with ≥2 trend points from real HK data.
+9. `buildVo2Snapshot()` returns `status: "available"` with ≥2 trend points from real HK data.
 
 ## Deferred
 
@@ -143,5 +152,5 @@ Belonging to #501, not this doc:
 	`resting_hr`.
 - P2 — the 876 Garmin-sourced activities can never show a measured ribbon. Whether to mark them
 	visually as estimated is undecided.
-- P3 — expose the HR curve to Coach as a summarized shape (drift, decoupling) rather than raw
-	points.
+- P3 — derive cross-signal claims such as cardiac drift or decoupling only when pace or power
+  supports them; `effort_shape` alone does not establish cause.

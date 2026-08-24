@@ -206,6 +206,81 @@ final class HRAnalysisTests: XCTestCase {
         XCTAssertEqual(a.uncoveredSeconds, b.uncoveredSeconds, accuracy: 0.001)
     }
 
+    // MARK: - Effort shape
+
+    func testEffortShapeIsTimeOrderedAndCappedAtTwelveBlocks() {
+        let elapsed: TimeInterval = 7200
+        let s = samples(from: 0, seconds: elapsed, bpm: 145)
+
+        let blocks = HRAnalysis.effortShape(
+            samples: s, config: config, start: start,
+            end: start.addingTimeInterval(elapsed)
+        )
+
+        XCTAssertEqual(blocks.count, 12)
+        XCTAssertEqual(blocks.first?.startSeconds, 0)
+        XCTAssertEqual(blocks.last?.endSeconds, Int(elapsed))
+        XCTAssertEqual(blocks.map(\.startSeconds), blocks.map(\.startSeconds).sorted())
+        XCTAssertTrue(zip(blocks, blocks.dropFirst()).allSatisfy {
+            $0.0.endSeconds <= $0.1.startSeconds
+        })
+    }
+
+    func testEffortShapeMedianAndNearestRankP90UseFullSamples() {
+        let bpmValues = stride(from: 100.0, through: 190.0, by: 10.0).map { $0 }
+        let s = bpmValues.enumerated().map {
+            (date: start.addingTimeInterval(Double($0.offset) * 20), bpm: $0.element)
+        }
+
+        let blocks = HRAnalysis.effortShape(
+            samples: s, config: config, start: start,
+            end: start.addingTimeInterval(300)
+        )
+
+        XCTAssertEqual(blocks.count, 1)
+        XCTAssertEqual(blocks[0].medianBpm, 145)
+        XCTAssertEqual(blocks[0].p90Bpm, 180)
+    }
+
+    func testEffortShapeDominantZoneUsesConfiguredBoundariesAndCoveredTime() {
+        var s = samples(from: 0, seconds: 200, bpm: 130)
+        s += samples(from: 200, seconds: 100, bpm: 170)
+        let storedConfig = HRZoneConfig(
+            zone1Upper: 100, zone2Upper: 120, zone3Upper: 140, zone4Upper: 160
+        )
+
+        let blocks = HRAnalysis.effortShape(
+            samples: s, config: storedConfig, start: start,
+            end: start.addingTimeInterval(300)
+        )
+
+        XCTAssertEqual(blocks.first?.dominantZone, "Zone 3")
+        XCTAssertEqual(blocks.first?.coveredSeconds ?? 0, 300, accuracy: 5)
+    }
+
+    func testEffortShapeOmitsOnlyFullyUncoveredBuckets() {
+        var s = samples(from: 0, seconds: 300, bpm: 140)
+        s += samples(from: 1200, seconds: 300, bpm: 150)
+
+        let blocks = HRAnalysis.effortShape(
+            samples: s, config: config, start: start,
+            end: start.addingTimeInterval(1500)
+        )
+
+        XCTAssertEqual(blocks.map(\.startSeconds), [0, 300, 900, 1200])
+        XCTAssertEqual(blocks[1].coveredSeconds, 25, accuracy: 1)
+        XCTAssertEqual(blocks[2].coveredSeconds, 30, accuracy: 1)
+        XCTAssertFalse(blocks.contains { $0.startSeconds == 600 },
+                       "a fully uncovered bucket must not receive invented HR")
+    }
+
+    func testEmptySamplesHaveNoEffortShape() {
+        XCTAssertTrue(HRAnalysis.effortShape(
+            samples: [], config: config, start: start,
+            end: start.addingTimeInterval(600)
+        ).isEmpty)
+    }
+
     // MARK: - Sidecar encoding
 
     func testStreamFileEncodesSnakeCaseKeys() throws {
@@ -213,7 +288,12 @@ final class HRAnalysisTests: XCTestCase {
             schemaVersion: 1, generator: "hk-stream/1", activityId: "ABC-123",
             start: "2026-08-14T18:02:11Z", elapsedSeconds: 3600,
             sourceSampleCount: 1834, coveredSeconds: 3480, uncoveredSeconds: 120,
-            gaps: [HRGap(from: 1420, to: 1540)], points: [HRPoint(t: 0, bpm: 118)]
+            gaps: [HRGap(from: 1420, to: 1540)],
+            effortShape: [HREffortBlock(
+                startSeconds: 0, endSeconds: 300, medianBpm: 135, p90Bpm: 151,
+                dominantZone: "Zone 2", coveredSeconds: 275
+            )],
+            points: [HRPoint(t: 0, bpm: 118)]
         )
 
         let data = try JSONEncoder().encode(file)
@@ -223,6 +303,8 @@ final class HRAnalysisTests: XCTestCase {
         XCTAssertTrue(json.contains("\"activity_id\""))
         XCTAssertTrue(json.contains("\"uncovered_seconds\""))
         XCTAssertTrue(json.contains("\"source_sample_count\""))
+        XCTAssertTrue(json.contains("\"effort_shape\""))
+        XCTAssertTrue(json.contains("\"dominant_zone\""))
     }
 }
 
@@ -264,6 +346,27 @@ final class HRStreamDecodingTests: XCTestCase {
         XCTAssertEqual(decoded.activityId, "ABC")
         XCTAssertEqual(decoded.points.count, 1)
         XCTAssertTrue(decoded.gaps.isEmpty)
+        XCTAssertNil(decoded.effortShape, "sidecars without summaries must remain decodable")
+    }
+
+    func testEffortShapeSurvivesEncodeDecode() throws {
+        let original = HRStreamFile(
+            schemaVersion: 1, generator: "hk-stream/1", activityId: "8F3A-2",
+            start: "2026-08-14T18:02:11Z", elapsedSeconds: 600,
+            sourceSampleCount: 120, coveredSeconds: 550, uncoveredSeconds: 50,
+            gaps: [HRGap(from: 250, to: 300)],
+            effortShape: [HREffortBlock(
+                startSeconds: 0, endSeconds: 300, medianBpm: 141, p90Bpm: 162,
+                dominantZone: "Zone 2", coveredSeconds: 250
+            )],
+            points: [HRPoint(t: 0, bpm: 118)]
+        )
+
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(HRStreamFile.self, from: data)
+
+        XCTAssertEqual(decoded, original)
+        XCTAssertEqual(decoded.effortShape?.first?.coveredSeconds, 250)
     }
 
     /// Two dropouts must produce two gaps, so the curve renders three separate runs.

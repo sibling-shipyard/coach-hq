@@ -20,9 +20,38 @@ struct HRStreamFile: Codable, Equatable {
     let coveredSeconds: Int
     let uncoveredSeconds: Int
     let gaps: [HRGap]
+    /// Compact full-sample summary for Coach. Optional so sidecars containing only display
+    /// data remain decodable.
+    let effortShape: [HREffortBlock]?
     /// At most `max(200, 2 * covered runs)` — every run keeps its two endpoints, so a workout
     /// broken into many runs by sensor dropouts costs more than the flat budget.
     let points: [HRPoint]
+
+    init(
+        schemaVersion: Int,
+        generator: String,
+        activityId: String,
+        start: String,
+        elapsedSeconds: Int,
+        sourceSampleCount: Int,
+        coveredSeconds: Int,
+        uncoveredSeconds: Int,
+        gaps: [HRGap],
+        effortShape: [HREffortBlock]? = nil,
+        points: [HRPoint]
+    ) {
+        self.schemaVersion = schemaVersion
+        self.generator = generator
+        self.activityId = activityId
+        self.start = start
+        self.elapsedSeconds = elapsedSeconds
+        self.sourceSampleCount = sourceSampleCount
+        self.coveredSeconds = coveredSeconds
+        self.uncoveredSeconds = uncoveredSeconds
+        self.gaps = gaps
+        self.effortShape = effortShape
+        self.points = points
+    }
 
     /// Bumping this forces backfill to rewrite the file (LLD §5 — idempotency is by
     /// schema version + generator, never by file existence).
@@ -39,6 +68,7 @@ struct HRStreamFile: Codable, Equatable {
         case coveredSeconds = "covered_seconds"
         case uncoveredSeconds = "uncovered_seconds"
         case gaps
+        case effortShape = "effort_shape"
         case points
     }
 }
@@ -53,6 +83,25 @@ struct HRGap: Codable, Equatable {
 struct HRPoint: Codable, Equatable {
     let t: Int
     let bpm: Int
+}
+
+/// One covered elapsed-time block in the full-sample heart-rate summary.
+struct HREffortBlock: Codable, Equatable {
+    let startSeconds: Int
+    let endSeconds: Int
+    let medianBpm: Int
+    let p90Bpm: Int
+    let dominantZone: String
+    let coveredSeconds: Int
+
+    enum CodingKeys: String, CodingKey {
+        case startSeconds = "start_seconds"
+        case endSeconds = "end_seconds"
+        case medianBpm = "median_bpm"
+        case p90Bpm = "p90_bpm"
+        case dominantZone = "dominant_zone"
+        case coveredSeconds = "covered_seconds"
+    }
 }
 
 /// Result of integrating zones over the full sample set.
