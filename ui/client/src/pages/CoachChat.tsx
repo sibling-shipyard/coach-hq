@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RepoDataGate, AccessRevokedCard } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
-import type { ChallengeV2 } from "@/lib/challenge";
 import { getActivityZoneLoad, type SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import type { Activity } from "@/lib/activities";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
@@ -79,10 +78,11 @@ export default function CoachChat() {
 }
 
 function CoachChatContent({ data }: { data: RepoData }) {
-  const challengeData = data.challenge_v2 as unknown as ChallengeV2;
+  const ledger = data.ledger as any;
+  const profile = data.profile;
   const syncStatusData = data.sync_status as SyncStatusPayload;
 
-  const dayNumber = useMemo(() => challengeDayNumber(challengeData), [challengeData]);
+  const dayNumber = useMemo(() => challengeDayNumber(profile, ledger), [profile, ledger]);
   const requestedProactiveSeed = useMemo(
     () => parseProactiveSeed(window.location.search),
     [],

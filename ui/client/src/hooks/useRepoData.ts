@@ -16,16 +16,14 @@
  */
 import { useEffect, useRef, useState } from "react";
 import dashboardSnapshotRaw from "../data/dashboard_snapshot.json";
-import { splitLedgerAsChallenge } from "../lib/splitLedgerChallenge";
-
 export interface RepoData {
   activities: unknown[];
-  challenge_v2: unknown;
-  ledger?: Parameters<typeof splitLedgerAsChallenge>[0] | null;
+  ledger?: any;
   workouts: unknown;
   sync_status: unknown;
   sleep_log: unknown[];
   quest_history: unknown;
+  profile?: any;
   plugins?: { enabled?: string[] };
   badminton_analytics_available?: boolean;
   // Optional - not every repo's build pipeline populates a coach-authored current-week
@@ -34,14 +32,7 @@ export interface RepoData {
   schema_version?: number;
 }
 
-function withDashboardCompatibility(snapshot: RepoData): RepoData {
-  if (!snapshot.challenge_v2 && snapshot.ledger) {
-    return { ...snapshot, challenge_v2: splitLedgerAsChallenge(snapshot.ledger) };
-  }
-  return snapshot;
-}
-
-const LOCAL_DATA = withDashboardCompatibility(dashboardSnapshotRaw as RepoData);
+const LOCAL_DATA = dashboardSnapshotRaw as RepoData;
 
 // Bump when the dashboard snapshot shape changes in a way old dashboards can't render
 // safely. Kept in sync with build-data.mjs's SCHEMA_VERSION.
@@ -89,7 +80,7 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
         return;
       }
 
-      const aggregate = withDashboardCompatibility((await res.json()) as RepoData);
+      const aggregate = (await res.json()) as RepoData;
       if (
         typeof aggregate.schema_version === "number" &&
         aggregate.schema_version > SUPPORTED_SCHEMA_VERSION

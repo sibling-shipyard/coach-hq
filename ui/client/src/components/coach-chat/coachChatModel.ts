@@ -1,4 +1,3 @@
-import type { ChallengeV2 } from "@/lib/challenge";
 import type { CoachMessageSnapshot } from "@/components/home-warm/snapshots";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -194,8 +193,8 @@ export function resolveProactiveThread(
  * athletes awaiting manual backfill, or a session before First Session Protocol completes).
  * Falls back to 1 if none of the three are present.
  */
-export function challengeDayNumber(challenge: ChallengeV2, now = new Date()): number {
-  const startRaw = challenge.coach_since ?? challenge.season?.start_date ?? challenge.challenge?.start_date;
+export function challengeDayNumber(profile: any, ledger: any, now = new Date()): number {
+  const startRaw = profile?.coach_since ?? ledger?.seasons?.seasons?.find((s: any) => s.id === ledger?.seasons?.current_season_id)?.start_date;
   if (!startRaw) return 1;
   const start = new Date(`${startRaw}T00:00:00`);
   if (Number.isNaN(start.getTime())) return 1;

@@ -12,7 +12,7 @@ import type { CoachMessageSnapshot } from "@/components/home-warm/snapshots";
 export default function Home() {
   const { data, loading, error, schemaUnsupported, accessRevoked } = useRepoData();
   const widgetSnapshots = useWidgetSnapshots();
-  const notOnboarded = !loading && !error && !schemaUnsupported && data != null && data.challenge_v2 == null;
+  const notOnboarded = !loading && !error && !schemaUnsupported && data != null && data.ledger == null;
   return (
     <RepoDataGate
       loading={loading}
@@ -21,7 +21,7 @@ export default function Home() {
       notOnboarded={notOnboarded}
       accessRevoked={accessRevoked}
     >
-      {data && data.challenge_v2 != null && data.ledger != null && (
+      {data && data.ledger != null && (
         <HomeContent data={data} coachMessage={widgetSnapshots?.home.coachMessage} />
       )}
     </RepoDataGate>
