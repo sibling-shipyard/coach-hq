@@ -2,7 +2,7 @@
  * SportSpine — session ledger + sport-specific activity heatmap.
  */
 import { useMemo } from "react";
-import type { ChallengeV2 } from "@/lib/challenge";
+import type { SplitLedger } from "@/lib/challenge";
 import type { Activity } from "@/lib/activities";
 import type { CurrentWeekContract } from "@/components/home-warm/currentWeek.fixture";
 import { buildLiveWeekContract } from "@/components/home-warm/liveWeekContract";
@@ -20,15 +20,15 @@ import { RunningActivityHeatmapCard } from "./RunningLensWidgets";
 interface SportSpineProps {
   sport: WarmSportId;
   activities: Activity[];
-  challengeData: ChallengeV2;
+  ledger: SplitLedger;
   syncStatus: SyncStatusPayload;
   currentWeek?: CurrentWeekContract;
 }
 
-export function SportSpine({ sport, activities, challengeData, syncStatus, currentWeek }: SportSpineProps) {
+export function SportSpine({ sport, activities, ledger, syncStatus, currentWeek }: SportSpineProps) {
   const snapshots = useMemo(() => {
-    const effectiveWeek = currentWeek ?? buildLiveWeekContract(activities, challengeData);
-    buildWarmHomeModel(activities, challengeData, syncStatus, effectiveWeek);
+    const effectiveWeek = currentWeek ?? buildLiveWeekContract(activities);
+    buildWarmHomeModel(activities, ledger, syncStatus, effectiveWeek);
     const activityEvidence = buildActivityEvidenceSnapshots(activities);
     const filteredEvidence = activityEvidence.filter((activity) => activity.sport === sport);
     return {
@@ -37,7 +37,7 @@ export function SportSpine({ sport, activities, challengeData, syncStatus, curre
       runningHeatmap: buildRunningActivityHeatmap(activities),
       calisthenicsHeatmap: buildCalisthenicsActivityHeatmap(activities),
     };
-  }, [activities, challengeData, currentWeek, sport, syncStatus]);
+  }, [activities, ledger, currentWeek, sport, syncStatus]);
 
   const heatmap =
     sport === "badminton" ? (

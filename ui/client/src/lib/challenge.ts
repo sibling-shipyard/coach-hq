@@ -202,5 +202,5 @@ export interface SplitLedger {
       value?: number | string | null;
     }>;
   };
-  progressions: unknown;
+  progressions: any;
 }
