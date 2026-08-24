@@ -203,18 +203,16 @@ class GitHubAPIClient {
         }
     }
 
-    /// Reads the day-number anchor from `user_data/ledger/challenge_v2.json` - used by Coach
-    /// Chat's header day label (mirrors web's `challengeDayNumber()` in coachChatModel.ts).
-    /// ADR 0018: coach_since (durable, never resets) wins if present, then season.start_date,
-    /// then challenge.start_date. Not the full challenge model - nothing else on iOS needs the
-    /// rest of this file yet.
+    /// Reads the day-number anchor from `user_data/coach/profile.json` - used by Coach
+    /// Chat's header day label (mirrors web's `coachDayNumber()` in coachChatModel.ts).
+    /// ADR 0018: coach_since (durable, never resets) is the correct source.
     func readCoachDayAnchorDate() async throws -> String? {
-        let data = try await readFile(path: "user_data/ledger/challenge_v2.json")
+        let data = try await readFile(path: "user_data/coach/profile.json")
         do {
-            let summary = try JSONDecoder().decode(ChallengeV2Summary.self, from: data)
-            return summary.coachSince ?? summary.season?.startDate ?? summary.challenge?.startDate
+            let profile = try JSONDecoder().decode(CoachProfileSummary.self, from: data)
+            return profile.coachSince
         } catch {
-            throw GitHubAPIError.decodingFailed(operation: "Parsing challenge_v2.json")
+            throw GitHubAPIError.decodingFailed(operation: "Parsing profile.json")
         }
     }
 
@@ -568,37 +566,11 @@ struct GitHubFileContent: Codable {
     let encoding: String?
 }
 
-struct ChallengeV2Summary: Codable {
-    struct Challenge: Codable {
-        let startDate: String?
-
-        enum CodingKeys: String, CodingKey {
-            case startDate = "start_date"
-        }
-    }
-    struct Season: Codable {
-        let startDate: String?
-
-        enum CodingKeys: String, CodingKey {
-            case startDate = "start_date"
-        }
-    }
-    // ADR 0018: durable day-number anchor, absent until First Session Protocol completion stamps
-    // it server-side (or a manual backfill, e.g. issue #199).
+struct CoachProfileSummary: Codable {
     let coachSince: String?
-    // Optional to mirror ui/client/src/lib/challenge.ts's ChallengeV2.challenge?/.season? - the
-    // season/phase-model schema variant (shared/golden-dataset/repo-data/challenge_v2.json,
-    // ADR 0006 migration in progress) omits `challenge` entirely, and vice versa for `season`.
-    // Without `?` here, decoding throws keyNotFound for whichever schema variant is missing the
-    // key and the header silently stays on the fake .preview fallback forever - the exact bug
-    // this read exists to fix, just for a different data shape.
-    let challenge: Challenge?
-    let season: Season?
 
     enum CodingKeys: String, CodingKey {
         case coachSince = "coach_since"
-        case challenge
-        case season
     }
 }
 

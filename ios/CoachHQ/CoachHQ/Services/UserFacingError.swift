@@ -63,7 +63,7 @@ enum UserFacingError {
 
     /// Home / API errors surfaced as strings (from `WidgetSnapshotStore.lastError`).
     static func friendlyAPIError(_ raw: String) -> String {
-        if raw.contains("coach intake") || raw.contains("challenge_v2") {
+        if raw.contains("coach intake") {
             return "Your dashboard fills in after your first chat with Coach — open the Chat tab to get started."
         }
         if raw.contains("HTTP 401") || raw.contains("Not authenticated") || raw.contains("Not signed in to GitHub") {
