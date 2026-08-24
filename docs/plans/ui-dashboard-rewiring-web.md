@@ -28,10 +28,9 @@ alone, without needing the rest of the conversation that produced it.
 - **Scope: web dashboard only.** The iOS day-count-badge mirror bug is a separate stack —
   `ui-dashboard-rewiring-ios.md` — with its own owner (iOS Builder) and its own PRs. Nothing in
   this file blocks or is blocked by that file; they touch disjoint code.
-- Two adjacent gaps stay out of this stack entirely, tracked in
-  `docs/plans/coach-chat-open-items.md` instead of built here:
-  `engine/scripts/generate_quest_history.py` still reading legacy `challenge_v2.json`, and
-  `platform/scripts/provision-user.sh`'s legacy-path onboarding overlay.
+- One adjacent gap stays out of this stack entirely: `platform/scripts/provision-user.sh`'s dead
+  `--migrate` mode, tracked in #564. `engine/scripts/generate_quest_history.py`'s split-ledger read
+  is already fixed (#568).
 
 ## Step 1 — snapshot shape: split-only, no legacy field
 
@@ -61,11 +60,11 @@ Files: `ui/client/src/components/home-warm/warmHomeModel.ts`, `warmHomeSnapshots
 `liveWeekContract.ts`, `WarmInstrumentHome.tsx`. Replace each `ChallengeV2`-shaped read with the
 real split field it maps to. Where a field maps to something the split design dropped on purpose,
 remove the read (dead code) rather than working around it. Where a read needs a genuine behavioral
-replacement rather than a mechanical swap, don't build that here — flag it in the PR body and add a
-line to `docs/plans/coach-chat-open-items.md` instead.
+replacement rather than a mechanical swap, don't build that here — flag it in the PR body and file
+an issue instead.
 
-Do not fix `warmHomeModel.ts:497`'s unguarded `current_block` crash risk in this PR — pre-existing,
-independent bug, already tracked in `coach-chat-open-items.md`.
+`warmHomeModel.ts:497`'s `current_block` dead read is already fixed (#568) — nothing left to do
+here.
 
 **Verification:** `grep -n "challenge_v2\|ChallengeV2" ui/client/src/components/home-warm/` returns
 nothing. Run the UI dev server against real generated snapshots (post step 1) for both athlete
@@ -89,11 +88,9 @@ render unchanged against real snapshots for both repos.
 *Depends on step 1. Unblocks step 5.*
 
 Files: `ui/client/src/components/monthly-analytics/monthlyAnalyticsModel.ts`,
-`ui/client/src/pages/MonthlyAnalytics.tsx`. Same mechanical approach as steps 2-3. **Call out
-explicitly in the PR body:** `quest_history.json` (consumed here) is still built from legacy
-`challenge_v2.json` by `engine/scripts/generate_quest_history.py`, so quest-streak data stays stale
-for migrated repos until that separate fix lands (tracked in `coach-chat-open-items.md`, not this
-PR).
+`ui/client/src/pages/MonthlyAnalytics.tsx`. Same mechanical approach as steps 2-3.
+`quest_history.json` (consumed here) is now built correctly for migrated repos too (#568) — no
+known staleness left to call out.
 
 **Verification:** `grep -n "challenge_v2\|ChallengeV2" ui/client/src/components/monthly-analytics/
 ui/client/src/pages/MonthlyAnalytics.tsx` returns nothing. Confirm Monthly Analytics renders
@@ -150,8 +147,6 @@ confirm nothing regressed across the whole stack, not just the page each individ
 ## Out of scope (tracked elsewhere, not built in this stack)
 
 - iOS's day-count badge bug and any other iOS work — `ui-dashboard-rewiring-ios.md`.
-- `generate_quest_history.py`'s legacy read, `provision-user.sh`'s legacy overlay —
-  `docs/plans/coach-chat-open-items.md`.
-- `warmHomeModel.ts:497`'s unguarded `current_block` crash risk, `activities.ts`'s
-  `activity.category` trust bug — already flagged in `coach-chat-open-items.md`, independent of
-  this rewire.
+- `provision-user.sh`'s dead `--migrate` mode — #564.
+- `generate_quest_history.py`'s split-ledger read, `warmHomeModel.ts:497`'s `current_block` dead
+  read, and `activities.ts`'s `activity.category` trust bug — all already fixed, #568.

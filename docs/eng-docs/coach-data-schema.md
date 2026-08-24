@@ -68,7 +68,7 @@ Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`).
 
 **`CoachLogRow` shape:** `{ id, date, ts, type: "chat", text, trace_id }` — `type` is currently
 always `"chat"`; `"phase_close"`/`"week_close"` row types are a deferred, documented-only item
-(see `docs/plans/coach-chat-open-items.md`).
+(see `docs/plans/coach-chat-follow-up.md`).
 
 ### `user_data/coach/latest_message.json`
 
@@ -143,8 +143,7 @@ Append-only quest completion rows. Written by `turnWrites/questWrite.ts`.
 | `rows` | `ProgressRow[]` | |
 
 **`ProgressRow` shape:** `{ id, quest_id, season_id, date, status: "completed" \| "missed" \| "excused", value: number \| string \| null, source: "model" \| "pipeline" \| "athlete", ts, trace_id }`.
-`source: "athlete"` has no confirmed real write path today — flagged as an open item in
-`docs/plans/coach-chat-open-items.md`.
+`source: "pipeline"`/`"athlete"` have no confirmed real writer today — tracked in #565.
 
 ### `user_data/ledger/progressions.json`
 
@@ -202,7 +201,7 @@ Exercise `num` must be strictly ascending and unique across all phases in a work
 
 Pipeline-generated, read-only from coach-chat's side. Feeds the "Fitness Snapshot" prompt
 section. No schema-version/freshness check exists yet (documented gap, see
-`docs/plans/coach-chat-open-items.md`).
+`docs/plans/coach-chat-follow-up.md`).
 
 | Field | Type |
 |---|---|

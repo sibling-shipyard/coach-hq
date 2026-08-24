@@ -99,7 +99,7 @@ export const GROUP_CONFIG: Record<string, { label: string; color: string; catego
 };
 
 export function getTrainingCategory(activity: Activity): TrainingCategory {
-  if (activity.category) {
+  if (activity.category && activity.category in CATEGORY_CONFIG) {
     return activity.category as TrainingCategory;
   }
 

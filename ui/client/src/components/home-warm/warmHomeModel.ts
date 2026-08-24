@@ -490,11 +490,8 @@ export function buildWarmHomeModel(
       day: "numeric",
       month: "long",
     }),
-    // part3-rollout dropped week.phase_name/week.block_name from current_week.json (dead
-    // references to the phase/current_block concept Part 2 already removed from seasons.json) -
-    // fall back straight to challenge.phase, same source SportSpine.tsx/Home.tsx still use.
-    phaseName: challenge.phase?.name || challenge.challenge?.name || "Current block",
-    blockName: challenge.phase?.current_block.name || "This week",
+    phaseName: challenge.challenge?.name || "Current block",
+    blockName: "This week",
     syncLabel: formatSyncAge(latestActivityTimestamp(activities) ?? syncStatus.timestamp),
     syncHealthy,
     dataStatus: contract.data_status,

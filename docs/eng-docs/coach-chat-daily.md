@@ -260,9 +260,9 @@ consumes a retention slot — only threads that actually got a real close-out ev
   `quests.json`/`progress.json` — and that projection **does not carry `coach_since` through at
   all**, so `challengeDayNumber()` silently falls back to `season.start_date`, resetting the badge
   on every new season exactly like the bug #179 was originally filed to fix. This is a real,
-  previously undocumented regression, tracked in `docs/plans/coach-chat-open-items.md`. iOS has
-  the same root cause on its own `challenge_v2.json`-reading path (`GitHubAPIClient.swift`'s
-  `readCoachDayAnchorDate()`), already tracked there.
+  previously undocumented regression, tracked to be fixed for web in `ui-dashboard-rewiring-web.md`
+  step 5. iOS has the same root cause on its own `challenge_v2.json`-reading path
+  (`GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`), tracked in `ui-dashboard-rewiring-ios.md`.
 
 ## Auth
 
@@ -315,8 +315,7 @@ diverging.
 - P2: no server-side reuse/dedup when two tabs/devices greet at almost the same instant on an
   empty day (see step 2's "accepted edge case" note) — costs at most one redundant Gemini call,
   not treated as worth a fix.
-- Route consolidation (3 coach-chat endpoints → one catch-all) — see
-  `docs/plans/coach-chat-open-items.md`.
+- Route consolidation (3 coach-chat endpoints → one catch-all) — #566.
 
 ## Appendix — file/class reference
 
