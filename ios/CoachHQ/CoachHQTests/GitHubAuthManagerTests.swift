@@ -11,7 +11,29 @@ final class GitHubAuthManagerTests: XCTestCase {
     @MainActor
     override func setUp() async throws {
         try await super.setUp()
+        try skipIfKeychainWritesAreUnavailable()
         GitHubAuthManager().signOut() // clean slate: real Keychain, shared key names
+    }
+
+    /// The GitHub Actions macOS runner's XCTest process has no Keychain entitlement, so every
+    /// SecItemAdd here fails with errSecMissingEntitlement (-34018) - confirmed in CI (#551 PR
+    /// #552 review). A canary write lets these tests still run for real wherever Keychain access
+    /// genuinely works (a signed device/simulator run) while skipping cleanly, not falsely
+    /// failing, in an environment that structurally can't support them.
+    private func skipIfKeychainWritesAreUnavailable() throws {
+        let canaryKey = "com.siblingshipyard.coachhq.github.tests.keychain_canary"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: canaryKey,
+            kSecValueData as String: Data([1]),
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        SecItemDelete(query as CFDictionary)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess else {
+            throw XCTSkip("Keychain writes unavailable in this environment (OSStatus \(status)) - cannot exercise real Keychain round-trip/migration behavior here.")
+        }
     }
 
     @MainActor
