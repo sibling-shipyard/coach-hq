@@ -129,28 +129,6 @@ export interface WeeklyTargets {
   run: number;
 }
 
-export interface ChallengeV2 {
-  version: number;
-  // ADR 0018: durable day-number anchor - "days since this athlete started using Coach at all,"
-  // set once (server-side, on First Session Protocol completion) and never reset by a new
-  // season/challenge. Absent until that first stamp; see coachChatModel.ts's challengeDayNumber
-  // for the fallback chain.
-  coach_since?: string;
-  // Optional - some repos' coaching model has no single "the challenge" concept
-  // (e.g. a season/phase/block progression instead). Components must guard on its
-  // presence rather than assume it's always there.
-  challenge?: ChallengeMetadata;
-  // Optional - not every coaching model uses a weekly-quota system.
-  weekly_targets?: WeeklyTargets;
-  main_quest: MainQuest;
-  quests: Quest[];
-  // Optional - Akash's "Build Phase" coaching model (season/phase/block progression) instead
-  // of a single fixed-duration challenge. Components must guard on presence.
-  season?: Season;
-  phase?: Phase;
-  milestones?: Milestone[];
-  graduated?: GraduatedQuest[];
-}
 
 /** Format a Date as YYYY-MM-DD in local time (avoids UTC drift from toISOString). */
 export function toLocalDateStr(d: Date): string {
