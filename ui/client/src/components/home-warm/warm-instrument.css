@@ -292,6 +292,45 @@
   flex-direction: column;
 }
 
+.wi-shell a.wi-coach-message-card {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+  padding: 24px 28px;
+  border: 1px solid rgba(84, 76, 65, 0.16);
+  border-radius: 26px;
+  color: var(--wi-ink);
+  background: var(--wi-surface-muted);
+  box-shadow: none;
+}
+
+.wi-shell a.wi-coach-message-card:hover {
+  border-color: rgba(127, 55, 40, 0.34);
+  color: var(--wi-ink);
+}
+
+.wi-coach-message-card:focus-visible {
+  outline: 3px solid rgba(127, 55, 40, 0.34);
+  outline-offset: 3px;
+}
+
+.wi-coach-message-card p {
+  max-width: 940px;
+  margin: 0;
+  font-family: "Newsreader", Georgia, serif;
+  font-size: clamp(20px, 2vw, 27px);
+  font-style: italic;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.wi-coach-message-card > strong {
+  color: var(--wi-rust);
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
 .wi-hero-row,
 .wi-split-row {
   display: grid;
@@ -1800,6 +1839,16 @@ button.wi-commitment-card:hover {
     max-width: 440px;
     min-height: 100svh;
     padding: 14px 16px 28px;
+  }
+
+  .wi-shell a.wi-coach-message-card {
+    gap: 12px;
+    margin-top: 14px;
+    padding: 20px;
+  }
+
+  .wi-coach-message-card p {
+    font-size: 20px;
   }
 
   .wi-desktop-only {

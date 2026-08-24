@@ -1,4 +1,5 @@
 import type { ChallengeV2 } from "@/lib/challenge";
+import type { CoachMessageSnapshot } from "@/components/home-warm/snapshots";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // ADR 0012 (amended): retention is a count cap (newest 7 active threads, no archive tier),
@@ -50,6 +51,117 @@ export type ChatThread = {
   status?: ChatThreadStatus;
   messages: ChatMessage[];
 };
+
+const PROACTIVE_SEED_PREFIX = "local-proactive-cm-";
+const PROACTIVE_SNAPSHOT_TIMEOUT_MS = 5_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isProactiveSeed(value: string): boolean {
+  return value.length <= 200
+    && value.startsWith(PROACTIVE_SEED_PREFIX)
+    && /^local-proactive-cm-[A-Za-z0-9-]+$/.test(value);
+}
+
+export function parseProactiveSeed(search: string): string | null {
+  const values = new URLSearchParams(search).getAll("seed");
+  if (values.length !== 1 || !isProactiveSeed(values[0])) return null;
+  return values[0];
+}
+
+export function selectProactiveCoachMessage(
+  payload: unknown,
+  requestedSeed: string,
+): CoachMessageSnapshot | null {
+  if (!isProactiveSeed(requestedSeed) || !isRecord(payload)) return null;
+  const home = payload.home;
+  if (!isRecord(home) || !isRecord(home.coachMessage)) return null;
+  const message = home.coachMessage;
+  if (
+    typeof message.id !== "string"
+    || !/^cm-[A-Za-z0-9-]+$/.test(message.id)
+    || typeof message.created_at !== "string"
+    || Number.isNaN(Date.parse(message.created_at))
+    || typeof message.body !== "string"
+    || message.body.trim().length === 0
+    || typeof message.conversation_seed_id !== "string"
+    || message.conversation_seed_id !== requestedSeed
+    || message.conversation_seed_id !== `local-proactive-${message.id}`
+  ) return null;
+  return {
+    id: message.id,
+    created_at: message.created_at,
+    body: message.body,
+    conversation_seed_id: message.conversation_seed_id,
+  };
+}
+
+export async function fetchProactiveCoachMessage(
+  requestedSeed: string,
+  fetcher: typeof fetch = fetch,
+): Promise<CoachMessageSnapshot | null> {
+  if (!isProactiveSeed(requestedSeed)) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROACTIVE_SNAPSHOT_TIMEOUT_MS);
+  try {
+    const response = await fetcher("/api/widget-snapshots", {
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    return selectProactiveCoachMessage(await response.json(), requestedSeed);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function materializeProactiveThread(
+  message: CoachMessageSnapshot,
+  cachedMessages: ChatMessage[] | null = null,
+): ChatThread {
+  const createdAt = Date.parse(message.created_at);
+  const messages = cachedMessages && cachedMessages.length > 0
+    ? cachedMessages
+    : [
+        { id: `d-${createdAt}`, role: "divider" as const, label: "TODAY" },
+        { id: `c-${createdAt}`, role: "coach" as const, paragraphs: [message.body] },
+      ];
+  const lastCoach = [...messages].reverse().find(
+    (item): item is Extract<ChatMessage, { role: "coach" }> => item.role === "coach",
+  );
+  const firstUser = messages.find(
+    (item): item is Extract<ChatMessage, { role: "user" }> => item.role === "user",
+  );
+  const dayOffset = computeLocalDayOffset(createdAt);
+  return {
+    id: message.conversation_seed_id,
+    dayOffset,
+    createdAt,
+    title: firstUser ? truncateTitle(firstUser.text, 28) : "After your session",
+    preview: lastCoach?.paragraphs.join(" ").slice(0, 80) ?? "",
+    ageLabel: dayOffset === 0 ? "NOW" : `D-${dayOffset}`,
+    status: "active",
+    messages,
+  };
+}
+
+export function resolveProactiveThread(
+  requestedSeed: string | null,
+  latestMessage: CoachMessageSnapshot | null,
+  existingThreads: readonly ChatThread[],
+  cachedMessages: ChatMessage[] | null = null,
+): ChatThread | null {
+  if (!requestedSeed || !isProactiveSeed(requestedSeed)) return null;
+  const existing = existingThreads.find((thread) => thread.id === requestedSeed);
+  if (existing) return existing;
+  if (!latestMessage || latestMessage.conversation_seed_id !== requestedSeed) {
+    return null;
+  }
+  return materializeProactiveThread(latestMessage, cachedMessages);
+}
 
 /**
  * Day since coach_since (ADR 0018) - durable, never resets with a new season/challenge. Falls

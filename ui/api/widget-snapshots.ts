@@ -12,6 +12,9 @@ import type { DashboardSnapshotInput } from "./auth/_lib/generate-widget-snapsho
 import { generateWidgetSnapshotsFromDashboardSnapshot } from "./auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
+import { getFileRaw } from "./coach-chat/_lib/coachChatFiles.js";
+
+const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
 
 export default {
   async fetch(req: Request): Promise<Response> {
@@ -28,13 +31,24 @@ export default {
       if (resolved instanceof Response) return resolved;
       auth = resolved;
 
-      const fetched = await fetchRepoDashboardSnapshot(auth.repo_full_name, auth.gh_token);
+      const [fetched, latestCoachMessage] = await Promise.all([
+        fetchRepoDashboardSnapshot(auth.repo_full_name, auth.gh_token),
+        getFileRaw(
+          auth.repo_full_name,
+          LATEST_COACH_MESSAGE_PATH,
+          auth.gh_token,
+        ).catch((err) => {
+          console.warn("[widget-snapshots] proactive message unavailable", err);
+          return null;
+        }),
+      ]);
       if ("error" in fetched) {
         return withSessionCookie(Response.json({ error: fetched.error }, { status: fetched.status }), auth.setCookie);
       }
 
       const snapshots = generateWidgetSnapshotsFromDashboardSnapshot(
         fetched.dashboardSnapshot as DashboardSnapshotInput,
+        latestCoachMessage,
       );
       if (!snapshots) {
         return withSessionCookie(

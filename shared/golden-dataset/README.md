@@ -9,6 +9,9 @@ they serve genuinely different consumers.
 - `widget_snapshots.json` — a `WidgetSnapshotsFile`, same shape as the pipeline-generated
   `gen/widget_snapshots.json`. Schema owned by
   `ui/client/src/components/home-warm/snapshots.ts`.
+- `latest_message.json` — the durable proactive Coach message fixture. Its four public
+  message fields are copied byte-for-byte into `widget_snapshots.json`'s optional
+  `home.coachMessage` projection.
 - `current_week.json` — a `CurrentWeekContract`, same shape as a real current-week file.
   Schema owned by `ui/client/src/components/home-warm/currentWeek.fixture.ts`.
 
@@ -33,7 +36,8 @@ drifting. `generated_at` in `widget_snapshots.json` must stay a frozen literal, 
 
 - `generate-repo-data.mjs` writes `repo-data/activities.json`, `challenge_v2.json`,
   `workouts.json`, `sync_status.json`, `sleep_log.json`, `quest_history.json`, and
-  `current_week.json` — the raw `RepoData` shape `ui/client/src/hooks/useRepoData.ts` expects.
+  `current_week.json`, plus the frozen `latest_message.json` sidecar used by the widget
+  snapshot route — the raw repo shape the local UI expects.
 
 This layer exists because most of the app — Home (`/`), Workouts, the sport-analytics pages,
 Coach Chat — doesn't read pre-baked snapshots at all. It reads raw activities/challenge/sync

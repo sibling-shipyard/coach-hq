@@ -1704,14 +1704,15 @@ function questSnapshotS(quest) {
     progressPercent
   };
 }
-function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contract, dataMode = "live") {
-  const home = buildWarmHomeSnapshots(
+function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contract, dataMode = "live", coachMessage) {
+  const computedHome = buildWarmHomeSnapshots(
     activities,
     challengeData,
     syncStatus,
     contract,
     dataMode
   );
+  const home = coachMessage ? { ...computedHome, coachMessage } : computedHome;
   return {
     schema_version: 1,
     generated_at: (/* @__PURE__ */ new Date()).toISOString(),
@@ -1772,6 +1773,49 @@ function splitLedgerAsChallenge(ledger) {
 }
 
 // api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts
+var HEALTHKIT_ACTIVITY_ID = /^healthkit:[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
+var STRAVA_ACTIVITY_ID = /^strava:[0-9]{1,32}$/;
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function hasExactKeys(value, keys) {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+function isLatestCoachMessageFile(value) {
+  if (!isRecord(value) || !hasExactKeys(value, ["message", "schema_version"])) return false;
+  if (value.schema_version !== 1 || value.message === null || !isRecord(value.message)) return false;
+  const message = value.message;
+  if (!hasExactKeys(message, [
+    "activity_ids",
+    "body",
+    "conversation_seed_id",
+    "created_at",
+    "id"
+  ])) return false;
+  if (typeof message.id !== "string" || !/^cm-[A-Za-z0-9-]{1,160}$/.test(message.id) || typeof message.created_at !== "string" || !Number.isFinite(Date.parse(message.created_at)) || typeof message.body !== "string" || message.body.trim().length === 0 || message.body.length > 360 || message.conversation_seed_id !== `local-proactive-${message.id}` || !Array.isArray(message.activity_ids) || message.activity_ids.length === 0 || message.activity_ids.length > 20) return false;
+  const activityIds = message.activity_ids;
+  if (activityIds.some((id) => typeof id !== "string" || id.length > 80 || !HEALTHKIT_ACTIVITY_ID.test(id) && !STRAVA_ACTIVITY_ID.test(id)) || activityIds.some((id, index) => index > 0 && id <= activityIds[index - 1])) return false;
+  return true;
+}
+function projectLatestCoachMessage(value) {
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return void 0;
+    }
+  }
+  if (!isLatestCoachMessageFile(parsed)) return void 0;
+  return {
+    id: parsed.message.id,
+    created_at: parsed.message.created_at,
+    body: parsed.message.body,
+    conversation_seed_id: parsed.message.conversation_seed_id
+  };
+}
 function localDateKey3(date) {
   return [
     date.getFullYear(),
@@ -1793,7 +1837,7 @@ function needsLiveRecomputation(week) {
   }
   return false;
 }
-function generateWidgetSnapshotsFromDashboardSnapshot(aggregate) {
+function generateWidgetSnapshotsFromDashboardSnapshot(aggregate, latestCoachMessageFile) {
   const challenge = aggregate.ledger ? splitLedgerAsChallenge(aggregate.ledger) : aggregate.challenge_v2 ?? null;
   if (!challenge) return null;
   const activities = aggregate.activities ?? [];
@@ -1803,10 +1847,18 @@ function generateWidgetSnapshotsFromDashboardSnapshot(aggregate) {
     warnings: []
   };
   const contract = needsLiveRecomputation(aggregate.current_week) ? buildLiveWeekContract(activities, challenge) : aggregate.current_week;
-  return buildWidgetSnapshotsFile(activities, challenge, syncStatus, contract, "live");
+  return buildWidgetSnapshotsFile(
+    activities,
+    challenge,
+    syncStatus,
+    contract,
+    "live",
+    projectLatestCoachMessage(latestCoachMessageFile)
+  );
 }
 export {
   generateWidgetSnapshotsFromDashboardSnapshot,
   needsLiveRecomputation,
+  projectLatestCoachMessage,
   splitLedgerAsChallenge
 };
