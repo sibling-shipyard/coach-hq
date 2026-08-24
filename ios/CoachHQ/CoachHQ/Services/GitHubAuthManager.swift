@@ -235,8 +235,8 @@ class GitHubAuthManager: ObservableObject {
             if let token = value("token") {
                 // token + refresh_token/expires_at arrive together in this same callback -
                 // write them in one saveTokens() call, not two, so a kill between separate
-                // saveToken()/saveRefreshToken() writes can't pair this new access token with
-                // whatever refresh token (stale, wrong-account, or none) was in Keychain before.
+                // writes can't pair this new access token with whatever refresh token (stale,
+                // wrong-account, or none) was in Keychain before.
                 if let rt = value("refresh_token"), let expiresAtRaw = value("expires_at"),
                    let expiresAtMs = Double(expiresAtRaw) {
                     saveTokens(accessToken: token, refreshToken: rt, expiresAt: Date(timeIntervalSince1970: expiresAtMs / 1000))
@@ -467,17 +467,9 @@ class GitHubAuthManager: ObservableObject {
         saveStoredTokens(StoredTokens(accessToken: token, refreshToken: current?.refreshToken, expiresAt: current?.expiresAt))
     }
 
-    /// Mirrors session.ts's refresh_token/gh_token_expires_at fields. A classic client-side
-    /// refresh would need client_secret embedded in the app, so this hits /api/auth/refresh
-    /// instead, which does the confidential exchange server-side.
-    private func saveRefreshToken(_ refreshToken: String, expiresAt: Date) {
-        let current = loadStoredTokens()
-        saveStoredTokens(StoredTokens(accessToken: current?.accessToken ?? "", refreshToken: refreshToken, expiresAt: expiresAt))
-    }
-
-    /// Single-write variant used by performRefreshAccessToken() - all 3 fields are already
-    /// known together there, so there's no need for the read-then-merge saveToken/
-    /// saveRefreshToken do for their standalone call sites.
+    /// Single-write variant used by performRefreshAccessToken() and handleCallback() - all 3
+    /// fields are already known together at both call sites, so there's no need for the
+    /// read-then-merge saveToken() does for its own standalone (token-only) call sites.
     private func saveTokens(accessToken: String, refreshToken: String, expiresAt: Date) {
         saveStoredTokens(StoredTokens(accessToken: accessToken, refreshToken: refreshToken, expiresAt: expiresAt))
     }
