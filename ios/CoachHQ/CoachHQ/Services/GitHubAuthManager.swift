@@ -42,7 +42,9 @@ class GitHubAuthManager: ObservableObject {
     /// (Home/Activity used to just toast it, Workouts didn't surface it at all).
     @Published var sessionExpired = false
 
-    private let keychainKey = "com.siblingshipyard.coachhq.github.token"
+    // internal (not private): GitHubAuthManagerTests exercises the combined-item read/write
+    // and legacy-migration paths directly via @testable import, which can't see `private`.
+    let keychainKey = "com.siblingshipyard.coachhq.github.token"
     private let callbackScheme = "coachhq"
 
     init() {
@@ -231,10 +233,15 @@ class GitHubAuthManager: ObservableObject {
             // found, and it must not stay true while pendingSetupLogin is set.
             isAuthenticated = false
             if let token = value("token") {
-                saveToken(token)
+                // token + refresh_token/expires_at arrive together in this same callback -
+                // write them in one saveTokens() call, not two, so a kill between separate
+                // writes can't pair this new access token with whatever refresh token (stale,
+                // wrong-account, or none) was in Keychain before.
                 if let rt = value("refresh_token"), let expiresAtRaw = value("expires_at"),
                    let expiresAtMs = Double(expiresAtRaw) {
-                    saveRefreshToken(rt, expiresAt: Date(timeIntervalSince1970: expiresAtMs / 1000))
+                    saveTokens(accessToken: token, refreshToken: rt, expiresAt: Date(timeIntervalSince1970: expiresAtMs / 1000))
+                } else {
+                    saveToken(token)
                 }
                 await fetchUser()
             }
@@ -246,10 +253,12 @@ class GitHubAuthManager: ObservableObject {
         guard let token = value("token") else {
             throw AuthError.missingCode
         }
-        saveToken(token)
+        // Same single-write reasoning as the needs_setup branch above.
         if let refreshToken = value("refresh_token"), let expiresAtRaw = value("expires_at"),
            let expiresAtMs = Double(expiresAtRaw) {
-            saveRefreshToken(refreshToken, expiresAt: Date(timeIntervalSince1970: expiresAtMs / 1000))
+            saveTokens(accessToken: token, refreshToken: refreshToken, expiresAt: Date(timeIntervalSince1970: expiresAtMs / 1000))
+        } else {
+            saveToken(token)
         }
         pendingSetupLogin = nil
         isAuthenticated = true
@@ -364,8 +373,8 @@ class GitHubAuthManager: ObservableObject {
 
     // MARK: - Token Management (Keychain)
 
-    private let refreshTokenKeychainKey = "com.siblingshipyard.coachhq.github.refresh_token"
-    private let expiresAtKeychainKey = "com.siblingshipyard.coachhq.github.expires_at"
+    let refreshTokenKeychainKey = "com.siblingshipyard.coachhq.github.refresh_token"
+    let expiresAtKeychainKey = "com.siblingshipyard.coachhq.github.expires_at"
 
     private func loadKeychainString(_ key: String) -> String? {
         let query: [String: Any] = [
@@ -375,7 +384,12 @@ class GitHubAuthManager: ObservableObject {
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        if status == errSecItemNotFound { return nil } // genuinely no item saved - expected, not an error
+        guard status == errSecSuccess else {
+            print("[GitHubAuthManager] Keychain read failed unexpectedly: \(status) for key \(key)")
+            return nil
+        }
+        guard let data = result as? Data else { return nil }
         return String(data: data, encoding: .utf8)
     }
 
@@ -387,7 +401,14 @@ class GitHubAuthManager: ObservableObject {
             kSecValueData as String: data,
             // These are GitHub auth tokens (incl. a 6-month refresh token) - keep them off
             // iCloud Keychain sync/backup entirely, not just behind device passcode.
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            // AfterFirstUnlock (not WhenUnlocked): WhenUnlockedThisDeviceOnly requires the
+            // device unlocked at the exact instant of the Keychain call, so a cold launch via
+            // Background App Refresh / push / widget before the device's first unlock since
+            // boot fails with errSecInteractionNotAllowed - previously read back silently as
+            // "no token" (see loadKeychainString above). AfterFirstUnlockThisDeviceOnly only
+            // needs one unlock since boot and is Apple's recommended class for
+            // background-refreshable session tokens, while staying device-only/non-syncing.
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
         SecItemDelete(query as CFDictionary) // Remove existing
         SecItemAdd(query as CFDictionary, nil)
@@ -401,29 +422,64 @@ class GitHubAuthManager: ObservableObject {
         SecItemDelete(query as CFDictionary)
     }
 
+    /// All three token fields live in one Keychain item under `keychainKey`, JSON-encoded, so
+    /// a refresh persists them with a single `saveKeychainString` call - no window between
+    /// separate writes where a process kill could pair a new access token with the old
+    /// refresh token (that mismatch permanently fails every future refresh; see #551).
+    struct StoredTokens: Codable, Equatable {
+        let accessToken: String
+        let refreshToken: String?
+        let expiresAt: Date?
+    }
+
+    /// Reads the combined item; falls back to the pre-#551 format (bare access token string
+    /// under `keychainKey`, refresh token + expiry under their own keys) so athletes signed in
+    /// before this shipped aren't forced to re-auth. Never deletes the legacy keys itself -
+    /// `saveStoredTokens` does that once something writes the combined item.
+    func loadStoredTokens() -> StoredTokens? {
+        guard let raw = loadKeychainString(keychainKey) else { return nil }
+        if let data = raw.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode(StoredTokens.self, from: data) {
+            return decoded
+        }
+        let legacyRefresh = loadKeychainString(refreshTokenKeychainKey)
+        let legacyExpiresAt = loadKeychainString(expiresAtKeychainKey)
+            .flatMap(Double.init)
+            .map { Date(timeIntervalSince1970: $0) }
+        return StoredTokens(accessToken: raw, refreshToken: legacyRefresh, expiresAt: legacyExpiresAt)
+    }
+
+    func saveStoredTokens(_ tokens: StoredTokens) {
+        guard let data = try? JSONEncoder().encode(tokens), let json = String(data: data, encoding: .utf8) else { return }
+        saveKeychainString(json, for: keychainKey)
+        // Migrated to the combined item above - drop the old separate keys so a future decode
+        // failure can't fall back to stale legacy data.
+        deleteKeychainString(for: refreshTokenKeychainKey)
+        deleteKeychainString(for: expiresAtKeychainKey)
+    }
+
     func loadToken() -> String? {
-        loadKeychainString(keychainKey)
+        loadStoredTokens()?.accessToken
     }
 
     private func saveToken(_ token: String) {
-        saveKeychainString(token, for: keychainKey)
+        let current = loadStoredTokens()
+        saveStoredTokens(StoredTokens(accessToken: token, refreshToken: current?.refreshToken, expiresAt: current?.expiresAt))
     }
 
-    /// Mirrors session.ts's refresh_token/gh_token_expires_at fields. A classic client-side
-    /// refresh would need client_secret embedded in the app, so this hits /api/auth/refresh
-    /// instead, which does the confidential exchange server-side.
-    private func saveRefreshToken(_ refreshToken: String, expiresAt: Date) {
-        saveKeychainString(refreshToken, for: refreshTokenKeychainKey)
-        saveKeychainString(String(expiresAt.timeIntervalSince1970), for: expiresAtKeychainKey)
+    /// Single-write variant used by performRefreshAccessToken() and handleCallback() - all 3
+    /// fields are already known together at both call sites, so there's no need for the
+    /// read-then-merge saveToken() does for its own standalone (token-only) call sites.
+    private func saveTokens(accessToken: String, refreshToken: String, expiresAt: Date) {
+        saveStoredTokens(StoredTokens(accessToken: accessToken, refreshToken: refreshToken, expiresAt: expiresAt))
     }
 
     private func loadRefreshToken() -> String? {
-        loadKeychainString(refreshTokenKeychainKey)
+        loadStoredTokens()?.refreshToken
     }
 
     private func loadExpiresAt() -> Date? {
-        guard let raw = loadKeychainString(expiresAtKeychainKey), let interval = Double(raw) else { return nil }
-        return Date(timeIntervalSince1970: interval)
+        loadStoredTokens()?.expiresAt
     }
 
     /// Returns a token usable for the next request, refreshing first if near expiry. Falls
@@ -465,16 +521,36 @@ class GitHubAuthManager: ObservableObject {
         request.httpBody = try? JSONEncoder().encode(["refresh_token": refreshToken])
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            let (data, response) = try await performRefreshRequest(request)
+            guard let http = response as? HTTPURLResponse else { return nil }
+            guard http.statusCode == 200 else {
+                if http.statusCode == 502 {
+                    // network_error from ui/api/auth/[...action].ts - transient upstream
+                    // failure, not a dead credential. Retry once before giving up, same
+                    // style as WidgetSnapshotStore's retry-once-on-notAuthenticated.
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    let (retryData, retryResponse) = try await performRefreshRequest(request)
+                    guard let retryHttp = retryResponse as? HTTPURLResponse, retryHttp.statusCode == 200 else {
+                        return nil
+                    }
+                    let result = try JSONDecoder().decode(RefreshResponse.self, from: retryData)
+                    saveTokens(accessToken: result.accessToken, refreshToken: result.refreshToken, expiresAt: Date().addingTimeInterval(result.expiresIn))
+                    return result.accessToken
+                }
+                // 401 (refresh_failed) or anything else non-200: terminal, fail immediately.
+                return nil
+            }
             let result = try JSONDecoder().decode(RefreshResponse.self, from: data)
-            saveToken(result.accessToken)
-            saveRefreshToken(result.refreshToken, expiresAt: Date().addingTimeInterval(result.expiresIn))
+            saveTokens(accessToken: result.accessToken, refreshToken: result.refreshToken, expiresAt: Date().addingTimeInterval(result.expiresIn))
             return result.accessToken
         } catch {
             print("Token refresh failed: \(error)")
             return nil
         }
+    }
+
+    private func performRefreshRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try await URLSession.shared.data(for: request)
     }
 
     func signOut() {
