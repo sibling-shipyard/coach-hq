@@ -46,6 +46,13 @@ struct WarmInstrumentHomeView: View {
                             SyncWarningBanner(sync: snapshots.home.sync)
                         }
 
+                        if let message = snapshots.home.coachMessage {
+                            CoachMessageCard(message: message) {
+                                openCoachMessage(message)
+                            }
+                            .staggerReveal(delay: 0.25)
+                        }
+
                         widgetColumn(for: snapshots)
                             .transition(.opacity)
                     } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
@@ -218,6 +225,19 @@ struct WarmInstrumentHomeView: View {
         }
         let word = n == 1 ? "session" : "sessions"
         return "\(n) \(word) synced — Coach is on it"
+    }
+
+    private func openCoachMessage(_ message: CoachMessageSnapshot) {
+        guard let repoFullName = authManager.repoFullName,
+              let route = CoachMessageRoute(
+                repoFullName: repoFullName,
+                conversationSeedId: message.conversationSeedId,
+                body: message.body,
+                createdAt: message.createdAt
+              ) else { return }
+        Haptics.tap()
+        route.persist()
+        NotificationCenter.default.post(name: .navigateToChat, object: route)
     }
 
     /// Re-triggers the Home fetch once GitHub profile + repo discovery finish.
@@ -1228,6 +1248,37 @@ private struct TrainingActivityWidget: View {
 }
 
 // MARK: - P1: Coach's read
+
+private struct CoachMessageCard: View {
+    let message: CoachMessageSnapshot
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            WarmCard(fill: WarmInstrument.surfaceMuted) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        MonoLabel("COACH", size: 10)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(WarmInstrument.inkFaint)
+                    }
+                    Text(message.body)
+                        .font(.system(size: 15, design: .serif).italic())
+                        .foregroundColor(WarmInstrument.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    MonoLabel("OPEN WITH COACH", size: 8, color: WarmInstrument.inkMuted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+        }
+        .buttonStyle(CardPressButtonStyle())
+        .accessibilityLabel("Coach. \(message.body)")
+        .accessibilityHint("Opens this message in Coach chat")
+    }
+}
 
 private struct CoachReadWidget: View {
     let read: CoachReadSnapshot

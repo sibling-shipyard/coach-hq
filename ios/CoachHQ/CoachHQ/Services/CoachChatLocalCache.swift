@@ -60,6 +60,60 @@ enum CoachChatLocalCache {
         return max(0, days)
     }
 
+    private static func epochMs(fromISO8601 raw: String?) -> Double? {
+        guard let raw else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: raw) ?? {
+            formatter.formatOptions = [.withInternetDateTime]
+            return formatter.date(from: raw)
+        }()
+        return date.map { $0.timeIntervalSince1970 * 1000 }
+    }
+
+    /// Returns the exact cached proactive seed, or materializes its divider and Coach opener.
+    /// The route body is never shortened or regenerated.
+    static func proactiveThread(for route: CoachMessageRoute) -> ChatThread {
+        let createdAt = epochMs(fromISO8601: route.createdAt)
+            ?? Date().timeIntervalSince1970 * 1000
+        let cachedMessages = load(
+            repoFullName: route.repoFullName,
+            threadId: route.conversationSeedId
+        )
+        let messages: [ChatMessage]
+        if let cachedMessages, !cachedMessages.isEmpty {
+            messages = cachedMessages
+        } else {
+            messages = [
+                ChatMessage.divider(id: "d-\(Int(createdAt))", label: "TODAY"),
+                ChatMessage.coach(id: "c-\(Int(createdAt))", paragraphs: [route.body]),
+            ]
+        }
+        let firstUserText = messages.first(where: { $0.role == .user })?.text
+        let title: String
+        if let firstUserText {
+            title = firstUserText.count > 28
+                ? String(firstUserText.prefix(28)) + "…"
+                : firstUserText
+        } else {
+            title = "Post-workout check-in"
+        }
+        let lastCoachText = messages.last(where: { $0.role == .coach })?
+            .paragraphs?.joined(separator: " ") ?? route.body
+        let offset = dayOffset(fromCreatedAt: createdAt)
+
+        return ChatThread(
+            id: route.conversationSeedId,
+            dayOffset: offset,
+            createdAt: createdAt,
+            title: title,
+            preview: String(lastCoachText.prefix(80)),
+            ageLabel: offset == 0 ? "NOW" : "D-\(offset)",
+            status: .active,
+            messages: messages
+        )
+    }
+
     /// Thread ids cached locally that never made it into `serverThreads` at all - a genuinely
     /// uncommitted conversation (a materializeThreadIfNeeded "local-<ts>" thread, or a
     /// greetNow() greeting - neither commits server-side until a real close), not just a stale
@@ -84,7 +138,11 @@ enum CoachChatLocalCache {
     /// only ever happens onto a thread the server already knows about. This is the actual
     /// explanation for "a whole in-progress conversation vanished after force-quit/relaunch": it
     /// was cached correctly the whole time, restore just never looked for it under its local id.
-    static func restoring(_ serverThreads: [ChatThread], repoFullName: String) -> [ChatThread] {
+    static func restoring(
+        _ serverThreads: [ChatThread],
+        repoFullName: String,
+        preservingThreadId: String? = nil
+    ) -> [ChatThread] {
         let overlaid = serverThreads.map { thread -> ChatThread in
             if thread.status == .deleted {
                 clear(repoFullName: repoFullName, threadId: thread.id)
@@ -107,6 +165,8 @@ enum CoachChatLocalCache {
             let title: String
             if let firstUserText {
                 title = firstUserText.count > 28 ? String(firstUserText.prefix(28)) + "…" : firstUserText
+            } else if id.hasPrefix("local-proactive-") {
+                title = "Post-workout check-in"
             } else {
                 title = "New conversation"
             }
@@ -118,7 +178,7 @@ enum CoachChatLocalCache {
             // the fix above, but still shown), drop it here: clear its cache entry and don't
             // materialize it at all. A same-day unreplied greeting is untouched by this - that's
             // still "come back to what Coach just said," not clutter.
-            if firstUserText == nil, offset > 0 {
+            if firstUserText == nil, offset > 0, id != preservingThreadId {
                 clear(repoFullName: repoFullName, threadId: id)
                 return nil
             }

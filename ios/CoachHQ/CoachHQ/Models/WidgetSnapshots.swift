@@ -191,6 +191,20 @@ struct CoachReadSnapshot: Codable {
     let evidence: [String]?
 }
 
+struct CoachMessageSnapshot: Codable, Equatable {
+    let id: String
+    let createdAt: String
+    let body: String
+    let conversationSeedId: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case createdAt = "created_at"
+        case body
+        case conversationSeedId = "conversation_seed_id"
+    }
+}
+
 // MARK: - Sport commitments
 
 struct CommitmentSnapshot: Codable, Identifiable {
@@ -346,6 +360,7 @@ struct WidgetSyncSnapshot: Codable {
 // MARK: - Home aggregate
 
 struct WarmHomeSnapshots: Codable {
+    let coachMessage: CoachMessageSnapshot?
     let engine: EngineSnapshot
     let quest: QuestSnapshot
     let coachRead: CoachReadSnapshot

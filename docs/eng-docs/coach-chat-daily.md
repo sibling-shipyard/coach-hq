@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
 
 ## Context
 
@@ -27,6 +27,7 @@ for the intake-completion check) — not separate systems.
 | `ui/api/coach-chat.ts` | `POST {threadId?, messages, message, endConversationRequested?}` | Send a message or explicitly request a close |
 | `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL plus the split athlete, quest, and Fitness Snapshot context ahead of chat opening |
 | `ui/api/coach-chat-profile-status.ts` | `GET` | `{profileComplete}` — is the First Session Protocol done? |
+| `ui/api/coach-message.ts` | `POST {activity_ids}` | Generate and atomically store one idempotent post-sync Coach message |
 
 ## Day-to-day flow
 
@@ -94,6 +95,24 @@ greeting, with no reconciliation. If the athlete replies in one, that becomes th
 conversation; if they reply in both, that's two genuine conversations, no different from
 deliberately starting a second one via "New conversation." Worst case costs one redundant Gemini
 call for a greeting nobody reads.
+
+### 2a. Proactive post-sync seed
+
+A successful post-sync message is a second entry into the same local-thread lifecycle, not a
+second chat system. Home or a local notification carries the exact `conversation_seed_id` and
+body from `latest_message.json`; iOS also persists the repo identity so a cold-launch handoff can
+only be consumed by the matching authenticated athlete.
+
+`CoachChatView` first restores an exact cached seed when present. Otherwise it materializes one
+divider and one Coach message under `local-proactive-<message.id>`, bypassing greet. Reopening the
+same seed selects that thread without appending the opener again. A requested older proactive seed
+is exempt from the cleanup that removes past-day unreplied greetings; unrelated stale greetings
+still drop. Invalid, missing, or account-mismatched routes clear and fall through to normal greet.
+
+The opener rides in `messages` as prior context on the athlete's first reply. From there send and
+close are the ordinary path: a genuine close writes that same thread id through
+`chat_history.json` and applies ADR 0012's seven-thread cap. An unopened proactive seed remains
+local and consumes no retention slot.
 
 ### 3. Ordinary turns
 
@@ -310,6 +329,7 @@ for the write-builder table.
 | `ui/client/src/components/coach-chat/coachChatModel.ts` | client fetch helpers, `greet()`, SHA tracking, localStorage cache |
 | `ui/client/src/lib/prefetchCoachContext.ts` | web A3 trigger (`App.tsx`'s `Gate`) |
 | `ios/CoachHQ/CoachHQ/Services/CoachChatAPIClient.swift` | iOS client (Bearer + X-Coach-Repo) |
+| `ios/CoachHQ/CoachHQ/Services/CoachMessageAPIClient.swift` | bounded proactive-message client and delivery gate |
 | `ios/CoachHQ/CoachHQ/Models/CoachChatModels.swift` | Codable mirrors of the server's JSON |
 | `ios/CoachHQ/CoachHQ/Views/CoachChatView.swift` | iOS chat UI, greet/resume logic |
 | `ios/CoachHQ/CoachHQ/Views/CoachChatMarkdown.swift` | inline bold/italic + list-aware block rendering |
