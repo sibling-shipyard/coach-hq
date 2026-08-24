@@ -4,7 +4,7 @@ import { RepoDataGate } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import { parseCurrentWeek } from "@/lib/currentWeek";
 import type { Activity } from "@/lib/activities";
-import type { ChallengeV2 } from "@/lib/challenge";
+import type { SplitLedger } from "@/lib/challenge";
 import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import { useWidgetSnapshots } from "@/hooks/useWidgetSnapshots";
 import type { CoachMessageSnapshot } from "@/components/home-warm/snapshots";
@@ -21,7 +21,7 @@ export default function Home() {
       notOnboarded={notOnboarded}
       accessRevoked={accessRevoked}
     >
-      {data && data.challenge_v2 != null && (
+      {data && data.challenge_v2 != null && data.ledger != null && (
         <HomeContent data={data} coachMessage={widgetSnapshots?.home.coachMessage} />
       )}
     </RepoDataGate>
@@ -36,7 +36,7 @@ function HomeContent({
   coachMessage?: CoachMessageSnapshot;
 }) {
   const activities = data.activities as Activity[];
-  const challengeData = data.challenge_v2 as unknown as ChallengeV2;
+  const ledger = data.ledger as unknown as SplitLedger;
 
   // Use the coach-authored plan when it's the current live week; otherwise leave the
   // prop undefined so WarmInstrumentHome falls back to the recorded activity-log view.
@@ -49,7 +49,7 @@ function HomeContent({
   return (
     <WarmInstrumentHome
       activities={activities}
-      challengeData={challengeData}
+      ledger={ledger}
       currentWeek={currentWeek}
       dataMode="live"
       syncStatus={data.sync_status as SyncStatusPayload}

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildCountTargetQuest } from "./warmHomeModel";
 import type { Activity } from "@/lib/activities";
-import type { ChallengeV2, MainQuest } from "@/lib/challenge";
+import type { SplitLedger, MainQuest } from "@/lib/challenge";
 
 // Regression coverage for the "Main Quest always shows 0/0" bug: buildQuest() only ever
 // implemented the weekly-floor main-quest model (sessions/weekly_floor), so a count_target main
@@ -31,12 +31,12 @@ describe("buildCountTargetQuest", () => {
     };
   }
 
-  function challenge(mainQuest: MainQuest, seasonStart = "2026-06-01"): ChallengeV2 {
+  function ledger(mainQuest: MainQuest, seasonStart = "2026-06-01"): SplitLedger {
     return {
-      version: 4,
-      main_quest: mainQuest,
-      quests: [],
-      season: { name: "Test Season", start_date: seasonStart, end_date: "2026-12-31" },
+      seasons: { current_season_id: "s1", seasons: [{ id: "s1", name: "Test Season", start_date: seasonStart, end_date: "2026-12-31" }] },
+      quests: { weekly_targets: {}, main_quest: mainQuest as any, quests: [] },
+      progress: { rows: [] },
+      progressions: null,
     };
   }
 
@@ -54,7 +54,7 @@ describe("buildCountTargetQuest", () => {
       activity({ name: "WeightTraining #3" }),
       activity({ name: "Badminton: Casual #1" }),
     ];
-    const result = buildCountTargetQuest(mainQuest, activities, challenge(mainQuest));
+    const result = buildCountTargetQuest(mainQuest, activities, ledger(mainQuest));
     expect(result.completed).toBe(2);
     expect(result.floor).toBe(38);
   });
@@ -64,13 +64,13 @@ describe("buildCountTargetQuest", () => {
       activity({ name: "WeightTraining #1", start_date_local: "2026-05-31T08:00:00" }),
       activity({ name: "WeightTraining #2", start_date_local: "2026-06-01T08:00:00" }),
     ];
-    const result = buildCountTargetQuest(mainQuest, activities, challenge(mainQuest, "2026-06-01"));
+    const result = buildCountTargetQuest(mainQuest, activities, ledger(mainQuest, "2026-06-01"));
     expect(result.completed).toBe(1);
   });
 
   it("returns 0/target when no count_pattern is set", () => {
     const bare: MainQuest = { id: "main", name: "No pattern", type: "count_target", target: 10 };
-    const result = buildCountTargetQuest(bare, [activity()], challenge(bare));
+    const result = buildCountTargetQuest(bare, [activity()], ledger(bare));
     expect(result.completed).toBe(0);
     expect(result.floor).toBe(10);
   });

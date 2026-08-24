@@ -1,4 +1,4 @@
-import type { ChallengeV2 } from "@/lib/challenge";
+import type { SplitLedger } from "@/lib/challenge";
 import {
   getThisWeekActivities,
   getTrainingCategory,
@@ -276,40 +276,36 @@ function eligibleDaysSince(startDate: string, endDate: string | undefined, today
 }
 
 export function buildQuestSnapshot(
-  challenge: ChallengeV2,
+  ledger: any,
   quest: WarmHomeModel["quest"],
 ): QuestSnapshot {
   const palette = ["#7c6f9e", "#a8702c"];
   const today = new Date();
-  const sideQuests = challenge.quests.slice(0, 2).map((item, index) => {
+  const isSplit = ledger && "seasons" in ledger;
+  const questsArray = isSplit ? ledger.quests.quests : ledger.quests;
+  const sideQuests = questsArray.slice(0, 2).map((item: any, index: number) => {
     let value: number;
     let target: number;
+    const itemRows = isSplit ? ledger.progress.rows.filter((row: any) => row.quest_id === item.id) : [];
+    const completedDates = isSplit 
+      ? itemRows.filter((row: any) => row.status === "completed").map((row: any) => row.date)
+      : item.completed_dates ?? [];
+    
     if (item.type === "daily_streak") {
-      // Cumulative since the quest's own start_date, not this-week/this-month - matches the
-      // legacy SideQuestTracker.tsx's computeQuestProgress this was ported from.
-      const eligible = eligibleDaysSince(item.start_date, item.end_date, today);
+      const eligible = eligibleDaysSince(item.start_date, item.end_date ?? undefined, today);
       if (item.polarity === "default_done") {
-        // Every day counts unless missed or excused (both reduce the completed count the same
-        // way - excused only protects the *streak*, a separate concept this widget doesn't
-        // render). Kept for parity with renderQuestContext; no live quest uses this polarity
-        // any more after the challenge_v2 unification, but the formula stays correct if one does.
-        const missed = item.missed_dates?.length ?? 0;
-        const excused = item.excused_dates?.length ?? 0;
+        const missed = isSplit ? itemRows.filter((row: any) => row.status === "missed").length : (item.missed_dates?.length ?? 0);
+        const excused = isSplit ? itemRows.filter((row: any) => row.status === "excused").length : (item.excused_dates?.length ?? 0);
         value = Math.max(0, eligible - missed - excused);
         target = eligible;
       } else {
-        // default_not_done (also the polarity-absent default, matching
-        // renderQuestContext's equivalent calculation) - the standard shape for every
-        // quest going forward. Only completed_dates counts; excused_dates is tracked for
-        // monthly analytics but doesn't move this ratio.
-        value = item.completed_dates?.length ?? 0;
+        value = completedDates.length;
         target = eligible;
       }
     } else {
-      // "progress" quests (e.g. a chapters-read counter) read current/target directly - no
-      // polarity/streak concept.
-      const completedDates = item.completed_dates?.length ?? 0;
-      value = item.current ?? completedDates;
+      value = isSplit 
+        ? (itemRows.slice().reverse().find((row: any) => row.value != null)?.value as number | undefined ?? completedDates.length)
+        : (item.current ?? completedDates.length);
       target = item.target ?? Math.max(value, 1);
     }
     return {
@@ -318,7 +314,7 @@ export function buildQuestSnapshot(
       value,
       target,
       color: palette[index] ?? palette[0],
-      notes: item.notes,
+      notes: undefined, // notes dropped in split ledger quests
     };
   });
   const mondayIndex = (new Date().getDay() + 6) % 7;
@@ -664,11 +660,13 @@ export function buildRecentSessions(
 }
 
 function buildPhaseSnapshot(
-  challenge: ChallengeV2,
+  ledger: any,
   dataMode: "reference" | "live",
 ): BuildPhaseSnapshot {
-  const blockStart = challenge.phase?.current_block.start_date ?? challenge.challenge?.start_date;
-  const blockEnd = challenge.phase?.current_block.end_date ?? challenge.challenge?.end_date;
+  const isSplit = ledger && "seasons" in ledger;
+  const currentSeason = isSplit ? ledger.seasons.seasons.find((s: any) => s.id === ledger.seasons.current_season_id) : undefined;
+  const blockStart = isSplit ? currentSeason?.start_date : (ledger.phase?.current_block.start_date ?? ledger.challenge?.start_date);
+  const blockEnd = isSplit ? currentSeason?.end_date : (ledger.phase?.current_block.end_date ?? ledger.challenge?.end_date);
   const start = blockStart ? new Date(`${blockStart}T00:00:00`) : new Date();
   const end = blockEnd ? new Date(`${blockEnd}T00:00:00`) : new Date();
   const totalWeeks = Math.max(1, Math.ceil((end.getTime() - start.getTime() + DAY_MS) / (7 * DAY_MS)));
@@ -677,40 +675,54 @@ function buildPhaseSnapshot(
     Math.max(1, Math.floor((Date.now() - start.getTime()) / (7 * DAY_MS)) + 1),
   );
 
+  const milestonesArray = isSplit ? (ledger.progressions?.progressions ?? []) : (ledger.milestones ?? []);
+
   return {
     weekLabel: `WK ${currentWeek}/${totalWeeks}`,
     title: dataMode === "live" ? "BUILD PHASE · CHALLENGE DATA" : undefined,
-    milestones: (challenge.milestones ?? []).slice(0, 3).map((milestone) => {
-      const progress = milestone.progress;
-      const progressPercent = progress
-        ? Math.max(
-            0,
-            Math.min(
-              100,
-              Math.round(
-                ((progress.current_value - progress.baseline_value) /
-                  (progress.target_value - progress.baseline_value || 1)) *
-                  100,
+    milestones: milestonesArray.slice(0, 3).map((item: any) => {
+      if (isSplit) {
+        return {
+          id: item.id,
+          name: item.name,
+          baseline: "—",
+          current: item.current ?? "—",
+          target: item.target,
+          note: undefined,
+          progressPercent: null,
+          projectedDateLabel: undefined,
+        };
+      } else {
+        const progress = item.progress;
+        const progressPercent = progress
+          ? Math.max(
+              0,
+              Math.min(
+                100,
+                Math.round(
+                  ((progress.current_value - progress.baseline_value) /
+                    (progress.target_value - progress.baseline_value || 1)) *
+                    100,
+                ),
               ),
-            ),
-          )
-        : null;
-      const projectedDateLabel = progress?.projected_date
-        ? new Date(`${progress.projected_date}T00:00:00`)
-            .toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
-            .toUpperCase()
-        : undefined;
-      return {
-        id: milestone.id,
-        name: milestone.short_name ?? milestone.name,
-        baseline: String(milestone.baseline ?? "—"),
-        current: milestone.short_current
-          ?? String(milestone.current ?? milestone.baseline ?? "—"),
-        target: milestone.short_target ?? milestone.target,
-        note: milestone.note,
-        progressPercent,
-        projectedDateLabel: dataMode === "live" ? projectedDateLabel : undefined,
-      };
+            )
+          : null;
+        const projectedDateLabel = progress?.projected_date
+          ? new Date(`${progress.projected_date}T00:00:00`)
+              .toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+              .toUpperCase()
+          : undefined;
+        return {
+          id: item.id,
+          name: item.short_name ?? item.name,
+          baseline: String(item.baseline ?? "—"),
+          current: item.short_current ?? String(item.current ?? item.baseline ?? "—"),
+          target: item.short_target ?? item.target,
+          note: item.note,
+          progressPercent,
+          projectedDateLabel: dataMode === "live" ? projectedDateLabel : undefined,
+        };
+      }
     }),
     read: dataMode === "live"
       ? "Phase dates and milestone values are read directly from the generated challenge record."
@@ -747,15 +759,15 @@ function buildCoachReadSnapshot(
 
 export function buildWarmHomeSnapshots(
   activities: Activity[],
-  challengeData: ChallengeV2,
+  ledger: any,
   syncStatus: SyncStatusPayload,
   contract: CurrentWeekContract,
   dataMode: "reference" | "live" = "live",
 ): WarmHomeSnapshots {
-  const model = buildWarmHomeModel(activities, challengeData, syncStatus, contract);
+  const model = buildWarmHomeModel(activities, ledger, syncStatus, contract);
   const activityEvidence = buildActivityEvidenceSnapshots(activities);
   const engine = buildEngineSnapshot(activities, model.engine);
-  const quest = buildQuestSnapshot(challengeData, model.quest);
+  const quest = buildQuestSnapshot(ledger, model.quest);
 
   return {
     engine,
@@ -767,7 +779,7 @@ export function buildWarmHomeSnapshots(
     trainingActivity: buildTrainingActivitySnapshot(activities, activityEvidence),
     vo2: buildVo2Snapshot(),
     sessions: buildRecentSessions(activityEvidence),
-    phase: buildPhaseSnapshot(challengeData, dataMode),
+    phase: buildPhaseSnapshot(ledger, dataMode),
     amIImproving: buildBadmintonLensModel(activities, "ranked").amIImproving,
     activityEvidence,
     sync: {
@@ -805,7 +817,7 @@ function questSnapshotS(quest: QuestSnapshot): QuestSnapshotS {
 
 export function buildWidgetSnapshotsFile(
   activities: Activity[],
-  challengeData: ChallengeV2,
+  ledger: any,
   syncStatus: SyncStatusPayload,
   contract: CurrentWeekContract,
   dataMode: "reference" | "live" = "live",
@@ -813,7 +825,7 @@ export function buildWidgetSnapshotsFile(
 ): WidgetSnapshotsFile {
   const computedHome = buildWarmHomeSnapshots(
     activities,
-    challengeData,
+    ledger,
     syncStatus,
     contract,
     dataMode,

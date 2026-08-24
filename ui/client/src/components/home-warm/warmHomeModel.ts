@@ -1,4 +1,4 @@
-import type { ChallengeV2, MainQuest } from "@/lib/challenge";
+import type { SplitLedger, MainQuest } from "@/lib/challenge";
 import {
   type Activity,
   getThisWeekActivities,
@@ -450,11 +450,14 @@ function buildQuest(mainQuest: MainQuest): QuestModel {
 // not Strava-specific despite the field's "count_from" label, it's a generic name match that
 // works the same way against HealthKit-sourced activity names.
 export function buildCountTargetQuest(
-  mainQuest: MainQuest,
+  mainQuest: MainQuest | SplitLedger["quests"]["main_quest"],
   activities: Activity[],
-  challenge: ChallengeV2,
+  ledger: any,
 ): QuestModel {
-  const sinceRaw = challenge.season?.start_date ?? challenge.challenge?.start_date;
+  const isSplit = ledger && "seasons" in ledger;
+  const sinceRaw = isSplit 
+    ? ledger.seasons.seasons.find((s: any) => s.id === ledger.seasons.current_season_id)?.start_date
+    : ledger.season?.start_date ?? ledger.challenge?.start_date;
   const since = sinceRaw ?? "0000-01-01";
   const pattern = mainQuest.count_pattern ? new RegExp(mainQuest.count_pattern, "i") : null;
   const completed = pattern
@@ -476,7 +479,7 @@ export function buildCountTargetQuest(
 
 export function buildWarmHomeModel(
   activities: Activity[],
-  challenge: ChallengeV2,
+  ledger: any,
   syncStatus: SyncStatusPayload,
   contract: CurrentWeekContract,
 ): WarmHomeModel {
@@ -490,7 +493,7 @@ export function buildWarmHomeModel(
       day: "numeric",
       month: "long",
     }),
-    phaseName: challenge.challenge?.name || "Current block",
+    phaseName: "Current block",
     blockName: "This week",
     syncLabel: formatSyncAge(latestActivityTimestamp(activities) ?? syncStatus.timestamp),
     syncHealthy,
@@ -502,8 +505,8 @@ export function buildWarmHomeModel(
     commitments: buildCommitments(activities),
     planDays: buildPlanDays(contract),
     quest:
-      challenge.main_quest.type === "count_target"
-        ? buildCountTargetQuest(challenge.main_quest, activities, challenge)
-        : buildQuest(challenge.main_quest),
+      (ledger.quests?.main_quest ?? ledger.main_quest).type === "count_target"
+        ? buildCountTargetQuest(ledger.quests?.main_quest ?? ledger.main_quest, activities, ledger)
+        : buildQuest((ledger.quests?.main_quest ?? ledger.main_quest) as MainQuest),
   };
 }
