@@ -159,8 +159,8 @@ const CURRENT_WEEK_TEMPLATE = {
 };
 
 // Matches exactly what engine/scripts/build-dashboard-snapshot.mjs's own loadLedger() would
-// produce reading this carve's (all-empty) split-ledger files — ledger_schema: "split_v1", a
-// real (empty) ledger object, challenge_v2: null. Not a legacy placeholder: this is the real
+// produce reading this carve's (all-empty) split-ledger files — a
+// real (empty) ledger object. Not a legacy placeholder: this is the real
 // split-schema shape a fresh carve actually has before any sync has run. The UI's compat shim
 // (useRepoData.ts, splitLedgerAsChallenge()) already handles this shape for pages not yet
 // rewired — docs/plans/ui-dashboard-rewiring.md still owns retiring that shim, not this script.
@@ -168,14 +168,12 @@ const DASHBOARD_SNAPSHOT_PLACEHOLDER = {
   schema_version: 1,
   generated_at: "1970-01-01T00:00:00.000Z",
   activities: [],
-  ledger_schema: "split_v1",
   ledger: {
     seasons: SEASONS_TEMPLATE,
     quests: QUESTS_TEMPLATE,
     progress: PROGRESS_TEMPLATE,
     progressions: PROGRESSIONS_TEMPLATE,
   },
-  challenge_v2: null,
   current_week: CURRENT_WEEK_TEMPLATE,
   sync_status: {
     status: "none",

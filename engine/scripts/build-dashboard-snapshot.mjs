@@ -83,20 +83,10 @@ export function loadLedger(repoRootPath) {
   const paths = names.map((name) => path.join(directory, `${name}.json`));
   if (paths.every((file) => fs.existsSync(file))) {
     return {
-      ledger_schema: "split_v1",
       ledger: Object.fromEntries(names.map((name, index) => [name, JSON.parse(fs.readFileSync(paths[index], "utf-8"))])),
-      challenge_v2: null,
     };
   }
-  const legacyPath = path.join(directory, "challenge_v2.json");
-  if (fs.existsSync(legacyPath)) {
-    return {
-      ledger_schema: "challenge_v2_v4",
-      ledger: null,
-      challenge_v2: JSON.parse(fs.readFileSync(legacyPath, "utf-8")),
-    };
-  }
-  return { ledger_schema: "unavailable", ledger: null, challenge_v2: null };
+  return { ledger: null };
 }
 
 export function buildDashboardSnapshot(repoRootPath = REPO_ROOT) {
