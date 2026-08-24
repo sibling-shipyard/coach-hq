@@ -73,6 +73,20 @@ forward. Needs the same treatment as the retired `splitLedgerAsChallenge()` shim
 Flagged explicitly out of scope in the `ui-dashboard-rewiring` PR stack (part 4) — real rewrite,
 not a stale-reference fix.
 
+## `build-dashboard-snapshot.mjs` still has a legacy `challenge_v2.json` fallback path
+
+`engine/scripts/build-dashboard-snapshot.mjs`'s `loadLedger()` prefers the split ledger (all four
+of `seasons.json`/`quests.json`/`progress.json`/`progressions.json` present → `ledger_schema:
+"split_v1"`), but falls back to reading legacy `challenge_v2.json` whole (`ledger_schema:
+"challenge_v2_v4"`) whenever the split files are incomplete or absent. Both live athlete repos
+(`coach-skanda`, `coach-akash`) are migrated, so this fallback is currently dead in practice — but
+the code path, the `ledger_schema` tag values, and the `challenge_v2: null` field it emits still
+exist. Once the `ui-dashboard-rewiring` PR stack lands (client no longer reads `challenge_v2` at
+all) and no onboarding path can still produce an unmigrated repo, remove this fallback branch and
+the `challenge_v2`/`ledger_schema` fields from the snapshot shape entirely — don't leave a
+never-taken legacy branch as the only place in the pipeline still searching for the old setup.
+Flagged for `coach-chat-redesign-final-audit.md`'s dead-code sweep.
+
 ## Real bugs — cheap, still unfixed
 
 1. **`ui/client/src/components/home-warm/warmHomeModel.ts:497`** —

@@ -45,6 +45,17 @@ before starting, don't assume from this list alone.
   `turnWrites/*.ts` and the old appliers may be orphaned).
 - `engine/` scripts — any generator/script that predates the redesign and was superseded by a
   newer one but never removed.
+- **Old-setup fallback sweep, not just dead code.** Grep the whole repo — not only `ui/` — for any
+  code path that still reads, writes, or falls back to the pre-redesign shape: `challenge_v2`,
+  bare `propagated/SOUL.md`, `training/*` legacy paths, terminal-mode carve files
+  (`engine/claude/athlete/`), anything matching the "legacy → new" map in
+  `docs/eng-docs/skeleton-layout.md`. A live, reachable fallback branch is worse than dead code —
+  it silently keeps searching for the old setup and can reactivate the moment its trigger condition
+  is met again. Confirm no onboarding/carve path can still produce the condition that trips it, then
+  delete the branch, not just note it. Known instance to start from:
+  `engine/scripts/build-dashboard-snapshot.mjs`'s `loadLedger()` legacy `challenge_v2.json`
+  fallback (and the `ledger_schema`/`challenge_v2` fields it emits into
+  `gen/dashboard_snapshot.json`) — tracked in `coach-chat-open-items.md`.
 - Unused exports across `ui/client/src/lib/` — a lint pass (`ts-prune` or equivalent) rather than
   manual grep, given the size of the client tree.
 
