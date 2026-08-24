@@ -31,7 +31,7 @@ from pathlib import Path
 _here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_here.parent / "lib"))
 from repo_layout import ledger_dir, quest_history_path, repo_root_from_here, seasons_dir  # noqa: E402
-from challenge_schema import challenge_window, season_start_date  # noqa: E402
+from challenge_schema import season_start_date  # noqa: E402
 from timezone_util import resolve_athlete_timezone, today_in_timezone  # noqa: E402
 
 REPO_DIR = repo_root_from_here(__file__)
