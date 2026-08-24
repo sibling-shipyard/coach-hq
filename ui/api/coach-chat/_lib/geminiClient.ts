@@ -114,7 +114,7 @@ async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: str
   }
   if (!res.ok) {
     const detail = await res.text();
-    throw new Error(`Gemini request failed (${res.status}): ${detail}`);
+    throw Object.assign(new Error(`Gemini request failed (${res.status}): ${detail}`), { status: res.status });
   }
 
   const body = (await res.json()) as {

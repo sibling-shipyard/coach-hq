@@ -272,7 +272,7 @@ struct MainTabView: View {
                 coachMessageClient: CoachMessageAPIClient(authManager: authManager)
             )
             workoutService.configure(apiClient: client)
-            widgetStore.configure(apiClient: client)
+            widgetStore.configure(apiClient: client, authManager: authManager)
             // A3: warm coach-chat's context cache as soon as the app is active with a valid
             // session, regardless of whether the athlete ever opens the Chat tab this launch.
             Task { await CoachChatAPIClient(authManager: authManager).prefetchContext() }
