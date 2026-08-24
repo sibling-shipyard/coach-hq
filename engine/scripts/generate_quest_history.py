@@ -65,8 +65,6 @@ def process_season(data: dict, is_current: bool, quests_out: dict) -> None:
     so "later" here means "more current" - the live season's status for a shared date is more
     likely to reflect any post-hoc correction than the frozen archive's).
     """
-    season_end = challenge_window(data)["end_date"]
-
     for quest in data.get("quests", []):
         if quest.get("type") != "daily_streak":
             continue
@@ -138,9 +136,14 @@ def main():
         process_season(data, is_current=False, quests_out=quests_out)
 
     # Current season
-    current_path = ledger_dir(REPO_DIR) / "challenge_v2.json"
+    ledger = ledger_dir(REPO_DIR)
+    current_path = ledger / "challenge_v2.json"
+    progress_path = ledger / "progress.json"
     if current_path.exists():
         data = json.loads(current_path.read_text())
+        process_season(data, is_current=True, quests_out=quests_out)
+    elif progress_path.exists():
+        data = json.loads(progress_path.read_text())
         process_season(data, is_current=True, quests_out=quests_out)
 
     # Flatten each quest's date-keyed dict (built that way to absorb season-transition overlap,
