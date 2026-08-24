@@ -2,7 +2,6 @@
  * Run Warm Instrument snapshot models against a repo aggregate bundle (ADR 0005).
  * Used by /api/widget-snapshots — models stay in HQ, athlete repos hold data only.
  */
-import type { ChallengeV2 } from "../../../client/src/lib/challenge.js";
 import type { Activity } from "../../../client/src/lib/activities.js";
 import type { CurrentWeekContract } from "../../../client/src/components/home-warm/currentWeek.fixture.js";
 import { buildLiveWeekContract } from "../../../client/src/components/home-warm/liveWeekContract.js";
@@ -12,12 +11,11 @@ import type {
   CoachMessageSnapshot,
   WidgetSnapshotsFile,
 } from "../../../client/src/components/home-warm/snapshots.js";
-import { splitLedgerAsChallenge } from "../../../client/src/lib/splitLedgerChallenge.js";
+import type { SplitLedger } from "../../../client/src/lib/challenge.js";
 import type { ProgressJson, QuestsJson, SeasonsJson } from "../../coach-chat/_lib/coachQuestFiles.js";
 
 export interface DashboardSnapshotInput {
   activities?: Activity[];
-  challenge_v2?: ChallengeV2 | null;
   ledger?: { seasons: SeasonsJson; quests: QuestsJson; progress: ProgressJson; progressions: unknown } | null;
   current_week?: CurrentWeekContract | { data_status?: string };
   sync_status?: SyncStatusPayload;
@@ -142,8 +140,8 @@ export function generateWidgetSnapshotsFromDashboardSnapshot(
   aggregate: DashboardSnapshotInput,
   latestCoachMessageFile?: unknown,
 ): WidgetSnapshotsFile | null {
-  const challenge = aggregate.ledger ? splitLedgerAsChallenge(aggregate.ledger) : aggregate.challenge_v2 ?? null;
-  if (!challenge) return null;
+  const ledger = aggregate.ledger;
+  if (!ledger) return null;
 
   const activities = aggregate.activities ?? [];
   const syncStatus: SyncStatusPayload = aggregate.sync_status ?? {
@@ -153,17 +151,15 @@ export function generateWidgetSnapshotsFromDashboardSnapshot(
   };
 
   const contract = needsLiveRecomputation(aggregate.current_week)
-    ? buildLiveWeekContract(activities, challenge)
+    ? buildLiveWeekContract(activities)
     : (aggregate.current_week as CurrentWeekContract);
 
   return buildWidgetSnapshotsFile(
     activities,
-    challenge,
+    ledger as any,
     syncStatus,
     contract,
     "live",
     projectLatestCoachMessage(latestCoachMessageFile),
   );
 }
-
-export { splitLedgerAsChallenge } from "../../../client/src/lib/splitLedgerChallenge.js";
