@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { RepoDataGate } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import type { Activity } from "@/lib/activities";
-import type { ChallengeV2 } from "@/lib/challenge";
+import type { SplitLedger } from "@/lib/challenge";
 import { parseCurrentWeek } from "@/lib/currentWeek";
 import { adaptCurrentWeek } from "@/components/home-warm/currentWeekAdapter";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
@@ -31,7 +31,7 @@ export default function SportAnalyticsCalisthenics() {
 
 function SportAnalyticsCalisthenicsContent({ data }: { data: RepoData }) {
   const activities = data.activities as Activity[];
-  const challengeData = data.challenge_v2 as unknown as ChallengeV2;
+  const ledger = data.ledger as SplitLedger;
   const syncStatusData = data.sync_status as SyncStatusPayload;
 
   const currentWeekRt = parseCurrentWeek(data.current_week);
@@ -41,8 +41,8 @@ function SportAnalyticsCalisthenicsContent({ data }: { data: RepoData }) {
       : undefined;
 
   const lens = useMemo(
-    () => buildCalisthenicsLensModel(activities, challengeData),
-    [activities, challengeData],
+    () => buildCalisthenicsLensModel(activities, ledger),
+    [activities, ledger],
   );
 
   return (
@@ -78,7 +78,7 @@ function SportAnalyticsCalisthenicsContent({ data }: { data: RepoData }) {
           <SportSpine
             sport="calisthenics"
             activities={activities}
-            challengeData={challengeData}
+            ledger={ledger}
             syncStatus={syncStatusData}
             currentWeek={currentWeek}
           />

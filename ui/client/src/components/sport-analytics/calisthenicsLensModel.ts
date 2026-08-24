@@ -3,15 +3,8 @@
  * Figures come from logged Calisthenics activities + challenge milestones only.
  */
 import { type Activity, getTrainingCategory, parseLocal } from "@/lib/activities";
-import type { ChallengeV2, Milestone } from "@/lib/challenge";
-import {
-  computeMilestoneProgress,
-  estimateSessionsPerWeek,
-  formatProjectedDateLabel,
-  formatProjectedDateShort,
-  projectStepTarget,
-  resolveMilestoneProjectedDate,
-} from "@/lib/milestoneProgress";
+import type { SplitLedger } from "@/lib/challenge";
+import { formatProjectedDateShort } from "@/lib/milestoneProgress";
 
 const FIFTY_TWO_WEEKS_MS = 52 * 7 * 24 * 60 * 60 * 1000;
 const TWELVE_WEEKS = 12;
@@ -127,25 +120,23 @@ function calculateWeeklyStreaks(sessionDateKeys: string[]): { current: number; l
   return { current, longest };
 }
 
-function findMilestone(challenge: ChallengeV2, id: string): Milestone | undefined {
-  return challenge.milestones?.find((milestone) => milestone.id === id);
+function findMilestone(ledger: SplitLedger, id: string): any | undefined {
+  return ledger.progressions?.progressions?.find((progression: any) => progression.id === id);
 }
 
-function formatBlockMeta(challenge: ChallengeV2): string {
-  const block = challenge.phase?.current_block;
-  if (!block) {
-    // Classic challenge model has no phase/block concept - fall back to the challenge's
-    // own name, no day counter (the widget this feeds is Akash's Build Phase model only).
-    return challenge.challenge?.name.toUpperCase() ?? "CURRENT BLOCK";
+function formatBlockMeta(ledger: SplitLedger): string {
+  const currentSeason = ledger.seasons?.seasons?.find((s: any) => s.id === ledger.seasons.current_season_id);
+  if (!currentSeason) {
+    return "CURRENT BLOCK";
   }
-  const start = new Date(`${block.start_date}T00:00:00`);
-  const end = new Date(`${block.end_date}T00:00:00`);
+  const start = new Date(`${currentSeason.start_date}T00:00:00`);
+  const end = new Date(`${currentSeason.end_date}T00:00:00`);
   const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1);
   const currentDay = Math.min(
     totalDays,
     Math.max(1, Math.ceil((Date.now() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1),
   );
-  return `${challenge.phase?.name.toUpperCase()} · ${block.name.toUpperCase()} · DAY ${currentDay}/${totalDays}`;
+  return `${currentSeason.name.toUpperCase()} · DAY ${currentDay}/${totalDays}`;
 }
 
 // ─── Header ─────────────────────────────────────────────────────────────────
@@ -156,12 +147,12 @@ export interface CalisthenicsHeaderStats {
   blockMeta: string;
 }
 
-function buildHeaderStats(activities: Activity[], challenge: ChallengeV2): CalisthenicsHeaderStats {
+function buildHeaderStats(activities: Activity[], ledger: SplitLedger): CalisthenicsHeaderStats {
   const sessions = activities.filter((a) => getTrainingCategory(a) === "calisthenics");
   return {
     totalSessions: sessions.length,
     metaLine: `${sessions.length} sessions`,
-    blockMeta: formatBlockMeta(challenge),
+    blockMeta: formatBlockMeta(ledger),
   };
 }
 
@@ -219,17 +210,15 @@ function buildMobileCaption(steps: SkillTrackStep[]): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function buildSkillTrackRow(ladder: (typeof SKILL_LADDERS)[number], challenge: ChallengeV2): SkillTrackRow {
-  const milestone = ladder.milestoneId ? findMilestone(challenge, ladder.milestoneId) : undefined;
-  const progress = milestone?.progress;
-  const hasMilestoneProgress = Boolean(milestone && progress);
+function buildSkillTrackRow(ladder: (typeof SKILL_LADDERS)[number], ledger: SplitLedger): SkillTrackRow {
+  const milestone = ladder.milestoneId ? findMilestone(ledger, ladder.milestoneId) : undefined;
+  const hasMilestone = Boolean(milestone);
   const currentStepIndex =
-    hasMilestoneProgress && ladder.currentStepId
+    hasMilestone && ladder.currentStepId
       ? ladder.steps.findIndex((step) => step.id === ladder.currentStepId)
       : -1;
 
   const steps: SkillTrackStep[] = [];
-  let anchorValue = progress?.current_value ?? 0;
 
   for (let index = 0; index < ladder.steps.length; index += 1) {
     const step = ladder.steps[index];
@@ -239,28 +228,10 @@ function buildSkillTrackRow(ladder: (typeof SKILL_LADDERS)[number], challenge: C
       else if (index === currentStepIndex) state = "current";
     }
 
-    let projection: SkillTrackStep["projection"] = null;
-    if (state === "future" && progress && step.targetValue !== undefined) {
-      const projected = projectStepTarget(progress, anchorValue, step.targetValue);
-      if (projected) {
-        projection = {
-          sessions: projected.sessions,
-          dateLabel: projected.date ? formatProjectedDateShort(projected.date) : null,
-          math: projected.math,
-        };
-        anchorValue = step.targetValue;
-      }
-    } else if (state === "current" && progress) {
-      anchorValue = progress.current_value;
-    } else if (state === "done" && step.targetValue !== undefined) {
-      anchorValue = step.targetValue;
-    }
-
     let sub = "";
-    if (state === "current" && progress) {
-      sub = `NOW · ${milestone?.short_current ?? `${progress.current_value}${progress.unit}`}`;
-    } else if (state === "future" && projection?.sessions) {
-      sub = projection.sessions === 1 ? "≈1 SESSION" : `≈${projection.sessions} SESSIONS`;
+    if (state === "current" && milestone) {
+      const unitStr = milestone.unit ?? "";
+      sub = `NOW · ${milestone.current}${unitStr}`;
     } else if (state === "future" && step.muted) {
       sub = "—";
     }
@@ -271,7 +242,7 @@ function buildSkillTrackRow(ladder: (typeof SKILL_LADDERS)[number], challenge: C
       sub,
       state,
       muted: step.muted ?? false,
-      projection,
+      projection: null,
     });
   }
 
@@ -279,34 +250,19 @@ function buildSkillTrackRow(ladder: (typeof SKILL_LADDERS)[number], challenge: C
   let projSub: string | null = null;
   const note = ladder.displayNote;
 
-  if (progress && milestone) {
-    const finalStep = steps.at(-1);
-    if (finalStep?.projection?.dateLabel) {
-      projLabel = `${finalStep.label} ≈ ${finalStep.projection.dateLabel.toUpperCase()}`;
-    } else {
-      const eta = resolveMilestoneProjectedDate(milestone);
-      if (eta) {
-        projLabel = `${milestone.short_target ?? "TARGET"} ≈ ${formatProjectedDateShort(eta).toUpperCase()}`;
-      }
-    }
-    const sessionsPerWeek = estimateSessionsPerWeek(progress);
-    if (sessionsPerWeek) {
-      projSub = `IF ${sessionsPerWeek.toFixed(1).replace(/\.0$/, "")} SESS/WK HOLD`;
-    } else if (finalStep?.projection?.math) {
-      projSub = finalStep.projection.math.toUpperCase();
-    }
-  } else if (ladder.id === "press_handstand") {
+  if (ladder.id === "press_handstand") {
     projSub = "COMPRESSION-GATED";
   }
 
   let metric = ladder.fallbackMetric;
-  if (ladder.id === "press_handstand" && challenge.main_quest.skill_cap !== undefined) {
-    metric = `CAP ${challenge.main_quest.skill_cap} SKILL SESS/WK`;
-  } else if (progress) {
+  if (ladder.id === "press_handstand" && ledger.quests?.main_quest?.skill_cap !== undefined) {
+    metric = `CAP ${ledger.quests.main_quest.skill_cap} SKILL SESS/WK`;
+  } else if (milestone) {
+    const unitStr = milestone.unit ?? "";
     metric =
       ladder.id === "front_lever"
-        ? `BEST SL HOLD ${progress.current_value}${progress.unit}`
-        : `BEST ${progress.current_value}${progress.unit}`;
+        ? `BEST SL HOLD ${milestone.current}${unitStr}`
+        : `BEST ${milestone.current}${unitStr}`;
   }
 
   return {
@@ -323,10 +279,10 @@ function buildSkillTrackRow(ladder: (typeof SKILL_LADDERS)[number], challenge: C
   };
 }
 
-function buildSkillTracks(challenge: ChallengeV2): SkillTracksSnapshot {
+function buildSkillTracks(ledger: SplitLedger): SkillTracksSnapshot {
   return {
     available: true,
-    tracks: SKILL_LADDERS.map((ladder) => buildSkillTrackRow(ladder, challenge)),
+    tracks: SKILL_LADDERS.map((ladder) => buildSkillTrackRow(ladder, ledger)),
   };
 }
 
@@ -347,27 +303,19 @@ export interface CalisthenicsImprovingSnapshot {
   coachLine: string | null;
 }
 
-function buildImproving(challenge: ChallengeV2): CalisthenicsImprovingSnapshot {
+function buildImproving(ledger: SplitLedger): CalisthenicsImprovingSnapshot {
   const rows: CalisthenicsBenchmarkRow[] = [];
 
-  for (const milestone of challenge.milestones ?? []) {
-    if (!CALISTHENICS_BENCHMARK_IDS.has(milestone.id)) continue;
-    const progress = milestone.progress;
-    const progressPercent = computeMilestoneProgress(milestone);
+  for (const progression of ledger.progressions?.progressions ?? []) {
+    if (!CALISTHENICS_BENCHMARK_IDS.has(progression.id)) continue;
+    const unitStr = progression.unit ?? "";
     rows.push({
-      name: milestone.short_name ?? milestone.name,
-      startLabel: progress
-        ? `${progress.baseline_value}${progress.unit}`
-        : String(milestone.baseline ?? "—"),
-      nowLabel: progress
-        ? `${progress.current_value}${progress.unit}`
-        : milestone.short_current ?? String(milestone.current ?? "—"),
-      targetLabel: milestone.short_target ?? milestone.target,
-      progressPercent,
-      improving:
-        progress === undefined
-          ? null
-          : progress.current_value > progress.baseline_value,
+      name: progression.name,
+      startLabel: "—", // baseline_value dropped in split ledger
+      nowLabel: `${progression.current}${unitStr}`,
+      targetLabel: `${progression.target}${unitStr}`,
+      progressPercent: null, // dropped in split ledger
+      improving: null,
     });
   }
 
@@ -398,10 +346,9 @@ export interface TestedE1rmSnapshot {
   hoverNote: string | null;
 }
 
-function buildTestedE1rm(_activities: Activity[], challenge: ChallengeV2): TestedE1rmSnapshot {
-  const milestone = findMilestone(challenge, "weighted_pullups");
-  const progress = milestone?.progress;
-  if (!progress?.history?.length) {
+function buildTestedE1rm(_activities: Activity[], ledger: SplitLedger): TestedE1rmSnapshot {
+  const progression = findMilestone(ledger, "weighted_pullups");
+  if (!progression?.history?.length) {
     return {
       available: false,
       currentKg: null,
@@ -412,11 +359,11 @@ function buildTestedE1rm(_activities: Activity[], challenge: ChallengeV2): Teste
     };
   }
 
-  const points: E1rmTestPoint[] = progress.history.map((point) => ({
+  const points: E1rmTestPoint[] = progression.history.map((point: any) => ({
     date: point.date,
     dateLabel: formatProjectedDateShort(point.date),
-    e1rmKg: point.value,
-    note: `${point.value}${progress.unit} logged`,
+    e1rmKg: Number(point.value),
+    note: `${point.value}${progression.unit ?? ""} logged`,
     isPr: false,
   }));
 
@@ -426,14 +373,11 @@ function buildTestedE1rm(_activities: Activity[], challenge: ChallengeV2): Teste
   }
   best.isPr = true;
 
-  const blockDelta =
-    progress.history.length >= 2
-      ? progress.current_value - progress.baseline_value
-      : null;
+  const blockDelta = null; // baseline_value dropped in split ledger
 
   return {
     available: points.length > 0,
-    currentKg: progress.current_value,
+    currentKg: Number(progression.current),
     blockDeltaKg: blockDelta,
     prDateLabel: best.isPr ? best.dateLabel : null,
     points,
@@ -512,22 +456,19 @@ export interface CalisthenicsCoachReadSnapshot {
 function buildCoachRead(
   improving: CalisthenicsImprovingSnapshot,
   consistency: ConsistencySnapshot,
-  challenge: ChallengeV2,
+  ledger: SplitLedger,
 ): CalisthenicsCoachReadSnapshot {
   const reads: string[] = [];
 
-  const fl = findMilestone(challenge, "fl_single_leg");
-  if (fl?.progress?.history && fl.progress.history.length >= 2) {
-    const eta = resolveMilestoneProjectedDate(fl);
-    if (eta) {
-      reads.push(
-        `Front lever is tracking toward ${fl.short_target ?? "target"} around ${formatProjectedDateLabel(eta).replace(/, \d{4}$/, "")}.`,
-      );
-    }
+  const fl = findMilestone(ledger, "fl_single_leg");
+  if (fl?.history && fl.history.length >= 2) {
+    reads.push(
+      `Front lever is tracking toward ${fl.target}.`,
+    );
   }
 
-  const hs = findMilestone(challenge, "handstand_free");
-  if (hs?.progress && hs.progress.current_value === hs.progress.baseline_value) {
+  const hs = findMilestone(ledger, "handstand_free");
+  if (hs?.history?.length && hs.current === hs.history[0]?.value) {
     reads.push("Freestanding balance hasn't moved yet — compression and wrist prep stay the priority before chasing longer holds.");
   }
 
@@ -617,17 +558,17 @@ export interface CalisthenicsLensSnapshot {
 
 export function buildCalisthenicsLensModel(
   activities: Activity[],
-  challenge: ChallengeV2,
+  ledger: SplitLedger,
   now: number = Date.now(),
 ): CalisthenicsLensSnapshot {
-  const skillTracks = buildSkillTracks(challenge);
-  const improving = buildImproving(challenge);
-  const testedE1rm = buildTestedE1rm(activities, challenge);
+  const skillTracks = buildSkillTracks(ledger);
+  const improving = buildImproving(ledger);
+  const testedE1rm = buildTestedE1rm(activities, ledger);
   const consistency = buildConsistency(activities, now);
-  const coachRead = buildCoachRead(improving, consistency, challenge);
+  const coachRead = buildCoachRead(improving, consistency, ledger);
 
   return {
-    header: buildHeaderStats(activities, challenge),
+    header: buildHeaderStats(activities, ledger),
     skillTracks,
     improving,
     testedE1rm,
