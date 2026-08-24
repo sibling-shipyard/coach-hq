@@ -1,4 +1,3 @@
-import type { ChallengeV2 } from "@/lib/challenge";
 import {
   getTrainingCategory,
   parseLocal,
@@ -96,7 +95,7 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
 
 export function buildLiveWeekContract(
   activities: Activity[],
-  challenge: ChallengeV2,
+  _legacyChallenge?: any,
   now = new Date(),
 ): CurrentWeekContract {
   const monday = getMonday(now);

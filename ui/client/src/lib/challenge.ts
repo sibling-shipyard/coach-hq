@@ -159,3 +159,48 @@ export function toLocalDateStr(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+export interface SplitLedger {
+  seasons: {
+    current_season_id: string | null;
+    seasons: Array<{
+      id: string;
+      name: string;
+      start_date: string;
+      end_date: string;
+    }>;
+  };
+  quests: {
+    weekly_targets: Record<string, { target: number }>;
+    main_quest: {
+      id: string;
+      name: string;
+      type: string;
+      target: number;
+      count_pattern?: string;
+      weekly_floor?: number;
+      skill_cap?: number;
+      sessions?: QuestSession[];
+    };
+    quests: Array<{
+      id: string;
+      name: string;
+      type: string;
+      status: string;
+      start_date: string;
+      end_date: string | null;
+      target?: number;
+      unit?: string;
+      polarity?: "default_done" | "default_not_done";
+    }>;
+  };
+  progress: {
+    rows: Array<{
+      quest_id: string;
+      date: string;
+      status: string;
+      value?: number | string | null;
+    }>;
+  };
+  progressions: unknown;
+}

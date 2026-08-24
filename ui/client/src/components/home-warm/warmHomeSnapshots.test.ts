@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { buildQuestSnapshot } from "./warmHomeSnapshots";
-import type { ChallengeV2, Quest } from "@/lib/challenge";
+import type { SplitLedger, Quest } from "@/lib/challenge";
 import type { WarmHomeModel } from "./warmHomeModel";
 
 // Regression coverage for the "side quests always show 0/1" bug: buildQuestSnapshot only ever
@@ -26,11 +26,21 @@ describe("buildQuestSnapshot", () => {
     };
   }
 
-  function challenge(quests: Quest[]): ChallengeV2 {
+  function ledger(quests: Quest[]): SplitLedger {
     return {
-      version: 4,
-      main_quest: { id: "main", name: "Main", type: "count_target", target: 1 },
-      quests,
+      seasons: { current_season_id: null, seasons: [] },
+      quests: { weekly_targets: {}, main_quest: { id: "main", name: "Main", type: "count_target", target: 1 }, quests: quests as any },
+      progress: {
+        rows: quests.flatMap(q => {
+          const rows: any[] = [];
+          if (q.completed_dates) rows.push(...q.completed_dates.map(d => ({ quest_id: q.id, date: d, status: "completed" })));
+          if (q.missed_dates) rows.push(...q.missed_dates.map(d => ({ quest_id: q.id, date: d, status: "missed" })));
+          if (q.excused_dates) rows.push(...q.excused_dates.map(d => ({ quest_id: q.id, date: d, status: "excused" })));
+          if (q.current != null) rows.push({ quest_id: q.id, date: "2026-06-10", status: "completed", value: q.current });
+          return rows;
+        })
+      },
+      progressions: null,
     };
   }
 
@@ -51,7 +61,7 @@ describe("buildQuestSnapshot", () => {
       completed_dates: ["2026-06-01", "2026-06-03", "2026-06-05"],
       excused_dates: [],
     });
-    const result = buildQuestSnapshot(challenge([q]), questModel);
+    const result = buildQuestSnapshot(ledger([q]), questModel);
     // 2026-06-01 through 2026-06-10 inclusive = 10 eligible days
     expect(result.sideQuests[0].value).toBe(3);
     expect(result.sideQuests[0].target).toBe(10);
@@ -65,14 +75,14 @@ describe("buildQuestSnapshot", () => {
       missed_dates: ["2026-06-02"],
       excused_dates: ["2026-06-04"],
     });
-    const result = buildQuestSnapshot(challenge([q]), questModel);
+    const result = buildQuestSnapshot(ledger([q]), questModel);
     expect(result.sideQuests[0].value).toBe(8); // 10 eligible - 1 missed - 1 excused
     expect(result.sideQuests[0].target).toBe(10);
   });
 
   it("progress type: reads current/target directly, unaffected by polarity logic", () => {
     const q = quest({ type: "progress", current: 4, target: 10, polarity: undefined });
-    const result = buildQuestSnapshot(challenge([q]), questModel);
+    const result = buildQuestSnapshot(ledger([q]), questModel);
     expect(result.sideQuests[0].value).toBe(4);
     expect(result.sideQuests[0].target).toBe(10);
   });
@@ -87,7 +97,7 @@ describe("buildQuestSnapshot", () => {
       completed_dates: ["2026-06-01"],
       excused_dates: [],
     });
-    const result = buildQuestSnapshot(challenge([q]), questModel);
+    const result = buildQuestSnapshot(ledger([q]), questModel);
     expect(result.sideQuests[0].target).toBe(5); // 06-01 through 06-05, not through today
   });
 });
