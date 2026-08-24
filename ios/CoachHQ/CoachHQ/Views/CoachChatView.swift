@@ -37,7 +37,7 @@ struct CoachChatView: View {
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("chatWelcomeShown") private var chatWelcomeShown = false
 
-    /// Real challenge day, fetched once per session from challenge_v2.json (see loadHeaderContext()
+    /// Real challenge day, fetched once per session from profile.json (see loadHeaderContext()
     /// below) - nil until that fetch resolves, at which point headerContext below reflects it.
     @State private var liveDayNumber: Int?
 
@@ -45,10 +45,10 @@ struct CoachChatView: View {
         _requestedProactiveRoute = requestedProactiveRoute
     }
 
-    /// Day label comes from a live fetch of challenge_v2.json's start_date (same math as web's
-    /// challengeDayNumber() in coachChatModel.ts). Day-only header now (week label dropped, see
+    /// Day label comes from a live fetch of profile.json's coach_since (same math as web's
+    /// coachDayNumber() in coachChatModel.ts). Day-only header now (week label dropped, see
     /// issue #244). `liveDayNumber == nil` genuinely means no anchor has resolved yet (pre-FSP,
-    /// per ADR 0018's coach_since ?? season.start ?? challenge.start chain) - shows D-0 honestly
+    /// per ADR 0018) - shows D-0 honestly
     /// instead of falling through to the stale preview constant.
     private var headerContext: CoachChatHeaderContext {
         CoachChatHeaderContext(
