@@ -79,6 +79,11 @@ const COACH_LOG_TEMPLATE = {
   rows: [],
 };
 
+const LATEST_MESSAGE_TEMPLATE = {
+  schema_version: 1,
+  message: null,
+};
+
 const SEASONS_TEMPLATE = {
   version: 1,
   _meta: { updated_at: null, updated_by: "skeleton-init", trace_id: null },
@@ -543,6 +548,7 @@ function carve(outDir, sha) {
   writeJson(outDir, "user_data/coach/injuries.json", INJURIES_TEMPLATE);
   writeJson(outDir, "user_data/coach/coach_log.json", COACH_LOG_TEMPLATE);
   writeJson(outDir, "user_data/coach/chat_history.json", { threads: [] });
+  writeJson(outDir, "user_data/coach/latest_message.json", LATEST_MESSAGE_TEMPLATE);
   writeText(outDir, "user_data/coach/reference/.gitkeep", "");
   writeText(outDir, "user_data/coach/archive/phases.md", ARCHIVE_PHASES_TEMPLATE);
   writeText(outDir, "user_data/coach/archive/week_plans.md", ARCHIVE_WEEK_PLANS_TEMPLATE);

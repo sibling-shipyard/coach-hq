@@ -32,6 +32,7 @@
 | 0026 | Agent loop: gates in docs, not a graph runtime | core |
 | 0027 | HealthKit signals are stored at their own grain | cross-cutting (iOS sync, pipeline, web + WidgetKit) |
 | 0028 | Heart-rate zone boundaries and colours have separate owners | cross-cutting (iOS sync, pipeline, web + WidgetKit) |
+| 0029 | Proactive Coach messages have an athlete-owned latest-message record | cross-cutting (coach message, web + iOS) |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.
