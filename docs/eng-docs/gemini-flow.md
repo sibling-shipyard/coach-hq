@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
 
 ## Context
 
@@ -14,6 +14,10 @@ the same way `coach-chat-flow.md` is the one reference for the request lifecycle
 `gemini-flash-latest` (Google's maintained alias — dated model ids keep getting sunset early;
 see `ui/api/coach-chat/_lib/geminiClient.ts`), called via raw `fetch` to `generateContent`, no SDK
 (`GEMINI_API_KEY` env var). One call per turn, no streaming (issue #270).
+
+`ui/api/coach-message.ts` uses the same model and key for one post-sync call. Its separate
+message-only schema gets bounded repo-owned activity context, including `effort_shape` but never
+raw HR points; it does not use chat actions, history, or the explicit chat cache.
 
 ## Prompt shape: static prefix + dynamic block
 

@@ -76,18 +76,20 @@ activity-grain `effort_shape` extends ADR 0027's existing HR sidecar decision wi
 
 The prompt gets the synced batch, deterministic comparisons such as `gen/athlete_insights.json`, the
 compact HR effort shape, a current live week when available, active injury flags, and recent Coach
-continuity. The reply is one thought in 1–3 short sentences: notice something real, respond as a
-human, then ask only when an answer would change the coaching. No stat dump, invented cause,
-diagnosis, generic praise, or forced question.
+continuity, including the prior proactive body. That prior body is style context for avoiding
+repetition, never a same-day send gate: MVP still speaks once per unique sync batch. The reply is
+the warmest true thing available, one thought in 1–3 short sentences. Specificity proves Coach
+looked; a question appears only when the athlete is the remaining sensor.
 
-- Strong: “You held that together late. That's the part I noticed. How did the last ten minutes feel?”
-- Easy: “Good choice keeping this one easy. That's you protecting the work you've already done.”
-- Rough: “I saw it. That one looked heavy. Don't fix it from the numbers yet. Tell me what felt off.”
-- Batch: “Two sessions landed together. Good work, but I care more about how you've come out of them.”
-- HR: “Your heart rate kept settling between pushes. Did the recoveries feel as controlled as they looked?”
+Few-shots are compact input/output pairs, weighted toward quiet recognition, missing or partial HR,
+batch sync, unusual HR, easy work, controlled work, and genuinely heavy work. They teach Coach not
+to sum transport into one giant session, not to turn every message into homework, and to vary the
+common quiet acknowledgement. No stat-first opening, invented cause or feeling, diagnosis, generic
+praise, em dash, or HR-only claim about fatigue, fitness, recovery, or drift.
 
-Few-shots cover these five shapes and an eval checks grounding, warmth, brevity, safety, and whether
-the question was earned. Challenging messages are welcome; relentless congratulations are not trust.
+Two shapes stay out of the prompt. “Return after a gap” needs days since the session *before* the
+new one; post-sync `days_since_last_session` is already zero. A pattern challenge needs occurrence
+evidence, not one free-text memory. Until those fields exist, both route to quiet recognition.
 
 ## Implementation phases
 
@@ -104,9 +106,9 @@ flowchart LR
 |---|---|---|---|
 | **C0 · contract + seed (S)** | `kdb/decisions/0029-proactive-coach-message.md`<br/>`kdb/decisions/README.md`<br/>`platform/scripts/carve-skeleton.mjs`<br/>`docs/eng-docs/skeleton-layout.md`<br/>`docs/eng-docs/coach-data-schema.md` | none | Tech Lead |
 | **H1 · HR effort shape (M)** | `ios/CoachHQ/CoachHQ/Models/HRStream.swift`<br/>`ios/CoachHQ/CoachHQ/Services/HRAnalysis.swift`<br/>`ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift`<br/>`ios/CoachHQ/CoachHQTests/HRAnalysisTests.swift`<br/>`docs/eng-docs/ios-sync.md`<br/>`docs/eng-docs/healthkit-richer-signals.md`<br/>`docs/eng-docs/healthkit-richer-signals-lld.md` | none | iOS Builder |
-| **A1 · generation + atomic write (M)** | `ui/api/coach-message.ts`<br/>`ui/api/coach-message/_lib/coachMessage.ts`<br/>`ui/api/coach-message/_tests/coachMessage.test.ts`<br/>`ui/api/README.md` | C0, H1 | UI Expert |
-| **W1 · snapshot + web Home (M)** | `ui/api/widget-snapshots.ts`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.js`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.d.ts`<br/>`ui/api/auth/_tests/generate-widget-snapshots-from-dashboard-snapshot.test.ts`<br/>`ui/client/src/components/home-warm/snapshots.ts`<br/>`ui/client/src/components/home-warm/warmHomeSnapshots.ts`<br/>`ui/client/src/components/home-warm/WarmInstrumentHome.tsx`<br/>`ui/client/src/components/home-warm/WarmInstrumentWidgets.tsx`<br/>`ui/client/src/components/home-warm/widgets/CoachReadCard.tsx`<br/>`ui/client/src/components/home-warm/widgets/CoachMessageCard.tsx`<br/>`ui/client/src/components/home-warm/warm-instrument.css`<br/>`ui/client/src/hooks/useWidgetSnapshots.ts`<br/>`ui/client/src/pages/Home.tsx`<br/>`shared/golden-dataset/README.md`<br/>`shared/golden-dataset/latest_message.json`<br/>`shared/golden-dataset/generate-repo-data.mjs`<br/>`shared/golden-dataset/widget_snapshots.json` | C0, A1 | UI Expert |
-| **I1 · iOS delivery + chat handoff (L)** | `ios/CoachHQ/CoachHQ.xcodeproj/project.pbxproj`<br/>`ios/CoachHQ/CoachHQ/CoachHQApp.swift`<br/>`ios/CoachHQ/CoachHQ/Models/WidgetSnapshots.swift`<br/>`ios/CoachHQ/CoachHQ/Services/CoachMessageAPIClient.swift`<br/>`ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift`<br/>`ios/CoachHQ/CoachHQ/Services/WidgetSnapshotStore.swift`<br/>`ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift`<br/>`ios/CoachHQ/CoachHQ/Views/MainTabView.swift`<br/>`ios/CoachHQ/CoachHQ/Views/WarmInstrumentHomeView.swift`<br/>`ios/CoachHQ/CoachHQ/Views/CoachChatView.swift`<br/>`ios/CoachHQ/CoachHQTests/CoachMessageSeedTests.swift`<br/>`docs/plans/coach-proactive-message.md` | H1, A1, W1 | iOS Builder |
+| **A1 · generation + atomic write (M)** | `ui/api/coach-message.ts`<br/>`ui/api/coach-message/_lib/coachMessage.ts`<br/>`ui/api/coach-message/_tests/coachMessage.test.ts`<br/>`ui/api/README.md`<br/>`docs/eng-docs/env-vars.md`<br/>`docs/eng-docs/gemini-flow.md`<br/>`docs/plans/coach-proactive-message.md` | C0, H1 | UI Expert |
+| **W1 · snapshot + web Home (M)** | `ui/api/widget-snapshots.ts`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.ts`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.js`<br/>`ui/api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.d.ts`<br/>`ui/api/auth/_tests/generate-widget-snapshots-from-dashboard-snapshot.test.ts`<br/>`ui/client/src/components/home-warm/snapshots.ts`<br/>`ui/client/src/components/home-warm/warmHomeSnapshots.ts`<br/>`ui/client/src/components/home-warm/WarmInstrumentHome.tsx`<br/>`ui/client/src/components/home-warm/WarmInstrumentWidgets.tsx`<br/>`ui/client/src/components/home-warm/widgets/CoachReadCard.tsx`<br/>`ui/client/src/components/home-warm/widgets/CoachMessageCard.tsx`<br/>`ui/client/src/components/home-warm/warm-instrument.css`<br/>`ui/client/src/components/coach-chat/coachChatModel.ts`<br/>`ui/client/src/components/coach-chat/coachChatModel.test.ts`<br/>`ui/client/src/hooks/useWidgetSnapshots.ts`<br/>`ui/client/src/pages/Home.tsx`<br/>`ui/client/src/pages/CoachChat.tsx`<br/>`ui/docs/reference-interactions/Widget Design Philosophy.md`<br/>`shared/golden-dataset/README.md`<br/>`shared/golden-dataset/latest_message.json`<br/>`shared/golden-dataset/generate-repo-data.mjs`<br/>`shared/golden-dataset/widget_snapshots.json` | C0, A1 | UI Expert |
+| **I1 · iOS delivery + chat handoff (L)** | `ios/CoachHQ/CoachHQ.xcodeproj/project.pbxproj`<br/>`ios/CoachHQ/CoachHQ/CoachHQApp.swift`<br/>`ios/CoachHQ/CoachHQ/Models/WidgetSnapshots.swift`<br/>`ios/CoachHQ/CoachHQ/Resources/golden_widget_snapshots.json`<br/>`ios/CoachHQ/CoachHQ/Services/CoachMessageAPIClient.swift`<br/>`ios/CoachHQ/CoachHQ/Services/HealthKitSyncManager.swift`<br/>`ios/CoachHQ/CoachHQ/Services/WidgetSnapshotStore.swift`<br/>`ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift`<br/>`ios/CoachHQ/CoachHQ/Views/MainTabView.swift`<br/>`ios/CoachHQ/CoachHQ/Views/WarmInstrumentHomeView.swift`<br/>`ios/CoachHQ/CoachHQ/Views/CoachChatView.swift`<br/>`ios/CoachHQ/CoachHQTests/CoachMessageSeedTests.swift`<br/>`docs/plans/coach-proactive-message.md` | H1, A1, W1 | iOS Builder |
 
 ## Done when
 
@@ -117,7 +119,8 @@ flowchart LR
 5. Closing that conversation persists one normal retained `chat_history.json` thread.
 6. Gemini or write failure cannot fail sync, erase the last message, or claim Coach responded.
 7. HR summaries use full samples, preserve gaps, stay within 12 blocks, and never send raw points.
-8. Strong, easy, rough, batch, HR, missing-HR, partial-coverage, conflict, and seed cases pass review.
+8. Quiet-repeat, easy, controlled, heavy, batch, unusual-HR, missing-HR, partial-coverage,
+   unsupported-cause, conflict, and seed cases pass review.
 
 ## Deferred
 
@@ -125,6 +128,9 @@ flowchart LR
 - Quiet hours, notification-preview privacy controls, and per-athlete frequency controls.
 - A message inbox or history beyond the single latest conversation seed.
 - Proactive Coach messages triggered by recovery, plan drift, or milestones rather than a sync.
+- Return-after-gap messaging until context carries days since the previous same-sport session.
+- Pattern challenges until learned patterns carry occurrence and first/last-seen evidence.
+- Comparison cohort size, session content/RPE, work-rest segmentation, and sleep context.
 
 Current touchpoints: `platform/scripts/carve-skeleton.mjs`, `docs/eng-docs/skeleton-layout.md`,
 `docs/eng-docs/ios-sync.md`, `docs/eng-docs/healthkit-richer-signals-lld.md`,
