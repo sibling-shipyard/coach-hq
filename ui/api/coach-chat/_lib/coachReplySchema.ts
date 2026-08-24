@@ -51,7 +51,7 @@ export interface GeminiReply {
   session_closed?: boolean;
 }
 
-export type TurnMode = "greeting" | "ordinary" | "closing";
+export type TurnMode = "greeting" | "ordinary" | "closing" | "activity_sync";
 
 
 const RESPONSE_PROPERTIES = {
@@ -305,7 +305,9 @@ const RETURNING_CLOSE_ACTIONS = [
 
 function responsePropertiesFor(mode: TurnMode, firstSession: boolean) {
   const actionFields: readonly ResponseField[] =
-    mode === "greeting" || (mode === "ordinary" && !firstSession)
+    mode === "greeting" ||
+    mode === "activity_sync" ||
+    (mode === "ordinary" && !firstSession)
       ? []
       : firstSession
         ? mode === "closing"

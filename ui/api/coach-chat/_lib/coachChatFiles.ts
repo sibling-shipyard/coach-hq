@@ -55,6 +55,12 @@ const GH_HEADERS_RAW = (token: string) => ({
   "X-GitHub-Api-Version": "2022-11-28",
 });
 
+const GH_HEADERS_JSON = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+  Accept: "application/vnd.github+json",
+  "X-GitHub-Api-Version": "2022-11-28",
+});
+
 // COACH_CHAT_BRANCH lets a real close be tested end to end on a scratch branch instead of a
 // live athlete's main. Every read (this file) and write (commitFilesAtomic's branch option in
 // coachTurn.ts) must resolve the same way, or a scratch-branch test silently reads real main
@@ -93,6 +99,54 @@ export async function getFileRaw(repo: string, path: string, token: string, atte
     }
   }
   throw new Error(`Failed to fetch ${path} - unreachable`); // keeps TS happy, loop always returns/throws
+}
+
+export interface DirectoryEntry {
+  name: string;
+  type: string;
+  path: string;
+}
+
+export async function listDirectory(
+  repo: string,
+  path: string,
+  token: string,
+  attempts = 3,
+): Promise<DirectoryEntry[] | null> {
+  const ref = encodeURIComponent(resolveCoachChatBranch());
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.github.com/repos/${repo}/contents/${path}?ref=${ref}`,
+        { headers: GH_HEADERS_JSON(token) },
+      );
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        throw Object.assign(new Error(`Failed to list ${path} (${res.status})`), {
+          status: res.status,
+        });
+      }
+      const body = (await res.json()) as unknown;
+      if (!Array.isArray(body)) return [];
+      return body.flatMap((entry) => {
+        if (
+          entry == null ||
+          typeof entry !== "object" ||
+          typeof (entry as DirectoryEntry).name !== "string" ||
+          typeof (entry as DirectoryEntry).type !== "string" ||
+          typeof (entry as DirectoryEntry).path !== "string"
+        ) {
+          return [];
+        }
+        const item = entry as DirectoryEntry;
+        return [{ name: item.name, type: item.type, path: item.path }];
+      });
+    } catch (err) {
+      if (!isTransientReadFailure(err) || attempt === attempts - 1) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+  throw new Error(`Failed to list ${path} - unreachable`);
 }
 
 export interface CoachContext {

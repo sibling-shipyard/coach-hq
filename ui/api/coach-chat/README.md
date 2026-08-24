@@ -5,7 +5,7 @@ points stay one level up because Vercel maps literal file paths to URLs:
 
 | Route file                        | Endpoint                         | Responsibility                                                           |
 | --------------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| `../coach-chat.ts`                | `/api/coach-chat`                | Authenticate and dispatch GET history or POST greet/message/close stages |
+| `../coach-chat.ts`                | `/api/coach-chat`                | Authenticate and dispatch GET history or POST greet/sync/message/close stages |
 | `../coach-chat-context.ts`        | `/api/coach-chat-context`        | Preload the same cached context used by chat                             |
 | `../coach-chat-profile-status.ts` | `/api/coach-chat-profile-status` | Report whether First Session setup is complete                           |
 
@@ -20,7 +20,7 @@ flowchart LR
     render --> prompt["Select prompt text + mode schema"]
     prompt --> gemini["Gemini returns semantic actions"]
     gemini --> apply["Server validates ids and applies actions"]
-    apply --> commit["Atomic Git commit on close\nor incremental FSP save"]
+    apply --> commit["Atomic Git commit on close,\nactivity-sync, or incremental FSP save"]
 ```
 
 - SOUL and the First Session horcrux are build outputs in `api/_generated/soul.ts`, not athlete-repo files.
@@ -70,6 +70,8 @@ must not depend on prompt text.
 | `workoutSchema.ts`     | Structural runtime validation for workout/template JSON                                               |
 | `coachSinceStamp.ts`   | Load profile state and stamp `coach_since` once when First Session completes                          |
 | `coachTurn.ts`         | Orchestrate message parsing, context loading, Gemini, write assembly, and commit responses            |
+| `activitySync.ts`      | Activity-sync batch id, hist lookup, and attachment rows                                              |
+| `activitySyncTurn.ts`  | Persist-on-sync Coach turn — one committed thread per verified batch                                  |
 | `turnWrites/`          | One file per `GeminiReply` action field's write-builder — see its own [README](_lib/turnWrites/README.md) |
 | `onboardingWrites.ts`  | Normalize native onboarding hints and suppress duplicate greet commits                                |
 | `fspWrites.ts`         | Restrict ordinary-turn persistence to incremental First Session writes                                |

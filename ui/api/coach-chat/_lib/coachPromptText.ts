@@ -73,6 +73,14 @@ export function buildDynamicText(
           "questions - open a conversation, don't interrogate. A greeting never closes a session",
           "by itself.", SESSION_STAYS_OPEN,
         ].join("\n")
+      : mode === "activity_sync"
+      ? [
+          "\nThis turn is an activity sync. The athlete did not type a message — your reply stands",
+          "alone as the coaching response to the verified batch in context.",
+          "Mention no invented cause. Ask a question only when the answer could change the coaching.",
+          "You write words only. Do not invent IDs or measurements; the activity card is system-owned.",
+          SESSION_STAYS_OPEN,
+        ].join("\n")
       : mode === "closing" && firstSession
       ? [
           "\nThe athlete's latest message is a session-close signal, and this is also a First",
@@ -246,6 +254,28 @@ export function activeTemplatesContext(templateIds: ReadonlySet<string>): string
   if (templateIds.size === 0) return undefined;
   const lines = [...templateIds].map((id) => `- template_id: ${id}`);
   return ["Current templates (use these exact template_ids for template_edit):", ...lines].join("\n");
+}
+
+export function activitySyncBatchContext(
+  activities: readonly {
+    id: string;
+    title: string;
+    sport: string;
+    start: string;
+    duration_s: number;
+    load: number | null;
+  }[],
+): string {
+  const lines = activities.map(
+    (activity) =>
+      `- id: ${activity.id} | title: ${activity.title} | sport: ${activity.sport} | start: ${activity.start} | duration_s: ${activity.duration_s} | load: ${activity.load ?? "null"}`,
+  );
+  return [
+    "<activity_sync_batch>",
+    "Verified activities just synced. These rows are system-owned facts. Do not invent ids or measurements.",
+    ...lines,
+    "</activity_sync_batch>",
+  ].join("\n");
 }
 
 export function activeWeekSessionsContext(

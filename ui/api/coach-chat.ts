@@ -1,4 +1,4 @@
-/** Hosted Coach Phelps HTTP route. Turn stages live in coach-chat/_lib/coachTurn.ts. */
+/** Hosted Coach Phelps HTTP route. Turn stages live in coach-chat/_lib/coachTurn.ts and activitySyncTurn.ts. */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import {
   resolveRepoAuth,
@@ -46,11 +46,13 @@ import {
   commitClosingTurn,
   commitOrdinaryTurn,
   handleHistory,
+  isActivitySyncRequest,
   isGreetRequest,
   loadTurnState,
   parseTurnRequest,
   requestCoachReply,
 } from "./coach-chat/_lib/coachTurn.js";
+import { handleActivitySync } from "./coach-chat/_lib/activitySyncTurn.js";
 
 async function handleGreet(
   repo: string,
@@ -202,6 +204,8 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
   if (parsed instanceof Response) return parsed;
   if (isGreetRequest(parsed))
     return handleGreet(repo, token, apiKey, parsed.onboardingHints);
+  if (isActivitySyncRequest(parsed))
+    return handleActivitySync(repo, token, apiKey, parsed);
 
   const state = await loadTurnState(parsed, repo, token, apiKey);
   if (state instanceof Response) return state;

@@ -239,6 +239,7 @@ mode/session-state combination shouldn't expose, rather than just discouraging i
 | Mode | Fields exposed |
 |---|---|
 | Greeting | none (plus always `reply`, `session_closed`) |
+| Activity sync | none |
 | Returning ordinary | none |
 | First Session ordinary | `memory_update`, `sports_update`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
 | First Session close | the same, plus `coach_note` |
