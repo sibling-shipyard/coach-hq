@@ -23,8 +23,9 @@ code as dead. Run this last.
 
 Athlete-repo migration (both `coach-skanda` and `coach-akash` on the current schema,
 `carve-skeleton.mjs` fixed) already shipped — no longer a prerequisite.
-3. `docs/plans/ui-dashboard-rewiring.md` shipped — dashboard reads split-ledger data directly,
-   `splitLedgerChallenge.ts` shim retired or reduced to its final legacy-only scope.
+3. `docs/plans/ui-dashboard-rewiring-web.md` and `docs/plans/ui-dashboard-rewiring-ios.md` both
+   shipped — dashboard reads split-ledger data directly on both platforms,
+   `splitLedgerChallenge.ts` shim retired.
 
 If any of these three isn't done, this audit will misclassify still-live code as dead. Check
 before starting, don't assume from this list alone.

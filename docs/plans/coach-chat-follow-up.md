@@ -41,7 +41,8 @@ less of a concern.
 No streaming responses, dead `EmptyChatPane` code. Day-number/season-reset semantics (issue #179)
 is no longer accurately described as "untouched" - it was fixed by ADR 0018, then regressed by
 the ledger split for migrated repos on a different code path; see
-`docs/plans/coach-chat-open-items.md`'s day-count-badge entry for the current, verified state.
+`docs/plans/ui-dashboard-rewiring-web.md` (step 5) and `docs/plans/ui-dashboard-rewiring-ios.md`
+(step 1) for the fix on each platform.
 
 ## 6. Background-finish redesign for closing turns ("async close")
 

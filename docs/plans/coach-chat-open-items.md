@@ -6,25 +6,6 @@ Running list of real, still-open work, replacing the accumulated `coach-redesign
 files and `BACKLOG.md` (deleted — their shipped scope is done, this doc keeps only what's still
 true). Delete each item once it's actually fixed, not just remembered.
 
-## Day-count badge doesn't actually read `profile.json`'s `coach_since` on iOS
-
-Confirmed by direct code read (2026-08-21). The web half of this bug (and its fix) is now owned by
-`docs/plans/ui-dashboard-rewiring-part5-coach-chat.md`, not tracked here separately.
-
-- **iOS**: `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`
-  (~lines 211-219) reads `user_data/ledger/challenge_v2.json` directly and decodes it into
-  `ChallengeV2Summary` — actively called from `CoachChatView.swift`. Both athlete repos are now
-  migrated to the split ledger, so this reads a file that no longer exists at all (a `readFile`
-  404, not a graceful fallback).
-
-**Fix**: read `profile.json.coach_since` directly instead of going through `challenge_v2`'s shape
-at all (already the correct source per ADR 0018 — `coachDay.ts`'s `coachDayNumber()` already does
-this server-side, just isn't currently wired to the iOS client's badge). Also fix
-`UserFacingError.swift:66`'s `raw.contains("challenge_v2")` string match (stops matching once
-migrated) and stale comments at `CoachSetupState.swift:48`, `OnboardingHints.swift:36`,
-`CoachChatView.swift:39,43,488,662`, `CoachChatPreviewData.swift:8`. iOS Builder's territory per
-`AGENTS.md` routing.
-
 ## Async closing (design decision needed, not built)
 
 Same idea `docs/plans/coach-chat-follow-up.md`'s item 6 already tracks in full (origin, prior
@@ -58,8 +39,8 @@ seasons) to build `quest_history.json`, which `MonthlyAnalytics.tsx` consumes. F
 daily-streak data entirely — Monthly Analytics quietly goes stale for any migrated athlete going
 forward. Needs the same treatment as the retired `splitLedgerAsChallenge()` shim: read
 `quests.json`/`progress.json` directly instead of (or as a fallback alongside) the legacy file.
-Flagged explicitly out of scope in the `ui-dashboard-rewiring` PR stack (part 4) — real rewrite,
-not a stale-reference fix.
+Flagged explicitly out of scope in `docs/plans/ui-dashboard-rewiring-web.md` (step 4) — real
+rewrite, not a stale-reference fix.
 
 ## `build-dashboard-snapshot.mjs` still has a legacy `challenge_v2.json` fallback path
 
@@ -69,7 +50,7 @@ of `seasons.json`/`quests.json`/`progress.json`/`progressions.json` present → 
 "challenge_v2_v4"`) whenever the split files are incomplete or absent. Both live athlete repos
 (`coach-skanda`, `coach-akash`) are migrated, so this fallback is currently dead in practice — but
 the code path, the `ledger_schema` tag values, and the `challenge_v2: null` field it emits still
-exist. Once the `ui-dashboard-rewiring` PR stack lands (client no longer reads `challenge_v2` at
+exist. Once `ui-dashboard-rewiring-web.md`'s PR stack lands (client no longer reads `challenge_v2` at
 all) and no onboarding path can still produce an unmigrated repo, remove this fallback branch and
 the `challenge_v2`/`ledger_schema` fields from the snapshot shape entirely — don't leave a
 never-taken legacy branch as the only place in the pipeline still searching for the old setup.
