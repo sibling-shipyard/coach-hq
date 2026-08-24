@@ -3,7 +3,7 @@ import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import {
   parseCurrentWeek,
   type CurrentWeek,
-} from "../../../../engine/lib/current-week.mts";
+} from "../../coach-chat/_lib/current-week.bundle.js";
 
 export const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
 export const MAX_ACTIVITY_IDS = 20;
