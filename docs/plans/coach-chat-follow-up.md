@@ -61,10 +61,15 @@ latency variance, which isn't fully in our control. Full three-state-response/po
 Pick this up whenever it's worth the engineering time relative to other priorities.
 
 The redesign stack independently re-raised this same idea for a different reason (write/commit
-latency after Parts 1-3's split-file writes, not just Gemini call latency) - see
-`docs/plans/coach-chat-open-items.md`'s "Async closing" entry for the two open product questions
-that need answering before either version gets built. One design, two motivations - don't build
-twice.
+latency after Parts 1-3's split-file writes, not just Gemini call latency). One design, two
+motivations - don't build twice.
+
+Two open questions need an explicit answer before building either version:
+- `waitUntil`'s actual time cap vs. worst-case turn latency (a `template_edit` chain triggering a
+  second Gemini call) - confirm the cap is sufficient before committing to this design.
+- What happens when a background write still fails after every retry - silent forever, or does it
+  need to surface next time the athlete opens the app (a banner, a re-sync prompt)? Real product
+  decision, not an implementation detail.
 
 ## 8. Model options ruled out while chasing the reliability gap (reference)
 
@@ -77,3 +82,20 @@ Confirmed directly against the API, not assumed - worth knowing before re-trying
   even test properly, its own tradeoff (slower closes for everyone, closer to Vercel's ceiling).
 - `gemini-3.7-flash` (pinned) - same repetition-loop instability as `gemini-flash-latest`, so
   pinning away from the moving "-latest" alias didn't isolate or fix anything on its own.
+
+## 9. Stays deferred, documented only
+
+- `coach_log.json`'s `type: "phase_close"/"week_close"` row types - needs an
+  `archive/phases.md`/`archive/week_plans.md` folding decision first.
+- `main_quest`'s `weekly_floor`/`loaded_floor`/`skill_weight`/`skill_cap` and `progress.json`'s
+  `meta` - Akash's weekly-session-floor model, needs a real per-athlete extension mechanism
+  design first.
+- Fitness Snapshot's singular wording, sport ordering, rate-rounding display, no token-size cap -
+  cosmetic/low-priority, not worth a dedicated pass.
+- `gen/athlete_insights.json`'s missing schema-version/freshness check - same class of gap every
+  other `loadCoachContext`-fetched file already has.
+- `plan_edit` can't touch `week.guardrails[]`; free-form template/session edits beyond structured
+  skip-by-number - real feature gaps, unrelated to wiring/efficiency.
+- Regenerating templates for existing athletes, migration script for workout-backend-wiring's
+  schema additions - migration/backfill territory, same class of work as the (now-shipped)
+  athlete-repo migration.

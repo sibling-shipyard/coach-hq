@@ -1,25 +1,10 @@
 # coach-chat open items
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-24
 
-Running list of real, still-open work, replacing the accumulated `coach-redesign-partN-*.md`
-files and `BACKLOG.md` (deleted — their shipped scope is done, this doc keeps only what's still
-true). Delete each item once it's actually fixed, not just remembered.
-
-## Async closing (design decision needed, not built)
-
-Same idea `docs/plans/coach-chat-follow-up.md`'s item 6 already tracks in full (origin, prior
-`ASYNC-CLOSE-PLAN.md` design, PR #283/#287 history) — re-raised independently here for a second
-motivation: the redesign's split-file writes add their own commit latency on top of the Gemini
-call. One design, don't build twice; see that doc for the shape (`waitUntil`, synchronous reply,
-detached write/commit).
-
-**Two open questions, need an explicit answer before building either version:**
-- `waitUntil`'s actual time cap vs. worst-case turn latency (a `template_edit` chain triggering a
-  second Gemini call) — confirm the cap is sufficient before committing to this design.
-- What happens when a background write still fails after every retry — silent forever, or does it
-  need to surface next time the athlete opens the app (a banner, a re-sync prompt)? Real product
-  decision, not an implementation detail.
+Short list of real, buildable-today items. Each one is self-contained - a fresh agent can pick it
+up cold with just the repo and the file references below, no other doc needed. Delete each item
+once it's actually fixed, not just remembered.
 
 ## `provision-user.sh`'s legacy-repo migration overlay
 
@@ -41,20 +26,6 @@ forward. Needs the same treatment as the retired `splitLedgerAsChallenge()` shim
 `quests.json`/`progress.json` directly instead of (or as a fallback alongside) the legacy file.
 Flagged explicitly out of scope in `docs/plans/ui-dashboard-rewiring-web.md` (step 4) — real
 rewrite, not a stale-reference fix.
-
-## `build-dashboard-snapshot.mjs` still has a legacy `challenge_v2.json` fallback path
-
-`engine/scripts/build-dashboard-snapshot.mjs`'s `loadLedger()` prefers the split ledger (all four
-of `seasons.json`/`quests.json`/`progress.json`/`progressions.json` present → `ledger_schema:
-"split_v1"`), but falls back to reading legacy `challenge_v2.json` whole (`ledger_schema:
-"challenge_v2_v4"`) whenever the split files are incomplete or absent. Both live athlete repos
-(`coach-skanda`, `coach-akash`) are migrated, so this fallback is currently dead in practice — but
-the code path, the `ledger_schema` tag values, and the `challenge_v2: null` field it emits still
-exist. Once `ui-dashboard-rewiring-web.md`'s PR stack lands (client no longer reads `challenge_v2` at
-all) and no onboarding path can still produce an unmigrated repo, remove this fallback branch and
-the `challenge_v2`/`ledger_schema` fields from the snapshot shape entirely — don't leave a
-never-taken legacy branch as the only place in the pipeline still searching for the old setup.
-Flagged for `coach-chat-redesign-final-audit.md`'s dead-code sweep.
 
 ## Real bugs — cheap, still unfixed
 
@@ -83,24 +54,3 @@ Missing end-to-end test proving a real `athlete_insights.json` survives `loadCoa
 tested at each layer separately, never together), plus a multi-sport render test and one
 extreme-value case (a 0-day gap, a single-session sport).
 
-## Stays deferred, documented only
-
-- `coach_log.json`'s `type: "phase_close"/"week_close"` row types — needs an
-  `archive/phases.md`/`archive/week_plans.md` folding decision first.
-- `main_quest`'s `weekly_floor`/`loaded_floor`/`skill_weight`/`skill_cap` and `progress.json`'s
-  `meta` — Akash's weekly-session-floor model, needs a real per-athlete extension mechanism
-  design first.
-- Fitness Snapshot's singular wording, sport ordering, rate-rounding display, no token-size cap —
-  cosmetic/low-priority, not worth a dedicated pass.
-- `gen/athlete_insights.json`'s missing schema-version/freshness check — same class of gap every
-  other `loadCoachContext`-fetched file already has.
-- `plan_edit` can't touch `week.guardrails[]`; free-form template/session edits beyond structured
-  skip-by-number — real feature gaps, unrelated to wiring/efficiency.
-- Regenerating templates for existing athletes, migration script for workout-backend-wiring's
-  schema additions — migration/backfill territory, same class of work as the (now-shipped)
-  athlete-repo migration.
-
-## Stack-wide real end-to-end verification
-
-Promoted to its own file — `docs/plans/coach-chat-redesign-testing.md` — since it's the biggest
-single piece of remaining risk in this redesign, not a minor item on this list. See that doc.
