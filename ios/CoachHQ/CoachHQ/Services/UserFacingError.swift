@@ -41,7 +41,7 @@ enum UserFacingError {
                 // default case below, which gave no indication this was a rate limit at all or
                 // that an immediate retry wouldn't help.
                 case 429: return "Getting rate-limited right now — wait a moment and try again."
-                case 500...599: return "GitHub is having issues right now — try again shortly."
+                case 500...599: return "Something went wrong on our end — try again shortly."
                 default: return "Something went wrong. Try again."
                 }
             case .requestFailed(_, nil, _), .commitFailed(_, nil, _):

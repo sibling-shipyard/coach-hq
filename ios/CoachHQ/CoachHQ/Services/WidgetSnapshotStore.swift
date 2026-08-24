@@ -15,6 +15,7 @@ class WidgetSnapshotStore: ObservableObject {
     @Published private(set) var isConfigured = false
 
     private var apiClient: GitHubAPIClient?
+    private weak var authManager: GitHubAuthManager?
 
     private static let cacheKey = "widget_snapshots_cache"
     private static let cacheFetchedAtKey = "widget_snapshots_cache_fetched_at"
@@ -30,8 +31,9 @@ class WidgetSnapshotStore: ObservableObject {
         // is known, loading would risk rendering a previous account's snapshot.
     }
 
-    func configure(apiClient: GitHubAPIClient) {
+    func configure(apiClient: GitHubAPIClient, authManager: GitHubAuthManager) {
         self.apiClient = apiClient
+        self.authManager = authManager
         isConfigured = true
         loadCached()
     }
@@ -107,6 +109,30 @@ class WidgetSnapshotStore: ObservableObject {
             persist(file)
         } catch let error as GitHubAPIError {
             if case .sessionNotReady = error { return }
+            if case .notAuthenticated = error {
+                // A session token can lag a moment behind sign-in - retry once silently
+                // before treating this as a real auth failure.
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                do {
+                    let file = try await apiClient.fetchWidgetSnapshots()
+                    snapshots = file
+                    lastError = nil
+                    persist(file)
+                    return
+                } catch let retryError as GitHubAPIError {
+                    // Two consecutive .notAuthenticated isn't a transient lag anymore - route
+                    // through the same recovery screen CoachChatView uses for this error
+                    // instead of leaving a dead-end banner with no way forward.
+                    if case .notAuthenticated = retryError {
+                        authManager?.noteAPIError(retryError.errorDescription)
+                    }
+                    lastError = retryError.errorDescription ?? "Couldn't load Home"
+                    return
+                } catch {
+                    lastError = "Couldn't load Home"
+                    return
+                }
+            }
             lastError = error.errorDescription ?? "Couldn't load Home"
         } catch {
             lastError = "Couldn't load Home"
