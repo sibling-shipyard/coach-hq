@@ -5,7 +5,7 @@ import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
 import { buildWarmHomeModel, type SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import { buildLiveWeekContract } from "@/components/home-warm/liveWeekContract";
 import type { Activity } from "@/lib/activities";
-import type { ChallengeV2 } from "@/lib/challenge";
+import type { SplitLedger } from "@/lib/challenge";
 import {
   buildMonthlyAnalyticsModel,
   clampMonthlyScope,
@@ -20,13 +20,12 @@ import {
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/monthly-analytics/monthly-analytics.css";
 
-function buildPhaseLabel(activities: Activity[], challenge: ChallengeV2, syncStatus: SyncStatusPayload): string {
-  const contract = buildLiveWeekContract(activities, challenge);
-  const model = buildWarmHomeModel(activities, challenge, syncStatus, contract);
-  // Akash's season/phase/block model has a current_block with real dates; Skanda's classic
-  // challenge model has no phase concept at all - fall back to the challenge's own dates.
-  const blockStart = challenge.phase?.current_block.start_date ?? challenge.challenge?.start_date;
-  const blockEnd = challenge.phase?.current_block.end_date ?? challenge.challenge?.end_date;
+function buildPhaseLabel(activities: Activity[], ledger: SplitLedger, syncStatus: SyncStatusPayload): string {
+  const contract = buildLiveWeekContract(activities);
+  const model = buildWarmHomeModel(activities, ledger, syncStatus, contract);
+  const currentSeason = ledger.seasons?.seasons?.find((s: any) => s.id === ledger.seasons.current_season_id);
+  const blockStart = currentSeason?.start_date;
+  const blockEnd = currentSeason?.end_date;
   const start = blockStart ? new Date(`${blockStart}T00:00:00`) : new Date();
   const end = blockEnd ? new Date(`${blockEnd}T00:00:00`) : new Date();
   const totalWeeks = Math.max(
@@ -37,7 +36,9 @@ function buildPhaseLabel(activities: Activity[], challenge: ChallengeV2, syncSta
     totalWeeks,
     Math.max(1, Math.floor((Date.now() - start.getTime()) / (7 * 86_400_000)) + 1),
   );
-  return `${model.phaseName.toUpperCase()} · ${model.blockName.toUpperCase()} · WK ${currentWeek}/${totalWeeks}`;
+  const phaseName = currentSeason ? currentSeason.name : model.phaseName;
+  const blockName = model.blockName;
+  return `${phaseName.toUpperCase()} · ${blockName.toUpperCase()} · WK ${currentWeek}/${totalWeeks}`;
 }
 
 export default function MonthlyAnalytics() {
@@ -51,7 +52,7 @@ export default function MonthlyAnalytics() {
 
 function MonthlyAnalyticsContent({ data }: { data: RepoData }) {
   const activities = data.activities as Activity[];
-  const challengeData = data.challenge_v2 as unknown as ChallengeV2;
+  const ledger = data.ledger as SplitLedger;
   const syncStatusData = data.sync_status as SyncStatusPayload;
   // Fallback matches build-dashboard-snapshot.mjs's own default for a repo that never ran
   // generate_quest_history.py.
@@ -70,7 +71,7 @@ function MonthlyAnalyticsContent({ data }: { data: RepoData }) {
     [activities, questHistory, scope],
   );
 
-  const phaseLabel = buildPhaseLabel(activities, challengeData, syncStatusData);
+  const phaseLabel = buildPhaseLabel(activities, ledger, syncStatusData);
   const monthIndex = model.monthOverview.findIndex((cell) => cell.month === scope.month);
   const canGoPrev = monthIndex > 0;
   const canGoNext = monthIndex >= 0 && monthIndex < model.monthOverview.length - 1;
