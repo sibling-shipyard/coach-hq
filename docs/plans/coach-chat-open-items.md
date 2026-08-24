@@ -14,9 +14,9 @@ the canonical ADR 0018 value the server stamps onto `profile.json`:
 
 - **iOS**: `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`
   (~lines 211-219) reads `user_data/ledger/challenge_v2.json` directly and decodes it into
-  `ChallengeV2Summary` — actively called from `CoachChatView.swift`. Once an athlete repo migrates
-  to the split ledger (`coach-repo-migration-and-skeleton.md`), this reads a file that no longer
-  exists at all (a `readFile` 404, not a graceful fallback).
+  `ChallengeV2Summary` — actively called from `CoachChatView.swift`. Both athlete repos are now
+  migrated to the split ledger, so this reads a file that no longer exists at all (a `readFile`
+  404, not a graceful fallback).
 - **Web**: `CoachChat.tsx` computes the badge via `challengeDayNumber()` (`coachChatModel.ts`)
   against `data.challenge_v2` from the prebuilt dashboard snapshot. For a repo with a real
   `challenge_v2.json` still on disk, that file's own `coach_since` field (one-time backfilled per
@@ -54,7 +54,7 @@ detached write/commit).
 
 ## `provision-user.sh`'s legacy-repo migration overlay
 
-Separate from `coach-repo-migration-and-skeleton.md` (which covers `carve-skeleton.mjs` and the
+Separate from the now-shipped athlete-repo migration (which covered `carve-skeleton.mjs` and the
 two live athlete repos specifically) — `platform/scripts/provision-user.sh`'s legacy-repo
 migration overlay (confirmed as of a prior review: lines ~142-147, 278-315, 399) still copies
 whole old-shape directories verbatim, producing the old layout in a "migrated" repo. Needs the
@@ -107,7 +107,8 @@ extreme-value case (a 0-day gap, a single-session sport).
 - `plan_edit` can't touch `week.guardrails[]`; free-form template/session edits beyond structured
   skip-by-number — real feature gaps, unrelated to wiring/efficiency.
 - Regenerating templates for existing athletes, migration script for workout-backend-wiring's
-  schema additions — migration/backfill territory, same owner as `coach-repo-migration-and-skeleton.md`.
+  schema additions — migration/backfill territory, same class of work as the (now-shipped)
+  athlete-repo migration.
 
 ## Stack-wide real end-to-end verification
 

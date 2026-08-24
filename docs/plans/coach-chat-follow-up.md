@@ -65,19 +65,6 @@ latency after Parts 1-3's split-file writes, not just Gemini call latency) - see
 that need answering before either version gets built. One design, two motivations - don't build
 twice.
 
-## 7. Gemini reliability gap — resolved by the redesign's Action-field design rule
-
-Was: "not yet decided whether the stripped-down `coach_note`-only design generalizes, or how to
-build back real coverage for injury flags/quest tracking/etc. without it." Confirmed resolved -
-the redesign's Action-field design rule (`gemini-flow.md`) is exactly that answer: every new fact
-field (`profile_update`, `quest_event`, `injury_event`, `memory_update`, and the rest) is built to
-the same four constraints the `coach_note` strip-down discovered by accident (server owns all
-bookkeeping, one field shipped and tested in isolation at a time, constrained values over free
-text, commitment fields ordered before `reply`). The full-featured retry/honesty-guard/`title`
-machinery this section originally worried about rebuilding was never brought back - the schema
-grew back to real coverage through many small constrained fields instead, and stayed reliable
-doing it. See `coach-data-schema.md`'s "What Gemini can write" table for the current full set.
-
 ## 8. Model options ruled out while chasing the reliability gap (reference)
 
 Confirmed directly against the API, not assumed - worth knowing before re-trying any of these:
@@ -89,9 +76,3 @@ Confirmed directly against the API, not assumed - worth knowing before re-trying
   even test properly, its own tradeoff (slower closes for everyone, closer to Vercel's ceiling).
 - `gemini-3.7-flash` (pinned) - same repetition-loop instability as `gemini-flash-latest`, so
   pinning away from the moving "-latest" alias didn't isolate or fix anything on its own.
-
-## 9. Close-trace / honesty-guard cross-reference — moot, removed
-
-Applied only to the full-featured (pre-strip-down) design's retry/honesty-guard machinery. Item 7
-confirms that machinery was never rebuilt - the redesign took the constrained-action-field path
-instead - so this observability gap has no surface to exist on. Nothing to do.

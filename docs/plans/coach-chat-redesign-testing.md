@@ -29,9 +29,8 @@ by construction test the code against inputs someone already thought of.
 
 ## Plan
 
-**Branch:** stacks after `coach-repo-migration-and-skeleton.md` lands (needs a migrated repo to
-test the split-ledger path for real) — but can start against `coach-akash` pre-migration too, to
-separately confirm the legacy-schema path still works. Do both, not just the migrated one.
+**Branch:** both `coach-skanda` and `coach-akash` are already migrated, so the split-ledger path
+can be tested for real against either.
 
 ### Daily flow (`coach-chat-daily.md`)
 

@@ -18,10 +18,11 @@ code as dead. Run this last.
 
 ## Prerequisites — do not start until all of these are true
 
-1. `coach-repo-migration-and-skeleton.md` shipped — both `coach-skanda` and `coach-akash` on
-   the current schema, `carve-skeleton.mjs` fixed.
-2. `docs/plans/coach-chat-redesign-testing.md` complete — daily flow, FSP, and frontend all
+1. `docs/plans/coach-chat-redesign-testing.md` complete — daily flow, FSP, and frontend all
    verified against real athlete repos, not just unit tests.
+
+Athlete-repo migration (both `coach-skanda` and `coach-akash` on the current schema,
+`carve-skeleton.mjs` fixed) already shipped — no longer a prerequisite.
 3. `docs/plans/ui-dashboard-rewiring.md` shipped — dashboard reads split-ledger data directly,
    `splitLedgerChallenge.ts` shim retired or reduced to its final legacy-only scope.
 

@@ -28,11 +28,10 @@ unmigrated athlete repos, not the shape every page is written against.
 
 ## Plan
 
-**Branch:** stacks after `coach-repo-migration-and-skeleton.md` (both live athlete repos need to
-actually be migrated before this can retire the legacy path for real) and
-`docs/plans/coach-chat-redesign-testing.md`'s frontend section (need to know both schema shapes
-render correctly *today*, via the shim, before rewiring — a regression during rewiring is easier
-to catch against a known-good baseline).
+**Branch:** stacks after `docs/plans/coach-chat-redesign-testing.md`'s frontend section (need to
+know both schema shapes render correctly *today*, via the shim, before rewiring — a regression
+during rewiring is easier to catch against a known-good baseline). Both live athlete repos are
+already migrated, so this can retire the legacy path for real.
 
 ### Step 1 — inventory every consumer of the shimmed shape
 
