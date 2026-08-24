@@ -83,7 +83,14 @@ Confirmed directly against the API, not assumed - worth knowing before re-trying
 - `gemini-3.7-flash` (pinned) - same repetition-loop instability as `gemini-flash-latest`, so
   pinning away from the moving "-latest" alias didn't isolate or fix anything on its own.
 
-## 9. Stays deferred, documented only
+## 9. Test coverage gap: full-stack context render never tested together
+
+Missing end-to-end test proving a real `athlete_insights.json` survives `loadCoachContext()` ->
+`renderCoachContext()` -> the actual `handleGreet`/ordinary-turn handler call sites (currently
+tested at each layer separately, never together), plus a multi-sport render test and one
+extreme-value case (a 0-day gap, a single-session sport).
+
+## 10. Stays deferred, documented only
 
 - `coach_log.json`'s `type: "phase_close"/"week_close"` row types - needs an
   `archive/phases.md`/`archive/week_plans.md` folding decision first.
