@@ -8,10 +8,12 @@ import Security
 /// is exactly when shouldOpenChatFirst() below needs this most (it only ever runs on the first
 /// launch after an install). Keychain items survive a same-device reinstall, so a returning
 /// athlete reinstalling the app gets recognized instantly, no network round trip needed - same
-/// kSecAttrAccessibleWhenUnlockedThisDeviceOnly pattern as GitHubAuthManager's token storage
+/// kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly pattern as GitHubAuthManager's token storage
 /// (not synced via iCloud Keychain, so a genuinely new physical device still falls through to
 /// shouldOpenChatFirst()'s network check below, which is unavoidable - that device has never
-/// stored anything about this athlete before).
+/// stored anything about this athlete before). AfterFirstUnlock (not WhenUnlocked) so a cold
+/// launch before the device's first unlock since boot - background refresh, push, widget - can
+/// still read this instead of failing with errSecInteractionNotAllowed.
 enum CoachSetupState {
     private static func storageKey(repoFullName: String) -> String {
         "coachSetupComplete.\(repoFullName.replacingOccurrences(of: "/", with: "_"))"
@@ -32,7 +34,7 @@ enum CoachSetupState {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
             kSecValueData as String: Data([1]),
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
         SecItemDelete(query as CFDictionary) // Remove existing, mirrors GitHubAuthManager's save pattern
         SecItemAdd(query as CFDictionary, nil)
