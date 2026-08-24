@@ -23,8 +23,8 @@ Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
 - Auth: GitHub App + PKCE via `ui/api/auth/` — `Secrets.swift` only sets `dashboardBaseURL`; don't duplicate OAuth config in Swift.
 - Activity JSON must match `ui/client/src/lib/activities.ts`; encode with `.prettyPrinted` + `.sortedKeys`.
 - Test sync via `TestModeManager` → `test/sync` branch only — never sync test data to `main`.
-- Sandbox still can't run Xcode, but pushing gets a real compile check: `.github/workflows/ios-build.yml` builds both `CoachHQ` and `CoachHQWidgetExtension` schemes for the iOS Simulator on `macos-15` for every `ios/**` push/PR. It catches compile errors only — no tests run (no XCTest target exists) and no signing/device/HealthKit runtime coverage, so the user still verifies behaviour locally.
+- Sandbox still can't run Xcode, but pushing gets a real compile check: `.github/workflows/ios-build.yml` builds `CoachHQ`, `CoachHQ-Dev`, `CoachHQ-Staging`, and `CoachHQWidgetExtension` for the iOS Simulator on `macos-15` for every `ios/**` push/PR. It catches compile errors and runs `CoachHQTests` on the Prod scheme; no signing/device/HealthKit runtime coverage, so the user still verifies behaviour locally.
 
 ## Learnings
 
-- _(none yet — the previous entries were promoted into the docs you own, plus `ios/DESIGN.md`)_
+- Side-by-side flavors need unique bundle ID, App Group, and URL scheme; auth allowlists the scheme in signed state (#547)

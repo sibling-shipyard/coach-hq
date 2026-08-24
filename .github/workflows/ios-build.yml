@@ -1,9 +1,9 @@
 name: iOS Build
 
-# Compiles the CoachHQ app + CoachHQWidgetExtension on every ios/ change, and runs the
-# CoachHQTests unit suite. No code signing needed (simulator only). It exists to catch compile
-# errors like the WorkoutType enum change in #256/#257, which had to be reviewed by hand since
-# there's no Mac in this dev loop otherwise.
+# Compiles CoachHQ (Prod, Dev, Staging schemes) + CoachHQWidgetExtension on every ios/
+# change, and runs the CoachHQTests unit suite on the Prod scheme. No code signing needed
+# (simulator only). It exists to catch compile errors like the WorkoutType enum change in
+# #256/#257, which had to be reviewed by hand since there's no Mac in this dev loop otherwise.
 #
 # The test job needs a concrete simulator, not 'generic/platform=iOS Simulator' - a generic
 # destination can build but cannot run. platform/tests/*.py still has no runner (#343/#329).
@@ -26,7 +26,7 @@ jobs:
         working-directory: ios/CoachHQ
     strategy:
       matrix:
-        scheme: [CoachHQ, CoachHQWidgetExtension]
+        scheme: [CoachHQ, CoachHQ-Dev, CoachHQ-Staging, CoachHQWidgetExtension]
     steps:
       - uses: actions/checkout@v5
 

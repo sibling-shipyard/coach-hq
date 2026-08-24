@@ -37,6 +37,19 @@ export interface OAuthStatePayload {
   codeVerifier: string;
   platform: "web" | "ios";
   popup: boolean;
+  /** iOS custom URL scheme for the callback. Ignored for web. Allowlisted. */
+  iosScheme: IosCallbackScheme;
+}
+
+/** Custom schemes the iOS app flavors register. Anything else falls back to prod. */
+export const IOS_CALLBACK_SCHEMES = ["coachhq", "coachhq-dev", "coachhq-staging"] as const;
+export type IosCallbackScheme = (typeof IOS_CALLBACK_SCHEMES)[number];
+
+export function resolveIosCallbackScheme(raw: unknown): IosCallbackScheme {
+  if (typeof raw === "string" && (IOS_CALLBACK_SCHEMES as readonly string[]).includes(raw)) {
+    return raw as IosCallbackScheme;
+  }
+  return "coachhq";
 }
 
 async function hmacKey(secret: string, usage: "sign" | "verify"): Promise<CryptoKey> {
@@ -63,8 +76,15 @@ export function fromBase64Url(b64: string): Uint8Array {
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
 
 /** Encodes and HMAC-signs an OAuth state payload, stamping the current time as `iat`. */
-export async function signOAuthState(data: Omit<OAuthStatePayload, "iat">, secret: string): Promise<string> {
-  const full: OAuthStatePayload = { ...data, iat: Date.now() };
+export async function signOAuthState(
+  data: Omit<OAuthStatePayload, "iat" | "iosScheme"> & { iosScheme?: IosCallbackScheme },
+  secret: string,
+): Promise<string> {
+  const full: OAuthStatePayload = {
+    ...data,
+    iosScheme: resolveIosCallbackScheme(data.iosScheme),
+    iat: Date.now(),
+  };
   const payload = toBase64Url(new TextEncoder().encode(JSON.stringify(full)));
   const key = await hmacKey(secret, "sign");
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
@@ -99,6 +119,7 @@ export async function verifyOAuthState(
       codeVerifier: String(d.codeVerifier ?? ""),
       platform: d.platform === "ios" ? "ios" : "web",
       popup: Boolean(d.popup),
+      iosScheme: resolveIosCallbackScheme(d.iosScheme),
     };
   } catch {
     return null;

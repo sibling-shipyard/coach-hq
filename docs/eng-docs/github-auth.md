@@ -1,6 +1,6 @@
 # GitHub Auth — how sign-in works (web + iOS, shared backend)
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-18
+> Status: Current · Owner: UI Expert · Verified: 2026-08-24
 
 ## Context
 
@@ -23,7 +23,7 @@ flowchart TD
     cb -->|"no installation, ios"| iossetup["SetupView.swift<br/>(native, unaffected)"]
     done -->|"web, popup"| popupdone["/auth/popup-complete<br/>postMessage + close()"]
     done -->|"web, full nav"| webdone["Set-Cookie session, redirect /"]
-    done -->|"ios"| iosdone["coachhq://callback?token=&repo=&login="]
+    done -->|"ios"| iosdone["flavor scheme://callback?token=&repo=&login="]
 ```
 
 - Single entry point (`/api/auth/start`) for both new and returning users — identical whether
@@ -31,8 +31,11 @@ flowchart TD
 - The callback handler branches on `platform` (`web`/`ios`), carried in an HMAC-signed `state`
   URL param GitHub echoes back verbatim — not a cookie. A `coach_oauth_state` cookie was tried
   first but WKWebView (iOS's in-app browser) silently drops `Set-Cookie` on redirects, so the
-  whole state payload (`codeVerifier`, `platform`, `popup`, `iat`) travels signed in the URL
-  instead; see `_lib/pkce.ts`'s `signOAuthState`/`verifyOAuthState`. `popup` is a third flag web
+  whole state payload (`codeVerifier`, `platform`, `popup`, `iosScheme`, `iat`) travels signed
+  in the URL instead; see `_lib/pkce.ts`'s `signOAuthState`/`verifyOAuthState`. `iosScheme` is
+  the iOS flavor's custom URL scheme (`coachhq` / `coachhq-dev` / `coachhq-staging`), passed as
+  `?ios_scheme=` on `/api/auth/start` and allowlisted so a callback cannot be steered at an
+  arbitrary scheme. `popup` is a third flag web
   sets when `GitHubAuthButton` opened the flow via `window.open()` instead of a full nav — every
   terminal redirect then goes to `/auth/popup-complete` instead of `/` or `/?auth_error=`.
 - **iOS** still can't provision a repo via API (GitHub App tokens can't create personal repos —
@@ -49,7 +52,7 @@ named export in that one file:
 | Handler | Route | Role |
 |---|---|---|
 | `handleStart` | `/api/auth/start` | Entry point. Builds PKCE + signed state, redirects to GitHub's authorize endpoint. |
-| `handleCallback` | `/api/auth/callback` | Token exchange, `GET /user`, installation lookup. Web: session or `AuthError`. iOS: `coachhq://callback` (token, or `needs_setup=1` into `SetupView`). |
+| `handleCallback` | `/api/auth/callback` | Token exchange, `GET /user`, installation lookup. Web: session or `AuthError`. iOS: `{flavor}://callback` (token, or `needs_setup=1` into `SetupView`). |
 | `handleInstallRedirect` | `/api/auth/install-redirect` | iOS-only in practice now — `SetupView`'s "continue to install" step. `?platform=ios`. |
 | `handleListMyRepos` | `/api/auth/list-my-repos` | Repo picker, dual auth (session cookie or Bearer). iOS-only in practice now — its fallback for the rare not-exactly-one-candidate case. |
 | `handleMe` / `handleLogout` | `/api/auth/me` / `/api/auth/logout` | Web session read / clear. |
