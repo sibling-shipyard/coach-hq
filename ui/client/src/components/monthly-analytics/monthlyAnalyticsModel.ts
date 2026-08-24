@@ -443,7 +443,7 @@ function buildWorkoutBreakdown(
 
 // gen/quest_history.json's shape (built by engine/scripts/generate_quest_history.py, which
 // walks every archived season directory plus the current one and caps entries at "today" for
-// the live season - so unlike recomputing from challenge_v2.json's raw date arrays, future days
+// the live season - so unlike recomputing from the old ledger file's raw date arrays, future days
 // and old-season boundaries never enter this data in the first place).
 export interface QuestHistoryEntry {
   date: string;
@@ -469,7 +469,7 @@ export interface QuestHistory {
 // Ported from the legacy pre-Warm-Instrument dashboard's QuestSummaryCard.tsx (monthRate +
 // row-building) - filtering pre-computed entries by a "YYYY-MM" prefix instead of recomputing
 // from date-range math is what avoids issue #93 (future days counted as done) and makes
-// archived-season data show up at all (challenge_v2.json's quests[] only ever has the live
+// archived-season data show up at all (the old ledger file's quests[] only ever has the live
 // season's quests; quest_history.json already has all of them).
 function questHistoryMonthStats(
   entries: QuestHistoryEntry[],
