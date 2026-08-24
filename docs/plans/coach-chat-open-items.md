@@ -6,36 +6,24 @@ Running list of real, still-open work, replacing the accumulated `coach-redesign
 files and `BACKLOG.md` (deleted — their shipped scope is done, this doc keeps only what's still
 true). Delete each item once it's actually fixed, not just remembered.
 
-## Day-count badge doesn't actually read `profile.json`'s `coach_since` on either platform
+## Day-count badge doesn't actually read `profile.json`'s `coach_since` on iOS
 
-Confirmed by direct code read (2026-08-21), not carried forward from an old doc. Both platforms'
-"D-101" absolute day-count badge reads a legacy `challenge_v2`-shaped `coach_since` field, never
-the canonical ADR 0018 value the server stamps onto `profile.json`:
+Confirmed by direct code read (2026-08-21). The web half of this bug (and its fix) is now owned by
+`docs/plans/ui-dashboard-rewiring-part5-coach-chat.md`, not tracked here separately.
 
 - **iOS**: `ios/CoachHQ/CoachHQ/Services/GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`
   (~lines 211-219) reads `user_data/ledger/challenge_v2.json` directly and decodes it into
   `ChallengeV2Summary` — actively called from `CoachChatView.swift`. Both athlete repos are now
   migrated to the split ledger, so this reads a file that no longer exists at all (a `readFile`
   404, not a graceful fallback).
-- **Web**: `CoachChat.tsx` computes the badge via `challengeDayNumber()` (`coachChatModel.ts`)
-  against `data.challenge_v2` from the prebuilt dashboard snapshot. For a repo with a real
-  `challenge_v2.json` still on disk, that file's own `coach_since` field (one-time backfilled per
-  issue #179) is used. For a repo migrated to the split ledger, `useRepoData.ts` falls back to
-  `splitLedgerAsChallenge()` (`ui/client/src/lib/splitLedgerChallenge.ts`) to project a
-  legacy-shaped object from `seasons.json`/`quests.json`/`progress.json` — and that projection
-  **drops `coach_since` entirely**, so the badge silently resets to `season.start_date` on every
-  new season. This is functionally the same bug issue #179 was filed and closed for, regressed by
-  the ledger split and never re-caught because nothing tests the split-ledger path against this
-  badge specifically.
 
-**Fix, both platforms**: read `profile.json.coach_since` directly instead of going through
-`challenge_v2`'s shape at all (already the correct source per ADR 0018 — `coachDay.ts`'s
-`coachDayNumber()` already does this server-side, just isn't currently wired to either client's
-badge). Also fix `UserFacingError.swift:66`'s `raw.contains("challenge_v2")` string match (stops
-matching once migrated) and stale comments at `CoachSetupState.swift:48`, `OnboardingHints.swift:36`,
-`CoachChatView.swift:39,43,488,662`, `CoachChatPreviewData.swift:8`. The iOS half is iOS Builder's
-territory per `AGENTS.md` routing — flag for iOS Builder review even if a Tech Lead-directed agent
-makes the mechanical fix; the web half is UI Expert's.
+**Fix**: read `profile.json.coach_since` directly instead of going through `challenge_v2`'s shape
+at all (already the correct source per ADR 0018 — `coachDay.ts`'s `coachDayNumber()` already does
+this server-side, just isn't currently wired to the iOS client's badge). Also fix
+`UserFacingError.swift:66`'s `raw.contains("challenge_v2")` string match (stops matching once
+migrated) and stale comments at `CoachSetupState.swift:48`, `OnboardingHints.swift:36`,
+`CoachChatView.swift:39,43,488,662`, `CoachChatPreviewData.swift:8`. iOS Builder's territory per
+`AGENTS.md` routing.
 
 ## Async closing (design decision needed, not built)
 
@@ -98,15 +86,10 @@ Flagged for `coach-chat-redesign-final-audit.md`'s dead-code sweep.
    `activity.category` as already valid the moment it's truthy, skipping the name-regex fallback
    on any mismatch. Fix: validate against the real `TrainingCategory` enum before trusting it,
    fall through to the regex classifier on a mismatch.
-3. **Five UI files reading the dropped `phase`/`current_block` fields from `seasons.json`**
-   (`calisthenicsLensModel.ts`, `warmHomeSnapshots.ts`, `liveWeekContract.ts`, `warmHomeModel.ts`,
-   `MonthlyAnalytics.tsx`) — never actually investigated. For each: is the read now dead code
-   (safe to remove), or does it change rendered UI behavior (needs a real replacement)? Same root
-   cause as item 1, investigate together.
-4. **`progress.json`'s `source: "athlete"` enum value** — no direct athlete-write path into
+3. **`progress.json`'s `source: "athlete"` enum value** — no direct athlete-write path into
    `progress.json` exists; only `"model"` and `"pipeline"` are real writers. Decide: drop the
    value from the type, or confirm a real future write path justifies keeping it.
-5. **P2 — consolidate coach-chat's 3 routes behind a catch-all**, matching `auth/[...action].ts`
+4. **P2 — consolidate coach-chat's 3 routes behind a catch-all**, matching `auth/[...action].ts`
    (ADR 0017). `coach-chat.ts`, `coach-chat-context.ts`, `coach-chat-profile-status.ts` are 3
    separate Vercel functions at flat URLs. Not urgent (no function-count cap pressure); would
    change URLs (frontend + iOS `CoachChatAPIClient.swift` update needed), so do as its own small
