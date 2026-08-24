@@ -61,6 +61,18 @@ whole old-shape directories verbatim, producing the old layout in a "migrated" r
 same schema-mapping fix as part 3's Parts B/C, generalized for any future athlete onboarding
 through this path, not just the two current ones.
 
+## `generate_quest_history.py` doesn't read the split ledger yet
+
+`engine/scripts/generate_quest_history.py` only reads `challenge_v2.json` (current + archived
+seasons) to build `quest_history.json`, which `MonthlyAnalytics.tsx` consumes. For a migrated repo
+`challenge_v2.json` doesn't exist, so `regenerate_derived.py` doesn't crash (the script has a
+`FileNotFoundError` guard) but silently produces `quest_history.json` missing the current season's
+daily-streak data entirely — Monthly Analytics quietly goes stale for any migrated athlete going
+forward. Needs the same treatment as the retired `splitLedgerAsChallenge()` shim: read
+`quests.json`/`progress.json` directly instead of (or as a fallback alongside) the legacy file.
+Flagged explicitly out of scope in the `ui-dashboard-rewiring` PR stack (part 4) — real rewrite,
+not a stale-reference fix.
+
 ## Real bugs — cheap, still unfixed
 
 1. **`ui/client/src/components/home-warm/warmHomeModel.ts:497`** —
