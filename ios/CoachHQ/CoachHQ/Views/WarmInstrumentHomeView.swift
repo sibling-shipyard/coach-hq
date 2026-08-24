@@ -106,11 +106,18 @@ struct WarmInstrumentHomeView: View {
                 Haptics.error()
                 toast = Toast(kind: .error, message: UserFacingError.friendlyAPIError(newError))
             }
+            .onAppear {
+                syncManager.attachCoachChatClient(CoachChatAPIClient(authManager: authManager))
+            }
             .onChange(of: syncManager.lastSyncResult) { _, result in
                 guard let result, case .synced(let n) = result.outcome, n > 0 else { return }
                 toast = Toast(kind: .success, message: syncToastMessage(n: n))
                 enginePulse = true
                 Task { try? await Task.sleep(for: .seconds(0.55)); enginePulse = false }
+            }
+            .onChange(of: syncManager.coachReplyHomeCopy) { _, copy in
+                guard let copy, !copy.isEmpty else { return }
+                toast = Toast(kind: .success, message: copy)
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                 guard store.isConfigured else { return }

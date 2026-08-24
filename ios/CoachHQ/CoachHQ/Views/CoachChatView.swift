@@ -9,6 +9,7 @@ import SwiftUI
 /// 5. `historyThreads` — enforce 7-day window server-side; client already groups by `dayOffset`.
 struct CoachChatView: View {
     @EnvironmentObject private var authManager: GitHubAuthManager
+    @EnvironmentObject private var syncManager: HealthKitSyncManager
     @Binding private var requestedProactiveRoute: CoachMessageRoute?
 
     @State private var apiClient: CoachChatAPIClient?
@@ -30,6 +31,7 @@ struct CoachChatView: View {
     // CoachChat.tsx. The context refresh itself already happened server-side by the time this
     // fires; this is purely the "here's why" explanation web athletes already get.
     @State private var toast: Toast?
+    @State private var openedActivity: SyncCacheEntry?
     @FocusState private var composerFocused: Bool
     @State private var keyboardVisible = false
     @AppStorage("chatHasUnread") private var chatHasUnread = false
@@ -144,12 +146,29 @@ struct CoachChatView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WarmInstrument.desk.ignoresSafeArea())
         .toast($toast)
+        .background(ChatVisibilityProbe { visible in
+            Task { @MainActor in
+                syncManager.isChatVisible = visible
+            }
+        })
+        .sheet(item: $openedActivity) { entry in
+            NavigationStack {
+                ActivityDetailView(entry: entry)
+                    .environmentObject(authManager)
+            }
+        }
         .task(id: chatFetchToken) {
             guard authManager.isAuthenticated, authManager.isSessionReady else { return }
             guard authManager.selectedRepo != nil else { return }
-            apiClient = CoachChatAPIClient(authManager: authManager)
+            let client = CoachChatAPIClient(authManager: authManager)
+            apiClient = client
+            syncManager.attachCoachChatClient(client)
             await loadThreads()
             await loadHeaderContext()
+            applyActivitySyncTurn(syncManager.activitySyncTurn)
+        }
+        .onChange(of: syncManager.activitySyncTurn) { _, turn in
+            applyActivitySyncTurn(turn)
         }
         .sheet(isPresented: $showHistorySheet) {
             CoachChatHistorySheet(
@@ -252,6 +271,11 @@ struct CoachChatView: View {
                             scrollToBottom(proxy: proxy, anchor: "thinking")
                         }
                     }
+                    .onChange(of: syncManager.activitySyncTurn?.phase) { _, phase in
+                        if phase == .requestingCoach {
+                            scrollToBottom(proxy: proxy, anchor: "thinking")
+                        }
+                    }
                 }
             }
         }
@@ -294,7 +318,13 @@ struct CoachChatView: View {
                 .allowsHitTesting(!composerChromeHidden)
             }
 
-            if sending {
+            if let turn = syncManager.activitySyncTurn, turn.needsRetry {
+                CoachChatSyncRetryRow {
+                    Task { await syncManager.retryActivitySyncTurn() }
+                }
+            }
+
+            if sending || syncManager.activitySyncTurn?.isThinking == true {
                 HStack {
                     CoachChatThinkingBubble()
                     Spacer(minLength: 40)
@@ -312,8 +342,8 @@ struct CoachChatView: View {
             CoachChatComposer(
                 draft: $draft,
                 isFocused: $composerFocused,
-                placeholder: sending ? "Coach is replying…" : composerPlaceholder,
-                isSending: sending,
+                placeholder: coachIsReplying ? "Coach is replying…" : composerPlaceholder,
+                isSending: coachIsReplying,
                 canEndConversation: profileComplete,
                 onSend: { Task { await send(from: resolvedSendThreadId()) } },
                 onEndConversation: {
@@ -361,13 +391,24 @@ struct CoachChatView: View {
             }
 
         case .coach:
-            HStack {
-                CoachChatCoachBubble(
-                    paragraphs: message.paragraphs ?? [],
-                    chips: chips(for: message),
-                    showSignature: showSignature(for: message)
-                )
-                Spacer(minLength: 40)
+            VStack(alignment: .leading, spacing: 10) {
+                if let list = message.syncedActivityList {
+                    CoachChatSyncedActivityList(activities: list.activities) { row in
+                        if let entry = cacheEntry(for: row) {
+                            openedActivity = entry
+                        }
+                    }
+                }
+                if !(message.paragraphs ?? []).isEmpty {
+                    HStack {
+                        CoachChatCoachBubble(
+                            paragraphs: message.paragraphs ?? [],
+                            chips: chips(for: message),
+                            showSignature: showSignature(for: message)
+                        )
+                        Spacer(minLength: 40)
+                    }
+                }
             }
         }
     }
@@ -413,6 +454,91 @@ struct CoachChatView: View {
         } else {
             proxy.scrollTo(target, anchor: .bottom)
         }
+    }
+
+    private var coachIsReplying: Bool {
+        sending || syncManager.activitySyncTurn?.isThinking == true
+    }
+
+    private static let provisionalSyncThreadId = "local-activity-sync"
+
+    private func applyActivitySyncTurn(_ turn: ActivitySyncTurn?) {
+        guard let turn else {
+            threads.removeAll { $0.id == Self.provisionalSyncThreadId }
+            return
+        }
+        switch turn.phase {
+        case .complete:
+            applyCompletedSyncTurn(turn)
+        case .waitingForSnapshots, .requestingCoach, .retryWait, .retryPost:
+            upsertProvisionalSyncThread(activities: turn.activities)
+        }
+    }
+
+    private func applyCompletedSyncTurn(_ turn: ActivitySyncTurn) {
+        guard !turn.completedThreads.isEmpty else { return }
+        threads.removeAll { $0.id == Self.provisionalSyncThreadId }
+        threads = turn.completedThreads
+        if let id = turn.completedThreadId {
+            activeThreadId = id
+        }
+        if let repo = authManager.repoFullName, let id = turn.completedThreadId,
+           let thread = threads.first(where: { $0.id == id }) {
+            CoachChatLocalCache.save(messages: thread.messages, repoFullName: repo, threadId: id)
+        }
+        if !syncManager.isChatVisible {
+            chatHasUnread = true
+        }
+    }
+
+    private func upsertProvisionalSyncThread(activities: [SyncedActivityDraft]) {
+        let rows = activities.map(\.asRow)
+        let attachment = SyncedActivityListAttachment.provisional(activities: rows)
+        let now = Date().timeIntervalSince1970 * 1000
+        let coach = ChatMessage.coach(
+            id: "c-sync-\(Int(now))",
+            paragraphs: [],
+            attachments: [.syncedActivityList(attachment)]
+        )
+        if let idx = threads.firstIndex(where: { $0.id == Self.provisionalSyncThreadId }) {
+            if let existing = threads[idx].messages.last(where: { $0.role == .coach }) {
+                var updated = existing
+                updated.attachments = [.syncedActivityList(attachment)]
+                threads[idx].messages = threads[idx].messages.map { $0.id == existing.id ? updated : $0 }
+            } else {
+                threads[idx].messages.append(coach)
+            }
+        } else {
+            let created = ChatThread(
+                id: Self.provisionalSyncThreadId,
+                dayOffset: 0,
+                createdAt: now,
+                title: rows.count == 1 ? (rows.first?.title.isEmpty == false ? rows[0].title : "Session synced") : "\(rows.count) sessions synced",
+                preview: rows.map(\.title).joined(separator: ", "),
+                ageLabel: "NOW",
+                status: .active,
+                messages: [
+                    ChatMessage.divider(id: "d-sync-\(Int(now))", label: "TODAY"),
+                    coach,
+                ]
+            )
+            threads.insert(created, at: 0)
+        }
+        activeThreadId = Self.provisionalSyncThreadId
+    }
+
+    private func cacheEntry(for row: SyncedActivityRow) -> SyncCacheEntry? {
+        let cache = SyncCache.load()
+        if let hit = cache.first(where: { $0.activity?.activityId == row.id }) {
+            return hit
+        }
+        if let hit = cache.first(where: { $0.fileName.contains(row.id) }) {
+            return hit
+        }
+        if let draft = syncManager.lastSyncedActivities.first(where: { $0.activityId == row.id }) {
+            return cache.first(where: { $0.fileName == draft.fileName })
+        }
+        return nil
     }
 
     private var chatFetchToken: String {
@@ -748,6 +874,45 @@ struct CoachChatView: View {
             if let repo = authManager.repoFullName {
                 CoachChatLocalCache.clear(repoFullName: repo, threadId: threadId)
             }
+        }
+    }
+}
+
+/// Reports whether Chat is the visible tab. MainTabView keeps every tab mounted and hides
+/// the others with opacity — onAppear is not enough.
+private struct ChatVisibilityProbe: UIViewRepresentable {
+    var onChange: (Bool) -> Void
+
+    func makeUIView(context: Context) -> ProbeView {
+        let view = ProbeView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateUIView(_ uiView: ProbeView, context: Context) {
+        uiView.onChange = onChange
+    }
+
+    final class ProbeView: UIView {
+        var onChange: ((Bool) -> Void)?
+
+        override func didMoveToWindow() { report() }
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            report()
+        }
+
+        private func report() {
+            var visible = window != nil
+            var view: UIView? = self
+            while let current = view {
+                if current.isHidden || current.alpha < 0.01 {
+                    visible = false
+                    break
+                }
+                view = current.superview
+            }
+            onChange?(visible)
         }
     }
 }

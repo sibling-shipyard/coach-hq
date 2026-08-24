@@ -24,6 +24,21 @@ class HealthKitSyncManager: ObservableObject {
     /// Mounted activity lists observe this to reload their value-type cache entries.
     @Published private(set) var enrichedCacheRevision = 0
 
+    /// Exact activities committed in the last successful sync round (id + filename).
+    @Published private(set) var lastSyncedActivities: [SyncedActivityDraft] = []
+
+    /// Post-sync Coach turn. Nil during onboarding (`syncNotificationsEnabled == false`).
+    @Published private(set) var activitySyncTurn: ActivitySyncTurn?
+
+    /// First sentence of a landed Coach reply, for Home toast replacement outside Chat.
+    @Published var coachReplyHomeCopy: String?
+
+    /// Chat tab is the visible surface. CoachChatView reports this via ancestor opacity.
+    var isChatVisible = false
+
+    private var coachChatClient: CoachChatAPIClient?
+    private var activitySyncEpoch = 0
+
     struct SyncResult: Equatable {
         enum Outcome: Equatable { case synced(Int), nothingNew, failed(String) }
         let outcome: Outcome
@@ -99,6 +114,10 @@ class HealthKitSyncManager: ObservableObject {
         self.widgetStore = widgetStore
         self.coachMessageClient = coachMessageClient
         Task { await loadSyncState() }
+    }
+
+    func attachCoachChatClient(_ client: CoachChatAPIClient) {
+        coachChatClient = client
     }
 
     func loadSyncState() async {
@@ -191,6 +210,167 @@ class HealthKitSyncManager: ObservableObject {
         try? await UNUserNotificationCenter.current().add(request)
     }
 
+    /// Replaces the sync notification body with Coach's first sentence. Same identifier so
+    /// the existing banner updates instead of stacking a second one. `navigateTo: chat` stays.
+    private func replaceCoachNotification(count: Int, firstSentence: String) async {
+        let content = UNMutableNotificationContent()
+        content.title = count == 1 ? "Session logged" : "\(count) sessions logged"
+        content.body = firstSentence
+        content.sound = .default
+        content.userInfo = ["navigateTo": "chat"]
+        let request = UNNotificationRequest(
+            identifier: "hk-sync-latest",
+            content: content,
+            trigger: nil
+        )
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: - Activity-sync Coach turn
+
+    private func publishActivitySyncTurnIfEnabled(
+        drafts: [SyncedActivityDraft],
+        freshnessSince: Date
+    ) {
+        guard syncNotificationsEnabled, !drafts.isEmpty else {
+            activitySyncTurn = nil
+            return
+        }
+        activitySyncEpoch += 1
+        coachReplyHomeCopy = nil
+        activitySyncTurn = ActivitySyncTurn(
+            activities: drafts,
+            freshnessSince: freshnessSince,
+            epoch: activitySyncEpoch,
+            phase: .waitingForSnapshots
+        )
+    }
+
+    func retryActivitySyncTurn() async {
+        guard let turn = activitySyncTurn else { return }
+        switch turn.phase {
+        case .retryWait, .waitingForSnapshots:
+            activitySyncEpoch += 1
+            let epoch = activitySyncEpoch
+            var waiting = turn
+            waiting.epoch = epoch
+            waiting.phase = .waitingForSnapshots
+            activitySyncTurn = waiting
+            let fresh: Bool
+            if let widgetStore {
+                fresh = await widgetStore.refreshAfterSync(since: turn.freshnessSince)
+            } else {
+                fresh = false
+            }
+            if fresh {
+                await refreshEnrichedActivities(fileNames: turn.activities.map(\.fileName))
+            }
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
+            await advanceActivitySyncTurn(snapshotsFresh: fresh)
+        case .retryPost:
+            let epoch = activitySyncEpoch
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: turn.epoch, currentEpoch: epoch) else { return }
+            await postActivitySync(for: turn)
+        default:
+            break
+        }
+    }
+
+    private func advanceActivitySyncTurn(snapshotsFresh: Bool) async {
+        let epoch = activitySyncEpoch
+        guard var turn = activitySyncTurn else { return }
+        guard ActivitySyncEpoch.shouldApply(turnEpoch: turn.epoch, currentEpoch: epoch) else { return }
+        guard turn.phase == .waitingForSnapshots || turn.phase == .retryWait else { return }
+        if !snapshotsFresh {
+            turn.phase = .retryWait
+            activitySyncTurn = turn
+            return
+        }
+        await postActivitySync(for: turn)
+    }
+
+    private func postActivitySync(for turn: ActivitySyncTurn) async {
+        let epoch = activitySyncEpoch
+        guard ActivitySyncEpoch.shouldApply(turnEpoch: turn.epoch, currentEpoch: epoch) else { return }
+        guard let coachChatClient else {
+            var waiting = turn
+            waiting.phase = .retryPost
+            activitySyncTurn = waiting
+            return
+        }
+        var inFlight = turn
+        inFlight.phase = .requestingCoach
+        activitySyncTurn = inFlight
+        do {
+            let result = try await coachChatClient.activitySync(
+                activityIds: turn.activities.map(\.qualifiedId)
+            )
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
+            var done = turn
+            done.phase = .complete
+            done.duplicate = result.duplicate
+            done.reply = result.reply
+            done.completedThreadId = result.threadId
+            done.completedThreads = result.threads
+            activitySyncTurn = done
+            announceCoachReplyIfNeeded(result.reply, duplicate: result.duplicate, count: turn.activities.count)
+        } catch let apiError as GitHubAPIError {
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
+            var failed = turn
+            if case .requestFailed(_, let status, _) = apiError, status == 422 {
+                failed.phase = .retryWait
+            } else {
+                failed.phase = .retryPost
+            }
+            activitySyncTurn = failed
+        } catch {
+            guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
+            var failed = turn
+            failed.phase = .retryPost
+            activitySyncTurn = failed
+        }
+    }
+
+    private func announceCoachReplyIfNeeded(_ reply: String, duplicate: Bool, count: Int) {
+        guard ActivitySyncCopy.shouldAnnounceReply(duplicate: duplicate, chatVisible: isChatVisible) else {
+            return
+        }
+        let sentence = ActivitySyncCopy.firstSentence(of: reply)
+        coachReplyHomeCopy = sentence
+        Task { await replaceCoachNotification(count: count, firstSentence: sentence) }
+    }
+
+    /// Matches `activityZoneLoad` in ui/api/coach-chat/_lib/activitySync.ts so provisional
+    /// rows don't jump when the server attachment arrives.
+    static func zoneLoad(hrZones: [String: HRZoneEntry]?) -> Int? {
+        guard let hrZones else { return nil }
+        var observed = 0.0
+        var weighted = 0.0
+        for weight in 1...5 {
+            let seconds = max(0, hrZones["Zone \(weight)"]?.seconds ?? 0)
+            observed += seconds
+            weighted += seconds * Double(weight)
+        }
+        return observed > 0 ? Int((weighted / 60).rounded()) : nil
+    }
+
+    private static func drafts(
+        from synced: [(fileName: String, activity: Activity)]
+    ) -> [SyncedActivityDraft] {
+        synced.compactMap { fileName, activity in
+            guard let activityId = activity.activityId, !activityId.isEmpty else { return nil }
+            return SyncedActivityDraft(
+                activityId: activityId,
+                fileName: fileName,
+                title: activity.name,
+                sport: activity.sportType,
+                start: activity.startDateLocal,
+                durationSeconds: activity.elapsedTime,
+                load: zoneLoad(hrZones: activity.hrZones)
+            )
+        }
+    }
+
     // MARK: - Sync
 
     func saveHRZoneSettings(custom: Bool, config: HRZoneConfig) async {
@@ -281,6 +461,7 @@ class HealthKitSyncManager: ObservableObject {
                 syncProgressText = ""
                 syncProgress = 0
                 lastRoundSynced = [:]
+                lastSyncedActivities = []
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
                 await finishSyncAndDrainPendingZoneSave()
@@ -446,6 +627,7 @@ class HealthKitSyncManager: ObservableObject {
                 syncProgressText = ""
                 syncProgress = 0
                 lastRoundSynced = [:]
+                lastSyncedActivities = []
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
                 await finishSyncAndDrainPendingZoneSave()
@@ -480,6 +662,13 @@ class HealthKitSyncManager: ObservableObject {
             }
             lastRoundSynced = roundCounts
 
+            let drafts = Self.drafts(from: syncedForCache)
+            lastSyncedActivities = drafts
+            publishActivitySyncTurnIfEnabled(
+                drafts: drafts,
+                freshnessSince: pipelineFreshnessLowerBound
+            )
+
             self.syncState = syncState
             lastSyncDate = Date()
             syncProgressText = ""
@@ -492,6 +681,7 @@ class HealthKitSyncManager: ObservableObject {
             // Home reads live snapshots from dashboard_snapshot.json; the user-repo sync workflow
             // regenerates that file ~30s after this commit. Run in background — don't hold
             // isSyncing for this; it only affects the widget home cache, not the sync flow.
+            // A failed Coach turn must not fail this sync — list + Retry stay in Chat.
             let ws = widgetStore
             let syncedFileNames = syncedForCache.map(\.fileName)
             let coachActivityIds = syncedForCache.compactMap { item -> String? in
@@ -501,11 +691,25 @@ class HealthKitSyncManager: ObservableObject {
             }.sorted()
             let coachClient = coachMessageClient
             let repoFullName = apiClient.repoFullName
+            let shouldStartCoachTurn = activitySyncTurn != nil
+            let epoch = activitySyncEpoch
             Task {
-                guard let ws,
-                      await ws.refreshAfterSync(since: pipelineFreshnessLowerBound) else { return }
-                await self.refreshEnrichedActivities(fileNames: syncedFileNames)
-                guard let coachClient,
+                let fresh: Bool
+                if let ws {
+                    fresh = await ws.refreshAfterSync(since: pipelineFreshnessLowerBound)
+                } else {
+                    fresh = false
+                }
+                if fresh {
+                    await self.refreshEnrichedActivities(fileNames: syncedFileNames)
+                }
+                if shouldStartCoachTurn,
+                   ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch) {
+                    await self.advanceActivitySyncTurn(snapshotsFresh: fresh)
+                }
+                guard fresh,
+                      ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch),
+                      let coachClient,
                       let repoFullName,
                       apiClient.repoFullName == repoFullName,
                       !coachActivityIds.isEmpty else { return }
@@ -514,7 +718,7 @@ class HealthKitSyncManager: ObservableObject {
                     repoFullName: repoFullName,
                     client: coachClient,
                     refreshSnapshots: {
-                        await ws.refresh(showSpinner: false)
+                        await ws?.refresh(showSpinner: false)
                     },
                     notify: { message in
                         guard apiClient.repoFullName == repoFullName,

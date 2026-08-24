@@ -262,6 +262,121 @@ struct CoachChatEmptyThreadPrompt: View {
     }
 }
 
+/// Deterministic synced-batch list. Terracotta is reserved for load; tap opens Activity Detail
+/// when SyncCache has the row, otherwise the row still renders.
+struct CoachChatSyncedActivityList: View {
+    let activities: [SyncedActivityRow]
+    var onSelect: (SyncedActivityRow) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(activities.count == 1 ? "SESSION SYNCED" : "\(activities.count) SESSIONS SYNCED")
+                .font(WarmInstrument.monoLabel(8.5))
+                .tracking(1.2)
+                .foregroundStyle(WarmInstrument.inkFaint)
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 6)
+
+            ForEach(Array(activities.enumerated()), id: \.element.id) { index, row in
+                Button {
+                    onSelect(row)
+                } label: {
+                    CoachChatSyncedActivityRow(row: row)
+                }
+                .buttonStyle(.plain)
+                if index < activities.count - 1 {
+                    Divider().overlay(WarmInstrument.headerRule)
+                        .padding(.leading, 14)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WarmInstrument.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(WarmInstrument.border, lineWidth: 1)
+        )
+    }
+}
+
+private struct CoachChatSyncedActivityRow: View {
+    let row: SyncedActivityRow
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: Theme.sportIcon(for: row.sport))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.sportBadge(for: row.sport).color)
+                .frame(width: 28, height: 28)
+                .background(Theme.sportBadge(for: row.sport).color.opacity(0.1))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.title.isEmpty ? Theme.sportBadge(for: row.sport).label.capitalized : row.title)
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(WarmInstrument.ink)
+                    .lineLimit(1)
+                Text(metaLine)
+                    .font(WarmInstrument.monoLabel(9.5))
+                    .foregroundStyle(WarmInstrument.inkFaint)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let load = row.load {
+                Text("+\(load)")
+                    .font(WarmInstrument.figures(12, weight: .bold))
+                    .foregroundStyle(WarmInstrument.accent)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+
+    private var metaLine: String {
+        [Self.timeLabel(row.start), Self.durationLabel(row.durationSeconds)]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    private static func timeLabel(_ start: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        formatter.timeZone = .current
+        guard let date = formatter.date(from: String(start.prefix(19))) else { return "" }
+        let out = DateFormatter()
+        out.dateFormat = "h:mm a"
+        return out.string(from: date)
+    }
+
+    private static func durationLabel(_ seconds: Int) -> String {
+        let minutes = max(0, seconds) / 60
+        if minutes < 60 { return "\(minutes)m" }
+        return "\(minutes / 60)h \(minutes % 60)m"
+    }
+}
+
+struct CoachChatSyncRetryRow: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text("Retry")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(WarmInstrument.paper)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(WarmInstrument.ink)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Retry Coach review")
+    }
+}
+
 struct CoachChatThinkingBubble: View {
     @State private var activeDot: Int = 0
 

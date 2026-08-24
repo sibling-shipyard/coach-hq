@@ -1,5 +1,171 @@
 import Foundation
 
+/// Source-qualified HealthKit activity id the activity_sync contract accepts (`hk:<uuid>`).
+enum ActivitySyncIDs {
+    static let prefix = "hk:"
+
+    static func qualified(_ uuid: String) -> String {
+        uuid.hasPrefix(prefix) ? uuid : prefix + uuid
+    }
+}
+
+/// One row in a `synced_activity_list` attachment. Server reread values win once they arrive;
+/// local titles/sport/start/duration are only provisional until then.
+struct SyncedActivityRow: Codable, Equatable, Identifiable {
+    let id: String
+    let title: String
+    let sport: String
+    let start: String
+    let durationSeconds: Int
+    let load: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, sport, start, load
+        case durationSeconds = "duration_s"
+    }
+}
+
+struct SyncedActivityListAttachment: Codable, Equatable {
+    let version: Int
+    let kind: String
+    let batchId: String
+    let activities: [SyncedActivityRow]
+
+    enum CodingKeys: String, CodingKey {
+        case version, kind, activities
+        case batchId = "batch_id"
+    }
+
+    static func provisional(activities: [SyncedActivityRow]) -> SyncedActivityListAttachment {
+        SyncedActivityListAttachment(
+            version: 1,
+            kind: "synced_activity_list",
+            batchId: "local",
+            activities: activities
+        )
+    }
+}
+
+/// Unknown kinds/versions decode as `.unknown` and are never shown. Encoding drops them.
+enum ChatAttachment: Equatable {
+    case syncedActivityList(SyncedActivityListAttachment)
+    case unknown
+}
+
+extension ChatAttachment: Codable {
+    private enum KindKey: String, CodingKey { case kind }
+
+    init(from decoder: Decoder) throws {
+        let keyed = try decoder.container(keyedBy: KindKey.self)
+        let kind = try keyed.decodeIfPresent(String.self, forKey: .kind)
+        if kind == "synced_activity_list",
+           let list = try? SyncedActivityListAttachment(from: decoder),
+           list.version == 1 {
+            self = .syncedActivityList(list)
+        } else {
+            self = .unknown
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        switch self {
+        case .syncedActivityList(let list):
+            try list.encode(to: encoder)
+        case .unknown:
+            var container = encoder.container(keyedBy: KindKey.self)
+            try container.encode("unknown", forKey: .kind)
+        }
+    }
+}
+
+/// Copy helpers for the post-sync Coach turn — kept free of UIKit so XCTest can cover them.
+enum ActivitySyncCopy {
+    static func firstSentence(of text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return trimmed }
+        if let line = trimmed.split(whereSeparator: \.isNewline).first {
+            let sentence = String(line).trimmingCharacters(in: .whitespaces)
+            if let end = sentence.rangeOfCharacter(from: CharacterSet(charactersIn: ".!?")) {
+                return String(sentence[..<end.upperBound]).trimmingCharacters(in: .whitespaces)
+            }
+            return sentence
+        }
+        return trimmed
+    }
+
+    /// Duplicate batches reuse the stored turn — no second notification, no second Home rewrite.
+    static func shouldAnnounceReply(duplicate: Bool, chatVisible: Bool) -> Bool {
+        !duplicate && !chatVisible
+    }
+}
+
+/// Local draft of one just-committed HealthKit activity (id + filename for Chat + cache lookup).
+struct SyncedActivityDraft: Equatable, Identifiable {
+    let activityId: String
+    let fileName: String
+    let title: String
+    let sport: String
+    let start: String
+    let durationSeconds: Int
+    let load: Int?
+
+    var id: String { activityId }
+    var qualifiedId: String { ActivitySyncIDs.qualified(activityId) }
+
+    var asRow: SyncedActivityRow {
+        SyncedActivityRow(
+            id: activityId,
+            title: title,
+            sport: sport,
+            start: start,
+            durationSeconds: durationSeconds,
+            load: load
+        )
+    }
+}
+
+/// In-flight activity-sync Coach turn. Chat renders this; Gemini is never called until snapshots
+/// are fresh. A failed turn cannot fail HealthKit sync.
+struct ActivitySyncTurn: Equatable {
+    enum Phase: Equatable {
+        case waitingForSnapshots
+        case requestingCoach
+        case retryWait
+        case retryPost
+        case complete
+    }
+
+    let activities: [SyncedActivityDraft]
+    let freshnessSince: Date
+    /// Generation of this batch. Bumped when a newer sync publishes; stale POSTs must not apply.
+    var epoch: Int
+    var phase: Phase
+    var completedThreads: [ChatThread] = []
+    var completedThreadId: String?
+    var reply: String?
+    var duplicate = false
+
+    var needsRetry: Bool {
+        phase == .retryWait || phase == .retryPost
+    }
+
+    var isThinking: Bool {
+        phase == .requestingCoach
+    }
+}
+
+/// Pure gate so a POST that started on batch A cannot complete onto batch B.
+enum ActivitySyncEpoch {
+    static func shouldApply(turnEpoch: Int, currentEpoch: Int) -> Bool {
+        turnEpoch == currentEpoch
+    }
+
+    /// Keep `current` when `incoming` is from a superseded batch.
+    static func apply(incoming: ActivitySyncTurn, onto current: ActivitySyncTurn) -> ActivitySyncTurn {
+        shouldApply(turnEpoch: incoming.epoch, currentEpoch: current.epoch) ? incoming : current
+    }
+}
+
 /// Mirrors the JSON shapes ui/api/coach-chat.ts and coachChatModel.ts already define -
 /// see docs/eng-docs/coach-chat-flow.md. A single flat struct instead of a Swift enum with
 /// associated values: the three roles (divider/user/coach) only populate the fields that
@@ -17,17 +183,77 @@ struct ChatMessage: Codable, Identifiable, Equatable {
     var text: String?
     /// coach only
     var paragraphs: [String]?
+    /// coach only — unknown kinds are dropped on decode, never fatal
+    var attachments: [ChatAttachment]?
 
     static func divider(id: String, label: String) -> ChatMessage {
-        ChatMessage(id: id, role: .divider, label: label, text: nil, paragraphs: nil)
+        ChatMessage(id: id, role: .divider, label: label, text: nil, paragraphs: nil, attachments: nil)
     }
 
     static func user(id: String, text: String) -> ChatMessage {
-        ChatMessage(id: id, role: .user, label: nil, text: text, paragraphs: nil)
+        ChatMessage(id: id, role: .user, label: nil, text: text, paragraphs: nil, attachments: nil)
     }
 
-    static func coach(id: String, paragraphs: [String]) -> ChatMessage {
-        ChatMessage(id: id, role: .coach, label: nil, text: nil, paragraphs: paragraphs)
+    static func coach(id: String, paragraphs: [String], attachments: [ChatAttachment]? = nil) -> ChatMessage {
+        ChatMessage(id: id, role: .coach, label: nil, text: nil, paragraphs: paragraphs, attachments: attachments)
+    }
+
+    var syncedActivityList: SyncedActivityListAttachment? {
+        attachments?.compactMap {
+            if case .syncedActivityList(let list) = $0 { return list }
+            return nil
+        }.first
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, role, label, text, paragraphs, attachments
+    }
+
+    init(
+        id: String,
+        role: Role,
+        label: String? = nil,
+        text: String? = nil,
+        paragraphs: [String]? = nil,
+        attachments: [ChatAttachment]? = nil
+    ) {
+        self.id = id
+        self.role = role
+        self.label = label
+        self.text = text
+        self.paragraphs = paragraphs
+        self.attachments = attachments
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        role = try container.decode(Role.self, forKey: .role)
+        label = try container.decodeIfPresent(String.self, forKey: .label)
+        text = try container.decodeIfPresent(String.self, forKey: .text)
+        paragraphs = try container.decodeIfPresent([String].self, forKey: .paragraphs)
+        let decoded = (try? container.decodeIfPresent([ChatAttachment].self, forKey: .attachments)) ?? nil
+        let known = decoded?.filter {
+            if case .unknown = $0 { return false }
+            return true
+        }
+        attachments = (known?.isEmpty == false) ? known : nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(role, forKey: .role)
+        try container.encodeIfPresent(label, forKey: .label)
+        try container.encodeIfPresent(text, forKey: .text)
+        try container.encodeIfPresent(paragraphs, forKey: .paragraphs)
+        let known = attachments?.filter {
+            if case .unknown = $0 { return false }
+            return true
+        }
+        if let known, !known.isEmpty {
+            try container.encode(known, forKey: .attachments)
+        }
     }
 }
 
@@ -113,6 +339,17 @@ struct ChatSendResponse: Decodable {
 
 struct ChatAPIErrorBody: Decodable {
     let error: String?
+}
+
+/// POST {action: "activity_sync"} — always includes `threads` and `duplicate`.
+struct ChatActivitySyncResponse: Decodable {
+    let reply: String
+    let closed: Bool
+    let duplicate: Bool
+    let threadId: String
+    let threads: [ChatThread]
+    let repoSha: String?
+    let profileComplete: Bool?
 }
 
 /// POST {action: "greet"} response (A4). `threadId` is a fresh, never-committed id and `threads`
