@@ -12,7 +12,7 @@ enum WebAuthError: Error, LocalizedError {
     }
 }
 
-/// Presents the shared in-app WKWebView for OAuth (`coachhq://` callback) or browse-only
+/// Presents the shared in-app WKWebView for OAuth (custom-scheme callback) or browse-only
 /// setup steps. One cookie jar across sign-in, repo create, and install.
 @MainActor
 final class WebAuthPresenter: ObservableObject {
@@ -48,7 +48,7 @@ final class WebAuthPresenter: ObservableObject {
         }
     }
 
-    /// OAuth / install flow — resumes when navigation hits `coachhq://…`.
+    /// OAuth / install flow — resumes when navigation hits the flavor's callback scheme.
     func start(url: URL, callbackScheme: String = "coachhq") async throws -> URL {
         if let pending = continuation {
             pending.resume(throwing: WebAuthError.cancelled)

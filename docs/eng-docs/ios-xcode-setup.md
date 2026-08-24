@@ -1,6 +1,6 @@
 # iOS App: Xcode Setup Instructions
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-22 · Partial — see "Unverified claims"
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-24 · Partial — see "Unverified claims"
 
 How to get the Coach HQ iOS app building and running on a physical iPhone from `main`.
 
@@ -42,12 +42,18 @@ There is nothing else to fill in.
 
 ## Step 3: Open the Project
 
-Open `ios/CoachHQ/CoachHQ.xcodeproj` in Xcode. Two targets build:
+Open `ios/CoachHQ/CoachHQ.xcodeproj` in Xcode. Two targets, four shared schemes:
 
-| Target / scheme | Product | Bundle ID |
+| Scheme | What you get | Bundle ID |
 |---|---|---|
-| `CoachHQ` | app | `com.siblingshipyard.coachhq.app` |
-| `CoachHQWidgetExtension` | widget extension (sources in `ios/CoachHQ/CoachHQWidget/`) | `com.siblingshipyard.coachhq.app.widget` |
+| `CoachHQ` | Prod app (home-screen name **Coach HQ**) | `com.siblingshipyard.coachhq.app` |
+| `CoachHQ-Dev` | Dev copy (**HQ Dev**) | `com.siblingshipyard.coachhq.app.dev` |
+| `CoachHQ-Staging` | Staging copy (**HQ Staging**) | `com.siblingshipyard.coachhq.app.staging` |
+| `CoachHQWidgetExtension` | widget extension (sources in `ios/CoachHQ/CoachHQWidget/`) | `<app-id>.widget` |
+
+Prod, Dev, and Staging are **separate apps**. Pick a scheme, Cmd+R — they sit side by side. Each flavor has its own App Group and OAuth URL scheme so widgets and GitHub callbacks don't leak across copies. First launch of a new flavor re-asks HealthKit and GitHub; that's per bundle ID, not a bug.
+
+The widget is embedded in the app scheme you run. You only need the widget scheme to preview a widget in isolation.
 
 The project uses file-system-synchronized groups, so files added on disk appear in the project
 automatically — you never "Add Files to…" a new Swift file.
@@ -59,9 +65,9 @@ automatically — you never "Add Files to…" a new Swift file.
    `CoachHQ` and `CoachHQWidgetExtension` targets. **Automatically manage signing** is already on
    (`CODE_SIGN_STYLE = Automatic`).
    - No team listed: **Xcode → Settings → Accounts → "+" → Apple ID**, sign in, then reselect.
-3. If the bundle IDs collide with something already on your account, change both together and
-   keep the widget a child of the app (`<your-id>` and `<your-id>.widget`) — the widget is an
-   app extension and must nest.
+3. If a flavor's bundle IDs collide with something already on your account, change **that
+   flavor's** app + widget together and keep the widget a child (`<your-id>` and
+   `<your-id>.widget`). Don't retarget Prod to fix a Dev collision.
 
 ## Step 5: Capabilities — already configured, don't re-add
 
@@ -69,8 +75,10 @@ automatically — you never "Add Files to…" a new Swift file.
 It already declares:
 
 - `com.apple.developer.healthkit` and `...healthkit.background-delivery`
-- App Group `group.com.siblingshipyard.coachhq.ios` (how the app hands snapshots to the widget;
-  `ios/CoachHQ/CoachHQ/Shared/AppGroupSnapshotBridge.swift`)
+- App Group `group.com.siblingshipyard.coachhq.ios` on Prod (Dev adds `.dev`, Staging
+  `.staging`). How the app hands snapshots to the widget;
+  `ios/CoachHQ/CoachHQ/Shared/AppGroupSnapshotBridge.swift`. The entitlements file uses
+  `$(COACHHQ_APP_GROUP)` so each flavor signs the matching group.
 
 `ios/CoachHQ/CoachHQWidget/CoachHQWidget.entitlements` declares the same App Group for the
 extension and is wired on the widget target via `CODE_SIGN_ENTITLEMENTS`.
@@ -79,11 +87,12 @@ Likewise **do not delete `Info.plist`** (older versions of this doc said to). Th
 both `INFOPLIST_FILE = CoachHQ/Info.plist` and `GENERATE_INFOPLIST_FILE = YES`, which is the
 normal modern merge setup, not a duplicate-plist bug. `ios/CoachHQ/CoachHQ/Info.plist` already
 carries `NSHealthShareUsageDescription`, `NSHealthUpdateUsageDescription`, and the `coachhq`
-URL scheme.
+URL scheme (`coachhq` on Prod, `coachhq-dev` / `coachhq-staging` on those flavors).
 
 ## Step 6: Build and Run
 
-1. Pick your connected iPhone in the device selector (not a simulator).
+1. Pick the scheme (`CoachHQ`, `CoachHQ-Dev`, or `CoachHQ-Staging`) and your connected iPhone
+   in the device selector (not a simulator).
 2. **Cmd+R**. First build takes a few minutes.
 3. On-device "Untrusted Developer": **iPhone → Settings → General → VPN & Device Management →
    your Apple ID → Trust**.
@@ -107,7 +116,7 @@ URL scheme.
 | "Developer not trusted" on phone | Settings → General → VPN & Device Management → Trust |
 | App expires after 7 days | Free-provisioning limit. Re-run Cmd+R to redeploy. |
 | Signing error on the widget only | You changed the team or bundle ID on `CoachHQ` but not `CoachHQWidgetExtension`. |
-| OAuth callback not working | URL scheme must be exactly `coachhq` (lowercase). It matches `callbackScheme` in `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift`. |
+| OAuth callback not working | URL scheme must match the flavor (`coachhq`, `coachhq-dev`, `coachhq-staging`). The app sends it as `?ios_scheme=` on `/api/auth/start`; the server allowlists those three and echoes it in the callback. |
 | HealthKit permission not appearing | Must run on a real device, not a simulator. |
 | Widget shows empty state | App Group mismatch, or the app hasn't written a snapshot yet — open the app and pull to refresh Home first. |
 | A Run Script build phase can't find `node` (or any Homebrew tool) | Xcode's PATH usually lacks Homebrew. Start the script with `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"`. |
@@ -119,11 +128,12 @@ committed settings, so local overrides just hide what CI will still see.
 
 ## CI
 
-`.github/workflows/ios-build.yml` compiles both schemes for the iOS Simulator on `macos-15` for
-every `ios/**` push and PR, with `CODE_SIGNING_ALLOWED=NO` and a `Secrets.swift` copied from the
-`.example`. It catches compile errors only — there is no XCTest target, and nothing about
-signing, devices, or HealthKit runtime behaviour is covered. Local build on a real phone is still
-the only way to verify behaviour.
+`.github/workflows/ios-build.yml` compiles `CoachHQ`, `CoachHQ-Dev`, `CoachHQ-Staging`, and
+`CoachHQWidgetExtension` for the iOS Simulator on `macos-15` for every `ios/**` push and PR,
+with `CODE_SIGNING_ALLOWED=NO` and a `Secrets.swift` copied from the `.example`. It catches
+compile errors, and runs `CoachHQTests` on the Prod scheme only. Nothing about signing, devices,
+or HealthKit runtime behaviour is covered. Local build on a real phone is still the only way
+to verify behaviour.
 
 ## Layout
 
@@ -133,7 +143,7 @@ ios/
 ├── README.md
 ├── scripts/
 └── CoachHQ/
-    ├── CoachHQ.xcodeproj/          # 2 targets, 2 shared schemes
+    ├── CoachHQ.xcodeproj/          # 2 targets, 4 shared schemes (Prod / Dev / Staging / widget)
     ├── CoachHQ/                    # app target
     │   ├── CoachHQApp.swift
     │   ├── Info.plist

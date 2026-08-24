@@ -43,7 +43,7 @@ class GitHubAuthManager: ObservableObject {
     @Published var sessionExpired = false
 
     private let keychainKey = "com.siblingshipyard.coachhq.github.token"
-    private let callbackScheme = "coachhq"
+    private var callbackScheme: String { AppIdentity.urlScheme }
 
     init() {
         if loadToken() != nil {
@@ -70,7 +70,10 @@ class GitHubAuthManager: ObservableObject {
         guard var components = URLComponents(string: Secrets.dashboardBaseURL + "/api/auth/install-redirect") else {
             throw AuthError.invalidBaseURL
         }
-        var query = [URLQueryItem(name: "platform", value: "ios")]
+        var query = [
+            URLQueryItem(name: "platform", value: "ios"),
+            URLQueryItem(name: "ios_scheme", value: callbackScheme),
+        ]
         if let userId = user?.id {
             query.append(URLQueryItem(name: "suggested_target_id", value: String(userId)))
         }
@@ -199,7 +202,10 @@ class GitHubAuthManager: ObservableObject {
         guard var components = URLComponents(string: Secrets.dashboardBaseURL + path) else {
             throw AuthError.invalidBaseURL
         }
-        components.queryItems = [URLQueryItem(name: "platform", value: "ios")]
+        components.queryItems = [
+            URLQueryItem(name: "platform", value: "ios"),
+            URLQueryItem(name: "ios_scheme", value: callbackScheme),
+        ]
         guard let authURL = components.url else {
             throw AuthError.invalidBaseURL
         }
@@ -212,7 +218,8 @@ class GitHubAuthManager: ObservableObject {
         try await handleCallback(callbackURL)
     }
 
-    /// Parses the coachhq://callback redirect. Three shapes, matching callback.ts's
+    /// Parses the custom-scheme `callback` redirect (`coachhq://` on Prod, `coachhq-dev://`
+    /// / `coachhq-staging://` on those flavors). Three shapes, matching callback.ts's
     /// platform === "ios" branches: ?error=<type>, ?needs_setup=1&login=<x>, or
     /// ?token=<x>&login=<x>[&repo=<x>] (repo included when there's exactly one candidate).
     private func handleCallback(_ url: URL) async throws {

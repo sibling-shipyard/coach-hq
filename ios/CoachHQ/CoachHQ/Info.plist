@@ -15,10 +15,14 @@
 			<string>com.siblingshipyard.coachhq.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>coachhq</string>
+				<string>$(COACHHQ_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
+	<key>CoachHQURLScheme</key>
+	<string>$(COACHHQ_URL_SCHEME)</string>
+	<key>CoachHQAppGroup</key>
+	<string>$(COACHHQ_APP_GROUP)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

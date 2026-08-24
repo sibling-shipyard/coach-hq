@@ -40,7 +40,17 @@ import {
   signOAuthState,
   verifyOAuthState,
   fromBase64Url,
+  resolveIosCallbackScheme,
+  type IosCallbackScheme,
 } from "./_lib/pkce.js";
+
+function iosCallback(scheme: IosCallbackScheme, query: string): string {
+  return `${scheme}://callback?${query}`;
+}
+
+function iosSchemeFromQuery(url: URL): IosCallbackScheme {
+  return resolveIosCallbackScheme(url.searchParams.get("ios_scheme"));
+}
 
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
@@ -59,12 +69,15 @@ if (!process.env.SESSION_SECRET) {
 // always hits GitHub's plain sign-in endpoint; handleCallback decides whether a first-timer
 // needs routing into Setup.tsx's repo creation + install flow.
 //
-// ?platform=ios rides through the state cookie so handleCallback knows to hand back a
-// coachhq://callback redirect instead of a Set-Cookie session - see GitHubAuthManager.swift.
+// ?platform=ios rides through signed state so handleCallback knows to hand back a
+// custom-scheme callback (`coachhq://`, `coachhq-dev://`, or `coachhq-staging://`)
+// instead of a Set-Cookie session - see GitHubAuthManager.swift. `?ios_scheme=`
+// selects the flavor; anything outside that allowlist falls back to `coachhq`.
 // ============================================================================
 export async function handleStart(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
+  const iosScheme = iosSchemeFromQuery(url);
   // ?popup=1 - opened via GitHubAuthButton's window.open() instead of a full-page nav;
   // handleCallback routes back to a self-closing page instead of redirecting this whole tab.
   const popup = platform === "web" && url.searchParams.get("popup") === "1";
@@ -74,7 +87,7 @@ export async function handleStart(req: Request): Promise<Response> {
     const headers = new Headers();
     headers.set(
       "Location",
-      platform === "ios" ? "coachhq://callback?error=config_error" : `${url.origin}/?auth_error=config_error`,
+      platform === "ios" ? iosCallback(iosScheme, "error=config_error") : `${url.origin}/?auth_error=config_error`,
     );
     return new Response(null, { status: 302, headers });
   }
@@ -87,7 +100,7 @@ export async function handleStart(req: Request): Promise<Response> {
   // State is HMAC-signed and embedded in the OAuth `state` parameter so GitHub echoes it
   // back in the callback URL. This avoids a Set-Cookie on the 302, which WKWebView
   // (iOS in-app browser) silently drops, breaking the auth flow.
-  const state = await signOAuthState({ codeVerifier, platform, popup }, OAUTH_HMAC_SECRET);
+  const state = await signOAuthState({ codeVerifier, platform, popup, iosScheme }, OAUTH_HMAC_SECRET);
 
   const authorizeUrl = new URL("https://github.com/login/oauth/authorize");
   authorizeUrl.searchParams.set("client_id", CLIENT_ID);
@@ -110,6 +123,7 @@ export async function handleStart(req: Request): Promise<Response> {
 export async function handleInstallRedirect(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const platform = url.searchParams.get("platform") === "ios" ? "ios" : "web";
+  const iosScheme = iosSchemeFromQuery(url);
   // See handleStart - Setup.tsx's popup step 2 opens this in a popup instead of a full nav.
   const popup = platform === "web" && url.searchParams.get("popup") === "1";
 
@@ -118,7 +132,7 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
     const headers = new Headers();
     headers.set(
       "Location",
-      platform === "ios" ? "coachhq://callback?error=config_error" : `${url.origin}/?auth_error=config_error`,
+      platform === "ios" ? iosCallback(iosScheme, "error=config_error") : `${url.origin}/?auth_error=config_error`,
     );
     return new Response(null, { status: 302, headers });
   }
@@ -128,7 +142,7 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
 
   const redirectUri = `${url.origin}/api/auth/callback`;
 
-  const state = await signOAuthState({ codeVerifier, platform, popup }, OAUTH_HMAC_SECRET);
+  const state = await signOAuthState({ codeVerifier, platform, popup, iosScheme }, OAUTH_HMAC_SECRET);
 
   // /installations/new/permissions runs the combined OAuth+install flow and returns
   // `code` in the callback; handleCallback requires `code` to exchange for a token.
@@ -160,20 +174,27 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
 // AuthPopupComplete.tsx, which posts the result back to window.opener and closes itself - the
 // popup never shows AuthError.tsx/Setup.tsx/the dashboard directly, the *opener* tab does.
 // ============================================================================
-// Decode platform from the state payload WITHOUT verifying the HMAC so that error
-// redirects go to the right destination (coachhq://… for iOS) even when verification
-// fails and tempData is not yet available. Safe because platform only affects routing,
-// not any privileged action.
-function extractPlatformFromState(stateParam: string | null): "web" | "ios" {
-  if (!stateParam) return "web";
+// Decode platform + iOS scheme from the state payload WITHOUT verifying the HMAC so
+// that error redirects go to the right destination (`coachhq://…` or a flavor scheme)
+// even when verification fails and tempData is not yet available. Safe because both
+// fields only affect routing (scheme is allowlisted), not any privileged action.
+function peekOAuthState(stateParam: string | null): {
+  platform: "web" | "ios";
+  iosScheme: IosCallbackScheme;
+} {
+  const fallback = { platform: "web" as const, iosScheme: "coachhq" as const };
+  if (!stateParam) return fallback;
   try {
     const dot = stateParam.lastIndexOf(".");
-    if (dot === -1) return "web";
+    if (dot === -1) return fallback;
     const json = new TextDecoder().decode(fromBase64Url(stateParam.slice(0, dot)));
     const d = JSON.parse(json) as Record<string, unknown>;
-    return d.platform === "ios" ? "ios" : "web";
+    return {
+      platform: d.platform === "ios" ? "ios" : "web",
+      iosScheme: resolveIosCallbackScheme(d.iosScheme),
+    };
   } catch {
-    return "web";
+    return fallback;
   }
 }
 
@@ -182,12 +203,13 @@ function callbackErrorRedirect(
   type: string,
   platform: "web" | "ios" = "web",
   popup = false,
+  iosScheme: IosCallbackScheme = "coachhq",
 ): Response {
   const headers = new Headers();
   headers.set(
     "Location",
     platform === "ios"
-      ? `coachhq://callback?error=${type}`
+      ? iosCallback(iosScheme, `error=${type}`)
       : popup
         ? `${origin}/auth/popup-complete?error=${type}`
         : `${origin}/?auth_error=${type}`,
@@ -205,12 +227,13 @@ function callbackSetupRedirect(
   login: string,
   platform: "web" | "ios" = "web",
   popup = false,
+  iosScheme: IosCallbackScheme = "coachhq",
 ): Response {
   const headers = new Headers();
   headers.set(
     "Location",
     platform === "ios"
-      ? `coachhq://callback?needs_setup=1&login=${encodeURIComponent(login)}`
+      ? iosCallback(iosScheme, `needs_setup=1&login=${encodeURIComponent(login)}`)
       : popup
         ? `${origin}/auth/popup-complete?error=needs_ios_setup`
         : `${origin}/?auth_error=needs_ios_setup`,
@@ -223,7 +246,8 @@ export async function handleCallback(req: Request): Promise<Response> {
   try {
     return await callbackImpl(url);
   } catch {
-    return callbackErrorRedirect(url.origin, "network_error", extractPlatformFromState(url.searchParams.get("state")));
+    const peeked = peekOAuthState(url.searchParams.get("state"));
+    return callbackErrorRedirect(url.origin, "network_error", peeked.platform, false, peeked.iosScheme);
   }
 }
 
@@ -231,29 +255,32 @@ export async function handleCallback(req: Request): Promise<Response> {
 // is caught by handleCallback's wrapper above instead of falling through to Vercel's generic
 // 500 page.
 async function callbackImpl(url: URL): Promise<Response> {
-  // Extract platform before any other check so even the config_error bailout routes iOS
-  // to coachhq:// instead of the web homepage - see extractPlatformFromState's doc comment.
-  const unverifiedPlatform = extractPlatformFromState(url.searchParams.get("state"));
+  // Extract platform + scheme before any other check so even the config_error bailout
+  // routes iOS to the flavor's custom scheme instead of the web homepage.
+  const peeked = peekOAuthState(url.searchParams.get("state"));
+  const unverifiedPlatform = peeked.platform;
+  const unverifiedScheme = peeked.iosScheme;
 
   if (!CLIENT_ID || !CLIENT_SECRET) {
-    return callbackErrorRedirect(url.origin, "config_error", unverifiedPlatform, false);
+    return callbackErrorRedirect(url.origin, "config_error", unverifiedPlatform, false, unverifiedScheme);
   }
 
   const code = url.searchParams.get("code");
   const stateParam = url.searchParams.get("state");
 
   if (!code || !stateParam) {
-    return callbackErrorRedirect(url.origin, "missing_params", unverifiedPlatform, false);
+    return callbackErrorRedirect(url.origin, "missing_params", unverifiedPlatform, false, unverifiedScheme);
   }
 
   // State is HMAC-signed (set by handleStart/handleInstallRedirect) — no cookie needed.
   const tempData = await verifyOAuthState(stateParam, OAUTH_HMAC_SECRET);
   if (!tempData) {
-    return callbackErrorRedirect(url.origin, "corrupt_oauth_session", unverifiedPlatform, false);
+    return callbackErrorRedirect(url.origin, "corrupt_oauth_session", unverifiedPlatform, false, unverifiedScheme);
   }
 
   const platform: "web" | "ios" = tempData.platform;
   const popup = platform === "web" && tempData.popup;
+  const iosScheme = tempData.iosScheme;
 
   const redirectUri = `${url.origin}/api/auth/callback`;
 
@@ -271,12 +298,12 @@ async function callbackImpl(url: URL): Promise<Response> {
 
   const tokenBody = await tokenRes.json();
   if (!tokenRes.ok || tokenBody.error || !tokenBody.access_token) {
-    return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, popup);
+    return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, popup, iosScheme);
   }
   // refresh_token/expires_in are always present - "expire user authorization tokens" is
   // opted in on the GitHub App. ensureFreshSession / iOS's refresh logic need both to rotate.
   if (!tokenBody.refresh_token || !tokenBody.expires_in) {
-    return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, popup);
+    return callbackErrorRedirect(url.origin, "token_exchange_failed", platform, popup, iosScheme);
   }
 
   const ghToken = tokenBody.access_token as string;
@@ -292,7 +319,7 @@ async function callbackImpl(url: URL): Promise<Response> {
   });
 
   if (!userRes.ok) {
-    return callbackErrorRedirect(url.origin, "user_fetch_failed", platform, popup);
+    return callbackErrorRedirect(url.origin, "user_fetch_failed", platform, popup, iosScheme);
   }
 
   const user = await userRes.json();
@@ -302,7 +329,7 @@ async function callbackImpl(url: URL): Promise<Response> {
     installationId = await resolveInstallationId(ghToken, user.login as string, APP_SLUG);
   } catch (e) {
     if (e instanceof InstallationLookupFailedError) {
-      return callbackErrorRedirect(url.origin, "lookup_failed", platform, popup);
+      return callbackErrorRedirect(url.origin, "lookup_failed", platform, popup, iosScheme);
     }
     throw e;
   }
@@ -316,14 +343,17 @@ async function callbackImpl(url: URL): Promise<Response> {
       const headers = new Headers();
       headers.set(
         "Location",
-        `coachhq://callback?needs_setup=1&login=${encodeURIComponent(user.login as string)}` +
-          `&token=${encodeURIComponent(ghToken)}` +
-          `&refresh_token=${encodeURIComponent(ghRefreshToken)}` +
-          `&expires_at=${ghTokenExpiresAt}`,
+        iosCallback(
+          iosScheme,
+          `needs_setup=1&login=${encodeURIComponent(user.login as string)}` +
+            `&token=${encodeURIComponent(ghToken)}` +
+            `&refresh_token=${encodeURIComponent(ghRefreshToken)}` +
+            `&expires_at=${ghTokenExpiresAt}`,
+        ),
       );
       return new Response(null, { status: 302, headers });
     }
-    return callbackSetupRedirect(url.origin, user.login as string, platform, popup);
+    return callbackSetupRedirect(url.origin, user.login as string, platform, popup, iosScheme);
   }
 
   // iOS has no shared cookie jar, so it gets the raw token back on the redirect (see
@@ -337,10 +367,13 @@ async function callbackImpl(url: URL): Promise<Response> {
     const headers = new Headers();
     headers.set(
       "Location",
-      `coachhq://callback?token=${encodeURIComponent(ghToken)}` +
-        `&refresh_token=${encodeURIComponent(ghRefreshToken)}` +
-        `&expires_at=${ghTokenExpiresAt}` +
-        `&login=${encodeURIComponent(user.login as string)}${repoParam}`,
+      iosCallback(
+        iosScheme,
+        `token=${encodeURIComponent(ghToken)}` +
+          `&refresh_token=${encodeURIComponent(ghRefreshToken)}` +
+          `&expires_at=${ghTokenExpiresAt}` +
+          `&login=${encodeURIComponent(user.login as string)}${repoParam}`,
+      ),
     );
     return new Response(null, { status: 302, headers });
   }

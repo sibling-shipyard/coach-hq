@@ -16,10 +16,20 @@ function ghUrl(path: string): string {
 
 async function makeCallbackUrl(
   code: string,
-  data: { codeVerifier: string; platform: "web" | "ios"; popup: boolean },
+  data: {
+    codeVerifier: string;
+    platform: "web" | "ios";
+    popup: boolean;
+    iosScheme?: "coachhq" | "coachhq-dev" | "coachhq-staging";
+  },
 ): Promise<string> {
   const state = await signOAuthState(
-    { codeVerifier: data.codeVerifier, platform: data.platform, popup: data.popup },
+    {
+      codeVerifier: data.codeVerifier,
+      platform: data.platform,
+      popup: data.popup,
+      iosScheme: data.iosScheme,
+    },
     SESSION_SECRET,
   );
   return `https://example.com/api/auth/callback?code=${code}&state=${encodeURIComponent(state)}`;
@@ -67,6 +77,19 @@ describe("callback.ts iOS error routing", () => {
     expect(res.status).toBe(302);
     const location = res.headers.get("location") ?? "";
     expect(location).toMatch(/^coachhq:\/\/callback\?error=missing_params/);
+  });
+
+  it("routes corrupt_oauth_session to the flavor scheme peeked from unsigned state", async () => {
+    const wrongSecret = "wrong-secret";
+    const state = await signOAuthState(
+      { codeVerifier: "v", platform: "ios", popup: false, iosScheme: "coachhq-staging" },
+      wrongSecret,
+    );
+    const url = `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`;
+    const res = await handler.fetch(new Request(url));
+    expect(res.headers.get("location") ?? "").toMatch(
+      /^coachhq-staging:\/\/callback\?error=corrupt_oauth_session/,
+    );
   });
 });
 
@@ -344,6 +367,58 @@ describe("handleStart -> handleCallback round trip", () => {
     // A mismatch in handleStart's state generation vs handleCallback's verification would
     // produce a corrupt_oauth_session redirect instead of reaching this branch.
     expect(location).toMatch(/^coachhq:\/\/callback\?needs_setup=1/);
+  });
+
+  it("honors ?ios_scheme=coachhq-dev on start and redirects the callback there", async () => {
+    const startReq = new Request("https://example.com/api/auth/start?platform=ios&ios_scheme=coachhq-dev");
+    const startRes = await handler.fetch(startReq);
+    const authorizeUrl = new URL(startRes.headers.get("location")!);
+    const state = authorizeUrl.searchParams.get("state")!;
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+      }
+      if (url === ghUrl("/user")) {
+        return Response.json({ id: 6, login: "dev-flavor" });
+      }
+      if (url === ghUrl("/user/installations")) {
+        return Response.json({ installations: [] });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const callbackRes = await handler.fetch(
+      new Request(`https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`),
+    );
+    expect(callbackRes.headers.get("location") ?? "").toMatch(/^coachhq-dev:\/\/callback\?needs_setup=1/);
+  });
+
+  it("ignores a non-allowlisted ios_scheme and stays on coachhq://", async () => {
+    const startReq = new Request("https://example.com/api/auth/start?platform=ios&ios_scheme=javascript");
+    const startRes = await handler.fetch(startReq);
+    const authorizeUrl = new URL(startRes.headers.get("location")!);
+    const state = authorizeUrl.searchParams.get("state")!;
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "https://github.com/login/oauth/access_token") {
+        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+      }
+      if (url === ghUrl("/user")) {
+        return Response.json({ id: 7, login: "evil-scheme" });
+      }
+      if (url === ghUrl("/user/installations")) {
+        return Response.json({ installations: [] });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    const callbackRes = await handler.fetch(
+      new Request(`https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`),
+    );
+    const location = callbackRes.headers.get("location") ?? "";
+    expect(location).toMatch(/^coachhq:\/\/callback\?needs_setup=1/);
+    expect(location).not.toMatch(/^javascript:/);
   });
 });
 

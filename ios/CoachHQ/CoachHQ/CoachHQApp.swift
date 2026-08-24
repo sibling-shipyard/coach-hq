@@ -86,10 +86,10 @@ struct CoachHQApp: App {
             .tint(Theme.ink)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)
             .onOpenURL { url in
-                // Catch coachhq:// callbacks that reach the app via the OS URL scheme
-                // handler instead of being intercepted inside WKWebView (e.g. when the
-                // server redirects to coachhq:// via a context the WebView can't catch).
-                guard url.scheme?.lowercased() == "coachhq" else { return }
+                // Catch the flavor's custom-scheme callbacks that reach the app via the
+                // OS URL handler instead of being intercepted inside WKWebView (e.g. when
+                // the server redirects via a context the WebView can't catch).
+                guard url.scheme?.lowercased() == AppIdentity.urlScheme.lowercased() else { return }
                 WebAuthPresenter.shared.complete(with: url)
             }
             .sheet(isPresented: webAuth.isPresentedBinding) {
