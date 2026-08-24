@@ -122,6 +122,35 @@ def process_season(data: dict, is_current: bool, quests_out: dict) -> None:
             quests_out[qid]["entries"][d] = status
 
 
+def process_split_ledger(quests_data: dict, progress_data: dict, is_current: bool, quests_out: dict) -> None:
+    completed_by_quest = {}
+    missed_by_quest = {}
+    excused_by_quest = {}
+
+    for row in progress_data.get("rows", []):
+        qid = row.get("quest_id")
+        date_str = row.get("date")
+        status = row.get("status")
+
+        if status == "completed":
+            completed_by_quest.setdefault(qid, set()).add(date_str)
+        elif status == "missed":
+            missed_by_quest.setdefault(qid, set()).add(date_str)
+        elif status == "excused":
+            excused_by_quest.setdefault(qid, set()).add(date_str)
+
+    synthetic_quests = []
+    for quest in quests_data.get("quests", []):
+        qid = quest["id"]
+        sq = dict(quest)
+        sq["completed_dates"] = list(completed_by_quest.get(qid, set()))
+        sq["missed_dates"] = list(missed_by_quest.get(qid, set()))
+        sq["excused_dates"] = list(excused_by_quest.get(qid, set()))
+        synthetic_quests.append(sq)
+
+    process_season({"quests": synthetic_quests}, is_current, quests_out)
+
+
 def main():
     quests_out: dict = {}
 
@@ -139,12 +168,14 @@ def main():
     ledger = ledger_dir(REPO_DIR)
     current_path = ledger / "challenge_v2.json"
     progress_path = ledger / "progress.json"
+    quests_path = ledger / "quests.json"
     if current_path.exists():
         data = json.loads(current_path.read_text())
         process_season(data, is_current=True, quests_out=quests_out)
-    elif progress_path.exists():
-        data = json.loads(progress_path.read_text())
-        process_season(data, is_current=True, quests_out=quests_out)
+    elif progress_path.exists() and quests_path.exists():
+        quests_data = json.loads(quests_path.read_text())
+        progress_data = json.loads(progress_path.read_text())
+        process_split_ledger(quests_data, progress_data, is_current=True, quests_out=quests_out)
 
     # Flatten each quest's date-keyed dict (built that way to absorb season-transition overlap,
     # see process_season's docstring) into the sorted {date, status} list format the rest of the
