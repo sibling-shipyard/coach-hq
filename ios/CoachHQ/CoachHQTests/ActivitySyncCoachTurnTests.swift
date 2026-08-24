@@ -138,6 +138,85 @@ final class ActivitySyncCoachTurnTests: XCTestCase {
         XCTAssertNil(published.reply)
     }
 
+    func testThinkingDotsOnlyWhileRequestingCoach() {
+        var turn = ActivitySyncTurn(
+            activities: [Self.fixtureDraft],
+            freshnessSince: Date(),
+            epoch: 1,
+            phase: .waitingForSnapshots
+        )
+        XCTAssertFalse(turn.isThinking)
+        XCTAssertFalse(turn.needsRetry)
+
+        turn.phase = .requestingCoach
+        XCTAssertTrue(turn.isThinking)
+        XCTAssertFalse(turn.needsRetry)
+
+        turn.phase = .retryWait
+        XCTAssertFalse(turn.isThinking)
+        XCTAssertTrue(turn.needsRetry)
+
+        turn.phase = .retryPost
+        XCTAssertFalse(turn.isThinking)
+        XCTAssertTrue(turn.needsRetry)
+
+        turn.phase = .complete
+        XCTAssertFalse(turn.isThinking)
+        XCTAssertFalse(turn.needsRetry)
+    }
+
+    func testPersistedMultiActivityTurnDecodesOneListAndReply() throws {
+        let json = """
+        {
+          "id": "c-m0",
+          "role": "coach",
+          "paragraphs": ["Nice work on Easy Run and Ride #2. How did the legs feel after the ride?"],
+          "attachments": [{
+            "version": 1,
+            "kind": "synced_activity_list",
+            "batch_id": "fixture-batch-m0",
+            "activities": [
+              {
+                "id": "11111111-1111-1111-1111-111111111111",
+                "title": "Easy Run",
+                "sport": "Run",
+                "start": "2026-08-22T06:30:00",
+                "duration_s": 2400,
+                "load": 3
+              },
+              {
+                "id": "22222222-2222-2222-2222-222222222222",
+                "title": "Ride #2",
+                "sport": "Ride",
+                "start": "2026-08-22T09:00:00",
+                "duration_s": 3600,
+                "load": null
+              }
+            ]
+          }]
+        }
+        """
+        let message = try JSONDecoder().decode(ChatMessage.self, from: Data(json.utf8))
+        let list = try XCTUnwrap(message.syncedActivityList)
+        XCTAssertEqual(message.paragraphs?.count, 1)
+        XCTAssertEqual(list.batchId, "fixture-batch-m0")
+        XCTAssertEqual(list.activities.map(\.id), [
+            "11111111-1111-1111-1111-111111111111",
+            "22222222-2222-2222-2222-222222222222",
+        ])
+        XCTAssertEqual(ActivitySyncIDs.qualified(list.activities[0].id), "hk:11111111-1111-1111-1111-111111111111")
+    }
+
+    private static let fixtureDraft = SyncedActivityDraft(
+        activityId: "11111111-1111-1111-1111-111111111111",
+        fileName: "hk_2026-08-22_11111111-1111-1111-1111-111111111111.json",
+        title: "Easy Run",
+        sport: "Run",
+        start: "2026-08-22T06:30:00",
+        durationSeconds: 2400,
+        load: 3
+    )
+
     private static func draft(id: String) -> SyncedActivityDraft {
         SyncedActivityDraft(
             activityId: id,

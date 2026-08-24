@@ -86,6 +86,18 @@ A fresh carve seeds `{ "schema_version": 1, "message": null }`.
 `home.coachMessage` widget-snapshot projection carries `id`, `created_at`, `body`, and
 `conversation_seed_id`; this file remains canonical.
 
+### `user_data/coach/chat_history.json`
+
+Threads Coach Chat persists. Activity-sync turns write immediately (not on close). A Coach
+message may carry `attachments`. M0 kind:
+
+`synced_activity_list` `{ version: 1, batch_id, activities[] }`
+
+`batch_id` is the first 16 hex of sha256 of the sorted unique `hk:<uuid>` ids. Rows:
+`id, title, sport, start, duration_s, load`. Server rereads `user_data/activities/hist/`;
+Gemini cannot set these. Unknown kinds/versions are ignored, never fatal. Tap a row opens
+Activity Detail by `id`.
+
 ### `user_data/ledger/seasons.json`
 
 Written by `turnWrites/seasonWrite.ts` (`buildSeasonStartWrite`) — First Session Protocol only,

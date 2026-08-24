@@ -46,7 +46,7 @@ flowchart LR
 
 | milestone | outcome | size | done when |
 |---|---|---:|---|
-| M0 · Sync trust loop | Exact synced activity list → real thinking dots → Coach reply. See `coach-sync-message-trial.md`. | M | One batch creates one grounded, durable turn on web and iOS; retry is idempotent. |
+| M0 · Sync trust loop | Shipped. Exact synced activity list → real thinking dots → Coach reply. Contract: `coach-chat-daily.md`, `ios-sync.md`, `coach-data-schema.md`. | M | One batch creates one grounded, durable turn on web and iOS; retry is idempotent. |
 | M1 · Coach first | The real message replaces “Coach is on it,” becomes the first Home card, and deep-links to its thread. | M | Notification, Home, and Chat show the same words and open the same conversation. |
 | M2 · Event-owned widgets | Plan edits, reconciled sessions, and quest writes attach their own cards automatically. | L | Every shipped write action has one deterministic attachment mapping and a no-data fallback. |
 | M3 · Coach-requested widgets | Coach may request an allowlisted comparison, trend, plan, or recent-session view. | M | Invented, stale, duplicate, and excessive requests are dropped while the prose still works. |

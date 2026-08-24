@@ -272,14 +272,16 @@ notification tap includes the athlete repo and is consumed only when the signed-
 
 After that same commit, Chat can show the exact batch immediately (local titles, then
 server-reread fields once the attachment arrives). Thinking dots stay off while
-`refreshAfterSync` polls. When snapshots are fresh, the app POSTs
+`refreshAfterSync` polls (`ActivitySyncTurn.isThinking` is true only in
+`requestingCoach`). When snapshots are fresh, the app POSTs
 `{ action: "activity_sync", activity_ids: ["hk:<uuid>", ...] }` and shows the existing
 thinking bubble only during that Gemini request. A failed Coach turn cannot fail the
 HealthKit sync: the list stays, Retry re-runs the wait or the POST, and no Coach
 notification is sent. Onboarding never starts this turn (`syncNotificationsEnabled`).
 A `duplicate: true` response renders the stored thread and does not replace Home copy
 or send another notification. When the reply lands and Chat is not visible, the Home
-toast and the sync notification body become the reply's first sentence.
+toast and the sync notification body become the reply's first sentence. A persisted
+row tap opens `ActivityDetailView` by the attachment `id`.
 
 iOS Home also depends on HQ's `/api/widget-snapshots` being deployed and healthy. A 401 from it
 without auth headers is expected; a **500 is a server-side bug** — historically Vercel not

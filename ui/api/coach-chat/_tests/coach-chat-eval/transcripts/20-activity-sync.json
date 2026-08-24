@@ -1,0 +1,25 @@
+{
+  "name": "activity-sync",
+  "description": "M0 sync turn: stand-alone reply to a verified batch the athlete did not type. No invented cause. Question only if the answer changes coaching.",
+  "mode": "activity_sync",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "<activity_sync_batch>\nVerified activities just synced. These rows are system-owned facts. Do not invent ids or measurements.\n- id: 11111111-1111-1111-1111-111111111111 | title: Easy Run | sport: Run | start: 2026-08-22T06:30:00 | duration_s: 2400 | load: 3\n- id: 22222222-2222-2222-2222-222222222222 | title: Ride #2 | sport: Ride | start: 2026-08-22T09:00:00 | duration_s: 3600 | load: null\n</activity_sync_batch>",
+  "history": [],
+  "userMessage": "[Activity sync. Respond to the verified batch in context. The athlete did not type this.]",
+  "expect": {
+    "sessionClosed": false,
+    "actionFieldsAbsent": [
+      "memory_update",
+      "injury_event",
+      "quest_event",
+      "profile_update",
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit",
+      "coach_note"
+    ]
+  }
+}
