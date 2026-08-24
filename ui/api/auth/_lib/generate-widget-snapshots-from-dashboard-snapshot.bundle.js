@@ -111,7 +111,7 @@ var GROUP_CONFIG = {
   ride: { label: "RIDES", color: sportHex("cycling"), categories: ["ride"] }
 };
 function getTrainingCategory(activity) {
-  if (activity.category) {
+  if (activity.category && activity.category in CATEGORY_CONFIG) {
     return activity.category;
   }
   const name = activity.name;
@@ -260,7 +260,7 @@ function recordedDays(activities, monday) {
     };
   });
 }
-function buildLiveWeekContract(activities, challenge, now = /* @__PURE__ */ new Date()) {
+function buildLiveWeekContract(activities, _legacyChallenge, now = /* @__PURE__ */ new Date()) {
   const monday = getMonday(now);
   const sunday = new Date(monday.getTime() + 6 * DAY_MS);
   const startDate = localDateKey(monday);
@@ -1081,8 +1081,9 @@ function buildQuest(mainQuest) {
     percent: floor > 0 ? Math.min(100, completed / floor * 100) : 0
   };
 }
-function buildCountTargetQuest(mainQuest, activities, challenge) {
-  const sinceRaw = challenge.season?.start_date ?? challenge.challenge?.start_date;
+function buildCountTargetQuest(mainQuest, activities, ledger) {
+  const isSplit = ledger && "seasons" in ledger;
+  const sinceRaw = isSplit ? ledger.seasons.seasons.find((s) => s.id === ledger.seasons.current_season_id)?.start_date : ledger.season?.start_date ?? ledger.challenge?.start_date;
   const since = sinceRaw ?? "0000-01-01";
   const pattern = mainQuest.count_pattern ? new RegExp(mainQuest.count_pattern, "i") : null;
   const completed = pattern ? activities.filter(
@@ -1098,7 +1099,7 @@ function buildCountTargetQuest(mainQuest, activities, challenge) {
     percent: floor > 0 ? Math.min(100, completed / floor * 100) : 0
   };
 }
-function buildWarmHomeModel(activities, challenge, syncStatus, contract) {
+function buildWarmHomeModel(activities, ledger, syncStatus, contract) {
   const syncHealthy = syncStatus.status === "success" || syncStatus.status === "none";
   const start = /* @__PURE__ */ new Date(`${contract.week.start_date}T00:00:00`);
   const end = /* @__PURE__ */ new Date(`${contract.week.end_date}T00:00:00`);
@@ -1108,11 +1109,8 @@ function buildWarmHomeModel(activities, challenge, syncStatus, contract) {
       day: "numeric",
       month: "long"
     }),
-    // part3-rollout dropped week.phase_name/week.block_name from current_week.json (dead
-    // references to the phase/current_block concept Part 2 already removed from seasons.json) -
-    // fall back straight to challenge.phase, same source SportSpine.tsx/Home.tsx still use.
-    phaseName: challenge.phase?.name || challenge.challenge?.name || "Current block",
-    blockName: challenge.phase?.current_block.name || "This week",
+    phaseName: "Current block",
+    blockName: "This week",
     syncLabel: formatSyncAge(latestActivityTimestamp(activities) ?? syncStatus.timestamp),
     syncHealthy,
     dataStatus: contract.data_status,
@@ -1122,7 +1120,7 @@ function buildWarmHomeModel(activities, challenge, syncStatus, contract) {
     coachRead: contract.coach_read,
     commitments: buildCommitments(activities),
     planDays: buildPlanDays(contract),
-    quest: challenge.main_quest.type === "count_target" ? buildCountTargetQuest(challenge.main_quest, activities, challenge) : buildQuest(challenge.main_quest)
+    quest: (ledger.quests?.main_quest ?? ledger.main_quest).type === "count_target" ? buildCountTargetQuest(ledger.quests?.main_quest ?? ledger.main_quest, activities, ledger) : buildQuest(ledger.quests?.main_quest ?? ledger.main_quest)
   };
 }
 
@@ -1302,26 +1300,29 @@ function eligibleDaysSince(startDate, endDate, today) {
   if (effectiveEnd < start) return 0;
   return Math.floor((effectiveEnd.getTime() - start.getTime()) / DAY_MS3) + 1;
 }
-function buildQuestSnapshot(challenge, quest) {
+function buildQuestSnapshot(ledger, quest) {
   const palette = ["#7c6f9e", "#a8702c"];
   const today = /* @__PURE__ */ new Date();
-  const sideQuests = challenge.quests.slice(0, 2).map((item, index) => {
+  const isSplit = ledger && "seasons" in ledger;
+  const questsArray = isSplit ? ledger.quests.quests : ledger.quests;
+  const sideQuests = questsArray.slice(0, 2).map((item, index) => {
     let value;
     let target;
+    const itemRows = isSplit ? ledger.progress.rows.filter((row) => row.quest_id === item.id) : [];
+    const completedDates = isSplit ? itemRows.filter((row) => row.status === "completed").map((row) => row.date) : item.completed_dates ?? [];
     if (item.type === "daily_streak") {
-      const eligible = eligibleDaysSince(item.start_date, item.end_date, today);
+      const eligible = eligibleDaysSince(item.start_date, item.end_date ?? void 0, today);
       if (item.polarity === "default_done") {
-        const missed = item.missed_dates?.length ?? 0;
-        const excused = item.excused_dates?.length ?? 0;
+        const missed = isSplit ? itemRows.filter((row) => row.status === "missed").length : item.missed_dates?.length ?? 0;
+        const excused = isSplit ? itemRows.filter((row) => row.status === "excused").length : item.excused_dates?.length ?? 0;
         value = Math.max(0, eligible - missed - excused);
         target = eligible;
       } else {
-        value = item.completed_dates?.length ?? 0;
+        value = completedDates.length;
         target = eligible;
       }
     } else {
-      const completedDates = item.completed_dates?.length ?? 0;
-      value = item.current ?? completedDates;
+      value = isSplit ? itemRows.slice().reverse().find((row) => row.value != null)?.value ?? completedDates.length : item.current ?? completedDates.length;
       target = item.target ?? Math.max(value, 1);
     }
     return {
@@ -1330,7 +1331,8 @@ function buildQuestSnapshot(challenge, quest) {
       value,
       target,
       color: palette[index] ?? palette[0],
-      notes: item.notes
+      notes: void 0
+      // notes dropped in split ledger quests
     };
   });
   const mondayIndex = ((/* @__PURE__ */ new Date()).getDay() + 6) % 7;
@@ -1600,9 +1602,11 @@ function buildRecentSessions(activityEvidence) {
     evidence: activity
   }));
 }
-function buildPhaseSnapshot(challenge, dataMode) {
-  const blockStart = challenge.phase?.current_block.start_date ?? challenge.challenge?.start_date;
-  const blockEnd = challenge.phase?.current_block.end_date ?? challenge.challenge?.end_date;
+function buildPhaseSnapshot(ledger, dataMode) {
+  const isSplit = ledger && "seasons" in ledger;
+  const currentSeason = isSplit ? ledger.seasons.seasons.find((s) => s.id === ledger.seasons.current_season_id) : void 0;
+  const blockStart = isSplit ? currentSeason?.start_date : ledger.phase?.current_block.start_date ?? ledger.challenge?.start_date;
+  const blockEnd = isSplit ? currentSeason?.end_date : ledger.phase?.current_block.end_date ?? ledger.challenge?.end_date;
   const start = blockStart ? /* @__PURE__ */ new Date(`${blockStart}T00:00:00`) : /* @__PURE__ */ new Date();
   const end = blockEnd ? /* @__PURE__ */ new Date(`${blockEnd}T00:00:00`) : /* @__PURE__ */ new Date();
   const totalWeeks = Math.max(1, Math.ceil((end.getTime() - start.getTime() + DAY_MS3) / (7 * DAY_MS3)));
@@ -1610,31 +1614,45 @@ function buildPhaseSnapshot(challenge, dataMode) {
     totalWeeks,
     Math.max(1, Math.floor((Date.now() - start.getTime()) / (7 * DAY_MS3)) + 1)
   );
+  const milestonesArray = isSplit ? ledger.progressions?.progressions ?? [] : ledger.milestones ?? [];
   return {
     weekLabel: `WK ${currentWeek}/${totalWeeks}`,
     title: dataMode === "live" ? "BUILD PHASE \xB7 CHALLENGE DATA" : void 0,
-    milestones: (challenge.milestones ?? []).slice(0, 3).map((milestone) => {
-      const progress = milestone.progress;
-      const progressPercent = progress ? Math.max(
-        0,
-        Math.min(
-          100,
-          Math.round(
-            (progress.current_value - progress.baseline_value) / (progress.target_value - progress.baseline_value || 1) * 100
+    milestones: milestonesArray.slice(0, 3).map((item) => {
+      if (isSplit) {
+        return {
+          id: item.id,
+          name: item.name,
+          baseline: "\u2014",
+          current: item.current ?? "\u2014",
+          target: item.target,
+          note: void 0,
+          progressPercent: null,
+          projectedDateLabel: void 0
+        };
+      } else {
+        const progress = item.progress;
+        const progressPercent = progress ? Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round(
+              (progress.current_value - progress.baseline_value) / (progress.target_value - progress.baseline_value || 1) * 100
+            )
           )
-        )
-      ) : null;
-      const projectedDateLabel = progress?.projected_date ? (/* @__PURE__ */ new Date(`${progress.projected_date}T00:00:00`)).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase() : void 0;
-      return {
-        id: milestone.id,
-        name: milestone.short_name ?? milestone.name,
-        baseline: String(milestone.baseline ?? "\u2014"),
-        current: milestone.short_current ?? String(milestone.current ?? milestone.baseline ?? "\u2014"),
-        target: milestone.short_target ?? milestone.target,
-        note: milestone.note,
-        progressPercent,
-        projectedDateLabel: dataMode === "live" ? projectedDateLabel : void 0
-      };
+        ) : null;
+        const projectedDateLabel = progress?.projected_date ? (/* @__PURE__ */ new Date(`${progress.projected_date}T00:00:00`)).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase() : void 0;
+        return {
+          id: item.id,
+          name: item.short_name ?? item.name,
+          baseline: String(item.baseline ?? "\u2014"),
+          current: item.short_current ?? String(item.current ?? item.baseline ?? "\u2014"),
+          target: item.short_target ?? item.target,
+          note: item.note,
+          progressPercent,
+          projectedDateLabel: dataMode === "live" ? projectedDateLabel : void 0
+        };
+      }
     }),
     read: dataMode === "live" ? "Phase dates and milestone values are read directly from the generated challenge record." : "Dates assume plan-true weeks \u2014 every missed bar day slides them right."
   };
@@ -1658,11 +1676,11 @@ function buildCoachReadSnapshot(model, engine, quest, dataMode) {
     ]
   };
 }
-function buildWarmHomeSnapshots(activities, challengeData, syncStatus, contract, dataMode = "live") {
-  const model = buildWarmHomeModel(activities, challengeData, syncStatus, contract);
+function buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMode = "live") {
+  const model = buildWarmHomeModel(activities, ledger, syncStatus, contract);
   const activityEvidence = buildActivityEvidenceSnapshots(activities);
   const engine = buildEngineSnapshot(activities, model.engine);
-  const quest = buildQuestSnapshot(challengeData, model.quest);
+  const quest = buildQuestSnapshot(ledger, model.quest);
   return {
     engine,
     quest,
@@ -1673,7 +1691,7 @@ function buildWarmHomeSnapshots(activities, challengeData, syncStatus, contract,
     trainingActivity: buildTrainingActivitySnapshot(activities, activityEvidence),
     vo2: buildVo2Snapshot(),
     sessions: buildRecentSessions(activityEvidence),
-    phase: buildPhaseSnapshot(challengeData, dataMode),
+    phase: buildPhaseSnapshot(ledger, dataMode),
     amIImproving: buildBadmintonLensModel(activities, "ranked").amIImproving,
     activityEvidence,
     sync: {
@@ -1704,10 +1722,10 @@ function questSnapshotS(quest) {
     progressPercent
   };
 }
-function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contract, dataMode = "live", coachMessage) {
+function buildWidgetSnapshotsFile(activities, ledger, syncStatus, contract, dataMode = "live", coachMessage) {
   const computedHome = buildWarmHomeSnapshots(
     activities,
-    challengeData,
+    ledger,
     syncStatus,
     contract,
     dataMode
@@ -1742,33 +1760,6 @@ function buildWidgetSnapshotsFile(activities, challengeData, syncStatus, contrac
         M: home.commitments
       }
     }
-  };
-}
-
-// client/src/lib/splitLedgerChallenge.ts
-function splitLedgerAsChallenge(ledger) {
-  const season = ledger.seasons.seasons.find((item) => item.id === ledger.seasons.current_season_id);
-  if (!season || !ledger.quests.main_quest) return null;
-  const rowsFor = (questId) => ledger.progress.rows.filter((row) => row.quest_id === questId);
-  const questWithProgress = (quest) => {
-    const rows = rowsFor(quest.id);
-    const latestValue = [...rows].reverse().find((row) => row.value != null)?.value;
-    return {
-      ...quest,
-      status: quest.status === "graduated" ? "completed" : quest.status,
-      completed_dates: rows.filter((row) => row.status === "completed").map((row) => row.date),
-      missed_dates: rows.filter((row) => row.status === "missed").map((row) => row.date),
-      excused_dates: rows.filter((row) => row.status === "excused").map((row) => row.date),
-      ...latestValue != null ? { current: Number(latestValue) } : {}
-    };
-  };
-  const mainRows = rowsFor(ledger.quests.main_quest.id);
-  return {
-    version: 4,
-    season: { name: season.name, start_date: season.start_date, end_date: season.end_date },
-    weekly_targets: Object.fromEntries(Object.entries(ledger.quests.weekly_targets).map(([key, value]) => [key, value.target])),
-    main_quest: { ...ledger.quests.main_quest, completed_dates: mainRows.filter((row) => row.status === "completed").map((row) => row.date) },
-    quests: ledger.quests.quests.map(questWithProgress)
   };
 }
 
@@ -1838,18 +1829,18 @@ function needsLiveRecomputation(week) {
   return false;
 }
 function generateWidgetSnapshotsFromDashboardSnapshot(aggregate, latestCoachMessageFile) {
-  const challenge = aggregate.ledger ? splitLedgerAsChallenge(aggregate.ledger) : aggregate.challenge_v2 ?? null;
-  if (!challenge) return null;
+  const ledger = aggregate.ledger;
+  if (!ledger) return null;
   const activities = aggregate.activities ?? [];
   const syncStatus = aggregate.sync_status ?? {
     status: "none",
     timestamp: null,
     warnings: []
   };
-  const contract = needsLiveRecomputation(aggregate.current_week) ? buildLiveWeekContract(activities, challenge) : aggregate.current_week;
+  const contract = needsLiveRecomputation(aggregate.current_week) ? buildLiveWeekContract(activities) : aggregate.current_week;
   return buildWidgetSnapshotsFile(
     activities,
-    challenge,
+    ledger,
     syncStatus,
     contract,
     "live",
@@ -1859,6 +1850,5 @@ function generateWidgetSnapshotsFromDashboardSnapshot(aggregate, latestCoachMess
 export {
   generateWidgetSnapshotsFromDashboardSnapshot,
   needsLiveRecomputation,
-  projectLatestCoachMessage,
-  splitLedgerAsChallenge
+  projectLatestCoachMessage
 };

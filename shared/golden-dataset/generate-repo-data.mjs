@@ -380,151 +380,149 @@ const coldPlungeMissed = [toLocalDateStr(daysAgo(4)), toLocalDateStr(daysAgo(11)
 // this fixture already rotates every so often as WEEKS_OF_HISTORY history rolls forward).
 const coachSinceDate = daysAgo(WEEKS_OF_HISTORY * 7 + 90);
 
-const challengeV2 = {
-  version: 4,
-  coach_since: toLocalDateStr(coachSinceDate),
-  season: {
-    name: "Build Season",
-    start_date: toLocalDateStr(seasonStart),
-    end_date: toLocalDateStr(seasonEnd),
-  },
-  phase: {
-    name: "Build",
-    start_date: toLocalDateStr(blockStart),
-    current_block: {
-      id: "block-capacity",
-      name: "Capacity without noise",
-      start_date: toLocalDateStr(blockStart),
-      end_date: toLocalDateStr(blockEnd),
-      note: "Protect the two court anchors; let support work stay supportive.",
-    },
-  },
-  main_quest: {
-    id: "weekly-structured-sessions",
-    name: "Weekly structured sessions",
-    type: "weekly_floor",
-    weekly_floor: 2.5,
-    loaded_floor: 1,
-    skill_weight: 0.4,
-    skill_cap: 5,
-    sessions: activities
-      .filter((a) => a.name.startsWith("Badminton:") || a.name.startsWith("Calisthenics #"))
-      .slice(-6)
-      .map((a) => ({
-        date: a.start_date_local.slice(0, 10),
-        label: a.name,
-        kind: a.name.startsWith("Badminton: Ranked") ? "loaded" : "skill",
-        weight: a.name.startsWith("Badminton: Ranked") ? 1 : 0.5,
-      })),
-  },
-  quests: [
-    {
-      id: "foundation",
-      name: "Foundation",
-      type: "daily_streak",
-      category: "foundation",
-      start_date: toLocalDateStr(seasonStart),
-      status: "active",
-      polarity: "default_not_done",
-      tracking: "daily",
-      completed_dates: foundationDates,
-      excused_dates: excusedDates,
-    },
-    {
-      id: "cold-plunge",
-      name: "Cold Plunge",
-      type: "daily_streak",
-      category: "recovery",
-      start_date: toLocalDateStr(coldPlungeStart),
-      status: "active",
-      polarity: "default_done",
-      tracking: "daily",
-      missed_dates: coldPlungeMissed,
-    },
-    {
-      id: "mental-visualization",
-      name: "Mental visualization",
-      type: "progress",
-      category: "mindset",
-      start_date: toLocalDateStr(blockStart),
-      status: "active",
-      tracking: "count",
-      current: 2,
-      target: 5,
-      unit: "sessions",
-    },
-    {
-      id: "inner-game-of-tennis",
-      name: "Inner Game of Tennis",
-      type: "progress",
-      category: "reading",
-      start_date: toLocalDateStr(blockStart),
-      status: "active",
-      tracking: "count",
-      current: 3,
-      target: 8,
-      unit: "chapters",
-    },
-  ],
-  // ids match what calisthenicsLensModel.ts reads by name (fl_single_leg, handstand_free,
-  // weighted_pullups) — a milestone under any other id is invisible to that lens, silently.
-  milestones: [
-    {
-      id: "fl_single_leg",
-      name: "Front lever",
-      baseline: "8S",
-      current: "9S",
-      target: "FULL 5S",
-      short_name: "Front lever",
-      short_current: "9S",
-      short_target: "FULL 5S",
-      progress: {
-        unit: "s",
-        baseline_value: 8,
-        current_value: 9,
-        target_value: 25,
-        history: [
-          { date: toLocalDateStr(daysAgo(56)), value: 8 },
-          { date: toLocalDateStr(daysAgo(28)), value: 8.5 },
-          { date: toLocalDateStr(daysAgo(7)), value: 9 },
-        ],
+const ledger = {
+  seasons: {
+    current_season_id: "build-season",
+    seasons: [
+      {
+        id: "build-season",
+        name: "Build Season",
+        start_date: toLocalDateStr(seasonStart),
+        end_date: toLocalDateStr(seasonEnd),
       },
+    ],
+  },
+  quests: {
+    weekly_targets: {},
+    main_quest: {
+      id: "weekly-structured-sessions",
+      name: "Weekly structured sessions",
+      type: "weekly_floor",
+      weekly_floor: 2.5,
+      loaded_floor: 1,
+      skill_weight: 0.4,
+      skill_cap: 5,
+      sessions: activities
+        .filter((a) => a.name.startsWith("Badminton:") || a.name.startsWith("Calisthenics #"))
+        .slice(-6)
+        .map((a) => ({
+          date: a.start_date_local.slice(0, 10),
+          label: a.name,
+          kind: a.name.startsWith("Badminton: Ranked") ? "loaded" : "skill",
+          weight: a.name.startsWith("Badminton: Ranked") ? 1 : 0.5,
+        })),
     },
-    {
-      // Deliberately stalled — a real, common athlete state (a plateau), not everything
-      // trending up. Exercises calisthenicsLensModel's "hasn't moved yet" coach-read branch.
-      id: "handstand_free",
-      name: "Freestanding handstand",
-      baseline: "6S",
-      current: "6S",
-      target: "15S",
-      progress: {
-        unit: "s",
-        baseline_value: 6,
-        current_value: 6,
-        target_value: 15,
+    quests: [
+      {
+        id: "foundation",
+        name: "Foundation",
+        type: "daily_streak",
+        category: "foundation",
+        start_date: toLocalDateStr(seasonStart),
+        end_date: null,
+        status: "active",
+        polarity: "default_not_done",
+        tracking: "daily",
       },
-    },
-    {
-      id: "weighted_pullups",
-      name: "Weighted pull-ups",
-      baseline: "BW",
-      current: "BW+12KG",
-      target: "BW+20KG x 5",
-      progress: {
-        unit: "kg",
-        baseline_value: 0,
-        current_value: 12,
-        target_value: 20,
-        history: [
-          { date: toLocalDateStr(daysAgo(70)), value: 4 },
-          { date: toLocalDateStr(daysAgo(49)), value: 6 },
-          { date: toLocalDateStr(daysAgo(28)), value: 9 },
-          { date: toLocalDateStr(daysAgo(7)), value: 12 },
-        ],
+      {
+        id: "cold-plunge",
+        name: "Cold Plunge",
+        type: "daily_streak",
+        category: "recovery",
+        start_date: toLocalDateStr(coldPlungeStart),
+        end_date: null,
+        status: "active",
+        polarity: "default_done",
+        tracking: "daily",
       },
-    },
-  ],
+      {
+        id: "mental-visualization",
+        name: "Mental visualization",
+        type: "progress",
+        category: "mindset",
+        start_date: toLocalDateStr(blockStart),
+        end_date: null,
+        status: "active",
+        tracking: "count",
+      },
+      {
+        id: "inner-game-of-tennis",
+        name: "Inner Game of Tennis",
+        type: "progress",
+        category: "reading",
+        start_date: toLocalDateStr(blockStart),
+        end_date: null,
+        status: "active",
+        tracking: "count",
+      },
+    ],
+  },
+  progress: {
+    rows: [
+      ...foundationDates.map((date) => ({ quest_id: "foundation", date, status: "completed" })),
+      ...excusedDates.map((date) => ({ quest_id: "foundation", date, status: "excused" })),
+      ...coldPlungeMissed.map((date) => ({ quest_id: "cold-plunge", date, status: "missed" })),
+      { quest_id: "mental-visualization", date: toLocalDateStr(daysAgo(1)), status: "completed", value: 2 },
+      { quest_id: "inner-game-of-tennis", date: toLocalDateStr(daysAgo(1)), status: "completed", value: 3 },
+    ],
+  },
+  progressions: {
+    milestones: [
+      {
+        id: "fl_single_leg",
+        name: "Front lever",
+        baseline: "8S",
+        current: "9S",
+        target: "FULL 5S",
+        short_name: "Front lever",
+        short_current: "9S",
+        short_target: "FULL 5S",
+        progress: {
+          unit: "s",
+          baseline_value: 8,
+          current_value: 9,
+          target_value: 25,
+          history: [
+            { date: toLocalDateStr(daysAgo(56)), value: 8 },
+            { date: toLocalDateStr(daysAgo(28)), value: 8.5 },
+            { date: toLocalDateStr(daysAgo(7)), value: 9 },
+          ],
+        },
+      },
+      {
+        id: "handstand_free",
+        name: "Freestanding handstand",
+        baseline: "6S",
+        current: "6S",
+        target: "15S",
+        progress: {
+          unit: "s",
+          baseline_value: 6,
+          current_value: 6,
+          target_value: 15,
+        },
+      },
+      {
+        id: "weighted_pullups",
+        name: "Weighted pull-ups",
+        baseline: "BW",
+        current: "BW+12KG",
+        target: "BW+20KG x 5",
+        progress: {
+          unit: "kg",
+          baseline_value: 0,
+          current_value: 12,
+          target_value: 20,
+          history: [
+            { date: toLocalDateStr(daysAgo(70)), value: 4 },
+            { date: toLocalDateStr(daysAgo(49)), value: 6 },
+            { date: toLocalDateStr(daysAgo(28)), value: 9 },
+            { date: toLocalDateStr(daysAgo(7)), value: 12 },
+          ],
+        },
+      },
+    ],
+  },
 };
 
 // ─── Workouts ────────────────────────────────────────────────────────────────
@@ -749,7 +747,7 @@ const currentWeek = {
 mkdirSync(OUT_DIR, { recursive: true });
 const files = {
   "activities.json": activities,
-  "challenge_v2.json": challengeV2,
+  "ledger.json": ledger,
   "workouts.json": workouts,
   "sync_status.json": syncStatus,
   "sleep_log.json": sleepLog,
