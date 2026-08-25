@@ -22,6 +22,7 @@ too: a worker's diff must be a subset of its phase's `files`.
 
 ## Rules
 - Plain English. No restating the diagram in prose.
+- Write for a new implementer: show the user flow and storage destination before internal contracts or acronyms.
 - Cite real file paths so it's greppable.
 - Locked vs deferred — never reopen silently.
 - Mermaid: quote labels `id["Label"]`, no semicolons in diagrams, one idea per chart.
