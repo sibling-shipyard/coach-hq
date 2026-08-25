@@ -4,8 +4,13 @@ Structure: **Epic → parent → task**. Epics are GitHub issues with linked sub
 
 This file is the curated view; issues are the record. Flip a box here or tell Uno — it regenerates from issues, never drifts.
 
-**Live athletes (4):** Akash · Skanda · Nats · Prateek. Nats and Prateek onboarded themselves in
-August 2026 — signup is iOS-only and self-serve (ADR 0030). There is no operator step to plan around.
+**Live athletes (4, holding at 5):** Akash · Skanda · Nats (running, strength) · Prateek (football,
+cycling, strength). Nats and Prateek onboarded themselves in August 2026 — signup is iOS-only and
+self-serve (ADR 0030). There is no operator step to plan around.
+
+> ⚠️ **Two of Prateek's three sports have no analytics.** The product handles running, badminton and
+> calisthenics; football and cycling are not built. This is a live athlete today, not a future
+> persona — it moves #313 ahead of the homescreen work and makes #346 current, not M4.
 
 **Priority:** P0 unblocks Nats · P1 unblocks 10 users · P2 good to have (incl. M4)
 
