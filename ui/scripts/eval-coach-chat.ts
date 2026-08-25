@@ -49,10 +49,10 @@ import { fileURLToPath } from "node:url";
 import { askGemini } from "../api/coach-chat/_lib/geminiClient.js";
 import type { ChatMessage } from "../api/coach-chat/_lib/chatThreads.js";
 import type { TurnMode } from "../api/coach-chat/_lib/coachReplySchema.js";
+import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
-const repoRoot = path.resolve(uiRoot, "..");
 try {
   process.loadEnvFile(path.join(uiRoot, ".env.local"));
 } catch {
@@ -140,30 +140,6 @@ function writeCache(cache: Record<string, CacheEntry>): void {
   }
 }
 
-/**
- * Writes the whole run's log in one shot at the end, not incrementally - the entries are small
- * enough (20 transcripts, max) that there's no crash-recovery case worth the complexity the cache
- * file above needs. Lands under <repo-root>/tests/<YYYY-MM-DD>/, one file per invocation, so a
- * day with several runs (a fresh run, then a --only retry) keeps every run instead of overwriting
- * - and multiple days of testing stay browsable by date instead of piling up flat at repo root.
- * Time-of-day in the filename has colons stripped so the name is safe on filesystems that treat
- * them as path separators (or reserve them, on Windows).
- */
-function writeRunLog(entries: RunLogEntry[]): void {
-  const now = new Date();
-  const day = now.toISOString().slice(0, 10); // YYYY-MM-DD
-  const timeStamp = now.toISOString().slice(11, 19).replace(/:/g, "-"); // HH-MM-SS
-  const dayDir = path.join(repoRoot, "tests", day);
-  const logPath = path.join(dayDir, `eval-coach-chat-log-${timeStamp}.json`);
-  try {
-    fs.mkdirSync(dayDir, { recursive: true });
-    fs.writeFileSync(logPath, `${JSON.stringify(entries, null, 2)}\n`);
-    console.log(`\nRun log written to ${path.relative(repoRoot, logPath)}`);
-  } catch (err) {
-    console.warn(`  (couldn't write run log: ${err instanceof Error ? err.message : String(err)})`);
-  }
-}
-
 /** 503/504/429 and bare network errors are Gemini being Gemini, not a regression in the diff. */
 function isTransient(err: unknown): boolean {
   const status = (err as { status?: number }).status;
@@ -198,22 +174,6 @@ async function askWithRetry(t: Transcript): Promise<Awaited<ReturnType<typeof as
     }
   }
   throw lastErr;
-}
-
-interface RunLogEntry {
-  name: string;
-  input: {
-    mode: TurnMode;
-    stateMd: string;
-    questLog: string;
-    extraContext?: string;
-    history: ChatMessage[];
-    userMessage: string;
-  };
-  output: unknown;
-  result: "PASS" | "FAIL" | "ERROR";
-  failures?: string[];
-  filesChanged: string[];
 }
 
 /**
@@ -334,7 +294,7 @@ async function main() {
 
   // Only transcripts that actually called Gemini this run get an entry - a CACHED transcript has
   // no fresh input/output to log, its record is just yesterday's cache hit.
-  const runLog: RunLogEntry[] = [];
+  const runLog: TestLogEntry[] = [];
 
   for (const file of files) {
     const raw = fs.readFileSync(path.join(dir, file), "utf8");
@@ -364,31 +324,47 @@ async function main() {
         console.log("PASS");
         cache[file] = { key, passedAt: new Date().toISOString() };
         writeCache(cache); // after every pass, so an interrupted run keeps what it paid for
-        runLog.push({ name: t.name, input, output: reply, result: "PASS", filesChanged: filesForReply(reply) });
+        runLog.push({
+          kind: "eval",
+          name: t.name,
+          input,
+          output: reply,
+          result: "PASS",
+          filesChanged: { confidence: "derived", files: filesForReply(reply) },
+        });
       } else {
         failed++;
         console.log("FAIL");
         for (const f of failures) console.log(`  - ${f}`);
         delete cache[file];
         writeCache(cache);
-        runLog.push({ name: t.name, input, output: reply, result: "FAIL", failures, filesChanged: filesForReply(reply) });
+        runLog.push({
+          kind: "eval",
+          name: t.name,
+          input,
+          output: reply,
+          result: "FAIL",
+          failures,
+          filesChanged: { confidence: "derived", files: filesForReply(reply) },
+        });
       }
     } catch (err) {
       errored++;
       console.log("ERROR");
       console.log(`  - ${err instanceof Error ? err.message : String(err)}`);
       runLog.push({
+        kind: "eval",
         name: t.name,
         input,
         output: null,
         result: "ERROR",
         failures: [err instanceof Error ? err.message : String(err)],
-        filesChanged: [],
+        filesChanged: { confidence: "derived", files: [] },
       });
     }
   }
 
-  writeRunLog(runLog);
+  writeTestLog("eval", "eval-coach-chat", runLog);
 
   const passed = files.length - failed - errored;
   console.log(`\n${passed}/${files.length} passed (${cached} cached, ${ran} called Gemini).`);
