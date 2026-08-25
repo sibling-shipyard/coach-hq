@@ -13,15 +13,23 @@ ADRs use the same budget: Context / Decision / Why / Rejected — a few lines ea
 
 ## Executable plans
 
-A plan a worker is briefed from also carries a phase table: `| id | files | deps | owner |`.
+Milestones remain the outcome layer. Each milestone contains **1–3 PRs, one by default**; more than
+three means the milestone is too large and should split. Every milestone has one exit test even when
+several PRs contribute to it.
 
-**File overlap decides parallelism, not task logic.** Two phases with disjoint `files` sets can
-run at once; two that overlap cannot, however unrelated the tasks sound. `owner` is the worker
-live in that area, so "reuse before spawn" has somewhere to look. Scope bleed gets checkable
-too: a worker's diff must be a subset of its phase's `files`.
+The execution layer is a PR stack table:
+`| PR | milestone | outcome | final base | files | owner | parallel with | done when |`.
+`final base` shows review and merge order. `parallel with` shows work that can be built concurrently
+after its shared contract is fixed; rebase those branches into the declared linear stack before review.
+
+**File overlap decides parallelism, not task logic.** Two PRs with disjoint `files` can run at once;
+overlapping PRs cannot, however unrelated they sound. A PR's diff must remain a subset of its listed
+files. Follow `.github/CONVENTIONS.md` for stack mechanics, issue links, and bottom-up merge order.
 
 ## Rules
 - Plain English. No restating the diagram in prose.
+- Write for the named reviewer first. Put paths, hashes, endpoint fields, and test matrices in a clearly
+  marked build handoff, not the opening story (PR #586 feedback, rated 2/5).
 - Cite real file paths so it's greppable.
 - Locked vs deferred — never reopen silently.
 - Mermaid: quote labels `id["Label"]`, no semicolons in diagrams, one idea per chart.
