@@ -8,14 +8,21 @@
  * This is a manual, on-demand tool. It is NEVER run in CI, and I never run it as part of a
  * routine check - it costs real Gemini calls and writes real commits to a real athlete repo.
  *
- * **Safety:** this script refuses to run if `--branch` is the repo's actual default branch (checked
- * live via the GitHub API) or if it's literally "main". There is no override for this - it's a
- * hard requirement, not a suggestion, because a mistake here writes to an athlete's real history.
+ * **Branch:** `--branch` is optional - omit it and the script names and creates one itself
+ * (`test/manual-<timestamp>`, cut from the repo's real default branch HEAD), so there's no
+ * manual "cut a branch first" step. Pass `--branch <name>` to reuse a specific one instead (it's
+ * created the same way if it doesn't exist yet).
+ *
+ * **Safety:** this script refuses to run if `--branch` (given or generated) is the repo's actual
+ * default branch (checked live via the GitHub API) or if it's literally "main". There is no
+ * override for this - it's a hard requirement, not a suggestion, because a mistake here writes
+ * to an athlete's real history.
  *
  * Usage (from ui/):
- *   npm run test:coach-chat-manual -- --athlete skanda --branch test/manual-run-1 --greet
- *   npm run test:coach-chat-manual -- --athlete akash --branch test/manual-run-2 --message "..."
- *   npm run test:coach-chat-manual -- --repo owner/name --local-path /path --branch test/x --turns turns.json
+ *   npm run test:coach-chat-manual -- --athlete skanda --greet
+ *   npm run test:coach-chat-manual -- --athlete akash --message "..."
+ *   npm run test:coach-chat-manual -- --repo owner/name --local-path /path --turns turns.json
+ *   npm run test:coach-chat-manual -- --athlete skanda --branch test/reuse-me --message "..."
  *
  * turns.json is an array of { message, endConversationRequested?, expect? }. Set `greet: true`
  * on turns[0] to open the run with a real greet turn first - its real threadId carries into
@@ -128,13 +135,6 @@ async function main() {
     return;
   }
 
-  const branch = args.branch;
-  if (!branch) {
-    console.error("run-manual-coach-chat-test: --branch is required.");
-    process.exit(1);
-    return;
-  }
-
   const modeFlags = [args.greet, args.message != null, args.turnsPath != null].filter(Boolean).length;
   if (modeFlags !== 1) {
     console.error("run-manual-coach-chat-test: pass exactly one of --greet, --message, --turns.");
@@ -143,11 +143,15 @@ async function main() {
   }
 
   const token = execSync("gh auth token", { encoding: "utf8" }).trim();
+  const ghHeaders = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
 
-  // Safety: never let this script write to a real athlete's default branch.
-  const repoInfoRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
-  });
+  // --branch is optional - default to an auto-named, auto-created scratch branch so running a
+  // test never requires a manual "cut a branch first" step. Still never runs against the real
+  // default branch (or literally "main"), whether the name came from --branch or was generated.
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const branch = args.branch ?? `test/manual-${stamp}`;
+
+  const repoInfoRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}`, { headers: ghHeaders });
   if (!repoInfoRes.ok) {
     console.error(`run-manual-coach-chat-test: couldn't look up ${repo} (${repoInfoRes.status}).`);
     process.exit(1);
@@ -162,6 +166,30 @@ async function main() {
     return;
   }
 
+  // Create the scratch branch off the real default branch's current HEAD if it doesn't exist yet
+  // - commitFilesAtomic() only ever moves an existing ref, it can't create one, so without this
+  // every run would need a branch cut and pushed by hand first.
+  const branchRefRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}/git/ref/heads/${branch}`, { headers: ghHeaders });
+  if (branchRefRes.status === 404) {
+    const defaultHeadSha = await getHeadSha(repo, token, repoInfo.default_branch);
+    const createRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}/git/refs`, {
+      method: "POST",
+      headers: { ...ghHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: defaultHeadSha }),
+    });
+    if (!createRes.ok) {
+      console.error(`run-manual-coach-chat-test: couldn't create branch "${branch}" (${createRes.status}).`);
+      process.exit(1);
+      return;
+    }
+    console.log(`Created scratch branch "${branch}" off ${repoInfo.default_branch} (${defaultHeadSha.slice(0, 7)}).`);
+  } else if (!branchRefRes.ok) {
+    console.error(`run-manual-coach-chat-test: couldn't check whether "${branch}" exists (${branchRefRes.status}).`);
+    process.exit(1);
+    return;
+  }
+
+  console.log(`Running against ${repo}@${branch}`);
   process.env.COACH_CHAT_BRANCH = branch;
   const auth: RepoAuthContext = { gh_token: token, repo_full_name: repo };
 

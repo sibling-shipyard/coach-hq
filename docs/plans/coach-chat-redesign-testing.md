@@ -32,8 +32,10 @@ by construction test the code against inputs someone already thought of.
 Any step below that says "via the hosted API" or "pull the real committed file" can now be
 driven and logged in one shot with `npm run test:coach-chat-manual`
 (`ui/scripts/run-manual-coach-chat-test.ts`, see its header comment for usage). It's a manual,
-on-demand tool, not CI - it costs real Gemini calls and writes real commits to whatever
-`--branch` you give it, and it refuses to run against the repo's default branch.
+on-demand tool, not CI - it costs real Gemini calls and writes real commits. No branch needs
+cutting first: it names and creates its own scratch branch off the real default branch
+automatically (or reuses one you name with `--branch`), and refuses outright to run against the
+repo's default branch.
 
 **Branch:** both `coach-skanda` and `coach-akash` are already migrated, so the split-ledger path
 can be tested for real against either.
