@@ -84,9 +84,8 @@ export async function askGemini(
       throw err;
     });
 
-  // Doesn't log the full prompt (the static prefix alone is ~13K tokens) - mode and the
-  // athlete's message are what actually vary call to call.
-  console.log("[coach-chat] request:", { mode, userMessage, useCache: !!cachedName, traceId });
+  // Operational fields only — never log userMessage (athlete content) or the prompt.
+  console.log("[coach-chat] request:", { mode, useCache: !!cachedName, traceId });
   let useCache = !!cachedName;
   let res = await callGemini(useCache);
   // Capped at one retry total (if/else if) - chaining two full-budget calls risks blowing
@@ -129,8 +128,7 @@ async function finishGeminiResponse(res: Response, mode: TurnMode, traceId?: str
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");
   const parsed = JSON.parse(text) as GeminiReply;
-  // Passed as a plain object (not stringified) so console formatting pretty-prints it. traceId
-  // on closing turns correlates with the close-trace line logged downstream in the POST handler.
-  console.log("[coach-chat] response:", parsed, mode === "closing" ? { traceId } : undefined);
+  // Operational fields only — never log parsed (contains reply text, coach notes, injuries).
+  console.log("[coach-chat] response:", { mode, traceId });
   return parsed;
 }
