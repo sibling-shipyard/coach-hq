@@ -187,7 +187,7 @@ async function handleGreet(
   });
 }
 
-async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
+export async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
   const repo = auth.repo_full_name;
   const token = auth.gh_token;
   if (req.method === "GET") return handleHistory(repo, token);

@@ -1,0 +1,11 @@
+[
+  { "greet": true, "message": "" },
+  { "message": "Got today's run done, felt good - that keeps the streak going too." },
+  { "message": "One thing though, my calf's been a bit tight the last couple of runs." },
+  { "message": "Yeah it's more than tight actually, there's a real sore spot on the inside of my left calf, been there 4 days now." },
+  {
+    "message": "That's everything, let's call it there for today.",
+    "endConversationRequested": true,
+    "expect": { "sessionClosed": true }
+  }
+]
