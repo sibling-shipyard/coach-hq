@@ -96,6 +96,8 @@ function isDurationBuckets(value: unknown): value is DurationBuckets {
     .every(isFiniteCount);
 }
 
+// formatRate: 0 → "0" (isInteger path), very small fractions (e.g. 0.08) → "0.1" via toFixed(1)
+// with the /\.0$/ strip keeping integers clean — safe for the full [0, ∞) range.
 function formatRate(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
 }
@@ -104,23 +106,36 @@ function sportLabel(sport: string): string {
   return sport.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+const SPORTS_CAP = 5;
+
 function fitnessSnapshotSection(insights: AthleteInsightsJson | null): string | null {
-  if (!insights?.sports || typeof insights.sports !== "object" || Array.isArray(insights.sports)) return null;
+  // schema_version guard: absent or wrong version → treat as null, same as other coach files do
+  // when their version field is missing or mismatched.
+  if (insights?.schema_version !== 1) return null;
+  if (!insights.sports || typeof insights.sports !== "object" || Array.isArray(insights.sports)) return null;
   const windowDays = Number.isFinite(insights.window_days) && insights.window_days > 0 ? insights.window_days : 365;
-  const lines = Object.entries(insights.sports)
+  const valid = Object.entries(insights.sports)
     .filter(([sport, insight]) => sport.trim().length > 0 && isSportInsight(insight))
-    .map(([sport, insight]) => {
-      const line =
-        `- **${sportLabel(sport)}:** ${insight.sessions_365d} sessions in the window; ` +
-        `~${formatRate(insight.sessions_per_week_recent_4w)}x/week recently ` +
-        `(~${formatRate(insight.sessions_per_week_prior_12w)}x/week in the prior 12 weeks); ` +
-        `longest gap ${insight.longest_gap_days_365d} days; last session ${insight.days_since_last_session} days ago.`;
-      if (!isDurationBuckets(insight.duration_buckets)) return line;
-      const buckets = insight.duration_buckets;
-      return line.slice(0, -1) +
-        `; ${buckets.under_30m} under 30m, ${buckets["30_to_60m"]} 30-60m, ` +
-        `${buckets["60_to_120m"]} 60-120m, ${buckets.over_120m} over 120m.`;
-    });
+    // Sort descending by session count; alphabetical by sport key within the same count.
+    .sort(([aKey, aVal], [bKey, bVal]) =>
+      bVal.sessions_365d - aVal.sessions_365d || aKey.localeCompare(bKey),
+    );
+  const capped = valid.slice(0, SPORTS_CAP);
+  const overflow = valid.length - capped.length;
+  const lines = capped.map(([sport, insight]) => {
+    const sessionWord = insight.sessions_365d === 1 ? "session" : "sessions";
+    const line =
+      `- **${sportLabel(sport)}:** ${insight.sessions_365d} ${sessionWord} in the window; ` +
+      `~${formatRate(insight.sessions_per_week_recent_4w)}x/week recently ` +
+      `(~${formatRate(insight.sessions_per_week_prior_12w)}x/week in the prior 12 weeks); ` +
+      `longest gap ${insight.longest_gap_days_365d} days; last session ${insight.days_since_last_session} days ago.`;
+    if (!isDurationBuckets(insight.duration_buckets)) return line;
+    const buckets = insight.duration_buckets;
+    return line.slice(0, -1) +
+      `; ${buckets.under_30m} under 30m, ${buckets["30_to_60m"]} 30-60m, ` +
+      `${buckets["60_to_120m"]} 60-120m, ${buckets.over_120m} over 120m.`;
+  });
+  if (overflow > 0) lines.push(`(+ ${overflow} more sport${overflow === 1 ? "" : "s"})`);
   return lines.length > 0 ? [`## Fitness Snapshot (last ${windowDays} days)`, ...lines].join("\n") : null;
 }
 

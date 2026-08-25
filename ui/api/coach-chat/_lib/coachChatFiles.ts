@@ -41,6 +41,10 @@ export interface AthleteSportInsight {
 }
 
 export interface AthleteInsightsJson {
+  // schema_version added to match the version: 1 pattern all other coach file interfaces use.
+  // Existing files written without this field treat it as undefined, which fitnessSnapshotSection
+  // guards on (undefined !== 1 → null). Bob's pipeline generator needs to be updated to write it.
+  schema_version: 1;
   generated_at: string;
   window_days: number;
   sports: Record<string, AthleteSportInsight>;
