@@ -29,15 +29,17 @@
  * Needs GEMINI_API_KEY in ui/.env.local or env.
  *
  * Run log: every invocation writes a fresh
- * <repo-root>/eval-coach-chat-log-<ISO-timestamp>.json (colons stripped - not every filesystem
- * accepts them) with one entry per transcript that actually called Gemini this run (a CACHED
- * transcript has no fresh input/output, so it's skipped). Each entry carries exactly what was
- * sent to askGemini(), the raw reply, the PASS/FAIL/ERROR verdict, and a best-effort list of the
- * real repo files that reply's action fields would touch if a live turn ever committed it - this
- * harness never writes those files itself, so the list is derived from turnWrites/README.md, not
- * observed I/O. It exists so a run can be audited afterwards (what did we actually send Gemini,
- * what did it hand back) without re-running the paid call. Gitignored: per-run and per-machine,
- * and may contain real athlete-style transcript content.
+ * <repo-root>/tests/<YYYY-MM-DD>/eval-coach-chat-log-<HH-MM-SS>.json (colons stripped - not every
+ * filesystem accepts them) with one entry per transcript that actually called Gemini this run (a
+ * CACHED transcript has no fresh input/output, so it's skipped). Each entry carries exactly what
+ * was sent to askGemini(), the raw reply, the PASS/FAIL/ERROR verdict, and a best-effort list of
+ * the real repo files that reply's action fields would touch if a live turn ever committed it -
+ * this harness never writes those files itself, so the list is derived from
+ * turnWrites/README.md, not observed I/O. It exists so a run can be audited afterwards (what did
+ * we actually send Gemini, what did it hand back) without re-running the paid call, and the
+ * per-day folder keeps a committed, permanent history of every day's testing browsable by date -
+ * this is deliberately checked into git (not gitignored), so the record survives across machines
+ * and is visible in review, not just local convenience.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -141,13 +143,20 @@ function writeCache(cache: Record<string, CacheEntry>): void {
 /**
  * Writes the whole run's log in one shot at the end, not incrementally - the entries are small
  * enough (20 transcripts, max) that there's no crash-recovery case worth the complexity the cache
- * file above needs. Timestamp has colons stripped so the name is safe on filesystems that treat
+ * file above needs. Lands under <repo-root>/tests/<YYYY-MM-DD>/, one file per invocation, so a
+ * day with several runs (a fresh run, then a --only retry) keeps every run instead of overwriting
+ * - and multiple days of testing stay browsable by date instead of piling up flat at repo root.
+ * Time-of-day in the filename has colons stripped so the name is safe on filesystems that treat
  * them as path separators (or reserve them, on Windows).
  */
 function writeRunLog(entries: RunLogEntry[]): void {
-  const stamp = new Date().toISOString().replace(/:/g, "-");
-  const logPath = path.join(repoRoot, `eval-coach-chat-log-${stamp}.json`);
+  const now = new Date();
+  const day = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const timeStamp = now.toISOString().slice(11, 19).replace(/:/g, "-"); // HH-MM-SS
+  const dayDir = path.join(repoRoot, "tests", day);
+  const logPath = path.join(dayDir, `eval-coach-chat-log-${timeStamp}.json`);
   try {
+    fs.mkdirSync(dayDir, { recursive: true });
     fs.writeFileSync(logPath, `${JSON.stringify(entries, null, 2)}\n`);
     console.log(`\nRun log written to ${path.relative(repoRoot, logPath)}`);
   } catch (err) {

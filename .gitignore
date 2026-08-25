@@ -27,6 +27,3 @@ ios/CoachHQ/CoachHQ/Secrets.swift
 
 # eval result cache — per-machine, per-key; never shared (ui/scripts/eval-coach-chat.ts)
 ui/.eval-cache.json
-
-# eval run logs — per-run, per-machine, may contain real athlete-style transcript content
-/eval-coach-chat-log-*.json
