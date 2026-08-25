@@ -1,6 +1,6 @@
 # Coach Chat — design history
 
-> Status: Historical · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-25
 
 ## Context
 
@@ -428,6 +428,29 @@ No ADR: this is internal code organization, not a locked/architectural decision 
 external behavior, URLs, or data shape changed.
 
 ---
+
+## coach-chat-follow-up.md closed out (2026-08-25)
+
+Every item in `docs/plans/coach-chat-follow-up.md` with no open design blocker is now done,
+across PRs #578, #579, #581 (HQ) and coach-skanda#3, coach-akash#6 (athlete repos):
+- Eval harness raised from 16 to 20 golden transcripts (10 simple / 10 complex).
+- `eval:coach-chat` wired into CI per ADR 0024 (`.github/workflows/eval-coach-chat.yml`).
+- Fitness Snapshot: correct singular/plural, sorted by session count, capped at 5 with an
+  overflow line.
+- `athlete_insights.json` gained a `schema_version`/freshness guard, and the real generator
+  (`generate-athlete-insights.mjs`) was fixed to actually write `schema_version: 1` - the guard
+  alone would have silently killed the section for every real athlete.
+- Both athlete repos' hand-authored workout templates were missing `_manifest.json` entirely, so
+  `template_edit`/`session_plan`/`week_plan`/`plan_edit` could never link a real template for
+  either athlete. Backfilled after fixing the templates that didn't validate against the real
+  schema (`strength_b.json`'s exercise numbering on coach-skanda; `diesel_engine.json`'s
+  `tiers`/`execution_rules`/stray field names on coach-akash, flattened rather than extending the
+  schema to support tiers - a real feature, not this pass's scope).
+
+Items with an open design/product decision moved to issues instead: compaction (#572),
+judge-model persona scoring (#573), async-close redesign (#574), `coach_log.json`
+phase_close/week_close folding (#575), `main_quest` floor/weight write support (#576),
+`plan_edit` guardrails (#577). Tracked under #582.
 
 ## Superseded verification issues
 
