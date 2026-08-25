@@ -83,6 +83,14 @@ can be tested for real against either.
    `ui-dashboard-rewiring-ios.md` step 1 land) actually shows the right number on both platforms,
    both schema shapes.
 
+## Automated test gap
+
+Separate from the live-repo pass above: no test proves a real `athlete_insights.json` survives
+`loadCoachContext()` -> `renderCoachContext()` -> the actual `handleGreet`/ordinary-turn handler
+call sites together - today each layer is tested in isolation (`renderCoachContext.test.ts`,
+`coachChatFiles.test.ts`, `activitySyncTurn.test.ts`), never chained. Add that chain test, plus a
+multi-sport render case and one extreme-value case (a 0-day gap, a single-session sport).
+
 ## Done when
 
 Every numbered step above has a real result recorded (pass, or a filed issue if it fails) —
