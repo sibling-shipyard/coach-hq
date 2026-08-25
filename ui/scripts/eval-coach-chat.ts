@@ -43,8 +43,8 @@
  * Needs GEMINI_API_KEY in ui/.env.local or env.
  *
  * Run log: every invocation writes a fresh
- * <repo-root>/tests/<YYYY-MM-DD>/eval-coach-chat-log-<HH-MM-SS>.json (colons stripped - not every
- * filesystem accepts them) with one entry per transcript that actually called Gemini this run (a
+ * <repo-root>/tests/<YYYY-MM-DD>/eval/eval-coach-chat-log-<HH-MM-SS>.json (colons stripped - not
+ * every filesystem accepts them) with one entry per transcript that actually called Gemini this run (a
  * CACHED transcript has no fresh input/output, so it's skipped). Each entry carries exactly what
  * was sent to askGemini(), the raw reply, the PASS/FAIL/ERROR verdict, and a best-effort list of
  * the real repo files that reply's action fields would touch if a live turn ever committed it -
@@ -240,6 +240,19 @@ async function askWithRetry(params: AskParams): Promise<Awaited<ReturnType<typeo
 }
 
 /**
+ * Whether a reply field counts as "the model actually set this" - excludes falsy-empty values
+ * too, not just undefined/null, since Gemini returning coach_note: "" (or a false boolean field)
+ * is "nothing here", same as omitting it, not a real write. Shared by filesForReply() and
+ * checkTranscript() so a future semantics change (e.g. treating 0 as real) only needs one edit.
+ */
+function isSet(record: Record<string, unknown>, field: string): boolean {
+  const value = record[field];
+  if (value === undefined || value === null || value === "" || value === false) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+/**
  * Derives which real repo files a reply's action fields would touch, per
  * ui/api/coach-chat/_lib/turnWrites/README.md's field-to-file table. This harness never commits
  * anything - askGemini() runs in memory only - so this is a projection for audit reading, not an
@@ -248,31 +261,22 @@ async function askWithRetry(params: AskParams): Promise<Awaited<ReturnType<typeo
  */
 function filesForReply(reply: unknown): string[] {
   const r = (reply ?? {}) as Record<string, unknown>;
-  const isSet = (field: string): boolean => {
-    const value = r[field];
-    // Excludes falsy-empty values too, not just undefined/null - Gemini returning
-    // coach_note: "" (or a false boolean field) is "nothing here", same as omitting it,
-    // not a real write.
-    if (value === undefined || value === null || value === "" || value === false) return false;
-    if (Array.isArray(value)) return value.length > 0;
-    return true;
-  };
 
   const files: string[] = ["chat_history.json"];
 
-  if (isSet("coach_note")) files.push("coach_log.json");
-  if (isSet("memory_update") || isSet("sports_update")) files.push("memory.json");
-  if (isSet("injury_event")) files.push("injuries.json");
+  if (isSet(r, "coach_note")) files.push("coach_log.json");
+  if (isSet(r, "memory_update") || isSet(r, "sports_update")) files.push("memory.json");
+  if (isSet(r, "injury_event")) files.push("injuries.json");
   // quest_event and quest_create land on different files and fire independently
   // (buildQuestEventWrite/buildQuestCreateWrite in turnWrites/questWrite.ts) - listing both
   // whenever either fires overstates what actually changed.
-  if (isSet("quest_event")) files.push("progress.json");
-  if (isSet("quest_create")) files.push("quests.json");
-  if (isSet("season_start")) files.push("seasons.json");
-  if (isSet("profile_update")) files.push("profile.json");
+  if (isSet(r, "quest_event")) files.push("progress.json");
+  if (isSet(r, "quest_create")) files.push("quests.json");
+  if (isSet(r, "season_start")) files.push("seasons.json");
+  if (isSet(r, "profile_update")) files.push("profile.json");
 
   for (const field of ["template_edit", "session_plan"]) {
-    if (isSet(field)) {
+    if (isSet(r, field)) {
       const action = r[field] as Record<string, unknown> | undefined;
       const templateId = typeof action?.template_id === "string" ? action.template_id : undefined;
       files.push(
@@ -283,7 +287,7 @@ function filesForReply(reply: unknown): string[] {
     }
   }
 
-  if (isSet("week_plan") || isSet("session_reconcile") || isSet("plan_edit")) {
+  if (isSet(r, "week_plan") || isSet(r, "session_reconcile") || isSet(r, "plan_edit")) {
     files.push("current_week.json");
   }
 
@@ -317,21 +321,12 @@ function checkTranscript(expect: TranscriptExpect, reply: Awaited<ReturnType<typ
   // regression (e.g. plan_edit vs template_edit, or a dropped array entry) that the reply-level
   // rubric above can't see at all.
   const replyRecord = reply as unknown as Record<string, unknown>;
-  const isSet = (field: string) => {
-    const value = replyRecord[field];
-    // Excludes falsy-empty values too, not just undefined/null - Gemini returning
-    // coach_note: "" (or a false boolean field) is "nothing here", same as omitting it,
-    // not a real write.
-    if (value === undefined || value === null || value === "" || value === false) return false;
-    if (Array.isArray(value)) return value.length > 0;
-    return true;
-  };
 
   for (const field of expect.actionFieldsPresent ?? []) {
-    if (!isSet(field)) failures.push(`expected action field "${field}" to be set, but it was absent/empty`);
+    if (!isSet(replyRecord, field)) failures.push(`expected action field "${field}" to be set, but it was absent/empty`);
   }
   for (const field of expect.actionFieldsAbsent ?? []) {
-    if (isSet(field)) failures.push(`expected action field "${field}" to be absent, but it was set: ${JSON.stringify(replyRecord[field])}`);
+    if (isSet(replyRecord, field)) failures.push(`expected action field "${field}" to be absent, but it was set: ${JSON.stringify(replyRecord[field])}`);
   }
 
   return failures;

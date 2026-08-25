@@ -244,6 +244,10 @@ async function main() {
 
   for (let turnIndex = 0; turnIndex < turns.length; turnIndex++) {
     const turn = turns[turnIndex];
+    // Declared outside the try so a thrown turn can still log the real HTTP payload if one was
+    // built before the throw, instead of falling back to the raw ManualTurn spec (a different
+    // shape for the same `input` field would undermine comparing entries in the log).
+    let body: unknown;
     // Everything below can throw (a bad response, a network blip, a git command failing) - one
     // turn throwing must not cost every earlier turn its log entry, so the whole body is wrapped
     // and a thrown turn still gets recorded before the run stops.
@@ -257,7 +261,7 @@ async function main() {
         return null;
       });
 
-      const body = turn.greet
+      body = turn.greet
         ? { action: "greet" as const }
         : {
             threadId,
@@ -363,7 +367,10 @@ async function main() {
         turnIndex,
         repo,
         branch,
-        input: turn,
+        // body may still be undefined if the throw happened before it was built (e.g. the
+        // getHeadSha call above) - fall back to the raw turn spec only in that case, so a later
+        // throw (post-request) logs the same shape a successful entry would.
+        input: body ?? turn,
         output: null,
         result: "ERROR",
         failures: [message],
