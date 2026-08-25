@@ -1,138 +1,47 @@
-# User 3+ Onboarding Gate — Must-Do Before Friends Sign Up
+# User 3+ Onboarding Gate — cleared August 2026
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-20 · Locked requirement: 2026-07-26 · Blocks: any athlete beyond Akash + Skanda · Authority: [`scaling-plan.md`](scaling-plan.md)
+> Status: Historical · Owner: Tech Lead · Verified: 2026-08-25 · Locked requirement: 2026-07-26 · Cleared: 2026-08-25 · ADR: [0030](../../kdb/decisions/0030-signup-is-ios-only.md)
 >
-> **Update (#189):** Step 1 (eliminate athlete-facing PAT) is **done** — Sync and Apply Coach Patch now run under the built-in `GITHUB_TOKEN`. `PAT_TOKEN` references below describe the pre-fix state. Remaining gate items (auto repo on sign-up, etc.) still open.
+> **This gate is closed.** Nats and Prateek both signed up on their own, with no operator
+> involvement. Kept as the record of what the gate demanded and how it was actually met — the
+> answer differs from the plan below, which is the point. For how signup works today, read
+> [`github-auth.md`](github-auth.md) and ADR 0030. Nothing below describes the current system.
 
-## Context
+## What the gate demanded
 
-M1 onboarding is **operator-run** — we provision repos, copy secrets, validate migrations. That is acceptable for Akash and Skanda.
+M1 onboarding was operator-run: we provisioned repos, copied secrets, validated migrations. Fine
+for Akash and Skanda. User 3 would have no operator. The requirement was that a net-new GitHub
+account could get to a working dashboard and a coaching session with zero manual steps from us.
 
-**User 3+ will not have an operator.** Friends will:
+**Do-not-invite rule (now lifted):** friends were not to be invited until that was true.
 
-1. Hit **Sign up** on the shared website
-2. Install the GitHub App on their repo
-3. Connect **Claude Code** to the same repo
-4. Start coaching — **no GitHub admin, no PAT, no SETUP.md archaeology**
+## How it was actually met
 
-If any of that requires manual steps we perform today (copy `PAT_TOKEN`, run `provision-user.sh`, fix failed Sync), **they are blocked — not optional polish.**
+Not the way this doc predicted. The plan below assumed we would give the GitHub App
+`Administration` permission and create each athlete's repo server-side from a web sign-up page.
+That is not possible — App tokens cannot create repos on a personal account (404/403 on
+`/repos/{template}/generate` and `/user/repos`). Separately, a new athlete's first sync pulls a
+year of Apple Health history, which only the phone can read.
 
-Permanent non-goals for this gate: asking friends to create fine-grained PATs, fork skeleton manually, or debug Actions secrets.
+So signup became iOS-only, and the athlete creates their own repo through GitHub's own
+create-from-template page. `SetupView.swift` walks them through it and checks both conditions
+(repo exists, App installed) against the GitHub API directly. See ADR 0030 for why this is a
+decision and not a workaround.
 
----
+| Gate item | Demanded | What shipped |
+|---|---|---|
+| No athlete-facing PAT | Required | Done (#189) — Sync and Apply Coach Patch run under `GITHUB_TOKEN` |
+| Repo exists without an operator | Auto-create on sign-up | Athlete creates it from the template, guided in-app (`SetupView.swift`) |
+| Sync works on day one | Required | Done — iOS commits history directly, Sync regenerates derived files |
+| Dashboard loads | Required | Done — repo resolves via the `.coach-engine-version` marker |
+| Athlete-facing docs | `SETUP.md` describes shared-site sign-up | Superseded — signup is in the app, not a doc |
 
-## Expected friend journey
+## Exit test — passed
 
-```mermaid
-flowchart LR
-  signup["Sign up on shared site"] --> app["GitHub App install<br/>(OAuth)"]
-  app --> repo["coach-user repo exists<br/>full skeleton tree"]
-  repo --> secrets["Sync secrets configured<br/>user never sees this"]
-  secrets --> dash["Dashboard loads"]
-  dash --> claude["Claude Code → same repo"]
-  claude --> coach["First Session — coach boots"]
-```
+Two net-new athletes (Nats, Prateek) completed sign-up, repo creation, App install, first sync,
+and a first coaching session without operator involvement, August 2026.
 
-**Done when:** a net-new GitHub account can complete the flow above with zero operator involvement and Sync + dashboard work on first day.
+## What this gate never covered
 
----
-
-## What breaks today (M1 gap)
-
-| Step | Akash / Skanda (M1) | User 3+ expectation | Gap |
-|---|---|---|---|
-| Repo exists | Operator / migrate | Auto on sign-up | No auto-create yet |
-| `PAT_TOKEN` | Operator copies from legacy | Never mentioned | **Workflow fails without it** |
-| GitHub App | Athlete installs (guided) | Sign-up flow | Built — keep |
-| Sync on push | Needs `PAT_TOKEN` | Just works | Blocked |
-| Dashboard Sync button | Dispatches workflow; still needs `PAT_TOKEN` inside workflow | Just works | Blocked |
-| Strava | Optional; operator sets secrets | Only if Strava athlete | OK to defer per-user |
-| Claude BYO | Athlete clones/connects repo | Same repo App installed on | OK once repo exists |
-
-Root issue: **Actions cannot push `gen/` back without a write token.** Today that token is a manual repo secret (`PAT_TOKEN`). Friends will not set this up.
-
----
-
-## Must-do work (ordered)
-
-### 1. Eliminate athlete-facing PAT (minimum bar)
-
-**Option A — quick win (recommended first):** change skeleton `sync.yml` to use `GITHUB_TOKEN` with explicit permissions instead of `secrets.PAT_TOKEN`.
-
-```yaml
-permissions:
-  contents: write
-  actions: write
-# checkout: default token, no PAT_TOKEN secret
-```
-
-Removes the worst UX (user-created PAT). Still requires repo to exist and App to dispatch Sync.
-
-**Option B — full M4:** GitHub App gains **Administration** + **Secrets** permissions; sign-up flow auto-creates repo from `coach-skeleton` and writes any secrets the platform holds (Strava tokens after OAuth, etc.).
-
-### 2. Auto-provision repo on sign-up
-
-Sign-up (`install-redirect` auth action / onboarding UI) must ensure a **`coach-<user>` private repo** exists with the full skeleton tree before the athlete reaches the dashboard.
-
-| Approach | Notes |
-|---|---|
-| App **Administration** permission | Create repo via API on first login |
-| Or: fork `coach-skeleton` in sign-up handler | Same outcome; user never forks manually |
-
-Tracked: [issue #32](https://github.com/sibling-shipyard/coach-phelps-hq/issues/32), [`scaling-plan.md`](scaling-plan.md) M4.
-
-### 3. Wire sign-up → working Sync
-
-Exit test for each new friend repo:
-
-- [ ] `validate-data.yml` green
-- [ ] Push to `user_data/activities/hist/` (or manual Sync) → workflow **success** (not missing token)
-- [ ] Dashboard login → repo resolves
-- [ ] Dashboard Sync button → workflow success
-- [ ] `gen/dashboard_snapshot.json` loads
-- [ ] BYO Claude boot reads `user_data/coach/state.md`
-
-### 4. Athlete-facing docs
-
-`SETUP.md` in skeleton must describe **shared-site sign-up**, not manual PAT creation. PAT steps move to operator runbook only (migrate path).
-
----
-
-## Milestone mapping
-
-| Milestone | Role for user 3+ |
-|---|---|
-| **M1c/d** | Prove migrate path (Akash, Skanda) — operator OK |
-| **M1e** | Hosted docs describe shared-site flow |
-| **M4** (pulled forward) | **Hard gate before user 3+** — was "polish last"; now **must-do** |
-
-```mermaid
-flowchart LR
-  M1cd["M1c/d Akash + Skanda"] --> gate["User 3+ gate"]
-  gate --> M4["M4 self-serve<br/>(or PAT-free sync + auto repo)"]
-  M4 --> friends["Friends sign up"]
-```
-
-**Do not invite friends until the gate exit test passes.**
-
----
-
-## Out of scope for this gate
-
-- Strava OAuth self-serve (iOS-only friends skip entirely)
-- Plugin packs (badminton, etc.)
-- coach-chat unification (P1)
-- Persona rename / public launch legal
-
----
-
-## Appendix
-
-| Concern | Path |
-|---|---|
-| Scaling authority | [`scaling-plan.md`](scaling-plan.md) §6.1, §7 M4 |
-| Operator migrate (Akash/Skanda only) | [`provision-runbook.md`](provision-runbook.md) |
-| Sign-up entry | `ui/api/auth/[...action].ts` (`install-redirect` action) |
-| Sync dispatch | Gone — no UI sync endpoint; sync is iOS-driven |
-| Skeleton sync workflow | `engine/.github/workflows/sync.user.yml` |
-| Parking-lot context | `scaling_plan.md` |
+Strava OAuth self-serve, plugin packs, coach-chat unification, and the persona rename — all
+tracked separately and unaffected by the gate closing.

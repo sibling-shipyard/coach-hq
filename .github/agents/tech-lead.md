@@ -144,3 +144,8 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
 - Check `gh issue list` before filing audit findings — the roadmap usually already tracks them (a SOUL audit produced 7 new issues out of 13 candidates; the rest were duplicates).
 - Leave the primary checkout on `main` when a subagent finishes — a branch left checked out there catches the next session's commits. Before force-pushing a branch carrying unexpected commits, rescue them (`git branch rescue/... <sha>`, push it) or you orphan a colleague's only copy.
+- Agents pad plans with compliance scaffolding nobody asked for — PR #587 grew an invite-only,
+  revocable consent programme for four friends who had already said yes. Cutting it removed a whole
+  Large PR. Ask whose requirement it is before planning around it.
+- Report from the file, not from grep hits. Claimed the iOS signup flow was undocumented; it was
+  fully described in `docs/eng-docs/github-auth.md` all along (this session, ADR 0030).

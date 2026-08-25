@@ -211,9 +211,9 @@ flowchart LR
 | **M1d** | M | Skanda clone | Passes validation checklist |
 | **M1e** | S | Hosted docs | README/SETUP describe shared site flow |
 
-### User 3+ gate (before any friend sign-up)
+### User 3+ gate (before any friend sign-up) — CLEARED 2026-08-25
 
-**Do not invite friends until [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md) exit test passes.** Sign-up → repo → Sync → dashboard → Claude BYO must work with zero operator steps (no PAT, no `provision-user.sh`).
+**Lifted.** The rule below was: do not invite friends until [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md) exit test passes — sign-up → repo → Sync → dashboard → Claude BYO with zero operator steps. Nats and Prateek cleared it unaided, through iOS rather than the website sign-up this plan assumed (ADR 0030). Kept as the M1-era record; the rule no longer applies.
 
 ### Validation checklist (M1c / M1d)
 

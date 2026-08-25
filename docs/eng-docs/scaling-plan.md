@@ -1,6 +1,6 @@
 # Scaling Plan — Coach Phelps → Multi-Tenant
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-22
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-25
 
 Moving Coach Phelps from single-tenant (one hand-built repo per person) to ~10 users on a shared hosted
 UI. Supersedes the old root scaling plan for architecture (deleted — see git history; its Friend-#3
@@ -69,8 +69,9 @@ flowchart LR
 
 ### 2.2 Gaps
 
-- **No skeleton onboarding.** Login assumes the user already owns a repo carrying the marker file
-  `.coach-engine-version` (#32).
+- ~~No skeleton onboarding.~~ **Closed.** Signup is iOS-only and the athlete creates their own repo
+  from the template; the web dashboard is sign-in only. Authority: ADR 0030 and
+  [`github-auth.md`](github-auth.md) — do not re-describe the flow here, it drifted once already.
 - **Per-user forks may still carry a monolithic `SOUL.md` copy** — HQ has split `soul/` layers with composed `SOUL.md`; propagation to forks is not yet automated.
 - **The server coach is a *second* engine.** `coach-chat.ts` re-encodes Layer B in TS + a prompt that
   dumps `SOUL.md` at Gemini. BYO-Claude and Gemini now run *different copies* of the rules — the central
@@ -275,7 +276,7 @@ flowchart LR
 | **M1** | **M** | Carve `coach-skeleton` + onboarding | `sibling-shipyard/coach-skeleton` full BYO tree carved from HQ `engine/` (skeleton layout: `gen/` + `user_data/` + SOUL copy — see [`skeleton-layout.md`](skeleton-layout.md), [`m1-plan.md`](m1-plan.md)); **two** clones via `provision-user.sh` — **`akash-suresh/coach-akash`** and **`skanda-2003/coach-skanda`** (private on athlete accounts, full migration from legacy); each passes BYO boot, dashboard load, sync trigger; coach-chat P1; legacy repos kept as backup; README/SETUP describe hosted flow. |
 | **M2** | **L** | One engine, two hosts | `coach-chat.ts` and a BYO-Claude session execute the *same* shared B and pass the *same* validator — no coaching rule lives only in the endpoint prompt. |
 | **M3** | **S** | Pick the host | The A+B location decision is made from M2 feedback (server-only / BYO / hybrid), and §4/§6 are updated to match. |
-| **M4** | **M** | Self-serve onboarding | A user self-provisions on first login: repo created + secrets written automatically (Administration + Secrets perms granted); the operator step is gone. **Hard gate before user 3+** — see [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md). |
+| **M4** | **M** | Self-serve onboarding | **Done, differently.** Signup is iOS-only: the athlete creates their own repo from the template, guided by `SetupView.swift`; the operator step is gone. App-API repo creation is impossible on personal accounts, so the "Administration perms" version of this row was never buildable — see ADR 0030, [`github-auth.md`](github-auth.md). Gate record: [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md). |
 
 Sizing is rough (S = a sitting, M = a few sessions, L = a real chunk of focused work). M0 and M2 are the
 heavy lifts and the critical path; M3 is mostly a decision.
@@ -283,11 +284,10 @@ heavy lifts and the critical path; M3 is mostly a decision.
 Prereq (done): the clean-structure port onto HQ — [`hq-port-plan.md`](hq-port-plan.md), P1–P3 shipped.
 
 Ordering: M0 unlocks everything (a runtime-agnostic engine + real validators is what makes both hosts
-safe). M1 gets real users on the stop-gap and generates the feedback M2/M3 need. **M4 is no longer
-"polish last" for friends — see [`user-3-onboarding-gate.md`](user-3-onboarding-gate.md): user 3+ must
-self-serve via website sign-up with zero PAT/operator steps before inviting anyone beyond Akash/Skanda.**
-M2's write-back safety (extending the validator) is the single highest-priority engineering item after
-that gate, since the server coach already writes to repos today.
+safe). M1 gets real users on the stop-gap and generates the feedback M2/M3 need. **M4 is done** — Nats and
+Prateek signed up unaided in August 2026, through the iOS app rather than the website sign-up this
+plan expected (ADR 0030). M2's write-back safety (extending the validator) is the highest-priority
+engineering item now that the gate is closed, since the server coach already writes to repos today.
 
 ---
 
