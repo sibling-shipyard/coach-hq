@@ -173,6 +173,11 @@ async function main() {
   } else {
     turns = JSON.parse(fs.readFileSync(args.turnsPath!, "utf8")) as ManualTurn[];
   }
+  if (turns.length === 0) {
+    console.error(`run-manual-coach-chat-test: ${args.turnsPath} is an empty array - nothing to run.`);
+    process.exit(1);
+    return;
+  }
   for (let i = 1; i < turns.length; i++) {
     if (turns[i].greet) {
       console.error(`run-manual-coach-chat-test: "greet" is only valid on turns[0] (found on turns[${i}]).`);
@@ -248,9 +253,10 @@ async function main() {
 
       let result: "PASS" | "FAIL" | "ERROR";
       const failures: string[] = [];
-      if (turn.expect?.sessionClosed !== undefined) {
-        if (Boolean(json.closed) !== turn.expect.sessionClosed) {
-          failures.push(`expected session_closed=${turn.expect.sessionClosed}, got ${Boolean(json.closed)}`);
+      const hasAssertion = turn.expect?.sessionClosed !== undefined;
+      if (hasAssertion) {
+        if (Boolean(json.closed) !== turn.expect!.sessionClosed) {
+          failures.push(`expected session_closed=${turn.expect!.sessionClosed}, got ${Boolean(json.closed)}`);
         }
         result = failures.length === 0 ? "PASS" : "FAIL";
       } else {
@@ -266,9 +272,15 @@ async function main() {
       let filesChanged: ManualLogEntry["filesChanged"];
       if (shaBeforeFailed || shaAfterFailed) {
         // Can't tell what changed - saying "observed: no files" here would be a lie, since a
-        // real commit may well have landed. Fail the turn instead of reporting false certainty.
-        result = "ERROR";
+        // real commit may well have landed. Record that honestly in filesChanged either way, but
+        // don't clobber a real assertion's own verdict: if turn.expect actually checked
+        // session_closed against the response and it passed/failed, that's true regardless of
+        // whether we could also observe the commit - losing that signal is worse than keeping it
+        // alongside a visible "files unconfirmed" note. Only escalate to ERROR when there was no
+        // real assertion at all (a bare res.ok "PASS" is weak on its own, and losing the audit
+        // trail on top of it leaves nothing worth trusting in this entry).
         failures.push("sha lookup failed before or after this turn - cannot confirm what changed, if anything");
+        if (!hasAssertion) result = "ERROR";
         filesChanged = { confidence: "observed", files: [], diff: "" };
       } else if (shaBefore != null && shaAfter != null && shaBefore !== shaAfter) {
         execFileSync("git", ["-C", localPath, "fetch", "origin", branch], { stdio: "pipe" });
