@@ -29,6 +29,12 @@
  * every turn after it, so the whole run stays one conversation instead of the greet and the
  * follow-ups silently landing in two different threads.
  *
+ * See scripts/examples/manual-coach-chat-turns.example.json for a realistic 4-turn example: a
+ * greet, a vague mention of something feeling off with no `expect` (manual runs don't need one on
+ * every turn - it's fine to just read the reply), a specific clarification, and a closing turn
+ * that asserts sessionClosed. Same incremental-disclosure idea eval-coach-chat.ts's turns[]
+ * transcripts test, just against a real athlete repo instead of fixture data.
+ *
  * Needs GEMINI_API_KEY in ui/.env.local or env, and a GitHub CLI session (`gh auth token`).
  *
  * Run log: writes <repo-root>/tests/<YYYY-MM-DD>/manual/manual-coach-chat-log-<HH-MM-SS>.json,

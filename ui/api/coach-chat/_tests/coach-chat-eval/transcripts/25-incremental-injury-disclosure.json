@@ -1,0 +1,35 @@
+{
+  "name": "incremental-injury-disclosure",
+  "description": "Real people don't dump the full injury picture in one message - a vague 'felt a bit off' shouldn't fire injury_event on its own, only once the athlete actually names what's wrong two turns later. Multi-turn regression for the eval-coach-chat harness's turns[] support.",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["Morning - how'd the run go?"] }
+  ],
+  "turns": [
+    {
+      "mode": "ordinary",
+      "userMessage": "Run was fine, though something felt a bit off in the back half. Nothing major.",
+      "expect": {
+        "sessionClosed": false,
+        "actionFieldsAbsent": ["injury_event"]
+      }
+    },
+    {
+      "mode": "ordinary",
+      "userMessage": "Actually thinking about it more, my left hip has been sore for 3 days now, not just today.",
+      "expect": {
+        "sessionClosed": false,
+        "actionFieldsPresent": ["injury_event"]
+      }
+    },
+    {
+      "mode": "closing",
+      "userMessage": "That's all from me, done for the day.",
+      "expect": {
+        "sessionClosed": true,
+        "coachNoteReported": true
+      }
+    }
+  ]
+}

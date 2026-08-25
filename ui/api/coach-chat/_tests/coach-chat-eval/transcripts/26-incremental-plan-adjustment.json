@@ -1,0 +1,36 @@
+{
+  "name": "incremental-plan-adjustment",
+  "description": "Same incremental-disclosure idea as #25, for plan edits - a vague 'busy this week' shouldn't fire plan_edit or template_edit on its own, only once the athlete names the actual day/session swap they want. Multi-turn regression for the eval-coach-chat harness's turns[] support.",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "Current week's sessions (use these exact session_ids for session_reconcile AND plan_edit - match the date to what the athlete actually means, never guess):\n- session_id: sess-thu-tempo | date: 2026-08-20 | Tempo Run | status: planned",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }
+  ],
+  "turns": [
+    {
+      "mode": "ordinary",
+      "userMessage": "Heads up, this week's looking pretty busy at work.",
+      "expect": {
+        "sessionClosed": false,
+        "actionFieldsAbsent": ["plan_edit", "template_edit"]
+      }
+    },
+    {
+      "mode": "ordinary",
+      "userMessage": "Actually can we move Thursday's session to Saturday instead - that'd help.",
+      "expect": {
+        "sessionClosed": false,
+        "actionFieldsPresent": ["plan_edit"]
+      }
+    },
+    {
+      "mode": "closing",
+      "userMessage": "That covers it, wrap this up.",
+      "expect": {
+        "sessionClosed": true,
+        "coachNoteReported": true
+      }
+    }
+  ]
+}
