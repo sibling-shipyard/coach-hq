@@ -68,7 +68,7 @@ Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`).
 
 **`CoachLogRow` shape:** `{ id, date, ts, type: "chat", text, trace_id }` — `type` is currently
 always `"chat"`; `"phase_close"`/`"week_close"` row types are a deferred, documented-only item
-(see `docs/plans/coach-chat-follow-up.md`).
+(needs an archive-folding decision first - tracked in issue #575).
 
 ### `user_data/coach/latest_message.json`
 

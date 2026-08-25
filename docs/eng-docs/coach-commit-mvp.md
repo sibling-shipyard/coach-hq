@@ -105,7 +105,7 @@ shape rather than replacing it. Field names locked here so the two splits don't 
 - P2 — remaining coach files behind the same intent pattern → Split 2.
 - P2 — `platform/soul/B_engine.md` §12 still instructs 8 paths the server allowlist rejects
   (`roadmap.md`, `rendered quest context`, `archive/**`). Rewrite belongs to Split 2, not here.
-- P3 — background commit + client polling (see `docs/plans/coach-chat-follow-up.md`). UX, not reliability.
+- P3 — background commit + client polling (tracked in issue #574). UX, not reliability.
 
 ## Scope guard
 
