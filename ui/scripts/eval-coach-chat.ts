@@ -197,7 +197,11 @@ function filesForReply(reply: unknown): string[] {
   if (isSet("coach_note")) files.push("coach_log.json");
   if (isSet("memory_update") || isSet("sports_update")) files.push("memory.json");
   if (isSet("injury_event")) files.push("injuries.json");
-  if (isSet("quest_event") || isSet("quest_create")) files.push("progress.json", "quests.json");
+  // quest_event and quest_create land on different files and fire independently
+  // (buildQuestEventWrite/buildQuestCreateWrite in turnWrites/questWrite.ts) - listing both
+  // whenever either fires overstates what actually changed.
+  if (isSet("quest_event")) files.push("progress.json");
+  if (isSet("quest_create")) files.push("quests.json");
   if (isSet("season_start")) files.push("seasons.json");
   if (isSet("profile_update")) files.push("profile.json");
 

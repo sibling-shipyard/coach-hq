@@ -17,6 +17,11 @@
  *   npm run test:coach-chat-manual -- --athlete akash --branch test/manual-run-2 --message "..."
  *   npm run test:coach-chat-manual -- --repo owner/name --local-path /path --branch test/x --turns turns.json
  *
+ * turns.json is an array of { message, endConversationRequested?, expect? }. Set `greet: true`
+ * on turns[0] to open the run with a real greet turn first - its real threadId carries into
+ * every turn after it, so the whole run stays one conversation instead of the greet and the
+ * follow-ups silently landing in two different threads.
+ *
  * Needs GEMINI_API_KEY in ui/.env.local or env, and a GitHub CLI session (`gh auth token`).
  *
  * Run log: writes <repo-root>/tests/<YYYY-MM-DD>/manual/manual-coach-chat-log-<HH-MM-SS>.json,
@@ -57,6 +62,10 @@ const ATHLETE_REPOS: Record<string, { repo: string; localPath: string }> = {
 interface ManualTurn {
   message: string;
   endConversationRequested?: boolean;
+  // Only meaningful on turns[0]: run a real greet turn first and adopt its real threadId for
+  // every turn that follows, instead of minting a synthetic one - see the threadId handling
+  // below for why this matters.
+  greet?: true;
   // Only sessionClosed - the real HTTP response (ordinaryTurnResponse()/commitClosingTurn() in
   // coachTurn.ts) never echoes raw action fields (quest_event, injury_event, etc.) back to the
   // caller, only { reply, closed, repoSha/threadId/threads, profileComplete, traceId }. There is
@@ -158,11 +167,18 @@ async function main() {
 
   let turns: ManualTurn[];
   if (args.greet) {
-    turns = [{ message: "" }];
+    turns = [{ message: "", greet: true }];
   } else if (args.message != null) {
     turns = [{ message: args.message }];
   } else {
     turns = JSON.parse(fs.readFileSync(args.turnsPath!, "utf8")) as ManualTurn[];
+  }
+  for (let i = 1; i < turns.length; i++) {
+    if (turns[i].greet) {
+      console.error(`run-manual-coach-chat-test: "greet" is only valid on turns[0] (found on turns[${i}]).`);
+      process.exit(1);
+      return;
+    }
   }
 
   const entries: ManualLogEntry[] = [];
@@ -171,87 +187,141 @@ async function main() {
   // script has to carry a stable threadId and build the running ChatMessage[] itself, exactly
   // as coachTurn.ts's appendConversationTurn would, or every ordinary turn lands in its own
   // fresh thread (buildChatWrite falls back to `t-${now}` whenever threadId is omitted).
-  const threadId = args.greet ? undefined : `t-${Date.now()}`;
+  //
+  // If the run opens with a real greet turn, its response DOES carry a real threadId
+  // (coach-chat.ts's handleGreet returns `threadId: t-${now}`) - adopt that instead of minting
+  // a synthetic one, so a scripted "greet, then respond" conversation stays one real thread
+  // instead of silently splitting into two. Only lazily mint a synthetic id if the run never
+  // greets at all (a bare --message/--turns run with no turns[0].greet).
+  let threadId: string | undefined = turns[0]?.greet ? undefined : `t-${Date.now()}`;
   let messages: { id: string; role: "divider" | "user" | "coach"; [key: string]: unknown }[] = [];
 
   for (let turnIndex = 0; turnIndex < turns.length; turnIndex++) {
     const turn = turns[turnIndex];
-    const shaBefore = await getHeadSha(repo, token).catch(() => null);
+    // Everything below can throw (a bad response, a network blip, a git command failing) - one
+    // turn throwing must not cost every earlier turn its log entry, so the whole body is wrapped
+    // and a thrown turn still gets recorded before the run stops.
+    try {
+      // getHeadSha failing (not "returned no sha", but the call itself throwing) means we can't
+      // tell what the branch looked like at this point - track that explicitly rather than
+      // silently treating it the same as "checked, and it's null."
+      let shaBeforeFailed = false;
+      const shaBefore = await getHeadSha(repo, token).catch(() => {
+        shaBeforeFailed = true;
+        return null;
+      });
 
-    const body = args.greet
-      ? { action: "greet" as const }
-      : {
-          threadId,
-          messages,
-          message: turn.message,
-          endConversationRequested: turn.endConversationRequested ?? false,
-        };
+      const body = turn.greet
+        ? { action: "greet" as const }
+        : {
+            threadId,
+            messages,
+            message: turn.message,
+            endConversationRequested: turn.endConversationRequested ?? false,
+          };
 
-    const res = await handle(
-      new Request("http://localhost/api/coach-chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      }),
-      auth,
-    );
-    const json = (await res.json()) as Record<string, unknown>;
+      const res = await handle(
+        new Request("http://localhost/api/coach-chat", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+        auth,
+      );
+      const json = (await res.json()) as Record<string, unknown>;
 
-    if (!args.greet) {
-      const now = Date.now();
-      const userMessage = { id: `u-${now}`, role: "user" as const, text: turn.message };
-      const coachMessage = { id: `c-${now}`, role: "coach" as const, paragraphs: [String(json.reply ?? "")] };
-      const turnMessages = [userMessage, coachMessage];
-      messages =
-        messages.length > 0
-          ? [...messages, ...turnMessages]
-          : [{ id: `d-${now}`, role: "divider" as const, label: "Today" }, ...turnMessages];
-    }
+      // Adopt the server's real threadId whenever a response actually returns one (greet always
+      // does; a closing turn does too) - keeps a scripted "greet, then respond" run in one real
+      // thread instead of the greet's thread and the follow-ups' synthetic one silently diverging.
+      if (typeof json.threadId === "string") threadId = json.threadId;
 
-    let result: "PASS" | "FAIL" | "ERROR";
-    const failures: string[] = [];
-    if (turn.expect?.sessionClosed !== undefined) {
-      if (Boolean(json.closed) !== turn.expect.sessionClosed) {
-        failures.push(`expected session_closed=${turn.expect.sessionClosed}, got ${Boolean(json.closed)}`);
+      if (!turn.greet) {
+        const now = Date.now();
+        const userMessage = { id: `u-${now}`, role: "user" as const, text: turn.message };
+        const coachMessage = { id: `c-${now}`, role: "coach" as const, paragraphs: [String(json.reply ?? "")] };
+        const turnMessages = [userMessage, coachMessage];
+        messages =
+          messages.length > 0
+            ? [...messages, ...turnMessages]
+            : [{ id: `d-${now}`, role: "divider" as const, label: "Today" }, ...turnMessages];
       }
-      result = failures.length === 0 ? "PASS" : "FAIL";
-    } else {
-      result = res.ok ? "PASS" : "ERROR";
+
+      let result: "PASS" | "FAIL" | "ERROR";
+      const failures: string[] = [];
+      if (turn.expect?.sessionClosed !== undefined) {
+        if (Boolean(json.closed) !== turn.expect.sessionClosed) {
+          failures.push(`expected session_closed=${turn.expect.sessionClosed}, got ${Boolean(json.closed)}`);
+        }
+        result = failures.length === 0 ? "PASS" : "FAIL";
+      } else {
+        result = res.ok ? "PASS" : "ERROR";
+      }
+
+      let shaAfterFailed = false;
+      const shaAfter = await getHeadSha(repo, token).catch(() => {
+        shaAfterFailed = true;
+        return null;
+      });
+
+      let filesChanged: ManualLogEntry["filesChanged"];
+      if (shaBeforeFailed || shaAfterFailed) {
+        // Can't tell what changed - saying "observed: no files" here would be a lie, since a
+        // real commit may well have landed. Fail the turn instead of reporting false certainty.
+        result = "ERROR";
+        failures.push("sha lookup failed before or after this turn - cannot confirm what changed, if anything");
+        filesChanged = { confidence: "observed", files: [], diff: "" };
+      } else if (shaBefore != null && shaAfter != null && shaBefore !== shaAfter) {
+        execFileSync("git", ["-C", localPath, "fetch", "origin", branch], { stdio: "pipe" });
+        const filesRaw = execFileSync("git", ["-C", localPath, "diff", "--name-only", `${shaBefore}..${shaAfter}`], { encoding: "utf8" });
+        const diff = execFileSync("git", ["-C", localPath, "diff", `${shaBefore}..${shaAfter}`], { encoding: "utf8" });
+        filesChanged = {
+          confidence: "observed",
+          files: filesRaw.split("\n").filter((f) => f.trim().length > 0),
+          diff,
+        };
+      } else {
+        filesChanged = { confidence: "observed", files: [], diff: "" };
+      }
+
+      console.log(`turn ${turnIndex} ... ${result}`);
+      for (const f of failures) console.log(`  - ${f}`);
+
+      entries.push({
+        kind: "manual",
+        name: `turn-${turnIndex}`,
+        turnIndex,
+        repo,
+        branch,
+        input: body,
+        output: json,
+        result,
+        failures: failures.length > 0 ? failures : undefined,
+        filesChanged,
+        shaBefore,
+        shaAfter,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.log(`turn ${turnIndex} ... ERROR`);
+      console.log(`  - ${message}`);
+      entries.push({
+        kind: "manual",
+        name: `turn-${turnIndex}`,
+        turnIndex,
+        repo,
+        branch,
+        input: turn,
+        output: null,
+        result: "ERROR",
+        failures: [message],
+        filesChanged: { confidence: "observed", files: [], diff: "" },
+        shaBefore: null,
+        shaAfter: null,
+      });
+      // State (threadId/messages) may be inconsistent with reality after an unknown failure -
+      // stop rather than risk compounding it into later turns, but still log what ran so far.
+      break;
     }
-
-    const shaAfter = await getHeadSha(repo, token).catch(() => null);
-
-    let filesChanged: ManualLogEntry["filesChanged"];
-    if (shaBefore != null && shaAfter != null && shaBefore !== shaAfter) {
-      execFileSync("git", ["-C", localPath, "fetch", "origin", branch], { stdio: "pipe" });
-      const filesRaw = execFileSync("git", ["-C", localPath, "diff", "--name-only", `${shaBefore}..${shaAfter}`], { encoding: "utf8" });
-      const diff = execFileSync("git", ["-C", localPath, "diff", `${shaBefore}..${shaAfter}`], { encoding: "utf8" });
-      filesChanged = {
-        confidence: "observed",
-        files: filesRaw.split("\n").filter((f) => f.trim().length > 0),
-        diff,
-      };
-    } else {
-      filesChanged = { confidence: "observed", files: [], diff: "" };
-    }
-
-    console.log(`turn ${turnIndex} ... ${result}`);
-    for (const f of failures) console.log(`  - ${f}`);
-
-    entries.push({
-      kind: "manual",
-      name: `turn-${turnIndex}`,
-      turnIndex,
-      repo,
-      branch,
-      input: body,
-      output: json,
-      result,
-      failures: failures.length > 0 ? failures : undefined,
-      filesChanged,
-      shaBefore,
-      shaAfter,
-    });
   }
 
   writeTestLog("manual", "manual-coach-chat", entries);
