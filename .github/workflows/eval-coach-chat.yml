@@ -1,0 +1,50 @@
+name: Eval Coach Chat
+
+# ADR 0024 (kdb/decisions/0024-paid-checks-run-at-gates.md) governs this trigger:
+# eval:coach-chat calls the live Gemini API once per transcript — it is a paid check that only
+# runs at named gates. The two named gates are:
+#   1. Manual dispatch — operator-driven, on demand.
+#   2. Push to main when the diff touches prompt construction, the response schema, the model
+#      config, or the eval harness/fixtures — the only diffs where the eval can actually fail.
+#
+# DO NOT add a pull_request trigger. ADR 0024 explicitly forbids it: running a paid check
+# reflexively on every PR normalises ignoring red and decays the signal into noise.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      # Prompt construction
+      - 'ui/api/coach-chat/_lib/coachPromptText.ts'
+      - 'ui/api/coach-chat/_lib/coachContext.ts'
+      # Response schema
+      - 'ui/api/coach-chat/_lib/coachReplySchema.ts'
+      # Model config
+      - 'ui/api/coach-chat/_lib/geminiClient.ts'
+      # Eval harness and fixtures
+      - 'ui/scripts/eval-coach-chat.ts'
+      - 'ui/api/coach-chat/_tests/coach-chat-eval/**'
+
+jobs:
+  eval-coach-chat:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run coach-chat eval harness
+        run: npm run eval:coach-chat
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
