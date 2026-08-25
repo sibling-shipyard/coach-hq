@@ -123,8 +123,12 @@ Athlete may reference `1a` — match that item exactly.
 **P0** — fix now, blocks the ship. **P1** — good to fix, do it before moving on.
 **P2** — flagging it, athlete's call: follow-up ticket, one line, don't build unless asked.
 (`P3` still exists for issue bodies — see `.github/agents/issue-template.md`. A review never emits one.)
-These are **not** the lowercase GitHub `p0`–`p3` labels, which gate milestones (`p1` = unblocks 10
-users). When a P2 becomes an issue, label it by the roadmap scale — never carry the review tier across.
+These are **not** the lowercase GitHub `p0`–`p3` labels, which sort the roadmap:
+**`p0`** — a live athlete is broken right now · **`p1`** — needed before the next friend joins ·
+**`p2`** — good to have · **`p3`** — someday.
+Nothing automated reads those labels, so this block is their definition and the GitHub label
+descriptions are kept matching it by hand. When a P2 becomes an issue, label it by this scale —
+never carry the review tier across.
 
 **Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2, don't implement. If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
 

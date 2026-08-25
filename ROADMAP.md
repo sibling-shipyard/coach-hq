@@ -12,11 +12,13 @@ self-serve (ADR 0030). There is no operator step to plan around.
 > calisthenics; football and cycling are not built. This is a live athlete today, not a future
 > persona — it moves #313 ahead of the homescreen work and makes #346 current, not M4.
 
-**Priority:** P0 unblocks Nats · P1 unblocks 10 users · P2 good to have (incl. M4)
+**Priority (`p0`–`p3` labels):** `p0` a live athlete is broken now · `p1` needed before the next
+friend joins · `p2` good to have · `p3` someday. Defined in `AGENTS.md` § Priorities — nothing
+automated reads the labels, so the GitHub label descriptions are kept matching by hand.
 
-> ⚠️ **P0's definition is spent.** Nats is onboarded, so "unblocks Nats" no longer sorts anything —
-> and the one open p0 (#564) is dead-code cleanup, which would not qualify under any replacement
-> like "breaks a live athlete". Needs a decision before the next triage; not silently redefined here.
+> ⚠️ **Re-triage needed.** These meanings replaced "unblocks Nats" / "unblocks 10 users" on
+> 2026-08-25. Existing labels predate them — #564 carries `p0` for dead-code cleanup, which is not
+> a broken athlete. Every open issue's label needs one pass against the scale above.
 
 ## ✅ M2: Onboard Nats — and Prateek, unaided
 
@@ -50,17 +52,9 @@ _Supporting:_ #292 now in M3
 - [ ] #306 First-session chat works — Medium (exit test; real work)
 - [x] #362 First-session predicate can never complete
 
-### Epic: Homescreen UX (#307)
-
-- [ ] #308 iOS home bug batch — Low (needs the list)
-- [ ] #309 Redesign home page — High
-- [ ] #311 Web visual tokens: reuse iOS colors — Low
-	- [ ] #310 Better SVG activity icons — Low
-- [ ] #312 Webapp bug batch (WhatsApp list) — Medium (needs the list)
-- [ ] #354 Widget entitlements not referenced — Low
-
 ### Epic: Sport-agnostic core (#313)
 
+- [ ] #346 Signup-as-runner/cyclist reality check — Effort not set (**moved from M4** — Prateek is that athlete)
 - [ ] #460 Category sub-tags under each sport — Low
 - [ ] #315 Badminton + calisthenics analytics — Medium
 - [ ] #314 Home widgets not sport-hardcoded — Medium
@@ -70,6 +64,15 @@ _Supporting:_ #292 now in M3
 	- [ ] #501 HealthKit day-grain recovery signals (resting HR, HRV, VO₂ Max, sleep) — Effort not set
 	- [ ] #495 HR zones: one source of truth, derived from resting + max HR — Effort not set
 - [x] #316 seasons/phases + quest_history — absorbed into #86/#378; leftover is #411
+
+### Epic: Homescreen UX (#307)
+
+- [ ] #308 iOS home bug batch — Low (needs the list)
+- [ ] #309 Redesign home page — High
+- [ ] #311 Web visual tokens: reuse iOS colors — Low
+	- [ ] #310 Better SVG activity icons — Low
+- [ ] #312 Webapp bug batch (WhatsApp list) — Medium (needs the list)
+- [ ] #354 Widget entitlements not referenced — Low
 
 ### Epic: Coach depth (#317)
 
@@ -154,7 +157,6 @@ Schema migration done. Season recap leftover moved to #473 / #411.
 - [ ] #343 Testing framework: LLM benchmarks + iOS UI tests
 - [ ] #344 Product page dashboard check
 - [ ] #345 Remove "Phelps" everywhere (rebrand)
-- [ ] #346 Signup-as-runner/cyclist reality check
 
 ## 🧊 Backlog — P2
 
@@ -166,10 +168,12 @@ Schema migration done. Season recap leftover moved to #473 / #411.
 - [x] **Gemini vs Claude** — RESOLVED, Gemini e2e shipped (#297 closed Aug 22)
 - [ ] **backend+DB** (P2) — repo-update path (#327 / #326) waits on this; do not start those
 	- ⚠️ **Conflict:** PR #586 is #327's plan and is open now. Either this hold is dead or that PR is early.
-- [ ] **HealthKit shape** — old richer-ingestion PR vs day-grain + sidecar; blocks #156, #501, #495. Two PRs rotting on it: #427 (Aug 18), #162 (**Jul 31**). One should be closed.
+- [x] **HealthKit shape** — RESOLVED by closing #162: day-grain + sidecar (#427) is the direction. ADR deferred until #427 is picked up — see the note on #156. Unblocks #156, #501, #495.
 - [ ] **Season recap** — later (#411)
 
 ## ✅ Done
+
+**Aug 25 — Priority scale redefined + sport-agnostic pulled forward:** `p0`–`p3` now mean something current and are defined in `AGENTS.md` (they were only in GitHub label descriptions); every open issue's label needs a re-triage pass. #313 moved ahead of #307 and #346 moved out of M4 — Prateek plays football and cycles, neither of which the product handles. HealthKit shape resolved by closing #162.
 
 **Aug 25 — Onboarding gate cleared + board sync:** Nats and Prateek self-served (no operator); ADR 0030 records iOS-only signup; `user-3-onboarding-gate.md` → Historical; scaling-plan M4 corrected; 14 issues missing from this board added — **none of them has an Effort set on the issue**, so none carries one here.
 

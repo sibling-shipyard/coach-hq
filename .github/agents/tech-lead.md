@@ -77,7 +77,7 @@ The seven checks above are how you review. This is how you hand it back. Fixed s
 - Nothing found at a tier? Omit the tier. Never pad.
 
 Tiers are defined once in `AGENTS.md` § Priorities. A P2 you file as an issue gets a **roadmap**
-label (`p0`–`p3` = milestone gating) — the review tier does not carry across.
+label (`p0`–`p3`, defined in `AGENTS.md` § Priorities) — the review tier does not carry across.
 
 ### Which subagent, and how many of them
 
