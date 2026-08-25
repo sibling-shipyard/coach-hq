@@ -29,6 +29,12 @@ by construction test the code against inputs someone already thought of.
 
 ## Plan
 
+Any step below that says "via the hosted API" or "pull the real committed file" can now be
+driven and logged in one shot with `npm run test:coach-chat-manual`
+(`ui/scripts/run-manual-coach-chat-test.ts`, see its header comment for usage). It's a manual,
+on-demand tool, not CI - it costs real Gemini calls and writes real commits to whatever
+`--branch` you give it, and it refuses to run against the repo's default branch.
+
 **Branch:** both `coach-skanda` and `coach-akash` are already migrated, so the split-ledger path
 can be tested for real against either.
 
@@ -42,8 +48,9 @@ can be tested for real against either.
    (greeting shouldn't write).
 4. A handful of ordinary turns covering each action field the mode-specific schema exposes for
    "ordinary" (`profile_update`, `memory_update`, `injury_event`, at
-   minimum) — after each, pull the real committed file via the GitHub API and confirm the write
-   landed in the shape `coach-data-schema.md` documents, not just that a commit happened.
+   minimum) — run them through `npm run test:coach-chat-manual` and read the logged
+   `filesChanged.diff` for each turn to confirm the write landed in the shape
+   `coach-data-schema.md` documents, not just that a commit happened.
 5. A closing turn — confirm `coach_note` appends to `coach_log.json`, confirm any quest/session
    fields close correctly, confirm one atomic commit per ADR 0012 (not multiple).
 6. Cross-device staleness: open a second "device" (a second scratch conversation) mid-thread,
