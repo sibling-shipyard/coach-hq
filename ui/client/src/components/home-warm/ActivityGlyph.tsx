@@ -7,6 +7,7 @@ export type ActivityMarkKind =
   | "calisthenics"
   | "run"
   | "recovery"
+  | "realign"
   | "other"
   | "strength"
   | "weight_training"
@@ -25,14 +26,14 @@ interface ActivityMarkProps extends Omit<SVGProps<SVGSVGElement>, "children"> {
   size?: number;
 }
 
+/** Shuttlecock — cork base + flared feather skirt, sitting upright (static, like the other resting marks). */
 function BadmintonMark() {
   return (
     <>
-      <circle cx="8.25" cy="8" r="4.75" />
-      <path d="m11.6 11.35 7.15 7.15" />
-      <path d="m16.9 16.65 2.1 2.1" strokeWidth="3" />
-      <path d="m16.2 4.35 4.4-1.55-1.55 4.4Z" />
-      <path d="m16.2 4.35 2.85 2.85" />
+      <circle cx="12" cy="18" r="1.8" />
+      <path d="M12 18 6.5 7" />
+      <path d="M12 18 17.5 7" />
+      <path d="M6.5 7Q12 3 17.5 7" />
     </>
   );
 }
@@ -50,15 +51,13 @@ function CyclingMark() {
   );
 }
 
+/** Gymnastic rings — hung from straps, two closed forms that hold their shape at small sizes. */
 function CalisthenicsMark() {
-  // Figure hanging from a pull-up bar — bodyweight/calisthenics.
   return (
     <>
-      <path d="M3 4h18" />
-      <path d="M9 4 11 10M15 4 13 10" />
-      <circle cx="12" cy="8.3" r="1.6" />
-      <path d="M12 9.9v5" />
-      <path d="M12 14.9 9.8 19M12 14.9 14.2 19" />
+      <path d="M8 2v3.5M16 2v3.5" />
+      <circle cx="8" cy="9.5" r="3.3" />
+      <circle cx="16" cy="9.5" r="3.3" />
     </>
   );
 }
@@ -92,6 +91,17 @@ function RecoveryMark() {
       <path d="M19.25 15.4A7.9 7.9 0 0 1 8.6 4.2 8.25 8.25 0 1 0 19.25 15.4Z" />
       <path d="M4 19h16" />
       <path d="M7 16.6c1.4-1 2.7-1 4.1 0s2.7 1 4.1 0" />
+    </>
+  );
+}
+
+/** Crosshair/target — recentering, distinct from Recovery's crescent so the two don't read as one thing. */
+function RealignMark() {
+  return (
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="1.6" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
     </>
   );
 }
@@ -199,6 +209,7 @@ export function ActivityMark({ kind, size = 24, ...props }: ActivityMarkProps) {
       {kind === "foundation" ? <FoundationMark /> : null}
       {kind === "run" ? <RunMark /> : null}
       {kind === "recovery" ? <RecoveryMark /> : null}
+      {kind === "realign" ? <RealignMark /> : null}
       {kind === "strength" || kind === "weight_training" ? <StrengthMark /> : null}
       {kind === "hike" ? <HikeMark /> : null}
       {kind === "walk" ? <WalkMark /> : null}
