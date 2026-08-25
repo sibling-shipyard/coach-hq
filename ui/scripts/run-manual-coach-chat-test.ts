@@ -336,12 +336,19 @@ async function main() {
     }
   }
 
-  writeTestLog("manual", "manual-coach-chat", entries);
+  const logWritten = writeTestLog("manual", "manual-coach-chat", entries);
 
   const passed = entries.filter((e) => e.result === "PASS").length;
   console.log(`\n${passed}/${entries.length} passed.`);
+  // A PASS can still carry a failures entry (a real assertion passed, but the sha lookup around
+  // it failed, so filesChanged is unconfirmed) - that PASS is honest, but it's not a clean run,
+  // and neither exit branch below would otherwise catch it.
+  const hasUnconfirmedAudit = entries.some((e) => e.result === "PASS" && (e.failures?.length ?? 0) > 0);
+  if (hasUnconfirmedAudit) console.log("At least one passing turn has an unconfirmed audit trail - see its failures[].");
+  if (!logWritten) console.log("Run log failed to write - see the warning above.");
+
   if (entries.some((e) => e.result === "FAIL")) process.exit(1);
-  if (entries.some((e) => e.result === "ERROR")) process.exit(2);
+  if (entries.some((e) => e.result === "ERROR") || hasUnconfirmedAudit || !logWritten) process.exit(2);
 }
 
 main();

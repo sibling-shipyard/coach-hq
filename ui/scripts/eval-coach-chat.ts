@@ -187,7 +187,10 @@ function filesForReply(reply: unknown): string[] {
   const r = (reply ?? {}) as Record<string, unknown>;
   const isSet = (field: string): boolean => {
     const value = r[field];
-    if (value === undefined || value === null) return false;
+    // Excludes falsy-empty values too, not just undefined/null - Gemini returning
+    // coach_note: "" (or a false boolean field) is "nothing here", same as omitting it,
+    // not a real write.
+    if (value === undefined || value === null || value === "" || value === false) return false;
     if (Array.isArray(value)) return value.length > 0;
     return true;
   };
@@ -253,7 +256,10 @@ function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemi
   const replyRecord = reply as unknown as Record<string, unknown>;
   const isSet = (field: string) => {
     const value = replyRecord[field];
-    if (value === undefined || value === null) return false;
+    // Excludes falsy-empty values too, not just undefined/null - Gemini returning
+    // coach_note: "" (or a false boolean field) is "nothing here", same as omitting it,
+    // not a real write.
+    if (value === undefined || value === null || value === "" || value === false) return false;
     if (Array.isArray(value)) return value.length > 0;
     return true;
   };
@@ -368,7 +374,7 @@ async function main() {
     }
   }
 
-  writeTestLog("eval", "eval-coach-chat", runLog);
+  const logWritten = writeTestLog("eval", "eval-coach-chat", runLog);
 
   const passed = files.length - failed - errored;
   console.log(`\n${passed}/${files.length} passed (${cached} cached, ${ran} called Gemini).`);
@@ -380,9 +386,12 @@ async function main() {
     console.log("Re-run to retry only those - the passes above are cached and won't be paid for again.");
   }
   if (failed > 0) console.log(`${failed} transcript(s) genuinely failed the rubric.`);
+  // A run's whole point is the log landing on disk - a failed write means whatever passed/failed
+  // above has zero audit trail, which is worth a non-zero exit even if every transcript passed.
+  if (!logWritten && ran > 0) console.log("Run log failed to write - see the warning above.");
 
   if (failed > 0) process.exit(1);
-  if (errored > 0) process.exit(2); // incomplete, not failed
+  if (errored > 0 || (!logWritten && ran > 0)) process.exit(2); // incomplete, not failed
 }
 
 main();
