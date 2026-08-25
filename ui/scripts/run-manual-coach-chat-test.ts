@@ -23,7 +23,7 @@
  * same shape as eval-coach-chat.ts's log but with `confidence: "observed"` filesChanged - a real
  * git diff of the local clone across each turn's before/after commit sha, not a guess.
  */
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -57,7 +57,13 @@ const ATHLETE_REPOS: Record<string, { repo: string; localPath: string }> = {
 interface ManualTurn {
   message: string;
   endConversationRequested?: boolean;
-  expect?: { sessionClosed?: boolean; actionFieldsPresent?: string[]; actionFieldsAbsent?: string[] };
+  // Only sessionClosed - the real HTTP response (ordinaryTurnResponse()/commitClosingTurn() in
+  // coachTurn.ts) never echoes raw action fields (quest_event, injury_event, etc.) back to the
+  // caller, only { reply, closed, repoSha/threadId/threads, profileComplete, traceId }. There is
+  // no honest way to check "did quest_event fire" from this response - filesChanged's real diff
+  // is the actual evidence for what a turn wrote, which is exactly the point of this being a
+  // manual/observed test rather than eval's derived one.
+  expect?: { sessionClosed?: boolean };
 }
 
 interface ManualLogEntry extends TestLogEntry {
@@ -204,21 +210,9 @@ async function main() {
 
     let result: "PASS" | "FAIL" | "ERROR";
     const failures: string[] = [];
-    if (turn.expect) {
-      if (turn.expect.sessionClosed !== undefined && Boolean(json.closed) !== turn.expect.sessionClosed) {
+    if (turn.expect?.sessionClosed !== undefined) {
+      if (Boolean(json.closed) !== turn.expect.sessionClosed) {
         failures.push(`expected session_closed=${turn.expect.sessionClosed}, got ${Boolean(json.closed)}`);
-      }
-      const isSet = (field: string): boolean => {
-        const value = json[field];
-        if (value === undefined || value === null) return false;
-        if (Array.isArray(value)) return value.length > 0;
-        return true;
-      };
-      for (const field of turn.expect.actionFieldsPresent ?? []) {
-        if (!isSet(field)) failures.push(`expected action field "${field}" to be set, but it was absent/empty`);
-      }
-      for (const field of turn.expect.actionFieldsAbsent ?? []) {
-        if (isSet(field)) failures.push(`expected action field "${field}" to be absent, but it was set: ${JSON.stringify(json[field])}`);
       }
       result = failures.length === 0 ? "PASS" : "FAIL";
     } else {
@@ -229,9 +223,9 @@ async function main() {
 
     let filesChanged: ManualLogEntry["filesChanged"];
     if (shaBefore != null && shaAfter != null && shaBefore !== shaAfter) {
-      execSync(`git -C ${localPath} fetch origin ${branch}`, { stdio: "pipe" });
-      const filesRaw = execSync(`git -C ${localPath} diff --name-only ${shaBefore}..${shaAfter}`, { encoding: "utf8" });
-      const diff = execSync(`git -C ${localPath} diff ${shaBefore}..${shaAfter}`, { encoding: "utf8" });
+      execFileSync("git", ["-C", localPath, "fetch", "origin", branch], { stdio: "pipe" });
+      const filesRaw = execFileSync("git", ["-C", localPath, "diff", "--name-only", `${shaBefore}..${shaAfter}`], { encoding: "utf8" });
+      const diff = execFileSync("git", ["-C", localPath, "diff", `${shaBefore}..${shaAfter}`], { encoding: "utf8" });
       filesChanged = {
         confidence: "observed",
         files: filesRaw.split("\n").filter((f) => f.trim().length > 0),
