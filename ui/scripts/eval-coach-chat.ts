@@ -126,14 +126,21 @@ interface Transcript {
 
 /** Normalizes either transcript shape into one ordered turn list - see the header comment. */
 function normalizeTurns(t: Transcript, file: string): TranscriptTurn[] {
-  const hasSingle = t.mode !== undefined || t.userMessage !== undefined || t.expect !== undefined;
+  const hasAnySingle = t.mode !== undefined || t.userMessage !== undefined || t.expect !== undefined;
+  const hasAllSingle = t.mode !== undefined && t.userMessage !== undefined && t.expect !== undefined;
   const hasMulti = t.turns !== undefined;
-  if (hasSingle && hasMulti) {
+  if (hasAnySingle && hasMulti) {
     console.error(`eval-coach-chat: ${file} has both single-turn fields (mode/userMessage/expect) and "turns" - use exactly one.`);
     process.exit(1);
   }
-  if (!hasSingle && !hasMulti) {
+  if (!hasAnySingle && !hasMulti) {
     console.error(`eval-coach-chat: ${file} has neither single-turn fields (mode/userMessage/expect) nor "turns".`);
+    process.exit(1);
+  }
+  // Catches a partially-filled single-turn shape (e.g. mode set but userMessage missing) before
+  // it reaches the `!` assertions below and silently runs with userMessage: undefined.
+  if (hasAnySingle && !hasAllSingle) {
+    console.error(`eval-coach-chat: ${file} has some but not all of mode/userMessage/expect - all three are required together.`);
     process.exit(1);
   }
   if (hasMulti) return t.turns!;
