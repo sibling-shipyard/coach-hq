@@ -29,11 +29,18 @@
  * every turn after it, so the whole run stays one conversation instead of the greet and the
  * follow-ups silently landing in two different threads.
  *
- * See scripts/examples/manual-coach-chat-turns.example.json for a realistic 4-turn example: a
- * greet, a vague mention of something feeling off with no `expect` (manual runs don't need one on
- * every turn - it's fine to just read the reply), a specific clarification, and a closing turn
- * that asserts sessionClosed. Same incremental-disclosure idea eval-coach-chat.ts's turns[]
- * transcripts test, just against a real athlete repo instead of fixture data.
+ * See scripts/examples/ for three realistic multi-turn examples - `expect` is optional on every
+ * turn (manual runs don't need one, it's fine to just read the reply), used here only on the
+ * closing turn to confirm the session actually closed:
+ *   - manual-coach-chat-turns.example.json - vague "felt a bit off" -> hip pain clarified 2 turns
+ *     later -> close. Same incremental-disclosure idea eval-coach-chat.ts's turns[] transcripts
+ *     test, just against a real athlete repo instead of fixture data.
+ *   - manual-coach-chat-turns-plan-adjustment.example.json - vague "busy week" -> a specific
+ *     day-swap request -> close.
+ *   - manual-coach-chat-turns-quest-and-injury.example.json - a completed run (quest progress) up
+ *     front, then a calf niggle that escalates from "a bit tight" to a real, specific complaint
+ *     over two more turns before closing - shows one longer real session touching more than one
+ *     action field.
  *
  * Needs GEMINI_API_KEY in ui/.env.local or env, and a GitHub CLI session (`gh auth token`).
  *
