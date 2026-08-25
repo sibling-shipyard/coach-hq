@@ -109,9 +109,11 @@ function sportLabel(sport: string): string {
 const SPORTS_CAP = 5;
 
 function fitnessSnapshotSection(insights: AthleteInsightsJson | null): string | null {
-  // schema_version guard: absent or wrong version → treat as null, same as other coach files do
-  // when their version field is missing or mismatched.
+  // schema_version guard: absent or wrong version -> treat as null. generate-athlete-insights.mjs
+  // must stamp schema_version: 1, or every real athlete's snapshot silently disappears.
   if (insights?.schema_version !== 1) return null;
+  // Freshness guard: a corrupt/truncated generated_at means the file can't be trusted either.
+  if (Number.isNaN(Date.parse(insights.generated_at))) return null;
   if (!insights.sports || typeof insights.sports !== "object" || Array.isArray(insights.sports)) return null;
   const windowDays = Number.isFinite(insights.window_days) && insights.window_days > 0 ? insights.window_days : 365;
   const valid = Object.entries(insights.sports)

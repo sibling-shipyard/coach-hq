@@ -9,6 +9,10 @@ test("zero activities produces an empty sports map", () => {
   assert.deepEqual(buildAthleteInsights([], now).sports, {});
 });
 
+test("stamps schema_version 1 - coach-chat's freshness guard rejects anything else", () => {
+  assert.equal(buildAthleteInsights([], now).schema_version, 1);
+});
+
 test("one activity has stable small-sample math", () => {
   assert.deepEqual(buildAthleteInsights([activity("Run", "2026-08-18")], now).sports.run, {
     sessions_365d: 1,

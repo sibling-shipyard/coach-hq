@@ -197,6 +197,7 @@ describe("renderCoachContext section shape", () => {
     ["wrong schema_version", { schema_version: 2, generated_at: "2026-08-20T00:00:00Z", window_days: 365, sports: {} }],
     ["empty sports", { schema_version: 1, generated_at: "2026-08-20T00:00:00Z", window_days: 365, sports: {} }],
     ["malformed", { schema_version: 1, generated_at: "", window_days: 365, sports: { run: { sessions_365d: "many" } } }],
+    ["unparseable generated_at", { schema_version: 1, generated_at: "not-a-date", window_days: 365, sports: { run: { sessions_365d: 20, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 0.5, longest_gap_days_365d: 14, days_since_last_session: 5, duration_buckets: { under_30m: 0, "30_to_60m": 5, "60_to_120m": 10, over_120m: 5 } } } }],
   ])("cleanly omits the fitness snapshot when insights are %s", (_case, athleteInsights) => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: athleteInsights as never });
     expect(text).not.toContain("Fitness Snapshot");

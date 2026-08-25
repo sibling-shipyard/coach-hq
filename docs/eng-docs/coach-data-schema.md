@@ -200,8 +200,9 @@ Exercise `num` must be strictly ascending and unique across all phases in a work
 ### `gen/athlete_insights.json`
 
 Pipeline-generated, read-only from coach-chat's side. Feeds the "Fitness Snapshot" prompt
-section. `fitnessSnapshotSection()` guards on `schema_version === 1` before trusting the file;
-missing or wrong version → section omitted. Bob's generator must write `schema_version: 1`.
+section. `fitnessSnapshotSection()` guards on `schema_version === 1` and a parseable
+`generated_at` before trusting the file; either one missing/invalid omits the section.
+`engine/scripts/generate-athlete-insights.mjs` stamps `schema_version: 1` on every write.
 
 | Field | Type |
 |---|---|
