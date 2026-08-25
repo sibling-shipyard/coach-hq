@@ -27,6 +27,17 @@
  *   npm run eval:coach-chat -- --only 03 # run transcripts whose file/name matches a substring
  *
  * Needs GEMINI_API_KEY in ui/.env.local or env.
+ *
+ * Run log: every invocation writes a fresh
+ * <repo-root>/eval-coach-chat-log-<ISO-timestamp>.json (colons stripped - not every filesystem
+ * accepts them) with one entry per transcript that actually called Gemini this run (a CACHED
+ * transcript has no fresh input/output, so it's skipped). Each entry carries exactly what was
+ * sent to askGemini(), the raw reply, the PASS/FAIL/ERROR verdict, and a best-effort list of the
+ * real repo files that reply's action fields would touch if a live turn ever committed it - this
+ * harness never writes those files itself, so the list is derived from turnWrites/README.md, not
+ * observed I/O. It exists so a run can be audited afterwards (what did we actually send Gemini,
+ * what did it hand back) without re-running the paid call. Gitignored: per-run and per-machine,
+ * and may contain real athlete-style transcript content.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -39,6 +50,7 @@ import type { TurnMode } from "../api/coach-chat/_lib/coachReplySchema.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uiRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(uiRoot, "..");
 try {
   process.loadEnvFile(path.join(uiRoot, ".env.local"));
 } catch {
@@ -126,6 +138,23 @@ function writeCache(cache: Record<string, CacheEntry>): void {
   }
 }
 
+/**
+ * Writes the whole run's log in one shot at the end, not incrementally - the entries are small
+ * enough (20 transcripts, max) that there's no crash-recovery case worth the complexity the cache
+ * file above needs. Timestamp has colons stripped so the name is safe on filesystems that treat
+ * them as path separators (or reserve them, on Windows).
+ */
+function writeRunLog(entries: RunLogEntry[]): void {
+  const stamp = new Date().toISOString().replace(/:/g, "-");
+  const logPath = path.join(repoRoot, `eval-coach-chat-log-${stamp}.json`);
+  try {
+    fs.writeFileSync(logPath, `${JSON.stringify(entries, null, 2)}\n`);
+    console.log(`\nRun log written to ${path.relative(repoRoot, logPath)}`);
+  } catch (err) {
+    console.warn(`  (couldn't write run log: ${err instanceof Error ? err.message : String(err)})`);
+  }
+}
+
 /** 503/504/429 and bare network errors are Gemini being Gemini, not a regression in the diff. */
 function isTransient(err: unknown): boolean {
   const status = (err as { status?: number }).status;
@@ -160,6 +189,66 @@ async function askWithRetry(t: Transcript): Promise<Awaited<ReturnType<typeof as
     }
   }
   throw lastErr;
+}
+
+interface RunLogEntry {
+  name: string;
+  input: {
+    mode: TurnMode;
+    stateMd: string;
+    questLog: string;
+    extraContext?: string;
+    history: ChatMessage[];
+    userMessage: string;
+  };
+  output: unknown;
+  result: "PASS" | "FAIL" | "ERROR";
+  failures?: string[];
+  filesChanged: string[];
+}
+
+/**
+ * Derives which real repo files a reply's action fields would touch, per
+ * ui/api/coach-chat/_lib/turnWrites/README.md's field-to-file table. This harness never commits
+ * anything - askGemini() runs in memory only - so this is a projection for audit reading, not an
+ * observation of actual writes. Kept as a pure function so the table can be unit-tested without
+ * a live Gemini call; re-check against the README if a new turnWrites file appears.
+ */
+function filesForReply(reply: unknown): string[] {
+  const r = (reply ?? {}) as Record<string, unknown>;
+  const isSet = (field: string): boolean => {
+    const value = r[field];
+    if (value === undefined || value === null) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    return true;
+  };
+
+  const files: string[] = ["chat_history.json"];
+
+  if (isSet("coach_note")) files.push("coach_log.json");
+  if (isSet("memory_update") || isSet("sports_update")) files.push("memory.json");
+  if (isSet("injury_event")) files.push("injuries.json");
+  if (isSet("quest_event") || isSet("quest_create")) files.push("progress.json", "quests.json");
+  if (isSet("season_start")) files.push("seasons.json");
+  if (isSet("profile_update")) files.push("profile.json");
+
+  for (const field of ["template_edit", "session_plan"]) {
+    if (isSet(field)) {
+      const action = r[field] as Record<string, unknown> | undefined;
+      const templateId = typeof action?.template_id === "string" ? action.template_id : undefined;
+      files.push(
+        templateId
+          ? `workout_plans/templates/${templateId}.json (${field})`
+          : `workout_plans/templates/<id>.json (${field}, id not derivable)`,
+      );
+    }
+  }
+
+  if (isSet("week_plan") || isSet("session_reconcile") || isSet("plan_edit")) {
+    files.push("current_week.json");
+  }
+
+  return files;
 }
 
 function checkTranscript(t: Transcript, reply: Awaited<ReturnType<typeof askGemini>>): string[] {
@@ -234,6 +323,10 @@ async function main() {
   let cached = 0;
   let ran = 0;
 
+  // Only transcripts that actually called Gemini this run get an entry - a CACHED transcript has
+  // no fresh input/output to log, its record is just yesterday's cache hit.
+  const runLog: RunLogEntry[] = [];
+
   for (const file of files) {
     const raw = fs.readFileSync(path.join(dir, file), "utf8");
     const t = JSON.parse(raw) as Transcript;
@@ -247,6 +340,14 @@ async function main() {
 
     process.stdout.write(`${t.name} ... `);
     ran++;
+    const input = {
+      mode: t.mode,
+      stateMd: t.stateMd,
+      questLog: t.questLog,
+      extraContext: t.extraContext,
+      history: t.history,
+      userMessage: t.userMessage,
+    };
     try {
       const reply = await askWithRetry(t);
       const failures = checkTranscript(t, reply);
@@ -254,19 +355,31 @@ async function main() {
         console.log("PASS");
         cache[file] = { key, passedAt: new Date().toISOString() };
         writeCache(cache); // after every pass, so an interrupted run keeps what it paid for
+        runLog.push({ name: t.name, input, output: reply, result: "PASS", filesChanged: filesForReply(reply) });
       } else {
         failed++;
         console.log("FAIL");
         for (const f of failures) console.log(`  - ${f}`);
         delete cache[file];
         writeCache(cache);
+        runLog.push({ name: t.name, input, output: reply, result: "FAIL", failures, filesChanged: filesForReply(reply) });
       }
     } catch (err) {
       errored++;
       console.log("ERROR");
       console.log(`  - ${err instanceof Error ? err.message : String(err)}`);
+      runLog.push({
+        name: t.name,
+        input,
+        output: null,
+        result: "ERROR",
+        failures: [err instanceof Error ? err.message : String(err)],
+        filesChanged: [],
+      });
     }
   }
+
+  writeRunLog(runLog);
 
   const passed = files.length - failed - errored;
   console.log(`\n${passed}/${files.length} passed (${cached} cached, ${ran} called Gemini).`);
