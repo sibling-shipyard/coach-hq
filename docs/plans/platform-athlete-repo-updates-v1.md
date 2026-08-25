@@ -83,16 +83,25 @@ Critical path: release → server update → app gate → Akash → Nats → Pra
 - Background updates without the athlete opening the app remain out of scope.
 - Moving athlete data away from GitHub remains separate research in `docs/plans/backend-decision.md`.
 
-## Build handoff
+## PR stack
 
-This section is for the engineers implementing the plan.
+This section is the engineer handoff. PR2 and PR3 can be built together once PR1 fixes the contract.
+Before review, PR3 is rebased onto PR2 so the code merges as one linear stack.
 
-| id | files | deps | owner |
-|---|---|---|---|
-| M0 | `platform/athlete-releases/**`, `platform/scripts/carve-skeleton.mjs`, `platform/scripts/build-athlete-release.mjs`, `platform/tests/test-athlete-release.mjs`, `ui/scripts/build-repo-release.mjs`, `ui/package.json` | none | Tech Lead |
-| M1 | `ui/api/repo-update.ts`, `ui/api/repo-update/**`, `ui/api/_lib/githubGitData.ts`, `ui/api/_lib/_tests/githubGitData.test.ts`, `docs/eng-docs/env-vars.md` | M0 | UI Expert |
-| M2 | `ios/CoachHQ/CoachHQ/Services/RepoUpdateAPIClient.swift`, `ios/CoachHQ/CoachHQ/Services/RepoUpdateManager.swift`, `ios/CoachHQ/CoachHQ/Services/AppRouter.swift`, `ios/CoachHQ/CoachHQ/CoachHQApp.swift`, `ios/CoachHQ/CoachHQ/Views/SettingsView.swift`, `ios/CoachHQ/CoachHQTests/RepoUpdateManagerTests.swift` | M1 | iOS Builder |
-| M3 | `docs/eng-docs/provision-runbook.md`, issue `#327`, this plan | M2 | Tech Lead |
+```mermaid
+flowchart LR
+  pr1["PR1, release contract"] --> pr2["PR2, backend updater"] --> pr3["PR3, iOS gate"] --> live["Pilot rollout"] --> pr4["PR4, evidence and plan close"]
+  pr1 -.->|build in parallel| pr3
+```
+
+| PR | milestone | outcome | final base | files | owner | parallel with | done when |
+|---|---|---|---|---|---|---|---|
+| PR1 | M0 | Define and build a Coach-files release. | `main` | `platform/athlete-releases/**`, `platform/scripts/carve-skeleton.mjs`, `platform/scripts/build-athlete-release.mjs`, `platform/tests/test-athlete-release.mjs`, `ui/scripts/build-repo-release.mjs`, `ui/package.json` | Tech Lead | none | The bundle contains only managed files, preserves executable modes, and fails if content changes without a release bump. |
+| PR2 | M1 | Add the authenticated backend updater. | PR1 | `ui/api/repo-update.ts`, `ui/api/repo-update/**`, `ui/api/_lib/githubGitData.ts`, `ui/api/_lib/_tests/githubGitData.test.ts`, `docs/eng-docs/env-vars.md` | UI Expert | PR3 | Tests prove no-op, one atomic update, safe deletion, drift and schema blocks, retry, diagnostics, and forbidden paths. |
+| PR3 | M2 | Gate app entry on repo readiness. | PR2 | `ios/CoachHQ/CoachHQ/Services/RepoUpdateAPIClient.swift`, `ios/CoachHQ/CoachHQ/Services/RepoUpdateManager.swift`, `ios/CoachHQ/CoachHQ/Services/AppRouter.swift`, `ios/CoachHQ/CoachHQ/CoachHQApp.swift`, `ios/CoachHQ/CoachHQ/Views/SettingsView.swift`, `ios/CoachHQ/CoachHQTests/RepoUpdateManagerTests.swift` | iOS Builder | PR2, after PR1 | The app cannot enter before success and shows checking, updated, blocked, retry, and Copy Details states. |
+| PR4 | M3 | Record rollout evidence and close the plan. | PR3, then retarget to `main` | `docs/eng-docs/provision-runbook.md`, `docs/plans/platform-athlete-repo-updates-v1.md` | Tech Lead | none | Akash, Nats, and Prateek each update once, second-launch no-op, #327 closes, and this plan is deleted. |
+
+PR1–PR3 use `Refs: #327`. PR4 stays draft until the live checks finish, then uses `Fixes: #327`.
 
 The server contract is versioned. It returns current, updated, or blocked plus the request ID, HQ deploy,
 old and new Coach-files release, and resulting commit. Release records preserve file hashes and executable
