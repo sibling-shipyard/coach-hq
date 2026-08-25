@@ -110,7 +110,7 @@ describe("renderCoachContext section shape", () => {
 
   it("renders a compact fitness snapshot for populated athlete insights", () => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
-      generated_at: "2026-08-20T00:00:00Z", window_days: 365,
+      schema_version: 1, generated_at: "2026-08-20T00:00:00Z", window_days: 365,
       sports: { badminton: { sessions_365d: 120, sessions_per_week_recent_4w: 3,
         sessions_per_week_prior_12w: 2.25, longest_gap_days_365d: 9, days_since_last_session: 2,
         duration_buckets: { under_30m: 10, "30_to_60m": 40, "60_to_120m": 50, over_120m: 20 } } },
@@ -120,9 +120,59 @@ describe("renderCoachContext section shape", () => {
     expect(text).toContain("longest gap 9 days; last session 2 days ago; 10 under 30m, 40 30-60m, 50 60-120m, 20 over 120m.");
   });
 
+  it("uses singular 'session' when count is 1", () => {
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
+      schema_version: 1, generated_at: "2026-08-20T00:00:00Z", window_days: 365,
+      sports: { run: { sessions_365d: 1, sessions_per_week_recent_4w: 0, sessions_per_week_prior_12w: 0,
+        longest_gap_days_365d: 0, days_since_last_session: 3,
+        duration_buckets: { under_30m: 1, "30_to_60m": 0, "60_to_120m": 0, over_120m: 0 } } },
+    } });
+    expect(text).toContain("1 session in the window");
+    expect(text).not.toContain("1 sessions");
+  });
+
+  it("sorts sports descending by session count, alphabetical for ties", () => {
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
+      schema_version: 1, generated_at: "2026-08-20T00:00:00Z", window_days: 365,
+      sports: {
+        yoga: { sessions_365d: 10, sessions_per_week_recent_4w: 0.5, sessions_per_week_prior_12w: 0.3,
+          longest_gap_days_365d: 7, days_since_last_session: 2,
+          duration_buckets: { under_30m: 0, "30_to_60m": 10, "60_to_120m": 0, over_120m: 0 } },
+        badminton: { sessions_365d: 50, sessions_per_week_recent_4w: 2, sessions_per_week_prior_12w: 1.5,
+          longest_gap_days_365d: 5, days_since_last_session: 1,
+          duration_buckets: { under_30m: 5, "30_to_60m": 40, "60_to_120m": 5, over_120m: 0 } },
+        run: { sessions_365d: 10, sessions_per_week_recent_4w: 0.5, sessions_per_week_prior_12w: 0.3,
+          longest_gap_days_365d: 10, days_since_last_session: 4,
+          duration_buckets: { under_30m: 2, "30_to_60m": 8, "60_to_120m": 0, over_120m: 0 } },
+      },
+    } });
+    const snapshot = text.split("## Fitness Snapshot")[1].split("## Fitness Baseline")[0];
+    const badmintonPos = snapshot.indexOf("Badminton");
+    const runPos = snapshot.indexOf("Run");
+    const yogaPos = snapshot.indexOf("Yoga");
+    // badminton (50) must come first; run and yoga tied at 10 — run < yoga alphabetically
+    expect(badmintonPos).toBeLessThan(runPos);
+    expect(runPos).toBeLessThan(yogaPos);
+  });
+
+  it("caps output at 5 sports and appends an overflow line", () => {
+    const sports = Object.fromEntries(
+      ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"].map((s, i) => [s, {
+        sessions_365d: 10 - i, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 1,
+        longest_gap_days_365d: 5, days_since_last_session: 1,
+        duration_buckets: { under_30m: 1, "30_to_60m": 2, "60_to_120m": 1, over_120m: 0 },
+      }]),
+    );
+    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
+      schema_version: 1, generated_at: "2026-08-20T00:00:00Z", window_days: 365, sports,
+    } });
+    expect(text).toContain("(+ 1 more sport)");
+    expect(text).not.toContain("Zeta"); // 6th sport capped
+  });
+
   it("still renders a sport when older insights omit duration_buckets", () => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
-      generated_at: "2026-08-20T00:00:00Z", window_days: 365,
+      schema_version: 1, generated_at: "2026-08-20T00:00:00Z", window_days: 365,
       sports: { run: { sessions_365d: 20, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 0.5,
         longest_gap_days_365d: 14, days_since_last_session: 5 } },
     } as never });
@@ -133,7 +183,7 @@ describe("renderCoachContext section shape", () => {
 
   it("uses the insight file's own window_days in the section heading", () => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: {
-      generated_at: "2026-08-20T00:00:00Z", window_days: 90,
+      schema_version: 1, generated_at: "2026-08-20T00:00:00Z", window_days: 90,
       sports: { run: { sessions_365d: 20, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 0.5,
         longest_gap_days_365d: 14, days_since_last_session: 5,
         duration_buckets: { under_30m: 5, "30_to_60m": 10, "60_to_120m": 4, over_120m: 1 } } },
@@ -143,8 +193,11 @@ describe("renderCoachContext section shape", () => {
 
   it.each([
     ["absent", null],
-    ["empty", { generated_at: "2026-08-20T00:00:00Z", window_days: 365, sports: {} }],
-    ["malformed", { generated_at: "", window_days: 365, sports: { run: { sessions_365d: "many" } } }],
+    ["missing schema_version", { generated_at: "2026-08-20T00:00:00Z", window_days: 365, sports: { run: { sessions_365d: 20, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 0.5, longest_gap_days_365d: 14, days_since_last_session: 5, duration_buckets: { under_30m: 0, "30_to_60m": 5, "60_to_120m": 10, over_120m: 5 } } } }],
+    ["wrong schema_version", { schema_version: 2, generated_at: "2026-08-20T00:00:00Z", window_days: 365, sports: {} }],
+    ["empty sports", { schema_version: 1, generated_at: "2026-08-20T00:00:00Z", window_days: 365, sports: {} }],
+    ["malformed", { schema_version: 1, generated_at: "", window_days: 365, sports: { run: { sessions_365d: "many" } } }],
+    ["unparseable generated_at", { schema_version: 1, generated_at: "not-a-date", window_days: 365, sports: { run: { sessions_365d: 20, sessions_per_week_recent_4w: 1, sessions_per_week_prior_12w: 0.5, longest_gap_days_365d: 14, days_since_last_session: 5, duration_buckets: { under_30m: 0, "30_to_60m": 5, "60_to_120m": 10, over_120m: 5 } } } }],
   ])("cleanly omits the fitness snapshot when insights are %s", (_case, athleteInsights) => {
     const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: athleteInsights as never });
     expect(text).not.toContain("Fitness Snapshot");

@@ -78,7 +78,7 @@ export function buildAthleteInsights(activities, now = new Date()) {
       duration_buckets: countDurationBuckets(sessions.map((session) => session.elapsed)),
     };
   }
-  return { generated_at: now.toISOString().replace(".000Z", "Z"), window_days: 365, sports };
+  return { schema_version: 1, generated_at: now.toISOString().replace(".000Z", "Z"), window_days: 365, sports };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

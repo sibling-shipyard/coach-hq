@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-25
 
 ## Context
 
@@ -200,11 +200,13 @@ Exercise `num` must be strictly ascending and unique across all phases in a work
 ### `gen/athlete_insights.json`
 
 Pipeline-generated, read-only from coach-chat's side. Feeds the "Fitness Snapshot" prompt
-section. No schema-version/freshness check exists yet (documented gap, see
-`docs/plans/coach-chat-follow-up.md`).
+section. `fitnessSnapshotSection()` guards on `schema_version === 1` and a parseable
+`generated_at` before trusting the file; either one missing/invalid omits the section.
+`engine/scripts/generate-athlete-insights.mjs` stamps `schema_version: 1` on every write.
 
 | Field | Type |
 |---|---|
+| `schema_version` | `1` (literal) |
 | `generated_at` | `string` |
 | `window_days` | `number` |
 | `sports` | `Record<string, AthleteSportInsight>` |
