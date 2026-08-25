@@ -1,0 +1,16 @@
+{
+  "name": "contradictory-instruction",
+  "description": "Athlete states two conflicting facts about the same session in one message - first that they did the full workout, then that they actually skipped it. Coach should ask which is true rather than confidently writing a session_reconcile off the contradiction.",
+  "mode": "closing",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "Current week's sessions (use these exact session_ids for session_reconcile AND plan_edit - match the date to what the athlete actually means, never guess):\n- session_id: sess-wed-run | date: 2026-08-19 | Easy Run | status: planned",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["Did you get today's easy run in?"] }
+  ],
+  "userMessage": "Yeah I did the full run today, felt good. Actually wait, no - I skipped it, didn't have time. Anyway, let's wrap up.",
+  "expect": {
+    "sessionClosed": true,
+    "actionFieldsAbsent": ["session_reconcile"]
+  }
+}

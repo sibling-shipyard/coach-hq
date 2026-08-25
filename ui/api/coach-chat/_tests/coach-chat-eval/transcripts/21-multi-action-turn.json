@@ -1,0 +1,16 @@
+{
+  "name": "multi-action-turn",
+  "description": "Ordinary (non-closing) turn where the athlete reports two distinct facts that map to two different action fields - a quest completion and a new injury - in the same message. Both must land, not just the first one Gemini notices.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "Current quests (use these exact quest_ids for quest_event):\n- quest_id: q-sub45 | type: main | main quest\n- quest_id: q-coldshower | type: streak | status: active",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["Morning - how's the badminton session going?"] }
+  ],
+  "userMessage": "Just finished, that's the cold shower streak kept going too. Also my right knee started aching partway through the game, feels like the same spot as before.",
+  "expect": {
+    "sessionClosed": false,
+    "actionFieldsPresent": ["quest_event", "injury_event"]
+  }
+}

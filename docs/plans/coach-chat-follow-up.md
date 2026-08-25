@@ -21,11 +21,13 @@ Items below have no open decision blocking them - they're ready for a worker to 
 
 ## 1. More golden transcripts
 
-The harness ships 16 transcripts today (greeting, ordinary, close happy-path, false-positive
+The harness ships 20 transcripts today (greeting, ordinary, close happy-path, false-positive
 close signal, coach-note-only-close, plus one per action field: quest_event, injury_event,
 profile_update, template_edit x2, session_plan, week_plan, session_reconcile, plan_edit x2,
-activity_sync) - within the original 15-25 target. Add more where real usage data (once it
-exists) shows a scenario is actually worth extra coverage - don't invent scenarios speculatively.
+activity_sync, multi-action-turn, multi-write-close, hallucinated-template,
+contradictory-instruction) - within the original 15-25 target. Add more where real usage data
+(once it exists) shows a scenario is actually worth extra coverage - don't invent scenarios
+speculatively.
 
 ## 2. CI wiring for the eval harness
 
