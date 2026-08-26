@@ -25,6 +25,8 @@ struct SettingsView: View {
     @State private var showDiagHelp = false
     @State private var showSignOutConfirmation = false
     @State private var showHealthSettings = false
+    @State private var showRageReport = false
+
 
     var body: some View {
         NavigationStack {
@@ -58,6 +60,8 @@ struct SettingsView: View {
             .toolbar(.hidden, for: .navigationBar)
             .toast($toast)
             .sheet(isPresented: $showHealthSettings) { HealthSettingsView() }
+            .sheet(isPresented: $showRageReport) { RageReportView() }
+
             .onChange(of: syncManager.lastSyncResult) { _, result in
                 guard let result else { return }
                 // The Health Settings sheet reports its own import result — a second toast
@@ -446,6 +450,12 @@ struct SettingsView: View {
 
             WarmSettingsDivider()
             WarmSettingsInfoRow(label: "Developers", value: "Sibling Shipyard")
+            WarmSettingsDivider()
+            Button(action: { showRageReport = true }) {
+                WarmSettingsInfoRow(label: "Report a Problem", value: "")
+            }
+            .buttonStyle(.plain)
+
         }
     }
 
