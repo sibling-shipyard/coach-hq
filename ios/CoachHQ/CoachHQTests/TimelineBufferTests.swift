@@ -2,23 +2,22 @@ import XCTest
 @testable import CoachHQ
 
 final class TimelineBufferTests: XCTestCase {
+    private static let referenceDate = Date(timeIntervalSince1970: 1_800_000_000)
+
     private var fileURL: URL!
-    private var now: Date!
     private var buffer: TimelineBuffer!
 
     override func setUp() {
         super.setUp()
         fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("timeline-\(UUID().uuidString).json")
-        now = Date(timeIntervalSince1970: 1_800_000_000)
-        buffer = TimelineBuffer(fileURL: fileURL, now: { self.now })
+        buffer = TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate })
     }
 
     override func tearDown() {
         try? FileManager.default.removeItem(at: fileURL)
         buffer = nil
         fileURL = nil
-        now = nil
         super.tearDown()
     }
 
@@ -50,11 +49,11 @@ final class TimelineBufferTests: XCTestCase {
         buffer.addEvent(
             category: "test",
             message: "old",
-            timestamp: now.addingTimeInterval(-TimelineBuffer.ageLimit - 1)
+            timestamp: Self.referenceDate.addingTimeInterval(-TimelineBuffer.ageLimit - 1)
         )
-        buffer.addEvent(category: "test", message: "recent", timestamp: now)
+        buffer.addEvent(category: "test", message: "recent", timestamp: Self.referenceDate)
 
-        let reloaded = TimelineBuffer(fileURL: fileURL, now: { self.now })
+        let reloaded = TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate })
         XCTAssertEqual(reloaded.getEvents().map(\.message), ["recent"])
     }
 
@@ -67,7 +66,7 @@ final class TimelineBufferTests: XCTestCase {
             metadata: ["outcome": "success", "count": "2"]
         )
 
-        let reloaded = TimelineBuffer(fileURL: fileURL, now: { self.now })
+        let reloaded = TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate })
         XCTAssertEqual(reloaded.getEvents().first?.operationID, operationID)
         XCTAssertEqual(reloaded.getEvents().first?.metadata["count"], "2")
     }
@@ -80,7 +79,7 @@ final class TimelineBufferTests: XCTestCase {
 
         XCTAssertTrue(buffer.getEvents().isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
-        XCTAssertEqual(TimelineBuffer(fileURL: fileURL, now: { self.now }).getEvents(), [])
+        XCTAssertEqual(TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate }).getEvents(), [])
     }
 }
 
