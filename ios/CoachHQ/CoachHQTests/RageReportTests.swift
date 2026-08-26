@@ -76,11 +76,13 @@ final class RageReportTests: XCTestCase {
             TimelineEvent(
                 id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                 timestamp: Date(timeIntervalSince1970: 1_000),
+                category: "navigation",
                 message: "Opened Home"
             ),
             TimelineEvent(
                 id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
                 timestamp: Date(timeIntervalSince1970: 2_000),
+                category: "healthkit.sync",
                 message: "Sync failed"
             )
         ]
