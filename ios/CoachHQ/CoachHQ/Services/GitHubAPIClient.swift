@@ -49,21 +49,67 @@ class GitHubAPIClient {
         attempts: Int = 3,
         operation: () async throws -> T
     ) async throws -> T {
+        let operationID = UUID()
+        DiagnosticsManager.record(
+            category: "github.request",
+            message: label,
+            operationID: operationID,
+            metadata: ["outcome": "started"]
+        )
         // Proactively refreshes the Keychain token if near expiry - one choke point instead
         // of threading async token lookups through every call site in this file.
         _ = await authManager.validToken()
         var lastError: Error = GitHubAPIError.requestFailed(operation: label, status: nil, detail: nil)
         for attempt in 0..<attempts {
             do {
-                return try await operation()
+                let value = try await operation()
+                DiagnosticsManager.record(
+                    category: "github.request",
+                    message: label,
+                    operationID: operationID,
+                    metadata: ["outcome": "success", "attempts": String(attempt + 1)]
+                )
+                return value
             } catch {
                 lastError = error
-                guard Self.isTransient(error), attempt < attempts - 1 else { throw error }
+                guard Self.isTransient(error), attempt < attempts - 1 else {
+                    if Self.shouldCapture(error) {
+                        DiagnosticsManager.capture(
+                            error: error,
+                            operation: "github.request",
+                            operationID: operationID,
+                            metadata: ["label": label, "attempts": String(attempt + 1)]
+                        )
+                    }
+                    throw error
+                }
                 let delay = 0.5 * pow(2, Double(attempt))
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
         }
+        if Self.shouldCapture(lastError) {
+            DiagnosticsManager.capture(
+                error: lastError,
+                operation: "github.request",
+                operationID: operationID,
+                metadata: ["label": label, "attempts": String(attempts)]
+            )
+        }
         throw lastError
+    }
+
+    private static func shouldCapture(_ error: Error) -> Bool {
+        if error is CancellationError { return false }
+        if let apiError = error as? GitHubAPIError {
+            switch apiError {
+            case .sessionNotReady, .notFound:
+                return false
+            default:
+                return true
+            }
+        }
+        let nsError = error as NSError
+        return !(nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
     }
 
     /// Transient = worth retrying: network drops, timeouts, 5xx, 409 conflicts,
@@ -230,45 +276,47 @@ class GitHubAPIClient {
     /// HQ runs the TS generator server-side from `gen/dashboard_snapshot.json` — athlete repos
     /// do not need a committed `gen/widget_snapshots.json`.
     func fetchWidgetSnapshots() async throws -> WidgetSnapshotsFile {
-        guard let token = await authManager.validToken() else {
-            throw GitHubAPIError.notAuthenticated
-        }
-        guard let repoFull = authManager.repoFullName else {
-            throw GitHubAPIError.sessionNotReady
-        }
-        guard let url = URL(string: "\(Secrets.dashboardBaseURL)/api/widget-snapshots") else {
-            throw GitHubAPIError.decodingFailed(operation: "Widget snapshots URL")
-        }
+        try await withRetry("Loading Home snapshots") {
+            guard let token = authManager.loadToken() else {
+                throw GitHubAPIError.notAuthenticated
+            }
+            guard let repoFull = authManager.repoFullName else {
+                throw GitHubAPIError.sessionNotReady
+            }
+            guard let url = URL(string: "\(Secrets.dashboardBaseURL)/api/widget-snapshots") else {
+                throw GitHubAPIError.decodingFailed(operation: "Widget snapshots URL")
+            }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue(repoFull, forHTTPHeaderField: "X-Coach-Repo")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue(repoFull, forHTTPHeaderField: "X-Coach-Repo")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            throw GitHubAPIError.decodingFailed(operation: "Widget snapshots")
-        }
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw GitHubAPIError.decodingFailed(operation: "Widget snapshots")
+            }
 
-        if http.statusCode == 401 {
-            throw GitHubAPIError.notAuthenticated
-        }
+            if http.statusCode == 401 {
+                throw GitHubAPIError.notAuthenticated
+            }
 
-        if !(200...299).contains(http.statusCode) {
-            let detail = String(data: data, encoding: .utf8)
-            throw GitHubAPIError.requestFailed(
-                operation: "Loading Home snapshots",
-                status: http.statusCode,
-                detail: detail
-            )
-        }
+            if !(200...299).contains(http.statusCode) {
+                let detail = String(data: data, encoding: .utf8)
+                throw GitHubAPIError.requestFailed(
+                    operation: "Loading Home snapshots",
+                    status: http.statusCode,
+                    detail: detail
+                )
+            }
 
-        do {
-            return try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
-        } catch {
-            let detail = WidgetSnapshotsFile.decodingErrorDescription(error)
-            throw GitHubAPIError.decodingFailed(operation: "Parsing widget snapshots (\(detail))")
+            do {
+                return try JSONDecoder().decode(WidgetSnapshotsFile.self, from: data)
+            } catch {
+                let detail = WidgetSnapshotsFile.decodingErrorDescription(error)
+                throw GitHubAPIError.decodingFailed(operation: "Parsing widget snapshots (\(detail))")
+            }
         }
     }
 

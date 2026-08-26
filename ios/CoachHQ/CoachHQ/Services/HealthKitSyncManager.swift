@@ -401,6 +401,7 @@ class HealthKitSyncManager: ObservableObject {
             return
         }
 
+        let diagnosticOperation = DiagnosticsManager.beginOperation(name: "healthkit.sync")
         isSyncing = true
         syncError = nil
         syncProgress = 0.02
@@ -464,6 +465,7 @@ class HealthKitSyncManager: ObservableObject {
                 lastSyncedActivities = []
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
+                diagnosticOperation.finish(outcome: "nothing_new", count: 0)
                 await finishSyncAndDrainPendingZoneSave()
                 return
             }
@@ -630,6 +632,7 @@ class HealthKitSyncManager: ObservableObject {
                 lastSyncedActivities = []
                 lastSyncDate = Date()
                 lastSyncResult = SyncResult(outcome: .nothingNew, id: UUID())
+                diagnosticOperation.finish(outcome: "nothing_new", count: 0)
                 await finishSyncAndDrainPendingZoneSave()
                 return
             }
@@ -674,6 +677,7 @@ class HealthKitSyncManager: ObservableObject {
             syncProgressText = ""
             syncProgress = 0.97
             lastSyncResult = SyncResult(outcome: .synced(n), id: UUID())
+            diagnosticOperation.finish(outcome: "success", count: n)
             // Release the lock before the post-commit refresh so a second syncNewWorkouts()
             // call (e.g. from SyncStepView tapping Proceed) isn't blocked for up to 5 min.
             await finishSyncAndDrainPendingZoneSave()
@@ -734,10 +738,12 @@ class HealthKitSyncManager: ObservableObject {
             // Task was cancelled (e.g. view torn down mid-sync) — not a real failure.
             syncProgressText = ""
             lastSyncResult = nil
+            diagnosticOperation.finish(outcome: "cancelled")
         } catch let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled {
             // URLSession-level cancellation, same treatment.
             syncProgressText = ""
             lastSyncResult = nil
+            diagnosticOperation.finish(outcome: "cancelled")
         } catch let apiError as GitHubAPIError where {
             if case .sessionNotReady = apiError { return true }
             return false
@@ -745,11 +751,20 @@ class HealthKitSyncManager: ObservableObject {
             // Session not ready yet — silently ignore, same as WidgetSnapshotStore.
             syncProgressText = ""
             lastSyncResult = nil
+            diagnosticOperation.finish(outcome: "session_not_ready")
         } catch {
             let friendly = UserFacingError.friendlyMessage(for: error)
             syncError = friendly
             syncProgressText = ""
             lastSyncResult = SyncResult(outcome: .failed(friendly), id: UUID())
+            if !(error is GitHubAPIError) {
+                DiagnosticsManager.capture(
+                    error: error,
+                    operation: "healthkit.sync",
+                    operationID: diagnosticOperation.id
+                )
+            }
+            diagnosticOperation.finish(outcome: "failed")
         }
 
         await finishSyncAndDrainPendingZoneSave()
