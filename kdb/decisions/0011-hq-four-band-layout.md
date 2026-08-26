@@ -24,7 +24,7 @@ cleanup issue.
 | `engine/lib/`, `engine/core/` | `engine/` | `engine/` |
 | `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
 | `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
-| `platform/scripts/carve-skeleton.mjs`, `provision-user.sh` | not copied | `platform/` |
+| `platform/scripts/carve-skeleton.mjs` | not copied | `platform/` |
 | `platform/plugins/` | not copied | `platform/` |
 | Generated init templates | `user_data/*`, `gen/*` placeholders | skeleton stamps only |
 | `user_data/`, `gen/` at HQ | **never copied** | R5 ✓ deleted from HQ |

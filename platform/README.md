@@ -36,15 +36,6 @@ node platform/scripts/carve-skeleton.mjs --dry-run
 node platform/scripts/carve-skeleton.mjs --push
 ```
 
-## provision-user.sh
-
-```bash
-platform/scripts/provision-user.sh --greenfield --repo OWNER/coach-name --dry-run
-platform/scripts/provision-user.sh --migrate --repo OWNER/coach-name --legacy OWNER/coach-phelps
-```
-
-Runbook: [`docs/eng-docs/provision-runbook.md`](../docs/eng-docs/provision-runbook.md)
-
 ## Also here (R4)
 
 | Path | Role |
