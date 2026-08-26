@@ -1,4 +1,5 @@
 import { commitFilesAtomic, type FileEntry } from "../../_lib/githubGitData.js";
+import { captureExceptionOnce, setMonitoringStage } from "../../_lib/sentry.js";
 import { applyJsonMergePatch } from "../../_lib/fileEdits.js";
 import {
   getFileRaw,
@@ -30,9 +31,17 @@ import {
   injectCoachSinceIfNeeded,
   type ClosingFileContext,
 } from "./coachSinceStamp.js";
-import { generateInitialTemplates, validTemplateIdsFromManifest, TEMPLATES_MANIFEST_PATH } from "./coachWorkoutFiles.js";
+import {
+  generateInitialTemplates,
+  validTemplateIdsFromManifest,
+  TEMPLATES_MANIFEST_PATH,
+} from "./coachWorkoutFiles.js";
 import { CURRENT_WEEK_PATH } from "./coachWeekFiles.js";
-import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./coachMemoryFiles.js";
+import {
+  PROFILE_PATH,
+  type ProfileJson,
+  type MemoryJson,
+} from "./coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coachContext.js";
 import { askGemini } from "./geminiClient.js";
 import {
@@ -54,16 +63,22 @@ import { buildChatWrite } from "./turnWrites/chatWrite.js";
 import { buildCoachNoteWrite } from "./turnWrites/coachNoteWrite.js";
 import { buildMemoryFileWrite } from "./turnWrites/memoryWrite.js";
 import { buildInjuryEventWrite } from "./turnWrites/injuryWrite.js";
-import { buildQuestEventWrite, buildQuestCreateWrite } from "./turnWrites/questWrite.js";
+import {
+  buildQuestEventWrite,
+  buildQuestCreateWrite,
+} from "./turnWrites/questWrite.js";
 import { buildSeasonStartWrite } from "./turnWrites/seasonWrite.js";
-import { buildProfileUpdateWrite, projectProfileCompletion } from "./turnWrites/profileWrite.js";
-import { buildTemplateEditWrite, buildSessionPlanWrite } from "./turnWrites/workoutWrite.js";
+import {
+  buildProfileUpdateWrite,
+  projectProfileCompletion,
+} from "./turnWrites/profileWrite.js";
+import {
+  buildTemplateEditWrite,
+  buildSessionPlanWrite,
+} from "./turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./turnWrites/weekWrite.js";
 
-import {
-  parseActivityIds,
-  type ActivitySyncRequest,
-} from "./activitySync.js";
+import { parseActivityIds, type ActivitySyncRequest } from "./activitySync.js";
 
 interface PostBody {
   threadId?: string;
@@ -198,7 +213,11 @@ export async function loadTurnState(
   token: string,
   apiKey: string,
 ): Promise<Response | TurnState> {
-  const currentSha = await getHeadSha(repo, token).catch(() => null);
+  setMonitoringStage("github_load_turn");
+  const currentSha = await getHeadSha(repo, token).catch((error) => {
+    captureExceptionOnce(error);
+    return null;
+  });
   const stale =
     request.knownSha != null &&
     currentSha != null &&
@@ -309,9 +328,16 @@ function findOversizedTextField(
   reply: GeminiReply,
 ): { field: string; length: number; cap: number } | null {
   if (reply.coach_note && reply.coach_note.length > COACH_LOG_TEXT_CAP) {
-    return { field: "coach_note", length: reply.coach_note.length, cap: COACH_LOG_TEXT_CAP };
+    return {
+      field: "coach_note",
+      length: reply.coach_note.length,
+      cap: COACH_LOG_TEXT_CAP,
+    };
   }
-  if (reply.memory_update?.text && reply.memory_update.text.length > MEMORY_NOTE_TEXT_CAP) {
+  if (
+    reply.memory_update?.text &&
+    reply.memory_update.text.length > MEMORY_NOTE_TEXT_CAP
+  ) {
     return {
       field: "memory_update.text",
       length: reply.memory_update.text.length,
@@ -334,13 +360,13 @@ function findOversizedTextField(
 export async function requestCoachReply(
   turn: TurnState,
 ): Promise<Response | RepliedTurn> {
-  const mode = turn.closeIntent ? "closing" : "ordinary";
-  const extraContext = combineExtraContext(
-    firstSessionContext(turn.firstSession, FIRST_SESSION_PROTOCOL),
-    activeTemplatesContext(turn.validTemplateIds),
-    activeWeekSessionsContext(turn.weekSessionsForContext),
-  );
   try {
+    const mode = turn.closeIntent ? "closing" : "ordinary";
+    const extraContext = combineExtraContext(
+      firstSessionContext(turn.firstSession, FIRST_SESSION_PROTOCOL),
+      activeTemplatesContext(turn.validTemplateIds),
+      activeWeekSessionsContext(turn.weekSessionsForContext),
+    );
     let reply = await askGemini(
       turn.apiKey,
       turn.context.soul!,
@@ -359,9 +385,13 @@ export async function requestCoachReply(
     // that also comes back oversized, layer 3's capText backstop in turnWrites/* handles it.
     const violation = findOversizedTextField(reply);
     if (violation) {
-      console.warn("[coach-chat] reply field over its text cap, reprompting once:", violation, {
-        traceId: turn.traceId,
-      });
+      console.warn(
+        "[coach-chat] reply field over its text cap, reprompting once:",
+        violation,
+        {
+          traceId: turn.traceId,
+        },
+      );
       const repromptMessage = [
         turn.geminiMessage,
         `\n[System note: your ${violation.field} was ${violation.length} characters, over the`,
@@ -398,15 +428,16 @@ export async function requestCoachReply(
       reply,
       closing: turn.closeIntent && reply.session_closed === true,
     };
-  } catch (err: unknown) {
-    const status = (err as { status?: number }).status ?? 500;
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[coach-chat] askGemini failed:", err);
+  } catch (error) {
+    captureExceptionOnce(error);
+    const status = (error as { status?: number }).status ?? 500;
+    const message = error instanceof Error ? error.message : String(error);
     return Response.json({ error: message }, { status });
   }
 }
 
 export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
+  setMonitoringStage("build_writes");
   const { repo, token, timezone, traceId, reply } = turn;
   const { profile, memory, seasons, quests } = turn.context;
   const coachMsg: ChatMessage = {
@@ -425,19 +456,26 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     },
   );
 
-  const { chatWrite, latestThreads, finalThreadId, computedTitle } = buildChatWrite({
-    repo,
-    token,
-    traceId,
-    now: turn.now,
-    threadId: turn.threadId,
-    trimmed: turn.trimmed,
-    allMessages,
-    replyText: reply.reply,
-  });
+  const { chatWrite, latestThreads, finalThreadId, computedTitle } =
+    buildChatWrite({
+      repo,
+      token,
+      traceId,
+      now: turn.now,
+      threadId: turn.threadId,
+      trimmed: turn.trimmed,
+      allMessages,
+      replyText: reply.reply,
+    });
 
   const trimmedCoachNote = reply.coach_note?.trim();
-  const coachNoteWrite = buildCoachNoteWrite(repo, token, timezone, traceId, reply.coach_note);
+  const coachNoteWrite = buildCoachNoteWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    reply.coach_note,
+  );
 
   const sportsUpdate = (reply.sports_update ?? []).filter(
     (sport) => sport.trim().length > 0,
@@ -453,7 +491,12 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       event.status != null &&
       (event.flag_id != null || (event.text?.trim().length ?? 0) > 0),
   );
-  const injuryEventWrite = buildInjuryEventWrite(repo, token, timezone, injuryEvents);
+  const injuryEventWrite = buildInjuryEventWrite(
+    repo,
+    token,
+    timezone,
+    injuryEvents,
+  );
 
   const questEvents = reply.quest_event ?? [];
   const validQuestIds = new Set<string>(
@@ -477,7 +520,11 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const profileUpdates = (reply.profile_update ?? []).filter(
     (update) => update.field != null && update.value != null,
   );
-  const profileUpdateWrite = buildProfileUpdateWrite(repo, token, profileUpdates);
+  const profileUpdateWrite = buildProfileUpdateWrite(
+    repo,
+    token,
+    profileUpdates,
+  );
 
   const templateEditWrite = buildTemplateEditWrite(
     repo,
@@ -508,22 +555,37 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   );
 
   const seasonStart = reply.season_start;
-  const seasonStartWrite = buildSeasonStartWrite(repo, token, traceId, seasonStart);
+  const seasonStartWrite = buildSeasonStartWrite(
+    repo,
+    token,
+    traceId,
+    seasonStart,
+  );
 
   const questCreate = reply.quest_create;
-  const questCreateWrite = buildQuestCreateWrite(repo, token, timezone, traceId, questCreate);
+  const questCreateWrite = buildQuestCreateWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    questCreate,
+  );
 
-  const { wasProfileComplete, profileComplete, projectedProfile, projectedMemory } =
-    projectProfileCompletion({
-      profile,
-      memory,
-      seasons,
-      profileUpdates,
-      sportsUpdate,
-      hasSportsUpdate,
-      seasonStart,
-      traceId,
-    });
+  const {
+    wasProfileComplete,
+    profileComplete,
+    projectedProfile,
+    projectedMemory,
+  } = projectProfileCompletion({
+    profile,
+    memory,
+    seasons,
+    profileUpdates,
+    sportsUpdate,
+    hasSportsUpdate,
+    seasonStart,
+    traceId,
+  });
 
   let closingFiles = turn.closingFiles;
   if (!wasProfileComplete && profileComplete && !closingFiles) {
@@ -627,6 +689,8 @@ export async function generateTemplatesAfterCompletion(
       count: templates.length,
     });
   } catch (err) {
+    setMonitoringStage("template_generation");
+    captureExceptionOnce(err);
     console.error(
       "[coach-chat] initial workout template generation failed - continuing without it:",
       err,
@@ -638,6 +702,7 @@ export async function generateTemplatesAfterCompletion(
 }
 
 export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
+  setMonitoringStage("github_commit_ordinary");
   const writes = fspIncrementalWrites(
     turn.wasProfileComplete,
     turn.fspCandidates,
@@ -658,6 +723,7 @@ export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
       invalidateCoachContext(turn.repo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      captureExceptionOnce(err);
       return Response.json(
         {
           error: `Coach replied but saving failed: ${message}`,
@@ -679,6 +745,7 @@ export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
 }
 
 export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
+  setMonitoringStage("github_commit_closing");
   if (turn.validUpdates.length === 0 && !turn.trimmedCoachNote) {
     console.warn("[coach-chat] close landed with no coach_note.", {
       athleteMessage: turn.trimmed,
@@ -725,6 +792,7 @@ export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
     console.error("[coach-chat] closing commitFilesAtomic failed:", err, {
       traceId: turn.traceId,
     });
+    captureExceptionOnce(err);
     return Response.json(
       {
         error: `Coach replied but saving failed: ${message}`,

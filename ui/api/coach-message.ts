@@ -1,6 +1,13 @@
 /** Authenticated post-sync Coach generation and latest-message persistence. */
 import { commitFilesAtomic } from "./_lib/githubGitData.js";
 import { fetchWithTimeout } from "./_lib/httpTimeout.js";
+import {
+  athleteIdForRepo,
+  captureExceptionOnce,
+  monitorServerRequest,
+  setMonitoringAthlete,
+  setMonitoringStage,
+} from "./_lib/sentry.js";
 import { SOUL } from "./_generated/soul.js";
 import {
   resolveRepoAuth,
@@ -73,6 +80,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
   const activityIds = await parseActivityIdsRequest(req);
+  setMonitoringStage("github_load_proactive_context");
   const repo = auth.repo_full_name;
   const token = auth.gh_token;
   const result = await generateAndStoreCoachMessage(activityIds, {
@@ -86,7 +94,10 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
           500,
         );
       }
-      return generateProactiveBody(apiKey, prompt);
+      return generateProactiveBody(apiKey, prompt).then((body) => {
+        setMonitoringStage("github_commit_proactive");
+        return body;
+      });
     },
     commitFiles: (files, message) =>
       commitFilesAtomic(files, message, {
@@ -107,25 +118,33 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const resolved = await resolveRepoAuth(req);
-    if (resolved instanceof Response) return resolved;
-    try {
-      return withSessionCookie(await handle(req, resolved), resolved.setCookie);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Coach message generation failed";
-      const rawStatus = (error as { status?: unknown }).status;
-      const status =
-        typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599
-          ? rawStatus
-          : 500;
-      console.error("[coach-message]", error);
-      return withSessionCookie(
-        Response.json({ error: message }, { status }),
-        resolved.setCookie,
-      );
-    }
+    return monitorServerRequest(req, "post-sync coach message", async () => {
+      setMonitoringStage("authenticate");
+      const resolved = await resolveRepoAuth(req);
+      if (resolved instanceof Response) return resolved;
+      setMonitoringAthlete(athleteIdForRepo(resolved.repo_full_name));
+      try {
+        return withSessionCookie(
+          await handle(req, resolved),
+          resolved.setCookie,
+        );
+      } catch (error) {
+        captureExceptionOnce(error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Coach message generation failed";
+        const rawStatus = (error as { status?: unknown }).status;
+        const status =
+          typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599
+            ? rawStatus
+            : 500;
+        console.error("[coach-message]", error);
+        return withSessionCookie(
+          Response.json({ error: message }, { status }),
+          resolved.setCookie,
+        );
+      }
+    });
   },
 };

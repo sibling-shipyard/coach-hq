@@ -1,5 +1,7 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
+import * as Sentry from "@sentry/node";
+import { recordGeminiResult, setMonitoringStage } from "../../_lib/sentry.js";
 import {
   parseCurrentWeek,
   type CurrentWeek,
@@ -71,17 +73,19 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
         created_at: "2026-08-23T08:00:00.000Z",
         body: "That one's in the book. You showed up again.",
       },
-      activity_batch: [{
-        activity_id: "strava:101",
-        activity: {
-          name: "Foundation",
-          sport_type: "Workout",
-          source: "strava",
-          elapsed_time: 840,
-          average_heartrate: 88,
-          has_heartrate: true,
+      activity_batch: [
+        {
+          activity_id: "strava:101",
+          activity: {
+            name: "Foundation",
+            sport_type: "Workout",
+            source: "strava",
+            elapsed_time: 840,
+            average_heartrate: 88,
+            has_heartrate: true,
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "The quiet work landed. Nothing clever to add today, but I noticed.",
@@ -92,29 +96,33 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "healthkit:AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
-        activity: {
-          name: "Morning foundation",
-          sport_type: "Workout",
-          source: "healthkit",
-          elapsed_time: 900,
-          average_heartrate: 75,
-          has_heartrate: true,
-        },
-        heart_rate_summary: {
-          elapsed_seconds: 900,
-          covered_seconds: 684,
-          uncovered_seconds: 216,
-          effort_shape: [{
-            start_seconds: 0,
-            end_seconds: 900,
-            median_bpm: 75,
-            dominant_zone: "Zone 1",
+      activity_batch: [
+        {
+          activity_id: "healthkit:AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
+          activity: {
+            name: "Morning foundation",
+            sport_type: "Workout",
+            source: "healthkit",
+            elapsed_time: 900,
+            average_heartrate: 75,
+            has_heartrate: true,
+          },
+          heart_rate_summary: {
+            elapsed_seconds: 900,
             covered_seconds: 684,
-          }],
+            uncovered_seconds: 216,
+            effort_shape: [
+              {
+                start_seconds: 0,
+                end_seconds: 900,
+                median_bpm: 75,
+                dominant_zone: "Zone 1",
+                covered_seconds: 684,
+              },
+            ],
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "The watch missed part of that one, so the clock is the honest signal I have. It still counts. How did it actually go?",
@@ -126,9 +134,33 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
       activity_batch: [
-        { activity_id: "strava:103", activity: { name: "Ride out", sport_type: "Ride", source: "strava", elapsed_time: 960 } },
-        { activity_id: "strava:104", activity: { name: "Club night", sport_type: "Badminton", source: "strava", elapsed_time: 7_260 } },
-        { activity_id: "strava:105", activity: { name: "Ride home", sport_type: "Ride", source: "strava", elapsed_time: 1_200 } },
+        {
+          activity_id: "strava:103",
+          activity: {
+            name: "Ride out",
+            sport_type: "Ride",
+            source: "strava",
+            elapsed_time: 960,
+          },
+        },
+        {
+          activity_id: "strava:104",
+          activity: {
+            name: "Club night",
+            sport_type: "Badminton",
+            source: "strava",
+            elapsed_time: 7_260,
+          },
+        },
+        {
+          activity_id: "strava:105",
+          activity: {
+            name: "Ride home",
+            sport_type: "Ride",
+            source: "strava",
+            elapsed_time: 1_200,
+          },
+        },
       ],
     },
     output: {
@@ -140,18 +172,20 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "strava:106",
-        activity: {
-          name: "League night",
-          sport_type: "Badminton",
-          source: "strava",
-          elapsed_time: 11_160,
-          average_heartrate: 115,
-          max_heartrate: 179,
-          vs_usual: { duration_median_s: 11_000, avg_hr_median: 127 },
+      activity_batch: [
+        {
+          activity_id: "strava:106",
+          activity: {
+            name: "League night",
+            sport_type: "Badminton",
+            source: "strava",
+            elapsed_time: 11_160,
+            average_heartrate: 115,
+            max_heartrate: 179,
+            vs_usual: { duration_median_s: 11_000, avg_hr_median: 127 },
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "Your heart rate sat below its usual range while the top end still appeared. The trace cannot tell me why. Were the gaps longer, or did the games feel different?",
@@ -162,18 +196,20 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "strava:107",
-        activity: {
-          name: "Easy foundation",
-          sport_type: "Workout",
-          source: "strava",
-          elapsed_time: 1_440,
-          average_heartrate: 73,
-          max_heartrate: 126,
-          has_heartrate: true,
+      activity_batch: [
+        {
+          activity_id: "strava:107",
+          activity: {
+            name: "Easy foundation",
+            sport_type: "Workout",
+            source: "strava",
+            elapsed_time: 1_440,
+            average_heartrate: 73,
+            max_heartrate: 126,
+            has_heartrate: true,
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "You kept the easy work easy. That is a quiet choice, and it honours the point of the session.",
@@ -184,16 +220,18 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "strava:108",
-        activity: {
-          name: "Workout A, first slot",
-          sport_type: "WeightTraining",
-          source: "strava",
-          elapsed_time: 3_480,
-          description: "First controlled session of the new block.",
+      activity_batch: [
+        {
+          activity_id: "strava:108",
+          activity: {
+            name: "Workout A, first slot",
+            sport_type: "WeightTraining",
+            source: "strava",
+            elapsed_time: 3_480,
+            description: "First controlled session of the new block.",
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "First controlled slot of the new block, done. You gave the plan a real start, and I've got you for the next one.",
@@ -204,21 +242,23 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "strava:109",
-        activity: {
-          name: "League night",
-          sport_type: "Badminton",
-          source: "strava",
-          elapsed_time: 13_620,
-          average_heartrate: 139,
-          max_heartrate: 191,
-          hr_zones: {
-            "Zone 4": { low: 159, high: 172, seconds: 2_897 },
-            "Zone 5": { low: 173, high: null, seconds: 1_326 },
+      activity_batch: [
+        {
+          activity_id: "strava:109",
+          activity: {
+            name: "League night",
+            sport_type: "Badminton",
+            source: "strava",
+            elapsed_time: 13_620,
+            average_heartrate: 139,
+            max_heartrate: 191,
+            hr_zones: {
+              "Zone 4": { low: 159, high: 172, seconds: 2_897 },
+              "Zone 5": { low: 173, high: null, seconds: 1_326 },
+            },
           },
         },
-      }],
+      ],
     },
     output: {
       body: "That was a long night with a lot of time high in your zones. I do not have the result, so I am only calling the dose: genuinely heavy.",
@@ -808,7 +848,7 @@ export function buildProactivePrompt(
   ].join("\n\n");
 }
 
-export async function generateProactiveBody(
+async function generateProactiveBodyRequest(
   apiKey: string,
   prompt: string,
   fetcher: typeof fetchWithTimeout = fetchWithTimeout,
@@ -842,8 +882,18 @@ export async function generateProactiveBody(
   }
   const payload = (await response.json()) as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+    };
   };
   const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+  recordGeminiResult({
+    model: GEMINI_MODEL,
+    promptTokens: payload.usageMetadata?.promptTokenCount,
+    completionTokens: payload.usageMetadata?.candidatesTokenCount,
+    replyChars: text?.length ?? 0,
+  });
   if (!text) throw new CoachMessageError("Gemini returned no content", 502);
   let parsed: unknown;
   try {
@@ -861,7 +911,39 @@ export async function generateProactiveBody(
       502,
     );
   }
-  return validateGeneratedBody(parsed.body);
+  const body = validateGeneratedBody(parsed.body);
+  return body;
+}
+
+export async function generateProactiveBody(
+  apiKey: string,
+  prompt: string,
+  fetcher: typeof fetchWithTimeout = fetchWithTimeout,
+): Promise<string> {
+  setMonitoringStage("gemini_proactive_message");
+  return Sentry.startSpan(
+    {
+      name: "Gemini proactive message",
+      op: "ai.run",
+      attributes: { "ai.model": GEMINI_MODEL, "ai.mode": "proactive" },
+    },
+    async (span) => {
+      try {
+        const body = await generateProactiveBodyRequest(
+          apiKey,
+          prompt,
+          fetcher,
+        );
+        span.setAttribute("outcome", "success");
+        span.setStatus({ code: 1 });
+        return body;
+      } catch (error) {
+        span.setAttribute("outcome", "error");
+        span.setStatus({ code: 2 });
+        throw error;
+      }
+    },
+  );
 }
 
 function serializeLatestMessage(message: LatestCoachMessage): string {

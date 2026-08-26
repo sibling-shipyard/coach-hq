@@ -3,6 +3,7 @@ import {
   commitFilesAtomic,
   type ResolvedFileWrite,
 } from "../../_lib/githubGitData.js";
+import { captureExceptionOnce, setMonitoringStage } from "../../_lib/sentry.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -11,7 +12,11 @@ import {
   parseJsonOrNull,
   resolveCoachChatBranch,
 } from "./coachChatFiles.js";
-import { todayDateString, todayDividerLabel, withComputedDayOffsets } from "./coachDay.js";
+import {
+  todayDateString,
+  todayDividerLabel,
+  withComputedDayOffsets,
+} from "./coachDay.js";
 import {
   appendConversationTurn,
   CHAT_FILE_PATH,
@@ -64,6 +69,7 @@ export async function handleActivitySync(
   apiKey: string,
   request: ActivitySyncRequest,
 ): Promise<Response> {
+  setMonitoringStage("github_load_activity_sync");
   const batchId = activitySyncBatchId(request.activity_ids);
   const [history, context, currentSha] = await Promise.all([
     loadChatHistory(repo, token),
@@ -143,10 +149,10 @@ export async function handleActivitySync(
       timezone,
     );
     replyText = reply.reply;
-  } catch (err: unknown) {
-    const status = (err as { status?: number }).status ?? 500;
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[coach-chat] activity_sync askGemini failed:", err);
+  } catch (error) {
+    captureExceptionOnce(error);
+    const status = (error as { status?: number }).status ?? 500;
+    const message = error instanceof Error ? error.message : String(error);
     return Response.json({ error: message }, { status });
   }
 
@@ -158,16 +164,11 @@ export async function handleActivitySync(
     paragraphs: [replyText],
     attachments: [syncedActivityListAttachment(batchId, verified.rows)],
   };
-  const allMessages = appendConversationTurn(
-    [],
-    undefined,
-    coachMsg,
-    {
-      id: `d-${now}`,
-      role: "divider",
-      label: todayDividerLabel(timezone),
-    },
-  );
+  const allMessages = appendConversationTurn([], undefined, coachMsg, {
+    id: `d-${now}`,
+    role: "divider",
+    label: todayDividerLabel(timezone),
+  });
   const newThread: ChatThread = {
     id: `t-${now}`,
     createdAt: now,
@@ -182,7 +183,11 @@ export async function handleActivitySync(
     path: CHAT_FILE_PATH,
     resolve: async () => {
       const fresh = await loadChatHistory(repo, token);
-      writeOutcome = commitActivitySyncHistory(fresh.threads, batchId, newThread);
+      writeOutcome = commitActivitySyncHistory(
+        fresh.threads,
+        batchId,
+        newThread,
+      );
       return serializeChatHistory(
         writeOutcome.threads,
         new Date().toISOString(),
@@ -191,6 +196,7 @@ export async function handleActivitySync(
     },
   };
 
+  setMonitoringStage("github_commit_activity_sync");
   try {
     const result = await commitFilesAtomic(
       [chatWrite],
@@ -204,7 +210,10 @@ export async function handleActivitySync(
     const outcome = writeOutcome;
     if (!outcome) {
       return Response.json(
-        { error: "Coach replied but saving failed: history write did not resolve" },
+        {
+          error:
+            "Coach replied but saving failed: history write did not resolve",
+        },
         { status: 502 },
       );
     }
@@ -220,6 +229,7 @@ export async function handleActivitySync(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[coach-chat] activity_sync commitFilesAtomic failed:", err);
+    captureExceptionOnce(err);
     return Response.json(
       { error: `Coach replied but saving failed: ${message}` },
       { status: 502 },

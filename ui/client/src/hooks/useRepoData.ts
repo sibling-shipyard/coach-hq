@@ -16,6 +16,12 @@
  */
 import { useEffect, useRef, useState } from "react";
 import dashboardSnapshotRaw from "../data/dashboard_snapshot.json";
+import {
+  captureClientRequestFailure,
+  finishClientSpan,
+  monitoredClientRequest,
+  newOperationId,
+} from "../lib/observability";
 export interface RepoData {
   activities: unknown[];
   ledger?: any;
@@ -53,23 +59,58 @@ let cachedData: RepoData | null = null;
 
 function initialState(): UseRepoDataResult {
   if (import.meta.env.DEV) {
-    return { data: LOCAL_DATA, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
+    return {
+      data: LOCAL_DATA,
+      loading: false,
+      error: null,
+      schemaUnsupported: false,
+      accessRevoked: false,
+    };
   }
   if (cachedData) {
-    return { data: cachedData, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
+    return {
+      data: cachedData,
+      loading: false,
+      error: null,
+      schemaUnsupported: false,
+      accessRevoked: false,
+    };
   }
-  return { data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false };
+  return {
+    data: null,
+    loading: true,
+    error: null,
+    schemaUnsupported: false,
+    accessRevoked: false,
+  };
 }
 
-function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void {
+function fetchRepoData(
+  setState: (state: UseRepoDataResult) => void,
+): () => void {
   let cancelled = false;
+  const operationId = newOperationId();
 
-  fetch("/api/repo-file")
-    .then(async (res) => {
+  monitoredClientRequest(
+    "homepage repo-data load",
+    operationId,
+    async (span) => {
+      const res = await fetch("/api/repo-file", {
+        headers: { "x-operation-id": operationId },
+      });
       if (cancelled) return;
 
       if (!res.ok) {
+        finishClientSpan(span, "error", res.status);
         const body = await res.json().catch(() => ({}));
+        captureClientRequestFailure(
+          new Error(body.error ?? `Failed to load repo data (${res.status})`),
+          {
+            operationId,
+            requestPath: "/api/repo-file",
+            status: res.status,
+          },
+        );
         setState({
           data: null,
           loading: false,
@@ -85,24 +126,42 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
         typeof aggregate.schema_version === "number" &&
         aggregate.schema_version > SUPPORTED_SCHEMA_VERSION
       ) {
-        setState({ data: null, loading: false, error: null, schemaUnsupported: true, accessRevoked: false });
+        finishClientSpan(span, "error", res.status);
+        setState({
+          data: null,
+          loading: false,
+          error: null,
+          schemaUnsupported: true,
+          accessRevoked: false,
+        });
         return;
       }
 
       cachedData = aggregate;
-      setState({ data: aggregate, loading: false, error: null, schemaUnsupported: false, accessRevoked: false });
-    })
-    .catch(() => {
-      if (!cancelled) {
-        setState({
-          data: null,
-          loading: false,
-          error: "Failed to load your data",
-          schemaUnsupported: false,
-          accessRevoked: false,
-        });
-      }
-    });
+      finishClientSpan(span, "success", res.status);
+      setState({
+        data: aggregate,
+        loading: false,
+        error: null,
+        schemaUnsupported: false,
+        accessRevoked: false,
+      });
+    },
+  ).catch((error: unknown) => {
+    if (!cancelled) {
+      captureClientRequestFailure(error, {
+        operationId,
+        requestPath: "/api/repo-file",
+      });
+      setState({
+        data: null,
+        loading: false,
+        error: "Failed to load your data",
+        schemaUnsupported: false,
+        accessRevoked: false,
+      });
+    }
+  });
 
   return () => {
     cancelled = true;
@@ -136,7 +195,13 @@ export function useRepoData(): UseRepoDataResult {
       if (!event.persisted) return;
       cancelRef.current?.();
       cachedData = null;
-      setState({ data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false });
+      setState({
+        data: null,
+        loading: true,
+        error: null,
+        schemaUnsupported: false,
+        accessRevoked: false,
+      });
       cancelRef.current = fetchRepoData(setState);
     }
 

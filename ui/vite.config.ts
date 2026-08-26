@@ -3,13 +3,40 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { defineConfig } from "vite";
 
+const sentryRelease =
+  process.env.VITE_SENTRY_RELEASE ??
+  process.env.SENTRY_RELEASE ??
+  process.env.VERCEL_GIT_COMMIT_SHA ??
+  "development";
+const sentryEnvironment =
+  process.env.VITE_SENTRY_ENVIRONMENT ??
+  process.env.SENTRY_ENVIRONMENT ??
+  process.env.VERCEL_ENV ??
+  process.env.NODE_ENV ??
+  "development";
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    "import.meta.env.VITE_SENTRY_RELEASE": JSON.stringify(sentryRelease),
+    "import.meta.env.VITE_SENTRY_ENVIRONMENT":
+      JSON.stringify(sentryEnvironment),
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@golden": path.resolve(import.meta.dirname, "..", "shared", "golden-dataset"),
-      "@warm-instrument": path.resolve(import.meta.dirname, "..", "shared", "warm-instrument"),
+      "@golden": path.resolve(
+        import.meta.dirname,
+        "..",
+        "shared",
+        "golden-dataset",
+      ),
+      "@warm-instrument": path.resolve(
+        import.meta.dirname,
+        "..",
+        "shared",
+        "warm-instrument",
+      ),
     },
   },
   root: path.resolve(import.meta.dirname, "client"),

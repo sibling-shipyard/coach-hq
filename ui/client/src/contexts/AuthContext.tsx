@@ -10,10 +10,22 @@
  * fetch/parse failure on the hosted deployment falls back to "unauthenticated"
  * (the login screen), never "local".
  */
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { isLocalDevBypass } from "../lib/devMode";
+import { monitoredClientFetch, setClientAthlete } from "../lib/observability";
 
-export type AuthStatus = "loading" | "local" | "unauthenticated" | "authenticated" | "auth_error";
+export type AuthStatus =
+  | "loading"
+  | "local"
+  | "unauthenticated"
+  | "authenticated"
+  | "auth_error";
 
 interface AuthState {
   status: AuthStatus;
@@ -31,7 +43,7 @@ export function useAuth(): AuthState {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(
-    isLocalDevBypass ? { status: "local" } : { status: "loading" }
+    isLocalDevBypass ? { status: "local" } : { status: "loading" },
   );
 
   useEffect(() => {
@@ -39,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    fetch("/api/auth/me")
+    monitoredClientFetch("homepage authentication", "/api/auth/me", [401])
       .then(async (res) => {
         if (cancelled) return;
 
@@ -50,7 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const data = await res.json();
         if (data.repo_full_name) {
-          setState({ status: "authenticated", login: data.login, repoFullName: data.repo_full_name });
+          setClientAthlete(data.login);
+          setState({
+            status: "authenticated",
+            login: data.login,
+            repoFullName: data.repo_full_name,
+          });
           return;
         }
 
@@ -58,12 +75,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // handleCallback itself - see ui/api/auth/[...action].ts's callback web branch) -
         // resolve it now.
         try {
-          const reposRes = await fetch("/api/auth/list-my-repos");
+          const reposRes = await monitoredClientFetch(
+            "homepage repo resolution",
+            "/api/auth/list-my-repos",
+            [409],
+          );
           if (cancelled) return;
           const reposData = await reposRes.json().catch(() => null);
-          if (reposRes.status === 409 && reposData?.error === "multiple_repos_granted") {
+          if (
+            reposRes.status === 409 &&
+            reposData?.error === "multiple_repos_granted"
+          ) {
             // Installs are single-repo by design (ADR 0019) - block, don't offer a pick.
-            setState({ status: "auth_error", errorType: "multiple_repos_granted" });
+            setState({
+              status: "auth_error",
+              errorType: "multiple_repos_granted",
+            });
             return;
           }
           if (!reposRes.ok || !reposData) {
@@ -71,14 +98,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
           if (reposData.repo_full_name) {
-            setState({ status: "authenticated", login: data.login, repoFullName: reposData.repo_full_name });
+            setClientAthlete(data.login);
+            setState({
+              status: "authenticated",
+              login: data.login,
+              repoFullName: reposData.repo_full_name,
+            });
           } else {
             // No repo at all - setup happens in the iOS app only, so route to the
             // matching dead-end message instead of silently bouncing to login.
-            setState({ status: "auth_error", errorType: reposData.reason ?? "needs_ios_setup" });
+            setState({
+              status: "auth_error",
+              errorType: reposData.reason ?? "needs_ios_setup",
+            });
           }
         } catch {
-          if (!cancelled) setState({ status: "auth_error", errorType: "lookup_failed" });
+          if (!cancelled)
+            setState({ status: "auth_error", errorType: "lookup_failed" });
         }
       })
       .catch(() => {

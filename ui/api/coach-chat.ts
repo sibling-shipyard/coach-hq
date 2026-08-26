@@ -6,6 +6,13 @@ import {
 } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
 import {
+  athleteIdForRepo,
+  captureExceptionOnce,
+  monitorServerRequest,
+  setMonitoringAthlete,
+  setMonitoringStage,
+} from "./_lib/sentry.js";
+import {
   getFileRaw,
   getHeadSha,
   invalidateCoachContext,
@@ -60,6 +67,7 @@ async function handleGreet(
   apiKey: string,
   onboardingHints?: OnboardingHints,
 ): Promise<Response> {
+  setMonitoringStage("github_load_greeting");
   const [history, context] = await Promise.all([
     loadChatHistory(repo, token),
     loadCoachContext(repo, token),
@@ -83,10 +91,11 @@ async function handleGreet(
     );
   const timezone = profile?.timezone?.trim() || "UTC";
 
-  const {
-    name: hintedName,
-    sports: hintedSports,
-  } = onboardingChanges(onboardingHints, profile, memory);
+  const { name: hintedName, sports: hintedSports } = onboardingChanges(
+    onboardingHints,
+    profile,
+    memory,
+  );
   const traceId = `onboard-${Date.now().toString(36)}`;
   const onboardingWrites: FileEntry[] = [];
   if (hintedName) {
@@ -143,33 +152,29 @@ async function handleGreet(
     seasons,
     quests,
   );
-  let reply: GeminiReply;
-  try {
-    reply = await askGemini(
-      apiKey,
-      soul,
-      athleteContext,
-      questContext,
-      [],
-      "",
-      "greeting",
-      firstSession,
-      combineExtraContext(
-        firstSessionContext(firstSession, FIRST_SESSION_PROTOCOL),
-        onboardingHintsContext(onboardingHints),
-      ),
-      undefined,
-      timezone,
-    );
-  } catch (err: unknown) {
-    const status = (err as { status?: number }).status ?? 500;
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[coach-chat] greet askGemini failed:", err);
-    return Response.json({ error: message }, { status });
-  }
+  const reply: GeminiReply = await askGemini(
+    apiKey,
+    soul,
+    athleteContext,
+    questContext,
+    [],
+    "",
+    "greeting",
+    firstSession,
+    combineExtraContext(
+      firstSessionContext(firstSession, FIRST_SESSION_PROTOCOL),
+      onboardingHintsContext(onboardingHints),
+    ),
+    undefined,
+    timezone,
+  );
 
   const now = Date.now();
-  const repoSha = await getHeadSha(repo, token).catch(() => null);
+  setMonitoringStage("github_finalize_greeting");
+  const repoSha = await getHeadSha(repo, token).catch((error) => {
+    captureExceptionOnce(error);
+    return null;
+  });
   const freshContext =
     onboardingWrites.length > 0
       ? await loadCoachContext(repo, token, { fresh: true })
@@ -187,19 +192,25 @@ async function handleGreet(
   });
 }
 
-export async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
+export async function handle(
+  req: Request,
+  auth: RepoAuthContext,
+): Promise<Response> {
   const repo = auth.repo_full_name;
   const token = auth.gh_token;
-  if (req.method === "GET") return handleHistory(repo, token);
+  if (req.method === "GET") {
+    setMonitoringStage("github_load_history");
+    return handleHistory(repo, token);
+  }
   if (req.method !== "POST")
     return Response.json({ error: "Method not allowed" }, { status: 405 });
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey)
-    return Response.json(
-      { error: "Coach chat isn't configured yet" },
-      { status: 500 },
-    );
+    throw Object.assign(new Error("Coach chat isn't configured yet"), {
+      status: 500,
+    });
+  setMonitoringStage("parse_request");
   const parsed = await parseTurnRequest(req);
   if (parsed instanceof Response) return parsed;
   if (isGreetRequest(parsed))
@@ -217,18 +228,45 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const resolved = await resolveRepoAuth(req);
-    if (resolved instanceof Response) return resolved;
-    try {
-      return withSessionCookie(await handle(req, resolved), resolved.setCookie);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Coach chat failed";
-      const status = (err as { status?: number }).status === 401 ? 401 : 500;
-      console.error("[coach-chat]", err);
-      return withSessionCookie(
-        Response.json({ error: message }, { status }),
-        resolved.setCookie,
-      );
-    }
+    return monitorServerRequest(
+      req,
+      req.method === "POST" ? "coach turn" : "coach history",
+      async () => {
+        setMonitoringStage("authenticate");
+        const resolved = await resolveRepoAuth(req);
+        if (resolved instanceof Response) return resolved;
+        setMonitoringAthlete(athleteIdForRepo(resolved.repo_full_name));
+        try {
+          return withSessionCookie(
+            await handle(req, resolved),
+            resolved.setCookie,
+          );
+        } catch (err) {
+          captureExceptionOnce(err);
+          const message =
+            err instanceof Error ? err.message : "Coach chat failed";
+          const rawStatus = (err as { status?: unknown }).status;
+          const status =
+            typeof rawStatus === "number" &&
+            rawStatus >= 400 &&
+            rawStatus <= 599
+              ? rawStatus
+              : 500;
+          console.error("[coach-chat]", err);
+          return withSessionCookie(
+            Response.json(
+              {
+                error: message,
+                ...((err as { traceId?: unknown }).traceId
+                  ? { traceId: (err as { traceId: unknown }).traceId }
+                  : {}),
+              },
+              { status },
+            ),
+            resolved.setCookie,
+          );
+        }
+      },
+    );
   },
 };
