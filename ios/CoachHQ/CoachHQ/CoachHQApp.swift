@@ -1,3 +1,4 @@
+import Sentry
 import SwiftUI
 import UserNotifications
 
@@ -6,18 +7,73 @@ import UserNotifications
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+
+SentrySDK.start { options in
+    options.dsn = Secrets.sentryDSN
+    options.beforeSend = { event in
+        if let request = event.request, let headers = request.headers as? [String: String] {
+            var newHeaders = headers
+            let keysToScrub = ["authorization", "cookie", "set-cookie", "x-github-token", "x-session-token"]
+            for key in newHeaders.keys {
+                if keysToScrub.contains(key.lowercased()) {
+                    newHeaders[key] = "[Filtered]"
+                }
+            }
+            event.request?.headers = newHeaders
+        }
         
-        // Sentry initialization with scrubbing
-        // SentrySDK.start { options in
-        //     options.dsn = Secrets.sentryDSN
-        //     options.beforeSend = { event in
-        //         // Scrub sensitive data
-        //         event.user?.email = "[Filtered]"
-        //         event.user?.username = "[Filtered]"
-        //         return event
-        //     }
-        // }
+        // Deep scrub strings in extras and tags
+        func scrubString(_ str: String) -> String {
+            var result = str
+            let patterns = [
+                "ghp_[A-Za-z0-9_]{36,}",
+                "AIza[0-9A-Za-z\-_]{35}",
+                "Bearer eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_=]*",
+                "eyJ[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_=]*"
+            ]
+            for pattern in patterns {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+                    result = regex.stringByReplacingMatches(in: result, options: [], range: NSRange(location: 0, length: result.utf16.count), withTemplate: "[Filtered]")
+                }
+            }
+            return result
+        }
         
+        if let extras = event.extra {
+            var newExtras = extras
+            for (k, v) in extras {
+                if let str = v as? String {
+                    newExtras[k] = scrubString(str)
+                }
+            }
+            event.extra = newExtras
+        }
+        
+        if let message = event.message {
+            event.message = SentryMessage(formatted: scrubString(message.formatted))
+        }
+        
+        if let breadcrumbs = event.breadcrumbs {
+    for crumb in breadcrumbs {
+        if let message = crumb.message {
+            crumb.message = scrubString(message)
+        }
+        if let data = crumb.data {
+            var newData = data
+            for (k, v) in data {
+                if let str = v as? String {
+                    newData[k] = scrubString(str)
+                }
+            }
+            crumb.data = newData
+        }
+    }
+}
+
+                return event
+    }
+}
+
         return true
     }
 

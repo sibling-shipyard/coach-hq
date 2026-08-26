@@ -35,7 +35,7 @@ enum OnboardingEvent {
 /// renders onboarding overlays via router.effectivePhase.
 @MainActor
 final class AppRouter: ObservableObject {
-    @Published private(set) var state: AppState = .bootstrapping
+    @Published private(set) var state: AppState = .bootstrapping { didSet { TimelineBuffer.shared.addEvent("AppRouter state: \(state)") } }
     @Published private(set) var onboardingPhase: OnboardingPhase = .notStarted
 
     let authManager: GitHubAuthManager

@@ -554,6 +554,8 @@ class GitHubAuthManager: ObservableObject {
     }
 
     func signOut() {
+        TimelineBuffer.shared.clearOnSignOut()
+
         deleteKeychainString(for: keychainKey)
         deleteKeychainString(for: refreshTokenKeychainKey)
         deleteKeychainString(for: expiresAtKeychainKey)
