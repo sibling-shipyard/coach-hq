@@ -15,7 +15,7 @@ The quick version, if you've done this kind of thing before:
 
 1. **Use this template** on GitHub, then clone your new repo locally.
 2. Install the iOS app and sign in to sync your Apple Health activity history - see `ios/README.md`. Activities land in `user_data/activities/hist/` automatically, no manual fetch step.
-3. Start your first session with `claude` (Claude Code, reads `SOUL.claude.md`) or through the hosted coach-chat app (reads `SOUL.chat.md` directly server-side - see ADR 0022). Coach Phelps detects an empty `user_data/coach/profile.json` and runs the First Session Protocol automatically (`docs/eng-docs/coach-chat-fsp.md`).
+3. Start your first session with `claude` (Claude Code, reads `platform/SOUL.claude.md`) or through the hosted coach-chat app (reads `platform/SOUL.chat.md` directly server-side - see ADR 0022). Coach Phelps detects an empty `user_data/coach/profile.json` and runs the First Session Protocol automatically (`docs/eng-docs/coach-chat-fsp.md`).
 4. Deploy the dashboard in `ui/` to [Vercel](https://vercel.com) (root directory `ui`), add `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_PAT` as environment variables. The sync workflow needs no repo secret — it runs under the built-in `GITHUB_TOKEN`.
 
 ---
@@ -23,7 +23,7 @@ The quick version, if you've done this kind of thing before:
 ## How it works
 
 Every session, the coach:
-1. Reads the composed identity/rules/workflows (`SOUL.claude.md` for Claude Code, `SOUL.chat.md`
+1. Reads the composed identity/rules/workflows (`platform/SOUL.claude.md` for Claude Code, `platform/SOUL.chat.md`
    for the hosted app - source layers in `platform/soul/`, see ADR 0022)
 2. Loads context from `user_data/coach/` and `user_data/ledger/` (profile, memory, injuries,
    recent `coach_log.json` rows, active quests/season)
@@ -39,7 +39,7 @@ reply (no free-form file edits) - full schema and field-by-field detail in
 
 | File | Written by | Purpose |
 |------|-----------|---------|
-| `SOUL.claude.md` / `SOUL.chat.md` | Template (generated) | Composed coach brain — generated from `platform/soul/` via `platform/scripts/compose-soul.mjs`; do not hand-edit |
+| `platform/SOUL.claude.md` / `platform/SOUL.chat.md` | Template (generated) | Composed coach brain — generated from `platform/soul/` via `platform/scripts/compose-soul.mjs`; do not hand-edit |
 | `user_data/coach/profile.json` | Coach | Athlete profile fields (name, `coach_since`, ...) |
 | `user_data/coach/memory.json` | Coach | Sports and standing notes |
 | `user_data/coach/injuries.json` | Coach | Injury/limitation log |
