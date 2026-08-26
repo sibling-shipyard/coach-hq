@@ -17,7 +17,12 @@ enum RageReportSubmissionError: Error {
 
 struct SentryRageReportSubmitter: RageReportSubmitting {
     func submit(message: String, attachment: RageReportAttachment?) throws {
+        let operationID = UUID()
         let eventID = SentrySDK.capture(message: message) { scope in
+            scope.setTag(value: "rage_report", key: "operation")
+            scope.setTag(value: operationID.uuidString, key: "operation_id")
+            scope.setExtra(value: attachment != nil, key: "timeline_attached")
+            scope.setExtra(value: attachment?.data.count ?? 0, key: "timeline_bytes")
             guard let attachment else { return }
             scope.addAttachment(
                 Attachment(
