@@ -50,7 +50,7 @@ flowchart LR
 
 | PR | milestone | outcome | final base | files | owner | parallel with | done when |
 |---|---|---|---|---|---|---|---|
-| **PR1 · Small** | M1 · monitoring | Lock the detailed Sentry data rules and exact event fields. | `main` | `kdb/decisions/`, `docs/plans/` | Tech Lead | — | ADR and short LLD define rich fields, credential scrubbers, operation ID, retention, access, and the beta opt-in boundary. |
+| **[x] PR1 · Small** | M1 · monitoring | Lock the detailed Sentry data rules and exact event fields. | `main` | `kdb/decisions/`, `docs/eng-docs/`, `docs/plans/` | Tech Lead (done) | — | ADR 0031 and sentry-lld.md define rich fields, credential scrubbers, operation ID, retention, access, and the beta opt-in boundary. |
 | **PR2 · Medium** | M1 · monitoring | Web and API failures appear in Sentry with searchable request/response context. | PR1 | `ui/package.json`, `ui/package-lock.json`, `ui/vite.config.ts`, `ui/client/src/`, `ui/api/`, `ui/scripts/`, `docs/eng-docs/env-vars.md` | UI Expert | PR3 | One web/API failure pair joins the athlete message and Gemini reply with one operation ID. |
 | **PR3 · Medium** | M1 · monitoring | iOS crashes appear in Sentry and the phone keeps a short local timeline. | PR2 | `ios/CoachHQ/CoachHQ.xcodeproj/`, `ios/CoachHQ/CoachHQ/`, `ios/CoachHQ/CoachHQTests/` | iOS Builder | PR2 | CI proves buffer limits, expiry, sign-out clearing, and one test crash reaches Sentry. |
 | **PR4 · Medium** | M2 · report and operate | "Report a problem" previews and submits selected evidence. | PR3 | `ios/CoachHQ/CoachHQ/Views/`, `ios/CoachHQ/CoachHQ/Services/`, `ios/CoachHQ/CoachHQTests/` | iOS Builder | — | Submit sends exactly the selected items; Cancel sends nothing. |
