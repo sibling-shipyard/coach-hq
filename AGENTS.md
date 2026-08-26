@@ -123,8 +123,6 @@ Athlete may reference `1a` — match that item exactly.
 **P0** — fix now, blocks the ship. **P1** — good to fix, do it before moving on.
 **P2** — flagging it, athlete's call: follow-up ticket, one line, don't build unless asked.
 (`P3` still exists for issue bodies — see `.github/agents/issue-template.md`. A review never emits one.)
-This is the only priority scale. Milestones and epics sort the roadmap; there is no second, lowercase
-label tier to translate into.
 
 **Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2, don't implement. If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
 
