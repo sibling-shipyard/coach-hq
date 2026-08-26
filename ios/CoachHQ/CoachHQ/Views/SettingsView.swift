@@ -27,7 +27,6 @@ struct SettingsView: View {
     @State private var showHealthSettings = false
     @State private var showRageReport = false
 
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -61,7 +60,6 @@ struct SettingsView: View {
             .toast($toast)
             .sheet(isPresented: $showHealthSettings) { HealthSettingsView() }
             .sheet(isPresented: $showRageReport) { RageReportView() }
-
             .onChange(of: syncManager.lastSyncResult) { _, result in
                 guard let result else { return }
                 // The Health Settings sheet reports its own import result — a second toast
@@ -455,7 +453,6 @@ struct SettingsView: View {
                 WarmSettingsInfoRow(label: "Report a Problem", value: "")
             }
             .buttonStyle(.plain)
-
         }
     }
 
