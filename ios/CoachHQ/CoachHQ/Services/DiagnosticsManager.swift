@@ -1,5 +1,5 @@
 import Foundation
-// import Sentry
+import Sentry
 
 struct TimelineEvent: Codable, Equatable {
     let id: UUID
@@ -23,11 +23,23 @@ class TimelineBuffer {
     
     private var events: [TimelineEvent] = []
     
-    func addEvent(_ message: String) {
+    private var fileURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("timeline.json")
+    }
+    
+    init() {
+        if let data = try? Data(contentsOf: fileURL),
+           let loaded = try? JSONDecoder().decode([TimelineEvent].self, from: data) {
+            self.events = loaded
+        }
+    }
+    
+    func addEvent(_ message: String, timestamp: Date = Date()) {
         queue.sync {
-            let event = TimelineEvent(message: message)
+            let event = TimelineEvent(timestamp: timestamp, message: message)
             events.append(event)
             enforceLimits()
+            save()
         }
     }
     
@@ -41,6 +53,13 @@ class TimelineBuffer {
     func clearOnSignOut() {
         queue.sync {
             events.removeAll()
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+    }
+    
+    private func save() {
+        if let data = try? JSONEncoder().encode(events) {
+            try? data.write(to: fileURL)
         }
     }
     
