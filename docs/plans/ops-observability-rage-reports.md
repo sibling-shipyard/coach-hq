@@ -1,14 +1,12 @@
 # Debugging Loop
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-25 · Issue: [#585](https://github.com/sibling-shipyard/coach-hq/issues/585)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-26 · Issue: [#585](https://github.com/sibling-shipyard/coach-hq/issues/585)
 
 ## Why now
 
 Four athletes use the product. Today, a broken experience leaves us asking what happened from
-memory. The API currently writes full athlete messages and Gemini replies into Vercel logs —
-a standalone hotfix ships that fix before this stack begins (`geminiClient.ts:89,134`).
-
-We need a safe debugging trail that runs from the athlete's phone to the operator dashboard.
+memory. During this close-friends beta, the detailed Vercel request and response logs remain our
+fallback. This plan adds a debugging trail from the athlete's phone to the operator dashboard.
 
 ## What we are building
 
@@ -27,15 +25,16 @@ flowchart LR
 | **1. Monitoring** | Crashes, error type, screen/operation, timing, app version, model and token counts. No chat or health content. | Sentry projects for web/API and iOS | Always on. |
 | **2. Rage report** | The phone's recent event timeline plus any screenshot, conversation excerpt, or activity the athlete selects. | Timeline stays on the phone for 24 hours. A submitted report stays in Sentry for up to 30 days. | Nothing rich leaves the phone until the athlete taps Submit. |
 
-Capture Gemini **token counts**. Never capture API keys, login tokens, or credentials.
+Capture Gemini **token counts**. Never capture API keys, login tokens, or credentials in Sentry.
 
 ## Decisions already made
 
 1. Use Sentry Developer with data stored in Germany. Keep Vercel and Apple logs as backup sources.
-2. Do not add a new data warehouse.
-3. Keep at most 200 events or 256 KiB on the phone. Delete them after 24 hours or on sign-out.
-4. Automatic screenshots and replay stay off.
-5. PR1 defines the exact event fields and data rules before capture is enabled.
+2. Treat the four current athletes as opted into the existing detailed Vercel logs. [#592](https://github.com/sibling-shipyard/coach-hq/pull/592) is held until this loop works; it is not a prerequisite.
+3. Sentry automatic events stay content-free. Do not add a new data warehouse.
+4. Keep at most 200 events or 256 KiB on the phone. Delete them after 24 hours or on sign-out.
+5. Automatic screenshots and replay stay off. Formal Founder Research is separate [#590](https://github.com/sibling-shipyard/coach-hq/issues/590).
+6. PR1 defines the exact Sentry fields and data rules before capture is enabled.
 
 ## PR stack
 
@@ -48,15 +47,16 @@ flowchart LR
   P4 --> P5
 ```
 
-| id | shippable result | files | deps | owner |
-|---|---|---|---|---|
-| **PR1 · Small** | Lock the data rules. Define allowed event fields. | `kdb/decisions/`, `docs/eng-docs/` | — | Tech Lead |
-| **PR2 · Medium** | Web and API failures appear in Sentry without message content. | `ui/client/src/`, `ui/api/`, `ui/scripts/`, `ui/package.json` | PR1 | UI Expert |
-| **PR3 · Medium** | iOS crashes appear in Sentry and the phone keeps a short local timeline. | `ios/CoachHQ/CoachHQ/Services/`, `ios/CoachHQ/CoachHQ/CoachHQApp.swift`, `ios/CoachHQ/CoachHQTests/` | PR1 | iOS Builder |
-| **PR4 · Medium** | "Report a problem" lets an athlete preview and submit selected evidence. | `ios/CoachHQ/CoachHQ/Views/`, `ios/CoachHQ/CoachHQ/Services/`, `ios/CoachHQ/CoachHQTests/` | PR3 | iOS Builder |
-| **PR5 · Small** | Dashboards, alerts, and the operator runbook work end to end. | `.github/workflows/`, `docs/eng-docs/`, `docs/plans/ops-observability-rage-reports.md` | PR2, PR4 | Tech Lead |
+| PR | milestone | outcome | final base | files | owner | parallel with | done when |
+|---|---|---|---|---|---|---|---|
+| **PR1 · Small** | M1 · monitoring | Lock the Sentry data rules and exact event fields. | `main` | `kdb/decisions/`, `docs/plans/` | Tech Lead | — | ADR and short LLD define the allowlist, scrubbers, operation ID, retention, and beta-log boundary. |
+| **PR2 · Medium** | M1 · monitoring | Web and API failures appear in Sentry without making another content copy. | PR1 | `ui/package.json`, `ui/package-lock.json`, `ui/vite.config.ts`, `ui/client/src/`, `ui/api/`, `ui/scripts/`, `docs/eng-docs/env-vars.md` | UI Expert | PR3 | One web/API failure pair arrives with one operation ID. |
+| **PR3 · Medium** | M1 · monitoring | iOS crashes appear in Sentry and the phone keeps a short local timeline. | PR2 | `ios/CoachHQ/CoachHQ.xcodeproj/`, `ios/CoachHQ/CoachHQ/`, `ios/CoachHQ/CoachHQTests/` | iOS Builder | PR2 | CI proves buffer limits, expiry, sign-out clearing, and one test crash reaches Sentry. |
+| **PR4 · Medium** | M2 · report and operate | "Report a problem" previews and submits selected evidence. | PR3 | `ios/CoachHQ/CoachHQ/Views/`, `ios/CoachHQ/CoachHQ/Services/`, `ios/CoachHQ/CoachHQTests/` | iOS Builder | — | Submit sends exactly the selected items; Cancel sends nothing. |
+| **PR5 · Small** | M2 · report and operate | Dashboards, alerts, and the operator runbook work end to end. | PR4 | `.github/workflows/`, `docs/eng-docs/`, `docs/plans/` | Tech Lead | — | A production proof triggers the alert and the runbook joins the phone, API, and release evidence. |
 
-PR2 and PR3 can run together. Critical path: **PR1 → PR3 → PR4 → PR5**.
+PR2 and PR3 build together after PR1; rebase PR3 onto PR2 before review. Final merge order is
+**PR1 → PR2 → PR3 → PR4 → PR5**.
 
 ## Done when
 
