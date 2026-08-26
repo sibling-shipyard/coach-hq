@@ -4,9 +4,19 @@ Structure: **Epic → parent → task**. Epics are GitHub issues with linked sub
 
 This file is the curated view; issues are the record. Flip a box here or tell Uno — it regenerates from issues, never drifts.
 
-**Priority:** P0 unblocks Nats · P1 unblocks 10 users · P2 good to have (incl. M4)
+**Live athletes (4, holding at 5):** Akash · Skanda · Nats (running, strength) · Prateek (football,
+cycling, strength). Nats and Prateek onboarded themselves in August 2026 — signup is iOS-only and
+self-serve (ADR 0030). There is no operator step to plan around.
 
-## ✅ M2: Onboard Nats
+> ⚠️ **Two of Prateek's three sports have no analytics.** The product handles running, badminton and
+> calisthenics; football and cycling are not built. This is a live athlete today, not a future
+> persona — it moves #313 ahead of the homescreen work and makes #346 current, not M4.
+
+**Priority:** milestones and epics, below. The `p0`–`p3` issue labels are retired — nothing read
+them, nobody sorted by them, and having a second scale next to the review tiers (`P0`/`P1`/`P2` in
+`AGENTS.md`) only ever caused confusion. Delete the four labels on GitHub when convenient.
+
+## ✅ M2: Onboard Nats — and Prateek, unaided
 
 ### ✅ Epic: Chat reliability — THE GATE (#295) — CLOSED Aug 22
 
@@ -18,6 +28,8 @@ This file is the curated view; issues are the record. Flip a box here or tell Un
 - [x] #424 validate-soul can't fail CI
 
 ### ✅ Epic: Onboard Nats (#299) — CLOSED Aug 22
+
+Prateek followed through the same self-serve flow with no operator involvement. The gate doc, the M1 plan and the provisioning runbook are deleted — ADR 0030 carries what was durable.
 
 - [x] #300 Remove sleep analytics (simplify onboarding)
 - [x] #301 Remove PRE
@@ -36,6 +48,19 @@ _Supporting:_ #292 now in M3
 - [ ] #306 First-session chat works — Medium (exit test; real work)
 - [x] #362 First-session predicate can never complete
 
+### Epic: Sport-agnostic core (#313)
+
+- [ ] #346 Signup-as-runner/cyclist reality check — Effort not set (**moved from M4** — Prateek is that athlete)
+- [ ] #460 Category sub-tags under each sport — Low
+- [ ] #315 Badminton + calisthenics analytics — Medium
+- [ ] #314 Home widgets not sport-hardcoded — Medium
+- [ ] #365 Generic workout templates — Medium (blocked until #360 loads templates)
+- [ ] #367 Quest / gamification audit — Medium
+- [ ] #156 HealthKit enrichment — High (pick old PR vs day-grain proposal first)
+	- [ ] #501 HealthKit day-grain recovery signals (resting HR, HRV, VO₂ Max, sleep) — Effort not set
+	- [ ] #495 HR zones: one source of truth, derived from resting + max HR — Effort not set
+- [x] #316 seasons/phases + quest_history — absorbed into #86/#378; leftover is #411
+
 ### Epic: Homescreen UX (#307)
 
 - [ ] #308 iOS home bug batch — Low (needs the list)
@@ -44,16 +69,6 @@ _Supporting:_ #292 now in M3
 	- [ ] #310 Better SVG activity icons — Low
 - [ ] #312 Webapp bug batch (WhatsApp list) — Medium (needs the list)
 - [ ] #354 Widget entitlements not referenced — Low
-
-### Epic: Sport-agnostic core (#313)
-
-- [ ] #460 Category sub-tags under each sport — Low
-- [ ] #315 Badminton + calisthenics analytics — Medium
-- [ ] #314 Home widgets not sport-hardcoded — Medium
-- [ ] #365 Generic workout templates — Medium (blocked until #360 loads templates)
-- [ ] #367 Quest / gamification audit — Medium
-- [ ] #156 HealthKit enrichment — High (pick old PR vs day-grain proposal first)
-- [x] #316 seasons/phases + quest_history — absorbed into #86/#378; leftover is #411
 
 ### Epic: Coach depth (#317)
 
@@ -71,8 +86,12 @@ _Supporting:_ #292 now in M3
 ### Epic: Platform hardening (#325)
 
 - [ ] #473 Coach-chat write path — Medium
+	- [ ] #576 Can't write main_quest floor/weight or progressions._meta — Effort not set
+	- [ ] #577 plan_edit can't touch week.guardrails[] or do free-form edits — Effort not set
+	- [ ] #575 coach_log.json phase_close/week_close row folding decision — Effort not set
+	- [ ] #565 progress.json / quests.json source enum: drop dead values — Effort not set
 	- [ ] #411 Season recap ritual — Medium (later)
-	- [ ] #359 Archive writes silently dropped — Low
+	- [ ] #359 Archive writes silently dropped — Low (**silent data loss; cheap to fix, worth pulling forward**)
 	- [ ] #361 Validate week file before save — Low
 - [ ] #462 Storage caps (free-text limits) — Low
 	- [ ] #436 Rotate coach_log.json — Low
@@ -81,6 +100,14 @@ _Supporting:_ #292 now in M3
 - [ ] #454 Athlete-repo leftovers — Medium
 	- [ ] #419 Schema version-2 policy — Medium
 - [ ] #329 Coach-chat eval + clean view — Medium
+	- [ ] #573 Judge-model persona/voice scoring in the eval harness — Effort not set
+- [ ] #585 Observability + iOS rage reports — Effort not set (plan open: PR #587)
+- [ ] #566 Consolidate coach-chat's 3 routes behind a catch-all — Effort not set
+- [ ] #572 Conversation compaction for coach-chat history window — Effort not set
+- [ ] #574 Background-finish redesign for closing turns (async close) — Effort not set
+- [ ] #493 Sweep docs/plans/ — 10 files marked Current, several belong to closed epics — Effort not set
+- [ ] #492 Revisit a dedicated coach-band agent when #317 starts — Effort not set
+- [x] #564 Delete provision-user.sh's dead --migrate mode — overtaken: the whole script is deleted (ADR 0030/0031)
 - [ ] #292 vs_usual baseline during sync — Low (PR open)
 - [x] #328 Docs audit + agent framework (incl #130)
 - [x] #130 Prune and separate eng vs coach docs
@@ -126,7 +153,6 @@ Schema migration done. Season recap leftover moved to #473 / #411.
 - [ ] #343 Testing framework: LLM benchmarks + iOS UI tests
 - [ ] #344 Product page dashboard check
 - [ ] #345 Remove "Phelps" everywhere (rebrand)
-- [ ] #346 Signup-as-runner/cyclist reality check
 
 ## 🧊 Backlog — P2
 
@@ -136,11 +162,20 @@ Schema migration done. Season recap leftover moved to #473 / #411.
 ## 🔀 Decisions to take
 
 - [x] **Gemini vs Claude** — RESOLVED, Gemini e2e shipped (#297 closed Aug 22)
-- [ ] **backend+DB** (P2) — repo-update path (#327 / #326) waits on this; do not start those
-- [ ] **HealthKit shape** — old richer-ingestion PR vs day-grain + sidecar; blocks #156
+- [x] **backend+DB** — **DEFERRED, not rejected** (2026-08-25). Revisit once the product is proven at
+  5 users and the open bugs are cleared. Long-term shape still stands in `scaling-plan.md` §9.
+	- ⚠️ **This releases #327 / #326 rather than blocking them.** The old hold read "do not start those
+	  — may die if we go backend." If the backend is that far out, athlete repos drift for months with
+	  no way to receive a fix. The hold's reason is gone, so PR #586 proceeds — judged on its scope,
+	  not on this decision.
+- [x] **HealthKit shape** — RESOLVED by closing #162: day-grain + sidecar (#427) is the direction. ADR deferred until #427 is picked up — see the note on #156. Unblocks #156, #501, #495.
 - [ ] **Season recap** — later (#411)
 
 ## ✅ Done
+
+**Aug 25 — Priority labels retired + sport-agnostic pulled forward:** the `p0`–`p3` issue labels are gone. Nothing automated read them, nobody sorted by them, and a second scale beside the review tiers only caused confusion — including one agent misreading a stale `p0` as current. Milestones and epics do the sorting. #313 moved ahead of #307 and #346 moved out of M4 — Prateek plays football and cycles, neither of which the product handles. HealthKit shape resolved by closing #162.
+
+**Aug 25 — Onboarding gate cleared + board sync:** Nats and Prateek self-served (no operator); ADR 0030 records iOS-only signup; scaling-plan M4 corrected; 14 issues missing from this board added — **none of them has an Effort set on the issue**, so none carries one here.
 
 **Aug 22 — M3 board sync:** nested parents, Effort on issues, shipped docs-checker / leftover-UI / iOS-boot / write-path grouping
 **Aug 22 — M3 board hygiene:** #299 M2 epic closed (#292 lives in M3), #316 absorbed into #411, #318/#392 closed as shipped, #440/#441 iOS sync+Health Settings shipped
