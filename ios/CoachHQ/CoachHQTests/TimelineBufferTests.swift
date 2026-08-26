@@ -15,8 +15,8 @@ final class TimelineBufferTests: XCTestCase {
     }
 
     override func tearDown() {
-        try? FileManager.default.removeItem(at: fileURL)
         buffer = nil
+        try? FileManager.default.removeItem(at: fileURL)
         fileURL = nil
         super.tearDown()
     }
@@ -53,6 +53,7 @@ final class TimelineBufferTests: XCTestCase {
         )
         buffer.addEvent(category: "test", message: "recent", timestamp: Self.referenceDate)
 
+        buffer = nil
         let reloaded = TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate })
         XCTAssertEqual(reloaded.getEvents().map(\.message), ["recent"])
     }
@@ -66,6 +67,7 @@ final class TimelineBufferTests: XCTestCase {
             metadata: ["outcome": "success", "count": "2"]
         )
 
+        buffer = nil
         let reloaded = TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate })
         XCTAssertEqual(reloaded.getEvents().first?.operationID, operationID)
         XCTAssertEqual(reloaded.getEvents().first?.metadata["count"], "2")
@@ -79,6 +81,8 @@ final class TimelineBufferTests: XCTestCase {
 
         XCTAssertTrue(buffer.getEvents().isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
+
+        buffer = nil
         XCTAssertEqual(TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate }).getEvents(), [])
     }
 }
