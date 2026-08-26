@@ -76,10 +76,10 @@ _Supporting:_ #292 now in M3
 	- [ ] #361 Validate week file before save — Low
 - [ ] #462 Storage caps (free-text limits) — Low
 	- [ ] #436 Rotate coach_log.json — Low
-- [ ] #327 How updates reach athlete repos — High (hold: may die if we go backend)
+- [ ] #327 How updates reach athlete repos — High (V1 approved: athlete-token update on contact)
 	- [ ] #326 Plugin install flow — High
 - [ ] #454 Athlete-repo leftovers — Medium
-	- [ ] #419 Schema version-2 policy — Medium
+	- [ ] #419 Schema version-2 policy — Medium (fold into #327 PR1)
 - [ ] #329 Coach-chat eval + clean view — Medium
 - [ ] #292 vs_usual baseline during sync — Low (PR open)
 - [x] #328 Docs audit + agent framework (incl #130)
@@ -136,7 +136,8 @@ Schema migration done. Season recap leftover moved to #473 / #411.
 ## 🔀 Decisions to take
 
 - [x] **Gemini vs Claude** — RESOLVED, Gemini e2e shipped (#297 closed Aug 22)
-- [ ] **backend+DB** (P2) — repo-update path (#327 / #326) waits on this; do not start those
+- [ ] **backend+DB** (P2) — still open for long-term storage; ADR 0002 keeps repo runtime for V1,
+	so it does not block #327 / #326
 - [ ] **HealthKit shape** — old richer-ingestion PR vs day-grain + sidecar; blocks #156
 - [ ] **Season recap** — later (#411)
 
