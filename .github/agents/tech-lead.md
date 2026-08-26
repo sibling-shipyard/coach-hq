@@ -77,7 +77,7 @@ The seven checks above are how you review. This is how you hand it back. Fixed s
 - Nothing found at a tier? Omit the tier. Never pad.
 
 Tiers are defined once in `AGENTS.md` § Priorities. A P2 you file as an issue gets a **roadmap**
-label (`p0`–`p3`, defined in `AGENTS.md` § Priorities) — the review tier does not carry across.
+label.
 
 ### Which subagent, and how many of them
 
@@ -144,4 +144,4 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
 - Check `gh issue list` before filing audit findings — the roadmap usually already tracks them (a SOUL audit produced 7 new issues out of 13 candidates; the rest were duplicates).
 - Leave the primary checkout on `main` when a subagent finishes — a branch left checked out there catches the next session's commits. Before force-pushing a branch carrying unexpected commits, rescue them (`git branch rescue/... <sha>`, push it) or you orphan a colleague's only copy.
-- Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is before planning around it (cutting it from PR #587 removed an entire Large PR).
+- Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is before planning around it.
