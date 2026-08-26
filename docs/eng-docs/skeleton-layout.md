@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-23 · Locked: 2026-07-26 · Authority: [`m1-plan.md`](m1-plan.md) · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-23 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
@@ -156,7 +156,7 @@ directly to `user_data/activities/hist/`; the workflow's only pipeline entry is
 
 ## Path migration map (legacy → new)
 
-For `provision-user.sh --migrate` and HQ consumer updates (PR 2).
+For the M1 migrate path (`provision-user.sh`, since deleted) and HQ consumer updates (PR 2).
 
 | Old | New |
 |---|---|
@@ -197,7 +197,7 @@ Same tree in both cases.
 flowchart LR
   P0["Phase 0 docs"] --> PR1["PR 1: Phases 1-2"]
   PR1 --> PR2["PR 2: Phase 3 consumers"]
-  PR2 --> M1b["M1b provision-user.sh"]
+  PR2 --> M1b["M1b provisioning (retired)"]
   M1b --> M1cd["M1c/d onboard"]
 ```
 
@@ -205,7 +205,7 @@ flowchart LR
 |---|---|---|
 | **PR 1** | `carve-skeleton.mjs`, engine path migration, SOUL file map, skeleton push | Live skeleton matches this doc, engine scripts use new paths |
 | **PR 2** | `ui/api/*`, iOS path updates | Dashboard + iOS read new paths |
-| **After merge** | M1b provision, M1c/d validation | See [`m1-plan.md`](m1-plan.md) |
+| **After merge** | M1b provision, M1c/d validation | Done; the M1 plan and its runbook are deleted — see git history |
 
 **Cutover:** B-style — you/Skanda tolerate brief breakage until PR 2 lands.
 
@@ -225,4 +225,4 @@ flowchart LR
 | Carve operator tool | `platform/scripts/carve-skeleton.mjs` |
 | HQ engine source | `engine/` |
 | Live skeleton | https://github.com/sibling-shipyard/coach-skeleton |
-| M1 milestones | [`m1-plan.md`](m1-plan.md) |
+| M1 milestones | [`scaling-plan.md`](scaling-plan.md) §7 |
