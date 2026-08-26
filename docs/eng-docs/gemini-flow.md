@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
 
 ## Context
 
@@ -145,6 +145,14 @@ The server owns dates, generated ids, timestamps, commit messages, and thread ti
 reports semantic actions only. `firstSession` is passed explicitly from the profile-completion
 check; prompt construction does not infer mode by searching injected text.
 
+**Text-field length caps (issue #462).** `coach_note`, `memory_update.text`, and
+`injury_event[].text` each carry a `maxLength` in `RESPONSE_PROPERTIES`
+(`coachReplySchema.ts`), sourced from `engine/lib/text-caps.mts`. The same numbers are
+restated as a plain-text instruction per field in the prompt (`coachPromptText.ts`) — schema
+`maxLength` is a real constraint Gemini receives, not a guarantee it honors, so the prompt line
+is a second, cheap nudge reading the same constant. See "Retries" below for what happens when
+both still aren't enough.
+
 ## Action-field design rule (any new Gemini-facing field/action)
 
 Hard rule, not a suggestion — every field added to `responseSchema` for Gemini to report a fact
@@ -194,9 +202,18 @@ new action added to this schema is filtered through these four rules for that re
   kind — the 400-retry and the 504/503-retry are mutually exclusive branches (`if`/`else if`) on
   the same call, not independent checks that can both fire. Letting both fire back to back would
   allow a single unlucky request to chain 3 full 45s-budget calls (~135s), blowing through
-  `maxDuration` regardless of how generous it's set. Capped like this, the worst case for the
-  Gemini portion alone is 2 calls (~90s) — still real, but bounded and something `maxDuration` can
-  actually be sized against.
+  `maxDuration` regardless of how generous it's set. Capped like this, the worst case for one
+  `askGemini()` invocation is 2 calls (~90s) — still real, but bounded and something
+  `maxDuration` can actually be sized against.
+- Separately, `requestCoachReply` (`coachTurn.ts`) does its own single reprompt — a second, full
+  `askGemini()` invocation — if `coach_note`/`memory_update.text`/`injury_event[].text` comes
+  back over its `maxLength` cap (issue #462). This is content-triggered, not transport-triggered,
+  so it's independent of the 400/503/504 retry above and can stack with it: the true worst case
+  for a closing turn that both hits a transport retry _and_ needs the text-cap reprompt is two
+  full `askGemini()` invocations, each up to ~90s, ~180s total — still under the 300s
+  `maxDuration` ceiling, but worth knowing this bullet's "2 calls" is per-invocation, not
+  per-turn. No retry on a second text-cap violation — `capText` in `turnWrites/*.ts` truncates
+  deterministically if the reprompt still overshoots.
 - A 429 is surfaced as a typed error the client shows as "rate-limited, try again shortly" — see
   `coachChatModel.ts`'s `CoachChatRateLimitedError` / iOS's `UserFacingError.swift`. No
   server-side retry on the Gemini call itself (a 429 mid-generation isn't safely retryable the

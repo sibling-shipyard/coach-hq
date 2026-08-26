@@ -43,6 +43,11 @@ import {
   type OnboardingHints,
 } from "./coachPromptText.js";
 import type { GeminiReply } from "./coachReplySchema.js";
+import {
+  COACH_LOG_TEXT_CAP,
+  MEMORY_NOTE_TEXT_CAP,
+  INJURY_FLAG_TEXT_CAP,
+} from "./text-caps.bundle.js";
 import { FIRST_SESSION_PROTOCOL } from "../../_generated/soul.js";
 import { fspIncrementalWrites, ordinaryTurnResponse } from "./fspWrites.js";
 import { buildChatWrite } from "./turnWrites/chatWrite.js";
@@ -295,27 +300,99 @@ export async function loadTurnState(
   };
 }
 
+// Layer 2 of the text-caps design (issue #462): the Gemini schema's maxLength (layer 1) and the
+// prompt's stated caps (layer 0) are both requests, not guarantees - Gemini can still overshoot.
+// This checks the parsed reply against the same three caps and reports the first violation found;
+// layer 3 (capText in turnWrites/*) is the deterministic backstop if this and the reprompt below
+// both fail.
+function findOversizedTextField(
+  reply: GeminiReply,
+): { field: string; length: number; cap: number } | null {
+  if (reply.coach_note && reply.coach_note.length > COACH_LOG_TEXT_CAP) {
+    return { field: "coach_note", length: reply.coach_note.length, cap: COACH_LOG_TEXT_CAP };
+  }
+  if (reply.memory_update?.text && reply.memory_update.text.length > MEMORY_NOTE_TEXT_CAP) {
+    return {
+      field: "memory_update.text",
+      length: reply.memory_update.text.length,
+      cap: MEMORY_NOTE_TEXT_CAP,
+    };
+  }
+  const oversizedInjury = (reply.injury_event ?? []).find(
+    (event) => event.text != null && event.text.length > INJURY_FLAG_TEXT_CAP,
+  );
+  if (oversizedInjury) {
+    return {
+      field: "injury_event[].text",
+      length: oversizedInjury.text!.length,
+      cap: INJURY_FLAG_TEXT_CAP,
+    };
+  }
+  return null;
+}
+
 export async function requestCoachReply(
   turn: TurnState,
 ): Promise<Response | RepliedTurn> {
+  const mode = turn.closeIntent ? "closing" : "ordinary";
+  const extraContext = combineExtraContext(
+    firstSessionContext(turn.firstSession, FIRST_SESSION_PROTOCOL),
+    activeTemplatesContext(turn.validTemplateIds),
+    activeWeekSessionsContext(turn.weekSessionsForContext),
+  );
   try {
-    const reply = await askGemini(
+    let reply = await askGemini(
       turn.apiKey,
       turn.context.soul!,
       turn.athleteContext,
       turn.questContext,
       turn.priorMessages,
       turn.geminiMessage,
-      turn.closeIntent ? "closing" : "ordinary",
+      mode,
       turn.firstSession,
-      combineExtraContext(
-        firstSessionContext(turn.firstSession, FIRST_SESSION_PROTOCOL),
-        activeTemplatesContext(turn.validTemplateIds),
-        activeWeekSessionsContext(turn.weekSessionsForContext),
-      ),
+      extraContext,
       turn.traceId,
       turn.timezone,
     );
+    // Content-triggered retry, not a transport one (that's geminiClient.ts's own retry on
+    // timeout/rate-limit) - kept as its own explicit step here. Exactly one reprompt attempt; if
+    // that also comes back oversized, layer 3's capText backstop in turnWrites/* handles it.
+    const violation = findOversizedTextField(reply);
+    if (violation) {
+      console.warn("[coach-chat] reply field over its text cap, reprompting once:", violation, {
+        traceId: turn.traceId,
+      });
+      const repromptMessage = [
+        turn.geminiMessage,
+        `\n[System note: your ${violation.field} was ${violation.length} characters, over the`,
+        `${violation.cap} character limit. Redo just that field within budget; keep everything`,
+        "else the same.]",
+      ].join(" ");
+      reply = await askGemini(
+        turn.apiKey,
+        turn.context.soul!,
+        turn.athleteContext,
+        turn.questContext,
+        turn.priorMessages,
+        repromptMessage,
+        mode,
+        turn.firstSession,
+        extraContext,
+        turn.traceId,
+        turn.timezone,
+      );
+      // The reprompt is a request, not a guarantee either - if Gemini still overshoots, capText
+      // in turnWrites/* will truncate silently downstream. Log it here so a persistent
+      // oversize-then-truncate pattern shows up somewhere instead of vanishing into the backstop.
+      const stillOversized = findOversizedTextField(reply);
+      if (stillOversized) {
+        console.warn(
+          "[coach-chat] reply still over its text cap after reprompt, capText will truncate it:",
+          stillOversized,
+          { traceId: turn.traceId },
+        );
+      }
+    }
     return {
       ...turn,
       reply,
