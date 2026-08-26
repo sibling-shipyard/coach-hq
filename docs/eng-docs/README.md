@@ -15,8 +15,10 @@ old CURRENT.md index was deleted. Never add one; use `ls` and `grep`.**
 
 **Reference test — the rule that matters:** *if shipped code, a script, or an ADR cites a doc, it
 is reference, not a plan.* `docs/plans/` is delete-on-ship, so filing a code-cited doc there
-orphans those source comments. `coach-commit-mvp.md` and `user-3-onboarding-gate.md` read like
-plans but are cited from `ui/api/coach-chat.ts`, its tests, or other docs — so they stay here.
+orphans those source comments. `coach-commit-mvp.md` reads like a plan but is cited from other
+reference docs, so it stays here. **Check the citation, don't assume it:** the same claim was made
+for `user-3-onboarding-gate.md`, and when tested it had no citation from code, a script, or an ADR
+— only from other stale docs. It was deleted.
 (`coach-chat-closing-followup.md` no longer meets this bar as of the coach-chat-reliability-debug
 branch — the Part B retry/honesty-guard code it documented was removed there, so it was folded
 into `coach-chat-design-history.md` and deleted rather than kept as reference.) Before deleting a
