@@ -4,75 +4,370 @@ import Sentry
 struct TimelineEvent: Codable, Equatable {
     let id: UUID
     let timestamp: Date
+    let category: String
     let message: String
-    
-    init(id: UUID = UUID(), timestamp: Date = Date(), message: String) {
+    let operationID: UUID?
+    let metadata: [String: String]
+
+    init(
+        id: UUID = UUID(),
+        timestamp: Date = Date(),
+        category: String,
+        message: String,
+        operationID: UUID? = nil,
+        metadata: [String: String] = [:]
+    ) {
         self.id = id
         self.timestamp = timestamp
+        self.category = category
         self.message = message
+        self.operationID = operationID
+        self.metadata = metadata
     }
 }
 
-class TimelineBuffer {
-    static let shared = TimelineBuffer()
-    private let maxEvents = 200
-    private let maxAge: TimeInterval = 24 * 60 * 60
-    private let maxSizeBytes = 256 * 1024
-    
-    private let queue = DispatchQueue(label: "com.coachhq.timelinebuffer")
-    
-    private var events: [TimelineEvent] = []
-    
-    private var fileURL: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("timeline.json")
+enum DiagnosticsScrubber {
+    nonisolated private static let filtered = "[Filtered]"
+    nonisolated private static let sensitiveKeys: Set<String> = [
+        "authorization", "cookie", "setcookie", "xgithubtoken", "xsessiontoken",
+        "geminiapikey", "sessionsecret", "githubappclientsecret"
+    ]
+    nonisolated private static let patterns = [
+        #"ghp_[A-Za-z0-9_]{36,}"#,
+        #"AIza[0-9A-Za-z_-]{35}"#,
+        #"(?:Bearer\s+)?eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]*)?"#
+    ].compactMap { try? NSRegularExpression(pattern: $0) }
+
+    nonisolated static func isSensitiveKey(_ key: String) -> Bool {
+        let normalized = key.lowercased().filter(\.isLetter)
+        return sensitiveKeys.contains(normalized)
     }
-    
-    init() {
-        if let data = try? Data(contentsOf: fileURL),
-           let loaded = try? JSONDecoder().decode([TimelineEvent].self, from: data) {
-            self.events = loaded
+
+    nonisolated static func scrub(_ string: String) -> String {
+        patterns.reduce(string) { result, pattern in
+            pattern.stringByReplacingMatches(
+                in: result,
+                range: NSRange(result.startIndex..., in: result),
+                withTemplate: filtered
+            )
         }
     }
-    
-    func addEvent(_ message: String, timestamp: Date = Date()) {
+
+    nonisolated static func scrub(_ value: Any) -> Any {
+        switch value {
+        case let string as String:
+            return scrub(string)
+        case let dictionary as [String: Any]:
+            return scrub(dictionary)
+        case let array as [Any]:
+            return array.map(scrub)
+        default:
+            return value
+        }
+    }
+
+    nonisolated static func scrub(_ dictionary: [String: Any]) -> [String: Any] {
+        dictionary.reduce(into: [:]) { result, item in
+            result[item.key] = isSensitiveKey(item.key) ? filtered : scrub(item.value)
+        }
+    }
+
+    nonisolated static func scrub(_ dictionary: [String: String]) -> [String: String] {
+        dictionary.reduce(into: [:]) { result, item in
+            result[item.key] = isSensitiveKey(item.key) ? filtered : scrub(item.value)
+        }
+    }
+}
+
+final class TimelineBuffer {
+    static let shared = TimelineBuffer()
+
+    static let eventLimit = 200
+    static let byteLimit = 256 * 1024
+    static let ageLimit: TimeInterval = 24 * 60 * 60
+
+    private let queue = DispatchQueue(label: "com.coachhq.timelinebuffer")
+    private let fileURL: URL
+    private let now: () -> Date
+    private var events: [TimelineEvent]
+
+    init(fileURL: URL? = nil, now: @escaping () -> Date = Date.init) {
+        self.fileURL = fileURL ?? Self.defaultFileURL
+        self.now = now
+        if let data = try? Data(contentsOf: self.fileURL),
+           let loaded = try? JSONDecoder().decode([TimelineEvent].self, from: data) {
+            events = loaded
+        } else {
+            events = []
+        }
+        enforceLimits(referenceDate: now())
+        save()
+    }
+
+    func addEvent(
+        category: String,
+        message: String,
+        operationID: UUID? = nil,
+        metadata: [String: String] = [:],
+        timestamp: Date? = nil
+    ) {
         queue.sync {
-            let event = TimelineEvent(timestamp: timestamp, message: message)
-            events.append(event)
-            enforceLimits()
+            events.append(TimelineEvent(
+                timestamp: timestamp ?? now(),
+                category: DiagnosticsScrubber.scrub(category),
+                message: DiagnosticsScrubber.scrub(message),
+                operationID: operationID,
+                metadata: DiagnosticsScrubber.scrub(metadata)
+            ))
+            enforceLimits(referenceDate: now())
             save()
         }
     }
-    
+
     func getEvents() -> [TimelineEvent] {
-        return queue.sync {
-            enforceLimits()
+        queue.sync {
+            enforceLimits(referenceDate: now())
+            save()
             return events
         }
     }
-    
+
     func clearOnSignOut() {
         queue.sync {
             events.removeAll()
             try? FileManager.default.removeItem(at: fileURL)
         }
     }
-    
-    private func save() {
-        if let data = try? JSONEncoder().encode(events) {
-            try? data.write(to: fileURL)
-        }
+
+    var persistedSizeBytes: Int {
+        queue.sync { (try? Data(contentsOf: fileURL).count) ?? 0 }
     }
-    
-    private func enforceLimits() {
-        let cutoff = Date().addingTimeInterval(-maxAge)
-        events = events.filter { $0.timestamp > cutoff }
-        
-        if events.count > maxEvents {
-            events = Array(events.suffix(maxEvents))
+
+    private static var defaultFileURL: URL {
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CoachHQ", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent("diagnostic-timeline.json")
+    }
+
+    private func encodedEvents() -> Data? {
+        try? JSONEncoder().encode(events)
+    }
+
+    private func save() {
+        guard !events.isEmpty else {
+            try? FileManager.default.removeItem(at: fileURL)
+            return
         }
-        
-        while let data = try? JSONEncoder().encode(events), data.count > maxSizeBytes, !events.isEmpty {
+        guard let data = encodedEvents() else { return }
+        try? data.write(to: fileURL, options: .atomic)
+    }
+
+    private func enforceLimits(referenceDate: Date) {
+        let cutoff = referenceDate.addingTimeInterval(-Self.ageLimit)
+        events.removeAll { $0.timestamp <= cutoff }
+        if events.count > Self.eventLimit {
+            events = Array(events.suffix(Self.eventLimit))
+        }
+        while events.count > 1,
+              let data = encodedEvents(),
+              data.count > Self.byteLimit {
             events.removeFirst()
         }
+        if let only = events.first,
+           let data = encodedEvents(),
+           data.count > Self.byteLimit {
+            events = [TimelineEvent(
+                id: only.id,
+                timestamp: only.timestamp,
+                category: only.category,
+                message: String(only.message.prefix(2_048)),
+                operationID: only.operationID,
+                metadata: [:]
+            )]
+        }
+    }
+}
+
+struct DiagnosticOperation {
+    let id: UUID
+    let name: String
+    private let startedAt: Date
+    private let span: Span
+
+    fileprivate init(id: UUID, name: String, startedAt: Date, span: Span) {
+        self.id = id
+        self.name = name
+        self.startedAt = startedAt
+        self.span = span
+    }
+
+    func finish(outcome: String, count: Int? = nil) {
+        let durationMS = Int(Date().timeIntervalSince(startedAt) * 1_000)
+        span.setTag(value: outcome, key: "outcome")
+        span.setData(value: id.uuidString, key: "operation_id")
+        span.setData(value: durationMS, key: "duration_ms")
+        if let count { span.setData(value: count, key: "count") }
+        span.finish()
+        DiagnosticsManager.record(
+            category: name,
+            message: "finished",
+            operationID: id,
+            metadata: [
+                "outcome": outcome,
+                "duration_ms": String(durationMS),
+                "count": count.map(String.init) ?? "0"
+            ]
+        )
+    }
+}
+
+enum DiagnosticsManager {
+    private static var isConfigured = false
+
+    static var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+    }
+
+    static var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+    }
+
+    static var releaseName: String {
+        let bundle = Bundle.main
+        let identifier = bundle.bundleIdentifier ?? "com.siblingshipyard.coachhq.app"
+        return "\(identifier)@\(appVersion)+\(buildNumber)"
+    }
+
+    static var environment: String {
+#if DEBUG
+        "development"
+#else
+        "production"
+#endif
+    }
+
+    static func configure() {
+        guard !isConfigured else { return }
+        isConfigured = true
+        let dsn = Secrets.sentryDSN.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !dsn.isEmpty, !dsn.contains("example@sentry.io") else { return }
+
+        SentrySDK.start { options in
+            options.dsn = dsn
+            options.releaseName = releaseName
+            options.dist = buildNumber
+            options.environment = environment
+            options.tracesSampleRate = 1.0
+            options.attachScreenshot = false
+            options.sessionReplay = SentryReplayOptions(sessionSampleRate: 0, onErrorSampleRate: 0)
+            options.beforeSend = scrub(event:)
+        }
+        SentrySDK.configureScope { scope in
+            scope.setTag(value: appVersion, key: "app_version")
+            scope.setTag(value: buildNumber, key: "build_number")
+        }
+        sendTestEventIfRequested(arguments: ProcessInfo.processInfo.arguments)
+    }
+
+    static func setAthlete(repoFullName: String?) {
+        let athleteID = repoFullName?.split(separator: "/").first.map(String.init)
+        SentrySDK.configureScope { scope in
+            if let athleteID {
+                scope.setTag(value: athleteID, key: "athlete_id")
+                scope.setUser(User(userId: athleteID))
+            } else {
+                scope.removeTag(key: "athlete_id")
+                scope.setUser(nil)
+            }
+        }
+    }
+
+    static func setView(_ viewName: String) {
+        SentrySDK.configureScope { $0.setTag(value: viewName, key: "view_name") }
+        record(category: "navigation", message: viewName)
+    }
+
+    static func beginOperation(name: String) -> DiagnosticOperation {
+        let id = UUID()
+        let span = SentrySDK.startTransaction(name: name, operation: name)
+        span.setData(value: id.uuidString, key: "operation_id")
+        record(category: name, message: "started", operationID: id)
+        return DiagnosticOperation(id: id, name: name, startedAt: Date(), span: span)
+    }
+
+    static func record(
+        category: String,
+        message: String,
+        operationID: UUID? = nil,
+        metadata: [String: String] = [:]
+    ) {
+        TimelineBuffer.shared.addEvent(
+            category: category,
+            message: message,
+            operationID: operationID,
+            metadata: metadata
+        )
+        let breadcrumb = Breadcrumb(level: .info, category: category)
+        breadcrumb.message = message
+        breadcrumb.data = DiagnosticsScrubber.scrub(
+            metadata.merging(operationID.map { ["operation_id": $0.uuidString] } ?? [:]) { current, _ in current }
+        )
+        SentrySDK.addBreadcrumb(breadcrumb)
+    }
+
+    static func capture(
+        error: Error,
+        operation: String,
+        operationID: UUID,
+        metadata: [String: String] = [:]
+    ) {
+        record(category: operation, message: "failed", operationID: operationID, metadata: metadata)
+        SentrySDK.capture(error: error) { scope in
+            scope.setTag(value: operation, key: "operation")
+            scope.setTag(value: operationID.uuidString, key: "operation_id")
+            scope.setExtras(DiagnosticsScrubber.scrub(metadata))
+        }
+    }
+
+    static func shouldSendTestEvent(arguments: [String]) -> Bool {
+        arguments.contains("--send-sentry-test-event")
+    }
+
+    private static func sendTestEventIfRequested(arguments: [String]) {
+        guard shouldSendTestEvent(arguments: arguments) else { return }
+        let operationID = UUID()
+        SentrySDK.capture(message: "CoachHQ iOS Sentry verification") { scope in
+            scope.setTag(value: "sentry_verification", key: "operation")
+            scope.setTag(value: operationID.uuidString, key: "operation_id")
+            scope.setExtra(value: true, key: "safe_test_event")
+        }
+    }
+
+    nonisolated static func scrub(event: Event) -> Event? {
+        if let request = event.request {
+            request.headers = request.headers?.filter { !DiagnosticsScrubber.isSensitiveKey($0.key) }
+                .mapValues(DiagnosticsScrubber.scrub)
+            request.cookies = nil
+            request.queryString = request.queryString.map(DiagnosticsScrubber.scrub)
+            request.url = request.url.map(DiagnosticsScrubber.scrub)
+        }
+        event.extra = event.extra.map(DiagnosticsScrubber.scrub)
+        event.tags = event.tags.map(DiagnosticsScrubber.scrub)
+        event.context = event.context.map { context in
+            context.mapValues(DiagnosticsScrubber.scrub)
+        }
+        if let message = event.message {
+            event.message = SentryMessage(formatted: DiagnosticsScrubber.scrub(message.formatted))
+        }
+        event.exceptions?.forEach { $0.value = DiagnosticsScrubber.scrub($0.value) }
+        event.breadcrumbs?.forEach { breadcrumb in
+            breadcrumb.message = breadcrumb.message.map(DiagnosticsScrubber.scrub)
+            breadcrumb.data = breadcrumb.data.map(DiagnosticsScrubber.scrub)
+        }
+        if let userData = event.user?.data {
+            event.user?.data = DiagnosticsScrubber.scrub(userData)
+        }
+        return event
     }
 }

@@ -20,6 +20,15 @@ extension View {
 enum AppTab: Hashable, CaseIterable {
     case home, chat, workouts, you
 
+    var diagnosticViewName: String {
+        switch self {
+        case .home: "HomeView"
+        case .chat: "CoachChatView"
+        case .workouts: "WorkoutListView"
+        case .you: "SettingsView"
+        }
+    }
+
     var outlineIcon: String {
         switch self {
         case .home: return "house"
@@ -198,6 +207,8 @@ struct MainTabView: View {
         .animation(PremiumMotion.dock, value: tabBarHidden)
         .background(WarmInstrument.desk.ignoresSafeArea())
         .onAppear {
+            DiagnosticsManager.setAthlete(repoFullName: authManager.repoFullName)
+            DiagnosticsManager.setView(selectedTab.diagnosticViewName)
             pendingCoachMessageRoute = CoachMessageRoute.load(matching: authManager.repoFullName)
             if pendingChatNavigation {
                 pendingChatNavigation = false
@@ -223,9 +234,11 @@ struct MainTabView: View {
             withAnimation(PremiumMotion.state) { selectedTab = .home }
         }
         .onChange(of: authManager.repoFullName) { _, repoFullName in
+            DiagnosticsManager.setAthlete(repoFullName: repoFullName)
             pendingCoachMessageRoute = CoachMessageRoute.load(matching: repoFullName)
         }
         .onChange(of: selectedTab) { _, newTab in
+            DiagnosticsManager.setView(newTab.diagnosticViewName)
             if newTab == .chat { chatHasUnread = false }
             if newTab == .home, widgetStore.shouldRefresh {
                 Task { await widgetStore.refresh(showSpinner: false) }
