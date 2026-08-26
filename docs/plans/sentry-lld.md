@@ -39,7 +39,7 @@ All Sentry SDK integrations (browser SDK, Node/Vercel SDK, Swift SDK) must run `
 
 1. **Headers & cookies:** Strip `Authorization`, `Cookie`, `Set-Cookie`, `x-github-token`, and `x-session-token`.
 2. **Secrets & tokens:** Redact any string matching `ghp_[A-Za-z0-9_]{36,}`, `AIza[0-9A-Za-z-_]{35}`, or JWT tokens (`Bearer eyJ...`).
-3. **Private credentials:** Redact `GEMINI_API_KEY`, `SESSION_SECRET`, and `GH_CLIENT_SECRET`.
+3. **Private credentials:** Redact `GEMINI_API_KEY`, `SESSION_SECRET`, and `GITHUB_APP_CLIENT_SECRET`.
 
 ### Storage & retention bounds
 
