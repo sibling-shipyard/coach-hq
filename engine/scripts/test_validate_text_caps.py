@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -110,6 +111,38 @@ class TestValidateTextCaps(unittest.TestCase):
             errors = validate_text_caps.validate(root)
             self.assertTrue(any("flags[0].text" in e for e in errors))
             self.assertEqual(validate_text_caps.main(["--root", tmp]), 1)
+
+    def test_non_string_text_field_fails_instead_of_skipping(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root, "user_data/coach/coach_log.json", _valid_log(12345))
+            errors = validate_text_caps.validate(root)
+            self.assertTrue(any("rows[0].text is int, not a string" in e for e in errors))
+            self.assertEqual(validate_text_caps.main(["--root", tmp]), 1)
+
+
+class TestCapConstantsMatchTypeScript(unittest.TestCase):
+    """text-caps.mts is the source of truth (issue #462) - this file's three constants are
+    hand-duplicated because Python can't import a .mts module. Catch drift instead of trusting
+    the comment."""
+
+    def test_python_caps_match_engine_lib_text_caps_mts(self):
+        ts_path = Path(__file__).resolve().parents[1] / "lib" / "text-caps.mts"
+        source = ts_path.read_text()
+        expected = {
+            "COACH_LOG_TEXT_CAP": validate_text_caps.COACH_LOG_TEXT_CAP,
+            "MEMORY_NOTE_TEXT_CAP": validate_text_caps.MEMORY_NOTE_TEXT_CAP,
+            "INJURY_FLAG_TEXT_CAP": validate_text_caps.INJURY_FLAG_TEXT_CAP,
+        }
+        for name, python_value in expected.items():
+            match = re.search(rf"export const {name} = (\d+);", source)
+            self.assertIsNotNone(match, f"{name} not found in {ts_path}")
+            ts_value = int(match.group(1))
+            self.assertEqual(
+                ts_value,
+                python_value,
+                f"{name}: text-caps.mts has {ts_value}, validate-text-caps.py has {python_value} - keep them in sync",
+            )
 
 
 if __name__ == "__main__":

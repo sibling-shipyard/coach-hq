@@ -42,10 +42,17 @@ def _load(path: Path):
         raise SystemExit(f"{path}: invalid JSON: {exc}") from exc
 
 
-def _text_len(value) -> int | None:
-    if not isinstance(value, str):
+def _check_text_field(value, label: str, cap: int, path: Path) -> str | None:
+    # A present-but-non-string text field is exactly the kind of corruption this backstop exists
+    # to catch - skipping it silently would mean the "backstop" claim doesn't hold for anything
+    # except an oversized string.
+    if value is None:
         return None
-    return len(value)
+    if not isinstance(value, str):
+        return f"{path}: {label} is {type(value).__name__}, not a string"
+    if len(value) > cap:
+        return f"{path}: {label} is {len(value)} chars (max {cap})"
+    return None
 
 
 def check_coach_log(root: Path) -> list[str]:
@@ -60,11 +67,9 @@ def check_coach_log(root: Path) -> list[str]:
     for i, row in enumerate(rows):
         if not isinstance(row, dict):
             continue
-        n = _text_len(row.get("text"))
-        if n is not None and n > COACH_LOG_TEXT_CAP:
-            errors.append(
-                f"{path}: rows[{i}].text is {n} chars (max {COACH_LOG_TEXT_CAP})"
-            )
+        err = _check_text_field(row.get("text"), f"rows[{i}].text", COACH_LOG_TEXT_CAP, path)
+        if err:
+            errors.append(err)
     return errors
 
 
@@ -85,11 +90,9 @@ def check_memory(root: Path) -> list[str]:
         note = notes.get(key)
         if not isinstance(note, dict):
             continue
-        n = _text_len(note.get("text"))
-        if n is not None and n > MEMORY_NOTE_TEXT_CAP:
-            errors.append(
-                f"{path}: notes.{key}.text is {n} chars (max {MEMORY_NOTE_TEXT_CAP})"
-            )
+        err = _check_text_field(note.get("text"), f"notes.{key}.text", MEMORY_NOTE_TEXT_CAP, path)
+        if err:
+            errors.append(err)
     return errors
 
 
@@ -105,11 +108,9 @@ def check_injuries(root: Path) -> list[str]:
     for i, flag in enumerate(flags):
         if not isinstance(flag, dict):
             continue
-        n = _text_len(flag.get("text"))
-        if n is not None and n > INJURY_FLAG_TEXT_CAP:
-            errors.append(
-                f"{path}: flags[{i}].text is {n} chars (max {INJURY_FLAG_TEXT_CAP})"
-            )
+        err = _check_text_field(flag.get("text"), f"flags[{i}].text", INJURY_FLAG_TEXT_CAP, path)
+        if err:
+            errors.append(err)
     return errors
 
 
