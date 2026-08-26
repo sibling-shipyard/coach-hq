@@ -76,8 +76,9 @@ Every agent (Tech Lead + workers) follows this. Role docs add scope; they don't 
 **Learnings:** one-liners in your role doc's `## Learnings`; tradeoffs → ADR. That block is capped at
 1536 bytes and `kdb/scripts/validate_kdb.py` fails over it — on overflow, promote the durable entries
 into the matching `docs/eng-docs/` doc and drop the rest. Never delete a rule with nowhere to live.
-Each entry cites the PR or issue that produced it — without that you cannot tell a stale rule from
-a live one. And a Learning is a temporary state: the **third** time you hand-check the same thing,
+Each entry names something checkable in the repo *today* — a path, a command, a symbol — so a
+reader can test whether it still holds. A PR number cannot do that: it sends you to archaeology
+instead of to the code, and it does not even carry a date. And a Learning is a temporary state: the **third** time you hand-check the same thing,
 it becomes a check or it gets deleted. Norms decay; checks compound.
 
 **Talk:** Co-worker mode. Replies and plans **10–20 lines max** unless the athlete asks for depth.

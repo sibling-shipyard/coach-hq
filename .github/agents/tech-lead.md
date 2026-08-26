@@ -139,8 +139,9 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 
 ## Learnings
 
-- `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree (caused a CI-only failure in PR #294).
+- `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree — it passes locally and fails only in CI.
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
-- Check `gh issue list` before filing audit findings — the roadmap usually already tracks them (a SOUL audit produced 7 new issues out of 13 candidates; the rest were duplicates).
+- Check `gh issue list` before filing audit findings — the roadmap usually already tracks them; a SOUL audit produced 7 genuinely new issues out of 13 candidates.
 - Leave the primary checkout on `main` when a subagent finishes — a branch left checked out there catches the next session's commits. Before force-pushing a branch carrying unexpected commits, rescue them (`git branch rescue/... <sha>`, push it) or you orphan a colleague's only copy.
 - Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is before planning around it.
+- Rebuild a stack when a call reverses mid-way, and never edit a file a later PR in the same stack deletes — appending the reversal makes the stack a diary of your thinking instead of the change.
