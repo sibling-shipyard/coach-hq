@@ -381,6 +381,17 @@ export async function requestCoachReply(
         turn.traceId,
         turn.timezone,
       );
+      // The reprompt is a request, not a guarantee either - if Gemini still overshoots, capText
+      // in turnWrites/* will truncate silently downstream. Log it here so a persistent
+      // oversize-then-truncate pattern shows up somewhere instead of vanishing into the backstop.
+      const stillOversized = findOversizedTextField(reply);
+      if (stillOversized) {
+        console.warn(
+          "[coach-chat] reply still over its text cap after reprompt, capText will truncate it:",
+          stillOversized,
+          { traceId: turn.traceId },
+        );
+      }
     }
     return {
       ...turn,
