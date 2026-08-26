@@ -12,16 +12,15 @@ Layout: [`docs/eng-docs/skeleton-layout.md`](../docs/eng-docs/skeleton-layout.md
 | `lib/` | Shared layout + schema helpers |
 | `core/` | Taxonomy, query_history, rename_core, vs-usual baselines |
 | `.github/workflows/` | sync, validate-data, apply-coach-patch |
+| `claude/athlete/` | Terminal-mode athlete Claude config, carved verbatim - kept intentionally so BYOB access keeps working (issue #454) |
 
-The composed SOUL lives once, in HQ, and the coach-chat backend bundles `platform/SOUL.chat.md`
-directly (`ui/scripts/build-soul.mjs`) rather than reading anything from an athlete's repo. The
-carve ships **no SOUL at all** today, so a freshly carved repo has no SOUL copy — this change does
-not alter that. ADR 0022 adds a BYO Claude Code build, `platform/SOUL.claude.md`, but nothing
-carves it yet; issue #358 is the change that puts a SOUL back in the carve. When it lands,
-`SOUL.claude.md` is the only build ever carved — `SOUL.chat.md` is coach-chat's and never leaves
-HQ. See the ADR amending 0011 for the full rationale. (Two existing athlete repos still carry the pre-retirement
-`propagated/`/`.claude/`/`CLAUDE.md` files from before this change — tracked for cleanup in a
-GitHub issue, not deleted yet since coach-chat is still stabilizing.)
+The carve ships `platform/SOUL.claude.md` as root `SOUL.claude.md`, plus `.claude/` and
+`CLAUDE.md`, so a fresh repo boots as Coach via BYO Claude Code (issue #358, landed).
+`platform/SOUL.chat.md` never leaves HQ - coach-chat bundles it directly
+(`ui/scripts/build-soul.mjs`) rather than reading anything from an athlete's repo. See the ADR
+amending 0011 for the full rationale. (Two existing athlete repos carry these BYOB files
+pointed at `SOUL.claude.md` per the migration in `docs/plans/coach-repo-migration-and-skeleton.md`
+- kept intentionally, not a cleanup item; see issue #454.)
 
 ## Not in engine/ (platform/)
 
