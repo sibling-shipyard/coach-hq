@@ -5,6 +5,7 @@ import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import { applyCoachNote } from "../coachIntents.js";
 import { COACH_LOG_PATH } from "../coachMemoryFiles.js";
+import { capText, COACH_LOG_TEXT_CAP } from "../text-caps.bundle.js";
 
 export function buildCoachNoteWrite(
   repo: string,
@@ -20,7 +21,7 @@ export function buildCoachNoteWrite(
     resolve: async () =>
       applyCoachNote(
         await getFileRaw(repo, COACH_LOG_PATH, token),
-        trimmed,
+        capText(trimmed, COACH_LOG_TEXT_CAP),
         todayDateString(timezone, new Date()),
         traceId,
         new Date(),

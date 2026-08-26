@@ -8,6 +8,7 @@ import {
   applySportsUpdate,
 } from "../coachIntents.js";
 import { MEMORY_PATH, type MemoryNoteLabel } from "../coachMemoryFiles.js";
+import { capText, MEMORY_NOTE_TEXT_CAP } from "../text-caps.bundle.js";
 
 export interface MemoryUpdateInput {
   label: MemoryNoteLabel;
@@ -37,7 +38,7 @@ export function buildMemoryFileWrite(
         working = applyMemoryUpdate(
           working,
           memoryUpdate!.label,
-          memoryUpdate!.text,
+          capText(memoryUpdate!.text, MEMORY_NOTE_TEXT_CAP),
           todayDateString(timezone, new Date()),
           traceId,
         );

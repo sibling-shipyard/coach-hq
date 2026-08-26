@@ -9,6 +9,11 @@
  */
 import { MEMORY_NOTE_LABELS, type MemoryNoteLabel } from "./coachMemoryFiles.js";
 import type { WeekPlan, SessionReconcileEvent, PlanEditEvent } from "./coachWeekFiles.js";
+import {
+  COACH_LOG_TEXT_CAP,
+  MEMORY_NOTE_TEXT_CAP,
+  INJURY_FLAG_TEXT_CAP,
+} from "./text-caps.bundle.js";
 
 export interface GeminiReply {
   reply: string;
@@ -57,13 +62,13 @@ export type TurnMode = "greeting" | "ordinary" | "closing" | "activity_sync";
 const RESPONSE_PROPERTIES = {
   // Commitment fields declared before reply (gemini-flow.md's Action-field design rule #4).
   // Closing-turn continuity note appended to coach_log.json; never shown to the athlete.
-  coach_note: { type: "string" },
+  coach_note: { type: "string", maxLength: COACH_LOG_TEXT_CAP },
       // Replaces one of memory.json's constrained labelled note boxes in full.
       memory_update: {
         type: "object",
         properties: {
           label: { type: "string", enum: [...MEMORY_NOTE_LABELS] },
-          text: { type: "string" },
+          text: { type: "string", maxLength: MEMORY_NOTE_TEXT_CAP },
         },
       },
       // Separate top-level memory.json field, not a labelled memory note. First Session Protocol
@@ -77,7 +82,7 @@ const RESPONSE_PROPERTIES = {
           type: "object",
           properties: {
             status: { type: "string", enum: ["active", "resolved"] },
-            text: { type: "string" },
+            text: { type: "string", maxLength: INJURY_FLAG_TEXT_CAP },
             flag_id: { type: "string" },
           },
           required: ["status"],

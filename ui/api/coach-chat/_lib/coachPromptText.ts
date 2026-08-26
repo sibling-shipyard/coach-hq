@@ -2,6 +2,11 @@
 import type { ChatMessage } from "./chatThreads.js";
 import { todayContextLine } from "./coachDay.js";
 import type { TurnMode } from "./coachReplySchema.js";
+import {
+  COACH_LOG_TEXT_CAP,
+  MEMORY_NOTE_TEXT_CAP,
+  INJURY_FLAG_TEXT_CAP,
+} from "./text-caps.bundle.js";
 
 export const MAX_HISTORY_MESSAGES = 40;
 
@@ -90,6 +95,7 @@ export function buildDynamicText(
           "\nWrite coach_note: 3 to 5 lines, plain English, what actually happened this",
           "conversation that's worth remembering long-term. There is no file to edit, no checklist",
           "to fill in - report facts, the server handles saving them.",
+          `coach_note: max ${COACH_LOG_TEXT_CAP} chars.`,
           "\nGo through this checklist explicitly before you respond - for each one, ask yourself",
           "\"did the athlete tell me this anywhere in this conversation, and is it already saved?\"",
           "If discussed and not yet saved, set it now:",
@@ -122,6 +128,7 @@ export function buildDynamicText(
           "a plan for next time). There is no file to edit, no checklist to fill in - report facts,",
           "the server handles saving them. If there's truly nothing concrete from this conversation,",
           "say so honestly in coach_note instead of inventing content.",
+          `coach_note: max ${COACH_LOG_TEXT_CAP} chars.`,
           "\nEvery flag_id, quest_id, template_id, and session_id must come from the supplied",
           "context. Never invent an id.",
           "\nIf this conversation changed something in one of these six categories - fitness",
@@ -129,6 +136,7 @@ export function buildDynamicText(
           "a learned mental/performance pattern, or equipment - set memory_update with that",
           "category as label and the new full text as text. Only set it when something genuinely",
           "changed; most closes won't need it. Never invent a change to justify setting it.",
+          `memory_update.text: max ${MEMORY_NOTE_TEXT_CAP} chars.`,
           "\nIf the athlete mentioned a new injury or pain, or gave an update on an existing one",
           "listed in Active Injury Flags below, set injury_event to an array with one entry per",
           "injury being reported - if the athlete mentions TWO separate injuries changing in the",
@@ -138,6 +146,7 @@ export function buildDynamicText(
           "matching flag_id from the list below, and text only if there's new detail worth",
           "recording (omit text to leave it unchanged). A cleared flag needs that flag_id. Most",
           "closes won't need this either.",
+          `injury_event[].text: max ${INJURY_FLAG_TEXT_CAP} chars.`,
           "\nIf the athlete reported completing, missing, or being excused from one or more of",
           "today's quests (see Current quests below), set quest_event to an array with one entry",
           "per quest - each entry has that quest's exact quest_id and a schema-enum status.",
@@ -194,7 +203,9 @@ export function buildDynamicText(
           "timezone, height, and weight; sports_update for the full sports list; memory_update",
           "for durable baseline or habit context; injury_event for injury facts; season_start as",
           "soon as the first season is agreed; and quest_create as soon as the main goal or habit",
-          "quests are agreed. Omit a field when this turn added no fact for it. Native onboarding",
+          "quests are agreed. Omit a field when this turn added no fact for it.",
+          `memory_update.text: max ${MEMORY_NOTE_TEXT_CAP} chars. injury_event[].text: max ${INJURY_FLAG_TEXT_CAP} chars.`,
+          "Native onboarding",
           "details marked already recorded are context only - never repeat them in an action field.",
           "Do not set template_edit, session_plan, week_plan, session_reconcile, or plan_edit on",
           "an ordinary turn; those remain close-only.", SESSION_STAYS_OPEN,

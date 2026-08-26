@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-25
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
 
 ## Context
 
@@ -44,7 +44,7 @@ Sports and Coach's labelled free-text notes. Written by
 `coaching_priorities`, `learned_patterns.training`, `learned_patterns.nutrition`,
 `learned_patterns.mental`, `equipment`.
 
-**`MemoryNote` shape:** `{ text: string; updated_at: string; trace_id: string }`.
+**`MemoryNote` shape:** `{ text: string; updated_at: string; trace_id: string }` (text max 1500 chars — `engine/lib/text-caps.mts`).
 
 ### `user_data/coach/injuries.json`
 
@@ -54,7 +54,7 @@ Open/resolved injury flags. Written by `turnWrites/injuryWrite.ts` (`buildInjury
 |---|---|---|
 | `flags` | `InjuryFlag[]` | |
 
-**`InjuryFlag` shape:** `{ id, text, status: "active" \| "resolved", opened_at, resolved_at: string \| null }`.
+**`InjuryFlag` shape:** `{ id, text, status: "active" \| "resolved", opened_at, resolved_at: string \| null }` (text max 500 chars — `engine/lib/text-caps.mts`).
 
 ### `user_data/coach/coach_log.json`
 
@@ -66,7 +66,7 @@ Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`).
 | `version` | `1` | |
 | `rows` | `CoachLogRow[]` | |
 
-**`CoachLogRow` shape:** `{ id, date, ts, type: "chat", text, trace_id }` — `type` is currently
+**`CoachLogRow` shape:** `{ id, date, ts, type: "chat", text, trace_id }` (text max 2000 chars — `engine/lib/text-caps.mts`) — `type` is currently
 always `"chat"`; `"phase_close"`/`"week_close"` row types are a deferred, documented-only item
 (needs an archive-folding decision first - tracked in issue #575).
 
