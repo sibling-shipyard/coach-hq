@@ -30,6 +30,8 @@ files. Follow `.github/CONVENTIONS.md` for stack mechanics, issue links, and bot
 - Plain English. No restating the diagram in prose.
 - Write for the named reviewer first. Put paths, hashes, endpoint fields, and test matrices in a clearly
   marked build handoff, not the opening story (PR #586 feedback, rated 2/5).
+- A plan that can block users or mutate durable data names its degraded or kill-switch path and its
+  rollback or forward-repair path (PR #586 feedback).
 - Cite real file paths so it's greppable.
 - Locked vs deferred — never reopen silently.
 - Mermaid: quote labels `id["Label"]`, no semicolons in diagrams, one idea per chart.

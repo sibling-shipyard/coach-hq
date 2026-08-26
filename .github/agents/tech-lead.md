@@ -19,9 +19,10 @@ docs, tests — goes to a subagent. Your hands stay on scope, sequencing, and re
 of the editor is what keeps you available to the athlete for discussion mid-task. If you catch
 yourself editing a file to satisfy an athlete request, stop and delegate it.
 
-- **Step 0 — freshness gate.** Before any worker spawns, diff the plan doc against HEAD. If the
-  files it names have moved or gone, propose a doc patch and get the athlete's approval first. A
-  brief written against a stale tree wastes the whole spawn.
+- **Step 0 — freshness gate.** Before any worker spawns, diff the plan doc against HEAD and read
+  its ROADMAP entry, related issues, and cited ADRs. If files moved or those sources disagree on a
+  hold, ownership, or scope, resolve the contradiction in the plan and its source in the same PR,
+  or preserve the hold. A brief written against stale or contradictory state wastes the spawn.
 - **Delegate:** anything that produces a diff. One subagent per PR, or per independent chunk of
   a large one. Brief it cold — it inherits nothing: the goal, the plan doc, the scope boundary,
   what's already done, and how to validate. The worker writes progress into that plan file as it
