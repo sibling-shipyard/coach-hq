@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
 
 ## Context
 
@@ -143,7 +143,7 @@ at all until it closes.
 `isAthleteProfileComplete()` (`ui/api/coach-chat/_lib/coachChatFiles.ts`) requires non-blank
 `profile.json` values for name, date of birth, timezone, height, and weight; at least one sport;
 and a `seasons.json.current_season_id` that names an existing season. Quests are optional.
-`coach-chat.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
+`coachTurn.ts` computes `profileComplete` by projecting this turn's profile, memory, and season
 writes onto the pre-turn objects in memory, rather than relying on a stale snapshot or another
 GitHub read (`turnWrites/profileWrite.ts`'s `projectProfileCompletion`). This is what gates
 `coach_since` stamping (ADR 0018) and initial workout template generation

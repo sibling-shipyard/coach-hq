@@ -1,6 +1,6 @@
 # GitHub Auth — how sign-in works (web + iOS, shared backend)
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-18
+> Status: Current · Owner: UI Expert · Verified: 2026-08-26
 
 ## Context
 
@@ -23,7 +23,8 @@ flowchart TD
     cb -->|"no installation, ios"| iossetup["SetupView.swift<br/>(native, unaffected)"]
     done -->|"web, popup"| popupdone["/auth/popup-complete<br/>postMessage + close()"]
     done -->|"web, full nav"| webdone["Set-Cookie session, redirect /"]
-    done -->|"ios"| iosdone["coachhq://callback?token=&repo=&login="]
+    done -->|"ios"| iosdone["coachhq://callback?token=&refresh_token=&repo=&login="]
+    cb -->|"2+ owned repos"| blocked["multiple_repos_granted<br/>blocking message, no picker (ADR 0019)"]
 ```
 
 - Single entry point (`/api/auth/start`) for both new and returning users — identical whether
@@ -39,6 +40,13 @@ flowchart TD
   confirmed 404/403 on `/repos/{template}/generate` and `/user/repos`), so `SetupView.swift`
   still walks a first-timer through creating the repo from `sibling-shipyard/coach-skeleton`
   then installing the App — unchanged by #164, out of scope for web.
+- **One repo per account, enforced, no picker (ADR 0019).** GitHub's own install flow can't
+  restrict an account to granting exactly one repo, so an account can resolve 2+ owned,
+  marker-matched repos. When that happens, both platforms block and tell the athlete to remove
+  access to the extra repos at `github.com/settings/installations` and retry —
+  `handleListMyRepos` returns `{ error: "multiple_repos_granted" }` (409) instead of a
+  candidate list; there is no repo picker on either platform. See
+  `ui/api/auth/_lib/repo-resolution.ts`'s `resolveOwnedRepos()`.
 
 ## Shared backend — `ui/api/auth/[...action].ts`
 
@@ -51,7 +59,7 @@ named export in that one file:
 | `handleStart` | `/api/auth/start` | Entry point. Builds PKCE + signed state, redirects to GitHub's authorize endpoint. |
 | `handleCallback` | `/api/auth/callback` | Token exchange, `GET /user`, installation lookup. Web: session or `AuthError`. iOS: `coachhq://callback` (token, or `needs_setup=1` into `SetupView`). |
 | `handleInstallRedirect` | `/api/auth/install-redirect` | iOS-only in practice now — `SetupView`'s "continue to install" step. `?platform=ios`. |
-| `handleListMyRepos` | `/api/auth/list-my-repos` | Repo picker, dual auth (session cookie or Bearer). iOS-only in practice now — its fallback for the rare not-exactly-one-candidate case. |
+| `handleListMyRepos` | `/api/auth/list-my-repos` | Resolves/confirms the account's repo, dual auth (session cookie or Bearer). Auto-selects on exactly one candidate, 409 `multiple_repos_granted` on 2+ (ADR 0019, no picker). iOS-only in practice now — its fallback for the 0-or-2+ candidate case. |
 | `handleMe` / `handleLogout` | `/api/auth/me` / `/api/auth/logout` | Web session read / clear. |
 | `handleRefresh` | `/api/auth/refresh` | iOS-only — confidential half of the refresh-token exchange (iOS has no `client_secret`). |
 | `_lib/session.ts` | — | JWE session cookie helpers, `ensureFreshSession()` (refresh-token rotation, ADR 0009). |
@@ -76,7 +84,11 @@ GitHub's access token dies at ~8h regardless of cookie settings. "Stay logged in
 `ensureFreshSession()` (`_lib/session.ts`) silently exchanging the 6-month `refresh_token` for a
 new access token 5 minutes before expiry, on every request, re-issuing a sliding 180-day
 session cookie. iOS has no server session — it calls `/api/auth/refresh` itself and stores the
-rotated pair in Keychain. Full reasoning: `kdb/decisions/0009-refresh-token-sliding-session.md`.
+rotated pair in Keychain, access token + refresh token + expiry in one combined item written
+with a single call, so a process kill mid-write can never pair a fresh access token with a
+stale refresh token (`GitHubAuthManager.swift`; falls back to reading the old 3-key layout for
+athletes signed in before this shipped). A transient 502 from `/api/auth/refresh` retries once;
+a 401 fails immediately. Full reasoning: `kdb/decisions/0009-refresh-token-sliding-session.md`.
 
 ## Done when
 
@@ -111,3 +123,4 @@ flow unaffected.
 | `ios/CoachHQ/CoachHQ/Views/LoginView.swift` | iOS sign-in screen |
 | `ios/CoachHQ/CoachHQ/CoachHQApp.swift` | iOS auth-state routing |
 | `kdb/decisions/0009-refresh-token-sliding-session.md` | ADR for the refresh-token session design |
+| `kdb/decisions/0019-enforce-single-repo-per-account.md` | ADR for the one-repo-per-account block (no picker) |

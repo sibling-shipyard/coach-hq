@@ -1,6 +1,6 @@
 # Coach Chat — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-21
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
 
 Real Coach Phelps sessions from the browser and iOS, backed by Gemini. This is the entry point —
 the detailed content that used to live in this one file is now split by concern:
@@ -11,6 +11,7 @@ the detailed content that used to live in this one file is now split by concern:
 | [`coach-chat-fsp.md`](coach-chat-fsp.md) | First Session Protocol: the one-time intake conversation, native-onboarding handoff, resumability, completion signal. |
 | [`gemini-flow.md`](gemini-flow.md) | Everything Gemini-specific: model, prompt shape, explicit caching, response schema, retries. |
 | [`coach-data-schema.md`](coach-data-schema.md) | Every file Coach reads or writes, every enum, what Gemini gets as input and can write. |
+| [`coach-chat-testing.md`](coach-chat-testing.md) | How to test coach-chat: the eval harness (`npm run eval:coach-chat`) and the manual athlete-repo test tool. |
 
 Companion to [`ios-sync.md`](ios-sync.md): that doc covers HealthKit ingestion, this set covers
 the coaching-conversation path. For the dated history of how this system got here, see
