@@ -6,6 +6,18 @@ import UserNotifications
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        
+        // Sentry initialization with scrubbing
+        // SentrySDK.start { options in
+        //     options.dsn = Secrets.sentryDSN
+        //     options.beforeSend = { event in
+        //         // Scrub sensitive data
+        //         event.user?.email = "[Filtered]"
+        //         event.user?.username = "[Filtered]"
+        //         return event
+        //     }
+        // }
+        
         return true
     }
 
