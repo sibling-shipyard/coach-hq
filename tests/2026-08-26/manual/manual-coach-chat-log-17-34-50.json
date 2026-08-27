@@ -1,0 +1,208 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T17-26-32-810Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417",
+    "shaAfter": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T17-26-32-810Z",
+    "input": {
+      "messages": [],
+      "message": "I didn't sleep well last night, only about 4 hours.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417",
+    "shaAfter": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T17-26-32-810Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787765391128",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787765391128",
+          "role": "user",
+          "text": "I didn't sleep well last night, only about 4 hours."
+        },
+        {
+          "id": "c-1787765391128",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "I skipped the gym today because I felt too tired.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417",
+    "shaAfter": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T17-26-32-810Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787765391128",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787765391128",
+          "role": "user",
+          "text": "I didn't sleep well last night, only about 4 hours."
+        },
+        {
+          "id": "c-1787765391128",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787765490627",
+          "role": "user",
+          "text": "I skipped the gym today because I felt too tired."
+        },
+        {
+          "id": "c-1787765490627",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Tomorrow I will do my scheduled Workout A though.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417",
+    "shaAfter": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T17-26-32-810Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787765391128",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787765391128",
+          "role": "user",
+          "text": "I didn't sleep well last night, only about 4 hours."
+        },
+        {
+          "id": "c-1787765391128",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787765490627",
+          "role": "user",
+          "text": "I skipped the gym today because I felt too tired."
+        },
+        {
+          "id": "c-1787765490627",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787765589362",
+          "role": "user",
+          "text": "Tomorrow I will do my scheduled Workout A though."
+        },
+        {
+          "id": "c-1787765589362",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up.",
+      "endConversationRequested": true
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417",
+    "shaAfter": "ac8754469377ce4a691c4b5f26f95f5dd9c9c417"
+  }
+]

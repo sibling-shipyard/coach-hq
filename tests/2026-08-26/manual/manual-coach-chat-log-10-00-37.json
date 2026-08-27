@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T09-58-57-723Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  }
+]

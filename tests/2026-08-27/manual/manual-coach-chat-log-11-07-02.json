@@ -1,0 +1,90 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-27T11-05-31-333Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+    "shaAfter": "bd26618b4c40ca86baf6b4bf48189d1e5db53382"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-27T11-05-31-333Z",
+    "input": {
+      "messages": [],
+      "message": "What's my next session going to be? Just curious, no rush.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+    "shaAfter": "bd26618b4c40ca86baf6b4bf48189d1e5db53382"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-27T11-05-31-333Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787828797896",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787828797896",
+          "role": "user",
+          "text": "What's my next session going to be? Just curious, no rush."
+        },
+        {
+          "id": "c-1787828797896",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "wrap this session",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+    "shaAfter": "bd26618b4c40ca86baf6b4bf48189d1e5db53382"
+  }
+]

@@ -1,0 +1,208 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T10-12-50-266Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T10-12-50-266Z",
+    "input": {
+      "messages": [],
+      "message": "My weight is 72kg today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T10-12-50-266Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787739365967",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787739365967",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787739365967",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Also I noticed my left hip is a bit sore.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T10-12-50-266Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787739365967",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787739365967",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787739365967",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787739463392",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1787739463392",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "I finished a 5k run today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T10-12-50-266Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787739365967",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787739365967",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787739365967",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787739463392",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1787739463392",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787739561404",
+          "role": "user",
+          "text": "I finished a 5k run today."
+        },
+        {
+          "id": "c-1787739561404",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up.",
+      "endConversationRequested": true
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  }
+]

@@ -47,10 +47,54 @@ forward from the 2026-08-21 write-up). Two things landed since and close out mos
   lives in `coachContext.ts` and feeds Gemini's prompt; nothing in `ui/client/src` renders it.
   Folded into Daily flow below (verify via a real greet/ordinary-turn reply, not a widget).
 
-Net: **Frontend section is closed** except the folded-in fitness-snapshot check. Nothing else in
-this doc has been executed yet - Daily flow, FSP, and the automated chain test are all still
-fully open; nobody has run a real conversation against either athlete repo since the redesign
-landed.
+Net: **Frontend section is closed** except the folded-in fitness-snapshot check.
+
+## Re-verified 2026-08-27 — Daily flow and FSP steps 1-4 done
+
+Real runs executed against `coach-skanda-2003`/`coach-akash-suresh` scratch branches via
+`npm run test:coach-chat-manual`. Gemini's `gemini-flash-latest` endpoint was intermittently
+503/504'ing throughout this pass (confirmed independently with a raw `curl` straight to
+`generativelanguage.googleapis.com`, not a symptom of our code) - several turns needed a retry
+before landing a clean result. Every claim below points at a real `tests/2026-08-27/manual/`
+log, not a note in this doc.
+
+**Daily flow — closed.**
+- Step 6 (cross-device staleness): confirmed both directions via a small one-off script
+  (`handle()` called directly with a controlled `knownSha`, since the manual harness itself
+  doesn't send one) - a stale `knownSha` on an ordinary turn returns `stale: true`; a fresh one
+  doesn't. Also checked the closing-turn response never carries `stale` at all - not a bug,
+  `CoachChat.tsx:515-527` returns before ever reading `result.stale` on a closed turn, so nothing
+  client-side depends on it there.
+- Step 7 (close-session detection, both directions): `tests/2026-08-27/manual/manual-coach-chat-log-11-10-56.json`
+  turn 1 - "What's my next session going to be?" → `closed: false` (no false positive).
+  `tests/2026-08-27/manual/manual-coach-chat-log-11-11-50.json` - "wrap this session" → `closed: true`,
+  real commit landed (`chat_history.json`, `coach_log.json`).
+- Step 5 (closing turn / `template_edit`): re-confirmed the 2026-08-26 finding is real and filed
+  as **issue #609** - Gemini emitting `template_edit: { template_id: "none" }` instead of omitting
+  the optional field crashes the whole closing-turn commit. Not fixed per this doc's scope guard.
+
+**FSP — steps 1-4 done, steps 5-6 can't run through this harness.**
+- Step 2 (incremental writes land turn-by-turn): `tests/2026-08-27/manual/manual-coach-chat-log-11-16-10.json` -
+  turn 1 ("My name is Skanda.") commits `profile.json` immediately; turn 3 ("born June 5th 2003")
+  commits `profile.json` again, both mid-conversation, before any close.
+- Step 3 (`coach_since` stamps exactly once, server-side, at real completion):
+  `tests/2026-08-27/manual/manual-coach-chat-log-11-20-04.json` turn 4 (the close) - real diff shows
+  `coach_since: null` → `"2026-08-27"` in one atomic commit alongside the chat/coach_log writes.
+- Step 4 (end-conversation-without-guessing): same log, turn 2 - given the ambiguous "I'm not
+  totally sure, sometime in June I think", Coach's real reply asked a follow-up instead of
+  committing a guessed date; no `profile.json` write happened on that turn. Only committed once
+  given the exact date.
+- Step 5 (resumability) and step 6 (BYOB) are **not executable through this harness** - resumability
+  is a client-only mechanism (`CoachChatLocalCache.swift` / `coachChatModel.ts`'s
+  `localStorage` helpers), it never touches the server's `handle()` at all; BYOB means a real
+  Claude Code session against `SOUL.claude.md`, a different runtime entirely. Both still open,
+  need a different test method than `npm run test:coach-chat-manual`.
+
+**Scratch branches used this pass** (left in place, per this doc's own tracking convention - not
+cleaned up): `coach-skanda-2003` - `test/fsp-clean-1787829206`, `test/fsp-clean-1787829390-b`
+(both real FSP runs, one hit closes successfully), plus assorted `test/manual-*` /
+`test/staleness-*` branches from the Daily-flow and cross-device runs. `coach-akash-suresh` -
+`test/manual-*` branches from its Daily-flow runs.
 
 **Tracking:** every real run from this pass writes to the committed `tests/<YYYY-MM-DD>/` folder
 (added in #584) - `tests/<date>/manual/` for `test:coach-chat-manual` runs, `tests/<date>/eval/`
@@ -141,6 +185,12 @@ exists for that step, not a note in this doc — this doc tracks which steps are
 folder holds the evidence. Any mismatch between what `coach-chat-daily.md`/`coach-chat-fsp.md` say
 and what actually happens gets fixed in the doc or the code, whichever is wrong, and logged in
 `coach-chat-design-history.md`.
+
+**Status as of 2026-08-27:** Frontend closed. Daily flow closed (steps 1-7, one real bug found -
+issue #609). FSP steps 1-4 done. FSP steps 5 (resumability) and 6 (BYOB) still open - not
+reachable through `npm run test:coach-chat-manual`, need a real client (browser/iOS) session and a
+real Claude Code session against `SOUL.claude.md` respectively. The automated chain test (below)
+is also still open. This doc isn't done-when-done yet - don't delete it until those three remain.
 
 ## Scope guard
 

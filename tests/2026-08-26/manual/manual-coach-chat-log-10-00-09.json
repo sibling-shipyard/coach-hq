@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/fsp-wipe",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "43d6b70c1045732885adafb5681d298b7a9dd475",
+    "shaAfter": "43d6b70c1045732885adafb5681d298b7a9dd475"
+  }
+]

@@ -1,0 +1,384 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-27T10-41-42-635Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Look, court night ahead tonight. How did yesterday's Workout A feel, and how are the shoulders and grip feeling going into this evening?",
+      "threadId": "t-1787827319323",
+      "threads": [
+        {
+          "id": "t-1787751832080",
+          "createdAt": 1787751832080,
+          "title": "2 sessions synced",
+          "preview": "Look, saw the morning work and the ride come through. We still have Workout A on",
+          "messages": [
+            {
+              "id": "d-1787751832080",
+              "role": "divider",
+              "label": "TODAY · 2:43 PM"
+            },
+            {
+              "id": "c-1787751832080",
+              "role": "coach",
+              "paragraphs": [
+                "Look, saw the morning work and the ride come through. We still have Workout A on the plan for later today. How is the body feeling heading into it?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "222527943659408a",
+                  "activities": [
+                    {
+                      "id": "C958558F-E2E3-4634-A550-6F919F9650D8",
+                      "title": "WeightTraining #142",
+                      "sport": "WeightTraining",
+                      "start": "2026-08-26T09:07:56",
+                      "duration_s": 1157,
+                      "load": 19
+                    },
+                    {
+                      "id": "1C5F535A-6DED-4DB4-811C-36384580B4BC",
+                      "title": "Ride #103",
+                      "sport": "Ride",
+                      "start": "2026-08-26T10:53:10",
+                      "duration_s": 948,
+                      "load": 16
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 1,
+          "ageLabel": "D-1",
+          "status": "active"
+        },
+        {
+          "id": "t-1787598143087",
+          "createdAt": 1787598143087,
+          "title": "WeightTraining #140",
+          "preview": "Look, that is a clean hour of solid work in the books for a Monday evening. How ",
+          "messages": [
+            {
+              "id": "d-1787598143087",
+              "role": "divider",
+              "label": "TODAY · 8:02 PM"
+            },
+            {
+              "id": "c-1787598143087",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that is a clean hour of solid work in the books for a Monday evening. How did the body feel out there, and what was the focus for today's session?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "7bb4badf116fd238",
+                  "activities": [
+                    {
+                      "id": "6C51C324-934E-4767-B364-2A00228EEED4",
+                      "title": "WeightTraining #140",
+                      "sport": "WeightTraining",
+                      "start": "2026-08-24T18:58:51",
+                      "duration_s": 3713,
+                      "load": 62
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 3,
+          "ageLabel": "D-3",
+          "status": "active"
+        },
+        {
+          "id": "local-1786027327224",
+          "createdAt": 1786027973701,
+          "title": "Travel check-in, Day 2塑造: st…",
+          "preview": "Safe travels, champ. Rest up, enjoy the trip, and we'll catch up when you're bac",
+          "messages": [
+            {
+              "id": "d-1786027327224",
+              "role": "divider",
+              "label": "TODAY"
+            },
+            {
+              "id": "c-1786027327224",
+              "role": "coach",
+              "paragraphs": [
+                "That Monday badminton session was a big step. Catching yourself mid-match and choosing calm before a loss forced your hand, that's the exact growth edge we've been waiting for. How's the body feeling today and how's the rest of your week shaping up?"
+              ]
+            },
+            {
+              "id": "u-1786027380933",
+              "role": "user",
+              "text": "body is feeling good. day-2 of the trip going on!"
+            },
+            {
+              "id": "c-1786027391024",
+              "role": "coach",
+              "paragraphs": [
+                "Good to hear the body is feeling right. Travel days can sneak up on you, so keep moving when you can, stay hydrated, and enjoy the trip. Let me know if you want to lock in a quick bodyweight maintenance session while you're away or if we're holding the line till you get back."
+              ]
+            },
+            {
+              "id": "u-1786027884139",
+              "role": "user",
+              "text": "no, no need. I don't have the time to do that today atleast."
+            },
+            {
+              "id": "c-1786027897794",
+              "role": "coach",
+              "paragraphs": [
+                "Fair enough. Don't force it when the schedule is packed. Travel days are about managing energy, not checking boxes. Stay sharp and enjoy the day."
+              ]
+            },
+            {
+              "id": "u-1786027973701",
+              "role": "user",
+              "text": "ok, bye coach"
+            },
+            {
+              "id": "c-1786027973701",
+              "role": "coach",
+              "paragraphs": [
+                "Enjoy the trip, champ. Rest up and we'll hit the ground running when you're back."
+              ]
+            },
+            {
+              "id": "u-1786035500194",
+              "role": "user",
+              "text": "bye coach, wrap."
+            },
+            {
+              "id": "c-1786035500194",
+              "role": "coach",
+              "paragraphs": [
+                "Safe travels, champ. Rest up, enjoy the trip, and we'll catch up when you're back."
+              ]
+            }
+          ],
+          "dayOffset": 21,
+          "ageLabel": "D-21",
+          "status": "active"
+        }
+      ],
+      "repoSha": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+    "shaAfter": "bd26618b4c40ca86baf6b4bf48189d1e5db53382"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-27T10-41-42-635Z",
+    "input": {
+      "threadId": "t-1787827319323",
+      "messages": [],
+      "message": "My weight is 72kg today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+    "shaAfter": "bd26618b4c40ca86baf6b4bf48189d1e5db53382"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-27T10-41-42-635Z",
+    "input": {
+      "threadId": "t-1787827319323",
+      "messages": [
+        {
+          "id": "d-1787827353374",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787827353374",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787827353374",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Also I noticed my left hip is a bit sore.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "reply": "Look, noted on the scale. But let's look at that left hip first, especially with court tonight. Is it a dull muscular soreness from yesterday, or something sharper pinching when you move? Where exactly are you feeling it?",
+      "closed": false,
+      "repoSha": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+      "stale": false,
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+    "shaAfter": "bd26618b4c40ca86baf6b4bf48189d1e5db53382"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-27T10-41-42-635Z",
+    "input": {
+      "threadId": "t-1787827319323",
+      "messages": [
+        {
+          "id": "d-1787827353374",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787827353374",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787827353374",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787827394670",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1787827394670",
+          "role": "coach",
+          "paragraphs": [
+            "Look, noted on the scale. But let's look at that left hip first, especially with court tonight. Is it a dull muscular soreness from yesterday, or something sharper pinching when you move? Where exactly are you feeling it?"
+          ]
+        }
+      ],
+      "message": "I finished a 5k run today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "reply": "Look, good work putting the 5k in the bank. How did that left hip hold up while you were out there running? And check in with how the legs are feeling if you still have court tonight.",
+      "closed": false,
+      "repoSha": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+      "stale": false,
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+    "shaAfter": "bd26618b4c40ca86baf6b4bf48189d1e5db53382"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-27T10-41-42-635Z",
+    "input": {
+      "threadId": "t-1787827319323",
+      "messages": [
+        {
+          "id": "d-1787827353374",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787827353374",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787827353374",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787827394670",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1787827394670",
+          "role": "coach",
+          "paragraphs": [
+            "Look, noted on the scale. But let's look at that left hip first, especially with court tonight. Is it a dull muscular soreness from yesterday, or something sharper pinching when you move? Where exactly are you feeling it?"
+          ]
+        },
+        {
+          "id": "u-1787827409115",
+          "role": "user",
+          "text": "I finished a 5k run today."
+        },
+        {
+          "id": "c-1787827409115",
+          "role": "coach",
+          "paragraphs": [
+            "Look, good work putting the 5k in the bank. How did that left hip hold up while you were out there running? And check in with how the legs are feeling if you still have court tonight."
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up.",
+      "endConversationRequested": true
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "bd26618b4c40ca86baf6b4bf48189d1e5db53382",
+    "shaAfter": "bd26618b4c40ca86baf6b4bf48189d1e5db53382"
+  }
+]

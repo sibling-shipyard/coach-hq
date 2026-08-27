@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-2026-08-26T09-58-55-794Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "0d14c8d8a6587017bc0de5d55597fe52a8f0121e",
+    "shaAfter": "0d14c8d8a6587017bc0de5d55597fe52a8f0121e"
+  }
+]

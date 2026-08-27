@@ -1,0 +1,291 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/fsp-wipe-2",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "b83d95f2d73ce5e6c02e87a8c6f49278970bd737",
+    "shaAfter": "b83d95f2d73ce5e6c02e87a8c6f49278970bd737"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/fsp-wipe-2",
+    "input": {
+      "messages": [],
+      "message": "I'm 23 years old. I weigh 70kg, and I'm 175cm tall. I live in Bangalore.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "reply": "Look, got all that down. 70kg at 175cm in Bangalore gives us a solid baseline to work from. What's your exact date of birth, and what should I call you?",
+      "closed": false,
+      "repoSha": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8",
+      "stale": false,
+      "profileComplete": false
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [
+        "user_data/coach/profile.json"
+      ],
+      "diff": "diff --git a/user_data/coach/profile.json b/user_data/coach/profile.json\nindex 0967ef4..8e15d8c 100644\n--- a/user_data/coach/profile.json\n+++ b/user_data/coach/profile.json\n@@ -1 +1,9 @@\n-{}\n+{\n+  \"version\": 1,\n+  \"coach_since\": null,\n+  \"name\": \"\",\n+  \"dob\": null,\n+  \"timezone\": \"Asia/Kolkata\",\n+  \"height_cm\": 175,\n+  \"weight_kg\": 70\n+}\n\\ No newline at end of file\n"
+    },
+    "shaBefore": "b83d95f2d73ce5e6c02e87a8c6f49278970bd737",
+    "shaAfter": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/fsp-wipe-2",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787744837507",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787744837507",
+          "role": "user",
+          "text": "I'm 23 years old. I weigh 70kg, and I'm 175cm tall. I live in Bangalore."
+        },
+        {
+          "id": "c-1787744837507",
+          "role": "coach",
+          "paragraphs": [
+            "Look, got all that down. 70kg at 175cm in Bangalore gives us a solid baseline to work from. What's your exact date of birth, and what should I call you?"
+          ]
+        }
+      ],
+      "message": "My goal is to run a sub-2 hour half marathon by next summer.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8",
+    "shaAfter": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/fsp-wipe-2",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787744837507",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787744837507",
+          "role": "user",
+          "text": "I'm 23 years old. I weigh 70kg, and I'm 175cm tall. I live in Bangalore."
+        },
+        {
+          "id": "c-1787744837507",
+          "role": "coach",
+          "paragraphs": [
+            "Look, got all that down. 70kg at 175cm in Bangalore gives us a solid baseline to work from. What's your exact date of birth, and what should I call you?"
+          ]
+        },
+        {
+          "id": "u-1787744917704",
+          "role": "user",
+          "text": "My goal is to run a sub-2 hour half marathon by next summer."
+        },
+        {
+          "id": "c-1787744917704",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "I don't have any current injuries, but my right knee acts up sometimes.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8",
+    "shaAfter": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/fsp-wipe-2",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787744837507",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787744837507",
+          "role": "user",
+          "text": "I'm 23 years old. I weigh 70kg, and I'm 175cm tall. I live in Bangalore."
+        },
+        {
+          "id": "c-1787744837507",
+          "role": "coach",
+          "paragraphs": [
+            "Look, got all that down. 70kg at 175cm in Bangalore gives us a solid baseline to work from. What's your exact date of birth, and what should I call you?"
+          ]
+        },
+        {
+          "id": "u-1787744917704",
+          "role": "user",
+          "text": "My goal is to run a sub-2 hour half marathon by next summer."
+        },
+        {
+          "id": "c-1787744917704",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787744982302",
+          "role": "user",
+          "text": "I don't have any current injuries, but my right knee acts up sometimes."
+        },
+        {
+          "id": "c-1787744982302",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "I typically train 4 days a week, and I'm an intermediate runner.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8",
+    "shaAfter": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-5",
+    "turnIndex": 5,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/fsp-wipe-2",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787744837507",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787744837507",
+          "role": "user",
+          "text": "I'm 23 years old. I weigh 70kg, and I'm 175cm tall. I live in Bangalore."
+        },
+        {
+          "id": "c-1787744837507",
+          "role": "coach",
+          "paragraphs": [
+            "Look, got all that down. 70kg at 175cm in Bangalore gives us a solid baseline to work from. What's your exact date of birth, and what should I call you?"
+          ]
+        },
+        {
+          "id": "u-1787744917704",
+          "role": "user",
+          "text": "My goal is to run a sub-2 hour half marathon by next summer."
+        },
+        {
+          "id": "c-1787744917704",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787744982302",
+          "role": "user",
+          "text": "I don't have any current injuries, but my right knee acts up sometimes."
+        },
+        {
+          "id": "c-1787744982302",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787745016665",
+          "role": "user",
+          "text": "I typically train 4 days a week, and I'm an intermediate runner."
+        },
+        {
+          "id": "c-1787745016665",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's everything, wrap this up.",
+      "endConversationRequested": true
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8",
+    "shaAfter": "26d3a1229dea492d9c5cc6d2c82b554c6cefb5b8"
+  }
+]

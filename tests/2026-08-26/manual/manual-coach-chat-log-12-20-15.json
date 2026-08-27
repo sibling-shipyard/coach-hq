@@ -1,0 +1,213 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T12-15-01-105Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T12-15-01-105Z",
+    "input": {
+      "messages": [],
+      "message": "My weight is 72kg today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T12-15-01-105Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787746655605",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787746655605",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787746655605",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Also I noticed my left hip is a bit sore.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T12-15-01-105Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787746655605",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787746655605",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787746655605",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787746745454",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1787746745454",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "I finished a 5k run today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "reply": "Look, good work getting the miles in. How did the body hold up while you were moving, especially with that left hip feeling a bit sore earlier? How was the effort?",
+      "closed": false,
+      "repoSha": "459ea990c03972a03efb05d08156c0d98375fae3",
+      "stale": false,
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T12-15-01-105Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1787746655605",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787746655605",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787746655605",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787746745454",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1787746745454",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787746783833",
+          "role": "user",
+          "text": "I finished a 5k run today."
+        },
+        {
+          "id": "c-1787746783833",
+          "role": "coach",
+          "paragraphs": [
+            "Look, good work getting the miles in. How did the body hold up while you were moving, especially with that left hip feeling a bit sore earlier? How was the effort?"
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up.",
+      "endConversationRequested": true
+    },
+    "output": {
+      "error": "Coach replied but saving failed: template_edit: no template with id \"none\" in this athlete's templates",
+      "traceId": "0zvvkf40"
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  }
+]

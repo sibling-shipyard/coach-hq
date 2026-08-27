@@ -1,0 +1,328 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T11-45-27-924Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Look, we've got Workout A on the schedule for tonight. How's the body feeling coming off Monday's session, and are we good to go?",
+      "threadId": "t-1787744740503",
+      "threads": [
+        {
+          "id": "t-1787598143087",
+          "createdAt": 1787598143087,
+          "title": "WeightTraining #140",
+          "preview": "Look, that is a clean hour of solid work in the books for a Monday evening. How ",
+          "messages": [
+            {
+              "id": "d-1787598143087",
+              "role": "divider",
+              "label": "TODAY · 8:02 PM"
+            },
+            {
+              "id": "c-1787598143087",
+              "role": "coach",
+              "paragraphs": [
+                "Look, that is a clean hour of solid work in the books for a Monday evening. How did the body feel out there, and what was the focus for today's session?"
+              ],
+              "attachments": [
+                {
+                  "version": 1,
+                  "kind": "synced_activity_list",
+                  "batch_id": "7bb4badf116fd238",
+                  "activities": [
+                    {
+                      "id": "6C51C324-934E-4767-B364-2A00228EEED4",
+                      "title": "WeightTraining #140",
+                      "sport": "WeightTraining",
+                      "start": "2026-08-24T18:58:51",
+                      "duration_s": 3713,
+                      "load": 62
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "dayOffset": 2,
+          "ageLabel": "D-2",
+          "status": "active"
+        },
+        {
+          "id": "local-1786027327224",
+          "createdAt": 1786027973701,
+          "title": "Travel check-in, Day 2塑造: st…",
+          "preview": "Safe travels, champ. Rest up, enjoy the trip, and we'll catch up when you're bac",
+          "messages": [
+            {
+              "id": "d-1786027327224",
+              "role": "divider",
+              "label": "TODAY"
+            },
+            {
+              "id": "c-1786027327224",
+              "role": "coach",
+              "paragraphs": [
+                "That Monday badminton session was a big step. Catching yourself mid-match and choosing calm before a loss forced your hand, that's the exact growth edge we've been waiting for. How's the body feeling today and how's the rest of your week shaping up?"
+              ]
+            },
+            {
+              "id": "u-1786027380933",
+              "role": "user",
+              "text": "body is feeling good. day-2 of the trip going on!"
+            },
+            {
+              "id": "c-1786027391024",
+              "role": "coach",
+              "paragraphs": [
+                "Good to hear the body is feeling right. Travel days can sneak up on you, so keep moving when you can, stay hydrated, and enjoy the trip. Let me know if you want to lock in a quick bodyweight maintenance session while you're away or if we're holding the line till you get back."
+              ]
+            },
+            {
+              "id": "u-1786027884139",
+              "role": "user",
+              "text": "no, no need. I don't have the time to do that today atleast."
+            },
+            {
+              "id": "c-1786027897794",
+              "role": "coach",
+              "paragraphs": [
+                "Fair enough. Don't force it when the schedule is packed. Travel days are about managing energy, not checking boxes. Stay sharp and enjoy the day."
+              ]
+            },
+            {
+              "id": "u-1786027973701",
+              "role": "user",
+              "text": "ok, bye coach"
+            },
+            {
+              "id": "c-1786027973701",
+              "role": "coach",
+              "paragraphs": [
+                "Enjoy the trip, champ. Rest up and we'll hit the ground running when you're back."
+              ]
+            },
+            {
+              "id": "u-1786035500194",
+              "role": "user",
+              "text": "bye coach, wrap."
+            },
+            {
+              "id": "c-1786035500194",
+              "role": "coach",
+              "paragraphs": [
+                "Safe travels, champ. Rest up, enjoy the trip, and we'll catch up when you're back."
+              ]
+            }
+          ],
+          "dayOffset": 20,
+          "ageLabel": "D-20",
+          "status": "active"
+        }
+      ],
+      "repoSha": "459ea990c03972a03efb05d08156c0d98375fae3",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T11-45-27-924Z",
+    "input": {
+      "threadId": "t-1787744740503",
+      "messages": [],
+      "message": "My weight is 72kg today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T11-45-27-924Z",
+    "input": {
+      "threadId": "t-1787744740503",
+      "messages": [
+        {
+          "id": "d-1787744838546",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787744838546",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787744838546",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Also I noticed my left hip is a bit sore.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T11-45-27-924Z",
+    "input": {
+      "threadId": "t-1787744740503",
+      "messages": [
+        {
+          "id": "d-1787744838546",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787744838546",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787744838546",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787744900112",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1787744900112",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "I finished a 5k run today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "akash-suresh/coach-akash-suresh",
+    "branch": "test/manual-2026-08-26T11-45-27-924Z",
+    "input": {
+      "threadId": "t-1787744740503",
+      "messages": [
+        {
+          "id": "d-1787744838546",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1787744838546",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1787744838546",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787744900112",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1787744900112",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1787744941772",
+          "role": "user",
+          "text": "I finished a 5k run today."
+        },
+        {
+          "id": "c-1787744941772",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up.",
+      "endConversationRequested": true
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "459ea990c03972a03efb05d08156c0d98375fae3",
+    "shaAfter": "459ea990c03972a03efb05d08156c0d98375fae3"
+  }
+]
