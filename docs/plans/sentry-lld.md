@@ -31,7 +31,7 @@ flowchart LR
 | **Web & API** | `gemini_reply_chars` | number | Reply length only. Chat text never leaves the request — see ADR 0031 |
 | **iOS** | `app_version` / `build_number` | string | Client version and CFBundleVersion |
 | **iOS** | `view_name` | string | Active screen or sheet (e.g. `HomeView`, `CoachChatView`) |
-| **iOS** | `timeline_excerpt` | JSON | Last ≤200 local diagnostic events (attached on problem report) |
+| **iOS** | `timeline_excerpt` | JSON | Only the timeline events the athlete selected in a Rage Report |
 
 ### Credential scrubbing rules
 
@@ -44,7 +44,7 @@ All Sentry SDK integrations (browser SDK, Node/Vercel SDK, Swift SDK) must run `
 ### Storage & retention bounds
 
 - **Sentry (Server):** EU region, retention set to 30 days. Both are set-up steps confirmed against the real account, not assumptions about a plan tier.
-- **Local iOS timeline:** In-memory + local cache ring buffer capped at 200 events or 256 KiB. Evicted after 24 hours or immediately on user sign-out.
+- **Local iOS timeline:** In-memory ring buffer only, capped at 200 events or 256 KiB. Evicted after 24 hours, on sign-out, or when the app is relaunched. Nothing is written to disk, so there is no diagnostic data at rest on the phone.
 - **Beta cohort:** 4 current beta athletes opted in by default; automatic replay/screen capture remains disabled.
 
 ## 3. Done when
