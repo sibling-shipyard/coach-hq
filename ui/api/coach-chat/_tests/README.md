@@ -4,7 +4,7 @@ Coach-chat's pipeline is: input -> Coach decides what fields to fill -> backend 
 files -> git commit to the athlete's repo. Tests here are split to match that shape, so a failure
 points at the layer that broke instead of "something in coach-chat is wrong."
 
-Full design rationale: `docs/plans/coach-chat-testing-layers.md`.
+Full design rationale: `docs/eng-docs/coach-chat-testing.md`.
 
 ## Layers
 
