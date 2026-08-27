@@ -228,17 +228,6 @@ struct CoachChatView: View {
         composerFocused || keyboardVisible
     }
 
-    private var composerPlaceholder: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        if !isViewingToday { return "Reply to Coach…" }
-        switch hour {
-        case 5..<10:  return "How are you feeling today?"
-        case 10..<14: return "What's on your mind?"
-        case 14..<18: return "How did training go?"
-        case 18..<22: return "How did it feel?"
-        default:      return "Message Coach…"
-        }
-    }
 
     // MARK: - Continuous landing
 
@@ -342,7 +331,7 @@ struct CoachChatView: View {
             CoachChatComposer(
                 draft: $draft,
                 isFocused: $composerFocused,
-                placeholder: coachIsReplying ? "Coach is replying…" : composerPlaceholder,
+                placeholder: coachIsReplying ? "Coach is replying…" : "",
                 isSending: coachIsReplying,
                 canEndConversation: profileComplete,
                 onSend: { Task { await send(from: resolvedSendThreadId()) } },
