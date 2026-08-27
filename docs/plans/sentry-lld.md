@@ -1,6 +1,6 @@
 # Sentry observability — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26 · ADR: 0031
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-27 · ADR: 0031
 
 Low-level design for error capture, LLM telemetry, and local diagnostic timelines across web, API, and iOS.
 
@@ -28,7 +28,7 @@ flowchart LR
 | **Common** | `operation_id` | UUID | Generated per client interaction; joined across web, API, and LLM |
 | **Web & API** | `model` | string | Gemini model name (e.g. `gemini-2.5-pro`, `gemini-2.5-flash`) |
 | **Web & API** | `prompt_tokens` / `completion_tokens` | number | Exact token counts returned by Gemini API |
-| **Web & API** | `athlete_message` / `gemini_reply` | string | Text exchange for the failed/traced turn |
+| **Web & API** | `gemini_reply_chars` | number | Reply length only. Chat text never leaves the request — see ADR 0031 |
 | **iOS** | `app_version` / `build_number` | string | Client version and CFBundleVersion |
 | **iOS** | `view_name` | string | Active screen or sheet (e.g. `HomeView`, `CoachChatView`) |
 | **iOS** | `timeline_excerpt` | JSON | Last ≤200 local diagnostic events (attached on problem report) |
@@ -43,19 +43,21 @@ All Sentry SDK integrations (browser SDK, Node/Vercel SDK, Swift SDK) must run `
 
 ### Storage & retention bounds
 
-- **Sentry (Server):** Max 30 days retention. Stored in Sentry Developer Germany region.
+- **Sentry (Server):** EU region, retention set to 30 days. Both are set-up steps confirmed against the real account, not assumptions about a plan tier.
 - **Local iOS timeline:** In-memory + local cache ring buffer capped at 200 events or 256 KiB. Evicted after 24 hours or immediately on user sign-out.
 - **Beta cohort:** 4 current beta athletes opted in by default; automatic replay/screen capture remains disabled.
 
 ## 3. Done when
 
 1. Sentry projects configured for Web, API, and iOS under the EU/Germany data boundary.
-2. Web and API errors capture `operation_id`, `release`, and Gemini LLM metadata (`model`, token counts, message snippet).
-3. Secret scrubbers verify zero auth headers or API keys escape to Sentry events.
-4. iOS crashes capture thread backtraces and active view name; problem reports attach the local timeline.
+2. Web and API errors capture `operation_id`, `release`, and Gemini metadata (`model`, token counts, reply length) — never chat text.
+3. Secret scrubbers verify zero auth headers or API keys escape to Sentry events, and a test asserts no athlete or model text is attached.
+4. Web releases upload source maps and iOS releases upload dSYMs, so a stack trace names real files and lines.
+5. iOS crashes capture thread backtraces and active view name; problem reports attach the selected timeline events.
 
 ## 4. Deferred
 
 - Athlete privacy preferences and opt-out UI toggles ([#590](https://github.com/sibling-shipyard/coach-hq/issues/590)).
 - Automatic session recording / screen replays (deferred indefinitely).
 - Long-term log warehousing beyond the 30-day Sentry window.
+- Product analytics (funnels, retention, usage dashboards). Different tool, different question — revisit when the cohort is large enough that asking the athletes stops working.

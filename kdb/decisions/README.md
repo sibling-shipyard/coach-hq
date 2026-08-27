@@ -34,7 +34,7 @@
 | 0028 | Heart-rate zone boundaries and colours have separate owners | cross-cutting (iOS sync, pipeline, web + WidgetKit) |
 | 0029 | Proactive Coach messages have an athlete-owned latest-message record | cross-cutting (coach message, web + iOS) |
 | 0030 | Signup is iOS-only, and the athlete creates the repo themselves | cross-cutting (web auth, iOS setup, onboarding docs) |
-| 0031 | Sentry is the primary debug view and observability data rules | cross-cutting (observability, web, iOS, coach-chat API) |
+| 0031 | Sentry is the primary debug view, and it never carries coaching text | cross-cutting (observability, web, iOS, coach-chat API) |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.
