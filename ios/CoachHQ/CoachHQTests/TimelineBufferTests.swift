@@ -11,7 +11,7 @@ final class TimelineBufferTests: XCTestCase {
         super.setUp()
         fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("timeline-\(UUID().uuidString).json")
-        buffer = TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate })
+        buffer = TimelineBuffer(fileURL: fileURL, now: Self.referenceDate)
     }
 
     override func tearDown() {
@@ -54,7 +54,7 @@ final class TimelineBufferTests: XCTestCase {
         buffer.addEvent(category: "test", message: "recent", timestamp: Self.referenceDate)
 
         buffer = nil
-        let reloaded = TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate })
+        let reloaded = TimelineBuffer(fileURL: fileURL, now: Self.referenceDate)
         XCTAssertEqual(reloaded.getEvents().map(\.message), ["recent"])
     }
 
@@ -68,7 +68,7 @@ final class TimelineBufferTests: XCTestCase {
         )
 
         buffer = nil
-        let reloaded = TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate })
+        let reloaded = TimelineBuffer(fileURL: fileURL, now: Self.referenceDate)
         XCTAssertEqual(reloaded.getEvents().first?.operationID, operationID)
         XCTAssertEqual(reloaded.getEvents().first?.metadata["count"], "2")
     }
@@ -83,7 +83,7 @@ final class TimelineBufferTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
 
         buffer = nil
-        XCTAssertEqual(TimelineBuffer(fileURL: fileURL, now: { Self.referenceDate }).getEvents(), [])
+        XCTAssertEqual(TimelineBuffer(fileURL: fileURL, now: Self.referenceDate).getEvents(), [])
     }
 }
 

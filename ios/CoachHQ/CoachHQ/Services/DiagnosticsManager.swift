@@ -88,19 +88,19 @@ final class TimelineBuffer {
 
     private let queue = DispatchQueue(label: "com.coachhq.timelinebuffer")
     private let fileURL: URL
-    private let now: () -> Date
+    private let fixedNow: Date?
     private var events: [TimelineEvent]
 
-    init(fileURL: URL? = nil, now: @escaping () -> Date = Date.init) {
+    init(fileURL: URL? = nil, now: Date? = nil) {
         self.fileURL = fileURL ?? Self.defaultFileURL
-        self.now = now
+        self.fixedNow = now
         if let data = try? Data(contentsOf: self.fileURL),
            let loaded = try? JSONDecoder().decode([TimelineEvent].self, from: data) {
             events = loaded
         } else {
             events = []
         }
-        enforceLimits(referenceDate: now())
+        enforceLimits(referenceDate: currentDate())
         save()
     }
 
@@ -113,20 +113,20 @@ final class TimelineBuffer {
     ) {
         queue.sync {
             events.append(TimelineEvent(
-                timestamp: timestamp ?? now(),
+                timestamp: timestamp ?? currentDate(),
                 category: DiagnosticsScrubber.scrub(category),
                 message: DiagnosticsScrubber.scrub(message),
                 operationID: operationID,
                 metadata: DiagnosticsScrubber.scrub(metadata)
             ))
-            enforceLimits(referenceDate: now())
+            enforceLimits(referenceDate: currentDate())
             save()
         }
     }
 
     func getEvents() -> [TimelineEvent] {
         queue.sync {
-            enforceLimits(referenceDate: now())
+            enforceLimits(referenceDate: currentDate())
             save()
             return events
         }
@@ -152,6 +152,10 @@ final class TimelineBuffer {
 
     private func encodedEvents() -> Data? {
         try? JSONEncoder().encode(events)
+    }
+
+    private func currentDate() -> Date {
+        fixedNow ?? Date()
     }
 
     private func save() {
