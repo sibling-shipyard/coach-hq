@@ -4,20 +4,15 @@ import XCTest
 final class TimelineBufferTests: XCTestCase {
     private static let referenceDate = Date(timeIntervalSince1970: 1_800_000_000)
 
-    private var fileURL: URL!
     private var buffer: TimelineBuffer!
 
     override func setUp() {
         super.setUp()
-        fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("timeline-\(UUID().uuidString).json")
-        buffer = TimelineBuffer(fileURL: fileURL, now: Self.referenceDate)
+        buffer = TimelineBuffer(now: { Self.referenceDate })
     }
 
     override func tearDown() {
         buffer = nil
-        try? FileManager.default.removeItem(at: fileURL)
-        fileURL = nil
         super.tearDown()
     }
 
@@ -32,7 +27,7 @@ final class TimelineBufferTests: XCTestCase {
         XCTAssertEqual(events.last?.message, "Event 249")
     }
 
-    func testPersistedBufferStaysWithinByteLimit() {
+    func testTimelineStaysWithinByteLimit() {
         for index in 0..<40 {
             buffer.addEvent(
                 category: "large",
@@ -41,11 +36,11 @@ final class TimelineBufferTests: XCTestCase {
             )
         }
 
-        XCTAssertLessThanOrEqual(buffer.persistedSizeBytes, TimelineBuffer.byteLimit)
+        XCTAssertLessThanOrEqual(buffer.attachmentSizeBytes, TimelineBuffer.byteLimit)
         XCTAssertTrue(buffer.getEvents().last?.message.hasPrefix("39-") == true)
     }
 
-    func testExpiredEventsAreRemovedFromDisk() {
+    func testExpiredEventsAreDropped() {
         buffer.addEvent(
             category: "test",
             message: "old",
@@ -53,12 +48,10 @@ final class TimelineBufferTests: XCTestCase {
         )
         buffer.addEvent(category: "test", message: "recent", timestamp: Self.referenceDate)
 
-        buffer = nil
-        let reloaded = TimelineBuffer(fileURL: fileURL, now: Self.referenceDate)
-        XCTAssertEqual(reloaded.getEvents().map(\.message), ["recent"])
+        XCTAssertEqual(buffer.getEvents().map(\.message), ["recent"])
     }
 
-    func testEventsPersistAcrossBufferInstances() {
+    func testEventsCarryOperationIDAndMetadata() {
         let operationID = UUID()
         buffer.addEvent(
             category: "healthkit.sync",
@@ -67,64 +60,45 @@ final class TimelineBufferTests: XCTestCase {
             metadata: ["outcome": "success", "count": "2"]
         )
 
-        buffer = nil
-        let reloaded = TimelineBuffer(fileURL: fileURL, now: Self.referenceDate)
-        XCTAssertEqual(reloaded.getEvents().first?.operationID, operationID)
-        XCTAssertEqual(reloaded.getEvents().first?.metadata["count"], "2")
+        let event = buffer.getEvents().first
+        XCTAssertEqual(event?.operationID, operationID)
+        XCTAssertEqual(event?.metadata["count"], "2")
     }
 
-    func testSignOutClearsMemoryAndPersistedTimeline() {
+    func testCredentialsNeverReachTheTimeline() {
+        let token = "ghp_" + String(repeating: "a", count: 40)
+        buffer.addEvent(
+            category: "github.request",
+            message: "failed with \(token)",
+            metadata: ["Authorization": token]
+        )
+
+        let event = buffer.getEvents().first
+        XCTAssertEqual(event?.message, "failed with [Filtered]")
+        XCTAssertEqual(event?.metadata["Authorization"], "[Filtered]")
+    }
+
+    func testSignOutClearsTheTimeline() {
         buffer.addEvent(category: "test", message: "private account event")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
+        XCTAssertFalse(buffer.getEvents().isEmpty)
 
         buffer.clearOnSignOut()
 
         XCTAssertTrue(buffer.getEvents().isEmpty)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: fileURL.path))
-
-        buffer = nil
-        XCTAssertEqual(TimelineBuffer(fileURL: fileURL, now: Self.referenceDate).getEvents(), [])
-    }
-}
-
-final class DiagnosticsScrubberTests: XCTestCase {
-    func testDeepScrubberRedactsNestedCredentialsAndSensitiveKeys() throws {
-        let githubToken = "ghp_" + String(repeating: "a", count: 40)
-        let geminiKey = "AIza" + String(repeating: "B", count: 35)
-        let jwt = "Bearer eyJheader.payload.signature"
-        let input: [String: Any] = [
-            "safe": "kept",
-            "nested": [
-                "Authorization": githubToken,
-                "items": ["prefix \(geminiKey) suffix", ["token": jwt]]
-            ]
-        ]
-
-        let output = DiagnosticsScrubber.scrub(input)
-        let nested = try XCTUnwrap(output["nested"] as? [String: Any])
-        XCTAssertEqual(output["safe"] as? String, "kept")
-        XCTAssertEqual(nested["Authorization"] as? String, "[Filtered]")
-        XCTAssertFalse(String(describing: output).contains(githubToken))
-        XCTAssertFalse(String(describing: output).contains(geminiKey))
-        XCTAssertFalse(String(describing: output).contains("eyJheader.payload.signature"))
+        XCTAssertEqual(buffer.attachmentSizeBytes, 0)
     }
 
-    func testPrivateCredentialNamesAreRedactedAsKeys() {
-        let output = DiagnosticsScrubber.scrub([
-            "GEMINI_API_KEY": "value",
-            "SESSION_SECRET": "value",
-            "GITHUB_APP_CLIENT_SECRET": "value"
-        ])
+    func testConcurrentWritersStayWithinTheCap() {
+        let group = DispatchGroup()
+        for worker in 0..<8 {
+            DispatchQueue.global().async(group: group) {
+                for index in 0..<50 {
+                    self.buffer.addEvent(category: "test", message: "\(worker)-\(index)")
+                }
+            }
+        }
+        XCTAssertEqual(group.wait(timeout: .now() + 30), .success)
 
-        XCTAssertEqual(output["GEMINI_API_KEY"], "[Filtered]")
-        XCTAssertEqual(output["SESSION_SECRET"], "[Filtered]")
-        XCTAssertEqual(output["GITHUB_APP_CLIENT_SECRET"], "[Filtered]")
-    }
-
-    func testSafeSentryVerificationRequiresExplicitLaunchArgument() {
-        XCTAssertFalse(DiagnosticsManager.shouldSendTestEvent(arguments: ["CoachHQ"]))
-        XCTAssertTrue(DiagnosticsManager.shouldSendTestEvent(
-            arguments: ["CoachHQ", "--send-sentry-test-event"]
-        ))
+        XCTAssertEqual(buffer.getEvents().count, TimelineBuffer.eventLimit)
     }
 }

@@ -79,7 +79,11 @@ enum DiagnosticsScrubber {
     }
 }
 
-final class TimelineBuffer {
+/// The local diagnostic timeline. Bounded by count, bytes, and age per ADR 0031, and cleared
+/// on sign-out. It lives in memory only: a Rage Report is filed in the session the problem
+/// happened in, so surviving a relaunch buys nothing, and not writing diagnostics to disk means
+/// there is no athlete data at rest to expire, migrate, or leak.
+final class TimelineBuffer: @unchecked Sendable {
     static let shared = TimelineBuffer()
 
     static let eventLimit = 200
@@ -87,21 +91,12 @@ final class TimelineBuffer {
     static let ageLimit: TimeInterval = 24 * 60 * 60
 
     private let queue = DispatchQueue(label: "com.coachhq.timelinebuffer")
-    private let fileURL: URL
-    private let fixedNow: Date?
-    private var events: [TimelineEvent]
+    private let clock: () -> Date
+    private var events: [TimelineEvent] = []
+    private var encodedBytes = 0
 
-    init(fileURL: URL? = nil, now: Date? = nil) {
-        self.fileURL = fileURL ?? Self.defaultFileURL
-        self.fixedNow = now
-        if let data = try? Data(contentsOf: self.fileURL),
-           let loaded = try? JSONDecoder().decode([TimelineEvent].self, from: data) {
-            events = loaded
-        } else {
-            events = []
-        }
-        enforceLimits(referenceDate: currentDate())
-        save()
+    init(now: (() -> Date)? = nil) {
+        clock = now ?? { Date() }
     }
 
     func addEvent(
@@ -113,21 +108,19 @@ final class TimelineBuffer {
     ) {
         queue.sync {
             events.append(TimelineEvent(
-                timestamp: timestamp ?? currentDate(),
+                timestamp: timestamp ?? clock(),
                 category: DiagnosticsScrubber.scrub(category),
                 message: DiagnosticsScrubber.scrub(message),
                 operationID: operationID,
                 metadata: DiagnosticsScrubber.scrub(metadata)
             ))
-            enforceLimits(referenceDate: currentDate())
-            save()
+            enforceLimits()
         }
     }
 
     func getEvents() -> [TimelineEvent] {
         queue.sync {
-            enforceLimits(referenceDate: currentDate())
-            save()
+            enforceLimits()
             return events
         }
     }
@@ -135,52 +128,39 @@ final class TimelineBuffer {
     func clearOnSignOut() {
         queue.sync {
             events.removeAll()
-            try? FileManager.default.removeItem(at: fileURL)
+            encodedBytes = 0
         }
     }
 
-    var persistedSizeBytes: Int {
-        queue.sync { (try? Data(contentsOf: fileURL).count) ?? 0 }
-    }
-
-    private static var defaultFileURL: URL {
-        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("CoachHQ", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appendingPathComponent("diagnostic-timeline.json")
-    }
-
-    private func encodedEvents() -> Data? {
-        try? JSONEncoder().encode(events)
-    }
-
-    private func currentDate() -> Date {
-        fixedNow ?? Date()
-    }
-
-    private func save() {
-        guard !events.isEmpty else {
-            try? FileManager.default.removeItem(at: fileURL)
-            return
+    /// Size the timeline would occupy as a Rage Report attachment — the number the byte cap
+    /// is about. Reported from the last enforcement rather than re-encoding on demand.
+    var attachmentSizeBytes: Int {
+        queue.sync {
+            enforceLimits()
+            return encodedBytes
         }
-        guard let data = encodedEvents() else { return }
-        try? data.write(to: fileURL, options: .atomic)
     }
 
-    private func enforceLimits(referenceDate: Date) {
-        let cutoff = referenceDate.addingTimeInterval(-Self.ageLimit)
+    private func encodedSize(of events: [TimelineEvent]) -> Int {
+        events.isEmpty ? 0 : (try? JSONEncoder().encode(events).count) ?? 0
+    }
+
+    private func enforceLimits() {
+        let cutoff = clock().addingTimeInterval(-Self.ageLimit)
         events.removeAll { $0.timestamp <= cutoff }
         if events.count > Self.eventLimit {
             events = Array(events.suffix(Self.eventLimit))
         }
-        while events.count > 1,
-              let data = encodedEvents(),
-              data.count > Self.byteLimit {
+
+        encodedBytes = encodedSize(of: events)
+        while events.count > 1, encodedBytes > Self.byteLimit {
             events.removeFirst()
+            encodedBytes = encodedSize(of: events)
         }
-        if let only = events.first,
-           let data = encodedEvents(),
-           data.count > Self.byteLimit {
+        // A single event can still exceed the cap on its own; truncate rather than drop it,
+        // so the report that mattered is not silently empty.
+        if events.count == 1, encodedBytes > Self.byteLimit {
+            let only = events[0]
             events = [TimelineEvent(
                 id: only.id,
                 timestamp: only.timestamp,
@@ -189,6 +169,7 @@ final class TimelineBuffer {
                 operationID: only.operationID,
                 metadata: [:]
             )]
+            encodedBytes = encodedSize(of: events)
         }
     }
 }
