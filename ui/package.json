@@ -20,7 +20,9 @@
     "eval:coach-chat": "tsx --tsconfig tsconfig.json scripts/eval-coach-chat.ts",
     "test:coach-chat-manual": "tsx --tsconfig tsconfig.json scripts/run-manual-coach-chat-test.ts",
     "pretest": "node scripts/build-soul.mjs",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pretest:logged": "node scripts/build-soul.mjs",
+    "test:logged": "node scripts/run-tests-logged.mjs"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",
