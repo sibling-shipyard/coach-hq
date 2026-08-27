@@ -1,5 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 import path from "node:path";
 import { defineConfig } from "vite";
 
@@ -15,8 +16,26 @@ const sentryEnvironment =
   process.env.NODE_ENV ??
   "development";
 
+// Source maps are generated and uploaded only when SENTRY_AUTH_TOKEN is set, so local
+// and fork builds stay unchanged. Without them a production stack frame is minified
+// noise, which is the whole point of the release tags below.
+const sentryUpload =
+  process.env.SENTRY_AUTH_TOKEN &&
+  process.env.SENTRY_ORG &&
+  process.env.SENTRY_PROJECT
+    ? sentryVitePlugin({
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+        release: { name: sentryRelease },
+        // The maps reach Sentry, then leave the deployed bundle: they are debug
+        // artifacts, not something to serve to every visitor.
+        sourcemaps: { filesToDeleteAfterUpload: ["**/*.map"] },
+      })
+    : undefined;
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), ...(sentryUpload ? [sentryUpload] : [])],
   define: {
     "import.meta.env.VITE_SENTRY_RELEASE": JSON.stringify(sentryRelease),
     "import.meta.env.VITE_SENTRY_ENVIRONMENT":
@@ -46,6 +65,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
+    sourcemap: Boolean(sentryUpload),
   },
   server: {
     port: 3000,

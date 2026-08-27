@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/node";
-import { scrubSentryEvent } from "./sentryScrubber.js";
+import { scrubSentryEvent } from "../../observability/sentryScrubber.js";
 
 interface MonitoringContext {
   operationId: string;

@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/react";
-import { scrubSentryEvent } from "../../../api/_lib/sentryScrubber";
+import { scrubSentryEvent } from "../../../observability/sentryScrubber";
 
 export const clientRelease =
   import.meta.env.VITE_SENTRY_RELEASE || "development";

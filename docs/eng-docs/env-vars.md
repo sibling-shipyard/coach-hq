@@ -37,9 +37,12 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 | `SENTRY_ENVIRONMENT` / `VITE_SENTRY_ENVIRONMENT`               | server / browser Sentry setup                                                      | Falls back to Vercel's environment (`production`/`preview`) on the server and is baked from the same value into the web build.                                                                                                                                                                                                                                                                                                            |
 | `SENTRY_RELEASE` / `VITE_SENTRY_RELEASE`                       | server / browser Sentry setup                                                      | Falls back to `VERCEL_GIT_COMMIT_SHA`, so browser and API events share the deploy SHA without a manual per-deploy value.                                                                                                                                                                                                                                                                                                                  |
 
-Browser source-map upload is not configured. It requires explicit operator approval to upload
-private source artifacts to Sentry plus an org, project, and scoped auth token. Until approved,
-browser events retain release correlation but production stack frames remain minified.
+Browser source-map upload runs in the Vite build and is off unless all three of
+`SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are set — so local and fork builds are
+unaffected. Set all three in Vercel Production and Preview; without them a production stack frame
+is minified and the release tag alone will not tell you which line broke. The maps are uploaded and
+then deleted from the bundle, so they never ship to visitors. Use a scoped token with project
+release write only, and keep it out of `VITE_*` names, which Vite bakes into the client bundle.
 
 ## Rule
 

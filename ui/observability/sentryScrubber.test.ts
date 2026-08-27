@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scrubSentryEvent } from "../sentryScrubber.js";
+import { scrubSentryEvent } from "./sentryScrubber.js";
 
 describe("scrubSentryEvent", () => {
   it("removes credential headers regardless of case", () => {
