@@ -193,9 +193,9 @@ struct DiagnosticOperation {
     let id: UUID
     let name: String
     private let startedAt: Date
-    private let span: Span
+    private let span: Span?
 
-    fileprivate init(id: UUID, name: String, startedAt: Date, span: Span) {
+    fileprivate init(id: UUID, name: String, startedAt: Date, span: Span?) {
         self.id = id
         self.name = name
         self.startedAt = startedAt
@@ -204,11 +204,11 @@ struct DiagnosticOperation {
 
     func finish(outcome: String, count: Int? = nil) {
         let durationMS = Int(Date().timeIntervalSince(startedAt) * 1_000)
-        span.setTag(value: outcome, key: "outcome")
-        span.setData(value: id.uuidString, key: "operation_id")
-        span.setData(value: durationMS, key: "duration_ms")
-        if let count { span.setData(value: count, key: "count") }
-        span.finish()
+        span?.setTag(value: outcome, key: "outcome")
+        span?.setData(value: id.uuidString, key: "operation_id")
+        span?.setData(value: durationMS, key: "duration_ms")
+        if let count { span?.setData(value: count, key: "count") }
+        span?.finish()
         DiagnosticsManager.record(
             category: name,
             message: "finished",
@@ -224,6 +224,7 @@ struct DiagnosticOperation {
 
 enum DiagnosticsManager {
     private static var isConfigured = false
+    private static var isEnabled = false
 
     static var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
@@ -263,6 +264,7 @@ enum DiagnosticsManager {
             options.sessionReplay = SentryReplayOptions(sessionSampleRate: 0, onErrorSampleRate: 0)
             options.beforeSend = scrub(event:)
         }
+        isEnabled = true
         SentrySDK.configureScope { scope in
             scope.setTag(value: appVersion, key: "app_version")
             scope.setTag(value: buildNumber, key: "build_number")
@@ -271,6 +273,7 @@ enum DiagnosticsManager {
     }
 
     static func setAthlete(repoFullName: String?) {
+        guard isEnabled else { return }
         let athleteID = repoFullName?.split(separator: "/").first.map(String.init)
         SentrySDK.configureScope { scope in
             if let athleteID {
@@ -284,14 +287,16 @@ enum DiagnosticsManager {
     }
 
     static func setView(_ viewName: String) {
-        SentrySDK.configureScope { $0.setTag(value: viewName, key: "view_name") }
+        if isEnabled {
+            SentrySDK.configureScope { $0.setTag(value: viewName, key: "view_name") }
+        }
         record(category: "navigation", message: viewName)
     }
 
     static func beginOperation(name: String) -> DiagnosticOperation {
         let id = UUID()
-        let span = SentrySDK.startTransaction(name: name, operation: name)
-        span.setData(value: id.uuidString, key: "operation_id")
+        let span = isEnabled ? SentrySDK.startTransaction(name: name, operation: name) : nil
+        span?.setData(value: id.uuidString, key: "operation_id")
         record(category: name, message: "started", operationID: id)
         return DiagnosticOperation(id: id, name: name, startedAt: Date(), span: span)
     }
@@ -308,6 +313,7 @@ enum DiagnosticsManager {
             operationID: operationID,
             metadata: metadata
         )
+        guard isEnabled else { return }
         let breadcrumb = Breadcrumb(level: .info, category: category)
         breadcrumb.message = message
         breadcrumb.data = DiagnosticsScrubber.scrub(
@@ -323,6 +329,7 @@ enum DiagnosticsManager {
         metadata: [String: String] = [:]
     ) {
         record(category: operation, message: "failed", operationID: operationID, metadata: metadata)
+        guard isEnabled else { return }
         SentrySDK.capture(error: error) { scope in
             scope.setTag(value: operation, key: "operation")
             scope.setTag(value: operationID.uuidString, key: "operation_id")
