@@ -65,8 +65,12 @@ final class RageReportViewModel: ObservableObject {
                 contentType: "application/json"
             )
 
+            // The athlete's own words, but people paste tokens and error dumps into bug
+            // reports — run them through the same scrubber as everything else.
             try submitter.submit(
-                message: message.trimmingCharacters(in: .whitespacesAndNewlines),
+                message: DiagnosticsScrubber.scrub(
+                    message.trimmingCharacters(in: .whitespacesAndNewlines)
+                ),
                 attachment: attachment
             )
             submissionState = .queued

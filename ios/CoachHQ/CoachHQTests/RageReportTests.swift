@@ -35,6 +35,18 @@ final class RageReportTests: XCTestCase {
         XCTAssertEqual(viewModel.submissionState, .queued)
     }
 
+    func testPastedCredentialsAreScrubbedFromTheAthleteMessage() throws {
+        let token = "ghp_" + String(repeating: "a", count: 40)
+        let submitter = RecordingRageReportSubmitter()
+        let viewModel = RageReportViewModel(events: makeEvents(), submitter: submitter)
+        viewModel.message = "login broke, my token is \(token)"
+
+        viewModel.submitReport()
+
+        let call = try XCTUnwrap(submitter.calls.first)
+        XCTAssertEqual(call.message, "login broke, my token is [Filtered]")
+    }
+
     func testSubmitWithoutSelectedEvidenceHasNoAttachment() throws {
         let submitter = RecordingRageReportSubmitter()
         let viewModel = RageReportViewModel(events: makeEvents(), submitter: submitter)
