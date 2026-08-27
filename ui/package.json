@@ -22,7 +22,7 @@
     "pretest": "node scripts/build-soul.mjs",
     "test": "vitest run",
     "pretest:logged": "node scripts/build-soul.mjs",
-    "test:logged": "node scripts/run-tests-logged.mjs"
+    "test:logged": "tsx --tsconfig tsconfig.json scripts/run-tests-logged.ts"
   },
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",

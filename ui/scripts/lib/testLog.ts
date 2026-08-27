@@ -3,7 +3,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "..", "..", "..");
+export const repoRoot = path.resolve(__dirname, "..", "..", "..");
+
+/**
+ * mkdir -p's and returns tests/<YYYY-MM-DD>/<kind>/, plus the day/time stamps used to name the
+ * file inside it - shared by writeTestLog below and by run-tests-logged.ts, so every one of the
+ * dated tests/<date>/<kind>/ folders (eval, manual, unit) comes from the same formula.
+ */
+export function dailyLogDir(kind: "eval" | "manual" | "unit"): { dir: string; day: string; time: string } {
+  const now = new Date();
+  const day = now.toISOString().slice(0, 10);
+  const time = now.toISOString().slice(11, 19).replace(/:/g, "-");
+  const dir = path.join(repoRoot, "tests", day, kind);
+  fs.mkdirSync(dir, { recursive: true });
+  return { dir, day, time };
+}
 
 export type FilesChanged =
   | { confidence: "derived"; files: string[] }               // eval: filesForReply() guess
@@ -27,13 +41,9 @@ export interface TestLogEntry {
  * show for it.
  */
 export function writeTestLog(kind: "eval" | "manual", prefix: string, entries: TestLogEntry[]): boolean {
-  const now = new Date();
-  const day = now.toISOString().slice(0, 10);
-  const timeStamp = now.toISOString().slice(11, 19).replace(/:/g, "-");
-  const dayDir = path.join(repoRoot, "tests", day, kind);
-  const logPath = path.join(dayDir, `${prefix}-log-${timeStamp}.json`);
   try {
-    fs.mkdirSync(dayDir, { recursive: true });
+    const { dir, time } = dailyLogDir(kind);
+    const logPath = path.join(dir, `${prefix}-log-${time}.json`);
     fs.writeFileSync(logPath, `${JSON.stringify(entries, null, 2)}\n`);
     console.log(`\nRun log written to ${path.relative(repoRoot, logPath)}`);
     return true;

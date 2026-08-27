@@ -40,7 +40,7 @@ shapes where practical (eval transcripts, real logged manual runs, issue #609's 
 reply) rather than invented ones.
 
 **Logged runs:** `npm run test:logged` runs the same suite and additionally writes a dated JSON
-report to `tests/<YYYY-MM-DD>/unit/vitest-results-<HH-MM-SS>.json` (`ui/scripts/run-tests-logged.mjs`),
+report to `tests/<YYYY-MM-DD>/unit/vitest-results-<HH-MM-SS>.json` (`ui/scripts/run-tests-logged.ts`),
 matching the `eval/` and `manual/` folders below. Use this - not a bare `npm test` - whenever a run
 needs to leave a record someone can point at later.
 
