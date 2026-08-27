@@ -6,12 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { fetchWithTimeout } = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
 }));
-vi.mock("../../../_lib/httpTimeout.js", () => ({
+vi.mock("../httpTimeout.js", () => ({
   fetchWithTimeout,
   UPSTREAM_TIMEOUT_MS: 25_000,
 }));
 
-import { commitFilesAtomic, type FileEntry } from "../../../_lib/githubGitData.js";
+import { commitFilesAtomic, type FileEntry } from "../githubGitData.js";
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });
