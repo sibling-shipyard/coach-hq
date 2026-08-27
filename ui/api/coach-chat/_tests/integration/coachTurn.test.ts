@@ -9,19 +9,19 @@ const { commitFilesAtomic } = vi.hoisted(() => ({
   ),
 }));
 
-vi.mock("../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
-vi.mock("../_lib/coachChatFiles.js", async (importOriginal) => {
+vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
+vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("../_lib/coachChatFiles.js")>();
+    await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
   return {
     ...original,
     getFileRaw: vi.fn(async () => null),
     invalidateCoachContext: vi.fn(),
   };
 });
-vi.mock("../_lib/chatThreads.js", async (importOriginal) => {
+vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("../_lib/chatThreads.js")>();
+    await importOriginal<typeof import("../../_lib/chatThreads.js")>();
   return {
     ...original,
     loadChatHistory: vi.fn(async () => ({ version: 1, threads: [] })),
@@ -33,7 +33,7 @@ import {
   commitClosingTurn,
   commitOrdinaryTurn,
   parseTurnRequest,
-} from "../_lib/coachTurn.js";
+} from "../../_lib/coachTurn.js";
 
 function baseTurn(overrides: Record<string, unknown> = {}) {
   return {

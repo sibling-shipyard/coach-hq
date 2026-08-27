@@ -1,21 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../_lib/coachChatFiles.js", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../_lib/coachChatFiles.js")>();
+vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
   return {
     ...original,
     getFileRaw: vi.fn(async () => null),
   };
 });
 
-import { buildCoachNoteWrite } from "../_lib/turnWrites/coachNoteWrite.js";
-import { buildMemoryFileWrite } from "../_lib/turnWrites/memoryWrite.js";
-import { buildInjuryEventWrite } from "../_lib/turnWrites/injuryWrite.js";
+import { buildCoachNoteWrite } from "../../_lib/turnWrites/coachNoteWrite.js";
+import { buildMemoryFileWrite } from "../../_lib/turnWrites/memoryWrite.js";
+import { buildInjuryEventWrite } from "../../_lib/turnWrites/injuryWrite.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
-} from "../_lib/text-caps.bundle.js";
+} from "../../_lib/text-caps.bundle.js";
 
 // Issue #462, layer 3: even if the Gemini schema (layer 1), prompt (layer 0), and reprompt
 // (layer 2) all fail to keep a field in budget, these write builders are the deterministic

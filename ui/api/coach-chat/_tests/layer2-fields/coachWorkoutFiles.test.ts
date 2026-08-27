@@ -4,8 +4,8 @@ import {
   generateInitialTemplates,
   loadWorkoutLibraryIndex,
   type WorkoutLibraryIndexEntry,
-} from "../_lib/coachWorkoutFiles.js";
-import type { ProfileJson, MemoryJson, InjuriesJson } from "../_lib/coachMemoryFiles.js";
+} from "../../_lib/coachWorkoutFiles.js";
+import type { ProfileJson, MemoryJson, InjuriesJson } from "../../_lib/coachMemoryFiles.js";
 
 // coach-redesign workout-backend-wiring §2: unit coverage for selectTemplates's deterministic
 // tag-matching logic (especially the injury-filtering case, since a wrong pick here could
