@@ -14,9 +14,12 @@ Full design rationale: `docs/plans/coach-chat-testing-layers.md`.
   `coachWeekFiles.ts`, `coachWorkoutFiles.ts`, `turnWrites/*.ts`) that take the current JSON plus a
   parsed action and produce the next JSON. No network, no git - these are the most unit-like tests
   in the suite.
-- **`layer3-commit/`** - file content -> git commit (`ui/api/_lib/githubGitData.ts::commitFilesAtomic`).
-  Mocks `fetch` against the GitHub REST endpoints only; the real blob->tree->commit->ref sequence
-  runs.
+- **Layer 3 (file content -> git commit)** lives at `ui/api/_lib/_tests/githubGitData.test.ts`,
+  not under this directory - `commitFilesAtomic` is a shared chokepoint used well beyond coach-chat
+  (`coach-message.ts`, `waitlist.ts` too), so its tests follow the same co-location convention as
+  `fileEdits.test.ts` in that same `_lib/_tests/` directory, rather than living under one caller's
+  test tree. Mocks `fetch` against the GitHub REST endpoints only; the real
+  blob->tree->commit->ref sequence runs.
 - **`integration/`** - the full turn pipeline (`coachTurn.ts`'s `commitOrdinaryTurn`/`commitClosingTurn`,
   and `activitySyncTurn.ts`), with `fetch` mocked at the Gemini and GitHub HTTP boundary only. Real
   prompt building, real schema parsing, real turnWrites, real commit-payload assembly all execute.
@@ -43,10 +46,16 @@ mishandled that input, not a guess about what Gemini or GitHub would do.
 
 Pick the layer that owns the code you're changing. Changing what a Gemini response looks like or
 how it's parsed -> `layer1-gemini/`. Changing how a decision becomes file content -> `layer2-fields/`.
-Changing the git commit sequence -> `layer3-commit/`. Changing how the layers wire together ->
-`integration/`. If unsure, run `npm test` after adding a test in your best-guess layer and see
-which other layers stay green - if only your layer's tests fail on a deliberate break, you picked
-the right spot.
+Changing the git commit sequence -> `ui/api/_lib/_tests/githubGitData.test.ts`. Changing how the
+layers wire together -> `integration/`. If unsure, run `npm test` after adding a test in your
+best-guess layer and see which other layers stay green - if only your layer's tests fail on a
+deliberate break, you picked the right spot.
+
+Note: this directory's `layer1-gemini`/`layer2-fields`/`integration` names are pipeline-stage
+numbers (input -> decision -> file content -> git commit), unrelated to issue #462's own
+"layer 0/1/2/3" text-cap-enforcement numbering referenced in `layer2-fields/coachReplySchema.test.ts`
+and `layer2-fields/textCapsWrites.test.ts`. Same word, two unrelated numbering schemes - don't
+conflate a "layer 1" comment inside a test file with this directory's `layer1-gemini/`.
 
 ## Running and logging
 
