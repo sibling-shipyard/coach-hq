@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { FileEntry } from "../../_lib/githubGitData.js";
-import { fspIncrementalWrites, ordinaryTurnResponse } from "../_lib/fspWrites.js";
+import type { FileEntry } from "../../../_lib/githubGitData.js";
+import { fspIncrementalWrites, ordinaryTurnResponse } from "../../_lib/fspWrites.js";
 
 describe("fspIncrementalWrites", () => {
   const profile: FileEntry = { path: "user_data/coach/profile.json", content: "{}" };

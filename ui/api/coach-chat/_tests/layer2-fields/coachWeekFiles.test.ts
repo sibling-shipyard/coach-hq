@@ -6,8 +6,8 @@ import {
   assertCurrentWeekCommitReady,
   CURRENT_WEEK_PATH,
   type WeekPlan,
-} from "../_lib/coachWeekFiles.js";
-import { parseCurrentWeek } from "../../../../engine/lib/current-week.mts";
+} from "../../_lib/coachWeekFiles.js";
+import { parseCurrentWeek } from "../../../../../engine/lib/current-week.mts";
 
 // coach-redesign workout-backend-wiring §5: week_plan/session_reconcile action fields. Covers the
 // bookkeeping applyWeekPlan computes (week id/bounds, session ids, coach_read window), the

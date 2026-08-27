@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { askGemini } = vi.hoisted(() => ({ askGemini: vi.fn() }));
-vi.mock("../_lib/geminiClient.js", () => ({ askGemini }));
+vi.mock("../../_lib/geminiClient.js", () => ({ askGemini }));
 
-import { requestCoachReply } from "../_lib/coachTurn.js";
-import { COACH_LOG_TEXT_CAP } from "../_lib/text-caps.bundle.js";
+import { requestCoachReply } from "../../_lib/coachTurn.js";
+import { COACH_LOG_TEXT_CAP } from "../../_lib/text-caps.bundle.js";
 
 function baseTurnState(overrides: Record<string, unknown> = {}) {
   return {

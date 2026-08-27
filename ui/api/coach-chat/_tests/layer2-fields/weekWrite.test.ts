@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../_lib/coachWeekFiles.js", async (importOriginal) => {
-  const orig = await importOriginal<typeof import("../_lib/coachWeekFiles.js")>();
+vi.mock("../../_lib/coachWeekFiles.js", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../../_lib/coachWeekFiles.js")>();
   return {
     ...orig,
     applyWeekPlan: vi.fn(orig.applyWeekPlan),
@@ -9,13 +9,13 @@ vi.mock("../_lib/coachWeekFiles.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../_lib/coachChatFiles.js", () => ({
+vi.mock("../../_lib/coachChatFiles.js", () => ({
   getFileRaw: vi.fn(),
 }));
 
-import { applyWeekPlan, applySessionReconcile, CURRENT_WEEK_PATH, type WeekPlan } from "../_lib/coachWeekFiles.js";
-import { getFileRaw } from "../_lib/coachChatFiles.js";
-import { buildCurrentWeekWrite } from "../_lib/turnWrites/weekWrite.js";
+import { applyWeekPlan, applySessionReconcile, CURRENT_WEEK_PATH, type WeekPlan } from "../../_lib/coachWeekFiles.js";
+import { getFileRaw } from "../../_lib/coachChatFiles.js";
+import { buildCurrentWeekWrite } from "../../_lib/turnWrites/weekWrite.js";
 
 function validPlan(): WeekPlan {
   const days = ["2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23"].map(

@@ -35,11 +35,11 @@ const {
   loadChatHistory: vi.fn(async () => ({ version: 1, threads: [] })),
 }));
 
-vi.mock("../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
-vi.mock("../_lib/geminiClient.js", () => ({ askGemini }));
-vi.mock("../_lib/coachChatFiles.js", async (importOriginal) => {
+vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
+vi.mock("../../_lib/geminiClient.js", () => ({ askGemini }));
+vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("../_lib/coachChatFiles.js")>();
+    await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
   return {
     ...original,
     getFileRaw,
@@ -49,9 +49,9 @@ vi.mock("../_lib/coachChatFiles.js", async (importOriginal) => {
     invalidateCoachContext: vi.fn(),
   };
 });
-vi.mock("../_lib/chatThreads.js", async (importOriginal) => {
+vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("../_lib/chatThreads.js")>();
+    await importOriginal<typeof import("../../_lib/chatThreads.js")>();
   return {
     ...original,
     loadChatHistory,
@@ -63,13 +63,13 @@ import {
   activitySyncBatchId,
   commitActivitySyncHistory,
   findThreadForActivitySyncBatch,
-} from "../_lib/activitySync.js";
-import { handleActivitySync } from "../_lib/activitySyncTurn.js";
-import type { ChatThread } from "../_lib/chatThreads.js";
+} from "../../_lib/activitySync.js";
+import { handleActivitySync } from "../../_lib/activitySyncTurn.js";
+import type { ChatThread } from "../../_lib/chatThreads.js";
 import {
   isActivitySyncRequest,
   parseTurnRequest,
-} from "../_lib/coachTurn.js";
+} from "../../_lib/coachTurn.js";
 
 const UUID_A = "11111111-1111-1111-1111-111111111111";
 const UUID_B = "22222222-2222-2222-2222-222222222222";

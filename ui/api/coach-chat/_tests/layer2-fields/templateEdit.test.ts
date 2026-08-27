@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { applyTemplateEdit, validTemplateIdsFromManifest, templatePath } from "../_lib/coachWorkoutFiles.js";
-import type { Workout } from "../../../client/src/lib/workouts.js";
+import { applyTemplateEdit, validTemplateIdsFromManifest, templatePath } from "../../_lib/coachWorkoutFiles.js";
+import type { Workout } from "../../../../client/src/lib/workouts.js";
 
 // coach-redesign workout-backend-wiring §3: template_edit action field. Purely mechanical now -
 // same skip_exercise_nums/skip_phases primitives as session_plan, no Gemini-generated content, no

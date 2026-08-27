@@ -66,7 +66,7 @@ goes up. Conditional SOUL blocks (the First Session Protocol, gated on
 `isAthleteProfileComplete()`) are injected through `buildDynamicText()`'s `extraContext` for this
 reason. They are not in `SOUL.chat.md` at all; `compose-soul.mjs` emits them as horcruxes under
 `platform/horcruxes/`, which `build-soul.mjs` bundles separately. Guarded by
-`ui/api/coach-chat/_tests/first-session-injection.test.ts`.
+`ui/api/coach-chat/_tests/layer2-fields/first-session-injection.test.ts`.
 
 **Hard constraint that shapes the whole design:** Gemini rejects a `generateContent` request
 that sets both `cachedContent` and `systemInstruction` — they're mutually exclusive. Once a

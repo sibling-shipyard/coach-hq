@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { generationConfigFor } from "../_lib/coachReplySchema.js";
+import { generationConfigFor } from "../../_lib/coachReplySchema.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
-} from "../_lib/text-caps.bundle.js";
+} from "../../_lib/text-caps.bundle.js";
 
 // Issue #462, layer 1: the Gemini responseSchema carries maxLength for the three free-text
 // fields, sourced from engine/lib/text-caps.mts so the numbers can't drift from the write-time
