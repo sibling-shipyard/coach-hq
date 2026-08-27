@@ -140,7 +140,13 @@ function repoFixture(overrides: Record<string, string> = {}) {
   };
 }
 
+// repoName is a distinct string per call, not a shared constant - loadCoachContext
+// (coachChatFiles.ts) keeps a module-level cache keyed only by repo name with a 60s TTL, so two
+// tests sharing one repo name could silently read each other's cached CoachContext instead of
+// their own fixture. Harmless today (no test here asserts on a value that would differ across
+// runs), but would produce a silent false pass/fail the moment a future test's assertion does.
 async function runTurn(
+  repoName: string,
   repo: ReturnType<typeof createFakeRepo>,
   gemini: ReturnType<typeof createFakeGemini>,
   request: TurnRequest,
@@ -149,7 +155,7 @@ async function runTurn(
     if (url.includes("generativelanguage.googleapis.com")) return gemini.handle(url);
     return repo.handle(url, init);
   });
-  const turnState = await loadTurnState(request, "owner/repo", "test-token", "test-api-key");
+  const turnState = await loadTurnState(request, repoName, "test-token", "test-api-key");
   if (turnState instanceof Response) throw new Error(`loadTurnState failed: ${await turnState.text()}`);
   const replied = await requestCoachReply(turnState);
   if (replied instanceof Response) return replied;
@@ -179,7 +185,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       { reply: "Got it, noted your birthday.", profile_update: [{ field: "dob", value: "1995-01-01" }] },
     ]);
 
-    const response = await runTurn(repo, gemini, {
+    const response = await runTurn("owner/repo-1", repo, gemini, {
       threadId: "thread-1",
       priorMessages: [],
       trimmed: "I was born Jan 1 1995",
@@ -206,7 +212,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       { reply: "Nice work today, rest up.", coach_note: "Athlete reported feeling strong.", session_closed: true },
     ]);
 
-    const response = await runTurn(repo, gemini, {
+    const response = await runTurn("owner/repo-2", repo, gemini, {
       threadId: "thread-2",
       priorMessages: [],
       trimmed: "That's it for today, thanks coach",
@@ -224,13 +230,13 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     expect(chatHistory.threads[0].messages.map((m: { role: string }) => m.role)).toEqual(["divider", "user", "coach"]);
   });
 
-  it("issue #609: a template_edit sentinel of \"none\" still crashes the closing-turn commit (not fixed by this plan - see coach-chat-testing-layers.md scope guard)", async () => {
+  it("issue #609: a template_edit sentinel of \"none\" still crashes the closing-turn commit (deliberately not fixed by this test suite)", async () => {
     const repo = createFakeRepo(repoFixture());
     const gemini = createFakeGemini([
       { reply: "All set for today.", template_edit: { template_id: "none" }, session_closed: true },
     ]);
 
-    const response = await runTurn(repo, gemini, {
+    const response = await runTurn("owner/repo-3", repo, gemini, {
       threadId: "thread-3",
       priorMessages: [],
       trimmed: "Done, see you tomorrow",

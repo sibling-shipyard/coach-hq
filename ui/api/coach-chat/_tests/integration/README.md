@@ -24,7 +24,8 @@ prove the layers hand off to each other correctly the way `fullTurnPipeline.test
 a `profile_update` immediately for any athlete. It doesn't: `fspIncrementalWrites` (`fspWrites.ts`)
 only lets an ordinary turn commit writes while the athlete's profile was still incomplete going
 in - once complete, an ordinary turn commits nothing at all, and a `profile_update` only lands on
-the next close. This is exactly the kind of gap unit tests in isolation can miss (each
-`turnWrites/*` builder looked correct on its own) that only shows up once the layers run wired
-together - see the `coach-chat-testing-layers.md` plan's "How the mocked layers stay trustworthy"
-section on why the integration test exists at all.
+the next close. Filed as issue #616 (p0) - not fixed here, out of scope for this stack. This is
+exactly the kind of gap unit tests in isolation can miss (each `turnWrites/*` builder looked
+correct on its own) that only shows up once the layers run wired together - see
+`docs/eng-docs/coach-chat-testing.md`'s "Two different questions" section on why the integration
+test exists at all.
