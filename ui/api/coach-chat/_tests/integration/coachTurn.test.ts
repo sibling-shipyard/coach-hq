@@ -154,7 +154,7 @@ describe("coach turn stages", () => {
       profileComplete: true,
     } as never);
     expect(
-      commitFilesAtomic.mock.calls[0]?.[0].map((write: { path: string }) => write.path),
+      commitFilesAtomic.mock.calls[0]?.[0].map((write) => (write as { path: string }).path),
     ).toEqual([
       "user_data/coach/profile.json",
       "user_data/coach/chat_history.json",

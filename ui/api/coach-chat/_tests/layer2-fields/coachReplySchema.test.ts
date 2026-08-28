@@ -17,12 +17,14 @@ describe("coachReplySchema text caps", () => {
 
   it("caps memory_update.text at MEMORY_NOTE_TEXT_CAP", () => {
     const props = generationConfigFor("closing", false).responseSchema.properties;
-    expect(props.memory_update.properties.text).toMatchObject({ maxLength: MEMORY_NOTE_TEXT_CAP });
+    const memoryUpdate = props.memory_update as { properties: { text: unknown } };
+    expect(memoryUpdate.properties.text).toMatchObject({ maxLength: MEMORY_NOTE_TEXT_CAP });
   });
 
   it("caps injury_event[].text at INJURY_FLAG_TEXT_CAP", () => {
     const props = generationConfigFor("closing", false).responseSchema.properties;
-    expect(props.injury_event.items.properties.text).toMatchObject({
+    const injuryEvent = props.injury_event as { items: { properties: { text: unknown } } };
+    expect(injuryEvent.items.properties.text).toMatchObject({
       maxLength: INJURY_FLAG_TEXT_CAP,
     });
   });

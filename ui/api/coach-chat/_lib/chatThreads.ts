@@ -95,7 +95,7 @@ interface ChatHistoryFileMeta {
   trace_id: string;
 }
 
-interface ChatHistoryFile {
+export interface ChatHistoryFile {
   threads: ChatThread[];
 }
 

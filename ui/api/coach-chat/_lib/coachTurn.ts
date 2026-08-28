@@ -1,4 +1,8 @@
-import { commitFilesAtomic, type FileEntry } from "../../_lib/githubGitData.js";
+import {
+  commitFilesAtomic,
+  type FileEntry,
+  type ResolvedFileWrite,
+} from "../../_lib/githubGitData.js";
 import { applyJsonMergePatch } from "../../_lib/fileEdits.js";
 import {
   getFileRaw,
@@ -114,7 +118,7 @@ interface RepliedTurn extends TurnState {
 }
 
 export interface TurnWrites extends RepliedTurn {
-  chatWrite: FileEntry;
+  chatWrite: ResolvedFileWrite;
   latestThreads: ChatThread[];
   finalThreadId: string;
   computedTitle: string;

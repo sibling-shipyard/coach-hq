@@ -33,7 +33,12 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
-      "@typescript-eslint/no-unused-vars": "error",
+      // `_repo`, `_path`: the leading underscore is how this repo already spells a parameter
+      // that exists to satisfy a signature it does not use.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
       "@typescript-eslint/require-await": "error",
       // `no-explicit-any` is deliberately absent: 81 violations today. Enabling it
       // is a typing refactor, not a lint fix, so it is tracked separately.

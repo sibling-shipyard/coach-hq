@@ -1,8 +1,8 @@
-// Builds the chat-transcript FileEntry: every turn's write to chat_history.json, merging the
+// Builds the chat-transcript write: every turn's write to chat_history.json, merging the
 // current thread to the front and re-serializing. Split out of coachTurn.ts so the transcript
 // concern reads on its own, separate from the athlete-data writes (memory, injuries, quests...)
 // a turn may also produce.
-import type { FileEntry } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
 import {
   CHAT_FILE_PATH,
   THREAD_TITLE_MAX_CHARS,
@@ -17,7 +17,7 @@ import {
 } from "../chatThreads.js";
 
 export interface ChatWriteResult {
-  chatWrite: FileEntry;
+  chatWrite: ResolvedFileWrite;
   latestThreads: ChatThread[];
   finalThreadId: string;
   computedTitle: string;
@@ -41,7 +41,7 @@ export function buildChatWrite(params: {
     )?.text ?? trimmed;
   const computedTitle = truncateTitle(sanitizeTitle(firstUserText), THREAD_TITLE_MAX_CHARS);
   const latestThreads: ChatThread[] = [];
-  const chatWrite: FileEntry = {
+  const chatWrite: ResolvedFileWrite = {
     path: CHAT_FILE_PATH,
     resolve: async () => {
       const fresh = await loadChatHistory(repo, token);

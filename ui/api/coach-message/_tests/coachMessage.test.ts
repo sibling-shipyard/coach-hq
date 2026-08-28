@@ -567,9 +567,7 @@ describe("failure safety", () => {
 
   it("fails before generation when the authoritative activity is absent", async () => {
     const deps = dependencies({ listActivityFiles: vi.fn(async () => []) });
-    await expect(generateAndStoreCoachMessage([ACTIVITY_ID], deps)).rejects.toMatchObject<
-      Partial<CoachMessageError>
-    >({
+    await expect(generateAndStoreCoachMessage([ACTIVITY_ID], deps)).rejects.toMatchObject({
       status: 422,
     });
     expect(deps.generateBody).not.toHaveBeenCalled();

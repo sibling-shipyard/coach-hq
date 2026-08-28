@@ -423,7 +423,7 @@ describe("applyQuestEvent", () => {
     const result = JSON.parse(
       applyQuestEvent(
         EXISTING,
-        [{ quest_id: "inner_game_of_tennis", status: "completed", value: 12 }],
+        [{ quest_id: "inner_game_of_tennis", status: "completed", value: "12" }],
         "2026-08-16",
         "s_2026_q2",
         "t1",
@@ -432,7 +432,7 @@ describe("applyQuestEvent", () => {
       ),
     );
     const row = result.rows.find((r: any) => r.date === "2026-08-16");
-    expect(row.value).toBe(12);
+    expect(row.value).toBe("12");
   });
 
   it("stores value as null when omitted", () => {
@@ -553,7 +553,7 @@ describe("applyQuestEvent", () => {
           EXISTING,
           [
             { quest_id: "morning_routine", status: "completed" },
-            { quest_id: "inner_game_of_tennis", status: "completed", value: 15 },
+            { quest_id: "inner_game_of_tennis", status: "completed", value: "15" },
           ],
           "2026-08-16",
           "s_2026_q2",
@@ -570,7 +570,7 @@ describe("applyQuestEvent", () => {
         (r: any) => r.quest_id === "inner_game_of_tennis" && r.date === "2026-08-16",
       );
       expect(morning).toMatchObject({ status: "completed", value: null });
-      expect(tennis).toMatchObject({ status: "completed", value: 15 });
+      expect(tennis).toMatchObject({ status: "completed", value: "15" });
     });
 
     it("an empty array is a no-op - rows unchanged", () => {

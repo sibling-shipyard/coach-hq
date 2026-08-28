@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+// Type-only, so these survive vi.hoisted running before the imports below. Without them the
+// mock bodies infer never[] / Promise<null> and reject every mockResolvedValue in this file.
+import type { DirectoryEntry } from "../../_lib/coachChatFiles.js";
+import type { ChatHistoryFile } from "../../_lib/chatThreads.js";
 
 const {
   commitFilesAtomic,
@@ -16,8 +20,10 @@ const {
     reply: "Nice work on Easy Run.",
     session_closed: false,
   })),
-  getFileRaw: vi.fn(async () => null),
-  listDirectory: vi.fn(async () => []),
+  getFileRaw: vi.fn(async (_repo: string, _path: string): Promise<string | null> => null),
+  listDirectory: vi.fn(
+    async (_repo: string, _path: string): Promise<DirectoryEntry[] | null> => [],
+  ),
   loadCoachContext: vi.fn(async () => ({
     soul: "soul",
     profile: { timezone: "UTC" },
@@ -30,7 +36,7 @@ const {
     progressions: null,
     athleteInsights: null,
   })),
-  loadChatHistory: vi.fn(async () => ({ version: 1, threads: [] })),
+  loadChatHistory: vi.fn(async (): Promise<ChatHistoryFile> => ({ threads: [] })),
 }));
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
@@ -132,7 +138,7 @@ describe("activity-sync turn contract", () => {
     listDirectory.mockReset();
     listDirectory.mockResolvedValue([]);
     loadChatHistory.mockReset();
-    loadChatHistory.mockResolvedValue({ version: 1, threads: [] });
+    loadChatHistory.mockResolvedValue({ threads: [] });
     loadCoachContext.mockClear();
   });
 
@@ -144,7 +150,6 @@ describe("activity-sync turn contract", () => {
   it("returns the existing thread for a duplicate batch without Gemini or a write", async () => {
     const batchId = activitySyncBatchId([ID_A, ID_B]);
     loadChatHistory.mockResolvedValue({
-      version: 1,
       threads: [
         {
           id: "t-existing",
