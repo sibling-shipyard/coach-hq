@@ -3,10 +3,7 @@
 import type { FileEntry } from "../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
-import {
-  applyMemoryUpdate,
-  applySportsUpdate,
-} from "../coachIntents.js";
+import { applyMemoryUpdate, applySportsUpdate } from "../coachIntents.js";
 import { MEMORY_PATH, type MemoryNoteLabel } from "../coachMemoryFiles.js";
 import { capText, MEMORY_NOTE_TEXT_CAP } from "../text-caps.bundle.js";
 

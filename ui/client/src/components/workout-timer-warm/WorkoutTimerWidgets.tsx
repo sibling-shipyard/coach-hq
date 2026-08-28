@@ -173,9 +173,8 @@ export function FocusCard(props: FocusCardProps) {
   const isReps = screen === "exercise" && exercise.type === "reps";
   const bothSides = exercise.both_sides && exercise.type === "timed" && screen === "exercise";
   const color = readoutColor(screen);
-  const pct = !isReps && stateDuration > 0
-    ? Math.max(0, Math.min(1, 1 - timer / stateDuration))
-    : null;
+  const pct =
+    !isReps && stateDuration > 0 ? Math.max(0, Math.min(1, 1 - timer / stateDuration)) : null;
 
   const caption = (() => {
     if (screen === "phase_transition") return `NEXT BLOCK — ${phaseTransitionName ?? ""}`;
@@ -201,7 +200,11 @@ export function FocusCard(props: FocusCardProps) {
       <div className="wtx-exercise-meta">
         <span className="wtx-exercise-meta__num">#{exNum}</span>
         <div className="wtx-exercise-meta__name">
-          {screen === "rest" ? "Rest" : screen === "phase_transition" ? phaseTransitionName ?? "Up next" : exercise.name}
+          {screen === "rest"
+            ? "Rest"
+            : screen === "phase_transition"
+              ? (phaseTransitionName ?? "Up next")
+              : exercise.name}
           {optional && screen === "exercise" ? (
             <span className="wtx-exercise-meta__optional">OPTIONAL</span>
           ) : null}
@@ -354,7 +357,12 @@ export function SessionNoteCard({ note }: { note: string }) {
 
 // ─── Shared data helpers ─────────────────────────────────────────────────
 
-export function buildUpNext(workout: Workout, phaseIdx: number, exerciseIdx: number, count = 4): UpNextRow[] {
+export function buildUpNext(
+  workout: Workout,
+  phaseIdx: number,
+  exerciseIdx: number,
+  count = 4,
+): UpNextRow[] {
   const flat: { phase: Phase; exercise: Exercise }[] = [];
   workout.phases.forEach((phase) => {
     phase.exercises.forEach((exercise) => {

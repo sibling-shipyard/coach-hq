@@ -140,12 +140,7 @@ export function WelcomeHighlightsCarousel() {
       window.clearTimeout(scrollTimerRef.current);
       scrollTimerRef.current = window.setTimeout(() => {
         const cardWidth = cardPitch - RAIL_GAP;
-        const idx = indexFromScrollLeft(
-          rail.scrollLeft,
-          rail.clientWidth,
-          cardWidth,
-          cardPitch,
-        );
+        const idx = indexFromScrollLeft(rail.scrollLeft, rail.clientWidth, cardWidth, cardPitch);
         setActive((prev) => (prev === idx ? prev : idx));
       }, 120);
     };
@@ -191,7 +186,10 @@ export function WelcomeHighlightsCarousel() {
 
   return (
     <section className="welcome-highlights" id="highlights">
-      <div className="welcome-section__intro welcome-section__intro--compact welcome-highlights__intro" data-reveal>
+      <div
+        className="welcome-section__intro welcome-section__intro--compact welcome-highlights__intro"
+        data-reveal
+      >
         <span className="welcome-kicker">LIVE WIDGETS</span>
         <h2 className="welcome-section__title">Get the highlights.</h2>
       </div>
@@ -203,9 +201,9 @@ export function WelcomeHighlightsCarousel() {
             <div className="welcome-hl-card__copy">
               <span className="welcome-hl-card__tag">SKILL PROGRESSION</span>
               <p>
-                <strong>Big skills become a phased challenge.</strong> Build blocks, a deload, then a
-                test week — and every skill gets a milestone number, read straight from your challenge
-                record.
+                <strong>Big skills become a phased challenge.</strong> Build blocks, a deload, then
+                a test week — and every skill gets a milestone number, read straight from your
+                challenge record.
               </p>
             </div>
             <div className="welcome-hl-card__widget welcome-hl-card__widget--wi">
@@ -232,10 +230,12 @@ export function WelcomeHighlightsCarousel() {
           {/* HL 3 · Am I improving */}
           <article className="welcome-hl-card welcome-hl-card--dark">
             <div className="welcome-hl-card__copy">
-              <span className="welcome-hl-card__tag welcome-hl-card__tag--amber">AM I IMPROVING?</span>
+              <span className="welcome-hl-card__tag welcome-hl-card__tag--amber">
+                AM I IMPROVING?
+              </span>
               <p>
-                <strong>One honest answer, not twelve charts.</strong> Coach compares your last 8 weeks
-                to your last 52 — and says it straight: better, flat, or slipping.
+                <strong>One honest answer, not twelve charts.</strong> Coach compares your last 8
+                weeks to your last 52 — and says it straight: better, flat, or slipping.
               </p>
             </div>
             <div className="welcome-hl-card__widget welcome-hl-card__widget--wi welcome-hl-card__widget--light">
@@ -249,8 +249,8 @@ export function WelcomeHighlightsCarousel() {
               <span className="welcome-hl-card__tag">QUESTS &amp; SUB-QUESTS</span>
               <p>
                 <strong>The big goal becomes this week&apos;s numbers.</strong> A main quest with a
-                deadline, side quests for the head work — honest progress bars, so a scary goal turns
-                into a Tuesday.
+                deadline, side quests for the head work — honest progress bars, so a scary goal
+                turns into a Tuesday.
               </p>
             </div>
             <div className="welcome-hl-card__widget welcome-hl-card__widget--wi">
@@ -263,17 +263,15 @@ export function WelcomeHighlightsCarousel() {
             <div className="welcome-hl-card__copy">
               <span className="welcome-hl-card__tag">CONSISTENCY</span>
               <p>
-                <strong>Nothing dramatic. Just {GOLDEN_HOME.trainingActivity.activeDays} days.</strong> Every
-                square is a day you showed up. That&apos;s the whole method — 1% today, 1% tomorrow.
-                Not a countdown, not a program you finish.
+                <strong>
+                  Nothing dramatic. Just {GOLDEN_HOME.trainingActivity.activeDays} days.
+                </strong>{" "}
+                Every square is a day you showed up. That&apos;s the whole method — 1% today, 1%
+                tomorrow. Not a countdown, not a program you finish.
               </p>
             </div>
             <div className="welcome-hl-card__widget welcome-hl-card__widget--wi welcome-hl-card__widget--consistency">
-              <TrainingActivityCard
-                activity={GOLDEN_HOME.trainingActivity}
-                compact
-                staggerCells
-              />
+              <TrainingActivityCard activity={GOLDEN_HOME.trainingActivity} compact staggerCells />
             </div>
           </article>
         </div>

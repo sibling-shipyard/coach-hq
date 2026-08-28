@@ -225,16 +225,14 @@ function isoWeek(date: Date): number {
   const day = utc.getUTCDay() || 7;
   utc.setUTCDate(utc.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
-  return Math.ceil((((utc.getTime() - yearStart.getTime()) / DAY_MS) + 1) / 7);
+  return Math.ceil(((utc.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
 }
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[middle];
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
 function monthBounds(year: number, month: number): { start: Date; end: Date; elapsedDays: number } {
@@ -243,8 +241,7 @@ function monthBounds(year: number, month: number): { start: Date; end: Date; ela
   const end = new Date(year, month + 1, 0);
   end.setHours(23, 59, 59, 999);
   const now = new Date();
-  const isCurrentMonth =
-    now.getFullYear() === year && now.getMonth() === month;
+  const isCurrentMonth = now.getFullYear() === year && now.getMonth() === month;
   const elapsedDays = isCurrentMonth ? now.getDate() : end.getDate();
   return { start, end, elapsedDays };
 }
@@ -283,7 +280,10 @@ function activitiesForWeek(activities: Activity[], weekStart: Date): Activity[] 
   });
 }
 
-function buildRhythmBand(activities: Activity[], anchor: Date): { low: number | null; high: number | null } {
+function buildRhythmBand(
+  activities: Activity[],
+  anchor: Date,
+): { low: number | null; high: number | null } {
   const anchorMonday = getMonday(anchor);
   const loads: number[] = [];
   for (let index = 0; index < 8; index += 1) {
@@ -305,7 +305,9 @@ function buildMonthlyEngine(
   year: number,
   month: number,
 ): MonthlyEngineModel {
-  const monthName = new Date(year, month, 1).toLocaleDateString("en-GB", { month: "long" }).toUpperCase();
+  const monthName = new Date(year, month, 1)
+    .toLocaleDateString("en-GB", { month: "long" })
+    .toUpperCase();
   const { end } = monthBounds(year, month);
   const monthActivities = activitiesInMonth(activities, year, month);
   const monthStart = new Date(year, month, 1);
@@ -377,9 +379,7 @@ function buildMonthlyEngine(
 
 function buildSportBreakdown(monthActivities: Activity[]): SportBreakdownRow[] {
   const totals = SPORT_ROWS.map((row) => {
-    const matched = monthActivities.filter((activity) =>
-      row.match(getTrainingCategory(activity)),
-    );
+    const matched = monthActivities.filter((activity) => row.match(getTrainingCategory(activity)));
     const hours = matched.reduce((sum, activity) => sum + (activity.elapsed_time ?? 0) / 3600, 0);
     return {
       ...row,
@@ -407,7 +407,10 @@ function buildWorkoutBreakdown(
   const monthActivities = activitiesInMonth(activities, year, month);
   const { elapsedDays } = monthBounds(year, month);
   const activeDays = activeDayKeys(monthActivities).size;
-  const hours = monthActivities.reduce((sum, activity) => sum + (activity.elapsed_time ?? 0) / 3600, 0);
+  const hours = monthActivities.reduce(
+    (sum, activity) => sum + (activity.elapsed_time ?? 0) / 3600,
+    0,
+  );
   const calories = totalCalories(monthActivities);
 
   const prevMonth = month === 0 ? 11 : month - 1;
@@ -419,8 +422,7 @@ function buildWorkoutBreakdown(
     0,
   );
 
-  const consistencyPercent =
-    elapsedDays > 0 ? Math.round((activeDays / elapsedDays) * 100) : null;
+  const consistencyPercent = elapsedDays > 0 ? Math.round((activeDays / elapsedDays) * 100) : null;
 
   return {
     sessions: monthActivities.length,
@@ -523,12 +525,10 @@ export function buildSideQuests(
         miss: stats.miss,
         excused: stats.excused,
         rate,
-        rateDeltaVsPrevious:
-          rate !== null && prevRate !== null ? rate - prevRate : null,
+        rateDeltaVsPrevious: rate !== null && prevRate !== null ? rate - prevRate : null,
         color: QUEST_COLORS[id] ?? "#7c6f9e",
       };
-    },
-  );
+    });
 
   const activeQuest = quests.find((quest) => quest.done + quest.miss > 0) ?? quests[0];
   let coachRead = "Side quests only count when you log them — no invented progress.";
@@ -573,7 +573,9 @@ function availableYears(activities: Activity[], now: Date): number[] {
   for (const activity of activities) {
     years.add(parseLocal(activity.start_date_local).getFullYear());
   }
-  return Array.from(years).sort((left, right) => right - left).slice(0, 3);
+  return Array.from(years)
+    .sort((left, right) => right - left)
+    .slice(0, 3);
 }
 
 function formatHours(hours: number): string {
@@ -632,7 +634,7 @@ export function clampMonthlyScope(
 ): { year: number; month: number } {
   const now = new Date();
   const years = availableYears(activities, now);
-  const year = years.includes(scope.year) ? scope.year : years[0] ?? now.getFullYear();
+  const year = years.includes(scope.year) ? scope.year : (years[0] ?? now.getFullYear());
   const maxMonth = year === now.getFullYear() ? now.getMonth() : 11;
   const month = Math.max(0, Math.min(scope.month, maxMonth));
   return { year, month };

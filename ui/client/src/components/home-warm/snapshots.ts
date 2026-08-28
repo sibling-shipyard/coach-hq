@@ -206,12 +206,15 @@ export interface TrainingActivitySnapshot {
   gapCount: number;
   worstGap: number;
   read: string;
-  dayDetails?: Record<string, {
-    dateLabel: string;
-    activities: ActivityInspectionSnapshot[];
-    durationMinutes: number;
-    load: number | null;
-  }>;
+  dayDetails?: Record<
+    string,
+    {
+      dateLabel: string;
+      activities: ActivityInspectionSnapshot[];
+      durationMinutes: number;
+      load: number | null;
+    }
+  >;
 }
 
 export interface Vo2Snapshot {

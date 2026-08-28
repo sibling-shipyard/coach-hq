@@ -5,13 +5,7 @@ import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import { toLocalDateStr } from "@/lib/challenge";
 import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
-import {
-  Workout,
-  WorkoutType,
-  WorkoutsData,
-  countExercises,
-  countSets,
-} from "@/lib/workouts";
+import { Workout, WorkoutType, WorkoutsData, countExercises, countSets } from "@/lib/workouts";
 import {
   SportBadge,
   accentFor,
@@ -40,7 +34,10 @@ function WorkoutCard({ workout, hasSession }: { workout: Workout; hasSession: bo
     >
       <div className="wtx-list-card__top">
         <div className="wtx-list-card__top-left">
-          <SportBadge label={TYPE_LABEL[workout.workout_type] ?? workout.workout_type.toUpperCase()} accent={accent} />
+          <SportBadge
+            label={TYPE_LABEL[workout.workout_type] ?? workout.workout_type.toUpperCase()}
+            accent={accent}
+          />
           {hasSession ? <span className="wtx-list-card__today">TODAY</span> : null}
         </div>
         <span className="wtx-list-card__arrow">→</span>
@@ -143,10 +140,16 @@ function WorkoutsContent({ data }: { data: RepoData }) {
         <div className="wtx-list-groups">
           {groups.map((group) => (
             <div key={group.type}>
-              <div className="wtx-list-group__label">{TYPE_LABEL[group.type] ?? group.type.toUpperCase()}</div>
+              <div className="wtx-list-group__label">
+                {TYPE_LABEL[group.type] ?? group.type.toUpperCase()}
+              </div>
               <div className="wtx-list-grid">
                 {group.cards.map((card) => (
-                  <WorkoutCard key={card.workout.id} workout={card.workout} hasSession={card.hasSession} />
+                  <WorkoutCard
+                    key={card.workout.id}
+                    workout={card.workout}
+                    hasSession={card.hasSession}
+                  />
                 ))}
               </div>
             </div>

@@ -13,7 +13,11 @@
  */
 import type { ProfileJson, MemoryJson, InjuriesJson, CoachLogJson } from "./coachMemoryFiles.js";
 import type { SeasonsJson, QuestsJson, ProgressJson, ProgressionsJson } from "./coachQuestFiles.js";
-import type { AthleteInsightsJson, AthleteSportInsight, DurationBuckets } from "./coachChatFiles.js";
+import type {
+  AthleteInsightsJson,
+  AthleteSportInsight,
+  DurationBuckets,
+} from "./coachChatFiles.js";
 
 export interface CoachContextStorage {
   profile: ProfileJson | null;
@@ -71,8 +75,12 @@ function equipmentSection(memory: MemoryJson | null): string {
 function recentSessionNotesSection(coachLog: CoachLogJson | null): string {
   const rows = coachLog?.rows ?? [];
   const recent = rows.slice(-RECENT_SESSION_WINDOW).reverse(); // most recent first
-  const body = recent.length > 0 ? recent.map((r) => `- **${r.date}:** ${r.text}`).join("\n") : "*(Empty)*";
-  return [`## Recent Session Notes *(rolling — last ${RECENT_SESSION_WINDOW} sessions)*`, body].join("\n");
+  const body =
+    recent.length > 0 ? recent.map((r) => `- **${r.date}:** ${r.text}`).join("\n") : "*(Empty)*";
+  return [
+    `## Recent Session Notes *(rolling — last ${RECENT_SESSION_WINDOW} sessions)*`,
+    body,
+  ].join("\n");
 }
 
 function isFiniteCount(value: unknown): value is number {
@@ -84,16 +92,21 @@ function isFiniteCount(value: unknown): value is number {
 function isSportInsight(value: unknown): value is AthleteSportInsight {
   if (!value || typeof value !== "object") return false;
   const insight = value as Partial<AthleteSportInsight>;
-  return [insight.sessions_365d, insight.sessions_per_week_recent_4w, insight.sessions_per_week_prior_12w,
-    insight.longest_gap_days_365d, insight.days_since_last_session]
-    .every(isFiniteCount);
+  return [
+    insight.sessions_365d,
+    insight.sessions_per_week_recent_4w,
+    insight.sessions_per_week_prior_12w,
+    insight.longest_gap_days_365d,
+    insight.days_since_last_session,
+  ].every(isFiniteCount);
 }
 
 function isDurationBuckets(value: unknown): value is DurationBuckets {
   if (!value || typeof value !== "object") return false;
   const buckets = value as Partial<DurationBuckets>;
-  return [buckets.under_30m, buckets["30_to_60m"], buckets["60_to_120m"], buckets.over_120m]
-    .every(isFiniteCount);
+  return [buckets.under_30m, buckets["30_to_60m"], buckets["60_to_120m"], buckets.over_120m].every(
+    isFiniteCount,
+  );
 }
 
 // formatRate: 0 → "0" (isInteger path), very small fractions (e.g. 0.08) → "0.1" via toFixed(1)
@@ -114,13 +127,16 @@ function fitnessSnapshotSection(insights: AthleteInsightsJson | null): string | 
   if (insights?.schema_version !== 1) return null;
   // Freshness guard: a corrupt/truncated generated_at means the file can't be trusted either.
   if (Number.isNaN(Date.parse(insights.generated_at))) return null;
-  if (!insights.sports || typeof insights.sports !== "object" || Array.isArray(insights.sports)) return null;
-  const windowDays = Number.isFinite(insights.window_days) && insights.window_days > 0 ? insights.window_days : 365;
+  if (!insights.sports || typeof insights.sports !== "object" || Array.isArray(insights.sports))
+    return null;
+  const windowDays =
+    Number.isFinite(insights.window_days) && insights.window_days > 0 ? insights.window_days : 365;
   const valid = Object.entries(insights.sports)
     .filter(([sport, insight]) => sport.trim().length > 0 && isSportInsight(insight))
     // Sort descending by session count; alphabetical by sport key within the same count.
-    .sort(([aKey, aVal], [bKey, bVal]) =>
-      bVal.sessions_365d - aVal.sessions_365d || aKey.localeCompare(bKey),
+    .sort(
+      ([aKey, aVal], [bKey, bVal]) =>
+        bVal.sessions_365d - aVal.sessions_365d || aKey.localeCompare(bKey),
     );
   const capped = valid.slice(0, SPORTS_CAP);
   const overflow = valid.length - capped.length;
@@ -133,12 +149,16 @@ function fitnessSnapshotSection(insights: AthleteInsightsJson | null): string | 
       `longest gap ${insight.longest_gap_days_365d} days; last session ${insight.days_since_last_session} days ago.`;
     if (!isDurationBuckets(insight.duration_buckets)) return line;
     const buckets = insight.duration_buckets;
-    return line.slice(0, -1) +
+    return (
+      line.slice(0, -1) +
       `; ${buckets.under_30m} under 30m, ${buckets["30_to_60m"]} 30-60m, ` +
-      `${buckets["60_to_120m"]} 60-120m, ${buckets.over_120m} over 120m.`;
+      `${buckets["60_to_120m"]} 60-120m, ${buckets.over_120m} over 120m.`
+    );
   });
   if (overflow > 0) lines.push(`(+ ${overflow} more sport${overflow === 1 ? "" : "s"})`);
-  return lines.length > 0 ? [`## Fitness Snapshot (last ${windowDays} days)`, ...lines].join("\n") : null;
+  return lines.length > 0
+    ? [`## Fitness Snapshot (last ${windowDays} days)`, ...lines].join("\n")
+    : null;
 }
 
 function fitnessBaselineSection(memory: MemoryJson | null): string {
@@ -149,9 +169,7 @@ function fitnessBaselineSection(memory: MemoryJson | null): string {
 function activeInjuryFlagsSection(injuries: InjuriesJson | null): string {
   const flags = (injuries?.flags ?? []).filter((f) => f.status === "active");
   const body =
-    flags.length > 0
-      ? flags.map((f) => `- **${f.id}:** ${f.text}`).join("\n")
-      : "*(None)*";
+    flags.length > 0 ? flags.map((f) => `- **${f.id}:** ${f.text}`).join("\n") : "*(None)*";
   return ["## Active Injury Flags", body].join("\n");
 }
 
@@ -207,7 +225,13 @@ function questProgressCounts(
   // the write side never produces null, only "".
   seasonId: string,
   weekBounds: { start: string; end: string },
-): { completed: number; excused: number; missed: number; latestValue: string | null; thisWeekCompleted: number } {
+): {
+  completed: number;
+  excused: number;
+  missed: number;
+  latestValue: string | null;
+  thisWeekCompleted: number;
+} {
   // Found in review: `seasonId == null` used to bypass the season filter entirely (fall back to
   // showing ALL history), which is backwards - a missing current season should mean nothing
   // counts as "this season's" progress, not "show unscoped history across every season." That
@@ -215,7 +239,9 @@ function questProgressCounts(
   // triggered by a missing current_season_id instead of a genuinely reused quest_id. Dropping the
   // bypass: `r.season_id === seasonId` alone naturally yields zero rows when seasonId is null,
   // since no real row ever has a null season_id.
-  const rows = (progress?.rows ?? []).filter((r) => r.quest_id === questId && r.season_id === seasonId);
+  const rows = (progress?.rows ?? []).filter(
+    (r) => r.quest_id === questId && r.season_id === seasonId,
+  );
   let completed = 0;
   let excused = 0;
   let missed = 0;
@@ -265,14 +291,21 @@ export function renderQuestContext(storage: QuestContextStorage): string {
     // a cumulative count) would render its completed-row count instead of its actual latest
     // value. Match the side-quest branching exactly. Also now scoped to the current season and
     // week-aware for weekly_frequency, same fixes as the side-quest branch below.
-    const { completed, latestValue, thisWeekCompleted } = questProgressCounts(progress, mainQuest.id, currentSeasonId, weekBounds);
+    const { completed, latestValue, thisWeekCompleted } = questProgressCounts(
+      progress,
+      mainQuest.id,
+      currentSeasonId,
+      weekBounds,
+    );
     const progressText =
       mainQuest.type === "progress"
         ? `${latestValue ?? "0"}/${mainQuest.target}`
         : mainQuest.type === "weekly_frequency"
           ? `${thisWeekCompleted}/${mainQuest.target} this week`
           : `${completed}/${mainQuest.target}`;
-    mainQuestLines.push(`- **${mainQuest.name}** (id: ${mainQuest.id}, type: ${mainQuest.type}): ${progressText}`);
+    mainQuestLines.push(
+      `- **${mainQuest.name}** (id: ${mainQuest.id}, type: ${mainQuest.type}): ${progressText}`,
+    );
   } else {
     mainQuestLines.push("*(None set)*");
   }
@@ -281,7 +314,12 @@ export function renderQuestContext(storage: QuestContextStorage): string {
   const sideQuestLines = ["## Side Quests"];
   if (sideQuests.length > 0) {
     for (const q of sideQuests) {
-      const { completed, excused, missed, latestValue, thisWeekCompleted } = questProgressCounts(progress, q.id, currentSeasonId, weekBounds);
+      const { completed, excused, missed, latestValue, thisWeekCompleted } = questProgressCounts(
+        progress,
+        q.id,
+        currentSeasonId,
+        weekBounds,
+      );
       const progressText =
         q.type === "progress"
           ? `${latestValue ?? "0"}/${q.target ?? "?"} ${q.unit ?? ""}`.trim()
@@ -306,26 +344,32 @@ export function renderQuestContext(storage: QuestContextStorage): string {
   }
 
   // ADR 0016: stored as "progressions", stays "Milestone" everywhere Coach and the athlete talk
-// about it - the section header uses the athlete-facing word, same convention as "Active
-// Injury Flags" above rather than the raw file/field name.
-//
-// Found in review: progressions.json was fetched into CoachContext every turn but never
-// rendered into the prompt at all - Coach had zero visibility into milestone progress despite
-// paying for the fetch. Fixed.
+  // about it - the section header uses the athlete-facing word, same convention as "Active
+  // Injury Flags" above rather than the raw file/field name.
+  //
+  // Found in review: progressions.json was fetched into CoachContext every turn but never
+  // rendered into the prompt at all - Coach had zero visibility into milestone progress despite
+  // paying for the fetch. Fixed.
   const milestoneEntries = progressions?.progressions ?? [];
   const milestoneLines = ["## Milestones"];
   if (milestoneEntries.length > 0) {
     for (const m of milestoneEntries) {
       const unit = m.unit ? ` ${m.unit}` : "";
-      milestoneLines.push(`- **${m.name}** (id: ${m.id}): ${m.current}${unit} → target ${m.target}${unit}`);
+      milestoneLines.push(
+        `- **${m.name}** (id: ${m.id}): ${m.current}${unit} → target ${m.target}${unit}`,
+      );
     }
   } else {
     milestoneLines.push("*(None set)*");
   }
 
-  return [seasonLines.join("\n"), mainQuestLines.join("\n"), sideQuestLines.join("\n"), weeklyLines.join("\n"), milestoneLines.join("\n")].join(
-    "\n\n",
-  );
+  return [
+    seasonLines.join("\n"),
+    mainQuestLines.join("\n"),
+    sideQuestLines.join("\n"),
+    weeklyLines.join("\n"),
+    milestoneLines.join("\n"),
+  ].join("\n\n");
 }
 
 export function renderCoachContext(storage: CoachContextStorage): string {

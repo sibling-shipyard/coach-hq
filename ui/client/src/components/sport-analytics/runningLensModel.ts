@@ -93,7 +93,10 @@ function calculateWeeklyStreaks(sessionDateKeys: string[]): { current: number; l
 }
 
 function normalizeRouteName(name: string): string {
-  return name.toLowerCase().replace(/[^\w\s]/g, "").trim();
+  return name
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .trim();
 }
 
 function buildSessions(activities: Activity[]): RunSession[] {
@@ -212,7 +215,11 @@ function aggregateWeeklyKm(sessions: RunSession[]): Map<string, WeeklyVolumeWeek
   return byWeek;
 }
 
-function buildWeeklyVolume(sessions: RunSession[], scope: RunningScope, now: number): WeeklyVolumeSnapshot {
+function buildWeeklyVolume(
+  sessions: RunSession[],
+  scope: RunningScope,
+  now: number,
+): WeeklyVolumeSnapshot {
   if (sessions.length === 0) {
     return {
       available: false,
@@ -267,7 +274,9 @@ function buildWeeklyVolume(sessions: RunSession[], scope: RunningScope, now: num
       .filter((s) => weekStartKey(s.dateKey) === currentWeekKey)
       .sort((a, b) => b.distanceKm - a.distanceKm)[0];
     const dayLabel = longestThisWeek
-      ? new Date(longestThisWeek.timestamp).toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase()
+      ? new Date(longestThisWeek.timestamp)
+          .toLocaleDateString("en-GB", { weekday: "short" })
+          .toUpperCase()
       : "THIS";
     footnote = `${dayLabel} long run ${currentEntry.longestRunKm.toFixed(1)} km — longest this block.`;
   }
@@ -306,7 +315,9 @@ export interface BenchmarkSnapshot {
 }
 
 function routeClusterKey(session: RunSession): string {
-  const bucket = Math.round((session.activity.distance / ROUTE_BUCKET_METERS) * ROUTE_BUCKET_METERS);
+  const bucket = Math.round(
+    (session.activity.distance / ROUTE_BUCKET_METERS) * ROUTE_BUCKET_METERS,
+  );
   return `${normalizeRouteName(session.activity.name)}|${bucket}`;
 }
 
@@ -355,7 +366,9 @@ function buildBenchmark(sessions: RunSession[], now: number): BenchmarkSnapshot 
   const windowRuns = sorted.filter((s) => s.timestamp >= cutoff8);
   const baseline = windowRuns.length >= 2 ? windowRuns[0] : sorted[0];
   const deltaVs8wSec =
-    windowRuns.length >= 2 ? Math.round(latest.activity.elapsed_time - baseline.activity.elapsed_time) : null;
+    windowRuns.length >= 2
+      ? Math.round(latest.activity.elapsed_time - baseline.activity.elapsed_time)
+      : null;
 
   return {
     available: true,
@@ -364,7 +377,8 @@ function buildBenchmark(sessions: RunSession[], now: number): BenchmarkSnapshot 
     latestTimeSec: latest.activity.elapsed_time,
     latestPaceSecPerKm: latest.paceSecPerKm,
     deltaVs8wSec,
-    deltaTone: deltaVs8wSec === null ? "flat" : deltaVs8wSec < 0 ? "up" : deltaVs8wSec > 0 ? "down" : "flat",
+    deltaTone:
+      deltaVs8wSec === null ? "flat" : deltaVs8wSec < 0 ? "up" : deltaVs8wSec > 0 ? "down" : "flat",
     trend,
   };
 }
@@ -399,7 +413,13 @@ function buildPbs(sessions: RunSession[]): PbsSnapshot {
       return ratio >= 1 - std.tolerance && ratio <= 1 + std.tolerance;
     });
     if (matches.length === 0) {
-      rows.push({ label: std.label, timeSec: null, dateLabel: "—", isPr: false, isCurrentBest: false });
+      rows.push({
+        label: std.label,
+        timeSec: null,
+        dateLabel: "—",
+        isPr: false,
+        isCurrentBest: false,
+      });
       continue;
     }
     matches.sort((a, b) => a.activity.elapsed_time - b.activity.elapsed_time);

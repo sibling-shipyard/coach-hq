@@ -10,7 +10,10 @@ import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/sport-analytics/sport-analytics.css";
 import { EffortCard } from "@/components/sport-analytics/BadmintonLensWidgets";
-import { buildRunningLensModel, type RunningScope } from "@/components/sport-analytics/runningLensModel";
+import {
+  buildRunningLensModel,
+  type RunningScope,
+} from "@/components/sport-analytics/runningLensModel";
 import {
   BenchmarkCard,
   CoachReadCard,
@@ -43,7 +46,10 @@ function SportAnalyticsRunningContent({ data }: { data: RepoData }) {
 
   const [volumeScope, setVolumeScope] = useState<RunningScope>("8w");
 
-  const lens = useMemo(() => buildRunningLensModel(activities, volumeScope), [activities, volumeScope]);
+  const lens = useMemo(
+    () => buildRunningLensModel(activities, volumeScope),
+    [activities, volumeScope],
+  );
 
   return (
     <div className="wi-shell">

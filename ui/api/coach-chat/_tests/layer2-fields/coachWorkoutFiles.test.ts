@@ -54,7 +54,12 @@ const realLibrary = loadWorkoutLibraryIndex();
 
 describe("selectTemplates", () => {
   it("picks 4-6 templates for a plain general-fitness athlete", () => {
-    const ids = selectTemplates(profile(), memory({ sports: ["general_fitness"] }), injuries(), realLibrary);
+    const ids = selectTemplates(
+      profile(),
+      memory({ sports: ["general_fitness"] }),
+      injuries(),
+      realLibrary,
+    );
     expect(ids.length).toBeGreaterThanOrEqual(4);
     expect(ids.length).toBeLessThanOrEqual(6);
     // No duplicates.
@@ -62,16 +67,32 @@ describe("selectTemplates", () => {
   });
 
   it("covers more than one workout_type when the library has variety", () => {
-    const ids = selectTemplates(profile(), memory({ sports: ["general_fitness"] }), injuries(), realLibrary);
+    const ids = selectTemplates(
+      profile(),
+      memory({ sports: ["general_fitness"] }),
+      injuries(),
+      realLibrary,
+    );
     const prefixes = new Set(ids.map((id) => id.split("_")[0]));
     expect(prefixes.size).toBeGreaterThan(1);
   });
 
   it("excludes shoulder-loading templates when an active shoulder injury flag is present", () => {
     const shoulderInjuries = injuries([
-      { id: "inj_1", text: "sore rotator cuff, avoid overhead work", status: "active", opened_at: "2026-08-01", resolved_at: null },
+      {
+        id: "inj_1",
+        text: "sore rotator cuff, avoid overhead work",
+        status: "active",
+        opened_at: "2026-08-01",
+        resolved_at: null,
+      },
     ]);
-    const ids = selectTemplates(profile(), memory({ sports: ["badminton"] }), shoulderInjuries, realLibrary);
+    const ids = selectTemplates(
+      profile(),
+      memory({ sports: ["badminton"] }),
+      shoulderInjuries,
+      realLibrary,
+    );
     // realign_shoulder_prehab's own sport_tags (badminton/swimming/tennis) are exactly what the
     // shoulder-conflict rule excludes, so with an active shoulder flag it should never be picked
     // even though it would otherwise be a near-perfect sport match.
@@ -82,27 +103,65 @@ describe("selectTemplates", () => {
 
   it("does not exclude shoulder-tagged templates when the injury flag is resolved, not active", () => {
     const resolvedInjuries = injuries([
-      { id: "inj_1", text: "sore shoulder", status: "resolved", opened_at: "2026-08-01", resolved_at: "2026-08-10" },
+      {
+        id: "inj_1",
+        text: "sore shoulder",
+        status: "resolved",
+        opened_at: "2026-08-01",
+        resolved_at: "2026-08-10",
+      },
     ]);
-    const idsWithResolved = selectTemplates(profile(), memory({ sports: ["badminton"] }), resolvedInjuries, realLibrary);
-    const idsWithNone = selectTemplates(profile(), memory({ sports: ["badminton"] }), injuries(), realLibrary);
+    const idsWithResolved = selectTemplates(
+      profile(),
+      memory({ sports: ["badminton"] }),
+      resolvedInjuries,
+      realLibrary,
+    );
+    const idsWithNone = selectTemplates(
+      profile(),
+      memory({ sports: ["badminton"] }),
+      injuries(),
+      realLibrary,
+    );
     expect(idsWithResolved).toEqual(idsWithNone);
   });
 
   it("excludes running-conflicting templates for an active knee flag", () => {
     const kneeInjuries = injuries([
-      { id: "inj_1", text: "knee pain when running", status: "active", opened_at: "2026-08-01", resolved_at: null },
+      {
+        id: "inj_1",
+        text: "knee pain when running",
+        status: "active",
+        opened_at: "2026-08-01",
+        resolved_at: null,
+      },
     ]);
-    const ids = selectTemplates(profile(), memory({ sports: ["running"] }), kneeInjuries, realLibrary);
+    const ids = selectTemplates(
+      profile(),
+      memory({ sports: ["running"] }),
+      kneeInjuries,
+      realLibrary,
+    );
     expect(ids).not.toContain("foundation_running_prehab");
     expect(ids).not.toContain("recovery_post_run_stretch");
   });
 
   it("up-ranks an injury_prevention template when an active flag exists, without requiring it", () => {
     const backInjuries = injuries([
-      { id: "inj_1", text: "lower back tightness", status: "active", opened_at: "2026-08-01", resolved_at: null },
+      {
+        id: "inj_1",
+        text: "lower back tightness",
+        status: "active",
+        opened_at: "2026-08-01",
+        resolved_at: null,
+      },
     ]);
-    const ids = selectTemplates(profile(), memory({ sports: ["general_fitness"] }), backInjuries, realLibrary);
+    const ids = selectTemplates(
+      profile(),
+      memory({ sports: ["general_fitness"] }),
+      backInjuries,
+      realLibrary,
+    );
     // At least one injury_prevention-tagged template should be present.
     const injuryPreventionIds = new Set(
       realLibrary.filter((e) => e.goal_tags.includes("injury_prevention")).map((e) => e.id),
@@ -112,8 +171,20 @@ describe("selectTemplates", () => {
 
   it("returns every eligible template when the library has fewer than MIN entries, without throwing", () => {
     const library: WorkoutLibraryIndexEntry[] = [
-      { id: "a_only", sport_tags: ["running"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },
-      { id: "b_only", sport_tags: ["running"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },
+      {
+        id: "a_only",
+        sport_tags: ["running"],
+        equipment: ["bodyweight"],
+        goal_tags: ["endurance"],
+        level: "beginner",
+      },
+      {
+        id: "b_only",
+        sport_tags: ["running"],
+        equipment: ["bodyweight"],
+        goal_tags: ["endurance"],
+        level: "beginner",
+      },
     ];
     const ids = selectTemplates(profile(), memory({ sports: ["running"] }), injuries(), library);
     // MIN (4) used to sit behind a no-op ternary that never actually enforced or relaxed
@@ -137,25 +208,60 @@ describe("selectTemplates", () => {
 
   it("falls back to the full library when every entry conflicts with an active injury flag", () => {
     const library: WorkoutLibraryIndexEntry[] = [
-      { id: "a_shoulder", sport_tags: ["badminton"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },
-      { id: "b_shoulder", sport_tags: ["calisthenics"], equipment: ["bodyweight"], goal_tags: ["skill_development"], level: "beginner" },
+      {
+        id: "a_shoulder",
+        sport_tags: ["badminton"],
+        equipment: ["bodyweight"],
+        goal_tags: ["endurance"],
+        level: "beginner",
+      },
+      {
+        id: "b_shoulder",
+        sport_tags: ["calisthenics"],
+        equipment: ["bodyweight"],
+        goal_tags: ["skill_development"],
+        level: "beginner",
+      },
     ];
     const shoulderInjuries = injuries([
-      { id: "inj_1", text: "sore rotator cuff, avoid overhead work", status: "active", opened_at: "2026-08-01", resolved_at: null },
+      {
+        id: "inj_1",
+        text: "sore rotator cuff, avoid overhead work",
+        status: "active",
+        opened_at: "2026-08-01",
+        resolved_at: null,
+      },
     ]);
     // Both library entries conflict with the shoulder flag (badminton and calisthenics are both
     // shoulder-conflicting sport_tags), so the injury filter alone would leave nothing eligible.
     // selectTemplates should fall back to the full library rather than returning an empty array -
     // an athlete should never end up with zero templates after onboarding.
-    const ids = selectTemplates(profile(), memory({ sports: ["badminton"] }), shoulderInjuries, library);
+    const ids = selectTemplates(
+      profile(),
+      memory({ sports: ["badminton"] }),
+      shoulderInjuries,
+      library,
+    );
     expect(ids.length).toBeGreaterThan(0);
     expect(new Set(ids)).toEqual(new Set(["a_shoulder", "b_shoulder"]));
   });
 
   it("gives a bodyweight (empty-equipment) entry the same equipment bonus as an exact match, for an athlete with no equipment", () => {
     const library: WorkoutLibraryIndexEntry[] = [
-      { id: "a_bodyweight", sport_tags: ["running"], equipment: [], goal_tags: ["endurance"], level: "beginner" },
-      { id: "b_needs_gear", sport_tags: ["running"], equipment: ["dumbbells"], goal_tags: ["endurance"], level: "beginner" },
+      {
+        id: "a_bodyweight",
+        sport_tags: ["running"],
+        equipment: [],
+        goal_tags: ["endurance"],
+        level: "beginner",
+      },
+      {
+        id: "b_needs_gear",
+        sport_tags: ["running"],
+        equipment: ["dumbbells"],
+        goal_tags: ["endurance"],
+        level: "beginner",
+      },
     ];
     // memory's equipment note is empty text, so inferEquipment resolves to just ["bodyweight"] -
     // the athlete owns no real equipment. a_bodyweight's empty equipment array should still score
@@ -167,8 +273,20 @@ describe("selectTemplates", () => {
 
   it("works against a synthetic library for a narrow deterministic check", () => {
     const library: WorkoutLibraryIndexEntry[] = [
-      { id: "a_match", sport_tags: ["running"], equipment: ["bodyweight"], goal_tags: ["endurance"], level: "beginner" },
-      { id: "b_mismatch", sport_tags: ["swimming"], equipment: ["full_gym"], goal_tags: ["build_strength"], level: "advanced" },
+      {
+        id: "a_match",
+        sport_tags: ["running"],
+        equipment: ["bodyweight"],
+        goal_tags: ["endurance"],
+        level: "beginner",
+      },
+      {
+        id: "b_mismatch",
+        sport_tags: ["swimming"],
+        equipment: ["full_gym"],
+        goal_tags: ["build_strength"],
+        level: "advanced",
+      },
     ];
     const ids = selectTemplates(profile(), memory({ sports: ["running"] }), injuries(), library);
     expect(ids[0]).toBe("a_match");
@@ -177,9 +295,11 @@ describe("selectTemplates", () => {
 
 describe("generateInitialTemplates", () => {
   it("returns FileEntry writes whose content always matches the Workout schema shape", async () => {
-    const mockAdjust = vi.fn().mockResolvedValue([
-      { template_id: "foundation_bodyweight_beginner", coaching_note: "Tuned for you." },
-    ]);
+    const mockAdjust = vi
+      .fn()
+      .mockResolvedValue([
+        { template_id: "foundation_bodyweight_beginner", coaching_note: "Tuned for you." },
+      ]);
 
     const { templates } = await generateInitialTemplates(
       profile(),
@@ -211,7 +331,9 @@ describe("generateInitialTemplates", () => {
     }
 
     // The Gemini-adjusted template picked up its adjustment.
-    const adjustedEntry = templateEntries.find((t) => t.path.includes("foundation_bodyweight_beginner"));
+    const adjustedEntry = templateEntries.find((t) =>
+      t.path.includes("foundation_bodyweight_beginner"),
+    );
     if (adjustedEntry) {
       const workout = JSON.parse((adjustedEntry as { content: string }).content);
       expect(workout.coaching_note).toBe("Tuned for you.");

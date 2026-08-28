@@ -18,7 +18,8 @@ function Vo2Trend({ points }: { points: TrendPointSnapshot[] }) {
   const activeCoordinate = scrubIndex === null ? null : coordinates[scrubIndex];
 
   function handleScrub(event: ReactMouseEvent<SVGSVGElement>) {
-    if (points.length === 0 || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    if (points.length === 0 || !window.matchMedia("(hover: hover) and (pointer: fine)").matches)
+      return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const fraction = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width), 0, 1);
     setScrubIndex(Math.round(fraction * Math.max(0, points.length - 1)));
@@ -26,7 +27,11 @@ function Vo2Trend({ points }: { points: TrendPointSnapshot[] }) {
 
   return (
     <svg
-      aria-label={points.length > 0 ? "VO₂ Max trend. Hover to inspect observations." : "VO₂ Max trend unavailable."}
+      aria-label={
+        points.length > 0
+          ? "VO₂ Max trend. Hover to inspect observations."
+          : "VO₂ Max trend unavailable."
+      }
       className="wi-vo2-card__trend"
       data-wi-scrub={points.length > 0 ? "vo2" : undefined}
       onMouseLeave={points.length > 0 ? () => setScrubIndex(null) : undefined}
@@ -34,7 +39,9 @@ function Vo2Trend({ points }: { points: TrendPointSnapshot[] }) {
       viewBox="0 0 360 72"
     >
       <rect height="30" rx="7" width="360" x="0" y="22" />
-      {coordinates.length > 1 ? <polyline points={coordinates.map((point) => `${point.x},${point.y}`).join(" ")} /> : null}
+      {coordinates.length > 1 ? (
+        <polyline points={coordinates.map((point) => `${point.x},${point.y}`).join(" ")} />
+      ) : null}
       {last ? <circle cx={last.x} cy={last.y} r="4" /> : null}
       {activePoint && activeCoordinate ? (
         <g className="wi-vo2-scrub">
@@ -53,8 +60,12 @@ function Vo2Trend({ points }: { points: TrendPointSnapshot[] }) {
           </foreignObject>
         </g>
       ) : null}
-      <text x="0" y="70">{points[0]?.label ?? "NO SOURCE"}</text>
-      <text textAnchor="end" x="360" y="70">NOW</text>
+      <text x="0" y="70">
+        {points[0]?.label ?? "NO SOURCE"}
+      </text>
+      <text textAnchor="end" x="360" y="70">
+        NOW
+      </text>
     </svg>
   );
 }
@@ -70,7 +81,15 @@ export function Vo2Card({ vo2 }: { vo2: Vo2Snapshot }) {
       </div>
       <div className="wi-vo2-card__value">
         <strong>{available ? vo2.value?.toFixed(1) : "—"}</strong>
-        <span>{available ? <>ml/kg/min · <b>▲ {vo2.delta?.toFixed(1)}</b></> : "No Apple Health VO₂ observations"}</span>
+        <span>
+          {available ? (
+            <>
+              ml/kg/min · <b>▲ {vo2.delta?.toFixed(1)}</b>
+            </>
+          ) : (
+            "No Apple Health VO₂ observations"
+          )}
+        </span>
       </div>
       <Vo2Trend points={vo2.trend} />
       <p>{vo2.read}</p>

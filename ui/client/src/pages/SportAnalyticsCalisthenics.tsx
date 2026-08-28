@@ -40,10 +40,7 @@ function SportAnalyticsCalisthenicsContent({ data }: { data: RepoData }) {
       ? adaptCurrentWeek(currentWeekRt.data, currentWeekRt.availability, activities)
       : undefined;
 
-  const lens = useMemo(
-    () => buildCalisthenicsLensModel(activities, ledger),
-    [activities, ledger],
-  );
+  const lens = useMemo(() => buildCalisthenicsLensModel(activities, ledger), [activities, ledger]);
 
   return (
     <div className="wi-shell">

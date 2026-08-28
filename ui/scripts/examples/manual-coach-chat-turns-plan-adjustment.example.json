@@ -1,7 +1,9 @@
 [
   { "greet": true, "message": "" },
   { "message": "Heads up, this week's looking pretty busy at work." },
-  { "message": "Actually, could we move Thursday's session to Saturday instead - that'd help a lot." },
+  {
+    "message": "Actually, could we move Thursday's session to Saturday instead - that'd help a lot."
+  },
   {
     "message": "That covers it, wrap this up.",
     "endConversationRequested": true,

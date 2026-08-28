@@ -63,7 +63,10 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
 }
 
 .ma-year-button.is-active {
@@ -90,7 +93,9 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .ma-month-cell__label {
@@ -193,9 +198,7 @@
   border: 1px solid rgba(101, 43, 32, 0.7);
   border-radius: 26px;
   color: var(--wi-surface);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.06), transparent 45%),
-    var(--wi-rust);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.06), transparent 45%), var(--wi-rust);
   box-shadow: var(--wi-engine-shadow);
 }
 
@@ -413,7 +416,9 @@
   border-radius: 26px;
   background: var(--wi-surface);
   box-shadow: var(--wi-card-shadow);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .ma-breakdown-card,

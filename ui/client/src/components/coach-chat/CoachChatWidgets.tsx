@@ -76,11 +76,7 @@ function renderCoachTextWithHighlights(
     const highlight = highlights[match[1]];
     if (!highlight) return <span key={index}>{part}</span>;
     return (
-      <span
-        className="cc-highlight"
-        key={index}
-        style={{ color: highlight.color }}
-      >
+      <span className="cc-highlight" key={index} style={{ color: highlight.color }}>
         {highlight.text}
       </span>
     );
@@ -93,7 +89,10 @@ function renderCoachTextWithHighlights(
 // so this is safe under the existing strict CSP (script-src 'self'). Only a small allowlist of
 // block/inline elements is styled via cc-md-* classes in coach-chat.css - anything else falls
 // back to react-markdown's plain default rendering.
-function renderCoachText(text: string, highlights?: Record<string, { text: string; color: string }>): ReactNode {
+function renderCoachText(
+  text: string,
+  highlights?: Record<string, { text: string; color: string }>,
+): ReactNode {
   if (highlights && Object.keys(highlights).length > 0) {
     return renderCoachTextWithHighlights(text, highlights);
   }
@@ -170,12 +169,7 @@ function SyncedActivityList({
   return (
     <div className="cc-sync-list" aria-label="Synced activities">
       {rows.map((row) => (
-        <button
-          className="cc-sync-row"
-          key={row.id}
-          onClick={() => onOpen(row)}
-          type="button"
-        >
+        <button className="cc-sync-row" key={row.id} onClick={() => onOpen(row)} type="button">
           <span className="cc-sync-row__title">{row.title || "Untitled"}</span>
           <span className="cc-sync-row__meta">{formatSyncRowMeta(row)}</span>
           {row.load != null ? <span className="cc-sync-row__load">+{row.load}</span> : null}
@@ -204,7 +198,12 @@ function ActivityDetailSheet({
   return (
     <div className="cc-activity-sheet" role="dialog" aria-label="Activity detail">
       <div className="cc-activity-sheet__head">
-        <button aria-label="Close activity detail" className="cc-back" onClick={onClose} type="button">
+        <button
+          aria-label="Close activity detail"
+          className="cc-back"
+          onClick={onClose}
+          type="button"
+        >
           <BackIcon />
         </button>
         <span className="cc-pane__title">{title}</span>
@@ -303,7 +302,8 @@ function MessageList({
           // The server stores this label frozen at creation time ("TODAY · 2:00 AM"), which
           // reads as wrong forever once the thread is no longer from today - compute a fresh
           // one from the thread's own dayOffset/createdAt instead of trusting the stored string.
-          const label = messageIndex === firstDividerIndex ? threadDividerLabel(thread) : message.label;
+          const label =
+            messageIndex === firstDividerIndex ? threadDividerLabel(thread) : message.label;
           return (
             <div className="cc-divider" key={message.id}>
               {label}
@@ -518,7 +518,12 @@ export function ThreadSidebar({
         </button>
       </div>
       <div className="cc-sidebar__list">
-        <ThreadSections dayNumber={dayNumber} threads={threads} activeId={activeId} onSelect={onSelect} />
+        <ThreadSections
+          dayNumber={dayNumber}
+          threads={threads}
+          activeId={activeId}
+          onSelect={onSelect}
+        />
       </div>
     </aside>
   );
@@ -565,7 +570,12 @@ export function ConversationPane({
         <>
           <div className="cc-pane__header">
             {showBack ? (
-              <button aria-label="Back to conversations" className="cc-back" onClick={onBack} type="button">
+              <button
+                aria-label="Back to conversations"
+                className="cc-back"
+                onClick={onBack}
+                type="button"
+              >
                 <BackIcon />
               </button>
             ) : null}
@@ -632,7 +642,12 @@ export function MobileThreadList({
         <PlusIcon />
         New conversation
       </button>
-      <ThreadSections dayNumber={dayNumber} threads={threads} activeId={activeId} onSelect={onSelect} />
+      <ThreadSections
+        dayNumber={dayNumber}
+        threads={threads}
+        activeId={activeId}
+        onSelect={onSelect}
+      />
     </section>
   );
 }

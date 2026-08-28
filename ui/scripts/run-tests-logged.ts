@@ -18,7 +18,9 @@ try {
   const { dir, time } = dailyLogDir("unit");
   outputFile = path.join(dir, `vitest-results-${time}.json`);
 } catch (err) {
-  console.warn(`  (couldn't prepare run log directory: ${err instanceof Error ? err.message : String(err)})`);
+  console.warn(
+    `  (couldn't prepare run log directory: ${err instanceof Error ? err.message : String(err)})`,
+  );
 }
 
 const vitestArgs = ["vitest", "run", "--reporter=default"];

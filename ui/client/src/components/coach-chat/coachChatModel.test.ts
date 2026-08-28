@@ -77,19 +77,14 @@ describe("proactive Coach seed", () => {
       { id: "u-1787486160000", role: "user", text: "It felt controlled." },
     ];
 
-    const thread = materializeProactiveThread(
-      widgetSnapshots().home.coachMessage,
-      cached,
-    );
+    const thread = materializeProactiveThread(widgetSnapshots().home.coachMessage, cached);
 
     expect(thread.messages).toBe(cached);
     expect(thread.messages.filter(({ role }) => role === "coach")).toHaveLength(1);
   });
 
   it("reopens an existing exact-seed thread before consulting the latest snapshot", () => {
-    const existing = materializeProactiveThread(
-      widgetSnapshots().home.coachMessage,
-    );
+    const existing = materializeProactiveThread(widgetSnapshots().home.coachMessage);
 
     expect(resolveProactiveThread(SEED_ID, null, [existing])).toBe(existing);
     expect(
@@ -215,7 +210,9 @@ describe("activitySync", () => {
       activity_ids: ["hk:11111111-1111-1111-1111-111111111111"],
     });
     const coach = result.threads[0]?.messages.find((m) => m.role === "coach");
-    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([listAttachment]);
+    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([
+      listAttachment,
+    ]);
   });
 });
 
@@ -223,10 +220,12 @@ describe("attachments on a thread", () => {
   it("round-trips synced_activity_list through normalizeThread", () => {
     const normalized = normalizeThread(threadWithAttachments([listAttachment]));
     const coach = normalized.messages.find((m) => m.role === "coach");
-    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([listAttachment]);
-    expect(syncedActivityList(coach && coach.role === "coach" ? coach.attachments : undefined)).toEqual(
+    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([
       listAttachment,
-    );
+    ]);
+    expect(
+      syncedActivityList(coach && coach.role === "coach" ? coach.attachments : undefined),
+    ).toEqual(listAttachment);
   });
 
   it("keeps unknown attachment kinds on the thread but ignores them in the list helper", () => {
@@ -237,9 +236,15 @@ describe("attachments on a thread", () => {
       batch_id: "nope",
       activities: [],
     };
-    const normalized = normalizeThread(threadWithAttachments([unknown, wrongVersion, listAttachment]));
+    const normalized = normalizeThread(
+      threadWithAttachments([unknown, wrongVersion, listAttachment]),
+    );
     const coach = normalized.messages.find((m) => m.role === "coach");
-    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([unknown, wrongVersion, listAttachment]);
+    expect(coach && coach.role === "coach" ? coach.attachments : undefined).toEqual([
+      unknown,
+      wrongVersion,
+      listAttachment,
+    ]);
     expect(syncedActivityList([unknown, wrongVersion])).toBeNull();
     expect(syncedActivityList([unknown, listAttachment])).toEqual(listAttachment);
   });
@@ -254,7 +259,9 @@ describe("attachments on a thread", () => {
       { id: "d-1", role: "divider", label: "TODAY" },
       { id: "c-1", role: "coach", paragraphs: [], attachments: [listAttachment] },
     ];
-    expect(retryActivityIdsFromThread(pending)).toEqual(["hk:11111111-1111-1111-1111-111111111111"]);
+    expect(retryActivityIdsFromThread(pending)).toEqual([
+      "hk:11111111-1111-1111-1111-111111111111",
+    ]);
   });
 });
 

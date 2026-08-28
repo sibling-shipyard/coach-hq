@@ -54,7 +54,6 @@ describe("projectLatestCoachMessage", () => {
   });
 });
 
-
 // Regression coverage for the stale current_week bug: a "placeholder" week (the real value the
 // ledger ships once the coach has planned a week) used to pass straight through unmodified even
 // once its start_date/end_date no longer covered today, leaking a prior week's data into Home's

@@ -63,7 +63,8 @@ function recordedDays(activities: Activity[], monday: Date): CurrentWeekDay[] {
       .filter((activity) => activity.start_date_local.slice(0, 10) === dateKey)
       .sort(
         (left, right) =>
-          parseLocal(left.start_date_local).getTime() - parseLocal(right.start_date_local).getTime(),
+          parseLocal(left.start_date_local).getTime() -
+          parseLocal(right.start_date_local).getTime(),
       );
     const categories = matches.map(getTrainingCategory);
 
@@ -116,10 +117,11 @@ export function buildLiveWeekContract(
   const disciplines = new Set(
     weekActivities.map((activity) => disciplineFor(getTrainingCategory(activity))),
   ).size;
-  const latestTimestamp = weekActivities
-    .map((activity) => activity.start_date_local)
-    .sort()
-    .at(-1) ?? `${startDate}T00:00:00`;
+  const latestTimestamp =
+    weekActivities
+      .map((activity) => activity.start_date_local)
+      .sort()
+      .at(-1) ?? `${startDate}T00:00:00`;
 
   return {
     schema_version: 1,

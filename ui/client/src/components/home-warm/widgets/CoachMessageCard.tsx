@@ -1,11 +1,7 @@
 import { Link } from "wouter";
 import type { CoachMessageSnapshot } from "../snapshots";
 
-export function CoachMessageCard({
-  message,
-}: {
-  message: CoachMessageSnapshot;
-}) {
+export function CoachMessageCard({ message }: { message: CoachMessageSnapshot }) {
   return (
     <Link
       className="wi-coach-message-card"

@@ -32,7 +32,9 @@
   background: var(--wi-surface);
   text-decoration: none;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .wtx-back:hover {
@@ -269,7 +271,9 @@
   height: 100%;
   border-radius: 99px;
   background: var(--wi-rust);
-  transition: width 0.9s linear, background-color 200ms ease;
+  transition:
+    width 0.9s linear,
+    background-color 200ms ease;
 }
 
 .wtx-countdown-caption {
@@ -415,7 +419,9 @@
   background: var(--wi-surface);
   font-size: 17px;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .wtx-control-btn:hover {
@@ -621,7 +627,9 @@
   text-decoration: none;
   color: inherit;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .wtx-list-card:hover {
@@ -1052,7 +1060,10 @@
   font-size: 13.5px;
   cursor: pointer;
   text-decoration: none;
-  transition: transform 120ms ease, border-color 120ms ease, color 120ms ease;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
 }
 
 .wtx-complete-actions a.is-primary {

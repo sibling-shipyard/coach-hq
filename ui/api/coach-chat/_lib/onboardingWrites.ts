@@ -21,7 +21,8 @@ export function onboardingChanges(
     name: name && name !== profile?.name?.trim() ? name : undefined,
     sports:
       sports.length > 0 &&
-      (sports.length !== currentSports.length || sports.some((sport, index) => sport !== currentSports[index]))
+      (sports.length !== currentSports.length ||
+        sports.some((sport, index) => sport !== currentSports[index]))
         ? sports
         : undefined,
   };

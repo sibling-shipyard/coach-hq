@@ -33,7 +33,12 @@ describe("buildCountTargetQuest", () => {
 
   function ledger(mainQuest: MainQuest, seasonStart = "2026-06-01"): SplitLedger {
     return {
-      seasons: { current_season_id: "s1", seasons: [{ id: "s1", name: "Test Season", start_date: seasonStart, end_date: "2026-12-31" }] },
+      seasons: {
+        current_season_id: "s1",
+        seasons: [
+          { id: "s1", name: "Test Season", start_date: seasonStart, end_date: "2026-12-31" },
+        ],
+      },
       quests: { weekly_targets: {}, main_quest: mainQuest as any, quests: [] },
       progress: { rows: [] },
       progressions: null,

@@ -8,12 +8,10 @@ const {
   loadCoachContext,
   loadChatHistory,
 } = vi.hoisted(() => ({
-  commitFilesAtomic: vi.fn(
-    async (writes: { resolve?: () => Promise<string> }[]) => {
-      for (const write of writes) await write.resolve?.();
-      return { commitSha: "commit-sha" };
-    },
-  ),
+  commitFilesAtomic: vi.fn(async (writes: { resolve?: () => Promise<string> }[]) => {
+    for (const write of writes) await write.resolve?.();
+    return { commitSha: "commit-sha" };
+  }),
   askGemini: vi.fn(async () => ({
     reply: "Nice work on Easy Run.",
     session_closed: false,
@@ -38,8 +36,7 @@ const {
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
 vi.mock("../../_lib/geminiClient.js", () => ({ askGemini }));
 vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
+  const original = await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
   return {
     ...original,
     getFileRaw,
@@ -50,8 +47,7 @@ vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
   };
 });
 vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("../../_lib/chatThreads.js")>();
+  const original = await importOriginal<typeof import("../../_lib/chatThreads.js")>();
   return {
     ...original,
     loadChatHistory,
@@ -66,10 +62,7 @@ import {
 } from "../../_lib/activitySync.js";
 import { handleActivitySync } from "../../_lib/activitySyncTurn.js";
 import type { ChatThread } from "../../_lib/chatThreads.js";
-import {
-  isActivitySyncRequest,
-  parseTurnRequest,
-} from "../../_lib/coachTurn.js";
+import { isActivitySyncRequest, parseTurnRequest } from "../../_lib/coachTurn.js";
 
 const UUID_A = "11111111-1111-1111-1111-111111111111";
 const UUID_B = "22222222-2222-2222-2222-222222222222";
@@ -145,9 +138,7 @@ describe("activity-sync turn contract", () => {
 
   it("computes the same batch_id for the same ids in any order", () => {
     expect(activitySyncBatchId([ID_B, ID_A])).toBe(activitySyncBatchId([ID_A, ID_B]));
-    expect(activitySyncBatchId([ID_A, ID_A, ID_B])).toBe(
-      activitySyncBatchId([ID_B, ID_A]),
-    );
+    expect(activitySyncBatchId([ID_A, ID_A, ID_B])).toBe(activitySyncBatchId([ID_B, ID_A]));
   });
 
   it("returns the existing thread for a duplicate batch without Gemini or a write", async () => {
@@ -186,12 +177,7 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync(
-      "owner/repo",
-      "token",
-      "key",
-      parsed,
-    );
+    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       reply: "Already said.",
@@ -213,12 +199,7 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync(
-      "owner/repo",
-      "token",
-      "key",
-      parsed,
-    );
+    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ error: expect.any(String) });
     expect(askGemini).not.toHaveBeenCalled();
@@ -238,12 +219,7 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync(
-      "owner/repo",
-      "token",
-      "key",
-      parsed,
-    );
+    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
     expect(response.status).toBe(200);
     const body = await response.json();
     const coach = body.threads[0].messages.find(
@@ -274,16 +250,20 @@ describe("activity-sync turn contract", () => {
     listDirectory.mockResolvedValue([histEntry(UUID_A), histEntry(UUID_B)]);
     getFileRaw.mockImplementation(async (_repo: string, path: string) => {
       if (path.endsWith(`_${UUID_A}.json`)) {
-        return JSON.stringify(activityJson({
-          name: "Later",
-          start_date_local: "2026-08-22T09:00:00",
-        }));
+        return JSON.stringify(
+          activityJson({
+            name: "Later",
+            start_date_local: "2026-08-22T09:00:00",
+          }),
+        );
       }
       if (path.endsWith(`_${UUID_B}.json`)) {
-        return JSON.stringify(activityJson({
-          name: "Earlier",
-          start_date_local: "2026-08-22T06:00:00",
-        }));
+        return JSON.stringify(
+          activityJson({
+            name: "Earlier",
+            start_date_local: "2026-08-22T06:00:00",
+          }),
+        );
       }
       return null;
     });
@@ -326,12 +306,7 @@ describe("activity-sync turn contract", () => {
     if (parsed instanceof Response || !isActivitySyncRequest(parsed)) {
       throw new Error("expected an activity_sync request");
     }
-    const response = await handleActivitySync(
-      "owner/repo",
-      "token",
-      "key",
-      parsed,
-    );
+    const response = await handleActivitySync("owner/repo", "token", "key", parsed);
     expect(response.status).toBe(200);
     expect(loadCoachContext).toHaveBeenCalledWith("owner/repo", "token", {
       fresh: true,
@@ -367,9 +342,7 @@ describe("activity-sync turn contract", () => {
       activities: [expect.objectContaining({ title: "Easy Run" })],
     });
     expect(
-      body.threads[0].messages.some(
-        (message: { role: string }) => message.role === "user",
-      ),
+      body.threads[0].messages.some((message: { role: string }) => message.role === "user"),
     ).toBe(false);
   });
 

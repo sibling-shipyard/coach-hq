@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ATHLETE_INSIGHTS_PATH, invalidateCoachContext, isAthleteProfileComplete, isFirstSessionRitualDone, loadCoachContext } from "../_lib/coachChatFiles.js";
+import {
+  ATHLETE_INSIGHTS_PATH,
+  invalidateCoachContext,
+  isAthleteProfileComplete,
+  isFirstSessionRitualDone,
+  loadCoachContext,
+} from "../_lib/coachChatFiles.js";
 import type { ProfileJson, MemoryJson } from "../_lib/coachMemoryFiles.js";
 import type { QuestsJson, SeasonsJson } from "../_lib/coachQuestFiles.js";
 
@@ -43,7 +49,15 @@ function seasons(overrides: Partial<SeasonsJson> = {}): SeasonsJson {
     version: 1,
     _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
     current_season_id: "season-1",
-    seasons: [{ id: "season-1", name: "Build", start_date: "2026-08-18", end_date: "2026-12-01", status: "active" }],
+    seasons: [
+      {
+        id: "season-1",
+        name: "Build",
+        start_date: "2026-08-18",
+        end_date: "2026-12-01",
+        status: "active",
+      },
+    ],
     ...overrides,
   };
 }
@@ -83,15 +97,21 @@ describe("isAthleteProfileComplete", () => {
   });
 
   it("is false when sports only contains blank strings", () => {
-    expect(isAthleteProfileComplete(profile(), memory({ sports: ["", "  "] }), seasons())).toBe(false);
+    expect(isAthleteProfileComplete(profile(), memory({ sports: ["", "  "] }), seasons())).toBe(
+      false,
+    );
   });
 
   it("is false when current_season_id is unset", () => {
-    expect(isAthleteProfileComplete(profile(), memory(), seasons({ current_season_id: null }))).toBe(false);
+    expect(
+      isAthleteProfileComplete(profile(), memory(), seasons({ current_season_id: null })),
+    ).toBe(false);
   });
 
   it("is false when current_season_id does not match a season", () => {
-    expect(isAthleteProfileComplete(profile(), memory(), seasons({ current_season_id: "missing" }))).toBe(false);
+    expect(
+      isAthleteProfileComplete(profile(), memory(), seasons({ current_season_id: "missing" })),
+    ).toBe(false);
   });
 });
 
@@ -123,7 +143,9 @@ describe("isFirstSessionRitualDone", () => {
   });
 
   it("is false when profile isn't complete yet, regardless of quests", () => {
-    expect(isFirstSessionRitualDone(profile({ name: "" }), memory(), seasons(), quests())).toBe(false);
+    expect(isFirstSessionRitualDone(profile({ name: "" }), memory(), seasons(), quests())).toBe(
+      false,
+    );
   });
 });
 
@@ -179,18 +201,20 @@ describe("loadCoachContext in-flight de-dup", () => {
     expect(fetchMock).toHaveBeenCalledTimes(18);
   });
 
-  it.each([["absent", null], ["malformed", "{not-json"]])(
-    "degrades to no athlete insights when the file is %s",
-    async (caseName, raw) => {
-      const repo = `owner/repo-insights-${caseName}-${Date.now()}`;
-      fetchMock.mockImplementation(async (input: string | URL | Request) => {
-        if (String(input).includes(ATHLETE_INSIGHTS_PATH)) {
-          return raw == null ? new Response(null, { status: 404 }) : new Response(raw, { status: 200 });
-        }
-        return new Response("content", { status: 200 });
-      });
-      await expect(loadCoachContext(repo, "token")).resolves.toMatchObject({ athleteInsights: null });
-      expect(fetchMock).toHaveBeenCalledTimes(9);
-    },
-  );
+  it.each([
+    ["absent", null],
+    ["malformed", "{not-json"],
+  ])("degrades to no athlete insights when the file is %s", async (caseName, raw) => {
+    const repo = `owner/repo-insights-${caseName}-${Date.now()}`;
+    fetchMock.mockImplementation(async (input: string | URL | Request) => {
+      if (String(input).includes(ATHLETE_INSIGHTS_PATH)) {
+        return raw == null
+          ? new Response(null, { status: 404 })
+          : new Response(raw, { status: 200 });
+      }
+      return new Response("content", { status: 200 });
+    });
+    await expect(loadCoachContext(repo, "token")).resolves.toMatchObject({ athleteInsights: null });
+    expect(fetchMock).toHaveBeenCalledTimes(9);
+  });
 });

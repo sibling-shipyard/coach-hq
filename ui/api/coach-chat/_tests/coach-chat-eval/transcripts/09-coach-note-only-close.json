@@ -6,9 +6,21 @@
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "history": [
     { "id": "1", "role": "coach", "paragraphs": ["How are you feeling about the block so far?"] },
-    { "id": "2", "role": "user", "text": "Honestly better than I expected. The early alarms were rough the first couple weeks but it's starting to feel normal now, I actually look forward to the morning runs." },
-    { "id": "3", "role": "coach", "paragraphs": ["That's a real shift - consistency compounding. Anything else on your mind?"] },
-    { "id": "4", "role": "user", "text": "No that's it, just wanted to say that. Slept fine, no aches, nothing to log today really." }
+    {
+      "id": "2",
+      "role": "user",
+      "text": "Honestly better than I expected. The early alarms were rough the first couple weeks but it's starting to feel normal now, I actually look forward to the morning runs."
+    },
+    {
+      "id": "3",
+      "role": "coach",
+      "paragraphs": ["That's a real shift - consistency compounding. Anything else on your mind?"]
+    },
+    {
+      "id": "4",
+      "role": "user",
+      "text": "No that's it, just wanted to say that. Slept fine, no aches, nothing to log today really."
+    }
   ],
   "userMessage": "That's all for now, wrap this session.",
   "expect": {

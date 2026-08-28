@@ -64,10 +64,10 @@ if (chatHistory) {
   });
 
   const alreadyHasMeta =
-    chatHistory._meta
-    && typeof chatHistory._meta.updated_at === "string"
-    && typeof chatHistory._meta.updated_by === "string"
-    && typeof chatHistory._meta.trace_id === "string";
+    chatHistory._meta &&
+    typeof chatHistory._meta.updated_at === "string" &&
+    typeof chatHistory._meta.updated_by === "string" &&
+    typeof chatHistory._meta.trace_id === "string";
   if (!alreadyHasMeta) chatHistoryChanged = true;
 
   const meta = alreadyHasMeta
@@ -75,7 +75,10 @@ if (chatHistory) {
     : { updated_at: new Date().toISOString(), updated_by: "coach", trace_id: MIGRATION_TRACE_ID };
 
   if (chatHistoryChanged) {
-    fs.writeFileSync(chatHistoryPath, JSON.stringify({ _meta: meta, threads: trimmedThreads }, null, 2) + "\n");
+    fs.writeFileSync(
+      chatHistoryPath,
+      JSON.stringify({ _meta: meta, threads: trimmedThreads }, null, 2) + "\n",
+    );
   }
 } else {
   console.log(`No chat_history.json found at ${coachDir} - skipping.`);
@@ -119,4 +122,6 @@ console.log(
 console.log(
   `current_week.json: ${currentWeek ? (currentWeekChanged ? "migrated" : "already up to date, no-op") : "not found"}`,
 );
-console.log("Review the diffs, then commit on your scratch branch yourself - this script does not touch git.");
+console.log(
+  "Review the diffs, then commit on your scratch branch yourself - this script does not touch git.",
+);

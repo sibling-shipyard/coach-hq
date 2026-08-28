@@ -181,7 +181,9 @@ for (const q of [mainQuestSrc, ...realQuestsSrc]) {
     upsertRow(today, "completed", q.current);
   }
 }
-const rows = [...rowsByKey.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+const rows = [...rowsByKey.values()].sort((a, b) =>
+  a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+);
 
 const progressJson = { version: 1, rows };
 
@@ -212,8 +214,14 @@ const progressionsJson = {
 
 fs.writeFileSync(path.join(ledgerDir, "seasons.json"), JSON.stringify(seasonsJson, null, 2) + "\n");
 fs.writeFileSync(path.join(ledgerDir, "quests.json"), JSON.stringify(questsJson, null, 2) + "\n");
-fs.writeFileSync(path.join(ledgerDir, "progress.json"), JSON.stringify(progressJson, null, 2) + "\n");
-fs.writeFileSync(path.join(ledgerDir, "progressions.json"), JSON.stringify(progressionsJson, null, 2) + "\n");
+fs.writeFileSync(
+  path.join(ledgerDir, "progress.json"),
+  JSON.stringify(progressJson, null, 2) + "\n",
+);
+fs.writeFileSync(
+  path.join(ledgerDir, "progressions.json"),
+  JSON.stringify(progressionsJson, null, 2) + "\n",
+);
 
 fs.rmSync(path.join(ledgerDir, "challenge_v2.json"));
 
@@ -234,4 +242,6 @@ console.log(
 console.log(
   `Removed: user_data/ledger/challenge_v2.json${removedArchive ? ", user_data/coach/archive/seasons/ (recap ritual dropped for now - issue #411)" : ""}`,
 );
-console.log("Review the diffs, then commit on your scratch branch yourself - this script does not touch git.");
+console.log(
+  "Review the diffs, then commit on your scratch branch yourself - this script does not touch git.",
+);

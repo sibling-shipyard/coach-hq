@@ -97,13 +97,18 @@ export function WelcomeTimerDemo() {
         </div>
         <div className="welcome-timer-card__controls">
           <span className="welcome-timer-card__nav">⏮ PREV</span>
-          <button type="button" className="welcome-timer-card__run" onClick={() => setRunning((v) => !v)}>
+          <button
+            type="button"
+            className="welcome-timer-card__run"
+            onClick={() => setRunning((v) => !v)}
+          >
             {runLabel}
           </button>
           <span className="welcome-timer-card__nav welcome-timer-card__nav--next">NEXT ⏭</span>
         </div>
         <div className="welcome-timer-card__next">
-          UP NEXT<span>· Bulgarian split squat</span><span>· 8 REPS / SIDE</span>
+          UP NEXT<span>· Bulgarian split squat</span>
+          <span>· 8 REPS / SIDE</span>
         </div>
       </div>
 
@@ -122,7 +127,11 @@ export function WelcomeTimerDemo() {
             </div>
           </div>
           <div className="welcome-phone__timer-coach">Slow is the point — protect the knee.</div>
-          <button type="button" className="welcome-phone__timer-btn" onClick={() => setRunning((v) => !v)}>
+          <button
+            type="button"
+            className="welcome-phone__timer-btn"
+            onClick={() => setRunning((v) => !v)}
+          >
             {runLabel}
           </button>
         </div>

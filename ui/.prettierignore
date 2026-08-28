@@ -1,0 +1,13 @@
+# Generated or vendored — reformatting these is churn with no reader.
+package-lock.json
+dist/
+build/
+client/src/data/
+api/_generated/
+**/*.generated.*
+**/*.bundle.js
+
+# Design-canvas reference exports. Machine-authored HTML kept verbatim as the
+# widget design reference (AGENTS.md cites the Widget Design Philosophy doc
+# beside them); reflowing them destroys the diff against a re-export.
+docs/reference-interactions/

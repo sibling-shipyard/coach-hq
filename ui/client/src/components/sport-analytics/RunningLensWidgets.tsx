@@ -143,7 +143,9 @@ export function WeeklyVolumeHero({
         <span className="wi-engine-card__topline">
           <span>WEEKLY VOLUME</span>
         </span>
-        <p className="sa-empty-note">No runs with GPS logged yet — this widget mounts once distance is in the log.</p>
+        <p className="sa-empty-note">
+          No runs with GPS logged yet — this widget mounts once distance is in the log.
+        </p>
       </section>
     );
   }
@@ -158,11 +160,23 @@ export function WeeklyVolumeHero({
       <div className="wi-engine-card__topline">
         <span>WEEKLY VOLUME · {scope === "8w" ? "LAST 8W" : "LAST 52W"}</span>
         <div className="sa-winrate-hero__controls">
-          <div className="sa-toggle sa-toggle--ghost" role="group" aria-label="Weekly volume time window">
-            <button type="button" className={scope === "8w" ? "is-active" : ""} onClick={() => onScopeChange("8w")}>
+          <div
+            className="sa-toggle sa-toggle--ghost"
+            role="group"
+            aria-label="Weekly volume time window"
+          >
+            <button
+              type="button"
+              className={scope === "8w" ? "is-active" : ""}
+              onClick={() => onScopeChange("8w")}
+            >
               8W
             </button>
-            <button type="button" className={scope === "52w" ? "is-active" : ""} onClick={() => onScopeChange("52w")}>
+            <button
+              type="button"
+              className={scope === "52w" ? "is-active" : ""}
+              onClick={() => onScopeChange("52w")}
+            >
               52W
             </button>
           </div>
@@ -176,7 +190,11 @@ export function WeeklyVolumeHero({
         </div>
         <div className="sa-running-volume-hero__charts">
           <VolumeGauge volume={volume} />
-          <VolumeBarChart weeks={volume.weeks} bandLow={volume.bandLow} bandHigh={volume.bandHigh} />
+          <VolumeBarChart
+            weeks={volume.weeks}
+            bandLow={volume.bandLow}
+            bandHigh={volume.bandHigh}
+          />
           <div className="sa-running-volume-hero__axis">
             <span>{scope === "8w" ? "8 WKS AGO" : "52 WKS AGO"}</span>
             <span>PER-WEEK KM · SHADED = BAND</span>
@@ -191,7 +209,8 @@ export function WeeklyVolumeHero({
 
       <div className="wi-engine-card__method">
         {bandLabel}
-        {volume.weekOverWeekCapLabel ? ` · ${volume.weekOverWeekCapLabel}` : ""} · NOT A TARGET TO CHASE · HOVER BARS → KM + LONG RUN
+        {volume.weekOverWeekCapLabel ? ` · ${volume.weekOverWeekCapLabel}` : ""} · NOT A TARGET TO
+        CHASE · HOVER BARS → KM + LONG RUN
       </div>
     </section>
   );
@@ -209,7 +228,8 @@ function BenchmarkTrend({ points }: { points: BenchmarkSnapshot["trend"] }) {
   const minimum = Math.min(...paces) - 8;
   const maximum = Math.max(...paces) + 8;
   const range = Math.max(1, maximum - minimum);
-  const x = (index: number) => (points.length === 1 ? width : (index / (points.length - 1)) * width);
+  const x = (index: number) =>
+    points.length === 1 ? width : (index / (points.length - 1)) * width;
   const y = (pace: number) => height - 8 - ((pace - minimum) / range) * (height - 16);
   const coords = points.map((p, i) => ({ x: x(i), y: y(p.paceSecPerKm) }));
   const scrubPoint = scrubIndex === null ? null : points[scrubIndex];
@@ -234,7 +254,13 @@ function BenchmarkTrend({ points }: { points: BenchmarkSnapshot["trend"] }) {
       <path d={smoothPath(coords)} />
       {scrubCoord && scrubPoint ? (
         <g aria-hidden="true">
-          <line className="wi-trend-scrub__guide" x1={scrubCoord.x} x2={scrubCoord.x} y1="4" y2={height - 4} />
+          <line
+            className="wi-trend-scrub__guide"
+            x1={scrubCoord.x}
+            x2={scrubCoord.x}
+            y1="4"
+            y2={height - 4}
+          />
           <foreignObject
             className="wi-trend-scrub__chip"
             height="28"
@@ -269,7 +295,9 @@ export function BenchmarkCard({ benchmark }: { benchmark: BenchmarkSnapshot }) {
       <div className="sa-card-kicker">
         <span className="sa-card-label">BENCHMARK — {benchmark.routeLabel}</span>
         {deltaLabel ? (
-          <span className={`sa-running-benchmark__delta is-${benchmark.deltaTone}`}>{deltaLabel}</span>
+          <span className={`sa-running-benchmark__delta is-${benchmark.deltaTone}`}>
+            {deltaLabel}
+          </span>
         ) : null}
       </div>
       <div className="sa-running-benchmark__body">
@@ -328,7 +356,10 @@ export function PaceTrendCard({ paceTrend }: { paceTrend: PaceTrendSnapshot }) {
 
   const chart = useMemo(() => {
     if (paceTrend.points.length === 0) return null;
-    const values = paceTrend.points.flatMap((p) => [p.paceSecPerKm, p.rollingPaceSecPerKm ?? p.paceSecPerKm]);
+    const values = paceTrend.points.flatMap((p) => [
+      p.paceSecPerKm,
+      p.rollingPaceSecPerKm ?? p.paceSecPerKm,
+    ]);
     const minimum = Math.min(...values) - 8;
     const maximum = Math.max(...values) + 8;
     const range = Math.max(1, maximum - minimum);
@@ -337,9 +368,18 @@ export function PaceTrendCard({ paceTrend }: { paceTrend: PaceTrendSnapshot }) {
     const y = (pace: number) => 110 - ((pace - minimum) / range) * 70;
     const sessionCoords = paceTrend.points.map((p, i) => ({ x: x(i), y: y(p.paceSecPerKm) }));
     const rollingCoords = paceTrend.points
-      .map((p, i) => (p.rollingPaceSecPerKm === null ? null : { x: x(i), y: y(p.rollingPaceSecPerKm) }))
+      .map((p, i) =>
+        p.rollingPaceSecPerKm === null ? null : { x: x(i), y: y(p.rollingPaceSecPerKm) },
+      )
       .filter((c): c is { x: number; y: number } => c !== null);
-    return { minimum, maximum, sessionCoords, rollingCoords, startLabel: paceTrend.points[0]?.label ?? "", endLabel: paceTrend.points.at(-1)?.label ?? "" };
+    return {
+      minimum,
+      maximum,
+      sessionCoords,
+      rollingCoords,
+      startLabel: paceTrend.points[0]?.label ?? "",
+      endLabel: paceTrend.points.at(-1)?.label ?? "",
+    };
   }, [paceTrend.points]);
 
   function handleScrub(event: ReactMouseEvent<SVGSVGElement>) {
@@ -366,9 +406,14 @@ export function PaceTrendCard({ paceTrend }: { paceTrend: PaceTrendSnapshot }) {
           >
             <rect height="90" rx="14" width="620" x="0" y="20" />
             <line className="sa-dashed-line" x1="0" x2="620" y1="65" y2="65" />
-            <path className="sa-running-pace-trend__line-session" d={smoothPath(chart.sessionCoords)} />
+            <path
+              className="sa-running-pace-trend__line-session"
+              d={smoothPath(chart.sessionCoords)}
+            />
             <path d={smoothPath(chart.rollingCoords)} />
-            {scrubIndex !== null && chart.sessionCoords[scrubIndex] && paceTrend.points[scrubIndex] ? (
+            {scrubIndex !== null &&
+            chart.sessionCoords[scrubIndex] &&
+            paceTrend.points[scrubIndex] ? (
               <g aria-hidden="true">
                 <line
                   className="wi-trend-scrub__guide"
@@ -385,7 +430,8 @@ export function PaceTrendCard({ paceTrend }: { paceTrend: PaceTrendSnapshot }) {
                   y="0"
                 >
                   <div>
-                    {paceTrend.points[scrubIndex].label} · {paceTrend.points[scrubIndex].distanceKm.toFixed(1)} KM ·{" "}
+                    {paceTrend.points[scrubIndex].label} ·{" "}
+                    {paceTrend.points[scrubIndex].distanceKm.toFixed(1)} KM ·{" "}
                     {formatPace(paceTrend.points[scrubIndex].paceSecPerKm)}/KM
                   </div>
                 </foreignObject>
@@ -424,7 +470,11 @@ export function CoachReadCard({ coachRead }: { coachRead: CoachReadSnapshot }) {
 
 // ─── Running activity heatmap (spine) ───────────────────────────────────────
 
-export function RunningActivityHeatmapCard({ heatmap }: { heatmap: RunningActivityHeatmapSnapshot }) {
+export function RunningActivityHeatmapCard({
+  heatmap,
+}: {
+  heatmap: RunningActivityHeatmapSnapshot;
+}) {
   const visibleCount = Math.min(3, heatmap.months.length);
   const latestStart = Math.max(0, heatmap.months.length - visibleCount);
   const [windowStart, setWindowStart] = useState(latestStart);
@@ -442,7 +492,10 @@ export function RunningActivityHeatmapCard({ heatmap }: { heatmap: RunningActivi
         <span className="sa-card-label">RUNNING ACTIVITY · {rangeLabel}</span>
         <div className="sa-running-heatmap__tools">
           <div className="sa-running-heatmap__legend">
-            <span><i className="is-run" />RUN</span>
+            <span>
+              <i className="is-run" />
+              RUN
+            </span>
           </div>
           <div className="sa-running-heatmap__paging" aria-label="Running activity month window">
             <button
@@ -456,7 +509,9 @@ export function RunningActivityHeatmapCard({ heatmap }: { heatmap: RunningActivi
             <button
               aria-label="Show next three months"
               disabled={windowStart >= latestStart}
-              onClick={() => setWindowStart((current) => Math.min(latestStart, current + visibleCount))}
+              onClick={() =>
+                setWindowStart((current) => Math.min(latestStart, current + visibleCount))
+              }
               type="button"
             >
               →
@@ -476,7 +531,10 @@ export function RunningActivityHeatmapCard({ heatmap }: { heatmap: RunningActivi
               </div>
               <div className="sa-running-heatmap__grid">
                 {month.cells.slice(0, 28).map((cell, index) => (
-                  <i className={cell === "empty" ? "is-empty" : "is-run"} key={`${month.label}-${index}`} />
+                  <i
+                    className={cell === "empty" ? "is-empty" : "is-run"}
+                    key={`${month.label}-${index}`}
+                  />
                 ))}
               </div>
             </div>

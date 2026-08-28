@@ -4,9 +4,7 @@
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "extraContext": "Current week's sessions (use these exact session_ids for session_reconcile AND plan_edit - match the date to what the athlete actually means, never guess):\n- session_id: sess-thu-tempo | date: 2026-08-20 | Tempo Run | status: planned",
-  "history": [
-    { "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }
-  ],
+  "history": [{ "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }],
   "turns": [
     {
       "mode": "ordinary",

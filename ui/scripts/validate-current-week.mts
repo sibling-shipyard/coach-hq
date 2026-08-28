@@ -34,9 +34,10 @@ try {
 const runtime = parseCurrentWeek(input);
 const issues = [...runtime.issues];
 
-const updatedBy = typeof input === "object" && input !== null && !Array.isArray(input)
-  ? (input as Record<string, unknown>).updated_by
-  : undefined;
+const updatedBy =
+  typeof input === "object" && input !== null && !Array.isArray(input)
+    ? (input as Record<string, unknown>).updated_by
+    : undefined;
 
 if (enforceCoachWrite && updatedBy !== "coach") {
   issues.push('current_week.updated_by must be "coach" for a Coach-authored save');

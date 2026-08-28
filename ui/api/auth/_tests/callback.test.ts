@@ -169,7 +169,11 @@ describe("callback.ts iOS success/setup branches", () => {
   it("redirects to coachhq://callback with a token and the resolved repo on success", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "https://github.com/login/oauth/access_token") {
-        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+        return Response.json({
+          access_token: "gh-token",
+          refresh_token: "gh-refresh",
+          expires_in: 28800,
+        });
       }
       if (url === ghUrl("/user")) {
         return Response.json({ id: 3, login: "ios-user" });
@@ -181,7 +185,13 @@ describe("callback.ts iOS success/setup branches", () => {
       }
       if (url === ghUrl("/user/installations/99/repositories?per_page=100")) {
         return Response.json({
-          repositories: [{ full_name: "ios-user/coach-ios-user", name: "coach-ios-user", owner: { login: "ios-user" } }],
+          repositories: [
+            {
+              full_name: "ios-user/coach-ios-user",
+              name: "coach-ios-user",
+              owner: { login: "ios-user" },
+            },
+          ],
         });
       }
       if (url === ghUrl("/repos/ios-user/coach-ios-user/contents/.coach-engine-version")) {
@@ -205,7 +215,11 @@ describe("callback.ts iOS success/setup branches", () => {
   it("resolves a pre-pin repo via the legacy ledger marker when .coach-engine-version 404s", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "https://github.com/login/oauth/access_token") {
-        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+        return Response.json({
+          access_token: "gh-token",
+          refresh_token: "gh-refresh",
+          expires_in: 28800,
+        });
       }
       if (url === ghUrl("/user")) {
         return Response.json({ id: 3, login: "ios-user" });
@@ -217,13 +231,21 @@ describe("callback.ts iOS success/setup branches", () => {
       }
       if (url === ghUrl("/user/installations/99/repositories?per_page=100")) {
         return Response.json({
-          repositories: [{ full_name: "ios-user/coach-ios-user", name: "coach-ios-user", owner: { login: "ios-user" } }],
+          repositories: [
+            {
+              full_name: "ios-user/coach-ios-user",
+              name: "coach-ios-user",
+              owner: { login: "ios-user" },
+            },
+          ],
         });
       }
       if (url === ghUrl("/repos/ios-user/coach-ios-user/contents/.coach-engine-version")) {
         return new Response(null, { status: 404 });
       }
-      if (url === ghUrl("/repos/ios-user/coach-ios-user/contents/user_data/ledger/challenge_v2.json")) {
+      if (
+        url === ghUrl("/repos/ios-user/coach-ios-user/contents/user_data/ledger/challenge_v2.json")
+      ) {
         return new Response(null, { status: 200 });
       }
       throw new Error(`unexpected fetch: ${url}`);
@@ -242,7 +264,11 @@ describe("callback.ts iOS success/setup branches", () => {
   it("does not hand iOS a repo when neither marker is present", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "https://github.com/login/oauth/access_token") {
-        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+        return Response.json({
+          access_token: "gh-token",
+          refresh_token: "gh-refresh",
+          expires_in: 28800,
+        });
       }
       if (url === ghUrl("/user")) {
         return Response.json({ id: 3, login: "ios-user" });
@@ -254,7 +280,13 @@ describe("callback.ts iOS success/setup branches", () => {
       }
       if (url === ghUrl("/user/installations/99/repositories?per_page=100")) {
         return Response.json({
-          repositories: [{ full_name: "ios-user/some-other-repo", name: "some-other-repo", owner: { login: "ios-user" } }],
+          repositories: [
+            {
+              full_name: "ios-user/some-other-repo",
+              name: "some-other-repo",
+              owner: { login: "ios-user" },
+            },
+          ],
         });
       }
       if (url.includes("/contents/")) {
@@ -277,7 +309,11 @@ describe("callback.ts iOS success/setup branches", () => {
   it("redirects to coachhq://callback?needs_setup=1 with a token when there's no installation yet", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "https://github.com/login/oauth/access_token") {
-        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+        return Response.json({
+          access_token: "gh-token",
+          refresh_token: "gh-refresh",
+          expires_in: 28800,
+        });
       }
       if (url === ghUrl("/user")) {
         return Response.json({ id: 4, login: "brandnew-ios" });
@@ -324,7 +360,11 @@ describe("handleStart -> handleCallback round trip", () => {
 
     fetchMock.mockImplementation(async (url: string) => {
       if (url === "https://github.com/login/oauth/access_token") {
-        return Response.json({ access_token: "gh-token", refresh_token: "gh-refresh", expires_in: 28800 });
+        return Response.json({
+          access_token: "gh-token",
+          refresh_token: "gh-refresh",
+          expires_in: 28800,
+        });
       }
       if (url === ghUrl("/user")) {
         return Response.json({ id: 5, login: "roundtrip-user" });
@@ -356,7 +396,10 @@ describe("callback.ts config_error routing", () => {
     delete process.env.GITHUB_APP_CLIENT_SECRET;
     try {
       const { default: misconfiguredHandler } = await import("../[...action].js");
-      const state = await signOAuthState({ codeVerifier: "v", platform: "ios", popup: false }, SESSION_SECRET);
+      const state = await signOAuthState(
+        { codeVerifier: "v", platform: "ios", popup: false },
+        SESSION_SECRET,
+      );
       const req = new Request(
         `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`,
       );

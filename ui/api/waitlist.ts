@@ -28,7 +28,9 @@ function waitlistConfig(): { repo: string; token: string } | null {
   const repo = process.env.WAITLIST_GITHUB_REPO ?? DEFAULT_REPO;
   if (!token) return null;
   if (!process.env.WAITLIST_GITHUB_REPO) {
-    console.warn(`[waitlist] WAITLIST_GITHUB_REPO is unset — falling back to default repo ${DEFAULT_REPO}`);
+    console.warn(
+      `[waitlist] WAITLIST_GITHUB_REPO is unset — falling back to default repo ${DEFAULT_REPO}`,
+    );
   }
   return { repo, token };
 }
@@ -78,7 +80,8 @@ export default {
       return Response.json({ error: "Invalid email address" }, { status: 400 });
     }
 
-    const source = typeof body.source === "string" && body.source.trim() ? body.source.trim() : "welcome";
+    const source =
+      typeof body.source === "string" && body.source.trim() ? body.source.trim() : "welcome";
 
     let duplicate = false;
 
@@ -109,7 +112,10 @@ export default {
       );
     } catch (err) {
       console.error("waitlist commit failed:", err);
-      return Response.json({ error: "Could not save your email — try again later" }, { status: 502 });
+      return Response.json(
+        { error: "Could not save your email — try again later" },
+        { status: 502 },
+      );
     }
 
     return Response.json({ ok: true, duplicate }, { status: duplicate ? 200 : 201 });

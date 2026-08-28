@@ -7,7 +7,10 @@ import type { Activity } from "@/lib/activities";
 import type { CurrentWeekContract } from "@/components/home-warm/currentWeek.fixture";
 import { buildLiveWeekContract } from "@/components/home-warm/liveWeekContract";
 import { buildWarmHomeModel, type SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
-import { buildActivityEvidenceSnapshots, buildRecentSessions } from "@/components/home-warm/warmHomeSnapshots";
+import {
+  buildActivityEvidenceSnapshots,
+  buildRecentSessions,
+} from "@/components/home-warm/warmHomeSnapshots";
 import { RecentSessionsCard } from "@/components/home-warm/WarmInstrumentWidgets";
 import type { WarmSportId } from "@/components/home-warm/snapshots";
 import { buildBadmintonActivityHeatmap } from "./badmintonLensModel";
@@ -25,7 +28,13 @@ interface SportSpineProps {
   currentWeek?: CurrentWeekContract;
 }
 
-export function SportSpine({ sport, activities, ledger, syncStatus, currentWeek }: SportSpineProps) {
+export function SportSpine({
+  sport,
+  activities,
+  ledger,
+  syncStatus,
+  currentWeek,
+}: SportSpineProps) {
   const snapshots = useMemo(() => {
     const effectiveWeek = currentWeek ?? buildLiveWeekContract(activities);
     buildWarmHomeModel(activities, ledger, syncStatus, effectiveWeek);

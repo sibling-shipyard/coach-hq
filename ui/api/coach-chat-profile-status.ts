@@ -27,7 +27,10 @@ export default {
       if (resolved instanceof Response) return resolved;
       auth = resolved;
 
-      const { profile, memory, seasons } = await loadCoachContext(auth.repo_full_name, auth.gh_token);
+      const { profile, memory, seasons } = await loadCoachContext(
+        auth.repo_full_name,
+        auth.gh_token,
+      );
       const profileComplete = isAthleteProfileComplete(profile, memory, seasons);
       return withSessionCookie(Response.json({ profileComplete }), auth.setCookie);
     } catch (err) {

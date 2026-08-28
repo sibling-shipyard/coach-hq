@@ -37,10 +37,12 @@ function validateExercise(ex: any, path_: string): void {
 
   if (ex.type === "timed") {
     assertNumber(ex.duration_secs, `${path_}.duration_secs`);
-    if (ex.reps !== undefined) throw new Error(`workout schema: ${path_}.reps should be absent on a timed exercise`);
+    if (ex.reps !== undefined)
+      throw new Error(`workout schema: ${path_}.reps should be absent on a timed exercise`);
   } else {
     assertNumber(ex.reps, `${path_}.reps`);
-    if (ex.duration_secs !== undefined) throw new Error(`workout schema: ${path_}.duration_secs should be absent on a reps exercise`);
+    if (ex.duration_secs !== undefined)
+      throw new Error(`workout schema: ${path_}.duration_secs should be absent on a reps exercise`);
   }
 
   const optionalNumberFields = ["rest_between_sets_secs", "rest_after_exercise_secs", "prep_secs"];
@@ -55,12 +57,23 @@ function validateExercise(ex: any, path_: string): void {
   }
 
   const allowedKeys = new Set([
-    "num", "name", "type", "duration_secs", "reps", "sets",
-    "rest_between_sets_secs", "rest_after_exercise_secs", "prep_secs",
-    "optional", "both_sides", "form_cue", "why",
+    "num",
+    "name",
+    "type",
+    "duration_secs",
+    "reps",
+    "sets",
+    "rest_between_sets_secs",
+    "rest_after_exercise_secs",
+    "prep_secs",
+    "optional",
+    "both_sides",
+    "form_cue",
+    "why",
   ]);
   for (const key of Object.keys(ex)) {
-    if (!allowedKeys.has(key)) throw new Error(`workout schema: ${path_} has unexpected field "${key}"`);
+    if (!allowedKeys.has(key))
+      throw new Error(`workout schema: ${path_} has unexpected field "${key}"`);
   }
 }
 
@@ -72,11 +85,13 @@ function validatePhase(phase: any, path_: string): void {
     throw new Error(`workout schema: ${path_}.exercises should be a non-empty array`);
   }
 
-  if (phase.transition_rest_secs !== undefined) assertNumber(phase.transition_rest_secs, `${path_}.transition_rest_secs`);
+  if (phase.transition_rest_secs !== undefined)
+    assertNumber(phase.transition_rest_secs, `${path_}.transition_rest_secs`);
   if (phase.optional !== undefined && typeof phase.optional !== "boolean") {
     throw new Error(`workout schema: ${path_}.optional should be a boolean`);
   }
-  if (phase.coaching_note !== undefined) assertString(phase.coaching_note, `${path_}.coaching_note`);
+  if (phase.coaching_note !== undefined)
+    assertString(phase.coaching_note, `${path_}.coaching_note`);
   if (phase.circuit !== undefined && typeof phase.circuit !== "boolean") {
     throw new Error(`workout schema: ${path_}.circuit should be a boolean`);
   }
@@ -85,11 +100,19 @@ function validatePhase(phase: any, path_: string): void {
   phase.exercises.forEach((ex: any, i: number) => validateExercise(ex, `${path_}.exercises[${i}]`));
 
   const allowedKeys = new Set([
-    "name", "duration", "default_rest_secs", "transition_rest_secs",
-    "optional", "coaching_note", "exercises", "circuit", "rounds",
+    "name",
+    "duration",
+    "default_rest_secs",
+    "transition_rest_secs",
+    "optional",
+    "coaching_note",
+    "exercises",
+    "circuit",
+    "rounds",
   ]);
   for (const key of Object.keys(phase)) {
-    if (!allowedKeys.has(key)) throw new Error(`workout schema: ${path_} has unexpected field "${key}"`);
+    if (!allowedKeys.has(key))
+      throw new Error(`workout schema: ${path_} has unexpected field "${key}"`);
   }
 }
 
@@ -106,7 +129,8 @@ export function validateWorkout(workout: any, label: string): asserts workout is
   }
   assertNumber(workout.estimated_duration_mins, `${label}.estimated_duration_mins`);
   assertString(workout.location, `${label}.location`);
-  if (!Array.isArray(workout.equipment)) throw new Error(`workout schema: ${label}.equipment should be an array`);
+  if (!Array.isArray(workout.equipment))
+    throw new Error(`workout schema: ${label}.equipment should be an array`);
   workout.equipment.forEach((e: unknown, i: number) => assertString(e, `${label}.equipment[${i}]`));
   assertString(workout.coaching_note, `${label}.coaching_note`);
   if (!Array.isArray(workout.phases) || workout.phases.length === 0) {
@@ -115,21 +139,36 @@ export function validateWorkout(workout: any, label: string): asserts workout is
 
   workout.phases.forEach((phase: any, i: number) => validatePhase(phase, `${label}.phases[${i}]`));
 
-  if (workout.progression_notes !== undefined) assertString(workout.progression_notes, `${label}.progression_notes`);
+  if (workout.progression_notes !== undefined)
+    assertString(workout.progression_notes, `${label}.progression_notes`);
 
   const allowedKeys = new Set([
-    "id", "title", "subtitle", "session_date", "based_on_template", "workout_type",
-    "estimated_duration_mins", "location", "equipment", "coaching_note", "phases",
-    "shoulder_modification", "progression_notes", "_meta",
+    "id",
+    "title",
+    "subtitle",
+    "session_date",
+    "based_on_template",
+    "workout_type",
+    "estimated_duration_mins",
+    "location",
+    "equipment",
+    "coaching_note",
+    "phases",
+    "shoulder_modification",
+    "progression_notes",
+    "_meta",
   ]);
   for (const key of Object.keys(workout)) {
-    if (!allowedKeys.has(key)) throw new Error(`workout schema: ${label} has unexpected top-level field "${key}"`);
+    if (!allowedKeys.has(key))
+      throw new Error(`workout schema: ${label} has unexpected top-level field "${key}"`);
   }
 
   const nums = workout.phases.flatMap((p: any) => p.exercises.map((e: any) => e.num));
   const sorted = [...nums].sort((a: number, b: number) => a - b);
   if (JSON.stringify(nums) !== JSON.stringify(sorted)) {
-    throw new Error(`workout schema: ${label} exercise nums should be strictly ascending across phases`);
+    throw new Error(
+      `workout schema: ${label} exercise nums should be strictly ascending across phases`,
+    );
   }
   if (new Set(nums).size !== nums.length) {
     throw new Error(`workout schema: ${label} exercise nums should be unique`);

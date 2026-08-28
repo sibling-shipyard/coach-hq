@@ -84,9 +84,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isProactiveSeed(value: string): boolean {
-  return value.length <= 200
-    && value.startsWith(PROACTIVE_SEED_PREFIX)
-    && /^local-proactive-cm-[A-Za-z0-9-]+$/.test(value);
+  return (
+    value.length <= 200 &&
+    value.startsWith(PROACTIVE_SEED_PREFIX) &&
+    /^local-proactive-cm-[A-Za-z0-9-]+$/.test(value)
+  );
 }
 
 export function parseProactiveSeed(search: string): string | null {
@@ -104,16 +106,17 @@ export function selectProactiveCoachMessage(
   if (!isRecord(home) || !isRecord(home.coachMessage)) return null;
   const message = home.coachMessage;
   if (
-    typeof message.id !== "string"
-    || !/^cm-[A-Za-z0-9-]+$/.test(message.id)
-    || typeof message.created_at !== "string"
-    || Number.isNaN(Date.parse(message.created_at))
-    || typeof message.body !== "string"
-    || message.body.trim().length === 0
-    || typeof message.conversation_seed_id !== "string"
-    || message.conversation_seed_id !== requestedSeed
-    || message.conversation_seed_id !== `local-proactive-${message.id}`
-  ) return null;
+    typeof message.id !== "string" ||
+    !/^cm-[A-Za-z0-9-]+$/.test(message.id) ||
+    typeof message.created_at !== "string" ||
+    Number.isNaN(Date.parse(message.created_at)) ||
+    typeof message.body !== "string" ||
+    message.body.trim().length === 0 ||
+    typeof message.conversation_seed_id !== "string" ||
+    message.conversation_seed_id !== requestedSeed ||
+    message.conversation_seed_id !== `local-proactive-${message.id}`
+  )
+    return null;
   return {
     id: message.id,
     created_at: message.created_at,
@@ -147,15 +150,16 @@ export function materializeProactiveThread(
   cachedMessages: ChatMessage[] | null = null,
 ): ChatThread {
   const createdAt = Date.parse(message.created_at);
-  const messages = cachedMessages && cachedMessages.length > 0
-    ? cachedMessages
-    : [
-        { id: `d-${createdAt}`, role: "divider" as const, label: "TODAY" },
-        { id: `c-${createdAt}`, role: "coach" as const, paragraphs: [message.body] },
-      ];
-  const lastCoach = [...messages].reverse().find(
-    (item): item is Extract<ChatMessage, { role: "coach" }> => item.role === "coach",
-  );
+  const messages =
+    cachedMessages && cachedMessages.length > 0
+      ? cachedMessages
+      : [
+          { id: `d-${createdAt}`, role: "divider" as const, label: "TODAY" },
+          { id: `c-${createdAt}`, role: "coach" as const, paragraphs: [message.body] },
+        ];
+  const lastCoach = [...messages]
+    .reverse()
+    .find((item): item is Extract<ChatMessage, { role: "coach" }> => item.role === "coach");
   const firstUser = messages.find(
     (item): item is Extract<ChatMessage, { role: "user" }> => item.role === "user",
   );
@@ -194,7 +198,10 @@ export function resolveProactiveThread(
  * Falls back to 1 if none of the three are present.
  */
 export function challengeDayNumber(profile: any, ledger: any, now = new Date()): number {
-  const startRaw = profile?.coach_since ?? ledger?.seasons?.seasons?.find((s: any) => s.id === ledger?.seasons?.current_season_id)?.start_date;
+  const startRaw =
+    profile?.coach_since ??
+    ledger?.seasons?.seasons?.find((s: any) => s.id === ledger?.seasons?.current_season_id)
+      ?.start_date;
   if (!startRaw) return 1;
   const start = new Date(`${startRaw}T00:00:00`);
   if (Number.isNaN(start.getTime())) return 1;
@@ -304,24 +311,31 @@ export function qualifiedActivityId(id: string): string {
 export function retryActivityIdsFromThread(thread: ChatThread): string[] | null {
   const coach = [...thread.messages]
     .reverse()
-    .find((message): message is Extract<ChatMessage, { role: "coach" }> => message.role === "coach");
+    .find(
+      (message): message is Extract<ChatMessage, { role: "coach" }> => message.role === "coach",
+    );
   if (!coach) return null;
   const list = syncedActivityList(coach.attachments);
   if (!list || coachMessageHasCopy(coach)) return null;
   return list.activities.map((row) => qualifiedActivityId(row.id));
 }
 
-export function findClientActivity(activities: unknown, id: string): {
-  id: string;
-  name: string;
-  sport_type: string;
-  start_date_local: string;
-  elapsed_time: number;
-  calories?: number;
-  average_heartrate?: number | null;
-  description?: string | null;
-  hr_zones?: unknown;
-} | undefined {
+export function findClientActivity(
+  activities: unknown,
+  id: string,
+):
+  | {
+      id: string;
+      name: string;
+      sport_type: string;
+      start_date_local: string;
+      elapsed_time: number;
+      calories?: number;
+      average_heartrate?: number | null;
+      description?: string | null;
+      hr_zones?: unknown;
+    }
+  | undefined {
   if (!Array.isArray(activities)) return undefined;
   const bare = id.includes(":") ? id.slice(id.indexOf(":") + 1) : id;
   for (const item of activities) {
@@ -346,8 +360,18 @@ export function findClientActivity(activities: unknown, id: string): {
       start_date_local: typeof row.start_date_local === "string" ? row.start_date_local : "",
       elapsed_time: typeof row.elapsed_time === "number" ? row.elapsed_time : 0,
       calories: typeof row.calories === "number" ? row.calories : undefined,
-      average_heartrate: typeof row.average_heartrate === "number" ? row.average_heartrate : row.average_heartrate === null ? null : undefined,
-      description: typeof row.description === "string" ? row.description : row.description === null ? null : undefined,
+      average_heartrate:
+        typeof row.average_heartrate === "number"
+          ? row.average_heartrate
+          : row.average_heartrate === null
+            ? null
+            : undefined,
+      description:
+        typeof row.description === "string"
+          ? row.description
+          : row.description === null
+            ? null
+            : undefined,
       hr_zones: row.hr_zones,
     };
   }
@@ -424,7 +448,10 @@ export async function fetchThreads(): Promise<ChatThread[]> {
 // same as before A5 existed.
 const lastKnownSha = new Map<string, string>();
 
-export function rememberRepoSha(threadId: string | null | undefined, sha: string | null | undefined): void {
+export function rememberRepoSha(
+  threadId: string | null | undefined,
+  sha: string | null | undefined,
+): void {
   if (threadId && sha) lastKnownSha.set(threadId, sha);
 }
 
@@ -464,7 +491,13 @@ function pruneRepoSha(currentThreadIds: readonly string[]): void {
 // otherwise the caller is responsible for appending the reply to its own local thread.
 export type SendMessageResult =
   | { closed: false; reply: string; stale?: boolean; profileComplete: boolean }
-  | { closed: true; reply: string; threadId: string; threads: ChatThread[]; profileComplete: boolean };
+  | {
+      closed: true;
+      reply: string;
+      threadId: string;
+      threads: ChatThread[];
+      profileComplete: boolean;
+    };
 
 export async function sendMessage(
   threadId: string | null,
@@ -478,7 +511,13 @@ export async function sendMessage(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ threadId: threadId ?? undefined, messages: priorMessages, message, knownSha, endConversationRequested }),
+      body: JSON.stringify({
+        threadId: threadId ?? undefined,
+        messages: priorMessages,
+        message,
+        knownSha,
+        endConversationRequested,
+      }),
     },
     3,
     false,

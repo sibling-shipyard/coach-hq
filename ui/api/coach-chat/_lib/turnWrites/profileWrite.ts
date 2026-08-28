@@ -66,8 +66,7 @@ export function projectProfileCompletion(params: {
     coach_since: profile?.coach_since ?? null,
     name: (projectedField("name") as string | undefined) ?? profile?.name ?? "",
     dob: (projectedField("dob") as string | undefined) ?? profile?.dob ?? null,
-    timezone:
-      (projectedField("timezone") as string | undefined) ?? profile?.timezone ?? "UTC",
+    timezone: (projectedField("timezone") as string | undefined) ?? profile?.timezone ?? "UTC",
     height_cm:
       projectedField("height_cm") != null
         ? Number(projectedField("height_cm"))
@@ -88,10 +87,7 @@ export function projectProfileCompletion(params: {
     notes:
       memory?.notes ??
       (Object.fromEntries(
-        MEMORY_NOTE_LABELS.map((label) => [
-          label,
-          { text: "", updated_at: "", trace_id: "" },
-        ]),
+        MEMORY_NOTE_LABELS.map((label) => [label, { text: "", updated_at: "", trace_id: "" }]),
       ) as MemoryJson["notes"]),
   };
   const projectedSeasons = seasonStart?.name?.trim()

@@ -1,9 +1,6 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import {
-  parseCurrentWeek,
-  type CurrentWeek,
-} from "../../coach-chat/_lib/current-week.bundle.js";
+import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
 
 export const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
 export const MAX_ACTIVITY_IDS = 20;
@@ -46,10 +43,7 @@ export interface ProactiveContext {
   current_live_week: CurrentWeek | null;
   active_injuries: Array<Record<string, unknown>>;
   recent_coach_continuity: Array<Record<string, unknown>>;
-  previous_proactive_message: Pick<
-    LatestCoachMessage,
-    "created_at" | "body"
-  > | null;
+  previous_proactive_message: Pick<LatestCoachMessage, "created_at" | "body"> | null;
 }
 
 const EMPTY_FEW_SHOT_CONTEXT = {
@@ -71,17 +65,19 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
         created_at: "2026-08-23T08:00:00.000Z",
         body: "That one's in the book. You showed up again.",
       },
-      activity_batch: [{
-        activity_id: "strava:101",
-        activity: {
-          name: "Foundation",
-          sport_type: "Workout",
-          source: "strava",
-          elapsed_time: 840,
-          average_heartrate: 88,
-          has_heartrate: true,
+      activity_batch: [
+        {
+          activity_id: "strava:101",
+          activity: {
+            name: "Foundation",
+            sport_type: "Workout",
+            source: "strava",
+            elapsed_time: 840,
+            average_heartrate: 88,
+            has_heartrate: true,
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "The quiet work landed. Nothing clever to add today, but I noticed.",
@@ -92,29 +88,33 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "healthkit:AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
-        activity: {
-          name: "Morning foundation",
-          sport_type: "Workout",
-          source: "healthkit",
-          elapsed_time: 900,
-          average_heartrate: 75,
-          has_heartrate: true,
-        },
-        heart_rate_summary: {
-          elapsed_seconds: 900,
-          covered_seconds: 684,
-          uncovered_seconds: 216,
-          effort_shape: [{
-            start_seconds: 0,
-            end_seconds: 900,
-            median_bpm: 75,
-            dominant_zone: "Zone 1",
+      activity_batch: [
+        {
+          activity_id: "healthkit:AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
+          activity: {
+            name: "Morning foundation",
+            sport_type: "Workout",
+            source: "healthkit",
+            elapsed_time: 900,
+            average_heartrate: 75,
+            has_heartrate: true,
+          },
+          heart_rate_summary: {
+            elapsed_seconds: 900,
             covered_seconds: 684,
-          }],
+            uncovered_seconds: 216,
+            effort_shape: [
+              {
+                start_seconds: 0,
+                end_seconds: 900,
+                median_bpm: 75,
+                dominant_zone: "Zone 1",
+                covered_seconds: 684,
+              },
+            ],
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "The watch missed part of that one, so the clock is the honest signal I have. It still counts. How did it actually go?",
@@ -126,9 +126,28 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
       activity_batch: [
-        { activity_id: "strava:103", activity: { name: "Ride out", sport_type: "Ride", source: "strava", elapsed_time: 960 } },
-        { activity_id: "strava:104", activity: { name: "Club night", sport_type: "Badminton", source: "strava", elapsed_time: 7_260 } },
-        { activity_id: "strava:105", activity: { name: "Ride home", sport_type: "Ride", source: "strava", elapsed_time: 1_200 } },
+        {
+          activity_id: "strava:103",
+          activity: { name: "Ride out", sport_type: "Ride", source: "strava", elapsed_time: 960 },
+        },
+        {
+          activity_id: "strava:104",
+          activity: {
+            name: "Club night",
+            sport_type: "Badminton",
+            source: "strava",
+            elapsed_time: 7_260,
+          },
+        },
+        {
+          activity_id: "strava:105",
+          activity: {
+            name: "Ride home",
+            sport_type: "Ride",
+            source: "strava",
+            elapsed_time: 1_200,
+          },
+        },
       ],
     },
     output: {
@@ -140,18 +159,20 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "strava:106",
-        activity: {
-          name: "League night",
-          sport_type: "Badminton",
-          source: "strava",
-          elapsed_time: 11_160,
-          average_heartrate: 115,
-          max_heartrate: 179,
-          vs_usual: { duration_median_s: 11_000, avg_hr_median: 127 },
+      activity_batch: [
+        {
+          activity_id: "strava:106",
+          activity: {
+            name: "League night",
+            sport_type: "Badminton",
+            source: "strava",
+            elapsed_time: 11_160,
+            average_heartrate: 115,
+            max_heartrate: 179,
+            vs_usual: { duration_median_s: 11_000, avg_hr_median: 127 },
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "Your heart rate sat below its usual range while the top end still appeared. The trace cannot tell me why. Were the gaps longer, or did the games feel different?",
@@ -162,18 +183,20 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "strava:107",
-        activity: {
-          name: "Easy foundation",
-          sport_type: "Workout",
-          source: "strava",
-          elapsed_time: 1_440,
-          average_heartrate: 73,
-          max_heartrate: 126,
-          has_heartrate: true,
+      activity_batch: [
+        {
+          activity_id: "strava:107",
+          activity: {
+            name: "Easy foundation",
+            sport_type: "Workout",
+            source: "strava",
+            elapsed_time: 1_440,
+            average_heartrate: 73,
+            max_heartrate: 126,
+            has_heartrate: true,
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "You kept the easy work easy. That is a quiet choice, and it honours the point of the session.",
@@ -184,16 +207,18 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "strava:108",
-        activity: {
-          name: "Workout A, first slot",
-          sport_type: "WeightTraining",
-          source: "strava",
-          elapsed_time: 3_480,
-          description: "First controlled session of the new block.",
+      activity_batch: [
+        {
+          activity_id: "strava:108",
+          activity: {
+            name: "Workout A, first slot",
+            sport_type: "WeightTraining",
+            source: "strava",
+            elapsed_time: 3_480,
+            description: "First controlled session of the new block.",
+          },
         },
-      }],
+      ],
     },
     output: {
       body: "First controlled slot of the new block, done. You gave the plan a real start, and I've got you for the next one.",
@@ -204,21 +229,23 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
     weight: 1,
     input: {
       ...EMPTY_FEW_SHOT_CONTEXT,
-      activity_batch: [{
-        activity_id: "strava:109",
-        activity: {
-          name: "League night",
-          sport_type: "Badminton",
-          source: "strava",
-          elapsed_time: 13_620,
-          average_heartrate: 139,
-          max_heartrate: 191,
-          hr_zones: {
-            "Zone 4": { low: 159, high: 172, seconds: 2_897 },
-            "Zone 5": { low: 173, high: null, seconds: 1_326 },
+      activity_batch: [
+        {
+          activity_id: "strava:109",
+          activity: {
+            name: "League night",
+            sport_type: "Badminton",
+            source: "strava",
+            elapsed_time: 13_620,
+            average_heartrate: 139,
+            max_heartrate: 191,
+            hr_zones: {
+              "Zone 4": { low: 159, high: 172, seconds: 2_897 },
+              "Zone 5": { low: 173, high: null, seconds: 1_326 },
+            },
           },
         },
-      }],
+      ],
     },
     output: {
       body: "That was a long night with a lot of time high in your zones. I do not have the result, so I am only calling the dose: genuinely heavy.",
@@ -244,10 +271,7 @@ export interface CoachMessageDependencies {
   readFile: (path: string) => Promise<string | null>;
   listActivityFiles: () => Promise<ActivityFileEntry[]>;
   generateBody: (prompt: string) => Promise<string>;
-  commitFiles: (
-    files: FileEntry[],
-    message: string,
-  ) => Promise<{ commitSha: string }>;
+  commitFiles: (files: FileEntry[], message: string) => Promise<{ commitSha: string }>;
   soul: string;
   now?: () => Date;
   randomUUID?: () => string;
@@ -264,9 +288,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function parseActivityHistoryTree(
-  payload: unknown,
-): ActivityFileEntry[] {
+export function parseActivityHistoryTree(payload: unknown): ActivityFileEntry[] {
   if (!isObject(payload)) {
     throw new CoachMessageError("GitHub activity tree is malformed", 502);
   }
@@ -278,11 +300,7 @@ export function parseActivityHistoryTree(
   }
   const prefix = "user_data/activities/hist/";
   return payload.tree.flatMap((entry): ActivityFileEntry[] => {
-    if (
-      !isObject(entry) ||
-      entry.type !== "blob" ||
-      typeof entry.path !== "string"
-    ) {
+    if (!isObject(entry) || entry.type !== "blob" || typeof entry.path !== "string") {
       return [];
     }
     if (!entry.path.startsWith(prefix)) return [];
@@ -311,14 +329,8 @@ function stringValue(value: unknown, maxLength = 1_000): string | null {
   return trimmed ? trimmed.slice(0, maxLength) : null;
 }
 
-function valuesEqual(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((value, index) => value === right[index])
-  );
+function valuesEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function isStrictActivityId(value: string): boolean {
@@ -334,27 +346,17 @@ export function validateActivityIdsPayload(payload: unknown): string[] {
   }
   const keys = Object.keys(payload);
   if (keys.length !== 1 || keys[0] !== "activity_ids") {
-    throw new CoachMessageError(
-      "Request body must contain only activity_ids",
-      400,
-    );
+    throw new CoachMessageError("Request body must contain only activity_ids", 400);
   }
   const ids = payload.activity_ids;
-  if (
-    !Array.isArray(ids) ||
-    ids.length === 0 ||
-    ids.length > MAX_ACTIVITY_IDS
-  ) {
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_ACTIVITY_IDS) {
     throw new CoachMessageError(
       `activity_ids must contain between 1 and ${MAX_ACTIVITY_IDS} items`,
       400,
     );
   }
   if (
-    !ids.every(
-      (value): value is string =>
-        typeof value === "string" && isStrictActivityId(value),
-    )
+    !ids.every((value): value is string => typeof value === "string" && isStrictActivityId(value))
   ) {
     throw new CoachMessageError(
       "activity_ids must use canonical healthkit:<UUID> or strava:<id> values",
@@ -398,10 +400,7 @@ export function validateGeneratedBody(value: unknown): string {
     );
   }
   if (body.includes("—")) {
-    throw new CoachMessageError(
-      "Gemini response must not contain an em dash",
-      502,
-    );
+    throw new CoachMessageError("Gemini response must not contain an em dash", 502);
   }
   const sentences = body.split(/(?<=[.!?])\s+/).filter(Boolean);
   if (
@@ -409,10 +408,7 @@ export function validateGeneratedBody(value: unknown): string {
     sentences.length > 3 ||
     sentences.some((sentence) => sentence.length > MAX_SENTENCE_LENGTH)
   ) {
-    throw new CoachMessageError(
-      "Gemini response must contain 1-3 short sentences",
-      502,
-    );
+    throw new CoachMessageError("Gemini response must contain 1-3 short sentences", 502);
   }
   return body;
 }
@@ -420,13 +416,7 @@ export function validateGeneratedBody(value: unknown): string {
 function parseLatestMessage(value: unknown): LatestCoachMessage | null {
   if (!isObject(value)) return null;
   const keys = Object.keys(value).sort();
-  const expected = [
-    "activity_ids",
-    "body",
-    "conversation_seed_id",
-    "created_at",
-    "id",
-  ];
+  const expected = ["activity_ids", "body", "conversation_seed_id", "created_at", "id"];
   if (!valuesEqual(keys, expected)) return null;
   const id = stringValue(value.id, 120);
   const createdAt = stringValue(value.created_at, 40);
@@ -458,9 +448,7 @@ function parseLatestMessage(value: unknown): LatestCoachMessage | null {
   };
 }
 
-export function parseLatestMessageFile(
-  raw: string | null,
-): LatestCoachMessageFile {
+export function parseLatestMessageFile(raw: string | null): LatestCoachMessageFile {
   if (raw == null) return { schema_version: 1, message: null };
   const value = parseJson(raw);
   if (!isObject(value) || value.schema_version !== 1 || !("message" in value)) {
@@ -469,10 +457,7 @@ export function parseLatestMessageFile(
   if (value.message === null) return { schema_version: 1, message: null };
   const message = parseLatestMessage(value.message);
   if (!message) {
-    throw new CoachMessageError(
-      "latest_message.json contains an invalid message",
-      500,
-    );
+    throw new CoachMessageError("latest_message.json contains an invalid message", 500);
   }
   return { schema_version: 1, message };
 }
@@ -490,8 +475,7 @@ function requestedIdParts(activityId: string): {
 
 function candidateFile(entry: ActivityFileEntry, localId: string): boolean {
   return (
-    entry.path.startsWith("user_data/activities/hist/") &&
-    entry.name.endsWith(`_${localId}.json`)
+    entry.path.startsWith("user_data/activities/hist/") && entry.name.endsWith(`_${localId}.json`)
   );
 }
 
@@ -522,9 +506,7 @@ function projectHrZones(value: unknown): Record<string, unknown> | null {
   return Object.keys(projected).length > 0 ? projected : null;
 }
 
-function projectActivity(
-  value: Record<string, unknown>,
-): Record<string, unknown> {
+function projectActivity(value: Record<string, unknown>): Record<string, unknown> {
   const projected: Record<string, unknown> = {};
   for (const key of [
     "name",
@@ -561,11 +543,7 @@ function projectActivity(
   if (hrZones) projected.hr_zones = hrZones;
   if (isObject(value.vs_usual)) {
     const vsUsual: Record<string, number> = {};
-    for (const key of [
-      "duration_median_s",
-      "avg_hr_median",
-      "above_threshold_median_s",
-    ]) {
+    for (const key of ["duration_median_s", "avg_hr_median", "above_threshold_median_s"]) {
       const number = finiteNumber(value.vs_usual[key]);
       if (number != null) vsUsual[key] = number;
     }
@@ -581,9 +559,7 @@ function projectActivity(
   return projected;
 }
 
-function projectHeartRateSummary(
-  value: unknown,
-): Record<string, unknown> | undefined {
+function projectHeartRateSummary(value: unknown): Record<string, unknown> | undefined {
   if (!isObject(value) || !Array.isArray(value.effort_shape)) return undefined;
   const effortShape = value.effort_shape
     .slice(0, 12)
@@ -657,10 +633,7 @@ function noteText(value: unknown): string | null {
   return isObject(value) ? stringValue(value.text, 800) : null;
 }
 
-function projectAthlete(
-  profileValue: unknown,
-  memoryValue: unknown,
-): Record<string, unknown> {
+function projectAthlete(profileValue: unknown, memoryValue: unknown): Record<string, unknown> {
   const profile = isObject(profileValue) ? profileValue : {};
   const memory = isObject(memoryValue) ? memoryValue : {};
   const notes = isObject(memory.notes) ? memory.notes : {};
@@ -693,9 +666,7 @@ function projectActiveInjuries(value: unknown): Array<Record<string, unknown>> {
     }));
 }
 
-function projectRecentContinuity(
-  value: unknown,
-): Array<Record<string, unknown>> {
+function projectRecentContinuity(value: unknown): Array<Record<string, unknown>> {
   if (!isObject(value) || !Array.isArray(value.rows)) return [];
   return value.rows
     .slice(-5)
@@ -706,16 +677,11 @@ function projectRecentContinuity(
     }));
 }
 
-function parseCurrentLiveWeek(
-  raw: string | null,
-  now: Date,
-): CurrentWeek | null {
+function parseCurrentLiveWeek(raw: string | null, now: Date): CurrentWeek | null {
   const value = parseJson(raw);
   if (value == null) return null;
   const parsed = parseCurrentWeek(value, now);
-  return parsed.availability.available && parsed.data?.data_status === "live"
-    ? parsed.data
-    : null;
+  return parsed.availability.available && parsed.data?.data_status === "live" ? parsed.data : null;
 }
 
 async function loadActivity(
@@ -739,10 +705,7 @@ async function loadActivity(
       ...(heartRateSummary ? { heart_rate_summary: heartRateSummary } : {}),
     };
   }
-  throw new CoachMessageError(
-    `No authoritative activity found for ${activityId}`,
-    422,
-  );
+  throw new CoachMessageError(`No authoritative activity found for ${activityId}`, 422);
 }
 
 export async function loadProactiveContext(
@@ -751,27 +714,18 @@ export async function loadProactiveContext(
   now: Date,
   previousProactiveMessage: ProactiveContext["previous_proactive_message"] = null,
 ): Promise<ProactiveContext> {
-  const [
-    entries,
-    profileRaw,
-    memoryRaw,
-    insightsRaw,
-    weekRaw,
-    injuriesRaw,
-    coachLogRaw,
-  ] = await Promise.all([
-    deps.listActivityFiles(),
-    deps.readFile("user_data/coach/profile.json"),
-    deps.readFile("user_data/coach/memory.json"),
-    deps.readFile("gen/athlete_insights.json"),
-    deps.readFile("user_data/ledger/current_week.json"),
-    deps.readFile("user_data/coach/injuries.json"),
-    deps.readFile("user_data/coach/coach_log.json"),
-  ]);
+  const [entries, profileRaw, memoryRaw, insightsRaw, weekRaw, injuriesRaw, coachLogRaw] =
+    await Promise.all([
+      deps.listActivityFiles(),
+      deps.readFile("user_data/coach/profile.json"),
+      deps.readFile("user_data/coach/memory.json"),
+      deps.readFile("gen/athlete_insights.json"),
+      deps.readFile("user_data/ledger/current_week.json"),
+      deps.readFile("user_data/coach/injuries.json"),
+      deps.readFile("user_data/coach/coach_log.json"),
+    ]);
   const activityBatch = await Promise.all(
-    activityIds.map((activityId) =>
-      loadActivity(activityId, entries, deps.readFile),
-    ),
+    activityIds.map((activityId) => loadActivity(activityId, entries, deps.readFile)),
   );
   return {
     activity_batch: activityBatch,
@@ -784,10 +738,7 @@ export async function loadProactiveContext(
   };
 }
 
-export function buildProactivePrompt(
-  soul: string,
-  context: ProactiveContext,
-): string {
+export function buildProactivePrompt(soul: string, context: ProactiveContext): string {
   return [
     soul,
     "## Proactive post-sync turn",
@@ -851,15 +802,8 @@ export async function generateProactiveBody(
   } catch {
     throw new CoachMessageError("Gemini returned invalid JSON", 502);
   }
-  if (
-    !isObject(parsed) ||
-    Object.keys(parsed).length !== 1 ||
-    !("body" in parsed)
-  ) {
-    throw new CoachMessageError(
-      "Gemini returned an invalid message shape",
-      502,
-    );
+  if (!isObject(parsed) || Object.keys(parsed).length !== 1 || !("body" in parsed)) {
+    throw new CoachMessageError("Gemini returned an invalid message shape", 502);
   }
   return validateGeneratedBody(parsed.body);
 }
@@ -872,13 +816,8 @@ export async function generateAndStoreCoachMessage(
   activityIds: string[],
   deps: CoachMessageDependencies,
 ): Promise<CoachMessageResult> {
-  const initial = parseLatestMessageFile(
-    await deps.readFile(LATEST_COACH_MESSAGE_PATH),
-  );
-  if (
-    initial.message &&
-    valuesEqual(initial.message.activity_ids, activityIds)
-  ) {
+  const initial = parseLatestMessageFile(await deps.readFile(LATEST_COACH_MESSAGE_PATH));
+  if (initial.message && valuesEqual(initial.message.activity_ids, activityIds)) {
     return {
       message: initial.message,
       commitSha: null,
@@ -894,12 +833,7 @@ export async function generateAndStoreCoachMessage(
         body: initial.message.body,
       }
     : null;
-  const context = await loadProactiveContext(
-    activityIds,
-    deps,
-    now,
-    previousProactiveMessage,
-  );
+  const context = await loadProactiveContext(activityIds, deps, now, previousProactiveMessage);
   const body = validateGeneratedBody(
     await deps.generateBody(buildProactivePrompt(deps.soul, context)),
   );
@@ -937,10 +871,7 @@ export async function generateAndStoreCoachMessage(
       return serializeLatestMessage(candidate);
     },
   };
-  const committed = await deps.commitFiles(
-    [write],
-    "coach: proactive message after sync",
-  );
+  const committed = await deps.commitFiles([write], "coach: proactive message after sync");
   const durableWinner = writeState.durableWinner;
   if (!durableWinner) {
     throw new CoachMessageError(
@@ -952,8 +883,7 @@ export async function generateAndStoreCoachMessage(
     message: durableWinner,
     commitSha: committed.commitSha,
     idempotent:
-      valuesEqual(durableWinner.activity_ids, activityIds) &&
-      durableWinner.id !== candidate.id,
+      valuesEqual(durableWinner.activity_ids, activityIds) && durableWinner.id !== candidate.id,
     shouldNotify: writeState.candidateBecameDurable,
   };
 }

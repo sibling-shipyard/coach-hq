@@ -20,12 +20,21 @@ function CommitmentBody({
     <>
       <div className="wi-commitment-card__top">
         <ActivityGlyph kind={item.glyph} size={36} />
-        <strong>{item.value}<small>{item.target === null ? "" : `/${item.target}`}</small></strong>
+        <strong>
+          {item.value}
+          <small>{item.target === null ? "" : `/${item.target}`}</small>
+        </strong>
       </div>
       <div className="wi-commitment-card__bottom">
         {item.alarm ? <em>The bar is cold.</em> : null}
-        <div className={`wi-commitment-card__rule ${item.progress === null ? "is-recorded" : ""}`.trim()}>
-          <span style={{ width: `${item.progress === null ? (item.value > 0 ? 100 : 0) : clamp(item.progress, 0, 100)}%` }} />
+        <div
+          className={`wi-commitment-card__rule ${item.progress === null ? "is-recorded" : ""}`.trim()}
+        >
+          <span
+            style={{
+              width: `${item.progress === null ? (item.value > 0 ? 100 : 0) : clamp(item.progress, 0, 100)}%`,
+            }}
+          />
         </div>
         <div className="wi-commitment-card__meta">
           <span>{record ?? item.note}</span>
@@ -53,18 +62,13 @@ export function SportCommitmentCard({ item }: { item: CommitmentSnapshot }) {
   const [showRanked, setShowRanked] = useState(false);
   const canToggle = item.id === "badminton" && Boolean(item.hasRankedRecord && item.rankedRecord);
   const showingRanked = canToggle && showRanked;
-  const className = [
-    "wi-commitment-card",
-    `is-${item.id}`,
-    item.alarm ? "is-alarm" : "",
-  ].filter(Boolean).join(" ");
+  const className = ["wi-commitment-card", `is-${item.id}`, item.alarm ? "is-alarm" : ""]
+    .filter(Boolean)
+    .join(" ");
   const style = { "--sport-accent": item.accent } as CSSProperties;
-  const record = item.id === "badminton"
-    ? showingRanked ? item.rankedRecord : item.allRecord
-    : undefined;
-  const label = item.id === "badminton"
-    ? showingRanked ? "RANKED" : "ALL"
-    : item.status;
+  const record =
+    item.id === "badminton" ? (showingRanked ? item.rankedRecord : item.allRecord) : undefined;
+  const label = item.id === "badminton" ? (showingRanked ? "RANKED" : "ALL") : item.status;
 
   return (
     <article className={className} style={style}>
