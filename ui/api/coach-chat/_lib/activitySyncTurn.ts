@@ -21,7 +21,8 @@ import {
   type ChatThread,
 } from "./chatThreads.js";
 import { renderCoachContext, renderQuestContext } from "./coachContext.js";
-import { askGemini } from "./geminiClient.js";
+import { askGemini, GEMINI_MODEL } from "./geminiClient.js";
+import { captureGeminiFailure } from "../../_lib/sentry.js";
 import {
   activeWeekSessionsContext,
   activitySyncBatchContext,
@@ -132,6 +133,12 @@ export async function handleActivitySync(
     const status = (err as { status?: number }).status ?? 500;
     const message = err instanceof Error ? err.message : String(err);
     console.error("[coach-chat] activity_sync askGemini failed:", err);
+    await captureGeminiFailure(err, {
+      model: GEMINI_MODEL,
+      upstreamStatus: status,
+      turnMode: "activity_sync",
+      athleteMessage: ACTIVITY_SYNC_USER_TEXT,
+    });
     return Response.json({ error: message }, { status });
   }
 

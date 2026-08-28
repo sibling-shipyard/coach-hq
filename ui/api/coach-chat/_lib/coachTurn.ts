@@ -34,7 +34,8 @@ import {
 import { CURRENT_WEEK_PATH } from "./coachWeekFiles.js";
 import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coachContext.js";
-import { askGemini } from "./geminiClient.js";
+import { askGemini, GEMINI_MODEL } from "./geminiClient.js";
+import { captureGeminiFailure } from "../../_lib/sentry.js";
 import {
   combineExtraContext,
   activeTemplatesContext,
@@ -369,6 +370,13 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     const status = (err as { status?: number }).status ?? 500;
     const message = err instanceof Error ? err.message : String(err);
     console.error("[coach-chat] askGemini failed:", err);
+    await captureGeminiFailure(err, {
+      traceId: turn.traceId,
+      model: GEMINI_MODEL,
+      upstreamStatus: status,
+      turnMode: mode,
+      athleteMessage: turn.geminiMessage,
+    });
     return Response.json({ error: message }, { status });
   }
 }

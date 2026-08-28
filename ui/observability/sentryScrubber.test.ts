@@ -80,6 +80,54 @@ describe("scrubSentryEvent", () => {
     expect(source.breadcrumbs[0].data.request.body.GEMINI_API_KEY).toBe("secret");
   });
 
+  it("keeps a GEMINI_API_KEY out of a captured Gemini failure", () => {
+    // The two places a Gemini key can ride into an event: the request URL carries it as
+    // `?key=`, and `finishGeminiResponse` puts the raw upstream body into the error message,
+    // which Google echoes the key back in.
+    const apiKey = `AIza${"C".repeat(35)}`;
+    const upstreamBody = JSON.stringify({
+      error: { message: `API key not valid: ${apiKey}`, status: "INVALID_ARGUMENT" },
+    });
+    const event = {
+      exception: {
+        values: [
+          { value: `Gemini request failed (400): ${upstreamBody}` },
+          {
+            stacktrace: {
+              frames: [
+                {
+                  filename: "geminiClient.ts",
+                  vars: {
+                    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      contexts: { coach_turn: { athlete_message: "legs felt heavy" } },
+      request: { query_string: `key=${apiKey}` },
+    };
+
+    const scrubbed = scrubSentryEvent(event, [apiKey]);
+
+    expect(JSON.stringify(scrubbed)).not.toContain(apiKey);
+    expect(JSON.stringify(scrubbed)).not.toContain("AIza");
+    // The deliberate ADR 0032 payload survives - scrubbing removes credentials, not the record.
+    expect(scrubbed.contexts.coach_turn.athlete_message).toBe("legs felt heavy");
+  });
+
+  it("keeps a Gemini key that does not match the AIza shape out via the configured secret", () => {
+    // The pattern is a backstop, not the guarantee: a key issued in another shape is caught
+    // only because initServerMonitoring passes process.env.GEMINI_API_KEY per event.
+    const apiKey = "gemini-key-in-some-other-shape";
+    const event = { exception: { values: [{ value: `failed with key=${apiKey}` }] } };
+
+    expect(JSON.stringify(scrubSentryEvent(event, [apiKey]))).not.toContain(apiKey);
+    expect(JSON.stringify(scrubSentryEvent(event, []))).toContain(apiKey);
+  });
+
   it("terminates safely when an event contains a circular reference", () => {
     const source: Record<string, unknown> = { safe: "kept" };
     source.circular = source;

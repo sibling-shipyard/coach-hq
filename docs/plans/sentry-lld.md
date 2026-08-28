@@ -57,9 +57,9 @@ next one starts.
    Vercel Production and Preview. **Done.**
 2. **Phase 1 — one real error end-to-end.** Browser and Node `Sentry.init` with `release`,
    `environment`, `sendDefaultPii: false`, the `beforeSend` scrubber, and a temporary
-   `ui/api/sentry-check.ts` route that throws on purpose in a Preview deploy.
+   throw-on-purpose route to prove capture from a Preview deploy. **Done.**
 3. **Phase 2 — coach-chat Gemini failure path.** Capture the failed turn (athlete message, model,
-   reply) where nothing else records it; delete `sentry-check.ts`.
+   upstream status, trace id) where nothing else records it; retire the throw-on-purpose route.
 4. **Phase 3 — `operation_id` correlation.** One id per interaction, passed on `x-operation-id`, so
    a browser event and its API event join.
 5. **Phase 4 — success-path telemetry.** Spans, tracing, and token counts on turns that work.
