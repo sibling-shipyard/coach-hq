@@ -34,6 +34,7 @@
 | 0028 | Heart-rate zone boundaries and colours have separate owners | cross-cutting (iOS sync, pipeline, web + WidgetKit) |
 | 0029 | Proactive Coach messages have an athlete-owned latest-message record | cross-cutting (coach message, web + iOS) |
 | 0030 | Signup is iOS-only, and the athlete creates the repo themselves | cross-cutting (web auth, iOS setup, onboarding docs) |
+| 0031 | Enforcement lives in git and CI, not agent hooks | cross-cutting |
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.

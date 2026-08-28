@@ -54,7 +54,7 @@ export function WelcomeInviteCta({ betaLabel = "PRIVATE BETA" }: WelcomeInviteCt
           earliest testers.
         </p>
 
-        <form className="welcome-cta__inline" onSubmit={handleSubmit}>
+        <form className="welcome-cta__inline" onSubmit={(event) => void handleSubmit(event)}>
           <label className="sr-only" htmlFor="welcome-invite-email">
             Email address
           </label>

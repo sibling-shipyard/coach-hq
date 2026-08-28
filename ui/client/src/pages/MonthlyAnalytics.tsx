@@ -56,10 +56,14 @@ function MonthlyAnalyticsContent({ data }: { data: RepoData }) {
   const syncStatusData = data.sync_status as SyncStatusPayload;
   // Fallback matches build-dashboard-snapshot.mjs's own default for a repo that never ran
   // generate_quest_history.py.
-  const questHistory = (data.quest_history as QuestHistory | undefined) ?? {
-    generated_at: "",
-    quests: {},
-  };
+  const questHistory = useMemo(
+    () =>
+      (data.quest_history as QuestHistory | undefined) ?? {
+        generated_at: "",
+        quests: {},
+      },
+    [data.quest_history],
+  );
 
   const now = new Date();
   const [scope, setScope] = useState(() =>

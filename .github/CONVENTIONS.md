@@ -131,5 +131,14 @@ Update the KB in the **same commit** as the change that motivated it — don't l
 - Found a reusable rule for your area? Add a one-liner to your role doc's `## Learnings`.
 - Writing a design/architecture doc? Follow `kdb/doc-style.md`.
 
-CI (`validate-kdb`) rejects a malformed ADR, a duplicate number, or a stale index. To catch it
-locally before you commit: `ln -s ../../kdb/scripts/pre-commit .git/hooks/pre-commit`.
+CI (`validate-kdb`) rejects a malformed ADR, a duplicate number, or a stale index. To catch that
+and the rest of the pre-commit gate locally, enable the repo's hooks once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`.githooks/pre-commit` runs the knowledge-base validator, refuses staged `node_modules` paths and
+absolute-target symlinks, flags added comments that record chronology instead of a constraint, and
+blocks a direct commit to `main`. It is plain git, so it holds under Claude Code, Codex and Cursor
+alike. `bash platform/scripts/check.sh` warns when a clone has not enabled it.

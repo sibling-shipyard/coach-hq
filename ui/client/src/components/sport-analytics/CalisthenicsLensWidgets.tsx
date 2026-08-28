@@ -239,7 +239,7 @@ function E1rmTrend({ points }: { points: TestedE1rmSnapshot["points"] }) {
     >
       <line className="sa-dashed-line" x1="0" x2={width} y1="64" y2="64" />
       <path d={smoothPath(chart.coords.map((c) => ({ x: c.x, y: c.y })))} />
-      {chart.coords.map((coord, index) => (
+      {chart.coords.map((coord) => (
         <circle
           key={coord.point.date}
           className={coord.point.isPr ? "is-pr" : ""}

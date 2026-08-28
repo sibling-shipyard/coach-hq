@@ -5,7 +5,6 @@ import type { CurrentWeekContract } from "./currentWeek.fixture";
 import { GOLDEN_CURRENT_WEEK } from "@/lib/goldenDataset";
 import { buildLiveWeekContract } from "./liveWeekContract";
 import type { SyncStatusPayload } from "./warmHomeModel";
-import { buildWarmHomeModel } from "./warmHomeModel";
 import { buildWarmHomeSnapshots } from "./warmHomeSnapshots";
 import {
   BuildPhaseCard,
@@ -63,13 +62,6 @@ export function WarmInstrumentHome({
       effectiveWeek,
       dataMode,
     );
-  }, [activities, ledger, currentWeek, dataMode, syncStatus]);
-
-  const model = useMemo(() => {
-    const effectiveWeek = currentWeek ?? (dataMode === "live"
-      ? buildLiveWeekContract(activities)
-      : GOLDEN_CURRENT_WEEK);
-    return buildWarmHomeModel(activities, ledger, syncStatus, effectiveWeek);
   }, [activities, ledger, currentWeek, dataMode, syncStatus]);
 
   return (

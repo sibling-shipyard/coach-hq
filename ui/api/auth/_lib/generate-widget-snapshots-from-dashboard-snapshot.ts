@@ -11,7 +11,6 @@ import type {
   CoachMessageSnapshot,
   WidgetSnapshotsFile,
 } from "../../../client/src/components/home-warm/snapshots.js";
-import type { SplitLedger } from "../../../client/src/lib/challenge.js";
 import type { ProgressJson, QuestsJson, SeasonsJson } from "../../coach-chat/_lib/coachQuestFiles.js";
 
 export interface DashboardSnapshotInput {

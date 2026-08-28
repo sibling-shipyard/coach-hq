@@ -40,6 +40,7 @@ export function assertCurrentWeekCommitReady(content: string, now = new Date()):
   } catch (err) {
     throw new Error(
       `current_week.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
     );
   }
   const runtime = parseCurrentWeek(input, now);

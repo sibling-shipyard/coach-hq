@@ -32,14 +32,16 @@ done
 
 NAMES=(
   "ui typecheck (npm run check)"
+  "ui lint (npm run lint)"
   "ui tests (npm test)"
   "compose-soul --check"
   "validate-soul"
   "validate_kdb"
 )
-DIRS=("$REPO_ROOT/ui" "$REPO_ROOT/ui" "$REPO_ROOT" "$REPO_ROOT" "$REPO_ROOT")
+DIRS=("$REPO_ROOT/ui" "$REPO_ROOT/ui" "$REPO_ROOT/ui" "$REPO_ROOT" "$REPO_ROOT" "$REPO_ROOT")
 CMDS=(
   "npm run check"
+  "npm run lint"
   "npm test"
   "node platform/scripts/compose-soul.mjs --check"
   "node platform/scripts/validate-soul.mjs"
@@ -81,6 +83,14 @@ WIDTH=0
 for name in "${NAMES[@]}"; do
   [ ${#name} -gt $WIDTH ] && WIDTH=${#name}
 done
+
+# The git hooks are versioned but each clone has to opt in, so a fresh checkout enforces
+# nothing until someone runs the command below. Say so here rather than letting it fail quiet.
+if [ "$(git -C "$REPO_ROOT" config core.hooksPath 2>/dev/null)" != ".githooks" ]; then
+  echo
+  echo "note: pre-commit hooks are not enabled in this clone."
+  echo "      enable them with:  git config core.hooksPath .githooks"
+fi
 
 echo
 echo "=== summary ==="

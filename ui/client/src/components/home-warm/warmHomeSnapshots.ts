@@ -1,4 +1,3 @@
-import type { SplitLedger } from "@/lib/challenge";
 import {
   getThisWeekActivities,
   getTrainingCategory,
