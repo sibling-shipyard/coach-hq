@@ -1,6 +1,6 @@
 # Agent setup: one plan, stack-ranked
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-17 · Issues: [#395](https://github.com/sibling-shipyard/coach-hq/issues/395), [#328](https://github.com/sibling-shipyard/coach-hq/issues/328) · Supersedes: PR #396 `ops-agent-setup.md`, PR #397 `platform-agent-loop.md`
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · Issues: [#395](https://github.com/sibling-shipyard/coach-hq/issues/395), [#328](https://github.com/sibling-shipyard/coach-hq/issues/328) · Supersedes: PR #396 `ops-agent-setup.md`, PR #397 `platform-agent-loop.md`
 
 ## Context
 
@@ -133,7 +133,7 @@ Cheap, pays every session, no dependency on anything else. `Src` marks where eac
 |---|---|---|---|
 | T1.1 | **Measure boot cost before trimming it.** `platform/scripts/boot-cost.mjs` sums the byte/token cost of each role's declared boot set and prints a table. Both plans quote figures (2.9k Bob / 3.1k UI / 6.7k iOS / ~11k Tech Lead) that nothing reproduces. Without this, every later trim is an opinion and nobody can tell in a month whether it held | TL | L |
 | T1.2 | **Repair `.claude/settings.json`.** Add the `mcp__github__` read tools (the remote harness has no `gh`, and every web session burns a turn discovering that); drop or fix the `npm run check` / `npm run test` entries that match nothing; add the checks that actually exist | both + TL | L |
-| T1.3 | **One check command.** `platform/scripts/check.sh` runs tsc, vitest, `compose-soul --check`, `validate-soul`, `validate_kdb.py`. Makes review check 3 a single line. **Not** a root `package.json` — that shadows npm resolution for `ui/`, which is where Vercel roots | 397 + TL | L |
+| T1.3 | **One check command.** `platform/scripts/check.sh` runs tsc, eslint, vitest, `compose-soul --check`, `validate-soul`, `validate_kdb.py`. Makes review check 3 a single line. **Not** a root `package.json` — that shadows npm resolution for `ui/`, which is where Vercel roots | 397 + TL | L |
 | T1.4 | **`PreToolUse` hook denying `git add -A` and `git add .`**, then delete the sentence from `tech-lead.md` and from every future brief. A rule in a hook costs zero tokens forever | both | L |
 | T1.5 | **Role-doc diet.** Cap Learnings in **bytes** (~1.5KB), not entries — several entries run 60–80 words on one line and pass the count check. Move cross-role learnings to where the reader is: "never `git add -A`" was learned *from* a subagent and filed in `tech-lead.md`, which no subagent opens. Enforce the cap in `validate_kdb.py` | both | L |
 | T1.6 | **SOUL becomes a conditional read.** Tech Lead boot step 2 reads all 365 lines of `platform/SOUL.claude.md` every session — ~63% of the boot, unused on UI, CI or infra work. Read it when the task touches soul layers, coach behaviour, or chat | both | L |
