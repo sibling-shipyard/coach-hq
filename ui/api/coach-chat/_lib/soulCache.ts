@@ -15,7 +15,12 @@ import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 const edgeConfigClient = process.env.GLOBAL_CONFIG ? createClient(process.env.GLOBAL_CONFIG) : null;
 
 const EDGE_CONFIG_KEY = "gemini_soul_cache";
-const CACHE_TTL_SECONDS = 7200; // 2h - amortizes a session without going far stale after a SOUL redeploy
+// 24h, not 2h - the content hash already catches a SOUL redeploy immediately regardless of TTL
+// (see getCachedSoulName below), so TTL only bounds a stale-but-unhashed edge case that's
+// already theoretical. A shorter TTL costs real money here: every expiry is a Global Config
+// write, and the free tier caps at 250/month (issue #624) - 2h implied ~360/month before even
+// counting the documented concurrent-cold-start race below, well over quota.
+const CACHE_TTL_SECONDS = 86400;
 
 interface CacheRecord {
   name: string;
