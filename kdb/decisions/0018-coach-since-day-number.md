@@ -1,9 +1,34 @@
 # 0018 — `coach_since`: a durable day-number anchor, set at First Session Protocol completion
 
-- **Status:** Accepted · 2026-08-02 · Tech Lead · **Backfill clause is spent:** `provision-user.sh` is deleted, and issue #199 (closed 2026-08-03) completed the only backfill it existed for — both live repos carry a confirmed `coach_since`. `injectCoachSinceIfNeeded` is now the sole writer. Everything else below stands.
-- **Area:** cross-cutting (coach-chat backend, terminal SOUL.md, web, iOS)
-- **Context:** Every "day-N" display (Coach Chat's D-N header, the terminal session's `coach: day-[X]` commit messages) was computed from `season.start_date` or `challenge.start_date`. Both reset every time a new season/challenge begins, so an athlete who's been training with Coach for a year sees the day count fall back to single digits the moment a new block starts — Akash flagged exactly this on the original PR: *"Currently whatever D-X it is showing is the day count from beginning of year. So D-214 today means its the 214th day of this year."* An earlier design (PR #200, superseded by this ADR) proposed stamping a new `coach_since` field at repo-provisioning time. That reintroduces the same failure mode already rejected for `repo.created_at` as an anchor: an infra timestamp isn't the same as when the athlete actually started a real coaching relationship, and if a repo is ever recreated (re-provisioned, migrated) the timestamp resets again.
-- **Decision:** Add `coach_since` as a top-level, write-once date field in `challenge_v2.json`. For new athletes, it is set **automatically, server-side, in `coach-chat.ts`**, the moment the athlete's `state.md` Athlete Profile transitions from incomplete to complete for the first time — i.e. the turn that genuinely finishes the First Session Protocol (B2's `isAthleteProfileComplete()`), the first real milestone of an actual coaching relationship. This is defense-in-depth, not a prompt instruction: the server detects the false→true transition itself and injects the field into that turn's `challenge_v2.json` write (merged onto whatever Gemini itself proposed that same turn), rather than relying on Gemini remembering to propose it. Every day-number consumer resolves a fallback chain: `coach_since ?? season.start_date ?? challenge.start_date`, so nothing breaks before the field exists. For athletes who completed intake before this mechanism existed, the value cannot be reconstructed automatically — it is backfilled once, manually, with the athlete's own confirmation of the date (`provision-user.sh --coach-since`, see issue #199), never guessed.
-- **Why:** Stamping at First Session Protocol completion ties `coach_since` to a real, in-repo coaching event instead of infra timing — the same repo, re-provisioned or migrated, doesn't get a new "start" as long as `state.md`'s Athlete Profile survives. It reuses data `coach-chat.ts` already has in hand on a closing turn (`closingFiles.challengeV2`, `committedStateMd`) rather than adding a new fetch. The fallback chain means every consumer (web, iOS, terminal SOUL.md boot) degrades gracefully for repos not yet stamped, rather than crashing or showing a blank day count.
-- **Rejected:** Stamping `coach_since` at repo-provisioning time (original PR #200 design) → simpler to implement, but is exactly the `repo.created_at`-style infra-timestamp anchor this ADR exists to avoid; a re-provisioned or migrated repo would silently reset it. Deriving it from `repo.created_at` directly → same problem, one layer removed. Auto-backfilling existing athletes by guessing a plausible date → explicitly rejected per issue #199's own guardrail ("do not guess or apply a value without the athlete's confirmation") — a wrong guess is worse than a missing value, since it can never be corrected once written (write-once).
-- **How to apply:** Any new day-number display (web/iOS/terminal) must read `coach_since` first, then fall back to `season.start_date`, then `challenge.start_date` — never `repo.created_at` and never a fresh guess. Never write to `coach_since` once it's present (write-once) except through the one sanctioned manual path (`provision-user.sh --coach-since`, confirmed with the athlete). See `ui/api/coach-chat.ts`'s `injectCoachSinceIfNeeded`/`coachDayNumber`, `ui/client/src/components/coach-chat/coachChatModel.ts`'s `challengeDayNumber`, iOS's `GitHubAPIClient.readCoachDayAnchorDate()`, and `platform/soul/B_engine.md` §1 step 7 for the four parallel implementations of the same fallback chain.
+- **Status:** Accepted · 2026-08-02 · Tech Lead · **backfill clause is spent** — `provision-user.sh`
+  is deleted, issue #199 completed the one backfill it existed for, and both live repos carry a
+  confirmed value. `injectCoachSinceIfNeeded` is now the sole writer.
+- **Area:** cross-cutting (coach-chat backend, terminal SOUL, web, iOS)
+- **Context:** Every "day-N" display was computed from `season.start_date` or
+  `challenge.start_date`. Both reset when a new block begins, so an athlete a year into coaching
+  watches the count drop to single digits the moment a season rolls over. Akash flagged exactly
+  this on the original PR. An earlier design stamped a new field at repo-provisioning time
+  instead. That is the same infra-timestamp anchor already rejected for `repo.created_at`. It
+  records when a repo was made, not when a coaching relationship started, and it resets if the
+  repo is ever recreated.
+- **Decision:** Add `coach_since` to `challenge_v2.json` as a top-level, write-once date. The
+  server sets it in `coach-chat.ts` the first time the athlete's `state.md` profile flips from
+  incomplete to complete — the turn that genuinely finishes the First Session Protocol. The
+  backend detects that transition itself and injects the field into the same turn's write, rather
+  than trusting the model to propose it. Every consumer resolves
+  `coach_since ?? season.start_date ?? challenge.start_date`.
+- **Why:** Completing the First Session is a real event in the athlete's own data, so the anchor
+  survives what infra timestamps do not — the same repo, re-provisioned or migrated, keeps its
+  start as long as `state.md` does. The fallback chain means repos stamped before the field
+  existed degrade to the old behaviour instead of showing a blank.
+- **Rejected:** Stamp at provisioning → the infra-timestamp anchor this ADR exists to avoid ·
+  Derive from `repo.created_at` → the same problem, one layer removed · Guess a plausible date for
+  existing athletes → the field is write-once, so a wrong guess can never be corrected.
+- **Enforces:** A "since" date anchors to an event in the athlete's own data, never to
+  infrastructure. Never write `coach_since` a second time.
+- **How to apply:** Any new day-number display reads `coach_since` first, then
+  `season.start_date`, then `challenge.start_date` — never `repo.created_at`, never a fresh guess.
+  Four implementations run this same chain: `injectCoachSinceIfNeeded` and `coachDayNumber` in
+  `ui/api/coach-chat.ts`, `challengeDayNumber` in
+  `ui/client/src/components/coach-chat/coachChatModel.ts`, iOS's `readCoachDayAnchorDate()`, and
+  `platform/soul/B_engine.md` §1 step 7.

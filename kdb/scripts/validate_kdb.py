@@ -51,16 +51,20 @@ for num, files in nums.items():
 # records the run where a field-budget gate failed the most readable ADR in the set and
 # passed the least readable one.
 #
-# WARN MODE. Every finding lands in `warnings` until PROSE_ENFORCED flips. The order
-# matters: the checks were written against a set that fails them, so that the thresholds
-# describe the prose we want rather than the prose we already have. Gating on day one
-# would have meant tuning the numbers until the existing files passed, which measures
-# nothing. Flip this to True once the set is clean — the cleanup that does it is the
-# same PR series that added this.
-PROSE_ENFORCED = False
+# ENFORCED. The checks were deliberately written against a set that failed them, so the
+# thresholds describe the prose we want rather than the prose we had; gating on day one
+# would have meant tuning numbers until the existing files passed, which measures nothing.
+# The cleanup landed first, then this flipped.
+#
+# Closed ADRs are skipped below. Superseded and historical records are archives — nobody
+# reads them on boot, which is the point of filing them below the fold, and editing an
+# archive to satisfy a linter is how records stop being records.
+PROSE_ENFORCED = True
 
 for fp in adr_files():
     text = fp.read_text()
+    if adr_readability.is_closed(text):
+        continue
     for severity, msg in adr_readability.findings(fp.name, text):
         if severity != "error":
             warnings.append(msg)

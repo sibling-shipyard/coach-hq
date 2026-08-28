@@ -2,10 +2,9 @@
 
 - **Status:** Accepted · 2026-08-16 · Tech Lead
 - **Area:** cross-cutting
-- **Context:** `npm run eval:coach-chat` (`ui/scripts/eval-coach-chat.ts`) calls the live Gemini API
-  once per transcript, with no way to narrow the run: it reads every JSON in
-  `ui/api/coach-chat/_tests/coach-chat-eval/transcripts/` — five today, so five paid calls — and
-  the only environment it reads is `GEMINI_API_KEY`, no argv. Gemini has been returning 503/504
+- **Context:** `npm run eval:coach-chat` calls the live Gemini API once per transcript,
+  and there is no way to narrow the run. It reads every JSON in the transcripts directory — five
+  today, so five paid calls — and the only input it takes is `GEMINI_API_KEY`, no argv. Gemini has been returning 503/504
   heavily and non-deterministically, hitting different transcripts each run, so a red run usually
   means retry — double the cost, and no information about the change. It was run 4+ times in one
   session across four stacked SOUL PRs, mostly on PRs where it could not have caught anything. The
@@ -27,6 +26,5 @@
   regressions at the gates where it applies. Mock the API → then it no longer tests the one thing
   it exists to test, live model behaviour. Move it to CI only → same money, less control, and it
   fires on every push.
+- **Enforces:** Before running a paid check, name what it could catch in *this* diff. If the answer is nothing, this is not the gate.
 
-<!-- The filter this exists to enforce: before running a paid check, name what it could catch in
-     *this* diff. If the answer is nothing, this is not the gate. -->

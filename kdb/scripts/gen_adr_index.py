@@ -3,17 +3,15 @@
 The index lives between the ADR-INDEX markers so it can't drift by hand."""
 import pathlib, re, sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import adr_readability
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEC = ROOT / "kdb" / "decisions"
 README = DEC / "README.md"
 START = "<!-- ADR-INDEX:START"
 END = "<!-- ADR-INDEX:END -->"
 ADR_RE = re.compile(r"^(\d{4})-[a-z0-9-]+\.md$")
-# Scoped to the Status line, not the whole file: an ADR that merely discusses being
-# superseded (0021 talks about 0022 at length) must not be filed as superseded itself.
-STATUS_LINE_RE = re.compile(r"^\s*-?\s*\*\*Status:\*\*.*$", re.M)
-SUPERSEDED_RE = re.compile(r"Superseded by (\d{4})")
-HISTORICAL_RE = re.compile(r"\bHistorical\b")
 
 def parse(fp):
     num = fp.name[:4]
@@ -29,14 +27,8 @@ def parse(fp):
     # An ADR that no longer binds anyone still has to exist — it is cited by number from
     # other ADRs, and the README's own rule is supersede, never delete. So it moves out of
     # the table agents skim on boot instead, which is the cost we actually wanted to cut.
-    sm = STATUS_LINE_RE.search(text)
-    status = sm.group(0) if sm else ""
-    sup = SUPERSEDED_RE.search(status)
-    if sup:
-        return num, title, area, "superseded", sup.group(1)
-    if HISTORICAL_RE.search(status):
-        return num, title, area, "historical", None
-    return num, title, area, "live", None
+    kind, target = adr_readability.status(text)
+    return num, title, area, kind, target
 
 def build_table():
     live, closed = [], []

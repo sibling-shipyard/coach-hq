@@ -61,6 +61,12 @@ JARGON = {
 }
 JARGON_RE = [(re.compile(p, re.I), fix) for p, fix in JARGON.items()]
 
+# Scoped to the Status line: an ADR that merely discusses being superseded (0021 talks
+# about 0022 at length) must not be classified as superseded itself.
+STATUS_LINE_RE = re.compile(r"^\s*-?\s*\*\*Status:\*\*.*$", re.M)
+SUPERSEDED_RE = re.compile(r"Superseded by (\d{4})")
+HISTORICAL_RE = re.compile(r"\bHistorical\b")
+
 FENCE_RE = re.compile(r"```.*?```", re.S)
 COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 TABLE_RE = re.compile(r"^\s*\|.*$", re.M)
@@ -80,6 +86,29 @@ ADR_REF_RE = re.compile(r"\bADR[- ]?\d{4}\b|\b\d{4}-[a-z0-9-]+\.md\b|\[\s*0\d{3}
 # `e.g.` and friends end in a period and must not split a sentence.
 ABBREV_RE = re.compile(r"\b(?:e\.g|i\.e|etc|vs|approx|Dr|Mr|Ms|No)\.", re.I)
 _ABBREV_HOLD = "\x00"
+
+
+def status(text):
+    """('live'|'superseded'|'historical', target_num_or_None) for one ADR."""
+    m = STATUS_LINE_RE.search(text)
+    line = m.group(0) if m else ""
+    sup = SUPERSEDED_RE.search(line)
+    if sup:
+        return "superseded", sup.group(1)
+    if HISTORICAL_RE.search(line):
+        return "historical", None
+    return "live", None
+
+
+def is_closed(text):
+    """True when an ADR no longer binds anyone.
+
+    Closed ADRs are exempt from the prose gate. Rewriting one improves nothing —
+    nobody reads it on boot, that is the point of filing it below the fold — and
+    editing an archive to satisfy a linter is how records stop being records. Same
+    reasoning the path checks already use to skip Historical eng-docs.
+    """
+    return status(text)[0] != "live"
 
 
 def strip_markup(text):

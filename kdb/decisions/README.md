@@ -19,7 +19,7 @@
 | 0015 | iOS app-launch state machine | ios |
 | 0016 | Names display only, category is machine field | cross-cutting |
 | 0017 | Group related API endpoints behind Vercel catch-all routes, not query-param folding | cross-cutting |
-| 0018 | `coach_since`: a durable day-number anchor, set at First Session Protocol completion | cross-cutting (coach-chat backend, terminal SOUL.md, web, iOS) |
+| 0018 | `coach_since`: a durable day-number anchor, set at First Session Protocol completion | cross-cutting (coach-chat backend, terminal SOUL, web, iOS) |
 | 0019 | Enforce one repo per GitHub account: block and instruct, no picker | cross-cutting (web auth, iOS auth) |
 | 0020 | Aggregate scalar projection boundary | cross-cutting |
 | 0022 | SOUL composes into two builds: one for the app, one for BYO Claude Code | cross-cutting |

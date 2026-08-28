@@ -2,8 +2,25 @@
 
 - **Status:** Accepted · 2026-08-03 · Tech Lead
 - **Area:** cross-cutting (web auth, iOS auth)
-- **Context:** GitHub's own install flow has no way to restrict an account to granting access to exactly one repo — the picker always offers "all repos" or a multi-select. So an account can end up with 2+ owned, marker-matched repos resolved for it. Web and iOS handled that inconsistently: web showed a repo picker (`RepoPicker.tsx`) and let the athlete choose one, silently allowing a multi-repo state the rest of the system doesn't actually support (see the "single-repo by design" comments already in the auth code). iOS never read the 2+ case at all — it fell into the same "needs setup" branch as a brand-new account, with no explanation shown.
-- **Decision:** When 2+ owned, marker-matched repos resolve for an account, never let the athlete proceed. Both platforms show a blocking message telling them to remove access to the extra repos in GitHub's own settings (`https://github.com/settings/installations`) and retry. `list-my-repos` returns `{ error: "multiple_repos_granted" }` with a 409 instead of `{ candidates }`; there is no picker anymore.
-- **Why:** GitHub can't enforce single-repo-per-account at the platform level, so the app has to. The picker let an athlete proceed into an ambiguous state that nothing downstream actually handles well — it just deferred the problem. iOS already refused to let 2+-repo accounts past login by accident; this makes that refusal explicit and consistent with web instead of silent.
-- **Rejected:** Keep and expand web's picker (make iOS pick too) → lets athletes proceed into a state the rest of the system doesn't support, and doubles the surface area needing multi-repo handling everywhere else instead of closing it off at the point of detection.
-- **How to apply:** Any account resolution logic that finds 2+ owned+marker-matched repos must return `reason: "multiple_repos_granted"` and refuse to proceed — never resolve to a pick. See `ui/api/auth/_lib/repo-resolution.ts`'s `resolveOwnedRepos()` (shared by both cookie/web and bearer-token/iOS auth paths), `ui/api/auth/[...action].ts`'s `listMyReposImpl`, `ui/client/src/pages/AuthError.tsx`'s `MESSAGES` map, and iOS's `GitHubAuthManager.swift` (`RepoResolution.reason`, `multipleReposDetected`).
+- **Context:** GitHub's install flow cannot restrict an account to exactly one repo — the picker
+  only offers "all repos" or a multi-select. So an account can end up with two or more owned,
+  marker-matched repos. The two platforms then disagreed. Web showed a repo picker and let the
+  athlete choose, which quietly allowed a multi-repo state nothing downstream supports. iOS never
+  read the case at all, and dropped those accounts into the same "needs setup" branch as a brand
+  new one, with nothing on screen to explain it.
+- **Decision:** When two or more owned, marker-matched repos resolve, neither platform lets the
+  athlete proceed. Both show a blocking message telling them to remove the extra grants in
+  GitHub's own installation settings and retry. `list-my-repos` returns 409 with
+  `{ error: "multiple_repos_granted" }` instead of candidates. There is no picker.
+- **Why:** GitHub cannot enforce one repo per account, so the app has to. The picker did not solve
+  the ambiguity, it deferred it — one athlete picked, and every downstream consumer still assumed
+  a state the account did not have.
+- **Rejected:** Keep the picker and teach iOS to pick too → lets athletes into a state the rest of
+  the system does not support, and every consumer downstream then needs multi-repo handling.
+- **Enforces:** Refuse an unsupported state where you detect it. Never offer a choice that
+  resolves into something the rest of the system cannot handle.
+- **How to apply:** Any resolution finding 2+ owned, marker-matched repos returns
+  `reason: "multiple_repos_granted"` and refuses — never a pick. See `resolveOwnedRepos()` in
+  `ui/api/auth/_lib/repo-resolution.ts` (shared by the cookie and bearer-token paths),
+  `listMyReposImpl` in `ui/api/auth/[...action].ts`, the `MESSAGES` map in
+  `ui/client/src/pages/AuthError.tsx`, and `ios/CoachHQ/CoachHQ/Services/GitHubAuthManager.swift`.
