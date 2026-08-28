@@ -36,19 +36,20 @@ function routeByUrl(cachedContentsRes: Response, generateContentRes: Response) {
   });
 }
 
-const args = [
+// Typed as askGemini's own parameters so the fixture cannot drift from the signature.
+const args: Parameters<typeof askGemini> = [
   "test-api-key",
   "soul text",
   "athlete context",
   "quest log",
   [],
   "How's my week looking?",
-  "ordinary" as const,
+  "ordinary",
   false,
   undefined,
   "trace-1",
   "UTC",
-] as const;
+];
 
 describe("askGemini", () => {
   beforeEach(() => {

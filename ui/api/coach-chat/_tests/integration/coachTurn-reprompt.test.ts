@@ -29,7 +29,7 @@ function baseTurnState(overrides: Record<string, unknown> = {}) {
     validTemplateIds: new Set<string>(),
     weekSessionsForContext: [],
     ...overrides,
-  } as Parameters<typeof requestCoachReply>[0];
+  } as unknown as Parameters<typeof requestCoachReply>[0];
 }
 
 describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {

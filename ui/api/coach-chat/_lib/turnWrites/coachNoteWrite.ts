@@ -1,6 +1,6 @@
 // coach_note: the continuity log write (coach_log.json). One usecase, one file - see
 // coachIntents.ts's applyCoachNote for the pure merge logic this wraps with I/O.
-import type { FileEntry } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import { applyCoachNote } from "../coachIntents.js";
@@ -13,7 +13,7 @@ export function buildCoachNoteWrite(
   timezone: string,
   traceId: string,
   coachNote: string | undefined,
-): FileEntry | undefined {
+): ResolvedFileWrite | undefined {
   const trimmed = coachNote?.trim();
   if (!trimmed) return undefined;
   return {

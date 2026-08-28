@@ -1,6 +1,6 @@
 // template_edit / session_plan: template and session-snapshot writes - see coachWorkoutFiles.ts
 // for the appliers this wraps with I/O.
-import type { FileEntry } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import {
@@ -16,7 +16,7 @@ export function buildTemplateEditWrite(
   traceId: string,
   templateEdit: Parameters<typeof applyTemplateEdit>[1] | undefined,
   validTemplateIds: ReadonlySet<string>,
-): FileEntry | undefined {
+): ResolvedFileWrite | undefined {
   if (!templateEdit?.template_id) return undefined;
   return {
     path: templatePath(templateEdit.template_id),
@@ -37,7 +37,7 @@ export function buildSessionPlanWrite(
   traceId: string,
   sessionPlan: Omit<Parameters<typeof applySessionPlan>[1], "session_date"> | undefined,
   validTemplateIds: ReadonlySet<string>,
-): FileEntry | undefined {
+): ResolvedFileWrite | undefined {
   if (!sessionPlan?.template_id) return undefined;
   const sessionPlanDate = todayDateString(timezone, new Date());
   return {

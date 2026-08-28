@@ -20,6 +20,14 @@ const libraryDir = path.resolve(here, "..", "..", "..", "..", "shared", "workout
 const templatesDir = path.join(libraryDir, "templates");
 const indexPath = path.join(libraryDir, "index.json");
 
+interface LibraryIndexEntry {
+  id: string;
+  sport_tags: string[];
+  equipment: string[];
+  goal_tags: string[];
+  level: string;
+}
+
 const LEVELS = new Set(["beginner", "intermediate", "advanced"]);
 
 function assertString(value: unknown, field: string): void {
@@ -57,7 +65,9 @@ describe("workout library templates", () => {
 describe("workout library index.json", () => {
   const templateFiles = fs.readdirSync(templatesDir).filter((f) => f.endsWith(".json"));
   const templateIds = new Set(templateFiles.map((f) => f.replace(/\.json$/, "")));
-  const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+  // Shaped, not `any`: this test's whole job is asserting these fields exist and are well
+  // formed, so the row type is what it validates against.
+  const index = JSON.parse(fs.readFileSync(indexPath, "utf-8")) as LibraryIndexEntry[];
 
   it("is an array", () => {
     expect(Array.isArray(index)).toBe(true);
@@ -71,7 +81,7 @@ describe("workout library index.json", () => {
     expect(new Set(indexIds)).toEqual(templateIds);
   });
 
-  it.each(index)("entry $id has valid selection metadata", (entry: any) => {
+  it.each(index)("entry $id has valid selection metadata", (entry) => {
     assertString(entry.id, "id");
     expect(templateIds.has(entry.id), `${entry.id} should have a matching template file`).toBe(
       true,

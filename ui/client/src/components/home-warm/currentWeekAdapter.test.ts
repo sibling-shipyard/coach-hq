@@ -160,8 +160,8 @@ describe("current_week.json schema v1 shape (part3-rollout)", () => {
       days: [],
     };
 
-    expect((raw.week as Record<string, unknown>).phase_name).toBeUndefined();
-    expect((raw.week as Record<string, unknown>).block_name).toBeUndefined();
+    expect((raw.week as unknown as Record<string, unknown>).phase_name).toBeUndefined();
+    expect((raw.week as unknown as Record<string, unknown>).block_name).toBeUndefined();
     expect(raw.trace_id).toBe("trace-test");
   });
 });
