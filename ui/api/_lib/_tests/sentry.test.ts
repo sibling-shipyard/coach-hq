@@ -194,9 +194,9 @@ describe("initServerMonitoring tracing", () => {
 
     expect(options.sendDefaultPii).toBe(false);
     expect(options.tracesSampleRate).toBe(1);
-    expect(options.beforeSend({ extra: { detail: "key=configured-gemini-key" } }).extra.detail).toBe(
-      "key=[Filtered]",
-    );
+    expect(
+      options.beforeSend({ extra: { detail: "key=configured-gemini-key" } }).extra.detail,
+    ).toBe("key=[Filtered]");
     delete process.env.GEMINI_API_KEY;
   });
 });
@@ -218,8 +218,9 @@ describe("withContinuedTrace", () => {
   async function traceIdSeenBy(headers: Record<string, string>) {
     const { withContinuedTrace, Sentry } = await loadSentry();
     const req = new Request("https://coach.test/api/coach-chat", { headers });
-    return withContinuedTrace(req, async () =>
-      Sentry.getCurrentScope().getPropagationContext().traceId,
+    return withContinuedTrace(
+      req,
+      async () => Sentry.getCurrentScope().getPropagationContext().traceId,
     );
   }
 
