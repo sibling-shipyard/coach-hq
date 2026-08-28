@@ -10,6 +10,7 @@
 		33FBADC33014A92000439B25 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33FBADC23014A92000439B25 /* WidgetKit.framework */; };
 		33FBADC53014A92000439B25 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33FBADC43014A92000439B25 /* SwiftUI.framework */; };
 		33FBADD43014A92200439B25 /* CoachHQWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C5A198A5C78DCD0E2DF123E4 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = AF4EE1781AD4B8520334C06F /* Sentry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -119,6 +120,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C5A198A5C78DCD0E2DF123E4 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -186,6 +188,7 @@
 			);
 			name = CoachHQ;
 			packageProductDependencies = (
+				AF4EE1781AD4B8520334C06F /* Sentry */,
 			);
 			productName = CoachHQ;
 			productReference = 330C048C2FFAF26600E40822 /* CoachHQ.app */;
@@ -267,6 +270,9 @@
 			);
 			mainGroup = 330C04832FFAF26600E40822;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6EE7A20C836E8123104706DD /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 330C048D2FFAF26600E40822 /* Products */;
 			projectDirPath = "";
@@ -690,6 +696,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6EE7A20C836E8123104706DD /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AF4EE1781AD4B8520334C06F /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6EE7A20C836E8123104706DD /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 330C04842FFAF26600E40822 /* Project object */;
 }

@@ -6,6 +6,7 @@ import UserNotifications
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        DiagnosticsManager.configure()
         return true
     }
 
@@ -107,6 +108,7 @@ struct CoachHQApp: App {
                 // Sign-out must not leave a previous account's data on screen for the
                 // next athlete to sign in on this device.
                 if !isAuthenticated {
+                    DiagnosticsManager.setAthlete(repoFullName: nil)
                     workoutService.reset()
                     widgetStore.reset()
                     CoachMessageRoute.clear()

@@ -9,6 +9,16 @@ enum AppState: Equatable {
     case needsSetup(login: String)
     case multipleReposGranted
     case active
+
+    var diagnosticViewName: String {
+        switch self {
+        case .bootstrapping: "BootstrapView"
+        case .unauthenticated: "LoginView"
+        case .needsSetup: "SetupView"
+        case .multipleReposGranted: "MultipleReposView"
+        case .active: "MainTabView"
+        }
+    }
 }
 
 // MARK: - OnboardingPhase
@@ -35,7 +45,12 @@ enum OnboardingEvent {
 /// renders onboarding overlays via router.effectivePhase.
 @MainActor
 final class AppRouter: ObservableObject {
-    @Published private(set) var state: AppState = .bootstrapping
+    @Published private(set) var state: AppState = .bootstrapping {
+        didSet {
+            guard oldValue != state else { return }
+            DiagnosticsManager.setView(state.diagnosticViewName)
+        }
+    }
     @Published private(set) var onboardingPhase: OnboardingPhase = .notStarted
 
     let authManager: GitHubAuthManager

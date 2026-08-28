@@ -31,7 +31,7 @@ flowchart LR
 | **Web & API** | `athlete_message` / `gemini_reply` | string | Text exchange for the failed/traced turn |
 | **iOS** | `app_version` / `build_number` | string | Client version and CFBundleVersion |
 | **iOS** | `view_name` | string | Active screen or sheet (e.g. `HomeView`, `CoachChatView`) |
-| **iOS** | `timeline_excerpt` | JSON | Last ≤200 local diagnostic events (attached on problem report) |
+| **iOS** | `timeline_excerpt` | JSON | Only the timeline events the athlete selected in a Rage Report |
 
 ### Credential scrubbing rules
 
@@ -45,7 +45,7 @@ All Sentry SDK integrations (browser SDK, Node/Vercel SDK, Swift SDK) must run `
 
 - **Sentry (Server):** 90-day error retention, stored in the Sentry Developer Germany region.
   Fixed by plan on sentry.io and not settable per project — only self-hosted Sentry can change it.
-- **Local iOS timeline:** In-memory + local cache ring buffer capped at 200 events or 256 KiB. Evicted after 24 hours or immediately on user sign-out.
+- **Local iOS timeline:** In-memory ring buffer only, capped at 200 events or 256 KiB. Evicted after 24 hours, on sign-out, or when the app is relaunched. Nothing is written to disk, so there is no diagnostic data at rest on the phone.
 - **Beta cohort:** 4 current beta athletes opted in by default; automatic replay/screen capture remains disabled.
 
 ## 3. Phases
