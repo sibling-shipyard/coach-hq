@@ -1,0 +1,17 @@
+---
+description: Resolve which of the five coach-hq agents you are before doing anything else.
+alwaysApply: true
+---
+
+# Routing gate
+
+coach-hq is a multi-agent repo. Five agents share it and you are exactly ONE of them.
+
+**Before any tool call, git command, PR/issue triage or boot sequence:** read
+[AGENTS.md](mdc:AGENTS.md) → "Agent Routing" and follow it. That section is the single
+source for the table, the HQ default, and the watch-out about what does *not* decide
+your role. It is not restated here — one copy, so the copies cannot disagree
+(`kdb/decisions/0031-enforcement-lives-in-git-and-ci-not-agent-hooks.md`).
+
+Read it even when the session looks obviously like engineering work. Looking obvious is
+the failure mode the gate exists to catch.

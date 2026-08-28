@@ -23,6 +23,9 @@ dead-ends. Coach Phelps is rare at HQ — athletes reach Coach through the hoste
 (`kdb/decisions/0021-coach-chat-reads-soul-directly-terminal-mode-retired.md`). Take any other
 role when the athlete's words clearly point there; if the signals genuinely conflict, ask before acting.
 
+**Only copy.** `.claude/hooks/session-start.sh` and `.cursor/rules/routing-gate.mdc` point here and
+restate none of it; Codex reads this file. Restating it in one tool's config hides the gate from the other two (ADR 0031).
+
 ## What This Repo Is
 
 AI coaching system for the athlete — data, training pipeline, Strava sync, and UI in a single monorepo.
