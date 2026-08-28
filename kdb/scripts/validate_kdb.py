@@ -122,9 +122,18 @@ HISTORICAL_RE = re.compile(r"^>\s*Status:\s*(Historical|Superseded)", re.M)
 # `docs/eng-docs/` describe the system as it is today: missing means broken.
 hook_dir = ROOT / ".claude" / "hooks"
 hook_files = sorted(fp for fp in hook_dir.glob("*") if fp.is_file()) if hook_dir.is_dir() else []
+# `.cursor/` is Cursor's entry point, the same class of file as `.claude/hooks/`. Scanned so a
+# pointer into AGENTS.md cannot rot in the one tool whose config nothing else checks.
+cursor_dir = ROOT / ".cursor"
+cursor_files = sorted(fp for fp in cursor_dir.rglob("*")
+                      if fp.is_file() and fp.suffix in (".md", ".mdc")) if cursor_dir.is_dir() else []
+git_hook_dir = ROOT / ".githooks"
+git_hook_files = sorted(fp for fp in git_hook_dir.glob("*") if fp.is_file()) if git_hook_dir.is_dir() else []
 wide_files = ([(fp, errors) for fp in sorted((ROOT / ".github" / "workflows").glob("*.yml"))]
               + [(fp, errors) for fp in sorted((ROOT / "docs" / "eng-docs").glob("*.md"))]
               + [(fp, errors) for fp in hook_files]
+              + [(fp, errors) for fp in cursor_files]
+              + [(fp, errors) for fp in git_hook_files]
               + [(fp, warnings) for fp in sorted((ROOT / "docs" / "plans").glob("*.md"))])
 for fp, sink in wide_files:
     raw = fp.read_text()
