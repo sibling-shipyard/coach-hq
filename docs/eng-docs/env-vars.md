@@ -1,6 +1,6 @@
 # Vercel environment variables
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-23
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-28
 
 ## Context
 
@@ -31,6 +31,10 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 | `VERCEL_API_TOKEN` | `ui/api/coach-chat/_lib/soulCache.ts` | Same fallback — needed alongside `EDGE_CONFIG_ID` because Edge Config has no write API of its own, only reads; writes go through the Vercel REST API. |
 | `VERCEL_TEAM_ID` | `ui/api/coach-chat/_lib/soulCache.ts` | Only needed if the Vercel project lives under a team account — omit for a personal-account project. |
 | `COACH_CHAT_BRANCH` | `ui/api/coach-chat.ts` | Falls back to `"main"` — the intended default for real athlete traffic, not a misconfiguration, so no `console.warn` on this one (would fire on every production close otherwise). Set to a scratch branch when testing a real close end-to-end (see `coach-chat-design-history.md`'s 2026-08-14/15 entry), so a test run's commit doesn't land on an athlete's actual `main`. |
+| `SENTRY_DSN` | `ui/api/_lib/sentry.ts` | Server-side error capture is off — `initServerMonitoring()` returns false and nothing is sent. Set to the `coach-hq-api` project DSN (EU region). |
+| `VITE_SENTRY_DSN` | `ui/client/src/lib/observability.ts` | Browser error capture is off. Set to the `coach-hq-web` project DSN; Vite bakes it into the client bundle at build time, so it must exist at build, not just at runtime. |
+| `SENTRY_RELEASE` / `VITE_SENTRY_RELEASE` | server / browser Sentry setup | Server falls back to `VERCEL_GIT_COMMIT_SHA`, browser to `development`. Events still send, they just can't be tied to a deploy. |
+| `SENTRY_ENVIRONMENT` / `VITE_SENTRY_ENVIRONMENT` | server / browser Sentry setup | Server falls back to `VERCEL_ENV` (`production`/`preview`), browser to Vite's `MODE`. |
 
 ## Rule
 
