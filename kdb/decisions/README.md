@@ -6,15 +6,13 @@
 | # | Title | Area |
 |---|---|---|
 | 0001 | Each user's app can only touch their own repo | cross-cutting |
-| 0002 | Wait to decide where the coach's "brain" lives | cross-cutting |
-| 0003 | Start new users from a clean template, archive the original | cross-cutting |
 | 0005 | Widget snapshots as the cross-platform contract | ui |
 | 0006 | One canonical challenge_v2 schema (version 4) | cross-cutting |
 | 0007 | One golden dataset for all sample data | cross-cutting |
 | 0008 | Coach HQ iOS uses Sibling Shipyard Apple IDs | ios |
 | 0009 | Refresh-token rotation for "stay logged in until logout" | cross-cutting |
 | 0010 | Remove Strava ingestion, relocate shared activity tools out of `strava/` | cross-cutting |
-| 0011 | HQ four-band layout (shared, ui, ios, platform, engine) | cross-cutting |
+| 0011 | HQ five-band layout (shared, ui, ios, platform, engine) | cross-cutting |
 | 0012 | Coach chat: atomic commits via Git Data API, count-based retention | cross-cutting |
 | 0013 | Canonical match history: iOS parses once, consumers read JSON | cross-cutting |
 | 0014 | Use HealthKit workout UUID as stable canonical id | cross-cutting |
@@ -24,7 +22,6 @@
 | 0018 | `coach_since`: a durable day-number anchor, set at First Session Protocol completion | cross-cutting (coach-chat backend, terminal SOUL.md, web, iOS) |
 | 0019 | Enforce one repo per GitHub account: block and instruct, no picker | cross-cutting (web auth, iOS auth) |
 | 0020 | Aggregate scalar projection boundary | cross-cutting |
-| 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | cross-cutting |
 | 0022 | SOUL composes into two builds: one for the app, one for BYO Claude Code | cross-cutting |
 | 0023 | A signal ships only when something other than the athlete maintains it | cross-cutting |
 | 0024 | Paid checks run at named gates, not on every PR | cross-cutting |
@@ -36,6 +33,18 @@
 | 0030 | Signup is iOS-only, and the athlete creates the repo themselves | cross-cutting (web auth, iOS setup, onboarding docs) |
 | 0031 | Enforcement lives in git and CI, not agent hooks | cross-cutting |
 | 0032 | Sentry is the primary debug view and observability data rules | cross-cutting (observability, web, iOS, coach-chat API) |
+| 0033 | Coach chat threads are active or deleted, with no archive tier | cross-cutting |
+
+<details>
+<summary>Superseded / historical (3) — kept for the citations, not for the boot read</summary>
+
+| # | Title | Replaced by |
+|---|---|---|
+| 0002 | Wait to decide where the coach's "brain" lives | → 0022 |
+| 0003 | Start new users from a clean template, archive the original | Historical |
+| 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | → 0022 |
+
+</details>
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.

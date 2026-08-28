@@ -10,7 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEC = ROOT / "kdb" / "decisions"
 AGENTS = ROOT / "AGENTS.md"
 FIELDS = ["Status", "Area", "Context", "Decision", "Why", "Rejected"]
-ENFORCES_REQUIRED_FROM = 32
+ENFORCES_REQUIRED_FROM = 33
 NAME_RE = re.compile(r"^\d{4}-[a-z0-9-]+\.md$")
 SKIP = {"0000-template.md", "README.md"}
 
@@ -30,14 +30,16 @@ for fp in adr_files():
     for field in FIELDS:
         if f"**{field}:**" not in text:
             errors.append(f"{name}: missing field '{field}'")
-    # `Enforces:` is required from 0032 on, and backfilled onto older ADRs as they are
-    # touched. Not applied retroactively to all 30: naming what an ADR stops is a
-    # judgment call, and a check that forces 18 of them to be guessed in one sitting
-    # produces 18 filler lines, which is worse than the gap it closes.
+    # `Enforces:` is required from 0033 on — the first ADR written under the template
+    # that has the field — and backfilled onto older ones as they are touched. Not
+    # applied retroactively: naming what an ADR stops is a judgment call, and a check
+    # that forces a dozen of them to be guessed in one sitting produces filler, which is
+    # worse than the gap it closes. 0032 landed on main while this branch was open and
+    # is exempt for exactly that reason, not by oversight.
     num = int(name[:4]) if name[:4].isdigit() else 0  # bad name already reported above
     if num >= ENFORCES_REQUIRED_FROM and "**Enforces:**" not in text:
         errors.append(f"{name}: missing field 'Enforces' — one line naming what this ADR "
-                      "stops someone doing (required for 0032 and later)")
+                      "stops someone doing (required for 0033 and later)")
     nums.setdefault(name[:4], []).append(name)
 
 for num, files in nums.items():

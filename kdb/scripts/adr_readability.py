@@ -64,7 +64,14 @@ JARGON_RE = [(re.compile(p, re.I), fix) for p, fix in JARGON.items()]
 FENCE_RE = re.compile(r"```.*?```", re.S)
 COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 TABLE_RE = re.compile(r"^\s*\|.*$", re.M)
-META_RE = re.compile(r"^\s*-?\s*\*\*(?:Status|Area):\*\*.*$", re.M)
+# Status and Area are metadata, not prose to be judged — and both wrap onto continuation
+# lines (0018, 0020, 0021 and 0032 all carry an amendment note there). Matching only the
+# first line left the continuation in the body, where it merged into whichever field came
+# next and was reported as one long sentence in Context.
+META_RE = re.compile(
+    r"^[ \t]*-?[ \t]*\*\*(?:Status|Area):\*\*.*"
+    r"(?:\n(?![ \t]*-[ \t]*\*\*)(?![ \t]*#)(?![ \t]*$).*)*",
+    re.M)
 HEADING_RE = re.compile(r"^#.*$", re.M)
 LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 CODE_SPAN_RE = re.compile(r"`[^`\n]*`")
