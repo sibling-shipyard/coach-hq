@@ -1,6 +1,9 @@
 # 0002 — Wait to decide where the coach's "brain" lives
 
-- **Status:** Accepted (deferred decision) · 2026-07-24 · Tech Lead
+- **Status:** Superseded by 0022 · 2026-07-24 · Tech Lead
+- **Outcome:** the deferral is spent. The brain lives at HQ and is bundled into
+  coach-chat at build time (0021); BYO Claude Code survives as a second composed
+  build with an end date (0022). Milestone M3 never had to arbitrate it.
 - **Area:** cross-cutting
 - **Context:** The coach's brain — its personality and rules — could live on our server, or
   be shipped into each user's repo and run on their own machine. Running it on our server is

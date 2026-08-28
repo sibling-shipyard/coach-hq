@@ -6,25 +6,22 @@
 | # | Title | Area |
 |---|---|---|
 | 0001 | Each user's app can only touch their own repo | cross-cutting |
-| 0002 | Wait to decide where the coach's "brain" lives | cross-cutting |
-| 0003 | Start new users from a clean template, archive the original | cross-cutting |
 | 0005 | Widget snapshots as the cross-platform contract | ui |
 | 0006 | One canonical challenge_v2 schema (version 4) | cross-cutting |
 | 0007 | One golden dataset for all sample data | cross-cutting |
 | 0008 | Coach HQ iOS uses Sibling Shipyard Apple IDs | ios |
 | 0009 | Refresh-token rotation for "stay logged in until logout" | cross-cutting |
 | 0010 | Remove Strava ingestion, relocate shared activity tools out of `strava/` | cross-cutting |
-| 0011 | HQ four-band layout (shared, ui, ios, platform, engine) | cross-cutting |
+| 0011 | HQ five-band layout (shared, ui, ios, platform, engine) | cross-cutting |
 | 0012 | Coach chat: atomic commits via Git Data API, count-based retention | cross-cutting |
 | 0013 | Canonical match history: iOS parses once, consumers read JSON | cross-cutting |
 | 0014 | Use HealthKit workout UUID as stable canonical id | cross-cutting |
 | 0015 | iOS app-launch state machine | ios |
 | 0016 | Names display only, category is machine field | cross-cutting |
 | 0017 | Group related API endpoints behind Vercel catch-all routes, not query-param folding | cross-cutting |
-| 0018 | `coach_since`: a durable day-number anchor, set at First Session Protocol completion | cross-cutting (coach-chat backend, terminal SOUL.md, web, iOS) |
+| 0018 | `coach_since`: a durable day-number anchor, set at First Session Protocol completion | cross-cutting (coach-chat backend, terminal SOUL, web, iOS) |
 | 0019 | Enforce one repo per GitHub account: block and instruct, no picker | cross-cutting (web auth, iOS auth) |
 | 0020 | Aggregate scalar projection boundary | cross-cutting |
-| 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | cross-cutting |
 | 0022 | SOUL composes into two builds: one for the app, one for BYO Claude Code | cross-cutting |
 | 0023 | A signal ships only when something other than the athlete maintains it | cross-cutting |
 | 0024 | Paid checks run at named gates, not on every PR | cross-cutting |
@@ -36,19 +33,44 @@
 | 0030 | Signup is iOS-only, and the athlete creates the repo themselves | cross-cutting (web auth, iOS setup, onboarding docs) |
 | 0031 | Enforcement lives in git and CI, not agent hooks | cross-cutting |
 | 0032 | Sentry is the primary debug view and observability data rules | cross-cutting (observability, web, iOS, coach-chat API) |
+| 0033 | Coach chat threads are active or deleted, with no archive tier | cross-cutting |
+
+<details>
+<summary>Superseded / historical (3) — kept for the citations, not for the boot read</summary>
+
+| # | Title | Replaced by |
+|---|---|---|
+| 0002 | Wait to decide where the coach's "brain" lives | → 0022 |
+| 0003 | Start new users from a clean template, archive the original | Historical |
+| 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | → 0022 |
+
+</details>
 <!-- ADR-INDEX:END -->
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.
 One file per durable, hard-to-reverse decision: `NNNN-kebab-title.md`.
-Fields: **Context / Decision / Why / Rejected**, plus an `Area:` tag.
+Fields: **Context / Decision / Why / Rejected / Enforces**, plus an `Area:` tag and an
+optional **How to apply**. Start from `0000-template.md` — it carries the writing rules.
+
+There is no ADR 0004. The number was never used; nothing was deleted.
 
 Rules:
 - Add an ADR only when a choice is expensive to reverse, or a future agent might re-argue
   it. A decision nobody contests doesn't need one.
 - Never rewrite an ADR to change its meaning. Supersede: add a new ADR and set the old
   one's `Status:` to `Superseded by NNNN`.
-- Keep them short — five fields, a few lines each.
+- Keep them short — a few lines per field.
 - Write in plain English — short words, no jargon; readable by someone outside the team.
+- **Draft `Enforces:` first.** One line naming what this ADR stops someone doing. If you
+  cannot write it, you have a description rather than a decision.
+- **Sentences stay under 40 words** — `kdb/scripts/validate_kdb.py` fails the build over
+  that and warns past 30. The house voice rules in `platform/soul/A_identity.md` §3 apply
+  to us, not only to Coach.
+- Field word budgets **warn, never fail**. Length and readability turned out to be
+  independent when measured across this set, so a budget flags bloat and nothing more —
+  the reasoning is recorded in `kdb/scripts/adr_readability.py`.
+- `python3 kdb/scripts/adr_readability.py` prints the reading-grade table. Watch it; it
+  never gates, because the score is easy to improve by making the prose worse.
 - Central and tagged (not per-folder) so cross-cutting decisions have a single home.
 - A PR that changes a locked/architectural decision must add or supersede an ADR here
   (Tech Lead checks this in review).

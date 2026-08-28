@@ -23,6 +23,4 @@
   this fails; the person it failed for is the one who built it. Keep them for optional/power
   users → the cost lands on every athlete's prompt while the value lands on almost none. Wait
   and see whether usage picks up → PRE had four months to and went to zero.
-
-<!-- The filter this exists to enforce: when a new tracked signal is proposed, name the thing that
-     will keep it current. If that thing is a person, the answer is no, not yet. -->
+- **Enforces:** When a new tracked signal is proposed, name the thing that will keep it current. If that thing is a person, the answer is no, not yet.

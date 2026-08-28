@@ -9,7 +9,9 @@ Need drill-down? Add a separate `*-lld.md` — never bloat the main doc.
 3. **Done when** — how we validate (concrete, testable).
 4. **Deferred** — P2/P3 follow-ups, one line each.
 
-ADRs use the same budget: Context / Decision / Why / Rejected — a few lines each.
+ADRs use the same budget: Context / Decision / Why / Rejected / Enforces — a few lines
+each, plus an optional How to apply. Rules and the prose checks live in
+`kdb/decisions/README.md`; write new ones from `kdb/decisions/0000-template.md`.
 
 ## Executable plans
 

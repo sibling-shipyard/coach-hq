@@ -1,6 +1,6 @@
 # 0021 — coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired
 
-- **Status:** Accepted · 2026-08-05 · Tech Lead · **BYO-retirement premise reversed by [0022](0022-two-composed-soul-builds.md)** — reading SOUL from HQ still stands, but BYO Claude Code was not retired: both live athletes moved back to it and carve ships `SOUL.claude.md`, `.claude/` and `CLAUDE.md` again. Do not read this ADR without 0022.
+- **Status:** Superseded by 0022 · the half that stands — coach-chat reads SOUL from HQ, not from the athlete's repo — is restated there. The half that does not: BYO Claude Code was never retired.
 - **Area:** cross-cutting
 - **Context:** ADR 0011 assumed SOUL reaches an athlete only via carve-and-propagate
   (`platform/SOUL.md` → composed → copied byte-for-byte into every athlete's

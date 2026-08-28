@@ -4,14 +4,12 @@
 - **Area:** cross-cutting
 - **Context:** This repo is worked from three tools — Claude Code, Codex and Cursor — and the
   rules that keep five agents from stepping on each other were prose in `AGENTS.md` plus two
-  Claude-only hooks. Two gaps followed. `core.hooksPath` was unset and `.git/hooks/` empty, so
-  the one tool-agnostic gate the repo had (`kdb/scripts/pre-commit`) was opt-in behind a symlink
-  documented in a single line of `CONVENTIONS.md` and was not enabled in practice — CI was the
-  only enforcement. And the routing gate that stops a session mis-booting into the wrong agent
-  lives in `.claude/hooks/session-start.sh`, so under Codex and Cursor it never fires at all. A
-  rule that holds in one of three tools is not a rule; #522 is what that costs — a branch cut
-  from what looked like `main` inherited five commits off a detached HEAD, and the fix shipped
-  as a paragraph.
+  Claude-only hooks. Two gaps followed. `core.hooksPath` was unset and `.git/hooks/` empty. So the one
+  tool-agnostic gate the repo had, `kdb/scripts/pre-commit`, sat behind a symlink documented in a
+  single line of `CONVENTIONS.md`, and nobody had enabled it. CI was the only enforcement. And the routing gate that stops a session mis-booting into the wrong agent
+  lives in `.claude/hooks/session-start.sh`, so under Codex and Cursor it never fires at all. A rule that holds in one
+  of three tools is not a rule. #522 is what that costs: a branch cut from what looked like
+  `main` inherited five commits off a detached HEAD, and the fix shipped as a paragraph.
 - **Decision:** Anything load-bearing is enforced by git or CI. Mechanical rules go in
   `.githooks/` (versioned, enabled per clone with `git config core.hooksPath .githooks`); the
   rest go in a CI workflow or a row in `platform/scripts/check.sh`. Agent-specific hooks and
@@ -28,7 +26,4 @@
   alone → feedback arrives a full round trip late, and a red CI teaches people to skim.
   Require hooks via a bootstrap script agents must run → a setup step nobody runs is the
   opt-in symlink again, under a new name.
-
-<!-- The filter this exists to enforce: before putting a rule in .claude/, ask what happens when
-     the same repo is opened in Codex. If the answer is "nothing enforces it", it belongs in
-     .githooks/ or CI. -->
+- **Enforces:** Before putting a rule in `.claude/`, ask what happens when the same repo is opened in Codex. If the answer is "nothing enforces it", it belongs in `.githooks/` or CI.

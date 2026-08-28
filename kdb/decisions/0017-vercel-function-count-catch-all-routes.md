@@ -2,8 +2,26 @@
 
 - **Status:** Accepted · 2026-08-02 · Tech Lead
 - **Area:** cross-cutting
-- **Context:** Vercel's Hobby plan caps a deployment at 12 serverless functions — one per top-level `ui/api/*.ts` file (files/dirs starting with `_`, like `_lib/` and `_tests/`, are correctly excluded already). `main` sat exactly at 12 after the coach-chat redesign's Part A merged. Part B's new profile-status endpoint pushed the count to 13 and broke the Vercel build. The first fix folded it into `coach-chat.ts` via a `?profileStatus=1` query param — quick, but it doesn't scale (every future endpoint needs its own one-off fold into an unrelated route) and conflates concerns (`coach-chat.ts` briefly carried onboarding-status logic that has nothing to do with chat).
-- **Decision:** Where a directory holds several thin, related route files (e.g. `ui/api/auth/`'s `callback.ts`, `install-redirect.ts`, `list-my-repos.ts`, `logout.ts`, `me.ts`, `refresh.ts`, `start.ts`), consolidate them into one Vercel catch-all route (`ui/api/auth/[...action].ts`) instead. Vercel counts a catch-all as a single function no matter how many logical sub-paths it dispatches internally, and maps `/api/auth/*` onto it automatically — no `vercel.json` rewrites needed, and every existing URL keeps resolving identically (critically `/api/auth/callback`, registered as the GitHub OAuth App's callback URL, which cannot change). Each original file's body becomes a named exported function (`handleCallback`, `handleMe`, etc.); a default `{ fetch(req) }` at the bottom parses the dynamic segment and dispatches.
-- **Why:** Consolidating `auth/`'s 7 files into 1 dropped the deployment from 12 functions to 6 in one move — real headroom, not a slot bought per endpoint. It also keeps unrelated routes (like `coach-chat.ts`) free of query params that exist purely for Vercel's function-count mechanics rather than the route's own concern. The auth files were already thin (10-60 lines each) and uniformly shaped (`export default { async fetch(req) {...} }`, all delegating real logic to `auth/_lib/`), making the consolidation mechanical rather than a redesign.
-- **Rejected:** Query-param dispatch on an unrelated existing route (what shipped first, for `coach-chat.ts?profileStatus=1`) → works but buys exactly one slot per endpoint and mixes concerns into a route that has nothing to do with the new logic; reverted once the catch-all pattern was adopted, since `coach-chat-profile-status.ts` could go back to being its own file with headroom to spare. Vercel's `functions`/`rewrites` config in `vercel.json` to manually remap paths → unnecessary, the file-based catch-all convention already does this with zero config.
-- **How to apply:** When a new endpoint would push the deployment over 12 functions (check with `find ui/api -name "*.ts" | grep -v '/_lib/\|/_tests/' | wc -l`), look for an existing directory of related thin routes to consolidate behind a catch-all first (following `ui/api/auth/[...action].ts` as the template) rather than folding the new endpoint into an unrelated route via a query param.
+- **Context:** Vercel's Hobby plan caps a deployment at 12 serverless functions, one per
+  top-level `ui/api/*.ts`. `main` sat at exactly 12 after the coach-chat redesign landed, and a
+  new profile-status endpoint pushed it to 13 and broke the build. The first fix folded that
+  endpoint into `coach-chat.ts` behind a `?profileStatus=1` query param. It worked, but it buys
+  one slot per endpoint, and it put onboarding logic inside a chat route.
+- **Decision:** Where a directory holds several thin, related routes, consolidate them behind one
+  catch-all — `ui/api/auth/[...action].ts`. Vercel counts a catch-all as a single function however
+  many sub-paths it dispatches, and maps `/api/auth/*` onto it with no `vercel.json` rewrites.
+  Every existing URL still resolves, including `/api/auth/callback`, which is registered as the
+  GitHub OAuth callback and cannot change. Each original file's body becomes a named export, and
+  a default `fetch` parses the segment and dispatches.
+- **Why:** Consolidating `auth/`'s seven files into one took the deployment from 12 functions to
+  6. That is real headroom, not a slot bought per endpoint. It also keeps unrelated routes free of
+  query params that exist for Vercel's accounting rather than the route's own job.
+- **Rejected:** Query-param dispatch on an unrelated route → buys exactly one slot and mixes
+  concerns; reverted once the catch-all pattern landed · `vercel.json` rewrites → unnecessary, the
+  file-based convention already does this with no config.
+- **Enforces:** A route's shape follows its own concern, never the deployment's function budget.
+  When the count binds, consolidate related routes — never fold an endpoint into an unrelated one.
+- **How to apply:** Count with
+  `find ui/api -name "*.ts" | grep -v '/_lib/\|/_tests/' | wc -l`. If a new endpoint would cross
+  12, look for a directory of related thin routes to consolidate first, following
+  `ui/api/auth/[...action].ts` as the template.
