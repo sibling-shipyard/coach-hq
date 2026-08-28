@@ -1,6 +1,6 @@
 # Sentry observability — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26 · ADR: 0031
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · ADR: 0032
 
 Low-level design for error capture, LLM telemetry, and local diagnostic timelines across web, API, and iOS.
 
