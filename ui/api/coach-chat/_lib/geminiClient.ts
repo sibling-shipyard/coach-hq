@@ -7,7 +7,7 @@ import { generationConfigFor, type GeminiReply, type TurnMode } from "./coachRep
 
 // Dated model ids (gemini-2.0-flash, then gemini-2.5-flash) kept getting cut early. Google's
 // "-latest" alias always points at the current recommended flash model instead.
-const GEMINI_MODEL = "gemini-flash-latest";
+export const GEMINI_MODEL = "gemini-flash-latest";
 
 export async function askGemini(
   apiKey: string,

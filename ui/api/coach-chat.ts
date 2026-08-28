@@ -16,7 +16,8 @@ import { loadChatHistory } from "./coach-chat/_lib/chatThreads.js";
 import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIntents.js";
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
-import { askGemini } from "./coach-chat/_lib/geminiClient.js";
+import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/geminiClient.js";
+import { captureGeminiFailure } from "./_lib/sentry.js";
 import {
   combineExtraContext,
   firstSessionContext,
@@ -138,6 +139,13 @@ async function handleGreet(
     const status = (err as { status?: number }).status ?? 500;
     const message = err instanceof Error ? err.message : String(err);
     console.error("[coach-chat] greet askGemini failed:", err);
+    await captureGeminiFailure(err, {
+      model: GEMINI_MODEL,
+      upstreamStatus: status,
+      turnMode: "greeting",
+      // Coach opens a greeting turn, so there is no athlete text to record.
+      athleteMessage: "",
+    });
     return Response.json({ error: message }, { status });
   }
 

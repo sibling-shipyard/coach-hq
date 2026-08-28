@@ -59,4 +59,49 @@ export async function captureServerException(error: unknown): Promise<CaptureRes
   return { eventId, sent };
 }
 
+/** What a failed LLM call must carry to be debuggable from the Sentry UI alone. */
+export interface GeminiFailureDetails {
+  /** Correlates the event with the turn's log lines. Absent on paths that mint no trace id. */
+  traceId?: string;
+  /** Gemini model id, supplied by the caller so this module stays free of coach-chat internals. */
+  model: string;
+  /** Upstream HTTP status, or 500 when the throw carried none. */
+  upstreamStatus: number;
+  /**
+   * `TurnMode` — greeting, ordinary, closing, activity_sync — for the three `askGemini` call
+   * sites in coach-chat. Two more paths call `generateContent` directly and are not turns at
+   * all: `proactive_message` (coach-message's `generateProactiveBody`) and `template_adjust`
+   * (coach-chat's First Session template-adjustment pass in `coachWorkoutFiles.ts`).
+   */
+  turnMode: string;
+  /** The exact text sent to Gemini for this turn. */
+  athleteMessage: string;
+}
+
+/**
+ * Capture a Gemini call that threw, with enough of the turn attached to debug it.
+ *
+ * ADR 0032 captures the athlete's message on purpose: a turn that fails never reaches
+ * `commitClosingTurn`, so it is never written to `chat_history.json` and this event is the only
+ * record it happened. It rides in the event context rather than a tag because Sentry truncates
+ * tag values near 200 characters and would cut a real message without saying so.
+ */
+export async function captureGeminiFailure(
+  error: unknown,
+  details: GeminiFailureDetails,
+): Promise<CaptureResult> {
+  if (!initServerMonitoring()) return { sent: false };
+  const eventId = Sentry.captureException(error, {
+    tags: {
+      ...(details.traceId ? { trace_id: details.traceId } : {}),
+      model: details.model,
+      upstream_status: details.upstreamStatus,
+      turn_mode: details.turnMode,
+    },
+    contexts: { coach_turn: { athlete_message: details.athleteMessage } },
+  });
+  const sent = await Sentry.flush(2000);
+  return { eventId, sent };
+}
+
 export { Sentry };

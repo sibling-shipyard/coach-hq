@@ -5,6 +5,7 @@ import type { DirectoryEntry } from "../../_lib/coachChatFiles.js";
 import type { ChatHistoryFile } from "../../_lib/chatThreads.js";
 
 const {
+  captureGeminiFailure,
   commitFilesAtomic,
   askGemini,
   getFileRaw,
@@ -37,10 +38,15 @@ const {
     athleteInsights: null,
   })),
   loadChatHistory: vi.fn(async (): Promise<ChatHistoryFile> => ({ threads: [] })),
+  captureGeminiFailure: vi.fn(async (_error: unknown, _details: unknown) => ({
+    eventId: "event-id",
+    sent: true,
+  })),
 }));
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
-vi.mock("../../_lib/geminiClient.js", () => ({ askGemini }));
+vi.mock("../../../_lib/sentry.js", () => ({ captureGeminiFailure }));
+vi.mock("../../_lib/geminiClient.js", () => ({ askGemini, GEMINI_MODEL: "gemini-flash-latest" }));
 vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
   return {
@@ -133,6 +139,7 @@ describe("activity-sync turn contract", () => {
     commitFilesAtomic.mockReset();
     commitFilesAtomic.mockImplementation(defaultCommitImpl);
     askGemini.mockClear();
+    captureGeminiFailure.mockClear();
     getFileRaw.mockReset();
     getFileRaw.mockResolvedValue(null);
     listDirectory.mockReset();
@@ -471,6 +478,13 @@ describe("activity-sync turn contract", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: "model down" });
     expect(commitFilesAtomic).not.toHaveBeenCalled();
+    // Nothing else records this turn - no chat write happens on a failed Gemini call.
+    expect(captureGeminiFailure).toHaveBeenCalledTimes(1);
+    expect(captureGeminiFailure.mock.calls[0][1]).toMatchObject({
+      model: "gemini-flash-latest",
+      upstreamStatus: 503,
+      turnMode: "activity_sync",
+    });
     errorSpy.mockRestore();
   });
 
