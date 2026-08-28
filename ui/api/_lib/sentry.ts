@@ -4,10 +4,17 @@
  * Init is a function, not a module side effect: only the routes that opt in pay the SDK's
  * cold-start cost, and importing this module from a test does not open a transport.
  * Env: SENTRY_DSN (unset → no-op, so local and fork deploys stay silent),
- * optional SENTRY_RELEASE / SENTRY_ENVIRONMENT.
+ * optional SENTRY_RELEASE / SENTRY_ENVIRONMENT / SENTRY_TRACES_SAMPLE_RATE.
+ *
+ * `tracesSampleRate` turns on tracing so this side speaks the same wire format as the browser:
+ * the client SDK attaches `sentry-trace` and `baggage` to its `/api/...` calls
+ * (`ui/client/src/lib/observability.ts`) and an event on the continued trace joins the browser's
+ * in the Sentry trace view, with no id of our own.
  *
  * Every capture must be followed by `flush()`. A Vercel function is frozen the moment it
- * returns, and the SDK sends on a background timer, so an unflushed event is dropped.
+ * returns, and the SDK sends on a background timer, so an unflushed event is dropped. **Spans
+ * are dropped the same way**, so anything that opens one must end it and flush before the
+ * handler returns — the `flush()` in the capture helpers below drains spans too.
  */
 import * as Sentry from "@sentry/node";
 import { scrubSentryEvent } from "../../observability/sentryScrubber.js";
@@ -17,6 +24,21 @@ export const sentryRelease =
 
 export const sentryEnvironment =
   process.env.SENTRY_ENVIRONMENT ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
+
+/**
+ * Sample every trace. Right for four athletes; the runbook says to set the var explicitly before
+ * that stops being true. An unparseable value warns rather than falling back silently — Sentry
+ * reads `NaN` as "tracing off" and says nothing.
+ */
+export const sentryTracesSampleRate = ((raw: string | undefined): number => {
+  if (raw === undefined || raw === "") return 1;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    console.warn(`[sentry] SENTRY_TRACES_SAMPLE_RATE=${raw} is not a number - using 1`);
+    return 1;
+  }
+  return parsed;
+})(process.env.SENTRY_TRACES_SAMPLE_RATE);
 
 /** Values that must never reach Sentry verbatim, passed to the scrubber per event. */
 function configuredSecrets(): string[] {
@@ -36,6 +58,7 @@ export function initServerMonitoring(): boolean {
     dsn: process.env.SENTRY_DSN,
     release: sentryRelease,
     environment: sentryEnvironment,
+    tracesSampleRate: sentryTracesSampleRate,
     // ADR 0032: no automatic PII. Everything Sentry sees is added on purpose.
     sendDefaultPii: false,
     beforeSend: (event) => scrubSentryEvent(event, configuredSecrets()),

@@ -1,5 +1,6 @@
 /**
- * sentry.ts::captureGeminiFailure — the payload a failed coach turn carries into Sentry.
+ * sentry.ts — the payload a failed coach turn carries into Sentry, and the options `Sentry.init`
+ * is handed.
  *
  * `@sentry/node` is the only fake: it stands in for the transport so the assertions are about
  * what gets attached to the event, not about the SDK delivering it. Each test re-imports the
@@ -122,6 +123,59 @@ describe("captureGeminiFailure", () => {
     const scrubbed = beforeSend({ extra: { detail: "key=configured-gemini-key" } });
 
     expect(scrubbed.extra.detail).toBe("key=[Filtered]");
+    delete process.env.GEMINI_API_KEY;
+  });
+});
+
+describe("initServerMonitoring tracing", () => {
+  beforeEach(() => {
+    init.mockClear();
+    process.env.SENTRY_DSN = "https://public@o0.ingest.de.sentry.io/1";
+  });
+
+  afterEach(() => {
+    delete process.env.SENTRY_DSN;
+    delete process.env.SENTRY_TRACES_SAMPLE_RATE;
+  });
+
+  async function initOptions() {
+    const { initServerMonitoring } = await loadSentry();
+    initServerMonitoring();
+    return init.mock.calls[0][0] as {
+      tracesSampleRate: number;
+      sendDefaultPii: boolean;
+      beforeSend: (event: unknown) => { extra: { detail: string } };
+    };
+  }
+
+  it("samples every trace when the var is unset, so a browser trace has an API half", async () => {
+    expect((await initOptions()).tracesSampleRate).toBe(1);
+  });
+
+  it("reads SENTRY_TRACES_SAMPLE_RATE when the operator turns the rate down", async () => {
+    process.env.SENTRY_TRACES_SAMPLE_RATE = "0.25";
+
+    expect((await initOptions()).tracesSampleRate).toBe(0.25);
+  });
+
+  it("falls back to 1 and warns on a value Sentry would read as tracing-off", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.SENTRY_TRACES_SAMPLE_RATE = "all";
+
+    expect((await initOptions()).tracesSampleRate).toBe(1);
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
+
+  it("keeps the scrubber and the PII opt-out on the same init that enables tracing", async () => {
+    process.env.GEMINI_API_KEY = "configured-gemini-key";
+    const options = await initOptions();
+
+    expect(options.sendDefaultPii).toBe(false);
+    expect(options.tracesSampleRate).toBe(1);
+    expect(options.beforeSend({ extra: { detail: "key=configured-gemini-key" } }).extra.detail).toBe(
+      "key=[Filtered]",
+    );
     delete process.env.GEMINI_API_KEY;
   });
 });

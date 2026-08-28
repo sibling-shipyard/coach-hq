@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-29 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
 region for 90 days — fixed by the plan, not a dial we hold; Vercel and Apple logs are fallback
@@ -52,16 +52,19 @@ flowchart LR
 
 ## Triage
 
-1. Record the issue URL, timestamp, project, `operation_id`, `athlete_id`, and release.
-2. Search the same `operation_id` across projects. Read only the evidence attached to a Rage Report;
-   use the timeline to locate the failing web/API/Gemini/iOS span. **A failed Gemini call carries the
-   athlete's message** (ADR 0032) — `captureGeminiFailure()` in `ui/api/_lib/sentry.ts` attaches it as
-   event context, plus `trace_id`, `model`, `upstream_status`, and `turn_mode` as tags. The scrubber
+1. Record the issue URL, timestamp, project, `trace_id`, `athlete_id`, and release.
+2. Search the same `trace_id` across projects, or open the trace view — the browser SDK propagates
+   Sentry's own trace id to `/api/...` on `sentry-trace` and `baggage`, so both halves of one
+   interaction sit on one trace. Read only the evidence attached to a Rage Report; use the timeline to
+   locate the failing web/API/Gemini/iOS span. **A failed Gemini call carries the athlete's message**
+   (ADR 0032) — `captureGeminiFailure()` in `ui/api/_lib/sentry.ts` attaches it as event context, plus
+   `model`, `upstream_status`, `turn_mode`, and a `trace_id` *tag*. Mind that tag: it holds coach-chat's
+   own id for grepping Vercel logs, not the Sentry trace id you searched on. The scrubber
    (`ui/observability/sentryScrubber.ts`) still runs first, so any credential in that text still shows
    as `[Filtered]`.
 3. Confirm credentials show as `[Filtered]`. Delete the event and rotate the credential immediately
    if an auth header, cookie, API key, GitHub token, or session token escaped.
-4. File the defect with the Sentry link, operation ID, release, user impact, and failing stage. Resolve
+4. File the defect with the Sentry link, trace id, release, user impact, and failing stage. Resolve
    the Sentry issue only after the fix release has a successful matching operation.
 
 ## Prove before merge
@@ -69,7 +72,7 @@ flowchart LR
 1. Confirm a successful homepage load, chat turn, Gemini call, and HealthKit sync appear on the
    dashboard with the expected release and success outcome.
 2. In Preview, temporarily use an invalid Gemini key for one chat turn, then restore it. Confirm the
-   client and API failure share one operation ID and the repeated-failure alert arrives within 15 minutes.
+   client and API failure share one trace id and the repeated-failure alert arrives within 15 minutes.
 3. Launch iOS with `--send-sentry-test-event`, then submit one Rage Report with one selected timeline
    event. Confirm the alert, release tags, attachment, and Cancel-sends-nothing behavior.
 4. Check one web exception is deminified and one iOS crash is symbolicated. Save the three Sentry URLs
