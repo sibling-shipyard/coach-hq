@@ -44,18 +44,18 @@ export default tseslint.config(
       // is a typing refactor, not a lint fix, so it is tracked separately.
     },
   },
-  // Tests and build scripts sit outside tsconfig's `include`, so the type-aware
-  // parser cannot resolve them. Lint them with the syntax-only rules instead.
+  // Build scripts and config sit outside tsconfig's `include` (client/src/** and api/**), so
+  // the type-aware parser cannot resolve them — syntax-only rules for those. Tests are NOT
+  // here: they are inside `include`, so the promise rules apply to them too.
   {
-    files: [
-      "**/*.test.ts",
-      "**/*.test.tsx",
-      "**/_tests/**",
-      "scripts/**",
-      "**/*.mjs",
-      "eslint.config.js",
-      "*.config.ts",
-    ],
+    files: ["scripts/**", "**/*.mjs", "eslint.config.js", "*.config.ts"],
     ...tseslint.configs.disableTypeChecked,
+  },
+  // A test double must be `async` to match the signature it stands in for, and usually has
+  // nothing to await, so this rule only ever fires on correct mocks here. The two rules that
+  // catch real promise bugs — no-floating-promises, no-misused-promises — stay on for tests.
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx", "**/_tests/**"],
+    rules: { "@typescript-eslint/require-await": "off" },
   },
 );
