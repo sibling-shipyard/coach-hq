@@ -52,24 +52,26 @@ export function WarmInstrumentHome({
   coachMessage,
 }: WarmInstrumentHomeProps) {
   const snapshots = useMemo(() => {
-    const effectiveWeek = currentWeek ?? (dataMode === "live"
-      ? buildLiveWeekContract(activities)
-      : GOLDEN_CURRENT_WEEK);
-    return buildWarmHomeSnapshots(
-      activities,
-      ledger,
-      syncStatus,
-      effectiveWeek,
-      dataMode,
-    );
+    const effectiveWeek =
+      currentWeek ??
+      (dataMode === "live" ? buildLiveWeekContract(activities) : GOLDEN_CURRENT_WEEK);
+    return buildWarmHomeSnapshots(activities, ledger, syncStatus, effectiveWeek, dataMode);
   }, [activities, ledger, currentWeek, dataMode, syncStatus]);
 
   return (
-      <div className={`wi-shell ${dataMode === "live" ? "is-live-data" : ""}`.trim()}>
-        <div className="wi-board">
+    <div className={`wi-shell ${dataMode === "live" ? "is-live-data" : ""}`.trim()}>
+      <div className="wi-board">
         <InstrumentHeader
-          phaseLabel={dataMode === "live" ? `LIVE DATA · ${snapshots.phase.weekLabel}` : snapshots.phase.weekLabel}
-          mobilePhaseLabel={dataMode === "live" ? `LIVE · ${snapshots.phase.weekLabel}` : `BUILD · ${snapshots.phase.weekLabel}`}
+          phaseLabel={
+            dataMode === "live"
+              ? `LIVE DATA · ${snapshots.phase.weekLabel}`
+              : snapshots.phase.weekLabel
+          }
+          mobilePhaseLabel={
+            dataMode === "live"
+              ? `LIVE · ${snapshots.phase.weekLabel}`
+              : `BUILD · ${snapshots.phase.weekLabel}`
+          }
           syncHealthy={snapshots.sync.healthy}
           syncLabel={snapshots.sync.label}
           workoutsHref="/workouts"
@@ -124,8 +126,8 @@ export function WarmInstrumentHome({
             <BuildPhaseCard phase={snapshots.phase} />
             <RecentSessionsCard sessions={snapshots.sessions} />
           </div>
-          </DesktopHomeGrid>
-        </div>
+        </DesktopHomeGrid>
       </div>
+    </div>
   );
 }

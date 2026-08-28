@@ -53,10 +53,22 @@ let cachedData: RepoData | null = null;
 
 function initialState(): UseRepoDataResult {
   if (import.meta.env.DEV) {
-    return { data: LOCAL_DATA, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
+    return {
+      data: LOCAL_DATA,
+      loading: false,
+      error: null,
+      schemaUnsupported: false,
+      accessRevoked: false,
+    };
   }
   if (cachedData) {
-    return { data: cachedData, loading: false, error: null, schemaUnsupported: false, accessRevoked: false };
+    return {
+      data: cachedData,
+      loading: false,
+      error: null,
+      schemaUnsupported: false,
+      accessRevoked: false,
+    };
   }
   return { data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false };
 }
@@ -85,12 +97,24 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
         typeof aggregate.schema_version === "number" &&
         aggregate.schema_version > SUPPORTED_SCHEMA_VERSION
       ) {
-        setState({ data: null, loading: false, error: null, schemaUnsupported: true, accessRevoked: false });
+        setState({
+          data: null,
+          loading: false,
+          error: null,
+          schemaUnsupported: true,
+          accessRevoked: false,
+        });
         return;
       }
 
       cachedData = aggregate;
-      setState({ data: aggregate, loading: false, error: null, schemaUnsupported: false, accessRevoked: false });
+      setState({
+        data: aggregate,
+        loading: false,
+        error: null,
+        schemaUnsupported: false,
+        accessRevoked: false,
+      });
     })
     .catch(() => {
       if (!cancelled) {
@@ -136,7 +160,13 @@ export function useRepoData(): UseRepoDataResult {
       if (!event.persisted) return;
       cancelRef.current?.();
       cachedData = null;
-      setState({ data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false });
+      setState({
+        data: null,
+        loading: true,
+        error: null,
+        schemaUnsupported: false,
+        accessRevoked: false,
+      });
       cancelRef.current = fetchRepoData(setState);
     }
 

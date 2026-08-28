@@ -10,7 +10,10 @@ export const THREAD_TITLE_MAX_CHARS = 28;
 // Titles are no longer model-generated (see coachReplySchema.ts) - this now only ever runs
 // against the athlete's own first message, kept as a safety net against a stray typed character.
 export function sanitizeTitle(title: string): string {
-  return title.replace(/[^\x20-\x7E]/g, "").replace(/\s+/g, " ").trim();
+  return title
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // .slice()/.substring() operate on UTF-16 code units, which can split a surrogate pair (e.g. an
@@ -110,8 +113,16 @@ export async function loadChatHistory(repo: string, token: string): Promise<Chat
 // Serializes the persisted file shape, stamping _meta the same way coachMemoryFiles.ts's
 // MemoryJson._meta does - coach-chat is currently the only writer, so updated_by is always
 // "coach" for now.
-export function serializeChatHistory(threads: ChatThread[], updatedAt: string, traceId: string): string {
-  const meta: ChatHistoryFileMeta = { updated_at: updatedAt, updated_by: "coach", trace_id: traceId };
+export function serializeChatHistory(
+  threads: ChatThread[],
+  updatedAt: string,
+  traceId: string,
+): string {
+  const meta: ChatHistoryFileMeta = {
+    updated_at: updatedAt,
+    updated_by: "coach",
+    trace_id: traceId,
+  };
   return JSON.stringify({ _meta: meta, threads }, null, 2);
 }
 

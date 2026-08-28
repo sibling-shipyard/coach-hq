@@ -113,7 +113,9 @@ function TrainingActivityCardFull({ activity }: { activity: TrainingActivitySnap
             <button
               aria-label="Show next four months"
               disabled={windowStart >= latestStart}
-              onClick={() => setWindowStart((current) => Math.min(latestStart, current + visibleCount))}
+              onClick={() =>
+                setWindowStart((current) => Math.min(latestStart, current + visibleCount))
+              }
               type="button"
             >
               →
@@ -145,14 +147,14 @@ function TrainingActivityCardFull({ activity }: { activity: TrainingActivitySnap
             <span>LONGEST BLOCK</span>
           </div>
           <div>
-            <strong>{activity.planTruePercent === null ? "—" : `${activity.planTruePercent}%`}</strong>
+            <strong>
+              {activity.planTruePercent === null ? "—" : `${activity.planTruePercent}%`}
+            </strong>
             <span>PLAN-TRUE</span>
           </div>
           <div>
             <strong>{activity.gapCount}</strong>
-            <span>
-              GAPS · WORST {activity.worstGap}D
-            </span>
+            <span>GAPS · WORST {activity.worstGap}D</span>
           </div>
         </div>
       </div>

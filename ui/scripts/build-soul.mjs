@@ -33,14 +33,18 @@ const OUT_DIR = path.join(__dirname, "..", "api", "_generated");
 const OUT_FILE = path.join(OUT_DIR, "soul.ts");
 
 if (!fs.existsSync(SOUL_SRC)) {
-  console.error(`build-soul: platform/SOUL.chat.md not found at ${SOUL_SRC} - run compose-soul.mjs first.`);
+  console.error(
+    `build-soul: platform/SOUL.chat.md not found at ${SOUL_SRC} - run compose-soul.mjs first.`,
+  );
   process.exit(1);
 }
 // Fragments (compose-soul.mjs's HORCRUXES table) are blocks the chat build deliberately does NOT
 // carry, injected per-turn instead when the backend's predicate fires - see coachPrompt.ts's
 // firstSessionContext(). Missing = the conditional path would silently no-op, so fail here too.
 if (!fs.existsSync(FIRST_SESSION_SRC)) {
-  console.error(`build-soul: platform/horcruxes/first-session.md not found - run compose-soul.mjs first.`);
+  console.error(
+    `build-soul: platform/horcruxes/first-session.md not found - run compose-soul.mjs first.`,
+  );
   process.exit(1);
 }
 

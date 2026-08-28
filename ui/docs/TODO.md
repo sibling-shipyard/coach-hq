@@ -16,10 +16,10 @@ generator still reads it):
   concise `short_name · current → target`.
 - **Progress lane** — optional `progress` block for milestones that reduce to a
   single scalar: `{ unit, baseline_value, current_value, target_value,
-  history[], projected_date? }`. When present the widget renders a progress bar
-  + `% THERE` in the hover badge. Bilateral (Front lever, tracked on the
-  limiting side) and set×rep (Bar dips, terse-only) goals opt out of the bar
-  cleanly — no fabricated single number.
+history[], projected_date? }`. When present the widget renders a progress bar
+  - `% THERE` in the hover badge. Bilateral (Front lever, tracked on the
+    limiting side) and set×rep (Bar dips, terse-only) goals opt out of the bar
+    cleanly — no fabricated single number.
 
 Types live in `ui/client/src/lib/challenge.ts` (`MilestoneProgress`); the widget
 is `buildPhaseSnapshot` in

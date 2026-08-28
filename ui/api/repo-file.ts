@@ -20,7 +20,10 @@ export default {
 
     if (!session.repo_full_name) {
       return withSessionCookie(
-        Response.json({ error: "No repo resolved yet - visit /api/auth/list-my-repos first" }, { status: 400 }),
+        Response.json(
+          { error: "No repo resolved yet - visit /api/auth/list-my-repos first" },
+          { status: 400 },
+        ),
         setCookie,
       );
     }
@@ -29,12 +32,15 @@ export default {
     try {
       contentsRes = await fetch(
         `https://api.github.com/repos/${session.repo_full_name}/contents/gen/dashboard_snapshot.json`,
-        { headers: GH_HEADERS(session.gh_token) }
+        { headers: GH_HEADERS(session.gh_token) },
       );
     } catch {
       // A thrown network error would otherwise propagate uncaught and drop setCookie,
       // stranding the next request with an already-rotated-away refresh_token (ADR 0009).
-      return withSessionCookie(Response.json({ error: "Failed to fetch your data" }, { status: 502 }), setCookie);
+      return withSessionCookie(
+        Response.json({ error: "Failed to fetch your data" }, { status: 502 }),
+        setCookie,
+      );
     }
 
     if (contentsRes.status === 401 || contentsRes.status === 403) {
@@ -44,7 +50,7 @@ export default {
       return withSessionCookie(
         Response.json(
           { error: "Your GitHub access was revoked or expired - sign in again to reconnect." },
-          { status: 401 }
+          { status: 401 },
         ),
         setCookie,
       );
@@ -53,13 +59,16 @@ export default {
       return withSessionCookie(
         Response.json(
           { error: "gen/dashboard_snapshot.json not found in your repo - has it synced yet?" },
-          { status: 404 }
+          { status: 404 },
         ),
         setCookie,
       );
     }
     if (!contentsRes.ok) {
-      return withSessionCookie(Response.json({ error: "Failed to fetch your data" }, { status: 502 }), setCookie);
+      return withSessionCookie(
+        Response.json({ error: "Failed to fetch your data" }, { status: 502 }),
+        setCookie,
+      );
     }
 
     let aggregate: unknown;

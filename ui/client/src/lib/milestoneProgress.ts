@@ -51,7 +51,9 @@ function extrapolateProjectedDate(progress: MilestoneProgress): string | null {
   const rate = (lastValue - firstValue) / elapsedDays;
   if (rate <= 0) return null;
 
-  const eta = new Date(parseLocalDate(last.date).getTime() + ((target - lastValue) / rate) * DAY_MS);
+  const eta = new Date(
+    parseLocalDate(last.date).getTime() + ((target - lastValue) / rate) * DAY_MS,
+  );
   return toDateStr(eta);
 }
 
@@ -81,7 +83,8 @@ export function estimateSessionsPerWeek(progress: MilestoneProgress): number | n
   if (history.length < 2) return null;
   const sorted = [...history].sort((left, right) => left.date.localeCompare(right.date));
   const elapsedDays =
-    (parseLocalDate(sorted.at(-1)!.date).getTime() - parseLocalDate(sorted[0].date).getTime()) / DAY_MS;
+    (parseLocalDate(sorted.at(-1)!.date).getTime() - parseLocalDate(sorted[0].date).getTime()) /
+    DAY_MS;
   if (elapsedDays <= 0) return null;
   const sessions = history.length - 1;
   const weeks = elapsedDays / 7;
@@ -121,7 +124,9 @@ export function projectStepTarget(
 
   const sessions = Math.ceil((targetValue - currentValue) / perSession);
   const weeks = sessions / sessionsPerWeek;
-  const lastDate = [...(progress.history ?? [])].sort((a, b) => a.date.localeCompare(b.date)).at(-1)?.date;
+  const lastDate = [...(progress.history ?? [])]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .at(-1)?.date;
   const date =
     lastDate === undefined
       ? null

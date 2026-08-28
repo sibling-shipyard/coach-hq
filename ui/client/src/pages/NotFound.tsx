@@ -22,7 +22,11 @@ export default function NotFound() {
             deleted.
           </p>
           <div className="auth-card__buttons">
-            <button type="button" className="auth-card__button auth-card__button--primary" onClick={handleGoHome}>
+            <button
+              type="button"
+              className="auth-card__button auth-card__button--primary"
+              onClick={handleGoHome}
+            >
               Go home
             </button>
           </div>

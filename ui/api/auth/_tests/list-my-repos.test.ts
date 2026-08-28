@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { encryptSession, buildCookie, SESSION_COOKIE, type SessionPayload } from "../_lib/session.js";
+import {
+  encryptSession,
+  buildCookie,
+  SESSION_COOKIE,
+  type SessionPayload,
+} from "../_lib/session.js";
 
 process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 
@@ -155,7 +160,9 @@ describe("list-my-repos", () => {
   it("reports no_marker_match when owned repos exist but none carry the marker file", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === ghUrl("/user/installations/42/repositories?per_page=100")) {
-        return Response.json(mockRepoList([{ full_name: "alice/some-other-repo", owner: "alice" }]));
+        return Response.json(
+          mockRepoList([{ full_name: "alice/some-other-repo", owner: "alice" }]),
+        );
       }
       if (url.includes(MARKER) || url.includes(LEGACY_MARKER)) {
         return new Response(null, { status: 404 });
@@ -226,7 +233,8 @@ describe("list-my-repos", () => {
 
   it("still re-resolves when the cached repo's marker is genuinely gone", async () => {
     fetchMock.mockImplementation(async (url: string) => {
-      if (url.includes("/repos/alice/coach-old/contents/")) return new Response(null, { status: 404 });
+      if (url.includes("/repos/alice/coach-old/contents/"))
+        return new Response(null, { status: 404 });
       if (url === ghUrl("/user/installations/42/repositories?per_page=100")) {
         return Response.json(mockRepoList([{ full_name: "alice/coach-alice", owner: "alice" }]));
       }

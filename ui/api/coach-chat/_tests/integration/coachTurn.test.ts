@@ -1,18 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { commitFilesAtomic } = vi.hoisted(() => ({
-  commitFilesAtomic: vi.fn(
-    async (writes: { resolve?: () => Promise<string> }[]) => {
-      for (const write of writes) await write.resolve?.();
-      return { commitSha: "commit-sha" };
-    },
-  ),
+  commitFilesAtomic: vi.fn(async (writes: { resolve?: () => Promise<string> }[]) => {
+    for (const write of writes) await write.resolve?.();
+    return { commitSha: "commit-sha" };
+  }),
 }));
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
 vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
+  const original = await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
   return {
     ...original,
     getFileRaw: vi.fn(async () => null),
@@ -20,8 +17,7 @@ vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
   };
 });
 vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("../../_lib/chatThreads.js")>();
+  const original = await importOriginal<typeof import("../../_lib/chatThreads.js")>();
   return {
     ...original,
     loadChatHistory: vi.fn(async () => ({ version: 1, threads: [] })),
@@ -150,9 +146,7 @@ describe("coach turn stages", () => {
       }),
       validUpdates: [{ path: "user_data/coach/profile.json", content: "{}" }],
       chatWrite: { path: "user_data/coach/chat_history.json", content: "{}" },
-      optionalWrites: [
-        { path: "user_data/coach/coach_log.json", content: "{}" },
-      ],
+      optionalWrites: [{ path: "user_data/coach/coach_log.json", content: "{}" }],
       latestThreads,
       finalThreadId: "thread-1",
       computedTitle: "Done",
@@ -160,9 +154,7 @@ describe("coach turn stages", () => {
       profileComplete: true,
     } as never);
     expect(
-      commitFilesAtomic.mock.calls[0]?.[0].map(
-        (write: { path: string }) => write.path,
-      ),
+      commitFilesAtomic.mock.calls[0]?.[0].map((write: { path: string }) => write.path),
     ).toEqual([
       "user_data/coach/profile.json",
       "user_data/coach/chat_history.json",

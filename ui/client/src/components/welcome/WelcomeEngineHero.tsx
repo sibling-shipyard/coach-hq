@@ -1,5 +1,8 @@
 import { useState } from "react";
-import type { EngineSnapshot, TrendPointSnapshot } from "@/components/home-warm/WarmInstrumentWidgets";
+import type {
+  EngineSnapshot,
+  TrendPointSnapshot,
+} from "@/components/home-warm/WarmInstrumentWidgets";
 
 const TREND_WIDTH = 420;
 const TREND_HEIGHT = 150;
@@ -42,8 +45,7 @@ export function WelcomeEngineHero({ engine }: { engine: EngineSnapshot }) {
   const activePoint = engine.trend[activeIndex] ?? engine.trend.at(-1);
   const displayValue = activePoint?.value ?? engine.load;
   const displayWeek = activePoint?.weekLabel ?? engine.weekLabel;
-  const displayVerdict =
-    scrubIndex === null ? engine.verdict : verdictForWeek(scrubIndex);
+  const displayVerdict = scrubIndex === null ? engine.verdict : verdictForWeek(scrubIndex);
 
   const { trend, coordinates } = buildTrendSeries(engine.trend);
   const polyline = coordinates.map((point) => `${point.x},${point.y}`).join(" ");
@@ -70,10 +72,7 @@ export function WelcomeEngineHero({ engine }: { engine: EngineSnapshot }) {
       </div>
       <div className="welcome-engine-hero__value">{displayValue}</div>
       <p className="welcome-engine-hero__verdict">{displayVerdict}</p>
-      <div
-        className="welcome-engine-hero__trend-wrap"
-        onMouseLeave={() => setScrubIndex(null)}
-      >
+      <div className="welcome-engine-hero__trend-wrap" onMouseLeave={() => setScrubIndex(null)}>
         <svg
           aria-label="Six-week load trend. Hover to inspect each week."
           className="welcome-engine-hero__trend"

@@ -1,9 +1,6 @@
 /** Hosted Coach Phelps HTTP route. Turn stages live in coach-chat/_lib/coachTurn.ts and activitySyncTurn.ts. */
 import { withSessionCookie } from "./auth/_lib/session.js";
-import {
-  resolveRepoAuth,
-  type RepoAuthContext,
-} from "./auth/_lib/resolve-auth.js";
+import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
 import {
   getFileRaw,
@@ -14,23 +11,11 @@ import {
   loadCoachContext,
   resolveCoachChatBranch,
 } from "./coach-chat/_lib/coachChatFiles.js";
-import {
-  withComputedDayOffsets,
-  todayDateString,
-} from "./coach-chat/_lib/coachDay.js";
+import { withComputedDayOffsets, todayDateString } from "./coach-chat/_lib/coachDay.js";
 import { loadChatHistory } from "./coach-chat/_lib/chatThreads.js";
-import {
-  applyProfileUpdate,
-  applySportsUpdate,
-} from "./coach-chat/_lib/coachIntents.js";
-import {
-  MEMORY_PATH,
-  PROFILE_PATH,
-} from "./coach-chat/_lib/coachMemoryFiles.js";
-import {
-  renderCoachContext,
-  renderQuestContext,
-} from "./coach-chat/_lib/coachContext.js";
+import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIntents.js";
+import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
+import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini } from "./coach-chat/_lib/geminiClient.js";
 import {
   combineExtraContext,
@@ -76,17 +61,14 @@ async function handleGreet(
     progressions,
     athleteInsights,
   } = context;
-  if (!soul)
-    return Response.json(
-      { error: "Coach SOUL bundle is unavailable" },
-      { status: 500 },
-    );
+  if (!soul) return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
   const timezone = profile?.timezone?.trim() || "UTC";
 
-  const {
-    name: hintedName,
-    sports: hintedSports,
-  } = onboardingChanges(onboardingHints, profile, memory);
+  const { name: hintedName, sports: hintedSports } = onboardingChanges(
+    onboardingHints,
+    profile,
+    memory,
+  );
   const traceId = `onboard-${Date.now().toString(36)}`;
   const onboardingWrites: FileEntry[] = [];
   if (hintedName) {
@@ -111,15 +93,11 @@ async function handleGreet(
     });
   }
   if (onboardingWrites.length > 0) {
-    await commitFilesAtomic(
-      onboardingWrites,
-      "coach: native onboarding details recorded",
-      {
-        repo,
-        branch: resolveCoachChatBranch(),
-        token,
-      },
-    );
+    await commitFilesAtomic(onboardingWrites, "coach: native onboarding details recorded", {
+      repo,
+      branch: resolveCoachChatBranch(),
+      token,
+    });
     invalidateCoachContext(repo);
   }
 
@@ -137,12 +115,7 @@ async function handleGreet(
     progressions,
     today: todayDateString(timezone, new Date()),
   });
-  const firstSession = !isFirstSessionRitualDone(
-    profile,
-    memory,
-    seasons,
-    quests,
-  );
+  const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
   let reply: GeminiReply;
   try {
     reply = await askGemini(
@@ -171,9 +144,7 @@ async function handleGreet(
   const now = Date.now();
   const repoSha = await getHeadSha(repo, token).catch(() => null);
   const freshContext =
-    onboardingWrites.length > 0
-      ? await loadCoachContext(repo, token, { fresh: true })
-      : context;
+    onboardingWrites.length > 0 ? await loadCoachContext(repo, token, { fresh: true }) : context;
   return Response.json({
     reply: reply.reply,
     threadId: `t-${now}`,
@@ -191,21 +162,14 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
   const repo = auth.repo_full_name;
   const token = auth.gh_token;
   if (req.method === "GET") return handleHistory(repo, token);
-  if (req.method !== "POST")
-    return Response.json({ error: "Method not allowed" }, { status: 405 });
+  if (req.method !== "POST") return Response.json({ error: "Method not allowed" }, { status: 405 });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey)
-    return Response.json(
-      { error: "Coach chat isn't configured yet" },
-      { status: 500 },
-    );
+  if (!apiKey) return Response.json({ error: "Coach chat isn't configured yet" }, { status: 500 });
   const parsed = await parseTurnRequest(req);
   if (parsed instanceof Response) return parsed;
-  if (isGreetRequest(parsed))
-    return handleGreet(repo, token, apiKey, parsed.onboardingHints);
-  if (isActivitySyncRequest(parsed))
-    return handleActivitySync(repo, token, apiKey, parsed);
+  if (isGreetRequest(parsed)) return handleGreet(repo, token, apiKey, parsed.onboardingHints);
+  if (isActivitySyncRequest(parsed)) return handleActivitySync(repo, token, apiKey, parsed);
 
   const state = await loadTurnState(parsed, repo, token, apiKey);
   if (state instanceof Response) return state;
@@ -225,10 +189,7 @@ export default {
       const message = err instanceof Error ? err.message : "Coach chat failed";
       const status = (err as { status?: number }).status === 401 ? 401 : 500;
       console.error("[coach-chat]", err);
-      return withSessionCookie(
-        Response.json({ error: message }, { status }),
-        resolved.setCookie,
-      );
+      return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
     }
   },
 };

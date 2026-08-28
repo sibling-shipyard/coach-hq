@@ -21,7 +21,9 @@ export async function fetchWithTimeout(
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw Object.assign(new Error(`Request to ${new URL(url).hostname} timed out`), { status: 504 });
+      throw Object.assign(new Error(`Request to ${new URL(url).hostname} timed out`), {
+        status: 504,
+      });
     }
     throw err;
   } finally {

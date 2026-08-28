@@ -5,7 +5,11 @@ import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import { getActivityZoneLoad, type SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import type { Activity } from "@/lib/activities";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
-import { ConversationPane, MobileThreadList, ThreadSidebar } from "@/components/coach-chat/CoachChatWidgets";
+import {
+  ConversationPane,
+  MobileThreadList,
+  ThreadSidebar,
+} from "@/components/coach-chat/CoachChatWidgets";
 import {
   clearThreadLocally,
   CoachChatAccessRevokedError,
@@ -83,10 +87,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
   const syncStatusData = data.sync_status as SyncStatusPayload;
 
   const dayNumber = useMemo(() => challengeDayNumber(profile, ledger), [profile, ledger]);
-  const requestedProactiveSeed = useMemo(
-    () => parseProactiveSeed(window.location.search),
-    [],
-  );
+  const requestedProactiveSeed = useMemo(() => parseProactiveSeed(window.location.search), []);
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
@@ -165,7 +166,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
       messages: pendingMessages,
     };
 
-    setThreads((prev) => [pendingThread, ...prev.filter((thread) => thread.id !== PENDING_SYNC_THREAD_ID)]);
+    setThreads((prev) => [
+      pendingThread,
+      ...prev.filter((thread) => thread.id !== PENDING_SYNC_THREAD_ID),
+    ]);
     setActiveId(PENDING_SYNC_THREAD_ID);
     setMobileView("thread");
     saveThreadLocally(PENDING_SYNC_THREAD_ID, pendingMessages);
@@ -176,7 +180,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
       applyResponseProfileComplete(result.profileComplete);
       clearThreadLocally(PENDING_SYNC_THREAD_ID);
       setThreads((prev) => {
-        const local = prev.filter((thread) => thread.id.startsWith("local-") && thread.id !== PENDING_SYNC_THREAD_ID);
+        const local = prev.filter(
+          (thread) => thread.id.startsWith("local-") && thread.id !== PENDING_SYNC_THREAD_ID,
+        );
         return [...local, ...result.threads];
       });
       setActiveId(result.threadId);
@@ -199,7 +205,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
   useEffect(() => {
     function onActivitySyncEvent(event: Event) {
       const ids = (event as CustomEvent<{ activityIds?: unknown }>).detail?.activityIds;
-      if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string") || ids.length === 0) return;
+      if (!Array.isArray(ids) || ids.some((id) => typeof id !== "string") || ids.length === 0)
+        return;
       void runActivitySyncRef.current(ids as string[]);
     }
     window.addEventListener("coach-chat:activity-sync", onActivitySyncEvent);
@@ -246,7 +253,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
   // doesn't already have one. list is whatever's already known client-side (avoids a stale
   // closure over `threads` from a prior render).
   async function ensureTodayThread(list: ChatThread[]) {
-    const today = list.find((thread) => thread.dayOffset === 0 && threadStatus(thread) === "active");
+    const today = list.find(
+      (thread) => thread.dayOffset === 0 && threadStatus(thread) === "active",
+    );
     if (today) {
       setActiveId(today.id);
       setMobileView((v) => (v === "new" ? "thread" : v));
@@ -268,7 +277,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
       // CoachChatRateLimitedError falls through here too - its own message ("Coach is getting a
       // lot of requests...") already explains what happened, same toast treatment as any other
       // error.
-      toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
+      toast.error(
+        err instanceof Error ? err.message : "Coach couldn't start a conversation — try again",
+      );
     } finally {
       setGreeting(false);
     }
@@ -296,8 +307,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
         const restored: ChatThread[] = orphanedIds.flatMap((id) => {
           const messages = restoreThreadMessagesLocally(id);
           if (!messages || messages.length === 0) return [];
-          const lastCoach = [...messages].reverse().find((m): m is Extract<ChatMessage, { role: "coach" }> => m.role === "coach");
-          const firstUser = messages.find((m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user");
+          const lastCoach = [...messages]
+            .reverse()
+            .find((m): m is Extract<ChatMessage, { role: "coach" }> => m.role === "coach");
+          const firstUser = messages.find(
+            (m): m is Extract<ChatMessage, { role: "user" }> => m.role === "user",
+          );
           const restoredList = lastCoach ? syncedActivityList(lastCoach.attachments) : null;
           const title = firstUser
             ? truncateTitle(firstUser.text, 28)
@@ -309,7 +324,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
           // found via code review: a stale unreplied greeting from days ago would get treated as
           // today's thread forever, permanently blocking the fresh greeting every open should get).
           const firstDivider = messages.find((m) => m.role === "divider");
-          const createdAt = firstDivider ? (epochMsFromMessageId(firstDivider.id) ?? undefined) : undefined;
+          const createdAt = firstDivider
+            ? (epochMsFromMessageId(firstDivider.id) ?? undefined)
+            : undefined;
           const dayOffset = createdAt !== undefined ? computeLocalDayOffset(createdAt) : 0;
           // An unreplied greeting from a past day has nothing worth keeping - Coach spoke, the
           // athlete never engaged, and a fresh greeting for today already supersedes it. Rather
@@ -346,14 +363,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
           requestedProactiveSeed,
           proactiveMessage,
           combined,
-          requestedProactiveSeed
-            ? restoreThreadMessagesLocally(requestedProactiveSeed)
-            : null,
+          requestedProactiveSeed ? restoreThreadMessagesLocally(requestedProactiveSeed) : null,
         );
         if (proactiveThread) {
-          const seededThreads = existingProactiveThread
-            ? combined
-            : [proactiveThread, ...combined];
+          const seededThreads = existingProactiveThread ? combined : [proactiveThread, ...combined];
           if (!existingProactiveThread) {
             saveThreadLocally(proactiveThread.id, proactiveThread.messages);
           }
@@ -432,7 +445,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
           setThreadsAccessRevoked(true);
           return;
         }
-        toast.error(err instanceof Error ? err.message : "Coach couldn't start a conversation — try again");
+        toast.error(
+          err instanceof Error ? err.message : "Coach couldn't start a conversation — try again",
+        );
       })
       .finally(() => setGreeting(false));
   }
@@ -443,7 +458,11 @@ function CoachChatContent({ data }: { data: RepoData }) {
     setMobileView("thread");
   }
 
-  async function appendUserMessage(text: string, targetId: string | null, endConversationRequested = false) {
+  async function appendUserMessage(
+    text: string,
+    targetId: string | null,
+    endConversationRequested = false,
+  ) {
     const trimmed = text.trim();
     const shouldEndConversation = shouldSendEndConversation(
       pendingEndThreadIds,
@@ -453,7 +472,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
     // Audit fix: `sending` used to be one global flag, so sending in thread A left every OTHER
     // thread's composer disabled with "Coach is replying…" too, until A's request settled -
     // scoped to the specific thread being sent to instead, via sendingThreadIds below.
-    if ((!trimmed && !shouldEndConversation) || (targetId && sendingThreadIds.has(targetId))) return;
+    if ((!trimmed && !shouldEndConversation) || (targetId && sendingThreadIds.has(targetId)))
+      return;
     if (shouldEndConversation && !targetId) return;
 
     // Nothing is persisted server-side until the athlete says wrap/close - the server is
@@ -540,7 +560,11 @@ function CoachChatContent({ data }: { data: RepoData }) {
       }
 
       const activeThreadId = targetId ?? newThreadId;
-      const coachMsg: ChatMessage = { id: `c-${Date.now()}`, role: "coach", paragraphs: [result.reply] };
+      const coachMsg: ChatMessage = {
+        id: `c-${Date.now()}`,
+        role: "coach",
+        paragraphs: [result.reply],
+      };
       const updatedMessages = [...messagesBeforeReply, coachMsg];
       setThreads((prev) =>
         prev.map((thread) =>
@@ -569,7 +593,12 @@ function CoachChatContent({ data }: { data: RepoData }) {
         setThreads((prev) =>
           prev.map((thread) =>
             thread.id === targetId
-              ? { ...thread, messages: userMsg ? thread.messages.filter((m) => m.id !== userMsg.id) : thread.messages }
+              ? {
+                  ...thread,
+                  messages: userMsg
+                    ? thread.messages.filter((m) => m.id !== userMsg.id)
+                    : thread.messages,
+                }
               : thread,
           ),
         );
@@ -625,117 +654,120 @@ function CoachChatContent({ data }: { data: RepoData }) {
             </div>
           </div>
         ) : (
-        <div className="cc-shell">
-          <div className="cc-frame">
-            <div className="cc-desktop-chat">
-              {threadsLoading ? (
-                <aside className="cc-sidebar cc-loading" aria-label="Conversations">
-                  <span className="cc-loading__spinner" aria-hidden="true" />
-                  Loading conversations…
-                </aside>
-              ) : (
-                <ThreadSidebar
-                  dayNumber={dayNumber}
-                  threads={threads}
-                  activeId={activeId}
-                  onSelect={selectThread}
-                  onNew={startNewConversation}
-                />
-              )}
-              {activeThread ? (
-                <ConversationPane
-                  dayNumber={dayNumber}
-                  thread={activeThread}
-                  draft={draft}
-                  onDraftChange={setDraft}
-                  onSend={() => void appendUserMessage(draft, activeId)}
-                  onEndConversation={() => void appendUserMessage("", activeId, true)}
-                  profileComplete={profileComplete}
-                  pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
-                  activities={data.activities}
-                  onRetrySync={
-                    activeThread && retryActivityIdsFromThread(activeThread)
-                      ? () => {
-                          const ids = retryActivityIdsFromThread(activeThread);
-                          if (ids) void runActivitySync(ids);
-                        }
-                      : undefined
-                  }
-                />
-              ) : (
-                <section className="cc-pane cc-pane--empty cc-loading" aria-label="Starting conversation">
-                  {greeting || threadsLoading ? (
-                    <>
-                      <span className="cc-loading__spinner" aria-hidden="true" />
-                      Coach is opening the conversation…
-                    </>
-                  ) : (
-                    // greeting failed (already toasted) and left no active thread - give the
-                    // athlete a way out instead of a permanent silent loading state.
-                    <button type="button" className="cc-new-btn" onClick={startNewConversation}>
-                      Try again
-                    </button>
-                  )}
-                </section>
-              )}
-            </div>
+          <div className="cc-shell">
+            <div className="cc-frame">
+              <div className="cc-desktop-chat">
+                {threadsLoading ? (
+                  <aside className="cc-sidebar cc-loading" aria-label="Conversations">
+                    <span className="cc-loading__spinner" aria-hidden="true" />
+                    Loading conversations…
+                  </aside>
+                ) : (
+                  <ThreadSidebar
+                    dayNumber={dayNumber}
+                    threads={threads}
+                    activeId={activeId}
+                    onSelect={selectThread}
+                    onNew={startNewConversation}
+                  />
+                )}
+                {activeThread ? (
+                  <ConversationPane
+                    dayNumber={dayNumber}
+                    thread={activeThread}
+                    draft={draft}
+                    onDraftChange={setDraft}
+                    onSend={() => void appendUserMessage(draft, activeId)}
+                    onEndConversation={() => void appendUserMessage("", activeId, true)}
+                    profileComplete={profileComplete}
+                    pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
+                    activities={data.activities}
+                    onRetrySync={
+                      activeThread && retryActivityIdsFromThread(activeThread)
+                        ? () => {
+                            const ids = retryActivityIdsFromThread(activeThread);
+                            if (ids) void runActivitySync(ids);
+                          }
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <section
+                    className="cc-pane cc-pane--empty cc-loading"
+                    aria-label="Starting conversation"
+                  >
+                    {greeting || threadsLoading ? (
+                      <>
+                        <span className="cc-loading__spinner" aria-hidden="true" />
+                        Coach is opening the conversation…
+                      </>
+                    ) : (
+                      // greeting failed (already toasted) and left no active thread - give the
+                      // athlete a way out instead of a permanent silent loading state.
+                      <button type="button" className="cc-new-btn" onClick={startNewConversation}>
+                        Try again
+                      </button>
+                    )}
+                  </section>
+                )}
+              </div>
 
-            <div className="cc-mobile-chat">
-              {mobileView === "list" && threadsLoading ? (
-                <section className="cc-mobile-list cc-loading" aria-label="Conversations">
-                  <span className="cc-loading__spinner" aria-hidden="true" />
-                  Loading conversations…
-                </section>
-              ) : null}
-              {mobileView === "list" && !threadsLoading ? (
-                <MobileThreadList
-                  dayNumber={dayNumber}
-                  threads={threads}
-                  activeId={activeId}
-                  onSelect={selectThread}
-                  onNew={startNewConversation}
-                />
-              ) : null}
-              {mobileView === "thread" && activeThread ? (
-                <ConversationPane
-                  dayNumber={dayNumber}
-                  thread={activeThread}
-                  draft={draft}
-                  onDraftChange={setDraft}
-                  onSend={() => void appendUserMessage(draft, activeId)}
-                  onEndConversation={() => void appendUserMessage("", activeId, true)}
-                  profileComplete={profileComplete}
-                  pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
-                  showBack
-                  onBack={() => setMobileView("list")}
-                  activities={data.activities}
-                  onRetrySync={
-                    activeThread && retryActivityIdsFromThread(activeThread)
-                      ? () => {
-                          const ids = retryActivityIdsFromThread(activeThread);
-                          if (ids) void runActivitySync(ids);
-                        }
-                      : undefined
-                  }
-                />
-              ) : null}
-              {mobileView === "new" || (mobileView === "thread" && !activeThread) ? (
-                <section className="cc-mobile-list cc-loading" aria-label="Starting conversation">
-                  {greeting || threadsLoading ? (
-                    <>
-                      <span className="cc-loading__spinner" aria-hidden="true" />
-                      Coach is opening the conversation…
-                    </>
-                  ) : (
-                    <button type="button" className="cc-new-btn" onClick={startNewConversation}>
-                      Try again
-                    </button>
-                  )}
-                </section>
-              ) : null}
+              <div className="cc-mobile-chat">
+                {mobileView === "list" && threadsLoading ? (
+                  <section className="cc-mobile-list cc-loading" aria-label="Conversations">
+                    <span className="cc-loading__spinner" aria-hidden="true" />
+                    Loading conversations…
+                  </section>
+                ) : null}
+                {mobileView === "list" && !threadsLoading ? (
+                  <MobileThreadList
+                    dayNumber={dayNumber}
+                    threads={threads}
+                    activeId={activeId}
+                    onSelect={selectThread}
+                    onNew={startNewConversation}
+                  />
+                ) : null}
+                {mobileView === "thread" && activeThread ? (
+                  <ConversationPane
+                    dayNumber={dayNumber}
+                    thread={activeThread}
+                    draft={draft}
+                    onDraftChange={setDraft}
+                    onSend={() => void appendUserMessage(draft, activeId)}
+                    onEndConversation={() => void appendUserMessage("", activeId, true)}
+                    profileComplete={profileComplete}
+                    pending={activeThread ? sendingThreadIds.has(activeThread.id) : false}
+                    showBack
+                    onBack={() => setMobileView("list")}
+                    activities={data.activities}
+                    onRetrySync={
+                      activeThread && retryActivityIdsFromThread(activeThread)
+                        ? () => {
+                            const ids = retryActivityIdsFromThread(activeThread);
+                            if (ids) void runActivitySync(ids);
+                          }
+                        : undefined
+                    }
+                  />
+                ) : null}
+                {mobileView === "new" || (mobileView === "thread" && !activeThread) ? (
+                  <section className="cc-mobile-list cc-loading" aria-label="Starting conversation">
+                    {greeting || threadsLoading ? (
+                      <>
+                        <span className="cc-loading__spinner" aria-hidden="true" />
+                        Coach is opening the conversation…
+                      </>
+                    ) : (
+                      <button type="button" className="cc-new-btn" onClick={startNewConversation}>
+                        Try again
+                      </button>
+                    )}
+                  </section>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
         )}
       </div>
     </div>

@@ -2,10 +2,7 @@
 import { commitFilesAtomic } from "./_lib/githubGitData.js";
 import { fetchWithTimeout } from "./_lib/httpTimeout.js";
 import { SOUL } from "./_generated/soul.js";
-import {
-  resolveRepoAuth,
-  type RepoAuthContext,
-} from "./auth/_lib/resolve-auth.js";
+import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
 import {
   getFileRaw,
@@ -23,34 +20,25 @@ import {
 
 const GITHUB_API = "https://api.github.com";
 
-async function listActivityFiles(
-  repo: string,
-  token: string,
-): Promise<ActivityFileEntry[]> {
+async function listActivityFiles(repo: string, token: string): Promise<ActivityFileEntry[]> {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   };
   const readGitJson = async (path: string): Promise<unknown> => {
-    const response = await fetchWithTimeout(
-      `${GITHUB_API}/repos/${repo}${path}`,
-      { headers },
-    );
+    const response = await fetchWithTimeout(`${GITHUB_API}/repos/${repo}${path}`, { headers });
     if (!response.ok) {
-      throw Object.assign(
-        new Error(`Failed to read GitHub tree (${response.status})`),
-        { status: response.status },
-      );
+      throw Object.assign(new Error(`Failed to read GitHub tree (${response.status})`), {
+        status: response.status,
+      });
     }
     return response.json() as Promise<unknown>;
   };
 
   const branch = resolveCoachChatBranch();
   const headSha = await getHeadSha(repo, token, branch);
-  const commit = await readGitJson(
-    `/git/commits/${encodeURIComponent(headSha)}`,
-  );
+  const commit = await readGitJson(`/git/commits/${encodeURIComponent(headSha)}`);
   if (
     !commit ||
     typeof commit !== "object" ||
@@ -62,9 +50,7 @@ async function listActivityFiles(
   ) {
     throw new CoachMessageError("GitHub commit tree is malformed", 502);
   }
-  const tree = await readGitJson(
-    `/git/trees/${encodeURIComponent(commit.tree.sha)}?recursive=1`,
-  );
+  const tree = await readGitJson(`/git/trees/${encodeURIComponent(commit.tree.sha)}?recursive=1`);
   return parseActivityHistoryTree(tree);
 }
 
@@ -81,10 +67,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     generateBody: (prompt) => {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        throw new CoachMessageError(
-          "Coach message generation is not configured",
-          500,
-        );
+        throw new CoachMessageError("Coach message generation is not configured", 500);
       }
       return generateProactiveBody(apiKey, prompt);
     },
@@ -112,20 +95,12 @@ export default {
     try {
       return withSessionCookie(await handle(req, resolved), resolved.setCookie);
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Coach message generation failed";
+      const message = error instanceof Error ? error.message : "Coach message generation failed";
       const rawStatus = (error as { status?: unknown }).status;
       const status =
-        typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599
-          ? rawStatus
-          : 500;
+        typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
       console.error("[coach-message]", error);
-      return withSessionCookie(
-        Response.json({ error: message }, { status }),
-        resolved.setCookie,
-      );
+      return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
     }
   },
 };

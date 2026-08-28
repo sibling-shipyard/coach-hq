@@ -33,17 +33,16 @@ export default {
 
       const [fetched, latestCoachMessage] = await Promise.all([
         fetchRepoDashboardSnapshot(auth.repo_full_name, auth.gh_token),
-        getFileRaw(
-          auth.repo_full_name,
-          LATEST_COACH_MESSAGE_PATH,
-          auth.gh_token,
-        ).catch((err) => {
+        getFileRaw(auth.repo_full_name, LATEST_COACH_MESSAGE_PATH, auth.gh_token).catch((err) => {
           console.warn("[widget-snapshots] proactive message unavailable", err);
           return null;
         }),
       ]);
       if ("error" in fetched) {
-        return withSessionCookie(Response.json({ error: fetched.error }, { status: fetched.status }), auth.setCookie);
+        return withSessionCookie(
+          Response.json({ error: fetched.error }, { status: fetched.status }),
+          auth.setCookie,
+        );
       }
 
       const snapshots = generateWidgetSnapshotsFromDashboardSnapshot(
@@ -53,7 +52,9 @@ export default {
       if (!snapshots) {
         return withSessionCookie(
           Response.json(
-            { error: "No complete quest ledger in dashboard snapshot — complete coach intake first" },
+            {
+              error: "No complete quest ledger in dashboard snapshot — complete coach intake first",
+            },
             { status: 404 },
           ),
           auth.setCookie,

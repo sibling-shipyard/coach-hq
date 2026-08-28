@@ -9,16 +9,8 @@ import {
   parseJsonOrNull,
   resolveCoachChatBranch,
 } from "./coachChatFiles.js";
-import {
-  withComputedDayOffsets,
-  todayDividerLabel,
-  todayDateString,
-} from "./coachDay.js";
-import {
-  acceptedMessage,
-  messageForGemini,
-  shouldRequestClose,
-} from "./closeSignal.js";
+import { withComputedDayOffsets, todayDividerLabel, todayDateString } from "./coachDay.js";
+import { acceptedMessage, messageForGemini, shouldRequestClose } from "./closeSignal.js";
 import {
   appendConversationTurn,
   loadChatHistory,
@@ -30,7 +22,11 @@ import {
   injectCoachSinceIfNeeded,
   type ClosingFileContext,
 } from "./coachSinceStamp.js";
-import { generateInitialTemplates, validTemplateIdsFromManifest, TEMPLATES_MANIFEST_PATH } from "./coachWorkoutFiles.js";
+import {
+  generateInitialTemplates,
+  validTemplateIdsFromManifest,
+  TEMPLATES_MANIFEST_PATH,
+} from "./coachWorkoutFiles.js";
 import { CURRENT_WEEK_PATH } from "./coachWeekFiles.js";
 import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coachContext.js";
@@ -60,10 +56,7 @@ import { buildProfileUpdateWrite, projectProfileCompletion } from "./turnWrites/
 import { buildTemplateEditWrite, buildSessionPlanWrite } from "./turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./turnWrites/weekWrite.js";
 
-import {
-  parseActivityIds,
-  type ActivitySyncRequest,
-} from "./activitySync.js";
+import { parseActivityIds, type ActivitySyncRequest } from "./activitySync.js";
 
 interface PostBody {
   threadId?: string;
@@ -135,10 +128,7 @@ export interface TurnWrites extends RepliedTurn {
   projectedMemory: MemoryJson;
 }
 
-export async function handleHistory(
-  repo: string,
-  token: string,
-): Promise<Response> {
+export async function handleHistory(repo: string, token: string): Promise<Response> {
   const [history, context] = await Promise.all([
     loadChatHistory(repo, token),
     loadCoachContext(repo, token),
@@ -153,12 +143,10 @@ export async function parseTurnRequest(
   req: Request,
 ): Promise<Response | GreetRequest | TurnRequest | ActivitySyncRequest> {
   const body = (await req.json()) as PostBody;
-  if (body.action === "greet")
-    return { action: "greet", onboardingHints: body.onboardingHints };
+  if (body.action === "greet") return { action: "greet", onboardingHints: body.onboardingHints };
   if (body.action === "activity_sync") {
     const parsedIds = parseActivityIds(body.activity_ids);
-    if (!parsedIds.ok)
-      return Response.json({ error: parsedIds.error }, { status: 400 });
+    if (!parsedIds.ok) return Response.json({ error: parsedIds.error }, { status: 400 });
     return {
       action: "activity_sync",
       activity_ids: parsedIds.activityIds,
@@ -168,8 +156,7 @@ export async function parseTurnRequest(
 
   const endConversationRequested = body.endConversationRequested === true;
   const trimmed = acceptedMessage(body.message, endConversationRequested);
-  if (trimmed == null)
-    return Response.json({ error: "Message required" }, { status: 400 });
+  if (trimmed == null) return Response.json({ error: "Message required" }, { status: 400 });
   return {
     threadId: body.threadId,
     priorMessages: body.messages ?? [],
@@ -199,10 +186,7 @@ export async function loadTurnState(
   apiKey: string,
 ): Promise<Response | TurnState> {
   const currentSha = await getHeadSha(repo, token).catch(() => null);
-  const stale =
-    request.knownSha != null &&
-    currentSha != null &&
-    request.knownSha !== currentSha;
+  const stale = request.knownSha != null && currentSha != null && request.knownSha !== currentSha;
   const context = await loadCoachContext(repo, token, { fresh: stale });
   const {
     soul,
@@ -216,19 +200,10 @@ export async function loadTurnState(
     progressions,
     athleteInsights,
   } = context;
-  if (!soul)
-    return Response.json(
-      { error: "Coach SOUL bundle is unavailable" },
-      { status: 500 },
-    );
+  if (!soul) return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
 
   const timezone = profile?.timezone?.trim() || "UTC";
-  const firstSession = !isFirstSessionRitualDone(
-    profile,
-    memory,
-    seasons,
-    quests,
-  );
+  const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
   const closeIntent = shouldRequestClose(
     request.trimmed,
     request.priorMessages,
@@ -242,17 +217,9 @@ export async function loadTurnState(
 
   if (closeIntent) {
     closingFiles = await loadClosingFileContext(repo, token);
-    const manifestRaw = await getFileRaw(
-      repo,
-      TEMPLATES_MANIFEST_PATH,
-      token,
-    ).catch(() => null);
+    const manifestRaw = await getFileRaw(repo, TEMPLATES_MANIFEST_PATH, token).catch(() => null);
     validTemplateIds = validTemplateIdsFromManifest(manifestRaw);
-    const currentWeekRaw = await getFileRaw(
-      repo,
-      CURRENT_WEEK_PATH,
-      token,
-    ).catch(() => null);
+    const currentWeekRaw = await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null);
     const parsedWeek = parseJsonOrNull<{
       days?: {
         date: string;
@@ -291,9 +258,7 @@ export async function loadTurnState(
     closeIntent,
     now,
     traceId,
-    userMsg: request.trimmed
-      ? { id: `u-${now}`, role: "user", text: request.trimmed }
-      : undefined,
+    userMsg: request.trimmed ? { id: `u-${now}`, role: "user", text: request.trimmed } : undefined,
     closingFiles,
     validTemplateIds,
     weekSessionsForContext,
@@ -331,9 +296,7 @@ function findOversizedTextField(
   return null;
 }
 
-export async function requestCoachReply(
-  turn: TurnState,
-): Promise<Response | RepliedTurn> {
+export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
   const mode = turn.closeIntent ? "closing" : "ordinary";
   const extraContext = combineExtraContext(
     firstSessionContext(turn.firstSession, FIRST_SESSION_PROTOCOL),
@@ -414,16 +377,11 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     role: "coach",
     paragraphs: [reply.reply],
   };
-  const allMessages = appendConversationTurn(
-    turn.priorMessages,
-    turn.userMsg,
-    coachMsg,
-    {
-      id: `d-${turn.now}`,
-      role: "divider",
-      label: todayDividerLabel(timezone),
-    },
-  );
+  const allMessages = appendConversationTurn(turn.priorMessages, turn.userMsg, coachMsg, {
+    id: `d-${turn.now}`,
+    role: "divider",
+    label: todayDividerLabel(timezone),
+  });
 
   const { chatWrite, latestThreads, finalThreadId, computedTitle } = buildChatWrite({
     repo,
@@ -439,9 +397,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const trimmedCoachNote = reply.coach_note?.trim();
   const coachNoteWrite = buildCoachNoteWrite(repo, token, timezone, traceId, reply.coach_note);
 
-  const sportsUpdate = (reply.sports_update ?? []).filter(
-    (sport) => sport.trim().length > 0,
-  );
+  const sportsUpdate = (reply.sports_update ?? []).filter((sport) => sport.trim().length > 0);
   const hasSportsUpdate = sportsUpdate.length > 0;
   const memoryFileWrite = buildMemoryFileWrite(repo, token, timezone, traceId, {
     memoryUpdate: reply.memory_update,
@@ -450,8 +406,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 
   const injuryEvents = (reply.injury_event ?? []).filter(
     (event) =>
-      event.status != null &&
-      (event.flag_id != null || (event.text?.trim().length ?? 0) > 0),
+      event.status != null && (event.flag_id != null || (event.text?.trim().length ?? 0) > 0),
   );
   const injuryEventWrite = buildInjuryEventWrite(repo, token, timezone, injuryEvents);
 
@@ -539,10 +494,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
 
   // profile_update and coach_since can target profile.json together. Merge them into one resolver
   // because commitFilesAtomic does not merge duplicate paths.
-  if (
-    validUpdates.some((update) => update.path === PROFILE_PATH) &&
-    profileUpdateWrite
-  ) {
+  if (validUpdates.some((update) => update.path === PROFILE_PATH) && profileUpdateWrite) {
     const resolveProfileUpdate = profileUpdateWrite.resolve;
     profileUpdateWrite.resolve = async () => {
       const updated = await resolveProfileUpdate();
@@ -552,9 +504,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       );
       return merged.ok ? merged.content : updated;
     };
-    validUpdates = validUpdates.filter(
-      (update) => update.path !== PROFILE_PATH,
-    );
+    validUpdates = validUpdates.filter((update) => update.path !== PROFILE_PATH);
   }
 
   const fspCandidates = [
@@ -596,15 +546,10 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   };
 }
 
-export async function generateTemplatesAfterCompletion(
-  turn: TurnWrites,
-): Promise<void> {
+export async function generateTemplatesAfterCompletion(turn: TurnWrites): Promise<void> {
   if (turn.wasProfileComplete || !turn.profileComplete) return;
   try {
-    if (
-      (await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token)) != null
-    )
-      return;
+    if ((await getFileRaw(turn.repo, TEMPLATES_MANIFEST_PATH, turn.token)) != null) return;
     const { templates } = await generateInitialTemplates(
       turn.projectedProfile,
       turn.projectedMemory,
@@ -613,15 +558,11 @@ export async function generateTemplatesAfterCompletion(
       turn.traceId,
       turn.apiKey,
     );
-    await commitFilesAtomic(
-      templates,
-      "coach: initial workout templates generated",
-      {
-        repo: turn.repo,
-        branch: resolveCoachChatBranch(),
-        token: turn.token,
-      },
-    );
+    await commitFilesAtomic(templates, "coach: initial workout templates generated", {
+      repo: turn.repo,
+      branch: resolveCoachChatBranch(),
+      token: turn.token,
+    });
     console.log("[coach-chat] initial workout templates committed", {
       traceId: turn.traceId,
       count: templates.length,
@@ -638,22 +579,15 @@ export async function generateTemplatesAfterCompletion(
 }
 
 export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
-  const writes = fspIncrementalWrites(
-    turn.wasProfileComplete,
-    turn.fspCandidates,
-  );
+  const writes = fspIncrementalWrites(turn.wasProfileComplete, turn.fspCandidates);
   let repoSha = turn.currentSha;
   if (writes.length > 0) {
     try {
-      const result = await commitFilesAtomic(
-        writes,
-        "coach: first session details recorded",
-        {
-          repo: turn.repo,
-          branch: resolveCoachChatBranch(),
-          token: turn.token,
-        },
-      );
+      const result = await commitFilesAtomic(writes, "coach: first session details recorded", {
+        repo: turn.repo,
+        branch: resolveCoachChatBranch(),
+        token: turn.token,
+      });
       repoSha = result.commitSha;
       invalidateCoachContext(turn.repo);
     } catch (err: unknown) {
@@ -669,12 +603,7 @@ export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
   }
   await generateTemplatesAfterCompletion(turn);
   return Response.json(
-    ordinaryTurnResponse(
-      turn.reply.reply,
-      repoSha,
-      turn.stale,
-      turn.profileComplete,
-    ),
+    ordinaryTurnResponse(turn.reply.reply, repoSha, turn.stale, turn.profileComplete),
   );
 }
 

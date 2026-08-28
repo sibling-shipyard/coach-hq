@@ -34,8 +34,8 @@ export function WelcomeAdaptDemo() {
         <h3>Sore? It bends the plan, not your body.</h3>
         <p>
           Tired, sore, life got in the way? Tell coach and the week reshapes in seconds — intensity
-          drops, mobility slots in, the projection recomputes. Big goals get broken into sub-goals you
-          can actually keep.
+          drops, mobility slots in, the projection recomputes. Big goals get broken into sub-goals
+          you can actually keep.
         </p>
         <div className="welcome-adapt__scenarios">
           {SCENARIOS.map((scenario, index) => (

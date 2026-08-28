@@ -31,7 +31,7 @@ export function useAuth(): AuthState {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(
-    isLocalDevBypass ? { status: "local" } : { status: "loading" }
+    isLocalDevBypass ? { status: "local" } : { status: "loading" },
   );
 
   useEffect(() => {
@@ -50,7 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const data = await res.json();
         if (data.repo_full_name) {
-          setState({ status: "authenticated", login: data.login, repoFullName: data.repo_full_name });
+          setState({
+            status: "authenticated",
+            login: data.login,
+            repoFullName: data.repo_full_name,
+          });
           return;
         }
 
@@ -71,7 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
           if (reposData.repo_full_name) {
-            setState({ status: "authenticated", login: data.login, repoFullName: reposData.repo_full_name });
+            setState({
+              status: "authenticated",
+              login: data.login,
+              repoFullName: reposData.repo_full_name,
+            });
           } else {
             // No repo at all - setup happens in the iOS app only, so route to the
             // matching dead-end message instead of silently bouncing to login.

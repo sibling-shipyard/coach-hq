@@ -55,7 +55,10 @@ function section(md, heading) {
 
 function subsection(md, heading, subheading) {
   const sec = section(md, heading);
-  const re = new RegExp(`\\*\\*${subheading}:\\*\\*\\s*\\n([\\s\\S]*?)(?=\\n\\*\\*[A-Za-z /]+:\\*\\*|(?![\\s\\S]))`, "m");
+  const re = new RegExp(
+    `\\*\\*${subheading}:\\*\\*\\s*\\n([\\s\\S]*?)(?=\\n\\*\\*[A-Za-z /]+:\\*\\*|(?![\\s\\S]))`,
+    "m",
+  );
   const m = sec.match(re);
   return m ? m[1].trim() : "";
 }
@@ -179,7 +182,10 @@ const rows = [];
 // Heading text after "Recent Session Notes" varies (an italic annotation) so match on the fixed
 // prefix only, same way the real isAthleteProfileComplete matches "## Athlete Profile" alone.
 const recentSection = section(stateMd, "Recent Session Notes[^\\n]*");
-const recentLines = recentSection.split(/\n(?=- \*\*)/).map((l) => l.trim()).filter(Boolean);
+const recentLines = recentSection
+  .split(/\n(?=- \*\*)/)
+  .map((l) => l.trim())
+  .filter(Boolean);
 for (const line of recentLines) {
   const m = line.match(/^-\s+\*\*(\d{4}-\d{2}-\d{2})[^:]*:\*\*\s*(.+)$/s);
   if (!m) continue;
@@ -195,7 +201,10 @@ for (const line of recentLines) {
 }
 
 // coach_notes.md's "## YYYY-MM-DD — title" sections, one row per section
-const noteSections = coachNotesMd.split(/\n(?=## \d{4}-\d{2}-\d{2})/).map((s) => s.trim()).filter(Boolean);
+const noteSections = coachNotesMd
+  .split(/\n(?=## \d{4}-\d{2}-\d{2})/)
+  .map((s) => s.trim())
+  .filter(Boolean);
 for (const sec of noteSections) {
   const headerMatch = sec.match(/^##\s+(\d{4}-\d{2}-\d{2})[^\n]*\n([\s\S]*)$/);
   if (!headerMatch) continue;
@@ -251,8 +260,14 @@ const coachLogJson = { version: 1, rows: dedupedRows };
 
 fs.writeFileSync(path.join(coachDir, "profile.json"), JSON.stringify(profileJson, null, 2) + "\n");
 fs.writeFileSync(path.join(coachDir, "memory.json"), JSON.stringify(memoryJson, null, 2) + "\n");
-fs.writeFileSync(path.join(coachDir, "injuries.json"), JSON.stringify(injuriesJson, null, 2) + "\n");
-fs.writeFileSync(path.join(coachDir, "coach_log.json"), JSON.stringify(coachLogJson, null, 2) + "\n");
+fs.writeFileSync(
+  path.join(coachDir, "injuries.json"),
+  JSON.stringify(injuriesJson, null, 2) + "\n",
+);
+fs.writeFileSync(
+  path.join(coachDir, "coach_log.json"),
+  JSON.stringify(coachLogJson, null, 2) + "\n",
+);
 
 // Full replace, not a parallel-file era: once the four new files are written, the old ones this
 // migration read from go away entirely (Skanda's direction - no permanent parallel-file period).
@@ -269,4 +284,6 @@ console.log(
   `Wrote profile.json, memory.json, injuries.json (${flags.length} flags), coach_log.json (${dedupedRows.length} rows) to ${coachDir}`,
 );
 console.log(`Removed: ${removed.length > 0 ? removed.join(", ") : "(none found)"}`);
-console.log("Review the diffs, then commit on your scratch branch yourself - this script does not touch git.");
+console.log(
+  "Review the diffs, then commit on your scratch branch yourself - this script does not touch git.",
+);

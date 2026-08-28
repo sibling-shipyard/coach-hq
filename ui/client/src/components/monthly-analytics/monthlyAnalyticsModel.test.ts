@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildSideQuests, type QuestHistory, type QuestHistoryQuest } from "./monthlyAnalyticsModel";
+import {
+  buildSideQuests,
+  type QuestHistory,
+  type QuestHistoryQuest,
+} from "./monthlyAnalyticsModel";
 
 // Regression coverage for issue #93 (future days counted as done/miss) and the missing
 // archived-season data: buildSideQuests now reads pre-computed gen/quest_history.json entries
@@ -10,7 +14,13 @@ import { buildSideQuests, type QuestHistory, type QuestHistoryQuest } from "./mo
 // from the legacy pre-Warm-Instrument dashboard's QuestSummaryCard.tsx (monthRate).
 describe("buildSideQuests", () => {
   function quest(overrides: Partial<QuestHistoryQuest> = {}): QuestHistoryQuest {
-    return { name: "Cold Shower", start_date: "2026-01-01", end_date: null, entries: [], ...overrides };
+    return {
+      name: "Cold Shower",
+      start_date: "2026-01-01",
+      end_date: null,
+      entries: [],
+      ...overrides,
+    };
   }
 
   function history(quests: QuestHistory["quests"]): QuestHistory {

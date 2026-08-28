@@ -50,8 +50,7 @@ function MonthlyEngineGauge({ engine }: { engine: MonthlyEngineModel }) {
   const width = 500;
   const load = engine.avgWeeklyLoad ?? 0;
   const range = Math.max(1, engine.scaleHigh - engine.scaleLow);
-  const x = (value: number) =>
-    clamp(((value - engine.scaleLow) / range) * width, 0, width);
+  const x = (value: number) => clamp(((value - engine.scaleLow) / range) * width, 0, width);
   const fallbackLow = load * 0.8;
   const fallbackHigh = load * 1.2;
   const bandLow = engine.bandLow ?? fallbackLow;
@@ -76,24 +75,32 @@ function MonthlyEngineGauge({ engine }: { engine: MonthlyEngineModel }) {
       {engine.avgWeeklyLoad !== null ? (
         <>
           <path d={`M${markerX} 32l6-11h-12z`} />
-          <line className="ma-engine-hero__gauge-marker" x1={markerX} x2={markerX} y1="32" y2="64" />
+          <line
+            className="ma-engine-hero__gauge-marker"
+            x1={markerX}
+            x2={markerX}
+            y1="32"
+            y2="64"
+          />
         </>
       ) : null}
-      <text x={bandX} y="28">{Math.round(bandLow)}</text>
+      <text x={bandX} y="28">
+        {Math.round(bandLow)}
+      </text>
       <text textAnchor="end" x={bandX + bandWidth} y="28">
         {Math.round(bandHigh)}
       </text>
-      <text className="is-muted" x="0" y="84">{engine.scaleLow}</text>
-      <text className="is-muted" textAnchor="end" x="500" y="84">{engine.scaleHigh}</text>
+      <text className="is-muted" x="0" y="84">
+        {engine.scaleLow}
+      </text>
+      <text className="is-muted" textAnchor="end" x="500" y="84">
+        {engine.scaleHigh}
+      </text>
     </svg>
   );
 }
 
-function MonthlyVo2Trend({
-  points,
-}: {
-  points: Array<{ label: string; value: number }>;
-}) {
+function MonthlyVo2Trend({ points }: { points: Array<{ label: string; value: number }> }) {
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const width = 316;
   const values = points.map((point) => point.value);
@@ -119,7 +126,11 @@ function MonthlyVo2Trend({
 
   return (
     <svg
-      aria-label={points.length > 0 ? "VO₂ Max trend. Hover to inspect observations." : "VO₂ Max trend unavailable."}
+      aria-label={
+        points.length > 0
+          ? "VO₂ Max trend. Hover to inspect observations."
+          : "VO₂ Max trend unavailable."
+      }
       className="ma-vo2-card__trend wi-trend-scrub"
       data-wi-scrub={points.length > 0 ? "vo2-monthly" : undefined}
       onMouseLeave={points.length > 0 ? () => setScrubIndex(null) : undefined}
@@ -209,10 +220,7 @@ export function MonthOverviewGrid({
   }, [selectedMonth]);
 
   return (
-    <div
-      className="ma-month-grid"
-      style={{ "--ma-month-count": months.length } as CSSProperties}
-    >
+    <div className="ma-month-grid" style={{ "--ma-month-count": months.length } as CSSProperties}>
       {months.map((cell) => {
         const active = cell.month === selectedMonth;
         return (
@@ -262,11 +270,23 @@ export function MonthStepper({
         disabled={!canGoPrev}
         onClick={onPrev}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M15 18 L9 12 L15 6" />
         </svg>
       </button>
-      <span className="ma-stepper__label">{monthLabel} {year}</span>
+      <span className="ma-stepper__label">
+        {monthLabel} {year}
+      </span>
       <button
         type="button"
         className="ma-stepper__arrow"
@@ -274,7 +294,17 @@ export function MonthStepper({
         disabled={!canGoNext}
         onClick={onNext}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M9 18 L15 12 L9 6" />
         </svg>
       </button>
@@ -347,7 +377,12 @@ export function MonthlyVo2Card({ vo2 }: { vo2: MonthlyVo2Model }) {
             <strong>{vo2.value?.toFixed(1)}</strong>
             <span>
               ml/kg/min
-              {vo2.delta !== null ? <> · <b>▲ {vo2.delta.toFixed(1)} this month</b></> : null}
+              {vo2.delta !== null ? (
+                <>
+                  {" "}
+                  · <b>▲ {vo2.delta.toFixed(1)} this month</b>
+                </>
+              ) : null}
             </span>
           </div>
           <MonthlyVo2Trend points={vo2.trend} />
@@ -369,10 +404,13 @@ export function MonthlySleepCard({ monthLabel }: { monthLabel: string }) {
       <span className="sa-card-label">SLEEP · {monthLabel}</span>
       <div className="ma-sleep-card__body">
         <p>
-          No sleep logged this month. When you&apos;re ready to watch recovery, connect a source — no rush.
+          No sleep logged this month. When you&apos;re ready to watch recovery, connect a source —
+          no rush.
         </p>
       </div>
-      <button type="button" className="ma-sleep-card__connect">CONNECT A SOURCE</button>
+      <button type="button" className="ma-sleep-card__connect">
+        CONNECT A SOURCE
+      </button>
     </section>
   );
 }
@@ -463,7 +501,8 @@ export function SideQuestsCard({
 }: {
   sideQuests: MonthlyAnalyticsModel["sideQuests"];
 }) {
-  const featured = sideQuests.quests.find((quest) => quest.done + quest.miss > 0) ?? sideQuests.quests[0];
+  const featured =
+    sideQuests.quests.find((quest) => quest.done + quest.miss > 0) ?? sideQuests.quests[0];
   const barWidth = featured?.rate ?? 0;
 
   return (

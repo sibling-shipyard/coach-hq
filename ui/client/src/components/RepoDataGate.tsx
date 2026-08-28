@@ -34,9 +34,9 @@ export function AccessRevokedCard() {
         <div className="auth-card">
           <h2 className="auth-card__heading">Your GitHub access expired</h2>
           <p className="auth-card__body">
-            Your session is still active, but GitHub access was revoked or expired - this
-            happens if you uninstalled the App or removed its access on GitHub's side. Sign in
-            again to reconnect.
+            Your session is still active, but GitHub access was revoked or expired - this happens if
+            you uninstalled the App or removed its access on GitHub's side. Sign in again to
+            reconnect.
           </p>
           <div className="auth-card__buttons">
             <GitHubAuthButton className="auth-card__button auth-card__button--primary">
@@ -50,7 +50,14 @@ export function AccessRevokedCard() {
 }
 
 /** Loading/error/schema-mismatch/not-onboarded states shared by every page reading useRepoData(). */
-export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, accessRevoked, children }: Props) {
+export function RepoDataGate({
+  loading,
+  error,
+  schemaUnsupported,
+  notOnboarded,
+  accessRevoked,
+  children,
+}: Props) {
   if (loading) {
     return (
       <div className="wi-shell">
@@ -72,9 +79,9 @@ export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, 
           <div className="auth-card">
             <h2 className="auth-card__heading">Your coach hasn't started yet</h2>
             <p className="auth-card__body">
-              Your repo is set up, but Coach Phelps hasn't run a first session with you. Open
-              this repo with Claude Code and start a session to get going - the dashboard fills
-              in once that's happened.
+              Your repo is set up, but Coach Phelps hasn't run a first session with you. Open this
+              repo with Claude Code and start a session to get going - the dashboard fills in once
+              that's happened.
             </p>
             {RECOVERY_ACTIONS}
           </div>
@@ -91,8 +98,8 @@ export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, 
           <div className="auth-card">
             <h2 className="auth-card__heading">Repo needs updating</h2>
             <p className="auth-card__body">
-              Your repo's data format is newer than what this dashboard supports. Pull the
-              latest template changes and sync again.
+              Your repo's data format is newer than what this dashboard supports. Pull the latest
+              template changes and sync again.
             </p>
             {RECOVERY_ACTIONS}
           </div>
@@ -114,8 +121,7 @@ export function RepoDataGate({ loading, error, schemaUnsupported, notOnboarded, 
             <h2 className="auth-card__heading">Couldn't load your data</h2>
             <p className="auth-card__body auth-card__body--error">{error}</p>
             <p className="auth-card__body">
-              This can happen if your repo was renamed, deleted, or hasn't finished setting up
-              yet.
+              This can happen if your repo was renamed, deleted, or hasn't finished setting up yet.
             </p>
             {RECOVERY_ACTIONS}
           </div>

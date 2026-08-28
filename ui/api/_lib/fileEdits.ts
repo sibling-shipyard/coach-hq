@@ -43,7 +43,10 @@ export function applyStringEdits(content: string, edits: StringEdit[]): ApplyEdi
       failed.push(edit);
       continue;
     }
-    current = current.slice(0, firstIndex) + edit.new_string + current.slice(firstIndex + edit.old_string.length);
+    current =
+      current.slice(0, firstIndex) +
+      edit.new_string +
+      current.slice(firstIndex + edit.old_string.length);
   }
   return { content: current, failed };
 }
@@ -56,7 +59,9 @@ function mergePatch(target: unknown, patch: unknown): unknown {
     return patch;
   }
   const result: Record<string, unknown> =
-    target !== null && typeof target === "object" && !Array.isArray(target) ? { ...(target as Record<string, unknown>) } : {};
+    target !== null && typeof target === "object" && !Array.isArray(target)
+      ? { ...(target as Record<string, unknown>) }
+      : {};
   for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
     if (value === null) {
       delete result[key];
@@ -74,19 +79,28 @@ export type ApplyMergePatchResult = { ok: true; content: string } | { ok: false;
 // patch as a JSON-encoded STRING (not a raw object) - Gemini's structured-output schema uses a
 // string field here rather than a freeform nested object, since Google's schema format doesn't
 // reliably support open-ended objects the same way a JSON string field does.
-export function applyJsonMergePatch(currentContent: string | null, patchJson: string): ApplyMergePatchResult {
+export function applyJsonMergePatch(
+  currentContent: string | null,
+  patchJson: string,
+): ApplyMergePatchResult {
   let patch: unknown;
   try {
     patch = JSON.parse(patchJson);
   } catch (err) {
-    return { ok: false, error: `merge_patch is not valid JSON: ${err instanceof Error ? err.message : String(err)}` };
+    return {
+      ok: false,
+      error: `merge_patch is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
   let current: unknown = {};
   if (currentContent) {
     try {
       current = JSON.parse(currentContent);
     } catch (err) {
-      return { ok: false, error: `current file content is not valid JSON: ${err instanceof Error ? err.message : String(err)}` };
+      return {
+        ok: false,
+        error: `current file content is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
   }
   const merged = mergePatch(current, patch);

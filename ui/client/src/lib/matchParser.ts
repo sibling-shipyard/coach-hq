@@ -11,7 +11,8 @@
 import type { Activity } from "./activities";
 
 /** Unicode prefixes/suffixes to strip (e.g., eBadders crowns) */
-const UNICODE_DECORATIONS = /[\u2654-\u265F\u2660-\u2667\u2668-\u2671\u2672-\u267F\u2680-\u269F\u26A0-\u26FF\u2700-\u27BF\u{1F300}-\u{1F9FF}]/gu;
+const UNICODE_DECORATIONS =
+  /[\u2654-\u265F\u2660-\u2667\u2668-\u2671\u2672-\u267F\u2680-\u269F\u26A0-\u26FF\u2700-\u27BF\u{1F300}-\u{1F9FF}]/gu;
 
 function normalizeName(name: string): string {
   return name.replace(UNICODE_DECORATIONS, "").trim();
@@ -56,7 +57,10 @@ function parseGameLine(line: string, gameNumber: number, isFriendly: boolean): P
   const partnerRaw = m[4]?.trim();
   const partner = partnerRaw ? normalizeName(partnerRaw) : null;
   const format = partner ? "doubles" : "singles";
-  const opponents = m[5].split(/\s*\+\s*/).map((s) => normalizeName(s.trim())).filter(Boolean);
+  const opponents = m[5]
+    .split(/\s*\+\s*/)
+    .map((s) => normalizeName(s.trim()))
+    .filter(Boolean);
 
   const myScore = result === "W" ? Math.max(s1, s2) : Math.min(s1, s2);
   const oppScore = result === "W" ? Math.min(s1, s2) : Math.max(s1, s2);

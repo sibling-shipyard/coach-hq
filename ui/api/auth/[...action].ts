@@ -51,7 +51,9 @@ const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
 // tampering in transit, not provide session confidentiality.
 const OAUTH_HMAC_SECRET = process.env.SESSION_SECRET || CLIENT_SECRET;
 if (!process.env.SESSION_SECRET) {
-  console.warn("[auth] SESSION_SECRET is unset — falling back to CLIENT_SECRET for OAuth state HMAC");
+  console.warn(
+    "[auth] SESSION_SECRET is unset — falling back to CLIENT_SECRET for OAuth state HMAC",
+  );
 }
 
 // ============================================================================
@@ -74,7 +76,9 @@ export async function handleStart(req: Request): Promise<Response> {
     const headers = new Headers();
     headers.set(
       "Location",
-      platform === "ios" ? "coachhq://callback?error=config_error" : `${url.origin}/?auth_error=config_error`,
+      platform === "ios"
+        ? "coachhq://callback?error=config_error"
+        : `${url.origin}/?auth_error=config_error`,
     );
     return new Response(null, { status: 302, headers });
   }
@@ -118,7 +122,9 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
     const headers = new Headers();
     headers.set(
       "Location",
-      platform === "ios" ? "coachhq://callback?error=config_error" : `${url.origin}/?auth_error=config_error`,
+      platform === "ios"
+        ? "coachhq://callback?error=config_error"
+        : `${url.origin}/?auth_error=config_error`,
     );
     return new Response(null, { status: 302, headers });
   }
@@ -223,7 +229,11 @@ export async function handleCallback(req: Request): Promise<Response> {
   try {
     return await callbackImpl(url);
   } catch {
-    return callbackErrorRedirect(url.origin, "network_error", extractPlatformFromState(url.searchParams.get("state")));
+    return callbackErrorRedirect(
+      url.origin,
+      "network_error",
+      extractPlatformFromState(url.searchParams.get("state")),
+    );
   }
 }
 
@@ -432,7 +442,12 @@ export async function handleRefresh(req: Request): Promise<Response> {
   }
 
   const tokenBody = await tokenRes.json().catch(() => null);
-  if (!tokenRes.ok || !tokenBody?.access_token || !tokenBody?.refresh_token || !tokenBody?.expires_in) {
+  if (
+    !tokenRes.ok ||
+    !tokenBody?.access_token ||
+    !tokenBody?.refresh_token ||
+    !tokenBody?.expires_in
+  ) {
     // Refresh token expired (6mo idle) or revoked - genuine "sign in again" case.
     return Response.json({ error: "refresh_failed" }, { status: 401 });
   }
@@ -470,7 +485,9 @@ interface ListMyReposAuthContext {
   rotatedCookie?: string;
 }
 
-async function resolveListMyReposAuthContext(req: Request): Promise<ListMyReposAuthContext | Response> {
+async function resolveListMyReposAuthContext(
+  req: Request,
+): Promise<ListMyReposAuthContext | Response> {
   const cookies = parseCookies(req);
   if (cookies[SESSION_COOKIE]) {
     const fresh = await ensureFreshSession(req);
@@ -513,7 +530,12 @@ async function resolveListMyReposAuthContext(req: Request): Promise<ListMyReposA
   }
   if (!installationId) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
-  return { login: user.login as string, gh_token: token, installation_id: installationId, via: "bearer" };
+  return {
+    login: user.login as string,
+    gh_token: token,
+    installation_id: installationId,
+    via: "bearer",
+  };
 }
 
 function withUpdatedSession(body: unknown, sessionToken: string, status = 200): Response {
@@ -535,7 +557,10 @@ export async function handleListMyRepos(req: Request): Promise<Response> {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to look up your repos";
     console.error("[list-my-repos]", err);
-    return withSessionCookie(Response.json({ error: message }, { status: 502 }), ctx?.rotatedCookie);
+    return withSessionCookie(
+      Response.json({ error: message }, { status: 502 }),
+      ctx?.rotatedCookie,
+    );
   }
 }
 
@@ -545,7 +570,10 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
   if (ctx.repo_full_name && isOwnedBy(ctx.repo_full_name, ctx.login)) {
     const marker = await checkMarkerFile(ctx.repo_full_name, ctx.gh_token);
     if (marker === "found") {
-      return withSessionCookie(Response.json({ repo_full_name: ctx.repo_full_name }), ctx.rotatedCookie);
+      return withSessionCookie(
+        Response.json({ repo_full_name: ctx.repo_full_name }),
+        ctx.rotatedCookie,
+      );
     }
     // A transient GitHub failure is not evidence this repo went bad. Re-resolving here would
     // fan out into a repo list plus a marker check per owned repo - the most expensive path in
@@ -597,7 +625,9 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
     const { repositories } = reposRes.ok
       ? ((await reposRes.json()) as { repositories: Array<{ owner: { login: string } }> })
       : { repositories: [] };
-    const ownRepos = repositories.filter((r) => r.owner.login.toLowerCase() === ctx.login.toLowerCase());
+    const ownRepos = repositories.filter(
+      (r) => r.owner.login.toLowerCase() === ctx.login.toLowerCase(),
+    );
     const reason = ownRepos.length === 0 ? "no_owned_repos" : "no_marker_match";
     return withSessionCookie(Response.json({ candidates: [], reason }), ctx.rotatedCookie);
   }

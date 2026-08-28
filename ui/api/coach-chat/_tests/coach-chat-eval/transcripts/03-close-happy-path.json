@@ -8,7 +8,11 @@
   "history": [
     { "id": "1", "role": "coach", "paragraphs": ["Morning - how'd the intervals go?"] },
     { "id": "2", "role": "user", "text": "Ran 6x800m, felt strong throughout, hit all my splits." },
-    { "id": "3", "role": "coach", "paragraphs": ["Nice, that's a solid session. Anything sore after?"] },
+    {
+      "id": "3",
+      "role": "coach",
+      "paragraphs": ["Nice, that's a solid session. Anything sore after?"]
+    },
     { "id": "4", "role": "user", "text": "Legs are a little tight but nothing that worries me." }
   ],
   "userMessage": "That's all for now, wrap this session.",

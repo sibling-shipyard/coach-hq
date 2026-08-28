@@ -11,7 +11,10 @@ import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
 import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/sport-analytics/sport-analytics.css";
-import { buildBadmintonLensModel, type BadmintonMode } from "@/components/sport-analytics/badmintonLensModel";
+import {
+  buildBadmintonLensModel,
+  type BadmintonMode,
+} from "@/components/sport-analytics/badmintonLensModel";
 import {
   AmIImprovingCard,
   BadmintonLensHeader,

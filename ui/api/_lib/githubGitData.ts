@@ -153,11 +153,14 @@ export async function commitFilesAtomic(
     });
 
     try {
-      const res = await fetchWithTimeout(`${GH_API}/repos/${ctx.repo}/git/refs/heads/${ctx.branch}`, {
-        method: "PATCH",
-        headers: jsonHeaders(ctx.token),
-        body: JSON.stringify({ sha: commit.sha }),
-      });
+      const res = await fetchWithTimeout(
+        `${GH_API}/repos/${ctx.repo}/git/refs/heads/${ctx.branch}`,
+        {
+          method: "PATCH",
+          headers: jsonHeaders(ctx.token),
+          body: JSON.stringify({ sha: commit.sha }),
+        },
+      );
       if (!res.ok) {
         const detail = await res.text();
         const status = res.status === 422 ? 409 : res.status; // 422 non-FF => retryable, same as iOS

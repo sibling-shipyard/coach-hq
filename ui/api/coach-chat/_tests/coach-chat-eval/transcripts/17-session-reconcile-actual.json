@@ -6,7 +6,11 @@
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "extraContext": "Current week's sessions (use these exact session_ids for session_reconcile AND plan_edit - match the date to what the athlete actually means, never guess):\n- session_id: sess-tue-run | date: 2026-08-18 | Easy Run | status: planned",
   "history": [
-    { "id": "1", "role": "coach", "paragraphs": ["Today was supposed to be your easy run - how'd it go?"] }
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": ["Today was supposed to be your easy run - how'd it go?"]
+    }
   ],
   "userMessage": "Actually skipped the run, a friend invited me to play badminton for an hour instead so I did that. Wrap this up.",
   "expect": {

@@ -5,8 +5,7 @@ import type { EngineSnapshot, LoadMixSnapshot, TrendPointSnapshot } from "../sna
 function EngineGauge({ engine }: { engine: EngineSnapshot }) {
   const width = 500;
   const range = Math.max(1, engine.scaleHigh - engine.scaleLow);
-  const x = (value: number) =>
-    clamp(((value - engine.scaleLow) / range) * width, 0, width);
+  const x = (value: number) => clamp(((value - engine.scaleLow) / range) * width, 0, width);
   const fallbackLow = engine.load * 0.8;
   const fallbackHigh = engine.load * 1.2;
   const bandLow = engine.bandLow ?? fallbackLow;
@@ -26,12 +25,18 @@ function EngineGauge({ engine }: { engine: EngineSnapshot }) {
       <rect height="20" rx="4" width={bandWidth} x={bandX} y="38" />
       <path d={`M${markerX} 32l6-11h-12z`} />
       <line className="wi-engine-gauge__marker" x1={markerX} x2={markerX} y1="32" y2="64" />
-      <text x={bandX} y="28">{Math.round(bandLow)}</text>
+      <text x={bandX} y="28">
+        {Math.round(bandLow)}
+      </text>
       <text textAnchor="end" x={bandX + bandWidth} y="28">
         {Math.round(bandHigh)}
       </text>
-      <text className="is-muted" x="0" y="84">{engine.scaleLow}</text>
-      <text className="is-muted" textAnchor="end" x="500" y="84">{engine.scaleHigh}</text>
+      <text className="is-muted" x="0" y="84">
+        {engine.scaleLow}
+      </text>
+      <text className="is-muted" textAnchor="end" x="500" y="84">
+        {engine.scaleHigh}
+      </text>
     </svg>
   );
 }
@@ -89,11 +94,15 @@ function EngineTrend({ points }: { points: TrendPointSnapshot[] }) {
             x={clamp(scrubCoordinate.x - 66, 0, width - 132)}
             y="4"
           >
-            <div>{(scrubPoint.weekLabel ?? scrubPoint.label).toUpperCase()} · {scrubPoint.value}</div>
+            <div>
+              {(scrubPoint.weekLabel ?? scrubPoint.label).toUpperCase()} · {scrubPoint.value}
+            </div>
           </foreignObject>
         </g>
       ) : null}
-      <text x="0" y="176">{safePoints[0]?.label.toUpperCase()}</text>
+      <text x="0" y="176">
+        {safePoints[0]?.label.toUpperCase()}
+      </text>
       <text textAnchor="end" x="820" y="176">
         {safePoints.at(-1)?.label.toUpperCase()}
       </text>
@@ -111,23 +120,33 @@ function EngineMix({ mix, totalHours }: { mix: LoadMixSnapshot[]; totalHours: nu
         {mix.map((item) => (
           <span
             key={item.id}
-            style={{
-              "--mix-color": item.color,
-              width: `${(item.hours / denominator) * 100}%`,
-            } as CSSProperties}
+            style={
+              {
+                "--mix-color": item.color,
+                width: `${(item.hours / denominator) * 100}%`,
+              } as CSSProperties
+            }
           />
         ))}
         <i />
       </div>
       <div className="wi-engine-mix__legend">
-        {mix.filter((item) => item.hours > 0).map((item) => (
-          <span key={item.id}>
-            <i style={{ "--mix-color": item.color } as CSSProperties} />
-            <span className="wi-desktop-only">{item.label.toUpperCase()} {item.hours.toFixed(1)}H</span>
-            <span className="wi-mobile-only">{item.shortLabel.toUpperCase()} {item.hours.toFixed(1)}H</span>
-          </span>
-        ))}
-        <span className="wi-engine-mix__total">{totalHours.toFixed(1)}H<span className="wi-desktop-only"> LOGGED</span></span>
+        {mix
+          .filter((item) => item.hours > 0)
+          .map((item) => (
+            <span key={item.id}>
+              <i style={{ "--mix-color": item.color } as CSSProperties} />
+              <span className="wi-desktop-only">
+                {item.label.toUpperCase()} {item.hours.toFixed(1)}H
+              </span>
+              <span className="wi-mobile-only">
+                {item.shortLabel.toUpperCase()} {item.hours.toFixed(1)}H
+              </span>
+            </span>
+          ))}
+        <span className="wi-engine-mix__total">
+          {totalHours.toFixed(1)}H<span className="wi-desktop-only"> LOGGED</span>
+        </span>
       </div>
     </div>
   );

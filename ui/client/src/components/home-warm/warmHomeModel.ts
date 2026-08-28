@@ -130,10 +130,7 @@ function latestActivityTimestamp(activities: Activity[]): string | null {
 
 function formatSyncAge(timestamp: string | null): string {
   if (!timestamp) return "Not synced";
-  const ageMinutes = Math.max(
-    0,
-    Math.round((Date.now() - new Date(timestamp).getTime()) / 60_000),
-  );
+  const ageMinutes = Math.max(0, Math.round((Date.now() - new Date(timestamp).getTime()) / 60_000));
   if (ageMinutes < 1) return "Just synced";
   if (ageMinutes < 60) return `${ageMinutes}m ago`;
   const ageHours = Math.round(ageMinutes / 60);
@@ -145,9 +142,7 @@ function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[middle];
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
 const ZONE_LOAD_WEIGHTS = [1, 2, 3, 4, 5] as const;
@@ -157,10 +152,7 @@ export function getActivityZoneLoad(activity: Activity): number | null {
 
   let observedSeconds = 0;
   const weightedSeconds = ZONE_LOAD_WEIGHTS.reduce((total, weight) => {
-    const seconds = Math.max(
-      0,
-      Number(activity.hr_zones?.[`Zone ${weight}`]?.seconds) || 0,
-    );
+    const seconds = Math.max(0, Number(activity.hr_zones?.[`Zone ${weight}`]?.seconds) || 0);
     observedSeconds += seconds;
     return total + seconds * weight;
   }, 0);
@@ -207,16 +199,11 @@ function activeComment(
   if (contract.data_status === "placeholder") return matching[0] ?? null;
   const today = dateKey(new Date());
   return (
-    matching.find(
-      (comment) => comment.valid_from <= today && comment.valid_until >= today,
-    ) ?? null
+    matching.find((comment) => comment.valid_from <= today && comment.valid_until >= today) ?? null
   );
 }
 
-function buildEngine(
-  activities: Activity[],
-  contract: CurrentWeekContract,
-): EngineModel {
+function buildEngine(activities: Activity[], contract: CurrentWeekContract): EngineModel {
   const points = buildEnginePoints(activities);
   const currentLoad = points.at(-1)?.load ?? 0;
   const validPrevious = points
@@ -231,9 +218,7 @@ function buildEngine(
     Math.max(1, Math.floor((Date.now() - monday.getTime()) / DAY_MS) + 1),
   );
   const completionFraction = elapsedDays / 7;
-  const projectedLoad = Math.round(
-    currentLoad / Math.max(completionFraction, 0.45),
-  );
+  const projectedLoad = Math.round(currentLoad / Math.max(completionFraction, 0.45));
   const ratio = rhythm && rhythm > 0 ? projectedLoad / rhythm : 1;
   const signal = ratio > 1.2 ? "EASE" : ratio < 0.8 ? "BUILD" : "HOLD";
   const comment = activeComment(contract, "weekly_load");
@@ -280,12 +265,8 @@ function calisthenicsFocus(activities: Activity[]): string {
 
 function buildCommitments(activities: Activity[]): CommitmentModel[] {
   const thisWeek = getThisWeekActivities(activities);
-  const rides = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "ride",
-  );
-  const foundation = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "foundation",
-  );
+  const rides = thisWeek.filter((activity) => getTrainingCategory(activity) === "ride");
+  const foundation = thisWeek.filter((activity) => getTrainingCategory(activity) === "foundation");
   const badminton = thisWeek.filter((activity) =>
     getTrainingCategory(activity).startsWith("badminton"),
   );
@@ -326,9 +307,7 @@ function buildCommitments(activities: Activity[]): CommitmentModel[] {
       label: "Foundation",
       glyph: "foundation",
       value: String(
-        new Set(
-          foundation.map((activity) => activity.start_date_local.slice(0, 10)),
-        ).size,
+        new Set(foundation.map((activity) => activity.start_date_local.slice(0, 10))).size,
       ),
       unit: "active days",
       secondary: foundation.length > 0 ? "rhythm intact" : "start gently",
@@ -389,30 +368,28 @@ function buildPlanDays(contract: CurrentWeekContract): PlanDayModel[] {
   return contract.days.map((day) => {
     const dayName = weekdayName(day.date, day.day);
     return {
-    date: day.date,
-    day: dayName,
-    dayShort: dayName.slice(0, 3),
-    dateNumber: String(Number(day.date.slice(-2))),
-    intent: day.intent,
-    isToday: day.date === today,
-    sessions: day.sessions.map((session) => ({
-      id: session.id,
-      title: session.title,
-      discipline: session.discipline,
-      glyph: glyphForDiscipline(session.discipline),
-      duration:
-        session.planned_duration_min === null
-          ? null
-          : `${session.planned_duration_min} min`,
-      priority: session.priority,
-      status: session.status,
-      href: session.template_id
-        ? `/workouts/${session.template_id}`
-        : contract.data_status === "placeholder"
-          ? "/workouts"
-          : undefined,
-    })),
-  };
+      date: day.date,
+      day: dayName,
+      dayShort: dayName.slice(0, 3),
+      dateNumber: String(Number(day.date.slice(-2))),
+      intent: day.intent,
+      isToday: day.date === today,
+      sessions: day.sessions.map((session) => ({
+        id: session.id,
+        title: session.title,
+        discipline: session.discipline,
+        glyph: glyphForDiscipline(session.discipline),
+        duration:
+          session.planned_duration_min === null ? null : `${session.planned_duration_min} min`,
+        priority: session.priority,
+        status: session.status,
+        href: session.template_id
+          ? `/workouts/${session.template_id}`
+          : contract.data_status === "placeholder"
+            ? "/workouts"
+            : undefined,
+      })),
+    };
   });
 }
 
@@ -455,15 +432,14 @@ export function buildCountTargetQuest(
   ledger: any,
 ): QuestModel {
   const isSplit = ledger && "seasons" in ledger;
-  const sinceRaw = isSplit 
+  const sinceRaw = isSplit
     ? ledger.seasons.seasons.find((s: any) => s.id === ledger.seasons.current_season_id)?.start_date
-    : ledger.season?.start_date ?? ledger.challenge?.start_date;
+    : (ledger.season?.start_date ?? ledger.challenge?.start_date);
   const since = sinceRaw ?? "0000-01-01";
   const pattern = mainQuest.count_pattern ? new RegExp(mainQuest.count_pattern, "i") : null;
   const completed = pattern
-    ? activities.filter(
-        (a) => a.start_date_local.slice(0, 10) >= since && pattern.test(a.name),
-      ).length
+    ? activities.filter((a) => a.start_date_local.slice(0, 10) >= since && pattern.test(a.name))
+        .length
     : 0;
   const floor = mainQuest.target ?? 0;
 

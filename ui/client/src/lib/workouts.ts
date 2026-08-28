@@ -17,9 +17,9 @@ export interface Exercise {
   sets: number;
   rest_between_sets_secs?: number;
   rest_after_exercise_secs?: number; // Rest after ALL sets, before next exercise
-  prep_secs?: number;                // "Get Ready" countdown before timed exercises
-  optional?: boolean;                // If true, UI offers guilt-free skip
-  both_sides?: boolean;              // If true, timer runs duration_secs twice per set (LEFT then RIGHT). Ignored for type: "reps".
+  prep_secs?: number; // "Get Ready" countdown before timed exercises
+  optional?: boolean; // If true, UI offers guilt-free skip
+  both_sides?: boolean; // If true, timer runs duration_secs twice per set (LEFT then RIGHT). Ignored for type: "reps".
   form_cue: string;
   why: string;
 }
@@ -29,11 +29,11 @@ export interface Phase {
   duration: string;
   default_rest_secs: number;
   transition_rest_secs?: number; // Rest before this phase begins (equipment change, mental reset)
-  optional?: boolean;            // If true, entire phase can be skipped
-  coaching_note?: string;        // Phase-level coaching note
+  optional?: boolean; // If true, entire phase can be skipped
+  coaching_note?: string; // Phase-level coaching note
   exercises: Exercise[];
-  circuit?: boolean;  // default false — when true, loop all exercises per round
-  rounds?: number;    // default 1 — number of circuit rounds
+  circuit?: boolean; // default false — when true, loop all exercises per round
+  rounds?: number; // default 1 — number of circuit rounds
 }
 
 export interface Workout {
@@ -67,12 +67,15 @@ export interface WorkoutsData {
 
 // ─── Workout Type Config ───────────────────────────────────────────────────
 
-export const WORKOUT_TYPE_CONFIG: Record<WorkoutType, { label: string; color: string; icon: string }> = {
+export const WORKOUT_TYPE_CONFIG: Record<
+  WorkoutType,
+  { label: string; color: string; icon: string }
+> = {
   calisthenics: { label: "CALISTHENICS", color: workoutHex("calisthenics"), icon: "🤸" },
-  foundation:   { label: "FOUNDATION",   color: workoutHex("foundation"), icon: "⚡" },
-  strength:     { label: "STRENGTH",     color: workoutHex("strength"), icon: "💪" },
-  recovery:     { label: "RECOVERY",     color: workoutHex("recovery"), icon: "🧘" },
-  realign:      { label: "REALIGN",      color: workoutHex("realign"), icon: "🔧" },
+  foundation: { label: "FOUNDATION", color: workoutHex("foundation"), icon: "⚡" },
+  strength: { label: "STRENGTH", color: workoutHex("strength"), icon: "💪" },
+  recovery: { label: "RECOVERY", color: workoutHex("recovery"), icon: "🧘" },
+  realign: { label: "REALIGN", color: workoutHex("realign"), icon: "🔧" },
 };
 
 // ─── Utilities ─────────────────────────────────────────────────────────────
@@ -89,9 +92,7 @@ export function getWorkoutForToday(
   const today = toLocalDateStr(new Date());
 
   // Check for today's session first
-  const session = sessions.find(
-    (s) => s.id === templateId && s.session_date === today,
-  );
+  const session = sessions.find((s) => s.id === templateId && s.session_date === today);
   if (session) return session;
 
   // Fall back to template
@@ -102,10 +103,7 @@ export function getWorkoutForToday(
  * Get the most recent session for a template, regardless of date.
  * Sorts matching sessions by session_date descending to guarantee "latest".
  */
-export function getLatestSession(
-  templateId: string,
-  sessions: Workout[],
-): Workout | null {
+export function getLatestSession(templateId: string, sessions: Workout[]): Workout | null {
   const matching = sessions
     .filter((s) => s.id === templateId && s.session_date)
     .sort((a, b) => (b.session_date ?? "").localeCompare(a.session_date ?? ""));
@@ -123,14 +121,11 @@ export function countExercises(workout: Workout): number {
  * Count total sets across all phases.
  */
 export function countSets(workout: Workout): number {
-  return workout.phases.reduce(
-    (sum, p) => {
-      const exerciseSets = p.exercises.reduce((s, e) => s + e.sets, 0);
-      // In circuit mode, total sets = sum(exercise.sets) × rounds
-      return sum + (p.circuit ? exerciseSets * (p.rounds ?? 1) : exerciseSets);
-    },
-    0,
-  );
+  return workout.phases.reduce((sum, p) => {
+    const exerciseSets = p.exercises.reduce((s, e) => s + e.sets, 0);
+    // In circuit mode, total sets = sum(exercise.sets) × rounds
+    return sum + (p.circuit ? exerciseSets * (p.rounds ?? 1) : exerciseSets);
+  }, 0);
 }
 
 /**

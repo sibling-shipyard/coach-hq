@@ -33,15 +33,17 @@ done
 NAMES=(
   "ui typecheck (npm run check)"
   "ui lint (npm run lint)"
+  "ui format (npm run format:check)"
   "ui tests (npm test)"
   "compose-soul --check"
   "validate-soul"
   "validate_kdb"
 )
-DIRS=("$REPO_ROOT/ui" "$REPO_ROOT/ui" "$REPO_ROOT/ui" "$REPO_ROOT" "$REPO_ROOT" "$REPO_ROOT")
+DIRS=("$REPO_ROOT/ui" "$REPO_ROOT/ui" "$REPO_ROOT/ui" "$REPO_ROOT/ui" "$REPO_ROOT" "$REPO_ROOT" "$REPO_ROOT")
 CMDS=(
   "npm run check"
   "npm run lint"
+  "npm run format:check"
   "npm test"
   "node platform/scripts/compose-soul.mjs --check"
   "node platform/scripts/validate-soul.mjs"

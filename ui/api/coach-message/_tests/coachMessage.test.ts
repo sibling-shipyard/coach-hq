@@ -55,9 +55,7 @@ function liveWeek() {
   };
 }
 
-function latestMessage(
-  overrides: Partial<LatestCoachMessage> = {},
-): LatestCoachMessage {
+function latestMessage(overrides: Partial<LatestCoachMessage> = {}): LatestCoachMessage {
   const id = overrides.id ?? "cm-existing";
   return {
     id,
@@ -127,10 +125,7 @@ function repoFiles(): Map<string, string> {
         points: [{ t: 0, bpm: 999 }],
       }),
     ],
-    [
-      "user_data/coach/profile.json",
-      JSON.stringify({ name: "Sky", timezone: "Europe/London" }),
-    ],
+    ["user_data/coach/profile.json", JSON.stringify({ name: "Sky", timezone: "Europe/London" })],
     [
       "user_data/coach/memory.json",
       JSON.stringify({
@@ -191,22 +186,16 @@ function repoFiles(): Map<string, string> {
   ]);
 }
 
-function dependencies(
-  overrides: Partial<CoachMessageDependencies> = {},
-): CoachMessageDependencies {
+function dependencies(overrides: Partial<CoachMessageDependencies> = {}): CoachMessageDependencies {
   const files = repoFiles();
   return {
     readFile: vi.fn(async (path: string) =>
-      path === "user_data/coach/latest_message.json"
-        ? latestFile(null)
-        : (files.get(path) ?? null),
+      path === "user_data/coach/latest_message.json" ? latestFile(null) : (files.get(path) ?? null),
     ),
     listActivityFiles: vi.fn(async () => [
       { name: HISTORY_PATH.split("/").at(-1)!, path: HISTORY_PATH },
     ]),
-    generateBody: vi.fn(
-      async () => "You held that together late. That's the part I noticed.",
-    ),
+    generateBody: vi.fn(async () => "You held that together late. That's the part I noticed."),
     commitFiles: vi.fn(async (writes: FileEntry[]) => {
       for (const write of writes) {
         if ("resolve" in write) await write.resolve();
@@ -233,10 +222,7 @@ describe("activity id request validation", () => {
     [{ activity_ids: [] }, "between 1"],
     [{ activity_ids: ["strava:2", ACTIVITY_ID] }, "unique and sorted"],
     [{ activity_ids: [ACTIVITY_ID, ACTIVITY_ID] }, "unique and sorted"],
-    [
-      { activity_ids: [ACTIVITY_ID], metrics: { fatigue: true } },
-      "only activity_ids",
-    ],
+    [{ activity_ids: [ACTIVITY_ID], metrics: { fatigue: true } }, "only activity_ids"],
     [{ activity_ids: [`healthkit:${UUID.toLowerCase()}`] }, "canonical"],
     [{ activity_ids: ["chat:abc"] }, "canonical"],
   ])("rejects malformed payload %#", (payload, message) => {
@@ -255,9 +241,7 @@ describe("activity id request validation", () => {
 
   it("rejects invalid JSON and an oversized transport body", async () => {
     await expect(
-      parseActivityIdsRequest(
-        new Request("https://coach.test", { method: "POST", body: "{" }),
-      ),
+      parseActivityIdsRequest(new Request("https://coach.test", { method: "POST", body: "{" })),
     ).rejects.toMatchObject({ status: 400 });
     await expect(
       parseActivityIdsRequest(
@@ -296,9 +280,9 @@ describe("Git activity-tree projection", () => {
   });
 
   it("fails closed when GitHub marks the recursive tree as truncated", () => {
-    expect(() =>
-      parseActivityHistoryTree({ truncated: true, tree: [] }),
-    ).toThrow("GitHub activity tree was truncated");
+    expect(() => parseActivityHistoryTree({ truncated: true, tree: [] })).toThrow(
+      "GitHub activity tree was truncated",
+    );
   });
 });
 
@@ -341,9 +325,7 @@ describe("prompt context", () => {
         focus: "Protect late-session quality.",
         guardrails: ["Keep the knee calm."],
       },
-      days: expect.arrayContaining([
-        expect.objectContaining({ intent: "review" }),
-      ]),
+      days: expect.arrayContaining([expect.objectContaining({ intent: "review" })]),
     });
     expect(prompt).toContain('"effort_shape"');
     expect(prompt).not.toContain('"points"');
@@ -358,9 +340,7 @@ describe("prompt context", () => {
   });
 
   it("keeps seven compact actual-schema scenarios in one weighted constant", () => {
-    expect(
-      PROACTIVE_FEW_SHOT_PAIRS.map((example) => example.scenario),
-    ).toEqual([
+    expect(PROACTIVE_FEW_SHOT_PAIRS.map((example) => example.scenario)).toEqual([
       "quiet_recognition",
       "missing_or_partial_hr",
       "batch_day_not_sum",
@@ -370,9 +350,7 @@ describe("prompt context", () => {
       "genuinely_heavy_work",
     ]);
     for (const example of PROACTIVE_FEW_SHOT_PAIRS) {
-      expect(validateGeneratedBody(example.output.body)).toBe(
-        example.output.body,
-      );
+      expect(validateGeneratedBody(example.output.body)).toBe(example.output.body);
       expect(example.output.body).not.toContain("—");
       expect(JSON.stringify(example.input).length).toBeLessThan(1_600);
     }
@@ -385,13 +363,9 @@ describe("prompt context", () => {
     const quiet = PROACTIVE_FEW_SHOT_PAIRS[0];
     const heavy = PROACTIVE_FEW_SHOT_PAIRS.at(-1)!;
     expect(quiet.input.previous_proactive_message?.body).toBeTruthy();
-    expect(quiet.output.body).not.toBe(
-      quiet.input.previous_proactive_message?.body,
-    );
+    expect(quiet.output.body).not.toBe(quiet.input.previous_proactive_message?.body);
     expect(heavy.output.body).toContain("I do not have the result");
-    expect(heavy.input.activity_batch[0].activity).not.toHaveProperty(
-      "description",
-    );
+    expect(heavy.input.activity_batch[0].activity).not.toHaveProperty("description");
     const examples = JSON.stringify(PROACTIVE_FEW_SHOT_PAIRS);
     expect(examples).not.toContain("days_since_last_same_sport");
     expect(examples).not.toContain("occurrences");
@@ -432,9 +406,7 @@ describe("generated message validation", () => {
         candidates: [
           {
             content: {
-              parts: [
-                { text: JSON.stringify({ body: "That looked controlled." }) },
-              ],
+              parts: [{ text: JSON.stringify({ body: "That looked controlled." }) }],
             },
           },
         ],
@@ -469,10 +441,7 @@ describe("idempotency and resolved writes", () => {
   });
 
   it("notifies only when this request's candidate becomes durable", async () => {
-    const result = await generateAndStoreCoachMessage(
-      [ACTIVITY_ID],
-      dependencies(),
-    );
+    const result = await generateAndStoreCoachMessage([ACTIVITY_ID], dependencies());
     expect(result).toMatchObject({
       message: { id: "cm-new-message", activity_ids: [ACTIVITY_ID] },
       commitSha: "commit-sha",
@@ -577,9 +546,9 @@ describe("failure safety", () => {
       }),
       commitFiles,
     });
-    await expect(
-      generateAndStoreCoachMessage([ACTIVITY_ID], deps),
-    ).rejects.toThrow("Gemini unavailable");
+    await expect(generateAndStoreCoachMessage([ACTIVITY_ID], deps)).rejects.toThrow(
+      "Gemini unavailable",
+    );
     expect(commitFiles).not.toHaveBeenCalled();
   });
 
@@ -591,16 +560,16 @@ describe("failure safety", () => {
         throw new Error("GitHub conflict exhausted");
       }),
     });
-    await expect(
-      generateAndStoreCoachMessage([ACTIVITY_ID], deps),
-    ).rejects.toThrow("GitHub conflict exhausted");
+    await expect(generateAndStoreCoachMessage([ACTIVITY_ID], deps)).rejects.toThrow(
+      "GitHub conflict exhausted",
+    );
   });
 
   it("fails before generation when the authoritative activity is absent", async () => {
     const deps = dependencies({ listActivityFiles: vi.fn(async () => []) });
-    await expect(
-      generateAndStoreCoachMessage([ACTIVITY_ID], deps),
-    ).rejects.toMatchObject<Partial<CoachMessageError>>({
+    await expect(generateAndStoreCoachMessage([ACTIVITY_ID], deps)).rejects.toMatchObject<
+      Partial<CoachMessageError>
+    >({
       status: 422,
     });
     expect(deps.generateBody).not.toHaveBeenCalled();

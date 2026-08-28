@@ -10,10 +10,12 @@ export const COACH_CARDS = [
   },
   {
     label: "BEFORE A RETEST",
-    quote: "Forget the number on the test. Show up for the boring easy volume — that's what moves it.",
+    quote:
+      "Forget the number on the test. Show up for the boring easy volume — that's what moves it.",
   },
   {
     label: "REHAB · WEEK 2",
-    quote: "I know the knee scares you. It scares me a little too — so we go slow, and we go together.",
+    quote:
+      "I know the knee scares you. It scares me a little too — so we go slow, and we go together.",
   },
 ];

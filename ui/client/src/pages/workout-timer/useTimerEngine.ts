@@ -4,12 +4,18 @@ import { useBeep } from "./useBeep";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type TimerState = "overview" | "phase_transition" | "prep" | "exercise" | "rest" | "complete";
+export type TimerState =
+  | "overview"
+  | "phase_transition"
+  | "prep"
+  | "exercise"
+  | "rest"
+  | "complete";
 
 export interface TimerPosition {
   phaseIdx: number;
   exerciseIdx: number;
-  setNum: number;   // 1-based — used in default mode
+  setNum: number; // 1-based — used in default mode
   roundNum: number; // 1-based — used in circuit mode
 }
 
@@ -195,16 +201,20 @@ export function useTimerEngine(
   }, []);
 
   // ─── Enter exercise state ────────────────────────────────────────────────
-  const enterExercise = useCallback((ex?: Exercise) => {
-    const targetEx = ex ?? workout.phases[posRef.current.phaseIdx]?.exercises[posRef.current.exerciseIdx];
-    setSideNum(0);
-    setTimer(-1);
-    if (shouldPrep(targetEx)) {
-      setState("prep");
-    } else {
-      setState("exercise");
-    }
-  }, [workout, shouldPrep]);
+  const enterExercise = useCallback(
+    (ex?: Exercise) => {
+      const targetEx =
+        ex ?? workout.phases[posRef.current.phaseIdx]?.exercises[posRef.current.exerciseIdx];
+      setSideNum(0);
+      setTimer(-1);
+      if (shouldPrep(targetEx)) {
+        setState("prep");
+      } else {
+        setState("exercise");
+      }
+    },
+    [workout, shouldPrep],
+  );
 
   // ─── Advance to next exercise/set/round/phase ────────────────────────────
   const advanceToNext = useCallback(() => {
@@ -596,13 +606,29 @@ export function useTimerEngine(
     } else if (state === "rest") {
       setTimer(getRestDuration());
     }
-  }, [state, pos.phaseIdx, pos.exerciseIdx, pos.setNum, pos.roundNum, sideNum, exercise, phase, getRestDuration]);
+  }, [
+    state,
+    pos.phaseIdx,
+    pos.exerciseIdx,
+    pos.setNum,
+    pos.roundNum,
+    sideNum,
+    exercise,
+    phase,
+    getRestDuration,
+  ]);
 
   // ─── Countdown tick ──────────────────────────────────────────────────────
   useEffect(() => {
     if (isPaused) return;
     if (state === "exercise" && exercise?.type === "reps") return;
-    if (state !== "exercise" && state !== "rest" && state !== "prep" && state !== "phase_transition") return;
+    if (
+      state !== "exercise" &&
+      state !== "rest" &&
+      state !== "prep" &&
+      state !== "phase_transition"
+    )
+      return;
     if (timer < 0) return;
 
     if (timer === 0) {
@@ -633,7 +659,18 @@ export function useTimerEngine(
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timer, isPaused, state, exercise, phase, transitionBeep, countdown3, handleExerciseDone, advanceToNext, enterExercise]);
+  }, [
+    timer,
+    isPaused,
+    state,
+    exercise,
+    phase,
+    transitionBeep,
+    countdown3,
+    handleExerciseDone,
+    advanceToNext,
+    enterExercise,
+  ]);
 
   // ─── Derived display values ──────────────────────────────────────────────
   const isRest = state === "rest";
@@ -674,7 +711,10 @@ export function useTimerEngine(
     }
 
     if (pos.setNum < exercise.sets) {
-      return { label: "Next Set", name: `${exercise.name} — Set ${pos.setNum + 1} of ${exercise.sets}` };
+      return {
+        label: "Next Set",
+        name: `${exercise.name} — Set ${pos.setNum + 1} of ${exercise.sets}`,
+      };
     }
     const nextEx =
       pos.exerciseIdx < phase.exercises.length - 1

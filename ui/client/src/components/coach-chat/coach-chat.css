@@ -77,7 +77,9 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 180ms ease, background 180ms ease;
+  transition:
+    transform 180ms ease,
+    background 180ms ease;
 }
 
 .cc-shell button.cc-new-btn:hover,
@@ -554,7 +556,9 @@
   color: var(--wi-surface);
   background: var(--wi-rust);
   cursor: pointer;
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
 .cc-shell button.cc-composer__end {
@@ -569,7 +573,9 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
 .cc-shell button.cc-composer__end:hover:not(:disabled) {
@@ -693,7 +699,9 @@
   font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
 }
 
 .cc-shell button.cc-starter:hover {
@@ -910,7 +918,9 @@
   color: var(--wi-ink);
   text-align: left;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
 }
 
 .cc-shell button.cc-sync-row:hover {
@@ -956,7 +966,9 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 160ms ease, transform 160ms ease;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .cc-shell button.cc-sync-retry:hover {

@@ -28,11 +28,7 @@ function assignmentFromDay(day: PlanDaySnapshot): PlanAssignment {
   };
 }
 
-function swapPlanAssignments(
-  current: PlanAssignment[],
-  fromIndex: number,
-  toIndex: number,
-) {
+function swapPlanAssignments(current: PlanAssignment[], fromIndex: number, toIndex: number) {
   if (fromIndex === toIndex) return current;
   const next = [...current];
   [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
@@ -43,8 +39,8 @@ export function WeeklyPlanCard({ plan }: { plan: WeeklyPlanSnapshot }) {
   const instructionsId = useId();
   const slotsRef = useRef<Array<HTMLDivElement | null>>([]);
   const dragFromRef = useRef<number | null>(null);
-  const [assignments, setAssignments] = useState<PlanAssignment[]>(
-    () => plan.days.map(assignmentFromDay),
+  const [assignments, setAssignments] = useState<PlanAssignment[]>(() =>
+    plan.days.map(assignmentFromDay),
   );
   const [grabbedIndex, setGrabbedIndex] = useState<number | null>(null);
   const [status, setStatus] = useState("");
@@ -73,7 +69,7 @@ export function WeeklyPlanCard({ plan }: { plan: WeeklyPlanSnapshot }) {
     if (total < plan.bandLow) {
       return { label: `Projected ≈${total} — below the band.`, state: "is-neutral" };
     }
-    const upperThreshold = plan.bandLow + ((plan.bandHigh - plan.bandLow) * 0.7);
+    const upperThreshold = plan.bandLow + (plan.bandHigh - plan.bandLow) * 0.7;
     return total > upperThreshold
       ? { label: `Projected ≈${total} — upper band.`, state: "is-neutral" }
       : { label: `Projected ≈${total} — in the band.`, state: "is-neutral" };
@@ -123,7 +119,9 @@ export function WeeklyPlanCard({ plan }: { plan: WeeklyPlanSnapshot }) {
     if (grabbedIndex === null) {
       if (!assignments[index]?.glyph) return;
       setGrabbedIndex(index);
-      setStatus(`${assignments[index].title} picked up. Choose a day and press Enter or Space to drop.`);
+      setStatus(
+        `${assignments[index].title} picked up. Choose a day and press Enter or Space to drop.`,
+      );
       return;
     }
     moveAssignment(grabbedIndex, index);
@@ -163,12 +161,22 @@ export function WeeklyPlanCard({ plan }: { plan: WeeklyPlanSnapshot }) {
                 onDragStart={(event) => handleDragStart(event, index)}
                 onDrop={(event) => handleDrop(event, index)}
                 onKeyDown={(event) => handleKeyDown(event, index)}
-                ref={(element) => { slotsRef.current[index] = element; }}
+                ref={(element) => {
+                  slotsRef.current[index] = element;
+                }}
                 role="button"
                 tabIndex={0}
-                title={assignment.glyph ? `${assignment.title} — drag to move` : `Move a session to ${day.day}`}
+                title={
+                  assignment.glyph
+                    ? `${assignment.title} — drag to move`
+                    : `Move a session to ${day.day}`
+                }
               >
-                {assignment.glyph ? <ActivityGlyph kind={assignment.glyph} size={15} /> : <span>REST</span>}
+                {assignment.glyph ? (
+                  <ActivityGlyph kind={assignment.glyph} size={15} />
+                ) : (
+                  <span>REST</span>
+                )}
                 {assignment.loadDelta !== null ? <small>+{assignment.loadDelta}</small> : null}
               </div>
             </div>
@@ -179,9 +187,12 @@ export function WeeklyPlanCard({ plan }: { plan: WeeklyPlanSnapshot }) {
         {projection.label}
       </p>
       <span className="sr-only" id={instructionsId}>
-        Press Enter or Space to pick up a session, use the left and right arrows to choose a day, then press Enter or Space to drop. Press Escape to cancel.
+        Press Enter or Space to pick up a session, use the left and right arrows to choose a day,
+        then press Enter or Space to drop. Press Escape to cancel.
       </span>
-      <span className="sr-only" aria-live="assertive">{status}</span>
+      <span className="sr-only" aria-live="assertive">
+        {status}
+      </span>
     </section>
   );
 }

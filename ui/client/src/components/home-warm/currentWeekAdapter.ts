@@ -59,7 +59,8 @@ function mapDiscipline(discipline: string): SessionDiscipline {
   if (value === "recovery" || value === "realign" || value === "mobility") return "recovery";
   if (value === "run" || value === "running") return "run";
   if (value === "strength") return "strength";
-  if (value === "weight_training" || value === "weights" || value === "weight training") return "weight_training";
+  if (value === "weight_training" || value === "weights" || value === "weight training")
+    return "weight_training";
   if (value === "hike" || value === "hiking") return "hike";
   if (value === "walk" || value === "walking") return "walk";
   if (value === "cricket") return "cricket";

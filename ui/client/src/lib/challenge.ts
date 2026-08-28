@@ -129,7 +129,6 @@ export interface WeeklyTargets {
   run: number;
 }
 
-
 /** Format a Date as YYYY-MM-DD in local time (avoids UTC drift from toISOString). */
 export function toLocalDateStr(d: Date): string {
   const y = d.getFullYear();

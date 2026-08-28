@@ -26,24 +26,37 @@ const OUT_DIR = path.join(UI_DIR, "client", "src", "data");
 const SCHEMA_VERSION = 1;
 
 function copyGoldenToOutDir() {
-  const gen = spawnSync("node", [path.join(REPO_ROOT, "shared/golden-dataset/generate-repo-data.mjs")], {
-    stdio: "inherit",
-  });
+  const gen = spawnSync(
+    "node",
+    [path.join(REPO_ROOT, "shared/golden-dataset/generate-repo-data.mjs")],
+    {
+      stdio: "inherit",
+    },
+  );
   if (gen.status !== 0) process.exit(gen.status ?? 1);
 
   const goldenDir = goldenRepoDataDir(REPO_ROOT);
   for (const file of fs.readdirSync(goldenDir).filter((f) => f.endsWith(".json"))) {
     fs.copyFileSync(path.join(goldenDir, file), path.join(OUT_DIR, file));
   }
-  const readGolden = (name) => JSON.parse(fs.readFileSync(path.join(goldenDir, `${name}.json`), "utf-8"));
+  const readGolden = (name) =>
+    JSON.parse(fs.readFileSync(path.join(goldenDir, `${name}.json`), "utf-8"));
   const dashboardSnapshot = {
     activities: readGolden("activities"),
-    ledger_schema: "split_v1", ledger: readGolden("ledger"), current_week: readGolden("current_week"),
-    workouts: readGolden("workouts"), sync_status: readGolden("sync_status"),
-    sleep_log: readGolden("sleep_log"), quest_history: readGolden("quest_history"),
-    schema_version: SCHEMA_VERSION, generated_at: new Date().toISOString(),
+    ledger_schema: "split_v1",
+    ledger: readGolden("ledger"),
+    current_week: readGolden("current_week"),
+    workouts: readGolden("workouts"),
+    sync_status: readGolden("sync_status"),
+    sleep_log: readGolden("sleep_log"),
+    quest_history: readGolden("quest_history"),
+    schema_version: SCHEMA_VERSION,
+    generated_at: new Date().toISOString(),
   };
-  fs.writeFileSync(path.join(OUT_DIR, "dashboard_snapshot.json"), JSON.stringify(dashboardSnapshot));
+  fs.writeFileSync(
+    path.join(OUT_DIR, "dashboard_snapshot.json"),
+    JSON.stringify(dashboardSnapshot),
+  );
   const widgetSrc = path.join(REPO_ROOT, "shared/golden-dataset/widget_snapshots.json");
   if (fs.existsSync(widgetSrc)) {
     fs.copyFileSync(widgetSrc, path.join(OUT_DIR, "widget_snapshots.json"));
@@ -73,14 +86,29 @@ if (isHqMonorepo(REPO_ROOT)) {
 
 const dashboardSnapshot = buildDashboardSnapshot(REPO_ROOT);
 
-fs.writeFileSync(path.join(OUT_DIR, "activities.json"), JSON.stringify(dashboardSnapshot.activities, null, 0));
-fs.writeFileSync(path.join(OUT_DIR, "current_week.json"), JSON.stringify(dashboardSnapshot.current_week, null, 2));
-fs.writeFileSync(path.join(OUT_DIR, "workouts.json"), JSON.stringify(dashboardSnapshot.workouts, null, 2));
-fs.writeFileSync(path.join(OUT_DIR, "sync_status.json"), JSON.stringify(dashboardSnapshot.sync_status, null, 2));
+fs.writeFileSync(
+  path.join(OUT_DIR, "activities.json"),
+  JSON.stringify(dashboardSnapshot.activities, null, 0),
+);
+fs.writeFileSync(
+  path.join(OUT_DIR, "current_week.json"),
+  JSON.stringify(dashboardSnapshot.current_week, null, 2),
+);
+fs.writeFileSync(
+  path.join(OUT_DIR, "workouts.json"),
+  JSON.stringify(dashboardSnapshot.workouts, null, 2),
+);
+fs.writeFileSync(
+  path.join(OUT_DIR, "sync_status.json"),
+  JSON.stringify(dashboardSnapshot.sync_status, null, 2),
+);
 // Vite bundles useRepoData.ts's static import of this file, so it has to land in OUT_DIR on
 // every build regardless of --dashboard-snapshot (that flag only controls the extra gen/ copy
 // below, for tooling that reads the snapshot outside the Vite build).
-fs.writeFileSync(path.join(OUT_DIR, "dashboard_snapshot.json"), JSON.stringify(dashboardSnapshot, null, 0));
+fs.writeFileSync(
+  path.join(OUT_DIR, "dashboard_snapshot.json"),
+  JSON.stringify(dashboardSnapshot, null, 0),
+);
 
 const snapshotResult = spawnSync(
   "npx",

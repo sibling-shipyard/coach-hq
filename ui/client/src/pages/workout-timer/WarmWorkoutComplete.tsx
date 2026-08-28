@@ -1,13 +1,7 @@
 import { Link } from "wouter";
 import { Workout, countExercises, countSets, formatTimer } from "@/lib/workouts";
 
-export function WarmWorkoutComplete({
-  workout,
-  elapsed,
-}: {
-  workout: Workout;
-  elapsed: number;
-}) {
+export function WarmWorkoutComplete({ workout, elapsed }: { workout: Workout; elapsed: number }) {
   return (
     <div className="wi-shell">
       <div className="wtx-complete-shell">

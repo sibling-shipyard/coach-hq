@@ -47,7 +47,9 @@ describe("workout library templates", () => {
   it("every template's own id matches its filename (minus .json)", () => {
     for (const fileName of templateFiles) {
       const workout = JSON.parse(fs.readFileSync(path.join(templatesDir, fileName), "utf-8"));
-      expect(workout.id, `${fileName}'s id field should match its filename`).toBe(fileName.replace(/\.json$/, ""));
+      expect(workout.id, `${fileName}'s id field should match its filename`).toBe(
+        fileName.replace(/\.json$/, ""),
+      );
     }
   });
 });
@@ -63,16 +65,22 @@ describe("workout library index.json", () => {
 
   it("has exactly one entry per template file - no orphans, no missing entries", () => {
     const indexIds = index.map((entry: any) => entry.id);
-    expect(new Set(indexIds).size, "index.json should not have duplicate ids").toBe(indexIds.length);
+    expect(new Set(indexIds).size, "index.json should not have duplicate ids").toBe(
+      indexIds.length,
+    );
     expect(new Set(indexIds)).toEqual(templateIds);
   });
 
   it.each(index)("entry $id has valid selection metadata", (entry: any) => {
     assertString(entry.id, "id");
-    expect(templateIds.has(entry.id), `${entry.id} should have a matching template file`).toBe(true);
+    expect(templateIds.has(entry.id), `${entry.id} should have a matching template file`).toBe(
+      true,
+    );
 
     expect(Array.isArray(entry.sport_tags), `${entry.id}.sport_tags should be an array`).toBe(true);
-    expect(entry.sport_tags.length, `${entry.id}.sport_tags should not be empty`).toBeGreaterThan(0);
+    expect(entry.sport_tags.length, `${entry.id}.sport_tags should not be empty`).toBeGreaterThan(
+      0,
+    );
     entry.sport_tags.forEach((t: unknown) => assertString(t, `${entry.id}.sport_tags[]`));
 
     expect(Array.isArray(entry.equipment), `${entry.id}.equipment should be an array`).toBe(true);
@@ -88,7 +96,9 @@ describe("workout library index.json", () => {
 
   it("every id in index.json matches the corresponding template's own id field", () => {
     for (const entry of index) {
-      const workout = JSON.parse(fs.readFileSync(path.join(templatesDir, `${entry.id}.json`), "utf-8"));
+      const workout = JSON.parse(
+        fs.readFileSync(path.join(templatesDir, `${entry.id}.json`), "utf-8"),
+      );
       expect(workout.id, `template file for ${entry.id} has a mismatched id field`).toBe(entry.id);
     }
   });

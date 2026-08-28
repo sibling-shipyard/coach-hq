@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { capText, COACH_LOG_TEXT_CAP, MEMORY_NOTE_TEXT_CAP, INJURY_FLAG_TEXT_CAP } from "../../../../engine/lib/text-caps.mts";
+import {
+  capText,
+  COACH_LOG_TEXT_CAP,
+  MEMORY_NOTE_TEXT_CAP,
+  INJURY_FLAG_TEXT_CAP,
+} from "../../../../engine/lib/text-caps.mts";
 
 describe("capText", () => {
   it("leaves a string under the cap unchanged", () => {

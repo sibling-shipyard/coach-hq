@@ -50,8 +50,8 @@ export function WelcomeInviteCta({ betaLabel = "PRIVATE BETA" }: WelcomeInviteCt
         <span className="welcome-kicker welcome-kicker--center">{betaLabel} · BY INVITE</span>
         <h2 className="welcome-cta__title">Come train with a coach that remembers.</h2>
         <p className="welcome-cta__lede">
-          I&apos;m handing this to a few friends first. If you want in, grab a spot and be one of the
-          earliest testers.
+          I&apos;m handing this to a few friends first. If you want in, grab a spot and be one of
+          the earliest testers.
         </p>
 
         <form className="welcome-cta__inline" onSubmit={(event) => void handleSubmit(event)}>

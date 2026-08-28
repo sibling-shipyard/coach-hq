@@ -11,11 +11,20 @@ import type {
   CoachMessageSnapshot,
   WidgetSnapshotsFile,
 } from "../../../client/src/components/home-warm/snapshots.js";
-import type { ProgressJson, QuestsJson, SeasonsJson } from "../../coach-chat/_lib/coachQuestFiles.js";
+import type {
+  ProgressJson,
+  QuestsJson,
+  SeasonsJson,
+} from "../../coach-chat/_lib/coachQuestFiles.js";
 
 export interface DashboardSnapshotInput {
   activities?: Activity[];
-  ledger?: { seasons: SeasonsJson; quests: QuestsJson; progress: ProgressJson; progressions: unknown } | null;
+  ledger?: {
+    seasons: SeasonsJson;
+    quests: QuestsJson;
+    progress: ProgressJson;
+    progressions: unknown;
+  } | null;
   current_week?: CurrentWeekContract | { data_status?: string };
   sync_status?: SyncStatusPayload;
 }
@@ -42,42 +51,41 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function hasExactKeys(value: Record<string, unknown>, keys: string[]): boolean {
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
-  return actual.length === expected.length
-    && actual.every((key, index) => key === expected[index]);
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
 }
 
 function isLatestCoachMessageFile(value: unknown): value is LatestCoachMessageFile {
   if (!isRecord(value) || !hasExactKeys(value, ["message", "schema_version"])) return false;
-  if (value.schema_version !== 1 || value.message === null || !isRecord(value.message)) return false;
+  if (value.schema_version !== 1 || value.message === null || !isRecord(value.message))
+    return false;
   const message = value.message;
-  if (!hasExactKeys(message, [
-    "activity_ids",
-    "body",
-    "conversation_seed_id",
-    "created_at",
-    "id",
-  ])) return false;
+  if (!hasExactKeys(message, ["activity_ids", "body", "conversation_seed_id", "created_at", "id"]))
+    return false;
   if (
-    typeof message.id !== "string"
-    || !/^cm-[A-Za-z0-9-]{1,160}$/.test(message.id)
-    || typeof message.created_at !== "string"
-    || !Number.isFinite(Date.parse(message.created_at))
-    || typeof message.body !== "string"
-    || message.body.trim().length === 0
-    || message.body.length > 360
-    || message.conversation_seed_id !== `local-proactive-${message.id}`
-    || !Array.isArray(message.activity_ids)
-    || message.activity_ids.length === 0
-    || message.activity_ids.length > 20
-  ) return false;
+    typeof message.id !== "string" ||
+    !/^cm-[A-Za-z0-9-]{1,160}$/.test(message.id) ||
+    typeof message.created_at !== "string" ||
+    !Number.isFinite(Date.parse(message.created_at)) ||
+    typeof message.body !== "string" ||
+    message.body.trim().length === 0 ||
+    message.body.length > 360 ||
+    message.conversation_seed_id !== `local-proactive-${message.id}` ||
+    !Array.isArray(message.activity_ids) ||
+    message.activity_ids.length === 0 ||
+    message.activity_ids.length > 20
+  )
+    return false;
   const activityIds = message.activity_ids;
   if (
-    activityIds.some((id) =>
-      typeof id !== "string"
-      || id.length > 80
-      || (!HEALTHKIT_ACTIVITY_ID.test(id) && !STRAVA_ACTIVITY_ID.test(id)))
-    || activityIds.some((id, index) => index > 0 && id <= activityIds[index - 1])
-  ) return false;
+    activityIds.some(
+      (id) =>
+        typeof id !== "string" ||
+        id.length > 80 ||
+        (!HEALTHKIT_ACTIVITY_ID.test(id) && !STRAVA_ACTIVITY_ID.test(id)),
+    ) ||
+    activityIds.some((id, index) => index > 0 && id <= activityIds[index - 1])
+  )
+    return false;
   return true;
 }
 
@@ -119,7 +127,9 @@ function localDateKey(date: Date): string {
 // required (see PR #240's null-guard). So treat `week.week.start_date`/`end_date` the same way:
 // don't trust the cast, check the shape. A malformed placeholder is itself a reason to recompute
 // live, not a reason to throw and 500 all of Home.
-function isPlaceholderWeekStale(week: { week?: { start_date?: unknown; end_date?: unknown } }): boolean {
+function isPlaceholderWeekStale(week: {
+  week?: { start_date?: unknown; end_date?: unknown };
+}): boolean {
   const startDate = week.week?.start_date;
   const endDate = week.week?.end_date;
   if (typeof startDate !== "string" || typeof endDate !== "string") return true;

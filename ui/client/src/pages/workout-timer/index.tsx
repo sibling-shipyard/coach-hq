@@ -37,7 +37,15 @@ function WorkoutTimerContent({ data }: { data: RepoData }) {
   if (!workout) {
     return (
       <div className="wi-shell">
-        <div className="wi-board" style={{ display: "flex", minHeight: "60vh", alignItems: "center", justifyContent: "center" }}>
+        <div
+          className="wi-board"
+          style={{
+            display: "flex",
+            minHeight: "60vh",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <p>Workout not found.</p>
         </div>
       </div>

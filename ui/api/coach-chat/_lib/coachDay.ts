@@ -55,9 +55,11 @@ export function todayContextLine(timezone: string): string {
 
 export function todayDividerLabel(timezone: string): string {
   try {
-    const time = new Intl.DateTimeFormat("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit" }).format(
-      new Date(),
-    );
+    const time = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date());
     return `TODAY · ${time}`;
   } catch {
     return "TODAY";
@@ -78,9 +80,17 @@ export function todayDateString(timezone: string, now: Date): string {
 // Coach at all," independent of season/challenge resets. Falls back to season.start_date, then
 // challenge.start_date, for repos not yet stamped. Not currently called from the closing-turn
 // prompt (kept exported/tested in case a day-N surface reappears).
-export function coachDayNumber(challengeJson: string | null | undefined, timezone: string, now: Date): number | null {
+export function coachDayNumber(
+  challengeJson: string | null | undefined,
+  timezone: string,
+  now: Date,
+): number | null {
   if (!challengeJson) return null;
-  let parsed: { coach_since?: string; season?: { start_date?: string }; challenge?: { start_date?: string } };
+  let parsed: {
+    coach_since?: string;
+    season?: { start_date?: string };
+    challenge?: { start_date?: string };
+  };
   try {
     parsed = JSON.parse(challengeJson);
   } catch {

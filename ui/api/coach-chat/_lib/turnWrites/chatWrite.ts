@@ -37,8 +37,7 @@ export function buildChatWrite(params: {
   const finalThreadId = threadId ?? `t-${now}`;
   const firstUserText =
     allMessages.find(
-      (message): message is Extract<ChatMessage, { role: "user" }> =>
-        message.role === "user",
+      (message): message is Extract<ChatMessage, { role: "user" }> => message.role === "user",
     )?.text ?? trimmed;
   const computedTitle = truncateTitle(sanitizeTitle(firstUserText), THREAD_TITLE_MAX_CHARS);
   const latestThreads: ChatThread[] = [];

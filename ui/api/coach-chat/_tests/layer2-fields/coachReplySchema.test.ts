@@ -22,6 +22,8 @@ describe("coachReplySchema text caps", () => {
 
   it("caps injury_event[].text at INJURY_FLAG_TEXT_CAP", () => {
     const props = generationConfigFor("closing", false).responseSchema.properties;
-    expect(props.injury_event.items.properties.text).toMatchObject({ maxLength: INJURY_FLAG_TEXT_CAP });
+    expect(props.injury_event.items.properties.text).toMatchObject({
+      maxLength: INJURY_FLAG_TEXT_CAP,
+    });
   });
 });
