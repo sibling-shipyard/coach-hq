@@ -1,6 +1,6 @@
 # Debugging Loop
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26 · Issue: [#585](https://github.com/sibling-shipyard/coach-hq/issues/585)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · Issue: [#585](https://github.com/sibling-shipyard/coach-hq/issues/585)
 
 ## Why now
 
@@ -14,7 +14,7 @@ from the athlete's phone to the operator dashboard, with Vercel as fallback.
 ```mermaid
 flowchart LR
   U["Athlete uses web or iPhone"] --> M["Automatic error monitoring"]
-  M --> S["Sentry, 30 days"]
+  M --> S["Sentry, 90 days"]
   U --> P["Recent event timeline, phone only"]
   U --> R["Report a problem"]
   P --> R
@@ -23,8 +23,8 @@ flowchart LR
 
 | block | what we collect | where it lives | user control |
 |---|---|---|---|
-| **1. Monitoring** | Crashes, error type, screen/operation, timing, app version, athlete message, Gemini reply, model and token counts. | Sentry projects for web/API and iOS, retained for up to 30 days | The four close-friends beta athletes are treated as opted in; formal controls come in #590. |
-| **2. Rage report** | The phone's recent event timeline plus any screenshot, conversation excerpt, or activity the athlete selects. | Timeline stays on the phone for 24 hours. A submitted report stays in Sentry for up to 30 days. | No report attachment leaves the phone until the athlete taps Submit. |
+| **1. Monitoring** | Crashes, error type, screen/operation, timing, app version, athlete message, Gemini reply, model and token counts. | Sentry projects for web/API and iOS, retained for 90 days | The four close-friends beta athletes are treated as opted in; formal controls come in #590. |
+| **2. Rage report** | The phone's recent event timeline plus any screenshot, conversation excerpt, or activity the athlete selects. | Timeline stays on the phone for 24 hours. A submitted report stays in Sentry for 90 days. | No report attachment leaves the phone until the athlete taps Submit. |
 
 Never capture API keys, login tokens, auth headers, or credentials in Sentry.
 
@@ -55,6 +55,10 @@ flowchart LR
 | **PR3 · Medium** | M1 · monitoring | iOS crashes appear in Sentry and the phone keeps a short local timeline. | PR2 | `ios/CoachHQ/CoachHQ.xcodeproj/`, `ios/CoachHQ/CoachHQ/`, `ios/CoachHQ/CoachHQTests/` | iOS Builder | PR2 | CI proves buffer limits, expiry, sign-out clearing, and one test crash reaches Sentry. |
 | **PR4 · Medium** | M2 · report and operate | "Report a problem" previews and submits selected evidence. | PR3 | `ios/CoachHQ/CoachHQ/Views/`, `ios/CoachHQ/CoachHQ/Services/`, `ios/CoachHQ/CoachHQTests/` | iOS Builder | — | Submit sends exactly the selected items; Cancel sends nothing. |
 | **PR5 · Small** | M2 · report and operate | Dashboards, alerts, and the operator runbook work end to end. | PR4 | `.github/workflows/`, `docs/eng-docs/`, `docs/plans/` | Tech Lead | — | A production proof triggers the alert and the runbook joins the phone, API, and release evidence. |
+
+Build status (2026-08-28): PR1–PR4 code is pushed with review findings fixed. PR5 still needs the
+Sentry organisation, iOS dSYM upload, dashboard, alerts, and saved production proof — all operator
+work on a real account — so this plan stays until those land.
 
 PR2 and PR3 build together after PR1; rebase PR3 onto PR2 before review. Final merge order is
 **PR1 → PR2 → PR3 → PR4 → PR5**.
