@@ -20,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
+import { captureGeminiFailure } from "../../_lib/sentry.js";
 import type { FileEntry } from "../../_lib/githubGitData.js";
 import type { ProfileJson, MemoryJson, InjuriesJson } from "./coachMemoryFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
@@ -342,7 +343,10 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
   );
   if (!res.ok) {
     const detail = await res.text();
-    throw new Error(`Gemini template-adjustment call failed (${res.status}): ${detail}`);
+    throw Object.assign(
+      new Error(`Gemini template-adjustment call failed (${res.status}): ${detail}`),
+      { status: res.status },
+    );
   }
   const json = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
@@ -383,6 +387,17 @@ export async function generateInitialTemplates(
       err,
       { traceId },
     );
+    // Deliberately non-fatal: capture for visibility, then fall through to the unadjusted
+    // library templates below so onboarding always produces something.
+    await captureGeminiFailure(err, {
+      traceId,
+      model: GEMINI_MODEL,
+      upstreamStatus: (err as { status?: number }).status ?? 500,
+      turnMode: "template_adjust",
+      // The adjustment pass personalizes library templates from athlete memory, not from
+      // athlete-typed text - there is nothing to record here.
+      athleteMessage: "",
+    });
   }
   const byId = new Map(adjustments.map((a) => [a.template_id, a]));
 

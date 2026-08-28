@@ -1,5 +1,6 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
+import { captureGeminiFailure } from "../../_lib/sentry.js";
 import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
 
 export const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
@@ -764,48 +765,62 @@ export async function generateProactiveBody(
   prompt: string,
   fetcher: typeof fetchWithTimeout = fetchWithTimeout,
 ): Promise<string> {
-  const response = await fetcher(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: { body: { type: "string" } },
-            required: ["body"],
-          },
-          maxOutputTokens: 180,
-        },
-      }),
-    },
-    GEMINI_GENERATE_TIMEOUT_MS,
-  );
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new CoachMessageError(
-      `Gemini request failed (${response.status}): ${detail}`,
-      response.status === 429 ? 429 : 502,
-    );
-  }
-  const payload = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new CoachMessageError("Gemini returned no content", 502);
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(text) as unknown;
-  } catch {
-    throw new CoachMessageError("Gemini returned invalid JSON", 502);
+    const response = await fetcher(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: { body: { type: "string" } },
+              required: ["body"],
+            },
+            maxOutputTokens: 180,
+          },
+        }),
+      },
+      GEMINI_GENERATE_TIMEOUT_MS,
+    );
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new CoachMessageError(
+        `Gemini request failed (${response.status}): ${detail}`,
+        response.status === 429 ? 429 : 502,
+      );
+    }
+    const payload = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new CoachMessageError("Gemini returned no content", 502);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      throw new CoachMessageError("Gemini returned invalid JSON", 502);
+    }
+    if (!isObject(parsed) || Object.keys(parsed).length !== 1 || !("body" in parsed)) {
+      throw new CoachMessageError("Gemini returned an invalid message shape", 502);
+    }
+    return validateGeneratedBody(parsed.body);
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status ?? 500;
+    console.error("[coach-message] generateProactiveBody failed:", err);
+    await captureGeminiFailure(err, {
+      model: GEMINI_MODEL,
+      upstreamStatus: status,
+      turnMode: "proactive_message",
+      // The proactive message is generated from activity/context data, not athlete-typed text —
+      // there is nothing to record here, same reasoning as the greeting path in coach-chat.ts.
+      athleteMessage: "",
+    });
+    throw err;
   }
-  if (!isObject(parsed) || Object.keys(parsed).length !== 1 || !("body" in parsed)) {
-    throw new CoachMessageError("Gemini returned an invalid message shape", 502);
-  }
-  return validateGeneratedBody(parsed.body);
 }
 
 function serializeLatestMessage(message: LatestCoachMessage): string {
