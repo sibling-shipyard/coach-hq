@@ -1,6 +1,6 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { captureGeminiFailure } from "../../_lib/sentry.js";
+import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
 
 export const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
@@ -766,48 +766,62 @@ export async function generateProactiveBody(
   fetcher: typeof fetchWithTimeout = fetchWithTimeout,
 ): Promise<string> {
   try {
-    const response = await fetcher(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "object",
-              properties: { body: { type: "string" } },
-              required: ["body"],
+    return await withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
+      const response = await fetcher(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "object",
+                properties: { body: { type: "string" } },
+                required: ["body"],
+              },
+              maxOutputTokens: 180,
             },
-            maxOutputTokens: 180,
-          },
-        }),
-      },
-      GEMINI_GENERATE_TIMEOUT_MS,
-    );
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new CoachMessageError(
-        `Gemini request failed (${response.status}): ${detail}`,
-        response.status === 429 ? 429 : 502,
+          }),
+        },
+        GEMINI_GENERATE_TIMEOUT_MS,
       );
-    }
-    const payload = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new CoachMessageError("Gemini returned no content", 502);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text) as unknown;
-    } catch {
-      throw new CoachMessageError("Gemini returned invalid JSON", 502);
-    }
-    if (!isObject(parsed) || Object.keys(parsed).length !== 1 || !("body" in parsed)) {
-      throw new CoachMessageError("Gemini returned an invalid message shape", 502);
-    }
-    return validateGeneratedBody(parsed.body);
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new CoachMessageError(
+          `Gemini request failed (${response.status}): ${detail}`,
+          response.status === 429 ? 429 : 502,
+        );
+      }
+      const payload = (await response.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+        };
+      };
+      if (payload.usageMetadata) {
+        recordUsage({
+          promptTokens: payload.usageMetadata.promptTokenCount,
+          completionTokens: payload.usageMetadata.candidatesTokenCount,
+          totalTokens: payload.usageMetadata.totalTokenCount,
+        });
+      }
+      const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new CoachMessageError("Gemini returned no content", 502);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text) as unknown;
+      } catch {
+        throw new CoachMessageError("Gemini returned invalid JSON", 502);
+      }
+      if (!isObject(parsed) || Object.keys(parsed).length !== 1 || !("body" in parsed)) {
+        throw new CoachMessageError("Gemini returned an invalid message shape", 502);
+      }
+      return validateGeneratedBody(parsed.body);
+    });
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     console.error("[coach-message] generateProactiveBody failed:", err);

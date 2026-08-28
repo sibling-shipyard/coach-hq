@@ -335,3 +335,19 @@ describe("withContinuedTrace", () => {
     ).rejects.toThrow("boom");
   });
 });
+
+describe("withGeminiSpan without a DSN", () => {
+  it("runs the call untouched, so local runs and fork deploys open no span", async () => {
+    init.mockClear();
+    delete process.env.SENTRY_DSN;
+    const { withGeminiSpan } = await loadSentry();
+
+    await expect(
+      withGeminiSpan("gemini-flash-latest", async (recordUsage) => {
+        recordUsage({ promptTokens: 10 });
+        return "reply";
+      }),
+    ).resolves.toBe("reply");
+    expect(init).not.toHaveBeenCalled();
+  });
+});

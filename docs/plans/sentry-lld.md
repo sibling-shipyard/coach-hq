@@ -27,9 +27,12 @@ flowchart LR
 | **Common** | `athlete_id` | string | GitHub login / athlete handle (beta cohort only) |
 | **Common** | `trace_id` | hex string | Sentry's own trace id, propagated browser → API on the `sentry-trace` and `baggage` headers; joins the two events in the trace view |
 | **API** | `vercel_trace_id` | string | coach-chat's own id for the turn, for grepping Vercel logs. Distinct from `trace_id` above |
-| **Web & API** | `model` | string | Gemini model name (e.g. `gemini-2.5-pro`, `gemini-2.5-flash`) |
-| **Web & API** | `prompt_tokens` / `completion_tokens` | number | Exact token counts returned by Gemini API |
-| **Web & API** | `athlete_message` / `gemini_reply` | string | Text exchange for the failed/traced turn |
+| **API** | `model` | string | Gemini model id, tagged on a *failed* call (e.g. `gemini-flash-latest`) |
+| **API** | `athlete_message` | string | Event context on a *failed* Gemini call only (ADR 0032). A turn that works is already in `chat_history.json`, so its spans carry no text — no `gemini_reply` is sent on any path |
+| **API span** | `outcome` | `ok` / `error` | On both span kinds below. What the health dashboard groups by |
+| **API span** | `http.request.method` / `url.path` / `http.response.status_code` | string / number | On the route's `http.server` span, named `POST /api/coach-chat` |
+| **API span** | `gen_ai.request.model` | string | Model id on the `gen_ai.generate_content` span |
+| **API span** | `gen_ai.usage.input_tokens` / `output_tokens` / `total_tokens` / `input_tokens.cached` | number | Gemini's `usageMetadata`, mapped to Sentry's own `gen_ai` attribute names — the ones `@sentry/core`'s `tracing/google-genai` integration emits, so our hand-rolled spans read like auto-instrumented ones |
 | **iOS** | `app_version` / `build_number` | string | Client version and CFBundleVersion |
 | **iOS** | `view_name` | string | Active screen or sheet (e.g. `HomeView`, `CoachChatView`) |
 | **iOS** | `timeline_excerpt` | JSON | Only the timeline events the athlete selected in a Rage Report |
@@ -66,7 +69,10 @@ next one starts.
    trace, so a browser event and its API event share one trace id and link structurally — trace
    view and related events, not just a tag to search. `tracesSampleRate` defaults to `1` on both
    sides; spans bill against the 5M/month span quota, not the tight 5k error quota.
-5. **Phase 4 — success-path telemetry.** Spans, tracing, and token counts on turns that work.
+5. **Phase 4 — success-path telemetry.** One `http.server` span per coach route and one
+   `gen_ai.generate_content` span per Gemini call, carrying model, token counts, and `outcome`.
+   `withContinuedTrace` flushes both before the response leaves, because Vercel freezes the
+   function on return and an unflushed span is dropped in silence. **Done.**
 6. **Phase 5 — iOS.** Swift SDK, crashes with active view name, local timeline on problem reports.
 7. **Phase 6 — source maps and dSYMs.** Upload at build time so production stack frames are readable.
 

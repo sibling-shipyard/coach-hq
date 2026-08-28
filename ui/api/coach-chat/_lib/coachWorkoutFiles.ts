@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { captureGeminiFailure } from "../../_lib/sentry.js";
+import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import type { FileEntry } from "../../_lib/githubGitData.js";
 import type { ProfileJson, MemoryJson, InjuriesJson } from "./coachMemoryFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
@@ -336,25 +336,43 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
     },
   };
 
-  const res = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
-    20_000,
-  );
-  if (!res.ok) {
-    const detail = await res.text();
-    throw Object.assign(
-      new Error(`Gemini template-adjustment call failed (${res.status}): ${detail}`),
-      { status: res.status },
+  return withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
+    const res = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      20_000,
     );
-  }
-  const json = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini template-adjustment call returned no content");
-  const parsed = JSON.parse(text) as { adjustments?: TemplateAdjustment[] };
-  return Array.isArray(parsed.adjustments) ? parsed.adjustments : [];
+    if (!res.ok) {
+      const detail = await res.text();
+      throw Object.assign(
+        new Error(`Gemini template-adjustment call failed (${res.status}): ${detail}`),
+        { status: res.status },
+      );
+    }
+    const json = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+    };
+    if (json.usageMetadata) {
+      recordUsage({
+        promptTokens: json.usageMetadata.promptTokenCount,
+        completionTokens: json.usageMetadata.candidatesTokenCount,
+        totalTokens: json.usageMetadata.totalTokenCount,
+      });
+    }
+    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error("Gemini template-adjustment call returned no content");
+    const parsed = JSON.parse(text) as { adjustments?: TemplateAdjustment[] };
+    return Array.isArray(parsed.adjustments) ? parsed.adjustments : [];
+  });
 };
 
 /**
