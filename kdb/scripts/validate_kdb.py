@@ -3,10 +3,14 @@
 Checks ADR format/filenames/numbering, supersede refs, and that the index is in sync."""
 import datetime, os, pathlib, re, subprocess, sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import adr_readability
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEC = ROOT / "kdb" / "decisions"
 AGENTS = ROOT / "AGENTS.md"
 FIELDS = ["Status", "Area", "Context", "Decision", "Why", "Rejected"]
+ENFORCES_REQUIRED_FROM = 32
 NAME_RE = re.compile(r"^\d{4}-[a-z0-9-]+\.md$")
 SKIP = {"0000-template.md", "README.md"}
 
@@ -26,11 +30,46 @@ for fp in adr_files():
     for field in FIELDS:
         if f"**{field}:**" not in text:
             errors.append(f"{name}: missing field '{field}'")
+    # `Enforces:` is required from 0032 on, and backfilled onto older ADRs as they are
+    # touched. Not applied retroactively to all 30: naming what an ADR stops is a
+    # judgment call, and a check that forces 18 of them to be guessed in one sitting
+    # produces 18 filler lines, which is worse than the gap it closes.
+    num = int(name[:4]) if name[:4].isdigit() else 0  # bad name already reported above
+    if num >= ENFORCES_REQUIRED_FROM and "**Enforces:**" not in text:
+        errors.append(f"{name}: missing field 'Enforces' — one line naming what this ADR "
+                      "stops someone doing (required for 0032 and later)")
     nums.setdefault(name[:4], []).append(name)
 
 for num, files in nums.items():
     if len(files) > 1:
         errors.append(f"duplicate ADR number {num}: {', '.join(files)}")
+
+# ADR prose. Two rules gate (over-long sentences, jargon with a shorter replacement);
+# everything else reports. The split is not arbitrary — see adr_readability.py, which
+# records the run where a field-budget gate failed the most readable ADR in the set and
+# passed the least readable one.
+#
+# WARN MODE. Every finding lands in `warnings` until PROSE_ENFORCED flips. The order
+# matters: the checks were written against a set that fails them, so that the thresholds
+# describe the prose we want rather than the prose we already have. Gating on day one
+# would have meant tuning the numbers until the existing files passed, which measures
+# nothing. Flip this to True once the set is clean — the cleanup that does it is the
+# same PR series that added this.
+PROSE_ENFORCED = False
+
+for fp in adr_files():
+    text = fp.read_text()
+    for severity, msg in adr_readability.findings(fp.name, text):
+        if severity != "error":
+            warnings.append(msg)
+        elif PROSE_ENFORCED:
+            errors.append(msg)
+        else:
+            warnings.append(f"[will fail] {msg}")
+    s = adr_readability.score(text)
+    if s and s["fk"] > 12:
+        warnings.append(f"{fp.name}: reading grade {s['fk']} (watch, never gated) — "
+                        f"avg sentence {s['avg_sentence']} words")
 
 # Superseded refs must resolve
 existing_nums = set(nums)

@@ -40,15 +40,28 @@
 
 Regenerate with `python3 kdb/scripts/gen_adr_index.py`.
 One file per durable, hard-to-reverse decision: `NNNN-kebab-title.md`.
-Fields: **Context / Decision / Why / Rejected**, plus an `Area:` tag.
+Fields: **Context / Decision / Why / Rejected / Enforces**, plus an `Area:` tag and an
+optional **How to apply**. Start from `0000-template.md` — it carries the writing rules.
+
+There is no ADR 0004. The number was never used; nothing was deleted.
 
 Rules:
 - Add an ADR only when a choice is expensive to reverse, or a future agent might re-argue
   it. A decision nobody contests doesn't need one.
 - Never rewrite an ADR to change its meaning. Supersede: add a new ADR and set the old
   one's `Status:` to `Superseded by NNNN`.
-- Keep them short — five fields, a few lines each.
+- Keep them short — a few lines per field.
 - Write in plain English — short words, no jargon; readable by someone outside the team.
+- **Draft `Enforces:` first.** One line naming what this ADR stops someone doing. If you
+  cannot write it, you have a description rather than a decision.
+- **Sentences stay under 40 words** — `kdb/scripts/validate_kdb.py` fails the build over
+  that and warns past 30. The house voice rules in `platform/soul/A_identity.md` §3 apply
+  to us, not only to Coach.
+- Field word budgets **warn, never fail**. Length and readability turned out to be
+  independent when measured across this set, so a budget flags bloat and nothing more —
+  the reasoning is recorded in `kdb/scripts/adr_readability.py`.
+- `python3 kdb/scripts/adr_readability.py` prints the reading-grade table. Watch it; it
+  never gates, because the score is easy to improve by making the prose worse.
 - Central and tagged (not per-folder) so cross-cutting decisions have a single home.
 - A PR that changes a locked/architectural decision must add or supersede an ADR here
   (Tech Lead checks this in review).
