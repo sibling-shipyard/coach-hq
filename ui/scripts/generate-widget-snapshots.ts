@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateWidgetSnapshotsFromDashboardSnapshot, type DashboardSnapshotInput } from "../api/auth/_lib/generate-widget-snapshots-from-dashboard-snapshot";
-import { dashboardSnapshotPath, repoRoot, widgetSnapshotsPath } from "../../engine/lib/repo-layout.mjs";
+import { repoRoot, widgetSnapshotsPath } from "../../engine/lib/repo-layout.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(path.join(__dirname, ".."));

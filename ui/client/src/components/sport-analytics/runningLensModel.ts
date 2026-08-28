@@ -123,13 +123,6 @@ function formatShortDate(timestamp: number): string {
     .toUpperCase();
 }
 
-function formatMonthYear(timestamp: number): string {
-  return new Date(timestamp)
-    .toLocaleDateString("en-GB", { month: "short", year: "2-digit" })
-    .toUpperCase()
-    .replace(" ", " '");
-}
-
 export function formatPace(secPerKm: number): string {
   const mins = Math.floor(secPerKm / 60);
   const secs = Math.round(secPerKm % 60);
@@ -153,7 +146,7 @@ export interface RunningHeaderStats {
   metaLine: string;
 }
 
-function buildHeaderStats(activities: Activity[], sessions: RunSession[]): RunningHeaderStats {
+function buildHeaderStats(activities: Activity[]): RunningHeaderStats {
   const allRuns = activities.filter((a) => getTrainingCategory(a) === "run");
   const withGps = allRuns.filter((a) => (Number(a.distance) || 0) > 0).length;
   const withHr = allRuns.filter(
@@ -656,7 +649,7 @@ export function buildRunningLensModel(
   const coachRead = buildCoachRead(weeklyVolume, paceTrend, benchmark);
 
   return {
-    header: buildHeaderStats(activities, sessions),
+    header: buildHeaderStats(activities),
     weeklyVolume,
     benchmark,
     pbs,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Redirect } from "wouter";
+import { Link } from "wouter";
 import { Dumbbell, Home, LogOut, Menu, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRepoData } from "@/hooks/useRepoData";

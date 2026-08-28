@@ -364,6 +364,9 @@ async function callbackImpl(url: URL): Promise<Response> {
 // ============================================================================
 // logout.ts
 // ============================================================================
+// Stays async with no await: every handler here is `async (...) => Promise<Response>` and
+// the dispatch switch returns them directly, so dropping async breaks the shared shape.
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function handleLogout(): Promise<Response> {
   const headers = new Headers();
   headers.append("Set-Cookie", clearCookie(SESSION_COOKIE));

@@ -16,7 +16,6 @@ import {
 
 export type BadmintonMode = "ranked" | "all";
 
-const RANKED_CATEGORIES = new Set(["badminton_ranked", "badminton_league"]);
 const ALL_CATEGORIES = new Set([
   "badminton_ranked",
   "badminton_league",
@@ -412,8 +411,8 @@ function buildHeadToHead(sessions: BadmintonSession[], mode: BadmintonMode, now:
     const recentWins = recent.filter((g) => g.result === "W").length;
     const recentLosses = recent.filter((g) => g.result === "L").length;
 
-    let direction = "steady rivalry";
-    let tone: "up" | "down" | "flat" = "flat";
+    let direction: string;
+    let tone: "up" | "down" | "flat";
     if (recent.length >= 2) {
       const recentPct = winPct(recentWins, recentLosses);
       if (recentPct - windowPct >= 15) {

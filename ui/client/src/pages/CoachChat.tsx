@@ -386,6 +386,10 @@ function CoachChatContent({ data }: { data: RepoData }) {
     return () => {
       cancelled = true;
     };
+    // ensureTodayThread is intentionally not a dependency: it is redeclared every render,
+    // so listing it would re-run this whole thread load on every render instead of once
+    // per load attempt.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadAttempt, requestedProactiveSeed]);
 
   useEffect(() => {

@@ -43,7 +43,7 @@ export function GitHubAuthButton({
   }
 
   return (
-    <button type="button" onClick={handleClick} className={className} disabled={disabled}>
+    <button type="button" onClick={() => void handleClick()} className={className} disabled={disabled}>
       {children}
     </button>
   );

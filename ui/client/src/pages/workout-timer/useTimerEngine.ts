@@ -91,11 +91,11 @@ export function useTimerEngine(
         // Wake lock not available or denied
       }
     };
-    requestWakeLock();
+    void requestWakeLock();
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        requestWakeLock();
+        void requestWakeLock();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
