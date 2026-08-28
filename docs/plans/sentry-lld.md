@@ -12,10 +12,10 @@ Four beta athletes use the product; Sentry provides a single, searchable debuggi
 
 ```mermaid
 flowchart LR
-  W["Web client /ui"] -->|scrubbed errors| S["Sentry (EU/Germany)<br/>90-day retention"]
-  A["Vercel API /api"] -->|errors + LLM telemetry| S
-  I["iOS App"] -->|crashes + opt-in reports| S
-  I -->|ring buffer (200 events)| T["Local timeline (24h)"]
+    W["Web client /ui"] -- "scrubbed errors" --> S["Sentry (EU/Germany)<br/>90-day retention"]
+    A["Vercel API /api"] -- "errors + LLM telemetry" --> S
+    I["iOS App"] -- "crashes + opt-in reports" --> S
+    I -- "ring buffer (200 events)" --> T["Local timeline (24h)"]
 ```
 
 ### Event schemas and tags
