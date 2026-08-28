@@ -59,12 +59,38 @@ export function initServerMonitoring(): boolean {
     release: sentryRelease,
     environment: sentryEnvironment,
     tracesSampleRate: sentryTracesSampleRate,
+    // Read incoming trace headers, send none. Gemini and the GitHub API have no use for our
+    // `sentry-trace`/`baggage`, and an empty list is the only way to say so — the default
+    // attaches them to every outbound request. Incoming continuation is unaffected.
+    tracePropagationTargets: [],
     // ADR 0032: no automatic PII. Everything Sentry sees is added on purpose.
     sendDefaultPii: false,
     beforeSend: (event) => scrubSentryEvent(event, configuredSecrets()),
   });
   initialized = true;
   return true;
+}
+
+/**
+ * Run `handler` on the trace the browser started.
+ *
+ * Nothing continues that trace on its own here. `Sentry.init` runs lazily, from inside the
+ * capture helpers below, long after Vercel's runtime accepted the request — so there is no
+ * auto-instrumented server span holding the incoming `sentry-trace`, and without this call the
+ * browser event and the API event land on two different traces. Call it at the route's entry,
+ * before anything that might capture.
+ *
+ * No DSN, or no headers, and this is a pass-through: the handler runs exactly as it would have.
+ */
+export function withContinuedTrace<T>(req: Request, handler: () => Promise<T>): Promise<T> {
+  if (!initServerMonitoring()) return handler();
+  return Sentry.continueTrace(
+    {
+      sentryTrace: req.headers.get("sentry-trace") ?? undefined,
+      baggage: req.headers.get("baggage"),
+    },
+    handler,
+  );
 }
 
 export interface CaptureResult {
@@ -84,7 +110,11 @@ export async function captureServerException(error: unknown): Promise<CaptureRes
 
 /** What a failed LLM call must carry to be debuggable from the Sentry UI alone. */
 export interface GeminiFailureDetails {
-  /** Correlates the event with the turn's log lines. Absent on paths that mint no trace id. */
+  /**
+   * coach-chat's own id, for grepping the Vercel logs of the same turn. Tagged
+   * `vercel_trace_id`, not `trace_id`: Sentry's trace id is its own thing on this event and two
+   * meanings of one name is a triage trap. Absent on paths that mint no trace id.
+   */
   traceId?: string;
   /** Gemini model id, supplied by the caller so this module stays free of coach-chat internals. */
   model: string;
@@ -116,7 +146,7 @@ export async function captureGeminiFailure(
   if (!initServerMonitoring()) return { sent: false };
   const eventId = Sentry.captureException(error, {
     tags: {
-      ...(details.traceId ? { trace_id: details.traceId } : {}),
+      ...(details.traceId ? { vercel_trace_id: details.traceId } : {}),
       model: details.model,
       upstream_status: details.upstreamStatus,
       turn_mode: details.turnMode,

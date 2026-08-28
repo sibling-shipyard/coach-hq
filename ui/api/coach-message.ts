@@ -4,6 +4,7 @@ import { fetchWithTimeout } from "./_lib/httpTimeout.js";
 import { SOUL } from "./_generated/soul.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
+import { withContinuedTrace } from "./_lib/sentry.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -90,17 +91,20 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    const resolved = await resolveRepoAuth(req);
-    if (resolved instanceof Response) return resolved;
-    try {
-      return withSessionCookie(await handle(req, resolved), resolved.setCookie);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Coach message generation failed";
-      const rawStatus = (error as { status?: unknown }).status;
-      const status =
-        typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
-      console.error("[coach-message]", error);
-      return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
-    }
+    // Entry, before anything can capture: joins the browser's trace so both events share one.
+    return withContinuedTrace(req, async () => {
+      const resolved = await resolveRepoAuth(req);
+      if (resolved instanceof Response) return resolved;
+      try {
+        return withSessionCookie(await handle(req, resolved), resolved.setCookie);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Coach message generation failed";
+        const rawStatus = (error as { status?: unknown }).status;
+        const status =
+          typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
+        console.error("[coach-message]", error);
+        return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
+      }
+    });
   },
 };

@@ -26,6 +26,7 @@ flowchart LR
 | **Common** | `environment` | string | `production`, `preview`, or `development` |
 | **Common** | `athlete_id` | string | GitHub login / athlete handle (beta cohort only) |
 | **Common** | `trace_id` | hex string | Sentry's own trace id, propagated browser → API on the `sentry-trace` and `baggage` headers; joins the two events in the trace view |
+| **API** | `vercel_trace_id` | string | coach-chat's own id for the turn, for grepping Vercel logs. Distinct from `trace_id` above |
 | **Web & API** | `model` | string | Gemini model name (e.g. `gemini-2.5-pro`, `gemini-2.5-flash`) |
 | **Web & API** | `prompt_tokens` / `completion_tokens` | number | Exact token counts returned by Gemini API |
 | **Web & API** | `athlete_message` / `gemini_reply` | string | Text exchange for the failed/traced turn |

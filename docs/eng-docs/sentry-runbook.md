@@ -58,10 +58,9 @@ flowchart LR
    interaction sit on one trace. Read only the evidence attached to a Rage Report; use the timeline to
    locate the failing web/API/Gemini/iOS span. **A failed Gemini call carries the athlete's message**
    (ADR 0032) — `captureGeminiFailure()` in `ui/api/_lib/sentry.ts` attaches it as event context, plus
-   `model`, `upstream_status`, `turn_mode`, and a `trace_id` *tag*. Mind that tag: it holds coach-chat's
-   own id for grepping Vercel logs, not the Sentry trace id you searched on. The scrubber
-   (`ui/observability/sentryScrubber.ts`) still runs first, so any credential in that text still shows
-   as `[Filtered]`.
+   `model`, `upstream_status`, `turn_mode`, and `vercel_trace_id` — coach-chat's own id, for grepping
+   the Vercel logs of the same turn. The scrubber (`ui/observability/sentryScrubber.ts`) still runs
+   first, so any credential in that text still shows as `[Filtered]`.
 3. Confirm credentials show as `[Filtered]`. Delete the event and rotate the credential immediately
    if an auth header, cookie, API key, GitHub token, or session token escaped.
 4. File the defect with the Sentry link, trace id, release, user impact, and failing stage. Resolve

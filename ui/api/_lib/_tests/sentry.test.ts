@@ -14,7 +14,14 @@ const { captureException, flush, init } = vi.hoisted(() => ({
   init: vi.fn(),
 }));
 
-vi.mock("@sentry/node", () => ({ captureException, flush, init }));
+// Only the transport-facing calls are faked. `continueTrace` and the scope APIs are the real
+// ones, so the trace-continuation tests below assert on real propagation context, not on a stub.
+vi.mock("@sentry/node", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@sentry/node")>()),
+  captureException,
+  flush,
+  init,
+}));
 
 const DETAILS = {
   traceId: "ab12cd34",
@@ -49,7 +56,7 @@ describe("captureGeminiFailure", () => {
 
     expect(captureException).toHaveBeenCalledWith(error, {
       tags: {
-        trace_id: "ab12cd34",
+        vercel_trace_id: "ab12cd34",
         model: "gemini-flash-latest",
         upstream_status: 503,
         turn_mode: "closing",
@@ -73,10 +80,19 @@ describe("captureGeminiFailure", () => {
     expect(context.contexts.coach_turn.athlete_message).toBe(long);
   });
 
-  it("omits trace_id on the paths that mint no trace id", async () => {
+  it("omits vercel_trace_id on the paths that mint no trace id", async () => {
     const { captureGeminiFailure } = await loadSentry();
 
     await captureGeminiFailure(new Error("boom"), { ...DETAILS, traceId: undefined });
+
+    const [, context] = captureException.mock.calls[0] as [unknown, { tags: object }];
+    expect(context.tags).not.toHaveProperty("vercel_trace_id");
+  });
+
+  it("never tags the Vercel log id as trace_id, which is Sentry's own trace", async () => {
+    const { captureGeminiFailure } = await loadSentry();
+
+    await captureGeminiFailure(new Error("boom"), DETAILS);
 
     const [, context] = captureException.mock.calls[0] as [unknown, { tags: object }];
     expect(context.tags).not.toHaveProperty("trace_id");
@@ -143,6 +159,7 @@ describe("initServerMonitoring tracing", () => {
     initServerMonitoring();
     return init.mock.calls[0][0] as {
       tracesSampleRate: number;
+      tracePropagationTargets: unknown[];
       sendDefaultPii: boolean;
       beforeSend: (event: unknown) => { extra: { detail: string } };
     };
@@ -167,6 +184,10 @@ describe("initServerMonitoring tracing", () => {
     warn.mockRestore();
   });
 
+  it("propagates no trace headers outbound, so Gemini and GitHub never see ours", async () => {
+    expect((await initOptions()).tracePropagationTargets).toEqual([]);
+  });
+
   it("keeps the scrubber and the PII opt-out on the same init that enables tracing", async () => {
     process.env.GEMINI_API_KEY = "configured-gemini-key";
     const options = await initOptions();
@@ -177,5 +198,73 @@ describe("initServerMonitoring tracing", () => {
       "key=[Filtered]",
     );
     delete process.env.GEMINI_API_KEY;
+  });
+});
+
+describe("withContinuedTrace", () => {
+  const INCOMING_TRACE_ID = "0af7651916cd43dd8448eb211c80319c";
+  const INCOMING = `${INCOMING_TRACE_ID}-b7ad6b7169203331-1`;
+
+  beforeEach(() => {
+    init.mockClear();
+    process.env.SENTRY_DSN = "https://public@o0.ingest.de.sentry.io/1";
+  });
+
+  afterEach(() => {
+    delete process.env.SENTRY_DSN;
+  });
+
+  /** Reads what Sentry would stamp on any event captured inside the handler. */
+  async function traceIdSeenBy(headers: Record<string, string>) {
+    const { withContinuedTrace, Sentry } = await loadSentry();
+    const req = new Request("https://coach.test/api/coach-chat", { headers });
+    return withContinuedTrace(req, async () =>
+      Sentry.getCurrentScope().getPropagationContext().traceId,
+    );
+  }
+
+  it("continues the trace the browser started instead of beginning a new one", async () => {
+    expect(await traceIdSeenBy({ "sentry-trace": INCOMING })).toBe(INCOMING_TRACE_ID);
+  });
+
+  it("starts its own trace when the caller sends no headers", async () => {
+    const traceId = await traceIdSeenBy({});
+
+    expect(traceId).not.toBe(INCOMING_TRACE_ID);
+    expect(traceId).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("does not leak the continued trace into the next request", async () => {
+    const { withContinuedTrace, Sentry } = await loadSentry();
+    const traced = new Request("https://coach.test/api/coach-chat", {
+      headers: { "sentry-trace": INCOMING },
+    });
+    await withContinuedTrace(traced, async () => undefined);
+
+    expect(Sentry.getCurrentScope().getPropagationContext().traceId).not.toBe(INCOMING_TRACE_ID);
+  });
+
+  it("runs the handler untouched with no DSN, so local and fork deploys behave as before", async () => {
+    delete process.env.SENTRY_DSN;
+    const { withContinuedTrace } = await loadSentry();
+    const req = new Request("https://coach.test/api/coach-chat", {
+      headers: { "sentry-trace": INCOMING },
+    });
+
+    await expect(withContinuedTrace(req, async () => "handler ran")).resolves.toBe("handler ran");
+    expect(init).not.toHaveBeenCalled();
+  });
+
+  it("passes the handler's rejection through, so route error handling is unchanged", async () => {
+    const { withContinuedTrace } = await loadSentry();
+    const req = new Request("https://coach.test/api/coach-chat", {
+      headers: { "sentry-trace": INCOMING },
+    });
+
+    await expect(
+      withContinuedTrace(req, async () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
   });
 });
