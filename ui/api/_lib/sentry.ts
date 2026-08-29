@@ -119,11 +119,27 @@ const FLUSH_TIMEOUT_MS = 2000;
  * settles, so flushing here — after the await, before the response leaves — is the last moment
  * the function is still alive to send it.
  *
+ * The isolation scope is forked here, and that fork is what `setAthleteScope` writes the athlete
+ * onto. Nothing else gives one request its own identity: `continueTrace` forks the *current*
+ * scope but inherits the process-wide isolation scope, and `startSpan` forks the current scope
+ * again below the one the transaction event captured — so a user set on the current scope inside
+ * the handler reaches that request's errors and not its transaction. One forked isolation scope
+ * per request reaches both, and reaches nothing the next request on this warm instance sends.
+ *
  * No DSN, or no headers, and this is a pass-through: the handler runs exactly as it would have.
  */
 export function withContinuedTrace<T>(req: Request, handler: () => Promise<T>): Promise<T> {
   if (!initServerMonitoring()) return handler();
   const { pathname } = new URL(req.url);
+  return Sentry.withIsolationScope(() => continueTraceInto(req, pathname, handler));
+}
+
+/** The body of `withContinuedTrace`, split out only to keep the isolation-scope fork one line. */
+function continueTraceInto<T>(
+  req: Request,
+  pathname: string,
+  handler: () => Promise<T>,
+): Promise<T> {
   return Sentry.continueTrace(
     {
       sentryTrace: req.headers.get("sentry-trace") ?? undefined,
@@ -159,6 +175,33 @@ export function withContinuedTrace<T>(req: Request, handler: () => Promise<T>): 
       }
     },
   );
+}
+
+/**
+ * Tag this request's events with the athlete they happened to.
+ *
+ * The id is the owner half of `owner/repo`, derived exactly the way iOS derives it
+ * (`DiagnosticsManager.setAthlete`), so a web event, an API event and a native event for the
+ * same person carry the same `athlete_id`. It is also the only handle both auth modes hold:
+ * the iOS Bearer path presents `X-Coach-Repo` and no GitHub login, so `RepoAuthContext` has a
+ * repo and nothing else stable.
+ *
+ * ADR 0032 keeps `sendDefaultPii: false` on purpose — this is the deliberate exception the
+ * LLD's tag table already named. The handle and nothing else: no email, no IP.
+ *
+ * **The isolation scope, which `withContinuedTrace` forks per request.** The current scope is
+ * the wrong one twice over: `startSpan` forks it again below the scope the transaction event
+ * captured, so the athlete would reach that request's errors but not its transaction. Call this
+ * inside `withContinuedTrace`, after auth resolves; outside one it writes onto whatever
+ * isolation scope is active, which on Vercel is the process-wide one.
+ */
+export function setAthleteScope(repoFullName: string): void {
+  if (!initServerMonitoring()) return;
+  const athleteId = repoFullName.split("/")[0];
+  if (!athleteId) return;
+  const scope = Sentry.getIsolationScope();
+  scope.setUser({ id: athleteId });
+  scope.setTag("athlete_id", athleteId);
 }
 
 /** Token counts Gemini returns in `usageMetadata`, named as this codebase reads them. */

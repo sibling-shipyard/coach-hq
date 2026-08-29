@@ -152,7 +152,7 @@ flow unaffected.
 | `ui/client/src/pages/AuthPopupComplete.tsx` | `/auth/popup-complete` — runs inside the popup only |
 | `ui/client/src/pages/AuthError.tsx` | Renders `auth_error` types, incl. `needs_ios_setup` |
 | `ui/client/src/components/RepoDataGate.tsx` | Loading/error/revoked states for `useRepoData()` pages |
-| `ui/client/src/contexts/AuthContext.tsx` | Client-side auth state gate (`loading`/`local`/`unauthenticated`/`authenticated`) |
+| `ui/client/src/contexts/AuthContext.tsx` | Client-side auth state gate (`loading`/`local`/`unauthenticated`/`authenticated`); also the one place that names the athlete on browser Sentry events, and clears them on any non-authenticated state |
 | `ui/api/auth/[...action].ts` | All auth handlers (`handleStart`, `handleCallback`, `handleInstallRedirect`, `handleRefresh`, `handleMe`, `handleLogout`, `handleListMyRepos`) — one catch-all function, see ADR 0017 |
 | `ui/api/auth/_lib/session.ts` | Cookie helpers, JWE encrypt/decrypt, `ensureFreshSession()` |
 | `ui/api/auth/_lib/pkce.ts` | PKCE verifier/challenge generation + signed OAuth state (`signOAuthState`/`verifyOAuthState`) |

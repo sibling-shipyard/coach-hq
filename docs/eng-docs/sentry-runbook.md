@@ -53,6 +53,11 @@ flowchart LR
 ## Triage
 
 1. Record the issue URL, timestamp, project, `trace_id`, `athlete_id`, and release.
+   `athlete_id` is the repo owner (`skanda-athlete`) and is also the event's Sentry user, so the
+   issue page's user filter and an `athlete_id:` search find the same events. Web, API, and iOS
+   derive it the same way — one athlete, one id across all three projects. An event with no
+   `athlete_id` happened before auth resolved: an unauthenticated request, a failed sign-in, or a
+   render crash on the login screen.
 2. Search the same `trace_id` across projects, or open the trace view — the browser SDK propagates
    Sentry's own trace id to `/api/...` on `sentry-trace` and `baggage`, so both halves of one
    interaction sit on one trace. Read only the evidence attached to a Rage Report; use the timeline to
@@ -79,12 +84,12 @@ flowchart LR
 
 ## Coverage boundary
 
-Today we count core homepage, chat, Gemini, HealthKit sync, and Rage Report paths — the browser's
-own pageload and navigation spans, the API's incoming `http.server` span on `/api/coach-chat` and
-`/api/coach-message`, and the Gemini spans we open ourselves. **Outbound HTTP from the API is
-deliberately not traced.** Both Node instrumentations copy the full request URL onto the span, and
-`geminiClient.ts` passes the API key in the query string, so an `http.client` span is a credential
-in Sentry — one that `beforeSend` never sees, because it fires for error events only.
+Today we count core homepage, chat, Gemini, HealthKit sync, Rage Report, and React render-crash
+paths — the browser's own pageload and navigation spans, the API's incoming `http.server` span on
+`/api/coach-chat` and `/api/coach-message`, and the Gemini spans we open ourselves. **Outbound HTTP
+from the API is deliberately not traced.** Both Node instrumentations copy the full request URL onto
+the span, and `geminiClient.ts` passes the API key in the query string, so an `http.client` span is
+a credential in Sentry — one that `beforeSend` never sees, because it fires for error events only.
 `ui/api/_lib/sentry.ts` hands `httpIntegration` and `nativeNodeFetchIntegration` an
 `ignoreOutgoingRequests` that returns true for everything, dropping the span and the breadcrumb
 before either is built. The cost is that GitHub call durations never reach the trace. Gemini is the

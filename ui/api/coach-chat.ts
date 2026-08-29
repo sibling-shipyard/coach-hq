@@ -17,7 +17,7 @@ import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIn
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/geminiClient.js";
-import { captureGeminiFailure, withContinuedTrace } from "./_lib/sentry.js";
+import { captureGeminiFailure, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
 import {
   combineExtraContext,
   firstSessionContext,
@@ -194,6 +194,9 @@ export default {
     return withContinuedTrace(req, async () => {
       const resolved = await resolveRepoAuth(req);
       if (resolved instanceof Response) return resolved;
+      // Who, as soon as it is known. Everything below can capture; nothing above can say whose
+      // request this is, so an auth failure stays as anonymous as it is today.
+      setAthleteScope(resolved.repo_full_name);
       try {
         return withSessionCookie(await handle(req, resolved), resolved.setCookie);
       } catch (err) {
