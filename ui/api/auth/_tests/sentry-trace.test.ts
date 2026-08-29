@@ -3,7 +3,7 @@
  *
  * `sentry.ts` itself is proved against a real SDK in `api/_lib/_tests/sentry-spans.test.ts`.
  * What is unproved there is this route's wiring, and the catch-all makes that its own question:
- * one file answers seven URLs, two of its handlers swallow a throw into a redirect or a 502, and
+ * one file answers seven URLs, three of its handlers swallow a throw into a redirect or a 502, and
  * identity is established inside it rather than read at the top. So the three helpers are faked
  * here and the assertions are about which of them each action calls.
  */
@@ -106,6 +106,23 @@ describe("auth catch-all error capture", () => {
     expect(captureServerException).toHaveBeenCalledWith(boom);
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toContain("auth_error=network_error");
+  });
+
+  it("captures a throw that refresh would otherwise swallow into a 502", async () => {
+    // The busiest swallowing path in the file - every session refresh runs it.
+    const boom = new Error("token endpoint unreachable");
+    fetchMock.mockRejectedValue(boom);
+
+    const res = await handler.fetch(
+      new Request("https://example.com/api/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: "rt" }),
+      }),
+    );
+
+    expect(captureServerException).toHaveBeenCalledWith(boom);
+    expect(res.status).toBe(502);
   });
 
   it("does not capture a handled rejection - only a throw", async () => {

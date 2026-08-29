@@ -447,7 +447,11 @@ export async function handleRefresh(req: Request): Promise<Response> {
         refresh_token: body.refresh_token,
       }),
     });
-  } catch {
+  } catch (err) {
+    console.error("[auth/refresh]", err);
+    // Nothing rethrows, so capture here or nowhere. iOS retries this 502 instead of surfacing
+    // it, which is what makes a GitHub outage look like a merely slow app.
+    await captureServerException(err);
     return Response.json({ error: "network_error" }, { status: 502 });
   }
 
@@ -668,7 +672,7 @@ export default {
     // no try/catch here, unlike coach-chat.ts and coach-message.ts: those turn a throw into JSON
     // the client can read, while half the actions below are browser navigations that answer with
     // a 302. An error that escapes a handler is still captured - withContinuedTrace captures on
-    // its way out and rethrows, leaving the response Vercel already produced unchanged. The two
+    // its way out and rethrows, leaving the response Vercel already produced unchanged. The three
     // handlers that swallow a throw into a redirect or a 502 capture it themselves first.
     return withContinuedTrace(req, async () => {
       const url = new URL(req.url);
