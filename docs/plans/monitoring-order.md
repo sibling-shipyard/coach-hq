@@ -36,11 +36,24 @@ nothing at all.
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 4 | [#646](https://github.com/sibling-shipyard/coach-hq/issues/646) — bring the five uncovered API routes under `withContinuedTrace` | Medium — five routes, each needs a wrapper and a test | Not started | A thrown error in `auth`, `repo-file`, `widget-snapshots`, `coach-chat-context` or `waitlist` appears in Sentry |
+| 4 | [#646](https://github.com/sibling-shipyard/coach-hq/issues/646) — bring the six uncovered API routes under `withContinuedTrace` | Medium — two PRs: `auth/[...action].ts` alone, then the other five | **In progress** | A thrown error in `auth`, `repo-file`, `widget-snapshots`, `coach-chat-context`, `coach-chat-profile-status` or `waitlist` appears in Sentry |
 | 5 | [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) — unblock the Rage Report test-host crash | Medium, could be High — root cause unknown until sanitizer output names it | Not started | `ios-build.yml` green on that branch |
 | 6 | Ship the Rage Report | Low — the PR is already written, 43 files; only 5 blocks it | **Blocked** on item 5 | An athlete submits a note plus selected timeline events; Cancel sends nothing |
 | 7 | The three alert rules from `sentry-runbook.md` | Low | Not started | A new production error pages us within 15 minutes |
 | 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Not started | Key absent from every URL; outbound spans can be turned back on |
+| 16 | [#641](https://github.com/sibling-shipyard/coach-hq/issues/641) — the web project's `environment` and `release` tags are both wrong | Low — one build-time wiring in `ui/vite.config.ts` | **In progress** | A preview deploy's browser events carry `environment:preview` and a real git SHA |
+
+Item 4 is **six** routes, not five: `auth/[...action].ts`, `coach-chat-context.ts`,
+`coach-chat-profile-status.ts`, `repo-file.ts`, `waitlist.ts`, `widget-snapshots.ts`. The issue and
+this doc both said five and both missed `coach-chat-profile-status.ts`. `auth` ships as its own PR:
+it is a catch-all covering every auth endpoint, and identity is established *inside* it, so
+`setAthleteScope` cannot sit where it sits in the other five.
+
+Item 16 is scoped wider than #641 reads. The issue says the `release` fallback works; that was
+measured on an API event. On the browser it has never worked — all 581 `coach-hq-web` spans carry
+release `development`, against real git SHAs on `coach-hq-api`. Sentry matches source maps to a
+release, so Phase 6 cannot work until this is fixed. Both tags come from the same two lines,
+`ui/client/src/lib/observability.ts:17` and `:19`, and neither is wired from Vercel at build time.
 
 **5 is the iOS testing item.** `RageReportTests.testCancelSendsNothing` crashes the test host with
 `malloc: pointer being freed was not allocated`, at the same address on all three restart attempts —
@@ -58,6 +71,7 @@ the Rage Report code. CI also logs Keychain `-34018` because the runner builds
 | 11 | Runbook corrections, one PR: make the web/API side set `operation` like iOS does, add the `sentry.origin:manual` filter to the health widget, fix the prove-step that needs Phase 6, bump the stale `Verified:` date on `docs/eng-docs/github-auth.md` | Low — docs plus one tag | Not started | Every query in `sentry-runbook.md` returns rows against real data |
 | 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | High — the issue is a whole test framework, not one suite | Not started | A UI test runs in `ios-build.yml` |
 | 13 | Stop emitting two `http.server` spans per request | Low | Not started | One span per request, carrying `outcome` |
+| 17 | One shared route wrapper, then retrofit `coach-chat.ts` and `coach-message.ts` onto it | Low | Not started | Every wrapped route calls one helper; the ~15-line block exists once |
 
 `operation` is set by **iOS only** — `DiagnosticsManager.swift:319` and `:333`. Web and API never
 set it, so the runbook's error grouping is half-empty rather than dead: iOS events carry it, web and
@@ -70,6 +84,13 @@ Item 13, found while building the dashboard: every request produces our manual `
 any query over `span.op:http.server` must filter `sentry.origin:manual` or it counts every request
 twice — the "Coach HQ health" dashboard already does. #633 kept the auto span deliberately and a
 test pins `spans`/`disableIncomingRequestSpans` unset, so read that test before changing the init.
+
+Item 17 is a design call the athlete raised, deliberately deferred until item 4 lands. Each wrapped
+route hand-rolls the same ~15 lines; after item 4 there will be eight copies. A shared helper is the
+better shape, but the six routes differ in where identity becomes known — `waitlist` has no auth at
+all, `auth` establishes it — so the helper is guesswork until we can read all eight call sites.
+Retrofitting the two existing routes rewrites code that carries every coach conversation, for no
+athlete-visible change, so it waits for the same PR as the helper.
 
 ## P3 — nits
 
