@@ -8,6 +8,8 @@ The Sentry stack (#633, #634, #636, #640) merged on 2026-08-29. The data now exi
 displays it, iOS has nowhere to send, and only Gemini failures reach Sentry at all. This is the
 running order for the rest — Sentry setup, the iOS Rage Report, and iOS testing in one list.
 
+**Size** is the house Low / Medium / High from `ROADMAP.md`, sized for one worker, one PR.
+
 ## Order
 
 ```mermaid
@@ -19,11 +21,11 @@ flowchart LR
 
 ## P0 — we cannot see production today
 
-| # | Work | Done when |
-|---|---|---|
-| 1 | Build the Sentry dashboard: Gemini health, web/API health, production errors | Three widgets return real rows, not empty panels |
-| 2 | Answer why every `gen_ai` span is `outcome:error` with zero successes | We know whether Gemini is failing or our success path never emits |
-| 3 | Create the `coach-hq-ios` project and point `Secrets.swift` at its DSN | One real iOS event lands in it |
+| # | Work | Size | Done when |
+|---|---|---|---|
+| 1 | Build the Sentry dashboard: Gemini health, web/API health, production errors | Low | Three widgets return real rows, not empty panels |
+| 2 | Answer why every `gen_ai` span is `outcome:error` with zero successes | Low to diagnose; a fix is unsized until we know which it is | We know whether Gemini is failing or our success path never emits |
+| 3 | Create the `coach-hq-ios` project and point `Secrets.swift` at its DSN | Low | One real iOS event lands in it |
 
 Item 3 is why Phase 5 is not as done as `sentry-lld.md` claims: `DiagnosticsManager.swift:240`
 skips init when the DSN is still the placeholder, and the org has only `coach-hq-api` and
@@ -31,13 +33,13 @@ skips init when the DSN is still the placeholder, and the org has only `coach-hq
 
 ## P1 — the view has holes
 
-| # | Work | Done when |
-|---|---|---|
-| 4 | [#639](https://github.com/sibling-shipyard/coach-hq/issues/639) — `captureServerException` is never called | A non-Gemini API failure appears in Sentry with its exception |
-| 5 | [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) — unblock the Rage Report test-host crash | `ios-build.yml` green on that branch |
-| 6 | Ship the Rage Report | An athlete submits a note plus selected timeline events; Cancel sends nothing |
-| 7 | The three alert rules from `sentry-runbook.md` | A new production error pages us within 15 minutes |
-| 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Key absent from every URL; outbound spans can be turned back on |
+| # | Work | Size | Done when |
+|---|---|---|---|
+| 4 | [#639](https://github.com/sibling-shipyard/coach-hq/issues/639) — `captureServerException` is never called | Medium — five routes, each needs a wrapper and a test | A non-Gemini API failure appears in Sentry with its exception |
+| 5 | [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) — unblock the Rage Report test-host crash | Medium, could be High — root cause unknown until sanitizer output names it | `ios-build.yml` green on that branch |
+| 6 | Ship the Rage Report | Low — the PR is already written, 43 files; only 5 blocks it | An athlete submits a note plus selected timeline events; Cancel sends nothing |
+| 7 | The three alert rules from `sentry-runbook.md` | Low | A new production error pages us within 15 minutes |
+| 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Key absent from every URL; outbound spans can be turned back on |
 
 **5 is the iOS testing item.** `RageReportTests.testCancelSendsNothing` crashes the test host with
 `malloc: pointer being freed was not allocated`, at the same address on all three restart attempts —
@@ -48,26 +50,26 @@ the Rage Report code. CI also logs Keychain `-34018` because the runner builds
 
 ## P2 — robustness, not blocking
 
-| # | Work | Done when |
-|---|---|---|
-| 9 | [#643](https://github.com/sibling-shipyard/coach-hq/issues/643) — flush via `waitUntil` | A coach turn no longer waits on Sentry ingest |
-| 10 | Range-check the traces sample rate in `ui/api/_lib/sentry.ts` and `ui/client/src/lib/observability.ts` | `SENTRY_TRACES_SAMPLE_RATE=100` warns instead of silently disabling tracing |
-| 11 | Runbook corrections, one PR: drop the dead `operation` grouping and alert filter, fix the prove-step that needs Phase 6 | Every query in `sentry-runbook.md` returns rows against real data |
-| 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | A UI test runs in `ios-build.yml` |
+| # | Work | Size | Done when |
+|---|---|---|---|
+| 9 | [#643](https://github.com/sibling-shipyard/coach-hq/issues/643) — flush via `waitUntil` | Medium — new dependency, and it inverts the span suite's premise | A coach turn no longer waits on Sentry ingest |
+| 10 | Range-check the traces sample rate in `ui/api/_lib/sentry.ts` and `ui/client/src/lib/observability.ts` | Low | `SENTRY_TRACES_SAMPLE_RATE=100` warns instead of silently disabling tracing |
+| 11 | Runbook corrections, one PR: drop the dead `operation` grouping and alert filter, fix the prove-step that needs Phase 6 | Low — docs only | Every query in `sentry-runbook.md` returns rows against real data |
+| 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | High — the issue is a whole test framework, not one suite | A UI test runs in `ios-build.yml` |
 
 Nothing sets an `operation` tag anywhere in `ui/` or `ios/`; it is left over from the `operation_id`
 design that #633 replaced with native tracing.
 
 ## P3 — nits
 
-| # | Work |
-|---|---|
-| 13 | Bump the stale `Verified:` date on `docs/eng-docs/github-auth.md` |
+| # | Work | Size |
+|---|---|---|
+| 13 | Bump the stale `Verified:` date on `docs/eng-docs/github-auth.md` | Low |
 
 ## Parked, by decision
 
-- **Phase 6 — source maps and dSYMs.** Wants a release/archive workflow first, which does not
-  exist. Revisit when TestFlight releases are set up. Until then every production stack trace,
+- **Phase 6 — source maps and dSYMs.** **High** — wants a release/archive workflow first, which
+  does not exist. Revisit when TestFlight releases are set up. Until then every production stack trace,
   web and iOS, is unreadable.
 
 ## Deferred
