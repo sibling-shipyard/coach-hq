@@ -33,3 +33,4 @@ Keep these current when `ui/` changes; rules in `docs/eng-docs/README.md`.
 - Vite caches JSON imports aggressively — restart dev server after data changes.
 - WorkoutTimer: call `setTimer(-1)` before any `setState()` to prevent race conditions between timer init and tick effects.
 - `milestoneProgress.ts`-style helpers read `milestone.progress` (`MilestoneProgress` in `challenge.ts`) — not a separate `tracking` schema.
+- Sentry: `beforeSend` covers error events only — transactions and spans need `beforeSendTransaction`/`beforeSendSpan`. And `tracesSampleRate` switches on outbound HTTP auto-instrumentation, which records Gemini's `?key=` URL; `ui/api/_lib/sentry.ts` blocks it with `ignoreOutgoingRequests`, never `spans: false` (that kills the `http.server` span too).

@@ -145,3 +145,4 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 - Leave the primary checkout on `main` when a subagent finishes — a branch left checked out there catches the next session's commits. Before force-pushing a branch carrying unexpected commits, rescue them (`git branch rescue/... <sha>`, push it) or you orphan a colleague's only copy.
 - Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is before planning around it.
 - Rebuild a stack when a call reverses mid-way, and never edit a file a later PR in the same stack deletes — appending the reversal makes the stack a diary of your thinking instead of the change.
+- `npm run check` does not run Prettier. `ui-tests.yml` runs `npm run format:check` as its own step, so a PR passing `check`, `vitest` and `build` still fails CI on formatting — name `format:check` explicitly in every worker brief.
