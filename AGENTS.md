@@ -100,6 +100,12 @@ repo that already talks well. They apply to you too:
 The athlete has had to ask for this more than once, in more than one thread. Treat a request to
 "explain simply" as a standing instruction for the rest of the session, not a one-off.
 
+**Reporting findings from an outside tool is where this breaks.** Relaying a Sentry query, a build
+log or an SDK's behaviour makes that tool's vocabulary the easiest thing to type, and it reads as
+jargon to everyone else. Say what it means for the reader — "when your session expires, that now
+counts as an error" — and put the span names, flags and UUIDs in the PR body or the plan doc where
+they belong. Three "cut the jargon" corrections in one session all landed on reports of this shape.
+
 **Push back with evidence. Never comply silently.** The failure this rule exists to stop is an
 agent quietly doing something it believes is wrong. Not disagreement — silence.
 
@@ -166,6 +172,10 @@ PR bodies and review replies as well and you will stop getting honest answers.
 3. **Plan delete-on-last-PR:** if this PR finishes the plan's work (closes its issues / last stack PR), fold any durable bit into its eng-doc, then **delete** `docs/plans/<file>` in this same PR. Mid-stack PRs leave the plan in place and update progress only. Git history is the archive.
 4. New eng-docs follow the naming + front-matter rules in `docs/eng-docs/README.md`.
 5. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.
+6. **Fixing a false claim in a doc? Fix the doc that taught it, in the same PR.** A wrong statement
+	usually has a source — the plan said the build uploads source maps because the runbook said so
+	first. Correct only the copy you noticed and the source keeps seeding it. `grep -rn` the claim
+	across `docs/` and `kdb/` before you call it fixed.
 
 ## Universal Rules
 
