@@ -25,8 +25,7 @@ flowchart LR
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 2 | Answer why no `gen_ai` span has ever carried `outcome:ok` | Low to diagnose; a fix is unsized until we know which it is | **Blocked** — needs one coach turn on production | We know whether Gemini is failing or our success path never emits |
-| 3 | Point `Secrets.swift` at the `coach-hq-ios` DSN | Low | **In progress** — project created; DSN not yet pasted in | One real iOS event lands in it |
+| 3 | Point `Secrets.swift` at the `coach-hq-ios` DSN | Low | **In progress** — DSN is in `Secrets.swift` locally; no iOS event has reached Sentry yet | One real iOS event lands in it |
 
 Item 3 is why Phase 5 is not as done as `sentry-lld.md` claims: `DiagnosticsManager.swift:240`
 skips init when the DSN is still the placeholder, so until the DSN is in place the iOS app sends
@@ -36,17 +35,10 @@ nothing at all.
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 4 | [#646](https://github.com/sibling-shipyard/coach-hq/issues/646) — bring the six uncovered API routes under `withContinuedTrace` | Medium — two PRs: `auth/[...action].ts` alone, then the other five | **In progress** | A thrown error in `auth`, `repo-file`, `widget-snapshots`, `coach-chat-context`, `coach-chat-profile-status` or `waitlist` appears in Sentry |
 | 5 | [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) — unblock the Rage Report test-host crash | Medium, could be High — root cause unknown until sanitizer output names it | Not started | `ios-build.yml` green on that branch |
 | 6 | Ship the Rage Report | Low — the PR is already written, 43 files; only 5 blocks it | **Blocked** on item 5 | An athlete submits a note plus selected timeline events; Cancel sends nothing |
 | 7 | The three alert rules from `sentry-runbook.md` | Low | Not started | A new production error pages us within 15 minutes |
 | 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Not started | Key absent from every URL; outbound spans can be turned back on |
-
-Item 4 is **six** routes, not five: `auth/[...action].ts`, `coach-chat-context.ts`,
-`coach-chat-profile-status.ts`, `repo-file.ts`, `waitlist.ts`, `widget-snapshots.ts`. The issue and
-this doc both said five and both missed `coach-chat-profile-status.ts`. `auth` ships as its own PR:
-it is a catch-all covering every auth endpoint, and identity is established *inside* it, so
-`setAthleteScope` cannot sit where it sits in the other five.
 
 **5 is the iOS testing item.** `RageReportTests.testCancelSendsNothing` crashes the test host with
 `malloc: pointer being freed was not allocated`, at the same address on all three restart attempts —
@@ -65,6 +57,7 @@ the Rage Report code. CI also logs Keychain `-34018` because the runner builds
 | 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | High — the issue is a whole test framework, not one suite | Not started | A UI test runs in `ios-build.yml` |
 | 13 | Stop emitting two `http.server` spans per request | Low | Not started | One span per request, carrying `outcome` |
 | 17 | One shared route wrapper, then retrofit `coach-chat.ts` and `coach-message.ts` onto it | Low | Not started | Every wrapped route calls one helper; the ~15-line block exists once |
+| 18 | Close the remaining capture gaps: three typed lookup failures in `auth/[...action].ts` (`:313`, `:525`, `:593`), `widget-snapshots`' proactive-message fallback, and the `??`/`||` split between `ui/api/_lib/sentry.ts:26` and the browser path | Low | Not started | Every silent conversion either captures or says in the code why it does not |
 
 `operation` is set by **iOS only** — `DiagnosticsManager.swift:319` and `:333`. Web and API never
 set it, so the runbook's error grouping is half-empty rather than dead: iOS events carry it, web and
@@ -78,12 +71,23 @@ any query over `span.op:http.server` must filter `sentry.origin:manual` or it co
 twice — the "Coach HQ health" dashboard already does. #633 kept the auto span deliberately and a
 test pins `spans`/`disableIncomingRequestSpans` unset, so read that test before changing the init.
 
-Item 17 is a design call the athlete raised, deliberately deferred until item 4 lands. Each wrapped
-route hand-rolls the same ~15 lines; after item 4 there will be eight copies. A shared helper is the
-better shape. But the six routes differ in where identity becomes known: `waitlist` has no auth at
-all, and `auth` establishes it. Until all eight call sites exist, the helper is guesswork.
+Item 17 is a design call the athlete raised. All eight call sites now exist, so the guesswork it
+was waiting on is gone. `waitlist` has no auth and stays anonymous, `auth` establishes identity
+rather than reading it, and the other six read it straight after their auth resolves. That is the
+shape a helper has to accommodate.
 Retrofitting the two existing routes rewrites code that carries every coach conversation, for no
 athlete-visible change, so it waits for the same PR as the helper.
+
+Item 2 is closed by measurement, not by a fix. Production `gen_ai` spans run 3 `ok` to 1 `error`;
+the all-error picture that started this was 9 preview spans from PR verification — deliberate test
+failures, read as a production alarm. **Split by environment before drawing any conclusion from
+span data.** The single production error was one `gemini-flash-latest` call at 23:32 on 2026-08-29,
+with successes on either side of it.
+
+Item 18 collects what a review found across #660 and #661. Each one turns a fault into an answer
+without saying so: a GitHub lookup failing is an outage, not a reply. None is urgent — they are
+narrower than the routes already captured — but the fault/answer line is only worth anything if it
+is deliberate everywhere.
 
 ## P3 — nits
 
@@ -98,6 +102,8 @@ item 11, which touches docs anyway.
 | 14 | Capture non-Gemini server errors on the two wrapped routes | 2026-08-29, [#647](https://github.com/sibling-shipyard/coach-hq/pull/647), closing #639 |
 | 15 | Unblock iOS distribution — link `Sentry-Dynamic` instead of `Sentry` | 2026-08-29, `a965e23` |
 | 16 | The web project's `environment` and `release` tags, wired from Vercel at build time | 2026-08-30, [#659](https://github.com/sibling-shipyard/coach-hq/pull/659), closing #641 |
+| 2 | Answered, no fix needed: the success path emits `outcome:ok` normally | 2026-08-30, measured on production |
+| 4 | Every API route under `withContinuedTrace`, capturing what its own catch swallows | 2026-08-30, [#660](https://github.com/sibling-shipyard/coach-hq/pull/660) + [#661](https://github.com/sibling-shipyard/coach-hq/pull/661), closing #646 |
 
 Item 15 is worth remembering. Apple rejected the archive because the embedded `Sentry.framework`
 had no debug-symbol file. The plain `Sentry` package ships none; `Sentry-Dynamic` ships a real one
