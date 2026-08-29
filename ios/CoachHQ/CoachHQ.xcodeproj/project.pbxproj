@@ -7,10 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		33E4DF2530436B59002B97D6 /* Sentry-Dynamic in Frameworks */ = {isa = PBXBuildFile; productRef = 33E4DF2430436B59002B97D6 /* Sentry-Dynamic */; };
 		33FBADC33014A92000439B25 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33FBADC23014A92000439B25 /* WidgetKit.framework */; };
 		33FBADC53014A92000439B25 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 33FBADC43014A92000439B25 /* SwiftUI.framework */; };
 		33FBADD43014A92200439B25 /* CoachHQWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		C5A198A5C78DCD0E2DF123E4 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = AF4EE1781AD4B8520334C06F /* Sentry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,8 +46,8 @@
 
 /* Begin PBXFileReference section */
 		330C048C2FFAF26600E40822 /* CoachHQ.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoachHQ.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CoachHQWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		33AA00023100000000000002 /* CoachHQTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CoachHQTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CoachHQWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		33FBADC23014A92000439B25 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		33FBADC43014A92000439B25 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -76,8 +76,8 @@
 				Shared/AppGroupSnapshotBridge.swift,
 				Shared/GoldenDataset.swift,
 				Views/Theme.swift,
-				Views/WarmInstrumentTokens.generated.swift,
 				Views/WarmInstrumentAtoms.swift,
+				Views/WarmInstrumentTokens.generated.swift,
 			);
 			target = 33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */;
 		};
@@ -109,18 +109,18 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		33AA00053100000000000005 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		330C04892FFAF26600E40822 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C5A198A5C78DCD0E2DF123E4 /* Sentry in Frameworks */,
+				33E4DF2530436B59002B97D6 /* Sentry-Dynamic in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		33AA00053100000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -188,33 +188,11 @@
 			);
 			name = CoachHQ;
 			packageProductDependencies = (
-				AF4EE1781AD4B8520334C06F /* Sentry */,
+				33E4DF2430436B59002B97D6 /* Sentry-Dynamic */,
 			);
 			productName = CoachHQ;
 			productReference = 330C048C2FFAF26600E40822 /* CoachHQ.app */;
 			productType = "com.apple.product-type.application";
-		};
-		33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 33FBADD53014A92200439B25 /* Build configuration list for PBXNativeTarget "CoachHQWidgetExtension" */;
-			buildPhases = (
-				33FBADBC3014A92000439B25 /* Sources */,
-				33FBADBD3014A92000439B25 /* Frameworks */,
-				33FBADBE3014A92000439B25 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				33FBADC63014A92000439B25 /* CoachHQWidget */,
-			);
-			name = CoachHQWidgetExtension;
-			packageProductDependencies = (
-			);
-			productName = CoachHQWidgetExtension;
-			productReference = 33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */;
-			productType = "com.apple.product-type.app-extension";
 		};
 		33AA00013100000000000001 /* CoachHQTests */ = {
 			isa = PBXNativeTarget;
@@ -239,6 +217,28 @@
 			productReference = 33AA00023100000000000002 /* CoachHQTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		33FBADBF3014A92000439B25 /* CoachHQWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 33FBADD53014A92200439B25 /* Build configuration list for PBXNativeTarget "CoachHQWidgetExtension" */;
+			buildPhases = (
+				33FBADBC3014A92000439B25 /* Sources */,
+				33FBADBD3014A92000439B25 /* Frameworks */,
+				33FBADBE3014A92000439B25 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				33FBADC63014A92000439B25 /* CoachHQWidget */,
+			);
+			name = CoachHQWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = CoachHQWidgetExtension;
+			productReference = 33FBADC03014A92000439B25 /* CoachHQWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -252,12 +252,12 @@
 					330C048B2FFAF26600E40822 = {
 						CreatedOnToolsVersion = 26.6;
 					};
-					33FBADBF3014A92000439B25 = {
-						CreatedOnToolsVersion = 26.6;
-					};
 					33AA00013100000000000001 = {
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = 330C048B2FFAF26600E40822;
+					};
+					33FBADBF3014A92000439B25 = {
+						CreatedOnToolsVersion = 26.6;
 					};
 				};
 			};
@@ -286,14 +286,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		33AA00063100000000000006 /* Resources */ = {
+		330C048A2FFAF26600E40822 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		330C048A2FFAF26600E40822 /* Resources */ = {
+		33AA00063100000000000006 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -310,14 +310,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		33AA00043100000000000004 /* Sources */ = {
+		330C04882FFAF26600E40822 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		330C04882FFAF26600E40822 /* Sources */ = {
+		33AA00043100000000000004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -347,52 +347,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		33AA00083100000000000008 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Z642PXCYBK;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.app.tests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CoachHQ.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CoachHQ";
-			};
-			name = Debug;
-		};
-		33AA00093100000000000009 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = Z642PXCYBK;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.app.tests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CoachHQ.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CoachHQ";
-			};
-			name = Release;
-		};
 		330C04952FFAF26700E40822 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -592,6 +546,52 @@
 			};
 			name = Release;
 		};
+		33AA00083100000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z642PXCYBK;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CoachHQ.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CoachHQ";
+			};
+			name = Debug;
+		};
+		33AA00093100000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Z642PXCYBK;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.siblingshipyard.coachhq.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/CoachHQ.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CoachHQ";
+			};
+			name = Release;
+		};
 		33FBADD63014A92200439B25 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -659,15 +659,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		33AA00073100000000000007 /* Build configuration list for PBXNativeTarget "CoachHQTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				33AA00083100000000000008 /* Debug */,
-				33AA00093100000000000009 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		330C04872FFAF26600E40822 /* Build configuration list for PBXProject "CoachHQ" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -682,6 +673,15 @@
 			buildConfigurations = (
 				330C04982FFAF26700E40822 /* Debug */,
 				330C04992FFAF26700E40822 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		33AA00073100000000000007 /* Build configuration list for PBXNativeTarget "CoachHQTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				33AA00083100000000000008 /* Debug */,
+				33AA00093100000000000009 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -709,10 +709,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		AF4EE1781AD4B8520334C06F /* Sentry */ = {
+		33E4DF2430436B59002B97D6 /* Sentry-Dynamic */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6EE7A20C836E8123104706DD /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
-			productName = Sentry;
+			productName = "Sentry-Dynamic";
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
