@@ -40,7 +40,7 @@ flowchart LR
 | dashboard widget | filter | group / value |
 |---|---|---|
 | Production errors and reports | `environment:production` | project, `operation`, release, count |
-| Core web/API health | `span.op:[http.client,http.server]` | span name, `outcome`, count, p95 duration |
+| Core web/API health | `span.op:http.server` | span name, `outcome`, count, p95 duration |
 | Gemini health | `span.op:ai.run` | `ai.model`, `outcome`, count, p95 duration, token totals |
 | iOS sync health | transaction `healthkit.sync` | `outcome`, count, duration, synced item count |
 
@@ -79,7 +79,16 @@ flowchart LR
 
 ## Coverage boundary
 
-Today we count core homepage, chat, Gemini, HealthKit sync, and Rage Report paths. Auth-server
+Today we count core homepage, chat, Gemini, HealthKit sync, and Rage Report paths — the browser's
+own pageload and navigation spans, the API's incoming `http.server` span, and the Gemini spans we
+open ourselves. **Outbound HTTP from the API is deliberately not traced.** Both Node
+instrumentations copy the full request URL onto the span, and `geminiClient.ts` passes the API key
+in the query string, so an `http.client` span is a credential in Sentry — one that `beforeSend`
+never sees, because it fires for error events only. `ui/api/_lib/sentry.ts` hands
+`httpIntegration` and `nativeNodeFetchIntegration` an `ignoreOutgoingRequests` that returns true
+for everything, which drops the span and the breadcrumb before either is built. The cost is that
+Gemini and GitHub call durations are not on the trace unless we open a span for them by hand; that
+is the trade we want. Auth-server
 traffic, every secondary API route, GitHub success totals, and iOS dSYM upload are not covered; do
 not infer whole-product uptime or traffic from this dashboard yet. Chat text reaches Sentry only when
 a Gemini call fails; a successful turn's text stays in `chat_history.json`, never Sentry. And this is

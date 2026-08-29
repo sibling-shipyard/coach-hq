@@ -8,20 +8,32 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { captureException, flush, init } = vi.hoisted(() => ({
-  captureException: vi.fn((_error: unknown, _context?: unknown): string => "event-id"),
-  flush: vi.fn(async () => true),
-  init: vi.fn(),
-}));
+const { captureException, flush, init, httpIntegration, nativeNodeFetchIntegration } = vi.hoisted(
+  () => ({
+    captureException: vi.fn((_error: unknown, _context?: unknown): string => "event-id"),
+    flush: vi.fn(async () => true),
+    init: vi.fn(),
+    httpIntegration: vi.fn((options?: unknown) => ({ name: "Http", options })),
+    nativeNodeFetchIntegration: vi.fn((options?: unknown) => ({ name: "NodeFetch", options })),
+  }),
+);
 
 // Only the transport-facing calls are faked. `continueTrace` and the scope APIs are the real
 // ones, so the trace-continuation tests below assert on real propagation context, not on a stub.
+// The two integration factories are faked to record the options they were handed - what the SDK
+// then does with `ignoreOutgoingRequests` is the SDK's own tested behavior.
 vi.mock("@sentry/node", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@sentry/node")>()),
   captureException,
   flush,
   init,
+  httpIntegration,
+  nativeNodeFetchIntegration,
 }));
+
+/** Shaped like the real thing: an `AIza` key of the length the scrubber's pattern matches. */
+const GEMINI_URL_WITH_KEY =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=AIzaSyD-0123456789abcdefghijklmnopqrstu";
 
 const DETAILS = {
   traceId: "ab12cd34",
@@ -146,6 +158,8 @@ describe("captureGeminiFailure", () => {
 describe("initServerMonitoring tracing", () => {
   beforeEach(() => {
     init.mockClear();
+    httpIntegration.mockClear();
+    nativeNodeFetchIntegration.mockClear();
     process.env.SENTRY_DSN = "https://public@o0.ingest.de.sentry.io/1";
   });
 
@@ -154,6 +168,10 @@ describe("initServerMonitoring tracing", () => {
     delete process.env.SENTRY_TRACES_SAMPLE_RATE;
   });
 
+  interface Scrubbable {
+    extra: { detail: string };
+  }
+
   async function initOptions() {
     const { initServerMonitoring } = await loadSentry();
     initServerMonitoring();
@@ -161,7 +179,10 @@ describe("initServerMonitoring tracing", () => {
       tracesSampleRate: number;
       tracePropagationTargets: unknown[];
       sendDefaultPii: boolean;
-      beforeSend: (event: unknown) => { extra: { detail: string } };
+      integrations: { name: string }[];
+      beforeSend: (event: unknown) => Scrubbable;
+      beforeSendTransaction: (event: unknown) => Scrubbable;
+      beforeSendSpan: (span: unknown) => { data: { "url.full": string } };
     };
   }
 
@@ -197,6 +218,51 @@ describe("initServerMonitoring tracing", () => {
     expect(
       options.beforeSend({ extra: { detail: "key=configured-gemini-key" } }).extra.detail,
     ).toBe("key=[Filtered]");
+    delete process.env.GEMINI_API_KEY;
+  });
+
+  it("replaces both outbound-request integrations rather than adding beside them", async () => {
+    expect((await initOptions()).integrations.map((i) => i.name)).toEqual(["Http", "NodeFetch"]);
+  });
+
+  it("ignores every outgoing request, so a Gemini URL never becomes span data", async () => {
+    await initOptions();
+
+    for (const factory of [httpIntegration, nativeNodeFetchIntegration]) {
+      const { ignoreOutgoingRequests } = factory.mock.calls[0][0] as {
+        ignoreOutgoingRequests: (url: string) => boolean;
+      };
+      expect(ignoreOutgoingRequests(GEMINI_URL_WITH_KEY)).toBe(true);
+    }
+  });
+
+  it("leaves incoming-request handling alone, so the http.server span survives", async () => {
+    await initOptions();
+
+    // `spans: false` would switch off the server span too (`httpIntegration` in @sentry/node
+    // computes `enableServerSpans = spans && !disableIncomingRequestSpans`), so neither of these
+    // may be set.
+    const httpOptions = httpIntegration.mock.calls[0][0] as Record<string, unknown>;
+    expect(httpOptions).not.toHaveProperty("spans");
+    expect(httpOptions).not.toHaveProperty("disableIncomingRequestSpans");
+  });
+
+  it("scrubs a credential out of a span, which beforeSend never sees", async () => {
+    const scrubbed = (await initOptions()).beforeSendSpan({
+      data: { "url.full": GEMINI_URL_WITH_KEY },
+    });
+
+    expect(scrubbed.data["url.full"]).not.toContain("AIza");
+    expect(scrubbed.data["url.full"]).toContain("key=[Filtered]");
+  });
+
+  it("scrubs a configured secret out of a transaction, which beforeSend never sees", async () => {
+    process.env.GEMINI_API_KEY = "configured-gemini-key";
+    const scrubbed = (await initOptions()).beforeSendTransaction({
+      extra: { detail: "key=configured-gemini-key" },
+    });
+
+    expect(scrubbed.extra.detail).toBe("key=[Filtered]");
     delete process.env.GEMINI_API_KEY;
   });
 });

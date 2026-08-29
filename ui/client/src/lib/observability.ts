@@ -52,6 +52,12 @@ export function initClientMonitoring(): void {
     tracePropagationTargets: apiTracePropagationTargets,
     // ADR 0032: no automatic PII. Everything Sentry sees is added on purpose.
     sendDefaultPii: false,
+    // `beforeSend` fires for error events only. Transactions and spans are separate payloads with
+    // their own hooks, so all three are wired or ADR 0032's scrubbing rule holds for a third of
+    // what we send. A browser span carries the request URL in `url.full`, which is exactly where
+    // a credential in a query string would sit.
     beforeSend: (event) => scrubSentryEvent(event),
+    beforeSendTransaction: (event) => scrubSentryEvent(event),
+    beforeSendSpan: (span) => scrubSentryEvent(span),
   });
 }

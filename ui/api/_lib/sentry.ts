@@ -49,6 +49,20 @@ function configuredSecrets(): string[] {
   ].filter((value): value is string => Boolean(value));
 }
 
+/**
+ * Never record an outbound request as a span.
+ *
+ * The URL is the whole problem: `geminiClient.ts` puts the API key in the query string, and both
+ * outbound instrumentations copy the full URL onto the span (`url.full`) before anything gets a
+ * chance to filter it. `ignoreOutgoingRequests` runs first and returns before a span or a
+ * breadcrumb exists, so the credential is never captured rather than captured and redacted.
+ *
+ * Deliberately not `spans: false`: on `httpIntegration` that also switches off the **incoming**
+ * server span (it computes `enableServerSpans = spans && !disableIncomingRequestSpans`), and the
+ * `http.server` span is the one span on this side we do want.
+ */
+const ignoreEveryOutgoingRequest = () => true;
+
 let initialized = false;
 
 export function initServerMonitoring(): boolean {
@@ -59,13 +73,25 @@ export function initServerMonitoring(): boolean {
     release: sentryRelease,
     environment: sentryEnvironment,
     tracesSampleRate: sentryTracesSampleRate,
+    // Same name as the defaults, so these replace them instead of running beside them. `Http`
+    // covers `node:http`/`https`, `NodeFetch` covers global `fetch` — Gemini and the GitHub API
+    // both go through the second one.
+    integrations: [
+      Sentry.httpIntegration({ ignoreOutgoingRequests: ignoreEveryOutgoingRequest }),
+      Sentry.nativeNodeFetchIntegration({ ignoreOutgoingRequests: ignoreEveryOutgoingRequest }),
+    ],
     // Read incoming trace headers, send none. Gemini and the GitHub API have no use for our
     // `sentry-trace`/`baggage`, and an empty list is the only way to say so — the default
     // attaches them to every outbound request. Incoming continuation is unaffected.
     tracePropagationTargets: [],
     // ADR 0032: no automatic PII. Everything Sentry sees is added on purpose.
     sendDefaultPii: false,
+    // `beforeSend` fires for error events only. Transactions and spans are separate payloads with
+    // their own hooks, so all three are wired or ADR 0032's scrubbing rule holds for a third of
+    // what we send.
     beforeSend: (event) => scrubSentryEvent(event, configuredSecrets()),
+    beforeSendTransaction: (event) => scrubSentryEvent(event, configuredSecrets()),
+    beforeSendSpan: (span) => scrubSentryEvent(span, configuredSecrets()),
   });
   initialized = true;
   return true;
