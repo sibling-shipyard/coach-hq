@@ -6,7 +6,8 @@
  * land on the same trace as the browser's. Identity comes from `setAthleteUser`, called by
  * `AuthContext`; React render crashes come from `ErrorBoundary`'s `componentDidCatch`.
  * Env: VITE_SENTRY_DSN (unset → no-op), optional VITE_SENTRY_RELEASE / VITE_SENTRY_ENVIRONMENT /
- * VITE_SENTRY_TRACES_SAMPLE_RATE.
+ * VITE_SENTRY_TRACES_SAMPLE_RATE. Release and environment are wired from Vercel at build time
+ * by `ui/vite.config.ts`; a browser bundle has no other way to know which deploy it is.
  *
  * The browser SDK posts to Sentry's ingest host, so `connect-src` in `ui/vercel.json` has to
  * allow it — without that entry the CSP blocks every event and the SDK reports nothing.
@@ -14,6 +15,12 @@
 import * as Sentry from "@sentry/react";
 import { scrubSentryEvent } from "../../../observability/sentryScrubber";
 
+/**
+ * Both values are baked in by `ui/vite.config.ts`, which resolves an explicit `VITE_SENTRY_*`
+ * override, then Vercel's build-time `VERCEL_ENV` / `VERCEL_GIT_COMMIT_SHA` - see
+ * `ui/observability/sentryBuildTags.ts`. The fallbacks below cover a build that never went
+ * through that config, such as a unit test importing this module.
+ */
 export const clientRelease = import.meta.env.VITE_SENTRY_RELEASE || "development";
 
 export const clientEnvironment = import.meta.env.VITE_SENTRY_ENVIRONMENT || import.meta.env.MODE;

@@ -41,19 +41,12 @@ nothing at all.
 | 6 | Ship the Rage Report | Low — the PR is already written, 43 files; only 5 blocks it | **Blocked** on item 5 | An athlete submits a note plus selected timeline events; Cancel sends nothing |
 | 7 | The three alert rules from `sentry-runbook.md` | Low | Not started | A new production error pages us within 15 minutes |
 | 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Not started | Key absent from every URL; outbound spans can be turned back on |
-| 16 | [#641](https://github.com/sibling-shipyard/coach-hq/issues/641) — the web project's `environment` and `release` tags are both wrong | Low — one build-time wiring in `ui/vite.config.ts` | **In progress** | A preview deploy's browser events carry `environment:preview` and a real git SHA |
 
 Item 4 is **six** routes, not five: `auth/[...action].ts`, `coach-chat-context.ts`,
 `coach-chat-profile-status.ts`, `repo-file.ts`, `waitlist.ts`, `widget-snapshots.ts`. The issue and
 this doc both said five and both missed `coach-chat-profile-status.ts`. `auth` ships as its own PR:
 it is a catch-all covering every auth endpoint, and identity is established *inside* it, so
 `setAthleteScope` cannot sit where it sits in the other five.
-
-Item 16 is scoped wider than #641 reads. The issue says the `release` fallback works; that was
-measured on an API event. On the browser it has never worked — all 581 `coach-hq-web` spans carry
-release `development`, against real git SHAs on `coach-hq-api`. Sentry matches source maps to a
-release, so Phase 6 cannot work until this is fixed. Both tags come from the same two lines,
-`ui/client/src/lib/observability.ts:17` and `:19`, and neither is wired from Vercel at build time.
 
 **5 is the iOS testing item.** `RageReportTests.testCancelSendsNothing` crashes the test host with
 `malloc: pointer being freed was not allocated`, at the same address on all three restart attempts —
@@ -104,11 +97,18 @@ item 11, which touches docs anyway.
 | 1 | The Sentry dashboard — "Coach HQ health", three widgets, each verified against live rows | 2026-08-29, dashboard `5873386` |
 | 14 | Capture non-Gemini server errors on the two wrapped routes | 2026-08-29, [#647](https://github.com/sibling-shipyard/coach-hq/pull/647), closing #639 |
 | 15 | Unblock iOS distribution — link `Sentry-Dynamic` instead of `Sentry` | 2026-08-29, `a965e23` |
+| 16 | The web project's `environment` and `release` tags, wired from Vercel at build time | 2026-08-30, [#659](https://github.com/sibling-shipyard/coach-hq/pull/659), closing #641 |
 
 Item 15 is worth remembering. Apple rejected the archive because the embedded `Sentry.framework`
 had no debug-symbol file. The plain `Sentry` package ships none; `Sentry-Dynamic` ships a real one
 per platform slice. Verified on the passing archive: it carries `Sentry.framework.dSYM` at UUID
 `76FF1075-E44C-35F8-B628-06DBF903DEF3`, the same id as the shipped binary. Do not swap back.
+
+Item 16 shipped wider than #641 read. The issue said the `release` fallback worked; that was
+measured on an API event. On the browser it never had — all 581 `coach-hq-web` spans carried
+release `development`. Sentry matches source maps to a release, so Phase 6 could not have worked
+until this landed. **Not yet proved in Sentry:** the preview deploy sits behind Vercel's auth wall,
+so the tags are verified in the built bundle but not on a real event.
 
 ## Parked, by decision
 
