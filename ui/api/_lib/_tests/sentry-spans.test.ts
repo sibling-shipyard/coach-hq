@@ -43,8 +43,13 @@ vi.mock("@sentry/node", async (importOriginal) => {
   return { ...actual, init };
 });
 
-const { captureServerException, setAthleteScope, withContinuedTrace, withGeminiSpan } =
-  await import("../sentry.js");
+const {
+  captureGeminiFailure,
+  captureServerException,
+  setAthleteScope,
+  withContinuedTrace,
+  withGeminiSpan,
+} = await import("../sentry.js");
 
 /** Every error event the fake transport has received so far, in the order they were sent. */
 function sentErrors(): Event[] {
@@ -238,6 +243,88 @@ describe("withGeminiSpan", () => {
     // the Gemini span - the route's flush is what put it on the wire.
     expect(sentTransactions()).toHaveLength(1);
     expect(sentSpans().map((span) => span.name)).toEqual(["generate_content gemini-flash-latest"]);
+  });
+});
+
+describe("captureServerException on a route that answers with a status", () => {
+  const REPO = "skanda-athlete/coach-phelps";
+  const TRACE_ID = "0af7651916cd43dd8448eb211c80319c";
+
+  /**
+   * The shape both wrapped routes have: the handler catches its own failure and answers with a
+   * status, so nothing propagates out of it. Capture inside that catch is the only thing that
+   * puts a GitHub or session failure in front of an operator.
+   */
+  function routeThatCatches(run: () => Promise<void>): Promise<Response> {
+    return withContinuedTrace(
+      request({ "sentry-trace": `${TRACE_ID}-b7ad6b7169203331-1` }),
+      async () => {
+        setAthleteScope(REPO);
+        try {
+          await run();
+          return Response.json({ ok: true });
+        } catch (error) {
+          await captureServerException(error);
+          return Response.json({ error: "failed" }, { status: 500 });
+        }
+      },
+    );
+  }
+
+  const failCommit = async () => {
+    throw new Error("GitHub commit failed");
+  };
+
+  it("has already sent the error by the time the status response is returned", async () => {
+    const response = await routeThatCatches(failCommit);
+
+    // Same freeze argument as the transaction above: the assertion is made here, with no await
+    // in between, because on Vercel nothing runs after the handler resolves.
+    expect(sentErrors()).toHaveLength(1);
+    expect(response.status).toBe(500);
+  });
+
+  it("names the athlete and rides the browser's trace, so the two halves join up", async () => {
+    await routeThatCatches(failCommit);
+
+    const [event] = sentErrors();
+    expect(event?.exception?.values?.[0]?.value).toBe("GitHub commit failed");
+    expect(event?.tags).toMatchObject({ athlete_id: "skanda-athlete" });
+    expect(event?.contexts?.trace?.trace_id).toBe(TRACE_ID);
+  });
+
+  it("captures what escapes the route's catch, such as an auth refresh that throws", async () => {
+    await expect(
+      withContinuedTrace(request(), async () => {
+        throw new Error("session refresh failed");
+      }),
+    ).rejects.toThrow("session refresh failed");
+
+    expect(sentErrors()).toHaveLength(1);
+    expect(sentErrors()[0]?.exception?.values?.[0]?.value).toBe("session refresh failed");
+  });
+
+  it("sends one event, not two, when a Gemini failure is rethrown into that catch", async () => {
+    // coach-message's `generateProactiveBody` captures and rethrows, so the same error object
+    // reaches the route's generic catch. Only the first, detailed event may go out.
+    await routeThatCatches(async () => {
+      const err = Object.assign(new Error("Gemini request failed (503)"), { status: 503 });
+      await captureGeminiFailure(err, {
+        model: "gemini-flash-latest",
+        upstreamStatus: 503,
+        turnMode: "proactive_message",
+        athleteMessage: "",
+      });
+      throw err;
+    });
+
+    const errors = sentErrors();
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.tags).toMatchObject({
+      turn_mode: "proactive_message",
+      model: "gemini-flash-latest",
+      upstream_status: 503,
+    });
   });
 });
 

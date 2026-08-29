@@ -166,6 +166,10 @@ function continueTraceInto<T>(
               return result;
             } catch (error) {
               span.setAttribute("outcome", "error");
+              // Last stop for what the route's own catch never sees - an auth or session
+              // refresh that throws before the handler's try block. Capture is idempotent per
+              // error object, so an error a route already captured is not sent twice.
+              await captureServerException(error);
               throw error;
             }
           },
@@ -279,7 +283,18 @@ export interface CaptureResult {
   sent: boolean;
 }
 
-/** Capture and send now. `sent: false` is the difference between queued and delivered. */
+/**
+ * Capture and send now. `sent: false` is the difference between queued and delivered.
+ *
+ * Idempotent per error object: the SDK marks an exception it has captured and drops a second
+ * capture of the same one. That is what holds a Gemini failure to a single event when
+ * `captureGeminiFailure` records it and the caller then rethrows into a route's generic catch -
+ * the detailed event wins, because it went first.
+ *
+ * Called inside `withContinuedTrace` this flushes before the route's transaction does; the
+ * wrapper's own flush still sends the span. Called outside one - a route with no wrapper, or
+ * module scope - this flush is the only thing that sends the event at all.
+ */
 export async function captureServerException(error: unknown): Promise<CaptureResult> {
   if (!initServerMonitoring()) return { sent: false };
   const eventId = Sentry.captureException(error);
