@@ -16,10 +16,11 @@
  * are dropped the same way**, so anything that opens one must end it and flush before the
  * handler returns — the `flush()` in the capture helpers below drains spans too.
  *
- * That is why `withContinuedTrace` owns the only flush on the span path: a child span is only
- * sent when its root span ends, so `withGeminiSpan` deliberately does not flush — its span
- * rides out inside the route's `http.server` transaction. Open a Gemini span outside a wrapped
- * route and nothing sends it.
+ * `withContinuedTrace` owns the flush that sends the **spans**: a child span is only sent when
+ * its root span ends, so `withGeminiSpan` deliberately does not flush — its span rides out
+ * inside the route's `http.server` transaction. Open a Gemini span outside a wrapped route and
+ * nothing sends it. Error events are separate and flush themselves, in `captureServerException`
+ * and `captureGeminiFailure`, so a request can flush more than once.
  */
 import * as Sentry from "@sentry/node";
 import { scrubSentryEvent } from "../../observability/sentryScrubber.js";

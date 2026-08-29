@@ -97,7 +97,7 @@ next one starts.
 **Known gaps, tracked:** five API routes — `auth/[...action].ts`, `repo-file.ts`,
 `widget-snapshots.ts`, `coach-chat-context.ts`, `waitlist.ts` — still run outside
 `withContinuedTrace`, so nothing they throw reaches Sentry
-([#639](https://github.com/sibling-shipyard/coach-hq/issues/639)).
+([#646](https://github.com/sibling-shipyard/coach-hq/issues/646)).
 Gemini's key still travels in the URL query string rather than the `x-goog-api-key` header
 ([#638](https://github.com/sibling-shipyard/coach-hq/issues/638)).
 
