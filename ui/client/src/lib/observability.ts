@@ -3,7 +3,8 @@
  *
  * Errors plus distributed tracing: `browserTracingIntegration` attaches `sentry-trace` and
  * `baggage` to outgoing requests that match `tracePropagationTargets`, so the API's Sentry events
- * land on the same trace as the browser's. No breadcrumb enrichment or error-boundary wiring yet.
+ * land on the same trace as the browser's. Identity comes from `setAthleteUser`, called by
+ * `AuthContext`; React render crashes come from `ErrorBoundary`'s `componentDidCatch`.
  * Env: VITE_SENTRY_DSN (unset → no-op), optional VITE_SENTRY_RELEASE / VITE_SENTRY_ENVIRONMENT /
  * VITE_SENTRY_TRACES_SAMPLE_RATE.
  *
@@ -60,4 +61,24 @@ export function initClientMonitoring(): void {
     beforeSendTransaction: (event) => scrubSentryEvent(event),
     beforeSendSpan: (span) => scrubSentryEvent(span),
   });
+}
+
+/**
+ * Name the athlete on every browser event from here on, or clear them on sign-out.
+ *
+ * The id is the owner half of `owner/repo`, the same derivation the API
+ * (`api/_lib/sentry.ts`) and iOS (`DiagnosticsManager.setAthlete`) use, so one athlete has one
+ * `athlete_id` across all three. Not the GitHub login, which the API's iOS auth mode never sees.
+ *
+ * ADR 0032 keeps `sendDefaultPii: false`; this handle is the deliberate exception the LLD's tag
+ * table already named. Nothing else about the person goes with it.
+ *
+ * Passing nothing clears both, mirroring iOS's `scope.setUser(nil)`. Web sign-out is a full
+ * navigation to `/api/auth/logout`, so the SDK is torn down anyway — the clear is what covers a
+ * session that expires under a live tab.
+ */
+export function setAthleteUser(repoFullName: string | null | undefined): void {
+  const athleteId = repoFullName?.split("/")[0] || undefined;
+  Sentry.setUser(athleteId ? { id: athleteId } : null);
+  Sentry.setTag("athlete_id", athleteId);
 }

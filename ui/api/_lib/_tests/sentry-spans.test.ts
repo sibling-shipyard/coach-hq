@@ -1,5 +1,6 @@
 /**
- * sentry.ts spans — proof that a Vercel function sends its spans before it is frozen.
+ * sentry.ts spans and per-request identity — proof that a Vercel function sends its spans before
+ * it is frozen, and that the athlete on one request is not still attached to the next one.
  *
  * Unlike `sentry.test.ts`, this file fakes nothing but the network: `init` is the real one with
  * a transport that keeps envelopes in an array, so `startSpan`, `continueTrace`, the span
@@ -42,7 +43,15 @@ vi.mock("@sentry/node", async (importOriginal) => {
   return { ...actual, init };
 });
 
-const { withContinuedTrace, withGeminiSpan } = await import("../sentry.js");
+const { captureServerException, setAthleteScope, withContinuedTrace, withGeminiSpan } =
+  await import("../sentry.js");
+
+/** Every error event the fake transport has received so far, in the order they were sent. */
+function sentErrors(): Event[] {
+  return sentEnvelopes.flatMap((envelope) =>
+    envelope[1].filter(([header]) => header.type === "event").map(([, item]) => item as Event),
+  );
+}
 
 /** Every transaction event the fake transport has received so far. */
 function sentTransactions(): Event[] {
@@ -229,5 +238,73 @@ describe("withGeminiSpan", () => {
     // the Gemini span - the route's flush is what put it on the wire.
     expect(sentTransactions()).toHaveLength(1);
     expect(sentSpans().map((span) => span.name)).toEqual(["generate_content gemini-flash-latest"]);
+  });
+});
+
+describe("setAthleteScope", () => {
+  const REPO = "skanda-athlete/coach-phelps";
+
+  it("names the athlete on an error captured later in the same request", async () => {
+    await withContinuedTrace(request(), async () => {
+      setAthleteScope(REPO);
+      await captureServerException(new Error("commit failed"));
+      return Response.json({ ok: true });
+    });
+
+    const [event] = sentErrors();
+    expect(event?.user).toEqual({ id: "skanda-athlete" });
+    expect(event?.tags).toMatchObject({ athlete_id: "skanda-athlete" });
+  });
+
+  it("names the athlete on the request's own transaction, not just its errors", async () => {
+    await withContinuedTrace(request(), async () => {
+      setAthleteScope(REPO);
+      return Response.json({ ok: true });
+    });
+
+    const [transaction] = sentTransactions();
+    expect(transaction.user).toEqual({ id: "skanda-athlete" });
+    expect(transaction.tags).toMatchObject({ athlete_id: "skanda-athlete" });
+  });
+
+  it("uses the repo owner, the id iOS and the browser derive too, so one athlete has one id", async () => {
+    await withContinuedTrace(request(), async () => {
+      setAthleteScope("owner-only/some-other-repo-name");
+      await captureServerException(new Error("boom"));
+      return Response.json({ ok: true });
+    });
+
+    expect(sentErrors()[0]?.user).toEqual({ id: "owner-only" });
+  });
+
+  it("does not carry one athlete into the next request the warm instance serves", async () => {
+    await withContinuedTrace(request(), async () => {
+      setAthleteScope(REPO);
+      return Response.json({ ok: true });
+    });
+
+    // Second request, same process, same latched SDK - and it never calls setAthleteScope,
+    // standing in for an unauthenticated or auth-failure path.
+    await withContinuedTrace(request(), async () => {
+      await captureServerException(new Error("anonymous failure"));
+      return Response.json({ ok: true });
+    });
+
+    const [event] = sentErrors();
+    expect(event?.user).toBeUndefined();
+    expect(event?.tags?.athlete_id).toBeUndefined();
+    expect(JSON.stringify(sentTransactions()[1])).not.toContain("skanda-athlete");
+  });
+
+  it("leaves the athlete off events captured outside any request", async () => {
+    await withContinuedTrace(request(), async () => {
+      setAthleteScope(REPO);
+      return Response.json({ ok: true });
+    });
+    sentEnvelopes.length = 0;
+
+    await captureServerException(new Error("module-scope failure"));
+
+    expect(sentErrors()[0]?.user).toBeUndefined();
   });
 });

@@ -12,6 +12,7 @@
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { isLocalDevBypass } from "../lib/devMode";
+import { setAthleteUser } from "../lib/observability";
 
 export type AuthStatus = "loading" | "local" | "unauthenticated" | "authenticated" | "auth_error";
 
@@ -97,6 +98,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // One place decides who Sentry thinks is here: this is the only thing in the client that
+  // learns the repo, and any state that is not `authenticated` — sign-out, an expired session,
+  // a lookup failure — clears the identity rather than leaving the last athlete attached.
+  useEffect(() => {
+    setAthleteUser(state.status === "authenticated" ? state.repoFullName : null);
+  }, [state.status, state.repoFullName]);
 
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
 }

@@ -24,7 +24,7 @@ flowchart LR
 |---|---|---|---|
 | **Common** | `release` | string | `git-sha` or semantic version (e.g. `2026.08.26+sha`) |
 | **Common** | `environment` | string | `production`, `preview`, or `development` |
-| **Common** | `athlete_id` | string | GitHub login / athlete handle (beta cohort only) |
+| **Common** | `athlete_id` | string | Athlete handle, also sent as Sentry's `user.id`. The owner half of `owner/repo` (`skanda-athlete`), derived identically on web (`setAthleteUser`), API (`setAthleteScope`) and iOS (`DiagnosticsManager.setAthlete`) so one person has one id everywhere. Not the GitHub login: the API's iOS auth mode presents `X-Coach-Repo` and no login. Handle only — no email, no IP; `sendDefaultPii` stays `false` |
 | **Common** | `trace_id` | hex string | Sentry's own trace id, propagated browser → API on the `sentry-trace` and `baggage` headers; joins the two events in the trace view |
 | **API** | `vercel_trace_id` | string | coach-chat's own id for the turn, for grepping Vercel logs. Distinct from `trace_id` above |
 | **API** | `model` | string | Gemini model id, tagged on a *failed* call (e.g. `gemini-flash-latest`) |
@@ -33,6 +33,7 @@ flowchart LR
 | **API span** | `http.request.method` / `url.path` / `http.response.status_code` | string / number | On the route's `http.server` span, named `POST /api/coach-chat` |
 | **API span** | `gen_ai.request.model` | string | Model id on the `gen_ai.generate_content` span |
 | **API span** | `gen_ai.usage.input_tokens` / `output_tokens` / `total_tokens` / `input_tokens.cached` | number | Gemini's `usageMetadata`, mapped to Sentry's own `gen_ai` attribute names — the ones `@sentry/core`'s `tracing/google-genai` integration emits, so our hand-rolled spans read like auto-instrumented ones |
+| **Web** | `mechanism.type` | string | `auto.function.react.error_boundary` on a React render crash. `ErrorBoundary.componentDidCatch` is the only thing that reports one — React unwinds before `window.onerror`, so the global handler never sees it |
 | **iOS** | `app_version` / `build_number` | string | Client version and CFBundleVersion |
 | **iOS** | `view_name` | string | Active screen or sheet (e.g. `HomeView`, `CoachChatView`) |
 | **iOS** | `timeline_excerpt` | JSON | Only the timeline events the athlete selected in a Rage Report |

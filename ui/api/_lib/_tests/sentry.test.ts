@@ -351,3 +351,17 @@ describe("withGeminiSpan without a DSN", () => {
     expect(init).not.toHaveBeenCalled();
   });
 });
+
+describe("setAthleteScope without a DSN", () => {
+  it("names nobody, so local runs and fork deploys stay exactly as silent as before", async () => {
+    init.mockClear();
+    delete process.env.SENTRY_DSN;
+    const { setAthleteScope, Sentry } = await loadSentry();
+
+    setAthleteScope("skanda-athlete/coach-phelps");
+
+    expect(init).not.toHaveBeenCalled();
+    expect(Sentry.getIsolationScope().getScopeData().user).toEqual({});
+    expect(Sentry.getIsolationScope().getScopeData().tags).toEqual({});
+  });
+});
