@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-28
 
 ## Context
 
@@ -104,9 +104,11 @@ round-trip, silently.
   `EDGE_CONFIG` (the SDK's own hardcoded default, which would need a manual rename in that flow
   to line up). `EDGE_CONFIG_ID` + `VERCEL_API_TOKEN` are for writes, since Edge Config has no
   write API of its own — only the Vercel REST API does.
-- TTL is 2 hours, long enough to amortize a normal chat session, short enough not to go far
-  stale after a SOUL redeploy (the content hash catches a change immediately regardless; TTL
-  just bounds how long a stale-but-unhashed edge case could theoretically live).
+- TTL is 24 hours (was 2h until #624) - the content hash catches a SOUL redeploy immediately
+  regardless of TTL, so TTL only bounds how long a stale-but-unhashed edge case could
+  theoretically live, and a shorter TTL has a real cost: every expiry is a Global Config write,
+  and the free tier caps at 250/month. 2h implied ~360 writes/month before even counting the
+  concurrent-cold-start race below - 24h keeps the baseline near 30/month.
 - Fails open at every step: no `GLOBAL_CONFIG` configured, a failed create call, a failed write —
   any of these just means this request (and until the next successful create) falls back to the
   no-cache shape above. Coaching never blocks on cache plumbing.
