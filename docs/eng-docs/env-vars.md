@@ -1,6 +1,6 @@
 # Vercel environment variables
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-28
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-29
 
 ## Context
 
@@ -35,6 +35,14 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 | `VITE_SENTRY_DSN` | `ui/client/src/lib/observability.ts` | Browser error capture is off. Set to the `coach-hq-web` project DSN; Vite bakes it into the client bundle at build time, so it must exist at build, not just at runtime. |
 | `SENTRY_RELEASE` / `VITE_SENTRY_RELEASE` | server / browser Sentry setup | Server falls back to `VERCEL_GIT_COMMIT_SHA`, browser to `development`. Events still send, they just can't be tied to a deploy. |
 | `SENTRY_ENVIRONMENT` / `VITE_SENTRY_ENVIRONMENT` | server / browser Sentry setup | Server falls back to `VERCEL_ENV` (`production`/`preview`), browser to Vite's `MODE`. |
+| `SENTRY_TRACES_SAMPLE_RATE` / `VITE_SENTRY_TRACES_SAMPLE_RATE` | server / browser Sentry setup | Both fall back to `1` — every trace sampled, which is what four athletes want. Set them to turn the rate down; a value that isn't a number logs a `[sentry]` warning and uses `1` rather than letting Sentry read `NaN` as tracing-off. Traces bill against the span quota, not the error quota. |
+
+## Vercel variable types
+
+**`VITE_`-prefixed vars are Vercel type Config, not Secret.** Vite inlines them into the client
+bundle at build time, so a Secret is unreadable to the build and the var lands as `undefined` with
+no error — the same silent-fallback failure this page exists to prevent. Only the non-`VITE_` half
+of each pair above is a Secret.
 
 ## Rule
 

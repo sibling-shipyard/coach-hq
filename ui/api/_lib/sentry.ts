@@ -4,10 +4,17 @@
  * Init is a function, not a module side effect: only the routes that opt in pay the SDK's
  * cold-start cost, and importing this module from a test does not open a transport.
  * Env: SENTRY_DSN (unset → no-op, so local and fork deploys stay silent),
- * optional SENTRY_RELEASE / SENTRY_ENVIRONMENT.
+ * optional SENTRY_RELEASE / SENTRY_ENVIRONMENT / SENTRY_TRACES_SAMPLE_RATE.
+ *
+ * `tracesSampleRate` turns on tracing so this side speaks the same wire format as the browser:
+ * the client SDK attaches `sentry-trace` and `baggage` to its `/api/...` calls
+ * (`ui/client/src/lib/observability.ts`) and an event on the continued trace joins the browser's
+ * in the Sentry trace view, with no id of our own.
  *
  * Every capture must be followed by `flush()`. A Vercel function is frozen the moment it
- * returns, and the SDK sends on a background timer, so an unflushed event is dropped.
+ * returns, and the SDK sends on a background timer, so an unflushed event is dropped. **Spans
+ * are dropped the same way**, so anything that opens one must end it and flush before the
+ * handler returns — the `flush()` in the capture helpers below drains spans too.
  */
 import * as Sentry from "@sentry/node";
 import { scrubSentryEvent } from "../../observability/sentryScrubber.js";
@@ -18,6 +25,21 @@ export const sentryRelease =
 export const sentryEnvironment =
   process.env.SENTRY_ENVIRONMENT ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
 
+/**
+ * Sample every trace. Right for four athletes; the runbook says to set the var explicitly before
+ * that stops being true. An unparseable value warns rather than falling back silently — Sentry
+ * reads `NaN` as "tracing off" and says nothing.
+ */
+export const sentryTracesSampleRate = ((raw: string | undefined): number => {
+  if (raw === undefined || raw === "") return 1;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    console.warn(`[sentry] SENTRY_TRACES_SAMPLE_RATE=${raw} is not a number - using 1`);
+    return 1;
+  }
+  return parsed;
+})(process.env.SENTRY_TRACES_SAMPLE_RATE);
+
 /** Values that must never reach Sentry verbatim, passed to the scrubber per event. */
 function configuredSecrets(): string[] {
   return [
@@ -26,6 +48,20 @@ function configuredSecrets(): string[] {
     process.env.GITHUB_APP_CLIENT_SECRET,
   ].filter((value): value is string => Boolean(value));
 }
+
+/**
+ * Never record an outbound request as a span.
+ *
+ * The URL is the whole problem: `geminiClient.ts` puts the API key in the query string, and both
+ * outbound instrumentations copy the full URL onto the span (`url.full`) before anything gets a
+ * chance to filter it. `ignoreOutgoingRequests` runs first and returns before a span or a
+ * breadcrumb exists, so the credential is never captured rather than captured and redacted.
+ *
+ * Deliberately not `spans: false`: on `httpIntegration` that also switches off the **incoming**
+ * server span (it computes `enableServerSpans = spans && !disableIncomingRequestSpans`), and the
+ * `http.server` span is the one span on this side we do want.
+ */
+const ignoreEveryOutgoingRequest = () => true;
 
 let initialized = false;
 
@@ -36,12 +72,51 @@ export function initServerMonitoring(): boolean {
     dsn: process.env.SENTRY_DSN,
     release: sentryRelease,
     environment: sentryEnvironment,
+    tracesSampleRate: sentryTracesSampleRate,
+    // Same name as the defaults, so these replace them instead of running beside them. `Http`
+    // covers `node:http`/`https`, `NodeFetch` covers global `fetch` — Gemini and the GitHub API
+    // both go through the second one.
+    integrations: [
+      Sentry.httpIntegration({ ignoreOutgoingRequests: ignoreEveryOutgoingRequest }),
+      Sentry.nativeNodeFetchIntegration({ ignoreOutgoingRequests: ignoreEveryOutgoingRequest }),
+    ],
+    // Read incoming trace headers, send none. Gemini and the GitHub API have no use for our
+    // `sentry-trace`/`baggage`, and an empty list is the only way to say so — the default
+    // attaches them to every outbound request. Incoming continuation is unaffected.
+    tracePropagationTargets: [],
     // ADR 0032: no automatic PII. Everything Sentry sees is added on purpose.
     sendDefaultPii: false,
+    // `beforeSend` fires for error events only. Transactions and spans are separate payloads with
+    // their own hooks, so all three are wired or ADR 0032's scrubbing rule holds for a third of
+    // what we send.
     beforeSend: (event) => scrubSentryEvent(event, configuredSecrets()),
+    beforeSendTransaction: (event) => scrubSentryEvent(event, configuredSecrets()),
+    beforeSendSpan: (span) => scrubSentryEvent(span, configuredSecrets()),
   });
   initialized = true;
   return true;
+}
+
+/**
+ * Run `handler` on the trace the browser started.
+ *
+ * Nothing continues that trace on its own here. `Sentry.init` runs lazily, from inside the
+ * capture helpers below, long after Vercel's runtime accepted the request — so there is no
+ * auto-instrumented server span holding the incoming `sentry-trace`, and without this call the
+ * browser event and the API event land on two different traces. Call it at the route's entry,
+ * before anything that might capture.
+ *
+ * No DSN, or no headers, and this is a pass-through: the handler runs exactly as it would have.
+ */
+export function withContinuedTrace<T>(req: Request, handler: () => Promise<T>): Promise<T> {
+  if (!initServerMonitoring()) return handler();
+  return Sentry.continueTrace(
+    {
+      sentryTrace: req.headers.get("sentry-trace") ?? undefined,
+      baggage: req.headers.get("baggage"),
+    },
+    handler,
+  );
 }
 
 export interface CaptureResult {
@@ -61,7 +136,11 @@ export async function captureServerException(error: unknown): Promise<CaptureRes
 
 /** What a failed LLM call must carry to be debuggable from the Sentry UI alone. */
 export interface GeminiFailureDetails {
-  /** Correlates the event with the turn's log lines. Absent on paths that mint no trace id. */
+  /**
+   * coach-chat's own id, for grepping the Vercel logs of the same turn. Tagged
+   * `vercel_trace_id`, not `trace_id`: Sentry's trace id is its own thing on this event and two
+   * meanings of one name is a triage trap. Absent on paths that mint no trace id.
+   */
   traceId?: string;
   /** Gemini model id, supplied by the caller so this module stays free of coach-chat internals. */
   model: string;
@@ -93,7 +172,7 @@ export async function captureGeminiFailure(
   if (!initServerMonitoring()) return { sent: false };
   const eventId = Sentry.captureException(error, {
     tags: {
-      ...(details.traceId ? { trace_id: details.traceId } : {}),
+      ...(details.traceId ? { vercel_trace_id: details.traceId } : {}),
       model: details.model,
       upstream_status: details.upstreamStatus,
       turn_mode: details.turnMode,

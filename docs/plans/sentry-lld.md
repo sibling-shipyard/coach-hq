@@ -1,6 +1,6 @@
 # Sentry observability — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · ADR: 0032
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-29 · ADR: 0032
 
 Low-level design for error capture, LLM telemetry, and local diagnostic timelines across web, API, and iOS.
 
@@ -25,7 +25,8 @@ flowchart LR
 | **Common** | `release` | string | `git-sha` or semantic version (e.g. `2026.08.26+sha`) |
 | **Common** | `environment` | string | `production`, `preview`, or `development` |
 | **Common** | `athlete_id` | string | GitHub login / athlete handle (beta cohort only) |
-| **Common** | `operation_id` | UUID | Generated per client interaction; joined across web, API, and LLM |
+| **Common** | `trace_id` | hex string | Sentry's own trace id, propagated browser → API on the `sentry-trace` and `baggage` headers; joins the two events in the trace view |
+| **API** | `vercel_trace_id` | string | coach-chat's own id for the turn, for grepping Vercel logs. Distinct from `trace_id` above |
 | **Web & API** | `model` | string | Gemini model name (e.g. `gemini-2.5-pro`, `gemini-2.5-flash`) |
 | **Web & API** | `prompt_tokens` / `completion_tokens` | number | Exact token counts returned by Gemini API |
 | **Web & API** | `athlete_message` / `gemini_reply` | string | Text exchange for the failed/traced turn |
@@ -60,8 +61,11 @@ next one starts.
    throw-on-purpose route to prove capture from a Preview deploy. **Done.**
 3. **Phase 2 — coach-chat Gemini failure path.** Capture the failed turn (athlete message, model,
    upstream status, trace id) where nothing else records it; retire the throw-on-purpose route.
-4. **Phase 3 — `operation_id` correlation.** One id per interaction, passed on `x-operation-id`, so
-   a browser event and its API event join.
+4. **Phase 3 — native distributed tracing.** No id of ours. `browserTracingIntegration` sends
+   `sentry-trace` and `baggage` on same-origin `/api/...` calls and the Node SDK continues that
+   trace, so a browser event and its API event share one trace id and link structurally — trace
+   view and related events, not just a tag to search. `tracesSampleRate` defaults to `1` on both
+   sides; spans bill against the 5M/month span quota, not the tight 5k error quota.
 5. **Phase 4 — success-path telemetry.** Spans, tracing, and token counts on turns that work.
 6. **Phase 5 — iOS.** Swift SDK, crashes with active view name, local timeline on problem reports.
 7. **Phase 6 — source maps and dSYMs.** Upload at build time so production stack frames are readable.

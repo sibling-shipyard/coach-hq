@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-29 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
 region for 90 days — fixed by the plan, not a dial we hold; Vercel and Apple logs are fallback
@@ -40,7 +40,7 @@ flowchart LR
 | dashboard widget | filter | group / value |
 |---|---|---|
 | Production errors and reports | `environment:production` | project, `operation`, release, count |
-| Core web/API health | `span.op:[http.client,http.server]` | span name, `outcome`, count, p95 duration |
+| Core web/API health | `span.op:http.server` | span name, `outcome`, count, p95 duration |
 | Gemini health | `span.op:ai.run` | `ai.model`, `outcome`, count, p95 duration, token totals |
 | iOS sync health | transaction `healthkit.sync` | `outcome`, count, duration, synced item count |
 
@@ -52,16 +52,18 @@ flowchart LR
 
 ## Triage
 
-1. Record the issue URL, timestamp, project, `operation_id`, `athlete_id`, and release.
-2. Search the same `operation_id` across projects. Read only the evidence attached to a Rage Report;
-   use the timeline to locate the failing web/API/Gemini/iOS span. **A failed Gemini call carries the
-   athlete's message** (ADR 0032) — `captureGeminiFailure()` in `ui/api/_lib/sentry.ts` attaches it as
-   event context, plus `trace_id`, `model`, `upstream_status`, and `turn_mode` as tags. The scrubber
-   (`ui/observability/sentryScrubber.ts`) still runs first, so any credential in that text still shows
-   as `[Filtered]`.
+1. Record the issue URL, timestamp, project, `trace_id`, `athlete_id`, and release.
+2. Search the same `trace_id` across projects, or open the trace view — the browser SDK propagates
+   Sentry's own trace id to `/api/...` on `sentry-trace` and `baggage`, so both halves of one
+   interaction sit on one trace. Read only the evidence attached to a Rage Report; use the timeline to
+   locate the failing web/API/Gemini/iOS span. **A failed Gemini call carries the athlete's message**
+   (ADR 0032) — `captureGeminiFailure()` in `ui/api/_lib/sentry.ts` attaches it as event context, plus
+   `model`, `upstream_status`, `turn_mode`, and `vercel_trace_id` — coach-chat's own id, for grepping
+   the Vercel logs of the same turn. The scrubber (`ui/observability/sentryScrubber.ts`) still runs
+   first, so any credential in that text still shows as `[Filtered]`.
 3. Confirm credentials show as `[Filtered]`. Delete the event and rotate the credential immediately
    if an auth header, cookie, API key, GitHub token, or session token escaped.
-4. File the defect with the Sentry link, operation ID, release, user impact, and failing stage. Resolve
+4. File the defect with the Sentry link, trace id, release, user impact, and failing stage. Resolve
    the Sentry issue only after the fix release has a successful matching operation.
 
 ## Prove before merge
@@ -69,7 +71,7 @@ flowchart LR
 1. Confirm a successful homepage load, chat turn, Gemini call, and HealthKit sync appear on the
    dashboard with the expected release and success outcome.
 2. In Preview, temporarily use an invalid Gemini key for one chat turn, then restore it. Confirm the
-   client and API failure share one operation ID and the repeated-failure alert arrives within 15 minutes.
+   client and API failure share one trace id and the repeated-failure alert arrives within 15 minutes.
 3. Launch iOS with `--send-sentry-test-event`, then submit one Rage Report with one selected timeline
    event. Confirm the alert, release tags, attachment, and Cancel-sends-nothing behavior.
 4. Check one web exception is deminified and one iOS crash is symbolicated. Save the three Sentry URLs
@@ -77,7 +79,16 @@ flowchart LR
 
 ## Coverage boundary
 
-Today we count core homepage, chat, Gemini, HealthKit sync, and Rage Report paths. Auth-server
+Today we count core homepage, chat, Gemini, HealthKit sync, and Rage Report paths — the browser's
+own pageload and navigation spans, the API's incoming `http.server` span, and the Gemini spans we
+open ourselves. **Outbound HTTP from the API is deliberately not traced.** Both Node
+instrumentations copy the full request URL onto the span, and `geminiClient.ts` passes the API key
+in the query string, so an `http.client` span is a credential in Sentry — one that `beforeSend`
+never sees, because it fires for error events only. `ui/api/_lib/sentry.ts` hands
+`httpIntegration` and `nativeNodeFetchIntegration` an `ignoreOutgoingRequests` that returns true
+for everything, which drops the span and the breadcrumb before either is built. The cost is that
+Gemini and GitHub call durations are not on the trace unless we open a span for them by hand; that
+is the trade we want. Auth-server
 traffic, every secondary API route, GitHub success totals, and iOS dSYM upload are not covered; do
 not infer whole-product uptime or traffic from this dashboard yet. Chat text reaches Sentry only when
 a Gemini call fails; a successful turn's text stays in `chat_history.json`, never Sentry. And this is
