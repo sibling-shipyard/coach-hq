@@ -76,6 +76,11 @@ export default {
         );
       }
       if (!contentsRes.ok) {
+        // 401/403 and 404 answered above, so what reaches here is a GitHub 5xx or a 429 - an
+        // outage, not an answer. Nothing threw, so the status is all there is to report.
+        const err = new Error(`GitHub returned ${contentsRes.status} for dashboard_snapshot.json`);
+        console.error("[repo-file]", err);
+        await captureServerException(err);
         return withSessionCookie(
           Response.json({ error: "Failed to fetch your data" }, { status: 502 }),
           setCookie,

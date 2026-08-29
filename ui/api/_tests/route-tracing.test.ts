@@ -165,6 +165,31 @@ describe("routes that read an athlete", () => {
     expect(res.status).toBe(502);
   });
 
+  it("captures a GitHub 5xx that repo-file turns into a 502", async () => {
+    // 401/403 and 404 are answered above this branch, so only an outage reaches it.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response("upstream boom", { status: 500 }))),
+    );
+
+    const res = await repoFile.fetch(await cookieRequest("repo-file", REPO));
+
+    expect(res.status).toBe(502);
+    expect(captureServerException).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not capture repo-file's 404 - a repo that has not synced is an answer", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response("nope", { status: 404 }))),
+    );
+
+    const res = await repoFile.fetch(await cookieRequest("repo-file", REPO));
+
+    expect(res.status).toBe(404);
+    expect(captureServerException).not.toHaveBeenCalled();
+  });
+
   it("tags before the work that can throw, so the captured event carries the athlete", async () => {
     fetchRepoDashboardSnapshot.mockRejectedValue(new Error("snapshot fetch failed"));
 
