@@ -25,13 +25,13 @@ flowchart LR
 2. Create `coach-hq-web` (React), `coach-hq-api` (Node), and `coach-hq-ios` (Cocoa) projects. Give
    `operators` access to all three. Put `VITE_SENTRY_DSN` and `SENTRY_DSN` in Vercel Production and
    Preview. Put the public iOS DSN in the uncommitted `Secrets.swift` used by the app build.
-3. **Web source maps upload themselves.** The Vite build does it when `SENTRY_AUTH_TOKEN`,
-   `SENTRY_ORG`, and `SENTRY_PROJECT` are all set — add them to Vercel Production and Preview
-   with a token scoped to project release write. Never name one `VITE_*`; Vite bakes those into
-   the client bundle. **iOS dSYMs are still manual:** this repo builds and tests iOS in CI but has
-   no archive/release workflow, so upload dSYMs from the Xcode archive (or add
-   `sentry-cli upload-dif`) when you cut a build. Until that happens, treat iOS stack traces as
-   unsymbolicated.
+3. **Nothing uploads source maps or dSYMs yet — there is no setup step here to do.**
+   `ui/vite.config.ts` loads no Sentry plugin and `@sentry/vite-plugin` is not a dependency, so
+   web stack frames arrive minified. iOS is the same story for a different reason: the repo builds
+   and tests `ios/` in CI but has no archive/release workflow to hang a dSYM upload off. Treat
+   every production stack trace, web and iOS alike, as unreadable. Phase 6 of
+   `docs/plans/sentry-lld.md` is the work; when it ships, the token it needs must never be named
+   `VITE_*`, because Vite bakes those into the client bundle.
 4. Set `SENTRY_TRACES_SAMPLE_RATE` and `VITE_SENTRY_TRACES_SAMPLE_RATE` explicitly. They default
    to `1`, which is right for four athletes and wrong the first day it isn't.
 5. Build one dashboard and three alerts from the tables below. Route alerts to team email plus the

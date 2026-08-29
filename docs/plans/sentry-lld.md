@@ -82,13 +82,14 @@ next one starts.
    name, and the timeline buffer all shipped. The Rage Report UI is the remainder — PR #603, blocked
    on a test-host crash that reproduces only on the runner's Xcode 26.3.
 7. **Phase 6 — source maps and dSYMs.** Upload at build time so production stack frames are readable.
-   **Half done:** the Vite build uploads web source maps whenever `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`
-   and `SENTRY_PROJECT` are set. iOS dSYMs are still manual — this repo builds and tests `ios/` in CI
-   but has no archive/release workflow, so treat iOS stack traces as unsymbolicated until one exists.
+   **Not started.** Nothing uploads either artifact: `ui/vite.config.ts` loads no Sentry plugin,
+   `@sentry/vite-plugin` is not a dependency, and the repo builds and tests `ios/` in CI but has no
+   archive/release workflow to hang a dSYM upload off. Treat every production stack trace — web and
+   iOS alike — as unreadable until this phase ships.
 
 8. **Phase 7 — athlete identity and render crashes.** Not in the original plan; added once the first
-   real errors proved unreadable. Web and API set the athlete's GitHub handle as the Sentry user and
-   an `athlete_id` tag, matching what iOS already derived, so one athlete has one id everywhere. The
+   real errors proved unreadable. Web and API set the repo owner as the Sentry user and an
+   `athlete_id` tag, matching what iOS already derived, so one athlete has one id everywhere. The
    React `ErrorBoundary` reports through `captureReactException`; React unwinds to the boundary before
    `window.onerror` fires, so render crashes reached nothing before this. **Done.**
 
