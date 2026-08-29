@@ -54,12 +54,14 @@ the Rage Report code. CI also logs Keychain `-34018` because the runner builds
 |---|---|---|---|
 | 9 | [#643](https://github.com/sibling-shipyard/coach-hq/issues/643) — flush via `waitUntil` | Medium — new dependency, and it inverts the span suite's premise | A coach turn no longer waits on Sentry ingest |
 | 10 | Range-check the traces sample rate in `ui/api/_lib/sentry.ts` and `ui/client/src/lib/observability.ts` | Low | `SENTRY_TRACES_SAMPLE_RATE=100` warns instead of silently disabling tracing |
-| 11 | Runbook corrections, one PR: drop the dead `operation` grouping and alert filter, fix the prove-step that needs Phase 6 | Low — docs only | Every query in `sentry-runbook.md` returns rows against real data |
+| 11 | Runbook corrections, one PR: make the web/API side set `operation` like iOS does, add the `sentry.origin:manual` filter to the health widget, fix the prove-step that needs Phase 6, bump the stale `Verified:` date on `docs/eng-docs/github-auth.md` | Low — docs plus one tag | Every query in `sentry-runbook.md` returns rows against real data |
 | 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | High — the issue is a whole test framework, not one suite |
 | 13 | Stop emitting two `http.server` spans per request | Low | One span per request, carrying `outcome` | A UI test runs in `ios-build.yml` |
 
-Nothing sets an `operation` tag anywhere in `ui/` or `ios/`; it is left over from the `operation_id`
-design that #633 replaced with native tracing.
+`operation` is set by **iOS only** — `DiagnosticsManager.swift:319` and `:333`. Web and API never
+set it, so the runbook's error grouping is half-empty rather than dead: iOS events carry it, web and
+API events do not. Either the two web projects start setting it or the runbook stops promising it;
+picking one is the work in item 11.
 
 Item 13, found while building the dashboard: every request produces our manual `http.server` span
 **and** the auto-instrumented one. Grouping live spans by `sentry.origin` gives 9 `manual` (carrying
@@ -70,9 +72,8 @@ test pins `spans`/`disableIncomingRequestSpans` unset, so read that test before 
 
 ## P3 — nits
 
-| # | Work | Size |
-|---|---|---|
-| 14 | Bump the stale `Verified:` date on `docs/eng-docs/github-auth.md` | Low |
+None outstanding. The stale `Verified:` date on `docs/eng-docs/github-auth.md` is folded into
+item 11, which touches docs anyway.
 
 ## Parked, by decision
 
