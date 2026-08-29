@@ -65,17 +65,37 @@ next one starts.
    throw-on-purpose route to prove capture from a Preview deploy. **Done.**
 3. **Phase 2 — coach-chat Gemini failure path.** Capture the failed turn (athlete message, model,
    upstream status, trace id) where nothing else records it; retire the throw-on-purpose route.
+   **Done.**
 4. **Phase 3 — native distributed tracing.** No id of ours. `browserTracingIntegration` sends
-   `sentry-trace` and `baggage` on same-origin `/api/...` calls and the Node SDK continues that
-   trace, so a browser event and its API event share one trace id and link structurally — trace
+   `sentry-trace` and `baggage` on same-origin `/api/...` calls, and the Node SDK continues that
+   trace. A browser event and its API event then share one trace id and link structurally — trace
    view and related events, not just a tag to search. `tracesSampleRate` defaults to `1` on both
-   sides; spans bill against the 5M/month span quota, not the tight 5k error quota.
+   sides; spans bill against the 5M/month span quota, not the tight 5k error quota. Outbound HTTP
+   is deliberately left untraced: the auto-instrumented span carries the full URL, and Gemini's
+   holds the API key. **Done.**
 5. **Phase 4 — success-path telemetry.** One `http.server` span per coach route and one
    `gen_ai.generate_content` span per Gemini call, carrying model, token counts, and `outcome`.
    `withContinuedTrace` flushes both before the response leaves, because Vercel freezes the
    function on return and an unflushed span is dropped in silence. **Done.**
 6. **Phase 5 — iOS.** Swift SDK, crashes with active view name, local timeline on problem reports.
+   **Mostly done:** the SDK, crash capture, release and build number, athlete identity, active view
+   name, and the timeline buffer all shipped. The Rage Report UI is the remainder — PR #603, blocked
+   on a test-host crash that reproduces only on the runner's Xcode 26.3.
 7. **Phase 6 — source maps and dSYMs.** Upload at build time so production stack frames are readable.
+   **Half done:** the Vite build uploads web source maps whenever `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`
+   and `SENTRY_PROJECT` are set. iOS dSYMs are still manual — this repo builds and tests `ios/` in CI
+   but has no archive/release workflow, so treat iOS stack traces as unsymbolicated until one exists.
+
+8. **Phase 7 — athlete identity and render crashes.** Not in the original plan; added once the first
+   real errors proved unreadable. Web and API set the athlete's GitHub handle as the Sentry user and
+   an `athlete_id` tag, matching what iOS already derived, so one athlete has one id everywhere. The
+   React `ErrorBoundary` reports through `captureReactException`; React unwinds to the boundary before
+   `window.onerror` fires, so render crashes reached nothing before this. **Done.**
+
+**Known gaps, tracked:** `captureServerException` is never called, so only Gemini failures reach
+Sentry and five API routes have no capture at all ([#639](https://github.com/sibling-shipyard/coach-hq/issues/639)).
+Gemini's key still travels in the URL query string rather than the `x-goog-api-key` header
+([#638](https://github.com/sibling-shipyard/coach-hq/issues/638)).
 
 ## 4. Deferred
 
