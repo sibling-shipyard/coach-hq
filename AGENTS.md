@@ -163,6 +163,7 @@ only — ask on PR bodies and review replies too and you stop getting honest ans
 3. **Plan delete-on-last-PR:** if this PR finishes the plan's work (closes its issues / last stack PR), fold any durable bit into its eng-doc, then **delete** `docs/plans/<file>` in this same PR. Mid-stack PRs leave the plan in place and update progress only. Git history is the archive.
 4. New eng-docs follow the naming + front-matter rules in `docs/eng-docs/README.md`.
 5. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.
+6. Fixing a false claim? `grep -rn` it across `docs/` and `kdb/` and fix the source in the same PR — the plan said the build uploads source maps because the runbook said so first.
 
 ## Universal Rules
 

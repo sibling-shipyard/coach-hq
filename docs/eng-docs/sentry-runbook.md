@@ -66,9 +66,9 @@ flowchart LR
    Sentry's own trace id to `/api/...` on `sentry-trace` and `baggage`, so both halves of one
    interaction sit on one trace. Read only the evidence attached to a Rage Report; use the timeline to
    locate the failing web/API/Gemini/iOS span. **A failed Gemini call carries the athlete's message**
-   (ADR 0032) — `captureGeminiFailure()` in `ui/api/_lib/sentry.ts` attaches it as event context, plus
-   `model`, `upstream_status`, `turn_mode`, and `vercel_trace_id` — coach-chat's own id, for grepping
-   the Vercel logs of the same turn. The scrubber (`ui/observability/sentryScrubber.ts`) still runs
+   (ADR 0032). `captureGeminiFailure()` in `ui/api/_lib/sentry.ts` attaches it as event context, plus
+   `model`, `upstream_status` and `turn_mode`. It also attaches `vercel_trace_id` — coach-chat's own
+   id, for grepping the Vercel logs of the same turn. The scrubber (`ui/observability/sentryScrubber.ts`) still runs
    first, so any credential in that text still shows as `[Filtered]`.
 3. Confirm credentials show as `[Filtered]`. Delete the event and rotate the credential immediately
    if an auth header, cookie, API key, GitHub token, or session token escaped.
@@ -86,6 +86,21 @@ flowchart LR
 4. Check one web exception is deminified and one iOS crash is symbolicated. Save the three Sentry URLs
    in PR #604; only then replace `Refs: #585` with `Fixes: #585` and delete the plan.
 
+## Traps
+
+Three that have already cost us a build. Read these before editing `ui/api/_lib/sentry.ts`.
+
+1. **`beforeSend` is error events only.** Transactions and spans are separate payloads with their
+   own hooks. Wire `beforeSendTransaction` and `beforeSendSpan` too, or the credential scrubber
+   covers about a third of what we send.
+2. **Never switch off outbound spans with `spans: false`.** On `httpIntegration` that also kills
+   the *incoming* `http.server` span, which is the one span on this side we want. Use
+   `ignoreOutgoingRequests` — it returns before a span or breadcrumb exists.
+3. **A second `captureException` of the same error object is dropped.** That is what holds a
+   rethrown Gemini failure to one event: the detailed capture goes first and wins. Rethrow a
+   *fresh* error with the same message and you get two.
+   Proved in `ui/api/_lib/_tests/sentry-spans.test.ts`.
+
 ## Coverage boundary
 
 Today we count core homepage, chat, Gemini, HealthKit sync, Rage Report, and React render-crash
@@ -93,7 +108,7 @@ paths — the browser's own pageload and navigation spans, the API's incoming `h
 `/api/coach-chat` and `/api/coach-message`, and the Gemini spans we open ourselves. **Outbound HTTP
 from the API is deliberately not traced.** Both Node instrumentations copy the full request URL onto
 the span, and `geminiClient.ts` passes the API key in the query string, so an `http.client` span is
-a credential in Sentry — one that `beforeSend` never sees, because it fires for error events only.
+a credential in Sentry. `beforeSend` never sees it, because that hook fires for error events only.
 `ui/api/_lib/sentry.ts` hands `httpIntegration` and `nativeNodeFetchIntegration` an
 `ignoreOutgoingRequests` that returns true for everything, dropping the span and the breadcrumb
 before either is built. The cost is that GitHub call durations never reach the trace. Gemini is the
