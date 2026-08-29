@@ -55,16 +55,24 @@ the Rage Report code. CI also logs Keychain `-34018` because the runner builds
 | 9 | [#643](https://github.com/sibling-shipyard/coach-hq/issues/643) — flush via `waitUntil` | Medium — new dependency, and it inverts the span suite's premise | A coach turn no longer waits on Sentry ingest |
 | 10 | Range-check the traces sample rate in `ui/api/_lib/sentry.ts` and `ui/client/src/lib/observability.ts` | Low | `SENTRY_TRACES_SAMPLE_RATE=100` warns instead of silently disabling tracing |
 | 11 | Runbook corrections, one PR: drop the dead `operation` grouping and alert filter, fix the prove-step that needs Phase 6 | Low — docs only | Every query in `sentry-runbook.md` returns rows against real data |
-| 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | High — the issue is a whole test framework, not one suite | A UI test runs in `ios-build.yml` |
+| 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | High — the issue is a whole test framework, not one suite |
+| 13 | Stop emitting two `http.server` spans per request | Low | One span per request, carrying `outcome` | A UI test runs in `ios-build.yml` |
 
 Nothing sets an `operation` tag anywhere in `ui/` or `ios/`; it is left over from the `operation_id`
 design that #633 replaced with native tracing.
+
+Item 13, found while building the dashboard: every request produces our manual `http.server` span
+**and** the auto-instrumented one. Grouping live spans by `sentry.origin` gives 9 `manual` (carrying
+`outcome`) and 9 `auto.http.otel.http` (carrying none) for the same 9 requests. Until it is fixed,
+any query over `span.op:http.server` must filter `sentry.origin:manual` or it counts every request
+twice — the "Coach HQ health" dashboard already does. #633 kept the auto span deliberately and a
+test pins `spans`/`disableIncomingRequestSpans` unset, so read that test before changing the init.
 
 ## P3 — nits
 
 | # | Work | Size |
 |---|---|---|
-| 13 | Bump the stale `Verified:` date on `docs/eng-docs/github-auth.md` | Low |
+| 14 | Bump the stale `Verified:` date on `docs/eng-docs/github-auth.md` | Low |
 
 ## Parked, by decision
 
