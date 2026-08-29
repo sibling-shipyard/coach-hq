@@ -41,6 +41,7 @@ import {
   verifyOAuthState,
   fromBase64Url,
 } from "./_lib/pkce.js";
+import { captureServerException, setAthleteScope, withContinuedTrace } from "../_lib/sentry.js";
 
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
@@ -228,7 +229,12 @@ export async function handleCallback(req: Request): Promise<Response> {
   const url = new URL(req.url);
   try {
     return await callbackImpl(url);
-  } catch {
+  } catch (error) {
+    console.error("[auth/callback]", error);
+    // End of the line for the whole OAuth exchange: this catch answers with a 302 the browser
+    // follows, so without capturing here the error exists nowhere. Anonymous on purpose - a
+    // login that failed has no repo, so there is no athlete to attribute it to.
+    await captureServerException(error);
     return callbackErrorRedirect(
       url.origin,
       "network_error",
@@ -390,6 +396,10 @@ export async function handleLogout(): Promise<Response> {
 export async function handleMe(req: Request): Promise<Response> {
   const fresh = await ensureFreshSession(req);
   if (fresh instanceof Response) return fresh;
+  // Who, as soon as it is known. A session that has not resolved a repo yet has no athlete id
+  // to set - `athlete_id` is the owner half of `owner/repo` everywhere else, and a login is not
+  // that value's source anywhere in this codebase.
+  if (fresh.session.repo_full_name) setAthleteScope(fresh.session.repo_full_name);
 
   return withSessionCookie(
     Response.json({
@@ -553,10 +563,17 @@ export async function handleListMyRepos(req: Request): Promise<Response> {
     const resolved = await resolveListMyReposAuthContext(req);
     if (resolved instanceof Response) return resolved;
     ctx = resolved;
+    // Who, as soon as it is known. Only the cookie path arrives with a repo already resolved;
+    // the bearer path and a first-time session have none until listMyReposImpl picks one, so
+    // those requests stay anonymous rather than carrying a guess.
+    if (ctx.repo_full_name) setAthleteScope(ctx.repo_full_name);
     return await listMyReposImpl(req, ctx);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to look up your repos";
     console.error("[list-my-repos]", err);
+    // End of the line: the athlete gets a 502 and nothing rethrows, so this is the only place
+    // a GitHub or session failure on this path can reach Sentry.
+    await captureServerException(err);
     return withSessionCookie(
       Response.json({ error: message }, { status: 502 }),
       ctx?.rotatedCookie,
@@ -646,25 +663,34 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
 // ============================================================================
 export default {
   async fetch(req: Request): Promise<Response> {
-    const url = new URL(req.url);
-    const action = url.pathname.replace(/^\/api\/auth\/?/, "").replace(/\/$/, "");
-    switch (action) {
-      case "start":
-        return handleStart(req);
-      case "install-redirect":
-        return handleInstallRedirect(req);
-      case "callback":
-        return handleCallback(req);
-      case "logout":
-        return handleLogout();
-      case "me":
-        return handleMe(req);
-      case "refresh":
-        return handleRefresh(req);
-      case "list-my-repos":
-        return handleListMyRepos(req);
-      default:
-        return Response.json({ error: "Not found" }, { status: 404 });
-    }
+    // Entry, before anything can capture: joins the browser's trace so both events share one,
+    // opens the route's `http.server` span, and flushes it before the response leaves. There is
+    // no try/catch here, unlike coach-chat.ts and coach-message.ts: those turn a throw into JSON
+    // the client can read, while half the actions below are browser navigations that answer with
+    // a 302. An error that escapes a handler is still captured - withContinuedTrace captures on
+    // its way out and rethrows, leaving the response Vercel already produced unchanged. The two
+    // handlers that swallow a throw into a redirect or a 502 capture it themselves first.
+    return withContinuedTrace(req, async () => {
+      const url = new URL(req.url);
+      const action = url.pathname.replace(/^\/api\/auth\/?/, "").replace(/\/$/, "");
+      switch (action) {
+        case "start":
+          return handleStart(req);
+        case "install-redirect":
+          return handleInstallRedirect(req);
+        case "callback":
+          return handleCallback(req);
+        case "logout":
+          return handleLogout();
+        case "me":
+          return handleMe(req);
+        case "refresh":
+          return handleRefresh(req);
+        case "list-my-repos":
+          return handleListMyRepos(req);
+        default:
+          return Response.json({ error: "Not found" }, { status: 404 });
+      }
+    });
   },
 };
