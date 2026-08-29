@@ -17,7 +17,12 @@ import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIn
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/geminiClient.js";
-import { captureGeminiFailure, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
+import {
+  captureGeminiFailure,
+  captureServerException,
+  setAthleteScope,
+  withContinuedTrace,
+} from "./_lib/sentry.js";
 import {
   combineExtraContext,
   firstSessionContext,
@@ -203,6 +208,9 @@ export default {
         const message = err instanceof Error ? err.message : "Coach chat failed";
         const status = (err as { status?: number }).status === 401 ? 401 : 500;
         console.error("[coach-chat]", err);
+        // This catch is the end of the line: the athlete gets a status and nothing rethrows, so
+        // a GitHub, commit or session failure reaches Sentry only if it is captured here.
+        await captureServerException(err);
         return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
       }
     });

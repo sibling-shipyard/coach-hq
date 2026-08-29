@@ -35,7 +35,7 @@ skips init when the DSN is still the placeholder, and the org has only `coach-hq
 
 | # | Work | Size | Done when |
 |---|---|---|---|
-| 4 | [#639](https://github.com/sibling-shipyard/coach-hq/issues/639) — `captureServerException` is never called | Medium — five routes, each needs a wrapper and a test | A non-Gemini API failure appears in Sentry with its exception |
+| 4 | [#646](https://github.com/sibling-shipyard/coach-hq/issues/646) — bring the five uncovered API routes under `withContinuedTrace` | Medium — five routes, each needs a wrapper and a test | A thrown error in `auth`, `repo-file`, `widget-snapshots`, `coach-chat-context` or `waitlist` appears in Sentry |
 | 5 | [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) — unblock the Rage Report test-host crash | Medium, could be High — root cause unknown until sanitizer output names it | `ios-build.yml` green on that branch |
 | 6 | Ship the Rage Report | Low — the PR is already written, 43 files; only 5 blocks it | An athlete submits a note plus selected timeline events; Cancel sends nothing |
 | 7 | The three alert rules from `sentry-runbook.md` | Low | A new production error pages us within 15 minutes |

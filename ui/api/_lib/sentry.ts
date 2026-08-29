@@ -16,10 +16,11 @@
  * are dropped the same way**, so anything that opens one must end it and flush before the
  * handler returns — the `flush()` in the capture helpers below drains spans too.
  *
- * That is why `withContinuedTrace` owns the only flush on the span path: a child span is only
- * sent when its root span ends, so `withGeminiSpan` deliberately does not flush — its span
- * rides out inside the route's `http.server` transaction. Open a Gemini span outside a wrapped
- * route and nothing sends it.
+ * `withContinuedTrace` owns the flush that sends the **spans**: a child span is only sent when
+ * its root span ends, so `withGeminiSpan` deliberately does not flush — its span rides out
+ * inside the route's `http.server` transaction. Open a Gemini span outside a wrapped route and
+ * nothing sends it. Error events are separate and flush themselves, in `captureServerException`
+ * and `captureGeminiFailure`, so a request can flush more than once.
  */
 import * as Sentry from "@sentry/node";
 import { scrubSentryEvent } from "../../observability/sentryScrubber.js";
@@ -166,6 +167,10 @@ function continueTraceInto<T>(
               return result;
             } catch (error) {
               span.setAttribute("outcome", "error");
+              // Last stop for what the route's own catch never sees - an auth or session
+              // refresh that throws before the handler's try block. Capture is idempotent per
+              // error object, so an error a route already captured is not sent twice.
+              await captureServerException(error);
               throw error;
             }
           },
@@ -279,7 +284,18 @@ export interface CaptureResult {
   sent: boolean;
 }
 
-/** Capture and send now. `sent: false` is the difference between queued and delivered. */
+/**
+ * Capture and send now. `sent: false` is the difference between queued and delivered.
+ *
+ * Idempotent per error object: the SDK marks an exception it has captured and drops a second
+ * capture of the same one. That is what holds a Gemini failure to a single event when
+ * `captureGeminiFailure` records it and the caller then rethrows into a route's generic catch -
+ * the detailed event wins, because it went first.
+ *
+ * Called inside `withContinuedTrace` this flushes before the route's transaction does; the
+ * wrapper's own flush still sends the span. Called outside one - a route with no wrapper, or
+ * module scope - this flush is the only thing that sends the event at all.
+ */
 export async function captureServerException(error: unknown): Promise<CaptureResult> {
   if (!initServerMonitoring()) return { sent: false };
   const eventId = Sentry.captureException(error);

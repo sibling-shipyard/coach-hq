@@ -4,7 +4,7 @@ import { fetchWithTimeout } from "./_lib/httpTimeout.js";
 import { SOUL } from "./_generated/soul.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
-import { setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
+import { captureServerException, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -107,6 +107,9 @@ export default {
         const status =
           typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
         console.error("[coach-message]", error);
+        // End of the line, same as coach-chat. A Gemini failure arrives here already captured by
+        // `generateProactiveBody`, which rethrows - the second capture of that error is dropped.
+        await captureServerException(error);
         return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
       }
     });
