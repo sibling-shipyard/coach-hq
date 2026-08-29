@@ -209,6 +209,42 @@ for fp, sink in wide_files:
         if msg not in sink:
             sink.append(msg)
 
+# Doc and plan prose. Same two gates as the ADRs above — over-long sentences and jargon with a
+# shorter replacement — but scoped to the files a branch actually changes. `docs/` carries 159
+# sentences over the limit today; failing the build over prose nobody touched teaches people to
+# ignore the run. Everything outside the diff still reports as a warning, so the backlog stays
+# visible. When git cannot name the diff (clean checkout, no `origin/main`) nothing gates.
+def changed_paths():
+    """Repo-relative paths this branch changes. Empty set when git cannot say."""
+    def run(*args):
+        try:
+            r = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-only", *args],
+                               capture_output=True, text=True)
+        except OSError:
+            return None
+        return set(r.stdout.split()) if r.returncode == 0 else None
+    # A pull_request build checks out a merge commit, where `HEAD^1 HEAD` is exactly what the PR
+    # adds. A local branch has no merge commit, so fall back to the three-dot range.
+    parents = subprocess.run(["git", "-C", str(ROOT), "rev-list", "--parents", "-n", "1", "HEAD"],
+                             capture_output=True, text=True)
+    if parents.returncode == 0 and len(parents.stdout.split()) == 3:
+        found = run("HEAD^1", "HEAD")
+        if found:
+            return found
+    return run("origin/main...HEAD") or set()
+
+CHANGED = changed_paths()
+
+for fp in (sorted((ROOT / "docs" / "eng-docs").glob("*.md"))
+           + sorted((ROOT / "docs" / "plans").glob("*.md"))):
+    raw = fp.read_text()
+    if HISTORICAL_RE.search(raw):
+        continue  # dated records, same rule as the path checks above
+    rel = str(fp.relative_to(ROOT))
+    sink = errors if rel in CHANGED else warnings
+    for severity, msg in adr_readability.findings(rel, raw):
+        (sink if severity == "error" else warnings).append(msg)
+
 # AGENTS.md size (soft cap)
 if AGENTS.exists():
     n = len(AGENTS.read_text().splitlines())
