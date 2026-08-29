@@ -37,7 +37,9 @@ flowchart LR
 4. Set `SENTRY_TRACES_SAMPLE_RATE` and `VITE_SENTRY_TRACES_SAMPLE_RATE` explicitly. They default
    to `1`, which is right for four athletes and wrong the first day it isn't.
 5. Build one dashboard and three alerts from the tables below. Route alerts to team email plus the
-   Sentry mobile app; use a five-minute notification interval.
+   Sentry mobile app; use a five-minute notification interval. The dashboard is built:
+   **"Coach HQ health"**, id `5873386`. Its first three widgets return real rows; the iOS one stays
+   empty until the `coach-hq-ios` DSN is in `Secrets.swift`. The alerts are not built yet.
 
 | dashboard widget | filter | group / value |
 |---|---|---|
