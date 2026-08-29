@@ -1,5 +1,6 @@
 /** Gemini request construction, explicit-cache use, one retry, and response parsing. */
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
+import { withGeminiSpan, type GeminiUsage } from "../../_lib/sentry.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
 import type { ChatMessage } from "./chatThreads.js";
 import { buildDynamicText, buildHistoryContents, staticSystemText } from "./coachPromptText.js";
@@ -120,31 +121,36 @@ export async function askGemini(
   // Doesn't log the full prompt (the static prefix alone is ~13K tokens) - mode and the
   // athlete's message are what actually vary call to call.
   console.log("[coach-chat] request:", { mode, userMessage, useCache: !!cachedName, traceId });
-  let useCache = !!cachedName;
-  let res = await callGemini(useCache);
-  // Capped at one retry total (if/else if) - chaining two full-budget calls risks blowing
-  // through vercel.json's maxDuration.
-  //
-  // A stale/invalid cachedContent name shows up here as a 400 - retry once as plain no-cache
-  // and drop the bad record so the next request doesn't repeat the round-trip.
-  if (useCache && res.status === 400) {
-    invalidateCachedSoulName().catch(() => {});
-    useCache = false;
-    res = await callGemini(useCache);
-  } else if (res.status === 504 || res.status === 503) {
-    // A timeout (504) or Gemini overload (503) is transient - retry once with a short fixed
-    // backoff. Unreachable alongside the 400 branch above.
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    res = await callGemini(useCache);
-  }
+  // The span covers the retry too: what the operator times is how long the turn waited for
+  // Gemini, not how long one of its attempts took.
+  return withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
+    let useCache = !!cachedName;
+    let res = await callGemini(useCache);
+    // Capped at one retry total (if/else if) - chaining two full-budget calls risks blowing
+    // through vercel.json's maxDuration.
+    //
+    // A stale/invalid cachedContent name shows up here as a 400 - retry once as plain no-cache
+    // and drop the bad record so the next request doesn't repeat the round-trip.
+    if (useCache && res.status === 400) {
+      invalidateCachedSoulName().catch(() => {});
+      useCache = false;
+      res = await callGemini(useCache);
+    } else if (res.status === 504 || res.status === 503) {
+      // A timeout (504) or Gemini overload (503) is transient - retry once with a short fixed
+      // backoff. Unreachable alongside the 400 branch above.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      res = await callGemini(useCache);
+    }
 
-  return finishGeminiResponse(res, mode, traceId);
+    return finishGeminiResponse(res, mode, traceId, recordUsage);
+  });
 }
 
 async function finishGeminiResponse(
   res: Response,
   mode: TurnMode,
   traceId?: string,
+  recordUsage?: (usage: GeminiUsage) => void,
 ): Promise<GeminiReply> {
   if (res.status === 429) {
     throw Object.assign(new Error("Gemini rate limit exceeded - try again shortly"), {
@@ -160,7 +166,12 @@ async function finishGeminiResponse(
 
   const body = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
-    usageMetadata?: { promptTokenCount?: number; cachedContentTokenCount?: number };
+    usageMetadata?: {
+      promptTokenCount?: number;
+      cachedContentTokenCount?: number;
+      candidatesTokenCount?: number;
+      totalTokenCount?: number;
+    };
   };
   // Standing visibility into whether explicit caching is actually being hit on real traffic.
   const usage = body.usageMetadata;
@@ -168,6 +179,12 @@ async function finishGeminiResponse(
     console.log(
       `[coach-chat] Gemini usage: prompt=${usage.promptTokenCount ?? "?"} cached=${usage.cachedContentTokenCount ?? 0}`,
     );
+    recordUsage?.({
+      promptTokens: usage.promptTokenCount,
+      completionTokens: usage.candidatesTokenCount,
+      totalTokens: usage.totalTokenCount,
+      cachedPromptTokens: usage.cachedContentTokenCount,
+    });
   }
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini returned no content");

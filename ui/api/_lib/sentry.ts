@@ -15,6 +15,11 @@
  * returns, and the SDK sends on a background timer, so an unflushed event is dropped. **Spans
  * are dropped the same way**, so anything that opens one must end it and flush before the
  * handler returns — the `flush()` in the capture helpers below drains spans too.
+ *
+ * That is why `withContinuedTrace` owns the only flush on the span path: a child span is only
+ * sent when its root span ends, so `withGeminiSpan` deliberately does not flush — its span
+ * rides out inside the route's `http.server` transaction. Open a Gemini span outside a wrapped
+ * route and nothing sends it.
  */
 import * as Sentry from "@sentry/node";
 import { scrubSentryEvent } from "../../observability/sentryScrubber.js";
@@ -97,25 +102,130 @@ export function initServerMonitoring(): boolean {
   return true;
 }
 
+/** How long a flush may block the response. Shared by every send on the request path. */
+const FLUSH_TIMEOUT_MS = 2000;
+
 /**
- * Run `handler` on the trace the browser started.
+ * Run `handler` on the trace the browser started, inside one `http.server` span.
  *
  * Nothing continues that trace on its own here. `Sentry.init` runs lazily, from inside the
  * capture helpers below, long after Vercel's runtime accepted the request — so there is no
  * auto-instrumented server span holding the incoming `sentry-trace`, and without this call the
- * browser event and the API event land on two different traces. Call it at the route's entry,
- * before anything that might capture.
+ * browser event and the API event land on two different traces. The span is ours for the same
+ * reason: without one the trace view shows a browser transaction and nothing on the API side.
+ * Call it at the route's entry, before anything that might capture.
+ *
+ * The flush is what makes the span real. `Sentry.startSpan` ends the span before its promise
+ * settles, so flushing here — after the await, before the response leaves — is the last moment
+ * the function is still alive to send it.
  *
  * No DSN, or no headers, and this is a pass-through: the handler runs exactly as it would have.
  */
 export function withContinuedTrace<T>(req: Request, handler: () => Promise<T>): Promise<T> {
   if (!initServerMonitoring()) return handler();
+  const { pathname } = new URL(req.url);
   return Sentry.continueTrace(
     {
       sentryTrace: req.headers.get("sentry-trace") ?? undefined,
       baggage: req.headers.get("baggage"),
     },
-    handler,
+    async () => {
+      try {
+        return await Sentry.startSpan(
+          {
+            name: `${req.method} ${pathname}`,
+            op: "http.server",
+            attributes: { "http.request.method": req.method, "url.path": pathname },
+          },
+          async (span) => {
+            try {
+              const result = await handler();
+              // The routes catch their own errors and answer with a status, so the status is
+              // the only place the outcome shows. A 4xx counts as an error here on purpose:
+              // on these two routes it means the athlete's session or request broke.
+              if (result instanceof Response) {
+                Sentry.setHttpStatus(span, result.status);
+                span.setAttribute("outcome", result.status < 400 ? "ok" : "error");
+              }
+              return result;
+            } catch (error) {
+              span.setAttribute("outcome", "error");
+              throw error;
+            }
+          },
+        );
+      } finally {
+        await Sentry.flush(FLUSH_TIMEOUT_MS);
+      }
+    },
+  );
+}
+
+/** Token counts Gemini returns in `usageMetadata`, named as this codebase reads them. */
+export interface GeminiUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  cachedPromptTokens?: number;
+}
+
+/**
+ * Attribute names are Sentry's own `gen_ai` convention, not ours. `@sentry/core`'s
+ * `tracing/google-genai` integration emits exactly these for a `models.generateContent` call
+ * (`gen-ai-attributes.js`), so our hand-rolled spans land in the same Sentry AI views as
+ * auto-instrumented ones — and if we ever swap raw `fetch` for `@google/genai`, the spans do
+ * not change shape. We call `generateContent` over plain `fetch`, which that integration cannot
+ * see, so we set them ourselves.
+ */
+const GEN_AI_OPERATION = "generate_content";
+
+function usageAttributes(usage: GeminiUsage): Record<string, number> {
+  const pairs: [string, number | undefined][] = [
+    ["gen_ai.usage.input_tokens", usage.promptTokens],
+    ["gen_ai.usage.output_tokens", usage.completionTokens],
+    ["gen_ai.usage.total_tokens", usage.totalTokens],
+    ["gen_ai.usage.input_tokens.cached", usage.cachedPromptTokens],
+  ];
+  return Object.fromEntries(
+    pairs.filter((pair): pair is [string, number] => pair[1] !== undefined),
+  );
+}
+
+/**
+ * Wrap one Gemini `generateContent` call in a `gen_ai.generate_content` span.
+ *
+ * `run` is handed a `recordUsage` callback because the token counts only exist once the
+ * response is parsed, which is inside the call, not around it.
+ *
+ * ADR 0032 puts prompt and reply text on the *failure* path only — a failed turn exists nowhere
+ * else. A turn that works is already in `chat_history.json`, so this span carries counts and
+ * model metadata and no text, ever.
+ */
+export function withGeminiSpan<T>(
+  model: string,
+  run: (recordUsage: (usage: GeminiUsage) => void) => Promise<T>,
+): Promise<T> {
+  if (!initServerMonitoring()) return run(() => {});
+  return Sentry.startSpan(
+    {
+      name: `${GEN_AI_OPERATION} ${model}`,
+      op: `gen_ai.${GEN_AI_OPERATION}`,
+      attributes: {
+        "gen_ai.system": "google_genai",
+        "gen_ai.operation.name": GEN_AI_OPERATION,
+        "gen_ai.request.model": model,
+      },
+    },
+    async (span) => {
+      try {
+        const result = await run((usage) => span.setAttributes(usageAttributes(usage)));
+        span.setAttribute("outcome", "ok");
+        return result;
+      } catch (error) {
+        span.setAttribute("outcome", "error");
+        throw error;
+      }
+    },
   );
 }
 
@@ -130,7 +240,7 @@ export interface CaptureResult {
 export async function captureServerException(error: unknown): Promise<CaptureResult> {
   if (!initServerMonitoring()) return { sent: false };
   const eventId = Sentry.captureException(error);
-  const sent = await Sentry.flush(2000);
+  const sent = await Sentry.flush(FLUSH_TIMEOUT_MS);
   return { eventId, sent };
 }
 
@@ -179,7 +289,7 @@ export async function captureGeminiFailure(
     },
     contexts: { coach_turn: { athlete_message: details.athleteMessage } },
   });
-  const sent = await Sentry.flush(2000);
+  const sent = await Sentry.flush(FLUSH_TIMEOUT_MS);
   return { eventId, sent };
 }
 

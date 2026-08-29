@@ -189,7 +189,8 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Entry, before anything can capture: joins the browser's trace so both events share one.
+    // Entry, before anything can capture: joins the browser's trace so both events share one,
+    // opens the route's `http.server` span, and flushes it before the response leaves.
     return withContinuedTrace(req, async () => {
       const resolved = await resolveRepoAuth(req);
       if (resolved instanceof Response) return resolved;
