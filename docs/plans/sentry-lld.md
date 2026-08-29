@@ -94,12 +94,8 @@ next one starts.
    React `ErrorBoundary` reports through `captureReactException`; React unwinds to the boundary before
    `window.onerror` fires, so render crashes reached nothing before this. **Done.**
 
-**Known gaps, tracked:** five API routes — `repo-file.ts`, `widget-snapshots.ts`,
-`coach-chat-context.ts`, `coach-chat-profile-status.ts`, `waitlist.ts` — still run outside
-`withContinuedTrace`, so nothing they throw reaches Sentry
-([#646](https://github.com/sibling-shipyard/coach-hq/issues/646)). `auth/[...action].ts` is
-wrapped as of that issue's first PR.
-Gemini's key still travels in the URL query string rather than the `x-goog-api-key` header
+**Known gaps, tracked:** Gemini's key still travels in the URL query string rather than the
+`x-goog-api-key` header
 ([#638](https://github.com/sibling-shipyard/coach-hq/issues/638)).
 
 ## 4. Deferred
