@@ -79,26 +79,32 @@ Every agent (Tech Lead + workers) follows this. Role docs add scope; they don't 
 **Learnings:** one-liners in your role doc's `## Learnings`; tradeoffs → ADR. That block is capped at
 1536 bytes and `kdb/scripts/validate_kdb.py` fails over it — on overflow, promote the durable entries
 into the matching `docs/eng-docs/` doc and drop the rest. Never delete a rule with nowhere to live.
-Each entry names something checkable in the repo *today* — a path, a command, a symbol — so a
-reader can test whether it still holds. A PR number cannot do that: it sends you to archaeology
-instead of to the code, and it does not even carry a date. And a Learning is a temporary state: the **third** time you hand-check the same thing,
-it becomes a check or it gets deleted. Norms decay; checks compound.
+Each entry names something checkable in the repo *today* — a path, a command, a symbol — not a PR
+number. A Learning is temporary: the **third** time you hand-check the same thing, it becomes a
+check or it gets deleted. Norms decay; checks compound.
 
-**Talk:** Co-worker mode. Replies and plans **10–20 lines max** unless the athlete asks for depth.
+**Talk:** Co-worker mode. One reply, one topic — three topics is three replies. Replies and plans
+**10–20 lines max** unless the athlete asks for depth; don't hit the cap by compressing, cut.
+`REC:` marks your recommendation among options. `nit:` marks something small you already did, or a
+finding the athlete can ignore. "Explain simply" is standing for the session and does not reset when
+the topic does — it breaks when you start relaying another tool's words, so translate those first.
+Coach's voice rules (`platform/soul/A_identity.md` §3) apply to you. In each pair, write the second:
 
-Steal Coach's voice rules from `platform/soul/A_identity.md` §3 — Coach is the one part of this
-repo that already talks well. They apply to you too:
+**Plan item**
+✗ Extend `adr_readability.py` from ADRs to `docs/eng-docs/` and `docs/plans/`. It already fails a sentence over 40 words; today it only looks at ADRs. One file, warn first.
+✓ Enforce the 40-word sentence limit on docs & plans, like ADRs today.
 
-- **Short sentences.** Direct. One thought at a time.
-- **No jargon.** "The app can't read files," not "the runtime lacks filesystem affordances."
-- **Don't over-explain.** Answer what was asked, then stop.
-- **Lead with the call, not the survey.** Give the recommendation in a line; reasons after, only
-  if they change the decision.
-- **Asking a yes/no question? Ask it in one line.** If it needs a paragraph to land, it's the
-  wrong question.
+**Relaying a tool**
+✗ `captureServerException` flushes, then the wrapper's `finally` flushes the transaction — two sequential flushes on the `http.server` span's error path.
+✓ On an error we now wait to send twice. We are adding a 4 second delay before the athlete gets an answer.
 
-The athlete has had to ask for this more than once, in more than one thread. Treat a request to
-"explain simply" as a standing instruction for the rest of the session, not a one-off.
+**A review finding**
+✗ I noticed `sentry-lld.md`'s "Known gaps" paragraph appears to still reference #639, which — given this PR carries `Fixes: #639` — would mean the doc points at a closed issue for a still-open gap.
+✓ nit: `sentry-lld.md:98` links #639, but this PR closes it. Point it at #646.
+
+**A recommendation**
+✗ Three ways: (a) gate only files the PR touches, (b) warn everywhere, (c) rewrite all 159 first. I'd take (a) because the backlog never gets fixed under (b), and (c) is days of work.
+✓ Three ways: (a) gate only files the PR touches, (b) warn everywhere, (c) rewrite all 159 first. REC: (a) because the backlog never gets fixed under (b), and (c) is days of work.
 
 **Push back with evidence. Never comply silently.** The failure this rule exists to stop is an
 agent quietly doing something it believes is wrong. Not disagreement — silence.
@@ -115,20 +121,15 @@ agent quietly doing something it believes is wrong. Not disagreement — silence
 This runs both ways: when the athlete pushes back on you and they're right, say so plainly, fix
 it, and move on — no ceremony.
 
-**Lists:** Number steps/questions `1, 2, 3`; sub-items on new lines, one tab indent:
-```
-1. Main step
-	a. sub-step
-	b. sub-step
-```
-Athlete may reference `1a` — match that item exactly.
+**Lists:** Number steps/questions `1, 2, 3`; sub-items on their own line, one tab indent (`1.`
+then tab `a.`). Athlete may reference `1a` — match that item exactly.
 
 **Priorities:** Three tiers, used for review findings and mid-task calls alike.
 **P0** — fix now, blocks the ship. **P1** — good to fix, do it before moving on.
 **P2** — flagging it, athlete's call: follow-up ticket, one line, don't build unless asked.
 (`P3` still exists for issue bodies — see `.github/agents/issue-template.md`. A review never emits one.)
 
-**Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2, don't implement. If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
+**Scope guard:** Ship only what the issue or athlete request defines. Mid-task extras → flag as P2, don't implement — except a `nit:`: a bookkeeping doc edit or a trivial rename that needs no decision is done, not ticketed. If the athlete goes down a rabbit hole, **stop and confirm scope** in a numbered list before writing more code.
 
 **Execution loop (tasks, not chat):**
 1. Plan (~10–20 lines): goal, end state, how we validate.
@@ -140,25 +141,21 @@ Athlete may reference `1a` — match that item exactly.
 
 **Comments: write the constraint, not the chronology.** A comment about what changed earns its
 place only when the past still binds the present — *"optional because history files written before
-#292 have no `vs_usual`"* stops the next agent deleting that optional. A comment that only records
-what happened does not: git, `kdb/decisions/`, and `SOUL_HISTORY.md` are the archive. Test: **would
-this change what a reader does?** If it only says what the code used to be, cut it. `legacy`,
-`no longer`, `used to`, `now uses`, `existing`, `for backward compatibility` are the tells — grep
-them in review. They also rot: "new" and "existing" stop being true on the next change.
+#292 have no `vs_usual`"*. Otherwise git, `kdb/decisions/` and `SOUL_HISTORY.md` are the archive.
+Test: **would this change what a reader does?** `legacy`, `no longer`, `used to`, `now uses`,
+`existing`, `for backward compatibility` are the tells — grep them in review.
 
-**Big output:** Build and install commands dump five figures of tokens into context for no
-information — one `xcodebuild test` pasted an entire `swift-frontend` invocation. Redirect, then
-grep the log:
+**Big output:** Never pipe a build or install straight into your context — it costs five figures of
+tokens for no information. Redirect, then grep the log:
 ```bash
 xcodebuild test ... > /tmp/build.log 2>&1; grep -E "error:|Executed [0-9]+ test|\*\* TEST" /tmp/build.log
 ```
-Same for `npm ci`, `pip install`, and any verbose build. Never pipe one straight into your context.
+Same for `npm ci`, `pip install`, and any verbose build.
 
 **Doc feedback:** After handing over a plan or an eng-doc, ask the athlete to rate it 1-5 on
-ease-of-reading, comment optional — one line, not a form. The rating is a trigger, not a metric:
-nothing tracks the average, and the comment is the payload. Anything 3 or below becomes a line in
-`kdb/doc-style.md` that same session, or the question was theatre. Plans and eng-docs only — ask on
-PR bodies and review replies as well and you will stop getting honest answers.
+ease-of-reading — one line, not a form. The comment is the payload; nothing tracks the average.
+Anything 3 or below becomes a line in `kdb/doc-style.md` that same session. Plans and eng-docs
+only — ask on PR bodies and review replies too and you stop getting honest answers.
 
 **Doc upkeep — before opening a PR:**
 1. Update any eng-doc your change invalidates (`grep -rl <changed-path> docs/eng-docs/` finds them) and bump its `Verified:` date.
@@ -181,8 +178,7 @@ the primary checkout:
 git fetch origin main && git worktree add -b <branch> /tmp/wt-<brief> origin/main
 ```
 Remove it once the PR is open (`git worktree remove <path> --force`). Agents run concurrently here,
-and the shared checkout has already handed one agent's commits to another's branch: a branch cut
-from what looked like `main` inherited five commits off a detached HEAD (#522). The primary
+and the shared checkout has already handed one agent's commits to another's branch. The primary
 checkout is not yours — leave it where you found it.
 
 **Git push:** Always use:
