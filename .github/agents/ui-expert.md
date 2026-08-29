@@ -33,4 +33,4 @@ Keep these current when `ui/` changes; rules in `docs/eng-docs/README.md`.
 - Vite caches JSON imports aggressively — restart dev server after data changes.
 - WorkoutTimer: call `setTimer(-1)` before any `setState()` to prevent race conditions between timer init and tick effects.
 - `milestoneProgress.ts`-style helpers read `milestone.progress` (`MilestoneProgress` in `challenge.ts`) — not a separate `tracking` schema.
-- Sentry drops a second `captureException` of the *same* error object, which is what holds a rethrown Gemini failure to one event — `captureServerException` in `ui/api/_lib/sentry.ts`, proved in `ui/api/_lib/_tests/sentry-spans.test.ts`.
+- Before touching `ui/api/_lib/sentry.ts`, read `docs/eng-docs/sentry-runbook.md` § Traps.
