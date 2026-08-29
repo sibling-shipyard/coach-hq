@@ -12,7 +12,7 @@ Four beta athletes use the product; Sentry provides a single, searchable debuggi
 
 ```mermaid
 flowchart LR
-    W["Web client /ui"] -- "scrubbed errors" --> S["Sentry (EU/Germany)<br/>90-day retention"]
+    W["Web client /ui"] -- "scrubbed errors" --> S["Sentry (EU/Germany)<br/>30-day retention"]
     A["Vercel API /api"] -- "errors + LLM telemetry" --> S
     I["iOS App"] -- "crashes + opt-in reports" --> S
     I -- "ring buffer (200 events)" --> T["Local timeline (24h)"]
@@ -48,8 +48,9 @@ All Sentry SDK integrations (browser SDK, Node/Vercel SDK, Swift SDK) must run `
 
 ### Storage & retention bounds
 
-- **Sentry (Server):** 90-day error retention, stored in the Sentry Developer Germany region.
-  Fixed by plan on sentry.io and not settable per project — only self-hosted Sentry can change it.
+- **Sentry (Server):** 30-day error retention on the Developer plan, stored in the Sentry Germany
+  region. Fixed by plan on sentry.io and not settable per project — 90 days needs the Team plan,
+  and only self-hosted Sentry can set it freely.
 - **Local iOS timeline:** In-memory ring buffer only, capped at 200 events or 256 KiB. Evicted after 24 hours, on sign-out, or when the app is relaunched. Nothing is written to disk, so there is no diagnostic data at rest on the phone.
 - **Beta cohort:** 4 current beta athletes opted in by default; automatic replay/screen capture remains disabled.
 
@@ -102,4 +103,4 @@ Gemini's key still travels in the URL query string rather than the `x-goog-api-k
 
 - Athlete privacy preferences and opt-out UI toggles ([#590](https://github.com/sibling-shipyard/coach-hq/issues/590)).
 - Automatic session recording / screen replays (deferred indefinitely).
-- Long-term log warehousing beyond the 90-day Sentry window.
+- Long-term log warehousing beyond the 30-day Sentry window.

@@ -1,6 +1,6 @@
 # Debugging Loop
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · Issue: [#585](https://github.com/sibling-shipyard/coach-hq/issues/585)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-29 · Issue: [#585](https://github.com/sibling-shipyard/coach-hq/issues/585)
 
 ## Why now
 
@@ -14,7 +14,7 @@ from the athlete's phone to the operator dashboard, with Vercel as fallback.
 ```mermaid
 flowchart LR
   U["Athlete uses web or iPhone"] --> M["Automatic error monitoring"]
-  M --> S["Sentry, 90 days"]
+  M --> S["Sentry, 30 days"]
   U --> P["Recent event timeline, phone only"]
   U --> R["Report a problem"]
   P --> R
@@ -23,8 +23,8 @@ flowchart LR
 
 | block | what we collect | where it lives | user control |
 |---|---|---|---|
-| **1. Monitoring** | Crashes, error type, screen/operation, timing, app version, athlete message, Gemini reply, model and token counts. | Sentry projects for web/API and iOS, retained for 90 days | The four close-friends beta athletes are treated as opted in; formal controls come in #590. |
-| **2. Rage report** | The phone's recent event timeline plus any screenshot, conversation excerpt, or activity the athlete selects. | Timeline stays on the phone for 24 hours. A submitted report stays in Sentry for 90 days. | No report attachment leaves the phone until the athlete taps Submit. |
+| **1. Monitoring** | Crashes, error type, screen/operation, timing, app version, athlete message, Gemini reply, model and token counts. | Sentry projects for web/API and iOS, retained for 30 days | The four close-friends beta athletes are treated as opted in; formal controls come in #590. |
+| **2. Rage report** | The phone's recent event timeline plus any screenshot, conversation excerpt, or activity the athlete selects. | Timeline stays on the phone for 24 hours. A submitted report stays in Sentry for 30 days. | No report attachment leaves the phone until the athlete taps Submit. |
 
 Never capture API keys, login tokens, auth headers, or credentials in Sentry.
 

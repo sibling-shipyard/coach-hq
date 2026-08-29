@@ -3,8 +3,8 @@
 > Status: Current · Owner: Tech Lead · Verified: 2026-08-29 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
-region for 90 days — fixed by the plan, not a dial we hold; Vercel and Apple logs are fallback
-sources.
+region for 30 days on the Developer plan — fixed by the plan, not a dial we hold; Vercel and
+Apple logs are fallback sources.
 
 ## Route
 
@@ -19,11 +19,13 @@ flowchart LR
 ## Set up once
 
 1. Create one organization **in the EU region** — the region is fixed at creation and cannot be
-   moved later — plus an `operators` team. Invite every operator; require 2FA. Keep default PII,
-   replay, and screenshots off. Retention is 90 days, fixed by the Developer plan — there is no
-   per-project dial. Confirm the region and the retention number on the real account (ADR 0032).
-2. Create `coach-hq-web` (React), `coach-hq-api` (Node), and `coach-hq-ios` (Cocoa) projects. Give
-   `operators` access to all three. Put `VITE_SENTRY_DSN` and `SENTRY_DSN` in Vercel Production and
+   moved later. Require 2FA. Keep default PII, replay, and screenshots off. Retention is 30 days
+   on the Developer plan — fixed by the plan, with no per-project dial; 90 days needs Team. The
+   Developer plan seats **one user**, so there is no `operators` team to invite anyone to yet —
+   a second operator means upgrading. Confirm the region and the retention on the real account
+   (ADR 0032).
+2. Create `coach-hq-web` (React), `coach-hq-api` (Node), and `coach-hq-ios` (Cocoa) projects — the
+   single Developer-plan user owns all three. Put `VITE_SENTRY_DSN` and `SENTRY_DSN` in Vercel Production and
    Preview. Put the public iOS DSN in the uncommitted `Secrets.swift` used by the app build.
 3. **Nothing uploads source maps or dSYMs yet — there is no setup step here to do.**
    `ui/vite.config.ts` loads no Sentry plugin and `@sentry/vite-plugin` is not a dependency, so
