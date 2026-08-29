@@ -87,8 +87,8 @@ test pins `spans`/`disableIncomingRequestSpans` unset, so read that test before 
 
 Item 17 is a design call the athlete raised, deliberately deferred until item 4 lands. Each wrapped
 route hand-rolls the same ~15 lines; after item 4 there will be eight copies. A shared helper is the
-better shape, but the six routes differ in where identity becomes known — `waitlist` has no auth at
-all, `auth` establishes it — so the helper is guesswork until we can read all eight call sites.
+better shape. But the six routes differ in where identity becomes known: `waitlist` has no auth at
+all, and `auth` establishes it. Until all eight call sites exist, the helper is guesswork.
 Retrofitting the two existing routes rewrites code that carries every coach conversation, for no
 athlete-visible change, so it waits for the same PR as the helper.
 
