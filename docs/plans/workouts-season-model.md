@@ -7,7 +7,7 @@ Two pages by request — deeper mechanics belong in a `-lld.md` if this grows ag
 
 ## 1. Context
 
-Two live athletes hit this in one week. One sees "a lot of random workouts" they never asked
+Two of the four live athletes hit this in one week. One sees "a lot of random workouts" they never asked
 for. On the BYO Claude path, Coach said it *could not* build an upper body workout because
 "there is no template in this repo."
 
@@ -96,16 +96,17 @@ user_data/activities/workout_plans/
 Benchmarks are **scheduled by the plan**, not left to Coach remembering — otherwise the closing
 one is skipped and the measurement story is lost.
 
-**`week.json`** — `current_week.json` carries 11 fields this model does not need
+**`week.json`** — `current_week.json` carries 9 fields this model does not need
 (`data_status`, `coach_read`, `coach_comments`, `origin`, `discipline`, `kind`, `planned_load`,
-`session_file`, `original_date`, `completion_activity_ids`, `timezone`). The replacement keeps
-only what renders or drives behaviour:
+`session_file`, `original_date`). `status` and `completion_activity_ids` **stay** — they are how
+reconciliation works today (§6) and dropping them would break it. The replacement keeps only what
+renders or drives behaviour:
 
 ```json
 { "schema_version": 1, "week_of": "2026-09-01", "plan_week": 3, "block": "base",
   "focus": "...", "guardrails": ["..."],
-  "days": [{ "date": "2026-09-01", "routine_id": "upper_a",
-             "priority": "anchor", "status": "planned" }],
+  "days": [{ "date": "2026-09-01", "routine_id": "upper_a", "priority": "anchor",
+             "status": "planned", "completion_activity_ids": [] }],
   "_meta": { "updated_at": "", "updated_by": "model", "trace_id": "" } }
 ```
 
@@ -116,6 +117,64 @@ deleted, they **move** to the coach-message surface (ADR 0029); the UI reads the
 **Compiled files are disposable.** They are committed so the timer and iOS can read them offline,
 but nothing treats them as truth: delete the directory and the next compile rebuilds it. They are
 never hand-edited, and never the place a coaching decision is recorded.
+
+## 6. Reconciling plan with reality
+
+Already built, and kept. Two stages, in this order:
+
+1. **Deterministic candidate, on sync.** The iOS sync commits activities, which triggers
+   `activitySyncTurn.ts`. Code matches each verified activity to a planned day by date and type
+   and proposes a match. No LLM involved.
+2. **Coach confirms, in the same turn.** Gemini receives the week's sessions
+   (`activeWeekSessionsContext`) and emits a `session_status` action —
+   `done | skipped` — which `coachWeekFiles.ts` applies, writing source-qualified
+   `completion_activity_ids` (`healthkit:<uuid>`). Coach is what handles the cases code cannot:
+   the athlete did a different workout, did it a day late, or did something unplanned.
+
+So `week.json` is updated **on sync**, not on a schedule, and not by the timer. The UI also
+matches client-side in `currentWeekAdapter.ts` so an unplanned activity shows as a card before
+the next sync turn lands.
+
+**Week rollover is where plan meets reality.** At the week boundary the next week is compiled from
+block intent *plus what actually happened* — missed anchors inform the next week rather than
+silently rolling over. Two consecutive weeks under target is the drift signal that opens a
+re-planning conversation (§10). Nothing is auto-rewritten.
+
+## 7. What the Workouts page shows
+
+One page, five states. Every state must be reachable in a test.
+
+| State | Shows |
+|---|---|
+| Planned day, compiled | The day's workout: title, phases, duration, priority, Coach's note, start-timer CTA |
+| Planned day, already done | Same card marked done, linked to the matched activity |
+| Rest day | "Rest" plus the next session and its date — never an empty page |
+| Unplanned activity logged | The activity as a completed card, no routine attached |
+| No plan yet (new athlete) | The benchmark, as the single call to action |
+| Compile failed | Last good compiled file plus a quiet notice; never a partial workout |
+
+The "lot of random workouts" report is a rendering symptom of the storage bug: today the page
+lists every template the athlete owns, with no notion of *today*. The new page is day-first — the
+athlete's own routines stay reachable, but behind the day.
+
+## 8. How Coach's behaviour changes
+
+Coach behaviour lives in two places and both change per PR: the soul layer
+(`platform/soul/B_engine.md`, composed into both builds) and the API's action-field surface
+(`coachReplySchema.ts`, `coachPromptText.ts`). Every soul edit needs a compose run and a
+`SOUL_HISTORY.md` entry per `AGENTS.md` § Doc upkeep.
+
+| PR | Soul change | Action-field change |
+|---|---|---|
+| 1 | Retire "Persisting Session Files" §; Coach emits an exercise list, never timer physics | new `workout_create` |
+| 2 | First Session Protocol closes with a benchmark, not a template hand-out; limit-finding, not max-testing | benchmark write seeds `progressions.json` |
+| 3 | Coach may create a routine when none fits — the line whose absence caused bug 2 | — (BYO path) |
+| 4 | New §: season planning conversation — goal, duration, blocks, scheduled benchmarks | new `season_plan` |
+| 5 | Weekly Kick-off Ritual rewritten: pick routines for days from block intent | `week_plan` reshaped |
+| 8 | Every `templates/` and `sessions/` path reference updated | — |
+
+`validate-soul.mjs` checks soul path references against the carve on every PR, so a missed
+rename fails CI rather than reaching an athlete.
 
 ## 5. Rendering — UI and widgets
 
@@ -134,7 +193,7 @@ Both new files must reach the dashboard the same way everything else does.
    (days, priority, done/planned).
 4. `shared/golden-dataset/` needs fixtures for both files or local `npm run dev` renders empty.
 
-## 6. The contract
+## 9. The contract
 
 > **Coach supplies judgment as typed values. Code enforces invariants.**
 
@@ -159,7 +218,7 @@ BYO Claude runs the same module via a thin Node CLI, so there is one compiler, n
 **When compile fails:** the athlete keeps the last good compiled file, and Coach is told why in
 the turn. The timer never renders a partially-built workout.
 
-## 7. Execution
+## 10. Execution
 
 Milestones are the outcome layer; each has one exit test. `final base` gives merge order.
 
@@ -174,21 +233,23 @@ Milestones are the outcome layer; each has one exit test. `final base` gives mer
 | 7 | M3 render | widget snapshots + iOS decode; `BundledTemplates.swift` becomes a cache | PR 5 | `ui/scripts/generate-widget-snapshots.ts`, `ios/CoachHQ/` | iOS Builder | PR 6 | `ios-build.yml` green; widget shows week N of M |
 | 8 | M4 cleanup | delete the library and the old nouns; supersede the ADR | PR 7 | `shared/workout-library/`, `platform/skeleton-templates/`, `engine/lib/repo-layout.mjs`, `kdb/decisions/` | Tech Lead | — | no reference to `templates/` or `sessions/` remains; ADR merged |
 
-**Migration for the two live athletes** rides in PR 8: a one-shot script renames `templates/` →
-`routines/`, drops `sessions/`, and seeds `progressions.json` from the athlete's next benchmark
-rather than backfilling guesses. Neither athlete loses a workout.
+**Migration for the four live athletes** rides in PR 8: one idempotent script, run per repo,
+renaming `templates/` → `routines/`, dropping `sessions/`, and rewriting `current_week.json` to
+`week.json`. Progressions are seeded from each athlete's next benchmark, never backfilled with
+guesses. Nobody loses a workout. Four repos is past hand-editing, so the script is the deliverable
+and a dry-run mode is part of it.
 
-## 8. Done when
+## 11. Done when
 
 - An athlete asks for an upper body workout in chat and gets one. (Bug 2)
 - A new athlete's first screen shows a benchmark, not six guessed workouts. (Bug 1)
 - `progressions.json` in a live repo holds benchmarked values with dated history.
 - Changing a progression changes the next compile with no edit to any routine file.
 - The season plan and the current week both render on web and in a widget.
-- Every invariant in §6 has a failing-when-violated test.
-- The BYO Claude athlete's repo still works throughout.
+- Every invariant in §9 has a failing-when-violated test.
+- All four live repos keep working throughout, BYO Claude included.
 
-## 9. Open and deferred
+## 12. Open and deferred
 
 - **Plan drift:** code detects (adherence, stalled progressions), Coach opens the conversation —
   never an automatic rewrite. Tone rule lives in the soul layer, not code.
