@@ -31,18 +31,19 @@ flowchart LR
    `ui/vite.config.ts` loads no Sentry plugin and `@sentry/vite-plugin` is not a dependency, so
    web stack frames arrive minified. iOS is the same story for a different reason: the repo builds
    and tests `ios/` in CI but has no archive/release workflow to hang a dSYM upload off. Treat
-   every production stack trace, web and iOS alike, as unreadable. Phase 6 of
-   `docs/plans/sentry-lld.md` is the work; when it ships, the token it needs must never be named
+   every production stack trace, web and iOS alike, as unreadable. It is the first item under
+   `ops-observability.md` § Deferred; when it ships, the token it needs must never be named
    `VITE_*`, because Vite bakes those into the client bundle.
 4. Set `SENTRY_TRACES_SAMPLE_RATE` and `VITE_SENTRY_TRACES_SAMPLE_RATE` explicitly. They default
    to `1`, which is right for four athletes and wrong the first day it isn't.
-5. Build one dashboard and three alerts. The dashboard is built: **"Coach HQ health"**, id
-   `5873386`. Its widgets and the questions they answer live in `ops-monitoring-dashboard.md` —
-   that doc owns the widget list, so it is not repeated here. Route alerts from the table below to
-   team email plus the Sentry mobile app; use a five-minute notification interval. A short time
-   window can still be empty with four athletes. None of the three alerts below is built.
-   `coach-hq-web` and `coach-hq-ios` do carry Sentry's default high-priority-issue rule;
-   `coach-hq-api`, which raises most of our errors, carries nothing.
+5. Build one dashboard and three alerts. The dashboard is built and complete: **"Coach HQ health"**,
+   id `5873386`, all seven widgets returning production rows. The questions they answer live in
+   `ops-observability.md`, which owns that list, so it is not repeated here. Route alerts from the
+   table below to team email plus the Sentry mobile app; use a five-minute notification interval. A
+   short time window can still be empty with four athletes. None of the three alerts below is built.
+   `coach-hq-web` and `coach-hq-ios` carry only Sentry's default high-priority-issue rule, which is
+   a heuristic and guarantees no particular error reaches you; `coach-hq-api`, which raises most of
+   our errors, carries nothing at all.
 
 Every error has an `operation` tag: `web` for browser errors, the API route without `/api/` with
 slashes changed to dots (for example `auth.callback`), or the native operation name on iOS. Use it
@@ -53,6 +54,10 @@ to group failures by entry point; `trace_id` is still the key that joins one int
 | New or regressed production error | first seen or regression | immediate |
 | Repeated core failure | `outcome:error`, at least 3 events in 15 minutes | immediate |
 | Athlete Rage Report | `operation:rage_report` | immediate |
+
+**Do not add `event.type:error` to the Rage Report rule.** `RageReportSubmission.swift` submits
+through `capture(message:)`, so reports arrive as `event.type:default` at `level:info`. That filter
+silently matches nothing — the rule looks built and never fires.
 
 ## Query from a terminal
 
@@ -76,6 +81,10 @@ select `project.name` when the result must identify one.
 
 Every sort field must also appear as a selected `field`. Sorting by an unselected column returns
 an error, not an empty result.
+
+A span *data* attribute whose name collides with an aggregate has to be read through `tags[...]`.
+The HealthKit item count is stored as `count` (`DiagnosticsManager.swift`), so `count` and
+`span.data.count` both return null on every row; only `tags[count,number]` reads it.
 
 Always filter `environment:production` before drawing a conclusion. Preview verification traffic
 shares the store, and deliberate test failures can otherwise look like a production outage.
@@ -154,5 +163,5 @@ dSYM upload are not covered; do not infer whole-product uptime or traffic from t
 Chat text reaches Sentry only when
 a Gemini call fails; a successful turn's text stays in `chat_history.json`, never Sentry. And this is
 error monitoring, not product analytics: it will not tell you what athletes
-do, only what broke. That is a different tool and a different question — see `docs/plans/sentry-lld.md`
-§4.
+do, only what broke. That is a different tool and a different question — see
+`ops-observability.md` § What this does not cover.
