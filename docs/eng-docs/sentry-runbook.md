@@ -36,17 +36,13 @@ flowchart LR
    `VITE_*`, because Vite bakes those into the client bundle.
 4. Set `SENTRY_TRACES_SAMPLE_RATE` and `VITE_SENTRY_TRACES_SAMPLE_RATE` explicitly. They default
    to `1`, which is right for four athletes and wrong the first day it isn't.
-5. Build one dashboard and three alerts from the tables below. Route alerts to team email plus the
-   Sentry mobile app; use a five-minute notification interval. The dashboard is built:
-   **"Coach HQ health"**, id `5873386`. All four filters have returned production rows; a short
-   time window can still be empty with four athletes. The alerts are not built yet.
-
-| dashboard widget | filter | group / value |
-|---|---|---|
-| Production errors and reports | `environment:production` | project, `operation`, release, count |
-| Core web/API health | `span.op:http.server` | span name, `outcome`, count, p95 duration |
-| Gemini health | `span.op:gen_ai.generate_content` | `gen_ai.request.model`, `outcome`, count, p95 duration, `gen_ai.usage.*` token totals |
-| iOS sync health | `transaction:healthkit.sync` | `outcome`, count, duration, synced item count |
+5. Build one dashboard and three alerts. The dashboard is built: **"Coach HQ health"**, id
+   `5873386`. Its widgets and the questions they answer live in `ops-monitoring-dashboard.md` —
+   that doc owns the widget list, so it is not repeated here. Route alerts from the table below to
+   team email plus the Sentry mobile app; use a five-minute notification interval. A short time
+   window can still be empty with four athletes. None of the three alerts below is built.
+   `coach-hq-web` and `coach-hq-ios` do carry Sentry's default high-priority-issue rule;
+   `coach-hq-api`, which raises most of our errors, carries nothing.
 
 Every error has an `operation` tag: `web` for browser errors, the API route without `/api/` with
 slashes changed to dots (for example `auth.callback`), or the native operation name on iOS. Use it
@@ -57,6 +53,35 @@ to group failures by entry point; `trace_id` is still the key that joins one int
 | New or regressed production error | first seen or regression | immediate |
 | Repeated core failure | `outcome:error`, at least 3 events in 15 minutes | immediate |
 | Athlete Rage Report | `operation:rage_report` | immediate |
+
+## Query from a terminal
+
+The Sentry API token lives outside the repo at `~/.config/sentry-token`. Read it inline; never
+echo or paste it.
+
+```bash
+curl -s -G "https://sentry.io/api/0/organizations/sibling-shipyard/events/" \
+  -H "Authorization: Bearer $(cat ~/.config/sentry-token)" \
+  --data-urlencode "dataset=spans" \
+  --data-urlencode "project=-1" \
+  --data-urlencode "statsPeriod=14d" \
+  --data-urlencode "query=environment:production span.op:http.server" \
+  --data-urlencode "field=timestamp" --data-urlencode "field=release" \
+  --data-urlencode "sort=-timestamp"
+```
+
+Use `dataset=spans` for spans and `dataset=errors` for errors. They are separate stores, so a
+span filter against the errors dataset returns nothing. `project=-1` searches all three projects;
+select `project.name` when the result must identify one.
+
+Every sort field must also appear as a selected `field`. Sorting by an unselected column returns
+an error, not an empty result.
+
+Always filter `environment:production` before drawing a conclusion. Preview verification traffic
+shares the store, and deliberate test failures can otherwise look like a production outage.
+
+A release tag is not proof of a deploy. Confirm that production traffic carries the expected
+release before calling a fix verified; green CI proves only that the code merged.
 
 ## Triage
 
