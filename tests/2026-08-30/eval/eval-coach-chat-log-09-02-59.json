@@ -1,0 +1,80 @@
+[
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Got it, strength training twice a week, bad fitness level right now. If you look out 3 to 6 months, what's the one thing you most want to change or achieve? And any injuries I should know about?"
+          ]
+        }
+      ],
+      "userMessage": "By end of 2026, i want to be stronger overall. My shoulder was in bad shape a couple months ago, still recovering, and my left knee has issues too. Also, daily habits - I want to read a book for 10 mins and quit smoking and alcohol."
+    },
+    "output": {
+      "reply": "Understood. We're locking in a season through the end of 2026. Two strength sessions a week to build your baseline. The daily non-negotiables are 10 minutes of reading, no smoking, and no alcohol. Dropping the vices will accelerate your progress more than anything else right now. \n\nAs for the shoulder and left knee, we'll train around them. We stick to pain-free ranges of motion—do not force bad joints. What kind of equipment do you have access to for these two weekly sessions? Full gym or a home setup?",
+      "session_closed": false,
+      "injury_event": [
+        {
+          "status": "active",
+          "text": "Shoulder recovering from recent bad shape. Needs careful loading."
+        },
+        {
+          "status": "active",
+          "text": "Left knee issues."
+        }
+      ],
+      "memory_update": {
+        "label": "fitness_baseline",
+        "text": "Current fitness level is poor. Goal is to build overall strength by the end of 2026 with a 2x/week frequency. Simultaneously quitting smoking and alcohol to reset baseline health."
+      },
+      "quest_create": {
+        "main_quest": {
+          "name": "2026 Strength Base",
+          "type": "weekly_frequency",
+          "target": 2
+        },
+        "quests": [
+          {
+            "name": "Read 10 mins",
+            "type": "daily_streak",
+            "target": 10,
+            "unit": "mins"
+          },
+          {
+            "name": "No Smoking",
+            "type": "daily_streak",
+            "polarity": "default_done"
+          },
+          {
+            "name": "No Alcohol",
+            "type": "daily_streak",
+            "polarity": "default_done"
+          }
+        ]
+      },
+      "season_start": {
+        "name": "End of 2026 Strength Build",
+        "start_date": "2026-08-30",
+        "end_date": "2026-12-31"
+      }
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "memory.json",
+        "injuries.json",
+        "quests.json",
+        "seasons.json"
+      ]
+    }
+  }
+]

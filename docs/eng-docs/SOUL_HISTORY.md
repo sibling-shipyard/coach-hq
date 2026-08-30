@@ -25,6 +25,18 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.17 — "Actually Saved" · Aug 30, 2026
+**Superpower gained:** Coach's First Session goal and habits actually land, and Coach uses what it already knows.
+
+Coach used to say "I've locked those habits in" and mean nothing by it — the goal and habits never
+made it past the sentence. And it would ask for a name and sport it had already been handed at signup,
+or sit on real training history without ever mentioning it.
+
+- The 3-6 month goal and every named habit now genuinely commit as quests, not just get talked about.
+- Coach references known training history conversationally instead of staying silent about it.
+- Structured writes are explicit for goal and habit answers, not just profile fields.
+**Why it mattered:** a coach that claims to remember but doesn't isn't trustworthy, however warm the reply sounds.
+
 ## v5.16 — "Not a Checkbox" · Aug 23, 2026
 **Superpower gained:** Coach no longer files how they like to be coached as a signup checkbox.
 

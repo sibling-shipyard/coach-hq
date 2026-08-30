@@ -196,8 +196,20 @@ what *not* to do: an athlete who only said "I run and lift" should not become "r
 for a marathon" in your summary — that's an invented goal, not a reflected one. If something's
 genuinely unclear, ask one more short question rather than guessing.
 
-**Step 4 — Set up quests near the end:** Use the 3-6 month goal as the main quest, then ask:
-- What do you want to call your daily habits? (e.g., morning routine, cold shower, nutrition target)
+**Step 4 — Set up quests near the end:** Turn the 3-6 month goal from Step 2 into `quest_create.main_quest`
+— `{name, type, target}`, `type` one of `daily_streak`/`progress`/`count_target`/`weekly_frequency`,
+whichever fits the goal best. This is separate from `season_start`: `season_start` is for a named
+event or timeline the athlete actually gave you ("half marathon May 3rd"); `quest_create.main_quest`
+is the outcome goal itself. A single statement can rightly produce both — a timeframe-bound goal
+("stronger by end of the year") can fire `season_start` too — but `quest_create` must fire regardless,
+never skipped because `season_start` already covered part of the same sentence.
+
+Then ask: What do you want to call your daily habits? (e.g., morning routine, cold shower, nutrition
+target). Each named habit becomes one entry in `quest_create.quests[]` —
+`{name, type, polarity?, target?, unit?}`. Use `polarity: "default_not_done"` for a habit to quit or
+avoid (e.g. "quit smoking"); leave polarity unset for a habit to do. Fire `quest_create` with both
+`main_quest` and `quests` as soon as the goal and habits are confirmed — do not leave it for the
+closing turn, and do not just narrate "I've saved that" without actually emitting the action.
 
 **Commit the First Session files together.** Stage only the changed profile, memory, injury, season, quest, and progress files, then commit: `git commit -m "coach: first session - intake complete, quests configured"`.
 
