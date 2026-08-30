@@ -60,9 +60,7 @@ Reads Sentry events and produces a one-page incident brief:
 4. Suggested root cause + fix direction.
 5. Recommended priority (P0/P1/P2).
 
-**v1:** manual trigger, paste-based. **v2 (deferred):** Sentry API skill + webhook auto-triage.
-
-Cyclops's detailed tooling section will be fleshed out after the Sentry architecture doc lands.
+**Now:** paste, or `node platform/skills/query-sentry.mjs`. **Deferred:** webhook auto-triage (item 9).
 
 ## Stack-Ranked Improvements
 
@@ -75,7 +73,7 @@ Cyclops's detailed tooling section will be fleshed out after the Sentry architec
 ### P1 — Shortly after
 
 4. Bob the Builder owns eval harness explicitly (#329).
-5. Cyclops Sentry skill (MCP or API skill with `SENTRY_AUTH_TOKEN`).
+5. Cyclops Sentry skill — `platform/skills/query-sentry.mjs`.
 6. Observability eng-doc — one page mapping the full Sentry architecture.
 7. Structured logging convergence (lightweight `log()` helper for breadcrumb context).
 8. Cross-surface error mapping (shared taxonomy between iOS + web).
@@ -101,5 +99,5 @@ Cyclops's detailed tooling section will be fleshed out after the Sentry architec
 ## Open Decisions
 
 - **Naming:** "Bob the Bob the Builder" vs "Bob the Builder" vs keep "Bob the Builder"
-- **Cyclops v1 tooling:** paste-only (ships now) vs Sentry API skill (needs `SENTRY_AUTH_TOKEN`)
+- **Cyclops v1 tooling:** decided — paste plus `platform/skills/query-sentry.mjs`
 - **ADR number:** 0034 (0030–0033 are taken)
