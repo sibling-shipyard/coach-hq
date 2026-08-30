@@ -40,30 +40,40 @@ flowchart LR
    id `5873386`, all seven widgets returning production rows. The questions they answer live in
    `ops-observability.md`, which owns that list, so it is not repeated here. Route alerts from the
    table below to team email plus the Sentry mobile app; use a five-minute notification interval. A
-   short time window can still be empty with four athletes. The first two alerts below are built and
-   active on all three projects, filtered to `environment:production`. The Rage Report alert is
-   deliberately not built — an angry athlete usually says so directly. `coach-hq-web` and
-   `coach-hq-ios` also keep Sentry's default high-priority-issue rule, which is a heuristic on top
-   of, not a substitute for, the two explicit rules.
+   short time window can still be empty with four athletes. All three alerts below are built. The
+   first two run on every project; the Rage Report rule is `coach-hq-ios` only, because that is
+   where reports originate. `coach-hq-web` and `coach-hq-ios` also keep Sentry's default
+   high-priority-issue rule, which is a heuristic on top of, not a substitute for, the explicit ones.
 
 Every error has an `operation` tag: `web` for browser errors, the API route without `/api/` with
 slashes changed to dots (for example `auth.callback`), or the native operation name on iOS. Use it
 to group failures by entry point; `trace_id` is still the key that joins one interaction.
 
-| alert | condition | state |
-|---|---|---|
-| New or regressed production error | first seen, or resolved → unresolved | built, all three projects |
-| Repeated core failure | issue seen more than 3 times in 15 minutes | built, all three projects |
-| Athlete Rage Report | `operation:rage_report` | not built, by decision |
+Every rule filters `environment:production`, so none of them fires on Preview or local traffic.
 
-**Do not add `event.type:error` to the Rage Report rule.** `RageReportSubmission.swift` submits
-through `capture(message:)`, so reports arrive as `event.type:default` at `level:info`. That filter
-silently matches nothing — the rule looks built and never fires.
+| alert | condition | scope |
+|---|---|---|
+| New or regressed production error | first seen, or resolved → unresolved | all three projects |
+| Repeated core failure | issue seen more than 3 times in 15 minutes | all three projects |
+| Athlete Rage Report | every event, filtered to tag `operation` = `rage_report` | `coach-hq-ios` |
+
+**The Rage Report rule fires on every event, not on a new issue, and carries no `event.type`
+filter.** Both halves matter. `RageReportSubmission.swift` submits through `capture(message:)`, so
+reports arrive as `event.type:default` at `level:info` — an `event.type:error` filter matches
+nothing and the rule looks built while never firing. And reports now group stably by fingerprint
+(#699), so a first-seen condition would fire once and stay silent forever after.
 
 ## Query from a terminal
 
 The Sentry API token lives outside the repo at `~/.config/sentry-token`. Read it inline; never
 echo or paste it.
+
+**Which endpoints answer depends on the token, and one failure mode lies.** The token that can
+create alert rules cannot list them: every alert-rule read returns
+`{"message": "This API no longer exists."}`, which reads like a dead endpoint rather than a token
+problem. The token it replaced was the reverse — it listed rules fine and refused `POST` with a
+plain permission error. Both read events, spans and dashboards. If a rule you just created cannot
+be read back, suspect the token before you doubt the rule.
 
 ```bash
 curl -s -G "https://sentry.io/api/0/organizations/sibling-shipyard/events/" \
@@ -119,9 +129,13 @@ release before calling a fix verified; green CI proves only that the code merged
 1. Confirm a successful homepage load, chat turn, Gemini call, and HealthKit sync appear on the
    dashboard with the expected release and success outcome.
 2. In Preview, temporarily use an invalid Gemini key for one chat turn, then restore it. Confirm the
-   client and API failure share one trace id and the repeated-failure alert arrives within 15 minutes.
+   client and API failure share one trace id. **No alert fires here** — every rule filters
+   `environment:production`, and Preview is not it. Do not read the silence as a broken alert.
 3. Launch iOS with `--send-sentry-test-event`, then submit one Rage Report with one selected timeline
-   event. Confirm the alert, release tags, attachment, and Cancel-sends-nothing behavior.
+   event. Confirm release tags, attachment, and Cancel-sends-nothing behavior. The alert follows the
+   same production-only rule as above.
+   To prove delivery itself, open a rule in Sentry and use **Send Test Notification** — that is the
+   only check that exercises the mailbox rather than the condition.
 4. Open one production web exception and one iOS test event. Confirm each has `release`,
    `environment`, and `operation`. Minified web frames and unsymbolicated iOS frames are expected
    until the parked source-map and dSYM work ships.
