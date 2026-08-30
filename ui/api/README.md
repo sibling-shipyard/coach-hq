@@ -15,7 +15,7 @@ files total, well under the cap.
 | `coach-chat.ts`                   | Real Coach Phelps sessions (GET history, POST greet/message)                                           |
 | `coach-message.ts`                | Authenticated post-sync Coach generation and atomic latest-message write (POST)                        |
 | `coach-chat-context.ts`           | Warms the SOUL/state/quest_log cache ahead of the athlete opening chat (A3)                            |
-| `coach-chat-profile-status.ts`    | Has this athlete finished the First Session Protocol? (B2)                                             |
+| `coach-chat-profile-status.ts`    | FSP completion + live `coachSince` for the web day badge (B2)                                          |
 | `repo-file.ts`                    | Fetches the signed-in user's `gen/dashboard_snapshot.json` (Repo-as-CDN model)                         |
 | `waitlist.ts`                     | Marketing waitlist email capture                                                                       |
 | `widget-snapshots.ts`             | Server-side Warm Instrument Home snapshots (ADR 0005)                                                  |

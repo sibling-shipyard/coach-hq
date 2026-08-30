@@ -19,7 +19,7 @@ import {
   epochMsFromMessageId,
   fetchProactiveCoachMessage,
   fetchThreads,
-  fetchProfileComplete,
+  fetchProfileStatus,
   findClientActivity,
   findOrphanedLocalThreadIds,
   greet,
@@ -86,7 +86,13 @@ function CoachChatContent({ data }: { data: RepoData }) {
   const profile = data.profile;
   const syncStatusData = data.sync_status as SyncStatusPayload;
 
-  const dayNumber = useMemo(() => challengeDayNumber(profile, ledger), [profile, ledger]);
+  // Live coach_since from GET profile-status (not dashboard_snapshot — athlete repos often omit
+  // profile there). Null until that fetch lands, or when pre-FSP; then ledger/season fallback.
+  const [coachSince, setCoachSince] = useState<string | null>(null);
+  const dayNumber = useMemo(
+    () => challengeDayNumber(coachSince != null ? { coach_since: coachSince } : profile, ledger),
+    [coachSince, profile, ledger],
+  );
   const requestedProactiveSeed = useMemo(() => parseProactiveSeed(window.location.search), []);
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
@@ -407,9 +413,11 @@ function CoachChatContent({ data }: { data: RepoData }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchProfileComplete()
-      .then((complete) => {
-        if (!cancelled && !profileCompleteFromResponseRef.current) setProfileComplete(complete);
+    fetchProfileStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setCoachSince(status.coachSince);
+        if (!profileCompleteFromResponseRef.current) setProfileComplete(status.profileComplete);
       })
       .catch((err: unknown) => {
         if (err instanceof CoachChatAccessRevokedError && !cancelled) setThreadsAccessRevoked(true);
