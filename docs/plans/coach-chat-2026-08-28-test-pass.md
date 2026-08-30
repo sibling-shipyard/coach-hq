@@ -83,11 +83,15 @@ You said you're not happy with specific things already. As you hit them in A/B, 
 note here rather than fixing inline:
 
 - [ ] _(fill in as you find them — one line each, point at the log file if there is one)_
-- [x] **#671**: FSP native onboarding name hint never reaches `profile.json` — reproduced twice
-      on a genuinely fresh signup (uninstall/reinstall, fresh `skanda-testing/coach-skanda-testing`
-      repo, real `PersonalizeView` name screen). No onboarding-hint commit lands before the greet,
-      `profile.json.name` stays `""`, and Gemini's opener asks for the name instead of using it —
-      contradicts `coach-chat-fsp.md` §1's documented handoff.
+- [x] **#671**: FSP native onboarding hints — both name *and* sports — never reach the repo.
+      Reproduced twice on a genuinely fresh signup (uninstall/reinstall, fresh
+      `skanda-testing/coach-skanda-testing` repo, real `PersonalizeView` name screen + sports
+      step). No onboarding-hint commit lands before the greet; `profile.json.name` stays `""`,
+      Gemini's opener asks for both instead of using them. What later lands in `profile.json`/
+      `memory.json` only does so via the athlete retyping both in an ordinary chat turn (normal
+      incremental-write path, `_meta.updated_by: "model"`) — the dedicated pre-Gemini
+      `onboardingHints` commit never fires for either field. Contradicts `coach-chat-fsp.md` §1's
+      documented handoff.
 
 ## Recording results
 
