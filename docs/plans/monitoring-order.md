@@ -34,7 +34,7 @@ nothing at all.
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 6 | Ship the Rage Report | Low — the PR is already written, 43 files | **Ready** — #603 is green, and needs a review of the feature itself | An athlete submits a note plus selected timeline events; Cancel sends nothing |
+| 6 | Ship the Rage Report | Low — the PR is already written, 6 files | **Ready** — reviewed; one P1 and two P2s being fixed on the branch | An athlete submits a note plus selected timeline events; Cancel sends nothing |
 | 7 | The three alert rules from `sentry-runbook.md` | Low — two rules now, the third needs the Rage Report | **Deferred**, athlete's call — watching the dashboard by hand until item 6 lands | A new production error pages us within 15 minutes |
 | 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Not started | Key absent from every URL; outbound spans can be turned back on |
 
