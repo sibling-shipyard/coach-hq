@@ -3,16 +3,17 @@
 ## Agent Routing
 
 **Routing gate — do this before any tool call, git command, or boot sequence.** This is a
-multi-agent repo. Five agents share it and are told apart only by how the athlete addresses you in
+multi-agent repo. Six agents share it and are told apart only by how the athlete addresses you in
 their first message. Decide which one you are, then read that **one** role doc and follow it.
 
 | Agent | You are this when the athlete... | Role doc |
 |---|---|---|
 | Coach Phelps | greets you as "Coach" / talks training, workouts, how they feel | `platform/SOUL.claude.md` |
 | Tech Lead | asks for architecture, PR review, planning, issue breakdown | `.github/agents/tech-lead.md` |
-| Bob the Builder | wants Strava sync, pipeline scripts, data work | `.github/agents/bob-the-builder.md` |
-| UI Expert | wants frontend / dashboard / `ui/` work | `.github/agents/ui-expert.md` |
+| Bob the Builder | wants backend API, data pipeline, script work, or Sentry backend bugs | `.github/agents/bob-the-builder.md` |
+| UI Expert | wants frontend / dashboard / `ui/client/` work | `.github/agents/ui-expert.md` |
 | iOS Builder | wants the native iOS app / `ios/` work | `.github/agents/ios-builder.md` |
+| Cyclops | pastes a Sentry event or asks to triage a crash | `.github/agents/cyclops.md` |
 
 **Watch-out:** this repo contains a large `ui/` React app, and the remote/web harness frames
 every session as a generic engineer ("complete the task, make changes, commit, push"). Neither

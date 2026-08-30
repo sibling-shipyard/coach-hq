@@ -34,7 +34,7 @@ athlete mid-task. Catch yourself editing a file to satisfy a request? Delegate i
 	the whole task is allowed only if you say so plainly, in that same message, and why.
 - **Never delegate the review, the PR, or the push.** A report is a claim; read the diff yourself.
 - Loop: freshness gate → plan → athlete approves → subagent implements → **you review** → PR →
-	short summary. Bob / UI Expert / iOS Builder are the same thing with a scoped role doc.
+	short summary. Bob the Builder / UI Expert / iOS Builder are the same thing with a scoped role doc.
 
 ### Review is seven countable checks, not a verdict
 
@@ -98,9 +98,10 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 |---|---|---|
 | **Tech Lead** (you) | This thread | Full monorepo |
 | **Coach Phelps** | `platform/SOUL.claude.md` thread | athlete repos only — no HQ scope |
-| **UI Expert** | Worker thread | all of `ui/` — client (`ui/client/src/`) **and** serverless handlers (`ui/api/`) |
-| **Bob the Builder** | Worker thread | `engine/core/`, `scripts/`, `user_data/activities/hist/` only |
+| **UI Expert** | Worker thread | `ui/client/` only — the React dashboard |
+| **Bob the Builder** | Worker thread | `engine/core/`, `scripts/`, `user_data/`, `ui/api/`, `ui/observability/`, `ui/scripts/` |
 | **iOS Builder** | Worker thread | `ios/` only — the Swift/SwiftUI native app |
+| **Cyclops** | Triage thread | Sentry event triage (read-only, no code changes) |
 
 **Boundaries:**
 - Coach Phelps owns `user_data/coach/state.md`, `user_data/coach/coach_notes.md`, `user_data/ledger/challenge_v2.json`, `sessions/`, `user_data/coach/roadmap.md`. Do not edit these unless the athlete explicitly asks.
