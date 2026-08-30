@@ -118,7 +118,7 @@ release before calling a fix verified; green CI proves only that the code merged
 
 ## Traps
 
-Three that have already cost us a build. Read these before editing `ui/api/_lib/sentry.ts`.
+Four constraints to check before editing Sentry setup.
 
 1. **`beforeSend` is error events only.** Transactions and spans are separate payloads with their
    own hooks. Wire `beforeSendTransaction` and `beforeSendSpan` too, or the credential scrubber
@@ -130,6 +130,10 @@ Three that have already cost us a build. Read these before editing `ui/api/_lib/
    rethrown Gemini failure to one event: the detailed capture goes first and wins. Rethrow a
    *fresh* error with the same message and you get two.
    Proved in `ui/api/_lib/_tests/sentry-spans.test.ts`.
+4. **Keep iOS file-I/O tracing off.**
+   `ios/CoachHQ/CoachHQ/Services/DiagnosticsManager.swift` sets
+   `options.enableFileIOTracing = false`. Enabling it captures keyboard and system file reads
+   that bury useful spans and spend quota.
 
 ## Coverage boundary
 

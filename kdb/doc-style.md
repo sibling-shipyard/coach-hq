@@ -16,11 +16,14 @@ each, plus an optional How to apply. Rules and the prose checks live in
 ## Executable plans
 
 Milestones remain the outcome layer. Each milestone contains **1–3 PRs, one by default**; more than
-three means the milestone is too large and should split. Every milestone has one exit test even when
-several PRs contribute to it.
+three means the milestone is too large and should split. Every milestone states one concrete result,
+even when several PRs contribute to it.
+
+Give every work item a stable number and label its exit column `Result`, so reviewers can refer to
+an item without quoting its title (monitoring-order feedback, rated 2/5).
 
 The execution layer is a PR stack table:
-`| PR | milestone | outcome | final base | files | owner | parallel with | done when |`.
+`| PR | milestone | outcome | final base | files | owner | parallel with | result |`.
 `final base` shows review and merge order. `parallel with` shows work that can be built concurrently
 after its shared contract is fixed; rebase those branches into the declared linear stack before review.
 
