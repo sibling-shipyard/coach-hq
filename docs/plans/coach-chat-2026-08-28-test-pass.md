@@ -115,6 +115,15 @@ note here rather than fixing inline:
       carved into `skanda-testing/coach-skanda-testing` doesn't have that line at all. Stale
       carve, not a live-code bug. Unknown blast radius — need to check whether the real athlete
       repos (`coach-skanda-2003`, `coach-akash-suresh`) are carved current or also affected.
+- [x] **#693**: after #671/#674/#675 landed, re-tested FSP fresh on `skanda-testing/coach-skanda-testing`.
+      quest_create and Fitness Snapshot both confirmed working. New bug found: reporting three
+      brand-new injuries in one turn threw `injury_event: no flag with id "left_knee_acl" in
+      injuries.json` — Gemini invented a `flag_id` for a new injury instead of leaving it unset,
+      and `applyInjuryEvent` treats any non-null `flag_id` as a reference to an existing flag.
+      Same prompt-clarity gap shape as #674. Retrying didn't help — deterministic, not transient.
+      Client just showed "coach didn't reply, try again" with no useful error; server-side the
+      failure was silently swallowed too (`commitOrdinaryTurn`'s catch never logs, unlike
+      `commitClosingTurn`'s).
 
 ## Recording results
 
