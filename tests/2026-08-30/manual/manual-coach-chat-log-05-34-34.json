@@ -1,0 +1,525 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-2026-08-30T05-34-08-917Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "reply": "Hey champ, it's been a minute since we caught up. How have you been? With the leg finally cleared and Annapurna staring us down, it's time to map out this week. Let me know how the body is feeling and where your head is at.",
+      "threadId": "t-1788068074001",
+      "threads": [
+        {
+          "id": "local-1786533599607",
+          "createdAt": 1786543653398,
+          "title": "Morning strength prep",
+          "preview": "All set and saved for today, Skanda. Lay out the gear tonight, get to bed early,",
+          "messages": [
+            {
+              "id": "d-1786533599607",
+              "role": "divider",
+              "label": "TODAY"
+            },
+            {
+              "id": "c-1786533599607",
+              "role": "coach",
+              "paragraphs": [
+                "Hey Skanda. Mid-week already — how's the body feeling, and where are we at with getting that first strength session on the board for the week?"
+              ]
+            },
+            {
+              "id": "u-1786543208467",
+              "role": "user",
+              "text": "I can do it tomorrow"
+            },
+            {
+              "id": "c-1786543215359",
+              "role": "coach",
+              "paragraphs": [
+                "Tomorrow works. Let's make sure it happens. Tomorrow morning or post-work? Either way, set the gear out tonight so there's zero friction when the time comes."
+              ]
+            },
+            {
+              "id": "u-1786543231525",
+              "role": "user",
+              "text": "i am thinking morning is the best time"
+            },
+            {
+              "id": "c-1786543235280",
+              "role": "coach",
+              "paragraphs": [
+                "Morning it is. Getting it done before the day takes over is always the cleanest play. Set your workout clothes out tonight, get to sleep at a decent hour, and let's get that first strength session logged tomorrow AM."
+              ]
+            },
+            {
+              "id": "u-1786543243828",
+              "role": "user",
+              "text": "yes lets go"
+            },
+            {
+              "id": "c-1786543246988",
+              "role": "coach",
+              "paragraphs": [
+                "That's the spirit. Get your gear laid out tonight and hit the sack early. Let's start tomorrow off right."
+              ]
+            },
+            {
+              "id": "u-1786543251172",
+              "role": "user",
+              "text": "wrap"
+            },
+            {
+              "id": "c-1786543257014",
+              "role": "coach",
+              "paragraphs": [
+                "Before I lock this in for today — how did you sleep last night, and did you hit your cold shower and protein targets today?"
+              ]
+            },
+            {
+              "id": "u-1786543279389",
+              "role": "user",
+              "text": "sleep was 8hrs, cold shower excused, protein yes, wake up excused"
+            },
+            {
+              "id": "c-1786543290599",
+              "role": "coach",
+              "paragraphs": [
+                "All locked in. Sleep and protein hit, side quests updated. Get after that strength session tomorrow morning - layout the gear tonight. Goodnight!"
+              ]
+            },
+            {
+              "id": "u-1786543653398",
+              "role": "user",
+              "text": "wrap session"
+            },
+            {
+              "id": "c-1786543653398",
+              "role": "coach",
+              "paragraphs": [
+                "All set and saved for today, Skanda. Lay out the gear tonight, get to bed early, and execute that strength session first thing tomorrow morning. Talk to you after!"
+              ]
+            }
+          ],
+          "dayOffset": 18,
+          "ageLabel": "D-18",
+          "status": "active"
+        },
+        {
+          "id": "local-1786036953931",
+          "createdAt": 1786037309955,
+          "title": "Morning badminton, Friday pr…",
+          "preview": "All locked in, champ! Friday strength session is saved to your workout plan, sle",
+          "messages": [
+            {
+              "id": "d-1786036953931",
+              "role": "divider",
+              "label": "TODAY"
+            },
+            {
+              "id": "c-1786036953931",
+              "role": "coach",
+              "paragraphs": [
+                "Hey Skanda. We reset the week from Wednesday to build around that weekend climbing trip — how did today go? Did you get that first right-side and knee strength session in?"
+              ]
+            },
+            {
+              "id": "u-1786036991055",
+              "role": "user",
+              "text": "hey coach, strength didn't happen yesterday. got a small walk in. Badminton today morning was good."
+            },
+            {
+              "id": "c-1786036998577",
+              "role": "coach",
+              "paragraphs": [
+                "Badminton in the bank is a solid start to the day. How did the body feel during play - specifically the right knee and elbow?\n\nAnd for strength: since yesterday didn't land, we've got tomorrow before you head off for the climbing trip. Want to hit that right-side and knee session Friday morning, or shift focus to making climbing the main load test for the weekend?"
+              ]
+            },
+            {
+              "id": "u-1786037059517",
+              "role": "user",
+              "text": "yes, need to get a strength session in tomorrow."
+            },
+            {
+              "id": "c-1786037068724",
+              "role": "coach",
+              "paragraphs": [
+                "Lock it in for tomorrow morning. Keep it simple so it happens before you head out: 30-40 minutes focused on right knee/glute stability and upper body prep for climbing. \n\nGet it done early before travel chaos kicks in. How's the body feeling post-badminton today? Any heat in the elbow or knee?"
+              ]
+            },
+            {
+              "id": "u-1786037092598",
+              "role": "user",
+              "text": "elbow was a little sore after but it is fine now."
+            },
+            {
+              "id": "c-1786037097686",
+              "role": "coach",
+              "paragraphs": [
+                "Glad it cleared up quickly, but keep an eye on it. Smashes and overhead speed are usually what trigger that medial elbow heat, so keep monitoring how it responds. Tomorrow morning is all about that strength work before you head out for climbing. Focus on those right-leg single-leg movements and get it done early. Let me know once you get it done."
+              ]
+            },
+            {
+              "id": "u-1786037111897",
+              "role": "user",
+              "text": "can i get a session for tomorrow?"
+            },
+            {
+              "id": "c-1786037120703",
+              "role": "coach",
+              "paragraphs": [
+                "Here's a 30-35 minute focused session for Friday morning. It targets that right knee/hip stability and gets your shoulders ready for Saturday's climbing, while keeping your elbow totally safe.\n\n### Warmup & Activation (7-8 mins)\n- **Foam Roll Quads & Glutes:** 2 mins\n- **Banded Clamshells or Lateral Monster Walks:** 2 sets × 12 reps (focus on firing the right glute medius)\n- **Bird-Dogs:** 2 sets × 8 reps/side (pause 2s at the top, keep lower back quiet)\n\n### Main Strength & Stability (15 mins)\n- **Bulgarian Split Squats (Bodyweight or light DBs):** 3 sets × 8 reps/side\n  *Cue: Focus on keeping the right knee tracking over your second toe, don't let it cave inward.*\n- **Single-Leg Romanian Deadlifts:** 3 sets × 8 reps/side\n  *Cue: Hinge at the hip, feel the right glute/hamstring load up, keep back flat.*\n\n### Climbing Prep & Elbow Rehab (10 mins)\n- **Neutral-Grip Band Rows or Scapular Pulls:** 3 sets × 10 reps\n  *Cue: Squeeze shoulder blades together at the bottom, zero elbow strain.*\n- **Eccentric Wrist Extensions (Light DB or band):** 2 sets × 15 reps\n  *Rehab: Control the down phase for 3 seconds.*\n\nGet it in early before travel. How's that look to you?"
+              ]
+            },
+            {
+              "id": "u-1786037139516",
+              "role": "user",
+              "text": "that is good, add it to my workouts pahe."
+            },
+            {
+              "id": "c-1786037172890",
+              "role": "coach",
+              "paragraphs": [
+                "Added! Friday morning's session is saved and ready for you. Get it in early before travel, focus on keeping that right knee tracking clean, and have a solid time on the rock this weekend."
+              ]
+            },
+            {
+              "id": "u-1786037192299",
+              "role": "user",
+              "text": "bye coach"
+            },
+            {
+              "id": "c-1786037203973",
+              "role": "coach",
+              "paragraphs": [
+                "Before you head off, champ — how'd you sleep last night? Want to get that logged so I can lock today in cleanly."
+              ]
+            },
+            {
+              "id": "u-1786037226591",
+              "role": "user",
+              "text": "i slept only 4 and half hours. Slept at 1:30am and woke up at 6am for badminton."
+            },
+            {
+              "id": "c-1786037253111",
+              "role": "coach",
+              "paragraphs": [
+                "Ouch, 4.5 hours is rough when you've got badminton early in the morning. Get to bed early tonight so you're not running on empty for that strength session tomorrow. Sleep locked in. Rest up, champ!"
+              ]
+            },
+            {
+              "id": "u-1786037309955",
+              "role": "user",
+              "text": "wrap this session"
+            },
+            {
+              "id": "c-1786037309955",
+              "role": "coach",
+              "paragraphs": [
+                "All locked in, champ! Friday strength session is saved to your workout plan, sleep and 6am wake-up logged, and week reconciled. Get a good night's sleep tonight and get after that session early tomorrow before travel. Catch you soon!"
+              ]
+            }
+          ],
+          "dayOffset": 24,
+          "ageLabel": "D-24",
+          "status": "active"
+        },
+        {
+          "id": "t-1785959285765",
+          "createdAt": 1785959285765,
+          "title": "New conversation",
+          "preview": "Locked in, champ. Get after that modified Strength B tomorrow, protect the elbow",
+          "messages": [
+            {
+              "id": "d-1785959285765",
+              "role": "divider",
+              "label": "TODAY · 1:18 AM"
+            },
+            {
+              "id": "c-1785959285765",
+              "role": "coach",
+              "paragraphs": [
+                "Look, new season is officially underway. How did yesterday go with that right-side and knee strength session, or are we hitting that today?"
+              ]
+            },
+            {
+              "id": "u-1786007301889",
+              "role": "user",
+              "text": "Hi coach"
+            },
+            {
+              "id": "c-1786007320138",
+              "role": "coach",
+              "paragraphs": [
+                "Hey Skanda. How's the body feeling today? Ready to get after it, or what's on your mind?"
+              ]
+            },
+            {
+              "id": "u-1786007389442",
+              "role": "user",
+              "text": "body is good"
+            },
+            {
+              "id": "c-1786007391712",
+              "role": "coach",
+              "paragraphs": [
+                "Good to hear. That means we've got a green light. Are we getting that right-side and knee strength work in today, or what's the plan for the floor?"
+              ]
+            },
+            {
+              "id": "u-1786007413397",
+              "role": "user",
+              "text": "strength training didn't happen yesterday. badminton happened today morning"
+            },
+            {
+              "id": "c-1786007417939",
+              "role": "coach",
+              "paragraphs": [
+                "Got it. Thanks for being straight with me.\n\nFirst off, how did the body handle morning badminton? Any flare-ups in the right elbow, knee, or back?\n\nSecond, since you're heading out Friday night, we still need to get that right-side and knee session in. Are we doing that later today or tomorrow before you leave?"
+              ]
+            },
+            {
+              "id": "u-1786007819198",
+              "role": "user",
+              "text": "no flare as such. Got a walk in yesterday. tomorrow I thought one upper body strength session because rock climbing is more upper body right. I don't think I can put it anything else before leaving on friday night"
+            },
+            {
+              "id": "c-1786007825667",
+              "role": "coach",
+              "paragraphs": [
+                "That's good news on the body holding up during badminton. \n\nOne thing to keep in mind for tomorrow: climbing feels like all upper body, but it's heavily about pulling and forearm grip. With your right elbow history, we need to be smart about what upper body work we do tomorrow. Pushing movements and core work will balance you out without roasting your forearms or inner elbow right before climbing.\n\nLet me know what movements you were planning for tomorrow's session, and we'll keep it sharp so you don't go into Saturday with a cranky elbow."
+              ]
+            },
+            {
+              "id": "u-1786007880294",
+              "role": "user",
+              "text": "i was planning to do strength b"
+            },
+            {
+              "id": "c-1786007884948",
+              "role": "coach",
+              "paragraphs": [
+                "Strength B is solid, but here's how we need to adjust it for tomorrow so you don't compromise Saturday's climbing.\n\nClimbing is heavy pulling and flexor/grip strain. If you hit heavy rows, chin-ups, or heavy wrist work tomorrow, your elbow and forearms will be smoked before you touch a rock wall.\n\nFocus Strength B tomorrow on your push movements (dips, push-ups/overhead press), core, and light mobility. Skip heavy pulling or grip-heavy work. Keep it crisp, get the stimulus, and leave plenty in the tank for Saturday."
+              ]
+            },
+            {
+              "id": "u-1786007910037",
+              "role": "user",
+              "text": "okay, can you give me what all to do tomorrow then?"
+            },
+            {
+              "id": "c-1786007915944",
+              "role": "coach",
+              "paragraphs": [
+                "Here is your modified Strength B for tomorrow. Focus on push, core, and lower body stability while keeping your forearms fresh for Saturday climbing.\n\n**Warm-up & Prep (5-8 mins)**\n- Wrist flexor & extensor stretches (light hold, no strain)\n- Foam roll quads, upper back, and glutes\n- 2 sets x 10 Light band pull-aparts\n\n**Main Circuit (3 sets total)**\n1. **Dips on Dip Bars:** 3 sets x 8-10 reps (RPE 7, stop 2 reps short of failure)\n2. **Bulgarian Split Squat or Step-ups:** 3 sets x 8-10 reps/side (bodyweight or light DB, focus on right knee tracking and left hip control)\n3. **DB Overhead Press or Push-ups:** 3 sets x 10 reps (controlled tempo)\n4. **Plank / Pallof Press:** 3 sets x 30-45s hold\n\n**Rule for tomorrow:** Skip all heavy rows, chin-ups, and heavy wrist flexor loads. Save every bit of that grip strength and elbow tissue for the wall on Saturday."
+              ]
+            },
+            {
+              "id": "u-1786007947435",
+              "role": "user",
+              "text": "okay thanks."
+            },
+            {
+              "id": "c-1786007951192",
+              "role": "coach",
+              "paragraphs": [
+                "You got it, champ. Keep it clean tomorrow, save the grip for the rocks, and let me know how it goes before you head out."
+              ]
+            },
+            {
+              "id": "u-1786007958955",
+              "role": "user",
+              "text": "bye coach"
+            },
+            {
+              "id": "c-1786007958955",
+              "role": "coach",
+              "paragraphs": [
+                "Locked in, champ. Get after that modified Strength B tomorrow, protect the elbow, and have a great trip. Catch you when you're back!"
+              ]
+            }
+          ],
+          "dayOffset": 24,
+          "ageLabel": "D-24",
+          "status": "active"
+        },
+        {
+          "id": "local-1784895927405",
+          "createdAt": 1784895927405,
+          "title": "hi coach",
+          "preview": "Reflected and saved. Wake-up, cold shower, protein, and sleep logged for today, ",
+          "messages": [
+            {
+              "id": "d-1784895927405",
+              "role": "divider",
+              "label": "TODAY"
+            },
+            {
+              "id": "u-1784895927405",
+              "role": "user",
+              "text": "hi coach"
+            },
+            {
+              "id": "c-1784895927405",
+              "role": "coach",
+              "paragraphs": [
+                "Look, good to hear from you. Saw you got that badminton session in today and kept it clean and light on the body. How are you feeling right now after getting up early?"
+              ]
+            },
+            {
+              "id": "u-1784895966466",
+              "role": "user",
+              "text": "Slept about 6 hours last night, a bit restless"
+            },
+            {
+              "id": "c-1784895966466",
+              "role": "coach",
+              "paragraphs": [
+                "Look, restless sleep is tough. When your head is spinning or your body won't fully shut down, six hours doesn't hit the same as six deep ones. I had nights before big meets where I'd toss and turn for hours—waking up feeling like I hadn't slept at all.\n\nHow's your energy holding up right now, and how's the body feeling ahead of tomorrow's planned run?"
+              ]
+            },
+            {
+              "id": "u-1784896038184",
+              "role": "user",
+              "text": "Did my cold shower and woke up at 6am today, protein's on track too"
+            },
+            {
+              "id": "c-1784896038184",
+              "role": "coach",
+              "paragraphs": [
+                "That's how you build standard right there. Showing up for the cold shower, hitting your 6am wake-up, and locking down protein on 6 hours of restless sleep—that's pure discipline. When I was drained, getting those small non-negotiables done kept me anchored regardless of how tired I felt.\n\nKeep hitting that hydration today so you're ready for tomorrow's chill run."
+              ]
+            },
+            {
+              "id": "u-1784896070527",
+              "role": "user",
+              "text": "Planning to do calisthenics this evening — upper body"
+            },
+            {
+              "id": "c-1784896070527",
+              "role": "coach",
+              "paragraphs": [
+                "I like that you're getting after it, but let's be smart with it given the six hours of restless sleep. When your energy is down, form and focus are the first things to slip.\n\nSince it's upper body, the elbow comes first. Do not skip the rehab drills—eccentric wrist curls, reverse wrist curls, and the flexor stretches before you touch anything heavy. Keep overhead tricep work off the board and focus on clean, controlled reps.\n\nHow's the elbow feeling right now heading into it?"
+              ]
+            },
+            {
+              "id": "u-1784896362906",
+              "role": "user",
+              "text": "wrap the session"
+            },
+            {
+              "id": "c-1784896362906",
+              "role": "coach",
+              "paragraphs": [
+                "Reflected and saved. Wake-up, cold shower, protein, and sleep logged for today, with your evening calisthenics plan locked in. Go get after that upper body session cleanly, nail the elbow rehab, and get some solid rest tonight.\n\nSession is locked and saved, champ. Talk soon."
+              ]
+            }
+          ],
+          "dayOffset": 37,
+          "ageLabel": "D-37",
+          "status": "active"
+        },
+        {
+          "id": "t-1784880308370",
+          "createdAt": 1784880308370,
+          "title": "Hi coach",
+          "preview": "All locked in, champ. Go hit that chill 5k run this evening, keep it smooth in Z",
+          "messages": [
+            {
+              "id": "d-1784880308370",
+              "role": "divider",
+              "label": "TODAY"
+            },
+            {
+              "id": "u-1784880308370",
+              "role": "user",
+              "text": "Hi coach"
+            },
+            {
+              "id": "c-1784880308370",
+              "role": "coach",
+              "paragraphs": [
+                "Hey champ. How are you feeling today after that chill badminton session yesterday? How'd the body hold up, and did you manage to catch up on some proper rest?"
+              ]
+            },
+            {
+              "id": "u-1784880442439",
+              "role": "user",
+              "text": "body is doing fine."
+            },
+            {
+              "id": "c-1784880442439",
+              "role": "coach",
+              "paragraphs": [
+                "Glad to hear the body's feeling clean. That chill badminton session was the right call. What's on the card for today—getting some solid rest and catching up on sleep, or have you got something light planned?"
+              ]
+            },
+            {
+              "id": "u-1784880480093",
+              "role": "user",
+              "text": "today I am planning a run in the evening."
+            },
+            {
+              "id": "c-1784880480093",
+              "role": "coach",
+              "paragraphs": [
+                "Look, I like it. First run in a little bit, so let's keep it simple. Don't go out trying to chase a pace or prove anything—keep it smooth, stick to Zone 2, and throw in walk breaks the second your heart rate starts creeping up.\n\nHow far or long are you thinking of taking it today?"
+              ]
+            },
+            {
+              "id": "u-1784880531524",
+              "role": "user",
+              "text": "I was thinking a chill 5k"
+            },
+            {
+              "id": "c-1784880531524",
+              "role": "coach",
+              "paragraphs": [
+                "Sounds like a solid plan. Keep it strictly conversational—if you can't speak in full sentences without breathing heavy, you're going too fast. Use walk breaks whenever you need to keep that HR under control. What shoes are you taking out for this—are you using your running pair, or did you get the badminton shoes sorted?"
+              ]
+            },
+            {
+              "id": "u-1784880553257",
+              "role": "user",
+              "text": "running pair. wrap this session"
+            },
+            {
+              "id": "c-1784880553257",
+              "role": "coach",
+              "paragraphs": [
+                "Perfect. Proper running shoes, easy pace, Zone 2. Run your 5k, enjoy being out there, and let me know how it feels when you're back. Save is locked. Go get it, champ."
+              ]
+            },
+            {
+              "id": "u-1784880646403",
+              "role": "user",
+              "text": "wrap this session"
+            },
+            {
+              "id": "c-1784880646403",
+              "role": "coach",
+              "paragraphs": [
+                "All locked in, champ. Go hit that chill 5k run this evening, keep it smooth in Zone 2, and let me know how it went when you're back. Rest up till then."
+              ]
+            }
+          ],
+          "dayOffset": 37,
+          "ageLabel": "D-37",
+          "status": "active"
+        }
+      ],
+      "repoSha": "2981a93913a32e4317c003215612f7f29f168a05",
+      "profileComplete": true
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "2981a93913a32e4317c003215612f7f29f168a05",
+    "shaAfter": "2981a93913a32e4317c003215612f7f29f168a05"
+  }
+]

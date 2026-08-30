@@ -1,0 +1,208 @@
+[
+  {
+    "kind": "manual",
+    "name": "turn-0",
+    "turnIndex": 0,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-2026-08-30T05-24-58-253Z",
+    "input": {
+      "action": "greet"
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "2981a93913a32e4317c003215612f7f29f168a05",
+    "shaAfter": "2981a93913a32e4317c003215612f7f29f168a05"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-1",
+    "turnIndex": 1,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-2026-08-30T05-24-58-253Z",
+    "input": {
+      "messages": [],
+      "message": "My weight is 72kg today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "2981a93913a32e4317c003215612f7f29f168a05",
+    "shaAfter": "2981a93913a32e4317c003215612f7f29f168a05"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-2",
+    "turnIndex": 2,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-2026-08-30T05-24-58-253Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1788067654489",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1788067654489",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1788067654489",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "Also I noticed my left hip is a bit sore.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (503): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "2981a93913a32e4317c003215612f7f29f168a05",
+    "shaAfter": "2981a93913a32e4317c003215612f7f29f168a05"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-3",
+    "turnIndex": 3,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-2026-08-30T05-24-58-253Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1788067654489",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1788067654489",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1788067654489",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1788067686092",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1788067686092",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "I finished a 5k run today.",
+      "endConversationRequested": false
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "ERROR",
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "2981a93913a32e4317c003215612f7f29f168a05",
+    "shaAfter": "2981a93913a32e4317c003215612f7f29f168a05"
+  },
+  {
+    "kind": "manual",
+    "name": "turn-4",
+    "turnIndex": 4,
+    "repo": "skanda-2003/coach-skanda-2003",
+    "branch": "test/manual-2026-08-30T05-24-58-253Z",
+    "input": {
+      "messages": [
+        {
+          "id": "d-1788067654489",
+          "role": "divider",
+          "label": "Today"
+        },
+        {
+          "id": "u-1788067654489",
+          "role": "user",
+          "text": "My weight is 72kg today."
+        },
+        {
+          "id": "c-1788067654489",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1788067686092",
+          "role": "user",
+          "text": "Also I noticed my left hip is a bit sore."
+        },
+        {
+          "id": "c-1788067686092",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        },
+        {
+          "id": "u-1788067760051",
+          "role": "user",
+          "text": "I finished a 5k run today."
+        },
+        {
+          "id": "c-1788067760051",
+          "role": "coach",
+          "paragraphs": [
+            ""
+          ]
+        }
+      ],
+      "message": "That's it for today, wrap this up.",
+      "endConversationRequested": true
+    },
+    "output": {
+      "error": "Gemini request failed (504): "
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected session_closed=true, got false"
+    ],
+    "filesChanged": {
+      "confidence": "observed",
+      "files": [],
+      "diff": ""
+    },
+    "shaBefore": "2981a93913a32e4317c003215612f7f29f168a05",
+    "shaAfter": "2981a93913a32e4317c003215612f7f29f168a05"
+  }
+]
