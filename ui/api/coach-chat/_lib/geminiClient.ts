@@ -7,8 +7,10 @@ import { buildDynamicText, buildHistoryContents, staticSystemText } from "./coac
 import { generationConfigFor, type GeminiReply, type TurnMode } from "./coachReplySchema.js";
 
 // Dated model ids (gemini-2.0-flash, then gemini-2.5-flash) kept getting cut early. Google's
-// "-latest" alias always points at the current recommended flash model instead.
-export const GEMINI_MODEL = "gemini-flash-latest";
+// "-latest" alias normally points at the current recommended flash model instead.
+// TODO: revert to gemini-flash-latest once flash stability is confirmed - temporarily pinned to pro
+// due to flash 503/504 failures under real load (see #668).
+export const GEMINI_MODEL = "gemini-pro-latest";
 
 export async function askGemini(
   apiKey: string,
