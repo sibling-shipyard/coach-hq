@@ -604,6 +604,9 @@ export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
       invalidateCoachContext(turn.repo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error("[coach-chat] ordinary commitFilesAtomic failed:", err, {
+        traceId: turn.traceId,
+      });
       return Response.json(
         {
           error: `Coach replied but saving failed: ${message}`,
