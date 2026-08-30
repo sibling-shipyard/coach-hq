@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-30
 
 ## Context
 
@@ -27,7 +27,7 @@ for the intake-completion check) — not separate systems.
 | `ui/api/coach-chat.ts` | `POST {action: "activity_sync", activity_ids}` | After a HealthKit sync: persist one Coach turn for that verified batch |
 | `ui/api/coach-chat.ts` | `POST {threadId?, messages, message, endConversationRequested?}` | Send a message or explicitly request a close |
 | `ui/api/coach-chat-context.ts` | `GET` | Warm SOUL plus the split athlete, quest, and Fitness Snapshot context ahead of chat opening |
-| `ui/api/coach-chat-profile-status.ts` | `GET` | `{profileComplete}` — is the First Session Protocol done? |
+| `ui/api/coach-chat-profile-status.ts` | `GET` | `{profileComplete, coachSince}` — FSP done? + live day-badge anchor |
 | `ui/api/coach-message.ts` | `POST {activity_ids}` | Generate and atomically store one idempotent post-sync Coach message |
 
 ## Day-to-day flow
@@ -261,14 +261,16 @@ consumes a retention slot — only threads that actually got a real close-out ev
   stored string — never a time-of-day.
 
   The absolute badge reads `profile.json`'s `coach_since` directly (ADR 0018), on both
-  platforms. Web's `CoachChat.tsx` computes it via `challengeDayNumber()`
-  (`coachChatModel.ts`), which reads `profile.coach_since` first and falls back to the current
-  season's `start_date` from the split ledger only if `coach_since` isn't stamped yet (a
-  pre-First-Session-Protocol athlete). iOS reads the same field via `GitHubAPIClient.swift`'s
-  `readCoachDayAnchorDate()`. The legacy `challenge_v2.json`/`splitLedgerAsChallenge()` path this
-  used to fall back through is gone — `lib/splitLedgerChallenge.ts` was deleted once the split
-  ledger fully replaced `challenge_v2.json` for all repos, closing out issue #179 and the
-  regression it had reintroduced.
+  platforms. Web's `CoachChat.tsx` gets the live value from `GET coach-chat-profile-status`
+  (`coachSince`) and passes it into `challengeDayNumber()` (`coachChatModel.ts`), falling back
+  to the current season's `start_date` from the split ledger only if `coach_since` isn't stamped
+  yet (a pre-First-Session-Protocol athlete). It does **not** rely on `dashboard_snapshot.json`'s
+  embedded profile — athlete repos often omit that until the engine builder catch-up. iOS reads
+  the same field via `GitHubAPIClient.swift`'s `readCoachDayAnchorDate()`. The legacy
+  `challenge_v2.json`/`splitLedgerAsChallenge()` path this used to fall back through is gone —
+  `lib/splitLedgerChallenge.ts` was deleted once the split ledger fully replaced
+  `challenge_v2.json` for all repos, closing out issue #179 and the regression it had
+  reintroduced.
 
 ## Auth
 

@@ -146,6 +146,40 @@ describe("routes that read an athlete", () => {
     expect(res.status).toBe(500);
   });
 
+  it("returns profileComplete and live coachSince from profile.json", async () => {
+    loadCoachContext.mockResolvedValue({
+      profile: { coach_since: "2026-03-17" },
+      memory: null,
+      seasons: null,
+    });
+    isAthleteProfileComplete.mockReturnValue(true);
+
+    const res = await profileStatus.fetch(bearerRequest("coach-chat-profile-status"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      profileComplete: true,
+      coachSince: "2026-03-17",
+    });
+  });
+
+  it("returns coachSince null when profile has no stamp yet", async () => {
+    loadCoachContext.mockResolvedValue({
+      profile: { coach_since: null },
+      memory: null,
+      seasons: null,
+    });
+    isAthleteProfileComplete.mockReturnValue(false);
+
+    const res = await profileStatus.fetch(bearerRequest("coach-chat-profile-status"));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      profileComplete: false,
+      coachSince: null,
+    });
+  });
+
   it("tags widget-snapshots and captures what its catch swallows", async () => {
     const boom = new Error("snapshot fetch failed");
     fetchRepoDashboardSnapshot.mockRejectedValue(boom);

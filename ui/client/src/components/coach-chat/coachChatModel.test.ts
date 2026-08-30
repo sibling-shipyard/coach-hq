@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   activitySync,
+  challengeDayNumber,
   fetchProactiveCoachMessage,
+  fetchProfileStatus,
   materializeProactiveThread,
   normalizeThread,
   parseProactiveSeed,
@@ -147,6 +149,68 @@ function threadWithAttachments(attachments: ChatAttachment[]): ChatThread {
     ],
   };
 }
+
+describe("challengeDayNumber", () => {
+  const now = new Date(2026, 7, 30); // local midnight Aug 30 2026
+
+  it("prefers profile.coach_since over season start_date", () => {
+    const ledger = {
+      seasons: {
+        current_season_id: "s1",
+        seasons: [{ id: "s1", start_date: "2026-08-03" }],
+      },
+    };
+    expect(challengeDayNumber({ coach_since: "2026-03-17" }, ledger, now)).toBe(166);
+  });
+
+  it("falls back to current season start_date when coach_since is absent", () => {
+    const ledger = {
+      seasons: {
+        current_season_id: "s1",
+        seasons: [{ id: "s1", start_date: "2026-08-03" }],
+      },
+    };
+    expect(challengeDayNumber(null, ledger, now)).toBe(28);
+  });
+});
+
+describe("fetchProfileStatus", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns profileComplete and live coachSince", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ profileComplete: true, coachSince: "2026-03-17" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchProfileStatus()).resolves.toEqual({
+      profileComplete: true,
+      coachSince: "2026-03-17",
+    });
+  });
+
+  it("treats a missing coachSince field as null", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ profileComplete: false }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(fetchProfileStatus()).resolves.toEqual({
+      profileComplete: false,
+      coachSince: null,
+    });
+  });
+});
 
 describe("sendMessage", () => {
   afterEach(() => {

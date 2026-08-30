@@ -28,3 +28,4 @@ Keep these current when `ui/client/` changes; rules in `docs/eng-docs/README.md`
 - Vite caches JSON imports aggressively — restart dev server after data changes.
 - WorkoutTimer: call `setTimer(-1)` before any `setState()` to prevent race conditions between timer init and tick effects.
 - `milestoneProgress.ts`-style helpers read `milestone.progress` (`MilestoneProgress` in `challenge.ts`) — not a separate `tracking` schema.
+- Web Coach day badge: use live `coachSince` from `/api/coach-chat-profile-status`, not `dashboard_snapshot` profile (often absent in athlete repos).

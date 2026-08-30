@@ -578,12 +578,21 @@ export interface GreetResult {
   profileComplete: boolean;
 }
 
-export async function fetchProfileComplete(): Promise<boolean> {
+export interface ProfileStatus {
+  profileComplete: boolean;
+  /** Live `profile.json` coach_since (ADR 0018); null before First Session completes. */
+  coachSince: string | null;
+}
+
+export async function fetchProfileStatus(): Promise<ProfileStatus> {
   const res = await fetchWithRetry("/api/coach-chat-profile-status");
   if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (!res.ok) throw new Error(`Failed to load coach profile status (${res.status})`);
-  const body = (await res.json()) as { profileComplete: boolean };
-  return body.profileComplete;
+  const body = (await res.json()) as { profileComplete: boolean; coachSince?: string | null };
+  return {
+    profileComplete: body.profileComplete,
+    coachSince: body.coachSince ?? null,
+  };
 }
 
 export async function greet(): Promise<GreetResult> {

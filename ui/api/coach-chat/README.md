@@ -7,7 +7,7 @@ points stay one level up because Vercel maps literal file paths to URLs:
 | --------------------------------- | -------------------------------- | ----------------------------------------------------------------------------- |
 | `../coach-chat.ts`                | `/api/coach-chat`                | Authenticate and dispatch GET history or POST greet/sync/message/close stages |
 | `../coach-chat-context.ts`        | `/api/coach-chat-context`        | Preload the same cached context used by chat                                  |
-| `../coach-chat-profile-status.ts` | `/api/coach-chat-profile-status` | Report whether First Session setup is complete                                |
+| `../coach-chat-profile-status.ts` | `/api/coach-chat-profile-status` | Report FSP completion + live `coachSince` for the day badge                   |
 
 Do not move those files here without intentionally changing every client URL. See
 [`../README.md`](../README.md) and ADR 0017.
