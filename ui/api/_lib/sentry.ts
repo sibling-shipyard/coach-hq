@@ -134,7 +134,19 @@ const FLUSH_TIMEOUT_MS = 2000;
 export function withContinuedTrace<T>(req: Request, handler: () => Promise<T>): Promise<T> {
   if (!initServerMonitoring()) return handler();
   const { pathname } = new URL(req.url);
-  return Sentry.withIsolationScope(() => continueTraceInto(req, pathname, handler));
+  return Sentry.withIsolationScope(() => {
+    Sentry.getIsolationScope().setTag("operation", apiOperation(pathname));
+    return continueTraceInto(req, pathname, handler);
+  });
+}
+
+function apiOperation(pathname: string): string {
+  return (
+    pathname
+      .replace(/^\/api\/?/, "")
+      .replace(/^\/+|\/+$/g, "")
+      .replaceAll("/", ".") || "api"
+  );
 }
 
 export interface SentryRouteContext {

@@ -388,6 +388,7 @@ describe("setAthleteScope without a DSN", () => {
     init.mockClear();
     delete process.env.SENTRY_DSN;
     const { setAthleteScope, Sentry } = await loadSentry();
+    Sentry.getIsolationScope().clear();
 
     setAthleteScope("skanda-athlete/coach-phelps");
 

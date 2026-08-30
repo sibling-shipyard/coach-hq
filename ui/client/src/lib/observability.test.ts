@@ -31,6 +31,7 @@ interface InitOptions {
   integrations: { name: string }[];
   tracesSampleRate: number;
   tracePropagationTargets: RegExp[];
+  initialScope: { tags: { operation: string } };
   sendDefaultPii: boolean;
   beforeSend: (event: unknown) => { extra: { detail: string } };
   beforeSendTransaction: (event: unknown) => { extra: { detail: string } };
@@ -66,6 +67,10 @@ describe("initClientMonitoring", () => {
 
     expect(options.integrations.map((i) => i.name)).toContain("BrowserTracing");
     expect(options.tracePropagationTargets).toEqual([/^\/api\//]);
+  });
+
+  it("groups browser errors under the web operation", async () => {
+    expect((await initOptions()).initialScope.tags.operation).toBe("web");
   });
 
   it("falls back to 1 and warns when the sample rate is outside Sentry's range", async () => {
