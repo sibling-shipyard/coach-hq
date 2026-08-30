@@ -1,6 +1,7 @@
 /** Gemini request construction, explicit-cache use, one retry, and response parsing. */
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { withGeminiSpan, type GeminiUsage } from "../../_lib/sentry.js";
+import { log } from "../../_lib/log.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
 import type { ChatMessage } from "./chatThreads.js";
 import { buildDynamicText, buildHistoryContents, staticSystemText } from "./coachPromptText.js";
@@ -122,7 +123,7 @@ export async function askGemini(
 
   // Doesn't log the full prompt (the static prefix alone is ~13K tokens) - mode and the
   // athlete's message are what actually vary call to call.
-  console.log("[coach-chat] request:", { mode, userMessage, useCache: !!cachedName, traceId });
+  log("coach-chat", "request", { mode, userMessage, useCache: !!cachedName, traceId });
   // The span covers the retry too: what the operator times is how long the turn waited for
   // Gemini, not how long one of its attempts took.
   return withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
@@ -193,6 +194,6 @@ async function finishGeminiResponse(
   const parsed = JSON.parse(text) as GeminiReply;
   // Passed as a plain object (not stringified) so console formatting pretty-prints it. traceId
   // on closing turns correlates with the close-trace line logged downstream in the POST handler.
-  console.log("[coach-chat] response:", parsed, mode === "closing" ? { traceId } : undefined);
+  log("coach-chat", "response", { parsed, traceId: mode === "closing" ? traceId : undefined });
   return parsed;
 }
