@@ -36,17 +36,11 @@ flowchart LR
    `VITE_*`, because Vite bakes those into the client bundle.
 4. Set `SENTRY_TRACES_SAMPLE_RATE` and `VITE_SENTRY_TRACES_SAMPLE_RATE` explicitly. They default
    to `1`, which is right for four athletes and wrong the first day it isn't.
-5. Build one dashboard and three alerts from the tables below. Route alerts to team email plus the
-   Sentry mobile app; use a five-minute notification interval. The dashboard is built:
-   **"Coach HQ health"**, id `5873386`. All four filters have returned production rows; a short
-   time window can still be empty with four athletes. The alerts are not built yet.
-
-| dashboard widget | filter | group / value |
-|---|---|---|
-| Production errors and reports | `environment:production` | project, `operation`, release, count |
-| Core web/API health | `span.op:http.server` | span name, `outcome`, count, p95 duration |
-| Gemini health | `span.op:gen_ai.generate_content` | `gen_ai.request.model`, `outcome`, count, p95 duration, `gen_ai.usage.*` token totals |
-| iOS sync health | `transaction:healthkit.sync` | `outcome`, count, duration, synced item count |
+5. Build one dashboard and three alerts. The dashboard is built: **"Coach HQ health"**, id
+   `5873386`. Its widgets and the questions they answer live in `ops-monitoring-dashboard.md` —
+   that doc owns the widget list, so it is not repeated here. Route alerts from the table below to
+   team email plus the Sentry mobile app; use a five-minute notification interval. A short time
+   window can still be empty with four athletes. The alerts are not built yet.
 
 Every error has an `operation` tag: `web` for browser errors, the API route without `/api/` with
 slashes changed to dots (for example `auth.callback`), or the native operation name on iOS. Use it
