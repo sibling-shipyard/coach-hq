@@ -101,7 +101,12 @@ final class RageReportTests: XCTestCase {
     }
 }
 
-private final class RecordingRageReportSubmitter: RageReportSubmitting {
+// `nonisolated` is load-bearing. The project builds with SWIFT_DEFAULT_ACTOR_ISOLATION =
+// MainActor, so without it this class gets a main-actor-isolated deinit. RageReportViewModel's
+// own isolated deinit releases the submitter, and one isolated deinit nested inside another
+// hits a bad free in the iOS 26.2 simulator's concurrency runtime. The shipping conformer is a
+// struct, so only this test double can reach it.
+private nonisolated final class RecordingRageReportSubmitter: RageReportSubmitting {
     struct Call {
         let message: String
         let attachment: RageReportAttachment?
