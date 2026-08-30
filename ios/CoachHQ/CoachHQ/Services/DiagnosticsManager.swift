@@ -245,6 +245,7 @@ enum DiagnosticsManager {
             options.dist = buildNumber
             options.environment = environment
             options.tracesSampleRate = 1.0
+            options.enableFileIOTracing = false
             options.attachScreenshot = false
             options.sessionReplay = SentryReplayOptions(sessionSampleRate: 0, onErrorSampleRate: 0)
             options.beforeSend = scrub(event:)
