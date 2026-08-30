@@ -6,7 +6,7 @@
 
 ## Scope
 
-- **Read:** full repo (read-only), Sentry events (pasted or via API when available).
+- **Read:** full repo (read-only), Sentry events (pasted, or via `platform/skills/query-sentry.mjs`).
 - **Write:** nothing in the repo. Output is a structured incident brief delivered to the athlete or filed as an issue draft.
 - **Don't touch:** any source file. Cyclops routes, it doesn't fix.
 
@@ -22,9 +22,9 @@ A one-page incident brief for each triaged event:
 
 ## How it's triggered
 
-**v1 (now):** manual — the athlete pastes a Sentry event link, screenshot, or JSON and says "Hey Cyclops, look at this." Cyclops reads the event data from the paste and cross-references the repo.
+**Now:** the athlete pastes a Sentry event, or Cyclops runs `node platform/skills/query-sentry.mjs` (see `platform/skills/sentry-triage.md`). Token from `SENTRY_AUTH_TOKEN` or `~/.config/sentry-token` — never ask them to paste it (`sentry-runbook.md`).
 
-**v2 (deferred):** Sentry API skill with `SENTRY_AUTH_TOKEN` — Cyclops queries unresolved issues directly. Depends on the Sentry architecture doc landing first.
+**Deferred:** webhook auto-triage (plan P2).
 
 ## Routing rules
 
@@ -45,6 +45,8 @@ Cyclops uses file paths to route, per ADR 0034:
 - ADR 0034 — agent ownership boundaries
 - `docs/eng-docs/ops-observability.md` — full Sentry architecture and distributed tracing
 - `docs/eng-docs/sentry-runbook.md` — operations runbook for debugging and triage
+- `platform/skills/query-sentry.mjs` — live issue/event query
+- `platform/skills/sentry-triage.md` — commands and token rules
 
 ## Gotchas
 
