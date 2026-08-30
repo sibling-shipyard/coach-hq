@@ -1,6 +1,6 @@
 # Observability
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md), [0035](../../kdb/decisions/0035-cross-surface-error-taxonomy.md)
 
 ## Context
 
@@ -27,7 +27,7 @@ session replay stay off.
 
 ## What joins one interaction
 
-`ui/api/_lib/sentry.ts` is the source of truth for every field; these five are the ones that make
+`ui/api/_lib/sentry.ts` is the source of truth for every field; these six are the ones that make
 an event findable at all.
 
 | Tag | Meaning |
@@ -37,6 +37,7 @@ an event findable at all.
 | `athlete_id` | Repo owner, derived identically on web, API and iOS, and also the Sentry user. One athlete, one id, three projects |
 | `trace_id` | Sentry's own id, propagated browser → API on `sentry-trace`. Joins both halves of one interaction |
 | `outcome` | `ok` / `error` on our manual spans. What the dashboard groups by |
+| `operation` | What the code was doing (ADR 0035). `web` on the browser, API route with slashes as dots, native name on iOS |
 
 Credentials never reach Sentry: `ui/observability/sentryScrubber.ts` strips auth headers, cookies,
 GitHub tokens, Gemini keys and JWTs before send. Because `beforeSend` fires for *error events only*,

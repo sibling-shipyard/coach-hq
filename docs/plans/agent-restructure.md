@@ -76,7 +76,7 @@ Reads Sentry events and produces a one-page incident brief:
 5. Cyclops Sentry skill — `platform/skills/query-sentry.mjs`.
 6. Observability eng-doc — one page mapping the full Sentry architecture.
 7. Structured logging convergence (lightweight `log()` helper for breadcrumb context).
-8. Cross-surface error mapping (shared taxonomy between iOS + web).
+8. Cross-surface error mapping — ADR 0035 locks the shipped `operation` strings.
 
 ### P2 — Athlete's call
 
