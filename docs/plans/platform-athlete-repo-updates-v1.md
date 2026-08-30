@@ -1,6 +1,8 @@
 # Automatic Coach Updates
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
+> Status: Superseded by [v2](platform-athlete-repo-updates-v2-hq-direct-push.md) (delivery
+> mechanism only — the release + migration contract below still applies) · Owner: Tech Lead ·
+> Verified: 2026-08-26
 
 ## Why we need this
 

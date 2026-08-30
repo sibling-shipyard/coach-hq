@@ -76,7 +76,7 @@ _Supporting:_ #292 now in M3
 	- [ ] #361 Validate week file before save — Low
 - [ ] #462 Storage caps (free-text limits) — Low
 	- [ ] #436 Rotate coach_log.json — Low
-- [ ] #327 How updates reach athlete repos — High (V1 approved: athlete-token update on contact)
+- [ ] #327 How updates reach athlete repos — High (V2 approved: HQ pushes directly)
 	- [ ] #326 Plugin install flow — High
 - [ ] #454 Athlete-repo leftovers — Medium
 	- [ ] #419 Schema version-2 policy — Medium (fold into #327 PR1)
