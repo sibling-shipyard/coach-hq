@@ -59,10 +59,7 @@ final class RageReportTests: XCTestCase {
         XCTAssertEqual(viewModel.submissionState, .queued)
     }
 
-    // TEMPORARY DIAGNOSTIC - revert before merge. Renamed so it is no longer alphabetically
-    // first in this suite. If the malloc crash moves to whichever test now runs first, the fault
-    // is first-touch of shared Rage Report state, not this test's body.
-    func testZCancelSendsNothing() {
+    func testCancelSendsNothing() {
         let submitter = RecordingRageReportSubmitter()
         let viewModel = RageReportViewModel(events: makeEvents(), submitter: submitter)
         viewModel.message = "Should never leave the phone"
