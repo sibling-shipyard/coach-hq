@@ -10,22 +10,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { encryptSession, buildCookie, SESSION_COOKIE } from "../_lib/session.js";
 import { signOAuthState } from "../_lib/pkce.js";
+import { InstallationLookupFailedError, MarkerLookupFailedError } from "../_lib/repo-resolution.js";
 
 process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 process.env.GITHUB_APP_CLIENT_ID ??= "test-client-id";
 process.env.GITHUB_APP_CLIENT_SECRET ??= "test-client-secret";
 
-const { captureServerException, setAthleteScope, withContinuedTrace } = vi.hoisted(() => ({
-  captureServerException: vi.fn(async () => ({ sent: true })),
+const { captureServerException, setAthleteScope, withSentryRoute } = vi.hoisted(() => ({
+  captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
   setAthleteScope: vi.fn(),
-  // Pass-through, like the real one with no DSN: the handler runs exactly as it would have.
-  withContinuedTrace: vi.fn(async (_req: Request, handler: () => Promise<unknown>) => handler()),
+  withSentryRoute: vi.fn(
+    async (
+      _req: Request,
+      handler: (sentry: {
+        captureException: typeof captureServerException;
+        setAthleteScope: typeof setAthleteScope;
+      }) => Promise<unknown>,
+    ) => handler({ captureException: captureServerException, setAthleteScope }),
+  ),
 }));
 
 vi.mock("../../_lib/sentry.js", () => ({
-  captureServerException,
-  setAthleteScope,
-  withContinuedTrace,
+  withSentryRoute,
 }));
 
 const { default: handler } = await import("../[...action].js");
@@ -71,10 +77,10 @@ describe("auth catch-all tracing", () => {
       await handler.fetch(authRequest(action));
     }
 
-    expect(withContinuedTrace).toHaveBeenCalledTimes(5);
+    expect(withSentryRoute).toHaveBeenCalledTimes(5);
     // The wrapper reads the URL for the span name, so it has to get the request, not just a
     // closure over it.
-    expect(withContinuedTrace.mock.calls[0][0]).toBeInstanceOf(Request);
+    expect(withSentryRoute.mock.calls[0][0]).toBeInstanceOf(Request);
   });
 });
 
@@ -106,6 +112,59 @@ describe("auth catch-all error capture", () => {
     expect(captureServerException).toHaveBeenCalledWith(boom);
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toContain("auth_error=network_error");
+  });
+
+  it("captures an installation lookup outage before callback redirects", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        Response.json({
+          access_token: "gh-token",
+          refresh_token: "gh-refresh",
+          expires_in: 28800,
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ id: 1, login: "alice" }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    const state = await signOAuthState(
+      { codeVerifier: "v", platform: "web", popup: false },
+      SESSION_SECRET,
+    );
+
+    const res = await handler.fetch(
+      new Request(
+        `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`,
+      ),
+    );
+
+    expect(res.headers.get("location")).toContain("auth_error=lookup_failed");
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect(captureServerException.mock.calls[0][0]).toBeInstanceOf(InstallationLookupFailedError);
+  });
+
+  it("captures a bearer installation lookup outage before returning 502", async () => {
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ id: 1, login: "alice" }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    const res = await handler.fetch(
+      new Request("https://example.com/api/auth/list-my-repos", {
+        headers: { authorization: "Bearer gh-token" },
+      }),
+    );
+
+    expect(res.status).toBe(502);
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect(captureServerException.mock.calls[0][0]).toBeInstanceOf(InstallationLookupFailedError);
+  });
+
+  it("captures a marker lookup outage before returning 502", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    const res = await handler.fetch(authRequest("list-my-repos", await sessionCookie()));
+
+    expect(res.status).toBe(502);
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect(captureServerException.mock.calls[0][0]).toBeInstanceOf(MarkerLookupFailedError);
   });
 
   it("captures a throw that refresh would otherwise swallow into a 502", async () => {
@@ -174,5 +233,29 @@ describe("auth catch-all athlete identity", () => {
     expect(setAthleteScope.mock.invocationCallOrder[0]).toBeLessThan(
       captureServerException.mock.invocationCallOrder[0],
     );
+  });
+
+  it("tags the athlete when list-my-repos establishes the repo", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/repositories?per_page=100")) {
+        return Response.json({
+          repositories: [
+            {
+              full_name: "alice/coach-alice",
+              name: "coach-alice",
+              owner: { login: "alice" },
+            },
+          ],
+        });
+      }
+      if (url.endsWith("/contents/.coach-engine-version")) {
+        return new Response(null, { status: 200 });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+
+    await handler.fetch(authRequest("list-my-repos", await sessionCookie()));
+
+    expect(setAthleteScope).toHaveBeenCalledWith("alice/coach-alice");
   });
 });

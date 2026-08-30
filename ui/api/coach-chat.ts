@@ -17,12 +17,7 @@ import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIn
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/geminiClient.js";
-import {
-  captureGeminiFailure,
-  captureServerException,
-  setAthleteScope,
-  withContinuedTrace,
-} from "./_lib/sentry.js";
+import { captureGeminiFailure, withSentryRoute } from "./_lib/sentry.js";
 import {
   combineExtraContext,
   firstSessionContext,
@@ -194,13 +189,9 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Entry, before anything can capture: joins the browser's trace so both events share one,
-    // opens the route's `http.server` span, and flushes it before the response leaves.
-    return withContinuedTrace(req, async () => {
+    return withSentryRoute(req, async ({ captureException, setAthleteScope }) => {
       const resolved = await resolveRepoAuth(req);
       if (resolved instanceof Response) return resolved;
-      // Who, as soon as it is known. Everything below can capture; nothing above can say whose
-      // request this is, so an auth failure stays as anonymous as it is today.
       setAthleteScope(resolved.repo_full_name);
       try {
         return withSessionCookie(await handle(req, resolved), resolved.setCookie);
@@ -208,9 +199,7 @@ export default {
         const message = err instanceof Error ? err.message : "Coach chat failed";
         const status = (err as { status?: number }).status === 401 ? 401 : 500;
         console.error("[coach-chat]", err);
-        // This catch is the end of the line: the athlete gets a status and nothing rethrows, so
-        // a GitHub, commit or session failure reaches Sentry only if it is captured here.
-        await captureServerException(err);
+        await captureException(err);
         return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
       }
     });

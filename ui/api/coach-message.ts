@@ -4,7 +4,7 @@ import { fetchWithTimeout } from "./_lib/httpTimeout.js";
 import { SOUL } from "./_generated/soul.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
-import { captureServerException, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
+import { withSentryRoute } from "./_lib/sentry.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -91,13 +91,9 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Entry, before anything can capture: joins the browser's trace so both events share one,
-    // opens the route's `http.server` span, and flushes it before the response leaves.
-    return withContinuedTrace(req, async () => {
+    return withSentryRoute(req, async ({ captureException, setAthleteScope }) => {
       const resolved = await resolveRepoAuth(req);
       if (resolved instanceof Response) return resolved;
-      // Who, as soon as it is known. Everything below can capture; nothing above can say whose
-      // request this is, so an auth failure stays as anonymous as it is today.
       setAthleteScope(resolved.repo_full_name);
       try {
         return withSessionCookie(await handle(req, resolved), resolved.setCookie);
@@ -107,9 +103,7 @@ export default {
         const status =
           typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
         console.error("[coach-message]", error);
-        // End of the line, same as coach-chat. A Gemini failure arrives here already captured by
-        // `generateProactiveBody`, which rethrows - the second capture of that error is dropped.
-        await captureServerException(error);
+        await captureException(error);
         return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
       }
     });
