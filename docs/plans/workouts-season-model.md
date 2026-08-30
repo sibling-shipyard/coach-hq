@@ -120,25 +120,32 @@ never hand-edited, and never the place a coaching decision is recorded.
 
 ## 6. Reconciling plan with reality
 
-Already built, and kept. Two stages, in this order:
+**Deterministic, in the backend. No LLM in the loop.** Today `activitySyncTurn.ts` fires a Gemini
+turn on every sync partly to mark sessions done — an LLM call to do bookkeeping. The rules are
+small enough to write down, so we write them down:
 
-1. **Deterministic candidate, on sync.** The iOS sync commits activities, which triggers
-   `activitySyncTurn.ts`. Code matches each verified activity to a planned day by date and type
-   and proposes a match. No LLM involved.
-2. **Coach confirms, in the same turn.** Gemini receives the week's sessions
-   (`activeWeekSessionsContext`) and emits a `session_status` action —
-   `done | skipped` — which `coachWeekFiles.ts` applies, writing source-qualified
-   `completion_activity_ids` (`healthkit:<uuid>`). Coach is what handles the cases code cannot:
-   the athlete did a different workout, did it a day late, or did something unplanned.
+| Situation | Result |
+|---|---|
+| Activity on a planned day, type matches the routine | `done`, `completion_activity_ids` appended |
+| Planned day passes with no matching activity | `missed` — not `skipped`; skipping is a decision, missing is an outcome |
+| Activity with no planned match | attached to the day as unplanned |
+| Two plausible candidates, or an activity a day either side | left `planned` and flagged — never guessed |
 
-So `week.json` is updated **on sync**, not on a schedule, and not by the timer. The UI also
-matches client-side in `currentWeekAdapter.ts` so an unplanned activity shows as a card before
-the next sync turn lands.
+Type matching maps the HealthKit workout type to the routine's `workout_type`; same day plus a
+compatible type is enough. Where it is not obvious, the flag is the answer — a wrong automatic
+match is worse than an unresolved one.
 
-**Week rollover is where plan meets reality.** At the week boundary the next week is compiled from
+**Coach comments, Coach does not reconcile.** The two are fused today and want separating: code
+sets the status, Coach reads the reconciled week and writes the message the athlete actually
+reads, plus resolves anything flagged in the next conversation. Reconciliation stays correct even
+when the model is down, and the sync path loses one Gemini call.
+
+`week.json` is therefore updated **on sync**, not on a schedule and not by the timer.
+
+**Week rollover is where plan meets reality.** At the week boundary the next week compiles from
 block intent *plus what actually happened* — missed anchors inform the next week rather than
 silently rolling over. Two consecutive weeks under target is the drift signal that opens a
-re-planning conversation (§10). Nothing is auto-rewritten.
+re-planning conversation (§12). Nothing is auto-rewritten.
 
 ## 7. What the Workouts page shows
 
@@ -152,6 +159,12 @@ One page, five states. Every state must be reachable in a test.
 | Unplanned activity logged | The activity as a completed card, no routine attached |
 | No plan yet (new athlete) | The benchmark, as the single call to action |
 | Compile failed | Last good compiled file plus a quiet notice; never a partial workout |
+
+**The athlete's routines are always on the page**, below the day — their full set, readable in
+detail. Three reasons it cannot live behind a chat turn: they want to train ad-hoc on an
+unplanned day, they want to look up what a routine actually contains, and they want to show it to
+someone (a physio, a training partner). Starting a routine ad-hoc compiles it on demand for
+today, exactly as a planned day would.
 
 The "lot of random workouts" report is a rendering symptom of the storage bug: today the page
 lists every template the athlete owns, with no notion of *today*. The new page is day-first — the
@@ -228,16 +241,17 @@ Milestones are the outcome layer; each has one exit test. `final base` gives mer
 | 2 | M1 unblock | benchmark replaces library selection at first-session close; seeds `progressions.json` | PR 1 | `coachWorkoutFiles.ts`, `coachTurn.ts` | UI Expert | PR 3 | a fresh athlete gets a benchmark, not 6 workouts |
 | 3 | M1 unblock | BYO Claude unblocked: carve the routines the soul names, allow Coach to write new ones | main | `platform/scripts/carve-skeleton.mjs`, `platform/soul/B_engine.md`, composed builds | Tech Lead | PR 2 | `validate-soul.mjs` clean on the two baselined template findings |
 | 4 | M2 plan | `season_plan.json` + write path + season-boundary generation | PR 2 | `ui/api/coach-chat/_lib/`, `platform/scripts/carve-skeleton.mjs` | UI Expert | — | a goal conversation writes a plan with scheduled benchmarks |
-| 5 | M2 plan | `week.json` replaces `current_week.json`; `coach_read` moves to the message surface | PR 4 | `engine/lib/current-week.mts`, `engine/scripts/validate-current-week`, `coachWeekFiles.ts` | Bob | — | week compiles from plan intent; validator green |
-| 6 | M3 render | dashboard snapshot keys + Workouts/Season pages | PR 5 | `engine/scripts/build-dashboard-snapshot.mjs`, `ui/client/src/`, `shared/golden-dataset/` | UI Expert | PR 7 | season plan and week render from real repo data |
+| 5 | M2 plan | `week.json` replaces `current_week.json`; deterministic reconciler replaces the sync-turn status call; `coach_read` moves to the message surface | PR 4 | `engine/lib/current-week.mts`, `engine/scripts/validate-current-week`, `coachWeekFiles.ts`, `activitySyncTurn.ts` | Bob | — | week compiles from plan intent; reconciler table in §6 fully covered by tests; validator green |
+| 6 | M3 render | dashboard snapshot keys + day-first Workouts page with the routine library and ad-hoc start | PR 5 | `engine/scripts/build-dashboard-snapshot.mjs`, `ui/client/src/`, `shared/golden-dataset/` | UI Expert | PR 7 | all six page states in §7 render from real repo data |
 | 7 | M3 render | widget snapshots + iOS decode; `BundledTemplates.swift` becomes a cache | PR 5 | `ui/scripts/generate-widget-snapshots.ts`, `ios/CoachHQ/` | iOS Builder | PR 6 | `ios-build.yml` green; widget shows week N of M |
 | 8 | M4 cleanup | delete the library and the old nouns; supersede the ADR | PR 7 | `shared/workout-library/`, `platform/skeleton-templates/`, `engine/lib/repo-layout.mjs`, `kdb/decisions/` | Tech Lead | — | no reference to `templates/` or `sessions/` remains; ADR merged |
 
 **Migration for the four live athletes** rides in PR 8: one idempotent script, run per repo,
 renaming `templates/` → `routines/`, dropping `sessions/`, and rewriting `current_week.json` to
 `week.json`. Progressions are seeded from each athlete's next benchmark, never backfilled with
-guesses. Nobody loses a workout. Four repos is past hand-editing, so the script is the deliverable
-and a dry-run mode is part of it.
+guesses. Nobody loses a workout. The script opens **a PR per athlete repo** rather than pushing to
+`main` — four diffs to read before anything lands in someone's training data — and ships with a
+dry-run mode.
 
 ## 11. Done when
 
