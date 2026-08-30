@@ -4,7 +4,6 @@ import SwiftUI
 
 enum RageReportSubmissionState: Equatable {
     case idle
-    case sending
     case queued
     case failed
     case cancelled
@@ -36,7 +35,6 @@ final class RageReportViewModel: ObservableObject {
 
     var canSubmit: Bool {
         !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && submissionState != .sending
             && submissionState != .queued
             && submissionState != .cancelled
     }
@@ -55,7 +53,6 @@ final class RageReportViewModel: ObservableObject {
 
     func submitReport() {
         guard canSubmit else { return }
-        submissionState = .sending
 
         do {
             let selectedEvents = availableEvents.filter { selectedEventIDs.contains($0.id) }
@@ -89,8 +86,8 @@ struct RageReportView: View {
     @StateObject private var viewModel: RageReportViewModel
     @Environment(\.dismiss) private var dismiss
 
-    init(viewModel: RageReportViewModel = RageReportViewModel()) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+    init(viewModel: @autoclosure @escaping () -> RageReportViewModel = RageReportViewModel()) {
+        _viewModel = StateObject(wrappedValue: viewModel())
     }
 
     var body: some View {
@@ -148,7 +145,7 @@ struct RageReportView: View {
                         Label("Couldn't queue the report. Please try again.", systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.red)
                     }
-                case .idle, .sending, .cancelled:
+                case .idle, .cancelled:
                     EmptyView()
                 }
             }

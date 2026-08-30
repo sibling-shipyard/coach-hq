@@ -449,10 +449,29 @@ struct SettingsView: View {
             WarmSettingsDivider()
             WarmSettingsInfoRow(label: "Developers", value: "Sibling Shipyard")
             WarmSettingsDivider()
-            Button(action: { showRageReport = true }) {
-                WarmSettingsInfoRow(label: "Report a Problem", value: "")
+            Button {
+                Haptics.tap()
+                showRageReport = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.bubble")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(WarmInstrument.accent)
+                        .frame(width: 22)
+
+                    Text("Report a Problem")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Theme.ink)
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(RowPressButtonStyle())
         }
     }
 
