@@ -33,14 +33,14 @@ export const sentryEnvironment =
 
 /**
  * Sample every trace. Right for four athletes; the runbook says to set the var explicitly before
- * that stops being true. An unparseable value warns rather than falling back silently — Sentry
- * reads `NaN` as "tracing off" and says nothing.
+ * that stops being true. An invalid value warns rather than falling back silently — Sentry
+ * disables tracing for values outside 0...1 and says nothing.
  */
 export const sentryTracesSampleRate = ((raw: string | undefined): number => {
   if (raw === undefined || raw === "") return 1;
   const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) {
-    console.warn(`[sentry] SENTRY_TRACES_SAMPLE_RATE=${raw} is not a number - using 1`);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    console.warn(`[sentry] SENTRY_TRACES_SAMPLE_RATE=${raw} must be from 0 to 1 - using 1`);
     return 1;
   }
   return parsed;
@@ -63,9 +63,8 @@ function configuredSecrets(): string[] {
  * chance to filter it. `ignoreOutgoingRequests` runs first and returns before a span or a
  * breadcrumb exists, so the credential is never captured rather than captured and redacted.
  *
- * Deliberately not `spans: false`: on `httpIntegration` that also switches off the **incoming**
- * server span (it computes `enableServerSpans = spans && !disableIncomingRequestSpans`), and the
- * `http.server` span is the one span on this side we do want.
+ * `disableIncomingRequestSpans` removes the SDK's duplicate `http.server` span. The route wrapper
+ * opens the one we keep because it carries the handled response's `outcome`.
  */
 const ignoreEveryOutgoingRequest = () => true;
 
@@ -83,7 +82,10 @@ export function initServerMonitoring(): boolean {
     // covers `node:http`/`https`, `NodeFetch` covers global `fetch` — Gemini and the GitHub API
     // both go through the second one.
     integrations: [
-      Sentry.httpIntegration({ ignoreOutgoingRequests: ignoreEveryOutgoingRequest }),
+      Sentry.httpIntegration({
+        ignoreOutgoingRequests: ignoreEveryOutgoingRequest,
+        disableIncomingRequestSpans: true,
+      }),
       Sentry.nativeNodeFetchIntegration({ ignoreOutgoingRequests: ignoreEveryOutgoingRequest }),
     ],
     // Read incoming trace headers, send none. Gemini and the GitHub API have no use for our

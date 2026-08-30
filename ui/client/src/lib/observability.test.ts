@@ -29,6 +29,7 @@ const URL_WITH_KEY =
 
 interface InitOptions {
   integrations: { name: string }[];
+  tracesSampleRate: number;
   tracePropagationTargets: RegExp[];
   sendDefaultPii: boolean;
   beforeSend: (event: unknown) => { extra: { detail: string } };
@@ -65,6 +66,17 @@ describe("initClientMonitoring", () => {
 
     expect(options.integrations.map((i) => i.name)).toContain("BrowserTracing");
     expect(options.tracePropagationTargets).toEqual([/^\/api\//]);
+  });
+
+  it("falls back to 1 and warns when the sample rate is outside Sentry's range", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("VITE_SENTRY_TRACES_SAMPLE_RATE", "100");
+
+    expect((await initOptions()).tracesSampleRate).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      "[sentry] VITE_SENTRY_TRACES_SAMPLE_RATE=100 must be from 0 to 1 - using 1",
+    );
+    warn.mockRestore();
   });
 
   it("scrubs a credential out of a span, which beforeSend never sees", async () => {
