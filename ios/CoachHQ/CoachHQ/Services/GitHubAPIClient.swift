@@ -47,6 +47,7 @@ class GitHubAPIClient {
     private func withRetry<T>(
         _ label: String,
         attempts: Int = 3,
+        metadata: [String: String] = [:],
         operation: () async throws -> T
     ) async throws -> T {
         let operationID = UUID()
@@ -54,7 +55,7 @@ class GitHubAPIClient {
             category: "github.request",
             message: label,
             operationID: operationID,
-            metadata: ["outcome": "started"]
+            metadata: metadata.merging(["outcome": "started"]) { current, _ in current }
         )
         // Proactively refreshes the Keychain token if near expiry - one choke point instead
         // of threading async token lookups through every call site in this file.
@@ -67,7 +68,7 @@ class GitHubAPIClient {
                     category: "github.request",
                     message: label,
                     operationID: operationID,
-                    metadata: ["outcome": "success", "attempts": String(attempt + 1)]
+                    metadata: metadata.merging(["outcome": "success", "attempts": String(attempt + 1)]) { current, _ in current }
                 )
                 return value
             } catch {
@@ -78,7 +79,7 @@ class GitHubAPIClient {
                             error: error,
                             operation: "github.request",
                             operationID: operationID,
-                            metadata: ["label": label, "attempts": String(attempt + 1)]
+                            metadata: metadata.merging(["label": label, "attempts": String(attempt + 1)]) { current, _ in current }
                         )
                     }
                     throw error
@@ -92,7 +93,7 @@ class GitHubAPIClient {
                 error: lastError,
                 operation: "github.request",
                 operationID: operationID,
-                metadata: ["label": label, "attempts": String(attempts)]
+                metadata: metadata.merging(["label": label, "attempts": String(attempts)]) { current, _ in current }
             )
         }
         throw lastError
@@ -198,33 +199,31 @@ class GitHubAPIClient {
 
     /// Lists files in a directory (e.g., "user_data/activities/hist")
     func listFiles(path: String) async throws -> [GitHubFileEntry] {
-        let label = "Listing \(path)"
-        return try await withRetry(label) {
+        return try await withRetry("list files", metadata: ["path": path]) {
             let data = try await conditionalGET(
-                "\(try baseURL)/contents/\(path)?ref=\(targetBranch)", label: label)
+                "\(try baseURL)/contents/\(path)?ref=\(targetBranch)", label: "Listing \(path)")
             do {
                 return try JSONDecoder().decode([GitHubFileEntry].self, from: data)
             } catch {
-                throw GitHubAPIError.decodingFailed(operation: label)
+                throw GitHubAPIError.decodingFailed(operation: "Listing \(path)")
             }
         }
     }
 
     /// Reads a single file's content (decoded from base64)
     func readFile(path: String) async throws -> Data {
-        let label = "Reading \(path)"
-        return try await withRetry(label) {
+        return try await withRetry("read file", metadata: ["path": path]) {
             let data = try await conditionalGET(
-                "\(try baseURL)/contents/\(path)?ref=\(targetBranch)", label: label)
+                "\(try baseURL)/contents/\(path)?ref=\(targetBranch)", label: "Reading \(path)")
             let fileResponse: GitHubFileContent
             do {
                 fileResponse = try JSONDecoder().decode(GitHubFileContent.self, from: data)
             } catch {
-                throw GitHubAPIError.decodingFailed(operation: label)
+                throw GitHubAPIError.decodingFailed(operation: "Reading \(path)")
             }
             guard let content = fileResponse.content,
                   let decoded = Data(base64Encoded: content.replacingOccurrences(of: "\n", with: "")) else {
-                throw GitHubAPIError.decodingFailed(operation: label)
+                throw GitHubAPIError.decodingFailed(operation: "Reading \(path)")
             }
             return decoded
         }
@@ -404,7 +403,7 @@ class GitHubAPIClient {
         // Sequential, not a task group, to avoid Swift 6 actor-isolation issues.
         var blobs: [(path: String, sha: String)] = []
         for file in files {
-            let data = try await withRetry("Uploading \(file.path)") {
+            let data = try await withRetry("upload blob", metadata: ["path": file.path]) {
                 try await post("\(base)/git/blobs", body: [
                     "content": file.data.base64EncodedString(),
                     "encoding": "base64"
@@ -485,8 +484,7 @@ class GitHubAPIClient {
 
     /// Commits a new file or updates an existing file in the repository
     func commitFile(path: String, content: Data, message: String) async throws {
-        let label = "Saving \(path)"
-        try await withRetry(label) {
+        try await withRetry("save file", metadata: ["path": path]) {
             let url = URL(string: "\(try baseURL)/contents/\(path)")!
             var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
             request.httpMethod = "PUT"
@@ -511,7 +509,7 @@ class GitHubAPIClient {
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...201).contains(httpResponse.statusCode) else {
                 let status = (response as? HTTPURLResponse)?.statusCode
-                throw GitHubAPIError.commitFailed(operation: label, status: status,
+                throw GitHubAPIError.commitFailed(operation: "Saving \(path)", status: status,
                                                   detail: Self.gitHubMessage(from: respData))
             }
         }
