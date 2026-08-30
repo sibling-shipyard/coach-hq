@@ -34,7 +34,6 @@ nothing at all.
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 20 | [#685](https://github.com/sibling-shipyard/coach-hq/issues/685) — Rage Report attaches evidence by default, evidence list collapsed | Low | Not started | A report submitted without touching the evidence list still carries the timeline |
 | 7 | The three alert rules from `sentry-runbook.md` | Low — two rules now, the third needs the Rage Report | **Deferred**, athlete's call — item 6 has landed, so nothing blocks this but the decision | A new production error pages us within 15 minutes |
 | 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Not started | Key absent from every URL; outbound spans can be turned back on |
 
@@ -69,6 +68,7 @@ item 11, which touches docs anyway.
 | 5 | The Rage Report test-host crash — CI moved to `macos-26`, simulator pinned to 26.5 | 2026-08-30, [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) |
 | 9 | Route span flush runs under Vercel `waitUntil`, off the coach-reply path | 2026-08-30, [#680](https://github.com/sibling-shipyard/coach-hq/pull/680), closing #643 |
 | 6 | The Rage Report ships — Settings entry point, athlete message, selectable timeline evidence | 2026-08-30, [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) |
+| 20 | Rage Report attaches evidence by default; the event list sits behind a disclosure | 2026-08-30, [#688](https://github.com/sibling-shipyard/coach-hq/pull/688), closing #685 |
 
 Item 15 is worth remembering. Apple rejected the archive because the embedded `Sentry.framework`
 had no debug-symbol file. The plain `Sentry` package ships none; `Sentry-Dynamic` ships a real one
@@ -99,8 +99,8 @@ conclusion from span data.**
 Item 6 is shipped but only half proved. A real submission from the simulator reached Sentry as
 `operation:rage_report` in `coach-hq-ios`, carrying the athlete's message and an `operation_id`.
 It carried no evidence: every event starts unselected, so the first real report attached nothing.
-Cancel is covered by unit tests, not by hand. Item 20 fixes the default and the list; the culprit
-problem below is separate.
+Cancel is covered by unit tests, not by hand. Item 20 fixed the default and the list, and #690
+added the Warm Instrument styling and a shake trigger. The culprit problem below is separate.
 
 **The evidence list needs its own look.** A rage report takes its Sentry culprit from whatever
 UIKit frame was last on the stack — the first real one was titled
