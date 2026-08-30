@@ -27,6 +27,7 @@ final class RageReportViewModel: ObservableObject {
         self.availableEvents = events
         self.submitter = submitter
         self.encoder = encoder
+        selectedEventIDs = Set(events.map(\.id))
     }
 
     var selectedEventCount: Int {
@@ -49,6 +50,14 @@ final class RageReportViewModel: ObservableObject {
         } else {
             selectedEventIDs.remove(event.id)
         }
+    }
+
+    func selectAllEvents() {
+        selectedEventIDs = Set(availableEvents.map(\.id))
+    }
+
+    func deselectAllEvents() {
+        selectedEventIDs = []
     }
 
     func submitReport() {
@@ -104,30 +113,39 @@ struct RageReportView: View {
                         Text("No recent diagnostic events are available.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(viewModel.availableEvents, id: \.id) { event in
-                            Toggle(
-                                isOn: Binding(
-                                    get: { viewModel.isSelected(event) },
-                                    set: { viewModel.setSelected($0, for: event) }
-                                )
-                            ) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(event.message)
-                                    Text(
-                                        event.timestamp,
-                                        format: .dateTime.day().month().hour().minute().second()
+                        let total = viewModel.availableEvents.count
+                        let selected = viewModel.selectedEventCount
+                        Toggle(isOn: evidenceSummaryBinding) {
+                            Text(
+                                selected == total
+                                    ? "\(total) diagnostic event\(total == 1 ? "" : "s")"
+                                    : "\(selected) of \(total) diagnostic events"
+                            )
+                        }
+                        .disabled(viewModel.submissionState == .queued)
+
+                        DisclosureGroup("Show events") {
+                            ForEach(viewModel.availableEvents, id: \.id) { event in
+                                Toggle(
+                                    isOn: Binding(
+                                        get: { viewModel.isSelected(event) },
+                                        set: { viewModel.setSelected($0, for: event) }
                                     )
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                ) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(event.message)
+                                        Text(
+                                            event.timestamp,
+                                            format: .dateTime.day().month().hour().minute().second()
+                                        )
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    }
                                 }
+                                .disabled(viewModel.submissionState == .queued)
                             }
-                            .disabled(viewModel.submissionState == .queued)
                         }
                     }
-
-                    Text(selectionSummary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
 
                     Text("Nothing is attached until you tap Submit.")
                         .font(.caption)
@@ -170,8 +188,16 @@ struct RageReportView: View {
         }
     }
 
-    private var selectionSummary: String {
-        let count = viewModel.selectedEventCount
-        return "\(count) diagnostic event\(count == 1 ? "" : "s") selected."
+    private var evidenceSummaryBinding: Binding<Bool> {
+        Binding(
+            get: { !viewModel.selectedEventIDs.isEmpty },
+            set: { isOn in
+                if isOn {
+                    viewModel.selectAllEvents()
+                } else {
+                    viewModel.deselectAllEvents()
+                }
+            }
+        )
     }
 }

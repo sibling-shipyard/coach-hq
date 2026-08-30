@@ -3,14 +3,14 @@ import XCTest
 @testable import CoachHQ
 
 final class RageReportTests: XCTestCase {
-    func testEvidenceStartsUnselectedAndCanBeSelectedIndividually() {
+    func testEvidenceStartsSelectedAndCanBeDeselectedIndividually() {
         let events = makeEvents()
         let viewModel = RageReportViewModel(events: events, submitter: RecordingRageReportSubmitter())
 
         XCTAssertEqual(viewModel.availableEvents, events)
-        XCTAssertEqual(viewModel.selectedEventCount, 0)
+        XCTAssertEqual(viewModel.selectedEventCount, events.count)
 
-        viewModel.setSelected(true, for: events[1])
+        viewModel.setSelected(false, for: events[0])
 
         XCTAssertFalse(viewModel.isSelected(events[0]))
         XCTAssertTrue(viewModel.isSelected(events[1]))
@@ -21,7 +21,7 @@ final class RageReportTests: XCTestCase {
         let submitter = RecordingRageReportSubmitter()
         let viewModel = RageReportViewModel(events: events, submitter: submitter)
         viewModel.message = "  Crash when scrolling  "
-        viewModel.setSelected(true, for: events[1])
+        viewModel.setSelected(false, for: events[0])
 
         viewModel.submitReport()
 
@@ -50,6 +50,7 @@ final class RageReportTests: XCTestCase {
     func testSubmitWithoutSelectedEvidenceHasNoAttachment() throws {
         let submitter = RecordingRageReportSubmitter()
         let viewModel = RageReportViewModel(events: makeEvents(), submitter: submitter)
+        viewModel.deselectAllEvents()
         viewModel.message = "UI looks weird"
 
         viewModel.submitReport()
