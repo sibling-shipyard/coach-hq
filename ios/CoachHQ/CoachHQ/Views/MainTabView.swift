@@ -160,8 +160,19 @@ struct MainTabView: View {
                     WarmInstrumentHomeView()
                 }
                 tabRoot(.chat) {
-                    CoachChatView(requestedProactiveRoute: $pendingCoachMessageRoute)
-                        .environmentObject(authManager)
+                    // Gated on effectivePhase == .complete (not just opacity, like the other
+                    // tabs) - CoachChatView's .task fires greetNow() as soon as it's created,
+                    // and greetNow() reads OnboardingHints.load() to hand name/sports to the
+                    // server's First Session Protocol greet. Creating this view before
+                    // PersonalizeView/OnboardingRevealFlow have saved those hints means
+                    // greetNow() reads them back empty, so the server never records them and
+                    // Coach re-asks for both in chat (#671). Deferring construction itself,
+                    // not just visibility, ensures the .task's first run only happens once
+                    // those hints actually exist.
+                    if router.effectivePhase == .complete {
+                        CoachChatView(requestedProactiveRoute: $pendingCoachMessageRoute)
+                            .environmentObject(authManager)
+                    }
                 }
                 tabRoot(.workouts) {
                     WorkoutListView()
