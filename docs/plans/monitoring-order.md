@@ -4,7 +4,7 @@
 
 ## Context
 
-This is the remaining work for observability. Shipped history lives in git, not in this plan.
+Only active observability work belongs here. Shipped history lives in git, not in this plan.
 Complete the queue in order.
 
 ## Queue
