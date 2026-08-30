@@ -1,6 +1,6 @@
 # iOS App: Xcode Setup Instructions
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-22 · Partial — see "Unverified claims"
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-30 · Partial — see "Unverified claims"
 
 How to get the Coach HQ iOS app building and running on a physical iPhone from `main`.
 
@@ -12,7 +12,9 @@ steps left are signing and `Secrets.swift`.
 
 - macOS with **Xcode 26.x**. Not optional: the app target's `IPHONEOS_DEPLOYMENT_TARGET` is 26.0
   (project-level 26.5) and `CoachHQ.xcodeproj` is `objectVersion = 77`, so older Xcode can't open
-  or build it. CI pins `/Applications/Xcode_26.3.app` in `.github/workflows/ios-build.yml`.
+  or build it. CI runs on `macos-26` and pins `/Applications/Xcode_26.6.app` plus simulator
+  `OS=26.5` in `.github/workflows/ios-build.yml` — 26.2 has a concurrency-runtime bug that
+  kills the test host (#585).
 - A physical iPhone on **iOS 26.0+**, connected via USB. HealthKit needs a real device.
 - An Apple ID signed into Xcode. See the Signing step for the free-vs-paid caveat.
 - **No GitHub OAuth credentials.** Sign-in uses the shared coach-phelps-hq GitHub App with
