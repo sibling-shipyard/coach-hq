@@ -81,8 +81,9 @@ next one starts.
    request context, it awaits the same flush. **Done.**
 6. **Phase 5 — iOS.** Swift SDK, crashes with active view name, local timeline on problem reports.
    **Mostly done:** the SDK, crash capture, release and build number, athlete identity, active view
-   name, and the timeline buffer all shipped. The Rage Report UI is the remainder — PR #603, blocked
-   on a test-host crash that reproduces only on the runner's Xcode 26.3.
+   name, and the timeline buffer all shipped. The Rage Report UI is the remainder — PR #603, now
+   green. Its test-host crash was a bad free in simulator iOS 26.2's concurrency runtime, fixed by
+   moving CI to `macos-26` and pinning simulator 26.5.
 7. **Phase 6 — source maps and dSYMs.** Upload at build time so production stack frames are readable.
    **Not started.** Nothing uploads either artifact: `ui/vite.config.ts` loads no Sentry plugin,
    `@sentry/vite-plugin` is not a dependency, and the repo builds and tests `ios/` in CI but has no
