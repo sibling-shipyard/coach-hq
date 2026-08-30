@@ -93,6 +93,7 @@ final class RageReportViewModel: ObservableObject {
 
 struct RageReportView: View {
     @StateObject private var viewModel: RageReportViewModel
+    @FocusState private var messageFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
     init(viewModel: @autoclosure @escaping () -> RageReportViewModel = RageReportViewModel()) {
@@ -109,6 +110,7 @@ struct RageReportView: View {
                             .scrollContentBackground(.hidden)
                             .font(.system(size: 14))
                             .foregroundColor(WarmInstrument.ink)
+                            .focused($messageFocused)
                             .disabled(viewModel.submissionState == .queued)
                     }
 
@@ -202,6 +204,7 @@ struct RageReportView: View {
 
                     if viewModel.submissionState != .queued {
                         Button("Submit") {
+                            messageFocused = false
                             viewModel.submitReport()
                         }
                         .buttonStyle(PrimaryButtonStyle())
@@ -213,6 +216,7 @@ struct RageReportView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 32)
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(WarmInstrument.desk.ignoresSafeArea())
             .navigationTitle("Report a Problem")
             .navigationBarTitleDisplayMode(.inline)
@@ -229,6 +233,12 @@ struct RageReportView: View {
                             .foregroundColor(WarmInstrument.inkMuted)
                     }
                     .buttonStyle(.plain)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { messageFocused = false }
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Theme.ink)
                 }
             }
         }

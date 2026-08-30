@@ -1,57 +1,54 @@
-# iOS "Couldn't load Home" banner — root cause and fix
+# iOS Home banner + empty widgets — root cause and fix
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-29
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-30
 
 ## Context
 
-The Home error toast ("Couldn't load Home") fires on effectively every app open, even for an
-existing athlete with good cached data already showing behind it (`WidgetSnapshotStore.swift`
-L103-138, toast wired in `MainTabView.swift` L103-108). It doesn't auto-dismiss because
-`Toast.autoDismisses` is `false` for `.error` (`Theme.swift:619`) — by design, but that's what
-makes a transient race feel like a hard failure.
+Two confirmed Home failures (Rage Report / Sentry), plus one Rage Report UX nit.
 
-Prior attempts: **#549/#550** added a retry-once on `.notAuthenticated` and gated the workout
-observer on session-ready. **#551/#552** hardened token storage against two suspected causes
-(keychain-before-first-unlock, orphaned single-use refresh token) — neither confirmed. **#308**
-is the still-open athlete report, filed 2026-08-22, mistagged `ui-expert` (this is `ios/CoachHQ`
-code, iOS Builder's scope). A fresh build after both fixes still reproduces it every time, which
-argues against a rare race and for something more structural in the auth/token path.
+1. **Akash banner** — COACH-HQ-IOS-3. Cancelled duplicate Home fetch → sticky
+   "Couldn't load Home". Not auth.
+2. **Nats empty Home** — COACH-HQ-IOS-4 (`date2022`). Auto-capture:
+   `decodingFailed … missing "target" at home.phase.milestones.Index 0`.
+   Split-ledger path in `buildPhaseSnapshot` emits `target: item.target` which is
+   often undefined on progressions → whole snapshot decode fails → empty Home.
+3. **Rage Report keyboard** — TextEditor never dismisses; Submit sits behind the
+   keyboard. No Done toolbar / scroll-dismiss.
 
-**Sentry is deliberately out of scope for this plan** — coverage doesn't reach this path in a
-build the athlete can use today, and diagnosing it doesn't need to wait on that.
+Loading polish (skeleton → content feel) stays deferred until (1) ships.
 
 ## Decision
 
-Two PRs. First one gets us real evidence from the athlete's own device without another guess;
-second one fixes whatever that evidence shows.
-
 ```mermaid
 flowchart LR
-  A["PR1: on-device diagnostics"] --> B["athlete reproduces + copies text"]
-  B --> C["PR2: targeted fix"]
-  C --> D["verify: cold launches + fg/bg cycles"]
+  A["PR1: cancel + serialize refresh"] --> D["banner gone"]
+  B["PR2: milestone target contract"] --> E["Nats Home paints"]
+  C["PR1 nit: Rage Report keyboard"] --> F["Submit reachable"]
 ```
 
 | PR | outcome | files | owner | done when |
 |---|---|---|---|---|
-| 1 | Capture the real error, not just the friendly string | `WidgetSnapshotStore.swift` (new `lastErrorDetail`), `SettingsView.swift` (new HOME diag group + into `diagnosticsText`) | iOS Builder | Settings → Diagnostics → Copy includes the concrete error type/HTTP status for the last Home fetch failure |
-| 2 | Fix the confirmed cause | wherever PR1's evidence points (likely `GitHubAuthManager.swift` token/keychain path or `WidgetSnapshotStore.refresh()`) | iOS Builder | Banner does not fire across 5 cold launches + 5 fg/bg cycles on a real device |
-
-Alternative to PR1 for whoever's building: if you're already sitting at Xcode with the device
-attached, a throwaway `print()` in the same three catch sites plus the console is faster than
-shipping a build for it — skip PR1 and go straight to PR2 once you have the real error. Either
-path is fine; the athlete doesn't need Xcode for the Settings-panel path, does for the print path.
+| 1 | Ignore cancel; serialize refresh; keyboard dismiss on Rage Report | `WidgetSnapshotStore.swift`; `RageReportView.swift` (+ tiny Theme/toolbar if needed) | iOS Builder | 5 cold + 5 fg/bg no false banner; revoke still banners; Rage Report Done / scroll-dismiss reaches Submit |
+| 2 | Always emit a string `target` on phase milestones (split + legacy); optional iOS default `"—"` | `generate-widget-snapshots-from-dashboard-snapshot.ts` (+ bundle), tests; optionally `WidgetSnapshots.swift` | UI Expert (generator) ± iOS Builder | Nats Home loads; COACH-HQ-IOS-4 stops recurring on same payload shape |
+| 3 (later) | Smooth Home loading | `WarmInstrumentHomeView` / `HomeSkeletonView` | iOS Builder | Cache-first; soft crossfade; no full skeleton on warm cache |
 
 ## Done when
 
-- The banner does not appear on a normal cold launch or foreground resume for a signed-in athlete
-  with a valid session.
-- A deliberate revoke-token test (sign out server-side, relaunch) still shows the banner — proves
-  the fix didn't silently swallow a real auth failure.
-- #308 closed, #551 either confirmed or superseded by what PR1/PR2 actually found.
+- Banner gone for valid sessions; revoke still banners.
+- Nats Home shows widgets when hist has this week’s workouts.
+- Rage Report Submit reachable with keyboard up.
+- #308 closed or split.
 
 ## Deferred
 
-- Sentry coverage for this path — revisit only if it recurs after PR2 ships.
-- Any UI change to how error toasts auto-dismiss — not touching that unless the root cause turns
-  out to require it.
+- Full loading animation redesign (PR3).
+- Settings `lastErrorDetail` — Rage Report covers evidence.
+- Auto-dismiss policy for all error toasts.
+
+## Progress
+
+- **PR1 (branch `fix/ios-home-cancel-banner`):** `WidgetSnapshotStore` ignores
+  `CancellationError` / `NSURLErrorCancelled` for `lastError`; `isRefreshing` serializes
+  all refreshes (incl. `showSpinner: false`). Rage Report: scroll-dismiss keyboard + Done
+  toolbar + dismiss on Submit. Device verify (5 cold + 5 fg/bg, revoke still banners)
+  still athlete-side.
