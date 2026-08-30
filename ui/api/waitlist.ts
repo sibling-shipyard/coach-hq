@@ -6,7 +6,7 @@
  * (default sibling-shipyard/coach-phelps-hq).
  */
 import { commitFilesAtomic } from "./_lib/githubGitData.js";
-import { captureServerException, withContinuedTrace } from "./_lib/sentry.js";
+import { withSentryRoute } from "./_lib/sentry.js";
 
 const WAITLIST_PATH = "platform/waitlist.json";
 const DEFAULT_REPO = "sibling-shipyard/coach-phelps-hq";
@@ -56,10 +56,8 @@ async function readWaitlistFile(repo: string, token: string): Promise<WaitlistFi
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Entry, before anything can capture: opens the route's `http.server` span and flushes it
-    // before the response leaves. No `setAthleteScope` anywhere below - this endpoint has no
-    // auth and the person filling the form is not an athlete yet, so its events stay anonymous.
-    return withContinuedTrace(req, async () => {
+    // No auth: a person joining the waitlist is not an athlete yet, so this stays anonymous.
+    return withSentryRoute(req, async ({ captureException }) => {
       if (req.method !== "POST") {
         return Response.json({ error: "Method not allowed" }, { status: 405 });
       }
@@ -117,9 +115,7 @@ export default {
         );
       } catch (err) {
         console.error("waitlist commit failed:", err);
-        // End of the line: the signup is lost and nothing rethrows, so this is the only place a
-        // GitHub write failure can reach Sentry.
-        await captureServerException(err);
+        await captureException(err);
         return Response.json(
           { error: "Could not save your email — try again later" },
           { status: 502 },

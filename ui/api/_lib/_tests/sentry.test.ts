@@ -267,6 +267,29 @@ describe("initServerMonitoring tracing", () => {
   });
 });
 
+describe("server tags", () => {
+  afterEach(() => {
+    delete process.env.SENTRY_RELEASE;
+    delete process.env.VERCEL_GIT_COMMIT_SHA;
+    delete process.env.SENTRY_ENVIRONMENT;
+    delete process.env.VERCEL_ENV;
+  });
+
+  it("treats an empty SENTRY_RELEASE as unset", async () => {
+    process.env.SENTRY_RELEASE = "";
+    process.env.VERCEL_GIT_COMMIT_SHA = "abc123";
+
+    expect((await loadSentry()).sentryRelease).toBe("abc123");
+  });
+
+  it("treats an empty SENTRY_ENVIRONMENT as unset", async () => {
+    process.env.SENTRY_ENVIRONMENT = "";
+    process.env.VERCEL_ENV = "preview";
+
+    expect((await loadSentry()).sentryEnvironment).toBe("preview");
+  });
+});
+
 describe("withContinuedTrace", () => {
   const INCOMING_TRACE_ID = "0af7651916cd43dd8448eb211c80319c";
   const INCOMING = `${INCOMING_TRACE_ID}-b7ad6b7169203331-1`;

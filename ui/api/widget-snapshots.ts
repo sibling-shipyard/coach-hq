@@ -13,15 +13,13 @@ import { generateWidgetSnapshotsFromDashboardSnapshot } from "./auth/_lib/genera
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { getFileRaw } from "./coach-chat/_lib/coachChatFiles.js";
-import { captureServerException, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
+import { withSentryRoute } from "./_lib/sentry.js";
 
 const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Entry, before anything can capture: joins the browser's trace so both events share one,
-    // opens the route's `http.server` span, and flushes it before the response leaves.
-    return withContinuedTrace(req, async () => {
+    return withSentryRoute(req, async ({ captureException, setAthleteScope }) => {
       if (req.method !== "GET") {
         return Response.json({ error: "Method not allowed" }, { status: 405 });
       }
@@ -34,18 +32,17 @@ export default {
         const resolved = await resolveRepoAuth(req);
         if (resolved instanceof Response) return resolved;
         auth = resolved;
-        // Who, as soon as it is known. Everything below can capture; nothing above can say whose
-        // request this is, so an auth failure stays as anonymous as it is today.
         setAthleteScope(auth.repo_full_name);
 
         const [fetched, latestCoachMessage] = await Promise.all([
           fetchRepoDashboardSnapshot(auth.repo_full_name, auth.gh_token),
-          getFileRaw(auth.repo_full_name, LATEST_COACH_MESSAGE_PATH, auth.gh_token).catch((err) => {
-            // Soft by design: the proactive message is an extra, and the widgets render without
-            // it. A designed fallback is not a failure, so it warns rather than capturing.
-            console.warn("[widget-snapshots] proactive message unavailable", err);
-            return null;
-          }),
+          getFileRaw(auth.repo_full_name, LATEST_COACH_MESSAGE_PATH, auth.gh_token).catch(
+            async (err) => {
+              console.warn("[widget-snapshots] proactive message unavailable", err);
+              await captureException(err);
+              return null;
+            },
+          ),
         ]);
         if ("error" in fetched) {
           return withSessionCookie(
@@ -85,9 +82,7 @@ export default {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Snapshot generation failed";
         console.error("[widget-snapshots]", err);
-        // End of the line: the athlete gets a 500 and nothing rethrows, so a GitHub failure or a
-        // crash inside the snapshot models reaches Sentry only if it is captured here.
-        await captureServerException(err);
+        await captureException(err);
         return withSessionCookie(
           Response.json({ error: message }, { status: 500 }),
           auth?.setCookie,

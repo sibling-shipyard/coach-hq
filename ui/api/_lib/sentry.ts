@@ -26,10 +26,10 @@ import * as Sentry from "@sentry/node";
 import { scrubSentryEvent } from "../../observability/sentryScrubber.js";
 
 export const sentryRelease =
-  process.env.SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "development";
+  process.env.SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA || "development";
 
 export const sentryEnvironment =
-  process.env.SENTRY_ENVIRONMENT ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
+  process.env.SENTRY_ENVIRONMENT || process.env.VERCEL_ENV || process.env.NODE_ENV || "development";
 
 /**
  * Sample every trace. Right for four athletes; the runbook says to set the var explicitly before
@@ -133,6 +133,30 @@ export function withContinuedTrace<T>(req: Request, handler: () => Promise<T>): 
   if (!initServerMonitoring()) return handler();
   const { pathname } = new URL(req.url);
   return Sentry.withIsolationScope(() => continueTraceInto(req, pathname, handler));
+}
+
+export interface SentryRouteContext {
+  /** Set as soon as auth resolves an owner/repo; leave unset for anonymous routes and failures. */
+  setAthleteScope(repoFullName: string): void;
+  /** Capture faults a route converts into a response instead of throwing. */
+  captureException(error: unknown): Promise<CaptureResult>;
+}
+
+/**
+ * Run one API route inside its request trace and request-scoped Sentry context.
+ *
+ * Escaped errors are captured by `withContinuedTrace`. A route that deliberately converts a
+ * fault into a response must call `captureException` first. Auth routes may set identity when
+ * they establish it; authenticated routes set it immediately after auth resolves. A route with
+ * no auth leaves it unset.
+ */
+export function withSentryRoute<T>(
+  req: Request,
+  handler: (sentry: SentryRouteContext) => Promise<T>,
+): Promise<T> {
+  return withContinuedTrace(req, () =>
+    handler({ setAthleteScope, captureException: captureServerException }),
+  );
 }
 
 /** The body of `withContinuedTrace`, split out only to keep the isolation-scope fork one line. */

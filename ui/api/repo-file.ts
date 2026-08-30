@@ -5,7 +5,7 @@
  * base64 for files under ~1MB, and a real dashboard snapshot can exceed that.
  */
 import { ensureFreshSession, withSessionCookie } from "./auth/_lib/session.js";
-import { captureServerException, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
+import { withSentryRoute } from "./_lib/sentry.js";
 
 const GH_HEADERS = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -15,9 +15,7 @@ const GH_HEADERS = (token: string) => ({
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Entry, before anything can capture: joins the browser's trace so both events share one,
-    // opens the route's `http.server` span, and flushes it before the response leaves.
-    return withContinuedTrace(req, async () => {
+    return withSentryRoute(req, async ({ captureException, setAthleteScope }) => {
       const fresh = await ensureFreshSession(req);
       if (fresh instanceof Response) return fresh;
       const { session, setCookie } = fresh;
@@ -31,8 +29,6 @@ export default {
           setCookie,
         );
       }
-      // Who, as soon as it is known. A session with no resolved repo returned above, so
-      // everything from here on can be attributed.
       setAthleteScope(session.repo_full_name);
 
       let contentsRes: Response;
@@ -47,7 +43,7 @@ export default {
         // Swallowing it is what makes this the end of the line: the athlete sees an empty
         // dashboard and the throw is recorded nowhere else.
         console.error("[repo-file]", err);
-        await captureServerException(err);
+        await captureException(err);
         return withSessionCookie(
           Response.json({ error: "Failed to fetch your data" }, { status: 502 }),
           setCookie,
@@ -80,7 +76,7 @@ export default {
         // outage, not an answer. Nothing threw, so the status is all there is to report.
         const err = new Error(`GitHub returned ${contentsRes.status} for dashboard_snapshot.json`);
         console.error("[repo-file]", err);
-        await captureServerException(err);
+        await captureException(err);
         return withSessionCookie(
           Response.json({ error: "Failed to fetch your data" }, { status: 502 }),
           setCookie,
@@ -94,7 +90,7 @@ export default {
         // Same reasoning as the fetch catch above: a snapshot the athlete's repo cannot parse
         // breaks their whole dashboard, and this 502 is the only trace of it.
         console.error("[repo-file] snapshot is not valid JSON", err);
-        await captureServerException(err);
+        await captureException(err);
         return withSessionCookie(
           Response.json(
             { error: "gen/dashboard_snapshot.json is not valid JSON" },

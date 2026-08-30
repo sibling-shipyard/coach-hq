@@ -18,7 +18,7 @@ const REPO = "alice/coach-alice";
 const {
   captureServerException,
   setAthleteScope,
-  withContinuedTrace,
+  withSentryRoute,
   loadCoachContext,
   isAthleteProfileComplete,
   getFileRaw,
@@ -27,8 +27,15 @@ const {
 } = vi.hoisted(() => ({
   captureServerException: vi.fn(async () => ({ sent: true })),
   setAthleteScope: vi.fn(),
-  // Pass-through, like the real one with no DSN: the handler runs exactly as it would have.
-  withContinuedTrace: vi.fn(async (_req: Request, handler: () => Promise<unknown>) => handler()),
+  withSentryRoute: vi.fn(
+    async (
+      _req: Request,
+      handler: (sentry: {
+        captureException: typeof captureServerException;
+        setAthleteScope: typeof setAthleteScope;
+      }) => Promise<unknown>,
+    ) => handler({ captureException: captureServerException, setAthleteScope }),
+  ),
   loadCoachContext: vi.fn(),
   isAthleteProfileComplete: vi.fn(() => true),
   getFileRaw: vi.fn(async () => null),
@@ -37,9 +44,7 @@ const {
 }));
 
 vi.mock("../_lib/sentry.js", () => ({
-  captureServerException,
-  setAthleteScope,
-  withContinuedTrace,
+  withSentryRoute,
 }));
 vi.mock("../coach-chat/_lib/coachChatFiles.js", () => ({
   loadCoachContext,
@@ -89,6 +94,7 @@ function waitlistRequest(): Request {
 beforeEach(() => {
   vi.clearAllMocks();
   isAthleteProfileComplete.mockReturnValue(true);
+  getFileRaw.mockResolvedValue(null);
   process.env.WAITLIST_GITHUB_TOKEN = "waitlist-token";
   process.env.WAITLIST_GITHUB_REPO = "sibling-shipyard/coach-phelps-hq";
 });
@@ -109,10 +115,10 @@ describe("every route opens the span", () => {
     await waitlist.fetch(waitlistRequest());
     await widgetSnapshots.fetch(bearerRequest("widget-snapshots"));
 
-    expect(withContinuedTrace).toHaveBeenCalledTimes(5);
+    expect(withSentryRoute).toHaveBeenCalledTimes(5);
     // The wrapper reads the URL for the span name, so it has to get the request itself. The
     // repo-file call above never reaches GitHub - that session has no repo - and is still wrapped.
-    expect(withContinuedTrace.mock.calls[0][0]).toBeInstanceOf(Request);
+    expect(withSentryRoute.mock.calls[0][0]).toBeInstanceOf(Request);
   });
 });
 
@@ -149,6 +155,17 @@ describe("routes that read an athlete", () => {
     expect(setAthleteScope).toHaveBeenCalledWith(REPO);
     expect(captureServerException).toHaveBeenCalledWith(boom);
     expect(res.status).toBe(500);
+  });
+
+  it("captures a failed proactive-message read while preserving the widget fallback", async () => {
+    const boom = new Error("proactive message fetch failed");
+    getFileRaw.mockRejectedValue(boom);
+    fetchRepoDashboardSnapshot.mockResolvedValue({ error: "not synced yet", status: 404 });
+
+    const res = await widgetSnapshots.fetch(bearerRequest("widget-snapshots"));
+
+    expect(res.status).toBe(404);
+    expect(captureServerException).toHaveBeenCalledWith(boom);
   });
 
   it("tags repo-file and captures the network error it turns into a 502", async () => {

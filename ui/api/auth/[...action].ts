@@ -41,7 +41,7 @@ import {
   verifyOAuthState,
   fromBase64Url,
 } from "./_lib/pkce.js";
-import { captureServerException, setAthleteScope, withContinuedTrace } from "../_lib/sentry.js";
+import { type SentryRouteContext, withSentryRoute } from "../_lib/sentry.js";
 
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
@@ -225,16 +225,13 @@ function callbackSetupRedirect(
   return new Response(null, { status: 302, headers });
 }
 
-export async function handleCallback(req: Request): Promise<Response> {
+export async function handleCallback(req: Request, sentry: SentryRouteContext): Promise<Response> {
   const url = new URL(req.url);
   try {
-    return await callbackImpl(url);
+    return await callbackImpl(url, sentry);
   } catch (error) {
     console.error("[auth/callback]", error);
-    // End of the line for the whole OAuth exchange: this catch answers with a 302 the browser
-    // follows, so without capturing here the error exists nowhere. Anonymous on purpose - a
-    // login that failed has no repo, so there is no athlete to attribute it to.
-    await captureServerException(error);
+    await sentry.captureException(error);
     return callbackErrorRedirect(
       url.origin,
       "network_error",
@@ -246,7 +243,7 @@ export async function handleCallback(req: Request): Promise<Response> {
 // GitHub API calls below aren't individually try/caught - a thrown exception (DNS blip, timeout)
 // is caught by handleCallback's wrapper above instead of falling through to Vercel's generic
 // 500 page.
-async function callbackImpl(url: URL): Promise<Response> {
+async function callbackImpl(url: URL, sentry: SentryRouteContext): Promise<Response> {
   // Extract platform before any other check so even the config_error bailout routes iOS
   // to coachhq:// instead of the web homepage - see extractPlatformFromState's doc comment.
   const unverifiedPlatform = extractPlatformFromState(url.searchParams.get("state"));
@@ -318,6 +315,7 @@ async function callbackImpl(url: URL): Promise<Response> {
     installationId = await resolveInstallationId(ghToken, user.login as string, APP_SLUG);
   } catch (e) {
     if (e instanceof InstallationLookupFailedError) {
+      await sentry.captureException(e);
       return callbackErrorRedirect(url.origin, "lookup_failed", platform, popup);
     }
     throw e;
@@ -349,6 +347,7 @@ async function callbackImpl(url: URL): Promise<Response> {
   // outright on 2+ candidates.
   if (platform === "ios") {
     const confirmed = await resolveOwnedRepos(installationId, ghToken, user.login as string);
+    if (confirmed.length === 1) sentry.setAthleteScope(confirmed[0]);
     const repoParam = confirmed.length === 1 ? `&repo=${encodeURIComponent(confirmed[0])}` : "";
     const headers = new Headers();
     headers.set(
@@ -393,13 +392,10 @@ export async function handleLogout(): Promise<Response> {
 // ============================================================================
 // me.ts — returns current session user info.
 // ============================================================================
-export async function handleMe(req: Request): Promise<Response> {
+export async function handleMe(req: Request, sentry: SentryRouteContext): Promise<Response> {
   const fresh = await ensureFreshSession(req);
   if (fresh instanceof Response) return fresh;
-  // Who, as soon as it is known. A session that has not resolved a repo yet has no athlete id
-  // to set - `athlete_id` is the owner half of `owner/repo` everywhere else, and a login is not
-  // that value's source anywhere in this codebase.
-  if (fresh.session.repo_full_name) setAthleteScope(fresh.session.repo_full_name);
+  if (fresh.session.repo_full_name) sentry.setAthleteScope(fresh.session.repo_full_name);
 
   return withSessionCookie(
     Response.json({
@@ -419,7 +415,7 @@ export async function handleMe(req: Request): Promise<Response> {
 // No cookie/bearer auth here - possession of a valid refresh_token is the auth; GitHub's own
 // token endpoint validates it, same trust model as handleCallback's initial exchange.
 // ============================================================================
-export async function handleRefresh(req: Request): Promise<Response> {
+export async function handleRefresh(req: Request, sentry: SentryRouteContext): Promise<Response> {
   if (req.method !== "POST") {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
@@ -449,9 +445,7 @@ export async function handleRefresh(req: Request): Promise<Response> {
     });
   } catch (err) {
     console.error("[auth/refresh]", err);
-    // Nothing rethrows, so capture here or nowhere. iOS retries this 502 instead of surfacing
-    // it, which is what makes a GitHub outage look like a merely slow app.
-    await captureServerException(err);
+    await sentry.captureException(err);
     return Response.json({ error: "network_error" }, { status: 502 });
   }
 
@@ -501,6 +495,7 @@ interface ListMyReposAuthContext {
 
 async function resolveListMyReposAuthContext(
   req: Request,
+  sentry: SentryRouteContext,
 ): Promise<ListMyReposAuthContext | Response> {
   const cookies = parseCookies(req);
   if (cookies[SESSION_COOKIE]) {
@@ -538,6 +533,7 @@ async function resolveListMyReposAuthContext(
     installationId = await resolveInstallationId(token, user.login as string, APP_SLUG);
   } catch (e) {
     if (e instanceof InstallationLookupFailedError) {
+      await sentry.captureException(e);
       return Response.json({ error: "Failed to look up installation" }, { status: 502 });
     }
     throw e;
@@ -559,25 +555,23 @@ function withUpdatedSession(body: unknown, sessionToken: string, status = 200): 
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-export async function handleListMyRepos(req: Request): Promise<Response> {
+export async function handleListMyRepos(
+  req: Request,
+  sentry: SentryRouteContext,
+): Promise<Response> {
   // Declared outside the try block so a throw can still attach a rotated cookie -
   // refresh_token is single-use (ADR 0009), losing a rotation strands the next request.
   let ctx: ListMyReposAuthContext | undefined;
   try {
-    const resolved = await resolveListMyReposAuthContext(req);
+    const resolved = await resolveListMyReposAuthContext(req, sentry);
     if (resolved instanceof Response) return resolved;
     ctx = resolved;
-    // Who, as soon as it is known. Only the cookie path arrives with a repo already resolved;
-    // the bearer path and a first-time session have none until listMyReposImpl picks one, so
-    // those requests stay anonymous rather than carrying a guess.
-    if (ctx.repo_full_name) setAthleteScope(ctx.repo_full_name);
-    return await listMyReposImpl(req, ctx);
+    if (ctx.repo_full_name) sentry.setAthleteScope(ctx.repo_full_name);
+    return await listMyReposImpl(req, ctx, sentry);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to look up your repos";
     console.error("[list-my-repos]", err);
-    // End of the line: the athlete gets a 502 and nothing rethrows, so this is the only place
-    // a GitHub or session failure on this path can reach Sentry.
-    await captureServerException(err);
+    await sentry.captureException(err);
     return withSessionCookie(
       Response.json({ error: message }, { status: 502 }),
       ctx?.rotatedCookie,
@@ -585,7 +579,11 @@ export async function handleListMyRepos(req: Request): Promise<Response> {
   }
 }
 
-async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promise<Response> {
+async function listMyReposImpl(
+  req: Request,
+  ctx: ListMyReposAuthContext,
+  sentry: SentryRouteContext,
+): Promise<Response> {
   // Re-confirm an already-resolved repo still exists and is owned by this account before
   // trusting it. Bearer auth never has a cached repo_full_name.
   if (ctx.repo_full_name && isOwnedBy(ctx.repo_full_name, ctx.login)) {
@@ -613,6 +611,7 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
     confirmed = await resolveOwnedRepos(ctx.installation_id, ctx.gh_token, ctx.login);
   } catch (e) {
     if (e instanceof MarkerLookupFailedError) {
+      await sentry.captureException(e);
       return withSessionCookie(
         Response.json({ error: "Failed to check your repos - try again" }, { status: 502 }),
         ctx.rotatedCookie,
@@ -623,6 +622,7 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
 
   // Auto-select on exactly one match.
   if (confirmed.length === 1) {
+    sentry.setAthleteScope(confirmed[0]);
     if (ctx.via === "bearer") {
       return Response.json({ repo_full_name: confirmed[0] });
     }
@@ -667,14 +667,7 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
 // ============================================================================
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Entry, before anything can capture: joins the browser's trace so both events share one,
-    // opens the route's `http.server` span, and flushes it before the response leaves. There is
-    // no try/catch here, unlike coach-chat.ts and coach-message.ts: those turn a throw into JSON
-    // the client can read, while half the actions below are browser navigations that answer with
-    // a 302. An error that escapes a handler is still captured - withContinuedTrace captures on
-    // its way out and rethrows, leaving the response Vercel already produced unchanged. The three
-    // handlers that swallow a throw into a redirect or a 502 capture it themselves first.
-    return withContinuedTrace(req, async () => {
+    return withSentryRoute(req, async (sentry) => {
       const url = new URL(req.url);
       const action = url.pathname.replace(/^\/api\/auth\/?/, "").replace(/\/$/, "");
       switch (action) {
@@ -683,15 +676,15 @@ export default {
         case "install-redirect":
           return handleInstallRedirect(req);
         case "callback":
-          return handleCallback(req);
+          return handleCallback(req, sentry);
         case "logout":
           return handleLogout();
         case "me":
-          return handleMe(req);
+          return handleMe(req, sentry);
         case "refresh":
-          return handleRefresh(req);
+          return handleRefresh(req, sentry);
         case "list-my-repos":
-          return handleListMyRepos(req);
+          return handleListMyRepos(req, sentry);
         default:
           return Response.json({ error: "Not found" }, { status: 404 });
       }

@@ -13,13 +13,11 @@
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { loadCoachContext } from "./coach-chat/_lib/coachChatFiles.js";
-import { captureServerException, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
+import { withSentryRoute } from "./_lib/sentry.js";
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    // Entry, before anything can capture: joins the browser's trace so both events share one,
-    // opens the route's `http.server` span, and flushes it before the response leaves.
-    return withContinuedTrace(req, async () => {
+    return withSentryRoute(req, async ({ captureException, setAthleteScope }) => {
       if (req.method !== "GET") {
         return Response.json({ error: "Method not allowed" }, { status: 405 });
       }
@@ -29,8 +27,6 @@ export default {
         const resolved = await resolveRepoAuth(req);
         if (resolved instanceof Response) return resolved;
         auth = resolved;
-        // Who, as soon as it is known. Everything below can capture; nothing above can say whose
-        // request this is, so an auth failure stays as anonymous as it is today.
         setAthleteScope(auth.repo_full_name);
 
         const context = await loadCoachContext(auth.repo_full_name, auth.gh_token);
@@ -39,9 +35,7 @@ export default {
         const message = err instanceof Error ? err.message : "Coach chat context failed";
         const status = (err as { status?: number }).status === 401 ? 401 : 500;
         console.error("[coach-chat-context]", err);
-        // End of the line: the athlete gets a status and nothing rethrows, so a GitHub or
-        // session failure reaches Sentry only if it is captured here.
-        await captureServerException(err);
+        await captureException(err);
         return withSessionCookie(Response.json({ error: message }, { status }), auth?.setCookie);
       }
     });
