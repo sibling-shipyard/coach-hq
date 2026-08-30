@@ -110,9 +110,9 @@ export function setAthleteUser(repoFullName: string | null | undefined): void {
 /**
  * The scope one Rage Report is sent under: the athlete's own report of a failure that never threw.
  *
- * `fingerprint` is the same string `RageReportSubmission.swift` sets, so web and iOS reports land
- * in one Sentry issue instead of two; `surface` is what tells them apart inside it. `operation`
- * overrides the `web` set on `initialScope`, which is what the Rage Report alert rule matches on.
+ * `fingerprint` is the same string `RageReportSubmission.swift` sets, so web reports group
+ * together the way iOS reports already do — each in its own project. `operation` overrides
+ * the `web` set on `initialScope`, which is what the Rage Report alert rule matches on.
  */
 const RAGE_REPORT_SCOPE = {
   fingerprint: ["rage_report"],

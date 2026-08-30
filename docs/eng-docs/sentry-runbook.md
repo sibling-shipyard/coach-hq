@@ -65,8 +65,8 @@ filter.** Both halves matter. `RageReportSubmission.swift` and web's `submitRage
 looks built while never firing. And reports group stably by fingerprint (#699), so a first-seen
 condition would fire once and stay silent forever after.
 
-Both surfaces set the same `rage_report` fingerprint, so web and iOS reports land in one issue. The
-`surface` tag (`web` / absent on iOS) is what tells them apart inside it.
+Both surfaces set the same `rage_report` fingerprint, so each project's reports group into one
+issue. They do not share an issue: web is `coach-hq-web`, iOS is `coach-hq-ios`.
 
 ## Query from a terminal
 

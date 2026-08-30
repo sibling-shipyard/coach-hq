@@ -57,7 +57,7 @@ a real production row.
 | 4 | Are we crashing? | crash-free sessions, web and iOS only |
 | 5 | What do tokens cost? | `gen_ai.usage.total_tokens` by model |
 | 6 | Is phone data arriving? | `transaction:healthkit.sync`, outcome and item count |
-| 7 | Is an athlete angry? | `operation:rage_report`, newest first; `surface` splits web from iOS |
+| 7 | Is an athlete angry? | `operation:rage_report`, newest first; web and iOS are separate projects |
 
 Only web and iOS belong in question 4. The serverless API counts a session per request, so its
 session rate is traffic disguised as health. Over 30 days that is 7091 API "sessions" against 71
