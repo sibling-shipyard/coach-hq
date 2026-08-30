@@ -34,29 +34,9 @@ nothing at all.
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 5 | [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) — unblock the Rage Report test-host crash | Medium, could be High — root cause unknown until sanitizer output names it | In progress — sanitizer now runs in CI | `ios-build.yml` green on that branch |
-| 6 | Ship the Rage Report | Low — the PR is already written, 43 files; only 5 blocks it | **Blocked** on item 5 | An athlete submits a note plus selected timeline events; Cancel sends nothing |
-| 7 | The three alert rules from `sentry-runbook.md` | Low — two rules now, the third needs the Rage Report | **Deferred**, athlete's call — watching the dashboard by hand until item 5 lands | A new production error pages us within 15 minutes |
+| 6 | Ship the Rage Report | Low — the PR is already written, 6 files | **Ready** — reviewed; one P1 and two P2s being fixed on the branch | An athlete submits a note plus selected timeline events; Cancel sends nothing |
+| 7 | The three alert rules from `sentry-runbook.md` | Low — two rules now, the third needs the Rage Report | **Deferred**, athlete's call — watching the dashboard by hand until item 6 lands | A new production error pages us within 15 minutes |
 | 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Not started | Key absent from every URL; outbound spans can be turned back on |
-
-**5 is the iOS testing item.** `RageReportTests` crashes the test host with `malloc: pointer being
-freed was not allocated`. Deterministic, not flaky.
-
-**It is not one test.** All six methods crash, each on its own relaunch, always whichever one that
-process reaches first. Every other suite passes in the same process, before and after. The address
-is `0x262543f60` on the first launch and `0x262543f40` on all six relaunches. The test bodies are
-pure — fake submitter, hand-built events — so suspect first touch of shared state on the Rage
-Report path. Two candidates: `DiagnosticsScrubber.patterns`
-(`ios/CoachHQ/CoachHQ/Services/DiagnosticsManager.swift:35`), a lazy static array of
-`NSRegularExpression`; or the first `RageReportViewModel` construction.
-
-**It does not reproduce locally — do not try again.** Two runs on Xcode 26.6, simulator iOS 26.5,
-otherwise byte-identical to the CI command: sanitizer on, then off. Both green on all 92 tests,
-`RageReportTests` included. The runner is Xcode 26.3 on simulator iOS 26.2, and that gap is the
-only variable left. So the sanitizer has to run in CI, which `c891ef0` on the branch now does.
-
-That also kills the code-signing theory. CI logs Keychain `-34018` because the runner builds
-`CODE_SIGNING_ALLOWED=NO`, but both local runs used that same flag and stayed green.
 
 ## P2 — robustness, not blocking
 
@@ -86,6 +66,7 @@ item 11, which touches docs anyway.
 | 10 | Sample rate range-checked on both sides, not just parsed | 2026-08-30, [#666](https://github.com/sibling-shipyard/coach-hq/pull/666) |
 | 13 | One `http.server` span per request — the SDK duplicate is off | 2026-08-30, [#666](https://github.com/sibling-shipyard/coach-hq/pull/666) |
 | 11 | `operation` set by web and API, every runbook query corrected | 2026-08-30, [#667](https://github.com/sibling-shipyard/coach-hq/pull/667) |
+| 5 | The Rage Report test-host crash — CI moved to `macos-26`, simulator pinned to 26.5 | 2026-08-30, [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) |
 | 9 | Route span flush runs under Vercel `waitUntil`, off the coach-reply path | 2026-08-30, [#680](https://github.com/sibling-shipyard/coach-hq/pull/680), closing #643 |
 
 Item 15 is worth remembering. Apple rejected the archive because the embedded `Sentry.framework`
@@ -113,6 +94,21 @@ Item 2 closed by measurement, not by a fix. Production `gen_ai` spans ran 3 `ok`
 all-error picture that started it was 9 preview spans from PR verification. Those were our own
 deliberate test failures, read as a production alarm. **Split by environment before drawing any
 conclusion from span data.**
+
+Item 5 was never our bug. Simulator iOS 26.2 has a bad free inside
+`swift_task_deinitOnExecutorImpl`, reached through `TaskLocal::StopLookupScope`. Releasing a
+main-actor class inside a synchronous test body is enough to kill the host, and
+`RageReportViewModel` is one. `macos-15` ships nothing newer than 26.2, so the job moved to
+`macos-26` with Xcode 26.6 and simulator 26.5 — the pair a developer machine had been passing on
+all along. The destination pins `OS=26.5` so a future image cannot drop us back onto a bad runtime
+in silence.
+
+**The signal was misread for a day.** Green locally and red in CI was treated as an obstacle to
+work around. It was the diagnosis: the only difference between the two was the simulator runtime.
+Two theories died first. Code signing: both local runs used
+`CODE_SIGNING_ALLOWED=NO` and stayed green. A nested isolated deinit: the fix verifiably removed
+the nesting and changed nothing. AddressSanitizer named the real frame in one run, on the
+runner. **Run the sanitizer where the crash reproduces, before theorising about the code.**
 
 Item 13 is worth keeping straight. `spans: false` would have killed the outbound spans too;
 `disableIncomingRequestSpans: true` removes only the SDK's duplicate incoming span, and the manual
