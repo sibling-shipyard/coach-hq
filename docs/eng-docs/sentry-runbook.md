@@ -40,7 +40,9 @@ flowchart LR
    `5873386`. Its widgets and the questions they answer live in `ops-monitoring-dashboard.md` —
    that doc owns the widget list, so it is not repeated here. Route alerts from the table below to
    team email plus the Sentry mobile app; use a five-minute notification interval. A short time
-   window can still be empty with four athletes. The alerts are not built yet.
+   window can still be empty with four athletes. None of the three alerts below is built.
+   `coach-hq-web` and `coach-hq-ios` do carry Sentry's default high-priority-issue rule;
+   `coach-hq-api`, which raises most of our errors, carries nothing.
 
 Every error has an `operation` tag: `web` for browser errors, the API route without `/api/` with
 slashes changed to dots (for example `auth.callback`), or the native operation name on iOS. Use it
