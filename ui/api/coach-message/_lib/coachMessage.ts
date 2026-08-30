@@ -1,4 +1,5 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
+import { GEMINI_PRO } from "../../_lib/geminiModel.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
@@ -8,7 +9,6 @@ export const MAX_ACTIVITY_IDS = 20;
 const MAX_ACTIVITY_ID_LENGTH = 80;
 const MAX_MESSAGE_LENGTH = 360;
 const MAX_SENTENCE_LENGTH = 180;
-const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
 
 const HEALTHKIT_ACTIVITY_ID =
@@ -766,9 +766,9 @@ export async function generateProactiveBody(
   fetcher: typeof fetchWithTimeout = fetchWithTimeout,
 ): Promise<string> {
   try {
-    return await withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
+    return await withGeminiSpan(GEMINI_PRO, async (recordUsage) => {
       const response = await fetcher(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRO}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -826,7 +826,7 @@ export async function generateProactiveBody(
     const status = (err as { status?: number }).status ?? 500;
     console.error("[coach-message] generateProactiveBody failed:", err);
     await captureGeminiFailure(err, {
-      model: GEMINI_MODEL,
+      model: GEMINI_PRO,
       upstreamStatus: status,
       turnMode: "proactive_message",
       // The proactive message is generated from activity/context data, not athlete-typed text —

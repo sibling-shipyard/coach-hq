@@ -19,6 +19,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { GEMINI_PRO } from "../../_lib/geminiModel.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import type { FileEntry } from "../../_lib/githubGitData.js";
@@ -282,8 +283,6 @@ interface TemplateAdjustment {
   progression_notes?: string;
 }
 
-const GEMINI_MODEL = "gemini-flash-latest";
-
 // Injectable so tests can supply a fake instead of hitting the real network - matches this
 // codebase's existing pattern of the network call living in its own small function
 // (geminiClient.ts's askGemini) that callers can swap out.
@@ -336,9 +335,9 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
     },
   };
 
-  return withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
+  return withGeminiSpan(GEMINI_PRO, async (recordUsage) => {
     const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_PRO}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -409,7 +408,7 @@ export async function generateInitialTemplates(
     // library templates below so onboarding always produces something.
     await captureGeminiFailure(err, {
       traceId,
-      model: GEMINI_MODEL,
+      model: GEMINI_PRO,
       upstreamStatus: (err as { status?: number }).status ?? 500,
       turnMode: "template_adjust",
       // The adjustment pass personalizes library templates from athlete memory, not from

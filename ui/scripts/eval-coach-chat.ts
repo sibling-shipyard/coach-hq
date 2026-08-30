@@ -60,6 +60,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GEMINI_PRO } from "../api/_lib/geminiModel.js";
 import { askGemini } from "../api/coach-chat/_lib/geminiClient.js";
 import type { ChatMessage } from "../api/coach-chat/_lib/chatThreads.js";
 import type { TurnMode } from "../api/coach-chat/_lib/coachReplySchema.js";
@@ -166,11 +167,12 @@ const SAVE_CLAIM_PHRASES = [
 
 // Gitignored: results are per-machine and per-key, never shared or committed.
 const CACHE_PATH = path.join(uiRoot, ".eval-cache.json");
-const MODEL = "gemini-flash-latest"; // mirrors geminiClient.ts's GEMINI_MODEL
+const MODEL = GEMINI_PRO;
 
 // Files whose content changes what gets sent to Gemini. A cached PASS is only valid while all of
 // them are unchanged - otherwise the cache would vouch for a prompt that no longer exists.
 const PROMPT_SOURCES = [
+  path.join(uiRoot, "api", "_lib", "geminiModel.ts"),
   path.join(uiRoot, "api", "coach-chat", "_lib", "coachPromptText.ts"),
   path.join(uiRoot, "api", "coach-chat", "_lib", "coachReplySchema.ts"),
   path.join(uiRoot, "api", "coach-chat", "_lib", "geminiClient.ts"),
