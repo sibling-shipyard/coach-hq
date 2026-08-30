@@ -5,13 +5,7 @@
  * base64 for files under ~1MB, and a real dashboard snapshot can exceed that.
  */
 import { ensureFreshSession, withSessionCookie } from "./auth/_lib/session.js";
-import {
-  athleteIdForRepo,
-  captureExceptionOnce,
-  monitorServerRequest,
-  setMonitoringAthlete,
-  setMonitoringStage,
-} from "./_lib/sentry.js";
+import { captureServerException, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
 
 const GH_HEADERS = (token: string) => ({
   Authorization: `Bearer ${token}`,
@@ -21,104 +15,86 @@ const GH_HEADERS = (token: string) => ({
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    return monitorServerRequest(req, "homepage repo-data load", async () => {
-      setMonitoringStage("authenticate");
+    // Entry, before anything can capture: joins the browser's trace so both events share one,
+    // opens the route's `http.server` span, and flushes it before the response leaves.
+    return withContinuedTrace(req, async () => {
       const fresh = await ensureFreshSession(req);
       if (fresh instanceof Response) return fresh;
       const { session, setCookie } = fresh;
-      setMonitoringAthlete(athleteIdForRepo(session.repo_full_name));
 
       if (!session.repo_full_name) {
         return withSessionCookie(
           Response.json(
-            {
-              error:
-                "No repo resolved yet - visit /api/auth/list-my-repos first",
-            },
+            { error: "No repo resolved yet - visit /api/auth/list-my-repos first" },
             { status: 400 },
           ),
           setCookie,
         );
       }
+      // Who, as soon as it is known. A session with no resolved repo returned above, so
+      // everything from here on can be attributed.
+      setAthleteScope(session.repo_full_name);
 
       let contentsRes: Response;
-      setMonitoringStage("github_fetch_dashboard");
       try {
         contentsRes = await fetch(
           `https://api.github.com/repos/${session.repo_full_name}/contents/gen/dashboard_snapshot.json`,
           { headers: GH_HEADERS(session.gh_token) },
         );
-      } catch (error) {
-        captureExceptionOnce(error);
+      } catch (err) {
         // A thrown network error would otherwise propagate uncaught and drop setCookie,
         // stranding the next request with an already-rotated-away refresh_token (ADR 0009).
+        // Swallowing it is what makes this the end of the line: the athlete sees an empty
+        // dashboard and the throw is recorded nowhere else.
+        console.error("[repo-file]", err);
+        await captureServerException(err);
         return withSessionCookie(
-          Response.json(
-            { error: "Failed to fetch your data" },
-            { status: 502 },
-          ),
+          Response.json({ error: "Failed to fetch your data" }, { status: 502 }),
           setCookie,
         );
       }
 
       if (contentsRes.status === 401 || contentsRes.status === 403) {
-        captureExceptionOnce(
-          Object.assign(new Error("GitHub dashboard access rejected"), {
-            status: contentsRes.status,
-          }),
-        );
         // A revoked/expired GitHub App installation, distinct from ensureFreshSession's routine
         // rotation above - the fix is signing in again, not retrying. RepoDataGate.tsx keys off
         // this exact error string.
         return withSessionCookie(
           Response.json(
-            {
-              error:
-                "Your GitHub access was revoked or expired - sign in again to reconnect.",
-            },
+            { error: "Your GitHub access was revoked or expired - sign in again to reconnect." },
             { status: 401 },
           ),
           setCookie,
         );
       }
       if (contentsRes.status === 404) {
-        captureExceptionOnce(
-          Object.assign(new Error("Dashboard snapshot not found after sync"), {
-            status: 404,
-          }),
-        );
         return withSessionCookie(
           Response.json(
-            {
-              error:
-                "gen/dashboard_snapshot.json not found in your repo - has it synced yet?",
-            },
+            { error: "gen/dashboard_snapshot.json not found in your repo - has it synced yet?" },
             { status: 404 },
           ),
           setCookie,
         );
       }
       if (!contentsRes.ok) {
-        captureExceptionOnce(
-          Object.assign(new Error("GitHub dashboard request failed"), {
-            status: contentsRes.status,
-          }),
-        );
+        // 401/403 and 404 answered above, so what reaches here is a GitHub 5xx or a 429 - an
+        // outage, not an answer. Nothing threw, so the status is all there is to report.
+        const err = new Error(`GitHub returned ${contentsRes.status} for dashboard_snapshot.json`);
+        console.error("[repo-file]", err);
+        await captureServerException(err);
         return withSessionCookie(
-          Response.json(
-            { error: "Failed to fetch your data" },
-            { status: 502 },
-          ),
+          Response.json({ error: "Failed to fetch your data" }, { status: 502 }),
           setCookie,
         );
       }
 
       let aggregate: unknown;
-      setMonitoringStage("parse_dashboard");
       try {
         aggregate = await contentsRes.json();
-      } catch (error) {
-        captureExceptionOnce(error);
+      } catch (err) {
+        // Same reasoning as the fetch catch above: a snapshot the athlete's repo cannot parse
+        // breaks their whole dashboard, and this 502 is the only trace of it.
+        console.error("[repo-file] snapshot is not valid JSON", err);
+        await captureServerException(err);
         return withSessionCookie(
           Response.json(
             { error: "gen/dashboard_snapshot.json is not valid JSON" },

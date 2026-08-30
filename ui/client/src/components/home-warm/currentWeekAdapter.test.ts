@@ -63,7 +63,7 @@ describe("currentWeekAdapter completion matching", () => {
             coach_note: null,
             original_date: null,
             completion_activity_ids: ["123456789"],
-          }
+          },
         ],
       },
     ],
@@ -92,12 +92,14 @@ describe("currentWeekAdapter completion matching", () => {
     ];
 
     const result = adaptCurrentWeek(baseRuntime, mockAvailability, activities);
-    
+
     // The session should retain its mapped completion_activity_ids (stripped prefix)
-    expect(result.days[0].sessions[0].completion_activity_ids).toEqual(["8F3A-E2C1-4D90-A875-5A36A0FB954C"]);
-    
+    expect(result.days[0].sessions[0].completion_activity_ids).toEqual([
+      "8F3A-E2C1-4D90-A875-5A36A0FB954C",
+    ]);
+
     // The activity should be successfully claimed, so no overlay sessions should be created for it
-    const overlays = result.days[0].sessions.filter(s => s.id.startsWith("activity-"));
+    const overlays = result.days[0].sessions.filter((s) => s.id.startsWith("activity-"));
     expect(overlays).toHaveLength(0);
   });
 
@@ -126,8 +128,8 @@ describe("currentWeekAdapter completion matching", () => {
     const result = adaptCurrentWeek(baseRuntime, mockAvailability, activities);
 
     expect(result.days[0].sessions[1].completion_activity_ids).toEqual(["123456789"]);
-    
-    const overlays = result.days[0].sessions.filter(s => s.id.startsWith("activity-"));
+
+    const overlays = result.days[0].sessions.filter((s) => s.id.startsWith("activity-"));
     expect(overlays).toHaveLength(0);
   });
 });
@@ -158,8 +160,8 @@ describe("current_week.json schema v1 shape (part3-rollout)", () => {
       days: [],
     };
 
-    expect((raw.week as Record<string, unknown>).phase_name).toBeUndefined();
-    expect((raw.week as Record<string, unknown>).block_name).toBeUndefined();
+    expect((raw.week as unknown as Record<string, unknown>).phase_name).toBeUndefined();
+    expect((raw.week as unknown as Record<string, unknown>).block_name).toBeUndefined();
     expect(raw.trace_id).toBe("trace-test");
   });
 });

@@ -29,16 +29,35 @@ describe("buildQuestSnapshot", () => {
   function ledger(quests: Quest[]): SplitLedger {
     return {
       seasons: { current_season_id: null, seasons: [] },
-      quests: { weekly_targets: {}, main_quest: { id: "main", name: "Main", type: "count_target", target: 1 }, quests: quests as any },
+      quests: {
+        weekly_targets: {},
+        main_quest: { id: "main", name: "Main", type: "count_target", target: 1 },
+        quests: quests as any,
+      },
       progress: {
-        rows: quests.flatMap(q => {
+        rows: quests.flatMap((q) => {
           const rows: any[] = [];
-          if (q.completed_dates) rows.push(...q.completed_dates.map(d => ({ quest_id: q.id, date: d, status: "completed" })));
-          if (q.missed_dates) rows.push(...q.missed_dates.map(d => ({ quest_id: q.id, date: d, status: "missed" })));
-          if (q.excused_dates) rows.push(...q.excused_dates.map(d => ({ quest_id: q.id, date: d, status: "excused" })));
-          if (q.current != null) rows.push({ quest_id: q.id, date: "2026-06-10", status: "completed", value: q.current });
+          if (q.completed_dates)
+            rows.push(
+              ...q.completed_dates.map((d) => ({ quest_id: q.id, date: d, status: "completed" })),
+            );
+          if (q.missed_dates)
+            rows.push(
+              ...q.missed_dates.map((d) => ({ quest_id: q.id, date: d, status: "missed" })),
+            );
+          if (q.excused_dates)
+            rows.push(
+              ...q.excused_dates.map((d) => ({ quest_id: q.id, date: d, status: "excused" })),
+            );
+          if (q.current != null)
+            rows.push({
+              quest_id: q.id,
+              date: "2026-06-10",
+              status: "completed",
+              value: q.current,
+            });
           return rows;
-        })
+        }),
       },
       progressions: null,
     };

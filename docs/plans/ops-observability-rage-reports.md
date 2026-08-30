@@ -1,6 +1,6 @@
 # Debugging Loop
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26 · Issue: [#585](https://github.com/sibling-shipyard/coach-hq/issues/585)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-29 · Issue: [#585](https://github.com/sibling-shipyard/coach-hq/issues/585)
 
 ## Why now
 
@@ -23,8 +23,8 @@ flowchart LR
 
 | block | what we collect | where it lives | user control |
 |---|---|---|---|
-| **1. Monitoring** | Crashes, error type, screen/operation, timing, app version, athlete message, Gemini reply, model and token counts. | Sentry projects for web/API and iOS, retained for up to 30 days | The four close-friends beta athletes are treated as opted in; formal controls come in #590. |
-| **2. Rage report** | The phone's recent event timeline plus any screenshot, conversation excerpt, or activity the athlete selects. | Timeline stays on the phone for 24 hours. A submitted report stays in Sentry for up to 30 days. | No report attachment leaves the phone until the athlete taps Submit. |
+| **1. Monitoring** | Crashes, error type, screen/operation, timing, app version, athlete message, Gemini reply, model and token counts. | Sentry projects for web/API and iOS, retained for 30 days | The four close-friends beta athletes are treated as opted in; formal controls come in #590. |
+| **2. Rage report** | The phone's recent event timeline plus any screenshot, conversation excerpt, or activity the athlete selects. | Timeline stays on the phone for 24 hours. A submitted report stays in Sentry for 30 days. | No report attachment leaves the phone until the athlete taps Submit. |
 
 Never capture API keys, login tokens, auth headers, or credentials in Sentry.
 
@@ -50,11 +50,15 @@ flowchart LR
 
 | PR | milestone | outcome | final base | files | owner | parallel with | done when |
 |---|---|---|---|---|---|---|---|
-| **[x] PR1 · Small** | M1 · monitoring | Lock the detailed Sentry data rules and exact event fields. | `main` | `kdb/decisions/`, `docs/plans/` | Tech Lead (done) | — | ADR 0031 and sentry-lld.md define rich fields, credential scrubbers, operation ID, retention, access, and the beta opt-in boundary. |
+| **[x] PR1 · Small** | M1 · monitoring | Lock the detailed Sentry data rules and exact event fields. | `main` | `kdb/decisions/`, `docs/plans/` | Tech Lead (done) | — | ADR 0032 and sentry-lld.md define rich fields, credential scrubbers, operation ID, retention, access, and the beta opt-in boundary. |
 | **PR2 · Medium** | M1 · monitoring | Web and API failures appear in Sentry with searchable request/response context. | PR1 | `ui/package.json`, `ui/package-lock.json`, `ui/vite.config.ts`, `ui/client/src/`, `ui/api/`, `ui/scripts/`, `docs/eng-docs/env-vars.md` | UI Expert | PR3 | One web/API failure pair joins the athlete message and Gemini reply with one operation ID. |
 | **PR3 · Medium** | M1 · monitoring | iOS crashes appear in Sentry and the phone keeps a short local timeline. | PR2 | `ios/CoachHQ/CoachHQ.xcodeproj/`, `ios/CoachHQ/CoachHQ/`, `ios/CoachHQ/CoachHQTests/` | iOS Builder | PR2 | CI proves buffer limits, expiry, sign-out clearing, and one test crash reaches Sentry. |
 | **PR4 · Medium** | M2 · report and operate | "Report a problem" previews and submits selected evidence. | PR3 | `ios/CoachHQ/CoachHQ/Views/`, `ios/CoachHQ/CoachHQ/Services/`, `ios/CoachHQ/CoachHQTests/` | iOS Builder | — | Submit sends exactly the selected items; Cancel sends nothing. |
 | **PR5 · Small** | M2 · report and operate | Dashboards, alerts, and the operator runbook work end to end. | PR4 | `.github/workflows/`, `docs/eng-docs/`, `docs/plans/` | Tech Lead | — | A production proof triggers the alert and the runbook joins the phone, API, and release evidence. |
+
+Build status (2026-08-28): PR1–PR4 code is pushed with review findings fixed. PR5 still needs the
+Sentry organisation, iOS dSYM upload, dashboard, alerts, and saved production proof — all operator
+work on a real account — so this plan stays until those land.
 
 PR2 and PR3 build together after PR1; rebase PR3 onto PR2 before review. Final merge order is
 **PR1 → PR2 → PR3 → PR4 → PR5**.

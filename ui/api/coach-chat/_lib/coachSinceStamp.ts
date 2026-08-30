@@ -25,17 +25,14 @@ export function injectCoachSinceIfNeeded(
   isProfileCompleteNow: boolean,
   timezone: string,
 ): { path: string; content: string }[] {
-  if (wasProfileComplete || !isProfileCompleteNow || !closingFiles)
-    return validUpdates;
+  if (wasProfileComplete || !isProfileCompleteNow || !closingFiles) return validUpdates;
   const existing = validUpdates.find((u) => u.path === PROFILE_PATH);
   const baseContent = existing?.content ?? closingFiles.profile;
   try {
     const parsed = baseContent ? JSON.parse(baseContent) : {};
     if (parsed.coach_since) return validUpdates;
   } catch {
-    console.warn(
-      "[coach-chat] profile.json unparsable - skipping coach_since stamp",
-    );
+    console.warn("[coach-chat] profile.json unparsable - skipping coach_since stamp");
     return validUpdates;
   }
   const patch = JSON.stringify({

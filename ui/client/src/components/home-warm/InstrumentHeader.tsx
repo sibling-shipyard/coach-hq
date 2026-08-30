@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Redirect } from "wouter";
+import { Link } from "wouter";
 import { Dumbbell, Home, LogOut, Menu, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRepoData } from "@/hooks/useRepoData";
@@ -84,10 +84,7 @@ function HeaderNavMenu({
   const rootRef = useRef<HTMLDivElement>(null);
 
   const menuHasActive = currentRoute
-    ? [
-        ...sportAnalyticsLinks.map((link) => link.href),
-        analyticsHref,
-      ].includes(currentRoute)
+    ? [...sportAnalyticsLinks.map((link) => link.href), analyticsHref].includes(currentRoute)
     : false;
 
   useEffect(() => {
@@ -179,7 +176,11 @@ function HeaderNavMenu({
             <span>Monthly analytics</span>
           </Link>
           <div aria-hidden="true" className="wi-instrument-header__menu-divider" />
-          <div aria-label={`Synced · ${syncLabel}`} className="wi-instrument-header__menu-sync" role="status">
+          <div
+            aria-label={`Synced · ${syncLabel}`}
+            className="wi-instrument-header__menu-sync"
+            role="status"
+          >
             <SyncIcon healthy={syncHealthy} />
             <span>Synced · {syncLabel}</span>
           </div>

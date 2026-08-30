@@ -1,6 +1,6 @@
 # GitHub Auth — how sign-in works (web + iOS, shared backend)
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-26
+> Status: Current · Owner: UI Expert · Verified: 2026-08-29
 
 ## Context
 
@@ -78,6 +78,47 @@ it came from `handleListMyRepos`, but a bare repo name when it came from the OAu
 use `GitHubAuthManager.repoFullName` for GitHub API URLs and the `X-Coach-Repo` header; never
 concatenate `user.login` + `selectedRepo` blindly.
 
+## Which GitHub App this is
+
+Sign-in runs on a **GitHub App**, not an OAuth App. They are separate things on separate pages,
+and looking in the wrong list costs an hour.
+
+| | |
+|---|---|
+| Kind | GitHub App (**not** an OAuth App) |
+| Name / slug | `coach-phelps` — the `GITHUB_APP_SLUG` default at `ui/api/auth/[...action].ts:47` |
+| Owner | the `sibling-shipyard` **org**, not a personal profile |
+| Client ID | `Iv23liw9UF0ySLSh3fdq` |
+| Settings | `https://github.com/organizations/sibling-shipyard/settings/apps` |
+
+Two tells that this is a GitHub App: the install flow at `[...action].ts:145`
+(`/apps/<slug>/installations/new`) and refresh tokens at `:288`. OAuth Apps have neither.
+
+The client ID is not a secret — it is in the authorize URL every user sees. The client **secret**
+is, and lives only in Vercel.
+
+**Finding it:** it is not on a personal profile, and it is not called `coach-hq`. Unrelated
+OAuth Apps by that name exist and are not this. Match on the client ID above.
+
+## Preview deploys need their own callback URL
+
+`redirectUri` is built from the host you are on (`[...action].ts:89`), so a preview deploy asks
+GitHub to redirect to the preview host. GitHub refuses any host not registered, with a
+"might be misconfigured" page that names nothing.
+
+To test auth on a preview:
+
+1. Register the branch alias as a callback URL on the App above, up to 10 total:
+   `https://coach-hq-git-<branch>-skanda-sureshs-projects.vercel.app/api/auth/callback`
+2. Enter through that **branch alias**, never the per-deploy `coach-<hash>-*.vercel.app` URL.
+   The alias is stable for the branch; the hashed URL changes on every redeploy and would burn
+   the 10-URL budget in a day.
+
+**Do not enable wildcard matching to avoid this.** GitHub supports it, but a wildcard matches
+subdomains of the registered host — and every preview lives under `vercel.app`, which we do not
+own. Registering it would let anyone's Vercel deployment receive our authorization codes. A
+wildcard is only safe on a domain we control end to end.
+
 ## Session mechanics (ADR 0009)
 
 GitHub's access token dies at ~8h regardless of cookie settings. "Stay logged in" is
@@ -111,7 +152,7 @@ flow unaffected.
 | `ui/client/src/pages/AuthPopupComplete.tsx` | `/auth/popup-complete` — runs inside the popup only |
 | `ui/client/src/pages/AuthError.tsx` | Renders `auth_error` types, incl. `needs_ios_setup` |
 | `ui/client/src/components/RepoDataGate.tsx` | Loading/error/revoked states for `useRepoData()` pages |
-| `ui/client/src/contexts/AuthContext.tsx` | Client-side auth state gate (`loading`/`local`/`unauthenticated`/`authenticated`) |
+| `ui/client/src/contexts/AuthContext.tsx` | Client-side auth state gate (`loading`/`local`/`unauthenticated`/`authenticated`); also the one place that names the athlete on browser Sentry events, and clears them on any non-authenticated state |
 | `ui/api/auth/[...action].ts` | All auth handlers (`handleStart`, `handleCallback`, `handleInstallRedirect`, `handleRefresh`, `handleMe`, `handleLogout`, `handleListMyRepos`) — one catch-all function, see ADR 0017 |
 | `ui/api/auth/_lib/session.ts` | Cookie helpers, JWE encrypt/decrypt, `ensureFreshSession()` |
 | `ui/api/auth/_lib/pkce.ts` | PKCE verifier/challenge generation + signed OAuth state (`signOAuthState`/`verifyOAuthState`) |

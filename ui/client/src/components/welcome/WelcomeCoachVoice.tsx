@@ -8,7 +8,10 @@ export function WelcomeCoachVoice() {
   return (
     <section className="welcome-section welcome-section--dark welcome-coach-voice" id="coach">
       <div className="welcome-coach-voice__inner">
-        <span className="welcome-kicker welcome-kicker--dark welcome-coach-voice__kicker" data-reveal>
+        <span
+          className="welcome-kicker welcome-kicker--dark welcome-coach-voice__kicker"
+          data-reveal
+        >
           THE COACH
         </span>
 

@@ -4,5 +4,9 @@
   { "message": "My goal is to run a sub-2 hour half marathon by next summer." },
   { "message": "I don't have any current injuries, but my right knee acts up sometimes." },
   { "message": "I typically train 4 days a week, and I'm an intermediate runner." },
-  { "message": "That's everything, wrap this up.", "endConversationRequested": true, "expect": { "sessionClosed": true } }
+  {
+    "message": "That's everything, wrap this up.",
+    "endConversationRequested": true,
+    "expect": { "sessionClosed": true }
+  }
 ]

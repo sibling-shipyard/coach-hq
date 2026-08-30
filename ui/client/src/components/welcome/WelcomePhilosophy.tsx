@@ -10,7 +10,8 @@ export function WelcomePhilosophy() {
           </h2>
           <p className="welcome-philosophy__lede">
             Showing up for the one rep, every day, no exceptions. That&apos;s what this is. Not a
-            countdown. Not a program you finish. A coach who&apos;s in it with you for the long haul.
+            countdown. Not a program you finish. A coach who&apos;s in it with you for the long
+            haul.
           </p>
         </div>
         <div className="welcome-philosophy__aside" data-reveal>

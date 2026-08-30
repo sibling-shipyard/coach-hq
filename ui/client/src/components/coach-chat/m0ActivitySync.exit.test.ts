@@ -62,7 +62,9 @@ describe("M0 exit proof — persisted sync turn", () => {
       ...fixture.gemini_invented,
     };
     const list = syncedActivityList([invented, attachment]);
-    expect(list?.activities.map((row) => row.id)).toEqual(attachment.activities.map((row) => row.id));
+    expect(list?.activities.map((row) => row.id)).toEqual(
+      attachment.activities.map((row) => row.id),
+    );
     expect(JSON.stringify(list)).not.toContain(fixture.gemini_invented.title);
     expect(JSON.stringify(list)).not.toContain(fixture.gemini_invented.id);
     for (const row of attachment.activities) {

@@ -3,10 +3,14 @@
 Checks ADR format/filenames/numbering, supersede refs, and that the index is in sync."""
 import datetime, os, pathlib, re, subprocess, sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import adr_readability
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEC = ROOT / "kdb" / "decisions"
 AGENTS = ROOT / "AGENTS.md"
 FIELDS = ["Status", "Area", "Context", "Decision", "Why", "Rejected"]
+ENFORCES_REQUIRED_FROM = 33
 NAME_RE = re.compile(r"^\d{4}-[a-z0-9-]+\.md$")
 SKIP = {"0000-template.md", "README.md"}
 
@@ -26,11 +30,52 @@ for fp in adr_files():
     for field in FIELDS:
         if f"**{field}:**" not in text:
             errors.append(f"{name}: missing field '{field}'")
+    # `Enforces:` is required from 0033 on — the first ADR written under the template
+    # that has the field — and backfilled onto older ones as they are touched. Not
+    # applied retroactively: naming what an ADR stops is a judgment call, and a check
+    # that forces a dozen of them to be guessed in one sitting produces filler, which is
+    # worse than the gap it closes. 0032 landed on main while this branch was open and
+    # is exempt for exactly that reason, not by oversight.
+    num = int(name[:4]) if name[:4].isdigit() else 0  # bad name already reported above
+    if num >= ENFORCES_REQUIRED_FROM and "**Enforces:**" not in text:
+        errors.append(f"{name}: missing field 'Enforces' — one line naming what this ADR "
+                      "stops someone doing (required for 0033 and later)")
     nums.setdefault(name[:4], []).append(name)
 
 for num, files in nums.items():
     if len(files) > 1:
         errors.append(f"duplicate ADR number {num}: {', '.join(files)}")
+
+# ADR prose. Two rules gate (over-long sentences, jargon with a shorter replacement);
+# everything else reports. The split is not arbitrary — see adr_readability.py, which
+# records the run where a field-budget gate failed the most readable ADR in the set and
+# passed the least readable one.
+#
+# ENFORCED. The checks were deliberately written against a set that failed them, so the
+# thresholds describe the prose we want rather than the prose we had; gating on day one
+# would have meant tuning numbers until the existing files passed, which measures nothing.
+# The cleanup landed first, then this flipped.
+#
+# Closed ADRs are skipped below. Superseded and historical records are archives — nobody
+# reads them on boot, which is the point of filing them below the fold, and editing an
+# archive to satisfy a linter is how records stop being records.
+PROSE_ENFORCED = True
+
+for fp in adr_files():
+    text = fp.read_text()
+    if adr_readability.is_closed(text):
+        continue
+    for severity, msg in adr_readability.findings(fp.name, text):
+        if severity != "error":
+            warnings.append(msg)
+        elif PROSE_ENFORCED:
+            errors.append(msg)
+        else:
+            warnings.append(f"[will fail] {msg}")
+    s = adr_readability.score(text)
+    if s and s["fk"] > 12:
+        warnings.append(f"{fp.name}: reading grade {s['fk']} (watch, never gated) — "
+                        f"avg sentence {s['avg_sentence']} words")
 
 # Superseded refs must resolve
 existing_nums = set(nums)
@@ -122,9 +167,18 @@ HISTORICAL_RE = re.compile(r"^>\s*Status:\s*(Historical|Superseded)", re.M)
 # `docs/eng-docs/` describe the system as it is today: missing means broken.
 hook_dir = ROOT / ".claude" / "hooks"
 hook_files = sorted(fp for fp in hook_dir.glob("*") if fp.is_file()) if hook_dir.is_dir() else []
+# `.cursor/` is Cursor's entry point, the same class of file as `.claude/hooks/`. Scanned so a
+# pointer into AGENTS.md cannot rot in the one tool whose config nothing else checks.
+cursor_dir = ROOT / ".cursor"
+cursor_files = sorted(fp for fp in cursor_dir.rglob("*")
+                      if fp.is_file() and fp.suffix in (".md", ".mdc")) if cursor_dir.is_dir() else []
+git_hook_dir = ROOT / ".githooks"
+git_hook_files = sorted(fp for fp in git_hook_dir.glob("*") if fp.is_file()) if git_hook_dir.is_dir() else []
 wide_files = ([(fp, errors) for fp in sorted((ROOT / ".github" / "workflows").glob("*.yml"))]
               + [(fp, errors) for fp in sorted((ROOT / "docs" / "eng-docs").glob("*.md"))]
               + [(fp, errors) for fp in hook_files]
+              + [(fp, errors) for fp in cursor_files]
+              + [(fp, errors) for fp in git_hook_files]
               + [(fp, warnings) for fp in sorted((ROOT / "docs" / "plans").glob("*.md"))])
 for fp, sink in wide_files:
     raw = fp.read_text()
@@ -154,6 +208,42 @@ for fp, sink in wide_files:
         msg = f"{fp.relative_to(ROOT)}: link target '{target}' does not exist"
         if msg not in sink:
             sink.append(msg)
+
+# Doc and plan prose. Same two gates as the ADRs above — over-long sentences and jargon with a
+# shorter replacement — but scoped to the files a branch actually changes. `docs/` carries 159
+# sentences over the limit today; failing the build over prose nobody touched teaches people to
+# ignore the run. Everything outside the diff still reports as a warning, so the backlog stays
+# visible. When git cannot name the diff (clean checkout, no `origin/main`) nothing gates.
+def changed_paths():
+    """Repo-relative paths this branch changes. Empty set when git cannot say."""
+    def run(*args):
+        try:
+            r = subprocess.run(["git", "-C", str(ROOT), "diff", "--name-only", *args],
+                               capture_output=True, text=True)
+        except OSError:
+            return None
+        return set(r.stdout.split()) if r.returncode == 0 else None
+    # A pull_request build checks out a merge commit, where `HEAD^1 HEAD` is exactly what the PR
+    # adds. A local branch has no merge commit, so fall back to the three-dot range.
+    parents = subprocess.run(["git", "-C", str(ROOT), "rev-list", "--parents", "-n", "1", "HEAD"],
+                             capture_output=True, text=True)
+    if parents.returncode == 0 and len(parents.stdout.split()) == 3:
+        found = run("HEAD^1", "HEAD")
+        if found:
+            return found
+    return run("origin/main...HEAD") or set()
+
+CHANGED = changed_paths()
+
+for fp in (sorted((ROOT / "docs" / "eng-docs").glob("*.md"))
+           + sorted((ROOT / "docs" / "plans").glob("*.md"))):
+    raw = fp.read_text()
+    if HISTORICAL_RE.search(raw):
+        continue  # dated records, same rule as the path checks above
+    rel = str(fp.relative_to(ROOT))
+    sink = errors if rel in CHANGED else warnings
+    for severity, msg in adr_readability.findings(rel, raw):
+        (sink if severity == "error" else warnings).append(msg)
 
 # AGENTS.md size (soft cap)
 if AGENTS.exists():

@@ -126,28 +126,43 @@ interface Transcript {
 
 /** Normalizes either transcript shape into one ordered turn list - see the header comment. */
 function normalizeTurns(t: Transcript, file: string): TranscriptTurn[] {
-  const hasAnySingle = t.mode !== undefined || t.userMessage !== undefined || t.expect !== undefined;
-  const hasAllSingle = t.mode !== undefined && t.userMessage !== undefined && t.expect !== undefined;
+  const hasAnySingle =
+    t.mode !== undefined || t.userMessage !== undefined || t.expect !== undefined;
+  const hasAllSingle =
+    t.mode !== undefined && t.userMessage !== undefined && t.expect !== undefined;
   const hasMulti = t.turns !== undefined;
   if (hasAnySingle && hasMulti) {
-    console.error(`eval-coach-chat: ${file} has both single-turn fields (mode/userMessage/expect) and "turns" - use exactly one.`);
+    console.error(
+      `eval-coach-chat: ${file} has both single-turn fields (mode/userMessage/expect) and "turns" - use exactly one.`,
+    );
     process.exit(1);
   }
   if (!hasAnySingle && !hasMulti) {
-    console.error(`eval-coach-chat: ${file} has neither single-turn fields (mode/userMessage/expect) nor "turns".`);
+    console.error(
+      `eval-coach-chat: ${file} has neither single-turn fields (mode/userMessage/expect) nor "turns".`,
+    );
     process.exit(1);
   }
   // Catches a partially-filled single-turn shape (e.g. mode set but userMessage missing) before
   // it reaches the `!` assertions below and silently runs with userMessage: undefined.
   if (hasAnySingle && !hasAllSingle) {
-    console.error(`eval-coach-chat: ${file} has some but not all of mode/userMessage/expect - all three are required together.`);
+    console.error(
+      `eval-coach-chat: ${file} has some but not all of mode/userMessage/expect - all three are required together.`,
+    );
     process.exit(1);
   }
   if (hasMulti) return t.turns!;
   return [{ mode: t.mode!, userMessage: t.userMessage!, expect: t.expect! }];
 }
 
-const SAVE_CLAIM_PHRASES = ["saved", "logged it", "locked in", "committed", "noted it down", "recorded"];
+const SAVE_CLAIM_PHRASES = [
+  "saved",
+  "logged it",
+  "locked in",
+  "committed",
+  "noted it down",
+  "recorded",
+];
 
 // Gitignored: results are per-machine and per-key, never shared or committed.
 const CACHE_PATH = path.join(uiRoot, ".eval-cache.json");
@@ -189,7 +204,9 @@ function writeCache(cache: Record<string, CacheEntry>): void {
   try {
     fs.writeFileSync(CACHE_PATH, `${JSON.stringify(cache, null, 2)}\n`);
   } catch (err) {
-    console.warn(`  (couldn't write eval cache: ${err instanceof Error ? err.message : String(err)})`);
+    console.warn(
+      `  (couldn't write eval cache: ${err instanceof Error ? err.message : String(err)})`,
+    );
   }
 }
 
@@ -294,14 +311,23 @@ function filesForReply(reply: unknown): string[] {
   return files;
 }
 
-function checkTranscript(expect: TranscriptExpect, reply: Awaited<ReturnType<typeof askGemini>>): string[] {
+function checkTranscript(
+  expect: TranscriptExpect,
+  reply: Awaited<ReturnType<typeof askGemini>>,
+): string[] {
   const failures: string[] = [];
 
   // The retired reasoning field must never return if an older model/cache shape resurfaces.
-  if ("reasoning" in reply) failures.push("`reasoning` field leaked through into the returned reply");
+  if ("reasoning" in reply)
+    failures.push("`reasoning` field leaked through into the returned reply");
 
-  if (expect.sessionClosed !== undefined && Boolean(reply.session_closed) !== expect.sessionClosed) {
-    failures.push(`expected session_closed=${expect.sessionClosed}, got ${Boolean(reply.session_closed)}`);
+  if (
+    expect.sessionClosed !== undefined &&
+    Boolean(reply.session_closed) !== expect.sessionClosed
+  ) {
+    failures.push(
+      `expected session_closed=${expect.sessionClosed}, got ${Boolean(reply.session_closed)}`,
+    );
   }
 
   if (expect.coachNoteReported && !reply.coach_note?.trim()) {
@@ -323,10 +349,14 @@ function checkTranscript(expect: TranscriptExpect, reply: Awaited<ReturnType<typ
   const replyRecord = reply as unknown as Record<string, unknown>;
 
   for (const field of expect.actionFieldsPresent ?? []) {
-    if (!isSet(replyRecord, field)) failures.push(`expected action field "${field}" to be set, but it was absent/empty`);
+    if (!isSet(replyRecord, field))
+      failures.push(`expected action field "${field}" to be set, but it was absent/empty`);
   }
   for (const field of expect.actionFieldsAbsent ?? []) {
-    if (isSet(replyRecord, field)) failures.push(`expected action field "${field}" to be absent, but it was set: ${JSON.stringify(replyRecord[field])}`);
+    if (isSet(replyRecord, field))
+      failures.push(
+        `expected action field "${field}" to be absent, but it was set: ${JSON.stringify(replyRecord[field])}`,
+      );
   }
 
   return failures;
@@ -338,8 +368,19 @@ async function main() {
   const onlyIdx = args.indexOf("--only");
   const only = onlyIdx !== -1 ? args[onlyIdx + 1] : undefined;
 
-  const dir = path.join(__dirname, "..", "api", "coach-chat", "_tests", "coach-chat-eval", "transcripts");
-  let files = fs.readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
+  const dir = path.join(
+    __dirname,
+    "..",
+    "api",
+    "coach-chat",
+    "_tests",
+    "coach-chat-eval",
+    "transcripts",
+  );
+  let files = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .sort();
   if (files.length === 0) {
     console.error(`eval-coach-chat: no transcripts found in ${dir}`);
     process.exit(1);
@@ -438,7 +479,11 @@ async function main() {
         // actual conversation. Only skip this on an ERROR below, where there's no real reply.
         const now = Date.now();
         const userMessage: ChatMessage = { id: `u-${now}`, role: "user", text: turn.userMessage };
-        const coachMessage: ChatMessage = { id: `c-${now}`, role: "coach", paragraphs: [reply.reply] };
+        const coachMessage: ChatMessage = {
+          id: `c-${now}`,
+          role: "coach",
+          paragraphs: [reply.reply],
+        };
         history =
           history.length > 0
             ? [...history, userMessage, coachMessage]
@@ -484,8 +529,12 @@ async function main() {
   // An assertion failure and an infrastructure failure mean opposite things, so don't report them
   // as one number. Only a real FAIL says the change under test is wrong.
   if (errored > 0) {
-    console.log(`${errored} transcript(s) errored out - infrastructure, not the change under test.`);
-    console.log("Re-run to retry only those - the passes above are cached and won't be paid for again.");
+    console.log(
+      `${errored} transcript(s) errored out - infrastructure, not the change under test.`,
+    );
+    console.log(
+      "Re-run to retry only those - the passes above are cached and won't be paid for again.",
+    );
   }
   if (failed > 0) console.log(`${failed} transcript(s) genuinely failed the rubric.`);
   // A run's whole point is the log landing on disk - a failed write means whatever passed/failed

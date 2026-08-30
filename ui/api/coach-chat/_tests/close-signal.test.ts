@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { acceptedMessage, isCloseSignal, messageForGemini, shouldRequestClose, wasCloseAttemptPending } from "../_lib/closeSignal.js";
+import {
+  acceptedMessage,
+  isCloseSignal,
+  messageForGemini,
+  shouldRequestClose,
+  wasCloseAttemptPending,
+} from "../_lib/closeSignal.js";
 import type { ChatMessage } from "../_lib/chatThreads.js";
 
 // A8: CLOSE_SESSION_PATTERN originally required "session" after wrap/close/end, so a bare "wrap"
@@ -74,7 +80,9 @@ describe("isCloseSignal", () => {
   });
 
   it("still does not match 'that's everything' mid-sentence (anchored to end)", () => {
-    expect(isCloseSignal("that's everything, actually one more thing about my shoulder")).toBe(false);
+    expect(isCloseSignal("that's everything, actually one more thing about my shoulder")).toBe(
+      false,
+    );
   });
 });
 

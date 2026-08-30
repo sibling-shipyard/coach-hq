@@ -20,7 +20,7 @@ Keep these current when `ui/` changes; rules in `docs/eng-docs/README.md`.
 
 ## Gotchas
 
-- Before opening a PR, run `npm run check` from `ui/` (typecheck — its `precheck` builds the generated data first, so a clean checkout passes).
+- Before opening a PR, run `npm run verify` from `ui/` — typecheck, ESLint, Prettier and vitest in one command. `npm run check` on its own is only the typecheck, and CI runs `format:check` as a separate step.
 - Widget work: read `ui/docs/reference-interactions/Widget Design Philosophy.md` first — Warm Instrument is visual *and* interaction spec; a re-skinned but interaction-flat widget is not done.
 - Optional motion (150–250ms lifts, hover scrubs) must honor `prefers-reduced-motion: reduce` — see Widget Design Philosophy and `reference-interactions-acceptance.md` G5.
 - CSS under `.wi-shell`: global button reset beats bare single-class selectors — use compound selectors; verify with `getComputedStyle` if type looks off.
@@ -33,3 +33,4 @@ Keep these current when `ui/` changes; rules in `docs/eng-docs/README.md`.
 - Vite caches JSON imports aggressively — restart dev server after data changes.
 - WorkoutTimer: call `setTimer(-1)` before any `setState()` to prevent race conditions between timer init and tick effects.
 - `milestoneProgress.ts`-style helpers read `milestone.progress` (`MilestoneProgress` in `challenge.ts`) — not a separate `tracking` schema.
+- Before touching `ui/api/_lib/sentry.ts`, read `docs/eng-docs/sentry-runbook.md` § Traps.

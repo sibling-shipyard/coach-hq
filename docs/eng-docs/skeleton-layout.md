@@ -1,6 +1,6 @@
 # Skeleton Layout — Full BYO Tree
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-23 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-28 · Locked: 2026-07-26 · Authority: [`scaling-plan.md`](scaling-plan.md) §7 M1 · Carve: [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs)
 >
 > **Superseded in part:** Strava ingestion was removed entirely and this doc updated to match —
 > see [ADR 0010](../../kdb/decisions/0010-remove-strava-relocate-activity-tools.md). The engine's
@@ -25,7 +25,7 @@ only ingestion path (Strava removed, ADR 0010).
 ```mermaid
 flowchart TB
   subgraph root["Repo root"]
-    soul["propagated/SOUL.md + propagated/docs/"]
+    soul["SOUL.claude.md + CLAUDE.md + .claude/ + propagated/docs/"]
     gh[".github/workflows/"]
   end
   subgraph engine["engine/ — runtime, do not edit via coach"]
@@ -226,3 +226,31 @@ flowchart LR
 | HQ engine source | `engine/` |
 | Live skeleton | https://github.com/sibling-shipyard/coach-skeleton |
 | M1 milestones | [`scaling-plan.md`](scaling-plan.md) §7 |
+
+---
+
+## Carve copy map
+
+Moved here from ADR 0011, which owned it while the bands were being settled. The ADR decides the
+band layout; this table is reference data that changes whenever the carve script does, so it
+belongs beside the script's authority line rather than inside a decision record.
+
+**Authority:** [`platform/scripts/carve-skeleton.mjs`](../../platform/scripts/carve-skeleton.mjs).
+Read the script when they disagree — it is what runs.
+
+| Source (HQ) | Skeleton destination | Band |
+|---|---|---|
+| `engine/scripts/` (5 runtime + validate wrapper) | `engine/scripts/` | `engine/` |
+| `engine/lib/`, `engine/core/` | `engine/` | `engine/` |
+| `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
+| `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
+| `platform/SOUL.claude.md` | `SOUL.claude.md` at repo root | `platform/` |
+| `engine/claude/athlete/` | `.claude/`, root `CLAUDE.md` | `engine/` |
+| `docs/ref-docs/` | `propagated/docs/` | `platform/` |
+| `platform/scripts/carve-skeleton.mjs`, `platform/plugins/` | not copied | `platform/` |
+| Generated init templates | `user_data/*`, `gen/*` placeholders | skeleton stamps only |
+| `user_data/`, `gen/` at HQ | **never copied** | — |
+| `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |
+
+`platform/SOUL.chat.md` never leaves HQ — the hosted app bundles it at build time (ADR 0022).
+The bare `propagated/SOUL.md` name is retired; neither runtime owns it.

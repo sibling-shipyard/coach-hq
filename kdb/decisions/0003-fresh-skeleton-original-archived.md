@@ -1,6 +1,8 @@
 # 0003 — Start new users from a clean template, archive the original
 
-- **Status:** Accepted · 2026-07-24 · Tech Lead
+- **Status:** Historical · 2026-07-24 · Tech Lead
+- **Outcome:** done and not contested. The original repo is archived, and every athlete
+  since has started from the carved skeleton. Kept for the record, not for the boot read.
 - **Area:** cross-cutting
 - **Context:** New users need a clean starter template. The original repo was hand-built for
   one person, with everything tangled together.

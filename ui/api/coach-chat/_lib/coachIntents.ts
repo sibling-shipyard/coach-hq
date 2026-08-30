@@ -1,7 +1,22 @@
 /** Pure server-owned appliers for semantic actions reported by Gemini. */
 
-import { MEMORY_NOTE_LABELS, type MemoryJson, type MemoryNoteLabel, type InjuryFlag, type CoachLogRow, type ProfileJson } from "./coachMemoryFiles.js";
-import { type ProgressRow, type Season, type SeasonsJson, type MainQuest, type Quest, type QuestType, type QuestsJson } from "./coachQuestFiles.js";
+import {
+  MEMORY_NOTE_LABELS,
+  type MemoryJson,
+  type MemoryNoteLabel,
+  type InjuryFlag,
+  type CoachLogRow,
+  type ProfileJson,
+} from "./coachMemoryFiles.js";
+import {
+  type ProgressRow,
+  type Season,
+  type SeasonsJson,
+  type MainQuest,
+  type Quest,
+  type QuestType,
+  type QuestsJson,
+} from "./coachQuestFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 
 // coach_note: appends one row to coach_log.json - the single merged continuity log
@@ -12,11 +27,24 @@ import { parseJsonOrNull } from "./coachChatFiles.js";
 // truncating storage here - the full history is worth keeping. Malformed/missing current content
 // is treated as an empty log rather than thrown, same defensive default the other appliers below
 // use for their own files.
-export function applyCoachNote(content: string | null, note: string, dateString: string, traceId: string, now: Date): string {
+export function applyCoachNote(
+  content: string | null,
+  note: string,
+  dateString: string,
+  traceId: string,
+  now: Date,
+): string {
   const parsed = parseJsonOrNull<{ rows?: CoachLogRow[] }>(content);
   const rows: CoachLogRow[] = Array.isArray(parsed?.rows) ? parsed.rows : [];
   const id = `sess_${dateString}_${Math.random().toString(36).slice(2, 6)}`;
-  const row: CoachLogRow = { id, date: dateString, ts: now.toISOString(), type: "chat", text: note.trim(), trace_id: traceId };
+  const row: CoachLogRow = {
+    id,
+    date: dateString,
+    ts: now.toISOString(),
+    type: "chat",
+    text: note.trim(),
+    trace_id: traceId,
+  };
   return JSON.stringify({ version: 1, rows: [...rows, row] }, null, 2);
 }
 
@@ -110,7 +138,11 @@ export interface InjuryEvent {
 // are applied in order against an accumulating flags array, so a turn reporting several updates
 // captures all of them, and a later event in the same batch sees an earlier one's new flag (e.g.
 // resolving a flag opened earlier in the same turn is possible, however unlikely in practice).
-export function applyInjuryEvent(content: string | null, events: InjuryEvent[], today: string): string {
+export function applyInjuryEvent(
+  content: string | null,
+  events: InjuryEvent[],
+  today: string,
+): string {
   const parsed = parseJsonOrNull<{ flags?: InjuryFlag[] }>(content);
   let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
 
@@ -221,7 +253,8 @@ export function applyQuestEvent(
       ts: now.toISOString(),
       trace_id: traceId,
     };
-    rows = existingIndex >= 0 ? rows.map((r, i) => (i === existingIndex ? row : r)) : [...rows, row];
+    rows =
+      existingIndex >= 0 ? rows.map((r, i) => (i === existingIndex ? row : r)) : [...rows, row];
   }
 
   return JSON.stringify({ version: 1, rows }, null, 2);
@@ -242,7 +275,13 @@ export interface ProfileUpdate {
   value: string;
 }
 
-const PROFILE_UPDATE_FIELDS: readonly ProfileUpdateField[] = ["name", "dob", "timezone", "height_cm", "weight_kg"];
+const PROFILE_UPDATE_FIELDS: readonly ProfileUpdateField[] = [
+  "name",
+  "dob",
+  "timezone",
+  "height_cm",
+  "weight_kg",
+];
 
 // Array (workout-backend-wiring live verification, same fix issue #410 already gave
 // quest_event / this PR already gave injury_event): a single object silently dropped every field
@@ -295,7 +334,9 @@ export function applyProfileUpdate(content: string | null, updates: ProfileUpdat
       }
       const parsedValue = Number(update.value);
       if (Number.isNaN(parsedValue)) {
-        throw new Error(`profile_update: "${update.value}" is not a valid number for ${update.field}`);
+        throw new Error(
+          `profile_update: "${update.value}" is not a valid number for ${update.field}`,
+        );
       }
       result[update.field] = parsedValue;
     }
@@ -364,7 +405,13 @@ export function applyQuestCreate(
   content: string | null,
   input: {
     main_quest?: { name: string; type: QuestType; target: number; count_pattern?: string };
-    quests?: { name: string; type: QuestType; polarity?: "default_done" | "default_not_done"; target?: number; unit?: string }[];
+    quests?: {
+      name: string;
+      type: QuestType;
+      polarity?: "default_done" | "default_not_done";
+      target?: number;
+      unit?: string;
+    }[];
   },
   today: string,
   traceId: string,

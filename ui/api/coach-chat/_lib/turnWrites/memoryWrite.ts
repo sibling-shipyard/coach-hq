@@ -1,12 +1,9 @@
 // memory_update / sports_update: both land in memory.json, so they share one FileEntry and one
 // usecase file - see coachIntents.ts for the pure appliers this wraps with I/O.
-import type { FileEntry } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
-import {
-  applyMemoryUpdate,
-  applySportsUpdate,
-} from "../coachIntents.js";
+import { applyMemoryUpdate, applySportsUpdate } from "../coachIntents.js";
 import { MEMORY_PATH, type MemoryNoteLabel } from "../coachMemoryFiles.js";
 import { capText, MEMORY_NOTE_TEXT_CAP } from "../text-caps.bundle.js";
 
@@ -24,7 +21,7 @@ export function buildMemoryFileWrite(
     memoryUpdate: MemoryUpdateInput | undefined;
     sportsUpdate: string[];
   },
-): FileEntry | undefined {
+): ResolvedFileWrite | undefined {
   const { memoryUpdate, sportsUpdate } = params;
   const hasMemoryUpdate = Boolean(memoryUpdate?.label && memoryUpdate.text?.trim());
   const hasSportsUpdate = sportsUpdate.length > 0;

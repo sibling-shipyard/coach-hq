@@ -4,8 +4,7 @@
   min-height: 100vh;
   color: var(--wi-ink);
   background:
-    radial-gradient(circle at 82% 0%, rgba(255, 255, 255, 0.5), transparent 30rem),
-    var(--wi-page);
+    radial-gradient(circle at 82% 0%, rgba(255, 255, 255, 0.5), transparent 30rem), var(--wi-page);
   font-family: "Space Grotesk", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -112,7 +111,10 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(3px);
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms ease;
   pointer-events: none;
 }
 
@@ -151,8 +153,12 @@
 }
 
 @keyframes wi-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -384,9 +390,7 @@
   border: 1px solid rgba(101, 43, 32, 0.7);
   border-radius: 28px;
   color: var(--wi-surface);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.06), transparent 45%),
-    var(--wi-rust);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.06), transparent 45%), var(--wi-rust);
   box-shadow: var(--wi-engine-shadow);
   text-align: left;
 }
@@ -2368,9 +2372,7 @@ button.wi-commitment-card:hover {
     padding: 20px;
     border-radius: 22px;
     color: var(--wi-surface);
-    background:
-      linear-gradient(150deg, rgba(255, 255, 255, 0.06), transparent 45%),
-      var(--wi-rust);
+    background: linear-gradient(150deg, rgba(255, 255, 255, 0.06), transparent 45%), var(--wi-rust);
   }
 
   .wi-open-engine__gauge-card > div {
@@ -2566,14 +2568,14 @@ button.wi-commitment-card:hover {
   }
 }
 
-
-
 /* Supplied interaction model: hover enrichment, direct plan manipulation, no pinning. */
 .wi-engine-card,
 .wi-calories-card,
 .wi-vo2-card,
 .wi-build-card {
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 [data-wi-scrub] {
@@ -2623,7 +2625,10 @@ div.wi-trend-scrub__chip {
 
 .wi-plan-day__slot[draggable="true"] {
   cursor: grab;
-  transition: opacity 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .wi-plan-day__slot[draggable="true"]:active {
@@ -2643,7 +2648,9 @@ div.wi-trend-scrub__chip {
 }
 
 .wi-plan-day__slot.is-grabbed {
-  box-shadow: 0 0 0 2px rgba(127, 55, 40, 0.35), 0 7px 14px rgba(49, 35, 25, 0.14);
+  box-shadow:
+    0 0 0 2px rgba(127, 55, 40, 0.35),
+    0 7px 14px rgba(49, 35, 25, 0.14);
   transform: translateY(-3px) rotate(-1deg);
 }
 
@@ -2791,7 +2798,10 @@ div.wi-trend-scrub__chip {
   opacity: 0;
   visibility: hidden;
   transform: translateY(3px);
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms ease;
 }
 
 .wi-build-card__badge > span,

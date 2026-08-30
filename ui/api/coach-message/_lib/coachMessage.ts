@@ -1,11 +1,7 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import * as Sentry from "@sentry/node";
-import { recordGeminiResult, setMonitoringStage } from "../../_lib/sentry.js";
-import {
-  parseCurrentWeek,
-  type CurrentWeek,
-} from "../../coach-chat/_lib/current-week.bundle.js";
+import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
+import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
 
 export const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
 export const MAX_ACTIVITY_IDS = 20;
@@ -48,10 +44,7 @@ export interface ProactiveContext {
   current_live_week: CurrentWeek | null;
   active_injuries: Array<Record<string, unknown>>;
   recent_coach_continuity: Array<Record<string, unknown>>;
-  previous_proactive_message: Pick<
-    LatestCoachMessage,
-    "created_at" | "body"
-  > | null;
+  previous_proactive_message: Pick<LatestCoachMessage, "created_at" | "body"> | null;
 }
 
 const EMPTY_FEW_SHOT_CONTEXT = {
@@ -136,12 +129,7 @@ export const PROACTIVE_FEW_SHOT_PAIRS = [
       activity_batch: [
         {
           activity_id: "strava:103",
-          activity: {
-            name: "Ride out",
-            sport_type: "Ride",
-            source: "strava",
-            elapsed_time: 960,
-          },
+          activity: { name: "Ride out", sport_type: "Ride", source: "strava", elapsed_time: 960 },
         },
         {
           activity_id: "strava:104",
@@ -284,10 +272,7 @@ export interface CoachMessageDependencies {
   readFile: (path: string) => Promise<string | null>;
   listActivityFiles: () => Promise<ActivityFileEntry[]>;
   generateBody: (prompt: string) => Promise<string>;
-  commitFiles: (
-    files: FileEntry[],
-    message: string,
-  ) => Promise<{ commitSha: string }>;
+  commitFiles: (files: FileEntry[], message: string) => Promise<{ commitSha: string }>;
   soul: string;
   now?: () => Date;
   randomUUID?: () => string;
@@ -304,9 +289,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function parseActivityHistoryTree(
-  payload: unknown,
-): ActivityFileEntry[] {
+export function parseActivityHistoryTree(payload: unknown): ActivityFileEntry[] {
   if (!isObject(payload)) {
     throw new CoachMessageError("GitHub activity tree is malformed", 502);
   }
@@ -318,11 +301,7 @@ export function parseActivityHistoryTree(
   }
   const prefix = "user_data/activities/hist/";
   return payload.tree.flatMap((entry): ActivityFileEntry[] => {
-    if (
-      !isObject(entry) ||
-      entry.type !== "blob" ||
-      typeof entry.path !== "string"
-    ) {
+    if (!isObject(entry) || entry.type !== "blob" || typeof entry.path !== "string") {
       return [];
     }
     if (!entry.path.startsWith(prefix)) return [];
@@ -351,14 +330,8 @@ function stringValue(value: unknown, maxLength = 1_000): string | null {
   return trimmed ? trimmed.slice(0, maxLength) : null;
 }
 
-function valuesEqual(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((value, index) => value === right[index])
-  );
+function valuesEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function isStrictActivityId(value: string): boolean {
@@ -374,27 +347,17 @@ export function validateActivityIdsPayload(payload: unknown): string[] {
   }
   const keys = Object.keys(payload);
   if (keys.length !== 1 || keys[0] !== "activity_ids") {
-    throw new CoachMessageError(
-      "Request body must contain only activity_ids",
-      400,
-    );
+    throw new CoachMessageError("Request body must contain only activity_ids", 400);
   }
   const ids = payload.activity_ids;
-  if (
-    !Array.isArray(ids) ||
-    ids.length === 0 ||
-    ids.length > MAX_ACTIVITY_IDS
-  ) {
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_ACTIVITY_IDS) {
     throw new CoachMessageError(
       `activity_ids must contain between 1 and ${MAX_ACTIVITY_IDS} items`,
       400,
     );
   }
   if (
-    !ids.every(
-      (value): value is string =>
-        typeof value === "string" && isStrictActivityId(value),
-    )
+    !ids.every((value): value is string => typeof value === "string" && isStrictActivityId(value))
   ) {
     throw new CoachMessageError(
       "activity_ids must use canonical healthkit:<UUID> or strava:<id> values",
@@ -438,10 +401,7 @@ export function validateGeneratedBody(value: unknown): string {
     );
   }
   if (body.includes("—")) {
-    throw new CoachMessageError(
-      "Gemini response must not contain an em dash",
-      502,
-    );
+    throw new CoachMessageError("Gemini response must not contain an em dash", 502);
   }
   const sentences = body.split(/(?<=[.!?])\s+/).filter(Boolean);
   if (
@@ -449,10 +409,7 @@ export function validateGeneratedBody(value: unknown): string {
     sentences.length > 3 ||
     sentences.some((sentence) => sentence.length > MAX_SENTENCE_LENGTH)
   ) {
-    throw new CoachMessageError(
-      "Gemini response must contain 1-3 short sentences",
-      502,
-    );
+    throw new CoachMessageError("Gemini response must contain 1-3 short sentences", 502);
   }
   return body;
 }
@@ -460,13 +417,7 @@ export function validateGeneratedBody(value: unknown): string {
 function parseLatestMessage(value: unknown): LatestCoachMessage | null {
   if (!isObject(value)) return null;
   const keys = Object.keys(value).sort();
-  const expected = [
-    "activity_ids",
-    "body",
-    "conversation_seed_id",
-    "created_at",
-    "id",
-  ];
+  const expected = ["activity_ids", "body", "conversation_seed_id", "created_at", "id"];
   if (!valuesEqual(keys, expected)) return null;
   const id = stringValue(value.id, 120);
   const createdAt = stringValue(value.created_at, 40);
@@ -498,9 +449,7 @@ function parseLatestMessage(value: unknown): LatestCoachMessage | null {
   };
 }
 
-export function parseLatestMessageFile(
-  raw: string | null,
-): LatestCoachMessageFile {
+export function parseLatestMessageFile(raw: string | null): LatestCoachMessageFile {
   if (raw == null) return { schema_version: 1, message: null };
   const value = parseJson(raw);
   if (!isObject(value) || value.schema_version !== 1 || !("message" in value)) {
@@ -509,10 +458,7 @@ export function parseLatestMessageFile(
   if (value.message === null) return { schema_version: 1, message: null };
   const message = parseLatestMessage(value.message);
   if (!message) {
-    throw new CoachMessageError(
-      "latest_message.json contains an invalid message",
-      500,
-    );
+    throw new CoachMessageError("latest_message.json contains an invalid message", 500);
   }
   return { schema_version: 1, message };
 }
@@ -530,8 +476,7 @@ function requestedIdParts(activityId: string): {
 
 function candidateFile(entry: ActivityFileEntry, localId: string): boolean {
   return (
-    entry.path.startsWith("user_data/activities/hist/") &&
-    entry.name.endsWith(`_${localId}.json`)
+    entry.path.startsWith("user_data/activities/hist/") && entry.name.endsWith(`_${localId}.json`)
   );
 }
 
@@ -562,9 +507,7 @@ function projectHrZones(value: unknown): Record<string, unknown> | null {
   return Object.keys(projected).length > 0 ? projected : null;
 }
 
-function projectActivity(
-  value: Record<string, unknown>,
-): Record<string, unknown> {
+function projectActivity(value: Record<string, unknown>): Record<string, unknown> {
   const projected: Record<string, unknown> = {};
   for (const key of [
     "name",
@@ -601,11 +544,7 @@ function projectActivity(
   if (hrZones) projected.hr_zones = hrZones;
   if (isObject(value.vs_usual)) {
     const vsUsual: Record<string, number> = {};
-    for (const key of [
-      "duration_median_s",
-      "avg_hr_median",
-      "above_threshold_median_s",
-    ]) {
+    for (const key of ["duration_median_s", "avg_hr_median", "above_threshold_median_s"]) {
       const number = finiteNumber(value.vs_usual[key]);
       if (number != null) vsUsual[key] = number;
     }
@@ -621,9 +560,7 @@ function projectActivity(
   return projected;
 }
 
-function projectHeartRateSummary(
-  value: unknown,
-): Record<string, unknown> | undefined {
+function projectHeartRateSummary(value: unknown): Record<string, unknown> | undefined {
   if (!isObject(value) || !Array.isArray(value.effort_shape)) return undefined;
   const effortShape = value.effort_shape
     .slice(0, 12)
@@ -697,10 +634,7 @@ function noteText(value: unknown): string | null {
   return isObject(value) ? stringValue(value.text, 800) : null;
 }
 
-function projectAthlete(
-  profileValue: unknown,
-  memoryValue: unknown,
-): Record<string, unknown> {
+function projectAthlete(profileValue: unknown, memoryValue: unknown): Record<string, unknown> {
   const profile = isObject(profileValue) ? profileValue : {};
   const memory = isObject(memoryValue) ? memoryValue : {};
   const notes = isObject(memory.notes) ? memory.notes : {};
@@ -733,9 +667,7 @@ function projectActiveInjuries(value: unknown): Array<Record<string, unknown>> {
     }));
 }
 
-function projectRecentContinuity(
-  value: unknown,
-): Array<Record<string, unknown>> {
+function projectRecentContinuity(value: unknown): Array<Record<string, unknown>> {
   if (!isObject(value) || !Array.isArray(value.rows)) return [];
   return value.rows
     .slice(-5)
@@ -746,16 +678,11 @@ function projectRecentContinuity(
     }));
 }
 
-function parseCurrentLiveWeek(
-  raw: string | null,
-  now: Date,
-): CurrentWeek | null {
+function parseCurrentLiveWeek(raw: string | null, now: Date): CurrentWeek | null {
   const value = parseJson(raw);
   if (value == null) return null;
   const parsed = parseCurrentWeek(value, now);
-  return parsed.availability.available && parsed.data?.data_status === "live"
-    ? parsed.data
-    : null;
+  return parsed.availability.available && parsed.data?.data_status === "live" ? parsed.data : null;
 }
 
 async function loadActivity(
@@ -779,10 +706,7 @@ async function loadActivity(
       ...(heartRateSummary ? { heart_rate_summary: heartRateSummary } : {}),
     };
   }
-  throw new CoachMessageError(
-    `No authoritative activity found for ${activityId}`,
-    422,
-  );
+  throw new CoachMessageError(`No authoritative activity found for ${activityId}`, 422);
 }
 
 export async function loadProactiveContext(
@@ -791,27 +715,18 @@ export async function loadProactiveContext(
   now: Date,
   previousProactiveMessage: ProactiveContext["previous_proactive_message"] = null,
 ): Promise<ProactiveContext> {
-  const [
-    entries,
-    profileRaw,
-    memoryRaw,
-    insightsRaw,
-    weekRaw,
-    injuriesRaw,
-    coachLogRaw,
-  ] = await Promise.all([
-    deps.listActivityFiles(),
-    deps.readFile("user_data/coach/profile.json"),
-    deps.readFile("user_data/coach/memory.json"),
-    deps.readFile("gen/athlete_insights.json"),
-    deps.readFile("user_data/ledger/current_week.json"),
-    deps.readFile("user_data/coach/injuries.json"),
-    deps.readFile("user_data/coach/coach_log.json"),
-  ]);
+  const [entries, profileRaw, memoryRaw, insightsRaw, weekRaw, injuriesRaw, coachLogRaw] =
+    await Promise.all([
+      deps.listActivityFiles(),
+      deps.readFile("user_data/coach/profile.json"),
+      deps.readFile("user_data/coach/memory.json"),
+      deps.readFile("gen/athlete_insights.json"),
+      deps.readFile("user_data/ledger/current_week.json"),
+      deps.readFile("user_data/coach/injuries.json"),
+      deps.readFile("user_data/coach/coach_log.json"),
+    ]);
   const activityBatch = await Promise.all(
-    activityIds.map((activityId) =>
-      loadActivity(activityId, entries, deps.readFile),
-    ),
+    activityIds.map((activityId) => loadActivity(activityId, entries, deps.readFile)),
   );
   return {
     activity_batch: activityBatch,
@@ -824,10 +739,7 @@ export async function loadProactiveContext(
   };
 }
 
-export function buildProactivePrompt(
-  soul: string,
-  context: ProactiveContext,
-): string {
+export function buildProactivePrompt(soul: string, context: ProactiveContext): string {
   return [
     soul,
     "## Proactive post-sync turn",
@@ -848,102 +760,81 @@ export function buildProactivePrompt(
   ].join("\n\n");
 }
 
-async function generateProactiveBodyRequest(
-  apiKey: string,
-  prompt: string,
-  fetcher: typeof fetchWithTimeout = fetchWithTimeout,
-): Promise<string> {
-  const response = await fetcher(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: { body: { type: "string" } },
-            required: ["body"],
-          },
-          maxOutputTokens: 180,
-        },
-      }),
-    },
-    GEMINI_GENERATE_TIMEOUT_MS,
-  );
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new CoachMessageError(
-      `Gemini request failed (${response.status}): ${detail}`,
-      response.status === 429 ? 429 : 502,
-    );
-  }
-  const payload = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    usageMetadata?: {
-      promptTokenCount?: number;
-      candidatesTokenCount?: number;
-    };
-  };
-  const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
-  recordGeminiResult({
-    model: GEMINI_MODEL,
-    promptTokens: payload.usageMetadata?.promptTokenCount,
-    completionTokens: payload.usageMetadata?.candidatesTokenCount,
-    replyChars: text?.length ?? 0,
-  });
-  if (!text) throw new CoachMessageError("Gemini returned no content", 502);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text) as unknown;
-  } catch {
-    throw new CoachMessageError("Gemini returned invalid JSON", 502);
-  }
-  if (
-    !isObject(parsed) ||
-    Object.keys(parsed).length !== 1 ||
-    !("body" in parsed)
-  ) {
-    throw new CoachMessageError(
-      "Gemini returned an invalid message shape",
-      502,
-    );
-  }
-  const body = validateGeneratedBody(parsed.body);
-  return body;
-}
-
 export async function generateProactiveBody(
   apiKey: string,
   prompt: string,
   fetcher: typeof fetchWithTimeout = fetchWithTimeout,
 ): Promise<string> {
-  setMonitoringStage("gemini_proactive_message");
-  return Sentry.startSpan(
-    {
-      name: "Gemini proactive message",
-      op: "ai.run",
-      attributes: { "ai.model": GEMINI_MODEL, "ai.mode": "proactive" },
-    },
-    async (span) => {
-      try {
-        const body = await generateProactiveBodyRequest(
-          apiKey,
-          prompt,
-          fetcher,
+  try {
+    return await withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
+      const response = await fetcher(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "object",
+                properties: { body: { type: "string" } },
+                required: ["body"],
+              },
+              maxOutputTokens: 180,
+            },
+          }),
+        },
+        GEMINI_GENERATE_TIMEOUT_MS,
+      );
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new CoachMessageError(
+          `Gemini request failed (${response.status}): ${detail}`,
+          response.status === 429 ? 429 : 502,
         );
-        span.setAttribute("outcome", "success");
-        span.setStatus({ code: 1 });
-        return body;
-      } catch (error) {
-        span.setAttribute("outcome", "error");
-        span.setStatus({ code: 2 });
-        throw error;
       }
-    },
-  );
+      const payload = (await response.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+        };
+      };
+      if (payload.usageMetadata) {
+        recordUsage({
+          promptTokens: payload.usageMetadata.promptTokenCount,
+          completionTokens: payload.usageMetadata.candidatesTokenCount,
+          totalTokens: payload.usageMetadata.totalTokenCount,
+        });
+      }
+      const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new CoachMessageError("Gemini returned no content", 502);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text) as unknown;
+      } catch {
+        throw new CoachMessageError("Gemini returned invalid JSON", 502);
+      }
+      if (!isObject(parsed) || Object.keys(parsed).length !== 1 || !("body" in parsed)) {
+        throw new CoachMessageError("Gemini returned an invalid message shape", 502);
+      }
+      return validateGeneratedBody(parsed.body);
+    });
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status ?? 500;
+    console.error("[coach-message] generateProactiveBody failed:", err);
+    await captureGeminiFailure(err, {
+      model: GEMINI_MODEL,
+      upstreamStatus: status,
+      turnMode: "proactive_message",
+      // The proactive message is generated from activity/context data, not athlete-typed text —
+      // there is nothing to record here, same reasoning as the greeting path in coach-chat.ts.
+      athleteMessage: "",
+    });
+    throw err;
+  }
 }
 
 function serializeLatestMessage(message: LatestCoachMessage): string {
@@ -954,13 +845,8 @@ export async function generateAndStoreCoachMessage(
   activityIds: string[],
   deps: CoachMessageDependencies,
 ): Promise<CoachMessageResult> {
-  const initial = parseLatestMessageFile(
-    await deps.readFile(LATEST_COACH_MESSAGE_PATH),
-  );
-  if (
-    initial.message &&
-    valuesEqual(initial.message.activity_ids, activityIds)
-  ) {
+  const initial = parseLatestMessageFile(await deps.readFile(LATEST_COACH_MESSAGE_PATH));
+  if (initial.message && valuesEqual(initial.message.activity_ids, activityIds)) {
     return {
       message: initial.message,
       commitSha: null,
@@ -976,12 +862,7 @@ export async function generateAndStoreCoachMessage(
         body: initial.message.body,
       }
     : null;
-  const context = await loadProactiveContext(
-    activityIds,
-    deps,
-    now,
-    previousProactiveMessage,
-  );
+  const context = await loadProactiveContext(activityIds, deps, now, previousProactiveMessage);
   const body = validateGeneratedBody(
     await deps.generateBody(buildProactivePrompt(deps.soul, context)),
   );
@@ -1019,10 +900,7 @@ export async function generateAndStoreCoachMessage(
       return serializeLatestMessage(candidate);
     },
   };
-  const committed = await deps.commitFiles(
-    [write],
-    "coach: proactive message after sync",
-  );
+  const committed = await deps.commitFiles([write], "coach: proactive message after sync");
   const durableWinner = writeState.durableWinner;
   if (!durableWinner) {
     throw new CoachMessageError(
@@ -1034,8 +912,7 @@ export async function generateAndStoreCoachMessage(
     message: durableWinner,
     commitSha: committed.commitSha,
     idempotent:
-      valuesEqual(durableWinner.activity_ids, activityIds) &&
-      durableWinner.id !== candidate.id,
+      valuesEqual(durableWinner.activity_ids, activityIds) && durableWinner.id !== candidate.id,
     shouldNotify: writeState.candidateBecameDurable,
   };
 }

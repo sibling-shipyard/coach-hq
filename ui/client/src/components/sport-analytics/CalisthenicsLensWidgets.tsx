@@ -1,4 +1,10 @@
-import { type CSSProperties, type MouseEvent as ReactMouseEvent, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { clamp, hoverCapable, smoothPath } from "./chartUtils";
 import type {
   CalisthenicsActivityHeatmapSnapshot,
@@ -93,7 +99,7 @@ function SkillTrackRowView({
   }
 
   const projLabel = hoverStep ? hoverStep.label : track.projLabel;
-  const projSub = hoverStep ? hoverStep.projection?.math ?? hoverStep.sub : track.projSub;
+  const projSub = hoverStep ? (hoverStep.projection?.math ?? hoverStep.sub) : track.projSub;
 
   return (
     <div className="sa-cal-skill-track">
@@ -102,7 +108,9 @@ function SkillTrackRowView({
           <strong>{track.name}</strong>
           <span>{track.metric}</span>
         </div>
-        {track.note ? <em className="sa-cal-skill-track__note wi-desktop-only">{track.note}</em> : null}
+        {track.note ? (
+          <em className="sa-cal-skill-track__note wi-desktop-only">{track.note}</em>
+        ) : null}
       </div>
       <div className="sa-cal-skill-track__ladder">
         {track.steps.map((step, index) => (
@@ -157,7 +165,8 @@ export function SkillTracksCard({ skillTracks }: { skillTracks: SkillTracksSnaps
         ))}
       </div>
       <p className="sa-cal-skill-tracks__method wi-desktop-only">
-        EACH FUTURE STEP SHOWS SESSIONS TO TARGET · HOVER A STEP → PROJECTED DATE + THE MATH APPEARS AT ROW END (LIVE) · EVERY MISSED SESSION SLIDES IT RIGHT
+        EACH FUTURE STEP SHOWS SESSIONS TO TARGET · HOVER A STEP → PROJECTED DATE + THE MATH APPEARS
+        AT ROW END (LIVE) · EVERY MISSED SESSION SLIDES IT RIGHT
       </p>
     </section>
   );
@@ -165,7 +174,11 @@ export function SkillTracksCard({ skillTracks }: { skillTracks: SkillTracksSnaps
 
 // ─── Am I improving ─────────────────────────────────────────────────────────
 
-export function CalisthenicsImprovingCard({ improving }: { improving: CalisthenicsImprovingSnapshot }) {
+export function CalisthenicsImprovingCard({
+  improving,
+}: {
+  improving: CalisthenicsImprovingSnapshot;
+}) {
   return (
     <section className="sa-card sa-cal-improving">
       <div className="sa-card-kicker">
@@ -190,7 +203,9 @@ export function CalisthenicsImprovingCard({ improving }: { improving: Calistheni
               ) : null}
             </div>
           ))}
-          {improving.coachLine ? <p className="sa-cal-improving__coach">{improving.coachLine}</p> : null}
+          {improving.coachLine ? (
+            <p className="sa-cal-improving__coach">{improving.coachLine}</p>
+          ) : null}
         </>
       ) : (
         <p className="sa-empty-note">No calisthenics benchmarks in the challenge record yet.</p>
@@ -212,9 +227,14 @@ function E1rmTrend({ points }: { points: TestedE1rmSnapshot["points"] }) {
     const minimum = Math.min(...values) - 4;
     const maximum = Math.max(...values) + 4;
     const range = Math.max(1, maximum - minimum);
-    const x = (index: number) => (points.length === 1 ? width / 2 : (index / (points.length - 1)) * width);
+    const x = (index: number) =>
+      points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;
     const y = (value: number) => height - 12 - ((value - minimum) / range) * (height - 28);
-    return { minimum, maximum, coords: points.map((p, i) => ({ x: x(i), y: y(p.e1rmKg), point: p })) };
+    return {
+      minimum,
+      maximum,
+      coords: points.map((p, i) => ({ x: x(i), y: y(p.e1rmKg), point: p })),
+    };
   }, [points]);
 
   function handleScrub(event: ReactMouseEvent<SVGSVGElement>) {
@@ -239,7 +259,7 @@ function E1rmTrend({ points }: { points: TestedE1rmSnapshot["points"] }) {
     >
       <line className="sa-dashed-line" x1="0" x2={width} y1="64" y2="64" />
       <path d={smoothPath(chart.coords.map((c) => ({ x: c.x, y: c.y })))} />
-      {chart.coords.map((coord, index) => (
+      {chart.coords.map((coord) => (
         <circle
           key={coord.point.date}
           className={coord.point.isPr ? "is-pr" : ""}
@@ -266,7 +286,8 @@ export function TestedE1rmCard({ tested }: { tested: TestedE1rmSnapshot }) {
       </div>
       {!tested.available ? (
         <p className="sa-empty-note">
-          No pull-up e1RM tests logged yet — ringed dots mark test days once history builds. Hover a dot for that day&apos;s detail; the line between them is an estimate.
+          No pull-up e1RM tests logged yet — ringed dots mark test days once history builds. Hover a
+          dot for that day&apos;s detail; the line between them is an estimate.
         </p>
       ) : (
         <>
@@ -279,7 +300,8 @@ export function TestedE1rmCard({ tested }: { tested: TestedE1rmSnapshot }) {
               </strong>
               {tested.blockDeltaKg !== null && tested.blockDeltaKg !== 0 ? (
                 <span className="sa-cal-e1rm__delta">
-                  {tested.blockDeltaKg > 0 ? "▲" : "▼"} {Math.abs(tested.blockDeltaKg).toFixed(1)} THIS BLOCK
+                  {tested.blockDeltaKg > 0 ? "▲" : "▼"} {Math.abs(tested.blockDeltaKg).toFixed(1)}{" "}
+                  THIS BLOCK
                   {tested.prDateLabel ? ` · PR ${tested.prDateLabel}` : ""}
                 </span>
               ) : null}
@@ -287,7 +309,8 @@ export function TestedE1rmCard({ tested }: { tested: TestedE1rmSnapshot }) {
             <E1rmTrend points={tested.points} />
           </div>
           <p className="sa-cal-e1rm__note">
-            <b>e1RM</b> = estimated 1-rep max, worked out from your reps × weight — so you see progress without ever maxing out.
+            <b>e1RM</b> = estimated 1-rep max, worked out from your reps × weight — so you see
+            progress without ever maxing out.
           </p>
         </>
       )}
@@ -324,7 +347,9 @@ export function ConsistencyCard({ consistency }: { consistency: ConsistencySnaps
             <span>FILLED = HIT WEEKLY FLOOR</span>
             <span>NOW</span>
           </div>
-          {consistency.coachLine ? <p className="sa-cal-consistency__coach">{consistency.coachLine}</p> : null}
+          {consistency.coachLine ? (
+            <p className="sa-cal-consistency__coach">{consistency.coachLine}</p>
+          ) : null}
         </>
       )}
     </section>
@@ -333,7 +358,11 @@ export function ConsistencyCard({ consistency }: { consistency: ConsistencySnaps
 
 // ─── Coach read ─────────────────────────────────────────────────────────────
 
-export function CalisthenicsCoachReadCard({ coachRead }: { coachRead: CalisthenicsCoachReadSnapshot }) {
+export function CalisthenicsCoachReadCard({
+  coachRead,
+}: {
+  coachRead: CalisthenicsCoachReadSnapshot;
+}) {
   if (!coachRead.available) return null;
   return (
     <section className="sa-card sa-cal-coach-read">
@@ -345,7 +374,11 @@ export function CalisthenicsCoachReadCard({ coachRead }: { coachRead: Calistheni
 
 // ─── Calisthenics activity heatmap (spine) ───────────────────────────────────
 
-export function CalisthenicsActivityHeatmapCard({ heatmap }: { heatmap: CalisthenicsActivityHeatmapSnapshot }) {
+export function CalisthenicsActivityHeatmapCard({
+  heatmap,
+}: {
+  heatmap: CalisthenicsActivityHeatmapSnapshot;
+}) {
   const visibleCount = Math.min(3, heatmap.months.length);
   const latestStart = Math.max(0, heatmap.months.length - visibleCount);
   const [windowStart, setWindowStart] = useState(latestStart);
@@ -363,7 +396,10 @@ export function CalisthenicsActivityHeatmapCard({ heatmap }: { heatmap: Calisthe
         <span className="sa-card-label">CALISTHENICS ACTIVITY · {rangeLabel}</span>
         <div className="sa-cal-heatmap__tools">
           <div className="sa-cal-heatmap__legend">
-            <span><i className="is-calisthenics" />CAL</span>
+            <span>
+              <i className="is-calisthenics" />
+              CAL
+            </span>
           </div>
           <div className="sa-cal-heatmap__paging" aria-label="Calisthenics activity month window">
             <button
@@ -377,7 +413,9 @@ export function CalisthenicsActivityHeatmapCard({ heatmap }: { heatmap: Calisthe
             <button
               aria-label="Show next three months"
               disabled={windowStart >= latestStart}
-              onClick={() => setWindowStart((current) => Math.min(latestStart, current + visibleCount))}
+              onClick={() =>
+                setWindowStart((current) => Math.min(latestStart, current + visibleCount))
+              }
               type="button"
             >
               →
@@ -397,7 +435,10 @@ export function CalisthenicsActivityHeatmapCard({ heatmap }: { heatmap: Calisthe
               </div>
               <div className="sa-cal-heatmap__grid">
                 {month.cells.slice(0, 28).map((cell, index) => (
-                  <i className={cell === "empty" ? "is-empty" : "is-calisthenics"} key={`${month.label}-${index}`} />
+                  <i
+                    className={cell === "empty" ? "is-empty" : "is-calisthenics"}
+                    key={`${month.label}-${index}`}
+                  />
                 ))}
               </div>
             </div>

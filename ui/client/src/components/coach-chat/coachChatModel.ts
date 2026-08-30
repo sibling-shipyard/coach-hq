@@ -1,10 +1,4 @@
 import type { CoachMessageSnapshot } from "@/components/home-warm/snapshots";
-import {
-  captureClientRequestFailure,
-  finishClientSpan,
-  monitoredClientRequest,
-  newOperationId,
-} from "@/lib/observability";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // ADR 0012 (amended): retention is a count cap (newest 7 active threads, no archive tier),
@@ -20,9 +14,7 @@ export const MAX_RETAINED_THREADS = 7;
 // client-only fallback titles derived from the athlete's own typed text.
 export function truncateTitle(title: string, maxChars: number): string {
   const chars = Array.from(title);
-  return chars.length > maxChars
-    ? `${chars.slice(0, maxChars).join("")}…`
-    : title;
+  return chars.length > maxChars ? `${chars.slice(0, maxChars).join("")}…` : title;
 }
 
 export type ChatRole = "user" | "coach" | "divider";
@@ -139,10 +131,7 @@ export async function fetchProactiveCoachMessage(
 ): Promise<CoachMessageSnapshot | null> {
   if (!isProactiveSeed(requestedSeed)) return null;
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    PROACTIVE_SNAPSHOT_TIMEOUT_MS,
-  );
+  const timeout = setTimeout(() => controller.abort(), PROACTIVE_SNAPSHOT_TIMEOUT_MS);
   try {
     const response = await fetcher("/api/widget-snapshots", {
       signal: controller.signal,
@@ -166,21 +155,13 @@ export function materializeProactiveThread(
       ? cachedMessages
       : [
           { id: `d-${createdAt}`, role: "divider" as const, label: "TODAY" },
-          {
-            id: `c-${createdAt}`,
-            role: "coach" as const,
-            paragraphs: [message.body],
-          },
+          { id: `c-${createdAt}`, role: "coach" as const, paragraphs: [message.body] },
         ];
   const lastCoach = [...messages]
     .reverse()
-    .find(
-      (item): item is Extract<ChatMessage, { role: "coach" }> =>
-        item.role === "coach",
-    );
+    .find((item): item is Extract<ChatMessage, { role: "coach" }> => item.role === "coach");
   const firstUser = messages.find(
-    (item): item is Extract<ChatMessage, { role: "user" }> =>
-      item.role === "user",
+    (item): item is Extract<ChatMessage, { role: "user" }> => item.role === "user",
   );
   const dayOffset = computeLocalDayOffset(createdAt);
   return {
@@ -202,9 +183,7 @@ export function resolveProactiveThread(
   cachedMessages: ChatMessage[] | null = null,
 ): ChatThread | null {
   if (!requestedSeed || !isProactiveSeed(requestedSeed)) return null;
-  const existing = existingThreads.find(
-    (thread) => thread.id === requestedSeed,
-  );
+  const existing = existingThreads.find((thread) => thread.id === requestedSeed);
   if (existing) return existing;
   if (!latestMessage || latestMessage.conversation_seed_id !== requestedSeed) {
     return null;
@@ -218,24 +197,16 @@ export function resolveProactiveThread(
  * athletes awaiting manual backfill, or a session before First Session Protocol completes).
  * Falls back to 1 if none of the three are present.
  */
-export function challengeDayNumber(
-  profile: any,
-  ledger: any,
-  now = new Date(),
-): number {
+export function challengeDayNumber(profile: any, ledger: any, now = new Date()): number {
   const startRaw =
     profile?.coach_since ??
-    ledger?.seasons?.seasons?.find(
-      (s: any) => s.id === ledger?.seasons?.current_season_id,
-    )?.start_date;
+    ledger?.seasons?.seasons?.find((s: any) => s.id === ledger?.seasons?.current_season_id)
+      ?.start_date;
   if (!startRaw) return 1;
   const start = new Date(`${startRaw}T00:00:00`);
   if (Number.isNaN(start.getTime())) return 1;
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.max(
-    1,
-    Math.floor((today.getTime() - start.getTime()) / DAY_MS) + 1,
-  );
+  return Math.max(1, Math.floor((today.getTime() - start.getTime()) / DAY_MS) + 1);
 }
 
 export function threadDayLabel(dayNumber: number, dayOffset: number): string {
@@ -264,9 +235,7 @@ function ordinal(day: number): string {
 export function formatThreadDate(createdAt: number | undefined): string {
   if (!createdAt) return "";
   const date = new Date(createdAt);
-  const month = date
-    .toLocaleDateString("en-US", { month: "short" })
-    .toUpperCase();
+  const month = date.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
   return `${ordinal(date.getDate())} ${month}`;
 }
 
@@ -284,9 +253,7 @@ export function threadAgeDisplay(thread: ChatThread): string {
  * divider string, which is frozen at creation time and reads e.g. "TODAY · 2:00 AM" forever,
  * even days later. */
 export function threadDividerLabel(thread: ChatThread): string {
-  return thread.dayOffset === 0
-    ? "TODAY"
-    : formatThreadDate(thread.createdAt) || "TODAY";
+  return thread.dayOffset === 0 ? "TODAY" : formatThreadDate(thread.createdAt) || "TODAY";
 }
 
 export function threadStatus(thread: ChatThread): ChatThreadStatus {
@@ -309,9 +276,7 @@ function normalizeAttachments(raw: unknown): ChatAttachment[] | undefined {
 export function normalizeMessage(message: ChatMessage): ChatMessage {
   if (message.role !== "coach") return message;
   const attachments = normalizeAttachments(message.attachments);
-  return attachments
-    ? { ...message, attachments }
-    : { ...message, attachments: undefined };
+  return attachments ? { ...message, attachments } : { ...message, attachments: undefined };
 }
 
 export function normalizeThread(thread: ChatThread): ChatThread {
@@ -328,17 +293,14 @@ export function syncedActivityList(
 ): SyncedActivityListAttachment | null {
   if (!attachments) return null;
   for (const attachment of attachments) {
-    if (attachment.kind !== "synced_activity_list" || attachment.version !== 1)
-      continue;
+    if (attachment.kind !== "synced_activity_list" || attachment.version !== 1) continue;
     if (!Array.isArray(attachment.activities)) continue;
     return attachment as SyncedActivityListAttachment;
   }
   return null;
 }
 
-export function coachMessageHasCopy(
-  message: Extract<ChatMessage, { role: "coach" }>,
-): boolean {
+export function coachMessageHasCopy(message: Extract<ChatMessage, { role: "coach" }>): boolean {
   return message.paragraphs.some((paragraph) => paragraph.trim().length > 0);
 }
 
@@ -346,14 +308,11 @@ export function qualifiedActivityId(id: string): string {
   return id.includes(":") ? id : `hk:${id}`;
 }
 
-export function retryActivityIdsFromThread(
-  thread: ChatThread,
-): string[] | null {
+export function retryActivityIdsFromThread(thread: ChatThread): string[] | null {
   const coach = [...thread.messages]
     .reverse()
     .find(
-      (message): message is Extract<ChatMessage, { role: "coach" }> =>
-        message.role === "coach",
+      (message): message is Extract<ChatMessage, { role: "coach" }> => message.role === "coach",
     );
   if (!coach) return null;
   const list = syncedActivityList(coach.attachments);
@@ -398,8 +357,7 @@ export function findClientActivity(
       id: aid,
       name: typeof row.name === "string" ? row.name : "",
       sport_type: typeof row.sport_type === "string" ? row.sport_type : "",
-      start_date_local:
-        typeof row.start_date_local === "string" ? row.start_date_local : "",
+      start_date_local: typeof row.start_date_local === "string" ? row.start_date_local : "",
       elapsed_time: typeof row.elapsed_time === "number" ? row.elapsed_time : 0,
       calories: typeof row.calories === "number" ? row.calories : undefined,
       average_heartrate:
@@ -438,9 +396,7 @@ export class CoachChatAccessRevokedError extends Error {
  * gives no indication retrying immediately won't help either. */
 export class CoachChatRateLimitedError extends Error {
   constructor() {
-    super(
-      "Coach is getting a lot of requests right now - wait a moment and try again",
-    );
+    super("Coach is getting a lot of requests right now - wait a moment and try again");
     this.name = "CoachChatRateLimitedError";
   }
 }
@@ -460,63 +416,20 @@ async function fetchWithRetry(
   attempts = 3,
   retryNetworkFailures = true,
 ): Promise<Response> {
-  const operationId = newOperationId();
-  const headers = new Headers(init?.headers);
-  headers.set("x-operation-id", operationId);
-  const options = { ...init, headers };
-  const requestPath =
-    typeof input === "string"
-      ? input
-      : input instanceof Request
-        ? input.url
-        : String(input);
-  const requestMethod = (init?.method ?? "GET").toUpperCase();
-
-  return monitoredClientRequest(
-    requestMethod === "POST" ? "coach turn" : "coach history load",
-    operationId,
-    async (span) => {
-      let lastError: unknown;
-      for (let attempt = 0; attempt < attempts; attempt++) {
-        try {
-          const res = await fetch(input, options);
-          const terminal =
-            res.ok ||
-            !isTransientStatus(res.status) ||
-            attempt === attempts - 1;
-          if (terminal) {
-            span.setAttribute("retry_count", attempt);
-            finishClientSpan(span, res.ok ? "success" : "error", res.status);
-            if (!res.ok) {
-              captureClientRequestFailure(
-                new Error(`Coach chat request failed (${res.status})`),
-                { operationId, requestPath, requestMethod, status: res.status },
-              );
-            }
-            return res;
-          }
-        } catch (err) {
-          lastError = err;
-          if (!retryNetworkFailures || attempt === attempts - 1) {
-            captureClientRequestFailure(err, {
-              operationId,
-              requestPath,
-              requestMethod,
-            });
-            throw err;
-          }
-        }
-        await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
-      }
-      const finalError = lastError ?? new Error("Coach chat request failed");
-      captureClientRequestFailure(finalError, {
-        operationId,
-        requestPath,
-        requestMethod,
-      });
-      throw finalError;
-    },
-  );
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await fetch(input, init);
+      if (res.ok || !isTransientStatus(res.status) || attempt === attempts - 1) return res;
+    } catch (err) {
+      if (!retryNetworkFailures) throw err;
+      lastError = err;
+      if (attempt === attempts - 1) throw err;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+  }
+  // Unreachable in practice (the loop above always returns or throws), but keeps TS happy.
+  throw lastError ?? new Error("Coach chat request failed");
 }
 
 export async function fetchThreads(): Promise<ChatThread[]> {
@@ -547,9 +460,7 @@ export function shouldSendEndConversation(
   threadId: string | null,
   explicitlyRequested: boolean,
 ): boolean {
-  return (
-    explicitlyRequested || (threadId != null && pendingThreadIds.has(threadId))
-  );
+  return explicitlyRequested || (threadId != null && pendingThreadIds.has(threadId));
 }
 
 export function updatePendingEndThreads(
@@ -634,18 +545,13 @@ export type ActivitySyncResult = {
   profileComplete: boolean;
 };
 
-export async function activitySync(
-  activityIds: string[],
-): Promise<ActivitySyncResult> {
+export async function activitySync(activityIds: string[]): Promise<ActivitySyncResult> {
   const res = await fetchWithRetry(
     "/api/coach-chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "activity_sync",
-        activity_ids: activityIds,
-      }),
+      body: JSON.stringify({ action: "activity_sync", activity_ids: activityIds }),
     },
     3,
     false,
@@ -675,8 +581,7 @@ export interface GreetResult {
 export async function fetchProfileComplete(): Promise<boolean> {
   const res = await fetchWithRetry("/api/coach-chat-profile-status");
   if (res.status === 401) throw new CoachChatAccessRevokedError();
-  if (!res.ok)
-    throw new Error(`Failed to load coach profile status (${res.status})`);
+  if (!res.ok) throw new Error(`Failed to load coach profile status (${res.status})`);
   const body = (await res.json()) as { profileComplete: boolean };
   return body.profileComplete;
 }
@@ -713,23 +618,15 @@ export async function greet(): Promise<GreetResult> {
 // plausibly hold multiple accounts' Keychain-backed sessions.
 const LOCAL_CACHE_PREFIX = "coachChatLocalCache.";
 
-export function saveThreadLocally(
-  threadId: string,
-  messages: ChatMessage[],
-): void {
+export function saveThreadLocally(threadId: string, messages: ChatMessage[]): void {
   try {
-    localStorage.setItem(
-      LOCAL_CACHE_PREFIX + threadId,
-      JSON.stringify(messages),
-    );
+    localStorage.setItem(LOCAL_CACHE_PREFIX + threadId, JSON.stringify(messages));
   } catch {
     // Quota exceeded, private browsing, etc. - never let this block the actual conversation.
   }
 }
 
-export function restoreThreadMessagesLocally(
-  threadId: string,
-): ChatMessage[] | null {
+export function restoreThreadMessagesLocally(threadId: string): ChatMessage[] | null {
   try {
     const raw = localStorage.getItem(LOCAL_CACHE_PREFIX + threadId);
     if (!raw) return null;
@@ -753,9 +650,7 @@ export function clearThreadLocally(threadId: string): void {
 /** Thread ids cached locally that never made it into `currentThreadIds` (the server's committed
  * list) - i.e. genuinely uncommitted conversations, not just a stale cache entry for something
  * that already closed. Scan happens once on load, before the first render decides what to show. */
-export function findOrphanedLocalThreadIds(
-  currentThreadIds: readonly string[],
-): string[] {
+export function findOrphanedLocalThreadIds(currentThreadIds: readonly string[]): string[] {
   const known = new Set(currentThreadIds);
   const orphaned: string[] = [];
   try {
@@ -788,19 +683,8 @@ export function epochMsFromMessageId(id: string): number | null {
  * thread (see epochMsFromMessageId above) never had a server-computed dayOffset to begin with. */
 export function computeLocalDayOffset(createdAt: number): number {
   const created = new Date(createdAt);
-  const createdDay = new Date(
-    created.getFullYear(),
-    created.getMonth(),
-    created.getDate(),
-  );
+  const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate());
   const today = new Date();
-  const todayDay = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-  );
-  return Math.max(
-    0,
-    Math.round((todayDay.getTime() - createdDay.getTime()) / 86_400_000),
-  );
+  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.round((todayDay.getTime() - createdDay.getTime()) / 86_400_000));
 }

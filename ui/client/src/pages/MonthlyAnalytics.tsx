@@ -20,10 +20,16 @@ import {
 import "@/components/home-warm/warm-instrument.css";
 import "@/components/monthly-analytics/monthly-analytics.css";
 
-function buildPhaseLabel(activities: Activity[], ledger: SplitLedger, syncStatus: SyncStatusPayload): string {
+function buildPhaseLabel(
+  activities: Activity[],
+  ledger: SplitLedger,
+  syncStatus: SyncStatusPayload,
+): string {
   const contract = buildLiveWeekContract(activities);
   const model = buildWarmHomeModel(activities, ledger, syncStatus, contract);
-  const currentSeason = ledger.seasons?.seasons?.find((s: any) => s.id === ledger.seasons.current_season_id);
+  const currentSeason = ledger.seasons?.seasons?.find(
+    (s: any) => s.id === ledger.seasons.current_season_id,
+  );
   const blockStart = currentSeason?.start_date;
   const blockEnd = currentSeason?.end_date;
   const start = blockStart ? new Date(`${blockStart}T00:00:00`) : new Date();
@@ -56,10 +62,14 @@ function MonthlyAnalyticsContent({ data }: { data: RepoData }) {
   const syncStatusData = data.sync_status as SyncStatusPayload;
   // Fallback matches build-dashboard-snapshot.mjs's own default for a repo that never ran
   // generate_quest_history.py.
-  const questHistory = (data.quest_history as QuestHistory | undefined) ?? {
-    generated_at: "",
-    quests: {},
-  };
+  const questHistory = useMemo(
+    () =>
+      (data.quest_history as QuestHistory | undefined) ?? {
+        generated_at: "",
+        quests: {},
+      },
+    [data.quest_history],
+  );
 
   const now = new Date();
   const [scope, setScope] = useState(() =>

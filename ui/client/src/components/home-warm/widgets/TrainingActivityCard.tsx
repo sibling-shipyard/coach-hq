@@ -31,7 +31,7 @@ function TrainingActivityCardCompact({
   staggerCells?: boolean;
 }) {
   const month = activity.months.at(-1);
-  const cells = month?.cells.slice(0, 28) ?? [];
+  const cells = useMemo(() => month?.cells.slice(0, 28) ?? [], [month]);
   const legend = useMemo(() => legendForCells(cells), [cells]);
 
   return (
@@ -76,19 +76,7 @@ function TrainingActivityCardCompact({
   );
 }
 
-export function TrainingActivityCard({
-  activity,
-  compact = false,
-  staggerCells = false,
-}: {
-  activity: TrainingActivitySnapshot;
-  compact?: boolean;
-  staggerCells?: boolean;
-}) {
-  if (compact) {
-    return <TrainingActivityCardCompact activity={activity} staggerCells={staggerCells} />;
-  }
-
+function TrainingActivityCardFull({ activity }: { activity: TrainingActivitySnapshot }) {
   const visibleCount = Math.min(4, activity.months.length);
   const latestStart = Math.max(0, activity.months.length - visibleCount);
   const [windowStart, setWindowStart] = useState(latestStart);
@@ -125,7 +113,9 @@ export function TrainingActivityCard({
             <button
               aria-label="Show next four months"
               disabled={windowStart >= latestStart}
-              onClick={() => setWindowStart((current) => Math.min(latestStart, current + visibleCount))}
+              onClick={() =>
+                setWindowStart((current) => Math.min(latestStart, current + visibleCount))
+              }
               type="button"
             >
               →
@@ -157,18 +147,37 @@ export function TrainingActivityCard({
             <span>LONGEST BLOCK</span>
           </div>
           <div>
-            <strong>{activity.planTruePercent === null ? "—" : `${activity.planTruePercent}%`}</strong>
+            <strong>
+              {activity.planTruePercent === null ? "—" : `${activity.planTruePercent}%`}
+            </strong>
             <span>PLAN-TRUE</span>
           </div>
           <div>
             <strong>{activity.gapCount}</strong>
-            <span>
-              GAPS · WORST {activity.worstGap}D
-            </span>
+            <span>GAPS · WORST {activity.worstGap}D</span>
           </div>
         </div>
       </div>
       <p>{activity.read}</p>
     </section>
+  );
+}
+
+// `compact` picks between two shapes, so it cannot be an early return inside one
+// component: the full card calls useState/useEffect and the compact one does not,
+// which breaks hook order the first time a mounted card flips `compact`.
+export function TrainingActivityCard({
+  activity,
+  compact = false,
+  staggerCells = false,
+}: {
+  activity: TrainingActivitySnapshot;
+  compact?: boolean;
+  staggerCells?: boolean;
+}) {
+  return compact ? (
+    <TrainingActivityCardCompact activity={activity} staggerCells={staggerCells} />
+  ) : (
+    <TrainingActivityCardFull activity={activity} />
   );
 }

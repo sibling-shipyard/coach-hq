@@ -45,10 +45,10 @@
   --color-sport-badminton: oklch(0.45 0.12 145);
   --color-sport-weights: oklch(0.35 0.05 260);
   --color-sport-ride: oklch(0.55 0.15 55);
-  --color-sport-run: oklch(0.50 0.18 25);
-  --color-sport-hike: oklch(0.50 0.08 100);
-  --color-sport-yoga: oklch(0.55 0.10 310);
-  --color-sport-workout: oklch(0.40 0.08 280);
+  --color-sport-run: oklch(0.5 0.18 25);
+  --color-sport-hike: oklch(0.5 0.08 100);
+  --color-sport-yoga: oklch(0.55 0.1 310);
+  --color-sport-workout: oklch(0.4 0.08 280);
 }
 
 /* Athlete OS — Neo-Brutalist Design System
@@ -57,15 +57,15 @@
  * Hard edges, high contrast, no decoration */
 
 :root {
-  --primary: oklch(0.60 0.22 30);
+  --primary: oklch(0.6 0.22 30);
   --primary-foreground: oklch(1 0 0);
-  --sidebar-primary: oklch(0.60 0.22 30);
+  --sidebar-primary: oklch(0.6 0.22 30);
   --sidebar-primary-foreground: oklch(1 0 0);
   --chart-1: oklch(0.45 0.12 145);
   --chart-2: oklch(0.35 0.05 260);
   --chart-3: oklch(0.55 0.15 55);
-  --chart-4: oklch(0.50 0.18 25);
-  --chart-5: oklch(0.50 0.08 100);
+  --chart-4: oklch(0.5 0.18 25);
+  --chart-5: oklch(0.5 0.08 100);
   --radius: 0.125rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.05 0 0);
@@ -83,13 +83,13 @@
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.05 0 0);
   --input: oklch(0.85 0 0);
-  --ring: oklch(0.60 0.22 30);
+  --ring: oklch(0.6 0.22 30);
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.05 0 0);
   --sidebar-accent: oklch(0.95 0 0);
   --sidebar-accent-foreground: oklch(0.05 0 0);
   --sidebar-border: oklch(0.05 0 0);
-  --sidebar-ring: oklch(0.60 0.22 30);
+  --sidebar-ring: oklch(0.6 0.22 30);
 }
 
 .dark {
@@ -99,23 +99,23 @@
   --card-foreground: oklch(0.93 0 0);
   --popover: oklch(0.17 0 0);
   --popover-foreground: oklch(0.93 0 0);
-  --secondary: oklch(0.20 0 0);
-  --secondary-foreground: oklch(0.80 0 0);
+  --secondary: oklch(0.2 0 0);
+  --secondary-foreground: oklch(0.8 0 0);
   --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.60 0 0);
+  --muted-foreground: oklch(0.6 0 0);
   --accent: oklch(0.22 0 0);
   --accent-foreground: oklch(0.93 0 0);
   --destructive: oklch(0.55 0.25 27);
   --destructive-foreground: oklch(0.93 0 0);
-  --border: oklch(0.30 0 0);
+  --border: oklch(0.3 0 0);
   --input: oklch(0.25 0 0);
-  --ring: oklch(0.60 0.22 30);
+  --ring: oklch(0.6 0.22 30);
   --sidebar: oklch(0.13 0 0);
   --sidebar-foreground: oklch(0.93 0 0);
   --sidebar-accent: oklch(0.22 0 0);
   --sidebar-accent-foreground: oklch(0.93 0 0);
-  --sidebar-border: oklch(0.30 0 0);
-  --sidebar-ring: oklch(0.60 0.22 30);
+  --sidebar-border: oklch(0.3 0 0);
+  --sidebar-ring: oklch(0.6 0.22 30);
 }
 
 @layer base {
@@ -200,11 +200,25 @@
   }
 
   /* Sport type color bars */
-  .sport-bar-badminton { background-color: var(--color-sport-badminton); }
-  .sport-bar-weights { background-color: var(--color-sport-weights); }
-  .sport-bar-ride { background-color: var(--color-sport-ride); }
-  .sport-bar-run { background-color: var(--color-sport-run); }
-  .sport-bar-hike { background-color: var(--color-sport-hike); }
-  .sport-bar-yoga { background-color: var(--color-sport-yoga); }
-  .sport-bar-workout { background-color: var(--color-sport-workout); }
+  .sport-bar-badminton {
+    background-color: var(--color-sport-badminton);
+  }
+  .sport-bar-weights {
+    background-color: var(--color-sport-weights);
+  }
+  .sport-bar-ride {
+    background-color: var(--color-sport-ride);
+  }
+  .sport-bar-run {
+    background-color: var(--color-sport-run);
+  }
+  .sport-bar-hike {
+    background-color: var(--color-sport-hike);
+  }
+  .sport-bar-yoga {
+    background-color: var(--color-sport-yoga);
+  }
+  .sport-bar-workout {
+    background-color: var(--color-sport-workout);
+  }
 }

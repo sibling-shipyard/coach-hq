@@ -17,13 +17,21 @@ describe("synced activity list widget helpers", () => {
     expect(formatSyncRowMeta(row)).toContain("Run");
     expect(formatSyncRowMeta(row)).toContain("40m");
     expect(formatSyncRowMeta({ ...row, sport: "", start: "", duration_s: 0 })).toBe("0m");
-    expect(formatSyncRowMeta(fixture.attachment.activities[0] as SyncedActivityRow)).toContain("Run");
-    expect(formatSyncRowMeta(fixture.attachment.activities[1] as SyncedActivityRow)).toContain("Ride");
+    expect(formatSyncRowMeta(fixture.attachment.activities[0] as SyncedActivityRow)).toContain(
+      "Run",
+    );
+    expect(formatSyncRowMeta(fixture.attachment.activities[1] as SyncedActivityRow)).toContain(
+      "Ride",
+    );
   });
 
   it("ignores unknown attachment kinds and versions when picking the list", () => {
     const unknown: ChatAttachment = { version: 1, kind: "coach_plan_card" };
-    const wrongVersion: ChatAttachment = { version: 9, kind: "synced_activity_list", activities: [row] };
+    const wrongVersion: ChatAttachment = {
+      version: 9,
+      kind: "synced_activity_list",
+      activities: [row],
+    };
     expect(syncedActivityList([unknown, wrongVersion])).toBeNull();
     expect(
       syncedActivityList([

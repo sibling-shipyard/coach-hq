@@ -5,9 +5,7 @@
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "extraContext": "Current templates (use these exact template_ids for template_edit):\n- template_id: tpl-badminton",
-  "history": [
-    { "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }
-  ],
+  "history": [{ "id": "1", "role": "coach", "paragraphs": ["What's on your mind today?"] }],
   "userMessage": "Can you drop the warmup phase from my cardio_blast template going forward? Wrap this up.",
   "expect": {
     "sessionClosed": true,

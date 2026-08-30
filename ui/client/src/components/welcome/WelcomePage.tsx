@@ -131,8 +131,8 @@ export function WelcomePage() {
             <span className="welcome-feature__index">02 · IT REMEMBERS</span>
             <h3>The patterns you&apos;re too close to notice.</h3>
             <p>
-              Your left-knee history. The goal you set in January. The habit of skipping strength when
-              matches get busy. It watches patterns across months, not just today.
+              Your left-knee history. The goal you set in January. The habit of skipping strength
+              when matches get busy. It watches patterns across months, not just today.
             </p>
           </div>
           <div className="welcome-feature__card welcome-feature__card--coach" data-reveal>
@@ -143,8 +143,8 @@ export function WelcomePage() {
               <span>HABIT · SKIPS STRENGTH IN SEASON</span>
             </div>
             <blockquote>
-              &ldquo;You told me the knee flares on back-to-back match days. I moved your bar session
-              to Wednesday — give it the gap.&rdquo;
+              &ldquo;You told me the knee flares on back-to-back match days. I moved your bar
+              session to Wednesday — give it the gap.&rdquo;
             </blockquote>
           </div>
         </div>
@@ -162,8 +162,8 @@ export function WelcomePage() {
           <h2 className="welcome-section__title">The plan becomes a follow-along.</h2>
           <p className="welcome-section__lede">
             Every workout Coach writes runs as a live timer — on your desk or in your hand. Big
-            countdown, the form cue that matters, and why you&apos;re doing it. It&apos;s counting down
-            right now.
+            countdown, the form cue that matters, and why you&apos;re doing it. It&apos;s counting
+            down right now.
           </p>
         </div>
         <WelcomeTimerDemo />

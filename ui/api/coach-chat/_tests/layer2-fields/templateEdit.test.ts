@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { applyTemplateEdit, validTemplateIdsFromManifest, templatePath } from "../../_lib/coachWorkoutFiles.js";
+import {
+  applyTemplateEdit,
+  validTemplateIdsFromManifest,
+  templatePath,
+} from "../../_lib/coachWorkoutFiles.js";
 import type { Workout } from "../../../../client/src/lib/workouts.js";
 
 // coach-redesign workout-backend-wiring §3: template_edit action field. Purely mechanical now -
@@ -23,8 +27,24 @@ function validWorkout(overrides: Partial<Workout> = {}): Workout {
         duration: "10 min",
         default_rest_secs: 30,
         exercises: [
-          { num: 1, name: "Arm circles", type: "timed", duration_secs: 30, sets: 1, form_cue: "Slow.", why: "Warm up." },
-          { num: 2, name: "Band pull-aparts", type: "reps", reps: 15, sets: 2, form_cue: "Squeeze.", why: "Activate." },
+          {
+            num: 1,
+            name: "Arm circles",
+            type: "timed",
+            duration_secs: 30,
+            sets: 1,
+            form_cue: "Slow.",
+            why: "Warm up.",
+          },
+          {
+            num: 2,
+            name: "Band pull-aparts",
+            type: "reps",
+            reps: 15,
+            sets: 2,
+            form_cue: "Squeeze.",
+            why: "Activate.",
+          },
         ],
       },
       {
@@ -32,9 +52,33 @@ function validWorkout(overrides: Partial<Workout> = {}): Workout {
         duration: "30 min",
         default_rest_secs: 60,
         exercises: [
-          { num: 3, name: "Push-ups", type: "reps", reps: 12, sets: 3, form_cue: "Elbows in.", why: "Chest strength." },
-          { num: 4, name: "Rows", type: "reps", reps: 10, sets: 3, form_cue: "Squeeze back.", why: "Balance pushing work." },
-          { num: 5, name: "Overhead Press", type: "reps", reps: 8, sets: 3, form_cue: "Brace core.", why: "Shoulder strength." },
+          {
+            num: 3,
+            name: "Push-ups",
+            type: "reps",
+            reps: 12,
+            sets: 3,
+            form_cue: "Elbows in.",
+            why: "Chest strength.",
+          },
+          {
+            num: 4,
+            name: "Rows",
+            type: "reps",
+            reps: 10,
+            sets: 3,
+            form_cue: "Squeeze back.",
+            why: "Balance pushing work.",
+          },
+          {
+            num: 5,
+            name: "Overhead Press",
+            type: "reps",
+            reps: 8,
+            sets: 3,
+            form_cue: "Brace core.",
+            why: "Shoulder strength.",
+          },
         ],
       },
     ],
@@ -46,7 +90,11 @@ const currentTemplateContent = JSON.stringify(validWorkout());
 
 describe("validTemplateIdsFromManifest", () => {
   it("returns the manifest's template_ids as a set", () => {
-    const manifest = JSON.stringify({ generated_at: "2026-08-18T00:00:00Z", trace_id: "t1", template_ids: ["strength_b", "foundation_a"] });
+    const manifest = JSON.stringify({
+      generated_at: "2026-08-18T00:00:00Z",
+      trace_id: "t1",
+      template_ids: ["strength_b", "foundation_a"],
+    });
     const ids = validTemplateIdsFromManifest(manifest);
     expect(ids.has("strength_b")).toBe(true);
     expect(ids.has("foundation_a")).toBe(true);
@@ -62,13 +110,17 @@ describe("validTemplateIdsFromManifest", () => {
   });
 
   it("treats a manifest with no template_ids array as no valid ids", () => {
-    expect(validTemplateIdsFromManifest(JSON.stringify({ generated_at: "2026-08-18T00:00:00Z" })).size).toBe(0);
+    expect(
+      validTemplateIdsFromManifest(JSON.stringify({ generated_at: "2026-08-18T00:00:00Z" })).size,
+    ).toBe(0);
   });
 });
 
 describe("templatePath", () => {
   it("builds the athlete's templates/<id>.json path", () => {
-    expect(templatePath("strength_b")).toBe("user_data/activities/workout_plans/templates/strength_b.json");
+    expect(templatePath("strength_b")).toBe(
+      "user_data/activities/workout_plans/templates/strength_b.json",
+    );
   });
 });
 
@@ -101,7 +153,9 @@ describe("applyTemplateEdit", () => {
       "trace-1",
     );
     const parsed = JSON.parse(result);
-    expect(parsed.phases.flatMap((p: any) => p.exercises.map((e: any) => e.num))).toEqual([1, 2, 3, 4]);
+    expect(parsed.phases.flatMap((p: any) => p.exercises.map((e: any) => e.num))).toEqual([
+      1, 2, 3, 4,
+    ]);
     expect(parsed.phases.flatMap((p: any) => p.exercises.map((e: any) => e.name))).toEqual([
       "Arm circles",
       "Band pull-aparts",
@@ -112,7 +166,12 @@ describe("applyTemplateEdit", () => {
   });
 
   it("resolves skip_phases by name (case-insensitive), dropping the whole phase", () => {
-    const result = applyTemplateEdit(currentTemplateContent, { template_id: "strength_b", skip_phases: ["warmup"] }, validIds, "t1");
+    const result = applyTemplateEdit(
+      currentTemplateContent,
+      { template_id: "strength_b", skip_phases: ["warmup"] },
+      validIds,
+      "t1",
+    );
     const parsed = JSON.parse(result);
     expect(parsed.phases).toHaveLength(1);
     expect(parsed.phases[0].exercises.map((e: any) => e.num)).toEqual([1, 2, 3]);
@@ -130,14 +189,23 @@ describe("applyTemplateEdit", () => {
   });
 
   it("appends note when no skip was requested at all (a pure note-only edit)", () => {
-    const result = applyTemplateEdit(currentTemplateContent, { template_id: "strength_b", note: "just leaving context" }, validIds, "t1");
+    const result = applyTemplateEdit(
+      currentTemplateContent,
+      { template_id: "strength_b", note: "just leaving context" },
+      validIds,
+      "t1",
+    );
     expect(JSON.parse(result).coaching_note).toBe("Keep form tight. — just leaving context");
   });
 
-  it("does NOT append the note when a skip was requested but matched nothing real (adversarial testing: \"drop the burpees\" when no such exercise/phase exists)", () => {
+  it('does NOT append the note when a skip was requested but matched nothing real (adversarial testing: "drop the burpees" when no such exercise/phase exists)', () => {
     const result = applyTemplateEdit(
       currentTemplateContent,
-      { template_id: "strength_b", skip_phases: ["Nonexistent Phase"], note: "removed burpees per athlete request" },
+      {
+        template_id: "strength_b",
+        skip_phases: ["Nonexistent Phase"],
+        note: "removed burpees per athlete request",
+      },
       validIds,
       "t1",
     );
@@ -147,7 +215,12 @@ describe("applyTemplateEdit", () => {
   });
 
   it("produces schema-valid output", () => {
-    const result = applyTemplateEdit(currentTemplateContent, { template_id: "strength_b", skip_exercise_nums: [3] }, validIds, "t1");
+    const result = applyTemplateEdit(
+      currentTemplateContent,
+      { template_id: "strength_b", skip_exercise_nums: [3] },
+      validIds,
+      "t1",
+    );
     expect(() => JSON.parse(result)).not.toThrow();
   });
 });

@@ -52,7 +52,9 @@
   border: 1px solid #e2dcd0;
   border-radius: 20px;
   background: var(--wi-surface);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -104,10 +106,16 @@
   letter-spacing: 0.1em;
 }
 
-.sa-sport-chip.is-badminton { background: var(--wi-badminton); }
-.sa-sport-chip.is-calisthenics { background: var(--wi-calisthenics); }
+.sa-sport-chip.is-badminton {
+  background: var(--wi-badminton);
+}
+.sa-sport-chip.is-calisthenics {
+  background: var(--wi-calisthenics);
+}
 .sa-sport-chip.is-run,
-.sa-sport-chip.is-cycling { background: var(--wi-cycling); }
+.sa-sport-chip.is-cycling {
+  background: var(--wi-cycling);
+}
 
 .sa-toggle {
   display: flex;
@@ -186,10 +194,14 @@
   color: var(--wi-surface);
   background: linear-gradient(150deg, rgba(255, 255, 255, 0.06), transparent 45%), var(--wi-rust);
   box-shadow: var(--wi-engine-shadow);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
-.sa-winrate-hero .sa-empty-note { color: rgba(251, 248, 241, 0.85); }
+.sa-winrate-hero .sa-empty-note {
+  color: rgba(251, 248, 241, 0.85);
+}
 
 /* Higher specificity than the shared `.wi-engine-trend polyline` rule so the
    thin per-session line doesn't inherit the bold rolling-line treatment. */
@@ -301,8 +313,12 @@
   height: 2px;
 }
 
-.sa-legend i.is-muted { background: #c9c3b4; }
-.sa-legend i.is-ink { background: var(--wi-ink); }
+.sa-legend i.is-muted {
+  background: #c9c3b4;
+}
+.sa-legend i.is-ink {
+  background: var(--wi-ink);
+}
 
 .sa-session-shape__plot {
   display: grid;
@@ -538,13 +554,21 @@
 }
 
 .sa-h2h__record.is-up,
-.sa-h2h__direction.is-up { color: var(--wi-badminton); font-weight: 700; }
+.sa-h2h__direction.is-up {
+  color: var(--wi-badminton);
+  font-weight: 700;
+}
 
 .sa-h2h__record.is-down,
-.sa-h2h__direction.is-down { color: var(--wi-ink-muted); font-weight: 700; }
+.sa-h2h__direction.is-down {
+  color: var(--wi-ink-muted);
+  font-weight: 700;
+}
 
 .sa-h2h__record.is-flat,
-.sa-h2h__direction.is-flat { color: var(--wi-ink-faint); }
+.sa-h2h__direction.is-flat {
+  color: var(--wi-ink-faint);
+}
 
 .sa-h2h__direction {
   font-family: "Newsreader", Georgia, serif;
@@ -615,8 +639,12 @@ button.sa-h2h__toggle {
   color: var(--wi-ink);
 }
 
-.sa-improving__recent.is-up { color: var(--wi-badminton); }
-.sa-improving__recent.is-down { color: var(--wi-ink-muted); }
+.sa-improving__recent.is-up {
+  color: var(--wi-badminton);
+}
+.sa-improving__recent.is-down {
+  color: var(--wi-ink-muted);
+}
 
 /* ─── Effort ──────────────────────────────────────────────────────────── */
 
@@ -755,16 +783,24 @@ button.sa-h2h__toggle {
 }
 
 .sa-badminton-heatmap__legend i.is-ranked,
-.sa-badminton-heatmap__grid i.is-ranked { background: #315a4a; }
+.sa-badminton-heatmap__grid i.is-ranked {
+  background: #315a4a;
+}
 
 .sa-badminton-heatmap__legend i.is-league,
-.sa-badminton-heatmap__grid i.is-league { background: #a8702c; }
+.sa-badminton-heatmap__grid i.is-league {
+  background: #a8702c;
+}
 
 .sa-badminton-heatmap__legend i.is-friendly,
-.sa-badminton-heatmap__grid i.is-friendly { background: #adc2b7; }
+.sa-badminton-heatmap__grid i.is-friendly {
+  background: #adc2b7;
+}
 
 .sa-badminton-heatmap__legend i.is-casual,
-.sa-badminton-heatmap__grid i.is-casual { background: #c9c3b4; }
+.sa-badminton-heatmap__grid i.is-casual {
+  background: #c9c3b4;
+}
 
 .sa-badminton-heatmap__grid i.is-empty {
   background: #f0ece3;
@@ -928,7 +964,7 @@ button.sa-h2h__toggle {
   /* Element-qualified so this beats .wi-shell button's `font: inherit` reset
    (that selector's specificity is class+element; a bare .sa-h2h__toggle
    class alone loses to it regardless of source order). */
-button.sa-h2h__toggle {
+  button.sa-h2h__toggle {
     display: none;
   }
 
@@ -949,9 +985,12 @@ button.sa-h2h__toggle {
   border: 1px solid rgba(138, 96, 40, 0.65);
   border-radius: 28px;
   color: var(--wi-surface);
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.08), transparent 45%), var(--wi-cycling);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.08), transparent 45%), var(--wi-cycling);
   box-shadow: 0 18px 36px rgba(168, 112, 44, 0.22);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .sa-running-volume-hero .sa-empty-note {

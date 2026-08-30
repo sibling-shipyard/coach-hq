@@ -10,7 +10,11 @@ export const repoRoot = path.resolve(__dirname, "..", "..", "..");
  * file inside it - shared by writeTestLog below and by run-tests-logged.ts, so every one of the
  * dated tests/<date>/<kind>/ folders (eval, manual, unit) comes from the same formula.
  */
-export function dailyLogDir(kind: "eval" | "manual" | "unit"): { dir: string; day: string; time: string } {
+export function dailyLogDir(kind: "eval" | "manual" | "unit"): {
+  dir: string;
+  day: string;
+  time: string;
+} {
   const now = new Date();
   const day = now.toISOString().slice(0, 10);
   const time = now.toISOString().slice(11, 19).replace(/:/g, "-");
@@ -20,7 +24,7 @@ export function dailyLogDir(kind: "eval" | "manual" | "unit"): { dir: string; da
 }
 
 export type FilesChanged =
-  | { confidence: "derived"; files: string[] }               // eval: filesForReply() guess
+  | { confidence: "derived"; files: string[] } // eval: filesForReply() guess
   | { confidence: "observed"; files: string[]; diff: string }; // manual: real git diff
 
 export interface TestLogEntry {
@@ -40,7 +44,11 @@ export interface TestLogEntry {
  * or permissions failure would report a normal pass/fail with zero audit trail and nothing to
  * show for it.
  */
-export function writeTestLog(kind: "eval" | "manual", prefix: string, entries: TestLogEntry[]): boolean {
+export function writeTestLog(
+  kind: "eval" | "manual",
+  prefix: string,
+  entries: TestLogEntry[],
+): boolean {
   try {
     const { dir, time } = dailyLogDir(kind);
     const logPath = path.join(dir, `${prefix}-log-${time}.json`);

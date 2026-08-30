@@ -1,10 +1,6 @@
 /** Activity-sync batch identity, hist lookup, and attachment rows. */
 import { createHash } from "node:crypto";
-import {
-  getFileRaw,
-  listDirectory,
-  parseJsonOrNull,
-} from "./coachChatFiles.js";
+import { getFileRaw, listDirectory, parseJsonOrNull } from "./coachChatFiles.js";
 import {
   applyRetention,
   mergeThreadToFront,
@@ -86,10 +82,7 @@ interface HistActivityJson {
   hr_zones?: Record<string, { seconds?: unknown }> | null;
 }
 
-export function attachmentRowFromJson(
-  uuid: string,
-  json: HistActivityJson,
-): SyncedActivityRow {
+export function attachmentRowFromJson(uuid: string, json: HistActivityJson): SyncedActivityRow {
   return {
     id: uuid,
     title: typeof json.name === "string" ? json.name : "",
@@ -115,9 +108,7 @@ export function findThreadForActivitySyncBatch(
   return threads.find((thread) =>
     thread.messages.some((message) => {
       if (message.role !== "coach" || !message.attachments) return false;
-      return message.attachments.some(
-        (attachment) => attachmentBatchId(attachment) === batchId,
-      );
+      return message.attachments.some((attachment) => attachmentBatchId(attachment) === batchId);
     }),
   );
 }
@@ -140,9 +131,7 @@ export function commitActivitySyncHistory(
 }
 
 export function coachReplyText(thread: ChatThread): string {
-  const coach = [...thread.messages]
-    .reverse()
-    .find((message) => message.role === "coach");
+  const coach = [...thread.messages].reverse().find((message) => message.role === "coach");
   return coach && coach.role === "coach" ? coach.paragraphs.join("\n\n") : "";
 }
 
@@ -183,9 +172,7 @@ export async function loadVerifiedActivities(
       const uuid = qualified.slice(HK_ACTIVITY_PREFIX.length);
       const path = byUuid.get(uuid);
       if (!path) return null;
-      const parsed = parseJsonOrNull<HistActivityJson>(
-        await getFileRaw(repo, path, token),
-      );
+      const parsed = parseJsonOrNull<HistActivityJson>(await getFileRaw(repo, path, token));
       if (!parsed) return null;
       return attachmentRowFromJson(uuid, parsed);
     }),

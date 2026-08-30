@@ -6,6 +6,7 @@
  * (default sibling-shipyard/coach-phelps-hq).
  */
 import { commitFilesAtomic } from "./_lib/githubGitData.js";
+import { captureServerException, withContinuedTrace } from "./_lib/sentry.js";
 
 const WAITLIST_PATH = "platform/waitlist.json";
 const DEFAULT_REPO = "sibling-shipyard/coach-phelps-hq";
@@ -28,7 +29,9 @@ function waitlistConfig(): { repo: string; token: string } | null {
   const repo = process.env.WAITLIST_GITHUB_REPO ?? DEFAULT_REPO;
   if (!token) return null;
   if (!process.env.WAITLIST_GITHUB_REPO) {
-    console.warn(`[waitlist] WAITLIST_GITHUB_REPO is unset — falling back to default repo ${DEFAULT_REPO}`);
+    console.warn(
+      `[waitlist] WAITLIST_GITHUB_REPO is unset — falling back to default repo ${DEFAULT_REPO}`,
+    );
   }
   return { repo, token };
 }
@@ -53,65 +56,77 @@ async function readWaitlistFile(repo: string, token: string): Promise<WaitlistFi
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    if (req.method !== "POST") {
-      return Response.json({ error: "Method not allowed" }, { status: 405 });
-    }
+    // Entry, before anything can capture: opens the route's `http.server` span and flushes it
+    // before the response leaves. No `setAthleteScope` anywhere below - this endpoint has no
+    // auth and the person filling the form is not an athlete yet, so its events stay anonymous.
+    return withContinuedTrace(req, async () => {
+      if (req.method !== "POST") {
+        return Response.json({ error: "Method not allowed" }, { status: 405 });
+      }
 
-    const config = waitlistConfig();
-    if (!config) {
-      return Response.json({ error: "Waitlist is not configured" }, { status: 503 });
-    }
+      const config = waitlistConfig();
+      if (!config) {
+        return Response.json({ error: "Waitlist is not configured" }, { status: 503 });
+      }
 
-    let body: { email?: string; source?: string; website?: string };
-    try {
-      body = (await req.json()) as typeof body;
-    } catch {
-      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
+      let body: { email?: string; source?: string; website?: string };
+      try {
+        body = (await req.json()) as typeof body;
+      } catch {
+        return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+      }
 
-    if (body.website) {
-      return Response.json({ ok: true }, { status: 201 });
-    }
+      if (body.website) {
+        return Response.json({ ok: true }, { status: 201 });
+      }
 
-    const email = body.email?.trim().toLowerCase() ?? "";
-    if (!EMAIL_RE.test(email)) {
-      return Response.json({ error: "Invalid email address" }, { status: 400 });
-    }
+      const email = body.email?.trim().toLowerCase() ?? "";
+      if (!EMAIL_RE.test(email)) {
+        return Response.json({ error: "Invalid email address" }, { status: 400 });
+      }
 
-    const source = typeof body.source === "string" && body.source.trim() ? body.source.trim() : "welcome";
+      const source =
+        typeof body.source === "string" && body.source.trim() ? body.source.trim() : "welcome";
 
-    let duplicate = false;
+      let duplicate = false;
 
-    try {
-      await commitFilesAtomic(
-        [
-          {
-            path: WAITLIST_PATH,
-            resolve: async () => {
-              const current = await readWaitlistFile(config.repo, config.token);
-              const exists = current.entries.some((entry) => entry.email === email);
-              if (exists) {
-                duplicate = true;
-                return JSON.stringify(current, null, 2) + "\n";
-              }
-              const next: WaitlistFile = {
-                entries: [
-                  ...current.entries,
-                  { email, created_at: new Date().toISOString(), source },
-                ],
-              };
-              return JSON.stringify(next, null, 2) + "\n";
+      try {
+        await commitFilesAtomic(
+          [
+            {
+              path: WAITLIST_PATH,
+              resolve: async () => {
+                const current = await readWaitlistFile(config.repo, config.token);
+                const exists = current.entries.some((entry) => entry.email === email);
+                if (exists) {
+                  duplicate = true;
+                  return JSON.stringify(current, null, 2) + "\n";
+                }
+                const next: WaitlistFile = {
+                  entries: [
+                    ...current.entries,
+                    { email, created_at: new Date().toISOString(), source },
+                  ],
+                };
+                return JSON.stringify(next, null, 2) + "\n";
+              },
             },
-          },
-        ],
-        duplicate ? `waitlist: duplicate ${email}` : `waitlist: ${email}`,
-        { repo: config.repo, branch: BRANCH, token: config.token },
-      );
-    } catch (err) {
-      console.error("waitlist commit failed:", err);
-      return Response.json({ error: "Could not save your email — try again later" }, { status: 502 });
-    }
+          ],
+          duplicate ? `waitlist: duplicate ${email}` : `waitlist: ${email}`,
+          { repo: config.repo, branch: BRANCH, token: config.token },
+        );
+      } catch (err) {
+        console.error("waitlist commit failed:", err);
+        // End of the line: the signup is lost and nothing rethrows, so this is the only place a
+        // GitHub write failure can reach Sentry.
+        await captureServerException(err);
+        return Response.json(
+          { error: "Could not save your email — try again later" },
+          { status: 502 },
+        );
+      }
 
-    return Response.json({ ok: true, duplicate }, { status: duplicate ? 200 : 201 });
+      return Response.json({ ok: true, duplicate }, { status: duplicate ? 200 : 201 });
+    });
   },
 };

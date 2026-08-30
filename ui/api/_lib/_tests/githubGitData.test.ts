@@ -22,7 +22,9 @@ const ctx = { repo: "owner/repo", branch: "main", token: "test-token" };
 // One shared, minimal happy-path router: reads always see HEAD "head-sha-1" / tree "tree-sha-1";
 // blob/tree/commit creates each return a fixed sha; the ref PATCH succeeds. Tests override
 // individual routes to exercise a specific failure/retry.
-function baseRouter(overrides: Record<string, (url: string, init: RequestInit) => Response | null> = {}) {
+function baseRouter(
+  overrides: Record<string, (url: string, init: RequestInit) => Response | null> = {},
+) {
   let blobCounter = 0;
   fetchWithTimeout.mockImplementation(async (url: string, init: RequestInit) => {
     const method = init?.method ?? "GET";
@@ -32,15 +34,20 @@ function baseRouter(overrides: Record<string, (url: string, init: RequestInit) =
         if (res) return res;
       }
     }
-    if (url.endsWith("/git/ref/heads/main")) return jsonResponse(200, { object: { sha: "head-sha-1" } });
-    if (url.includes("/git/commits/head-sha-1")) return jsonResponse(200, { tree: { sha: "tree-sha-1" } });
+    if (url.endsWith("/git/ref/heads/main"))
+      return jsonResponse(200, { object: { sha: "head-sha-1" } });
+    if (url.includes("/git/commits/head-sha-1"))
+      return jsonResponse(200, { tree: { sha: "tree-sha-1" } });
     if (method === "POST" && url.endsWith("/git/blobs")) {
       blobCounter += 1;
       return jsonResponse(201, { sha: `blob-sha-${blobCounter}` });
     }
-    if (method === "POST" && url.endsWith("/git/trees")) return jsonResponse(201, { sha: "new-tree-sha" });
-    if (method === "POST" && url.endsWith("/git/commits")) return jsonResponse(201, { sha: "new-commit-sha" });
-    if (method === "PATCH" && url.endsWith("/git/refs/heads/main")) return jsonResponse(200, { object: { sha: "new-commit-sha" } });
+    if (method === "POST" && url.endsWith("/git/trees"))
+      return jsonResponse(201, { sha: "new-tree-sha" });
+    if (method === "POST" && url.endsWith("/git/commits"))
+      return jsonResponse(201, { sha: "new-commit-sha" });
+    if (method === "PATCH" && url.endsWith("/git/refs/heads/main"))
+      return jsonResponse(200, { object: { sha: "new-commit-sha" } });
     throw new Error(`unhandled request in test: ${method} ${url}`);
   });
 }
@@ -51,7 +58,9 @@ describe("commitFilesAtomic", () => {
   });
 
   it("throws on an empty file list without making any request", async () => {
-    await expect(commitFilesAtomic([], "empty commit", ctx)).rejects.toThrow("commitFilesAtomic called with no files");
+    await expect(commitFilesAtomic([], "empty commit", ctx)).rejects.toThrow(
+      "commitFilesAtomic called with no files",
+    );
     expect(fetchWithTimeout).not.toHaveBeenCalled();
   });
 
@@ -65,13 +74,17 @@ describe("commitFilesAtomic", () => {
     const result = await commitFilesAtomic(files, "test commit", ctx);
 
     expect(result).toEqual({ commitSha: "new-commit-sha" });
-    const calls = fetchWithTimeout.mock.calls.map(([url, init]) => `${(init as RequestInit)?.method ?? "GET"} ${url}`);
+    const calls = fetchWithTimeout.mock.calls.map(
+      ([url, init]) => `${(init as RequestInit)?.method ?? "GET"} ${url}`,
+    );
     expect(calls.filter((c) => c.endsWith("/git/blobs"))).toHaveLength(2);
     expect(calls.filter((c) => c.endsWith("/git/trees"))).toHaveLength(1);
     expect(calls.filter((c) => c.endsWith("/git/commits") && c.startsWith("POST"))).toHaveLength(1);
     expect(calls.filter((c) => c.includes("/git/refs/heads/main"))).toHaveLength(1);
 
-    const [, treeInit] = fetchWithTimeout.mock.calls.find(([url]) => (url as string).endsWith("/git/trees"))!;
+    const [, treeInit] = fetchWithTimeout.mock.calls.find(([url]) =>
+      (url as string).endsWith("/git/trees"),
+    )!;
     const treeBody = JSON.parse((treeInit as RequestInit).body as string);
     expect(treeBody.base_tree).toBe("tree-sha-1");
     expect(treeBody.tree.map((t: { path: string }) => t.path)).toEqual([
@@ -88,9 +101,13 @@ describe("commitFilesAtomic", () => {
     await commitFilesAtomic(files, "resolved write", ctx);
 
     expect(resolve).toHaveBeenCalledTimes(1);
-    const [, treeInit] = fetchWithTimeout.mock.calls.find(([url]) => (url as string).endsWith("/git/trees"))!;
+    const [, treeInit] = fetchWithTimeout.mock.calls.find(([url]) =>
+      (url as string).endsWith("/git/trees"),
+    )!;
     const treeBody = JSON.parse((treeInit as RequestInit).body as string);
-    expect(treeBody.tree).toEqual([{ path: "user_data/coach/coach_log.json", mode: "100644", type: "blob", sha: "blob-sha-1" }]);
+    expect(treeBody.tree).toEqual([
+      { path: "user_data/coach/coach_log.json", mode: "100644", type: "blob", sha: "blob-sha-1" },
+    ]);
   });
 
   it("retries the whole operation against fresh HEAD when the ref move hits a non-fast-forward conflict", async () => {
@@ -126,24 +143,33 @@ describe("commitFilesAtomic", () => {
     });
     const files: FileEntry[] = [{ path: "user_data/coach/profile.json", content: "{}" }];
 
-    await expect(commitFilesAtomic(files, "failing commit", ctx)).rejects.toThrow(/git\/blobs failed \(500\)/);
+    await expect(commitFilesAtomic(files, "failing commit", ctx)).rejects.toThrow(
+      /git\/blobs failed \(500\)/,
+    );
 
     const refPatchCalls = fetchWithTimeout.mock.calls.filter(
-      ([url, init]) => (init as RequestInit)?.method === "PATCH" && (url as string).includes("/git/refs/"),
+      ([url, init]) =>
+        (init as RequestInit)?.method === "PATCH" && (url as string).includes("/git/refs/"),
     );
     expect(refPatchCalls).toHaveLength(0);
   }, 10_000);
 
   it("surfaces a commit-create failure and never attempts the ref update (atomicity)", async () => {
     baseRouter({
-      "/git/commits": (url, init) => ((init?.method ?? "GET") === "POST" ? jsonResponse(500, { message: "internal error" }) : null),
+      "/git/commits": (url, init) =>
+        (init?.method ?? "GET") === "POST"
+          ? jsonResponse(500, { message: "internal error" })
+          : null,
     });
     const files: FileEntry[] = [{ path: "user_data/coach/profile.json", content: "{}" }];
 
-    await expect(commitFilesAtomic(files, "failing commit", ctx)).rejects.toThrow(/git\/commits failed \(500\)/);
+    await expect(commitFilesAtomic(files, "failing commit", ctx)).rejects.toThrow(
+      /git\/commits failed \(500\)/,
+    );
 
     const refPatchCalls = fetchWithTimeout.mock.calls.filter(
-      ([url, init]) => (init as RequestInit)?.method === "PATCH" && (url as string).includes("/git/refs/"),
+      ([url, init]) =>
+        (init as RequestInit)?.method === "PATCH" && (url as string).includes("/git/refs/"),
     );
     expect(refPatchCalls).toHaveLength(0);
   }, 10_000);

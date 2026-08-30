@@ -156,7 +156,9 @@ describe("cache safety", () => {
       true,
     );
     expect(dynamic).toContain("LAST CHANCE");
-    expect(dynamic).toContain("Their main goal AND any daily habits or routines they want to track");
+    expect(dynamic).toContain(
+      "Their main goal AND any daily habits or routines they want to track",
+    );
     expect(dynamic).toContain("quest_create's quests[]");
     expect(dynamic).not.toContain("Weekly Kick-off Ritual");
     expect(dynamic).not.toContain("the phase's plain-language name");

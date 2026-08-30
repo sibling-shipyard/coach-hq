@@ -119,7 +119,10 @@ export default function AuthError({ type }: { type: string }) {
                 {msg.cta}
               </a>
             ) : (
-              <GitHubAuthButton href={msg.href} className="auth-card__button auth-card__button--primary">
+              <GitHubAuthButton
+                href={msg.href}
+                className="auth-card__button auth-card__button--primary"
+              >
                 {msg.cta}
               </GitHubAuthButton>
             )}

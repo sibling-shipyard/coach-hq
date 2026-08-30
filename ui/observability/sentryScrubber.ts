@@ -24,8 +24,7 @@ export function scrubCredentialString(
   privateCredentials: readonly string[] = [],
 ): string {
   let scrubbed = value;
-  for (const pattern of TOKEN_PATTERNS)
-    scrubbed = scrubbed.replace(pattern, FILTERED);
+  for (const pattern of TOKEN_PATTERNS) scrubbed = scrubbed.replace(pattern, FILTERED);
   for (const credential of privateCredentials) {
     if (credential) scrubbed = scrubbed.split(credential).join(FILTERED);
   }
@@ -37,8 +36,7 @@ function scrubValue(
   privateCredentials: readonly string[],
   seen: WeakSet<object>,
 ): unknown {
-  if (typeof value === "string")
-    return scrubCredentialString(value, privateCredentials);
+  if (typeof value === "string") return scrubCredentialString(value, privateCredentials);
   if (value == null || typeof value !== "object") return value;
   if (seen.has(value)) return FILTERED;
   seen.add(value);
@@ -57,9 +55,6 @@ function scrubValue(
 }
 
 /** Returns a scrubbed copy so the same policy can guard browser and server events. */
-export function scrubSentryEvent<T>(
-  event: T,
-  privateCredentials: readonly string[] = [],
-): T {
+export function scrubSentryEvent<T>(event: T, privateCredentials: readonly string[] = []): T {
   return scrubValue(event, privateCredentials, new WeakSet()) as T;
 }

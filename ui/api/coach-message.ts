@@ -1,19 +1,10 @@
 /** Authenticated post-sync Coach generation and latest-message persistence. */
 import { commitFilesAtomic } from "./_lib/githubGitData.js";
 import { fetchWithTimeout } from "./_lib/httpTimeout.js";
-import {
-  athleteIdForRepo,
-  captureExceptionOnce,
-  monitorServerRequest,
-  setMonitoringAthlete,
-  setMonitoringStage,
-} from "./_lib/sentry.js";
 import { SOUL } from "./_generated/soul.js";
-import {
-  resolveRepoAuth,
-  type RepoAuthContext,
-} from "./auth/_lib/resolve-auth.js";
+import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
+import { captureServerException, setAthleteScope, withContinuedTrace } from "./_lib/sentry.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -30,34 +21,25 @@ import {
 
 const GITHUB_API = "https://api.github.com";
 
-async function listActivityFiles(
-  repo: string,
-  token: string,
-): Promise<ActivityFileEntry[]> {
+async function listActivityFiles(repo: string, token: string): Promise<ActivityFileEntry[]> {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   };
   const readGitJson = async (path: string): Promise<unknown> => {
-    const response = await fetchWithTimeout(
-      `${GITHUB_API}/repos/${repo}${path}`,
-      { headers },
-    );
+    const response = await fetchWithTimeout(`${GITHUB_API}/repos/${repo}${path}`, { headers });
     if (!response.ok) {
-      throw Object.assign(
-        new Error(`Failed to read GitHub tree (${response.status})`),
-        { status: response.status },
-      );
+      throw Object.assign(new Error(`Failed to read GitHub tree (${response.status})`), {
+        status: response.status,
+      });
     }
     return response.json() as Promise<unknown>;
   };
 
   const branch = resolveCoachChatBranch();
   const headSha = await getHeadSha(repo, token, branch);
-  const commit = await readGitJson(
-    `/git/commits/${encodeURIComponent(headSha)}`,
-  );
+  const commit = await readGitJson(`/git/commits/${encodeURIComponent(headSha)}`);
   if (
     !commit ||
     typeof commit !== "object" ||
@@ -69,9 +51,7 @@ async function listActivityFiles(
   ) {
     throw new CoachMessageError("GitHub commit tree is malformed", 502);
   }
-  const tree = await readGitJson(
-    `/git/trees/${encodeURIComponent(commit.tree.sha)}?recursive=1`,
-  );
+  const tree = await readGitJson(`/git/trees/${encodeURIComponent(commit.tree.sha)}?recursive=1`);
   return parseActivityHistoryTree(tree);
 }
 
@@ -80,7 +60,6 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     return Response.json({ error: "Method not allowed" }, { status: 405 });
   }
   const activityIds = await parseActivityIdsRequest(req);
-  setMonitoringStage("github_load_proactive_context");
   const repo = auth.repo_full_name;
   const token = auth.gh_token;
   const result = await generateAndStoreCoachMessage(activityIds, {
@@ -89,15 +68,9 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
     generateBody: (prompt) => {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        throw new CoachMessageError(
-          "Coach message generation is not configured",
-          500,
-        );
+        throw new CoachMessageError("Coach message generation is not configured", 500);
       }
-      return generateProactiveBody(apiKey, prompt).then((body) => {
-        setMonitoringStage("github_commit_proactive");
-        return body;
-      });
+      return generateProactiveBody(apiKey, prompt);
     },
     commitFiles: (files, message) =>
       commitFilesAtomic(files, message, {
@@ -118,32 +91,26 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    return monitorServerRequest(req, "post-sync coach message", async () => {
-      setMonitoringStage("authenticate");
+    // Entry, before anything can capture: joins the browser's trace so both events share one,
+    // opens the route's `http.server` span, and flushes it before the response leaves.
+    return withContinuedTrace(req, async () => {
       const resolved = await resolveRepoAuth(req);
       if (resolved instanceof Response) return resolved;
-      setMonitoringAthlete(athleteIdForRepo(resolved.repo_full_name));
+      // Who, as soon as it is known. Everything below can capture; nothing above can say whose
+      // request this is, so an auth failure stays as anonymous as it is today.
+      setAthleteScope(resolved.repo_full_name);
       try {
-        return withSessionCookie(
-          await handle(req, resolved),
-          resolved.setCookie,
-        );
+        return withSessionCookie(await handle(req, resolved), resolved.setCookie);
       } catch (error) {
-        captureExceptionOnce(error);
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Coach message generation failed";
+        const message = error instanceof Error ? error.message : "Coach message generation failed";
         const rawStatus = (error as { status?: unknown }).status;
         const status =
-          typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599
-            ? rawStatus
-            : 500;
+          typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
         console.error("[coach-message]", error);
-        return withSessionCookie(
-          Response.json({ error: message }, { status }),
-          resolved.setCookie,
-        );
+        // End of the line, same as coach-chat. A Gemini failure arrives here already captured by
+        // `generateProactiveBody`, which rethrows - the second capture of that error is dropped.
+        await captureServerException(error);
+        return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
       }
     });
   },

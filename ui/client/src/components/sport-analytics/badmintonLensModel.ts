@@ -16,7 +16,6 @@ import {
 
 export type BadmintonMode = "ranked" | "all";
 
-const RANKED_CATEGORIES = new Set(["badminton_ranked", "badminton_league"]);
 const ALL_CATEGORIES = new Set([
   "badminton_ranked",
   "badminton_league",
@@ -81,7 +80,10 @@ export interface BadmintonHeaderStats {
   allGameCount: number;
 }
 
-function buildHeaderStats(activities: Activity[], sessions: BadmintonSession[]): BadmintonHeaderStats {
+function buildHeaderStats(
+  activities: Activity[],
+  sessions: BadmintonSession[],
+): BadmintonHeaderStats {
   const totalSessions = activities.filter((a) => ALL_CATEGORIES.has(getTrainingCategory(a))).length;
   let rankedGameCount = 0;
   let allGameCount = 0;
@@ -145,7 +147,11 @@ function formatMonthYear(timestamp: number): string {
     .replace(" ", " '");
 }
 
-function buildWinRate(sessions: BadmintonSession[], mode: BadmintonMode, now: number): WinRateSnapshot {
+function buildWinRate(
+  sessions: BadmintonSession[],
+  mode: BadmintonMode,
+  now: number,
+): WinRateSnapshot {
   // Chronological per-session win% + 28-day rolling win% (game-weighted), used
   // both for the band (statistical spread of the rolling series) and the trend line.
   const points: Array<{
@@ -175,9 +181,8 @@ function buildWinRate(sessions: BadmintonSession[], mode: BadmintonMode, now: nu
     const window = points.filter((p, j) => j <= i && p.timestamp >= cutoff);
     const totalWins = window.reduce((sum, p) => sum + p.wins, 0);
     const totalGames = window.reduce((sum, p) => sum + p.wins + p.losses, 0);
-    points[i].rolling = window.length >= 2 && totalGames > 0
-      ? Math.round((totalWins / totalGames) * 100)
-      : null;
+    points[i].rolling =
+      window.length >= 2 && totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : null;
   }
 
   const rollingValues = points
@@ -192,7 +197,9 @@ function buildWinRate(sessions: BadmintonSession[], mode: BadmintonMode, now: nu
   // A window is any [start, end) slice of the chronological points — used both
   // for the fixed 8-week window and for each paged 52-week year window.
   function windowForRange(start: number | null, end: number): WinRateWindow {
-    const inWindow = points.filter((p) => (start === null || p.timestamp >= start) && p.timestamp < end);
+    const inWindow = points.filter(
+      (p) => (start === null || p.timestamp >= start) && p.timestamp < end,
+    );
     const wins = inWindow.reduce((sum, p) => sum + p.wins, 0);
     const losses = inWindow.reduce((sum, p) => sum + p.losses, 0);
     const pct = winPct(wins, losses);
@@ -262,15 +269,22 @@ function buildSessionShapeRead(points: SessionShapePoint[]): string {
   const third = Math.max(1, Math.ceil(withPct.length / 3));
   const early = withPct.slice(0, third);
   const late = withPct.slice(-third);
-  const avgEarly = early.reduce((sum, point) => sum + (point.fiftyTwoWeekWinPct ?? 0), 0) / early.length;
-  const avgLate = late.reduce((sum, point) => sum + (point.fiftyTwoWeekWinPct ?? 0), 0) / late.length;
+  const avgEarly =
+    early.reduce((sum, point) => sum + (point.fiftyTwoWeekWinPct ?? 0), 0) / early.length;
+  const avgLate =
+    late.reduce((sum, point) => sum + (point.fiftyTwoWeekWinPct ?? 0), 0) / late.length;
   const delta = Math.round(avgLate - avgEarly);
-  if (delta <= -8) return `Win rate fades late — down ${Math.abs(delta)} pts from early to late games.`;
+  if (delta <= -8)
+    return `Win rate fades late — down ${Math.abs(delta)} pts from early to late games.`;
   if (delta >= 8) return `You finish strong — up ${delta} pts from early to late games.`;
   return "Win rate holds steady across the session — no clear fatigue curve.";
 }
 
-function buildSessionShape(sessions: BadmintonSession[], mode: BadmintonMode, now: number): SessionShapeSnapshot {
+function buildSessionShape(
+  sessions: BadmintonSession[],
+  mode: BadmintonMode,
+  now: number,
+): SessionShapeSnapshot {
   const byPosition52w = new Map<number, ParsedGame[]>();
   const byPosition8w = new Map<number, ParsedGame[]>();
   const cutoff52 = now - FIFTY_TWO_WEEKS_MS;
@@ -295,12 +309,20 @@ function buildSessionShape(sessions: BadmintonSession[], mode: BadmintonMode, no
     .map((position) => {
       const windowGames = byPosition52w.get(position) ?? [];
       const recentGames = byPosition8w.get(position) ?? [];
-      const windowPct = windowGames.length >= MIN_POSITION_SAMPLES
-        ? winPct(windowGames.filter((g) => g.result === "W").length, windowGames.filter((g) => g.result === "L").length)
-        : null;
-      const recentPct = recentGames.length >= 3
-        ? winPct(recentGames.filter((g) => g.result === "W").length, recentGames.filter((g) => g.result === "L").length)
-        : null;
+      const windowPct =
+        windowGames.length >= MIN_POSITION_SAMPLES
+          ? winPct(
+              windowGames.filter((g) => g.result === "W").length,
+              windowGames.filter((g) => g.result === "L").length,
+            )
+          : null;
+      const recentPct =
+        recentGames.length >= 3
+          ? winPct(
+              recentGames.filter((g) => g.result === "W").length,
+              recentGames.filter((g) => g.result === "L").length,
+            )
+          : null;
       return {
         gameNumber: position,
         label: `GAME ${position}`,
@@ -325,7 +347,10 @@ export interface BestMonthSnapshot {
 }
 
 function buildBestMonth(sessions: BadmintonSession[], mode: BadmintonMode): BestMonthSnapshot {
-  const byMonth = new Map<string, { sessions: number; wins: number; losses: number; label: string }>();
+  const byMonth = new Map<
+    string,
+    { sessions: number; wins: number; losses: number; label: string }
+  >();
   for (const session of sessions) {
     const date = parseLocal(session.activity.start_date_local);
     const key = `${date.getFullYear()}-${date.getMonth()}`;
@@ -335,7 +360,10 @@ function buildBestMonth(sessions: BadmintonSession[], mode: BadmintonMode): Best
       sessions: 0,
       wins: 0,
       losses: 0,
-      label: date.toLocaleDateString("en-GB", { month: "short", year: "2-digit" }).toUpperCase().replace(" ", " '"),
+      label: date
+        .toLocaleDateString("en-GB", { month: "short", year: "2-digit" })
+        .toUpperCase()
+        .replace(" ", " '"),
     };
     entry.sessions += 1;
     entry.wins += games.filter((g) => g.result === "W").length;
@@ -345,7 +373,8 @@ function buildBestMonth(sessions: BadmintonSession[], mode: BadmintonMode): Best
 
   const months = Array.from(byMonth.values());
   const qualifying = months.filter((m) => m.sessions >= MIN_MONTH_SESSIONS);
-  if (qualifying.length === 0) return { available: false, label: "", winPct: 0, sessionCount: 0, isHighestVolume: false };
+  if (qualifying.length === 0)
+    return { available: false, label: "", winPct: 0, sessionCount: 0, isHighestVolume: false };
 
   qualifying.sort((a, b) => {
     const pctDiff = winPct(b.wins, b.losses) - winPct(a.wins, a.losses);
@@ -381,7 +410,11 @@ export interface HeadToHeadSnapshot {
   rows: HeadToHeadRow[];
 }
 
-function buildHeadToHead(sessions: BadmintonSession[], mode: BadmintonMode, now: number): HeadToHeadSnapshot {
+function buildHeadToHead(
+  sessions: BadmintonSession[],
+  mode: BadmintonMode,
+  now: number,
+): HeadToHeadSnapshot {
   const cutoff52 = now - FIFTY_TWO_WEEKS_MS;
   const cutoff8 = now - EIGHT_WEEKS_MS;
   const byOpponent = new Map<string, ParsedGame[]>();
@@ -412,8 +445,8 @@ function buildHeadToHead(sessions: BadmintonSession[], mode: BadmintonMode, now:
     const recentWins = recent.filter((g) => g.result === "W").length;
     const recentLosses = recent.filter((g) => g.result === "L").length;
 
-    let direction = "steady rivalry";
-    let tone: "up" | "down" | "flat" = "flat";
+    let direction: string;
+    let tone: "up" | "down" | "flat";
     if (recent.length >= 2) {
       const recentPct = winPct(recentWins, recentLosses);
       if (recentPct - windowPct >= 15) {
@@ -468,7 +501,10 @@ export interface AmIImprovingSnapshot {
 function closeGamesWinPct(games: ParsedGame[]): number | null {
   const close = games.filter((g) => Math.abs(g.margin) <= 3);
   if (close.length === 0) return null;
-  return winPct(close.filter((g) => g.result === "W").length, close.filter((g) => g.result === "L").length);
+  return winPct(
+    close.filter((g) => g.result === "W").length,
+    close.filter((g) => g.result === "L").length,
+  );
 }
 
 function avgMargin(games: ParsedGame[]): number | null {
@@ -476,7 +512,10 @@ function avgMargin(games: ParsedGame[]): number | null {
   return Math.round((games.reduce((sum, g) => sum + g.margin, 0) / games.length) * 10) / 10;
 }
 
-function fadePoint(shape: SessionShapePoint[], key: "fiftyTwoWeekWinPct" | "eightWeekWinPct"): string {
+function fadePoint(
+  shape: SessionShapePoint[],
+  key: "fiftyTwoWeekWinPct" | "eightWeekWinPct",
+): string {
   const drop = shape.find((p) => (p[key] ?? 100) < 50);
   return drop ? `GAME ${drop.gameNumber}` : "—";
 }
@@ -489,13 +528,23 @@ function buildAmIImproving(
 ): AmIImprovingSnapshot {
   const cutoff8 = now - EIGHT_WEEKS_MS;
   const cutoff52 = now - FIFTY_TWO_WEEKS_MS;
-  const windowGames = sessions.filter((s) => s.timestamp >= cutoff52).flatMap((s) => gamesForMode(s, mode));
-  const recentGames = sessions.filter((s) => s.timestamp >= cutoff8).flatMap((s) => gamesForMode(s, mode));
+  const windowGames = sessions
+    .filter((s) => s.timestamp >= cutoff52)
+    .flatMap((s) => gamesForMode(s, mode));
+  const recentGames = sessions
+    .filter((s) => s.timestamp >= cutoff8)
+    .flatMap((s) => gamesForMode(s, mode));
 
   if (recentGames.length < 6) return { available: false, rows: [] };
 
-  const windowWinPct = winPct(windowGames.filter((g) => g.result === "W").length, windowGames.filter((g) => g.result === "L").length);
-  const recentWinPct = winPct(recentGames.filter((g) => g.result === "W").length, recentGames.filter((g) => g.result === "L").length);
+  const windowWinPct = winPct(
+    windowGames.filter((g) => g.result === "W").length,
+    windowGames.filter((g) => g.result === "L").length,
+  );
+  const recentWinPct = winPct(
+    recentGames.filter((g) => g.result === "W").length,
+    recentGames.filter((g) => g.result === "L").length,
+  );
   const windowClose = closeGamesWinPct(windowGames);
   const recentClose = closeGamesWinPct(recentGames);
   const windowAvgMargin = avgMargin(windowGames);
@@ -534,9 +583,10 @@ function buildAmIImproving(
       label: "FADE POINT",
       fiftyTwoWeek: windowFade,
       recent: recentFade,
-      improved: windowNum === null || recentNum === null || recentNum === windowNum
-        ? null
-        : recentNum > windowNum,
+      improved:
+        windowNum === null || recentNum === null || recentNum === windowNum
+          ? null
+          : recentNum > windowNum,
     });
   }
 

@@ -2,22 +2,23 @@
 
 - **Status:** Accepted · 2026-07-29 · Tech Lead
 - **Area:** cross-cutting
-- **Context:** The old session cookie expired after a fixed 8h, forcing a re-login mid-day.
-  `coach-phelps` has GitHub's "expire user authorization tokens" opted in, so the real GitHub
-  access token embedded in every session already dies at 8h regardless of the cookie's own
-  lifetime — the 8h cookie wasn't arbitrary, it was matched to that.
-- **Decision:** Capture the `refresh_token` GitHub already returns (previously discarded) and
-  silently exchange it for a new access token when the old one is near expiry, in one shared
-  `ensureFreshSession()` helper (`ui/api/auth/_lib/session.ts`) every session-reading handler
-  goes through. The cookie itself becomes sliding, renewed to a 180-day cap on each successful
-  refresh. iOS gets the same rotation via a new `/api/auth/refresh` endpoint, since the
-  confidential half of the exchange needs `client_secret` server-side, not embedded in the app.
-- **Why:** Matches GitHub's own recommended token-expiration setting and current
-  session-management guidance (OWASP): short-lived access token + silent background refresh,
-  not a long-lived raw token. Anyone active within any 6-month window (the refresh token's own
-  GitHub-side validity) never sees a login screen again; an abandoned session still has a real,
-  bounded worst case instead of a token valid forever if it ever leaks.
-- **Rejected:** Opt out of GitHub's token expiration (never-expiring raw token) → simpler, but
-  GitHub itself recommends against it for security, and a leaked never-expiring token has no
-  natural safety net. Just raise `SESSION_MAX_AGE_SEC` without refresh logic → doesn't work at
-  all, the underlying GitHub token would still die at 8h and every request past that would 401.
+- **Context:** The session cookie expired after a fixed 8 hours, so athletes were re-logging in
+  mid-day. That 8 hours was not arbitrary. This repo opts in to GitHub's "expire user
+  authorization tokens", so the access token embedded in every session already dies at 8 hours no
+  matter how long the cookie lives. Raising the cookie alone would change nothing.
+- **Decision:** Keep the `refresh_token` GitHub already returns and previously threw away, and
+  exchange it for a new access token when the old one nears expiry. One shared
+  `ensureFreshSession()` in `ui/api/auth/_lib/session.ts` does this, and every session-reading
+  handler goes through it. The cookie becomes sliding, renewed to a 180-day cap on each
+  successful refresh. iOS gets the same rotation through `/api/auth/refresh`, because the
+  confidential half of the exchange needs `client_secret` on the server rather than in the app.
+- **Why:** This is what GitHub's own token-expiration setting and current session guidance both
+  recommend — a short-lived access token with a silent background refresh. Anyone active within
+  any six-month window never sees a login screen again. An abandoned session still expires, so a
+  leaked token has a bounded worst case instead of none.
+- **Rejected:** Opt out of GitHub's token expiration → simpler, but it means a never-expiring raw
+  token with no safety net if it leaks, and GitHub advises against it · Raise `SESSION_MAX_AGE_SEC`
+  with no refresh logic → does not work at all; the GitHub token still dies at 8 hours and every
+  request after that returns 401.
+- **Enforces:** A session lives no longer than the credential inside it. Extending a cookie
+  without refreshing the token it carries buys nothing.

@@ -1,7 +1,19 @@
+/**
+ * The app's render-crash net — and the only thing that reports one.
+ *
+ * React unwinds to the nearest boundary before `window.onerror` fires, so Sentry's global
+ * handler never sees a render crash: without the `componentDidCatch` below, the most visible
+ * failure the athlete can hit is the one failure we have no record of.
+ *
+ * Sentry ships its own `<Sentry.ErrorBoundary>`, but swapping to it would mean rewriting this
+ * fallback against its render-prop contract. `captureReactException` is the exact call that
+ * component makes internally, so we get its event shape — component stack linked as the error's
+ * cause, so Sentry groups and renders it the same — and keep this UI untouched.
+ */
 import { cn } from "@/lib/utils";
+import * as Sentry from "@sentry/react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
-import { Component, ReactNode } from "react";
-import { Sentry } from "@/lib/observability";
+import { Component, type ErrorInfo, ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
@@ -18,14 +30,16 @@ class ErrorBoundary extends Component<Props, State> {
     this.state = { hasError: false, error: null };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    Sentry.captureException(error, {
-      contexts: { react: { componentStack: errorInfo.componentStack } },
-    });
-  }
-
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // `handled: true` because the fallback below renders — the athlete sees a screen, not a
+    // white page. Same mechanism string Sentry's own boundary sends, so these group with it.
+    Sentry.captureReactException(error, errorInfo, {
+      mechanism: { handled: true, type: "auto.function.react.error_boundary" },
+    });
   }
 
   render() {
@@ -33,10 +47,7 @@ class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex items-center justify-center min-h-screen p-8 bg-background">
           <div className="flex flex-col items-center w-full max-w-2xl p-8">
-            <AlertTriangle
-              size={48}
-              className="text-destructive mb-6 flex-shrink-0"
-            />
+            <AlertTriangle size={48} className="text-destructive mb-6 flex-shrink-0" />
 
             <h2 className="text-xl mb-4">An unexpected error occurred.</h2>
 

@@ -1,4 +1,4 @@
-# _lib/_tests
+# \_lib/\_tests
 
 Tests for shared `ui/api/_lib/*.ts` modules - utilities used by more than one endpoint (coach-chat,
 coach-message, waitlist, ...), not scoped to any single feature.

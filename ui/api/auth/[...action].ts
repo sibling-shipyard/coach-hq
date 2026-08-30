@@ -41,6 +41,7 @@ import {
   verifyOAuthState,
   fromBase64Url,
 } from "./_lib/pkce.js";
+import { captureServerException, setAthleteScope, withContinuedTrace } from "../_lib/sentry.js";
 
 const CLIENT_ID = process.env.GITHUB_APP_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.GITHUB_APP_CLIENT_SECRET ?? "";
@@ -51,7 +52,9 @@ const APP_SLUG = process.env.GITHUB_APP_SLUG ?? "coach-phelps";
 // tampering in transit, not provide session confidentiality.
 const OAUTH_HMAC_SECRET = process.env.SESSION_SECRET || CLIENT_SECRET;
 if (!process.env.SESSION_SECRET) {
-  console.warn("[auth] SESSION_SECRET is unset — falling back to CLIENT_SECRET for OAuth state HMAC");
+  console.warn(
+    "[auth] SESSION_SECRET is unset — falling back to CLIENT_SECRET for OAuth state HMAC",
+  );
 }
 
 // ============================================================================
@@ -74,7 +77,9 @@ export async function handleStart(req: Request): Promise<Response> {
     const headers = new Headers();
     headers.set(
       "Location",
-      platform === "ios" ? "coachhq://callback?error=config_error" : `${url.origin}/?auth_error=config_error`,
+      platform === "ios"
+        ? "coachhq://callback?error=config_error"
+        : `${url.origin}/?auth_error=config_error`,
     );
     return new Response(null, { status: 302, headers });
   }
@@ -118,7 +123,9 @@ export async function handleInstallRedirect(req: Request): Promise<Response> {
     const headers = new Headers();
     headers.set(
       "Location",
-      platform === "ios" ? "coachhq://callback?error=config_error" : `${url.origin}/?auth_error=config_error`,
+      platform === "ios"
+        ? "coachhq://callback?error=config_error"
+        : `${url.origin}/?auth_error=config_error`,
     );
     return new Response(null, { status: 302, headers });
   }
@@ -222,8 +229,17 @@ export async function handleCallback(req: Request): Promise<Response> {
   const url = new URL(req.url);
   try {
     return await callbackImpl(url);
-  } catch {
-    return callbackErrorRedirect(url.origin, "network_error", extractPlatformFromState(url.searchParams.get("state")));
+  } catch (error) {
+    console.error("[auth/callback]", error);
+    // End of the line for the whole OAuth exchange: this catch answers with a 302 the browser
+    // follows, so without capturing here the error exists nowhere. Anonymous on purpose - a
+    // login that failed has no repo, so there is no athlete to attribute it to.
+    await captureServerException(error);
+    return callbackErrorRedirect(
+      url.origin,
+      "network_error",
+      extractPlatformFromState(url.searchParams.get("state")),
+    );
   }
 }
 
@@ -364,6 +380,9 @@ async function callbackImpl(url: URL): Promise<Response> {
 // ============================================================================
 // logout.ts
 // ============================================================================
+// Stays async with no await: every handler here is `async (...) => Promise<Response>` and
+// the dispatch switch returns them directly, so dropping async breaks the shared shape.
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function handleLogout(): Promise<Response> {
   const headers = new Headers();
   headers.append("Set-Cookie", clearCookie(SESSION_COOKIE));
@@ -377,6 +396,10 @@ export async function handleLogout(): Promise<Response> {
 export async function handleMe(req: Request): Promise<Response> {
   const fresh = await ensureFreshSession(req);
   if (fresh instanceof Response) return fresh;
+  // Who, as soon as it is known. A session that has not resolved a repo yet has no athlete id
+  // to set - `athlete_id` is the owner half of `owner/repo` everywhere else, and a login is not
+  // that value's source anywhere in this codebase.
+  if (fresh.session.repo_full_name) setAthleteScope(fresh.session.repo_full_name);
 
   return withSessionCookie(
     Response.json({
@@ -424,12 +447,21 @@ export async function handleRefresh(req: Request): Promise<Response> {
         refresh_token: body.refresh_token,
       }),
     });
-  } catch {
+  } catch (err) {
+    console.error("[auth/refresh]", err);
+    // Nothing rethrows, so capture here or nowhere. iOS retries this 502 instead of surfacing
+    // it, which is what makes a GitHub outage look like a merely slow app.
+    await captureServerException(err);
     return Response.json({ error: "network_error" }, { status: 502 });
   }
 
   const tokenBody = await tokenRes.json().catch(() => null);
-  if (!tokenRes.ok || !tokenBody?.access_token || !tokenBody?.refresh_token || !tokenBody?.expires_in) {
+  if (
+    !tokenRes.ok ||
+    !tokenBody?.access_token ||
+    !tokenBody?.refresh_token ||
+    !tokenBody?.expires_in
+  ) {
     // Refresh token expired (6mo idle) or revoked - genuine "sign in again" case.
     return Response.json({ error: "refresh_failed" }, { status: 401 });
   }
@@ -467,7 +499,9 @@ interface ListMyReposAuthContext {
   rotatedCookie?: string;
 }
 
-async function resolveListMyReposAuthContext(req: Request): Promise<ListMyReposAuthContext | Response> {
+async function resolveListMyReposAuthContext(
+  req: Request,
+): Promise<ListMyReposAuthContext | Response> {
   const cookies = parseCookies(req);
   if (cookies[SESSION_COOKIE]) {
     const fresh = await ensureFreshSession(req);
@@ -510,7 +544,12 @@ async function resolveListMyReposAuthContext(req: Request): Promise<ListMyReposA
   }
   if (!installationId) return Response.json({ error: "Not authenticated" }, { status: 401 });
 
-  return { login: user.login as string, gh_token: token, installation_id: installationId, via: "bearer" };
+  return {
+    login: user.login as string,
+    gh_token: token,
+    installation_id: installationId,
+    via: "bearer",
+  };
 }
 
 function withUpdatedSession(body: unknown, sessionToken: string, status = 200): Response {
@@ -528,11 +567,21 @@ export async function handleListMyRepos(req: Request): Promise<Response> {
     const resolved = await resolveListMyReposAuthContext(req);
     if (resolved instanceof Response) return resolved;
     ctx = resolved;
+    // Who, as soon as it is known. Only the cookie path arrives with a repo already resolved;
+    // the bearer path and a first-time session have none until listMyReposImpl picks one, so
+    // those requests stay anonymous rather than carrying a guess.
+    if (ctx.repo_full_name) setAthleteScope(ctx.repo_full_name);
     return await listMyReposImpl(req, ctx);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to look up your repos";
     console.error("[list-my-repos]", err);
-    return withSessionCookie(Response.json({ error: message }, { status: 502 }), ctx?.rotatedCookie);
+    // End of the line: the athlete gets a 502 and nothing rethrows, so this is the only place
+    // a GitHub or session failure on this path can reach Sentry.
+    await captureServerException(err);
+    return withSessionCookie(
+      Response.json({ error: message }, { status: 502 }),
+      ctx?.rotatedCookie,
+    );
   }
 }
 
@@ -542,7 +591,10 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
   if (ctx.repo_full_name && isOwnedBy(ctx.repo_full_name, ctx.login)) {
     const marker = await checkMarkerFile(ctx.repo_full_name, ctx.gh_token);
     if (marker === "found") {
-      return withSessionCookie(Response.json({ repo_full_name: ctx.repo_full_name }), ctx.rotatedCookie);
+      return withSessionCookie(
+        Response.json({ repo_full_name: ctx.repo_full_name }),
+        ctx.rotatedCookie,
+      );
     }
     // A transient GitHub failure is not evidence this repo went bad. Re-resolving here would
     // fan out into a repo list plus a marker check per owned repo - the most expensive path in
@@ -594,7 +646,9 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
     const { repositories } = reposRes.ok
       ? ((await reposRes.json()) as { repositories: Array<{ owner: { login: string } }> })
       : { repositories: [] };
-    const ownRepos = repositories.filter((r) => r.owner.login.toLowerCase() === ctx.login.toLowerCase());
+    const ownRepos = repositories.filter(
+      (r) => r.owner.login.toLowerCase() === ctx.login.toLowerCase(),
+    );
     const reason = ownRepos.length === 0 ? "no_owned_repos" : "no_marker_match";
     return withSessionCookie(Response.json({ candidates: [], reason }), ctx.rotatedCookie);
   }
@@ -613,25 +667,34 @@ async function listMyReposImpl(req: Request, ctx: ListMyReposAuthContext): Promi
 // ============================================================================
 export default {
   async fetch(req: Request): Promise<Response> {
-    const url = new URL(req.url);
-    const action = url.pathname.replace(/^\/api\/auth\/?/, "").replace(/\/$/, "");
-    switch (action) {
-      case "start":
-        return handleStart(req);
-      case "install-redirect":
-        return handleInstallRedirect(req);
-      case "callback":
-        return handleCallback(req);
-      case "logout":
-        return handleLogout();
-      case "me":
-        return handleMe(req);
-      case "refresh":
-        return handleRefresh(req);
-      case "list-my-repos":
-        return handleListMyRepos(req);
-      default:
-        return Response.json({ error: "Not found" }, { status: 404 });
-    }
+    // Entry, before anything can capture: joins the browser's trace so both events share one,
+    // opens the route's `http.server` span, and flushes it before the response leaves. There is
+    // no try/catch here, unlike coach-chat.ts and coach-message.ts: those turn a throw into JSON
+    // the client can read, while half the actions below are browser navigations that answer with
+    // a 302. An error that escapes a handler is still captured - withContinuedTrace captures on
+    // its way out and rethrows, leaving the response Vercel already produced unchanged. The three
+    // handlers that swallow a throw into a redirect or a 502 capture it themselves first.
+    return withContinuedTrace(req, async () => {
+      const url = new URL(req.url);
+      const action = url.pathname.replace(/^\/api\/auth\/?/, "").replace(/\/$/, "");
+      switch (action) {
+        case "start":
+          return handleStart(req);
+        case "install-redirect":
+          return handleInstallRedirect(req);
+        case "callback":
+          return handleCallback(req);
+        case "logout":
+          return handleLogout();
+        case "me":
+          return handleMe(req);
+        case "refresh":
+          return handleRefresh(req);
+        case "list-my-repos":
+          return handleListMyRepos(req);
+        default:
+          return Response.json({ error: "Not found" }, { status: 404 });
+      }
+    });
   },
 };

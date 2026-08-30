@@ -63,7 +63,10 @@ export function fromBase64Url(b64: string): Uint8Array {
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
 
 /** Encodes and HMAC-signs an OAuth state payload, stamping the current time as `iat`. */
-export async function signOAuthState(data: Omit<OAuthStatePayload, "iat">, secret: string): Promise<string> {
+export async function signOAuthState(
+  data: Omit<OAuthStatePayload, "iat">,
+  secret: string,
+): Promise<string> {
   const full: OAuthStatePayload = { ...data, iat: Date.now() };
   const payload = toBase64Url(new TextEncoder().encode(JSON.stringify(full)));
   const key = await hmacKey(secret, "sign");
@@ -87,7 +90,12 @@ export async function verifyOAuthState(
     return null;
   }
   const key = await hmacKey(secret, "verify");
-  const valid = await crypto.subtle.verify("HMAC", key, sigBytes, new TextEncoder().encode(payload));
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    sigBytes,
+    new TextEncoder().encode(payload),
+  );
   if (!valid) return null;
   try {
     const json = new TextDecoder().decode(fromBase64Url(payload));

@@ -20,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
+import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import type { FileEntry } from "../../_lib/githubGitData.js";
 import type { ProfileJson, MemoryJson, InjuriesJson } from "./coachMemoryFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
@@ -87,7 +88,9 @@ function inferGoalTags(memory: MemoryJson): string[] {
     .toLowerCase();
 
   const matched = Object.entries(GOAL_KEYWORDS)
-    .filter(([goal, keywords]) => goal !== "general_fitness" && keywords.some((k) => text.includes(k)))
+    .filter(
+      ([goal, keywords]) => goal !== "general_fitness" && keywords.some((k) => text.includes(k)),
+    )
     .map(([goal]) => goal);
 
   return matched.length > 0 ? matched : ["general_fitness"];
@@ -99,7 +102,8 @@ function inferGoalTags(memory: MemoryJson): string[] {
 function inferLevel(memory: MemoryJson): "beginner" | "intermediate" | "advanced" {
   const text = (memory.notes?.fitness_baseline?.text ?? "").toLowerCase();
   if (/(advanced|experienced|years of training|competit)/.test(text)) return "advanced";
-  if (/(intermediate|some experience|been training|regularly train)/.test(text)) return "intermediate";
+  if (/(intermediate|some experience|been training|regularly train)/.test(text))
+    return "intermediate";
   return "beginner";
 }
 
@@ -131,14 +135,20 @@ function inferEquipment(memory: MemoryJson): string[] {
 // overhead-heavy) and anything tagged skill_development in calisthenics (pull-ups, presses are
 // shoulder-loaded), while NOT ruling out running/leg-focused templates.
 const INJURY_CONFLICT_TAGS: { keyword: RegExp; conflictingSportTags: string[] }[] = [
-  { keyword: /shoulder|rotator cuff|overhead/, conflictingSportTags: ["badminton", "swimming", "tennis", "calisthenics"] },
+  {
+    keyword: /shoulder|rotator cuff|overhead/,
+    conflictingSportTags: ["badminton", "swimming", "tennis", "calisthenics"],
+  },
   { keyword: /knee/, conflictingSportTags: ["running"] },
   { keyword: /back|spine|lumbar/, conflictingSportTags: ["strength_training"] },
   { keyword: /ankle|foot/, conflictingSportTags: ["running"] },
   { keyword: /wrist|elbow/, conflictingSportTags: ["calisthenics"] },
 ];
 
-function conflictsWithActiveInjuries(entry: WorkoutLibraryIndexEntry, injuries: InjuriesJson): boolean {
+function conflictsWithActiveInjuries(
+  entry: WorkoutLibraryIndexEntry,
+  injuries: InjuriesJson,
+): boolean {
   const activeTexts = (injuries.flags ?? [])
     .filter((f) => f.status === "active")
     .map((f) => f.text.toLowerCase());
@@ -186,7 +196,9 @@ export function selectTemplates(
     );
     eligible = library;
   }
-  const activeInjuryTexts = (injuries.flags ?? []).filter((f) => f.status === "active").map((f) => f.text.toLowerCase());
+  const activeInjuryTexts = (injuries.flags ?? [])
+    .filter((f) => f.status === "active")
+    .map((f) => f.text.toLowerCase());
 
   // Score: +2 per matching sport_tag (or "general_fitness" tag as a universal partial match),
   // +2 per matching equipment the athlete actually has, +1 per matching goal_tag, +1 for an
@@ -201,7 +213,8 @@ export function selectTemplates(
     // lacks, so it deliberately gets the same "no equipment blocker" bonus as an exact equipment
     // match. Spelled out explicitly rather than leaning on .every() returning true on an empty
     // array, which would happen to produce the same score by accident.
-    if (entry.equipment.length === 0 || entry.equipment.every((e) => equipment.includes(e))) score += 2;
+    if (entry.equipment.length === 0 || entry.equipment.every((e) => equipment.includes(e)))
+      score += 2;
     score += entry.goal_tags.filter((t) => goalTags.includes(t)).length;
     if (entry.level === level) score += 1;
     else if (Math.abs(LEVEL_RANK[entry.level] - LEVEL_RANK[level]) === 1) score += 0.5;
@@ -247,7 +260,9 @@ export function selectTemplates(
   // library leaves us under MIN (e.g. injuries knocked out most of it) so it's visible, and return
   // what we have.
   if (picked.length < MIN) {
-    console.warn(`[coach-chat] selectTemplates: only ${picked.length} eligible templates, below MIN (${MIN})`);
+    console.warn(
+      `[coach-chat] selectTemplates: only ${picked.length} eligible templates, below MIN (${MIN})`,
+    );
   }
   return picked.slice(0, TARGET);
 }
@@ -286,7 +301,13 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
     "For each template, you may lightly personalize coaching_note and progression_notes text " +
       "(e.g. tone the language to their level) - do not change exercises, sets, reps, or structure.",
     "Return an array with one entry per template_id, each with the (possibly unchanged) coaching_note/progression_notes.",
-    JSON.stringify(templates.map((t) => ({ id: t.id, coaching_note: t.coaching_note, progression_notes: t.progression_notes }))),
+    JSON.stringify(
+      templates.map((t) => ({
+        id: t.id,
+        coaching_note: t.coaching_note,
+        progression_notes: t.progression_notes,
+      })),
+    ),
   ].join("\n");
 
   const body = {
@@ -315,20 +336,43 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
     },
   };
 
-  const res = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
-    20_000,
-  );
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Gemini template-adjustment call failed (${res.status}): ${detail}`);
-  }
-  const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini template-adjustment call returned no content");
-  const parsed = JSON.parse(text) as { adjustments?: TemplateAdjustment[] };
-  return Array.isArray(parsed.adjustments) ? parsed.adjustments : [];
+  return withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
+    const res = await fetchWithTimeout(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      20_000,
+    );
+    if (!res.ok) {
+      const detail = await res.text();
+      throw Object.assign(
+        new Error(`Gemini template-adjustment call failed (${res.status}): ${detail}`),
+        { status: res.status },
+      );
+    }
+    const json = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+    };
+    if (json.usageMetadata) {
+      recordUsage({
+        promptTokens: json.usageMetadata.promptTokenCount,
+        completionTokens: json.usageMetadata.candidatesTokenCount,
+        totalTokens: json.usageMetadata.totalTokenCount,
+      });
+    }
+    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error("Gemini template-adjustment call returned no content");
+    const parsed = JSON.parse(text) as { adjustments?: TemplateAdjustment[] };
+    return Array.isArray(parsed.adjustments) ? parsed.adjustments : [];
+  });
 };
 
 /**
@@ -356,7 +400,22 @@ export async function generateInitialTemplates(
   try {
     adjustments = await adjustFn(apiKey, baseTemplates, memory);
   } catch (err) {
-    console.warn("[coach-chat] template adjustment Gemini call failed - using unadjusted library templates", err, { traceId });
+    console.warn(
+      "[coach-chat] template adjustment Gemini call failed - using unadjusted library templates",
+      err,
+      { traceId },
+    );
+    // Deliberately non-fatal: capture for visibility, then fall through to the unadjusted
+    // library templates below so onboarding always produces something.
+    await captureGeminiFailure(err, {
+      traceId,
+      model: GEMINI_MODEL,
+      upstreamStatus: (err as { status?: number }).status ?? 500,
+      turnMode: "template_adjust",
+      // The adjustment pass personalizes library templates from athlete memory, not from
+      // athlete-typed text - there is nothing to record here.
+      athleteMessage: "",
+    });
   }
   const byId = new Map(adjustments.map((a) => [a.template_id, a]));
 
@@ -377,7 +436,11 @@ export async function generateInitialTemplates(
   }));
   const manifestWrite: FileEntry = {
     path: TEMPLATES_MANIFEST_PATH,
-    content: JSON.stringify({ generated_at: now, trace_id: traceId, template_ids: finalTemplates.map((t) => t.id) }, null, 2),
+    content: JSON.stringify(
+      { generated_at: now, trace_id: traceId, template_ids: finalTemplates.map((t) => t.id) },
+      null,
+      2,
+    ),
   };
 
   return { templates: [...templateWrites, manifestWrite] };
@@ -422,12 +485,19 @@ export function templatePath(templateId: string): string {
  */
 export function applyTemplateEdit(
   templateContent: string | null,
-  edit: { template_id: string; skip_exercise_nums?: number[]; skip_phases?: string[]; note?: string },
+  edit: {
+    template_id: string;
+    skip_exercise_nums?: number[];
+    skip_phases?: string[];
+    note?: string;
+  },
   validTemplateIds: ReadonlySet<string>,
   traceId: string,
 ): string {
   if (!validTemplateIds.has(edit.template_id)) {
-    throw new Error(`template_edit: no template with id "${edit.template_id}" in this athlete's templates`);
+    throw new Error(
+      `template_edit: no template with id "${edit.template_id}" in this athlete's templates`,
+    );
   }
 
   const current = parseJsonOrNull<Workout>(templateContent);
@@ -436,8 +506,10 @@ export function applyTemplateEdit(
   }
 
   const skipNums = new Set(edit.skip_exercise_nums ?? []);
-  for (const num of resolvePhaseNames(current.phases, edit.skip_phases ?? [], traceId)) skipNums.add(num);
-  const phases = skipNums.size > 0 ? renumberAfterSkip(current.phases, [...skipNums]) : current.phases;
+  for (const num of resolvePhaseNames(current.phases, edit.skip_phases ?? [], traceId))
+    skipNums.add(num);
+  const phases =
+    skipNums.size > 0 ? renumberAfterSkip(current.phases, [...skipNums]) : current.phases;
 
   // A skip was asked for but matched nothing real (adversarial testing: "drop the burpees" when
   // no such exercise/phase exists, or a raw exercise number that was never real to begin with) -
@@ -455,11 +527,14 @@ export function applyTemplateEdit(
   // add and remove exercises in the same call, a count comparison could stay equal while the
   // content genuinely changed, and this guard would wrongly suppress the note. Not a live bug -
   // just don't reuse this pattern for a path that can add exercises without revisiting it.
-  const skipRequested = (edit.skip_exercise_nums?.length ?? 0) > 0 || (edit.skip_phases?.length ?? 0) > 0;
+  const skipRequested =
+    (edit.skip_exercise_nums?.length ?? 0) > 0 || (edit.skip_phases?.length ?? 0) > 0;
   const skipHappened = countExercises(phases) < countExercises(current.phases);
   const trimmedNote = edit.note?.trim();
   const coachingNote =
-    trimmedNote && !(skipRequested && !skipHappened) ? `${current.coaching_note} — ${trimmedNote}` : current.coaching_note;
+    trimmedNote && !(skipRequested && !skipHappened)
+      ? `${current.coaching_note} — ${trimmedNote}`
+      : current.coaching_note;
 
   const result: Workout = {
     ...current,
@@ -495,7 +570,10 @@ function countExercises(phases: Workout["phases"]): number {
   return phases.reduce((sum, p) => sum + p.exercises.length, 0);
 }
 
-export function renumberAfterSkip(phases: Workout["phases"], skipNums: number[]): Workout["phases"] {
+export function renumberAfterSkip(
+  phases: Workout["phases"],
+  skipNums: number[],
+): Workout["phases"] {
   const skip = new Set(skipNums);
   let next = 1;
   return phases
@@ -515,13 +593,20 @@ export function renumberAfterSkip(phases: Workout["phases"], skipNums: number[])
 // than thrown - this is best-effort natural-language matching, not an id-hallucination guard like
 // template_id/quest_id; a near-miss name shouldn't fail the whole session_plan when
 // skip_exercise_nums or other matched phases might still be perfectly good.
-function resolvePhaseNames(phases: Workout["phases"], phaseNames: string[], traceId: string): number[] {
+function resolvePhaseNames(
+  phases: Workout["phases"],
+  phaseNames: string[],
+  traceId: string,
+): number[] {
   const nums: number[] = [];
   for (const name of phaseNames) {
     const target = name.trim().toLowerCase();
     const phase = phases.find((p) => p.name.trim().toLowerCase() === target);
     if (!phase) {
-      console.warn(`[coach-chat] session_plan: no phase named "${name}" in this template - ignoring`, { traceId });
+      console.warn(
+        `[coach-chat] session_plan: no phase named "${name}" in this template - ignoring`,
+        { traceId },
+      );
       continue;
     }
     nums.push(...phase.exercises.map((ex) => ex.num));
@@ -543,12 +628,20 @@ function resolvePhaseNames(phases: Workout["phases"], phaseNames: string[], trac
  */
 export function applySessionPlan(
   templateContent: string | null,
-  plan: { template_id: string; session_date: string; skip_exercise_nums?: number[]; skip_phases?: string[]; note?: string },
+  plan: {
+    template_id: string;
+    session_date: string;
+    skip_exercise_nums?: number[];
+    skip_phases?: string[];
+    note?: string;
+  },
   validTemplateIds: ReadonlySet<string>,
   traceId: string,
 ): { path: string; content: string } {
   if (!validTemplateIds.has(plan.template_id)) {
-    throw new Error(`session_plan: no template with id "${plan.template_id}" in this athlete's templates`);
+    throw new Error(
+      `session_plan: no template with id "${plan.template_id}" in this athlete's templates`,
+    );
   }
 
   const base = parseJsonOrNull<Workout>(templateContent);
@@ -557,7 +650,8 @@ export function applySessionPlan(
   }
 
   const skipNums = new Set(plan.skip_exercise_nums ?? []);
-  for (const num of resolvePhaseNames(base.phases, plan.skip_phases ?? [], traceId)) skipNums.add(num);
+  for (const num of resolvePhaseNames(base.phases, plan.skip_phases ?? [], traceId))
+    skipNums.add(num);
   const phases = skipNums.size > 0 ? renumberAfterSkip(base.phases, [...skipNums]) : base.phases;
 
   // coaching_note: append the athlete-facing reason rather than replace it outright, so any
@@ -571,11 +665,14 @@ export function applySessionPlan(
   // Same count-based-not-identity-based fragility as applyTemplateEdit's skipHappened above: this
   // only checks whether the total count dropped, which is only a valid stand-in for "a real skip
   // happened" because this path never adds exercises. Revisit if that ever changes.
-  const skipRequested = (plan.skip_exercise_nums?.length ?? 0) > 0 || (plan.skip_phases?.length ?? 0) > 0;
+  const skipRequested =
+    (plan.skip_exercise_nums?.length ?? 0) > 0 || (plan.skip_phases?.length ?? 0) > 0;
   const skipHappened = countExercises(phases) < countExercises(base.phases);
   const trimmedNote = plan.note?.trim();
   const coachingNote =
-    trimmedNote && !(skipRequested && !skipHappened) ? `${base.coaching_note} — ${trimmedNote}` : base.coaching_note;
+    trimmedNote && !(skipRequested && !skipHappened)
+      ? `${base.coaching_note} — ${trimmedNote}`
+      : base.coaching_note;
 
   const session: Workout = {
     ...base,
@@ -588,5 +685,8 @@ export function applySessionPlan(
 
   validateWorkout(session, `session_plan result for "${plan.template_id}" on ${plan.session_date}`);
 
-  return { path: sessionPath(plan.session_date, plan.template_id), content: JSON.stringify(session, null, 2) };
+  return {
+    path: sessionPath(plan.session_date, plan.template_id),
+    content: JSON.stringify(session, null, 2),
+  };
 }

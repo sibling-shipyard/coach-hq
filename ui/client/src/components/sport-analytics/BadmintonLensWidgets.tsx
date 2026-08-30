@@ -1,4 +1,10 @@
-import { type CSSProperties, type MouseEvent as ReactMouseEvent, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type {
   AmIImprovingSnapshot,
   BadmintonActivityHeatmapSnapshot,
@@ -104,11 +110,21 @@ function WinRateGauge({ winRate, current }: { winRate: WinRateSnapshot; current:
       <rect height="20" rx="4" width={bandWidth} x={bandX} y="38" />
       <path d={`M${markerX} 32l6-11h-12z`} />
       <line className="wi-engine-gauge__marker" x1={markerX} x2={markerX} y1="32" y2="64" />
-      <text textAnchor="end" x={lowLabelX} y="18">{winRate.bandLow}%</text>
-      <text textAnchor="start" x={highLabelX} y="18">{winRate.bandHigh}%</text>
-      <text className="is-muted" textAnchor="middle" x={fiftyX} y="78">50%</text>
-      <text className="is-muted" x="0" y="84">0%</text>
-      <text className="is-muted" textAnchor="end" x="500" y="84">100%</text>
+      <text textAnchor="end" x={lowLabelX} y="18">
+        {winRate.bandLow}%
+      </text>
+      <text textAnchor="start" x={highLabelX} y="18">
+        {winRate.bandHigh}%
+      </text>
+      <text className="is-muted" textAnchor="middle" x={fiftyX} y="78">
+        50%
+      </text>
+      <text className="is-muted" x="0" y="84">
+        0%
+      </text>
+      <text className="is-muted" textAnchor="end" x="500" y="84">
+        100%
+      </text>
     </svg>
   );
 }
@@ -116,12 +132,24 @@ function WinRateGauge({ winRate, current }: { winRate: WinRateSnapshot; current:
 function WinRateTrend({ points }: { points: WinRateWindow["trend"] }) {
   const width = 820;
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
-  const safePoints = points.length > 0 ? points : [{ label: "NOW", sessionWinPct: 0, rollingWinPct: null, activityId: 0, timestamp: Date.now() }];
+  const safePoints =
+    points.length > 0
+      ? points
+      : [
+          {
+            label: "NOW",
+            sessionWinPct: 0,
+            rollingWinPct: null,
+            activityId: 0,
+            timestamp: Date.now(),
+          },
+        ];
   const values = safePoints.flatMap((p) => [p.sessionWinPct, p.rollingWinPct ?? p.sessionWinPct]);
   const minimum = Math.max(0, Math.min(...values) - 6);
   const maximum = Math.min(100, Math.max(...values) + 6);
   const range = Math.max(1, maximum - minimum);
-  const x = (index: number) => (safePoints.length === 1 ? width : (index / (safePoints.length - 1)) * width);
+  const x = (index: number) =>
+    safePoints.length === 1 ? width : (index / (safePoints.length - 1)) * width;
   const y = (value: number) => 154 - ((value - minimum) / range) * 96;
   const sessionCoords = safePoints.map((p, i) => ({ x: x(i), y: y(p.sessionWinPct) }));
   const rollingCoords = safePoints
@@ -156,8 +184,20 @@ function WinRateTrend({ points }: { points: WinRateWindow["trend"] }) {
       <circle cx={last.x} cy={last.y} r="5.5" />
       {scrubCoordinate && scrubPoint ? (
         <g aria-hidden="true">
-          <line className="wi-trend-scrub__guide" x1={scrubCoordinate.x} x2={scrubCoordinate.x} y1="40" y2="160" />
-          <foreignObject className="wi-trend-scrub__chip" height="30" width="150" x={clamp(scrubCoordinate.x - 75, 0, width - 150)} y="4">
+          <line
+            className="wi-trend-scrub__guide"
+            x1={scrubCoordinate.x}
+            x2={scrubCoordinate.x}
+            y1="40"
+            y2="160"
+          />
+          <foreignObject
+            className="wi-trend-scrub__chip"
+            height="30"
+            width="150"
+            x={clamp(scrubCoordinate.x - 75, 0, width - 150)}
+            y="4"
+          >
             <div>
               {scrubPoint.label} · {scrubPoint.sessionWinPct}%
               {scrubPoint.rollingWinPct !== null ? ` · ${scrubPoint.rollingWinPct}% 4WK` : ""}
@@ -165,8 +205,12 @@ function WinRateTrend({ points }: { points: WinRateWindow["trend"] }) {
           </foreignObject>
         </g>
       ) : null}
-      <text x="0" y="216">{startLabel}</text>
-      <text textAnchor="end" x="820" y="216">{endLabel}</text>
+      <text x="0" y="216">
+        {startLabel}
+      </text>
+      <text textAnchor="end" x="820" y="216">
+        {endLabel}
+      </text>
     </svg>
   );
 }
@@ -176,7 +220,8 @@ export function WinRateHero({ winRate }: { winRate: WinRateSnapshot }) {
   const [yearPage, setYearPage] = useState(0);
   const yearWindows = winRate.yearWindows;
   const currentYearWindow = yearWindows[yearPage];
-  const window_ = scope === "8w" ? winRate.eightWeek : currentYearWindow?.window ?? EMPTY_WIN_RATE_WINDOW;
+  const window_ =
+    scope === "8w" ? winRate.eightWeek : (currentYearWindow?.window ?? EMPTY_WIN_RATE_WINDOW);
   const hasGames = winRate.available && window_.games > 0;
   const canGoOlder = scope === "52w" && yearPage < yearWindows.length - 1;
   const canGoNewer = scope === "52w" && yearPage > 0;
@@ -184,7 +229,9 @@ export function WinRateHero({ winRate }: { winRate: WinRateSnapshot }) {
   return (
     <section className="sa-winrate-hero">
       <div className="wi-engine-card__topline">
-        <span>WIN RATE · {scope === "8w" ? "LAST 8W" : currentYearWindow?.rangeLabel ?? "52 WEEKS"}</span>
+        <span>
+          WIN RATE · {scope === "8w" ? "LAST 8W" : (currentYearWindow?.rangeLabel ?? "52 WEEKS")}
+        </span>
         <div className="sa-winrate-hero__controls">
           {scope === "52w" ? (
             <div className="sa-winrate-hero__pager" role="group" aria-label="Page through years">
@@ -207,7 +254,13 @@ export function WinRateHero({ winRate }: { winRate: WinRateSnapshot }) {
             </div>
           ) : null}
           <div className="sa-toggle sa-toggle--ghost" role="group" aria-label="Time window">
-            <button type="button" className={scope === "8w" ? "is-active" : ""} onClick={() => setScope("8w")}>8W</button>
+            <button
+              type="button"
+              className={scope === "8w" ? "is-active" : ""}
+              onClick={() => setScope("8w")}
+            >
+              8W
+            </button>
             <button
               type="button"
               className={scope === "52w" ? "is-active" : ""}
@@ -239,7 +292,8 @@ export function WinRateHero({ winRate }: { winRate: WinRateSnapshot }) {
             <WinRateTrend points={window_.trend} />
           </div>
           <div className="wi-engine-card__method">
-            BAND {winRate.bandLow}–{winRate.bandHigh}% · NOT A SCORE TO MAXIMIZE · THIN = PER SESSION · BOLD = 4-WK ROLLING
+            BAND {winRate.bandLow}–{winRate.bandHigh}% · NOT A SCORE TO MAXIMIZE · THIN = PER
+            SESSION · BOLD = 4-WK ROLLING
           </div>
         </>
       )}
@@ -256,15 +310,24 @@ export function SessionShapeCard({ shape }: { shape: SessionShapeSnapshot }) {
 
   const chart = useMemo(() => {
     if (shape.points.length === 0) return null;
-    const values = shape.points.flatMap((p) => [p.fiftyTwoWeekWinPct, p.eightWeekWinPct]).filter((v): v is number => v !== null);
+    const values = shape.points
+      .flatMap((p) => [p.fiftyTwoWeekWinPct, p.eightWeekWinPct])
+      .filter((v): v is number => v !== null);
     const min = Math.max(0, Math.min(...values) - 8);
     const max = Math.min(100, Math.max(...values) + 8);
     const range = Math.max(1, max - min);
     const baseline = plotHeight - 6;
-    const x = (index: number) => (shape.points.length === 1 ? width / 2 : (index / (shape.points.length - 1)) * width);
+    const x = (index: number) =>
+      shape.points.length === 1 ? width / 2 : (index / (shape.points.length - 1)) * width;
     const y = (value: number) => baseline - ((value - min) / range) * (plotHeight - 20);
-    const windowCoords = shape.points.map((p, i) => (p.fiftyTwoWeekWinPct === null ? null : { x: x(i), y: y(p.fiftyTwoWeekWinPct) })).filter((c): c is { x: number; y: number } => c !== null);
-    const recentCoords = shape.points.map((p, i) => (p.eightWeekWinPct === null ? null : { x: x(i), y: y(p.eightWeekWinPct) })).filter((c): c is { x: number; y: number } => c !== null);
+    const windowCoords = shape.points
+      .map((p, i) =>
+        p.fiftyTwoWeekWinPct === null ? null : { x: x(i), y: y(p.fiftyTwoWeekWinPct) },
+      )
+      .filter((c): c is { x: number; y: number } => c !== null);
+    const recentCoords = shape.points
+      .map((p, i) => (p.eightWeekWinPct === null ? null : { x: x(i), y: y(p.eightWeekWinPct) }))
+      .filter((c): c is { x: number; y: number } => c !== null);
     const maxSamples = Math.max(...shape.points.map((point) => point.sampleCount), 1);
     return {
       x,
@@ -293,7 +356,8 @@ export function SessionShapeCard({ shape }: { shape: SessionShapeSnapshot }) {
 
   const hovered = hoverIndex === null ? null : shape.points[hoverIndex];
   const hoveredX = hoverIndex === null ? null : chart.x(hoverIndex);
-  const hoveredWindowY = hovered?.fiftyTwoWeekWinPct != null ? chart.y(hovered.fiftyTwoWeekWinPct) : null;
+  const hoveredWindowY =
+    hovered?.fiftyTwoWeekWinPct != null ? chart.y(hovered.fiftyTwoWeekWinPct) : null;
   const hoveredRecentY = hovered?.eightWeekWinPct != null ? chart.y(hovered.eightWeekWinPct) : null;
 
   function handleScrub(event: ReactMouseEvent<HTMLDivElement>) {
@@ -308,8 +372,14 @@ export function SessionShapeCard({ shape }: { shape: SessionShapeSnapshot }) {
       <div className="sa-card-kicker">
         <span className="sa-card-label">SESSION SHAPE — WHEN YOU WIN</span>
         <div className="sa-legend">
-          <span><i className="is-muted" />52W</span>
-          <span><i className="is-ink" />8W</span>
+          <span>
+            <i className="is-muted" />
+            52W
+          </span>
+          <span>
+            <i className="is-ink" />
+            8W
+          </span>
         </div>
       </div>
       <p className="sa-session-shape__read">{shape.read}</p>
@@ -325,16 +395,32 @@ export function SessionShapeCard({ shape }: { shape: SessionShapeSnapshot }) {
             onMouseLeave={() => setHoverIndex(null)}
             onMouseMove={handleScrub}
           >
-            <svg aria-hidden="true" viewBox={`0 0 ${width} ${plotHeight}`} preserveAspectRatio="none">
+            <svg
+              aria-hidden="true"
+              viewBox={`0 0 ${width} ${plotHeight}`}
+              preserveAspectRatio="none"
+            >
               {chart.fiftyY !== null ? (
-                <line x1="0" y1={chart.fiftyY} x2={width} y2={chart.fiftyY} className="sa-dashed-line" />
+                <line
+                  x1="0"
+                  y1={chart.fiftyY}
+                  x2={width}
+                  y2={chart.fiftyY}
+                  className="sa-dashed-line"
+                />
               ) : null}
               <path d={chart.windowArea} className="sa-session-shape__area-all" />
               <path d={chart.recentArea} className="sa-session-shape__area-recent" />
               <path d={smoothPath(chart.windowCoords)} className="sa-session-shape__line-all" />
               <path d={smoothPath(chart.recentCoords)} className="sa-session-shape__line-recent" />
               {hoveredX !== null ? (
-                <line x1={hoveredX} y1="0" x2={hoveredX} y2={plotHeight} className="sa-session-shape__guide" />
+                <line
+                  x1={hoveredX}
+                  y1="0"
+                  x2={hoveredX}
+                  y2={plotHeight}
+                  className="sa-session-shape__guide"
+                />
               ) : null}
             </svg>
             {hovered && hoveredX !== null && hoveredWindowY !== null ? (
@@ -382,7 +468,11 @@ export function SessionShapeCard({ shape }: { shape: SessionShapeSnapshot }) {
             {shape.points.map((point, index) => (
               <span
                 key={point.gameNumber}
-                className={index === 0 || index === shape.points.length - 1 || (point.gameNumber % 4 === 0) ? "is-visible" : ""}
+                className={
+                  index === 0 || index === shape.points.length - 1 || point.gameNumber % 4 === 0
+                    ? "is-visible"
+                    : ""
+                }
               >
                 G{point.gameNumber}
               </span>
@@ -403,7 +493,9 @@ export function BestMonthCard({ bestMonth }: { bestMonth: BestMonthSnapshot }) {
       {bestMonth.available ? (
         <>
           <strong>{bestMonth.label}</strong>
-          <span className="sa-best-month__meta">{bestMonth.winPct}% WIN RATE · {bestMonth.sessionCount} SESSIONS</span>
+          <span className="sa-best-month__meta">
+            {bestMonth.winPct}% WIN RATE · {bestMonth.sessionCount} SESSIONS
+          </span>
           <em>
             {bestMonth.isHighestVolume
               ? "Your highest-volume block yet — the wins followed the work."
@@ -440,7 +532,10 @@ export function HeadToHeadCard({ headToHead }: { headToHead: HeadToHeadSnapshot 
     <section className="sa-card sa-h2h">
       <span className="sa-card-label">HEAD-TO-HEAD — REGULAR OPPONENTS</span>
       <div className="sa-h2h__head">
-        <span>OPPONENT</span><span>LAST 52W</span><span>LAST 8W</span><span>DIRECTION</span>
+        <span>OPPONENT</span>
+        <span>LAST 52W</span>
+        <span>LAST 8W</span>
+        <span>DIRECTION</span>
       </div>
       {visible.map((row) => (
         <div className="sa-h2h__row" key={row.name}>
@@ -468,13 +563,17 @@ export function AmIImprovingCard({ improving }: { improving: AmIImprovingSnapsho
       {improving.available ? (
         <>
           <div className="sa-improving__head">
-            <span>METRIC</span><span>LAST 52W</span><span>LAST 8W</span>
+            <span>METRIC</span>
+            <span>LAST 52W</span>
+            <span>LAST 8W</span>
           </div>
           {improving.rows.map((row) => (
             <div className="sa-improving__row" key={row.label}>
               <span className="sa-improving__metric">{row.label}</span>
               <span className="sa-improving__all">{row.fiftyTwoWeek}</span>
-              <span className={`sa-improving__recent ${row.improved === null ? "" : row.improved ? "is-up" : "is-down"}`}>
+              <span
+                className={`sa-improving__recent ${row.improved === null ? "" : row.improved ? "is-up" : "is-down"}`}
+              >
                 {row.recent} {row.improved === null ? "" : row.improved ? "▲" : "▼"}
               </span>
             </div>
@@ -497,7 +596,10 @@ export function EffortCard({ effort }: { effort: EffortSnapshot }) {
         <>
           <div className="sa-effort__bar">
             {effort.zones.map((zone) => (
-              <span key={zone.label} style={{ width: `${zone.percent}%`, "--zone-color": zone.color } as CSSProperties} />
+              <span
+                key={zone.label}
+                style={{ width: `${zone.percent}%`, "--zone-color": zone.color } as CSSProperties}
+              />
             ))}
           </div>
           <div className="sa-effort__legend">
@@ -526,7 +628,11 @@ const BADMINTON_HEATMAP_LEGEND: Array<{ cell: BadmintonHeatmapCell; label: strin
   { cell: "casual", label: "CAS" },
 ];
 
-export function BadmintonActivityHeatmapCard({ heatmap }: { heatmap: BadmintonActivityHeatmapSnapshot }) {
+export function BadmintonActivityHeatmapCard({
+  heatmap,
+}: {
+  heatmap: BadmintonActivityHeatmapSnapshot;
+}) {
   const visibleCount = Math.min(3, heatmap.months.length);
   const latestStart = Math.max(0, heatmap.months.length - visibleCount);
   const [windowStart, setWindowStart] = useState(latestStart);
@@ -545,22 +651,34 @@ export function BadmintonActivityHeatmapCard({ heatmap }: { heatmap: BadmintonAc
         <div className="sa-badminton-heatmap__tools">
           <div className="sa-badminton-heatmap__legend">
             {BADMINTON_HEATMAP_LEGEND.map((item) => (
-              <span key={item.cell}><i className={`is-${item.cell}`} />{item.label}</span>
+              <span key={item.cell}>
+                <i className={`is-${item.cell}`} />
+                {item.label}
+              </span>
             ))}
           </div>
-          <div className="sa-badminton-heatmap__paging" aria-label="Badminton activity month window">
+          <div
+            className="sa-badminton-heatmap__paging"
+            aria-label="Badminton activity month window"
+          >
             <button
               aria-label="Show previous three months"
               disabled={windowStart === 0}
               onClick={() => setWindowStart((current) => Math.max(0, current - visibleCount))}
               type="button"
-            >←</button>
+            >
+              ←
+            </button>
             <button
               aria-label="Show next three months"
               disabled={windowStart >= latestStart}
-              onClick={() => setWindowStart((current) => Math.min(latestStart, current + visibleCount))}
+              onClick={() =>
+                setWindowStart((current) => Math.min(latestStart, current + visibleCount))
+              }
               type="button"
-            >→</button>
+            >
+              →
+            </button>
           </div>
         </div>
       </div>
@@ -570,11 +688,16 @@ export function BadmintonActivityHeatmapCard({ heatmap }: { heatmap: BadmintonAc
             <div className="sa-badminton-heatmap__month" key={month.label}>
               <strong>{month.label}</strong>
               <div className="sa-badminton-heatmap__days">
-                {Array.from("MTWTFSS").map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
+                {Array.from("MTWTFSS").map((day, index) => (
+                  <span key={`${day}-${index}`}>{day}</span>
+                ))}
               </div>
               <div className="sa-badminton-heatmap__grid">
                 {month.cells.slice(0, 28).map((cell, index) => (
-                  <i className={cell === "empty" ? "is-empty" : `is-${cell}`} key={`${month.label}-${index}`} />
+                  <i
+                    className={cell === "empty" ? "is-empty" : `is-${cell}`}
+                    key={`${month.label}-${index}`}
+                  />
                 ))}
               </div>
             </div>
@@ -582,9 +705,18 @@ export function BadmintonActivityHeatmapCard({ heatmap }: { heatmap: BadmintonAc
         </div>
         <div className="sa-badminton-heatmap__stats">
           <span className="sa-badminton-heatmap__stats-kicker">52W · ALL TIME</span>
-          <div><strong>{heatmap.sessionCount52w}</strong><span>SESSIONS · 52W</span></div>
-          <div><strong>{heatmap.currentWeeklyStreak}W</strong><span>WEEKLY STREAK</span></div>
-          <div><strong>{heatmap.longestWeeklyStreak}W</strong><span>BEST STREAK · ALL</span></div>
+          <div>
+            <strong>{heatmap.sessionCount52w}</strong>
+            <span>SESSIONS · 52W</span>
+          </div>
+          <div>
+            <strong>{heatmap.currentWeeklyStreak}W</strong>
+            <span>WEEKLY STREAK</span>
+          </div>
+          <div>
+            <strong>{heatmap.longestWeeklyStreak}W</strong>
+            <span>BEST STREAK · ALL</span>
+          </div>
         </div>
       </div>
     </section>

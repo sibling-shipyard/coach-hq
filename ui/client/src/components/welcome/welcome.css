@@ -105,7 +105,9 @@
   margin: 0 auto;
   border-radius: 1px;
   background: var(--wi-ink);
-  transition: transform 160ms ease, opacity 160ms ease;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
 }
 
 .welcome-nav__toggle[aria-expanded="true"] .welcome-nav__toggle-bar:nth-child(2) {
@@ -181,8 +183,7 @@
 
 .welcome-hero {
   background:
-    radial-gradient(circle at 84% -4%, rgba(255, 255, 255, 0.6), transparent 34rem),
-    var(--wi-page);
+    radial-gradient(circle at 84% -4%, rgba(255, 255, 255, 0.6), transparent 34rem), var(--wi-page);
 }
 
 .welcome-hero__inner {
@@ -227,7 +228,9 @@
   border-radius: 11px;
   font-size: 15px;
   font-weight: 600;
-  transition: background 160ms ease, color 160ms ease;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
 }
 
 .welcome-btn--primary {
@@ -271,9 +274,7 @@
   border: 1px solid rgba(101, 43, 32, 0.7);
   border-radius: 26px;
   color: var(--wi-surface);
-  background:
-    linear-gradient(150deg, rgba(255, 255, 255, 0.07), transparent 45%),
-    var(--wi-rust);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.07), transparent 45%), var(--wi-rust);
   box-shadow: 0 24px 52px rgba(101, 43, 32, 0.32);
 }
 
@@ -1005,8 +1006,7 @@ button.welcome-phone__timer-btn {
 
 .welcome-cta {
   background:
-    radial-gradient(circle at 50% 120%, rgba(127, 55, 40, 0.14), transparent 40rem),
-    var(--wi-page);
+    radial-gradient(circle at 50% 120%, rgba(127, 55, 40, 0.14), transparent 40rem), var(--wi-page);
 }
 
 .welcome-cta__inner {
@@ -1882,9 +1882,7 @@ button.welcome-highlights__dot.is-active {
 
 .welcome-philosophy {
   color: var(--wi-surface);
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 40%),
-    var(--wi-rust);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), transparent 40%), var(--wi-rust);
 }
 
 .welcome-philosophy__inner {
@@ -1984,8 +1982,7 @@ button.welcome-cta__submit--inline {
 
 .welcome-cta {
   background:
-    radial-gradient(circle at 50% 118%, rgba(127, 55, 40, 0.16), transparent 40rem),
-    var(--wi-page);
+    radial-gradient(circle at 50% 118%, rgba(127, 55, 40, 0.16), transparent 40rem), var(--wi-page);
 }
 
 .welcome-cta__title {

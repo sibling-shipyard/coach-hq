@@ -83,18 +83,28 @@ function isTransientReadFailure(err: unknown): boolean {
   return status >= 500 || status === 429;
 }
 
-export async function getFileRaw(repo: string, path: string, token: string, attempts = 3): Promise<string | null> {
+export async function getFileRaw(
+  repo: string,
+  path: string,
+  token: string,
+  attempts = 3,
+): Promise<string | null> {
   const ref = encodeURIComponent(resolveCoachChatBranch());
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/contents/${path}?ref=${ref}`, {
-        headers: GH_HEADERS_RAW(token),
-      });
+      const res = await fetchWithTimeout(
+        `https://api.github.com/repos/${repo}/contents/${path}?ref=${ref}`,
+        {
+          headers: GH_HEADERS_RAW(token),
+        },
+      );
       if (res.status === 404) return null;
       if (!res.ok) {
         // .status lets the top-level handler tell a 401 (expired token) apart from other
         // failures - iOS's Bearer auth has no cookie-refresh, so this is its only re-auth signal.
-        throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), { status: res.status });
+        throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), {
+          status: res.status,
+        });
       }
       return await res.text();
     } catch (err) {
@@ -182,14 +192,21 @@ export function parseJsonOrNull<T>(raw: string | null): T | null {
 
 // Cross-device staleness detection (A5): no lock, just compares the client's last-known HEAD sha
 // against the current one. Never cached - staleness checks need the true current value.
-export async function getHeadSha(repo: string, token: string, branch = resolveCoachChatBranch()): Promise<string> {
-  const res = await fetchWithTimeout(`https://api.github.com/repos/${repo}/git/ref/heads/${branch}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
+export async function getHeadSha(
+  repo: string,
+  token: string,
+  branch = resolveCoachChatBranch(),
+): Promise<string> {
+  const res = await fetchWithTimeout(
+    `https://api.github.com/repos/${repo}/git/ref/heads/${branch}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
     },
-  });
+  );
   if (!res.ok) {
     throw Object.assign(new Error(`Failed to read HEAD (${res.status})`), { status: res.status });
   }
@@ -217,7 +234,11 @@ export function invalidateCoachContext(repo: string): void {
   inFlight.delete(repo);
 }
 
-export async function loadCoachContext(repo: string, token: string, opts?: { fresh?: boolean }): Promise<CoachContext> {
+export async function loadCoachContext(
+  repo: string,
+  token: string,
+  opts?: { fresh?: boolean },
+): Promise<CoachContext> {
   const cached = contextCache.get(repo);
   if (!opts?.fresh && cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -232,18 +253,27 @@ export async function loadCoachContext(repo: string, token: string, opts?: { fre
 
   const generation = contextCacheGeneration.get(repo) ?? 0;
   const promise = (async (): Promise<CoachContext> => {
-    const [profileRaw, memoryRaw, injuriesRaw, coachLogRaw, seasonsRaw, questsRaw, progressRaw, progressionsRaw, athleteInsightsRaw] =
-      await Promise.all([
-        getFileRaw(repo, PROFILE_PATH, token),
-        getFileRaw(repo, MEMORY_PATH, token),
-        getFileRaw(repo, INJURIES_PATH, token),
-        getFileRaw(repo, COACH_LOG_PATH, token),
-        getFileRaw(repo, SEASONS_PATH, token),
-        getFileRaw(repo, QUESTS_PATH, token),
-        getFileRaw(repo, PROGRESS_PATH, token),
-        getFileRaw(repo, PROGRESSIONS_PATH, token),
-        getFileRaw(repo, ATHLETE_INSIGHTS_PATH, token),
-      ]);
+    const [
+      profileRaw,
+      memoryRaw,
+      injuriesRaw,
+      coachLogRaw,
+      seasonsRaw,
+      questsRaw,
+      progressRaw,
+      progressionsRaw,
+      athleteInsightsRaw,
+    ] = await Promise.all([
+      getFileRaw(repo, PROFILE_PATH, token),
+      getFileRaw(repo, MEMORY_PATH, token),
+      getFileRaw(repo, INJURIES_PATH, token),
+      getFileRaw(repo, COACH_LOG_PATH, token),
+      getFileRaw(repo, SEASONS_PATH, token),
+      getFileRaw(repo, QUESTS_PATH, token),
+      getFileRaw(repo, PROGRESS_PATH, token),
+      getFileRaw(repo, PROGRESSIONS_PATH, token),
+      getFileRaw(repo, ATHLETE_INSIGHTS_PATH, token),
+    ]);
     const value: CoachContext = {
       soul: SOUL,
       profile: parseJsonOrNull<ProfileJson>(profileRaw),
@@ -287,7 +317,8 @@ export function isAthleteProfileComplete(
   const hasWeight = profile.weight_kg != null;
   const hasSport = Array.isArray(memory.sports) && memory.sports.some((s) => s.trim().length > 0);
   const hasCurrentSeason = Boolean(
-    seasons.current_season_id && seasons.seasons.some((season) => season.id === seasons.current_season_id),
+    seasons.current_season_id &&
+    seasons.seasons.some((season) => season.id === seasons.current_season_id),
   );
   return hasName && hasDob && hasTimezone && hasHeight && hasWeight && hasSport && hasCurrentSeason;
 }

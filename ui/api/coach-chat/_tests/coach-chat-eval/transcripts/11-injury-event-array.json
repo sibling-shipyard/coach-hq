@@ -6,7 +6,11 @@
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "extraContext": "Active Injury Flags (use these exact flag_ids for injury_event updates/resolves):\n- flag_id: inj-knee1 | status: active | Mild right knee ache since last week's long run",
   "history": [
-    { "id": "1", "role": "coach", "paragraphs": ["How's the knee doing, and how was today's session?"] }
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": ["How's the knee doing, and how was today's session?"]
+    }
   ],
   "userMessage": "Good news, the knee thing is totally gone now, no pain at all today. Bad news, I tweaked my left ankle a bit on the trail run this afternoon, nothing serious but it's there. Let's wrap up.",
   "expect": {

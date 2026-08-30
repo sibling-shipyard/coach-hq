@@ -12,7 +12,8 @@ import type { CoachMessageSnapshot } from "@/components/home-warm/snapshots";
 export default function Home() {
   const { data, loading, error, schemaUnsupported, accessRevoked } = useRepoData();
   const widgetSnapshots = useWidgetSnapshots();
-  const notOnboarded = !loading && !error && !schemaUnsupported && data != null && data.ledger == null;
+  const notOnboarded =
+    !loading && !error && !schemaUnsupported && data != null && data.ledger == null;
   return (
     <RepoDataGate
       loading={loading}

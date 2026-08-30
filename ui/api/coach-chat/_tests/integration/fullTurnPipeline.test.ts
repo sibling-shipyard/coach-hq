@@ -54,7 +54,9 @@ function createFakeRepo(initialFiles: Record<string, string>) {
     if (contentsMatch && method === "GET") {
       const path = decodeURIComponent(contentsMatch[1]);
       const content = files.get(path);
-      return content == null ? jsonResponse(404, { message: "Not Found" }) : new Response(content, { status: 200 });
+      return content == null
+        ? jsonResponse(404, { message: "Not Found" })
+        : new Response(content, { status: 200 });
     }
     if (url.match(/\/git\/ref\/heads\//) && method === "GET") {
       return jsonResponse(200, { object: { sha: headSha } });
@@ -107,7 +109,8 @@ function createFakeRepo(initialFiles: Record<string, string>) {
 function createFakeGemini(replies: unknown[]) {
   let index = 0;
   async function handle(url: string): Promise<Response> {
-    if (url.includes("cachedContents")) return jsonResponse(500, { message: "caching disabled in test" });
+    if (url.includes("cachedContents"))
+      return jsonResponse(500, { message: "caching disabled in test" });
     const reply = replies[index++];
     if (reply === undefined) throw new Error(`fake gemini: no canned reply left for call ${index}`);
     return jsonResponse(200, {
@@ -127,8 +130,13 @@ const COMPLETE_PROFILE = JSON.stringify({
   coach_since: "2026-01-01",
 });
 const MEMORY_WITH_SPORT = JSON.stringify({ sports: ["Running"] });
-const SEASON = JSON.stringify({ current_season_id: "s1", seasons: [{ id: "s1", name: "Base", start_date: "2026-01-01", end_date: "2026-12-31" }] });
-const QUESTS_WITH_MAIN = JSON.stringify({ main_quest: { id: "q1", name: "Consistency", type: "daily_streak", target: 1 } });
+const SEASON = JSON.stringify({
+  current_season_id: "s1",
+  seasons: [{ id: "s1", name: "Base", start_date: "2026-01-01", end_date: "2026-12-31" }],
+});
+const QUESTS_WITH_MAIN = JSON.stringify({
+  main_quest: { id: "q1", name: "Consistency", type: "daily_streak", target: 1 },
+});
 
 function repoFixture(overrides: Record<string, string> = {}) {
   return {
@@ -156,7 +164,8 @@ async function runTurn(
     return repo.handle(url, init);
   });
   const turnState = await loadTurnState(request, repoName, "test-token", "test-api-key");
-  if (turnState instanceof Response) throw new Error(`loadTurnState failed: ${await turnState.text()}`);
+  if (turnState instanceof Response)
+    throw new Error(`loadTurnState failed: ${await turnState.text()}`);
   const replied = await requestCoachReply(turnState);
   if (replied instanceof Response) return replied;
   const writes = await buildTurnWrites(replied);
@@ -182,7 +191,10 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       "user_data/coach/profile.json": JSON.stringify({ name: "Skanda", timezone: "UTC" }),
     });
     const gemini = createFakeGemini([
-      { reply: "Got it, noted your birthday.", profile_update: [{ field: "dob", value: "1995-01-01" }] },
+      {
+        reply: "Got it, noted your birthday.",
+        profile_update: [{ field: "dob", value: "1995-01-01" }],
+      },
     ]);
 
     const response = await runTurn("owner/repo-1", repo, gemini, {
@@ -209,7 +221,11 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
   it("a closing turn with a coach_note commits chat + coach_log together and reports closed", async () => {
     const repo = createFakeRepo(repoFixture());
     const gemini = createFakeGemini([
-      { reply: "Nice work today, rest up.", coach_note: "Athlete reported feeling strong.", session_closed: true },
+      {
+        reply: "Nice work today, rest up.",
+        coach_note: "Athlete reported feeling strong.",
+        session_closed: true,
+      },
     ]);
 
     const response = await runTurn("owner/repo-2", repo, gemini, {
@@ -221,16 +237,26 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     });
 
     const body = await response.json();
-    expect(body).toMatchObject({ reply: "Nice work today, rest up.", closed: true, threadId: "thread-2" });
+    expect(body).toMatchObject({
+      reply: "Nice work today, rest up.",
+      closed: true,
+      threadId: "thread-2",
+    });
     expect(repo.files.has("user_data/coach/chat_history.json")).toBe(true);
-    expect(repo.files.get("user_data/coach/coach_log.json")).toContain("Athlete reported feeling strong.");
+    expect(repo.files.get("user_data/coach/coach_log.json")).toContain(
+      "Athlete reported feeling strong.",
+    );
     const chatHistory = JSON.parse(repo.files.get("user_data/coach/chat_history.json")!);
     // A new thread's first turn leads with the divider (see appendConversationTurn in
     // chatThreads.ts) - only a thread with prior messages appends without one.
-    expect(chatHistory.threads[0].messages.map((m: { role: string }) => m.role)).toEqual(["divider", "user", "coach"]);
+    expect(chatHistory.threads[0].messages.map((m: { role: string }) => m.role)).toEqual([
+      "divider",
+      "user",
+      "coach",
+    ]);
   });
 
-  it("issue #609: a template_edit sentinel of \"none\" still crashes the closing-turn commit (deliberately not fixed by this test suite)", async () => {
+  it('issue #609: a template_edit sentinel of "none" still crashes the closing-turn commit (deliberately not fixed by this test suite)', async () => {
     const repo = createFakeRepo(repoFixture());
     const gemini = createFakeGemini([
       { reply: "All set for today.", template_edit: { template_id: "none" }, session_closed: true },

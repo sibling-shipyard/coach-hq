@@ -40,6 +40,7 @@ export function assertCurrentWeekCommitReady(content: string, now = new Date()):
   } catch (err) {
     throw new Error(
       `current_week.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
     );
   }
   const runtime = parseCurrentWeek(input, now);
@@ -148,7 +149,9 @@ export function applyWeekPlan(
   now: Date,
 ): string {
   if (!Array.isArray(plan.days) || plan.days.length !== 7) {
-    throw new Error(`week_plan: expected exactly 7 days, got ${Array.isArray(plan.days) ? plan.days.length : "non-array"}`);
+    throw new Error(
+      `week_plan: expected exactly 7 days, got ${Array.isArray(plan.days) ? plan.days.length : "non-array"}`,
+    );
   }
   const headline = plan.headline?.trim();
   const body = plan.body?.trim();
@@ -168,7 +171,9 @@ export function applyWeekPlan(
   plan.days.forEach((day, i) => {
     const expected = addDays(startDate, i);
     if (day.date !== expected) {
-      throw new Error(`week_plan: day[${i}].date is "${day.date}", expected "${expected}" (days must be consecutive from Monday)`);
+      throw new Error(
+        `week_plan: day[${i}].date is "${day.date}", expected "${expected}" (days must be consecutive from Monday)`,
+      );
     }
   });
   const endDate = addDays(startDate, 6);
@@ -177,11 +182,16 @@ export function applyWeekPlan(
     const sessions: CurrentWeekSession[] = (day.sessions ?? []).map((session, sessIdx) => {
       let templateId = session.template_id?.trim() || null;
       if (templateId && !validTemplateIds.has(templateId)) {
-        console.warn(`[coach-chat] week_plan: template_id "${templateId}" not in this athlete's templates - nulling it out`, { traceId });
+        console.warn(
+          `[coach-chat] week_plan: template_id "${templateId}" not in this athlete's templates - nulling it out`,
+          { traceId },
+        );
         templateId = null;
       }
       const duration =
-        typeof session.planned_duration_min === "number" && Number.isInteger(session.planned_duration_min) && session.planned_duration_min > 0
+        typeof session.planned_duration_min === "number" &&
+        Number.isInteger(session.planned_duration_min) &&
+        session.planned_duration_min > 0
           ? session.planned_duration_min
           : null;
       const result: CurrentWeekSession = {
@@ -244,7 +254,9 @@ export function applyWeekPlan(
 
   const parsed = parseCurrentWeek(result, now);
   if (!parsed.data) {
-    throw new Error(`week_plan: result failed current_week.json validation: ${parsed.issues.join("; ")}`);
+    throw new Error(
+      `week_plan: result failed current_week.json validation: ${parsed.issues.join("; ")}`,
+    );
   }
   return JSON.stringify(result, null, 2);
 }
@@ -275,7 +287,9 @@ function assertValidCurrentWeekShape(actionName: string, current: CurrentWeek): 
   }
   current.days.forEach((day, dayIndex) => {
     if (!Array.isArray(day?.sessions)) {
-      throw new Error(`${actionName}: current_week.json is malformed (days[${dayIndex}].sessions is not an array)`);
+      throw new Error(
+        `${actionName}: current_week.json is malformed (days[${dayIndex}].sessions is not an array)`,
+      );
     }
   });
 }
@@ -324,11 +338,16 @@ export function applySessionReconcile(
 
   for (const event of events) {
     if (!sessionLocation.has(event.session_id)) {
-      throw new Error(`session_reconcile: no session with id "${event.session_id}" in current_week.json`);
+      throw new Error(
+        `session_reconcile: no session with id "${event.session_id}" in current_week.json`,
+      );
     }
   }
 
-  const days = current.days.map((day) => ({ ...day, sessions: day.sessions.map((s) => ({ ...s })) }));
+  const days = current.days.map((day) => ({
+    ...day,
+    sessions: day.sessions.map((s) => ({ ...s })),
+  }));
   for (const event of events) {
     const loc = sessionLocation.get(event.session_id)!;
     const session = days[loc.dayIndex].sessions[loc.sessionIndex];
@@ -341,7 +360,10 @@ export function applySessionReconcile(
       session.title = event.actual.title;
       const actualTemplateId = event.actual.template_id?.trim();
       if (actualTemplateId && !validTemplateIds.has(actualTemplateId)) {
-        console.warn(`[coach-chat] session_reconcile: actual.template_id "${actualTemplateId}" not in this athlete's templates - nulling it out`, { traceId });
+        console.warn(
+          `[coach-chat] session_reconcile: actual.template_id "${actualTemplateId}" not in this athlete's templates - nulling it out`,
+          { traceId },
+        );
         session.template_id = null;
       } else {
         session.template_id = actualTemplateId ?? null;
@@ -359,7 +381,9 @@ export function applySessionReconcile(
 
   const parsed = parseCurrentWeek(result, now);
   if (!parsed.data) {
-    throw new Error(`session_reconcile: result failed current_week.json validation: ${parsed.issues.join("; ")}`);
+    throw new Error(
+      `session_reconcile: result failed current_week.json validation: ${parsed.issues.join("; ")}`,
+    );
   }
   return JSON.stringify(result, null, 2);
 }
@@ -410,7 +434,10 @@ export function applyPlanEdit(
     }
   }
 
-  const days = current.days.map((day) => ({ ...day, sessions: day.sessions.map((s) => ({ ...s })) }));
+  const days = current.days.map((day) => ({
+    ...day,
+    sessions: day.sessions.map((s) => ({ ...s })),
+  }));
   for (const event of events) {
     const loc = sessionLocation.get(event.session_id)!;
     const session = days[loc.dayIndex].sessions[loc.sessionIndex];
@@ -419,7 +446,10 @@ export function applyPlanEdit(
     session.title = event.title;
     const templateId = event.template_id?.trim();
     if (templateId && !validTemplateIds.has(templateId)) {
-      console.warn(`[coach-chat] plan_edit: template_id "${templateId}" not in this athlete's templates - nulling it out`, { traceId });
+      console.warn(
+        `[coach-chat] plan_edit: template_id "${templateId}" not in this athlete's templates - nulling it out`,
+        { traceId },
+      );
       session.template_id = null;
     } else {
       session.template_id = templateId ?? null;
@@ -436,7 +466,9 @@ export function applyPlanEdit(
 
   const parsed = parseCurrentWeek(result, now);
   if (!parsed.data) {
-    throw new Error(`plan_edit: result failed current_week.json validation: ${parsed.issues.join("; ")}`);
+    throw new Error(
+      `plan_edit: result failed current_week.json validation: ${parsed.issues.join("; ")}`,
+    );
   }
   return JSON.stringify(result, null, 2);
 }

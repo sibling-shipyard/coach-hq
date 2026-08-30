@@ -1,17 +1,7 @@
 /** Hosted Coach Phelps HTTP route. Turn stages live in coach-chat/_lib/coachTurn.ts and activitySyncTurn.ts. */
 import { withSessionCookie } from "./auth/_lib/session.js";
-import {
-  resolveRepoAuth,
-  type RepoAuthContext,
-} from "./auth/_lib/resolve-auth.js";
+import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { commitFilesAtomic, type FileEntry } from "./_lib/githubGitData.js";
-import {
-  athleteIdForRepo,
-  captureExceptionOnce,
-  monitorServerRequest,
-  setMonitoringAthlete,
-  setMonitoringStage,
-} from "./_lib/sentry.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -21,24 +11,18 @@ import {
   loadCoachContext,
   resolveCoachChatBranch,
 } from "./coach-chat/_lib/coachChatFiles.js";
-import {
-  withComputedDayOffsets,
-  todayDateString,
-} from "./coach-chat/_lib/coachDay.js";
+import { withComputedDayOffsets, todayDateString } from "./coach-chat/_lib/coachDay.js";
 import { loadChatHistory } from "./coach-chat/_lib/chatThreads.js";
+import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIntents.js";
+import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
+import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
+import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/geminiClient.js";
 import {
-  applyProfileUpdate,
-  applySportsUpdate,
-} from "./coach-chat/_lib/coachIntents.js";
-import {
-  MEMORY_PATH,
-  PROFILE_PATH,
-} from "./coach-chat/_lib/coachMemoryFiles.js";
-import {
-  renderCoachContext,
-  renderQuestContext,
-} from "./coach-chat/_lib/coachContext.js";
-import { askGemini } from "./coach-chat/_lib/geminiClient.js";
+  captureGeminiFailure,
+  captureServerException,
+  setAthleteScope,
+  withContinuedTrace,
+} from "./_lib/sentry.js";
 import {
   combineExtraContext,
   firstSessionContext,
@@ -67,7 +51,6 @@ async function handleGreet(
   apiKey: string,
   onboardingHints?: OnboardingHints,
 ): Promise<Response> {
-  setMonitoringStage("github_load_greeting");
   const [history, context] = await Promise.all([
     loadChatHistory(repo, token),
     loadCoachContext(repo, token),
@@ -84,11 +67,7 @@ async function handleGreet(
     progressions,
     athleteInsights,
   } = context;
-  if (!soul)
-    return Response.json(
-      { error: "Coach SOUL bundle is unavailable" },
-      { status: 500 },
-    );
+  if (!soul) return Response.json({ error: "Coach SOUL bundle is unavailable" }, { status: 500 });
   const timezone = profile?.timezone?.trim() || "UTC";
 
   const { name: hintedName, sports: hintedSports } = onboardingChanges(
@@ -120,15 +99,11 @@ async function handleGreet(
     });
   }
   if (onboardingWrites.length > 0) {
-    await commitFilesAtomic(
-      onboardingWrites,
-      "coach: native onboarding details recorded",
-      {
-        repo,
-        branch: resolveCoachChatBranch(),
-        token,
-      },
-    );
+    await commitFilesAtomic(onboardingWrites, "coach: native onboarding details recorded", {
+      repo,
+      branch: resolveCoachChatBranch(),
+      token,
+    });
     invalidateCoachContext(repo);
   }
 
@@ -146,39 +121,43 @@ async function handleGreet(
     progressions,
     today: todayDateString(timezone, new Date()),
   });
-  const firstSession = !isFirstSessionRitualDone(
-    profile,
-    memory,
-    seasons,
-    quests,
-  );
-  const reply: GeminiReply = await askGemini(
-    apiKey,
-    soul,
-    athleteContext,
-    questContext,
-    [],
-    "",
-    "greeting",
-    firstSession,
-    combineExtraContext(
-      firstSessionContext(firstSession, FIRST_SESSION_PROTOCOL),
-      onboardingHintsContext(onboardingHints),
-    ),
-    undefined,
-    timezone,
-  );
+  const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
+  let reply: GeminiReply;
+  try {
+    reply = await askGemini(
+      apiKey,
+      soul,
+      athleteContext,
+      questContext,
+      [],
+      "",
+      "greeting",
+      firstSession,
+      combineExtraContext(
+        firstSessionContext(firstSession, FIRST_SESSION_PROTOCOL),
+        onboardingHintsContext(onboardingHints),
+      ),
+      undefined,
+      timezone,
+    );
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status ?? 500;
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[coach-chat] greet askGemini failed:", err);
+    await captureGeminiFailure(err, {
+      model: GEMINI_MODEL,
+      upstreamStatus: status,
+      turnMode: "greeting",
+      // Coach opens a greeting turn, so there is no athlete text to record.
+      athleteMessage: "",
+    });
+    return Response.json({ error: message }, { status });
+  }
 
   const now = Date.now();
-  setMonitoringStage("github_finalize_greeting");
-  const repoSha = await getHeadSha(repo, token).catch((error) => {
-    captureExceptionOnce(error);
-    return null;
-  });
+  const repoSha = await getHeadSha(repo, token).catch(() => null);
   const freshContext =
-    onboardingWrites.length > 0
-      ? await loadCoachContext(repo, token, { fresh: true })
-      : context;
+    onboardingWrites.length > 0 ? await loadCoachContext(repo, token, { fresh: true }) : context;
   return Response.json({
     reply: reply.reply,
     threadId: `t-${now}`,
@@ -192,31 +171,18 @@ async function handleGreet(
   });
 }
 
-export async function handle(
-  req: Request,
-  auth: RepoAuthContext,
-): Promise<Response> {
+export async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
   const repo = auth.repo_full_name;
   const token = auth.gh_token;
-  if (req.method === "GET") {
-    setMonitoringStage("github_load_history");
-    return handleHistory(repo, token);
-  }
-  if (req.method !== "POST")
-    return Response.json({ error: "Method not allowed" }, { status: 405 });
+  if (req.method === "GET") return handleHistory(repo, token);
+  if (req.method !== "POST") return Response.json({ error: "Method not allowed" }, { status: 405 });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey)
-    throw Object.assign(new Error("Coach chat isn't configured yet"), {
-      status: 500,
-    });
-  setMonitoringStage("parse_request");
+  if (!apiKey) return Response.json({ error: "Coach chat isn't configured yet" }, { status: 500 });
   const parsed = await parseTurnRequest(req);
   if (parsed instanceof Response) return parsed;
-  if (isGreetRequest(parsed))
-    return handleGreet(repo, token, apiKey, parsed.onboardingHints);
-  if (isActivitySyncRequest(parsed))
-    return handleActivitySync(repo, token, apiKey, parsed);
+  if (isGreetRequest(parsed)) return handleGreet(repo, token, apiKey, parsed.onboardingHints);
+  if (isActivitySyncRequest(parsed)) return handleActivitySync(repo, token, apiKey, parsed);
 
   const state = await loadTurnState(parsed, repo, token, apiKey);
   if (state instanceof Response) return state;
@@ -228,45 +194,25 @@ export async function handle(
 
 export default {
   async fetch(req: Request): Promise<Response> {
-    return monitorServerRequest(
-      req,
-      req.method === "POST" ? "coach turn" : "coach history",
-      async () => {
-        setMonitoringStage("authenticate");
-        const resolved = await resolveRepoAuth(req);
-        if (resolved instanceof Response) return resolved;
-        setMonitoringAthlete(athleteIdForRepo(resolved.repo_full_name));
-        try {
-          return withSessionCookie(
-            await handle(req, resolved),
-            resolved.setCookie,
-          );
-        } catch (err) {
-          captureExceptionOnce(err);
-          const message =
-            err instanceof Error ? err.message : "Coach chat failed";
-          const rawStatus = (err as { status?: unknown }).status;
-          const status =
-            typeof rawStatus === "number" &&
-            rawStatus >= 400 &&
-            rawStatus <= 599
-              ? rawStatus
-              : 500;
-          console.error("[coach-chat]", err);
-          return withSessionCookie(
-            Response.json(
-              {
-                error: message,
-                ...((err as { traceId?: unknown }).traceId
-                  ? { traceId: (err as { traceId: unknown }).traceId }
-                  : {}),
-              },
-              { status },
-            ),
-            resolved.setCookie,
-          );
-        }
-      },
-    );
+    // Entry, before anything can capture: joins the browser's trace so both events share one,
+    // opens the route's `http.server` span, and flushes it before the response leaves.
+    return withContinuedTrace(req, async () => {
+      const resolved = await resolveRepoAuth(req);
+      if (resolved instanceof Response) return resolved;
+      // Who, as soon as it is known. Everything below can capture; nothing above can say whose
+      // request this is, so an auth failure stays as anonymous as it is today.
+      setAthleteScope(resolved.repo_full_name);
+      try {
+        return withSessionCookie(await handle(req, resolved), resolved.setCookie);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Coach chat failed";
+        const status = (err as { status?: number }).status === 401 ? 401 : 500;
+        console.error("[coach-chat]", err);
+        // This catch is the end of the line: the athlete gets a status and nothing rethrows, so
+        // a GitHub, commit or session failure reaches Sentry only if it is captured here.
+        await captureServerException(err);
+        return withSessionCookie(Response.json({ error: message }, { status }), resolved.setCookie);
+      }
+    });
   },
 };

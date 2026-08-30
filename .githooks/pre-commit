@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+#
+# Repo-wide pre-commit gate. Enable once per clone:
+#
+#   git config core.hooksPath .githooks
+#
+# WHY THIS LIVES IN GIT, NOT IN AN AGENT
+# This repo is worked by Claude Code, Codex and Cursor. An agent hook only fires
+# for the agent it belongs to, so a rule enforced there is silently absent in the
+# other two tools. Every agent shells out to `git`, so a git hook is the only
+# enforcement point all three share. `check.sh` warns when core.hooksPath is
+# unset, so a clone that never ran the command above does not fail closed and
+# quiet.
+#
+# Each check below runs against the STAGED content only, and prints what to do
+# rather than just refusing.
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+FAILED=0
+
+fail() {
+  FAILED=1
+  printf '\n[pre-commit] %s\n' "$1"
+}
+
+staged() {
+  git diff --cached --name-only --diff-filter=ACM
+}
+
+# ---------------------------------------------------------------------------
+# 1. Knowledge base: ADR format, index freshness, dead paths in agent docs.
+# ---------------------------------------------------------------------------
+if ! python3 "$ROOT/kdb/scripts/validate_kdb.py"; then
+  fail "knowledge base is invalid (see above)."
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Staged-file safety.
+#
+# A past agent ran `git add -A` and swept a node_modules symlink holding an
+# absolute path to the athlete's machine into a commit; the .gitignore rule that
+# should have caught it only matched directories. That is guarded for one agent
+# by .claude/hooks/deny-git-add-all.sh, which blocks the command before it runs.
+# This checks the OUTCOME instead, so it holds however the file got staged and
+# in whichever tool.
+# ---------------------------------------------------------------------------
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  case "$f" in
+    */node_modules/*|node_modules/*)
+      fail "staged a node_modules path: $f" ;;
+  esac
+  if [ -L "$ROOT/$f" ]; then
+    target="$(readlink "$ROOT/$f")"
+    case "$target" in
+      /*) fail "staged symlink with an absolute target: $f -> $target" ;;
+    esac
+  fi
+done < <(staged)
+
+# ---------------------------------------------------------------------------
+# 3. Comment chronology (AGENTS.md — "write the constraint, not the chronology").
+#
+# A comment about what changed earns its place only when the past still binds the
+# present. These words are the tells, and they rot: "new" and "existing" stop
+# being true on the next change. Only ADDED comment lines are scanned, so
+# existing occurrences never block an unrelated commit.
+# ---------------------------------------------------------------------------
+CHRONO='legacy|no longer|used to be|now uses|for backward compat|backwards compat|previously'
+chrono_hits=""
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  case "$f" in
+    *.ts|*.tsx|*.js|*.mjs|*.mts|*.py|*.swift|*.sh)
+      hits="$(git diff --cached -U0 -- "$f" \
+        | grep -E '^\+' \
+        | grep -vE '^\+\+\+' \
+        | grep -E '^\+[[:space:]]*(//|#|/\*|\*)' \
+        | grep -inE "$CHRONO" || true)"
+      [ -n "$hits" ] && chrono_hits="$chrono_hits
+  $f:
+$(printf '%s' "$hits" | sed 's/^/    /')"
+      ;;
+  esac
+done < <(staged)
+
+if [ -n "$chrono_hits" ]; then
+  fail "added comments record chronology rather than a constraint:$chrono_hits
+
+  Keep it only if the past still binds the present — say what it forces, not what
+  changed. Otherwise cut it; git and kdb/decisions/ are the archive.
+  Deliberate? Commit with --no-verify and say why in the message."
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Direct commit to main in the primary checkout.
+#
+# Five agents share this repo. A branch cut from what looked like main once
+# inherited five commits off a detached HEAD (#522). Prose in AGENTS.md did not
+# hold; this does.
+# ---------------------------------------------------------------------------
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+if [ "$BRANCH" = "main" ]; then
+  fail "committing straight to main. Cut a branch (AGENTS.md — Monorepo-Specific Rules):
+    git worktree add -b <branch> /tmp/wt-<brief> origin/main"
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+  printf '\n[pre-commit] commit blocked. Fix the above, or use --no-verify deliberately.\n\n'
+  exit 1
+fi
+exit 0

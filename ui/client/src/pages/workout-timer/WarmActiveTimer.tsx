@@ -84,9 +84,10 @@ export function WarmActiveTimer({
   const setLabel = isCircuit
     ? `Round ${pos.roundNum} of ${phaseRounds}`
     : `Set ${pos.setNum} of ${exercise.sets}`;
-  const restCaption = state === "rest" && isCircuit
-    ? `REST · ROUND ${pos.roundNum}/${phaseRounds} — NEXT SET AUTO-STARTS`
-    : "REST — NEXT SET AUTO-STARTS";
+  const restCaption =
+    state === "rest" && isCircuit
+      ? `REST · ROUND ${pos.roundNum}/${phaseRounds} — NEXT SET AUTO-STARTS`
+      : "REST — NEXT SET AUTO-STARTS";
   const screen: "exercise" | "prep" | "rest" | "phase_transition" =
     state === "prep" || state === "rest" || state === "phase_transition" ? state : "exercise";
 
@@ -101,7 +102,9 @@ export function WarmActiveTimer({
           title={workout.title}
           sportLabel={workout.workout_type.toUpperCase()}
           sportAccent={accentFor(workout.workout_type)}
-          right={<TimerHeaderRight muted={muted} onToggleMute={toggleMute} seconds={totalElapsed} />}
+          right={
+            <TimerHeaderRight muted={muted} onToggleMute={toggleMute} seconds={totalElapsed} />
+          }
         />
         <div className="wtx-grid">
           <FocusCard

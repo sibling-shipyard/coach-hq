@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { encryptSession, buildCookie, SESSION_COOKIE, type SessionPayload } from "../_lib/session.js";
+import {
+  encryptSession,
+  buildCookie,
+  SESSION_COOKIE,
+  type SessionPayload,
+} from "../_lib/session.js";
 
 process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 
@@ -88,7 +93,9 @@ describe("list-my-repos", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ repo_full_name: "alice/coach-alice" });
     // The legacy path is a 404-only fallback - a hit on the pin must not trigger it.
-    expect(fetchMock.mock.calls.some(([u]: [string]) => u.includes(LEGACY_MARKER))).toBe(false);
+    expect(fetchMock.mock.calls.some(([u]: unknown[]) => String(u).includes(LEGACY_MARKER))).toBe(
+      false,
+    );
   });
 
   it("still resolves a pre-pin repo that has only the legacy ledger marker", async () => {
@@ -121,7 +128,9 @@ describe("list-my-repos", () => {
     const res = await handler.fetch(await sessionRequest());
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({ error: "Failed to check your repos - try again" });
-    expect(fetchMock.mock.calls.some(([u]: [string]) => u.includes(LEGACY_MARKER))).toBe(false);
+    expect(fetchMock.mock.calls.some(([u]: unknown[]) => String(u).includes(LEGACY_MARKER))).toBe(
+      false,
+    );
   });
 
   it("surfaces a 5xx on the legacy fallback as a 502 too", async () => {
@@ -155,7 +164,9 @@ describe("list-my-repos", () => {
   it("reports no_marker_match when owned repos exist but none carry the marker file", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url === ghUrl("/user/installations/42/repositories?per_page=100")) {
-        return Response.json(mockRepoList([{ full_name: "alice/some-other-repo", owner: "alice" }]));
+        return Response.json(
+          mockRepoList([{ full_name: "alice/some-other-repo", owner: "alice" }]),
+        );
       }
       if (url.includes(MARKER) || url.includes(LEGACY_MARKER)) {
         return new Response(null, { status: 404 });
@@ -220,13 +231,16 @@ describe("list-my-repos", () => {
     // The point of the fix: a rate-limited re-confirm must NOT fan out into a full re-resolve
     // (repo list + a marker check per owned repo) while GitHub is already refusing us.
     expect(
-      fetchMock.mock.calls.some(([u]: [string]) => u.includes("/repositories?per_page=100")),
+      fetchMock.mock.calls.some(([u]: unknown[]) =>
+        String(u).includes("/repositories?per_page=100"),
+      ),
     ).toBe(false);
   });
 
   it("still re-resolves when the cached repo's marker is genuinely gone", async () => {
     fetchMock.mockImplementation(async (url: string) => {
-      if (url.includes("/repos/alice/coach-old/contents/")) return new Response(null, { status: 404 });
+      if (url.includes("/repos/alice/coach-old/contents/"))
+        return new Response(null, { status: 404 });
       if (url === ghUrl("/user/installations/42/repositories?per_page=100")) {
         return Response.json(mockRepoList([{ full_name: "alice/coach-alice", owner: "alice" }]));
       }

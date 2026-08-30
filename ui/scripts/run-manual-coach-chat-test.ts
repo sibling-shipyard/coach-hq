@@ -70,13 +70,21 @@ try {
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
-  console.error("run-manual-coach-chat-test: GEMINI_API_KEY not set (check ui/.env.local or export it).");
+  console.error(
+    "run-manual-coach-chat-test: GEMINI_API_KEY not set (check ui/.env.local or export it).",
+  );
   process.exit(1);
 }
 
 const ATHLETE_REPOS: Record<string, { repo: string; localPath: string }> = {
-  skanda: { repo: "skanda-2003/coach-skanda-2003", localPath: "/home/skanda_suresh/Projects/coach-skanda" },
-  akash: { repo: "akash-suresh/coach-akash-suresh", localPath: "/home/skanda_suresh/Projects/coach-akash" },
+  skanda: {
+    repo: "skanda-2003/coach-skanda-2003",
+    localPath: "/home/skanda_suresh/Projects/coach-skanda",
+  },
+  akash: {
+    repo: "akash-suresh/coach-akash-suresh",
+    localPath: "/home/skanda_suresh/Projects/coach-akash",
+  },
 };
 
 interface ManualTurn {
@@ -128,7 +136,9 @@ async function main() {
   if (args.athlete) {
     const known = ATHLETE_REPOS[args.athlete];
     if (!known) {
-      console.error(`run-manual-coach-chat-test: unknown --athlete "${args.athlete}" (known: ${Object.keys(ATHLETE_REPOS).join(", ")}).`);
+      console.error(
+        `run-manual-coach-chat-test: unknown --athlete "${args.athlete}" (known: ${Object.keys(ATHLETE_REPOS).join(", ")}).`,
+      );
       process.exit(1);
       return;
     }
@@ -136,19 +146,25 @@ async function main() {
     localPath = args.localPath ?? known.localPath;
   } else if (args.repo) {
     if (!args.localPath) {
-      console.error("run-manual-coach-chat-test: --local-path is required when using --repo without --athlete.");
+      console.error(
+        "run-manual-coach-chat-test: --local-path is required when using --repo without --athlete.",
+      );
       process.exit(1);
       return;
     }
     repo = args.repo;
     localPath = args.localPath;
   } else {
-    console.error("run-manual-coach-chat-test: pass --athlete <skanda|akash> or --repo <owner/name> --local-path <dir>.");
+    console.error(
+      "run-manual-coach-chat-test: pass --athlete <skanda|akash> or --repo <owner/name> --local-path <dir>.",
+    );
     process.exit(1);
     return;
   }
 
-  const modeFlags = [args.greet, args.message != null, args.turnsPath != null].filter(Boolean).length;
+  const modeFlags = [args.greet, args.message != null, args.turnsPath != null].filter(
+    Boolean,
+  ).length;
   if (modeFlags !== 1) {
     console.error("run-manual-coach-chat-test: pass exactly one of --greet, --message, --turns.");
     process.exit(1);
@@ -164,7 +180,9 @@ async function main() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const branch = args.branch ?? `test/manual-${stamp}`;
 
-  const repoInfoRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}`, { headers: ghHeaders });
+  const repoInfoRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}`, {
+    headers: ghHeaders,
+  });
   if (!repoInfoRes.ok) {
     console.error(`run-manual-coach-chat-test: couldn't look up ${repo} (${repoInfoRes.status}).`);
     process.exit(1);
@@ -182,7 +200,10 @@ async function main() {
   // Create the scratch branch off the real default branch's current HEAD if it doesn't exist yet
   // - commitFilesAtomic() only ever moves an existing ref, it can't create one, so without this
   // every run would need a branch cut and pushed by hand first.
-  const branchRefRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}/git/ref/heads/${branch}`, { headers: ghHeaders });
+  const branchRefRes = await fetchWithTimeout(
+    `https://api.github.com/repos/${repo}/git/ref/heads/${branch}`,
+    { headers: ghHeaders },
+  );
   if (branchRefRes.status === 404) {
     const defaultHeadSha = await getHeadSha(repo, token, repoInfo.default_branch);
     const createRes = await fetchWithTimeout(`https://api.github.com/repos/${repo}/git/refs`, {
@@ -191,13 +212,19 @@ async function main() {
       body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: defaultHeadSha }),
     });
     if (!createRes.ok) {
-      console.error(`run-manual-coach-chat-test: couldn't create branch "${branch}" (${createRes.status}).`);
+      console.error(
+        `run-manual-coach-chat-test: couldn't create branch "${branch}" (${createRes.status}).`,
+      );
       process.exit(1);
       return;
     }
-    console.log(`Created scratch branch "${branch}" off ${repoInfo.default_branch} (${defaultHeadSha.slice(0, 7)}).`);
+    console.log(
+      `Created scratch branch "${branch}" off ${repoInfo.default_branch} (${defaultHeadSha.slice(0, 7)}).`,
+    );
   } else if (!branchRefRes.ok) {
-    console.error(`run-manual-coach-chat-test: couldn't check whether "${branch}" exists (${branchRefRes.status}).`);
+    console.error(
+      `run-manual-coach-chat-test: couldn't check whether "${branch}" exists (${branchRefRes.status}).`,
+    );
     process.exit(1);
     return;
   }
@@ -215,13 +242,17 @@ async function main() {
     turns = JSON.parse(fs.readFileSync(args.turnsPath!, "utf8")) as ManualTurn[];
   }
   if (turns.length === 0) {
-    console.error(`run-manual-coach-chat-test: ${args.turnsPath} is an empty array - nothing to run.`);
+    console.error(
+      `run-manual-coach-chat-test: ${args.turnsPath} is an empty array - nothing to run.`,
+    );
     process.exit(1);
     return;
   }
   for (let i = 1; i < turns.length; i++) {
     if (turns[i].greet) {
-      console.error(`run-manual-coach-chat-test: "greet" is only valid on turns[0] (found on turns[${i}]).`);
+      console.error(
+        `run-manual-coach-chat-test: "greet" is only valid on turns[0] (found on turns[${i}]).`,
+      );
       process.exit(1);
       return;
     }
@@ -288,7 +319,11 @@ async function main() {
       if (!turn.greet) {
         const now = Date.now();
         const userMessage = { id: `u-${now}`, role: "user" as const, text: turn.message };
-        const coachMessage = { id: `c-${now}`, role: "coach" as const, paragraphs: [String(json.reply ?? "")] };
+        const coachMessage = {
+          id: `c-${now}`,
+          role: "coach" as const,
+          paragraphs: [String(json.reply ?? "")],
+        };
         const turnMessages = [userMessage, coachMessage];
         messages =
           messages.length > 0
@@ -301,7 +336,9 @@ async function main() {
       const hasAssertion = turn.expect?.sessionClosed !== undefined;
       if (hasAssertion) {
         if (Boolean(json.closed) !== turn.expect!.sessionClosed) {
-          failures.push(`expected session_closed=${turn.expect!.sessionClosed}, got ${Boolean(json.closed)}`);
+          failures.push(
+            `expected session_closed=${turn.expect!.sessionClosed}, got ${Boolean(json.closed)}`,
+          );
         }
         result = failures.length === 0 ? "PASS" : "FAIL";
       } else {
@@ -324,13 +361,21 @@ async function main() {
         // alongside a visible "files unconfirmed" note. Only escalate to ERROR when there was no
         // real assertion at all (a bare res.ok "PASS" is weak on its own, and losing the audit
         // trail on top of it leaves nothing worth trusting in this entry).
-        failures.push("sha lookup failed before or after this turn - cannot confirm what changed, if anything");
+        failures.push(
+          "sha lookup failed before or after this turn - cannot confirm what changed, if anything",
+        );
         if (!hasAssertion) result = "ERROR";
         filesChanged = { confidence: "observed", files: [], diff: "" };
       } else if (shaBefore != null && shaAfter != null && shaBefore !== shaAfter) {
         execFileSync("git", ["-C", localPath, "fetch", "origin", branch], { stdio: "pipe" });
-        const filesRaw = execFileSync("git", ["-C", localPath, "diff", "--name-only", `${shaBefore}..${shaAfter}`], { encoding: "utf8" });
-        const diff = execFileSync("git", ["-C", localPath, "diff", `${shaBefore}..${shaAfter}`], { encoding: "utf8" });
+        const filesRaw = execFileSync(
+          "git",
+          ["-C", localPath, "diff", "--name-only", `${shaBefore}..${shaAfter}`],
+          { encoding: "utf8" },
+        );
+        const diff = execFileSync("git", ["-C", localPath, "diff", `${shaBefore}..${shaAfter}`], {
+          encoding: "utf8",
+        });
         filesChanged = {
           confidence: "observed",
           files: filesRaw.split("\n").filter((f) => f.trim().length > 0),
@@ -391,12 +436,16 @@ async function main() {
   // A PASS can still carry a failures entry (a real assertion passed, but the sha lookup around
   // it failed, so filesChanged is unconfirmed) - that PASS is honest, but it's not a clean run,
   // and neither exit branch below would otherwise catch it.
-  const hasUnconfirmedAudit = entries.some((e) => e.result === "PASS" && (e.failures?.length ?? 0) > 0);
-  if (hasUnconfirmedAudit) console.log("At least one passing turn has an unconfirmed audit trail - see its failures[].");
+  const hasUnconfirmedAudit = entries.some(
+    (e) => e.result === "PASS" && (e.failures?.length ?? 0) > 0,
+  );
+  if (hasUnconfirmedAudit)
+    console.log("At least one passing turn has an unconfirmed audit trail - see its failures[].");
   if (!logWritten) console.log("Run log failed to write - see the warning above.");
 
   if (entries.some((e) => e.result === "FAIL")) process.exit(1);
-  if (entries.some((e) => e.result === "ERROR") || hasUnconfirmedAudit || !logWritten) process.exit(2);
+  if (entries.some((e) => e.result === "ERROR") || hasUnconfirmedAudit || !logWritten)
+    process.exit(2);
 }
 
 main();

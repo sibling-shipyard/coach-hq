@@ -13,14 +13,25 @@ vi.mock("../../_lib/coachChatFiles.js", () => ({
   getFileRaw: vi.fn(),
 }));
 
-import { applyWeekPlan, applySessionReconcile, CURRENT_WEEK_PATH, type WeekPlan } from "../../_lib/coachWeekFiles.js";
+import {
+  applyWeekPlan,
+  applySessionReconcile,
+  CURRENT_WEEK_PATH,
+  type WeekPlan,
+} from "../../_lib/coachWeekFiles.js";
 import { getFileRaw } from "../../_lib/coachChatFiles.js";
 import { buildCurrentWeekWrite } from "../../_lib/turnWrites/weekWrite.js";
 
 function validPlan(): WeekPlan {
-  const days = ["2026-08-17", "2026-08-18", "2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23"].map(
-    (date) => ({ date, sessions: [] as WeekPlan["days"][number]["sessions"] }),
-  );
+  const days = [
+    "2026-08-17",
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-22",
+    "2026-08-23",
+  ].map((date) => ({ date, sessions: [] as WeekPlan["days"][number]["sessions"] }));
   days[0].sessions = [{ discipline: "run", kind: "easy", title: "Easy 5k" }];
   return {
     headline: "Steady week ahead.",
@@ -51,8 +62,8 @@ describe("buildCurrentWeekWrite", () => {
       new Set(),
     );
     expect(write?.path).toBe(CURRENT_WEEK_PATH);
-    await expect(write && "resolve" in write ? write.resolve() : Promise.resolve("")).rejects.toThrow(
-      /failed validation/,
-    );
+    await expect(
+      write && "resolve" in write ? write.resolve() : Promise.resolve(""),
+    ).rejects.toThrow(/failed validation/);
   });
 });

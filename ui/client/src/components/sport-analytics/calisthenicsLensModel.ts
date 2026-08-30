@@ -125,13 +125,18 @@ function findMilestone(ledger: SplitLedger, id: string): any | undefined {
 }
 
 function formatBlockMeta(ledger: SplitLedger): string {
-  const currentSeason = ledger.seasons?.seasons?.find((s: any) => s.id === ledger.seasons.current_season_id);
+  const currentSeason = ledger.seasons?.seasons?.find(
+    (s: any) => s.id === ledger.seasons.current_season_id,
+  );
   if (!currentSeason) {
     return "CURRENT BLOCK";
   }
   const start = new Date(`${currentSeason.start_date}T00:00:00`);
   const end = new Date(`${currentSeason.end_date}T00:00:00`);
-  const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+  const totalDays = Math.max(
+    1,
+    Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1,
+  );
   const currentDay = Math.min(
     totalDays,
     Math.max(1, Math.ceil((Date.now() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1),
@@ -210,7 +215,10 @@ function buildMobileCaption(steps: SkillTrackStep[]): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function buildSkillTrackRow(ladder: (typeof SKILL_LADDERS)[number], ledger: SplitLedger): SkillTrackRow {
+function buildSkillTrackRow(
+  ladder: (typeof SKILL_LADDERS)[number],
+  ledger: SplitLedger,
+): SkillTrackRow {
   const milestone = ladder.milestoneId ? findMilestone(ledger, ladder.milestoneId) : undefined;
   const hasMilestone = Boolean(milestone);
   const currentStepIndex =
@@ -321,8 +329,7 @@ function buildImproving(ledger: SplitLedger): CalisthenicsImprovingSnapshot {
 
   if (rows.length === 0) return { available: false, rows: [], coachLine: null };
 
-  const coachLine =
-    "The long-run truths we agreed on day one — everything else is noise. — Coach";
+  const coachLine = "The long-run truths we agreed on day one — everything else is noise. — Coach";
 
   return { available: true, rows, coachLine };
 }
@@ -462,18 +469,20 @@ function buildCoachRead(
 
   const fl = findMilestone(ledger, "fl_single_leg");
   if (fl?.history && fl.history.length >= 2) {
-    reads.push(
-      `Front lever is tracking toward ${fl.target}.`,
-    );
+    reads.push(`Front lever is tracking toward ${fl.target}.`);
   }
 
   const hs = findMilestone(ledger, "handstand_free");
   if (hs?.history?.length && hs.current === hs.history[0]?.value) {
-    reads.push("Freestanding balance hasn't moved yet — compression and wrist prep stay the priority before chasing longer holds.");
+    reads.push(
+      "Freestanding balance hasn't moved yet — compression and wrist prep stay the priority before chasing longer holds.",
+    );
   }
 
   if (consistency.available && consistency.streakWeeks >= 4) {
-    reads.push(`${consistency.streakWeeks}-week calisthenics streak — the repetition is doing the work.`);
+    reads.push(
+      `${consistency.streakWeeks}-week calisthenics streak — the repetition is doing the work.`,
+    );
   }
 
   if (reads.length === 0 && improving.available) {
@@ -529,8 +538,14 @@ export function buildCalisthenicsActivityHeatmap(
       const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), dayIndex + 1);
       return date.getMonth() === monthDate.getMonth() && date <= end ? localDateKey(date) : null;
     });
-    const cells = dates.map((dateKey) => (dateKey && byDate.has(dateKey) ? "calisthenics" : "empty"));
-    return { label: monthDate.toLocaleDateString("en-GB", { month: "short" }).toUpperCase(), cells, dates };
+    const cells = dates.map((dateKey) =>
+      dateKey && byDate.has(dateKey) ? "calisthenics" : "empty",
+    );
+    return {
+      label: monthDate.toLocaleDateString("en-GB", { month: "short" }).toUpperCase(),
+      cells,
+      dates,
+    };
   });
 
   const streaks = calculateWeeklyStreaks(streakDateKeys);

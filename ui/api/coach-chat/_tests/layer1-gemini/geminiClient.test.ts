@@ -36,19 +36,20 @@ function routeByUrl(cachedContentsRes: Response, generateContentRes: Response) {
   });
 }
 
-const args = [
+// Typed as askGemini's own parameters so the fixture cannot drift from the signature.
+const args: Parameters<typeof askGemini> = [
   "test-api-key",
   "soul text",
   "athlete context",
   "quest log",
   [],
   "How's my week looking?",
-  "ordinary" as const,
+  "ordinary",
   false,
   undefined,
   "trace-1",
   "UTC",
-] as const;
+];
 
 describe("askGemini", () => {
   beforeEach(() => {
@@ -70,7 +71,11 @@ describe("askGemini", () => {
     // this layer's job to reject a schema-shaped-but-semantically-wrong value. The actual crash
     // (applyTemplateEdit throwing on an unknown id) happens one layer down, in coachWorkoutFiles.ts.
     // This test documents that the fix belongs there, not here.
-    const reply = { reply: "All done for today.", template_edit: { template_id: "none" }, session_closed: true };
+    const reply = {
+      reply: "All done for today.",
+      template_edit: { template_id: "none" },
+      session_closed: true,
+    };
     routeByUrl(jsonResponse(500, {}), geminiEnvelope(reply));
 
     const result = await askGemini(...args);
@@ -103,7 +108,8 @@ describe("askGemini", () => {
     // A cache name is only usable if getCachedSoulName actually returned one - simulate a
     // successful cachedContents create so cachedName is truthy on the first generateContent call.
     fetchWithTimeout.mockImplementation(async (url: string, init: RequestInit) => {
-      if (url.includes("cachedContents")) return jsonResponse(200, { name: "cachedContents/abc123" });
+      if (url.includes("cachedContents"))
+        return jsonResponse(200, { name: "cachedContents/abc123" });
       const body = JSON.parse(init.body as string);
       // First call carries cachedContent (the stale/rejected name) - fail it with 400.
       if (body.cachedContent) return jsonResponse(400, { error: "cached content expired" });
@@ -114,7 +120,9 @@ describe("askGemini", () => {
     const result = await askGemini(...args);
 
     expect(result).toEqual({ reply: "Recovered without cache." });
-    const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) => (url as string).includes(":generateContent"));
+    const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
+      (url as string).includes(":generateContent"),
+    );
     expect(generateCalls).toHaveLength(2);
   });
 
@@ -124,7 +132,9 @@ describe("askGemini", () => {
     routeByUrl(jsonResponse(500, {}), jsonResponse(504, {}));
 
     await expect(askGemini(...args)).rejects.toMatchObject({ status: 504 });
-    const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) => (url as string).includes(":generateContent"));
+    const generateCalls = fetchWithTimeout.mock.calls.filter(([url]) =>
+      (url as string).includes(":generateContent"),
+    );
     expect(generateCalls).toHaveLength(2);
   });
 });

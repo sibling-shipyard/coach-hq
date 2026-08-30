@@ -1,9 +1,5 @@
 import { CSSProperties } from "react";
-import {
-  Workout,
-  countExercises,
-  countSets,
-} from "@/lib/workouts";
+import { Workout, countExercises, countSets } from "@/lib/workouts";
 import {
   SportBadge,
   TimerTopBar,
@@ -69,7 +65,9 @@ export function WarmWorkoutOverview({
                     <div className="wtx-ov-row__body">
                       <div className="wtx-ov-row__name-line">
                         <span className="wtx-ov-row__name">{ex.name}</span>
-                        {ex.optional ? <span className="wtx-ov-row__optional">OPTIONAL</span> : null}
+                        {ex.optional ? (
+                          <span className="wtx-ov-row__optional">OPTIONAL</span>
+                        ) : null}
                       </div>
                       <span className="wtx-ov-row__cue">{ex.form_cue}</span>
                     </div>

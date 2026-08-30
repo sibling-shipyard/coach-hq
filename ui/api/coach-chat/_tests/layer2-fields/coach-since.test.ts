@@ -87,7 +87,10 @@ describe("injectCoachSinceIfNeeded", () => {
   });
 
   it("merges onto a profile.json write Gemini already proposed this same turn, instead of adding a second write", () => {
-    const geminiUpdate = { path: "user_data/coach/profile.json", content: '{"name":"Skanda","timezone":"America/Chicago"}' };
+    const geminiUpdate = {
+      path: "user_data/coach/profile.json",
+      content: '{"name":"Skanda","timezone":"America/Chicago"}',
+    };
     const result = injectCoachSinceIfNeeded([geminiUpdate], closingFiles, false, true, timezoneUTC);
     const profileEntries = result.filter((u) => u.path === "user_data/coach/profile.json");
     expect(profileEntries).toHaveLength(1);

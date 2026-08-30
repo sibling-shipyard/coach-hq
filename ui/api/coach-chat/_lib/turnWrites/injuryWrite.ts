@@ -1,6 +1,6 @@
 // injury_event: the injuries.json write - see coachIntents.ts's applyInjuryEvent for the pure
 // flag-upsert logic this wraps with I/O.
-import type { FileEntry } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import { applyInjuryEvent, type InjuryEvent } from "../coachIntents.js";
@@ -12,7 +12,7 @@ export function buildInjuryEventWrite(
   token: string,
   timezone: string,
   injuryEvents: InjuryEvent[],
-): FileEntry | undefined {
+): ResolvedFileWrite | undefined {
   if (injuryEvents.length === 0) return undefined;
   const cappedEvents = injuryEvents.map((event) =>
     event.text != null ? { ...event, text: capText(event.text, INJURY_FLAG_TEXT_CAP) } : event,

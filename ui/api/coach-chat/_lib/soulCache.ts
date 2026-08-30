@@ -15,7 +15,12 @@ import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 const edgeConfigClient = process.env.GLOBAL_CONFIG ? createClient(process.env.GLOBAL_CONFIG) : null;
 
 const EDGE_CONFIG_KEY = "gemini_soul_cache";
-const CACHE_TTL_SECONDS = 7200; // 2h - amortizes a session without going far stale after a SOUL redeploy
+// 24h, not 2h - the content hash already catches a SOUL redeploy immediately regardless of TTL
+// (see getCachedSoulName below), so TTL only bounds a stale-but-unhashed edge case that's
+// already theoretical. A shorter TTL costs real money here: every expiry is a Global Config
+// write, and the free tier caps at 250/month (issue #624) - 2h implied ~360/month before even
+// counting the documented concurrent-cold-start race below, well over quota.
+const CACHE_TTL_SECONDS = 86400;
 
 interface CacheRecord {
   name: string;
@@ -35,7 +40,9 @@ function hashText(text: string): string {
 
 async function readRecord(): Promise<CacheRecord | null> {
   if (!edgeConfigClient) {
-    console.warn("[soulCache] GLOBAL_CONFIG not set - explicit caching disabled, falling back to inline prompt every call.");
+    console.warn(
+      "[soulCache] GLOBAL_CONFIG not set - explicit caching disabled, falling back to inline prompt every call.",
+    );
     return null;
   }
   try {
@@ -71,7 +78,9 @@ async function writeRecord(record: CacheRecord): Promise<void> {
   const configId = process.env.EDGE_CONFIG_ID;
   const token = process.env.VERCEL_API_TOKEN;
   if (!configId || !token) {
-    console.warn("[soulCache] EDGE_CONFIG_ID/VERCEL_API_TOKEN not set - cache name created but can't persist, every cold start will recreate it.");
+    console.warn(
+      "[soulCache] EDGE_CONFIG_ID/VERCEL_API_TOKEN not set - cache name created but can't persist, every cold start will recreate it.",
+    );
     return;
   }
   const teamQuery = process.env.VERCEL_TEAM_ID ? `?teamId=${process.env.VERCEL_TEAM_ID}` : "";
@@ -81,11 +90,16 @@ async function writeRecord(record: CacheRecord): Promise<void> {
     {
       method: "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ items: [{ operation: "upsert", key: EDGE_CONFIG_KEY, value: record }] }),
+      body: JSON.stringify({
+        items: [{ operation: "upsert", key: EDGE_CONFIG_KEY, value: record }],
+      }),
     },
     10_000,
   ).catch((err) => {
-    console.warn("[soulCache] Edge Config write request failed:", err instanceof Error ? err.message : err);
+    console.warn(
+      "[soulCache] Edge Config write request failed:",
+      err instanceof Error ? err.message : err,
+    );
     return null;
   });
   // Best-effort - a failed write just means the next call recreates the cache, but log a
@@ -96,7 +110,11 @@ async function writeRecord(record: CacheRecord): Promise<void> {
   }
 }
 
-async function createCache(apiKey: string, model: string, staticSystemText: string): Promise<string | null> {
+async function createCache(
+  apiKey: string,
+  model: string,
+  staticSystemText: string,
+): Promise<string | null> {
   try {
     const res = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${apiKey}`,
@@ -120,7 +138,10 @@ async function createCache(apiKey: string, model: string, staticSystemText: stri
     const body = (await res.json()) as { name?: string };
     return body.name ?? null;
   } catch (err) {
-    console.warn("[soulCache] cachedContents create request failed:", err instanceof Error ? err.message : err);
+    console.warn(
+      "[soulCache] cachedContents create request failed:",
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }
@@ -134,16 +155,30 @@ async function createCache(apiKey: string, model: string, staticSystemText: stri
  * create and write their own record. Harmless - every cache is independently valid, just leaves
  * short-lived orphaned entries that age out via TTL.
  */
-export async function getCachedSoulName(apiKey: string, model: string, staticSystemText: string): Promise<string | null> {
+export async function getCachedSoulName(
+  apiKey: string,
+  model: string,
+  staticSystemText: string,
+): Promise<string | null> {
   const hash = hashText(staticSystemText);
   const existing = await readRecord();
   // Model checked alongside the hash so a GEMINI_MODEL bump invalidates even with SOUL text
   // unchanged - a cachedContents name is only valid for the model it was created against.
-  if (existing && existing.contentHash === hash && existing.model === model && existing.expiresAt > Date.now()) {
+  if (
+    existing &&
+    existing.contentHash === hash &&
+    existing.model === model &&
+    existing.expiresAt > Date.now()
+  ) {
     return existing.name;
   }
   const name = await createCache(apiKey, model, staticSystemText);
   if (!name) return null;
-  await writeRecord({ name, expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000, contentHash: hash, model });
+  await writeRecord({
+    name,
+    expiresAt: Date.now() + CACHE_TTL_SECONDS * 1000,
+    contentHash: hash,
+    model,
+  });
   return name;
 }

@@ -1,4 +1,3 @@
-import type { SplitLedger } from "@/lib/challenge";
 import {
   getThisWeekActivities,
   getTrainingCategory,
@@ -53,7 +52,7 @@ function isoWeek(date = new Date()) {
   const day = utc.getUTCDay() || 7;
   utc.setUTCDate(utc.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
-  return Math.ceil((((utc.getTime() - yearStart.getTime()) / DAY_MS) + 1) / 7);
+  return Math.ceil(((utc.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
 }
 
 export function categoryToSport(category: TrainingCategory): WarmSportId {
@@ -112,15 +111,18 @@ export function buildActivityEvidenceSnapshots(
       const distance = Number(activity.distance) || 0;
       const activityLoad = getActivityZoneLoad(activity);
       return {
-        id: activity.id !== undefined && activity.id !== null
-          ? String(activity.id)
-          : `${activity.start_date_local}-${activity.name}-${index}`,
+        id:
+          activity.id !== undefined && activity.id !== null
+            ? String(activity.id)
+            : `${activity.start_date_local}-${activity.name}-${index}`,
         dateKey: localDateKey(date),
-        dateLabel: date.toLocaleDateString("en-GB", {
-          weekday: "short",
-          day: "2-digit",
-          month: "short",
-        }).toUpperCase(),
+        dateLabel: date
+          .toLocaleDateString("en-GB", {
+            weekday: "short",
+            day: "2-digit",
+            month: "short",
+          })
+          .toUpperCase(),
         title: formatSessionTitle(activity.name),
         sport: categoryToSport(category),
         ranked: category === "badminton_ranked",
@@ -157,11 +159,21 @@ export function buildEngineSnapshot(
   }> = [
     { id: "badminton", label: "Badminton", shortLabel: "BDM", color: sportMixHex("badminton") },
     { id: "foundation", label: "Foundation", shortLabel: "FDN", color: sportMixHex("foundation") },
-    { id: "calisthenics", label: "Calisthenics", shortLabel: "CAL", color: sportMixHex("calisthenics") },
+    {
+      id: "calisthenics",
+      label: "Calisthenics",
+      shortLabel: "CAL",
+      color: sportMixHex("calisthenics"),
+    },
     { id: "cycling", label: "Ride", shortLabel: "RIDE", color: sportMixHex("cycling") },
     { id: "run", label: "Run", shortLabel: "RUN", color: sportHex("run") },
     { id: "strength", label: "Strength", shortLabel: "STR", color: sportHex("strength") },
-    { id: "weight_training", label: "Weights", shortLabel: "WGT", color: sportHex("weight_training") },
+    {
+      id: "weight_training",
+      label: "Weights",
+      shortLabel: "WGT",
+      color: sportHex("weight_training"),
+    },
     { id: "hike", label: "Hike", shortLabel: "HIK", color: sportHex("hike") },
     { id: "walk", label: "Walk", shortLabel: "WLK", color: sportHex("walk") },
     { id: "cricket", label: "Cricket", shortLabel: "CRK", color: sportHex("cricket") },
@@ -184,30 +196,27 @@ export function buildEngineSnapshot(
   const minimumSignal = Math.min(engine.currentLoad, bandLow);
   const maximumSignal = Math.max(engine.currentLoad, bandHigh, 1);
   const scaleLow = Math.max(0, Math.floor((minimumSignal * 0.7) / 50) * 50);
-  const scaleHigh = Math.max(
-    scaleLow + 100,
-    Math.ceil((maximumSignal * 1.2) / 50) * 50,
-  );
-  const signal = engine.signal === "HOLD"
-    ? "IN BAND"
-    : engine.signal === "EASE"
-      ? "ABOVE BAND"
-      : "BELOW BAND";
-  const verdict = engine.signal === "HOLD"
-    ? "Optimal."
-    : engine.signal === "EASE"
-      ? "Ease off."
-      : "Build gently.";
-  const compactVerdict = engine.signal === "HOLD"
-    ? "In the band."
-    : engine.signal === "EASE"
-      ? "Above the band."
-      : "Below the band.";
-  const openVerdict = engine.signal === "HOLD"
-    ? "Hold here."
-    : engine.signal === "EASE"
-      ? "Absorb."
-      : "Build gently.";
+  const scaleHigh = Math.max(scaleLow + 100, Math.ceil((maximumSignal * 1.2) / 50) * 50);
+  const signal =
+    engine.signal === "HOLD" ? "IN BAND" : engine.signal === "EASE" ? "ABOVE BAND" : "BELOW BAND";
+  const verdict =
+    engine.signal === "HOLD"
+      ? "Optimal."
+      : engine.signal === "EASE"
+        ? "Ease off."
+        : "Build gently.";
+  const compactVerdict =
+    engine.signal === "HOLD"
+      ? "In the band."
+      : engine.signal === "EASE"
+        ? "Above the band."
+        : "Below the band.";
+  const openVerdict =
+    engine.signal === "HOLD"
+      ? "Hold here."
+      : engine.signal === "EASE"
+        ? "Absorb."
+        : "Build gently.";
   const observedLoadCount = thisWeek.filter(
     (activity) => getActivityZoneLoad(activity) !== null,
   ).length;
@@ -218,12 +227,13 @@ export function buildEngineSnapshot(
     )
     .slice(-5)
     .map((activity) => ({
-      day: parseLocal(activity.start_date_local).toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase(),
+      day: parseLocal(activity.start_date_local)
+        .toLocaleDateString("en-GB", { weekday: "short" })
+        .toUpperCase(),
       title: formatSessionTitle(activity.name),
       detail: formatDuration(activity),
-      load: getActivityZoneLoad(activity) === null
-        ? null
-        : Math.round(getActivityZoneLoad(activity)!),
+      load:
+        getActivityZoneLoad(activity) === null ? null : Math.round(getActivityZoneLoad(activity)!),
       sport: categoryToSport(getTrainingCategory(activity)),
     }));
 
@@ -275,10 +285,7 @@ function eligibleDaysSince(startDate: string, endDate: string | undefined, today
   return Math.floor((effectiveEnd.getTime() - start.getTime()) / DAY_MS) + 1;
 }
 
-export function buildQuestSnapshot(
-  ledger: any,
-  quest: WarmHomeModel["quest"],
-): QuestSnapshot {
+export function buildQuestSnapshot(ledger: any, quest: WarmHomeModel["quest"]): QuestSnapshot {
   const palette = ["#7c6f9e", "#a8702c"];
   const today = new Date();
   const isSplit = ledger && "seasons" in ledger;
@@ -286,16 +293,22 @@ export function buildQuestSnapshot(
   const sideQuests = questsArray.slice(0, 2).map((item: any, index: number) => {
     let value: number;
     let target: number;
-    const itemRows = isSplit ? ledger.progress.rows.filter((row: any) => row.quest_id === item.id) : [];
-    const completedDates = isSplit 
+    const itemRows = isSplit
+      ? ledger.progress.rows.filter((row: any) => row.quest_id === item.id)
+      : [];
+    const completedDates = isSplit
       ? itemRows.filter((row: any) => row.status === "completed").map((row: any) => row.date)
-      : item.completed_dates ?? [];
-    
+      : (item.completed_dates ?? []);
+
     if (item.type === "daily_streak") {
       const eligible = eligibleDaysSince(item.start_date, item.end_date ?? undefined, today);
       if (item.polarity === "default_done") {
-        const missed = isSplit ? itemRows.filter((row: any) => row.status === "missed").length : (item.missed_dates?.length ?? 0);
-        const excused = isSplit ? itemRows.filter((row: any) => row.status === "excused").length : (item.excused_dates?.length ?? 0);
+        const missed = isSplit
+          ? itemRows.filter((row: any) => row.status === "missed").length
+          : (item.missed_dates?.length ?? 0);
+        const excused = isSplit
+          ? itemRows.filter((row: any) => row.status === "excused").length
+          : (item.excused_dates?.length ?? 0);
         value = Math.max(0, eligible - missed - excused);
         target = eligible;
       } else {
@@ -303,8 +316,12 @@ export function buildQuestSnapshot(
         target = eligible;
       }
     } else {
-      value = isSplit 
-        ? (itemRows.slice().reverse().find((row: any) => row.value != null)?.value as number | undefined ?? completedDates.length)
+      value = isSplit
+        ? ((itemRows
+            .slice()
+            .reverse()
+            .find((row: any) => row.value != null)?.value as number | undefined) ??
+          completedDates.length)
         : (item.current ?? completedDates.length);
       target = item.target ?? Math.max(value, 1);
     }
@@ -338,7 +355,9 @@ function winPercent(record?: string) {
 }
 
 function activityDayStreak(activities: ActivityInspectionSnapshot[]) {
-  const dates = Array.from(new Set(activities.map((activity) => activity.dateKey))).sort().reverse();
+  const dates = Array.from(new Set(activities.map((activity) => activity.dateKey)))
+    .sort()
+    .reverse();
   if (dates.length === 0) return 0;
   const activeDates = new Set(dates);
   const cursor = new Date(`${dates[0]}T12:00:00`);
@@ -367,31 +386,40 @@ export function buildCommitmentSnapshots(
     const source = commitments.find((item) => item.id === id);
     const sportActivities = activityEvidence.filter((activity) => activity.sport === id);
     const value = Number(source?.value ?? 0);
-    const target = dataMode === "live"
-      ? id === "cycling" ? null : targets[id]
-      : targets[id];
-    const progress = target === null
-      ? null
-      : id === "badminton"
-        ? winPercent(source?.allRecord)
-        : Math.min(100, (value / target) * 100);
+    const target = dataMode === "live" ? (id === "cycling" ? null : targets[id]) : targets[id];
+    const progress =
+      target === null
+        ? null
+        : id === "badminton"
+          ? winPercent(source?.allRecord)
+          : Math.min(100, (value / target) * 100);
     const alarm = dataMode !== "live" && target !== null && id === "calisthenics" && value < target;
-    const status = dataMode === "live"
-      ? id === "badminton" ? "ALL" : ""
-      : id === "foundation"
-        ? value >= target! ? "GRADUATED" : `${target! - value}D LEFT`
-        : id === "calisthenics"
-          ? value >= target! ? "IN BAND" : "BELOW"
-          : id === "cycling"
-            ? "LOGGED"
-            : "ALL";
-    const note = dataMode === "live"
-      ? id === "foundation" ? "" : source?.secondary.toUpperCase() ?? "NO DATA"
-      : id === "foundation"
-        ? `${value}/${target} DAYS`
-        : id === "calisthenics"
-          ? `FLOOR ${target}`
-          : source?.secondary.toUpperCase() ?? "NO DATA";
+    const status =
+      dataMode === "live"
+        ? id === "badminton"
+          ? "ALL"
+          : ""
+        : id === "foundation"
+          ? value >= target!
+            ? "GRADUATED"
+            : `${target! - value}D LEFT`
+          : id === "calisthenics"
+            ? value >= target!
+              ? "IN BAND"
+              : "BELOW"
+            : id === "cycling"
+              ? "LOGGED"
+              : "ALL";
+    const note =
+      dataMode === "live"
+        ? id === "foundation"
+          ? ""
+          : (source?.secondary.toUpperCase() ?? "NO DATA")
+        : id === "foundation"
+          ? `${value}/${target} DAYS`
+          : id === "calisthenics"
+            ? `FLOOR ${target}`
+            : (source?.secondary.toUpperCase() ?? "NO DATA");
 
     return {
       id,
@@ -402,13 +430,14 @@ export function buildCommitmentSnapshots(
       note,
       status,
       progress,
-      accent: id === "badminton"
-        ? sportHex("badminton")
-        : id === "calisthenics"
-          ? sportHex("calisthenics")
-          : id === "foundation"
-            ? sportHex("foundation")
-            : sportHex("cycling"),
+      accent:
+        id === "badminton"
+          ? sportHex("badminton")
+          : id === "calisthenics"
+            ? sportHex("calisthenics")
+            : id === "foundation"
+              ? sportHex("foundation")
+              : sportHex("cycling"),
       alarm,
       allRecord: source?.allRecord,
       rankedRecord: source?.rankedRecord,
@@ -435,14 +464,12 @@ function buildWeeklyPlanSnapshot(
     bandHigh: engine.bandHigh,
     days: model.planDays.map((day) => {
       const session = day.sessions[0];
-      const dayActivities = activityEvidence.filter(
-        (activity) => activity.dateKey === day.date,
-      );
+      const dayActivities = activityEvidence.filter((activity) => activity.dateKey === day.date);
       const observedLoads = dayActivities
         .map((activity) => activity.load)
         .filter((load): load is number => load !== null);
-      const hasCompleteLoad = dayActivities.length > 0
-        && observedLoads.length === dayActivities.length;
+      const hasCompleteLoad =
+        dayActivities.length > 0 && observedLoads.length === dayActivities.length;
       return {
         key: day.date,
         day: day.day,
@@ -450,9 +477,10 @@ function buildWeeklyPlanSnapshot(
         glyph: session?.glyph ?? null,
         sport: session ? disciplineToSport(session.discipline) : "recovery",
         title: session?.title ?? "Rest",
-        loadDelta: dataMode === "live" && hasCompleteLoad
-          ? Math.round(observedLoads.reduce((sum, load) => sum + load, 0))
-          : null,
+        loadDelta:
+          dataMode === "live" && hasCompleteLoad
+            ? Math.round(observedLoads.reduce((sum, load) => sum + load, 0))
+            : null,
         isRecorded: dataMode === "live" && dayActivities.length > 0,
         href: session?.href,
         activities: dayActivities,
@@ -484,7 +512,9 @@ function buildCaloriesSnapshot(
     totals.set(key, (totals.get(key) ?? 0) + (Number(activity.calories) || 0));
     return totals;
   }, new Map());
-  const highestDay = Array.from(caloriesByDay.entries()).sort((left, right) => right[1] - left[1])[0];
+  const highestDay = Array.from(caloriesByDay.entries()).sort(
+    (left, right) => right[1] - left[1],
+  )[0];
   let cumulativeCalories = 0;
   const dailyActual = Array.from({ length: now.getDate() }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth(), index + 1);
@@ -505,7 +535,9 @@ function buildCaloriesSnapshot(
     elapsedDays: now.getDate(),
     activeDays: caloriesByDay.size,
     highestDayLabel: highestDay
-      ? new Date(`${highestDay[0]}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }).toUpperCase()
+      ? new Date(`${highestDay[0]}T12:00:00`)
+          .toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+          .toUpperCase()
       : undefined,
     highestDayCalories: highestDay ? Math.round(highestDay[1]) : undefined,
   };
@@ -581,9 +613,7 @@ export function buildTrainingActivitySnapshot(
     const monthDate = new Date(start.getFullYear(), start.getMonth() + index, 1);
     const dates = Array.from({ length: 28 }, (_, dayIndex) => {
       const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), dayIndex + 1);
-      return date.getMonth() === monthDate.getMonth() && date <= now
-        ? localDateKey(date)
-        : null;
+      return date.getMonth() === monthDate.getMonth() && date <= now ? localDateKey(date) : null;
     });
     const cells = dates.map((dateKey) =>
       dateKey ? dominantActivityState(byDate.get(dateKey) ?? []) : "empty",
@@ -611,9 +641,8 @@ export function buildTrainingActivitySnapshot(
       };
       existing.activities.push(activity);
       existing.durationMinutes += activity.durationMinutes;
-      existing.load = existing.load === null || activity.load === null
-        ? null
-        : existing.load + activity.load;
+      existing.load =
+        existing.load === null || activity.load === null ? null : existing.load + activity.load;
       details[activity.dateKey] = existing;
       return details;
     },
@@ -650,32 +679,41 @@ export function buildRecentSessions(
     id: activity.id,
     dateLabel: activity.dateLabel.replace(/^\w+\s/, ""),
     title: activity.title,
-    detail: activity.averageHeartRate === null
-      ? formatMinutesLabel(activity.durationMinutes)
-      : `${formatMinutesLabel(activity.durationMinutes)} · ${activity.averageHeartRate} BPM`,
+    detail:
+      activity.averageHeartRate === null
+        ? formatMinutesLabel(activity.durationMinutes)
+        : `${formatMinutesLabel(activity.durationMinutes)} · ${activity.averageHeartRate} BPM`,
     load: activity.load,
     sport: activity.sport,
     evidence: activity,
   }));
 }
 
-function buildPhaseSnapshot(
-  ledger: any,
-  dataMode: "reference" | "live",
-): BuildPhaseSnapshot {
+function buildPhaseSnapshot(ledger: any, dataMode: "reference" | "live"): BuildPhaseSnapshot {
   const isSplit = ledger && "seasons" in ledger;
-  const currentSeason = isSplit ? ledger.seasons.seasons.find((s: any) => s.id === ledger.seasons.current_season_id) : undefined;
-  const blockStart = isSplit ? currentSeason?.start_date : (ledger.phase?.current_block.start_date ?? ledger.challenge?.start_date);
-  const blockEnd = isSplit ? currentSeason?.end_date : (ledger.phase?.current_block.end_date ?? ledger.challenge?.end_date);
+  const currentSeason = isSplit
+    ? ledger.seasons.seasons.find((s: any) => s.id === ledger.seasons.current_season_id)
+    : undefined;
+  const blockStart = isSplit
+    ? currentSeason?.start_date
+    : (ledger.phase?.current_block.start_date ?? ledger.challenge?.start_date);
+  const blockEnd = isSplit
+    ? currentSeason?.end_date
+    : (ledger.phase?.current_block.end_date ?? ledger.challenge?.end_date);
   const start = blockStart ? new Date(`${blockStart}T00:00:00`) : new Date();
   const end = blockEnd ? new Date(`${blockEnd}T00:00:00`) : new Date();
-  const totalWeeks = Math.max(1, Math.ceil((end.getTime() - start.getTime() + DAY_MS) / (7 * DAY_MS)));
+  const totalWeeks = Math.max(
+    1,
+    Math.ceil((end.getTime() - start.getTime() + DAY_MS) / (7 * DAY_MS)),
+  );
   const currentWeek = Math.min(
     totalWeeks,
     Math.max(1, Math.floor((Date.now() - start.getTime()) / (7 * DAY_MS)) + 1),
   );
 
-  const milestonesArray = isSplit ? (ledger.progressions?.progressions ?? []) : (ledger.milestones ?? []);
+  const milestonesArray = isSplit
+    ? (ledger.progressions?.progressions ?? [])
+    : (ledger.milestones ?? []);
 
   return {
     weekLabel: `WK ${currentWeek}/${totalWeeks}`,
@@ -724,9 +762,10 @@ function buildPhaseSnapshot(
         };
       }
     }),
-    read: dataMode === "live"
-      ? "Phase dates and milestone values are read directly from the generated challenge record."
-      : "Dates assume plan-true weeks — every missed bar day slides them right.",
+    read:
+      dataMode === "live"
+        ? "Phase dates and milestone values are read directly from the generated challenge record."
+        : "Dates assume plan-true weeks — every missed bar day slides them right.",
   };
 }
 
@@ -737,14 +776,14 @@ function buildCoachReadSnapshot(
   dataMode: "reference" | "live",
 ): CoachReadSnapshot {
   return {
-    dateLabel: new Date().toLocaleDateString("en-GB", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    }).toUpperCase(),
-    body: [model.coachRead?.headline, model.coachRead?.body]
-      .filter(Boolean)
-      .join(" "),
+    dateLabel: new Date()
+      .toLocaleDateString("en-GB", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      })
+      .toUpperCase(),
+    body: [model.coachRead?.headline, model.coachRead?.body].filter(Boolean).join(" "),
     eyebrow: dataMode === "live" ? "LOG" : undefined,
     signature: dataMode === "live" ? "— COACH" : undefined,
     actionLabel: dataMode === "live" ? "Inspect evidence" : undefined,
@@ -804,9 +843,8 @@ function engineSnapshotS(engine: EngineSnapshot): EngineSnapshotS {
 }
 
 function questSnapshotS(quest: QuestSnapshot): QuestSnapshotS {
-  const progressPercent = quest.target > 0
-    ? Math.min(100, Math.round((quest.completed / quest.target) * 100))
-    : 0;
+  const progressPercent =
+    quest.target > 0 ? Math.min(100, Math.round((quest.completed / quest.target) * 100)) : 0;
   return {
     name: quest.name,
     completed: quest.completed,
@@ -823,16 +861,8 @@ export function buildWidgetSnapshotsFile(
   dataMode: "reference" | "live" = "live",
   coachMessage?: CoachMessageSnapshot,
 ): WidgetSnapshotsFile {
-  const computedHome = buildWarmHomeSnapshots(
-    activities,
-    ledger,
-    syncStatus,
-    contract,
-    dataMode,
-  );
-  const home: WarmHomeSnapshots = coachMessage
-    ? { ...computedHome, coachMessage }
-    : computedHome;
+  const computedHome = buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMode);
+  const home: WarmHomeSnapshots = coachMessage ? { ...computedHome, coachMessage } : computedHome;
 
   return {
     schema_version: 1,
@@ -849,9 +879,8 @@ export function buildWidgetSnapshotsFile(
         M: home.quest,
       },
       commitments: {
-        S: home.commitments.find((item) => item.id === "badminton")
-          ?? home.commitments[0]
-          ?? {
+        S: home.commitments.find((item) => item.id === "badminton") ??
+          home.commitments[0] ?? {
             id: "badminton",
             label: "Badminton",
             glyph: "badminton",

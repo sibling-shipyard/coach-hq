@@ -28,8 +28,10 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
   goes, so a respawn resumes instead of restarting from nothing.
 - **Report shape, fixed.** Every worker report comes back as: files touched · checks run, **with
   their evidence** — the CI run where a runner exists, pasted output only where one doesn't · what
-  was deliberately not done. Evidence is what makes a report auditable instead of a claim, and the
-  shape stops you re-deriving what happened.
+  was deliberately not done · **anything in your brief that turned out wrong.** Evidence is what
+  makes a report auditable instead of a claim, and the shape stops you re-deriving what happened.
+  The fourth field is the one you cannot get any other way: a brief that said to capture errors in
+  `withContinuedTrace`'s catch was wrong, and the worker saying so was worth more than its diff.
 - **Keep:** conversation, scope calls, plans, reviews, ADR and role-doc edits, and small fixes
   (~20 lines) you find *during* your own review of a subagent's diff. The point of the rule is
   that execution and review are separate passes — a short fix you write and then re-read cold
@@ -58,7 +60,9 @@ yourself editing a file to satisfy an athlete request, stop and delegate it.
 4. the PR's file list verified against the branch — not against local `main`, which has
 	under-reported a branch here before. `gh pr view <n> --json files` locally; web and remote
 	sessions have no `gh`, so there use `mcp__github__pull_request_read` with `method: get_files`
-5. doc upkeep done (`AGENTS.md` § Doc upkeep) — including `SOUL_HISTORY` shape if soul changed
+5. doc upkeep done (`AGENTS.md` § Doc upkeep) — including `SOUL_HISTORY` shape if soul changed.
+	Closing an issue? `grep -rn "#<N>" docs/ kdb/` first — a doc still citing it for a gap this PR
+	only half-closes will send readers to a closed issue
 6. PR body: human blurb ≤5 lines at top; agent checklist/plan kept below; `Refs: #N` mid-stack
 	or `Fixes: #N` on the finishing PR (never neither; never `Fixes` too early)
 7. if this PR finishes a `docs/plans/` plan, that plan file is deleted in the diff
@@ -145,3 +149,5 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 - Leave the primary checkout on `main` when a subagent finishes — a branch left checked out there catches the next session's commits. Before force-pushing a branch carrying unexpected commits, rescue them (`git branch rescue/... <sha>`, push it) or you orphan a colleague's only copy.
 - Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is before planning around it.
 - Rebuild a stack when a call reverses mid-way, and never edit a file a later PR in the same stack deletes — appending the reversal makes the stack a diary of your thinking instead of the change.
+- Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
+- `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`, so a checkout goes stale in minutes.

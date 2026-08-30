@@ -10,47 +10,47 @@ This acceptance contract applies to the isolated React **Web app (HQ)** review s
 
 ## Global invariants
 
-| ID | Requirement |
-|---|---|
-| G1 | With no pointer interaction, the stabilized desktop and mobile widget geometry remains unchanged: the same cards, marks, values, rows, and responsive ordering stay mounted. |
-| G2 | Passive chart marks and rows are not buttons. They have no `tabIndex`, click handler, tap pin, pressed state, outside-dismiss state, or Escape lifecycle. |
-| G3 | Web hover enrichments respond only to hover-capable fine pointers. Touch taps do nothing unless the element is a genuine control. |
-| G4 | Hover overlays use no document-flow space and `pointer-events: none`; they clear on pointer leave and never replace a card face. |
-| G5 | Optional motion lasts 150–250 ms and is disabled by `prefers-reduced-motion`. Nothing loops for attention. |
-| G6 | All numbers and labels come from the supplied snapshot or logged evidence. Prototype fixture values never enter production adapters. |
-| G7 | `/` renders the production Home with no `.wi-shell`; `/home-v2` is the only Warm Instrument review route. |
+| ID  | Requirement                                                                                                                                                                  |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1  | With no pointer interaction, the stabilized desktop and mobile widget geometry remains unchanged: the same cards, marks, values, rows, and responsive ordering stay mounted. |
+| G2  | Passive chart marks and rows are not buttons. They have no `tabIndex`, click handler, tap pin, pressed state, outside-dismiss state, or Escape lifecycle.                    |
+| G3  | Web hover enrichments respond only to hover-capable fine pointers. Touch taps do nothing unless the element is a genuine control.                                            |
+| G4  | Hover overlays use no document-flow space and `pointer-events: none`; they clear on pointer leave and never replace a card face.                                             |
+| G5  | Optional motion lasts 150–250 ms and is disabled by `prefers-reduced-motion`. Nothing loops for attention.                                                                   |
+| G6  | All numbers and labels come from the supplied snapshot or logged evidence. Prototype fixture values never enter production adapters.                                         |
+| G7  | `/` renders the production Home with no `.wi-shell`; `/home-v2` is the only Warm Instrument review route.                                                                    |
 
 ## Widget behavior matrix
 
-| ID | Widget | Required Web HQ behavior | Explicitly absent |
-|---|---|---|---|
-| E1 | Engine | Hovering the card lifts it exactly 4 px and strengthens its shadow. Leaving restores it. | Persistent or looping motion. |
-| E2 | Engine trend | The full six-week trend region is one scrub surface. Pointer x selects `round(fraction × (n−1))`; the guide snaps to that point’s normalized x. A paper tooltip reads `{WEEK} · {LOAD}`. | Point-by-point buttons or click persistence. |
-| E3 | Engine remainder | Gauge, current dot, signal badge, number, sport mix, and method remain read-only. | Point hit buttons, tap pin, focus inspection, card click. |
-| C1 | Commitment cubes | All four cubes are static. Badminton shows the all-record with the fixed label `ALL`. | Scope toggle, `⇄`, count inspection, session tooltip, card click. |
-| P1 | Weekly Plan | Existing sport chips are draggable. Empty targets accept; occupied targets swap. Drag state is local until persistence exists. | Persistence or destructive replacement. |
-| P2 | Weekly Plan | Projection refreshes after every move from the same live per-chip loads and Engine band. The sum is preserved by swaps; copy/color reflects below, inside, upper, or over-band state. If no live planned-load evidence exists, projection is unavailable rather than invented. | Prototype fixture loads or invented estimates. |
-| P3 | Weekly Plan | Keyboard users can pick up a focused occupied chip with Space/Enter, move focus among day targets, drop with Space/Enter, and cancel with Escape without changing visual rest state. | `COACH DRAFT` tap accept/edit; persistence; fabricated load estimates. |
-| H1 | Training Activity | Web L retains a four-month spread plus stats. Header arrows page the available four-month window one month at a time and visibly disable at each end. | Touch-swipe paging or replacement with the iOS single-month variant. |
-| H2 | Training Activity | Hovering a dated non-empty cell adds a 2 px ink outline and shows `{DATE} · {SPORT} +{LOAD}` above the cell, clamped inside the card. Leave clears it. | Cell click, tap pin, deep-link. |
-| K1 | Calories | Hovering the existing meter shows `{elapsed}% OF {month} GONE · YOU’RE AT {progress}%` in a compact ink tooltip. Leave clears it. | Card click, tap pin, detailed metric panel. |
-| Q1 | Main and side quests | Entirely static and driven by logged data. | Progress-bar inspection or logging affordance. |
-| V1 | VO₂ max available | The trend is a continuous nearest-month scrub with snapped guide and `{MONTH} · {VALUE}` tooltip. | Point buttons, card click, or tap pin. |
-| V2 | VO₂ max unavailable | Existing opt-in/empty state remains entirely inert. | Badge/card click or fabricated trend. |
-| R1 | Recent Sessions | Rows remain static receipts on web. `All activity` is the only control. | Row inspection, navigation, swipe, edit, delete. |
-| B1 | Build Phase | Hovering a milestone row adds the quiet terracotta wash and shows its real projection assumptions/last-test evidence in a compact right-aligned tooltip. Leave clears it. | Row click, tap pin, synthetic milestone math. |
-| S1 | Coach’s Read | Entirely static. | Evidence inspection or thread surface on Home. |
+| ID  | Widget               | Required Web HQ behavior                                                                                                                                                                                                                                                       | Explicitly absent                                                      |
+| --- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| E1  | Engine               | Hovering the card lifts it exactly 4 px and strengthens its shadow. Leaving restores it.                                                                                                                                                                                       | Persistent or looping motion.                                          |
+| E2  | Engine trend         | The full six-week trend region is one scrub surface. Pointer x selects `round(fraction × (n−1))`; the guide snaps to that point’s normalized x. A paper tooltip reads `{WEEK} · {LOAD}`.                                                                                       | Point-by-point buttons or click persistence.                           |
+| E3  | Engine remainder     | Gauge, current dot, signal badge, number, sport mix, and method remain read-only.                                                                                                                                                                                              | Point hit buttons, tap pin, focus inspection, card click.              |
+| C1  | Commitment cubes     | All four cubes are static. Badminton shows the all-record with the fixed label `ALL`.                                                                                                                                                                                          | Scope toggle, `⇄`, count inspection, session tooltip, card click.      |
+| P1  | Weekly Plan          | Existing sport chips are draggable. Empty targets accept; occupied targets swap. Drag state is local until persistence exists.                                                                                                                                                 | Persistence or destructive replacement.                                |
+| P2  | Weekly Plan          | Projection refreshes after every move from the same live per-chip loads and Engine band. The sum is preserved by swaps; copy/color reflects below, inside, upper, or over-band state. If no live planned-load evidence exists, projection is unavailable rather than invented. | Prototype fixture loads or invented estimates.                         |
+| P3  | Weekly Plan          | Keyboard users can pick up a focused occupied chip with Space/Enter, move focus among day targets, drop with Space/Enter, and cancel with Escape without changing visual rest state.                                                                                           | `COACH DRAFT` tap accept/edit; persistence; fabricated load estimates. |
+| H1  | Training Activity    | Web L retains a four-month spread plus stats. Header arrows page the available four-month window one month at a time and visibly disable at each end.                                                                                                                          | Touch-swipe paging or replacement with the iOS single-month variant.   |
+| H2  | Training Activity    | Hovering a dated non-empty cell adds a 2 px ink outline and shows `{DATE} · {SPORT} +{LOAD}` above the cell, clamped inside the card. Leave clears it.                                                                                                                         | Cell click, tap pin, deep-link.                                        |
+| K1  | Calories             | Hovering the existing meter shows `{elapsed}% OF {month} GONE · YOU’RE AT {progress}%` in a compact ink tooltip. Leave clears it.                                                                                                                                              | Card click, tap pin, detailed metric panel.                            |
+| Q1  | Main and side quests | Entirely static and driven by logged data.                                                                                                                                                                                                                                     | Progress-bar inspection or logging affordance.                         |
+| V1  | VO₂ max available    | The trend is a continuous nearest-month scrub with snapped guide and `{MONTH} · {VALUE}` tooltip.                                                                                                                                                                              | Point buttons, card click, or tap pin.                                 |
+| V2  | VO₂ max unavailable  | Existing opt-in/empty state remains entirely inert.                                                                                                                                                                                                                            | Badge/card click or fabricated trend.                                  |
+| R1  | Recent Sessions      | Rows remain static receipts on web. `All activity` is the only control.                                                                                                                                                                                                        | Row inspection, navigation, swipe, edit, delete.                       |
+| B1  | Build Phase          | Hovering a milestone row adds the quiet terracotta wash and shows its real projection assumptions/last-test evidence in a compact right-aligned tooltip. Leave clears it.                                                                                                      | Row click, tap pin, synthetic milestone math.                          |
+| S1  | Coach’s Read         | Entirely static.                                                                                                                                                                                                                                                               | Evidence inspection or thread surface on Home.                         |
 
 ## Validation gates
 
-| Gate | Pass condition |
-|---|---|
-| Resting fidelity | The stabilized pre-change frame and new no-hover frame have identical widget/card bounding boxes at 390, 720, 1024, and 1440 px. Any intentional text-only correction is documented. |
-| Pointer behavior | Engine and VO₂ select first, middle, and last samples correctly; leaving clears the guide. Heatmap, Calories, and Build hover only at their defined targets. |
-| Touch behavior | Synthetic touch pointer events never reveal passive tooltips; plan controls and month arrows remain genuine controls. |
-| Plan movement | Occupied→empty moves; occupied→occupied swaps; drag cancellation restores state; total evidenced load is conserved. |
-| Paging | Heatmap arrows shift the four-month window exactly one month and disable at both ends. |
-| Accessibility | Static widgets add no false buttons. Plan reorder and paging are keyboard operable with visible focus and live status text. Tooltip content is supplementary, not required to understand the resting widget. |
-| Route isolation | `/` retains the production Home and no Warm Instrument shell; `/home-v2` contains the isolated V2 shell. |
+| Gate              | Pass condition                                                                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resting fidelity  | The stabilized pre-change frame and new no-hover frame have identical widget/card bounding boxes at 390, 720, 1024, and 1440 px. Any intentional text-only correction is documented.                                |
+| Pointer behavior  | Engine and VO₂ select first, middle, and last samples correctly; leaving clears the guide. Heatmap, Calories, and Build hover only at their defined targets.                                                        |
+| Touch behavior    | Synthetic touch pointer events never reveal passive tooltips; plan controls and month arrows remain genuine controls.                                                                                               |
+| Plan movement     | Occupied→empty moves; occupied→occupied swaps; drag cancellation restores state; total evidenced load is conserved.                                                                                                 |
+| Paging            | Heatmap arrows shift the four-month window exactly one month and disable at both ends.                                                                                                                              |
+| Accessibility     | Static widgets add no false buttons. Plan reorder and paging are keyboard operable with visible focus and live status text. Tooltip content is supplementary, not required to understand the resting widget.        |
+| Route isolation   | `/` retains the production Home and no Warm Instrument shell; `/home-v2` contains the isolated V2 shell.                                                                                                            |
 | Data truthfulness | `/home-v2` renders from generated production feeds without invented metrics. Load equals `Σ(zone seconds ÷ 60 × zone weight 1–5)`; missing HR zones, projections, and VO₂ remain unavailable rather than estimated. |
-| Build quality | Zero Warm Instrument TypeScript diagnostics, successful production build, no horizontal overflow, and no console errors on either route. |
+| Build quality     | Zero Warm Instrument TypeScript diagnostics, successful production build, no horizontal overflow, and no console errors on either route.                                                                            |

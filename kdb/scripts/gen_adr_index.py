@@ -3,6 +3,9 @@
 The index lives between the ADR-INDEX markers so it can't drift by hand."""
 import pathlib, re, sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import adr_readability
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEC = ROOT / "kdb" / "decisions"
 README = DEC / "README.md"
@@ -12,24 +15,44 @@ ADR_RE = re.compile(r"^(\d{4})-[a-z0-9-]+\.md$")
 
 def parse(fp):
     num = fp.name[:4]
+    text = fp.read_text()
     title, area = "", "?"
-    for line in fp.read_text().splitlines():
+    for line in text.splitlines():
         if not title and line.startswith("# "):
             title = line[2:].strip()
             title = re.sub(r"^\d{4}\s*[—-]\s*", "", title)  # drop "NNNN — "
         m = re.match(r"-\s*\*\*Area:\*\*\s*(.+)", line)
         if m:
             area = m.group(1).strip()
-    return num, title, area
+    # An ADR that no longer binds anyone still has to exist — it is cited by number from
+    # other ADRs, and the README's own rule is supersede, never delete. So it moves out of
+    # the table agents skim on boot instead, which is the cost we actually wanted to cut.
+    kind, target = adr_readability.status(text)
+    return num, title, area, kind, target
 
 def build_table():
-    rows = []
+    live, closed = [], []
     for fp in sorted(DEC.glob("[0-9][0-9][0-9][0-9]-*.md")):
         if fp.name == "0000-template.md" or not ADR_RE.match(fp.name):
             continue
-        num, title, area = parse(fp)
-        rows.append(f"| {num} | {title} | {area} |")
-    body = "| # | Title | Area |\n|---|---|---|\n" + "\n".join(rows) if rows else "_(no ADRs yet)_"
+        num, title, area, kind, target = parse(fp)
+        if kind == "live":
+            live.append(f"| {num} | {title} | {area} |")
+        else:
+            note = f"→ {target}" if target else "Historical"
+            closed.append(f"| {num} | {title} | {note} |")
+
+    if not live:
+        body = "_(no ADRs yet)_"
+    else:
+        body = "| # | Title | Area |\n|---|---|---|\n" + "\n".join(live)
+
+    if closed:
+        body += (
+            f"\n\n<details>\n<summary>Superseded / historical ({len(closed)}) — "
+            "kept for the citations, not for the boot read</summary>\n\n"
+            "| # | Title | Replaced by |\n|---|---|---|\n" + "\n".join(closed)
+            + "\n\n</details>")
     return body
 
 def main():

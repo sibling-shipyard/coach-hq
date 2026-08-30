@@ -31,14 +31,6 @@ const PLAN_INTENTS: readonly PlanIntent[] = ["train", "recovery", "open", "rest"
 const COMMENT_TOPICS = ["weekly_load", "training_intensity", "weekly_plan"] as const;
 type CommentTopic = (typeof COMMENT_TOPICS)[number];
 
-function localDateKey(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
 function disciplineFor(category: TrainingCategory): SessionDiscipline {
   if (category.startsWith("badminton")) return "badminton";
   if (category === "calisthenics") return "calisthenics";
@@ -67,7 +59,8 @@ function mapDiscipline(discipline: string): SessionDiscipline {
   if (value === "recovery" || value === "realign" || value === "mobility") return "recovery";
   if (value === "run" || value === "running") return "run";
   if (value === "strength") return "strength";
-  if (value === "weight_training" || value === "weights" || value === "weight training") return "weight_training";
+  if (value === "weight_training" || value === "weights" || value === "weight training")
+    return "weight_training";
   if (value === "hike" || value === "hiking") return "hike";
   if (value === "walk" || value === "walking") return "walk";
   if (value === "cricket") return "cricket";

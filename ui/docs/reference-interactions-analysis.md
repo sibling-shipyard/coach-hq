@@ -10,11 +10,11 @@ The deliberate interaction exceptions are: Weekly Plan chip dragging between day
 
 ## Confirmed core station behavior
 
-| Station | Supplied behavior |
-|---|---|
-| Engine hero | Hover continuously across the complete six-week trend region. A vertical hairline follows the pointer and a compact light tooltip shows the nearest week and load. Leave clears it. Box plot, badge, sport split, number, and card are read-only. |
-| Engine card | Whole card lifts 4 px with a stronger shadow on hover. The trend itself uses the same continuous scrub interaction; no click/tap. |
-| Sport commitment cubes | Entirely static in v1. Record scope remains fixed to ALL; no click, tap, tooltip, or annotation. Alarm state remains a visual state only. |
+| Station                | Supplied behavior                                                                                                                                                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Engine hero            | Hover continuously across the complete six-week trend region. A vertical hairline follows the pointer and a compact light tooltip shows the nearest week and load. Leave clears it. Box plot, badge, sport split, number, and card are read-only. |
+| Engine card            | Whole card lifts 4 px with a stronger shadow on hover. The trend itself uses the same continuous scrub interaction; no click/tap.                                                                                                                 |
+| Sport commitment cubes | Entirely static in v1. Record scope remains fixed to ALL; no click, tap, tooltip, or annotation. Alarm state remains a visual state only.                                                                                                         |
 
 ## Visual interaction anatomy
 
@@ -24,19 +24,19 @@ The current fixed-canvas click/tap/pin provider, per-mark semantic buttons, outs
 
 ## Complete station map
 
-| Widget/station | Web HQ behavior to implement | Explicitly not implemented on web |
-|---|---|---|
-| Engine | Card lifts 4 px on hover. Trend is one continuous scrub surface: pointer x snaps to nearest real week, showing a vertical guide and `WK · LOAD` tooltip. Leave clears it. | No point buttons, focus buttons, tap pin, outside dismissal, or graph click. Box plot, badge, mix, and number remain inert. |
-| Commitment cubes | Static glance only. | No tooltip, count button, tap, pin, or Badminton scope toggle. Scope is fixed to `ALL`. |
-| Weekly Plan | Native web drag on a sport chip; empty target accepts, occupied target swaps. Projection recomputes immediately from the reordered plan and changes copy/color when outside the band. | `COACH DRAFT` accept/edit is explicitly proposed only, not built. |
-| Recent Sessions | Static ledger rows on web. `All activity` remains the route link. | Swipe-left Edit is iOS-only. No web row annotation, navigation, or edit sheet. Delete never appears on Home. |
-| Training Activity | Hover a cell for `MONTH DAY · SPORT +LOAD`; hovered cell receives a 2 px ink outline. Header arrows page the available month window, clear any tooltip, and visibly disable at the ends. Cells never deep-link. | No click/tap pin. |
-| Calories | Hover the existing pace bar to show the on-pace sentence in a compact ink tooltip; leave clears it. | Card and bar do not click or pin. |
-| Main & Side Quests | Static and driven only by logged data. | No hover detail, tap, pin, or inline logging. |
-| VO₂ max | When live trend data exists, continuously scrub the 12-month graph to nearest month with guide and `MONTH · VALUE` tooltip. Existing unavailable state remains inert. | Badge/card do not click. |
-| Coach’s Read | Static. | No hover, tap, pin, or thread surface on Home. |
-| Build Phase | Hover each existing milestone row; row gets a quiet terracotta wash and a compact right-aligned tooltip containing its real projection assumptions/last-test evidence. Leave clears it. | No click/tap/pin. |
-| iOS-only demo stations | Long-press (~550 ms) enters jiggle/size swap. Recent row drag clamps to `0…−86px` and settles open past `−43px`, revealing a 72 px Edit action with a 14 px visual gap. | These are not web HQ interactions and therefore do not belong in the current React web dashboard. |
+| Widget/station         | Web HQ behavior to implement                                                                                                                                                                                    | Explicitly not implemented on web                                                                                           |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Engine                 | Card lifts 4 px on hover. Trend is one continuous scrub surface: pointer x snaps to nearest real week, showing a vertical guide and `WK · LOAD` tooltip. Leave clears it.                                       | No point buttons, focus buttons, tap pin, outside dismissal, or graph click. Box plot, badge, mix, and number remain inert. |
+| Commitment cubes       | Static glance only.                                                                                                                                                                                             | No tooltip, count button, tap, pin, or Badminton scope toggle. Scope is fixed to `ALL`.                                     |
+| Weekly Plan            | Native web drag on a sport chip; empty target accepts, occupied target swaps. Projection recomputes immediately from the reordered plan and changes copy/color when outside the band.                           | `COACH DRAFT` accept/edit is explicitly proposed only, not built.                                                           |
+| Recent Sessions        | Static ledger rows on web. `All activity` remains the route link.                                                                                                                                               | Swipe-left Edit is iOS-only. No web row annotation, navigation, or edit sheet. Delete never appears on Home.                |
+| Training Activity      | Hover a cell for `MONTH DAY · SPORT +LOAD`; hovered cell receives a 2 px ink outline. Header arrows page the available month window, clear any tooltip, and visibly disable at the ends. Cells never deep-link. | No click/tap pin.                                                                                                           |
+| Calories               | Hover the existing pace bar to show the on-pace sentence in a compact ink tooltip; leave clears it.                                                                                                             | Card and bar do not click or pin.                                                                                           |
+| Main & Side Quests     | Static and driven only by logged data.                                                                                                                                                                          | No hover detail, tap, pin, or inline logging.                                                                               |
+| VO₂ max                | When live trend data exists, continuously scrub the 12-month graph to nearest month with guide and `MONTH · VALUE` tooltip. Existing unavailable state remains inert.                                           | Badge/card do not click.                                                                                                    |
+| Coach’s Read           | Static.                                                                                                                                                                                                         | No hover, tap, pin, or thread surface on Home.                                                                              |
+| Build Phase            | Hover each existing milestone row; row gets a quiet terracotta wash and a compact right-aligned tooltip containing its real projection assumptions/last-test evidence. Leave clears it.                         | No click/tap/pin.                                                                                                           |
+| iOS-only demo stations | Long-press (~550 ms) enters jiggle/size swap. Recent row drag clamps to `0…−86px` and settles open past `−43px`, revealing a 72 px Edit action with a 14 px visual gap.                                         | These are not web HQ interactions and therefore do not belong in the current React web dashboard.                           |
 
 ## Exact prototype mechanics
 

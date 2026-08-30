@@ -3,12 +3,12 @@
 Single Vercel deployment: a Vite/React dashboard (`client/`) served alongside serverless
 functions (`api/`) that also power the iOS app. HQ-only — athlete repos don't carry this folder.
 
-| Path | Role |
-|---|---|
-| `client/` | The dashboard React app — pages, components, hooks. `client/src/data/` is generated, not hand-edited (see below). |
-| `api/` | Serverless functions — routing, Coach Phelps backend, auth. See [`api/README.md`](api/README.md), and [`api/coach-chat/README.md`](api/coach-chat/README.md) for the coach-chat internals specifically. |
+| Path       | Role                                                                                                                                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client/`  | The dashboard React app — pages, components, hooks. `client/src/data/` is generated, not hand-edited (see below).                                                                                         |
+| `api/`     | Serverless functions — routing, Coach Phelps backend, auth. See [`api/README.md`](api/README.md), and [`api/coach-chat/README.md`](api/coach-chat/README.md) for the coach-chat internals specifically.   |
 | `scripts/` | Build-time and operator scripts — `build-data.mjs` (pre-build data generation), `build-soul.mjs` (bundles `platform/SOUL.chat.md`), `eval-coach-chat.ts` (paid/live Gemini eval gate), migration scripts. |
-| `docs/` | UI-specific working docs (product-page TODOs, reference-interaction acceptance criteria) — not `docs/eng-docs/`, which is repo-wide. |
+| `docs/`    | UI-specific working docs (product-page TODOs, reference-interaction acceptance criteria) — not `docs/eng-docs/`, which is repo-wide.                                                                      |
 
 ## Data flow into `client/src/data/`
 

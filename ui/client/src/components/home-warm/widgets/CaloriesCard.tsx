@@ -10,15 +10,11 @@ export function CaloriesCard({ calories }: { calories: CaloriesSnapshot }) {
     : clamp(calories.pacePercent, 0, 100);
   const elapsedDays = Math.max(1, calories.elapsedDays ?? calories.dailyActual.length ?? 1);
   const activeDay = hoverDay === null ? null : clamp(hoverDay, 1, elapsedDays);
-  const actualAtDay = activeDay === null
-    ? null
-    : calories.dailyActual[activeDay - 1] ?? calories.current;
-  const expectedAtDay = activeDay === null || !hasTarget
-    ? null
-    : calories.target! * (activeDay / calories.daysInMonth);
-  const hoverPercent = activeDay === null
-    ? 0
-    : (activeDay / calories.daysInMonth) * 100;
+  const actualAtDay =
+    activeDay === null ? null : (calories.dailyActual[activeDay - 1] ?? calories.current);
+  const expectedAtDay =
+    activeDay === null || !hasTarget ? null : calories.target! * (activeDay / calories.daysInMonth);
+  const hoverPercent = activeDay === null ? 0 : (activeDay / calories.daysInMonth) * 100;
 
   function handlePaceHover(event: ReactMouseEvent<HTMLDivElement>) {
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
@@ -45,7 +41,9 @@ export function CaloriesCard({ calories }: { calories: CaloriesSnapshot }) {
         onMouseLeave={() => setHoverDay(null)}
         onMouseMove={handlePaceHover}
       >
-        <div className="wi-progress-track"><span style={{ width: `${progress}%` }} /></div>
+        <div className="wi-progress-track">
+          <span style={{ width: `${progress}%` }} />
+        </div>
         <i style={{ left: `${clamp(calories.pacePercent, 0, 100)}%` }} />
         {activeDay !== null && actualAtDay !== null ? (
           <>
@@ -55,15 +53,23 @@ export function CaloriesCard({ calories }: { calories: CaloriesSnapshot }) {
               data-wi-calories-day={activeDay}
               style={{ left: `${hoverPercent}%` }}
             >
-              <span>{activeDay} {calories.monthLabel}</span>
+              <span>
+                {activeDay} {calories.monthLabel}
+              </span>
               <b>{formatCompact(actualAtDay)} ACTUAL</b>
-              <small>{expectedAtDay === null ? "OBSERVED" : `${formatCompact(expectedAtDay)} EXPECTED`}</small>
+              <small>
+                {expectedAtDay === null ? "OBSERVED" : `${formatCompact(expectedAtDay)} EXPECTED`}
+              </small>
             </div>
           </>
         ) : null}
       </div>
       <div className="wi-calories-card__meta">
-        <b>{hasTarget && calories.dailyNeeded !== null ? `${Math.round(calories.dailyNeeded)}/DAY NEEDED` : "MONTH TO DATE"}</b>
+        <b>
+          {hasTarget && calories.dailyNeeded !== null
+            ? `${Math.round(calories.dailyNeeded)}/DAY NEEDED`
+            : "MONTH TO DATE"}
+        </b>
       </div>
     </section>
   );
