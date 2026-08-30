@@ -19,6 +19,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import type { FileEntry } from "../../_lib/githubGitData.js";
@@ -281,8 +282,6 @@ interface TemplateAdjustment {
   coaching_note?: string;
   progression_notes?: string;
 }
-
-const GEMINI_MODEL = "gemini-flash-latest";
 
 // Injectable so tests can supply a fake instead of hitting the real network - matches this
 // codebase's existing pattern of the network call living in its own small function

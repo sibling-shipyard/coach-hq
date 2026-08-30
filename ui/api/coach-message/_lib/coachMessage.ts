@@ -1,4 +1,5 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
+import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
@@ -8,7 +9,6 @@ export const MAX_ACTIVITY_IDS = 20;
 const MAX_ACTIVITY_ID_LENGTH = 80;
 const MAX_MESSAGE_LENGTH = 360;
 const MAX_SENTENCE_LENGTH = 180;
-const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
 
 const HEALTHKIT_ACTIVITY_ID =
