@@ -40,7 +40,7 @@ flowchart LR
    returning production rows. The questions they answer live in `ops-observability.md`, which owns
    that list.
 6. **Alerts.** All three in the table below are built. The first two run on every project; the Rage
-   Report rule is `coach-hq-ios` only, because that is where reports originate.
+   Report rule covers `coach-hq-web` and `coach-hq-ios`, the two projects reports originate in.
 7. **Alert routing.** Team email plus the Sentry mobile app, five-minute notification interval. A
    shorter window can still be empty with four athletes. `coach-hq-web` and `coach-hq-ios` also keep
    Sentry's default high-priority-issue rule — a heuristic on top of, not a substitute for, the
@@ -56,13 +56,17 @@ Every rule filters `environment:production`, so none of them fires on Preview or
 |---|---|---|
 | New or regressed production error | first seen, or resolved → unresolved | all three projects |
 | Repeated core failure | issue seen more than 3 times in 15 minutes | all three projects |
-| Athlete Rage Report | every event, filtered to tag `operation` = `rage_report` | `coach-hq-ios` |
+| Athlete Rage Report | every event, filtered to tag `operation` = `rage_report` | `coach-hq-web`, `coach-hq-ios` |
 
 **The Rage Report rule fires on every event, not on a new issue, and carries no `event.type`
-filter.** Both halves matter. `RageReportSubmission.swift` submits through `capture(message:)`, so
-reports arrive as `event.type:default` at `level:info` — an `event.type:error` filter matches
-nothing and the rule looks built while never firing. And reports now group stably by fingerprint
-(#699), so a first-seen condition would fire once and stay silent forever after.
+filter.** Both halves matter. `RageReportSubmission.swift` and web's `submitRageReport()`
+(`ui/client/src/lib/observability.ts`) both submit through capture-message, so reports arrive as
+`event.type:default` at `level:info` — an `event.type:error` filter matches nothing and the rule
+looks built while never firing. And reports group stably by fingerprint (#699), so a first-seen
+condition would fire once and stay silent forever after.
+
+Both surfaces set the same `rage_report` fingerprint, so web and iOS reports land in one issue. The
+`surface` tag (`web` / absent on iOS) is what tells them apart inside it.
 
 ## Query from a terminal
 
@@ -151,8 +155,9 @@ release before calling a fix verified; green CI proves only that the code merged
    client and API failure share one trace id. **No alert fires here** — every rule filters
    `environment:production`, and Preview is not it. Do not read the silence as a broken alert.
 3. Launch iOS with `--send-sentry-test-event`, then submit one Rage Report with one selected timeline
-   event. Confirm release tags, attachment, and Cancel-sends-nothing behavior. The alert follows the
-   same production-only rule as above.
+   event. Confirm release tags, attachment, and Cancel-sends-nothing behavior. On web, submit one
+   report from Coach Chat and confirm it carries `surface:web` and no `console` breadcrumb. The
+   alert follows the same production-only rule as above.
    To prove delivery itself, open a rule in Sentry and use **Send Test Notification** — that is the
    only check that exercises the mailbox rather than the condition.
 4. Open one production web exception and one iOS test event. Confirm each has `release`,
@@ -183,9 +188,12 @@ Five constraints to check before editing Sentry setup.
 
 ## Coverage boundary
 
-**Counted:** homepage, chat, Gemini, HealthKit sync, Rage Report and React render-crash paths. That
-means the browser's own pageload and navigation spans, one manual `http.server` span on each wrapped
-API route, and the Gemini spans we open by hand.
+**Counted:** homepage, chat, Gemini, HealthKit sync, Rage Reports from web and iOS, and React
+render-crash paths. That means the browser's own pageload and navigation spans, one manual
+`http.server` span on each wrapped API route, and the Gemini spans we open by hand. A web report
+carries the SDK's own click, navigation and fetch breadcrumbs as its timeline; `beforeBreadcrumb`
+drops the `console` ones, because those would carry arbitrary logged text on a path ADR 0032
+scoped to failed Gemini calls.
 
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
 

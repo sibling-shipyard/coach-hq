@@ -10,6 +10,7 @@
  * component makes internally, so we get its event shape — component stack linked as the error's
  * cause, so Sentry groups and renders it the same — and keep this UI untouched.
  */
+import { RageReportDialog } from "@/components/RageReportDialog";
 import { cn } from "@/lib/utils";
 import * as Sentry from "@sentry/react";
 import { AlertTriangle, RotateCcw } from "lucide-react";
@@ -57,17 +58,22 @@ class ErrorBoundary extends Component<Props, State> {
               </pre>
             </div>
 
-            <button
-              onClick={() => window.location.reload()}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg",
-                "bg-primary text-primary-foreground",
-                "hover:opacity-90 cursor-pointer",
-              )}
-            >
-              <RotateCcw size={16} />
-              Reload Page
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => window.location.reload()}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg",
+                  "bg-primary text-primary-foreground",
+                  "hover:opacity-90 cursor-pointer",
+                )}
+              >
+                <RotateCcw size={16} />
+                Reload Page
+              </button>
+              {/* The crash is already captured by `componentDidCatch`; this is for what the
+                  athlete was trying to do, which no stack trace holds. */}
+              <RageReportDialog />
+            </div>
           </div>
         </div>
       );

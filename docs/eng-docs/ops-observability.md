@@ -22,8 +22,9 @@ flowchart LR
   S --> L["Alerts"]
 ```
 
-Nothing leaves the phone until the athlete taps Submit on a Rage Report. Automatic screenshots and
-session replay stay off.
+Nothing leaves the phone until the athlete taps Submit on a Rage Report. The web has the same
+control, and needs no on-device timeline: the browser SDK already keeps click, navigation and fetch
+breadcrumbs and staples them onto the report. Automatic screenshots and session replay stay off.
 
 ## What joins one interaction
 
@@ -56,7 +57,7 @@ a real production row.
 | 4 | Are we crashing? | crash-free sessions, web and iOS only |
 | 5 | What do tokens cost? | `gen_ai.usage.total_tokens` by model |
 | 6 | Is phone data arriving? | `transaction:healthkit.sync`, outcome and item count |
-| 7 | Is an athlete angry? | `operation:rage_report`, newest first |
+| 7 | Is an athlete angry? | `operation:rage_report`, newest first; `surface` splits web from iOS |
 
 Only web and iOS belong in question 4. The serverless API counts a session per request, so its
 session rate is traffic disguised as health. Over 30 days that is 7091 API "sessions" against 71
@@ -73,9 +74,9 @@ Read these before drawing a conclusion from a green dashboard.
   [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) fixes the cause.
 - **Every production stack trace is unreadable**, web and iOS alike. Nothing uploads source maps or
   dSYMs yet.
-- **Rage Reports are not errors.** `RageReportSubmission.swift` uses `capture(message:)`, so they
-  arrive as `event.type:default`. A widget or alert written with `event.type:error` matches nothing,
-  and the "Production errors" widget cannot show them by design.
+- **Rage Reports are not errors.** Web's `submitRageReport()` and iOS's `RageReportSubmission.swift`
+  both capture a message, so they arrive as `event.type:default`. A widget or alert written with
+  `event.type:error` matches nothing, and the "Production errors" widget cannot show them by design.
 - **Chat text reaches Sentry only when a Gemini call fails**, where nothing else records it — a
   successful turn lives in `chat_history.json`. This is the load-bearing part of ADR 0032.
 - **This is error monitoring, not product analytics.** It says what broke, never what athletes do.

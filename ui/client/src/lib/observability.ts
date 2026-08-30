@@ -4,7 +4,8 @@
  * Errors plus distributed tracing: `browserTracingIntegration` attaches `sentry-trace` and
  * `baggage` to outgoing requests that match `tracePropagationTargets`, so the API's Sentry events
  * land on the same trace as the browser's. Identity comes from `setAthleteUser`, called by
- * `AuthContext`; React render crashes come from `ErrorBoundary`'s `componentDidCatch`.
+ * `AuthContext`; React render crashes come from `ErrorBoundary`'s `componentDidCatch`, and
+ * failures that never threw come from `submitRageReport`, called by `RageReportDialog`.
  * Env: VITE_SENTRY_DSN (unset → no-op), optional VITE_SENTRY_RELEASE / VITE_SENTRY_ENVIRONMENT /
  * VITE_SENTRY_TRACES_SAMPLE_RATE. Release and environment are wired from Vercel at build time
  * by `ui/vite.config.ts`; a browser bundle has no other way to know which deploy it is.
@@ -49,6 +50,20 @@ export const clientTracesSampleRate = ((raw: string | undefined): number => {
  */
 const apiTracePropagationTargets = [/^\/api\//];
 
+/**
+ * Drop `console` breadcrumbs; keep every other kind.
+ *
+ * A breadcrumb trail is attached to whatever we capture next, and a Rage Report captures on
+ * demand — so anything the app logs would ride along on a path ADR 0032 scoped to failed Gemini
+ * calls only. The scrubber matches credentials, not chat text, so it is no help here.
+ *
+ * `ui.click`, `navigation`, `fetch` and `xhr` survive, and they are the trail worth having: they
+ * are what the athlete did, not what we said about it.
+ */
+function dropConsoleBreadcrumbs(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrumb | null {
+  return breadcrumb.category === "console" ? null : breadcrumb;
+}
+
 export function initClientMonitoring(): void {
   if (!import.meta.env.VITE_SENTRY_DSN) return;
   Sentry.init({
@@ -61,6 +76,7 @@ export function initClientMonitoring(): void {
     initialScope: { tags: { operation: "web" } },
     // ADR 0032: no automatic PII. Everything Sentry sees is added on purpose.
     sendDefaultPii: false,
+    beforeBreadcrumb: dropConsoleBreadcrumbs,
     // `beforeSend` fires for error events only. Transactions and spans are separate payloads with
     // their own hooks, so all three are wired or ADR 0032's scrubbing rule holds for a third of
     // what we send. A browser span carries the request URL in `url.full`, which is exactly where
@@ -89,4 +105,34 @@ export function setAthleteUser(repoFullName: string | null | undefined): void {
   const athleteId = repoFullName?.split("/")[0] || undefined;
   Sentry.setUser(athleteId ? { id: athleteId } : null);
   Sentry.setTag("athlete_id", athleteId);
+}
+
+/**
+ * The scope one Rage Report is sent under: the athlete's own report of a failure that never threw.
+ *
+ * `fingerprint` is the same string `RageReportSubmission.swift` sets, so web and iOS reports land
+ * in one Sentry issue instead of two; `surface` is what tells them apart inside it. `operation`
+ * overrides the `web` set on `initialScope`, which is what the Rage Report alert rule matches on.
+ */
+const RAGE_REPORT_SCOPE = {
+  fingerprint: ["rage_report"],
+  tags: { operation: "rage_report", surface: "web" },
+};
+
+/**
+ * Send one Rage Report, or nothing at all.
+ *
+ * `captureMessage` sends `event.type:default` at `level:info` — not an error, which is why the
+ * alert rule must carry no `event.type` filter (`docs/eng-docs/sentry-runbook.md` § Traps). The
+ * SDK staples the breadcrumb trail on, so the athlete needs to type only the complaint.
+ *
+ * Returns false and sends nothing on an empty box, which is the same outcome as Cancel: the
+ * dialog never calls this on Cancel, and an empty submit is a cancel the athlete typed spaces
+ * into.
+ */
+export function submitRageReport(message: string): boolean {
+  const complaint = message.trim();
+  if (!complaint) return false;
+  Sentry.captureMessage(complaint, RAGE_REPORT_SCOPE);
+  return true;
 }
