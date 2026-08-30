@@ -22,10 +22,10 @@ enum AppTab: Hashable, CaseIterable {
 
     var diagnosticViewName: String {
         switch self {
-        case .home: "HomeView"
-        case .chat: "CoachChatView"
-        case .workouts: "WorkoutListView"
-        case .you: "SettingsView"
+        case .home: "home"
+        case .chat: "coach chat"
+        case .workouts: "workouts"
+        case .you: "settings"
         }
     }
 

@@ -12,11 +12,11 @@ enum AppState: Equatable {
 
     var diagnosticViewName: String {
         switch self {
-        case .bootstrapping: "BootstrapView"
-        case .unauthenticated: "LoginView"
-        case .needsSetup: "SetupView"
-        case .multipleReposGranted: "MultipleReposView"
-        case .active: "MainTabView"
+        case .bootstrapping: "launch"
+        case .unauthenticated: "sign in"
+        case .needsSetup: "setup"
+        case .multipleReposGranted: "multiple repos"
+        case .active: "home"
         }
     }
 }
