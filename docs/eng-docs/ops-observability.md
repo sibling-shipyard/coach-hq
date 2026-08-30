@@ -23,8 +23,9 @@ flowchart LR
 ```
 
 Nothing leaves the phone until the athlete taps Submit on a Rage Report. The web has the same
-control, and needs no on-device timeline: the browser SDK already keeps click, navigation and fetch
-breadcrumbs and staples them onto the report. Automatic screenshots and session replay stay off.
+control in the header menu, and needs no on-device timeline: the browser SDK already keeps click,
+navigation and fetch breadcrumbs and copies them onto the report. Automatic screenshots and
+session replay stay off.
 
 ## What joins one interaction
 

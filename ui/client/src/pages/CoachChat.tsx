@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { RageReportDialog } from "@/components/RageReportDialog";
 import { RepoDataGate, AccessRevokedCard } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import { getActivityZoneLoad, type SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
@@ -778,12 +777,6 @@ function CoachChatContent({ data }: { data: RepoData }) {
             </div>
           </div>
         )}
-
-        {/* A bad answer is the failure Sentry cannot see: nothing threw. The athlete is standing
-            here when they notice it, so the control is here too. */}
-        <div className="flex justify-end">
-          <RageReportDialog />
-        </div>
       </div>
     </div>
   );

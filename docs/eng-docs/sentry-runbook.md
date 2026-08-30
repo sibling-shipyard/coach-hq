@@ -156,8 +156,8 @@ release before calling a fix verified; green CI proves only that the code merged
    `environment:production`, and Preview is not it. Do not read the silence as a broken alert.
 3. Launch iOS with `--send-sentry-test-event`, then submit one Rage Report with one selected timeline
    event. Confirm release tags, attachment, and Cancel-sends-nothing behavior. On web, submit one
-   report from Coach Chat and confirm it carries `surface:web` and no `console` breadcrumb. The
-   alert follows the same production-only rule as above.
+   report from the header menu and confirm it carries `surface:web`, `extra.trail`, and no
+   `console` breadcrumb. The alert follows the same production-only rule as above.
    To prove delivery itself, open a rule in Sentry and use **Send Test Notification** — that is the
    only check that exercises the mailbox rather than the condition.
 4. Open one production web exception and one iOS test event. Confirm each has `release`,
@@ -191,9 +191,9 @@ Five constraints to check before editing Sentry setup.
 **Counted:** homepage, chat, Gemini, HealthKit sync, Rage Reports from web and iOS, and React
 render-crash paths. That means the browser's own pageload and navigation spans, one manual
 `http.server` span on each wrapped API route, and the Gemini spans we open by hand. A web report
-carries the SDK's own click, navigation and fetch breadcrumbs as its timeline; `beforeBreadcrumb`
-drops the `console` ones, because those would carry arbitrary logged text on a path ADR 0032
-scoped to failed Gemini calls.
+carries the SDK's own click, navigation and fetch breadcrumbs as its timeline, copied onto
+`extra.trail` when the dialog opens; `beforeBreadcrumb` drops the `console` ones, because those
+would carry arbitrary logged text on a path ADR 0032 scoped to failed Gemini calls.
 
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
 

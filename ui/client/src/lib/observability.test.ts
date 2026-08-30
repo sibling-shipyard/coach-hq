@@ -8,13 +8,16 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { init, browserTracingIntegration, setUser, setTag, captureMessage } = vi.hoisted(() => ({
-  init: vi.fn(),
-  browserTracingIntegration: vi.fn(() => ({ name: "BrowserTracing" })),
-  setUser: vi.fn(),
-  setTag: vi.fn(),
-  captureMessage: vi.fn((): string => "event-id"),
-}));
+const { init, browserTracingIntegration, setUser, setTag, captureMessage, getIsolationScope, getCurrentScope } =
+  vi.hoisted(() => ({
+    init: vi.fn(),
+    browserTracingIntegration: vi.fn(() => ({ name: "BrowserTracing" })),
+    setUser: vi.fn(),
+    setTag: vi.fn(),
+    captureMessage: vi.fn((): string => "event-id"),
+    getIsolationScope: vi.fn(() => ({ getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }) })),
+    getCurrentScope: vi.fn(() => ({ getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }) })),
+  }));
 
 vi.mock("@sentry/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@sentry/react")>()),
@@ -23,6 +26,8 @@ vi.mock("@sentry/react", async (importOriginal) => ({
   setUser,
   setTag,
   captureMessage,
+  getIsolationScope,
+  getCurrentScope,
 }));
 
 /** Shaped like the real thing: an `AIza` key of the length the scrubber's pattern matches. */
@@ -167,7 +172,11 @@ describe("setAthleteUser", () => {
  * things a cancel leaves behind — an empty box, whitespace — send nothing.
  */
 describe("submitRageReport", () => {
-  beforeEach(() => captureMessage.mockClear());
+  beforeEach(() => {
+    captureMessage.mockClear();
+    getIsolationScope.mockReturnValue({ getScopeData: () => ({ breadcrumbs: [] }) });
+    getCurrentScope.mockReturnValue({ getScopeData: () => ({ breadcrumbs: [] }) });
+  });
 
   it("sends one event grouped on the same fingerprint iOS uses, tagged as the web surface", async () => {
     const { submitRageReport } = await import("./observability");
@@ -177,7 +186,42 @@ describe("submitRageReport", () => {
     expect(captureMessage).toHaveBeenCalledWith("the coach ignored my last message", {
       fingerprint: ["rage_report"],
       tags: { operation: "rage_report", surface: "web" },
+      extra: { trail: [] },
     });
+  });
+
+  it("copies the click trail onto extra so it is in the report, not only the SDK breadcrumb list", async () => {
+    getIsolationScope.mockReturnValue({
+      getScopeData: () => ({
+        breadcrumbs: [
+          { category: "console", message: "should not ride" },
+          {
+            category: "ui.click",
+            message: "Home",
+            timestamp: 1,
+            data: { url: "/api/coach-chat", extra: "drop-me" },
+          },
+        ],
+      }),
+    });
+    const { submitRageReport } = await import("./observability");
+
+    expect(submitRageReport("broken")).toBe(true);
+    expect(captureMessage).toHaveBeenCalledWith("broken", {
+      fingerprint: ["rage_report"],
+      tags: { operation: "rage_report", surface: "web" },
+      extra: {
+        trail: [{ category: "ui.click", message: "Home", timestamp: 1, data: { url: "/api/coach-chat" } }],
+      },
+    });
+  });
+
+  it("sends a passed-in trail instead of re-reading the scope, so the dialog list matches the event", async () => {
+    const { submitRageReport } = await import("./observability");
+    const trail = [{ category: "navigation", message: "/workouts", timestamp: 2 }];
+
+    expect(submitRageReport("broken", trail)).toBe(true);
+    expect(captureMessage.mock.calls[0][1]).toMatchObject({ extra: { trail } });
   });
 
   it("sends nothing when the athlete cancels, which leaves an empty box behind", async () => {

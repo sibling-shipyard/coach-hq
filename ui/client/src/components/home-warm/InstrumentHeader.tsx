@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Dumbbell, Home, LogOut, Menu, MessageSquare } from "lucide-react";
+import { Dumbbell, Home, LogOut, Menu, MessageSquare, MessageSquareWarning } from "lucide-react";
+import { RageReportDialog } from "@/components/RageReportDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRepoData } from "@/hooks/useRepoData";
 import { filterSportAnalyticsLinks } from "@/lib/plugins";
@@ -81,6 +82,7 @@ function HeaderNavMenu({
   syncLabel: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const menuHasActive = currentRoute
@@ -176,6 +178,18 @@ function HeaderNavMenu({
             <span>Monthly analytics</span>
           </Link>
           <div aria-hidden="true" className="wi-instrument-header__menu-divider" />
+          <button
+            onClick={() => {
+              closeMenu();
+              setReportOpen(true);
+            }}
+            role="menuitem"
+            type="button"
+          >
+            <MessageSquareWarning aria-hidden="true" size={18} strokeWidth={1.8} />
+            <span>Report a problem</span>
+          </button>
+          <div aria-hidden="true" className="wi-instrument-header__menu-divider" />
           <div
             aria-label={`Synced · ${syncLabel}`}
             className="wi-instrument-header__menu-sync"
@@ -195,6 +209,7 @@ function HeaderNavMenu({
           ) : null}
         </div>
       ) : null}
+      <RageReportDialog open={reportOpen} onOpenChange={setReportOpen} showTrigger={false} />
     </div>
   );
 }

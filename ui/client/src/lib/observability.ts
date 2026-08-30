@@ -119,20 +119,73 @@ const RAGE_REPORT_SCOPE = {
   tags: { operation: "rage_report", surface: "web" },
 };
 
+const TRAIL_DATA_KEYS = ["url", "method", "status_code", "statusCode", "from", "to"] as const;
+
+export type RageReportTrailItem = {
+  category?: string;
+  message?: string;
+  timestamp?: number;
+  data?: Record<string, unknown>;
+};
+
+function scopeBreadcrumbs(
+  getScope: (() => { getScopeData?: () => { breadcrumbs?: Sentry.Breadcrumb[] } }) | undefined,
+): Sentry.Breadcrumb[] {
+  if (typeof getScope !== "function") return [];
+  return getScope().getScopeData?.().breadcrumbs ?? [];
+}
+
+function compactTrailData(data: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!data) return undefined;
+  const out: Record<string, unknown> = {};
+  for (const key of TRAIL_DATA_KEYS) {
+    if (data[key] !== undefined) out[key] = data[key];
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/**
+ * The click / navigation / fetch trail at this moment. Console crumbs never appear — they are
+ * dropped at `beforeBreadcrumb`. Snapshot when the dialog opens so the list the athlete sees is
+ * the list that gets sent, not clicks inside the dialog.
+ */
+export function snapshotRageReportTrail(): RageReportTrailItem[] {
+  const seen = new Set<Sentry.Breadcrumb>();
+  const merged: Sentry.Breadcrumb[] = [];
+  for (const crumb of [
+    ...scopeBreadcrumbs(Sentry.getIsolationScope),
+    ...scopeBreadcrumbs(Sentry.getCurrentScope),
+  ]) {
+    if (seen.has(crumb) || crumb.category === "console") continue;
+    seen.add(crumb);
+    merged.push(crumb);
+  }
+  return merged.slice(-20).map((crumb) => ({
+    category: crumb.category,
+    message: crumb.message,
+    timestamp: crumb.timestamp,
+    data: compactTrailData(crumb.data as Record<string, unknown> | undefined),
+  }));
+}
+
 /**
  * Send one Rage Report, or nothing at all.
  *
  * `captureMessage` sends `event.type:default` at `level:info` — not an error, which is why the
  * alert rule must carry no `event.type` filter (`docs/eng-docs/sentry-runbook.md` § Traps). The
- * SDK staples the breadcrumb trail on, so the athlete needs to type only the complaint.
+ * SDK also staples its own breadcrumb list on; `extra.trail` is the same snapshot the dialog
+ * showed, so the event still has it if that list is collapsed.
  *
  * Returns false and sends nothing on an empty box, which is the same outcome as Cancel: the
  * dialog never calls this on Cancel, and an empty submit is a cancel the athlete typed spaces
  * into.
  */
-export function submitRageReport(message: string): boolean {
+export function submitRageReport(
+  message: string,
+  trail: RageReportTrailItem[] = snapshotRageReportTrail(),
+): boolean {
   const complaint = message.trim();
   if (!complaint) return false;
-  Sentry.captureMessage(complaint, RAGE_REPORT_SCOPE);
+  Sentry.captureMessage(complaint, { ...RAGE_REPORT_SCOPE, extra: { trail } });
   return true;
 }
