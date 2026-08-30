@@ -218,13 +218,16 @@ struct RageReportView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(viewModel.submissionState == .queued ? "Done" : "Cancel") {
+                    Button {
                         if viewModel.submissionState != .queued {
                             viewModel.cancelReport()
                         }
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(WarmInstrument.inkMuted)
                     }
-                    .foregroundColor(Theme.ink)
                     .buttonStyle(.plain)
                 }
             }
