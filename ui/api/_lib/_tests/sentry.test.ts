@@ -205,6 +205,17 @@ describe("initServerMonitoring tracing", () => {
     warn.mockRestore();
   });
 
+  it("falls back to 1 and warns when the sample rate is outside Sentry's range", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    process.env.SENTRY_TRACES_SAMPLE_RATE = "100";
+
+    expect((await initOptions()).tracesSampleRate).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      "[sentry] SENTRY_TRACES_SAMPLE_RATE=100 must be from 0 to 1 - using 1",
+    );
+    warn.mockRestore();
+  });
+
   it("propagates no trace headers outbound, so Gemini and GitHub never see ours", async () => {
     expect((await initOptions()).tracePropagationTargets).toEqual([]);
   });
@@ -236,15 +247,12 @@ describe("initServerMonitoring tracing", () => {
     }
   });
 
-  it("leaves incoming-request handling alone, so the http.server span survives", async () => {
+  it("disables the automatic incoming span and leaves the manual route span enabled", async () => {
     await initOptions();
 
-    // `spans: false` would switch off the server span too (`httpIntegration` in @sentry/node
-    // computes `enableServerSpans = spans && !disableIncomingRequestSpans`), so neither of these
-    // may be set.
     const httpOptions = httpIntegration.mock.calls[0][0] as Record<string, unknown>;
     expect(httpOptions).not.toHaveProperty("spans");
-    expect(httpOptions).not.toHaveProperty("disableIncomingRequestSpans");
+    expect(httpOptions.disableIncomingRequestSpans).toBe(true);
   });
 
   it("scrubs a credential out of a span, which beforeSend never sees", async () => {

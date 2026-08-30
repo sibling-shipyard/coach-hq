@@ -27,14 +27,14 @@ export const clientEnvironment = import.meta.env.VITE_SENTRY_ENVIRONMENT || impo
 
 /**
  * Sample every trace. Right for four athletes; the runbook says to set the var explicitly before
- * that stops being true. An unparseable value warns rather than falling back silently — Sentry
- * reads `NaN` as "tracing off" and says nothing.
+ * that stops being true. An invalid value warns rather than falling back silently — Sentry
+ * disables tracing for values outside 0...1 and says nothing.
  */
 export const clientTracesSampleRate = ((raw: string | undefined): number => {
   if (raw === undefined || raw === "") return 1;
   const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) {
-    console.warn(`[sentry] VITE_SENTRY_TRACES_SAMPLE_RATE=${raw} is not a number - using 1`);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    console.warn(`[sentry] VITE_SENTRY_TRACES_SAMPLE_RATE=${raw} must be from 0 to 1 - using 1`);
     return 1;
   }
   return parsed;
