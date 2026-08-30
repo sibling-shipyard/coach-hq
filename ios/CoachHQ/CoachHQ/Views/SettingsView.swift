@@ -25,6 +25,7 @@ struct SettingsView: View {
     @State private var showDiagHelp = false
     @State private var showSignOutConfirmation = false
     @State private var showHealthSettings = false
+    @State private var showRageReport = false
 
     var body: some View {
         NavigationStack {
@@ -58,6 +59,7 @@ struct SettingsView: View {
             .toolbar(.hidden, for: .navigationBar)
             .toast($toast)
             .sheet(isPresented: $showHealthSettings) { HealthSettingsView() }
+            .sheet(isPresented: $showRageReport) { RageReportView() }
             .onChange(of: syncManager.lastSyncResult) { _, result in
                 guard let result else { return }
                 // The Health Settings sheet reports its own import result — a second toast
@@ -446,6 +448,30 @@ struct SettingsView: View {
 
             WarmSettingsDivider()
             WarmSettingsInfoRow(label: "Developers", value: "Sibling Shipyard")
+            WarmSettingsDivider()
+            Button {
+                Haptics.tap()
+                showRageReport = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.bubble")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(WarmInstrument.accent)
+                        .frame(width: 22)
+
+                    Text("Report a Problem")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Theme.ink)
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(RowPressButtonStyle())
         }
     }
 
