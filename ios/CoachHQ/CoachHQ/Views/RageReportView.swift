@@ -101,73 +101,112 @@ struct RageReportView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("What went wrong?") {
-                    TextEditor(text: $viewModel.message)
-                        .frame(height: 150)
-                        .disabled(viewModel.submissionState == .queued)
-                }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    reportSection("WHAT WENT WRONG?") {
+                        TextEditor(text: $viewModel.message)
+                            .frame(minHeight: 120)
+                            .scrollContentBackground(.hidden)
+                            .font(.system(size: 14))
+                            .foregroundColor(WarmInstrument.ink)
+                            .disabled(viewModel.submissionState == .queued)
+                    }
 
-                Section("Diagnostic evidence") {
-                    if viewModel.availableEvents.isEmpty {
-                        Text("No recent diagnostic events are available.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        let total = viewModel.availableEvents.count
-                        let selected = viewModel.selectedEventCount
-                        Toggle(isOn: evidenceSummaryBinding) {
-                            Text(
-                                selected == total
-                                    ? "\(total) diagnostic event\(total == 1 ? "" : "s")"
-                                    : "\(selected) of \(total) diagnostic events"
-                            )
-                        }
-                        .disabled(viewModel.submissionState == .queued)
+                    reportSection("DIAGNOSTIC EVIDENCE") {
+                        if viewModel.availableEvents.isEmpty {
+                            Text("No recent diagnostic events available.")
+                                .font(.system(size: 14))
+                                .foregroundColor(WarmInstrument.inkFaint)
+                        } else {
+                            let total = viewModel.availableEvents.count
+                            let selected = viewModel.selectedEventCount
+                            HStack(spacing: 12) {
+                                Text(
+                                    selected == total
+                                        ? "\(total) diagnostic event\(total == 1 ? "" : "s")"
+                                        : "\(selected) of \(total) diagnostic events"
+                                )
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Theme.ink)
+                                Spacer(minLength: 8)
+                                Toggle("", isOn: evidenceSummaryBinding)
+                                    .labelsHidden()
+                                    .tint(WarmInstrument.accent)
+                                    .disabled(viewModel.submissionState == .queued)
+                            }
 
-                        DisclosureGroup("Show events") {
-                            ForEach(viewModel.availableEvents, id: \.id) { event in
-                                Toggle(
-                                    isOn: Binding(
-                                        get: { viewModel.isSelected(event) },
-                                        set: { viewModel.setSelected($0, for: event) }
-                                    )
-                                ) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(event.message)
-                                        Text(
-                                            event.timestamp,
-                                            format: .dateTime.day().month().hour().minute().second()
-                                        )
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                            sectionDivider
+
+                            DisclosureGroup {
+                                VStack(spacing: 0) {
+                                    ForEach(viewModel.availableEvents, id: \.id) { event in
+                                        HStack(spacing: 12) {
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(event.message)
+                                                    .font(.system(size: 13))
+                                                    .foregroundColor(WarmInstrument.inkMuted)
+                                                Text(
+                                                    event.timestamp,
+                                                    format: .dateTime.day().month().hour().minute().second()
+                                                )
+                                                .font(WarmInstrument.monoLabel(10))
+                                                .foregroundColor(WarmInstrument.inkFaint)
+                                            }
+                                            Spacer(minLength: 8)
+                                            Toggle(
+                                                "",
+                                                isOn: Binding(
+                                                    get: { viewModel.isSelected(event) },
+                                                    set: { viewModel.setSelected($0, for: event) }
+                                                )
+                                            )
+                                            .labelsHidden()
+                                            .tint(WarmInstrument.accent)
+                                            .disabled(viewModel.submissionState == .queued)
+                                        }
+                                        .padding(.vertical, 8)
                                     }
                                 }
-                                .disabled(viewModel.submissionState == .queued)
+                                .padding(.top, 4)
+                            } label: {
+                                Text("Show events")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(WarmInstrument.inkMuted)
                             }
+                            .tint(WarmInstrument.inkFaint)
+
+                            sectionDivider
                         }
+
+                        Text("Nothing is attached until you tap Submit.")
+                            .font(.system(size: 12))
+                            .foregroundColor(WarmInstrument.inkFaint)
                     }
 
-                    Text("Nothing is attached until you tap Submit.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                switch viewModel.submissionState {
-                case .queued:
-                    Section {
-                        Label("Report queued for sending.", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                    switch viewModel.submissionState {
+                    case .queued:
+                        reportSection("STATUS") {
+                            Label("Report queued for sending.", systemImage: "checkmark.circle.fill")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(WarmInstrument.sportColor(.foundation))
+                        }
+                    case .failed:
+                        reportSection("STATUS") {
+                            Label("Couldn't queue the report. Please try again.", systemImage: "exclamationmark.triangle.fill")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(WarmInstrument.accent)
+                        }
+                    case .idle, .cancelled:
+                        EmptyView()
                     }
-                case .failed:
-                    Section {
-                        Label("Couldn't queue the report. Please try again.", systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                    }
-                case .idle, .cancelled:
-                    EmptyView()
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 32)
             }
+            .background(WarmInstrument.desk.ignoresSafeArea())
             .navigationTitle("Report a Problem")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(viewModel.submissionState == .queued ? "Done" : "Cancel") {
@@ -176,13 +215,32 @@ struct RageReportView: View {
                         }
                         dismiss()
                     }
+                    .foregroundColor(Theme.ink)
                 }
-
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Submit") {
                         viewModel.submitReport()
                     }
+                    .foregroundColor(WarmInstrument.accent)
+                    .fontWeight(.semibold)
                     .disabled(!viewModel.canSubmit)
+                }
+            }
+        }
+    }
+
+    private var sectionDivider: some View {
+        Rectangle()
+            .fill(WarmInstrument.headerRule)
+            .frame(height: 1)
+    }
+
+    private func reportSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            MonoLabel(title, size: 11, tracking: 1.4)
+            WarmCard(padding: 16) {
+                VStack(alignment: .leading, spacing: 14) {
+                    content()
                 }
             }
         }
