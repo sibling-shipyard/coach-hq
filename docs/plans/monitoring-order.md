@@ -25,7 +25,6 @@ flowchart LR
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 3 | Point `Secrets.swift` at the `coach-hq-ios` DSN | Low | **In progress** — DSN is in `Secrets.swift` locally; no iOS event has reached Sentry yet | One real iOS event lands in it |
 
 Item 3 is why Phase 5 is not as done as `sentry-lld.md` claims: `DiagnosticsManager.swift:240`
 skips init when the DSN is still the placeholder, so until the DSN is in place the iOS app sends
@@ -37,7 +36,7 @@ nothing at all.
 |---|---|---|---|---|
 | 5 | [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) — unblock the Rage Report test-host crash | Medium, could be High — root cause unknown until sanitizer output names it | Not started | `ios-build.yml` green on that branch |
 | 6 | Ship the Rage Report | Low — the PR is already written, 43 files; only 5 blocks it | **Blocked** on item 5 | An athlete submits a note plus selected timeline events; Cancel sends nothing |
-| 7 | The three alert rules from `sentry-runbook.md` | Low | Not started | A new production error pages us within 15 minutes |
+| 7 | The three alert rules from `sentry-runbook.md` | Low — two rules now, the third needs the Rage Report | **Deferred**, athlete's call — watching the dashboard by hand until item 5 lands | A new production error pages us within 15 minutes |
 | 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Not started | Key absent from every URL; outbound spans can be turned back on |
 
 **5 is the iOS testing item.** `RageReportTests.testCancelSendsNothing` crashes the test host with
@@ -58,6 +57,7 @@ the Rage Report code. CI also logs Keychain `-34018` because the runner builds
 | 13 | Stop emitting two `http.server` spans per request | Low | Not started | One span per request, carrying `outcome` |
 | 17 | One shared route wrapper, then retrofit `coach-chat.ts` and `coach-message.ts` onto it | Low | Not started | Every wrapped route calls one helper; the ~15-line block exists once |
 | 18 | Close the remaining capture gaps: three typed lookup failures in `auth/[...action].ts` (`:313`, `:525`, `:593`), `widget-snapshots`' proactive-message fallback, and the `??`/`||` split between `ui/api/_lib/sentry.ts:26` and the browser path | Low | Not started | Every silent conversion either captures or says in the code why it does not |
+| 19 | Turn off Sentry's automatic file-I/O instrumentation on iOS | Low — one option in `DiagnosticsManager.configure()` | Not started | An iOS trace carries the app's own spans, not a pile of keyboard plist reads |
 
 `operation` is set by **iOS only** — `DiagnosticsManager.swift:319` and `:333`. Web and API never
 set it, so the runbook's error grouping is half-empty rather than dead: iOS events carry it, web and
@@ -101,6 +101,7 @@ item 11, which touches docs anyway.
 | 1 | The Sentry dashboard — "Coach HQ health", three widgets, each verified against live rows | 2026-08-29, dashboard `5873386` |
 | 14 | Capture non-Gemini server errors on the two wrapped routes | 2026-08-29, [#647](https://github.com/sibling-shipyard/coach-hq/pull/647), closing #639 |
 | 15 | Unblock iOS distribution — link `Sentry-Dynamic` instead of `Sentry` | 2026-08-29, `a965e23` |
+| 3 | `coach-hq-ios` is sending — one trace now runs iOS → API → Gemini | 2026-08-30, trace `76336904e9274a539d4931086f41c834` |
 | 16 | The web project's `environment` and `release` tags, wired from Vercel at build time | 2026-08-30, [#659](https://github.com/sibling-shipyard/coach-hq/pull/659), closing #641 |
 | 2 | Answered, no fix needed: the success path emits `outcome:ok` normally | 2026-08-30, measured on production |
 | 4 | Every API route under `withContinuedTrace`, capturing what its own catch swallows | 2026-08-30, [#660](https://github.com/sibling-shipyard/coach-hq/pull/660) + [#661](https://github.com/sibling-shipyard/coach-hq/pull/661), closing #646 |
@@ -115,6 +116,16 @@ measured on an API event. On the browser it never had — all 581 `coach-hq-web`
 release `development`. Sentry matches source maps to a release, so Phase 6 could not have worked
 until this landed. **Not yet proved in Sentry:** the preview deploy sits behind Vercel's auth wall,
 so the tags are verified in the built bundle but not on a real event.
+
+Item 3 closed on a real coach turn from the simulator. One trace carried the tap, the phone's
+`http.client` POST, the API's `http.server` span and the Gemini call, both API spans `outcome:ok`.
+That is the first end-to-end proof that the three projects share a trace rather than producing
+three unrelated event streams.
+
+Item 19 was found in that same trace: 15 of its 19 spans were iOS reading its own keyboard files —
+`Keyboard-en.plist`, `KBLayouts_iPhone.dat`, `SystemVersion.plist`. Sentry's file-I/O
+auto-instrumentation produces them. They bury the four spans that matter and spend span quota on
+nothing.
 
 ## Parked, by decision
 
