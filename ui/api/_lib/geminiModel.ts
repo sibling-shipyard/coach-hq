@@ -8,4 +8,4 @@
  * TODO: revert to gemini-flash-latest once flash stability is confirmed — temporarily
  * pinned to pro after flash 503/504 failures under real load (see #668).
  */
-export const GEMINI_PRO = "gemini-pro-latest";
+export const GEMINI_MODEL = "gemini-pro-latest";

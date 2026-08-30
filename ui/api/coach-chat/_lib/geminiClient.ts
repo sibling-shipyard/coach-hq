@@ -2,13 +2,13 @@
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { withGeminiSpan, type GeminiUsage } from "../../_lib/sentry.js";
 import { log } from "../../_lib/log.js";
-import { GEMINI_PRO } from "../../_lib/geminiModel.js";
+import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
 import type { ChatMessage } from "./chatThreads.js";
 import { buildDynamicText, buildHistoryContents, staticSystemText } from "./coachPromptText.js";
 import { generationConfigFor, type GeminiReply, type TurnMode } from "./coachReplySchema.js";
 
-export const GEMINI_MODEL = GEMINI_PRO;
+export { GEMINI_MODEL };
 
 export async function askGemini(
   apiKey: string,

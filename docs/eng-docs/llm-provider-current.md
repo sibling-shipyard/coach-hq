@@ -4,7 +4,7 @@
 
 ## Context
 
-`coach-chat.ts` calls Gemini directly via raw `fetch` (`gemini-pro-latest`, `GEMINI_PRO`). **Unblocked:**
+`coach-chat.ts` calls Gemini directly via raw `fetch` (`gemini-pro-latest`, `GEMINI_MODEL`). **Unblocked:**
 Cloud Billing is live on the project (confirmed 2026-08-06, AI Studio Billing page shows "Paid 1
 · $250 Billing Account Tier Cap", ₹2,500 prepaid credit), and the Rate Limit dashboard confirms
 Tier 1 is active — real testing is no longer rate-limited at this account's scale. See Options

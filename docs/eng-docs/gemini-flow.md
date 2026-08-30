@@ -11,7 +11,7 @@ the same way `coach-chat-flow.md` is the one reference for the request lifecycle
 
 ## Model and endpoint
 
-`gemini-pro-latest` (`GEMINI_PRO` in `ui/api/_lib/geminiModel.ts`), called via raw `fetch` to
+`gemini-pro-latest` (`GEMINI_MODEL` in `ui/api/_lib/geminiModel.ts`), called via raw `fetch` to
 `generateContent`, no SDK (`GEMINI_API_KEY` env var). One call per turn, no streaming (issue #270).
 Temporarily pinned off `gemini-flash-latest` after 503/504 under real prompt load (#668).
 Chat (`geminiClient.ts`), post-onboarding template adjust (`coachWorkoutFiles.ts`), and post-sync
