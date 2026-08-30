@@ -96,3 +96,6 @@ yet been seen firing on a real production error — the next one is the proof, a
   UIKit gesture. Separate from Rage Report fingerprinting, which shipped.
 - Web `resource.*` span pruning.
 - Athlete consent controls and opt-out ([#590](https://github.com/sibling-shipyard/coach-hq/issues/590)); session replay; log warehousing beyond 30 days.
+- Cyclops v2 (auto-triage via webhook).
+- Proactive Cyclops digest (weekly automated health summary).
+- Agent-to-agent incident coordination.
