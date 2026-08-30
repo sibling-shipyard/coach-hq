@@ -16,6 +16,10 @@ class WidgetSnapshotStore: ObservableObject {
 
     private var apiClient: GitHubAPIClient?
     private weak var authManager: GitHubAuthManager?
+    /// True while any refresh (spinner or background) is in flight. Distinct from
+    /// `isLoading`, which only drives the Home spinner — without this, two
+    /// `showSpinner: false` refreshes race and the cancelled one toasts.
+    private var isRefreshing = false
 
     private static let cacheKey = "widget_snapshots_cache"
     private static let cacheFetchedAtKey = "widget_snapshots_cache_fetched_at"
@@ -97,10 +101,14 @@ class WidgetSnapshotStore: ObservableObject {
     /// `showSpinner` is `false` for background refreshes where stale data is already on screen.
     func refresh(showSpinner: Bool = true) async {
         guard let apiClient else { return }
-        guard !isLoading else { return }
+        guard !isRefreshing else { return }
 
+        isRefreshing = true
         if showSpinner { isLoading = true }
-        defer { isLoading = false }
+        defer {
+            isRefreshing = false
+            isLoading = false
+        }
 
         do {
             let file = try await apiClient.fetchWidgetSnapshots()
@@ -129,14 +137,24 @@ class WidgetSnapshotStore: ObservableObject {
                     lastError = retryError.errorDescription ?? "Couldn't load Home"
                     return
                 } catch {
+                    if Self.isCancellation(error) { return }
                     lastError = "Couldn't load Home"
                     return
                 }
             }
             lastError = error.errorDescription ?? "Couldn't load Home"
         } catch {
+            // Duplicate Home fetches (cold launch / fg) cancel the loser; that is not a
+            // load failure — leave cache and skip the sticky "Couldn't load Home" toast.
+            if Self.isCancellation(error) { return }
             lastError = "Couldn't load Home"
         }
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        let ns = error as NSError
+        return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
     }
 
     /// Polls Home snapshots after a HealthKit commit until the user-repo sync workflow
