@@ -140,30 +140,30 @@ struct RageReportView: View {
                             DisclosureGroup {
                                 VStack(spacing: 0) {
                                     ForEach(viewModel.availableEvents, id: \.id) { event in
-                                        HStack(spacing: 12) {
-                                            VStack(alignment: .leading, spacing: 3) {
-                                                Text(event.message)
-                                                    .font(.system(size: 13))
-                                                    .foregroundColor(WarmInstrument.inkMuted)
-                                                Text(
-                                                    event.timestamp,
-                                                    format: .dateTime.day().month().hour().minute().second()
-                                                )
-                                                .font(WarmInstrument.monoLabel(10))
-                                                .foregroundColor(WarmInstrument.inkFaint)
+                                        Button {
+                                            viewModel.setSelected(!viewModel.isSelected(event), for: event)
+                                        } label: {
+                                            HStack(spacing: 12) {
+                                                Image(systemName: viewModel.isSelected(event) ? "checkmark.circle.fill" : "circle")
+                                                    .font(.system(size: 20))
+                                                    .foregroundColor(viewModel.isSelected(event) ? WarmInstrument.accent : WarmInstrument.inkFaint)
+                                                VStack(alignment: .leading, spacing: 3) {
+                                                    Text(event.message)
+                                                        .font(.system(size: 13))
+                                                        .foregroundColor(WarmInstrument.inkMuted)
+                                                    Text(
+                                                        event.timestamp,
+                                                        format: .dateTime.day().month().hour().minute().second()
+                                                    )
+                                                    .font(WarmInstrument.monoLabel(10))
+                                                    .foregroundColor(WarmInstrument.inkFaint)
+                                                }
+                                                Spacer(minLength: 0)
                                             }
-                                            Spacer(minLength: 8)
-                                            Toggle(
-                                                "",
-                                                isOn: Binding(
-                                                    get: { viewModel.isSelected(event) },
-                                                    set: { viewModel.setSelected($0, for: event) }
-                                                )
-                                            )
-                                            .labelsHidden()
-                                            .tint(WarmInstrument.accent)
-                                            .disabled(viewModel.submissionState == .queued)
+                                            .contentShape(Rectangle())
                                         }
+                                        .buttonStyle(.plain)
+                                        .disabled(viewModel.submissionState == .queued)
                                         .padding(.vertical, 8)
                                     }
                                 }
@@ -199,6 +199,15 @@ struct RageReportView: View {
                     case .idle, .cancelled:
                         EmptyView()
                     }
+
+                    if viewModel.submissionState != .queued {
+                        Button("Submit") {
+                            viewModel.submitReport()
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(!viewModel.canSubmit)
+                        .opacity(!viewModel.canSubmit ? 0.5 : 1)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
@@ -216,14 +225,7 @@ struct RageReportView: View {
                         dismiss()
                     }
                     .foregroundColor(Theme.ink)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Submit") {
-                        viewModel.submitReport()
-                    }
-                    .foregroundColor(WarmInstrument.accent)
-                    .fontWeight(.semibold)
-                    .disabled(!viewModel.canSubmit)
+                    .buttonStyle(.plain)
                 }
             }
         }
