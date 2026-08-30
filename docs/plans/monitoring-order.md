@@ -9,7 +9,7 @@ priority; rows at the same priority may run in parallel where noted.
 
 ## Recommended order
 
-After this correction lands: `1 → (2 + 3 in parallel) → 4 → 5 → 6 → 8`.
+Next: `(2 + 3 in parallel) → 4 → 5 → 6 → 8`.
 Item 7 needs the athlete's decision. Items 9–12 are not on the active path.
 
 ## P0
@@ -20,7 +20,6 @@ No active work.
 
 | Item | Work | Size | Status | Result |
 |---|---|---|---|---|
-| 1 | [PR #689](https://github.com/sibling-shipyard/coach-hq/pull/689) error-path flush | Low | In progress — conflicts with `main` | Errors send once, with both the error and ended span visible in production. |
 | 2 | TimelineBuffer human-readable evidence | Medium | In progress — parallel iOS diff | The timeline reads like an operator log, with no raw view or type names, file paths, or implementation labels. |
 | 3 | Stable Rage Report grouping | Unknown | In progress — parallel iOS diff | Equivalent rage reports land in the same product-owned Sentry group, regardless of UIKit frame. This is separate from items 2 and 6. |
 | 4 | Four missing dashboard widgets (questions 3, 4, 6, 7) | Low | Not started | All four questions return production data. |

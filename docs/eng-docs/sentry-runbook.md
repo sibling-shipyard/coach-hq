@@ -118,7 +118,7 @@ release before calling a fix verified; green CI proves only that the code merged
 
 ## Traps
 
-Four constraints to check before editing Sentry setup.
+Five constraints to check before editing Sentry setup.
 
 1. **`beforeSend` is error events only.** Transactions and spans are separate payloads with their
    own hooks. Wire `beforeSendTransaction` and `beforeSendSpan` too, or the credential scrubber
@@ -126,11 +126,14 @@ Four constraints to check before editing Sentry setup.
 2. **Do not use `spans: false` to remove the duplicate incoming span.** It also disables outbound
    spans. Use `disableIncomingRequestSpans: true` for the SDK duplicate and
    `ignoreOutgoingRequests` for outbound traffic.
-3. **A second `captureException` of the same error object is dropped.** That is what holds a
+3. **A thrown request gets one awaited flush.** Queue its error without flushing, end the root
+   span, then await one flush for both. `waitUntil` is only safe when returning a response; two
+   awaited two-second flushes can delay a thrown request by four seconds.
+4. **A second `captureException` of the same error object is dropped.** That is what holds a
    rethrown Gemini failure to one event: the detailed capture goes first and wins. Rethrow a
    *fresh* error with the same message and you get two.
    Proved in `ui/api/_lib/_tests/sentry-spans.test.ts`.
-4. **Keep iOS file-I/O tracing off.**
+5. **Keep iOS file-I/O tracing off.**
    `ios/CoachHQ/CoachHQ/Services/DiagnosticsManager.swift` sets
    `options.enableFileIOTracing = false`. Enabling it captures keyboard and system file reads
    that bury useful spans and spend quota.
