@@ -96,17 +96,18 @@ user_data/activities/workout_plans/
 Benchmarks are **scheduled by the plan**, not left to Coach remembering — otherwise the closing
 one is skipped and the measurement story is lost.
 
-**`week.json`** — `current_week.json` carries 9 fields this model does not need
+**`week.json`** — `current_week.json` carries 8 fields this model does not need
 (`data_status`, `coach_read`, `coach_comments`, `origin`, `discipline`, `kind`, `planned_load`,
-`session_file`, `original_date`). `status` and `completion_activity_ids` **stay** — they are how
-reconciliation works today (§6) and dropping them would break it. The replacement keeps only what
+`session_file`). `status`, `completion_activity_ids` and `original_date` **stay** — they are how
+reconciliation works (§6), and `original_date` is exactly how a self-adjusted session is recorded. The replacement keeps only what
 renders or drives behaviour:
 
 ```json
 { "schema_version": 1, "week_of": "2026-09-01", "plan_week": 3, "block": "base",
   "focus": "...", "guardrails": ["..."],
   "days": [{ "date": "2026-09-01", "routine_id": "upper_a", "priority": "anchor",
-             "status": "planned", "completion_activity_ids": [] }],
+             "status": "planned", "status_source": "rules",
+             "completion_activity_ids": [], "original_date": null }],
   "_meta": { "updated_at": "", "updated_by": "model", "trace_id": "" } }
 ```
 
@@ -120,25 +121,34 @@ never hand-edited, and never the place a coaching decision is recorded.
 
 ## 6. Reconciling plan with reality
 
-**Deterministic, in the backend. No LLM in the loop.** Today `activitySyncTurn.ts` fires a Gemini
-turn on every sync partly to mark sessions done — an LLM call to do bookkeeping. The rules are
-small enough to write down, so we write them down:
+**Rules propose, Coach may override, invariants bound both.** The sync turn already runs a Coach
+call, so using it costs nothing extra — but status drives the UI and the drift signal, so it
+cannot be a free-text judgment either.
+
+**Tier 1 — rules, in the backend.** Deterministic, tested, and correct even when the model is
+down:
 
 | Situation | Result |
 |---|---|
 | Activity on a planned day, type matches the routine | `done`, `completion_activity_ids` appended |
 | Planned day passes with no matching activity | `missed` — not `skipped`; skipping is a decision, missing is an outcome |
 | Activity with no planned match | attached to the day as unplanned |
-| Two plausible candidates, or an activity a day either side | left `planned` and flagged — never guessed |
+| Two plausible candidates, or an activity a day either side | left `planned` and flagged for tier 2 |
 
-Type matching maps the HealthKit workout type to the routine's `workout_type`; same day plus a
-compatible type is enough. Where it is not obvious, the flag is the answer — a wrong automatic
-match is worse than an unresolved one.
+**Tier 2 — Coach, on the same sync turn it already runs.** It receives the reconciled week plus
+the flagged cases and may do three things: resolve a flag, override a status with a reason, or
+record a **self-adjustment**. That last one is why Coach belongs here at all. An athlete who moves
+Tuesday's upper day to Thursday and says nothing produces two wrong facts under rules alone — a
+missed anchor and an unplanned session — when the truth is one moved session. Coach sets
+`original_date` and the day reads as done. Recognising a moved or substituted session as the same
+intent is pattern-matching over intent, and no rule table will do it.
 
-**Coach comments, Coach does not reconcile.** The two are fused today and want separating: code
-sets the status, Coach reads the reconciled week and writes the message the athlete actually
-reads, plus resolves anything flagged in the next conversation. Reconciliation stays correct even
-when the model is down, and the sync path loses one Gemini call.
+**Tier 3 — invariants, on both.** Coach cannot mark a day `done` without referencing a real synced
+activity id, so a completion can never be hallucinated (§9, invariant 6). Every status carries
+`status_source: "rules" | "coach"`, which makes disagreement auditable: if Coach overrides often
+and is right, the rules are wrong and should be improved; if it overrides often and is wrong, that
+is a prompt bug we can see. If the model errors or times out, the tier-1 result stands and the
+sync still completes.
 
 `week.json` is therefore updated **on sync**, not on a schedule and not by the timer.
 
@@ -221,6 +231,7 @@ invariants:
 | 3 | A progression bumps at most once per week, and not within N days of its last bump | write path |
 | 4 | Timer physics (`num`, `prep_secs`, rest values, phase durations) are filled by the compiler, never the model | compiler |
 | 5 | Every compiled file passes `validateWorkout` before commit | compiler |
+| 6 | A day marked `done` references at least one real synced activity id — Coach cannot invent a completion | reconciler |
 
 Each invariant gets a test that fails when it is violated. That is the whole reason this is
 cheaper than the alternatives.
@@ -241,7 +252,7 @@ Milestones are the outcome layer; each has one exit test. `final base` gives mer
 | 2 | M1 unblock | benchmark replaces library selection at first-session close; seeds `progressions.json` | PR 1 | `coachWorkoutFiles.ts`, `coachTurn.ts` | UI Expert | PR 3 | a fresh athlete gets a benchmark, not 6 workouts |
 | 3 | M1 unblock | BYO Claude unblocked: carve the routines the soul names, allow Coach to write new ones | main | `platform/scripts/carve-skeleton.mjs`, `platform/soul/B_engine.md`, composed builds | Tech Lead | PR 2 | `validate-soul.mjs` clean on the two baselined template findings |
 | 4 | M2 plan | `season_plan.json` + write path + season-boundary generation | PR 2 | `ui/api/coach-chat/_lib/`, `platform/scripts/carve-skeleton.mjs` | UI Expert | — | a goal conversation writes a plan with scheduled benchmarks |
-| 5 | M2 plan | `week.json` replaces `current_week.json`; deterministic reconciler replaces the sync-turn status call; `coach_read` moves to the message surface | PR 4 | `engine/lib/current-week.mts`, `engine/scripts/validate-current-week`, `coachWeekFiles.ts`, `activitySyncTurn.ts` | Bob | — | week compiles from plan intent; reconciler table in §6 fully covered by tests; validator green |
+| 5 | M2 plan | `week.json` replaces `current_week.json`; two-tier reconciler: rules in code, Coach override on the sync turn; `coach_read` moves to the message surface | PR 4 | `engine/lib/current-week.mts`, `engine/scripts/validate-current-week`, `coachWeekFiles.ts`, `activitySyncTurn.ts` | Bob | — | week compiles from plan intent; every tier-1 row in §6 covered by tests; a Coach override is recorded with `status_source`; validator green |
 | 6 | M3 render | dashboard snapshot keys + day-first Workouts page with the routine library and ad-hoc start | PR 5 | `engine/scripts/build-dashboard-snapshot.mjs`, `ui/client/src/`, `shared/golden-dataset/` | UI Expert | PR 7 | all six page states in §7 render from real repo data |
 | 7 | M3 render | widget snapshots + iOS decode; `BundledTemplates.swift` becomes a cache | PR 5 | `ui/scripts/generate-widget-snapshots.ts`, `ios/CoachHQ/` | iOS Builder | PR 6 | `ios-build.yml` green; widget shows week N of M |
 | 8 | M4 cleanup | delete the library and the old nouns; supersede the ADR | PR 7 | `shared/workout-library/`, `platform/skeleton-templates/`, `engine/lib/repo-layout.mjs`, `kdb/decisions/` | Tech Lead | — | no reference to `templates/` or `sessions/` remains; ADR merged |
