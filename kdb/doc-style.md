@@ -33,6 +33,8 @@ files. Follow `.github/CONVENTIONS.md` for stack mechanics, issue links, and bot
 - Write for the named reviewer first. Put paths, hashes, endpoint fields, and test matrices in a clearly
   marked build handoff, not the opening story (PR #586 feedback, rated 2/5).
 - Cite real file paths so it's greppable.
+- A handover carries only what is **not** in the repo. Whatever the next agent reads on boot —
+  `AGENTS.md`, its role doc, the running plan — must not be restated (handover rated 1/5).
 - Locked vs deferred — never reopen silently.
 - Mermaid: quote labels `id["Label"]`, no semicolons in diagrams, one idea per chart.
 
