@@ -31,37 +31,72 @@ flowchart LR
    `ui/vite.config.ts` loads no Sentry plugin and `@sentry/vite-plugin` is not a dependency, so
    web stack frames arrive minified. iOS is the same story for a different reason: the repo builds
    and tests `ios/` in CI but has no archive/release workflow to hang a dSYM upload off. Treat
-   every production stack trace, web and iOS alike, as unreadable. Phase 6 of
-   `docs/plans/sentry-lld.md` is the work; when it ships, the token it needs must never be named
+   every production stack trace, web and iOS alike, as unreadable. It is the first item under
+   `ops-observability.md` § Deferred; when it ships, the token it needs must never be named
    `VITE_*`, because Vite bakes those into the client bundle.
 4. Set `SENTRY_TRACES_SAMPLE_RATE` and `VITE_SENTRY_TRACES_SAMPLE_RATE` explicitly. They default
    to `1`, which is right for four athletes and wrong the first day it isn't.
-5. Build one dashboard and three alerts. The dashboard is built: **"Coach HQ health"**, id
-   `5873386`. Its widgets and the questions they answer live in `ops-monitoring-dashboard.md` —
-   that doc owns the widget list, so it is not repeated here. Route alerts from the table below to
-   team email plus the Sentry mobile app; use a five-minute notification interval. A short time
-   window can still be empty with four athletes. None of the three alerts below is built.
-   `coach-hq-web` and `coach-hq-ios` do carry Sentry's default high-priority-issue rule;
-   `coach-hq-api`, which raises most of our errors, carries nothing.
+5. **Dashboard.** Built and complete: **"Coach HQ health"**, id `5873386`, all seven widgets
+   returning production rows. The questions they answer live in `ops-observability.md`, which owns
+   that list.
+6. **Alerts.** All three in the table below are built. The first two run on every project; the Rage
+   Report rule is `coach-hq-ios` only, because that is where reports originate.
+7. **Alert routing.** Team email plus the Sentry mobile app, five-minute notification interval. A
+   shorter window can still be empty with four athletes. `coach-hq-web` and `coach-hq-ios` also keep
+   Sentry's default high-priority-issue rule — a heuristic on top of, not a substitute for, the
+   explicit rules.
 
 Every error has an `operation` tag: `web` for browser errors, the API route without `/api/` with
 slashes changed to dots (for example `auth.callback`), or the native operation name on iOS. Use it
 to group failures by entry point; `trace_id` is still the key that joins one interaction.
 
-| alert | condition | route |
+Every rule filters `environment:production`, so none of them fires on Preview or local traffic.
+
+| alert | condition | scope |
 |---|---|---|
-| New or regressed production error | first seen or regression | immediate |
-| Repeated core failure | `outcome:error`, at least 3 events in 15 minutes | immediate |
-| Athlete Rage Report | `operation:rage_report` | immediate |
+| New or regressed production error | first seen, or resolved → unresolved | all three projects |
+| Repeated core failure | issue seen more than 3 times in 15 minutes | all three projects |
+| Athlete Rage Report | every event, filtered to tag `operation` = `rage_report` | `coach-hq-ios` |
+
+**The Rage Report rule fires on every event, not on a new issue, and carries no `event.type`
+filter.** Both halves matter. `RageReportSubmission.swift` submits through `capture(message:)`, so
+reports arrive as `event.type:default` at `level:info` — an `event.type:error` filter matches
+nothing and the rule looks built while never firing. And reports now group stably by fingerprint
+(#699), so a first-seen condition would fire once and stay silent forever after.
 
 ## Query from a terminal
 
-The Sentry API token lives outside the repo at `~/.config/sentry-token`. Read it inline; never
+The token never lives in the repo. Take it from the environment, falling back to a local file, so
+the same command works on a fresh machine and in CI:
+
+```bash
+TOKEN=${SENTRY_AUTH_TOKEN:-$(cat ~/.config/sentry-token)}
+```
+
+`SENTRY_AUTH_TOKEN` is Sentry's own conventional name — `sentry-cli` and `@sentry/vite-plugin` read
+it with no configuration, so the parked source-map and dSYM upload needs no second variable. In CI
+it is a GitHub Actions secret of that name, exposed as an env var; never prefix it `VITE_`, because
+Vite bakes those into the client bundle.
+
+On a shared or long-lived machine prefer the file, `chmod 600`. An environment variable is
+inherited by every child process and shows up in a plain `env` dump; the file does not.
+
+**Setting up on a new machine:** create the token under Sentry → Settings → Auth Tokens, then
+either export it or write it to `~/.config/sentry-token`. Nothing in the repo reads it, so there is
+no config to change. Scopes, from what each endpoint here actually needs: reading events, spans and
+dashboards; writing dashboards; and `alerts:write` to create alert rules. Read it inline; never
 echo or paste it.
+
+**Which endpoints answer depends on the token, and one failure mode lies.** The token that can
+create alert rules cannot list them: every alert-rule read returns
+`{"message": "This API no longer exists."}`, which reads like a dead endpoint rather than a token
+problem. The token it replaced was the reverse — it listed rules fine and refused `POST` with a
+plain permission error. Both read events, spans and dashboards. If a rule you just created cannot
+be read back, suspect the token before you doubt the rule.
 
 ```bash
 curl -s -G "https://sentry.io/api/0/organizations/sibling-shipyard/events/" \
-  -H "Authorization: Bearer $(cat ~/.config/sentry-token)" \
+  -H "Authorization: Bearer $TOKEN" \
   --data-urlencode "dataset=spans" \
   --data-urlencode "project=-1" \
   --data-urlencode "statsPeriod=14d" \
@@ -76,6 +111,10 @@ select `project.name` when the result must identify one.
 
 Every sort field must also appear as a selected `field`. Sorting by an unselected column returns
 an error, not an empty result.
+
+A span *data* attribute whose name collides with an aggregate has to be read through `tags[...]`.
+The HealthKit item count is stored as `count` (`DiagnosticsManager.swift`), so `count` and
+`span.data.count` both return null on every row; only `tags[count,number]` reads it.
 
 Always filter `environment:production` before drawing a conclusion. Preview verification traffic
 shares the store, and deliberate test failures can otherwise look like a production outage.
@@ -109,9 +148,13 @@ release before calling a fix verified; green CI proves only that the code merged
 1. Confirm a successful homepage load, chat turn, Gemini call, and HealthKit sync appear on the
    dashboard with the expected release and success outcome.
 2. In Preview, temporarily use an invalid Gemini key for one chat turn, then restore it. Confirm the
-   client and API failure share one trace id and the repeated-failure alert arrives within 15 minutes.
+   client and API failure share one trace id. **No alert fires here** — every rule filters
+   `environment:production`, and Preview is not it. Do not read the silence as a broken alert.
 3. Launch iOS with `--send-sentry-test-event`, then submit one Rage Report with one selected timeline
-   event. Confirm the alert, release tags, attachment, and Cancel-sends-nothing behavior.
+   event. Confirm release tags, attachment, and Cancel-sends-nothing behavior. The alert follows the
+   same production-only rule as above.
+   To prove delivery itself, open a rule in Sentry and use **Send Test Notification** — that is the
+   only check that exercises the mailbox rather than the condition.
 4. Open one production web exception and one iOS test event. Confirm each has `release`,
    `environment`, and `operation`. Minified web frames and unsymbolicated iOS frames are expected
    until the parked source-map and dSYM work ships.
@@ -140,19 +183,23 @@ Five constraints to check before editing Sentry setup.
 
 ## Coverage boundary
 
-Today we count core homepage, chat, Gemini, HealthKit sync, Rage Report, and React render-crash
-paths — the browser's own pageload and navigation spans, one manual incoming `http.server` span on
-each wrapped API route, and the Gemini spans we open ourselves. **Outbound HTTP
-from the API is deliberately not traced.** Both Node instrumentations copy the full request URL onto
-the span, and `geminiClient.ts` passes the API key in the query string, so an `http.client` span is
-a credential in Sentry. `beforeSend` never sees it, because that hook fires for error events only.
-`ui/api/_lib/sentry.ts` hands `httpIntegration` and `nativeNodeFetchIntegration` an
-`ignoreOutgoingRequests` that returns true for everything, dropping the span and the breadcrumb
-before either is built. The cost is that GitHub call durations never reach the trace. Gemini is the
-one outbound call we time, and we do it by opening a span by hand. GitHub success totals and iOS
-dSYM upload are not covered; do not infer whole-product uptime or traffic from this dashboard yet.
-Chat text reaches Sentry only when
-a Gemini call fails; a successful turn's text stays in `chat_history.json`, never Sentry. And this is
-error monitoring, not product analytics: it will not tell you what athletes
-do, only what broke. That is a different tool and a different question — see `docs/plans/sentry-lld.md`
-§4.
+**Counted:** homepage, chat, Gemini, HealthKit sync, Rage Report and React render-crash paths. That
+means the browser's own pageload and navigation spans, one manual `http.server` span on each wrapped
+API route, and the Gemini spans we open by hand.
+
+**Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
+
+- **Outbound HTTP from the API, deliberately.** Both Node instrumentations copy the full request URL
+  onto the span, and `geminiClient.ts` passes the key in the query string. An `http.client` span
+  would therefore be a credential in Sentry, and `beforeSend` never catches it — that hook fires for
+  error events only. `ui/api/_lib/sentry.ts` gives `httpIntegration` and `nativeNodeFetchIntegration` an
+  `ignoreOutgoingRequests` returning true for everything, dropping span and breadcrumb before either
+  is built. The cost: GitHub call durations never reach a trace. Gemini is the one outbound call we
+  time, by opening a span ourselves.
+- **GitHub success totals**, for the same reason.
+- **iOS dSYM upload**, still parked.
+- **Chat text on a successful turn.** It reaches Sentry only when a Gemini call fails; a turn that
+  works stays in `chat_history.json`.
+
+And this is error monitoring, not product analytics. It says what broke, never what athletes do —
+a different tool and a different question. See `ops-observability.md` § What this does not cover.
