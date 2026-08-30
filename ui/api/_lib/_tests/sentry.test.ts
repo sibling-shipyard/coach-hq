@@ -454,26 +454,38 @@ describe("withContinuedTrace", () => {
     log.mockRestore();
   });
 
-  it("does not await locally when waitUntil registers and then throws", async () => {
+  it("awaits the registered promise once when waitUntil throws", async () => {
     installVercelRequestContext();
     const pending = deferred<boolean>();
     flush.mockReturnValueOnce(pending.promise);
     const registrationFailure = new Error("registered then failed");
-    waitUntil.mockImplementationOnce(() => {
+    let registered: Promise<unknown> | undefined;
+    waitUntil.mockImplementationOnce((promise) => {
+      registered = promise;
       throw registrationFailure;
     });
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const { withContinuedTrace } = await loadSentry();
     const req = new Request("https://coach.test/api/coach-chat");
+    let returned = false;
 
-    await expect(withContinuedTrace(req, async () => "handler ran")).resolves.toBe("handler ran");
+    const response = withContinuedTrace(req, async () => "handler ran").then((result) => {
+      returned = true;
+      return result;
+    });
+    await vi.waitFor(() =>
+      expect(log).toHaveBeenCalledWith(
+        "[sentry] could not register background flush",
+        registrationFailure,
+      ),
+    );
 
     expect(flush).toHaveBeenCalledOnce();
-    expect(log).toHaveBeenCalledWith(
-      "[sentry] could not register background flush",
-      registrationFailure,
-    );
+    expect(registered).toBeDefined();
+    expect(returned).toBe(false);
     pending.resolve(true);
+    await expect(response).resolves.toBe("handler ran");
+    await expect(registered).resolves.toBe(true);
     log.mockRestore();
   });
 });

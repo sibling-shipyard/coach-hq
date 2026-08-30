@@ -138,6 +138,7 @@ async function flushRequestMonitoring(): Promise<void> {
     waitUntil(flushPromise);
   } catch (error) {
     console.error("[sentry] could not register background flush", error);
+    await flushPromise;
   }
 }
 
