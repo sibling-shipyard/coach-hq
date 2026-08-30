@@ -54,6 +54,10 @@ Open `ios/CoachHQ/CoachHQ.xcodeproj` in Xcode. Two targets build:
 The project uses file-system-synchronized groups, so files added on disk appear in the project
 automatically — you never "Add Files to…" a new Swift file.
 
+Keep the app target linked to the Swift package product `Sentry-Dynamic`, not `Sentry`, in
+`ios/CoachHQ/CoachHQ.xcodeproj/project.pbxproj`. The plain product lacks the framework dSYM and
+causes archive rejection; `Sentry-Dynamic` supplies a matching dSYM.
+
 ## Step 4: Signing
 
 1. Select the top-level **CoachHQ** project (blue icon) → **Signing & Capabilities**.
