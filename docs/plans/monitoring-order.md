@@ -34,8 +34,8 @@ nothing at all.
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 6 | Ship the Rage Report | Low — the PR is already written, 6 files | **Ready** — reviewed; one P1 and two P2s being fixed on the branch | An athlete submits a note plus selected timeline events; Cancel sends nothing |
-| 7 | The three alert rules from `sentry-runbook.md` | Low — two rules now, the third needs the Rage Report | **Deferred**, athlete's call — watching the dashboard by hand until item 6 lands | A new production error pages us within 15 minutes |
+| 20 | [#685](https://github.com/sibling-shipyard/coach-hq/issues/685) — Rage Report attaches evidence by default, evidence list collapsed | Low | Not started | A report submitted without touching the evidence list still carries the timeline |
+| 7 | The three alert rules from `sentry-runbook.md` | Low — two rules now, the third needs the Rage Report | **Deferred**, athlete's call — item 6 has landed, so nothing blocks this but the decision | A new production error pages us within 15 minutes |
 | 8 | [#638](https://github.com/sibling-shipyard/coach-hq/issues/638) — send the Gemini key as `x-goog-api-key` | Low — three call sites | Not started | Key absent from every URL; outbound spans can be turned back on |
 
 ## P2 — robustness, not blocking
@@ -68,6 +68,7 @@ item 11, which touches docs anyway.
 | 11 | `operation` set by web and API, every runbook query corrected | 2026-08-30, [#667](https://github.com/sibling-shipyard/coach-hq/pull/667) |
 | 5 | The Rage Report test-host crash — CI moved to `macos-26`, simulator pinned to 26.5 | 2026-08-30, [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) |
 | 9 | Route span flush runs under Vercel `waitUntil`, off the coach-reply path | 2026-08-30, [#680](https://github.com/sibling-shipyard/coach-hq/pull/680), closing #643 |
+| 6 | The Rage Report ships — Settings entry point, athlete message, selectable timeline evidence | 2026-08-30, [#603](https://github.com/sibling-shipyard/coach-hq/pull/603) |
 
 Item 15 is worth remembering. Apple rejected the archive because the embedded `Sentry.framework`
 had no debug-symbol file. The plain `Sentry` package ships none; `Sentry-Dynamic` ships a real one
@@ -94,6 +95,17 @@ Item 2 closed by measurement, not by a fix. Production `gen_ai` spans ran 3 `ok`
 all-error picture that started it was 9 preview spans from PR verification. Those were our own
 deliberate test failures, read as a production alarm. **Split by environment before drawing any
 conclusion from span data.**
+
+Item 6 is shipped but only half proved. A real submission from the simulator reached Sentry as
+`operation:rage_report` in `coach-hq-ios`, carrying the athlete's message and an `operation_id`.
+It carried no evidence: every event starts unselected, so the first real report attached nothing.
+Cancel is covered by unit tests, not by hand. Item 20 fixes the default and the list; the culprit
+problem below is separate.
+
+**The evidence list needs its own look.** A rage report takes its Sentry culprit from whatever
+UIKit frame was last on the stack — the first real one was titled
+`UITextSelectionInteraction._handleMultiTapGesture`, from tapping the text box. That undoes part
+of what #667 bought for grouping. Not yet filed on its own.
 
 Item 5 was never our bug. Simulator iOS 26.2 has a bad free inside
 `swift_task_deinitOnExecutorImpl`, reached through `TaskLocal::StopLookupScope`. Releasing a
