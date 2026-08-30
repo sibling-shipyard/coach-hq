@@ -1,290 +1,226 @@
-# Workouts: season plan, benchmark, compiled weeks
+# Workouts: compile from a routine, plan a season
 
 > Status: Current · Owner: Tech Lead · Verified: 2026-08-30
 
-Replaces the template/session model with a season plan, a benchmark, and compiled weeks.
-Two pages by request — deeper mechanics belong in a `-lld.md` if this grows again.
+Two stacks. **A** is a hotfix that kills both live bug reports in days. **B** is periodization,
+and it is gated on evidence we do not have yet. Do not start B before the gate in §13.
 
 ## 1. Context
 
-Two of the four live athletes hit this in one week. One sees "a lot of random workouts" they never asked
-for. On the BYO Claude path, Coach said it *could not* build an upper body workout because
+Two of the four live athletes hit this in one week. One sees "a lot of random workouts" they never
+asked for. On the BYO Claude path, Coach said it *could not* build an upper body workout because
 "there is no template in this repo."
 
-Both are one bug. `turnWrites/workoutWrite.ts` has exactly two write paths, `template_edit` and
-`session_plan`, and both require an existing `template_id` gated by
-`validTemplateIdsFromManifest`. There is no create path, so an athlete's workout set is frozen at
-signup. Onboarding compensates by pre-selecting 4–6 library entries (`selectTemplates`), which is
-where the random ones come from.
+Both are one bug. `turnWrites/workoutWrite.ts` has two write paths, `template_edit` and
+`session_plan`; both require an existing `template_id` gated by `validTemplateIdsFromManifest`.
+There is no create path, so an athlete's workout set is frozen at signup, and onboarding
+compensates by pre-selecting 4–6 library entries (`selectTemplates`). That is where the random
+ones come from.
 
-The deeper problem: "template" and "session" were one athlete's filenames, not a model. Nothing
-ties a workout to a goal, and no number carries forward. `progression_notes` is free text no code
-reads, while `progressions.json` — which already has `{ current, target, history[] }` — sits
-empty.
+Worse, `responsePropertiesFor` (`coachReplySchema.ts`) gives an ordinary non-first-session turn
+**no action fields at all**. Even with a create path, "ask in chat and get a workout" needs the
+turn to be a closing one. Both facts have to change together.
 
 ## 2. The model
 
 ```mermaid
 flowchart TD
-  goal["Goal + duration (conversation)"] --> bench["Benchmark: find the athlete's limits"]
-  bench --> plan["Season plan: blocks, week intents, scheduled benchmarks"]
-  plan --> week["Week: pick routines for the days"]
-  week --> day["Compile: routine + progressions + today's state"]
-  day --> timer["Timer JSON"]
+  ask["Athlete asks, or a plan week says what is due"] --> routine["Routine: exercises + intent"]
+  routine --> compile["Compile: routine + progressions + today's state"]
+  compile --> timer["Timer JSON"]
   timer --> log["Log: what was performed"]
   log --> prog["Progressions update"]
-  prog --> day
+  prog --> compile
 ```
 
-Three rules keep it from rotting.
-
-**Weeks hold intent, not content.** A block says "volume, 4 days, upper emphasis, top sets at
-RPE 8" — never a fixed exercise list twelve weeks out. Content pinned that far ahead is wrong by
-week three; intent survives adjustment. Exercises change only at block boundaries. Most weeks move
-doses, not movements.
-
-**Every new athlete is benchmarked.** It is how `progressions.json` gets real numbers instead of
-`inferLevel`'s guess from free text, and the plan schedules it again at season end so the delta is
-measurable. It is limit-finding, not max-testing: a total beginner needs it as much as an athlete
-with arthritis, and Coach varies the probe. `current: null` is a legitimate state meaning "not
-yet".
+**Coach writes exercises, code writes timer physics.** Coach emits a name, sets, reps or duration,
+a form cue and a why. The compiler fills `num`, `prep_secs`, rest values and phase durations. We
+currently ask a language model to be a compiler, in prose, in `B_engine.md`.
 
 **Only tracked exercises need identity.** A cool-down foam roll never progresses; a tuck hold
-does. So the registry is the 10–15 movements an athlete actually tracks, and the progression id
-*is* the exercise identity. Untracked exercises carry their numbers inline. This is the whole
-reason no movement catalog is required.
+does. The registry is the 10–15 movements an athlete actually tracks, and the **progression id is
+the exercise identity**. Untracked exercises carry their numbers inline. This is the whole reason
+no movement catalog is needed.
 
-## 3. Nouns — template and session are both retired
+**The benchmark is a conversation first.** Coach asks what the athlete can already do — "I do
+pull-ups, six to eight" — and sets the entry level from the answer. The session then *confirms*
+rather than discovers, showing one easier and one harder option per movement so a wrong guess
+costs nothing. "Can't do this pain-free" is a legitimate result: `current: null`. A beginner and
+an athlete with arthritis need the same mechanism, not two.
 
-| Old | New | Why |
-|---|---|---|
-| `templates/<id>.json` | `routines/<id>.json` | the athlete's durable workout; edited rarely |
-| `sessions/<date>_<id>.json` | `compiled/<date>_<id>.json` | disposable output, regenerable, never hand-edited |
-| `current_week.json` | `week.json` | simpler; see §4 |
-| — | `season_plan.json` | new; the only genuinely new storage |
+## 3. Nouns
 
-"Session" is retired outright rather than reused, because it currently means both *a prescription*
-and *a thing the athlete performed*. Performed work is an activity, and already lives in
-`user_data/activities/`.
+`session` is retired: it means both *a prescription* and *a thing performed*, and performed work
+already lives in `user_data/activities/`. `template` becomes `routine`, because the thing changed
+meaning — it is now compiled from, not copied.
+
+**`current_week.json` keeps its name and path.** It is the same object, slimmer. Renaming it costs
+soul, carve, iOS, validators and the snapshot for eight unused fields, and buys nothing.
 
 ## 4. Storage
 
-Athlete repo. Bands per ADR 0011; ledger data under `user_data/ledger/`.
-
 ```
 user_data/ledger/
-  seasons.json        exists — gains goal + duration on the active season
-  season_plan.json    NEW — blocks, week intents, scheduled benchmarks
-  week.json           REPLACES current_week.json
-  progressions.json   exists, near-empty — baselines, benchmark history
+  seasons.json        gains goal, duration and (Stack B) blocks — NOT a second season file
+  current_week.json   same path, slimmer schema
+  progressions.json   exists, near-empty — baselines and history
+  plugins.json        exists — the per-repo enablement flag (§11)
 user_data/activities/workout_plans/
-  routines/<id>.json  REPLACES templates/
-  compiled/<date>_<routine>.json  REPLACES sessions/
+  templates/          → routines/   (renamed LAST, dual-read first — §11)
+  sessions/           → compiled/   (same)
 ```
 
-**`season_plan.json`** — small, athlete-visible, regenerable at a season boundary.
+**Blocks extend `seasons.json`.** `platform/soul/B_engine.md:36` says "a season has a name, start,
+end, and status — no phase or block underneath it", so adding blocks is a soul change either way.
+A second file named `season_plan.json` would be a second season object with the same name — worse.
+Superseding that soul line is part of Stack B, stated out loud.
 
-```json
-{ "schema_version": 1, "season_id": "s3", "goal": "front lever", "start_date": "2026-09-01",
-  "end_date": "2026-11-24",
-  "blocks": [{ "name": "base", "weeks": [1,2,3,4], "days_per_week": 4,
-               "emphasis": ["pull","core"], "intensity": "RPE 6-7", "intent": "..." }],
-  "benchmarks": [{ "week": 1, "kind": "baseline" }, { "week": 12, "kind": "closing" }],
-  "_meta": { "updated_at": "", "updated_by": "model", "trace_id": "" } }
-```
+**`current_week.json` slimming.** Drop `data_status`, `coach_read`, `coach_comments`, `origin`,
+`discipline`, `kind`, `planned_load`, `session_file`. **Keep `timezone`** — `current-week.mts:554`
+uses `formatDateInTimeZone(now, data.timezone)` to decide what "today" is, and without it every
+athlete outside UTC gets the wrong day. Keep `status`, `priority`, `completion_activity_ids` and
+`original_date`: they are how reconciliation works (§6).
 
-Benchmarks are **scheduled by the plan**, not left to Coach remembering — otherwise the closing
-one is skipped and the measurement story is lost.
+**Compiled files are disposable.** Committed so the timer and iOS read them offline, never treated
+as truth, never hand-edited. Delete the directory and the next compile rebuilds it.
 
-**`week.json`** — `current_week.json` carries 8 fields this model does not need
-(`data_status`, `coach_read`, `coach_comments`, `origin`, `discipline`, `kind`, `planned_load`,
-`session_file`). `status`, `completion_activity_ids` and `original_date` **stay** — they are how
-reconciliation works (§6), and `original_date` is exactly how a self-adjusted session is recorded. The replacement keeps only what
-renders or drives behaviour:
+## 5. Reconciliation
 
-```json
-{ "schema_version": 1, "week_of": "2026-09-01", "plan_week": 3, "block": "base",
-  "focus": "...", "guardrails": ["..."],
-  "days": [{ "date": "2026-09-01", "routine_id": "upper_a", "priority": "anchor",
-             "status": "planned", "status_source": "rules",
-             "completion_activity_ids": [], "original_date": null }],
-  "_meta": { "updated_at": "", "updated_by": "model", "trace_id": "" } }
-```
-
-`priority` is kept verbatim from today's schema — `anchor | support | optional` is exactly the
-ranking a shortened week needs, and it already exists. `coach_read` and `coach_comments` are not
-deleted, they **move** to the coach-message surface (ADR 0029); the UI reads them from there.
-
-**Compiled files are disposable.** They are committed so the timer and iOS can read them offline,
-but nothing treats them as truth: delete the directory and the next compile rebuilds it. They are
-never hand-edited, and never the place a coaching decision is recorded.
-
-## 6. Reconciling plan with reality
-
-**Rules propose, Coach may override, invariants bound both.** The sync turn already runs a Coach
-call, so using it costs nothing extra — but status drives the UI and the drift signal, so it
-cannot be a free-text judgment either.
-
-**Tier 1 — rules, in the backend.** Deterministic, tested, and correct even when the model is
-down:
+**Rules always. Coach only on a flagged row.** Putting a week-override into every sync grows every
+sync prompt for a case that is rare.
 
 | Situation | Result |
 |---|---|
-| Activity on a planned day, type matches the routine | `done`, `completion_activity_ids` appended |
-| Planned day passes with no matching activity | `missed` — not `skipped`; skipping is a decision, missing is an outcome |
+| Activity on a planned day, type matches | `done`, `completion_activity_ids` appended |
+| Planned day passes, no matching activity | `missed` — not `skipped`; skipping is a decision |
 | Activity with no planned match | attached to the day as unplanned |
-| Two plausible candidates, or an activity a day either side | left `planned` and flagged for tier 2 |
+| Two candidates, or an activity a day either side | `planned` + flagged → Coach |
 
-**Tier 2 — Coach, on the same sync turn it already runs.** It receives the reconciled week plus
-the flagged cases and may do three things: resolve a flag, override a status with a reason, or
-record a **self-adjustment**. That last one is why Coach belongs here at all. An athlete who moves
-Tuesday's upper day to Thursday and says nothing produces two wrong facts under rules alone — a
-missed anchor and an unplanned session — when the truth is one moved session. Coach sets
-`original_date` and the day reads as done. Recognising a moved or substituted session as the same
-intent is pattern-matching over intent, and no rule table will do it.
+Coach sees only the flagged rows, and the case that earns it is self-adjustment: an athlete who
+moves Tuesday's session to Thursday without saying so reads as a missed anchor plus an orphan under
+rules alone, when the truth is one moved session. Coach sets `original_date`. The
+`session_reconcile` action already exists in `RETURNING_CLOSE_ACTIONS`.
 
-**Tier 3 — invariants, on both.** Coach cannot mark a day `done` without referencing a real synced
-activity id, so a completion can never be hallucinated (§9, invariant 6). Every status carries
-`status_source: "rules" | "coach"`, which makes disagreement auditable: if Coach overrides often
-and is right, the rules are wrong and should be improved; if it overrides often and is wrong, that
-is a prompt bug we can see. If the model errors or times out, the tier-1 result stands and the
-sync still completes.
+**Who writes progressions (ADR 0023).** The reconciler, on a matched completion — not Coach
+noticing. Coach may *propose* a level change; code applies and rate-limits it. A signal nothing but
+Coach maintains is a signal that rots.
 
-`week.json` is therefore updated **on sync**, not on a schedule and not by the timer.
+## 6. What the Workouts page shows
 
-**Week rollover is where plan meets reality.** At the week boundary the next week compiles from
-block intent *plus what actually happened* — missed anchors inform the next week rather than
-silently rolling over. Two consecutive weeks under target is the drift signal that opens a
-re-planning conversation (§12). Nothing is auto-rewritten.
-
-## 7. What the Workouts page shows
-
-One page, five states. Every state must be reachable in a test.
+Six states, each reachable in a test.
 
 | State | Shows |
 |---|---|
-| Planned day, compiled | The day's workout: title, phases, duration, priority, Coach's note, start-timer CTA |
-| Planned day, already done | Same card marked done, linked to the matched activity |
-| Rest day | "Rest" plus the next session and its date — never an empty page |
-| Unplanned activity logged | The activity as a completed card, no routine attached |
-| No plan yet (new athlete) | The benchmark, as the single call to action |
+| Planned day, compiled | The workout: phases, duration, priority, Coach's note, start CTA |
+| Planned day, done | Same card marked done, linked to the matched activity |
+| Rest day | "Rest", plus the next session and its date — never an empty page |
+| Unplanned activity | The activity as a completed card, no routine attached |
+| No plan yet | The benchmark, as the single call to action |
 | Compile failed | Last good compiled file plus a quiet notice; never a partial workout |
 
-**The athlete's routines are always on the page**, below the day — their full set, readable in
-detail. Three reasons it cannot live behind a chat turn: they want to train ad-hoc on an
-unplanned day, they want to look up what a routine actually contains, and they want to show it to
-someone (a physio, a training partner). Starting a routine ad-hoc compiles it on demand for
-today, exactly as a planned day would.
+**The athlete's routines are always on the page**, below the day. They want to train ad-hoc, look
+up what a routine contains, and show it to a physio. Ad-hoc start compiles on demand.
 
-The "lot of random workouts" report is a rendering symptom of the storage bug: today the page
-lists every template the athlete owns, with no notion of *today*. The new page is day-first — the
-athlete's own routines stay reachable, but behind the day.
-
-## 8. How Coach's behaviour changes
-
-Coach behaviour lives in two places and both change per PR: the soul layer
-(`platform/soul/B_engine.md`, composed into both builds) and the API's action-field surface
-(`coachReplySchema.ts`, `coachPromptText.ts`). Every soul edit needs a compose run and a
-`SOUL_HISTORY.md` entry per `AGENTS.md` § Doc upkeep.
-
-| PR | Soul change | Action-field change |
-|---|---|---|
-| 1 | Retire "Persisting Session Files" §; Coach emits an exercise list, never timer physics | new `workout_create` |
-| 2 | First Session Protocol closes with a benchmark, not a template hand-out; limit-finding, not max-testing | benchmark write seeds `progressions.json` |
-| 3 | Coach may create a routine when none fits — the line whose absence caused bug 2 | — (BYO path) |
-| 4 | New §: season planning conversation — goal, duration, blocks, scheduled benchmarks | new `season_plan` |
-| 5 | Weekly Kick-off Ritual rewritten: pick routines for days from block intent | `week_plan` reshaped |
-| 8 | Every `templates/` and `sessions/` path reference updated | — |
-
-`validate-soul.mjs` checks soul path references against the carve on every PR, so a missed
-rename fails CI rather than reaching an athlete.
-
-## 5. Rendering — UI and widgets
-
-Both new files must reach the dashboard the same way everything else does.
-
-1. `engine/scripts/build-dashboard-snapshot.mjs` reads `season_plan.json` and `week.json` into
-   `gen/dashboard_snapshot.json` under new `season_plan` / `week` keys, replacing the `workouts`
-   key's `{templates, sessions}` shape with `{routines, compiled}`. Bump `SCHEMA_VERSION` and
-   `SUPPORTED_SCHEMA_VERSION` in `ui/client/src/hooks/useRepoData.ts` together.
-2. Keep both payloads scalar and small per ADR 0020 — the season plan is intent text and small
-   arrays, so it projects cleanly.
-3. Widgets follow ADR 0005: the TS model in `ui/client/src/components/home-warm/` is the source of
-   truth, `ui/scripts/generate-widget-snapshots.ts` emits `gen/widget_snapshots.json`, and
-   `ui/scripts/build-data.mjs` copies it to `ios/CoachHQ/CoachHQ/Resources/`. Two snapshot entries
-   earn their place: **season progress** (week N of M, block, next benchmark) and **this week**
-   (days, priority, done/planned).
-4. `shared/golden-dataset/` needs fixtures for both files or local `npm run dev` renders empty.
-
-## 9. The contract
+## 7. The contract
 
 > **Coach supplies judgment as typed values. Code enforces invariants.**
 
-Not "code computes the answer" — that framing is what drags this design toward a movement catalog
-and a percentage-of-max rules engine, and neither earns its cost. Determinism comes from enforced
-invariants:
-
 | # | Invariant | Enforced in |
 |---|---|---|
-| 1 | A `progression_id` on an exercise exists in `progressions.json`. Coach references, never invents | write path |
-| 2 | A starting dose never exceeds the benchmarked max | write path |
-| 3 | A progression bumps at most once per week, and not within N days of its last bump | write path |
-| 4 | Timer physics (`num`, `prep_secs`, rest values, phase durations) are filled by the compiler, never the model | compiler |
+| 1 | A `progression_id` exists in `progressions.json` — Coach references, never invents | write path |
+| 2 | A starting dose never exceeds the benchmarked value | write path |
+| 3 | A progression bumps at most once per week | write path |
+| 4 | Timer physics are filled by the compiler, never the model | compiler |
 | 5 | Every compiled file passes `validateWorkout` before commit | compiler |
-| 6 | A day marked `done` references at least one real synced activity id — Coach cannot invent a completion | reconciler |
+| 6 | A day marked `done` references a real synced activity id | reconciler |
+| 7 | A routine is checked against active injury flags before it is offered | write path |
 
-Each invariant gets a test that fails when it is violated. That is the whole reason this is
-cheaper than the alternatives.
+Invariant 7 is a **regression guard**: `selectTemplates` filters on active flags today
+(`conflictsWithActiveInjuries`), and removing it without a replacement would let an athlete with a
+shoulder flag receive a pulling day. It survives the library.
 
-**Where compile runs:** server-side in `ui/api/coach-chat/`, on the turn that changes something.
-BYO Claude runs the same module via a thin Node CLI, so there is one compiler, not two.
+**The compiler lives in `engine/`, not `ui/api/`.** `scaling-plan.md` §2.2 already names the
+server coach as "a *second* engine" re-encoding Layer B in TS. A compiler in the Vercel folder
+repeats exactly that. One module in `engine/`, two thin hosts: coach-chat imports it, BYO calls a
+CLI wrapper.
 
-**When compile fails:** the athlete keeps the last good compiled file, and Coach is told why in
-the turn. The timer never renders a partially-built workout.
+## 8. Stack A — hotfix (days)
 
-## 10. Execution
+Kills both bug reports. Touches no athlete-repo paths, adds no new files to their repos.
 
-Milestones are the outcome layer; each has one exit test. `final base` gives merge order.
+| PR | outcome | base | files | owner | done when | trust it buys |
+|---|---|---|---|---|---|---|
+| A1 | `compileWorkout()` in `engine/` — minimal exercise list in, timer JSON out | main | `engine/lib/`, tests | Bob | golden-fixture test: same input → byte-identical output | a pure function with tests; nothing user-facing can break |
+| A2 | `workout_create` action + compiler wired into coach-chat; **workout actions available on ordinary turns** | A1 | `ui/api/coach-chat/_lib/`, `coachReplySchema.ts` | UI Expert | a mid-conversation ask writes a schema-valid routine | **bug 2 dies**; athlete asks and gets one |
+| A3 | FSP closes with a benchmark instead of a library dump; seeds `progressions.json`; injury gate preserved (invariant 7) | A2 | `coachWorkoutFiles.ts`, `coachTurn.ts`, `platform/soul/B_engine.md` | UI Expert | a fresh athlete gets a benchmark, not six workouts | **bug 1 dies** for new athletes |
+| A4 | BYO: compiler CLI carved into the skeleton, in the same PR the soul starts emitting exercise lists | A3 | `platform/scripts/carve-skeleton.mjs`, `engine/scripts/`, soul | Tech Lead | `validate-soul.mjs` clean; BYO athlete creates a routine end to end | BYO stops being a dead end |
 
-| PR | milestone | outcome | final base | files | owner | parallel with | done when |
-|---|---|---|---|---|---|---|---|
-| 1 | M1 unblock | compiler + `workout_create`: Coach emits a minimal exercise list, code fills timer physics | main | `ui/api/coach-chat/_lib/` (new compiler, reply schema, `turnWrites/`) | UI Expert | — | a chat request writes a schema-valid routine |
-| 2 | M1 unblock | benchmark replaces library selection at first-session close; seeds `progressions.json` | PR 1 | `coachWorkoutFiles.ts`, `coachTurn.ts` | UI Expert | PR 3 | a fresh athlete gets a benchmark, not 6 workouts |
-| 3 | M1 unblock | BYO Claude unblocked: carve the routines the soul names, allow Coach to write new ones | main | `platform/scripts/carve-skeleton.mjs`, `platform/soul/B_engine.md`, composed builds | Tech Lead | PR 2 | `validate-soul.mjs` clean on the two baselined template findings |
-| 4 | M2 plan | `season_plan.json` + write path + season-boundary generation | PR 2 | `ui/api/coach-chat/_lib/`, `platform/scripts/carve-skeleton.mjs` | UI Expert | — | a goal conversation writes a plan with scheduled benchmarks |
-| 5 | M2 plan | `week.json` replaces `current_week.json`; two-tier reconciler: rules in code, Coach override on the sync turn; `coach_read` moves to the message surface | PR 4 | `engine/lib/current-week.mts`, `engine/scripts/validate-current-week`, `coachWeekFiles.ts`, `activitySyncTurn.ts` | Bob | — | week compiles from plan intent; every tier-1 row in §6 covered by tests; a Coach override is recorded with `status_source`; validator green |
-| 6 | M3 render | dashboard snapshot keys + day-first Workouts page with the routine library and ad-hoc start | PR 5 | `engine/scripts/build-dashboard-snapshot.mjs`, `ui/client/src/`, `shared/golden-dataset/` | UI Expert | PR 7 | all six page states in §7 render from real repo data |
-| 7 | M3 render | widget snapshots + iOS decode; `BundledTemplates.swift` becomes a cache | PR 5 | `ui/scripts/generate-widget-snapshots.ts`, `ios/CoachHQ/` | iOS Builder | PR 6 | `ios-build.yml` green; widget shows week N of M |
-| 8 | M4 cleanup | delete the library and the old nouns; supersede the ADR | PR 7 | `shared/workout-library/`, `platform/skeleton-templates/`, `engine/lib/repo-layout.mjs`, `kdb/decisions/` | Tech Lead | — | no reference to `templates/` or `sessions/` remains; ADR merged |
+**Paid gate (ADR 0024):** `npm run eval:coach-chat` runs once at the end of A2–A4, not per PR —
+A2 and A3 both touch prompt construction and the response schema, so it can actually fail there.
 
-**Migration for the four live athletes** rides in PR 8: one idempotent script, run per repo,
-renaming `templates/` → `routines/`, dropping `sessions/`, and rewriting `current_week.json` to
-`week.json`. Progressions are seeded from each athlete's next benchmark, never backfilled with
-guesses. Nobody loses a workout. The script opens **a PR per athlete repo** rather than pushing to
-`main` — four diffs to read before anything lands in someone's training data — and ships with a
-dry-run mode.
+**Deliberately not in A:** blocks, week compile, the path rename, widgets, moving `coach_read`.
+None of them fix "Coach can't create an upper body workout."
+
+## 9. Stack B — periodization (after the gate)
+
+| PR | outcome | base | owner | done when |
+|---|---|---|---|---|
+| B1 | goal + duration + blocks extend `seasons.json`; supersede the soul's "no block underneath" line | A4 | UI Expert | a goal conversation writes blocks and scheduled benchmarks |
+| B2 | `current_week.json` slimmed; week compiles from block intent; `season_start` path for returning athletes | B1 | Bob | kick-off compiles a full week; `session_plan`'s today-only stamp lifted |
+| B3 | deterministic reconciler + progression writes on completion | B2 | Bob | every row of §5 covered by tests |
+| B4 | **non-chat compile trigger** — week-boundary roll, owned by the sync workflow | B3 | Bob | a quiet Monday still has a compiled week; the timer is never empty |
+| B5 | dual-read `templates/`+`routines/` and `sessions/`+`compiled/`; iOS reads both | B4 | iOS Builder | `ios-build.yml` green; old and new paths both serve the timer |
+| B6 | rename in athlete repos; delete old paths only after B5 has shipped to devices | B5 | Tech Lead | four repos migrated; no path reference left |
+
+B4 is not optional. Compiling "on the turn that changes something" means an athlete who does not
+chat on Sunday opens an empty timer on Monday. `ios-build.yml` and `ui-tests.yml` are the CI
+evidence for B5.
+
+## 10. Rolling out to athlete repos
+
+The part that must be decisive. Four rules:
+
+1. **Ship dark.** Every HQ PR lands with the behaviour behind a `plugins.json` flag
+   (`engine/lib/plugins.mjs`, `isPluginEnabled`). Merging changes nothing for anyone until a flag
+   flips.
+2. **Dogfood first, one week.** Enable on the operator's own repo and run a full week — a
+   kick-off, a sync, a missed day, a benchmark — before anyone else sees it.
+3. **One flag, one PR, one repo.** Enablement is a one-line diff to `plugins.json`, opened as a PR
+   against that athlete's repo, never a push to `main`. A one-line diff is reviewable in seconds
+   and reversible in one revert. Never bundle a flag flip with a data change.
+4. **Data moves in three steps, never one.** Dual-read → write new → delete old, with the iOS
+   release shipped between steps two and three. `WorkoutService.swift:46,90` lists `templates/` and
+   `sessions/` by path today; a mid-stack rename takes the timer away from four live athletes.
+
+**Rollback** is `git revert` on that repo's flag PR. The repo *is* the datastore, so a revert is
+complete — no partial state to clean up. **Watch** is Sentry per ADR 0032, and the first check on
+enablement day is that compile failures are zero.
+
+**`SCHEMA_VERSION` is a flag day.** `build-dashboard-snapshot.mjs` and `useRepoData.ts` bump
+together, and old app builds strand when it moves. With four live apps, do it in B5 alongside the
+iOS release — never in Stack A.
+
+**Athlete-repo `validate-data.yml`** is JSON-parse-only today. Any new contract needs a real check
+there, or Gemini writes garbage and the workflow commits it.
 
 ## 11. Done when
 
-- An athlete asks for an upper body workout in chat and gets one. (Bug 2)
-- A new athlete's first screen shows a benchmark, not six guessed workouts. (Bug 1)
-- `progressions.json` in a live repo holds benchmarked values with dated history.
+- An athlete asks mid-conversation for an upper body workout and gets one. (Bug 2)
+- A new athlete's first screen is a benchmark, not six guessed workouts. (Bug 1)
 - Changing a progression changes the next compile with no edit to any routine file.
-- The season plan and the current week both render on web and in a widget.
-- Every invariant in §9 has a failing-when-violated test.
-- All four live repos keep working throughout, BYO Claude included.
+- An athlete with an active injury flag is never offered a routine that conflicts with it.
+- A quiet Sunday still produces a compiled Monday. (B4)
+- Every invariant in §7 has a test that fails when it is violated.
+- All four live repos keep working throughout, BYO included.
 
-## 12. Open and deferred
+## 12. The gate, and what is deferred
 
-- **Plan drift:** code detects (adherence, stalled progressions), Coach opens the conversation —
-  never an automatic rewrite. Tone rule lives in the soul layer, not code.
-- **Mid-season re-check** for seasons long enough that week-one numbers go stale.
-- **Movement catalog** with contraindication tags — only if substitution ("a different exercise
-  for the same thing") proves necessary. Drop-and-scale may well be enough, and §2's identity rule
-  is what lets us defer this safely.
-- **Unattended compile:** athlete opens the timer having said nothing, and gets the planned week
-  unchanged. No adjustment without a conversation.
-- **Retention:** a closed season's plan moves to `user_data/coach/archive/seasons/` per
-  `engine/lib/repo-layout.mjs`'s existing `seasonsDir`.
-- **Old-layout branches** in `repo-layout.mjs` (`training/…`) are untouched here; fold them into
-  PR 8 only if a live repo still needs them.
+**Before Stack B starts**, run the repo investigation across all four athlete repos: do routines
+stay stable week to week, or churn? §2 assumes stable. If they churn, B1–B3 are the wrong shape
+and the plan needs revisiting. Stack A does not depend on the answer — start it now.
+
+Deferred: widgets and the `coach_read` move to ADR 0029 (a separate product, cut from both
+stacks) · mid-season re-check · plan drift detection, where code detects and Coach opens the
+conversation, never an automatic rewrite · a movement catalog with contraindication tags, only if
+substitution proves necessary · benchmark ladders as content, only if Coach's reasoning proves
+too loose · a superseding ADR for the template/session model, in B6.
