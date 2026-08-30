@@ -10,16 +10,17 @@ import WidgetKit
 class WidgetSnapshotStore: ObservableObject {
     @Published var snapshots: WidgetSnapshotsFile?
     @Published var isLoading = false
+    /// True while any refresh (spinner or background) is in flight. Distinct from
+    /// `isLoading`, which only drives the cold-load spinner — without this, two
+    /// `showSpinner: false` refreshes race and the cancelled one toasts. Home also
+    /// reads this for a subtle warm-refresh cue over cached widgets.
+    @Published private(set) var isRefreshing = false
     @Published var lastFetchedAt: Date?
     @Published var lastError: String?
     @Published private(set) var isConfigured = false
 
     private var apiClient: GitHubAPIClient?
     private weak var authManager: GitHubAuthManager?
-    /// True while any refresh (spinner or background) is in flight. Distinct from
-    /// `isLoading`, which only drives the Home spinner — without this, two
-    /// `showSpinner: false` refreshes race and the cancelled one toasts.
-    private var isRefreshing = false
 
     private static let cacheKey = "widget_snapshots_cache"
     private static let cacheFetchedAtKey = "widget_snapshots_cache_fetched_at"

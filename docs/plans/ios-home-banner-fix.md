@@ -14,7 +14,7 @@ Two confirmed Home failures (Rage Report / Sentry), plus one Rage Report UX nit.
 3. **Rage Report keyboard** — TextEditor never dismisses; Submit sits behind the
    keyboard. No Done toolbar / scroll-dismiss.
 
-Loading polish (skeleton → content feel) stays deferred until (1) ships.
+Loading polish (skeleton → content feel) is PR3 on this plan.
 
 ## Decision
 
@@ -29,7 +29,7 @@ flowchart LR
 |---|---|---|---|---|
 | 1 | Ignore cancel; serialize refresh; keyboard dismiss on Rage Report | `WidgetSnapshotStore.swift`; `RageReportView.swift` (+ tiny Theme/toolbar if needed) | iOS Builder | 5 cold + 5 fg/bg no false banner; revoke still banners; Rage Report Done / scroll-dismiss reaches Submit |
 | 2 | Crash guard: always emit string `target` | `warmHomeSnapshots.ts` + bundle + test | UI Expert | **Done #700** — decode only; render/contract → #701 |
-| 3 (later) | Smooth Home loading | `WarmInstrumentHomeView` / `HomeSkeletonView` | iOS Builder | Cache-first; soft crossfade; no full skeleton on warm cache |
+| 3 | Smooth Home loading | `WarmInstrumentHomeView` / `HomeSkeletonView` | iOS Builder | Cache-first; soft crossfade; no full skeleton on warm cache |
 
 ## Done when
 
@@ -40,12 +40,15 @@ flowchart LR
 
 ## Deferred
 
-- Full loading animation redesign (PR3).
 - Settings `lastErrorDetail` — Rage Report covers evidence.
 - Auto-dismiss policy for all error toasts.
 
 ## Progress
 
-- **PR1 (branch `fix/ios-home-cancel-banner`):** implemented — cancel ignore +
-  `isRefreshing` + Rage Report keyboard. Awaiting review/merge + athlete device verify.
+- **PR1:** merged #702 — cancel ignore + serialize refresh + Rage Report keyboard.
 - **PR2:** merged #700 (crash guard). Deeper progression contract → #701.
+- **PR3 (branch `fix/ios-home-loading-polish`):** cache-first (no skeleton when
+  `snapshots != nil`); blank pre-configure window avoids warm-cache flash; cold
+  skeleton ↔ content via `PremiumMotion.statsLoad` + opacity; published
+  `isRefreshing` drives thin terracotta `HomeWarmRefreshCue` over widgets.
+  Device feel-check still athlete-side.

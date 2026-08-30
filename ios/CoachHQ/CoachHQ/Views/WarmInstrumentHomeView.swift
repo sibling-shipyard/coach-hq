@@ -36,6 +36,12 @@ struct WarmInstrumentHomeView: View {
             ScrollView {
                 VStack(spacing: 14) {
                     if let snapshots = store.snapshots {
+                        // Cache-first: never swap to HomeSkeletonView while widgets are on screen.
+                        if store.isRefreshing {
+                            HomeWarmRefreshCue()
+                                .transition(.opacity)
+                        }
+
                         if !preferredName.isEmpty {
                             greetingRow
                                 .staggerReveal(delay: 0.10)
@@ -55,18 +61,26 @@ struct WarmInstrumentHomeView: View {
 
                         widgetColumn(for: snapshots)
                             .transition(.opacity)
-                    } else if !authManager.isSessionReady || !store.isConfigured || store.isLoading {
+                    } else if !authManager.isSessionReady || !store.isConfigured {
+                        // Pre-configure window: blank desk so a warm cache can paint on
+                        // `configure` without a skeleton flash first.
+                        Color.clear.frame(minHeight: 1)
+                    } else if store.isLoading || store.isRefreshing {
                         HomeSkeletonView()
+                            .transition(.opacity)
                     } else if authManager.selectedRepo == nil {
                         repoNotConfiguredState
+                            .transition(.opacity)
                     } else {
                         emptyState
+                            .transition(.opacity)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .animation(PremiumMotion.statsLoad, value: store.snapshots != nil)
+                .animation(PremiumMotion.state, value: store.isRefreshing)
             }
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()
@@ -1800,10 +1814,23 @@ private struct EngineDetailGauge: View {
     }
 }
 
-// MARK: - Home skeleton loading
+// MARK: - Home loading
+
+/// Thin terracotta load bar over cached widgets while a background refresh runs —
+/// Warm Instrument reserves terracotta for load; keep it non-blocking (not a second skeleton).
+private struct HomeWarmRefreshCue: View {
+    var body: some View {
+        ProgressView()
+            .progressViewStyle(.linear)
+            .tint(WarmInstrument.accent)
+            .frame(maxWidth: .infinity)
+            .frame(height: 2)
+            .accessibilityLabel("Refreshing Home")
+    }
+}
 
 /// Shimmer placeholder cards that match the visual weight of the actual widget column —
-/// shown while the snapshot fetch is in-flight so the screen never opens empty.
+/// cold / no-cache only; warm cache paints widgets and never enters this view.
 private struct HomeSkeletonView: View {
     var body: some View {
         VStack(spacing: 14) {
