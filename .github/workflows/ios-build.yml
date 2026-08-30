@@ -56,6 +56,11 @@ jobs:
       - name: Run unit tests
         # Only on the app scheme - the widget extension has no test target of its own, and
         # running this twice would just re-run the same suite.
+        #
+        # DIAGNOSTIC, REVERT BEFORE MERGE (#585): -enableAddressSanitizer is here to name the
+        # RageReportTests bad free. The crash reproduces only on this runner - two local runs
+        # on Xcode 26.6 / simulator iOS 26.5, sanitizer on and off, were both green on all 92
+        # tests, so the runner is the only place the sanitizer can see anything.
         if: matrix.scheme == 'CoachHQ'
         run: |
           xcodebuild test \
@@ -63,4 +68,5 @@ jobs:
             -scheme CoachHQ \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -skipMacroValidation \
+            -enableAddressSanitizer YES \
             CODE_SIGNING_ALLOWED=NO
