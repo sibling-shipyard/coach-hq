@@ -58,6 +58,7 @@ export function initClientMonitoring(): void {
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: clientTracesSampleRate,
     tracePropagationTargets: apiTracePropagationTargets,
+    initialScope: { tags: { operation: "web" } },
     // ADR 0032: no automatic PII. Everything Sentry sees is added on purpose.
     sendDefaultPii: false,
     // `beforeSend` fires for error events only. Transactions and spans are separate payloads with

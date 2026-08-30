@@ -289,7 +289,10 @@ describe("captureServerException on a route that answers with a status", () => {
 
     const [event] = sentErrors();
     expect(event?.exception?.values?.[0]?.value).toBe("GitHub commit failed");
-    expect(event?.tags).toMatchObject({ athlete_id: "skanda-athlete" });
+    expect(event?.tags).toMatchObject({
+      athlete_id: "skanda-athlete",
+      operation: "coach-chat",
+    });
     expect(event?.contexts?.trace?.trace_id).toBe(TRACE_ID);
   });
 
@@ -351,7 +354,10 @@ describe("setAthleteScope", () => {
 
     const [transaction] = sentTransactions();
     expect(transaction.user).toEqual({ id: "skanda-athlete" });
-    expect(transaction.tags).toMatchObject({ athlete_id: "skanda-athlete" });
+    expect(transaction.tags).toMatchObject({
+      athlete_id: "skanda-athlete",
+      operation: "coach-chat",
+    });
   });
 
   it("uses the repo owner, the id iOS and the browser derive too, so one athlete has one id", async () => {

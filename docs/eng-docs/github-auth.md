@@ -1,6 +1,6 @@
 # GitHub Auth — how sign-in works (web + iOS, shared backend)
 
-> Status: Current · Owner: UI Expert · Verified: 2026-08-29
+> Status: Current · Owner: UI Expert · Verified: 2026-08-30
 
 ## Context
 
@@ -30,16 +30,16 @@ flowchart TD
 - Single entry point (`/api/auth/start`) for both new and returning users — identical whether
   the person is new or returning; the callback handler is what branches.
 - The callback handler branches on `platform` (`web`/`ios`), carried in an HMAC-signed `state`
-  URL param GitHub echoes back verbatim — not a cookie. A `coach_oauth_state` cookie was tried
-  first but WKWebView (iOS's in-app browser) silently drops `Set-Cookie` on redirects, so the
-  whole state payload (`codeVerifier`, `platform`, `popup`, `iat`) travels signed in the URL
-  instead; see `_lib/pkce.ts`'s `signOAuthState`/`verifyOAuthState`. `popup` is a third flag web
+  URL param GitHub echoes back verbatim — not a cookie. WKWebView silently drops `Set-Cookie` on
+  redirects, so OAuth state cannot live in a cookie. The whole payload (`codeVerifier`, `platform`,
+  `popup`, `iat`) travels signed in the URL; see `_lib/pkce.ts`'s
+  `signOAuthState`/`verifyOAuthState`. `popup` is a third flag web
   sets when `GitHubAuthButton` opened the flow via `window.open()` instead of a full nav — every
   terminal redirect then goes to `/auth/popup-complete` instead of `/` or `/?auth_error=`.
-- **iOS** still can't provision a repo via API (GitHub App tokens can't create personal repos —
-  confirmed 404/403 on `/repos/{template}/generate` and `/user/repos`), so `SetupView.swift`
-  still walks a first-timer through creating the repo from `sibling-shipyard/coach-skeleton`
-  then installing the App — unchanged by #164, out of scope for web.
+- **iOS** can't provision a repo via API because GitHub App tokens can't create personal repos.
+  `/repos/{template}/generate` and `/user/repos` return 404/403. `SetupView.swift` walks a
+  first-timer through creating the repo from `sibling-shipyard/coach-skeleton`, then installing
+  the App.
 - **One repo per account, enforced, no picker (ADR 0019).** GitHub's own install flow can't
   restrict an account to granting exactly one repo, so an account can resolve 2+ owned,
   marker-matched repos. When that happens, both platforms block and tell the athlete to remove
@@ -68,8 +68,8 @@ named export in that one file:
 
 **Gotcha:** `ui/vercel.json`'s SPA fallback rewrite must stay scoped to exclude `/api/`
 (`"source": "/((?!api/).*)"`). A plain `"/(.*)"` rewrite competes with this file's own wildcard
-route (`/api/auth/*`) since both are dynamic patterns — Vercel reliably prefers a real function
-over a rewrite for a *literal* path (`/api/waitlist`), but not reliably between two wildcards.
+route (`/api/auth/*`) because both are dynamic patterns. Vercel reliably prefers a real function
+over a rewrite for a *literal* path (`/api/waitlist`). It does not reliably choose between two wildcards.
 This took down GitHub sign-in on web and iOS simultaneously for several hours with no server-side
 error to find, because the request never reached this file at all.
 
@@ -124,11 +124,10 @@ wildcard is only safe on a domain we control end to end.
 GitHub's access token dies at ~8h regardless of cookie settings. "Stay logged in" is
 `ensureFreshSession()` (`_lib/session.ts`) silently exchanging the 6-month `refresh_token` for a
 new access token 5 minutes before expiry, on every request, re-issuing a sliding 180-day
-session cookie. iOS has no server session — it calls `/api/auth/refresh` itself and stores the
-rotated pair in Keychain, access token + refresh token + expiry in one combined item written
-with a single call, so a process kill mid-write can never pair a fresh access token with a
-stale refresh token (`GitHubAuthManager.swift`; falls back to reading the old 3-key layout for
-athletes signed in before this shipped). A transient 502 from `/api/auth/refresh` retries once;
+session cookie. iOS has no server session. It calls `/api/auth/refresh` itself and stores the
+rotated pair in Keychain. Access token, refresh token, and expiry form one item written with a
+single call, so a process kill cannot create a mismatched pair. `GitHubAuthManager.swift` falls
+back to reading the old 3-key layout for athletes signed in before this shipped. A transient 502 from `/api/auth/refresh` retries once;
 a 401 fails immediately. Full reasoning: `kdb/decisions/0009-refresh-token-sliding-session.md`.
 
 ## Done when

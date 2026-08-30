@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-29 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
 region for 30 days on the Developer plan — fixed by the plan, not a dial we hold; Vercel and
@@ -38,15 +38,19 @@ flowchart LR
    to `1`, which is right for four athletes and wrong the first day it isn't.
 5. Build one dashboard and three alerts from the tables below. Route alerts to team email plus the
    Sentry mobile app; use a five-minute notification interval. The dashboard is built:
-   **"Coach HQ health"**, id `5873386`. Its first three widgets return real rows; the iOS one stays
-   empty until the `coach-hq-ios` DSN is in `Secrets.swift`. The alerts are not built yet.
+   **"Coach HQ health"**, id `5873386`. All four filters have returned production rows; a short
+   time window can still be empty with four athletes. The alerts are not built yet.
 
 | dashboard widget | filter | group / value |
 |---|---|---|
 | Production errors and reports | `environment:production` | project, `operation`, release, count |
-| Core web/API health | `span.op:http.server` | span name, `outcome`, count, p95 duration |
+| Core web/API health | `span.op:http.server sentry.origin:manual` | span name, `outcome`, count, p95 duration |
 | Gemini health | `span.op:gen_ai.generate_content` | `gen_ai.request.model`, `outcome`, count, p95 duration, `gen_ai.usage.*` token totals |
-| iOS sync health | transaction `healthkit.sync` | `outcome`, count, duration, synced item count |
+| iOS sync health | `transaction:healthkit.sync` | `outcome`, count, duration, synced item count |
+
+Every error has an `operation` tag: `web` for browser errors, the API route without `/api/` with
+slashes changed to dots (for example `auth.callback`), or the native operation name on iOS. Use it
+to group failures by entry point; `trace_id` is still the key that joins one interaction.
 
 | alert | condition | route |
 |---|---|---|
@@ -56,7 +60,7 @@ flowchart LR
 
 ## Triage
 
-1. Record the issue URL, timestamp, project, `trace_id`, `athlete_id`, and release.
+1. Record the issue URL, timestamp, project, `operation`, `trace_id`, `athlete_id`, and release.
    `athlete_id` is the repo owner (`skanda-athlete`) and is also the event's Sentry user, so the
    issue page's user filter and an `athlete_id:` search find the same events. Web, API, and iOS
    derive it the same way — one athlete, one id across all three projects. An event with no
@@ -83,8 +87,9 @@ flowchart LR
    client and API failure share one trace id and the repeated-failure alert arrives within 15 minutes.
 3. Launch iOS with `--send-sentry-test-event`, then submit one Rage Report with one selected timeline
    event. Confirm the alert, release tags, attachment, and Cancel-sends-nothing behavior.
-4. Check one web exception is deminified and one iOS crash is symbolicated. Save the three Sentry URLs
-   in PR #604; only then replace `Refs: #585` with `Fixes: #585` and delete the plan.
+4. Open one production web exception and one iOS test event. Confirm each has `release`,
+   `environment`, and `operation`. Minified web frames and unsymbolicated iOS frames are expected
+   until the parked source-map and dSYM work ships.
 
 ## Traps
 
@@ -93,9 +98,9 @@ Three that have already cost us a build. Read these before editing `ui/api/_lib/
 1. **`beforeSend` is error events only.** Transactions and spans are separate payloads with their
    own hooks. Wire `beforeSendTransaction` and `beforeSendSpan` too, or the credential scrubber
    covers about a third of what we send.
-2. **Never switch off outbound spans with `spans: false`.** On `httpIntegration` that also kills
-   the *incoming* `http.server` span, which is the one span on this side we want. Use
-   `ignoreOutgoingRequests` — it returns before a span or breadcrumb exists.
+2. **Do not use `spans: false` to remove the duplicate incoming span.** It also disables outbound
+   spans. Use `disableIncomingRequestSpans: true` for the SDK duplicate and
+   `ignoreOutgoingRequests` for outbound traffic.
 3. **A second `captureException` of the same error object is dropped.** That is what holds a
    rethrown Gemini failure to one event: the detailed capture goes first and wins. Rethrow a
    *fresh* error with the same message and you get two.
@@ -104,17 +109,17 @@ Three that have already cost us a build. Read these before editing `ui/api/_lib/
 ## Coverage boundary
 
 Today we count core homepage, chat, Gemini, HealthKit sync, Rage Report, and React render-crash
-paths — the browser's own pageload and navigation spans, the API's incoming `http.server` span on
-`/api/coach-chat` and `/api/coach-message`, and the Gemini spans we open ourselves. **Outbound HTTP
+paths — the browser's own pageload and navigation spans, one manual incoming `http.server` span on
+each wrapped API route, and the Gemini spans we open ourselves. **Outbound HTTP
 from the API is deliberately not traced.** Both Node instrumentations copy the full request URL onto
 the span, and `geminiClient.ts` passes the API key in the query string, so an `http.client` span is
 a credential in Sentry. `beforeSend` never sees it, because that hook fires for error events only.
 `ui/api/_lib/sentry.ts` hands `httpIntegration` and `nativeNodeFetchIntegration` an
 `ignoreOutgoingRequests` that returns true for everything, dropping the span and the breadcrumb
 before either is built. The cost is that GitHub call durations never reach the trace. Gemini is the
-one outbound call we time, and we do it by opening a span by hand. Auth-server
-traffic, every secondary API route, GitHub success totals, and iOS dSYM upload are not covered; do
-not infer whole-product uptime or traffic from this dashboard yet. Chat text reaches Sentry only when
+one outbound call we time, and we do it by opening a span by hand. GitHub success totals and iOS
+dSYM upload are not covered; do not infer whole-product uptime or traffic from this dashboard yet.
+Chat text reaches Sentry only when
 a Gemini call fails; a successful turn's text stays in `chat_history.json`, never Sentry. And this is
 error monitoring, not product analytics: it will not tell you what athletes
 do, only what broke. That is a different tool and a different question — see `docs/plans/sentry-lld.md`
