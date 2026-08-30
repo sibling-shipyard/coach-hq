@@ -141,6 +141,21 @@ You own the doc rules themselves (`docs/eng-docs/README.md`) and the whole-syste
 5. `git log --oneline -10`
 6. You're ready. Ask the athlete what's on the agenda or pick up where you left off.
 
+## Handover
+
+The bookend of the boot sequence above. Two steps, in this order.
+
+1. **Flush, don't summarise.** Anything you learned that outlives the session goes into the repo
+	first — a role-doc Learning, an ADR, or a comment where someone will hit it. A handover carrying
+	a durable rule has put it in the wrong place: the next agent is not the last agent.
+2. **Then write the prompt.** It carries only what the repo cannot. Access and credentials,
+	temporary state (a diagnostic commit that must be reverted), results you measured but have not
+	yet written down, and claims you have not verified.
+
+Test every line: could the next agent read this after booting? Then cut it. Boot reads, voice
+rules, git conventions and the running plan are already there. A handover that restates them buys
+nothing and hides the few lines that matter.
+
 ## Learnings
 
 - `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree — it passes locally and fails only in CI.
