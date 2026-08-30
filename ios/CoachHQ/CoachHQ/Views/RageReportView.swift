@@ -113,9 +113,14 @@ struct RageReportView: View {
                         Text("No recent diagnostic events are available.")
                             .foregroundStyle(.secondary)
                     } else {
-                        let n = viewModel.availableEvents.count
+                        let total = viewModel.availableEvents.count
+                        let selected = viewModel.selectedEventCount
                         Toggle(isOn: evidenceSummaryBinding) {
-                            Text("\(n) diagnostic event\(n == 1 ? "" : "s")")
+                            Text(
+                                selected == total
+                                    ? "\(total) diagnostic event\(total == 1 ? "" : "s")"
+                                    : "\(selected) of \(total) diagnostic events"
+                            )
                         }
                         .disabled(viewModel.submissionState == .queued)
 
