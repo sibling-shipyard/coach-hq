@@ -135,7 +135,9 @@ function scopeBreadcrumbs(
   return getScope().getScopeData?.().breadcrumbs ?? [];
 }
 
-function compactTrailData(data: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+function compactTrailData(
+  data: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
   if (!data) return undefined;
   const out: Record<string, unknown> = {};
   for (const key of TRAIL_DATA_KEYS) {

@@ -8,16 +8,27 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { init, browserTracingIntegration, setUser, setTag, captureMessage, getIsolationScope, getCurrentScope } =
-  vi.hoisted(() => ({
-    init: vi.fn(),
-    browserTracingIntegration: vi.fn(() => ({ name: "BrowserTracing" })),
-    setUser: vi.fn(),
-    setTag: vi.fn(),
-    captureMessage: vi.fn((): string => "event-id"),
-    getIsolationScope: vi.fn(() => ({ getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }) })),
-    getCurrentScope: vi.fn(() => ({ getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }) })),
-  }));
+const {
+  init,
+  browserTracingIntegration,
+  setUser,
+  setTag,
+  captureMessage,
+  getIsolationScope,
+  getCurrentScope,
+} = vi.hoisted(() => ({
+  init: vi.fn(),
+  browserTracingIntegration: vi.fn(() => ({ name: "BrowserTracing" })),
+  setUser: vi.fn(),
+  setTag: vi.fn(),
+  captureMessage: vi.fn((): string => "event-id"),
+  getIsolationScope: vi.fn(() => ({
+    getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }),
+  })),
+  getCurrentScope: vi.fn(() => ({
+    getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }),
+  })),
+}));
 
 vi.mock("@sentry/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@sentry/react")>()),
@@ -211,7 +222,9 @@ describe("submitRageReport", () => {
       fingerprint: ["rage_report"],
       tags: { operation: "rage_report", surface: "web" },
       extra: {
-        trail: [{ category: "ui.click", message: "Home", timestamp: 1, data: { url: "/api/coach-chat" } }],
+        trail: [
+          { category: "ui.click", message: "Home", timestamp: 1, data: { url: "/api/coach-chat" } },
+        ],
       },
     });
   });
@@ -221,7 +234,10 @@ describe("submitRageReport", () => {
     const trail = [{ category: "navigation", message: "/workouts", timestamp: 2 }];
 
     expect(submitRageReport("broken", trail)).toBe(true);
-    expect(captureMessage).toHaveBeenCalledWith("broken", expect.objectContaining({ extra: { trail } }));
+    expect(captureMessage).toHaveBeenCalledWith(
+      "broken",
+      expect.objectContaining({ extra: { trail } }),
+    );
   });
 
   it("sends nothing when the athlete cancels, which leaves an empty box behind", async () => {
