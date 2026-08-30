@@ -6,17 +6,17 @@
  * what gets attached to the event, not about the SDK delivering it. Each test re-imports the
  * module under `vi.resetModules()` because `initServerMonitoring()` latches after its first run.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { captureException, flush, init, httpIntegration, nativeNodeFetchIntegration } = vi.hoisted(
-  () => ({
+const { captureException, flush, init, httpIntegration, nativeNodeFetchIntegration, waitUntil } =
+  vi.hoisted(() => ({
     captureException: vi.fn((_error: unknown, _context?: unknown): string => "event-id"),
     flush: vi.fn(async () => true),
     init: vi.fn(),
     httpIntegration: vi.fn((options?: unknown) => ({ name: "Http", options })),
     nativeNodeFetchIntegration: vi.fn((options?: unknown) => ({ name: "NodeFetch", options })),
-  }),
-);
+    waitUntil: vi.fn<(promise: Promise<unknown>) => void>(),
+  }));
 
 // Only the transport-facing calls are faked. `continueTrace` and the scope APIs are the real
 // ones, so the trace-continuation tests below assert on real propagation context, not on a stub.
@@ -30,6 +30,30 @@ vi.mock("@sentry/node", async (importOriginal) => ({
   httpIntegration,
   nativeNodeFetchIntegration,
 }));
+
+vi.mock("@vercel/functions", () => ({ waitUntil }));
+
+const VERCEL_REQUEST_CONTEXT = Symbol.for("@vercel/request-context");
+const originalRequestContext = Object.getOwnPropertyDescriptor(globalThis, VERCEL_REQUEST_CONTEXT);
+
+function installVercelRequestContext(): void {
+  Object.defineProperty(globalThis, VERCEL_REQUEST_CONTEXT, {
+    configurable: true,
+    value: { get: () => ({ waitUntil }) },
+  });
+}
+
+function clearVercelRequestContext(): void {
+  Reflect.deleteProperty(globalThis, VERCEL_REQUEST_CONTEXT);
+}
+
+afterAll(() => {
+  if (originalRequestContext) {
+    Object.defineProperty(globalThis, VERCEL_REQUEST_CONTEXT, originalRequestContext);
+  } else {
+    clearVercelRequestContext();
+  }
+});
 
 /** Shaped like the real thing: an `AIza` key of the length the scrubber's pattern matches. */
 const GEMINI_URL_WITH_KEY =
@@ -303,13 +327,28 @@ describe("withContinuedTrace", () => {
   const INCOMING = `${INCOMING_TRACE_ID}-b7ad6b7169203331-1`;
 
   beforeEach(() => {
+    flush.mockReset();
+    flush.mockResolvedValue(true);
     init.mockClear();
+    waitUntil.mockReset();
+    clearVercelRequestContext();
     process.env.SENTRY_DSN = "https://public@o0.ingest.de.sentry.io/1";
   });
 
   afterEach(() => {
+    clearVercelRequestContext();
     delete process.env.SENTRY_DSN;
   });
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, reject, resolve };
+  }
 
   /** Reads what Sentry would stamp on any event captured inside the handler. */
   async function traceIdSeenBy(headers: Record<string, string>) {
@@ -364,6 +403,78 @@ describe("withContinuedTrace", () => {
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");
+  });
+
+  it("hands a handled flush to Vercel without holding the response open", async () => {
+    installVercelRequestContext();
+    const pending = deferred<boolean>();
+    flush.mockReturnValueOnce(pending.promise);
+    const { withContinuedTrace } = await loadSentry();
+    const req = new Request("https://coach.test/api/coach-chat");
+
+    await expect(withContinuedTrace(req, async () => "handler ran")).resolves.toBe("handler ran");
+
+    expect(waitUntil).toHaveBeenCalledOnce();
+    const scheduled = waitUntil.mock.calls[0][0];
+    pending.resolve(true);
+    await expect(scheduled).resolves.toBe(true);
+  });
+
+  it("awaits the same flush when there is no Vercel request context", async () => {
+    const pending = deferred<boolean>();
+    flush.mockReturnValueOnce(pending.promise);
+    const { withContinuedTrace } = await loadSentry();
+    const req = new Request("https://coach.test/api/coach-chat");
+    let returned = false;
+
+    const response = withContinuedTrace(req, async () => "handler ran").then((result) => {
+      returned = true;
+      return result;
+    });
+    await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce());
+
+    expect(returned).toBe(false);
+    expect(waitUntil).not.toHaveBeenCalled();
+    pending.resolve(true);
+    await expect(response).resolves.toBe("handler ran");
+  });
+
+  it("handles a rejected background flush inside the waitUntil promise", async () => {
+    installVercelRequestContext();
+    const failure = new Error("transport unavailable");
+    flush.mockRejectedValueOnce(failure);
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { withContinuedTrace } = await loadSentry();
+    const req = new Request("https://coach.test/api/coach-chat");
+
+    await expect(withContinuedTrace(req, async () => "handler ran")).resolves.toBe("handler ran");
+    await expect(waitUntil.mock.calls[0][0]).resolves.toBe(false);
+
+    expect(log).toHaveBeenCalledWith("[sentry] flush failed", failure);
+    log.mockRestore();
+  });
+
+  it("does not await locally when waitUntil registers and then throws", async () => {
+    installVercelRequestContext();
+    const pending = deferred<boolean>();
+    flush.mockReturnValueOnce(pending.promise);
+    const registrationFailure = new Error("registered then failed");
+    waitUntil.mockImplementationOnce(() => {
+      throw registrationFailure;
+    });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { withContinuedTrace } = await loadSentry();
+    const req = new Request("https://coach.test/api/coach-chat");
+
+    await expect(withContinuedTrace(req, async () => "handler ran")).resolves.toBe("handler ran");
+
+    expect(flush).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith(
+      "[sentry] could not register background flush",
+      registrationFailure,
+    );
+    pending.resolve(true);
+    log.mockRestore();
   });
 });
 
