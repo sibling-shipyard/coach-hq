@@ -91,7 +91,30 @@ note here rather than fixing inline:
       `memory.json` only does so via the athlete retyping both in an ordinary chat turn (normal
       incremental-write path, `_meta.updated_by: "model"`) — the dedicated pre-Gemini
       `onboardingHints` commit never fires for either field. Contradicts `coach-chat-fsp.md` §1's
-      documented handoff.
+      documented handoff. Fix idea from Skanda worth keeping in mind: instead of committing on
+      the greet call, commit native name/sports the next time a real write happens anyway (e.g.
+      the first HealthKit sync/"log" commit) rather than requiring a standalone pre-Gemini commit
+      on greet — not decided, just logged for the fix discussion.
+- [x] **#674**: FSP `quest_create` never fires — both the 3-6 month goal and all three stated
+      habit quests are dropped. `quests.json` untouched all session (still skeleton default,
+      `_meta.updated_by: "skeleton-init"`). The goal ("stronger overall by end of 2026") landed
+      in `memory.json.notes.coaching_priorities` instead of `quest_create.main_quest` — the
+      pre-#408 behavior the design doc says was retired. A `season_start` also fired for the same
+      statement (`a2017f7`) — not wrong on its own, Skanda did give an end-of-2026 timeframe, but
+      the goal still needed to *also* become a quest and never did. The three habit quests (read
+      10 min, quit smoking, quit alcohol) were never written anywhere, despite Coach's reply
+      claiming *"I've locked those habits in."* Matches the same action-field-skipping shape as
+      the `eval-coach-chat` failures on PR #669 (#670) — currently running on pro (#668); worth
+      re-testing on flash once it's stable to see if this is pro-specific.
+- [x] **#675**: Fitness Snapshot never reaches the prompt at all, for any turn, all session —
+      despite 278 HealthKit activities syncing mid-conversation with real per-sport data
+      generated into `gen/athlete_insights.json`. Root cause: that file has no `schema_version`
+      field, and `coachContext.ts`'s `fitnessSnapshotSection()` silently returns null without one
+      (the guard's own comment predicted this exact failure). HQ's current
+      `engine/scripts/generate-athlete-insights.mjs` does stamp `schema_version: 1` — the copy
+      carved into `skanda-testing/coach-skanda-testing` doesn't have that line at all. Stale
+      carve, not a live-code bug. Unknown blast radius — need to check whether the real athlete
+      repos (`coach-skanda-2003`, `coach-akash-suresh`) are carved current or also affected.
 
 ## Recording results
 
