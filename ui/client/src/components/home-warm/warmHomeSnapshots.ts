@@ -720,12 +720,14 @@ function buildPhaseSnapshot(ledger: any, dataMode: "reference" | "live"): BuildP
     title: dataMode === "live" ? "BUILD PHASE · CHALLENGE DATA" : undefined,
     milestones: milestonesArray.slice(0, 3).map((item: any) => {
       if (isSplit) {
+        // Progressions often ship short_target (or omit target); undefined is dropped from JSON
+        // and iOS PhaseMilestoneSnapshot.target is a required String → whole Home decode fails.
         return {
           id: item.id,
-          name: item.name,
+          name: item.name ?? item.short_name ?? "—",
           baseline: "—",
-          current: item.current ?? "—",
-          target: item.target,
+          current: item.short_current ?? item.current ?? "—",
+          target: item.short_target ?? item.target ?? "—",
           note: undefined,
           progressPercent: null,
           projectedDateLabel: undefined,
@@ -752,10 +754,10 @@ function buildPhaseSnapshot(ledger: any, dataMode: "reference" | "live"): BuildP
           : undefined;
         return {
           id: item.id,
-          name: item.short_name ?? item.name,
+          name: item.short_name ?? item.name ?? "—",
           baseline: String(item.baseline ?? "—"),
           current: item.short_current ?? String(item.current ?? item.baseline ?? "—"),
-          target: item.short_target ?? item.target,
+          target: item.short_target ?? item.target ?? "—",
           note: item.note,
           progressPercent,
           projectedDateLabel: dataMode === "live" ? projectedDateLabel : undefined,

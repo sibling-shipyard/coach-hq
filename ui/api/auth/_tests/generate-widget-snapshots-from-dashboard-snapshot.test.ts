@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  generateWidgetSnapshotsFromDashboardSnapshot,
   needsLiveRecomputation,
   projectLatestCoachMessage,
 } from "../_lib/generate-widget-snapshots-from-dashboard-snapshot.js";
@@ -103,5 +104,66 @@ describe("needsLiveRecomputation", () => {
         week: { start_date: "2026-08-10", end_date: "2026-08-16" },
       } as never),
     ).toBe(true);
+  });
+});
+
+// COACH-HQ-IOS-4 / #308: split-ledger progressions often have short_target and no target.
+// Undefined target is omitted from JSON; iOS requires PhaseMilestoneSnapshot.target → empty Home.
+describe("generateWidgetSnapshotsFromDashboardSnapshot phase milestones", () => {
+  const splitLedger = {
+    seasons: {
+      version: 1 as const,
+      _meta: { updated_at: "2026-08-01", updated_by: "test", trace_id: "t0" },
+      current_season_id: "s1",
+      seasons: [
+        {
+          id: "s1",
+          name: "Season",
+          start_date: "2026-06-01",
+          end_date: "2026-08-31",
+          status: "active" as const,
+        },
+      ],
+    },
+    quests: {
+      version: 1 as const,
+      _meta: { updated_at: "2026-08-01", updated_by: "test", trace_id: "t0" },
+      weekly_targets: {},
+      main_quest: { id: "main", name: "Main", type: "count_target" as const, target: 10 },
+      quests: [],
+    },
+    progress: { version: 1 as const, rows: [] },
+    progressions: {
+      version: 1 as const,
+      _meta: { updated_at: "2026-08-01", updated_by: "test", trace_id: "t0" },
+      progressions: [
+        {
+          id: "fl_single_leg",
+          name: "Front lever",
+          current: "9S",
+          // no target — real athlete progressions often only ship short_target
+          short_target: "FULL 5S",
+          unit: null,
+          history: [],
+        },
+      ],
+    },
+  };
+
+  it("emits a non-empty string target from short_target when target is missing", () => {
+    const snapshots = generateWidgetSnapshotsFromDashboardSnapshot({
+      ledger: splitLedger,
+      activities: [],
+    });
+    expect(snapshots).not.toBeNull();
+    const milestone = snapshots!.home.phase.milestones[0];
+    expect(milestone.target).toBe("FULL 5S");
+    expect(typeof milestone.target).toBe("string");
+    expect(milestone.target.length).toBeGreaterThan(0);
+    // Survive JSON round-trip the way /api/widget-snapshots ships to iOS
+    const wire = JSON.parse(JSON.stringify(snapshots!.home.phase.milestones[0]));
+    expect(wire.target).toBe("FULL 5S");
+    expect(wire.name).toBe("Front lever");
+    expect(wire.current).toBe("9S");
   });
 });

@@ -79,16 +79,56 @@ function zoneRamp() {
 
 // client/src/lib/activities.ts
 var CATEGORY_CONFIG = {
-  foundation: { label: "FOUNDATION", shortLabel: "FDN", color: sportHex("foundation"), group: "foundation" },
-  strength: { label: "STRENGTH", shortLabel: "STR", color: sportHex("strength"), group: "strength" },
-  weight_training: { label: "WEIGHTS", shortLabel: "WGT", color: sportHex("weight_training"), group: "weight_training" },
-  calisthenics: { label: "CALISTHENICS", shortLabel: "CAL", color: sportHex("calisthenics"), group: "calisthenics" },
+  foundation: {
+    label: "FOUNDATION",
+    shortLabel: "FDN",
+    color: sportHex("foundation"),
+    group: "foundation"
+  },
+  strength: {
+    label: "STRENGTH",
+    shortLabel: "STR",
+    color: sportHex("strength"),
+    group: "strength"
+  },
+  weight_training: {
+    label: "WEIGHTS",
+    shortLabel: "WGT",
+    color: sportHex("weight_training"),
+    group: "weight_training"
+  },
+  calisthenics: {
+    label: "CALISTHENICS",
+    shortLabel: "CAL",
+    color: sportHex("calisthenics"),
+    group: "calisthenics"
+  },
   recovery: { label: "RECOVERY", shortLabel: "REC", color: workoutHex("recovery"), group: "other" },
   realign: { label: "REALIGN", shortLabel: "RLN", color: workoutHex("realign"), group: "other" },
-  badminton_ranked: { label: "RANKED", shortLabel: "RNK", color: sportHex("badminton"), group: "badminton" },
-  badminton_league: { label: "LEAGUE", shortLabel: "LGE", color: sportHex("badminton"), group: "badminton" },
-  badminton_friendly: { label: "FRIENDLY", shortLabel: "FRN", color: sportHex("badminton"), group: "badminton" },
-  badminton_casual: { label: "CASUAL", shortLabel: "CAS", color: sportHex("badminton"), group: "badminton" },
+  badminton_ranked: {
+    label: "RANKED",
+    shortLabel: "RNK",
+    color: sportHex("badminton"),
+    group: "badminton"
+  },
+  badminton_league: {
+    label: "LEAGUE",
+    shortLabel: "LGE",
+    color: sportHex("badminton"),
+    group: "badminton"
+  },
+  badminton_friendly: {
+    label: "FRIENDLY",
+    shortLabel: "FRN",
+    color: sportHex("badminton"),
+    group: "badminton"
+  },
+  badminton_casual: {
+    label: "CASUAL",
+    shortLabel: "CAS",
+    color: sportHex("badminton"),
+    group: "badminton"
+  },
   hike: { label: "HIKE", shortLabel: "HIK", color: sportHex("hike"), group: "hike" },
   walk: { label: "WALK", shortLabel: "WLK", color: sportHex("walk"), group: "other" },
   cricket: { label: "CRICKET", shortLabel: "CRK", color: sportHex("cricket"), group: "other" },
@@ -102,12 +142,24 @@ var CATEGORY_CONFIG = {
 var GROUP_CONFIG = {
   foundation: { label: "FOUNDATION", color: sportHex("foundation"), categories: ["foundation"] },
   strength: { label: "STRENGTH", color: sportHex("strength"), categories: ["strength"] },
-  calisthenics: { label: "CALISTHENICS", color: sportHex("calisthenics"), categories: ["calisthenics"] },
+  calisthenics: {
+    label: "CALISTHENICS",
+    color: sportHex("calisthenics"),
+    categories: ["calisthenics"]
+  },
   run: { label: "RUN", color: sportHex("run"), categories: ["run"] },
   hike: { label: "HIKE", color: sportHex("hike"), categories: ["hike"] },
-  badminton: { label: "BADMINTON", color: sportHex("badminton"), categories: ["badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual"] },
+  badminton: {
+    label: "BADMINTON",
+    color: sportHex("badminton"),
+    categories: ["badminton_ranked", "badminton_league", "badminton_friendly", "badminton_casual"]
+  },
   swim: { label: "SWIM", color: sportHex("swim"), categories: ["swim"] },
-  weight_training: { label: "WEIGHTS", color: sportHex("weight_training"), categories: ["weight_training"] },
+  weight_training: {
+    label: "WEIGHTS",
+    color: sportHex("weight_training"),
+    categories: ["weight_training"]
+  },
   ride: { label: "RIDES", color: sportHex("cycling"), categories: ["ride"] }
 };
 function getTrainingCategory(activity) {
@@ -144,7 +196,11 @@ function getTrainingCategory(activity) {
 }
 var SPORT_CONFIG = {
   Badminton: { label: "BADMINTON", color: sportHex("badminton"), cssClass: "sport-bar-badminton" },
-  WeightTraining: { label: "WEIGHTS", color: sportHex("weight_training"), cssClass: "sport-bar-weights" },
+  WeightTraining: {
+    label: "WEIGHTS",
+    color: sportHex("weight_training"),
+    cssClass: "sport-bar-weights"
+  },
   Ride: { label: "RIDE", color: sportHex("cycling"), cssClass: "sport-bar-ride" },
   Run: { label: "RUN", color: sportHex("run"), cssClass: "sport-bar-run" },
   Workout: { label: "WORKOUT", color: sportHex("workout"), cssClass: "sport-bar-workout" },
@@ -514,7 +570,9 @@ function buildWinRate(sessions, mode, now) {
   const bandLow = hasBand ? Math.round(percentile(rollingValues, 0.25)) : 0;
   const bandHigh = hasBand ? Math.round(percentile(rollingValues, 0.75)) : 100;
   function windowForRange(start, end) {
-    const inWindow = points.filter((p) => (start === null || p.timestamp >= start) && p.timestamp < end);
+    const inWindow = points.filter(
+      (p) => (start === null || p.timestamp >= start) && p.timestamp < end
+    );
     const wins = inWindow.reduce((sum, p) => sum + p.wins, 0);
     const losses = inWindow.reduce((sum, p) => sum + p.losses, 0);
     const pct = winPct(wins, losses);
@@ -564,7 +622,8 @@ function buildSessionShapeRead(points) {
   const avgEarly = early.reduce((sum, point) => sum + (point.fiftyTwoWeekWinPct ?? 0), 0) / early.length;
   const avgLate = late.reduce((sum, point) => sum + (point.fiftyTwoWeekWinPct ?? 0), 0) / late.length;
   const delta = Math.round(avgLate - avgEarly);
-  if (delta <= -8) return `Win rate fades late \u2014 down ${Math.abs(delta)} pts from early to late games.`;
+  if (delta <= -8)
+    return `Win rate fades late \u2014 down ${Math.abs(delta)} pts from early to late games.`;
   if (delta >= 8) return `You finish strong \u2014 up ${delta} pts from early to late games.`;
   return "Win rate holds steady across the session \u2014 no clear fatigue curve.";
 }
@@ -590,8 +649,14 @@ function buildSessionShape(sessions, mode, now) {
   const points = positions.map((position) => {
     const windowGames = byPosition52w.get(position) ?? [];
     const recentGames = byPosition8w.get(position) ?? [];
-    const windowPct = windowGames.length >= MIN_POSITION_SAMPLES ? winPct(windowGames.filter((g) => g.result === "W").length, windowGames.filter((g) => g.result === "L").length) : null;
-    const recentPct = recentGames.length >= 3 ? winPct(recentGames.filter((g) => g.result === "W").length, recentGames.filter((g) => g.result === "L").length) : null;
+    const windowPct = windowGames.length >= MIN_POSITION_SAMPLES ? winPct(
+      windowGames.filter((g) => g.result === "W").length,
+      windowGames.filter((g) => g.result === "L").length
+    ) : null;
+    const recentPct = recentGames.length >= 3 ? winPct(
+      recentGames.filter((g) => g.result === "W").length,
+      recentGames.filter((g) => g.result === "L").length
+    ) : null;
     return {
       gameNumber: position,
       label: `GAME ${position}`,
@@ -622,7 +687,8 @@ function buildBestMonth(sessions, mode) {
   }
   const months = Array.from(byMonth.values());
   const qualifying = months.filter((m) => m.sessions >= MIN_MONTH_SESSIONS);
-  if (qualifying.length === 0) return { available: false, label: "", winPct: 0, sessionCount: 0, isHighestVolume: false };
+  if (qualifying.length === 0)
+    return { available: false, label: "", winPct: 0, sessionCount: 0, isHighestVolume: false };
   qualifying.sort((a, b) => {
     const pctDiff = winPct(b.wins, b.losses) - winPct(a.wins, a.losses);
     return pctDiff !== 0 ? pctDiff : b.sessions - a.sessions;
@@ -665,8 +731,8 @@ function buildHeadToHead(sessions, mode, now) {
     const recent = byOpponentRecent.get(name) ?? [];
     const recentWins = recent.filter((g) => g.result === "W").length;
     const recentLosses = recent.filter((g) => g.result === "L").length;
-    let direction = "steady rivalry";
-    let tone = "flat";
+    let direction;
+    let tone;
     if (recent.length >= 2) {
       const recentPct = winPct(recentWins, recentLosses);
       if (recentPct - windowPct >= 15) {
@@ -703,7 +769,10 @@ function buildHeadToHead(sessions, mode, now) {
 function closeGamesWinPct(games) {
   const close = games.filter((g) => Math.abs(g.margin) <= 3);
   if (close.length === 0) return null;
-  return winPct(close.filter((g) => g.result === "W").length, close.filter((g) => g.result === "L").length);
+  return winPct(
+    close.filter((g) => g.result === "W").length,
+    close.filter((g) => g.result === "L").length
+  );
 }
 function avgMargin(games) {
   if (games.length === 0) return null;
@@ -719,8 +788,14 @@ function buildAmIImproving(sessions, mode, now, shape) {
   const windowGames = sessions.filter((s) => s.timestamp >= cutoff52).flatMap((s) => gamesForMode(s, mode));
   const recentGames = sessions.filter((s) => s.timestamp >= cutoff8).flatMap((s) => gamesForMode(s, mode));
   if (recentGames.length < 6) return { available: false, rows: [] };
-  const windowWinPct = winPct(windowGames.filter((g) => g.result === "W").length, windowGames.filter((g) => g.result === "L").length);
-  const recentWinPct = winPct(recentGames.filter((g) => g.result === "W").length, recentGames.filter((g) => g.result === "L").length);
+  const windowWinPct = winPct(
+    windowGames.filter((g) => g.result === "W").length,
+    windowGames.filter((g) => g.result === "L").length
+  );
+  const recentWinPct = winPct(
+    recentGames.filter((g) => g.result === "W").length,
+    recentGames.filter((g) => g.result === "L").length
+  );
   const windowClose = closeGamesWinPct(windowGames);
   const recentClose = closeGamesWinPct(recentGames);
   const windowAvgMargin = avgMargin(windowGames);
@@ -832,10 +907,7 @@ function latestActivityTimestamp(activities) {
 }
 function formatSyncAge(timestamp) {
   if (!timestamp) return "Not synced";
-  const ageMinutes = Math.max(
-    0,
-    Math.round((Date.now() - new Date(timestamp).getTime()) / 6e4)
-  );
+  const ageMinutes = Math.max(0, Math.round((Date.now() - new Date(timestamp).getTime()) / 6e4));
   if (ageMinutes < 1) return "Just synced";
   if (ageMinutes < 60) return `${ageMinutes}m ago`;
   const ageHours = Math.round(ageMinutes / 60);
@@ -853,10 +925,7 @@ function getActivityZoneLoad(activity) {
   if (!activity.hr_zones) return null;
   let observedSeconds = 0;
   const weightedSeconds = ZONE_LOAD_WEIGHTS.reduce((total, weight) => {
-    const seconds = Math.max(
-      0,
-      Number(activity.hr_zones?.[`Zone ${weight}`]?.seconds) || 0
-    );
+    const seconds = Math.max(0, Number(activity.hr_zones?.[`Zone ${weight}`]?.seconds) || 0);
     observedSeconds += seconds;
     return total + seconds * weight;
   }, 0);
@@ -891,9 +960,7 @@ function activeComment(contract, topic) {
   const matching = contract.coach_comments.filter((comment) => comment.topic === topic).sort((a, b) => a.priority - b.priority);
   if (contract.data_status === "placeholder") return matching[0] ?? null;
   const today = dateKey(/* @__PURE__ */ new Date());
-  return matching.find(
-    (comment) => comment.valid_from <= today && comment.valid_until >= today
-  ) ?? null;
+  return matching.find((comment) => comment.valid_from <= today && comment.valid_until >= today) ?? null;
 }
 function buildEngine(activities, contract) {
   const points = buildEnginePoints(activities);
@@ -906,9 +973,7 @@ function buildEngine(activities, contract) {
     Math.max(1, Math.floor((Date.now() - monday.getTime()) / DAY_MS2) + 1)
   );
   const completionFraction = elapsedDays / 7;
-  const projectedLoad = Math.round(
-    currentLoad / Math.max(completionFraction, 0.45)
-  );
+  const projectedLoad = Math.round(currentLoad / Math.max(completionFraction, 0.45));
   const ratio = rhythm && rhythm > 0 ? projectedLoad / rhythm : 1;
   const signal = ratio > 1.2 ? "EASE" : ratio < 0.8 ? "BUILD" : "HOLD";
   const comment = activeComment(contract, "weekly_load");
@@ -939,12 +1004,8 @@ function calisthenicsFocus(activities) {
 }
 function buildCommitments(activities) {
   const thisWeek = getThisWeekActivities(activities);
-  const rides = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "ride"
-  );
-  const foundation = thisWeek.filter(
-    (activity) => getTrainingCategory(activity) === "foundation"
-  );
+  const rides = thisWeek.filter((activity) => getTrainingCategory(activity) === "ride");
+  const foundation = thisWeek.filter((activity) => getTrainingCategory(activity) === "foundation");
   const badminton = thisWeek.filter(
     (activity) => getTrainingCategory(activity).startsWith("badminton")
   );
@@ -983,9 +1044,7 @@ function buildCommitments(activities) {
       label: "Foundation",
       glyph: "foundation",
       value: String(
-        new Set(
-          foundation.map((activity) => activity.start_date_local.slice(0, 10))
-        ).size
+        new Set(foundation.map((activity) => activity.start_date_local.slice(0, 10))).size
       ),
       unit: "active days",
       secondary: foundation.length > 0 ? "rhythm intact" : "start gently",
@@ -1086,9 +1145,7 @@ function buildCountTargetQuest(mainQuest, activities, ledger) {
   const sinceRaw = isSplit ? ledger.seasons.seasons.find((s) => s.id === ledger.seasons.current_season_id)?.start_date : ledger.season?.start_date ?? ledger.challenge?.start_date;
   const since = sinceRaw ?? "0000-01-01";
   const pattern = mainQuest.count_pattern ? new RegExp(mainQuest.count_pattern, "i") : null;
-  const completed = pattern ? activities.filter(
-    (a) => a.start_date_local.slice(0, 10) >= since && pattern.test(a.name)
-  ).length : 0;
+  const completed = pattern ? activities.filter((a) => a.start_date_local.slice(0, 10) >= since && pattern.test(a.name)).length : 0;
   const floor = mainQuest.target ?? 0;
   return {
     name: mainQuest.name,
@@ -1217,11 +1274,21 @@ function buildEngineSnapshot(activities, engine) {
   const mixDefinition = [
     { id: "badminton", label: "Badminton", shortLabel: "BDM", color: sportMixHex("badminton") },
     { id: "foundation", label: "Foundation", shortLabel: "FDN", color: sportMixHex("foundation") },
-    { id: "calisthenics", label: "Calisthenics", shortLabel: "CAL", color: sportMixHex("calisthenics") },
+    {
+      id: "calisthenics",
+      label: "Calisthenics",
+      shortLabel: "CAL",
+      color: sportMixHex("calisthenics")
+    },
     { id: "cycling", label: "Ride", shortLabel: "RIDE", color: sportMixHex("cycling") },
     { id: "run", label: "Run", shortLabel: "RUN", color: sportHex("run") },
     { id: "strength", label: "Strength", shortLabel: "STR", color: sportHex("strength") },
-    { id: "weight_training", label: "Weights", shortLabel: "WGT", color: sportHex("weight_training") },
+    {
+      id: "weight_training",
+      label: "Weights",
+      shortLabel: "WGT",
+      color: sportHex("weight_training")
+    },
     { id: "hike", label: "Hike", shortLabel: "HIK", color: sportHex("hike") },
     { id: "walk", label: "Walk", shortLabel: "WLK", color: sportHex("walk") },
     { id: "cricket", label: "Cricket", shortLabel: "CRK", color: sportHex("cricket") },
@@ -1242,10 +1309,7 @@ function buildEngineSnapshot(activities, engine) {
   const minimumSignal = Math.min(engine.currentLoad, bandLow);
   const maximumSignal = Math.max(engine.currentLoad, bandHigh, 1);
   const scaleLow = Math.max(0, Math.floor(minimumSignal * 0.7 / 50) * 50);
-  const scaleHigh = Math.max(
-    scaleLow + 100,
-    Math.ceil(maximumSignal * 1.2 / 50) * 50
-  );
+  const scaleHigh = Math.max(scaleLow + 100, Math.ceil(maximumSignal * 1.2 / 50) * 50);
   const signal = engine.signal === "HOLD" ? "IN BAND" : engine.signal === "EASE" ? "ABOVE BAND" : "BELOW BAND";
   const verdict = engine.signal === "HOLD" ? "Optimal." : engine.signal === "EASE" ? "Ease off." : "Build gently.";
   const compactVerdict = engine.signal === "HOLD" ? "In the band." : engine.signal === "EASE" ? "Above the band." : "Below the band.";
@@ -1411,9 +1475,7 @@ function buildWeeklyPlanSnapshot(model, engine, dataMode, activityEvidence) {
     bandHigh: engine.bandHigh,
     days: model.planDays.map((day) => {
       const session = day.sessions[0];
-      const dayActivities = activityEvidence.filter(
-        (activity) => activity.dateKey === day.date
-      );
+      const dayActivities = activityEvidence.filter((activity) => activity.dateKey === day.date);
       const observedLoads = dayActivities.map((activity) => activity.load).filter((load) => load !== null);
       const hasCompleteLoad = dayActivities.length > 0 && observedLoads.length === dayActivities.length;
       return {
@@ -1449,7 +1511,9 @@ function buildCaloriesSnapshot(activities, dataMode) {
     totals.set(key, (totals.get(key) ?? 0) + (Number(activity.calories) || 0));
     return totals;
   }, /* @__PURE__ */ new Map());
-  const highestDay = Array.from(caloriesByDay.entries()).sort((left, right) => right[1] - left[1])[0];
+  const highestDay = Array.from(caloriesByDay.entries()).sort(
+    (left, right) => right[1] - left[1]
+  )[0];
   let cumulativeCalories = 0;
   const dailyActual = Array.from({ length: now.getDate() }, (_, index) => {
     const date = new Date(now.getFullYear(), now.getMonth(), index + 1);
@@ -1609,7 +1673,10 @@ function buildPhaseSnapshot(ledger, dataMode) {
   const blockEnd = isSplit ? currentSeason?.end_date : ledger.phase?.current_block.end_date ?? ledger.challenge?.end_date;
   const start = blockStart ? /* @__PURE__ */ new Date(`${blockStart}T00:00:00`) : /* @__PURE__ */ new Date();
   const end = blockEnd ? /* @__PURE__ */ new Date(`${blockEnd}T00:00:00`) : /* @__PURE__ */ new Date();
-  const totalWeeks = Math.max(1, Math.ceil((end.getTime() - start.getTime() + DAY_MS3) / (7 * DAY_MS3)));
+  const totalWeeks = Math.max(
+    1,
+    Math.ceil((end.getTime() - start.getTime() + DAY_MS3) / (7 * DAY_MS3))
+  );
   const currentWeek = Math.min(
     totalWeeks,
     Math.max(1, Math.floor((Date.now() - start.getTime()) / (7 * DAY_MS3)) + 1)
@@ -1622,10 +1689,10 @@ function buildPhaseSnapshot(ledger, dataMode) {
       if (isSplit) {
         return {
           id: item.id,
-          name: item.name,
+          name: item.name ?? item.short_name ?? "\u2014",
           baseline: "\u2014",
-          current: item.current ?? "\u2014",
-          target: item.target,
+          current: item.short_current ?? item.current ?? "\u2014",
+          target: item.short_target ?? item.target ?? "\u2014",
           note: void 0,
           progressPercent: null,
           projectedDateLabel: void 0
@@ -1644,10 +1711,10 @@ function buildPhaseSnapshot(ledger, dataMode) {
         const projectedDateLabel = progress?.projected_date ? (/* @__PURE__ */ new Date(`${progress.projected_date}T00:00:00`)).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase() : void 0;
         return {
           id: item.id,
-          name: item.short_name ?? item.name,
+          name: item.short_name ?? item.name ?? "\u2014",
           baseline: String(item.baseline ?? "\u2014"),
           current: item.short_current ?? String(item.current ?? item.baseline ?? "\u2014"),
-          target: item.short_target ?? item.target,
+          target: item.short_target ?? item.target ?? "\u2014",
           note: item.note,
           progressPercent,
           projectedDateLabel: dataMode === "live" ? projectedDateLabel : void 0
@@ -1723,13 +1790,7 @@ function questSnapshotS(quest) {
   };
 }
 function buildWidgetSnapshotsFile(activities, ledger, syncStatus, contract, dataMode = "live", coachMessage) {
-  const computedHome = buildWarmHomeSnapshots(
-    activities,
-    ledger,
-    syncStatus,
-    contract,
-    dataMode
-  );
+  const computedHome = buildWarmHomeSnapshots(activities, ledger, syncStatus, contract, dataMode);
   const home = coachMessage ? { ...computedHome, coachMessage } : computedHome;
   return {
     schema_version: 1,
@@ -1776,18 +1837,18 @@ function hasExactKeys(value, keys) {
 }
 function isLatestCoachMessageFile(value) {
   if (!isRecord(value) || !hasExactKeys(value, ["message", "schema_version"])) return false;
-  if (value.schema_version !== 1 || value.message === null || !isRecord(value.message)) return false;
+  if (value.schema_version !== 1 || value.message === null || !isRecord(value.message))
+    return false;
   const message = value.message;
-  if (!hasExactKeys(message, [
-    "activity_ids",
-    "body",
-    "conversation_seed_id",
-    "created_at",
-    "id"
-  ])) return false;
-  if (typeof message.id !== "string" || !/^cm-[A-Za-z0-9-]{1,160}$/.test(message.id) || typeof message.created_at !== "string" || !Number.isFinite(Date.parse(message.created_at)) || typeof message.body !== "string" || message.body.trim().length === 0 || message.body.length > 360 || message.conversation_seed_id !== `local-proactive-${message.id}` || !Array.isArray(message.activity_ids) || message.activity_ids.length === 0 || message.activity_ids.length > 20) return false;
+  if (!hasExactKeys(message, ["activity_ids", "body", "conversation_seed_id", "created_at", "id"]))
+    return false;
+  if (typeof message.id !== "string" || !/^cm-[A-Za-z0-9-]{1,160}$/.test(message.id) || typeof message.created_at !== "string" || !Number.isFinite(Date.parse(message.created_at)) || typeof message.body !== "string" || message.body.trim().length === 0 || message.body.length > 360 || message.conversation_seed_id !== `local-proactive-${message.id}` || !Array.isArray(message.activity_ids) || message.activity_ids.length === 0 || message.activity_ids.length > 20)
+    return false;
   const activityIds = message.activity_ids;
-  if (activityIds.some((id) => typeof id !== "string" || id.length > 80 || !HEALTHKIT_ACTIVITY_ID.test(id) && !STRAVA_ACTIVITY_ID.test(id)) || activityIds.some((id, index) => index > 0 && id <= activityIds[index - 1])) return false;
+  if (activityIds.some(
+    (id) => typeof id !== "string" || id.length > 80 || !HEALTHKIT_ACTIVITY_ID.test(id) && !STRAVA_ACTIVITY_ID.test(id)
+  ) || activityIds.some((id, index) => index > 0 && id <= activityIds[index - 1]))
+    return false;
   return true;
 }
 function projectLatestCoachMessage(value) {
