@@ -328,6 +328,20 @@ extension Notification.Name {
     static let navigateToHome = Notification.Name("coachHQ.navigateToHome")
     /// Posted by WorkoutCompleteView "Talk to Coach" CTA — carries `workoutType` String in userInfo. Observed by CoachChatView.
     static let postWorkoutChatOpen = Notification.Name("coachHQ.postWorkoutChatOpen")
+    /// Posted by UIWindow.motionEnded when the device is shaken — observed by MainTabView to open the rage report sheet.
+    static let shakeGestureDetected = Notification.Name("coachHQ.shakeGestureDetected")
+}
+
+// MARK: - Shake gesture bridge
+
+extension UIWindow {
+    /// Bridges UIKit shake events into SwiftUI via a notification. UIWindow sits at the
+    /// top of the responder chain so this fires even when a text field is first responder.
+    override open func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        super.motionEnded(motion, with: event)
+        guard motion == .motionShake else { return }
+        NotificationCenter.default.post(name: .shakeGestureDetected, object: nil)
+    }
 }
 
 // MARK: - Reusable styled components

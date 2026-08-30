@@ -152,6 +152,7 @@ struct MainTabView: View {
     @AppStorage("chatHasUnread") private var chatHasUnread = false
     @AppStorage("pendingChatNavigation") private var pendingChatNavigation = false
     @State private var pendingCoachMessageRoute: CoachMessageRoute?
+    @State private var showRageReport = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -214,6 +215,12 @@ struct MainTabView: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: authManager.sessionExpired)
+        .sheet(isPresented: $showRageReport) { RageReportView() }
+        .onReceive(NotificationCenter.default.publisher(for: .shakeGestureDetected)) { _ in
+            guard router.effectivePhase == .complete, !authManager.sessionExpired else { return }
+            Haptics.tap()
+            showRageReport = true
+        }
         .onPreferenceChange(TabBarHiddenPreferenceKey.self) { tabBarHidden = $0 }
         .animation(PremiumMotion.dock, value: tabBarHidden)
         .background(WarmInstrument.desk.ignoresSafeArea())
