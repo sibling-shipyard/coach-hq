@@ -58,6 +58,36 @@ to group failures by entry point; `trace_id` is still the key that joins one int
 | Repeated core failure | `outcome:error`, at least 3 events in 15 minutes | immediate |
 | Athlete Rage Report | `operation:rage_report` | immediate |
 
+## Query it from a terminal
+
+Every claim on this page and in `docs/plans/monitoring-order.md` was checked this way. The token
+lives outside the repo at `~/.config/sentry-token` — read it inline, never echo or paste it.
+
+```bash
+curl -s -G "https://sentry.io/api/0/organizations/sibling-shipyard/events/" \
+  -H "Authorization: Bearer $(cat ~/.config/sentry-token)" \
+  --data-urlencode "dataset=spans" \
+  --data-urlencode "project=-1" \
+  --data-urlencode "statsPeriod=14d" \
+  --data-urlencode "query=environment:production span.op:http.server" \
+  --data-urlencode "field=timestamp" --data-urlencode "field=release" \
+  --data-urlencode "sort=-timestamp"
+```
+
+`dataset` is `spans` or `errors` — they are separate stores and a span filter returns nothing
+against `errors`. `project=-1` means all three projects; `project.name` is available as a field.
+
+**Every field you sort by must also be a selected `field`.** Sorting by a column you did not select
+returns an error, not an empty result, which reads like a broken query rather than a broken request.
+
+**Always filter `environment:production` before drawing a conclusion.** Preview traffic from PR
+verification lands in the same store, and our own deliberate test failures have already been read
+once as a production outage (`docs/plans/monitoring-order.md` item 2).
+
+**A release tag is not a deploy.** Check that production traffic actually carries the release you
+expect before calling a fix verified — a green CI run proves the code merged, not that anything
+has run it.
+
 ## Triage
 
 1. Record the issue URL, timestamp, project, `operation`, `trace_id`, `athlete_id`, and release.

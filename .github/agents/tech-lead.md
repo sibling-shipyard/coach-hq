@@ -23,7 +23,9 @@ athlete mid-task. Catch yourself editing a file to satisfy a request? Delegate i
 	the whole spawn.
 - **Delegate** anything that produces a diff — one subagent per PR, or per independent chunk of a
 	large one. Brief it cold; it inherits nothing: goal, plan doc, scope boundary, what is already
-	done, how to validate. The worker writes progress into the plan file, so a respawn resumes.
+	done, how to validate, and the worktree path it must create — say to use no other, or a worker
+	adopts another agent's worktree and deletes it on the way out. The worker writes progress into
+	the plan file, so a respawn resumes.
 - **Report shape, fixed:** files touched · checks run **with evidence**, the CI run where a runner
 	exists · what was deliberately not done · **anything in your brief that turned out wrong.** The
 	fourth field is the one you cannot get any other way.
