@@ -123,13 +123,21 @@ function hasVercelWaitUntil(): boolean {
   return typeof globals[VERCEL_REQUEST_CONTEXT]?.get?.()?.waitUntil === "function";
 }
 
-async function flushRequestMonitoring(): Promise<void> {
+/**
+ * Send what this request queued.
+ *
+ * `background` is only safe when the route is about to return a response. Vercel drains
+ * `waitUntil` on its way to serving one; an invocation that ends by throwing can be frozen before
+ * the backgrounded flush runs, and the span dies with it. Measured, not theoretical:
+ * `sentry-runbook.md` § Traps.
+ */
+async function flushRequestMonitoring(background: boolean): Promise<void> {
   const flushPromise = Sentry.flush(FLUSH_TIMEOUT_MS).catch((error: unknown) => {
     console.error("[sentry] flush failed", error);
     return false;
   });
 
-  if (!hasVercelWaitUntil()) {
+  if (!background || !hasVercelWaitUntil()) {
     await flushPromise;
     return;
   }
@@ -154,7 +162,8 @@ async function flushRequestMonitoring(): Promise<void> {
  *
  * The flush is what makes the span real. `Sentry.startSpan` ends the span before its promise
  * settles, then `waitUntil` keeps the function alive until that flush finishes after the response
- * leaves. Outside a Vercel request, the wrapper awaits the flush instead.
+ * leaves. Outside a Vercel request, and on the path where the handler throws, the wrapper awaits
+ * the flush instead - see `flushRequestMonitoring`.
  *
  * The isolation scope is forked here, and that fork is what `setAthleteScope` writes the athlete
  * onto. Nothing else gives one request its own identity: `continueTrace` forks the *current*
@@ -220,7 +229,7 @@ function continueTraceInto<T>(
     },
     async () => {
       try {
-        return await Sentry.startSpan(
+        const result = await Sentry.startSpan(
           {
             name: `${req.method} ${pathname}`,
             op: "http.server",
@@ -242,13 +251,18 @@ function continueTraceInto<T>(
               // Last stop for what the route's own catch never sees - an auth or session
               // refresh that throws before the handler's try block. Capture is idempotent per
               // error object, so an error a route already captured is not sent twice.
-              await captureServerException(error);
+              queueServerException(error);
               throw error;
             }
           },
         );
-      } finally {
-        await flushRequestMonitoring();
+        // The response path hands its flush to `waitUntil` and answers now; the throw path
+        // waits, because there is no response for Vercel to drain it against.
+        await flushRequestMonitoring(true);
+        return result;
+      } catch (error) {
+        await flushRequestMonitoring(false);
+        throw error;
       }
     },
   );
@@ -364,15 +378,21 @@ export interface CaptureResult {
  * `captureGeminiFailure` records it and the caller then rethrows into a route's generic catch -
  * the detailed event wins, because it went first.
  *
- * Called inside `withContinuedTrace` this flushes before the route's transaction does; the
- * wrapper's own flush still sends the span. Called outside one - a route with no wrapper, or
- * module scope - this flush is the only thing that sends the event at all.
+ * Route-caught errors use this public helper because they return a response after capture and need
+ * delivery proof before doing so. Escaped errors are queued by `withContinuedTrace`; after its root
+ * span ends, the wrapper uses one awaited flush to send both payloads.
  */
 export async function captureServerException(error: unknown): Promise<CaptureResult> {
-  if (!initServerMonitoring()) return { sent: false };
-  const eventId = Sentry.captureException(error);
+  const eventId = queueServerException(error);
+  if (!eventId) return { sent: false };
   const sent = await Sentry.flush(FLUSH_TIMEOUT_MS);
   return { eventId, sent };
+}
+
+/** Queue an error without draining the client; the request wrapper owns the escaped-error flush. */
+function queueServerException(error: unknown): string | undefined {
+  if (!initServerMonitoring()) return undefined;
+  return Sentry.captureException(error);
 }
 
 /** What a failed LLM call must carry to be debuggable from the Sentry UI alone. */

@@ -35,7 +35,7 @@ Only web and iOS belong in crash-free session rate. The serverless API counts a 
 request, so its session rate is traffic disguised as health. At current volume, prefer counts,
 lists, and crash-free rate over percentiles.
 
-## Done when
+## Result
 
 All seven questions have a widget, each span widget filters to production, and every widget has
 returned a real production row.
@@ -43,8 +43,9 @@ returned a real production row.
 ## Known gap
 
 Do not add a Gemini success-rate widget until [PR #689](https://github.com/sibling-shipyard/coach-hq/pull/689)
-is repaired and merged. Error events have outnumbered error spans, so a span-based rate can read
-healthier than the service. Verify the repaired flush on a post-deploy failure before adding it.
+is deployed. Error events have outnumbered error spans, so a span-based rate can read healthier
+than the service. Keep this gap until a deliberate failure carries both its error and ended span
+under the deployed release or commit SHA.
 
 ## Deferred
 

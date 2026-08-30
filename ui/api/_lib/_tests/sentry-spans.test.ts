@@ -22,7 +22,8 @@ type CapturedEnvelope = [unknown, EnvelopeItem[]];
 
 const sentEnvelopes: CapturedEnvelope[] = [];
 
-const { init, waitUntil } = vi.hoisted(() => ({
+const { flush, init, waitUntil } = vi.hoisted(() => ({
+  flush: vi.fn(),
   init: vi.fn(),
   waitUntil: vi.fn<(promise: Promise<unknown>) => void>(),
 }));
@@ -46,7 +47,12 @@ vi.mock("@sentry/node", async (importOriginal) => {
       }),
     }),
   );
-  return { ...actual, init };
+  flush.mockImplementation(async (timeout?: number) => {
+    const result = await actual.flush(timeout);
+    await transportGate;
+    return result;
+  });
+  return { ...actual, flush, init };
 });
 
 vi.mock("@vercel/functions", () => ({ waitUntil }));
@@ -132,6 +138,7 @@ beforeEach(() => {
   sentEnvelopes.length = 0;
   transportGate = Promise.resolve();
   waitUntilPromises.length = 0;
+  flush.mockClear();
   waitUntil.mockReset();
   waitUntil.mockImplementation((promise) => {
     waitUntilPromises.push(promise);
@@ -197,11 +204,50 @@ describe("withContinuedTrace server span", () => {
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");
-    await drainWaitUntil();
 
+    // No `drainWaitUntil()` on purpose. A thrown request must have finished its send by the
+    // time it rethrows, because Vercel may freeze the invocation without draining `waitUntil`
+    // when there is no response to serve.
     const [transaction] = sentTransactions();
     expect(transaction.contexts?.trace?.data).toMatchObject({ outcome: "error" });
     expect(transaction.contexts?.trace?.status).toBe("internal_error");
+  });
+
+  it("awaits the flush when the handler throws, rather than backgrounding it", async () => {
+    let releaseTransport!: () => void;
+    transportGate = new Promise<void>((resolve) => {
+      releaseTransport = resolve;
+    });
+
+    let settled = false;
+    const pending = withContinuedTrace(request(), async () => {
+      throw new Error("session refresh failed");
+    })
+      .catch(() => undefined)
+      .then(() => {
+        settled = true;
+      });
+
+    // The fake network is still blocked, so the wrapper cannot rethrow yet. It queues both
+    // payloads and starts one flush; it never hands the thrown path to `waitUntil`.
+    await vi.waitFor(() => expect(flush).toHaveBeenCalledOnce());
+    expect(settled).toBe(false);
+    expect(waitUntil).not.toHaveBeenCalled();
+
+    releaseTransport();
+    await pending;
+
+    expect(settled).toBe(true);
+    expect(flush).toHaveBeenCalledOnce();
+    expect(sentErrors()).toHaveLength(1);
+    expect(sentErrors()[0]?.exception?.values?.[0]?.value).toBe("session refresh failed");
+
+    const [transaction] = sentTransactions();
+    expect(sentTransactions()).toHaveLength(1);
+    expect(transaction.contexts?.trace?.op).toBe("http.server");
+    expect(transaction.contexts?.trace?.data).toMatchObject({ outcome: "error" });
+    expect(transaction.contexts?.trace?.status).toBe("internal_error");
+    expect(transaction.timestamp).toBeDefined();
   });
 
   it("hangs the span off the browser's trace, so both halves share one", async () => {
