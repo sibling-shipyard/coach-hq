@@ -64,9 +64,9 @@ returned at least one real production row.
 ## Known gap
 
 There is no Gemini success-rate widget, and there must not be one until item 23 of
-`docs/plans/monitoring-order.md` is settled. Error events and `outcome:error` spans disagree 3 to 1
-over the same window. The span side is the low one, so a rate built on it reads healthier than the
-service is.
+`docs/plans/monitoring-order.md` is settled. Over 14 days production carries 20 Gemini error events
+against 8 `gen_ai` spans, of which 1 is an error. A rate built on the span side would read 7-of-8
+healthy while the error stream counted twenty failures.
 
 ## Deferred
 
