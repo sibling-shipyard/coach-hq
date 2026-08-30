@@ -192,7 +192,7 @@ Five constraints to check before editing Sentry setup.
 render-crash paths. That means the browser's own pageload and navigation spans, one manual
 `http.server` span on each wrapped API route, and the Gemini spans we open by hand. A web report
 carries the SDK's own click, navigation and fetch breadcrumbs as its timeline, copied onto
-`extra.trail` when the dialog opens; `beforeBreadcrumb` drops the `console` ones, because those
+`extra.trail` when the dialog opens. `beforeBreadcrumb` drops the `console` ones, because those
 would carry arbitrary logged text on a path ADR 0032 scoped to failed Gemini calls.
 
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**

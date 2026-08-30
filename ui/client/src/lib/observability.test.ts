@@ -221,7 +221,7 @@ describe("submitRageReport", () => {
     const trail = [{ category: "navigation", message: "/workouts", timestamp: 2 }];
 
     expect(submitRageReport("broken", trail)).toBe(true);
-    expect(captureMessage.mock.calls[0][1]).toMatchObject({ extra: { trail } });
+    expect(captureMessage).toHaveBeenCalledWith("broken", expect.objectContaining({ extra: { trail } }));
   });
 
   it("sends nothing when the athlete cancels, which leaves an empty box behind", async () => {
