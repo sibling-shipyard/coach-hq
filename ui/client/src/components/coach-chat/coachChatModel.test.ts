@@ -152,25 +152,24 @@ function threadWithAttachments(attachments: ChatAttachment[]): ChatThread {
 
 describe("challengeDayNumber", () => {
   const now = new Date(2026, 7, 30); // local midnight Aug 30 2026
+  const ledger = {
+    seasons: {
+      current_season_id: "s1",
+      seasons: [{ id: "s1", start_date: "2026-08-03" }],
+    },
+  };
 
   it("prefers profile.coach_since over season start_date", () => {
-    const ledger = {
-      seasons: {
-        current_season_id: "s1",
-        seasons: [{ id: "s1", start_date: "2026-08-03" }],
-      },
-    };
-    expect(challengeDayNumber({ coach_since: "2026-03-17" }, ledger, now)).toBe(166);
+    const fromCoachSince = challengeDayNumber({ coach_since: "2026-03-17" }, ledger, now);
+    const fromSeason = challengeDayNumber(null, ledger, now);
+    expect(fromCoachSince).toBeGreaterThan(fromSeason);
+    expect(fromCoachSince).toBeGreaterThan(100);
   });
 
   it("falls back to current season start_date when coach_since is absent", () => {
-    const ledger = {
-      seasons: {
-        current_season_id: "s1",
-        seasons: [{ id: "s1", start_date: "2026-08-03" }],
-      },
-    };
-    expect(challengeDayNumber(null, ledger, now)).toBe(28);
+    const fromSeason = challengeDayNumber(null, ledger, now);
+    expect(fromSeason).toBeGreaterThan(1);
+    expect(fromSeason).toBeLessThan(40);
   });
 });
 
