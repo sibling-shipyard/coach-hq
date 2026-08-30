@@ -44,7 +44,7 @@ flowchart LR
 | dashboard widget | filter | group / value |
 |---|---|---|
 | Production errors and reports | `environment:production` | project, `operation`, release, count |
-| Core web/API health | `span.op:http.server sentry.origin:manual` | span name, `outcome`, count, p95 duration |
+| Core web/API health | `span.op:http.server` | span name, `outcome`, count, p95 duration |
 | Gemini health | `span.op:gen_ai.generate_content` | `gen_ai.request.model`, `outcome`, count, p95 duration, `gen_ai.usage.*` token totals |
 | iOS sync health | `transaction:healthkit.sync` | `outcome`, count, duration, synced item count |
 
