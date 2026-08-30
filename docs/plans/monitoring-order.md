@@ -51,43 +51,7 @@ the Rage Report code. CI also logs Keychain `-34018` because the runner builds
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
 | 9 | [#643](https://github.com/sibling-shipyard/coach-hq/issues/643) — flush via `waitUntil` | Medium — new dependency, and it inverts the span suite's premise | Not started | A coach turn no longer waits on Sentry ingest |
-| 10 | Range-check the traces sample rate in `ui/api/_lib/sentry.ts` and `ui/client/src/lib/observability.ts` | Low | Not started | `SENTRY_TRACES_SAMPLE_RATE=100` warns instead of silently disabling tracing |
-| 11 | Runbook corrections, one PR: make the web/API side set `operation` like iOS does, add the `sentry.origin:manual` filter to the health widget, fix the prove-step that needs Phase 6, bump the stale `Verified:` date on `docs/eng-docs/github-auth.md` | Low — docs plus one tag | Not started | Every query in `sentry-runbook.md` returns rows against real data |
 | 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | High — the issue is a whole test framework, not one suite | Not started | A UI test runs in `ios-build.yml` |
-| 13 | Stop emitting two `http.server` spans per request | Low | Not started | One span per request, carrying `outcome` |
-| 17 | One shared route wrapper, then retrofit `coach-chat.ts` and `coach-message.ts` onto it | Low | Not started | Every wrapped route calls one helper; the ~15-line block exists once |
-| 18 | Close the remaining capture gaps: three typed lookup failures in `auth/[...action].ts` (`:313`, `:525`, `:593`), `widget-snapshots`' proactive-message fallback, and the `??`/`||` split between `ui/api/_lib/sentry.ts:26` and the browser path | Low | Not started | Every silent conversion either captures or says in the code why it does not |
-| 19 | Turn off Sentry's automatic file-I/O instrumentation on iOS | Low — one option in `DiagnosticsManager.configure()` | Not started | An iOS trace carries the app's own spans, not a pile of keyboard plist reads |
-
-`operation` is set by **iOS only** — `DiagnosticsManager.swift:319` and `:333`. Web and API never
-set it, so the runbook's error grouping is half-empty rather than dead: iOS events carry it, web and
-API events do not. Either the two web projects start setting it or the runbook stops promising it;
-picking one is the work in item 11.
-
-Item 13, found while building the dashboard: every request produces our manual `http.server` span
-**and** the auto-instrumented one. Grouping live spans by `sentry.origin` gives 9 `manual` (carrying
-`outcome`) and 9 `auto.http.otel.http` (carrying none) for the same 9 requests. Until it is fixed,
-any query over `span.op:http.server` must filter `sentry.origin:manual` or it counts every request
-twice — the "Coach HQ health" dashboard already does. #633 kept the auto span deliberately and a
-test pins `spans`/`disableIncomingRequestSpans` unset, so read that test before changing the init.
-
-Item 17 is a design call the athlete raised. All eight call sites now exist, so the guesswork it
-was waiting on is gone. `waitlist` has no auth and stays anonymous, `auth` establishes identity
-rather than reading it, and the other six read it straight after their auth resolves. That is the
-shape a helper has to accommodate.
-Retrofitting the two existing routes rewrites code that carries every coach conversation, for no
-athlete-visible change, so it waits for the same PR as the helper.
-
-Item 2 is closed by measurement, not by a fix. Production `gen_ai` spans run 3 `ok` to 1 `error`;
-the all-error picture that started this was 9 preview spans from PR verification — deliberate test
-failures, read as a production alarm. **Split by environment before drawing any conclusion from
-span data.** The single production error was one `gemini-flash-latest` call at 23:32 on 2026-08-29,
-with successes on either side of it.
-
-Item 18 collects what a review found across #660 and #661. Each one turns a fault into an answer
-without saying so: a GitHub lookup failing is an outage, not a reply. None is urgent — they are
-narrower than the routes already captured — but the fault/answer line is only worth anything if it
-is deliberate everywhere.
 
 ## P3 — nits
 
@@ -105,6 +69,12 @@ item 11, which touches docs anyway.
 | 16 | The web project's `environment` and `release` tags, wired from Vercel at build time | 2026-08-30, [#659](https://github.com/sibling-shipyard/coach-hq/pull/659), closing #641 |
 | 2 | Answered, no fix needed: the success path emits `outcome:ok` normally | 2026-08-30, measured on production |
 | 4 | Every API route under `withContinuedTrace`, capturing what its own catch swallows | 2026-08-30, [#660](https://github.com/sibling-shipyard/coach-hq/pull/660) + [#661](https://github.com/sibling-shipyard/coach-hq/pull/661), closing #646 |
+| 19 | Sentry's file-I/O auto-instrumentation off on iOS | 2026-08-30, [#664](https://github.com/sibling-shipyard/coach-hq/pull/664) |
+| 17 | One shared route wrapper, all eight call sites on it | 2026-08-30, [#665](https://github.com/sibling-shipyard/coach-hq/pull/665) |
+| 18 | The remaining capture gaps closed — every silent conversion now captures | 2026-08-30, [#665](https://github.com/sibling-shipyard/coach-hq/pull/665) |
+| 10 | Sample rate range-checked on both sides, not just parsed | 2026-08-30, [#666](https://github.com/sibling-shipyard/coach-hq/pull/666) |
+| 13 | One `http.server` span per request — the SDK duplicate is off | 2026-08-30, [#666](https://github.com/sibling-shipyard/coach-hq/pull/666) |
+| 11 | `operation` set by web and API, every runbook query corrected | 2026-08-30, [#667](https://github.com/sibling-shipyard/coach-hq/pull/667) |
 
 Item 15 is worth remembering. Apple rejected the archive because the embedded `Sentry.framework`
 had no debug-symbol file. The plain `Sentry` package ships none; `Sentry-Dynamic` ships a real one
@@ -126,6 +96,16 @@ Item 19 was found in that same trace: 15 of its 19 spans were iOS reading its ow
 `Keyboard-en.plist`, `KBLayouts_iPhone.dat`, `SystemVersion.plist`. Sentry's file-I/O
 auto-instrumentation produces them. They bury the four spans that matter and spend span quota on
 nothing.
+
+Item 2 closed by measurement, not by a fix. Production `gen_ai` spans ran 3 `ok` to 1 `error`; the
+all-error picture that started it was 9 preview spans from PR verification. Those were our own
+deliberate test failures, read as a production alarm. **Split by environment before drawing any
+conclusion from span data.**
+
+Item 13 is worth keeping straight. `spans: false` would have killed the outbound spans too;
+`disableIncomingRequestSpans: true` removes only the SDK's duplicate incoming span, and the manual
+one from `withContinuedTrace` survives because `startSpan` does not go through `httpIntegration`.
+That is why the fix is one option and not a rewrite.
 
 ## Parked, by decision
 
