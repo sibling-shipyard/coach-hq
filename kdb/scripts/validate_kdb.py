@@ -225,6 +225,9 @@ def changed_paths():
         return set(r.stdout.split()) if r.returncode == 0 else None
     # A pull_request build checks out a merge commit, where `HEAD^1 HEAD` is exactly what the PR
     # adds. A local branch has no merge commit, so fall back to the three-dot range.
+    # Merging `main` into a long-lived branch also makes a merge commit, and there `HEAD^1 HEAD`
+    # is everything `main` changed since the branch point — so a local run gates docs the branch
+    # never opened. That is the run being wrong, not the branch: trust CI's.
     parents = subprocess.run(["git", "-C", str(ROOT), "rev-list", "--parents", "-n", "1", "HEAD"],
                              capture_output=True, text=True)
     if parents.returncode == 0 and len(parents.stdout.split()) == 3:
