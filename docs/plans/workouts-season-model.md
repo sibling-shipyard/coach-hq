@@ -178,27 +178,39 @@ evidence for B5.
 
 ## 10. Rolling out to athlete repos
 
-The part that must be decisive. Four rules:
+Four athletes, full repo access. That is enough to **verify directly**, so the discipline here is
+evidence rather than gating — a flag tells you when to look, a dry-run tells you whether it is
+right.
 
-1. **Ship dark.** Every HQ PR lands with the behaviour behind a `plugins.json` flag
-   (`engine/lib/plugins.mjs`, `isPluginEnabled`). Merging changes nothing for anyone until a flag
-   flips.
-2. **Dogfood first, one week.** Enable on the operator's own repo and run a full week — a
-   kick-off, a sync, a missed day, a benchmark — before anyone else sees it.
-3. **One flag, one PR, one repo.** Enablement is a one-line diff to `plugins.json`, opened as a PR
-   against that athlete's repo, never a push to `main`. A one-line diff is reviewable in seconds
-   and reversible in one revert. Never bundle a flag flip with a data change.
-4. **Data moves in three steps, never one.** Dual-read → write new → delete old, with the iOS
-   release shipped between steps two and three. `WorkoutService.swift:46,90` lists `templates/` and
-   `sessions/` by path today; a mid-stack rename takes the timer away from four live athletes.
+**Stack A ships unflagged, because nothing in it changes what a live athlete sees.** A1 is a pure
+function nothing calls. A2 is a new capability, purely additive. A3 changes first-session
+onboarding, and all four athletes are past FSP. A4 only reaches a repo on re-carve. Wrapping any
+of this in a flag would buy nothing and cost a branch in the test matrix.
 
-**Rollback** is `git revert` on that repo's flag PR. The repo *is* the datastore, so a revert is
-complete — no partial state to clean up. **Watch** is Sentry per ADR 0032, and the first check on
-enablement day is that compile failures are zero.
+**Verify against the real four before each merge.** With full access this beats any staged
+rollout:
+
+1. **Dry-run the compiler across all four repos** — every existing workout in, timer JSON out,
+   diffed against what the athlete has today. A1 does not merge until that diff is explainable
+   line by line.
+2. **Replay a real week.** Take one athlete's last kick-off, sync and missed day, run them through
+   the new path offline, and check the result against what actually happened.
+3. **Then merge**, and read Sentry (ADR 0032) the same day. First check is that compile failures
+   are zero.
+
+**The flag earns its place in exactly three spots**, all in Stack B, all where an existing
+athlete's behaviour genuinely changes: B2 (their week starts being generated for them), B4
+(something writes without them asking), B6 (paths move under a running app). There,
+`plugins.json` + `isPluginEnabled` gates it, enablement is a **one-line PR per repo**, and
+rollback is a single revert — the repo *is* the datastore, so nothing partial survives.
+
+**Data moves in three steps, never one.** Dual-read → write new → delete old, with the iOS
+release shipped between steps two and three. `WorkoutService.swift:46,90` lists `templates/` and
+`sessions/` by path today, so a mid-stack rename takes the timer away from four live athletes.
 
 **`SCHEMA_VERSION` is a flag day.** `build-dashboard-snapshot.mjs` and `useRepoData.ts` bump
-together, and old app builds strand when it moves. With four live apps, do it in B5 alongside the
-iOS release — never in Stack A.
+together, and old app builds strand when it moves. Do it in B5 alongside the iOS release, never in
+Stack A.
 
 **Athlete-repo `validate-data.yml`** is JSON-parse-only today. Any new contract needs a real check
 there, or Gemini writes garbage and the workflow commits it.
