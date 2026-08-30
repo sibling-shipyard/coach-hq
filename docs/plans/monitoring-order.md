@@ -62,7 +62,6 @@ That also kills the code-signing theory. CI logs Keychain `-34018` because the r
 
 | # | Work | Size | Status | Done when |
 |---|---|---|---|---|
-| 9 | [#643](https://github.com/sibling-shipyard/coach-hq/issues/643) — flush via `waitUntil` | Medium — new dependency, and it inverts the span suite's premise | Not started | A coach turn no longer waits on Sentry ingest |
 | 12 | [#343](https://github.com/sibling-shipyard/coach-hq/issues/343) — iOS UI tests | High — the issue is a whole test framework, not one suite | Not started | A UI test runs in `ios-build.yml` |
 
 ## P3 — nits
@@ -87,6 +86,7 @@ item 11, which touches docs anyway.
 | 10 | Sample rate range-checked on both sides, not just parsed | 2026-08-30, [#666](https://github.com/sibling-shipyard/coach-hq/pull/666) |
 | 13 | One `http.server` span per request — the SDK duplicate is off | 2026-08-30, [#666](https://github.com/sibling-shipyard/coach-hq/pull/666) |
 | 11 | `operation` set by web and API, every runbook query corrected | 2026-08-30, [#667](https://github.com/sibling-shipyard/coach-hq/pull/667) |
+| 9 | Route span flush runs under Vercel `waitUntil`, off the coach-reply path | 2026-08-30, [#680](https://github.com/sibling-shipyard/coach-hq/pull/680), closing #643 |
 
 Item 15 is worth remembering. Apple rejected the archive because the embedded `Sentry.framework`
 had no debug-symbol file. The plain `Sentry` package ships none; `Sentry-Dynamic` ships a real one

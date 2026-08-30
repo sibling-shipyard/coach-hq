@@ -1,19 +1,19 @@
 /**
- * sentry.ts spans and per-request identity — proof that a Vercel function sends its spans before
- * it is frozen, and that the athlete on one request is not still attached to the next one.
+ * sentry.ts spans and per-request identity — proof that a Vercel function gives its span flush to
+ * `waitUntil` before it is frozen, and that one request's athlete is not attached to the next.
  *
  * Unlike `sentry.test.ts`, this file fakes nothing but the network: `init` is the real one with
  * a transport that keeps envelopes in an array, so `startSpan`, `continueTrace`, the span
- * pipeline, and `flush` are all the shipping code. The load-bearing assertion is timing —
- * envelopes must already be in that array by the time the wrapper's promise resolves, because
- * on Vercel nothing runs after that.
+ * pipeline, and `flush` are all the shipping code. The load-bearing assertion is timing: the
+ * wrapper resolves while the fake network is still blocked, then the promise handed to
+ * `waitUntil` finishes the send.
  *
  * The module is imported once, not per test: `Sentry.init` registers an OpenTelemetry context
  * manager in a global that survives `vi.resetModules()`, so a re-imported SDK ends up with a
  * tracer from the previous instance and child spans silently vanish from the transaction. The
  * no-DSN cases live in `sentry.test.ts` for the same reason — `initServerMonitoring()` latches.
  */
-import { beforeEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Event } from "@sentry/node";
 
 /** The envelope shape these assertions read. `@sentry/node` exports no type for it. */
@@ -22,7 +22,12 @@ type CapturedEnvelope = [unknown, EnvelopeItem[]];
 
 const sentEnvelopes: CapturedEnvelope[] = [];
 
-const { init } = vi.hoisted(() => ({ init: vi.fn() }));
+const { init, waitUntil } = vi.hoisted(() => ({
+  init: vi.fn(),
+  waitUntil: vi.fn<(promise: Promise<unknown>) => void>(),
+}));
+
+let transportGate: Promise<void> = Promise.resolve();
 
 vi.mock("@sentry/node", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@sentry/node")>();
@@ -33,6 +38,7 @@ vi.mock("@sentry/node", async (importOriginal) => {
       // observable moment rather than a network call.
       transport: () => ({
         send: async (envelope: unknown) => {
+          await transportGate;
           sentEnvelopes.push(envelope as CapturedEnvelope);
           return {};
         },
@@ -42,6 +48,24 @@ vi.mock("@sentry/node", async (importOriginal) => {
   );
   return { ...actual, init };
 });
+
+vi.mock("@vercel/functions", () => ({ waitUntil }));
+
+const VERCEL_REQUEST_CONTEXT = Symbol.for("@vercel/request-context");
+const originalRequestContext = Object.getOwnPropertyDescriptor(globalThis, VERCEL_REQUEST_CONTEXT);
+const waitUntilPromises: Promise<unknown>[] = [];
+
+function installVercelRequestContext(): void {
+  Object.defineProperty(globalThis, VERCEL_REQUEST_CONTEXT, {
+    configurable: true,
+    value: { get: () => ({ waitUntil }) },
+  });
+}
+
+async function drainWaitUntil(): Promise<void> {
+  const pending = waitUntilPromises.splice(0);
+  await Promise.all(pending);
+}
 
 const {
   captureGeminiFailure,
@@ -101,24 +125,48 @@ function request(headers: Record<string, string> = {}): Request {
 
 beforeAll(() => {
   process.env.SENTRY_DSN = "https://public@o0.ingest.de.sentry.io/1";
+  installVercelRequestContext();
 });
 
 beforeEach(() => {
   sentEnvelopes.length = 0;
+  transportGate = Promise.resolve();
+  waitUntilPromises.length = 0;
+  waitUntil.mockReset();
+  waitUntil.mockImplementation((promise) => {
+    waitUntilPromises.push(promise);
+  });
+});
+
+afterAll(() => {
+  if (originalRequestContext) {
+    Object.defineProperty(globalThis, VERCEL_REQUEST_CONTEXT, originalRequestContext);
+  } else {
+    Reflect.deleteProperty(globalThis, VERCEL_REQUEST_CONTEXT);
+  }
 });
 
 describe("withContinuedTrace server span", () => {
-  it("has already sent the transaction by the time the handler's response is returned", async () => {
+  it("returns the response before the transaction send finishes, then waitUntil drains it", async () => {
+    let releaseTransport!: () => void;
+    transportGate = new Promise<void>((resolve) => {
+      releaseTransport = resolve;
+    });
+
     const response = await withContinuedTrace(request(), async () => Response.json({ ok: true }));
 
-    // Nothing runs after this line on Vercel — the function is frozen. So the assertion is
-    // deliberately made here, with no await in between, not after a tick.
-    expect(sentTransactions()).toHaveLength(1);
     expect(response.status).toBe(200);
+    expect(sentTransactions()).toHaveLength(0);
+    expect(waitUntil).toHaveBeenCalledOnce();
+
+    releaseTransport();
+    await drainWaitUntil();
+    expect(sentTransactions()).toHaveLength(1);
   });
 
   it("names the span for the route and records a successful outcome", async () => {
     await withContinuedTrace(request(), async () => Response.json({ ok: true }));
+    await drainWaitUntil();
 
     const [transaction] = sentTransactions();
     expect(transaction.transaction).toBe("POST /api/coach-chat");
@@ -136,6 +184,7 @@ describe("withContinuedTrace server span", () => {
     await withContinuedTrace(request(), async () =>
       Response.json({ error: "Coach chat failed" }, { status: 500 }),
     );
+    await drainWaitUntil();
 
     const [transaction] = sentTransactions();
     expect(transaction.contexts?.trace?.data).toMatchObject({ outcome: "error" });
@@ -148,6 +197,7 @@ describe("withContinuedTrace server span", () => {
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");
+    await drainWaitUntil();
 
     const [transaction] = sentTransactions();
     expect(transaction.contexts?.trace?.data).toMatchObject({ outcome: "error" });
@@ -161,6 +211,7 @@ describe("withContinuedTrace server span", () => {
       request({ "sentry-trace": `${traceId}-b7ad6b7169203331-1` }),
       async () => Response.json({ ok: true }),
     );
+    await drainWaitUntil();
 
     expect(sentTransactions()[0]?.contexts?.trace?.trace_id).toBe(traceId);
   });
@@ -182,6 +233,7 @@ describe("withGeminiSpan", () => {
       await withGeminiSpan("gemini-flash-latest", run).catch(() => undefined);
       return Response.json({ ok: true });
     });
+    await drainWaitUntil();
     return sentSpans()[0];
   }
 
@@ -238,9 +290,8 @@ describe("withGeminiSpan", () => {
       await withGeminiSpan("gemini-flash-latest", async (record) => record(USAGE));
       return Response.json({ ok: true });
     });
+    await drainWaitUntil();
 
-    // Same freeze argument as above: both halves are already sent, with no flush of its own on
-    // the Gemini span - the route's flush is what put it on the wire.
     expect(sentTransactions()).toHaveLength(1);
     expect(sentSpans().map((span) => span.name)).toEqual(["generate_content gemini-flash-latest"]);
   });
@@ -278,14 +329,14 @@ describe("captureServerException on a route that answers with a status", () => {
   it("has already sent the error by the time the status response is returned", async () => {
     const response = await routeThatCatches(failCommit);
 
-    // Same freeze argument as the transaction above: the assertion is made here, with no await
-    // in between, because on Vercel nothing runs after the handler resolves.
     expect(sentErrors()).toHaveLength(1);
     expect(response.status).toBe(500);
+    await drainWaitUntil();
   });
 
   it("names the athlete and rides the browser's trace, so the two halves join up", async () => {
     await routeThatCatches(failCommit);
+    await drainWaitUntil();
 
     const [event] = sentErrors();
     expect(event?.exception?.values?.[0]?.value).toBe("GitHub commit failed");
@@ -302,6 +353,7 @@ describe("captureServerException on a route that answers with a status", () => {
         throw new Error("session refresh failed");
       }),
     ).rejects.toThrow("session refresh failed");
+    await drainWaitUntil();
 
     expect(sentErrors()).toHaveLength(1);
     expect(sentErrors()[0]?.exception?.values?.[0]?.value).toBe("session refresh failed");
@@ -320,6 +372,7 @@ describe("captureServerException on a route that answers with a status", () => {
       });
       throw err;
     });
+    await drainWaitUntil();
 
     const errors = sentErrors();
     expect(errors).toHaveLength(1);
@@ -340,6 +393,7 @@ describe("setAthleteScope", () => {
       await captureServerException(new Error("commit failed"));
       return Response.json({ ok: true });
     });
+    await drainWaitUntil();
 
     const [event] = sentErrors();
     expect(event?.user).toEqual({ id: "skanda-athlete" });
@@ -351,6 +405,7 @@ describe("setAthleteScope", () => {
       setAthleteScope(REPO);
       return Response.json({ ok: true });
     });
+    await drainWaitUntil();
 
     const [transaction] = sentTransactions();
     expect(transaction.user).toEqual({ id: "skanda-athlete" });
@@ -366,6 +421,7 @@ describe("setAthleteScope", () => {
       await captureServerException(new Error("boom"));
       return Response.json({ ok: true });
     });
+    await drainWaitUntil();
 
     expect(sentErrors()[0]?.user).toEqual({ id: "owner-only" });
   });
@@ -375,6 +431,7 @@ describe("setAthleteScope", () => {
       setAthleteScope(REPO);
       return Response.json({ ok: true });
     });
+    await drainWaitUntil();
 
     // Second request, same process, same latched SDK - and it never calls setAthleteScope,
     // standing in for an unauthenticated or auth-failure path.
@@ -382,6 +439,7 @@ describe("setAthleteScope", () => {
       await captureServerException(new Error("anonymous failure"));
       return Response.json({ ok: true });
     });
+    await drainWaitUntil();
 
     const [event] = sentErrors();
     expect(event?.user).toBeUndefined();
@@ -394,6 +452,7 @@ describe("setAthleteScope", () => {
       setAthleteScope(REPO);
       return Response.json({ ok: true });
     });
+    await drainWaitUntil();
     sentEnvelopes.length = 0;
 
     await captureServerException(new Error("module-scope failure"));

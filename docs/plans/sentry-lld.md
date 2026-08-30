@@ -1,6 +1,6 @@
 # Sentry observability — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-29 · ADR: 0032
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · ADR: 0032
 
 Low-level design for error capture, LLM telemetry, and local diagnostic timelines across web, API, and iOS.
 
@@ -76,8 +76,9 @@ next one starts.
    holds the API key. **Done.**
 5. **Phase 4 — success-path telemetry.** One `http.server` span per coach route and one
    `gen_ai.generate_content` span per Gemini call, carrying model, token counts, and `outcome`.
-   `withContinuedTrace` flushes both before the response leaves, because Vercel freezes the
-   function on return and an unflushed span is dropped in silence. **Done.**
+   `withContinuedTrace` hands their flush to Vercel's `waitUntil` before returning. That keeps the
+   function alive until the send finishes without holding the response open. Outside a Vercel
+   request context, it awaits the same flush. **Done.**
 6. **Phase 5 — iOS.** Swift SDK, crashes with active view name, local timeline on problem reports.
    **Mostly done:** the SDK, crash capture, release and build number, athlete identity, active view
    name, and the timeline buffer all shipped. The Rage Report UI is the remainder — PR #603, blocked

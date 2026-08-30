@@ -12,17 +12,19 @@
  * in the Sentry trace view, with no id of our own.
  *
  * Every capture must be followed by `flush()`. A Vercel function is frozen the moment it
- * returns, and the SDK sends on a background timer, so an unflushed event is dropped. **Spans
- * are dropped the same way**, so anything that opens one must end it and flush before the
- * handler returns — the `flush()` in the capture helpers below drains spans too.
+ * returns, and the SDK sends on a background timer, so an unflushed event or span is dropped.
+ * The capture helpers await their flush. The route wrapper hands its handled flush promise to
+ * Vercel's `waitUntil`, which keeps the function alive without keeping the response open; local
+ * runs and tests have no request context, so they await the same promise instead.
  *
  * `withContinuedTrace` owns the flush that sends the **spans**: a child span is only sent when
  * its root span ends, so `withGeminiSpan` deliberately does not flush — its span rides out
  * inside the route's `http.server` transaction. Open a Gemini span outside a wrapped route and
  * nothing sends it. Error events are separate and flush themselves, in `captureServerException`
- * and `captureGeminiFailure`, so a request can flush more than once.
+ * and `captureGeminiFailure`, so a failed request still waits for that error flush.
  */
 import * as Sentry from "@sentry/node";
+import { waitUntil } from "@vercel/functions";
 import { scrubSentryEvent } from "../../observability/sentryScrubber.js";
 
 export const sentryRelease =
@@ -105,8 +107,40 @@ export function initServerMonitoring(): boolean {
   return true;
 }
 
-/** How long a flush may block the response. Shared by every send on the request path. */
+/** How long a flush may keep the invocation alive. Shared by every send on the request path. */
 const FLUSH_TIMEOUT_MS = 2000;
+
+const VERCEL_REQUEST_CONTEXT = Symbol.for("@vercel/request-context");
+
+interface VercelRequestContextProvider {
+  get?: () => { waitUntil?: (promise: Promise<unknown>) => void };
+}
+
+function hasVercelWaitUntil(): boolean {
+  const globals = globalThis as typeof globalThis & {
+    [key: symbol]: VercelRequestContextProvider | undefined;
+  };
+  return typeof globals[VERCEL_REQUEST_CONTEXT]?.get?.()?.waitUntil === "function";
+}
+
+async function flushRequestMonitoring(): Promise<void> {
+  const flushPromise = Sentry.flush(FLUSH_TIMEOUT_MS).catch((error: unknown) => {
+    console.error("[sentry] flush failed", error);
+    return false;
+  });
+
+  if (!hasVercelWaitUntil()) {
+    await flushPromise;
+    return;
+  }
+
+  try {
+    waitUntil(flushPromise);
+  } catch (error) {
+    console.error("[sentry] could not register background flush", error);
+    await flushPromise;
+  }
+}
 
 /**
  * Run `handler` on the trace the browser started, inside one `http.server` span.
@@ -119,8 +153,8 @@ const FLUSH_TIMEOUT_MS = 2000;
  * Call it at the route's entry, before anything that might capture.
  *
  * The flush is what makes the span real. `Sentry.startSpan` ends the span before its promise
- * settles, so flushing here — after the await, before the response leaves — is the last moment
- * the function is still alive to send it.
+ * settles, then `waitUntil` keeps the function alive until that flush finishes after the response
+ * leaves. Outside a Vercel request, the wrapper awaits the flush instead.
  *
  * The isolation scope is forked here, and that fork is what `setAthleteScope` writes the athlete
  * onto. Nothing else gives one request its own identity: `continueTrace` forks the *current*
@@ -214,7 +248,7 @@ function continueTraceInto<T>(
           },
         );
       } finally {
-        await Sentry.flush(FLUSH_TIMEOUT_MS);
+        await flushRequestMonitoring();
       }
     },
   );
