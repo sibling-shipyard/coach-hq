@@ -40,20 +40,21 @@ flowchart LR
    id `5873386`, all seven widgets returning production rows. The questions they answer live in
    `ops-observability.md`, which owns that list, so it is not repeated here. Route alerts from the
    table below to team email plus the Sentry mobile app; use a five-minute notification interval. A
-   short time window can still be empty with four athletes. None of the three alerts below is built.
-   `coach-hq-web` and `coach-hq-ios` carry only Sentry's default high-priority-issue rule, which is
-   a heuristic and guarantees no particular error reaches you; `coach-hq-api`, which raises most of
-   our errors, carries nothing at all.
+   short time window can still be empty with four athletes. The first two alerts below are built and
+   active on all three projects, filtered to `environment:production`. The Rage Report alert is
+   deliberately not built — an angry athlete usually says so directly. `coach-hq-web` and
+   `coach-hq-ios` also keep Sentry's default high-priority-issue rule, which is a heuristic on top
+   of, not a substitute for, the two explicit rules.
 
 Every error has an `operation` tag: `web` for browser errors, the API route without `/api/` with
 slashes changed to dots (for example `auth.callback`), or the native operation name on iOS. Use it
 to group failures by entry point; `trace_id` is still the key that joins one interaction.
 
-| alert | condition | route |
+| alert | condition | state |
 |---|---|---|
-| New or regressed production error | first seen or regression | immediate |
-| Repeated core failure | `outcome:error`, at least 3 events in 15 minutes | immediate |
-| Athlete Rage Report | `operation:rage_report` | immediate |
+| New or regressed production error | first seen, or resolved → unresolved | built, all three projects |
+| Repeated core failure | issue seen more than 3 times in 15 minutes | built, all three projects |
+| Athlete Rage Report | `operation:rage_report` | not built, by decision |
 
 **Do not add `event.type:error` to the Rage Report rule.** `RageReportSubmission.swift` submits
 through `capture(message:)`, so reports arrive as `event.type:default` at `level:info`. That filter

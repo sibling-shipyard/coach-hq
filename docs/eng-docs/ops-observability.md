@@ -86,7 +86,8 @@ Read these before drawing a conclusion from a green dashboard.
 2. Every dashboard widget filters to production and returns a real row.
 3. A new or repeated production error reaches the operator within 15 minutes.
 
-Items 1 and 2 hold today. Alerts are the open half — see `sentry-runbook.md`.
+Items 1 and 2 are proven. The rules behind 3 are built and active on all three projects. None has
+yet been seen firing on a real production error — the next one is the proof, and it arrives by email.
 
 ## Deferred
 
