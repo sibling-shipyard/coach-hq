@@ -2,13 +2,12 @@
 
 Self-contained prompt for a worker. **Keep it one screen (~20 lines).** Worker should not need a follow-up thread.
 
-**Title:** `[ui-expert]` / `[bob]` / `[ios]` + concise description
+**Title:** `Area: plain-English problem or outcome` (max 90 characters)
 
 **Body:**
 
 ```markdown
-## Goal
-One sentence — what and why.
+[Two short sentences — what changes, then why it matters. No heading.]
 
 ## Done when
 1. [testable criterion]

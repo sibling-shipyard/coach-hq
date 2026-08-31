@@ -1,0 +1,55 @@
+name: Issue
+description: Create a new issue that follows the project contract
+title: "Area: plain-English problem or outcome"
+body:
+  - type: textarea
+    id: body
+    attributes:
+      label: Issue Body
+      description: The body starts with two short sentences (what changes, why it matters). It must contain ## Done when and ## Scope.
+      value: |
+        [what changes] [why it matters]
+
+        ## Done when
+        1. 
+
+        ## Scope
+        
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Area"
+      description: "Exactly one area:* label."
+      options:
+        - "area:ui"
+        - "area:ios"
+        - "area:core"
+        - "area:pipeline"
+        - "area:cross-cutting"
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: "Type"
+      description: "Exactly one type:* label."
+      options:
+        - "type:bug"
+        - "type:feature"
+        - "type:chore"
+        - "type:docs"
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: "Milestone"
+      description: "Target milestone."
+      options:
+        - "M3"
+        - "M4"
+        - "Later"
+    validations:
+      required: true
