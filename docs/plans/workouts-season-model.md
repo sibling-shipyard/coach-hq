@@ -1,9 +1,9 @@
 # Workouts: compile from a routine, plan a season
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-30
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
 
 Two stacks. **A** is a hotfix that kills both live bug reports in days. **B** is periodization,
-and it is gated on evidence we do not have yet. Do not start B before the gate in §13.
+and it is gated on evidence we do not have yet. Do not start B before the gate in §12.
 
 ## 1. Context
 
@@ -54,16 +54,16 @@ an athlete with arthritis need the same mechanism, not two.
 already lives in `user_data/activities/`. `template` becomes `routine`, because the thing changed
 meaning — it is now compiled from, not copied.
 
-**`current_week.json` keeps its name and path.** It is the same object, slimmer. Renaming it costs
-soul, carve, iOS, validators and the snapshot for eight unused fields, and buys nothing.
+**`current_week.json` keeps its name, path, and fields.** Renaming it costs soul, carve, iOS,
+validators and the snapshot, and buys nothing. No field is dropped in this stack (§4).
 
 ## 4. Storage
 
 ```
 user_data/ledger/
   seasons.json        gains goal, duration and (Stack B) blocks — NOT a second season file
-  current_week.json   same path, slimmer schema
-  progressions.json   exists, near-empty — baselines and history
+  current_week.json   same path, same fields
+  progressions.json   exists — baselines and history (filled for some athletes, empty for others)
   plugins.json        exists — the per-repo enablement flag (§11)
 user_data/activities/workout_plans/
   templates/          → routines/   (renamed LAST, dual-read first — §11)
@@ -108,25 +108,20 @@ Coach maintains is a signal that rots.
 
 ## 6. What the Workouts page shows
 
-Six states, each reachable in a test.
+Three bands. Same on web (A5) and iOS (A5-ios). Today's schemas only — `current_week.json`,
+`templates/`, `sessions/`, hist on the snapshot. No new storage.
 
-| State | Shows |
-|---|---|
-| Planned day, compiled | The workout: phases, duration, priority, Coach's note, start CTA |
-| Planned day, done | Same card marked done, linked to the matched activity |
-| No workout today | Whatever `current_week.json` says for the day — a badminton match, a hike — or "Rest" if it says nothing. Plus the next session's date |
-| Unplanned activity | The activity as a completed card |
-| No plan yet | The benchmark, as the single call to action |
-| Compile failed | Last good compiled file plus a quiet notice; never a partial workout |
+1. **Today** — the only timer CTA. Session file if one exists, else the routine. A
+   `template_id: null` day (badminton, hike, ladder) is a line — title + duration — not a card
+   and not "Rest." No live plan → one line, "No plan this week," no hero.
+2. **This week** — a `SessionRow`-style list (date · sport tick · title), not Home's
+   `WeeklyPlanCard` (that widget is the Coach draft; do not backfill it from HealthKit). For each
+   day: `current_week` row if live, else a hist activity that day, else blank. Blank is unplanned,
+   not Rest. Hide the band only when there is no live plan *and* nothing logged this week.
+3. **Library** — always below, the existing grouped list. Ad-hoc / physio. Links to `/workouts/:id`
+   as today; compile-on-demand is not in A5.
 
-**The timer only runs strength-type workouts.** A day whose `current_week` session has
-`template_id: null` — Nats' ladders and hike, Akash's badminton Thursday — is *mentioned*, not
-rendered as a runnable card. Read `title` and `planned_duration_min` straight from the week file
-and show a line. No timer CTA, no second card component, no extra state. The only thing that must
-never happen is showing such a day as blank or as "Rest".
-
-**The athlete's routines are always on the page**, below the day. They want to train ad-hoc, look
-up what a routine contains, and show it to a physio. Ad-hoc start compiles on demand.
+A pure selector, not a state machine. Week-level is `live` vs `none`; today is which row is today.
 
 ## 7. The contract
 
@@ -158,33 +153,31 @@ wrapper. One module, two thin hosts.
 
 ## 8. Stack A — hotfix (days)
 
-Kills both bug reports. Touches no athlete-repo paths, adds no new files to their repos.
+Kills both bug reports. HQ PRs add no new files to athlete repos; A6 is a follow-up PR on the BYO repo.
 
-**A5 is the one the four live athletes actually see, and it is parallel with everything else.**
-A3 only changes first-session onboarding, and all four are past FSP — their repos already hold six
-committed library templates, and the page lists every one of them with no notion of today. Bug 1
-is half a storage bug and half a rendering bug, and only the rendering half is fixable for
-*existing* athletes. A5 has disjoint files (`ui/client/` only) and no dependency on A1–A4, so it
-can start immediately and ship first.
+**A5 / A5-ios are what the four live athletes see.** They start with A1 (disjoint files). A3 is
+P1-next — no live athlete is blocked on FSP. A4 bases on A2; A6 is a PR against the BYO athlete
+repo, not HQ.
 
-| PR | outcome | base | files | owner | done when | trust it buys |
-|---|---|---|---|---|---|---|
-| A1 | `compileWorkout()` in `engine/` — minimal exercise list in, timer JSON out | main | `engine/lib/`, tests | Bob | golden-fixture test: same input → byte-identical output | a pure function with tests; nothing user-facing can break |
-| A2 | `workout_create` action + compiler wired into coach-chat; **workout actions available on ordinary turns**, committing on that turn | A1 | `ui/api/coach-chat/_lib/`, `coachReplySchema.ts` | Bob | a mid-conversation ask writes a schema-valid routine | **bug 2 dies**; athlete asks and gets one |
-| A3 | FSP closes with a benchmark instead of a library dump; seeds `progressions.json`; injury gate preserved (invariant 7) | A2 | `coachWorkoutFiles.ts`, `coachTurn.ts` | Bob | a fresh athlete gets a benchmark, not six workouts | bug 1 cannot recur for the *next* athlete |
-| A4 | BYO: compiler CLI carved into the skeleton; **all** soul edits for Stack A land here in one compose run | A3 | `platform/scripts/carve-skeleton.mjs`, `engine/scripts/`, `platform/soul/B_engine.md` | Tech Lead | `validate-soul.mjs` clean; BYO athlete creates a routine end to end | BYO stops being a dead end |
-| A5 | Day-first Workouts page: the six states in §6, reading today's `current_week.json` and the existing `templates/` | main | `ui/client/` only | UI Expert | all six states render from a live repo's current data | **bug 1 dies for the four live athletes** — the only PR they see |
+| PR | outcome | base | files | owner | done when |
+|---|---|---|---|---|---|
+| A5 | Three-band Workouts page (§6) | main | `ui/client/` | UI Expert | today + this week + library render from a live repo; no-plan hides the week unless hist has work |
+| A5-ios | Same three bands on iOS | main | `ios/` | iOS Builder | `ios-build.yml` green; `WorkoutListView` reads `current_week.json` |
+| A1 | `compileWorkout()` in `engine/` | main | `engine/lib/`, `engine/scripts/` | Bob | golden-fixture byte-identical; dry-run diffs across the four repos explainable |
+| A2 | `workout_create` on ordinary turns, **own `commitFilesAtomic`** | A1 | `ui/api/coach-chat/`, bundle shim | Bob | a returning athlete's mid-conversation ask writes a schema-valid routine |
+| A4 | Soul + carve the compiler CLI | A2 | `platform/soul/`, `platform/`, `engine/scripts/` | Tech Lead | `validate-soul.mjs` clean; freshly carved repo can create a routine |
+| A6 | Recomposed SOUL + CLI into the BYO athlete repo | A4 | that athlete's repo | Tech Lead | that athlete asks for an upper body workout and gets one |
+| A3 | FSP benchmark instead of library dump | A2 | (P1-next, not today) | Bob | a fresh athlete gets a benchmark, not six workouts |
 
-**Commit rule — `workout_create` commits on its own turn.** Coach-chat otherwise commits on close
-(`coachTurn.ts:632`), so exposing the action on an ordinary turn without this would produce a chat
-reply and no file: the athlete is told they have a workout and the timer stays empty until they
-wrap the session. The narrow exception is a single action writing a single file through its own
-`commitFilesAtomic` call — the pattern `generateInitialTemplates` already uses mid-flow at
-`coachTurn.ts:573`. Everything else keeps commit-on-close. Only one of these two sentences may be
-true, and this is the one.
+**Commit rule — `workout_create` gets its own `commitFilesAtomic`.** Same pattern as
+`generateTemplatesAfterCompletion` (`coachTurn.ts:573`). Do **not** append to
+`commitOrdinaryTurn`'s `writes` — that array is `fspIncrementalWrites` and is `[]` once
+`wasProfileComplete` is true, which is every live athlete. Following the LLD's old "append"
+sentence would make A2 a silent no-op in production. HLD and LLD both say: own commit, message
+`coach: workout created`.
 
-**Paid gate (ADR 0024):** `npm run eval:coach-chat` runs once at the end of A2–A4, not per PR —
-A2 and A3 both touch prompt construction and the response schema, so it can actually fail there.
+**Paid gate (ADR 0024):** `npm run eval:coach-chat` once after A4, not per PR. A2 touches prompt
+and schema. A1 / A5 / A5-ios / A6 skip it.
 
 **Deliberately not in A:** blocks, week compile, the path rename, widgets, moving `coach_read`.
 None of them fix "Coach can't create an upper body workout."
@@ -194,7 +187,7 @@ None of them fix "Coach can't create an upper body workout."
 | PR | outcome | base | owner | done when |
 |---|---|---|---|---|
 | B1 | goal + duration + blocks extend `seasons.json` | A4 | Bob (soul line → Tech Lead) | a goal conversation writes blocks and scheduled benchmarks |
-| B2 | `current_week.json` slimmed; week compiles from block intent; `season_start` path for returning athletes | B1 | Bob | kick-off compiles a full week; `session_plan`'s today-only stamp lifted |
+| B2 | week compiles from block intent; `season_start` path for returning athletes. **Do not slim `current_week.json`** | B1 | Bob | kick-off compiles a full week; `session_plan`'s today-only stamp lifted |
 | B3 | deterministic reconciler + progression writes on completion | B2 | Bob | every row of §5 covered by tests |
 | B4 | **non-chat compile trigger** — week-boundary roll, owned by the sync workflow | B3 | Bob | a quiet Monday still has a compiled week; the timer is never empty |
 | B5 | dual-read `templates/`+`routines/` and `sessions/`+`compiled/`; iOS reads both | B4 | iOS Builder | `ios-build.yml` green; old and new paths both serve the timer |
@@ -238,10 +231,8 @@ Dual-read → write new → delete old.
 - *Folders* (B5/B6): `WorkoutService.swift:46,90` lists `templates/` and `sessions/` by path, so a
   mid-stack rename takes the timer away from four live athletes. The iOS release ships between
   steps two and three.
-- *Fields* (B2): slimming `current_week.json` is a breaking change even though the path is
-  unchanged. Every reader — web, iOS, `current-week.mts`, the snapshot builder — must tolerate a
-  missing `coach_read`, `session_file`, `origin`, `planned_load` **before** the writer stops
-  emitting them. Same three steps, same order.
+- *Fields:* no field is dropped in this stack (§4). If a later PR ever drops one, readers tolerate
+  the absence *before* the writer stops emitting it.
 
 **`SCHEMA_VERSION` is a flag day.** `build-dashboard-snapshot.mjs` and `useRepoData.ts` bump
 together, and old app builds strand when it moves. Do it in B5 alongside the iOS release, never in
@@ -253,7 +244,7 @@ there, or Gemini writes garbage and the workflow commits it.
 ## 11. Done when
 
 - An athlete asks mid-conversation for an upper body workout and gets one, committed on that turn. (Bug 2)
-- The Workouts page shows today, not a list of every template the athlete owns. (Bug 1, for the four live athletes — A5)
+- The Workouts page (web and iOS) shows today + this week + library, not a dump of every template. (Bug 1 — A5 / A5-ios)
 - A new athlete's first screen is a benchmark, not six guessed workouts. (Bug 1, for the next athlete — A3)
 - Changing a progression changes the next compile with no edit to any routine file.
 - An athlete with an active injury flag is never offered a routine that conflicts with it.
