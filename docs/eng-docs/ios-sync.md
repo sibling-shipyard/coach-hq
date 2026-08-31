@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-23
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-31
 
 ## Context
 
@@ -52,11 +52,10 @@ sequenceDiagram
     M->>M: mirror boundaries, or seed when absent
     M->>GH: read user_data/activities/sync_state.json
     M->>HK: query workouts since min(hk_last_synced, now - 14d)
-    M->>GH: list files in user_data/activities/hist/ (dedup)
-    M->>M: WorkoutDeduplicator drops already-synced + multi-source copies
-    loop each remaining workout
-        M->>M: ActivityMapper.map (schema + full-sample HR analysis)
-        M->>M: ActivityNamer assigns name + filename
+    M->>GH: list + read hk_ hist files in the window (session match)
+    M->>M: WorkoutDeduplicator clusters live + committed sessions
+    loop each cluster
+        M->>M: insert (new #N + Coach) or upsert (aliases / HR, silent)
     end
     M->>GH: commitFiles() - atomic multi-file commit
     GH-->>M: push to main
@@ -72,30 +71,23 @@ sequenceDiagram
 2. **Query HealthKit** — pulls `HKWorkout` samples since **`min(hk_last_synced, now − 14 days)`**
    — see "Late arrivals" below for why the watermark alone is not enough. Local device data, not
    a repo file. If nothing new, stops here.
-3. **List existing history** — fetches the file list in `user_data/activities/hist/` from GitHub.
-   This is the dedup index: both the filenames and the uuids parsed out of them.
-4. **Deduplicate the batch** — `WorkoutDeduplicator` collapses one real session recorded by
-   several apps down to one activity (see "Late arrivals").
-5. **Per remaining workout:**
-   - `ActivityMapper.map()` converts the `HKWorkout` to the shared Activity schema (sport type,
-     times, calories, distance, device).
-   - Dedup-checks the filename — the deterministic `hk_<date>_<uuid>.json` name against the
-     committed file list, plus Strava-style naming for legacy history. **This runs before the
-     heart-rate fetch and before naming**, so a re-scanned day costs no HealthKit queries and
-     never advances a name counter for a workout that is not committed.
-   - Fetches the complete heart-rate sample set for the workout window, computes avg/max HR,
-     zone 1-5 time distribution, and the compact `effort_shape`. The display curve is decimated
-     only after those summaries are complete.
-   - `ActivityNamer` assigns a generic sequential name (`{SportType} #{N}`, e.g. "WeightTraining #30") and the filename —
-     `hk_YYYY-MM-DD_<uuid>.json`, where `<uuid>` is the `HKWorkout.uuid`. The `hk_` prefix
-     distinguishes it from Strava-sourced files; the `YYYY-MM-DD` prefix is kept for browsability
-     and the pipeline's date-prefilter. Counters are keyed by sport type in `sync_state.json`.
-   - The optional `category` field is **not** auto-assigned at sync (left nil). Manual tagging only until Phase 3 config-driven rules land.
+3. **List existing history** — fetches `user_data/activities/hist/` and reads `hk_*` files in
+   the window. Filenames give uuids; contents give start/end/sport/`aliases` for session match
+   (ADR 0035).
+4. **Cluster** — `WorkoutDeduplicator` groups live HealthKit recordings with those committed
+   rows (see "Late arrivals").
+5. **Per cluster:**
+   - **Already in hist** — upsert that file. Append new uuids to `aliases`. Re-fetch HR only when
+     coverage is incomplete or a new uuid appeared. No `#N`. No Coach.
+   - **New session** — `ActivityMapper.map()`, HR fetch, `ActivityNamer` assigns `{SportType} #{N}`
+     and `hk_YYYY-MM-DD_<uuid>.json`. Coach POSTs those ids only.
+   - Strava-era `YYYY-MM-DD_HHMMSS_<id>.json` names still block an insert on the same timestamp.
+   - `category` is **not** auto-assigned at sync (left nil).
 
 6. **Commit** — `GitHubAPIClient.commitFiles()` batches the new activity file(s), any HR stream
-   sidecars, plus the updated `sync_state.json` into **one atomic commit** using GitHub's Git Data API (create blobs → read
-   HEAD → build tree → create commit → move the branch ref), retried against a fresh HEAD on a
-   non-fast-forward conflict. Pushed straight to `main`.
+   sidecars, plus the updated `sync_state.json` into **one atomic commit**. It uses GitHub's Git
+   Data API: create blobs, read HEAD, build a tree, create a commit, then move the branch ref. A
+   non-fast-forward conflict retries against a fresh HEAD. Pushed straight to `main`.
 7. **Wait for derived data** — updates the on-device activity cache immediately, then
    `refreshAfterSync` polls until `home.sync.timestamp` proves the user-repo pipeline has rebuilt
    fresh derived context.
@@ -147,10 +139,11 @@ places:
 - **In the JSON** — `id` and `id_str` fields (`ActivityMapper` sets both from `workout.uuid`).
   `Activity` decodes `id` flexibly (String *or* Int) so legacy Strava history files, which store
   `id` as a JSON number, still decode when the app reads them (cache warming).
-- **In the filename** — `hk_<date>_<uuid>.json`. Because the uuid is deterministic, re-syncing the
-  same workout produces the exact same filename, so dedup is a pure filename check (two guards:
-  exact-name match, plus a `_<uuid>.json` substring guard, both run before the heart-rate fetch).
-  No file contents are read for dedup, keeping sync cheap.
+- **In the filename** — `hk_<date>_<uuid>.json`. The uuid is the file key. Garmin Connect
+  deletes a workout and writes it again, so the same gym can arrive with a new uuid. Dedup
+  therefore reads committed `hk_*` files in the sync window and matches by uuid, alias, or
+  time overlap (ADR 0035). Filename-only checks still skip a cheap re-scan when nothing
+  changed; they are not enough on their own.
 
 **Accepted gap — no migration.** Pre-existing slug-named files (`hk_<date>_<category>_<n>.json`)
 are **not** migrated: they keep their slug filenames and have no `id`/`id_str`. Nothing looks
@@ -169,13 +162,20 @@ workout is lost permanently.
 
 So the query floor is **`min(hk_last_synced, now − HealthKitSyncManager.lookbackWindowDays)`**,
 14 days today. Every round re-scans that window and lets dedup drop what is already committed.
-The cost is one local HealthKit query and a set of filename comparisons — no extra network. The
+The cost is one local HealthKit query plus reads of `hk_*` hist files in that window. The
 `HKObserverQuery` fires when the watch transfers data, so in practice a late arrival now
 self-heals on the next background sync.
 
-**Garmin and Strava mirror the same session into HealthKit.** One ride can appear two or three
-times with different uuids. `WorkoutDeduplicator.cluster` groups the recordings of one session —
-same loose activity group, time windows overlapping by ≥50% of the shorter one — and ranks them:
+**Garmin Connect rewrites a workout.** It deletes the HealthKit sample and inserts a new one,
+so Apple assigns a new uuid. `WorkoutDeduplicator.cluster` takes live recordings *and*
+committed hist rows from the window. Match order: exact uuid, then `aliases`, then same
+activity group + ≥50% of the shorter window, then start within 2 minutes + ≥50% of shorter
+even if sport differs. The committed file wins. Sync upserts that file (HR if coverage
+improved, new uuid appended to `aliases`) and does not bump `#N` or POST coach-message.
+
+**Garmin and Strava also mirror the same session into HealthKit** while both samples still
+exist. One ride can appear two or three times with different uuids. Clustering is the same
+primitive. Winner order:
 
 1. **already committed wins** — whichever copy is in `hist/` stays, whatever its source.
 2. then **source priority** — apple > garmin > strava > unknown.
@@ -183,18 +183,19 @@ same loose activity group, time windows overlapping by ≥50% of the shorter one
 
 Rule 1 exists because the copies can arrive on different days. If Strava's copy syncs Monday and
 Garmin's copy only reaches the phone Wednesday, ranking by source alone would commit a *second*
-file for a session already in `hist/`. Keeping the committed copy is stable across rounds and
-never needs a delete.
+file for a session already in `hist/`. Keeping the committed copy is stable and never needs a
+delete. The live recording stays in the cluster so the round can fill HR into that file.
 
-Sync only needs the winners, so `selectWinners` is a thin wrapper over `cluster`. The Health
-Settings list needs the losers too — it shows one row per session and names every app that
-recorded it — which is why grouping is the primitive and winner-picking the wrapper.
+Sync only inserts when a cluster has no committed file. `selectWinners` is a thin wrapper over
+`cluster` for callers that still want one uuid per session. The Health Settings list needs the
+losers too — it shows one row per session and names every app that recorded it — which is why
+grouping is the primitive and winner-picking the wrapper. Import uses the same overlap match,
+so a Garmin rewrite of a synced session does not offer Import.
 
-**Grouping is greedy, not transitive.** A recording joins the first winner it overlaps and starts
-its own cluster if it overlaps none, so a chain — A overlaps B, B overlaps C, A and C do not —
-splits into two clusters instead of merging into one. Deliberate: transitive grouping lets a run
-of near-misses swallow genuinely separate back-to-back sessions, and hiding a real workout is the
-worse failure.
+**Grouping is greedy, not transitive.** A recording joins the first winner it overlaps. It starts
+its own cluster if it overlaps none. A chain — A overlaps B, B overlaps C, A and C do not —
+splits into two clusters instead of one. Deliberate: transitive grouping lets near-misses swallow
+separate back-to-back sessions, and hiding a real workout is the worse failure.
 
 The rules live in `WorkoutDeduplicator.swift`, deliberately free of HealthKit types — `HKWorkout`
 cannot be constructed outside a device store, so anything touching it is untestable. Verify with:
@@ -215,7 +216,8 @@ HealthKit workouts with a per-row sync state, and imports anything the automatic
 It is read-only until the athlete taps Import.
 
 `HealthKitSyncManager.loadHealthImportRows(daysBack:)` builds the list from one local HealthKit
-query plus the `hist/` file listing — no file contents, same as dedup.
+query plus hist filenames and `hk_*` file contents in the window — overlap against a committed
+session marks the row synced, not only a matching filename uuid.
 
 **One row per session, not per HealthKit record.** Rows are clusters, so a ride recorded by the
 watch and mirrored by Garmin is one row naming both (`Apple Watch + Garmin`), not two rows with
@@ -224,7 +226,7 @@ the winner is the copy we commit. Three states:
 
 | State | Means |
 |---|---|
-| **synced** | A file for one of the session's uuids is committed in `hist/`. Asked of the whole cluster, not just the winner. |
+| **synced** | A committed hist file is this session — by uuid, alias, or time overlap. Asked of the whole cluster, not just the winner. |
 | **can't check** | The day holds committed files with no uuid in the name (pre-ADR-0014 slug names, Strava-era history), so we cannot match them to a HealthKit workout. Import is blocked rather than risk a duplicate. |
 | **not synced** | Nothing committed for it — the only state with an Import button. |
 
@@ -333,7 +335,7 @@ Not referenced in the iOS codebase. `AGENTS.md` no longer documents it as a phon
 
 | File | Written by | Notes |
 |---|---|---|
-| `user_data/activities/hist/hk_<date>_<uuid>.json` | `HealthKitSyncManager` | one per new HealthKit workout; filename + JSON `id`/`id_str` = HKWorkout uuid |
+| `user_data/activities/hist/hk_<date>_<uuid>.json` | `HealthKitSyncManager` | one per real session; filename + JSON `id` stay the first uuid; rewrites upsert `aliases` + HR |
 | `user_data/activities/sync_state.json` | `HealthKitSyncManager` | `hk_last_synced` + naming counters |
 | `user_data/health/zones.json` | `HRZoneStore` through `HealthKitSyncManager` | seeded when absent; rewritten for a saved override |
 

@@ -142,13 +142,13 @@ struct Verify {
             let window = at(0, minutes: 60)
             let walk = candidate("W", "Walk", window, source: apple)
             let hike = candidate("H", "Hiking", window, source: strava)
-            let ride = candidate("R", "Ride", window, source: strava)
+            let rideLater = candidate("R", "Ride", at(8), source: strava)
             t.check("test_06: walk and hiking are one group",
                     WorkoutDeduplicator.areDuplicates(walk, hike))
-            t.check("test_06: walk and ride are not",
-                    !WorkoutDeduplicator.areDuplicates(walk, ride))
-            t.check("test_06: overlapping different sports both kept",
-                    WorkoutDeduplicator.selectWinners([walk, ride]).count == 2)
+            t.check("test_06: walk and a later ride are not",
+                    !WorkoutDeduplicator.areDuplicates(walk, rideLater))
+            t.check("test_06: same-start walk and ride collapse (Garmin vs Strava sport)",
+                    WorkoutDeduplicator.selectWinners([walk, candidate("R2", "Ride", window, source: strava)]).count == 1)
         }
 
         // ── Test 7: ties keep input order ───────────────────────────────────
@@ -240,6 +240,58 @@ struct Verify {
             t.check("test_13: same answer",
                     WorkoutDeduplicator.selectWinners(batch)
                         == WorkoutDeduplicator.cluster(batch).map(\.winner.uuid))
+        }
+
+        // ── Test 14: Garmin rewrite — new uuid, committed file stays ────────
+        // Connect deletes uuid-A and writes uuid-B. Hist still has A. B must
+        // join A's cluster, A wins, B is kept as a live other so sync can upsert.
+        do {
+            let window = at(0, minutes: 55)
+            let committed = candidate("A", "WeightTraining", window, source: garmin, committed: true)
+            let rewrite = candidate("B", "WeightTraining", window, source: garmin)
+            let clusters = WorkoutDeduplicator.cluster([rewrite, committed])
+            t.check("test_14: one cluster", clusters.count == 1)
+            t.check("test_14: committed file wins", clusters.first?.winner.uuid == "A")
+            t.check("test_14: rewrite is in the cluster", clusters.first?.others.map(\.uuid) == ["B"])
+            t.check("test_14: selectWinners does not insert B",
+                    WorkoutDeduplicator.selectWinners([rewrite, committed]) == ["A"])
+        }
+
+        // ── Test 15: two gyms the same day stay two sessions ────────────────
+        do {
+            let morning = candidate("M", "WeightTraining", at(0), source: garmin, committed: true)
+            let evening = candidate("E", "WeightTraining", at(8), source: garmin)
+            let clusters = WorkoutDeduplicator.cluster([morning, evening])
+            t.check("test_15: two clusters", clusters.count == 2)
+            t.check("test_15: both winners kept",
+                    Set(clusters.map(\.winner.uuid)) == ["M", "E"])
+        }
+
+        // ── Test 16: alias match does not need overlap ──────────────────────
+        do {
+            let committed = DedupCandidate(
+                uuid: "A",
+                sportType: "Walk",
+                start: at(0).0,
+                end: at(0).1,
+                sourcePriority: garmin,
+                isCommitted: true,
+                aliases: ["B"]
+            )
+            let rewrite = candidate("B", "Walk", at(8), source: garmin)
+            t.check("test_16: alias is the same session even hours apart",
+                    WorkoutDeduplicator.areDuplicates(committed, rewrite))
+            t.check("test_16: one cluster",
+                    WorkoutDeduplicator.cluster([committed, rewrite]).count == 1)
+        }
+
+        // ── Test 17: sport mismatch with start slack > 2 min stays two ──────
+        do {
+            let walk = candidate("W", "Walk", at(0, minutes: 51), source: strava)
+            let run = candidate("R", "Run", at(0.05, minutes: 49), source: garmin)
+            // 0.05h = 3 min, outside crossSportStartSlack.
+            t.check("test_17: 3 min start gap + different sport is not a duplicate",
+                    !WorkoutDeduplicator.areDuplicates(walk, run))
         }
 
         exit(t.summary() ? 0 : 1)

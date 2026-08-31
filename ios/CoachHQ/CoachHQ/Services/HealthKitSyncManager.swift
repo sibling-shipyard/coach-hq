@@ -354,6 +354,15 @@ class HealthKitSyncManager: ObservableObject {
         return observed > 0 ? Int((weighted / 60).rounded()) : nil
     }
 
+    static func zoneObservedSeconds(hrZones: [String: HRZoneEntry]?) -> Double {
+        guard let hrZones else { return 0 }
+        var observed = 0.0
+        for weight in 1...5 {
+            observed += max(0, hrZones["Zone \(weight)"]?.seconds ?? 0)
+        }
+        return observed
+    }
+
     private static func drafts(
         from synced: [(fileName: String, activity: Activity)]
     ) -> [SyncedActivityDraft] {
@@ -491,13 +500,31 @@ class HealthKitSyncManager: ObservableObject {
             // existingFileNames uses the full list to avoid overwriting any committed file.
             var existingFileNames = Set(existingFiles.map { $0.name })
 
-            // Dedup runs after the file list, not before it: picking a winner between
-            // multi-source copies of one session needs to know which copy is already in
-            // the repo, or a late-arriving higher-priority source commits a second file
-            // for a session already in hist/. See WorkoutDeduplicator.selectWinners.
-            let committedUUIDs = Set(existingFiles.compactMap { Self.uuid(fromHistoryFileName: $0.name) })
-            let workouts = Self.deduplicate(rawWorkouts, committedUUIDs: committedUUIDs)
-            syncProgressText = "\(workouts.count) workout\(workouts.count == 1 ? "" : "s") found — reading HR data…"
+            // Session match needs hist contents, not just filenames (ADR 0035). Garmin
+            // rewrites drop the old uuid from HealthKit, so filename-only uuid parse misses.
+            let hkWindowFiles = recentFiles.filter { Self.uuid(fromHistoryFileName: $0.name) != nil }
+            let histSessions = await loadHistSessions(files: hkWindowFiles)
+            var sessionByUUID: [String: HistSession] = [:]
+            for session in histSessions {
+                for id in Self.identityUUIDs(of: session.activity) {
+                    sessionByUUID[id] = session
+                }
+            }
+            let committedIDs = Set(sessionByUUID.keys)
+            let liveUUIDs = Set(rawWorkouts.map(\.uuid.uuidString))
+            let liveCandidates = Self.dedupCandidates(rawWorkouts, committedUUIDs: committedIDs)
+            let histOnlyCandidates = histSessions.compactMap { session -> DedupCandidate? in
+                guard let candidate = Self.candidate(from: session.activity) else { return nil }
+                return candidate.identityUUIDs.isDisjoint(with: liveUUIDs) ? candidate : nil
+            }
+            let clusters = WorkoutDeduplicator.cluster(liveCandidates + histOnlyCandidates)
+                .sorted { $0.winner.start < $1.winner.start }
+            let workoutByUUID = Dictionary(
+                rawWorkouts.map { ($0.uuid.uuidString, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+
+            syncProgressText = "\(clusters.count) session\(clusters.count == 1 ? "" : "s") — reading HR data…"
             let counterReferenceYear = syncState.counterYear
                 ?? Self.year(fromISO8601: syncState.hkLastSynced)
                 ?? Calendar.current.component(.year, from: Date())
@@ -508,14 +535,102 @@ class HealthKitSyncManager: ObservableObject {
 
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let isoFormatter = ISO8601DateFormatter()
             var filesToCommit: [(path: String, data: Data)] = []
             var syncedForCache: [(fileName: String, activity: Activity)] = []
+            var upsertedForCache: [(fileName: String, activity: Activity)] = []
 
-            let total = workouts.count
-            for (index, workout) in workouts.enumerated() {
+            let total = max(clusters.count, 1)
+            for (index, cluster) in clusters.enumerated() {
                 syncProgress = 0.08 + 0.82 * Double(index + 1) / Double(total)
-                syncProgressText = "Reading workout \(index + 1) of \(total)…"
+                syncProgressText = "Reading session \(index + 1) of \(clusters.count)…"
+                let liveWorkouts = cluster.all.compactMap { workoutByUUID[$0.uuid] }
+                let committed = cluster.all
+                    .flatMap(\.identityUUIDs)
+                    .compactMap { sessionByUUID[$0] }
+                    .first
+
+                if let committed {
+                    let identity = Self.identityUUIDs(of: committed.activity)
+                    let newAliases = liveWorkouts.map(\.uuid.uuidString).filter { !identity.contains($0) }
+                    let incomplete = !committed.activity.hasHeartrate
+                        || Self.zoneObservedSeconds(hrZones: committed.activity.hrZones) == 0
+                    if newAliases.isEmpty && !incomplete { continue }
+
+                    let hrWorkout = liveWorkouts.max {
+                        ActivityMapper.sourcePriority(bundleId: $0.sourceRevision.source.bundleIdentifier)
+                            < ActivityMapper.sourcePriority(bundleId: $1.sourceRevision.source.bundleIdentifier)
+                    }
+                    guard let window = Self.hrWindow(workout: hrWorkout, activity: committed.activity) else {
+                        continue
+                    }
+                    let hrSamples = (try? await fetchHeartRateSamples(from: window.start, to: window.end)) ?? []
+                    let hrZoneConfig = HRZoneConfig.current
+                    let hrCoverage = hrSamples.isEmpty ? nil : HRAnalysis.integrateZones(
+                        samples: hrSamples,
+                        config: hrZoneConfig,
+                        start: window.start,
+                        end: window.end
+                    )
+                    let newObserved = hrCoverage?.coveredSeconds ?? 0
+                    let oldObserved = Self.zoneObservedSeconds(hrZones: committed.activity.hrZones)
+                    let betterHR = newObserved > oldObserved + 1
+                    if !betterHR && newAliases.isEmpty { continue }
+
+                    var aliases = committed.activity.aliases ?? []
+                    for alias in newAliases where !aliases.contains(where: {
+                        $0.uppercased() == alias.uppercased()
+                    }) {
+                        aliases.append(alias)
+                    }
+                    let hrStats = ActivityMapper.computeHRStats(samples: hrSamples.map(\.bpm))
+                    let updated = Activity(
+                        name: committed.activity.name,
+                        category: committed.activity.category,
+                        sportType: committed.activity.sportType,
+                        startDateLocal: committed.activity.startDateLocal,
+                        elapsedTime: committed.activity.elapsedTime,
+                        movingTime: committed.activity.movingTime,
+                        calories: committed.activity.calories,
+                        distance: committed.activity.distance,
+                        totalElevationGain: committed.activity.totalElevationGain,
+                        averageHeartrate: betterHR ? hrStats.average : committed.activity.averageHeartrate,
+                        maxHeartrate: betterHR ? hrStats.max : committed.activity.maxHeartrate,
+                        hasHeartrate: betterHR ? !hrSamples.isEmpty : committed.activity.hasHeartrate,
+                        hrZones: betterHR ? hrCoverage?.zones : committed.activity.hrZones,
+                        description: committed.activity.description,
+                        totalPhotoCount: committed.activity.totalPhotoCount,
+                        averageSpeed: committed.activity.averageSpeed,
+                        maxSpeed: committed.activity.maxSpeed,
+                        deviceName: committed.activity.deviceName,
+                        source: committed.activity.source,
+                        sourceApp: committed.activity.sourceApp,
+                        preMentalState: committed.activity.preMentalState,
+                        vsUsual: committed.activity.vsUsual,
+                        aliases: aliases.isEmpty ? nil : aliases,
+                        activityId: committed.activity.activityId,
+                        idStr: committed.activity.idStr
+                    )
+                    filesToCommit.append((
+                        path: "user_data/activities/hist/\(committed.fileName)",
+                        data: try encoder.encode(updated)
+                    ))
+                    if betterHR, let uuid = updated.activityId, let coverage = hrCoverage {
+                        filesToCommit.append(try encodeStream(
+                            uuid: uuid,
+                            samples: hrSamples,
+                            coverage: coverage,
+                            start: window.start,
+                            end: window.end,
+                            encoder: encoder
+                        ))
+                    }
+                    upsertedForCache.append((committed.fileName, updated))
+                    continue
+                }
+
+                guard let workout = workoutByUUID[cluster.winner.uuid] ?? liveWorkouts.first else {
+                    continue
+                }
                 let base = ActivityMapper.map(workout: workout)
 
                 // Dedup against Strava files (YYYY-MM-DD_HHMMSS_<id>.json)
@@ -524,31 +639,15 @@ class HealthKitSyncManager: ObservableObject {
                     .replacingOccurrences(of: ":", with: "")
                 if recentFiles.contains(where: { $0.name.hasPrefix("\(datePart)_\(timePart)_") }) { continue }
 
-                // Every dedup check that can run on `base` runs here, before the HR samples
-                // are read and before assignName() advances a counter. The sync window
-                // deliberately re-scans days that are already synced, so a check that fires
-                // later would burn a HealthKit query per already-committed workout and skip a
-                // name number on every round — leaving permanent gaps in "WeightTraining #N".
-                // The uuid filename is deterministic (ADR 0014), so it is known from `base`.
-                if let uuid = base.activityId {
-                    if existingFileNames.contains(ActivityNamer.fileName(for: base)) { continue }
-                    if recentFiles.contains(where: { $0.name.contains("_\(uuid).json") }) { continue }
-                }
-
-                // Fetch HR samples and compute stats + zones
                 let hrSamples = (try? await fetchHeartRateSamples(for: workout)) ?? []
                 let hrStats = ActivityMapper.computeHRStats(samples: hrSamples.map(\.bpm))
                 let hrZoneConfig = HRZoneConfig.current
-                // Integrated once and reused by the sidecar below — a 4h workout at 1s sampling
-                // is 14,400 samples, and this used to run twice per activity.
                 let hrCoverage = hrSamples.isEmpty ? nil : HRAnalysis.integrateZones(
                     samples: hrSamples,
                     config: hrZoneConfig,
                     start: workout.startDate,
                     end: workout.endDate
                 )
-                let hrZones = hrCoverage?.zones
-
                 let withHR = Activity(
                     name: base.name,
                     sportType: base.sportType,
@@ -561,7 +660,7 @@ class HealthKitSyncManager: ObservableObject {
                     averageHeartrate: hrStats.average,
                     maxHeartrate: hrStats.max,
                     hasHeartrate: !hrSamples.isEmpty,
-                    hrZones: hrZones,
+                    hrZones: hrCoverage?.zones,
                     description: base.description,
                     totalPhotoCount: 0,
                     averageSpeed: base.averageSpeed,
@@ -575,43 +674,20 @@ class HealthKitSyncManager: ObservableObject {
                 )
 
                 let named = ActivityNamer.assignName(activity: withHR, counters: &counters)
-
-                // Safety net for the slug fallback path, whose filename depends on the
-                // assigned name and so cannot be known before this point. Workouts with a
-                // uuid were already cleared above.
                 let fileName = ActivityNamer.fileName(for: named)
                 if existingFileNames.contains(fileName) { continue }
 
                 filesToCommit.append((path: "user_data/activities/hist/\(fileName)", data: try encoder.encode(named)))
                 existingFileNames.insert(fileName)
 
-                // Stream sidecar (ADR 0027). Keyed by the workout uuid, written into the same
-                // commitFiles tree as the activity so a round stays atomic. Only workouts with
-                // a uuid get one — the pre-0014 slug fallback has no stable key to file it under.
                 if let uuid = named.activityId, let coverage = hrCoverage {
-                    let effortShape = HRAnalysis.effortShape(
+                    filesToCommit.append(try encodeStream(
+                        uuid: uuid,
                         samples: hrSamples,
-                        config: hrZoneConfig,
+                        coverage: coverage,
                         start: workout.startDate,
-                        end: workout.endDate
-                    )
-                    let decimated = HRAnalysis.decimate(samples: hrSamples, start: workout.startDate)
-                    let stream = HRStreamFile(
-                        schemaVersion: HRStreamFile.currentSchemaVersion,
-                        generator: HRStreamFile.currentGenerator,
-                        activityId: uuid,
-                        start: isoFormatter.string(from: workout.startDate),
-                        elapsedSeconds: Int(workout.duration.rounded()),
-                        sourceSampleCount: hrSamples.count,
-                        coveredSeconds: Int(coverage.coveredSeconds.rounded()),
-                        uncoveredSeconds: Int(coverage.uncoveredSeconds.rounded()),
-                        gaps: decimated.gaps,
-                        effortShape: effortShape,
-                        points: decimated.points
-                    )
-                    filesToCommit.append((
-                        path: "user_data/activities/streams/\(uuid).json",
-                        data: try encoder.encode(stream)
+                        end: workout.endDate,
+                        encoder: encoder
                     ))
                 }
                 syncedForCache.append((fileName, named))
@@ -648,8 +724,10 @@ class HealthKitSyncManager: ObservableObject {
             filesToCommit.append(contentsOf: roundExtraFiles)
 
             // Workouts, not files. Each one now commits a hist/ record *and* a streams/
-            // sidecar, so counting files double-counts every activity.
-            let n = syncedForCache.count
+            // sidecar, so counting files double-counts every activity. Upserts rewrite a
+            // file already in hist/; they count toward the commit, not toward Coach.
+            let inserted = syncedForCache.count
+            let n = inserted + upsertedForCache.count
             syncProgressText = "Uploading \(n) workout\(n == 1 ? "" : "s") to GitHub…"
             syncProgress = 0.93
             // This is a lower bound, not the API-return time: even a very fast workflow
@@ -657,7 +735,13 @@ class HealthKitSyncManager: ObservableObject {
             let pipelineFreshnessLowerBound = Date()
             try await apiClient.commitFiles(filesToCommit, message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")")
 
-            // Freshly-synced HealthKit activities never have a description yet.
+            for (fileName, activity) in upsertedForCache {
+                SyncCache.upsert(SyncCacheEntry(
+                    fileName: fileName,
+                    activity: activity,
+                    hasDescription: !(activity.description ?? "").isEmpty
+                ))
+            }
             var roundCounts: [String: Int] = [:]
             for (fileName, activity) in syncedForCache {
                 SyncCache.upsert(SyncCacheEntry(fileName: fileName, activity: activity, hasDescription: false))
@@ -687,7 +771,7 @@ class HealthKitSyncManager: ObservableObject {
             // isSyncing for this; it only affects the widget home cache, not the sync flow.
             // A failed Coach turn must not fail this sync — list + Retry stay in Chat.
             let ws = widgetStore
-            let syncedFileNames = syncedForCache.map(\.fileName)
+            let syncedFileNames = (syncedForCache + upsertedForCache).map(\.fileName)
             let coachActivityIds = syncedForCache.compactMap { item -> String? in
                 guard let raw = item.activity.activityId,
                       let uuid = UUID(uuidString: raw) else { return nil }
@@ -922,9 +1006,9 @@ class HealthKitSyncManager: ObservableObject {
 
     /// Lists recent HealthKit workouts with their sync state, for the Health Settings screen.
     ///
-    /// Read-only: one local HealthKit query plus the `hist/` file listing, no commits. The
-    /// synced test is the uuid embedded in the committed filename (ADR 0014), so it needs no
-    /// file contents.
+    /// Read-only: one local HealthKit query plus hist filenames *and* hk_ file contents in the
+    /// window. Garmin rewrites need overlap against committed sessions (ADR 0035), not uuid
+    /// presence in a filename.
     ///
     /// Returns nil when either read fails. An empty list means "no workouts"; the screen has to
     /// be able to tell those apart, because a failed listing would otherwise render as every
@@ -949,7 +1033,22 @@ class HealthKitSyncManager: ObservableObject {
             return nil
         }
 
-        let committedUUIDs = Set(existingFiles.compactMap { Self.uuid(fromHistoryFileName: $0.name) })
+        let windowFiles = existingFiles.filter { file in
+            guard Self.uuid(fromHistoryFileName: file.name) != nil else { return false }
+            guard let date = Self.date(fromHistoryFileName: file.name) else { return true }
+            return date >= since
+        }
+        let histSessions = await loadHistSessions(files: windowFiles)
+        var committedIDs = Set(existingFiles.compactMap { Self.uuid(fromHistoryFileName: $0.name) })
+        for session in histSessions {
+            committedIDs.formUnion(Self.identityUUIDs(of: session.activity))
+        }
+        let liveUUIDs = Set(rawWorkouts.map(\.uuid.uuidString))
+        let histOnly = histSessions.compactMap { session -> DedupCandidate? in
+            guard let candidate = Self.candidate(from: session.activity) else { return nil }
+            return candidate.identityUUIDs.isDisjoint(with: liveUUIDs) ? candidate : nil
+        }
+
         // Days that hold a committed file with no uuid in its name — pre-ADR-0014 slug names
         // and Strava-era history. We can't match those to a HealthKit workout, so every
         // session on such a day is `.unknown` rather than a false "not synced".
@@ -968,7 +1067,9 @@ class HealthKitSyncManager: ObservableObject {
             uniquingKeysWith: { first, _ in first }
         )
 
-        return WorkoutDeduplicator.cluster(Self.dedupCandidates(rawWorkouts, committedUUIDs: committedUUIDs))
+        return WorkoutDeduplicator.cluster(
+            Self.dedupCandidates(rawWorkouts, committedUUIDs: committedIDs) + histOnly
+        )
             .map { cluster in
                 let winner = cluster.winner
                 let state: HealthImportRow.State
@@ -1049,6 +1150,107 @@ class HealthKitSyncManager: ObservableObject {
         }
     }
 
+    // MARK: - Session upsert (ADR 0035)
+
+    private struct HistSession {
+        let fileName: String
+        let activity: Activity
+    }
+
+    private func loadHistSessions(files: [GitHubFileEntry]) async -> [HistSession] {
+        guard let apiClient else { return [] }
+        return await withTaskGroup(of: HistSession?.self, returning: [HistSession].self) { group in
+            for file in files {
+                group.addTask {
+                    guard let activity = try? await apiClient.readActivity(fileName: file.name) else {
+                        return nil
+                    }
+                    return HistSession(fileName: file.name, activity: activity)
+                }
+            }
+            var sessions: [HistSession] = []
+            for await session in group {
+                if let session { sessions.append(session) }
+            }
+            return sessions
+        }
+    }
+
+    private static func identityUUIDs(of activity: Activity) -> Set<String> {
+        var ids = Set<String>()
+        if let id = activity.activityId, let normalized = UUID(uuidString: id)?.uuidString {
+            ids.insert(normalized)
+        }
+        for alias in activity.aliases ?? [] {
+            if let normalized = UUID(uuidString: alias)?.uuidString {
+                ids.insert(normalized)
+            }
+        }
+        return ids
+    }
+
+    private static func localStart(_ startDateLocal: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        formatter.timeZone = .current
+        return formatter.date(from: String(startDateLocal.prefix(19)))
+    }
+
+    private static func candidate(from activity: Activity) -> DedupCandidate? {
+        guard let uuid = activity.activityId.flatMap({ UUID(uuidString: $0)?.uuidString }),
+              let start = localStart(activity.startDateLocal) else { return nil }
+        return DedupCandidate(
+            uuid: uuid,
+            sportType: activity.sportType,
+            start: start,
+            end: start.addingTimeInterval(TimeInterval(activity.elapsedTime)),
+            sourcePriority: ActivityMapper.sourcePriority(bundleId: activity.sourceApp),
+            isCommitted: true,
+            aliases: activity.aliases ?? []
+        )
+    }
+
+    private static func hrWindow(workout: HKWorkout?, activity: Activity) -> (start: Date, end: Date)? {
+        if let workout { return (workout.startDate, workout.endDate) }
+        guard let start = localStart(activity.startDateLocal) else { return nil }
+        return (start, start.addingTimeInterval(TimeInterval(activity.elapsedTime)))
+    }
+
+    private func encodeStream(
+        uuid: String,
+        samples: [(date: Date, bpm: Double)],
+        coverage: HRZoneResult,
+        start: Date,
+        end: Date,
+        encoder: JSONEncoder
+    ) throws -> (path: String, data: Data) {
+        let isoFormatter = ISO8601DateFormatter()
+        let effortShape = HRAnalysis.effortShape(
+            samples: samples,
+            config: HRZoneConfig.current,
+            start: start,
+            end: end
+        )
+        let decimated = HRAnalysis.decimate(samples: samples, start: start)
+        let stream = HRStreamFile(
+            schemaVersion: HRStreamFile.currentSchemaVersion,
+            generator: HRStreamFile.currentGenerator,
+            activityId: uuid,
+            start: isoFormatter.string(from: start),
+            elapsedSeconds: Int(end.timeIntervalSince(start).rounded()),
+            sourceSampleCount: samples.count,
+            coveredSeconds: Int(coverage.coveredSeconds.rounded()),
+            uncoveredSeconds: Int(coverage.uncoveredSeconds.rounded()),
+            gaps: decimated.gaps,
+            effortShape: effortShape,
+            points: decimated.points
+        )
+        return (
+            path: "user_data/activities/streams/\(uuid).json",
+            data: try encoder.encode(stream)
+        )
+    }
+
     // MARK: - HealthKit Queries
 
     /// Fetches all workouts completed since a given date.
@@ -1073,10 +1275,14 @@ class HealthKitSyncManager: ObservableObject {
     /// them to place points. Previously this returned bare `[Double]` and the times were thrown
     /// away at the source.
     func fetchHeartRateSamples(for workout: HKWorkout) async throws -> [(date: Date, bpm: Double)] {
+        try await fetchHeartRateSamples(from: workout.startDate, to: workout.endDate)
+    }
+
+    func fetchHeartRateSamples(from start: Date, to end: Date) async throws -> [(date: Date, bpm: Double)] {
         let hrType = HKQuantityType(.heartRate)
         let predicate = HKQuery.predicateForSamples(
-            withStart: workout.startDate,
-            end: workout.endDate,
+            withStart: start,
+            end: end,
             options: .strictStartDate
         )
 

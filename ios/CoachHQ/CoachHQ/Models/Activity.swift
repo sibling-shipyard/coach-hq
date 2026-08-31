@@ -33,6 +33,9 @@ struct Activity: Codable, Identifiable, Hashable {
     /// Same-sport medians computed from repository history after sync. Optional so
     /// activity JSON written before issue #292 keeps decoding unchanged.
     var vsUsual: VsUsual? = nil
+    /// Other HealthKit uuids folded into this session after a Garmin rewrite (ADR 0035).
+    /// Canonical id stays `activityId`. Nil/absent on files written before that ADR.
+    var aliases: [String]? = nil
 
     /// Canonical stable id persisted to JSON `"id"`. For HealthKit activities this
     /// is the `HKWorkout.uuid`. Optional (default nil) so legacy files (no id, or a
@@ -68,6 +71,7 @@ struct Activity: Codable, Identifiable, Hashable {
         case sourceApp = "source_app"
         case preMentalState = "pre_mental_state"
         case vsUsual = "vs_usual"
+        case aliases
     }
 }
 
@@ -113,6 +117,7 @@ extension Activity {
         self.sourceApp = try c.decodeIfPresent(String.self, forKey: .sourceApp)
         self.preMentalState = try c.decodeIfPresent(PreMentalState.self, forKey: .preMentalState)
         self.vsUsual = try c.decodeIfPresent(VsUsual.self, forKey: .vsUsual)
+        self.aliases = try c.decodeIfPresent([String].self, forKey: .aliases)
     }
 }
 
