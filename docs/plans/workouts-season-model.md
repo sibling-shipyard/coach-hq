@@ -75,11 +75,12 @@ end, and status — no phase or block underneath it", so adding blocks is a soul
 A second file named `season_plan.json` would be a second season object with the same name — worse.
 Superseding that soul line is part of Stack B, stated out loud.
 
-**`current_week.json` slimming.** Drop `data_status`, `coach_read`, `coach_comments`, `origin`,
-`discipline`, `kind`, `planned_load`, `session_file`. **Keep `timezone`** — `current-week.mts:554`
-uses `formatDateInTimeZone(now, data.timezone)` to decide what "today" is, and without it every
-athlete outside UTC gets the wrong day. Keep `status`, `priority`, `completion_activity_ids` and
-`original_date`: they are how reconciliation works (§6).
+**`current_week.json` is not slimmed.** Out of scope, and the reason is a track record: four
+separate field-drop proposals here were each wrong against a real repo —
+`completion_activity_ids` (reconciliation), `original_date` (self-adjustment), `timezone`
+(`current-week.mts:554` decides "today" with it), and then `discipline`, `kind`, `title`,
+`planned_duration_min`, `data_status` (the null-template day below, plus `getAvailability()`).
+A field is dropped only after someone has read every consumer and written them down. Nobody has.
 
 **Compiled files are disposable.** Committed so the timer and iOS read them offline, never treated
 as truth, never hand-edited. Delete the directory and the next compile rebuilds it.
@@ -118,6 +119,13 @@ Six states, each reachable in a test.
 | No plan yet | The benchmark, as the single call to action |
 | Compile failed | Last good compiled file plus a quiet notice; never a partial workout |
 
+**A planned day with `template_id: null` is a variant of `planned`, not a seventh state.** It is
+the common case, not an edge: Nats' week is three of four days without a template (ladders, a
+150-minute hike), and Akash has a badminton Thursday. `coachWeekFiles.ts` says so outright — "a
+session with no template, e.g. a badminton match, is valid". Render the same card from `title`,
+`planned_duration_min`, `discipline` and `kind`, with **no timer CTA**. A live day, never an
+empty one.
+
 **The athlete's routines are always on the page**, below the day. They want to train ad-hoc, look
 up what a routine contains, and show it to a physio. Ad-hoc start compiles on demand.
 
@@ -133,16 +141,21 @@ up what a routine contains, and show it to a physio. Ad-hoc start compiles on de
 | 4 | Timer physics are filled by the compiler, never the model | compiler |
 | 5 | Every compiled file passes `validateWorkout` before commit | compiler |
 | 6 | A day marked `done` references a real synced activity id | reconciler |
-| 7 | A routine is checked against active injury flags before it is offered | write path |
+| 7 | Every active injury flag is addressed in the spec's `injury_ack` before a routine is written | write path |
 
 Invariant 7 is a **regression guard**: `selectTemplates` filters on active flags today
 (`conflictsWithActiveInjuries`), and removing it without a replacement would let an athlete with a
-shoulder flag receive a pulling day. It survives the library.
+shoulder flag receive a pulling day. A generated routine carries no library tags, so the check
+cannot be ported as-is. Instead the spec carries `injury_ack` — one entry per active flag, saying
+how this routine accommodates it — and the write path refuses a routine that leaves any active
+flag unaddressed. Code cannot judge whether a routine is safe; it can refuse one where Coach did
+not consider each flag, and that is auditable afterwards.
 
 **The compiler lives in `engine/`, not `ui/api/`.** `scaling-plan.md` §2.2 already names the
 server coach as "a *second* engine" re-encoding Layer B in TS. A compiler in the Vercel folder
-repeats exactly that. One module in `engine/`, two thin hosts: coach-chat imports it, BYO calls a
-CLI wrapper.
+repeats exactly that. `ui/api` reaches it the way it already reaches `engine/lib/current-week.mts`
+— a `.bundle.d.ts` shim, not a raw relative import across the Vercel root. BYO calls a CLI
+wrapper. One module, two thin hosts.
 
 ## 8. Stack A — hotfix (days)
 
@@ -251,9 +264,11 @@ there, or Gemini writes garbage and the workflow commits it.
 
 ## 12. The gate, and what is deferred
 
-**Before Stack B starts**, run the repo investigation across all four athlete repos: do routines
-stay stable week to week, or churn? §2 assumes stable. If they churn, B1–B3 are the wrong shape
-and the plan needs revisiting. Stack A does not depend on the answer — start it now.
+**The gate ran, and Stack B failed it.** Across the four repos, routines *churn* week to week;
+what stays stable is the **slot** — A day, B day, sport day. So B1–B3's shape, "an immutable
+routine with dose knobs", is wrong: the durable thing is the slot and its intent, and the routine
+filling it is expected to change. **Stack B stays on paper** until it is redesigned around slots.
+Do not start it. Stack A never depended on this answer.
 
 Deferred: widgets and the `coach_read` move to ADR 0029 (a separate product, cut from both
 stacks) · mid-season re-check · plan drift detection, where code detects and Coach opens the

@@ -18,9 +18,9 @@ Stack A creates, marked `(new)` below. The warnings clear as the PRs land.
 flowchart LR
   A5["A5 page (ui/client)"] -.->|independent| done["Stack A done"]
   A1["A1 compiler (engine)"] --> A2["A2 workout_create (ui/api)"]
-  A2 --> A3["A3 benchmark (ui/api)"]
-  A3 --> A4["A4 soul + carve"]
-  A4 --> done
+  A2 --> A4["A4 soul + carve"]
+  A4 --> A6["A6 migrate the BYO repo"]
+  A6 --> done
 ```
 
 | PR | Branch | Owner | Base | Files it may touch |
@@ -28,8 +28,14 @@ flowchart LR
 | A5 | `feat/727-workouts-day-view` | UI Expert | `main` | `ui/client/` only |
 | A1 | `feat/727-compile-workout` | Bob | `main` | `engine/lib/`, `engine/scripts/` |
 | A2 | `feat/727-workout-create` | Bob | A1 | `ui/api/coach-chat/` |
-| A3 | `feat/727-fsp-benchmark` | Bob | A2 | `ui/api/coach-chat/`, `shared/workout-library/` (delete) |
-| A4 | `core/727-soul-carve` | Tech Lead | A3 | `platform/soul/`, `platform/`, `engine/scripts/` |
+| A4 | `core/727-soul-carve` | Tech Lead | A2 | `platform/soul/`, `platform/`, `engine/scripts/` |
+| A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo (PR against it) |
+
+**A3 (FSP benchmark) is deferred out of today.** Not blocked — `generateTemplatesAfterCompletion`
+(`coachTurn.ts:561`) already makes its own post-transition Gemini call outside `FSP_ACTIONS`, which
+is the precedent a benchmark would follow. Deferred on merit: it is the only piece with no live
+athlete waiting, and the gate result (routines churn, slots persist — §12 of the HLD) leaves the
+benchmark→progressions story unsettled. `shared/workout-library/` therefore stays for now.
 
 **A5 and A1 start at the same time** — disjoint files, no shared contract. A5 ships first because
 it is the only PR the four live athletes see.
@@ -37,7 +43,9 @@ it is the only PR the four live athletes see.
 **A diff outside your file column fails review.** If you need a file you do not own, stop and ask
 Tech Lead — do not widen the PR.
 
-Every PR: `Refs: #727`. Only A4 carries `Fixes: #727`.
+Every PR: `Refs: #727`. **Nothing in Stack A closes #727** — the issue's Done-when spans Stack B,
+which is now on paper (HLD §12). Closing it on A4 would mark the work finished while the athlete
+who reported bug 1's storage half still has six library templates in their repo.
 
 ## 1. Worktree and PR mechanics
 
@@ -72,6 +80,8 @@ exists now. No new storage, no schema bump, no `ui/api/` change.
 ```ts
 export type DayView =
   | { kind: "planned";   workout: Workout; priority: string | null }
+  | { kind: "planned_untemplated"; title: string; durationMin: number | null;
+      discipline: string; kind_: string; priority: string | null }
   | { kind: "done";      workout: Workout; activityIds: string[] }
   | { kind: "rest";      next: { date: string; title: string } | null }
   | { kind: "unplanned"; activityIds: string[] }
@@ -80,14 +90,20 @@ export type DayView =
 
 export function selectDayView(
   workouts: WorkoutsData,
-  currentWeek: unknown,       // parse with parseCurrentWeek from @/lib/currentWeek
-  today: string,              // toLocalDateStr(new Date())
-): DayView;
+  currentWeek: unknown,   // parse with parseCurrentWeek from @/lib/currentWeek
+): DayView;               // "today" comes from current_week.timezone, NOT the browser
 ```
 
 **Rules**
 1. Parse `current_week` with `parseCurrentWeek` (re-exported from `engine/lib/current-week.mts`
    via `ui/client/src/lib/currentWeek.ts`). Availability not `live` → `unavailable`, never a crash.
+   **"Today" is `formatDateInTimeZone(now, data.timezone)`, which `parseCurrentWeek` already
+   computes — never `toLocalDateStr(new Date())`.** A browser in a different zone from the athlete
+   shows the wrong day's workout.
+   **A session with `template_id: null` renders `planned_untemplated`** — same card from `title`,
+   `planned_duration_min`, `discipline`, `kind`, with **no timer CTA**. This is the common case,
+   not an edge: three of four days in one live athlete's week, and a badminton Thursday in
+   another's. Never render it as rest or as empty.
 2. Today's session with a matching `sessions[]` entry → `planned` with the session; else the
    template. `status: "done"` → `done`.
 3. No session today but the week is live → `rest`, carrying the next dated session.
@@ -95,7 +111,7 @@ export function selectDayView(
 5. **Routine library stays on the page, below the day** — the existing grouped list, unchanged.
    That is the ad-hoc / look-it-up / show-a-physio surface.
 
-**Tests** — `workoutDay.test.ts`, one case per `kind`, six total. Fixtures from
+**Tests** — `workoutDay.test.ts`, one case per `kind`, seven total, plus a timezone case: a browser at UTC-8 and an athlete at UTC+5:30 resolve the same athlete-local day. Fixtures from
 `ui/client/src/components/home-warm/currentWeek.fixture.ts`.
 
 **Validate:** `cd ui && npm run test` · `npm run build`
@@ -110,13 +126,18 @@ on an undifferentiated list of every template.
 it in this PR.
 
 **Files**
-- `engine/lib/compileWorkout.mjs` (new)
-- `engine/lib/compileWorkout.test.mjs` (new)
-- `engine/scripts/compile-dryrun.mjs` (new) — the §10 verification tool
+- `engine/lib/compileWorkout.mts` (new)
+- `engine/lib/compileWorkout.test.mts` (new)
+- `ui/api/coach-chat/_lib/compileWorkout.bundle.d.ts` (new) — the shim A2 imports
+- `engine/scripts/compile-dryrun.mts` (new) — the §10 verification tool
 
 **Why `engine/`, not `ui/api/`:** `scaling-plan.md` §2.2 already names `coach-chat.ts` as "a
-*second* engine". `.mjs` with named exports, same style as `plugins.mjs`, so BYO and the API both
-import one module.
+*second* engine".
+
+**How `ui/api` reaches it — do not improvise.** A raw relative import across the Vercel root does
+not bundle. Follow the pattern already in the repo: `current-week.bundle.d.ts` and
+`text-caps.bundle.d.ts` each re-export an `engine/lib/*.mts` module, and `ui/api` imports the
+shim. `.mts`, not `.mjs`, matching those two. A2 imports the shim, never the engine path.
 
 **Contract**
 
@@ -159,8 +180,8 @@ recomputed. `opts.defaults` allows overriding the table above; callers pass noth
 `user_data/activities/workout_plans/templates/*.json`, reduce each to a spec, recompile, diff
 against the original, print a per-file summary. Read-only, writes nothing.
 
-**Validate:** `node --test engine/lib/compileWorkout.test.mjs` ·
-`node engine/scripts/compile-dryrun.mjs <each of the four repos>`
+**Validate:** `cd ui && npm run test` (vitest picks up `.mts`) ·
+`npx tsx engine/scripts/compile-dryrun.mts <each of the four repos>`
 **Done when:** tests green, and the dry-run diff across all four repos is explainable line by line.
 An unexplained diff blocks the merge.
 
@@ -193,6 +214,9 @@ workout_create: { type: "object", properties: {
       both_sides: {type:"boolean"}, progression_id: {type:"string"},
     }, required:["name","type","sets","form_cue","why"]}},
   }, required:["name","exercises"]}},
+  injury_ack: {type:"array", items:{type:"object", properties:{
+    flag: {type:"string"}, accommodation: {type:"string"},
+  }, required:["flag","accommodation"]}},
 }, required:["title","workout_type","phases"] }
 ```
 
@@ -213,15 +237,19 @@ FSP incremental writes. Append the workout write to its `writes` array. Commit m
 
 **Applier — `applyWorkoutCreate(spec, injuries, existingIds, traceId)`**
 1. Derive `id` by slugifying `title`; suffix `-2`, `-3` on collision with `existingIds`.
-2. **Invariant 7:** reuse `conflictsWithActiveInjuries`, generalised to take a routine's derived
-   tags instead of a library index entry. On conflict, throw — Coach must adjust and retry.
-   Removing the library must not remove this check.
+2. **Invariant 7 — `injury_ack`.** A generated routine has no library tags, so
+   `conflictsWithActiveInjuries` cannot be ported as-is. The spec instead carries
+   `injury_ack: [{ flag: string, accommodation: string }]`. The applier reads
+   `user_data/coach/injuries.json`, and **throws unless every flag with `status: "active"` has an
+   entry**. Code cannot judge whether a routine is safe; it can refuse one where Coach did not
+   address each active flag, and the acknowledgement is auditable afterwards. Add
+   `injury_ack` to the schema's `required` when any active flag exists.
 3. **Invariant 1:** every `progression_id` present must exist in `progressions.json`, else throw.
 4. `compileWorkout(spec)` → `validateWorkout(result, id)` → path
    `user_data/activities/workout_plans/templates/<id>.json` (**old path — no rename in Stack A**).
 5. Append the id to `_manifest.json` in the same atomic commit.
 
-**Tests** — six: happy path writes a valid file; id collision suffixes; injury conflict throws;
+**Tests** — seven: happy path writes a valid file; id collision suffixes; an active flag with no `injury_ack` entry throws; an acknowledged flag passes;
 unknown `progression_id` throws; ordinary-turn mode exposes the action; the committed file passes
 `validateWorkout`.
 
@@ -281,7 +309,7 @@ here, in one compose run.**
 1. Retire *Persisting Session Files*: Coach emits an exercise list; the compiler owns timer
    physics. Delete the *Timer Physics Fields* section — it exists to make a model do a compiler's
    job.
-2. First Session Protocol closes with a benchmark, and asks what the athlete can already do first.
+2. *(FSP benchmark wording moves with A3, which is deferred — do not write it here.)*
 3. Coach may create a routine when none fits. **This one line is the absence that caused bug 2.**
 4. Every `workout_plans/` path reference still resolves (no rename in Stack A).
 
@@ -291,17 +319,27 @@ lines).
 
 **Validate:** `node platform/scripts/validate-soul.mjs` — clean, including the two baselined
 template findings · BYO end-to-end: carve a scratch repo, create a routine through the CLI
-**Done when:** validate-soul clean and a BYO athlete can create a routine.
-**Carries `Fixes: #727`. Deletes `docs/plans/workouts-stack-a-lld.md` and, if Stack B is not
-starting, leaves `workouts-season-model.md` in place.**
+**Done when:** validate-soul clean and a *freshly carved* repo can create a routine.
+`Refs: #727` — does not close it.
+
+---
+
+## 6b. A6 — migrate the BYO athlete's repo
+
+**Carve updates the skeleton, not anyone who already forked it.** The athlete who reported bug 2
+is on a repo carved before A4, so A4 alone leaves their bug unfixed. A6 opens a PR **against their
+repo** carrying the recomposed `SOUL.claude.md` and the compiler CLI, and nothing else.
+
+**Done when:** that athlete, in their own repo, asks for an upper body workout and gets one.
+Until this merges, bug 2 is fixed in the template and not for the person who reported it.
 
 ---
 
 ## 7. Paid gate and review
 
-**`npm run eval:coach-chat` runs once, after A4, before merge of the series** — not per PR. A2 and
-A3 touch prompt construction and the response schema, so ADR 0024's gate applies to the series.
-A1 and A5 state `skipped — no prompt or schema surface`.
+**`npm run eval:coach-chat` runs once, after A4, before merge of the series** — not per PR. A2
+touches prompt construction and the response schema, so ADR 0024's gate applies to the series.
+A1, A5 and A6 state `skipped — no prompt or schema surface`.
 
 **Tech Lead reviews every PR against the seven checks** in `.github/agents/tech-lead.md`. Two that
 bite here: the diff is a subset of the file column in §0, and the PR's file list is verified
@@ -323,7 +361,10 @@ what you deliberately did not do.
 
 ## 9. Not in Stack A
 
-Blocks in `seasons.json` · week compile · non-chat compile trigger · reconciliation rules ·
+FSP benchmark (A3, deferred) · **slimming `current_week.json` — no field is dropped, see HLD §4** ·
+blocks in `seasons.json` · week compile · non-chat compile trigger · reconciliation rules ·
 `templates/` → `routines/` rename · dual-read · widgets · `SCHEMA_VERSION` bump · iOS.
-All are Stack B, and Stack B is gated on the repo investigation. Anyone who finds themselves
+
+Stack B failed its gate: routines churn, slots persist, so its "immutable routine + dose knobs"
+shape is wrong and it stays on paper until redesigned around slots. Anyone who finds themselves
 touching one of these in Stack A has left the plan.
