@@ -288,6 +288,16 @@ function findOversizedTextField(
       cap: MEMORY_NOTE_TEXT_CAP,
     };
   }
+  const oversizedNewInjury = (reply.injury_flag ?? []).find(
+    (flag) => flag.text != null && flag.text.length > INJURY_FLAG_TEXT_CAP,
+  );
+  if (oversizedNewInjury) {
+    return {
+      field: "injury_flag[].text",
+      length: oversizedNewInjury.text!.length,
+      cap: INJURY_FLAG_TEXT_CAP,
+    };
+  }
   const oversizedInjury = (reply.injury_event ?? []).find(
     (event) => event.text != null && event.text.length > INJURY_FLAG_TEXT_CAP,
   );
