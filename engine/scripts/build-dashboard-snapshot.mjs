@@ -142,7 +142,7 @@ export function buildDashboardSnapshot(repoRootPath = REPO_ROOT) {
   }
 
   if (fs.existsSync(sessionsDirPath)) {
-    const files = fs.readdirSync(sessionsDirPath).filter((f) => f.endsWith(".json"));
+    const files = fs.readdirSync(sessionsDirPath).filter((f) => f.endsWith(".json") && f !== "_manifest.json");
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 7);
     const cutoff = cutoffDate.toISOString().slice(0, 10);

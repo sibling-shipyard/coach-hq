@@ -36,20 +36,28 @@ test("partial split ledger falls back to whole unmigrated challenge", (t) => {
   assert.deepEqual(loadLedger(root), { ledger: null });
 });
 
-test("templates exclude _manifest.json", (t) => {
+test("templates and sessions exclude _manifest.json", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "dashboard-snapshot-"));
   const templatesDir = path.join(root, "user_data", "activities", "workout_plans", "templates");
+  const sessionsDir = path.join(root, "user_data", "activities", "workout_plans", "sessions");
   fs.mkdirSync(templatesDir, { recursive: true });
+  fs.mkdirSync(sessionsDir, { recursive: true });
   
   const manifest = { template_ids: ["valid-workout"] };
   const validWorkout = { id: "valid-workout", phases: [] };
+  const validSession = { id: "valid-session", session_date: new Date().toISOString(), phases: [] };
   
   fs.writeFileSync(path.join(templatesDir, "_manifest.json"), JSON.stringify(manifest));
   fs.writeFileSync(path.join(templatesDir, "valid-workout.json"), JSON.stringify(validWorkout));
+  
+  fs.writeFileSync(path.join(sessionsDir, "_manifest.json"), JSON.stringify(manifest));
+  fs.writeFileSync(path.join(sessionsDir, "valid-session.json"), JSON.stringify(validSession));
   
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   
   const snapshot = buildDashboardSnapshot(root);
   assert.equal(snapshot.workouts.templates.length, 1);
   assert.equal(snapshot.workouts.templates[0].id, "valid-workout");
+  assert.equal(snapshot.workouts.sessions.length, 1);
+  assert.equal(snapshot.workouts.sessions[0].id, "valid-session");
 });
