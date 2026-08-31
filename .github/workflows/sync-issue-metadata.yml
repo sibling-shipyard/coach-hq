@@ -14,29 +14,49 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
+          REPO: ${{ github.repository }}
           BODY: ${{ github.event.issue.body }}
         run: |
           python3 -c '
           import os, re, subprocess
           body = os.environ.get("BODY", "")
           issue_url = os.environ["ISSUE_URL"]
+          repo = os.environ["REPO"]
 
           area_match = re.search(r"### Area\s+(area:[a-zA-Z0-9_-]+)", body)
           type_match = re.search(r"### Type\s+(type:[a-zA-Z0-9_-]+)", body)
           milestone_match = re.search(r"### Milestone\s+(M3|M4|Later)", body)
 
+          # Label and milestone are separate gh calls: a milestone we cannot
+          # resolve must not also block the label sync.
           labels = []
           if area_match:
               labels.append(area_match.group(1))
           if type_match:
               labels.append(type_match.group(1))
-
-          cmd = ["gh", "issue", "edit", issue_url]
           if labels:
-              cmd.extend(["--add-label", ",".join(labels)])
-          if milestone_match:
-              cmd.extend(["--milestone", milestone_match.group(1)])
+              subprocess.run(
+                  ["gh", "issue", "edit", issue_url, "--add-label", ",".join(labels)],
+                  check=True,
+              )
 
-          if len(cmd) > 4:
-              subprocess.run(cmd, check=True)
+          if milestone_match:
+              value = milestone_match.group(1)
+              if value == "Later":
+                  print("Milestone \"Later\" means no near-term milestone; leaving unset.")
+              else:
+                  # The form offers short codes (M3, M4) but real milestones carry a
+                  # longer title ("M3: Scale to 10 users"), so match by prefix.
+                  titles = subprocess.run(
+                      ["gh", "api", f"repos/{repo}/milestones", "--jq", ".[].title"],
+                      check=True, capture_output=True, text=True,
+                  ).stdout.splitlines()
+                  real_title = next((t for t in titles if t.startswith(value)), None)
+                  if real_title:
+                      subprocess.run(
+                          ["gh", "issue", "edit", issue_url, "--milestone", real_title],
+                          check=True,
+                      )
+                  else:
+                      print(f"::warning::No open milestone found matching \"{value}\"")
           '
