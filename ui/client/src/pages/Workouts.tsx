@@ -7,9 +7,9 @@ import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
 import { formatMinutesLabel } from "@/components/home-warm/formatUtils";
 import type { WarmSportId } from "@/components/home-warm/snapshots";
-import { Workout, WorkoutType, WorkoutsData, countExercises, countSets } from "@/lib/workouts";
+import { Workout, WorkoutType, WorkoutsData } from "@/lib/workouts";
 import { selectWorkoutsPage, type TodayHero, type WeekDay } from "@/lib/workoutPage";
-import { SportBadge, accentFor, deriveBlockTags } from "@/components/workout-timer-warm/WorkoutTimerWidgets";
+import { SportBadge, accentFor } from "@/components/workout-timer-warm/WorkoutTimerWidgets";
 import "@/components/home-warm/warm-instrument.css";
 
 const TYPE_ORDER: WorkoutType[] = ["foundation", "strength", "calisthenics", "recovery", "realign"];
@@ -64,116 +64,57 @@ function asSport(value: string | null | undefined): WarmSportId {
   return "other";
 }
 
-function weekDateLabel(date: string): string {
-  const weekday = new Date(`${date}T00:00:00Z`)
+function planDayLabel(date: string): { short: string; num: string } {
+  const short = new Date(`${date}T00:00:00Z`)
     .toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" })
-    .toUpperCase();
-  const day = date.slice(8, 10).replace(/^0/, "");
-  return `${weekday} ${day}`;
+    .toUpperCase()
+    .slice(0, 3);
+  const num = date.slice(8, 10).replace(/^0/, "");
+  return { short, num };
 }
 
-function weekRowDetail(day: WeekDay): string {
-  const duration = day.durationMin != null ? formatMinutesLabel(day.durationMin) : "";
-  if (day.planStatus === "done") return duration ? `Done · ${duration}` : "Done";
-  if (day.planStatus === "skipped") return "Skipped";
-  if (day.source === "activity") return duration || "Logged";
-  return duration;
-}
-
-/** Same receipt row as Home SessionRow — no load column on Workouts. */
-function WorkoutWeekRow({ day, todayInHero }: { day: WeekDay; todayInHero: boolean }) {
+function WorkoutPlanDay({ day }: { day: WeekDay }) {
   const empty = day.source === "empty";
   const sport = asSport(day.sport);
-  const detail = weekRowDetail(day);
-  const rowClass = [
-    "wi-session-row",
-    "wi-workouts-week-row",
+  const { short, num } = planDayLabel(day.date);
+  const duration = day.durationMin != null ? formatMinutesLabel(day.durationMin) : null;
+  const slotClass = [
+    "wi-plan-day__slot",
+    "wi-workouts-plan-slot",
+    empty ? "is-empty" : `is-${sport}`,
+    day.planStatus === "done" ? "is-done" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const dayClass = [
+    "wi-plan-day",
+    "wi-workouts-plan-day",
     day.isToday ? "is-today" : "",
     day.planStatus === "done" ? "is-done" : "",
-    empty ? "is-empty" : "",
-    day.isToday && todayInHero ? "is-in-hero" : "",
     day.timing === "past" && day.planStatus === "planned" ? "is-past" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className={rowClass} aria-current={day.isToday ? "date" : undefined}>
-      <span className={`wi-session-row__date${day.isToday ? " is-today-date" : ""}`}>
-        {weekDateLabel(day.date)}
+    <div className={dayClass} aria-current={day.isToday ? "date" : undefined}>
+      <span className={`wi-plan-day__label${day.isToday ? " is-today-label" : ""}`}>
+        <span className="wi-desktop-only">
+          {short} {num}
+        </span>
+        <span className="wi-mobile-only">{short.slice(0, 1)}</span>
       </span>
-      <span className={`wi-session-row__vein is-${sport}`} aria-hidden />
-      <strong>{empty ? "—" : (day.title ?? "")}</strong>
-      {detail ? (
-        <span className={`wi-session-row__detail${day.isToday ? " is-today-marker" : ""}`}>{detail}</span>
-      ) : day.isToday ? (
-        <span className="wi-session-row__detail is-today-marker">Today</span>
-      ) : null}
-    </div>
-  );
-}
-
-function WorkoutCard({
-  workout,
-  badge,
-  variant = "full",
-}: {
-  workout: Workout;
-  badge?: "today" | "done";
-  variant?: "full" | "hero";
-}) {
-  const accent = accentFor(workout.workout_type);
-  const { tags, overflow } = deriveBlockTags(workout);
-  const isHero = variant === "hero";
-
-  return (
-    <Link
-      href={`/workouts/${workout.id}`}
-      className={`wtx-list-card${isHero ? " wtx-list-card--hero" : ""}`}
-      style={{ "--card-accent": accent } as CSSProperties}
-    >
-      <div className="wtx-list-card__top">
-        <div className="wtx-list-card__top-left">
-          <SportBadge
-            label={TYPE_LABEL[workout.workout_type] ?? workout.workout_type.toUpperCase()}
-            accent={accent}
-          />
-          {!isHero && badge ? (
-            <span className="wtx-list-card__today">{badge === "done" ? "DONE" : "TODAY"}</span>
-          ) : null}
-        </div>
-        <span className="wtx-list-card__arrow">→</span>
-      </div>
-      <div>
-        <div className="wtx-list-card__title">{workout.title}</div>
-        <div className="wtx-list-card__subtitle">{workout.subtitle}</div>
-      </div>
-      {workout.coaching_note ? (
-        <p className="wtx-list-card__note" style={{ "--card-accent": accent } as CSSProperties}>
-          {workout.coaching_note}
-        </p>
-      ) : null}
-      <div className="wtx-list-card__stats">
-        <span>{workout.estimated_duration_mins}M</span>
-        {!isHero ? (
+      <div className={slotClass}>
+        {empty ? (
+          <span className="wi-workouts-plan-slot__empty">—</span>
+        ) : (
           <>
-            <span>{countExercises(workout)} EXERCISES</span>
-            <span>{countSets(workout)} SETS</span>
+            <span className="wi-workouts-plan-slot__title">{day.title}</span>
+            {duration ? <small>{day.planStatus === "done" ? `Done · ${duration}` : duration}</small> : null}
           </>
-        ) : null}
-        <span>{workout.location.toUpperCase()}</span>
+        )}
       </div>
-      {!isHero && tags.length ? (
-        <div className="wtx-list-card__tags">
-          {tags.map((tag) => (
-            <span className="wtx-list-card__tag" key={tag}>
-              {tag.toUpperCase()}
-            </span>
-          ))}
-          {overflow > 0 ? <span className="wtx-list-card__tag">+{overflow}</span> : null}
-        </div>
-      ) : null}
-    </Link>
+    </div>
   );
 }
 
@@ -192,7 +133,33 @@ function LibraryRow({ workout }: { workout: Workout }) {
 
 function TodayBand({ hero }: { hero: TodayHero }) {
   if (hero.kind === "runnable") {
-    return <WorkoutCard workout={hero.workout} badge={hero.done ? "done" : "today"} variant="hero" />;
+    const workout = hero.workout;
+    const accent = accentFor(workout.workout_type);
+    return (
+      <section className="wi-workouts-today">
+        <div className="wi-card-kicker">
+          <span>{hero.done ? "DONE TODAY" : "TODAY"}</span>
+        </div>
+        <Link
+          href={`/workouts/${workout.id}`}
+          className="wi-workouts-today-bar"
+          style={{ "--card-accent": accent } as CSSProperties}
+        >
+          <SportBadge
+            label={TYPE_LABEL[workout.workout_type] ?? workout.workout_type.toUpperCase()}
+            accent={accent}
+          />
+          <div className="wi-workouts-today-bar__body">
+            <strong>{workout.title}</strong>
+            {workout.subtitle ? <span>{workout.subtitle}</span> : null}
+            {workout.coaching_note ? <em>{workout.coaching_note}</em> : null}
+          </div>
+          <span className="wi-workouts-today-bar__cta">
+            {workout.estimated_duration_mins}m · Start →
+          </span>
+        </Link>
+      </section>
+    );
   }
   if (hero.kind === "mention") {
     return (
@@ -205,7 +172,7 @@ function TodayBand({ hero }: { hero: TodayHero }) {
   if (hero.kind === "rest") {
     return <p className="wi-workouts-hero__line">Rest day — nothing scheduled.</p>;
   }
-  return <p className="wi-workouts-hero__line">No plan this week.</p>;
+  return null;
 }
 
 export default function Workouts() {
@@ -260,11 +227,9 @@ function WorkoutsContent({ data }: { data: RepoData }) {
     return [...ordered, ...leftover];
   }, [workoutsData]);
 
-  const todayInHero = page.today.kind === "runnable";
-
   return (
     <div className="wi-shell">
-      <div className="wi-board wi-workouts-board">
+      <div className="wi-board">
         <InstrumentHeader
           currentRoute="/workouts"
           mobilePhaseLabel="WORKOUTS"
@@ -275,47 +240,38 @@ function WorkoutsContent({ data }: { data: RepoData }) {
         />
 
         <div className="wi-workouts-page">
-          <div className="wi-workouts-main">
-            <section className="wi-workouts-today">
+          {page.week ? (
+            <section className="wi-plan-card wi-workouts-plan">
               <div className="wi-card-kicker">
-                <span>TODAY</span>
+                <span>THIS WEEK</span>
               </div>
-              <TodayBand hero={page.today} />
-            </section>
-
-            {page.week ? (
-              <section className="wi-sessions-card wi-workouts-week-card">
-                <div className="wi-card-kicker">
-                  <span>THIS WEEK</span>
-                </div>
-                <div className="wi-sessions-card__rows">
-                  {page.week.map((day) => (
-                    <WorkoutWeekRow key={day.date} day={day} todayInHero={todayInHero} />
-                  ))}
-                </div>
-              </section>
-            ) : null}
-          </div>
-
-          <aside className="wi-workouts-sidebar">
-            <section className="wi-workouts-library">
-              <div className="wi-card-kicker">
-                <span>LIBRARY</span>
-              </div>
-              <div className="wi-workouts-library__groups">
-                {groups.map((group) => (
-                  <div key={group.type} className="wi-workouts-library__group">
-                    <div className="wi-workouts-library__group-label">
-                      {TYPE_LABEL[group.type] ?? group.type.toUpperCase()}
-                    </div>
-                    {group.cards.map((card) => (
-                      <LibraryRow key={card.workout.id} workout={card.workout} />
-                    ))}
-                  </div>
+              <div className="wi-plan-card__days" role="list">
+                {page.week.map((day) => (
+                  <WorkoutPlanDay key={day.date} day={day} />
                 ))}
               </div>
             </section>
-          </aside>
+          ) : null}
+
+          <TodayBand hero={page.today} />
+
+          <section className="wi-workouts-library">
+            <div className="wi-card-kicker">
+              <span>LIBRARY</span>
+            </div>
+            <div className="wi-workouts-library__grid">
+              {groups.map((group) => (
+                <div key={group.type} className="wi-workouts-library__group">
+                  <div className="wi-workouts-library__group-label">
+                    {TYPE_LABEL[group.type] ?? group.type.toUpperCase()}
+                  </div>
+                  {group.cards.map((card) => (
+                    <LibraryRow key={card.workout.id} workout={card.workout} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </div>
