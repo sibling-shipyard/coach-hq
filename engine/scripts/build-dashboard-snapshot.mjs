@@ -130,7 +130,7 @@ export function buildDashboardSnapshot(repoRootPath = REPO_ROOT) {
   const workouts = { templates: [], sessions: [] };
 
   if (fs.existsSync(templatesDirPath)) {
-    const files = fs.readdirSync(templatesDirPath).filter((f) => f.endsWith(".json"));
+    const files = fs.readdirSync(templatesDirPath).filter((f) => f.endsWith(".json") && f !== "_manifest.json");
     for (const file of files) {
       try {
         workouts.templates.push(JSON.parse(fs.readFileSync(path.join(templatesDirPath, file), "utf-8")));
