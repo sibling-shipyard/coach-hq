@@ -8,11 +8,28 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { init, browserTracingIntegration, setUser, setTag } = vi.hoisted(() => ({
+const {
+  init,
+  browserTracingIntegration,
+  setUser,
+  setTag,
+  captureMessage,
+  isEnabled,
+  getIsolationScope,
+  getCurrentScope,
+} = vi.hoisted(() => ({
   init: vi.fn(),
   browserTracingIntegration: vi.fn(() => ({ name: "BrowserTracing" })),
   setUser: vi.fn(),
   setTag: vi.fn(),
+  captureMessage: vi.fn((): string => "event-id"),
+  isEnabled: vi.fn(() => true),
+  getIsolationScope: vi.fn(() => ({
+    getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }),
+  })),
+  getCurrentScope: vi.fn(() => ({
+    getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }),
+  })),
 }));
 
 vi.mock("@sentry/react", async (importOriginal) => ({
@@ -21,6 +38,10 @@ vi.mock("@sentry/react", async (importOriginal) => ({
   browserTracingIntegration,
   setUser,
   setTag,
+  captureMessage,
+  isEnabled,
+  getIsolationScope,
+  getCurrentScope,
 }));
 
 /** Shaped like the real thing: an `AIza` key of the length the scrubber's pattern matches. */
@@ -33,6 +54,7 @@ interface InitOptions {
   tracePropagationTargets: RegExp[];
   initialScope: { tags: { operation: string } };
   sendDefaultPii: boolean;
+  beforeBreadcrumb: (breadcrumb: { category: string }) => { category: string } | null;
   beforeSend: (event: unknown) => { extra: { detail: string } };
   beforeSendTransaction: (event: unknown) => { extra: { detail: string } };
   beforeSendSpan: (span: unknown) => { data: { "url.full": string } };
@@ -99,6 +121,18 @@ describe("initClientMonitoring", () => {
     expect(scrubbed.extra.detail).toBe("token [Filtered]");
   });
 
+  it("drops console breadcrumbs, which would otherwise carry logged text into a rage report", async () => {
+    expect((await initOptions()).beforeBreadcrumb({ category: "console" })).toBeNull();
+  });
+
+  it("keeps the click, navigation and fetch breadcrumbs that are the athlete's trail", async () => {
+    const options = await initOptions();
+
+    for (const category of ["ui.click", "navigation", "fetch", "xhr"]) {
+      expect(options.beforeBreadcrumb({ category })).toEqual({ category });
+    }
+  });
+
   it("keeps the error scrubber and the PII opt-out", async () => {
     const options = await initOptions();
 
@@ -144,5 +178,117 @@ describe("setAthleteUser", () => {
     setAthleteUser(undefined);
 
     expect(setUser).toHaveBeenCalledWith(null);
+  });
+});
+
+/**
+ * `submit` is the only path that sends a Rage Report, so Cancel is covered by proving that the
+ * things a cancel leaves behind — an empty box, whitespace — send nothing.
+ */
+describe("submitRageReport", () => {
+  beforeEach(() => {
+    captureMessage.mockClear();
+    isEnabled.mockReturnValue(true);
+    getIsolationScope.mockReturnValue({ getScopeData: () => ({ breadcrumbs: [] }) });
+    getCurrentScope.mockReturnValue({ getScopeData: () => ({ breadcrumbs: [] }) });
+  });
+
+  it("sends one event grouped on the same fingerprint iOS uses, tagged as the web surface", async () => {
+    const { submitRageReport } = await import("./observability");
+
+    expect(submitRageReport("  the coach ignored my last message  ")).toBe(true);
+    expect(captureMessage).toHaveBeenCalledTimes(1);
+    expect(captureMessage).toHaveBeenCalledWith("the coach ignored my last message", {
+      fingerprint: ["rage_report"],
+      tags: { operation: "rage_report", surface: "web" },
+      extra: { trail: [] },
+    });
+  });
+
+  it("copies the click trail onto extra so it is in the report, not only the SDK breadcrumb list", async () => {
+    getIsolationScope.mockReturnValue({
+      getScopeData: () => ({
+        breadcrumbs: [
+          { category: "console", message: "should not ride" },
+          { category: "ui.input", message: "the complaint text" },
+          { category: "sentry.event", message: "prior-event-id" },
+          { category: "sentry.transaction", message: "internal-transaction-id" },
+          { category: "custom", message: "unknown category" },
+          {
+            category: "ui.click",
+            message: "Home",
+            timestamp: 1,
+            data: { url: "/api/coach-chat", extra: "drop-me" },
+          },
+        ],
+      }),
+    });
+    const { submitRageReport } = await import("./observability");
+
+    expect(submitRageReport("broken")).toBe(true);
+    expect(captureMessage).toHaveBeenCalledWith("broken", {
+      fingerprint: ["rage_report"],
+      tags: { operation: "rage_report", surface: "web" },
+      extra: {
+        trail: [
+          { category: "ui.click", message: "Home", timestamp: 1, data: { url: "/api/coach-chat" } },
+        ],
+      },
+    });
+  });
+
+  it("allow-lists only click, navigation, fetch and xhr items in the trail snapshot", async () => {
+    getIsolationScope.mockReturnValue({
+      getScopeData: () => ({
+        breadcrumbs: [
+          { category: "ui.click", message: "clicked" },
+          { category: "navigation", message: "navigated" },
+          { category: "fetch", message: "fetched" },
+          { category: "xhr", message: "requested" },
+          { category: "ui.input", message: "the complaint text" },
+          { category: "sentry.event", message: "prior-event-id" },
+          { category: "sentry.transaction", message: "internal-transaction-id" },
+          { category: "console", message: "logged text" },
+          { category: "custom", message: "unknown category" },
+          { message: "missing category" },
+        ],
+      }),
+    });
+    const { snapshotRageReportTrail } = await import("./observability");
+
+    expect(snapshotRageReportTrail().map((item) => item.category)).toEqual([
+      "ui.click",
+      "navigation",
+      "fetch",
+      "xhr",
+    ]);
+  });
+
+  it("sends a passed-in trail instead of re-reading the scope, so the dialog list matches the event", async () => {
+    const { submitRageReport } = await import("./observability");
+    const trail = [{ category: "navigation", message: "/workouts", timestamp: 2 }];
+
+    expect(submitRageReport("broken", trail)).toBe(true);
+    expect(captureMessage).toHaveBeenCalledWith(
+      "broken",
+      expect.objectContaining({ extra: { trail } }),
+    );
+  });
+
+  it("sends nothing when the athlete cancels, which leaves an empty box behind", async () => {
+    const { submitRageReport } = await import("./observability");
+
+    expect(submitRageReport("")).toBe(false);
+    expect(submitRageReport("   \n  ")).toBe(false);
+    expect(captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("returns false and sends nothing when Sentry has no enabled client", async () => {
+    isEnabled.mockReturnValue(false);
+    const { isRageReportingAvailable, submitRageReport } = await import("./observability");
+
+    expect(isRageReportingAvailable()).toBe(false);
+    expect(submitRageReport("the screen froze")).toBe(false);
+    expect(captureMessage).not.toHaveBeenCalled();
   });
 });
