@@ -39,6 +39,21 @@ enum CoachSetupState {
         SecItemDelete(query as CFDictionary) // Remove existing, mirrors GitHubAuthManager's save pattern
         SecItemAdd(query as CFDictionary, nil)
     }
+
+    /// Clears the completion flag for `repoFullName`. Called when SetupView detects the athlete
+    /// just went through GitHub's "create from template" flow for this repo name — that's the
+    /// app's own repo-name convention (`coach-<login>`, never athlete-chosen), so it's the only
+    /// signal we get that today's `coach-<login>` is a fresh repo rather than the one an earlier
+    /// completed round left this flag for. Without this, deleting and recreating the repo under
+    /// the same name (the only name the app ever generates) replays a stale "already onboarded"
+    /// flag from Keychain, which survives app delete/reinstall by design.
+    static func clear(repoFullName: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: storageKey(repoFullName: repoFullName)
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
 }
 
 /// Resolves whether a fresh app launch should open Chat or Home.
