@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-28
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
 
 ## Context
 
@@ -148,7 +148,7 @@ reports semantic actions only. `firstSession` is passed explicitly from the prof
 check; prompt construction does not infer mode by searching injected text.
 
 **Text-field length caps (issue #462).** `coach_note`, `memory_update.text`, and
-`injury_event[].text` each carry a `maxLength` in `RESPONSE_PROPERTIES`
+`injury_flag[].text`/`injury_event[].text` each carry a `maxLength` in `RESPONSE_PROPERTIES`
 (`coachReplySchema.ts`), sourced from `engine/lib/text-caps.mts`. The same numbers are
 restated as a plain-text instruction per field in the prompt (`coachPromptText.ts`) — schema
 `maxLength` is a real constraint Gemini receives, not a guarantee it honors, so the prompt line
@@ -208,7 +208,8 @@ new action added to this schema is filtered through these four rules for that re
   `askGemini()` invocation is 2 calls (~90s) — still real, but bounded and something
   `maxDuration` can actually be sized against.
 - Separately, `requestCoachReply` (`coachTurn.ts`) does its own single reprompt — a second, full
-  `askGemini()` invocation — if `coach_note`/`memory_update.text`/`injury_event[].text` comes
+  `askGemini()` invocation — if `coach_note`/`memory_update.text`/`injury_flag[].text`/
+  `injury_event[].text` comes
   back over its `maxLength` cap (issue #462). This is content-triggered, not transport-triggered,
   so it's independent of the 400/503/504 retry above and can stack with it: the true worst case
   for a closing turn that both hits a transport retry _and_ needs the text-cap reprompt is two

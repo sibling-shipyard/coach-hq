@@ -125,7 +125,7 @@ can be tested for real against either.
 3. A greeting turn via the hosted API — confirm the actual reply, confirm no file writes fire
    (greeting shouldn't write).
 4. A handful of ordinary turns covering each action field the mode-specific schema exposes for
-   "ordinary" (`profile_update`, `memory_update`, `injury_event`, at
+   "ordinary" (`profile_update`, `memory_update`, `injury_flag`, `injury_event`, at
    minimum) — run them through `npm run test:coach-chat-manual` and read the logged
    `filesChanged.diff` for each turn to confirm the write landed in the shape
    `coach-data-schema.md` documents, not just that a commit happened. While here, read the

@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
 
 ## Context
 
@@ -91,7 +91,8 @@ warm intro → conversational intake → confirm → quest setup → transition.
 frequency/fitness level → `memory_update` (`fitness_baseline`); the 3-6 month goal → `quest_create`'s
 `main_quest` (`memory.json` has no goal field — issue #408 moved that meaning to seasons/quests);
 upcoming events and a rough season timeline → `season_start` (no `phase` field, Part 2 dropped
-it); injuries → `injury_event`; date of birth/height/weight/city → `profile_update`
+it); injuries → `injury_flag` for a brand-new one (server mints the id), `injury_event` to
+update/resolve one already on file (its real `flag_id`); date of birth/height/weight/city → `profile_update`
 (`dob`/`height_cm`/`weight_kg`/`timezone`); habit quests → `quest_create`'s `quests[]`. While the
 profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
 writes it produced in a small atomic commit. Day-to-day chat remains write-on-close. The closing

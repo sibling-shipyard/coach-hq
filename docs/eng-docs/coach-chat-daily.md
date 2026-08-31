@@ -1,6 +1,6 @@
 # Coach Chat — day-to-day flow
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
 
 ## Context
 
@@ -195,8 +195,9 @@ On a genuine close:
   real template and session ids.
 - A returning athlete receives operational action fields — see `coach-data-schema.md`'s "What
   Gemini can write" table for the full list.
-- If `coach_note`, `memory_update.text`, or an `injury_event[].text` comes back over its length
-  cap, `requestCoachReply()` (`coachTurn.ts`) reprompts Gemini once for that field before
+- If `coach_note`, `memory_update.text`, or an `injury_flag[].text`/`injury_event[].text` comes
+  back over its length cap, `requestCoachReply()` (`coachTurn.ts`) reprompts Gemini once for
+  that field before
   proceeding — one extra `askGemini()` round trip on this turn only. See `gemini-flow.md`'s
   "Text-field length caps" and "Retries" sections for the full three-layer design (schema
   `maxLength`, this reprompt, and the deterministic `capText` truncation backstop in
@@ -216,7 +217,8 @@ On a genuine close:
   lets a real close be tested end to end on a scratch branch instead of a live athlete's `main`.
 
 **Write strategy.** Gemini never edits files or supplies patches. It returns constrained semantic
-actions such as `profile_update`, `injury_event`, `quest_event`, `week_plan`, or `plan_edit`.
+actions such as `profile_update`, `injury_flag`, `injury_event`, `quest_event`, `week_plan`, or
+`plan_edit`.
 Each server-side applier validates the action against real context, preserves server-owned
 bookkeeping, and produces the next full JSON content. `coach_note` becomes one append-only row in
 `coach_log.json`. Thread titles are derived server-side from the athlete's first message and

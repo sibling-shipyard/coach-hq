@@ -1,6 +1,6 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
 
 ## Context
 
@@ -254,16 +254,18 @@ mode/session-state combination shouldn't expose, rather than just discouraging i
 | Greeting | none (plus always `reply`, `session_closed`) |
 | Activity sync | none |
 | Returning ordinary | none |
-| First Session ordinary | `memory_update`, `sports_update`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
+| First Session ordinary | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
 | First Session close | the same, plus `coach_note` |
-| Returning close | `coach_note`, `memory_update`, `sports_update`, `injury_event`, `quest_event`, `profile_update`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
+| Returning close | `coach_note`, `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
 
 Each field's write path — which `turnWrites/*.ts` file consumes it, which JSON file it lands in —
 is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/turnWrites/README.md); this
 doc doesn't restate that table, it's the source.
 
 `profile_update.field` enum: `"name" \| "dob" \| "timezone" \| "height_cm" \| "weight_kg"`.
-`injury_event.status` enum: `"active" \| "resolved"`. `quest_event.status` enum: `"completed" \|
+`injury_flag` is new-injury-only — `{text}`, no id, the server mints one. `injury_event` is
+update/resolve-only — `flag_id` is required (a real id from Active Injury Flags), `status` enum:
+`"active" \| "resolved"`. `quest_event.status` enum: `"completed" \|
 "missed" \| "excused"`. `season_start`/`quest_create` are First-Session-only — there is no
 returning-athlete path for either.
 
