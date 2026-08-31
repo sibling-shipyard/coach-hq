@@ -98,8 +98,10 @@ function WorkoutWeekRow({ day, todayInHero }: { day: WeekDay; todayInHero: boole
     .join(" ");
 
   return (
-    <div className={rowClass}>
-      <span className="wi-session-row__date">{weekDateLabel(day.date)}</span>
+    <div className={rowClass} aria-current={day.isToday ? "date" : undefined}>
+      <span className={`wi-session-row__date${day.isToday ? " is-today-label" : ""}`}>
+        {day.isToday ? "TODAY" : weekDateLabel(day.date)}
+      </span>
       <span className={`wi-session-row__vein is-${sport}`} aria-hidden />
       <strong>{empty ? "—" : (day.title ?? "")}</strong>
       {detail ? <span className="wi-session-row__detail">{detail}</span> : null}

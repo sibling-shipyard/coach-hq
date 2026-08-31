@@ -2903,11 +2903,21 @@ div.wi-trend-scrub__chip {
   margin-top: 0;
 }
 
-.wi-workouts-week-row.is-today .wi-session-row__date {
-  color: var(--wi-rust);
+.wi-workouts-week-row.is-today .wi-session-row__date.is-today-label {
+  width: auto;
+  min-width: 52px;
+  padding: 4px 7px;
+  border-radius: 5px;
+  color: var(--wi-surface);
+  background: var(--wi-rust);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-align: center;
 }
 
-.wi-workouts-week-row.is-today:not(.is-in-hero) {
+.wi-workouts-week-row.is-today {
   margin: 0 -12px;
   padding: 14px 12px;
   background: rgb(255 252 246 / 92%);
