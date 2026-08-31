@@ -838,7 +838,7 @@ const currentWeek = {
     valid_from: weekStartStr,
     valid_until: weekEndStr,
   },
-  days: dayNames.map((_, i) => {
+  days: Array.from({ length: 7 }, (_, i) => {
     const date = addDaysLocal(weekStartStr, i);
     const sessions = weekPlanByOffset[i] ?? [];
     return {
