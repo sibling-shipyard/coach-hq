@@ -31,7 +31,11 @@ flowchart LR
 | A4 | `core/727-soul-carve` | Tech Lead | A2 | `platform/soul/`, `platform/`, `engine/scripts/` |
 | A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo (PR against it) |
 
-**A3 (FSP benchmark) is deferred out of today.** Not blocked — `generateTemplatesAfterCompletion`
+**A3 (FSP benchmark) is P1 — next, not today.** It is how the athlete gets a real starting number
+instead of a guess, and it is a trust moment on day one. Deferred only because no live athlete is
+blocked on it.
+
+**Why it is not blocked:** Not blocked — `generateTemplatesAfterCompletion`
 (`coachTurn.ts:561`) already makes its own post-transition Gemini call outside `FSP_ACTIONS`, which
 is the precedent a benchmark would follow. Deferred on merit: it is the only piece with no live
 athlete waiting, and the gate result (routines churn, slots persist — §12 of the HLD) leaves the
@@ -80,10 +84,11 @@ exists now. No new storage, no schema bump, no `ui/api/` change.
 ```ts
 export type DayView =
   | { kind: "planned";   workout: Workout; priority: string | null }
-  | { kind: "planned_untemplated"; title: string; durationMin: number | null;
-      discipline: string; kind_: string; priority: string | null }
   | { kind: "done";      workout: Workout; activityIds: string[] }
-  | { kind: "rest";      next: { date: string; title: string } | null }
+  // No runnable workout. `mentions` carries the week's non-timer sessions for today
+  // (badminton, a hike) verbatim from current_week; empty means a real rest day.
+  | { kind: "no_workout"; mentions: { title: string; durationMin: number | null }[];
+      next: { date: string; title: string } | null }
   | { kind: "unplanned"; activityIds: string[] }
   | { kind: "no_plan" }
   | { kind: "unavailable"; reason: string };
@@ -100,18 +105,21 @@ export function selectDayView(
    **"Today" is `formatDateInTimeZone(now, data.timezone)`, which `parseCurrentWeek` already
    computes — never `toLocalDateStr(new Date())`.** A browser in a different zone from the athlete
    shows the wrong day's workout.
-   **A session with `template_id: null` renders `planned_untemplated`** — same card from `title`,
-   `planned_duration_min`, `discipline`, `kind`, with **no timer CTA**. This is the common case,
-   not an edge: three of four days in one live athlete's week, and a badminton Thursday in
-   another's. Never render it as rest or as empty.
-2. Today's session with a matching `sessions[]` entry → `planned` with the session; else the
-   template. `status: "done"` → `done`.
-3. No session today but the week is live → `rest`, carrying the next dated session.
+   **The timer only runs strength-type workouts.** A session with `template_id: null` — ladders,
+   a hike, a badminton match — goes into `no_workout.mentions` as a title and a duration, read
+   straight from the week file. One line in the UI, no card component, no timer CTA, no extra
+   state. It is common, not an edge: three of four days in one live athlete's week. The only
+   forbidden outcome is rendering such a day blank or as "Rest".
+2. Today's session with a `template_id` and a matching `sessions[]` entry → `planned` with the
+   session; else the template. `status: "done"` → `done`.
+3. No runnable workout today → `no_workout`, with `mentions` from the day's null-template
+   sessions (possibly empty) and the next dated session.
 4. No `current_week` at all → `no_plan`.
 5. **Routine library stays on the page, below the day** — the existing grouped list, unchanged.
    That is the ad-hoc / look-it-up / show-a-physio surface.
 
-**Tests** — `workoutDay.test.ts`, one case per `kind`, seven total, plus a timezone case: a browser at UTC-8 and an athlete at UTC+5:30 resolve the same athlete-local day. Fixtures from
+**Tests** — `workoutDay.test.ts`, one case per `kind`, plus a `no_workout` case carrying a
+badminton mention and one carrying none, plus a timezone case: a browser at UTC-8 and an athlete at UTC+5:30 resolve the same athlete-local day. Fixtures from
 `ui/client/src/components/home-warm/currentWeek.fixture.ts`.
 
 **Validate:** `cd ui && npm run test` · `npm run build`

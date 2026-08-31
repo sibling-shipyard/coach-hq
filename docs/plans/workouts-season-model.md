@@ -114,17 +114,16 @@ Six states, each reachable in a test.
 |---|---|
 | Planned day, compiled | The workout: phases, duration, priority, Coach's note, start CTA |
 | Planned day, done | Same card marked done, linked to the matched activity |
-| Rest day | "Rest", plus the next session and its date — never an empty page |
-| Unplanned activity | The activity as a completed card, no routine attached |
+| No workout today | Whatever `current_week.json` says for the day — a badminton match, a hike — or "Rest" if it says nothing. Plus the next session's date |
+| Unplanned activity | The activity as a completed card |
 | No plan yet | The benchmark, as the single call to action |
 | Compile failed | Last good compiled file plus a quiet notice; never a partial workout |
 
-**A planned day with `template_id: null` is a variant of `planned`, not a seventh state.** It is
-the common case, not an edge: Nats' week is three of four days without a template (ladders, a
-150-minute hike), and Akash has a badminton Thursday. `coachWeekFiles.ts` says so outright — "a
-session with no template, e.g. a badminton match, is valid". Render the same card from `title`,
-`planned_duration_min`, `discipline` and `kind`, with **no timer CTA**. A live day, never an
-empty one.
+**The timer only runs strength-type workouts.** A day whose `current_week` session has
+`template_id: null` — Nats' ladders and hike, Akash's badminton Thursday — is *mentioned*, not
+rendered as a runnable card. Read `title` and `planned_duration_min` straight from the week file
+and show a line. No timer CTA, no second card component, no extra state. The only thing that must
+never happen is showing such a day as blank or as "Rest".
 
 **The athlete's routines are always on the page**, below the day. They want to train ad-hoc, look
 up what a routine contains, and show it to a physio. Ad-hoc start compiles on demand.
@@ -264,11 +263,15 @@ there, or Gemini writes garbage and the workflow commits it.
 
 ## 12. The gate, and what is deferred
 
-**The gate ran, and Stack B failed it.** Across the four repos, routines *churn* week to week;
-what stays stable is the **slot** — A day, B day, sport day. So B1–B3's shape, "an immutable
-routine with dose knobs", is wrong: the durable thing is the slot and its intent, and the routine
-filling it is expected to change. **Stack B stays on paper** until it is redesigned around slots.
-Do not start it. Stack A never depended on this answer.
+**Stack B stays on paper, and not because of the churn claim.** An investigating agent reported
+that routines churn week to week while the *slot* (A day, B day, sport day) persists — which
+would make B1–B3's "immutable routine with dose knobs" the wrong shape. **That finding is
+unverified.** Nobody here has audited it, and the operator's own experience is the opposite: the
+workout holds for weeks and the numbers move. Do not restructure B around it.
+
+B waits for the plainer reason: nothing in it is needed for either live bug, and its first PR
+should not be designed on an open question. Settle churn-vs-stable against the four repos *with
+the evidence written down* before B1 is scoped.
 
 Deferred: widgets and the `coach_read` move to ADR 0029 (a separate product, cut from both
 stacks) · mid-season re-check · plan drift detection, where code detects and Coach opens the
