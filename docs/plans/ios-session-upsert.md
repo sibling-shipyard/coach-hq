@@ -27,9 +27,10 @@ flowchart TD
 - **Coach fires only on insert.** Upsert (rewrite, alias, HR fill-in) stays out of
   `syncedForCache` / the coach-message POST. That is a filter on today's list, not a new path.
 
-**Match, in order:** (1) exact uuid (2) alias list on the committed file (3) same activity group +
-≥50% of the shorter window (4) start within 2 minutes + ≥50% of shorter, even if sport differs
-(Skanda’s Garmin `Run` vs Strava `Walk` at the same second). Greedy, not transitive.
+**Match, in order:** exact uuid, then aliases on the committed file, then same activity group
+with ≥50% of the shorter window. If sport differs, also match when start is within 2 minutes
+and overlap is ≥50% of the shorter window (Skanda’s Garmin `Run` vs Strava `Walk`). Greedy,
+not transitive.
 
 **HR refresh:** the query is already a time window, not the workout object. Re-fetch for
 incomplete sessions in the 14-day lookback even when the filename exists. Today we `continue`
@@ -49,10 +50,10 @@ what missed Garmin. Manual import uses the same match, or Import creates the dup
 PR 1 does not delete Date’s three gym files. PR 2 keeps the earliest file, copies the best HR
 body into it, writes aliases, deletes loser hist+stream. No Coach. No live `#N` rewrite.
 
-**Done when (PR 1):** a new Garmin uuid that overlaps a committed session writes zero new files
-and does not bump the sport counter; a known uuid with more HR rewrites hist+stream; two gyms
-the same day with different starts both insert; `swiftc … verify_workout_dedup.swift` covers
-those three; Health Settings does not offer Import for a rewrite of a synced session.
+**Done when (PR 1).** A new Garmin uuid that overlaps a committed session writes zero new files
+and does not bump the sport counter. A known uuid with more HR rewrites hist+stream. Two gyms
+the same day with different starts both insert. `swiftc … verify_workout_dedup.swift` covers
+those three. Health Settings does not offer Import for a rewrite of a synced session.
 
 **Done when (PR 2):** Date `hist/` is 6 HK sessions not 9; Skanda’s 11 duplicated HK clusters
 are 1 file each; dry-run prints the deletes before any write.
@@ -61,7 +62,7 @@ are 1 file each; dry-run prints the deletes before any write.
 
 - Garmin metadata id as a fifth match key — extra, overlap has to work without it.
 - A `sessions.json` index to avoid N hist reads — P2 if the window fetch is slow.
-- Coach ping when HR first appears — not a new activity; out of scope.
 
 **Rejected:** uuid-only upsert (misses Garmin). Delete-and-reinsert under the new uuid (breaks
 streams and Coach ids). iOS deleting 42 Skanda files on next sync (that is PR 2, dry-run first).
+Coach ping when HR first appears — Rejected, see ADR 0035.
