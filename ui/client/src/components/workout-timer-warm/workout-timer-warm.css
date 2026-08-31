@@ -661,6 +661,16 @@
   font-size: 10px;
 }
 
+.wtx-list-card--hero {
+  gap: 10px;
+  max-width: 560px;
+  padding: 22px 24px;
+}
+
+.wtx-list-card--hero .wtx-list-card__stats {
+  gap: 16px;
+}
+
 .wtx-list-card__top {
   display: flex;
   align-items: flex-start;

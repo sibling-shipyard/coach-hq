@@ -2867,20 +2867,27 @@ div.wi-trend-scrub__chip {
 }
 
 /* Workouts page — today / this week / library (A5) */
-.wi-workouts-board {
-  max-width: 760px;
-}
-
 .wi-workouts-page {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  margin-top: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 32px 48px;
+  align-items: start;
+  margin-top: 24px;
 }
 
-.wi-workouts-today .wi-card-kicker,
-.wi-workouts-library .wi-card-kicker {
-  margin-bottom: 10px;
+.wi-workouts-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.wi-workouts-sidebar {
+  min-width: 0;
+}
+
+.wi-workouts-today .wi-card-kicker {
+  margin-bottom: 12px;
 }
 
 .wi-workouts-hero__line {
@@ -2903,26 +2910,23 @@ div.wi-trend-scrub__chip {
   margin-top: 0;
 }
 
-.wi-workouts-week-row.is-today .wi-session-row__date.is-today-label {
-  width: auto;
-  min-width: 52px;
-  padding: 4px 7px;
-  border-radius: 5px;
-  color: var(--wi-surface);
-  background: var(--wi-rust);
-  font-size: 9px;
+.wi-workouts-week-card .wi-session-row {
+  gap: 14px;
+  min-height: 46px;
+  padding: 10px 0;
+}
+
+.wi-workouts-week-row.is-today .wi-session-row__date.is-today-date {
+  color: var(--wi-rust);
   font-weight: 700;
-  letter-spacing: 0.1em;
-  line-height: 1.2;
-  text-align: center;
 }
 
 .wi-workouts-week-row.is-today {
-  margin: 0 -12px;
-  padding: 14px 12px;
-  background: rgb(255 252 246 / 92%);
-  border-radius: 8px;
   box-shadow: inset 3px 0 0 var(--wi-rust);
+}
+
+.wi-workouts-week-row.is-today .wi-session-row__detail.is-today-marker {
+  color: var(--wi-rust);
 }
 
 .wi-workouts-week-row.is-in-hero > strong {
@@ -2947,8 +2951,126 @@ div.wi-trend-scrub__chip {
   color: var(--wi-ink-muted);
 }
 
-.wi-workouts-library .wtx-list-groups {
-  margin-top: 0;
+.wi-workouts-library__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 12px;
+}
+
+.wi-workouts-library__group-label {
+  margin-bottom: 6px;
+  color: var(--wi-ink-faint);
+  font-family: "Space Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.wi-workouts-lib-row {
+  display: grid;
+  grid-template-columns: 3px minmax(0, 1fr) auto;
+  gap: 0 12px;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 0;
+  border-bottom: 1px solid #efe9dc;
+  color: inherit;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.wi-workouts-lib-row:last-child {
+  border-bottom: 0;
+}
+
+.wi-workouts-lib-row:hover .wi-workouts-lib-row__title {
+  color: var(--wi-rust);
+}
+
+.wi-workouts-lib-row__vein {
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--wi-ink-faint);
+}
+
+.wi-workouts-lib-row__vein.is-badminton {
+  background: var(--wi-badminton);
+}
+
+.wi-workouts-lib-row__vein.is-run {
+  background: var(--wi-run);
+}
+
+.wi-workouts-lib-row__vein.is-calisthenics {
+  background: var(--wi-calisthenics);
+}
+
+.wi-workouts-lib-row__vein.is-foundation {
+  background: var(--wi-foundation);
+}
+
+.wi-workouts-lib-row__vein.is-cycling {
+  background: var(--wi-cycling);
+}
+
+.wi-workouts-lib-row__vein.is-strength {
+  background: var(--wi-strength);
+}
+
+.wi-workouts-lib-row__vein.is-weight_training {
+  background: var(--wi-weights);
+}
+
+.wi-workouts-lib-row__vein.is-hike {
+  background: var(--wi-hike);
+}
+
+.wi-workouts-lib-row__vein.is-walk {
+  background: var(--wi-walk);
+}
+
+.wi-workouts-lib-row__vein.is-cricket {
+  background: var(--wi-cricket);
+}
+
+.wi-workouts-lib-row__vein.is-football {
+  background: var(--wi-football);
+}
+
+.wi-workouts-lib-row__vein.is-workout {
+  background: var(--wi-workout);
+}
+
+.wi-workouts-lib-row__vein.is-swim {
+  background: var(--wi-swim);
+}
+
+.wi-workouts-lib-row__title {
+  overflow: hidden;
+  color: var(--wi-ink);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wi-workouts-lib-row__meta {
+  color: var(--wi-ink-faint);
+  font-family: "Space Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+@media (max-width: 960px) {
+  .wi-workouts-page {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
