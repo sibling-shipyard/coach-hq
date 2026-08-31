@@ -3,6 +3,7 @@ import SwiftUI
 struct WorkoutListView: View {
     @EnvironmentObject var authManager: GitHubAuthManager
     @EnvironmentObject var workoutService: WorkoutService
+    @EnvironmentObject var widgetStore: WidgetSnapshotStore
     @State private var navigationPath: [Workout] = []
 
     /// Re-fetch once repo discovery finishes (same pattern as WarmInstrumentHomeView).
@@ -28,8 +29,26 @@ struct WorkoutListView: View {
         return templateEntries + standaloneSessions
     }
 
-    private var todayWorkout: Workout? {
-        allWorkouts.first { $0.isSession }?.workout
+    private var pageActivities: [WorkoutPageActivity] {
+        (widgetStore.snapshots?.home.activityEvidence ?? []).map { item in
+            WorkoutPageActivity(
+                start: item.dateKey,
+                sport: item.sport.rawValue,
+                title: item.title,
+                durationMin: Int(item.durationMinutes.rounded())
+            )
+        }
+    }
+
+    private var page: (today: TodayHero, week: [WeekDay]?) {
+        WorkoutsPageSelector.select(
+            templates: workoutService.templates,
+            sessions: workoutService.todaySessions,
+            currentWeekJSON: workoutService.currentWeekJSON,
+            activities: pageActivities,
+            now: Date(),
+            athleteTimeZone: nil
+        )
     }
 
     private var groupedWorkouts: [(type: WorkoutType, entries: [(workout: Workout, isSession: Bool)])] {
@@ -58,17 +77,13 @@ struct WorkoutListView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     workoutsHeader
-                    if let today = todayWorkout {
-                        TodayWorkoutHero(workout: today) {
-                            navigationPath.append(today)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 4)
-                        .staggerReveal(delay: 0.05)
+                    todayBand
+                    if let week = page.week {
+                        weekBand(week)
                     }
 
-                    if todayWorkout != nil && !groupedWorkouts.isEmpty {
-                        Text("ALL WORKOUTS")
+                    if !groupedWorkouts.isEmpty {
+                        Text("LIBRARY")
                             .font(WarmInstrument.monoLabel(9))
                             .kerning(1.2)
                             .foregroundColor(WarmInstrument.inkFaint)
@@ -83,31 +98,33 @@ struct WorkoutListView: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, todayWorkout != nil ? 4 : 16)
+                    .padding(.top, groupedWorkouts.isEmpty ? 16 : 4)
+
+                    if groupedWorkouts.isEmpty, workoutService.fetchError == nil, !workoutService.isLoading {
+                        emptyState
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 24)
+                    }
                 }
             }
             .mainTabScrollBottomClearance()
             .scrollClipDisabled()
             .refreshable {
-                await workoutService.fetchTemplates()
-                await workoutService.fetchTodaySessions()
+                await workoutService.fetchPage()
             }
             .task(id: workoutFetchToken) {
                 guard authManager.isSessionReady else { return }
                 guard authManager.repoFullName != nil else { return }
-                await workoutService.fetchTemplates()
-                await workoutService.fetchTodaySessions()
+                await workoutService.fetchPage()
             }
             .overlay {
-                if workoutService.isLoading && allWorkouts.isEmpty {
+                if workoutService.isLoading && allWorkouts.isEmpty && workoutService.currentWeekJSON == nil {
                     ProgressView()
-                } else if let error = workoutService.fetchError, allWorkouts.isEmpty {
+                } else if let error = workoutService.fetchError, allWorkouts.isEmpty, workoutService.currentWeekJSON == nil {
                     // A fetch failure must never look identical to "you genuinely have no
                     // plan" — that false-empty state is what sent Skanda's real workouts
                     // missing on refresh.
                     errorState(error)
-                } else if allWorkouts.isEmpty {
-                    emptyState
                 }
             }
             .onChange(of: workoutService.fetchError) { _, newError in
@@ -151,8 +168,7 @@ struct WorkoutListView: View {
                 .multilineTextAlignment(.center)
             Button("Retry") {
                 Task {
-                    await workoutService.fetchTemplates()
-                    await workoutService.fetchTodaySessions()
+                    await workoutService.fetchPage()
                 }
             }
             .font(.system(size: 14, weight: .semibold))
@@ -179,6 +195,120 @@ struct WorkoutListView: View {
         .padding(.horizontal, 22)
         .padding(.top, 14)
         .padding(.bottom, 6)
+    }
+
+    @ViewBuilder
+    private var todayBand: some View {
+        switch page.today {
+        case .runnable(let workout, _, let isDone):
+            TodayWorkoutHero(workout: workout, isDone: isDone) {
+                navigationPath.append(workout)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
+            .staggerReveal(delay: 0.05)
+        case .mention(let title, let durationMin):
+            todayLine(kicker: "TODAY", title: title, durationMin: durationMin)
+        case .rest:
+            todayLine(kicker: "TODAY", title: "Rest", durationMin: nil)
+        case .none:
+            todayLine(kicker: "TODAY", title: "No plan this week", durationMin: nil)
+        }
+    }
+
+    private func todayLine(kicker: String, title: String, durationMin: Int?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(kicker)
+                .font(WarmInstrument.monoLabel(9))
+                .kerning(1.2)
+                .foregroundColor(WarmInstrument.inkFaint)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(WarmInstrument.ink)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                if let durationMin {
+                    Text("\(durationMin)M")
+                        .font(WarmInstrument.figures(10))
+                        .foregroundColor(WarmInstrument.inkFaint)
+                }
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
+        .staggerReveal(delay: 0.05)
+    }
+
+    private func weekBand(_ days: [WeekDay]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("THIS WEEK")
+                .font(WarmInstrument.monoLabel(9))
+                .kerning(1.2)
+                .foregroundColor(WarmInstrument.inkFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 22)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
+                    SessionRow(session: sessionSnapshot(for: day), compact: true)
+                        .padding(.horizontal, 22)
+                    if index < days.count - 1 {
+                        Divider().overlay(WarmInstrument.headerRule)
+                            .padding(.leading, 22)
+                    }
+                }
+            }
+        }
+    }
+
+    private func sessionSnapshot(for day: WeekDay) -> RecentSessionSnapshot {
+        let title: String
+        if day.source == .empty {
+            title = ""
+        } else {
+            title = day.title ?? ""
+        }
+        return RecentSessionSnapshot(
+            id: day.date,
+            dateLabel: weekDateLabel(day.date),
+            title: title,
+            detail: day.durationMin.map { "\($0)M" } ?? "",
+            load: nil,
+            sport: sportId(from: day.sport),
+            href: nil,
+            evidence: nil
+        )
+    }
+
+    private func weekDateLabel(_ date: String) -> String {
+        let parts = date.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return date }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let parsed = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else {
+            return date
+        }
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE d"
+        return formatter.string(from: parsed).uppercased()
+    }
+
+    private func sportId(from raw: String?) -> WarmSportId {
+        guard let raw else { return .other }
+        if let match = WarmSportId(rawValue: raw) { return match }
+        switch raw.lowercased() {
+        case "ride", "bike", "cycling": return .cycling
+        case "run", "running": return .run
+        case "weights", "weight_training": return .weightTraining
+        default: return .other
+        }
     }
 
     private func workoutGroup(
@@ -367,6 +497,7 @@ private struct FlowLayout: Layout {
 /// prepared for today. Tapping navigates to WorkoutOverview.
 struct TodayWorkoutHero: View {
     let workout: Workout
+    var isDone: Bool = false
     let onTap: () -> Void
 
     private var accent: Color { Theme.workoutColor(for: workout.workoutType) }
@@ -376,13 +507,13 @@ struct TodayWorkoutHero: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Accent top strip + TODAY badge
                 HStack(spacing: 8) {
-                    Text("TODAY")
+                    Text(isDone ? "DONE" : "TODAY")
                         .font(WarmInstrument.monoLabel(9))
                         .kerning(1.2)
                         .foregroundColor(WarmInstrument.paper)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
-                        .background(accent)
+                        .background(isDone ? WarmInstrument.ink : accent)
                         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
                     Text(Theme.workoutLabel(for: workout.workoutType))
