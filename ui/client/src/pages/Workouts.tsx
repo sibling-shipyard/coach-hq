@@ -5,16 +5,11 @@ import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import type { Activity } from "@/lib/activities";
 import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
-import { SessionRow } from "@/components/home-warm/atoms/SessionRow";
 import { formatMinutesLabel } from "@/components/home-warm/formatUtils";
-import type { RecentSessionSnapshot, WarmSportId } from "@/components/home-warm/snapshots";
+import type { WarmSportId } from "@/components/home-warm/snapshots";
 import { Workout, WorkoutType, WorkoutsData, countExercises, countSets } from "@/lib/workouts";
 import { selectWorkoutsPage, type TodayHero, type WeekDay } from "@/lib/workoutPage";
-import {
-  SportBadge,
-  accentFor,
-  deriveBlockTags,
-} from "@/components/workout-timer-warm/WorkoutTimerWidgets";
+import { SportBadge, accentFor, deriveBlockTags } from "@/components/workout-timer-warm/WorkoutTimerWidgets";
 import "@/components/home-warm/warm-instrument.css";
 
 const TYPE_ORDER: WorkoutType[] = ["foundation", "strength", "calisthenics", "recovery", "realign"];
@@ -77,15 +72,62 @@ function weekDateLabel(date: string): string {
   return `${weekday} ${day}`;
 }
 
-function weekRowSnapshot(day: WeekDay): RecentSessionSnapshot {
-  return {
-    id: day.date,
-    dateLabel: weekDateLabel(day.date),
-    title: day.title ?? "",
-    detail: day.durationMin != null ? formatMinutesLabel(day.durationMin) : "",
-    load: null,
-    sport: asSport(day.sport),
-  };
+function weekStatusLabel(day: WeekDay): string | null {
+  if (day.source === "empty") return null;
+  if (day.source === "activity") return "Logged";
+  if (day.planStatus === "done") return "Done";
+  if (day.planStatus === "skipped") return "Skipped";
+  if (day.timing === "today") return "Today";
+  if (day.timing === "upcoming") return "Upcoming";
+  return "Planned";
+}
+
+function WorkoutWeekRow({ day }: { day: WeekDay }) {
+  const empty = day.source === "empty";
+  const sport = asSport(day.sport);
+  const duration = day.durationMin != null ? formatMinutesLabel(day.durationMin) : null;
+  const status = weekStatusLabel(day);
+  const rowClass = [
+    "wi-workouts-week-row",
+    empty ? "is-empty" : "",
+    day.isToday ? "is-today" : "",
+    day.planStatus === "done" ? "is-done" : "",
+    day.timing === "upcoming" && day.planStatus === "planned" ? "is-upcoming" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={rowClass}>
+      <span className="wi-workouts-week-row__date">{weekDateLabel(day.date)}</span>
+      <span className={`wi-workouts-week-row__vein is-${sport}`} aria-hidden />
+      <span className="wi-workouts-week-row__title">
+        {empty ? "Unplanned" : (day.title ?? "")}
+      </span>
+      {status ? <span className="wi-workouts-week-row__status">{status}</span> : null}
+      {duration ? <span className="wi-workouts-week-row__duration">{duration}</span> : null}
+    </div>
+  );
+}
+
+function LibraryRow({ workout }: { workout: Workout }) {
+  const accent = accentFor(workout.workout_type);
+  return (
+    <Link
+      href={`/workouts/${workout.id}`}
+      className="wi-workouts-library-row"
+      style={{ "--row-accent": accent } as CSSProperties}
+    >
+      <span className="wi-workouts-library-row__vein" aria-hidden />
+      <span className="wi-workouts-library-row__title">{workout.title}</span>
+      <span className="wi-workouts-library-row__meta">
+        {workout.estimated_duration_mins}M · {workout.location}
+      </span>
+      <span className="wi-workouts-library-row__arrow" aria-hidden>
+        →
+      </span>
+    </Link>
+  );
 }
 
 function WorkoutCard({ workout, badge }: { workout: Workout; badge?: "today" | "done" }) {
@@ -233,29 +275,22 @@ function WorkoutsContent({ data }: { data: RepoData }) {
             <div className="wi-workouts-band__label">This week</div>
             <div className="wi-workouts-week">
               {page.week.map((day) => (
-                <div
-                  key={day.date}
-                  className={day.source === "empty" ? "wi-workouts-week__empty" : undefined}
-                >
-                  <SessionRow session={weekRowSnapshot(day)} />
-                </div>
+                <WorkoutWeekRow key={day.date} day={day} />
               ))}
             </div>
           </section>
         ) : null}
         <section className="wi-workouts-band">
           <div className="wi-workouts-band__label">Library</div>
-          <div className="wtx-list-groups">
+          <div className="wi-workouts-library">
             {groups.map((group) => (
-              <div key={group.type}>
-                <div className="wtx-list-group__label">
+              <div key={group.type} className="wi-workouts-library__group">
+                <div className="wi-workouts-library__group-label">
                   {TYPE_LABEL[group.type] ?? group.type.toUpperCase()}
                 </div>
-                <div className="wtx-list-grid">
-                  {group.cards.map((card) => (
-                    <WorkoutCard key={card.workout.id} workout={card.workout} />
-                  ))}
-                </div>
+                {group.cards.map((card) => (
+                  <LibraryRow key={card.workout.id} workout={card.workout} />
+                ))}
               </div>
             ))}
           </div>

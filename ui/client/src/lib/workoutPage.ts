@@ -7,13 +7,20 @@ export type TodayHero =
   | { kind: "rest" }
   | { kind: "none" };
 
+export type WeekDayTiming = "past" | "today" | "upcoming";
+export type WeekDayPlanStatus = "done" | "planned" | "skipped";
+
 export type WeekDay = {
   date: string;
   source: "plan" | "activity" | "empty";
   title: string | null;
   durationMin: number | null;
-  /** SessionRow vein. Not in the LLD type; the row requires a sport. */
+  /** Sport vein colour. Mapped from plan discipline or activity sport. */
   sport: string | null;
+  isToday: boolean;
+  timing: WeekDayTiming;
+  /** From current_week session status when source is plan; null otherwise. */
+  planStatus: WeekDayPlanStatus | null;
 };
 
 export type WorkoutPageActivity = {
@@ -127,12 +134,26 @@ function todayHeroFromSession(
   };
 }
 
+function dayTiming(date: string, today: string): WeekDayTiming {
+  if (date === today) return "today";
+  return date < today ? "past" : "upcoming";
+}
+
 function sevenDates(monday: string): string[] {
   return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 }
 
-function emptyDay(date: string): WeekDay {
-  return { date, source: "empty", title: null, durationMin: null, sport: null };
+function emptyDay(date: string, today: string): WeekDay {
+  return {
+    date,
+    source: "empty",
+    title: null,
+    durationMin: null,
+    sport: null,
+    isToday: date === today,
+    timing: dayTiming(date, today),
+    planStatus: null,
+  };
 }
 
 function firstActivityByDate(activities: WorkoutPageActivity[]): Map<string, WorkoutPageActivity> {
@@ -145,17 +166,20 @@ function firstActivityByDate(activities: WorkoutPageActivity[]): Map<string, Wor
   return map;
 }
 
-function histWeekDays(dates: string[], activities: WorkoutPageActivity[]): WeekDay[] {
+function histWeekDays(dates: string[], today: string, activities: WorkoutPageActivity[]): WeekDay[] {
   const byDate = firstActivityByDate(activities);
   return dates.map((date) => {
     const activity = byDate.get(date);
-    if (!activity) return emptyDay(date);
+    if (!activity) return emptyDay(date, today);
     return {
       date,
       source: "activity",
       title: activity.title ?? activity.sport ?? null,
       durationMin: null,
       sport: activity.sport ?? null,
+      isToday: date === today,
+      timing: dayTiming(date, today),
+      planStatus: null,
     };
   });
 }
@@ -209,16 +233,19 @@ export function selectWorkoutsPage(
           title: session.title,
           durationMin: session.planned_duration_min,
           sport: session.discipline,
+          isToday: date === today,
+          timing: dayTiming(date, today),
+          planStatus: session.status,
         };
       }
-      return emptyDay(date);
+      return emptyDay(date, today);
     });
 
     return { today: todayHero, week };
   }
 
   const weekDates = sevenDates(mondayOfIsoWeek(today));
-  const week = histWeekDays(weekDates, safeActivities);
+  const week = histWeekDays(weekDates, today, safeActivities);
   const hasHist = week.some((day) => day.source === "activity");
   return { today: { kind: "none" }, week: hasHist ? week : null };
 }

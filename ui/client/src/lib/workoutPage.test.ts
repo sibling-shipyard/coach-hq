@@ -154,6 +154,9 @@ describe("selectWorkoutsPage", () => {
       source: "plan",
       title: "Strength A",
       durationMin: 40,
+      isToday: true,
+      timing: "today",
+      planStatus: "planned",
     });
   });
 
@@ -223,7 +226,7 @@ describe("selectWorkoutsPage", () => {
     assertLive(week);
     const result = selectWorkoutsPage(EMPTY_WORKOUTS, week, []);
     expect(result.today).toEqual({ kind: "rest" });
-    expect(result.week?.[1]).toMatchObject({ date: "2026-08-18", source: "empty", title: null });
+    expect(result.week?.[1]).toMatchObject({ date: "2026-08-18", source: "empty", timing: "today", isToday: true });
   });
 
   it("no-plan with Mon strength + Wed badminton in hist: week visible, today none", () => {
