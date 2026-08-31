@@ -36,6 +36,7 @@ backstop that mirrors the three constants by hand because it can't import a TS m
 | `timezone_util.py` | Python | `engine/scripts/generate_quest_history.py`, `engine/core/query_history.py` | Timezone handling for the Python sync pipeline. No JS counterpart found. |
 | `text-caps.mts` | TS | Bundled into `ui/api/coach-chat/_lib` via `ui/scripts/bundle-text-caps-api.mjs`, consumed by the coach-chat schema/prompt and write-time checks | Source of truth for the three Coach free-text length caps (issue #462). `engine/scripts/validate-text-caps.py` mirrors the numbers by hand as a CI-only backstop since it can't import a TS module. |
 | `current-week.mts` | TS | `engine/scripts/validate-current-week.mts`, `ui/scripts/validate-current-week.mts`, bundled into `ui/api/coach-chat/_lib` via `ui/scripts/bundle-current-week-api.mjs` | `current_week.json` schema/validation, shared between the engine-side validator and the coach-chat bundle. No Python counterpart. |
+| `compileWorkout.mts` | TS | Nothing in this PR. A2 will bundle it into `ui/api/` the same way as `current-week.mts`. Dry-run: `engine/scripts/compile-dryrun.mts` | Pure compiler: exercise list → timer JSON. Tests live next to it; `ui/vitest.config.ts` includes `../engine/lib/**/*.test.mts`. |
 | `projectActivity.mjs` | JS | `engine/scripts/build-dashboard-snapshot.mjs` | Projects an activity record down to what the dashboard snapshot needs. No Python counterpart - JS-only. |
 
 ## What I couldn't determine

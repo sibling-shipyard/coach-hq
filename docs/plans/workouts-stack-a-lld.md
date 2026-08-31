@@ -28,7 +28,7 @@ flowchart LR
 |---|---|---|---|---|
 | A5 | `feat/727-workouts-day-view` | UI Expert | `main` | `ui/client/` only |
 | A5-ios | `feat/ios-727-workouts-day-view` | iOS Builder | `main` | `ios/` only |
-| A1 | `feat/727-compile-workout` | Bob | `main` | `engine/lib/`, `engine/scripts/` |
+| A1 | `feat/727-compile-workout` | Bob | `main` | `engine/lib/`, `engine/scripts/`, `ui/vitest.config.ts`, `.github/workflows/ui-tests.yml` |
 | A2 | `feat/727-workout-create` | Bob | A1 | `ui/api/coach-chat/`, `ui/scripts/bundle-compile-workout-api.mjs`, `ui/package.json` |
 | A4 | `core/727-soul-carve` | Tech Lead | A2 | `platform/soul/`, `platform/`, `engine/scripts/` |
 | A6 | `core/727-byo-migrate` | Tech Lead | A4 | the BYO athlete's repo (PR against it) |
@@ -143,6 +143,8 @@ it in this PR.
 - `engine/lib/compileWorkout.mts` (new)
 - `engine/lib/compileWorkout.test.mts` (new)
 - `engine/scripts/compile-dryrun.mts` (new) — the HLD §10 verification tool
+- `ui/vitest.config.ts` — include `../engine/lib/**/*.test.mts` (vitest root is `ui/`; it does not pick up engine tests otherwise)
+- `.github/workflows/ui-tests.yml` — path filter `engine/lib/**` so an engine-only diff still runs the suite
 
 **Why `engine/`, not `ui/api/`:** `scaling-plan.md` §2.2 already names `coach-chat.ts` as "a
 *second* engine". A1 does not add the Vercel shim — that lands in A2 with the first import.
@@ -195,7 +197,7 @@ against the original, print a per-file summary. Read-only, writes nothing. Exist
 hand-tuned rests — the bar is **explainable**, not byte-identical to production files. The golden
 fixture is the byte-identical test.
 
-**Validate:** `cd ui && npm run test` (vitest picks up `.mts`) ·
+**Validate:** `cd ui && npm run test` (must list `compileWorkout.test.mts` in the run) ·
 `npx tsx engine/scripts/compile-dryrun.mts <each of the four repos>`
 **Done when:** tests green, and the dry-run diff across all four repos is explainable line by line.
 An unexplained diff blocks the merge.

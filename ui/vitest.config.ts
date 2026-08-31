@@ -19,6 +19,7 @@ export default defineConfig({
       "client/src/**/*.{test,spec}.{ts,tsx}",
       "api/**/_tests/**/*.{test,spec}.{ts,tsx}",
       "observability/**/*.{test,spec}.{ts,tsx}",
+      "../engine/lib/**/*.test.mts",
     ],
   },
 });

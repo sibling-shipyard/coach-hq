@@ -167,7 +167,7 @@ repo, not HQ.
 |---|---|---|---|---|---|
 | A5 | Three-band Workouts page (§6) | main | `ui/client/` | UI Expert | today + this week + library render from a live repo; no-plan hides the week unless hist has work |
 | A5-ios | Same three bands on iOS | main | `ios/` | iOS Builder | `ios-build.yml` green; `WorkoutListView` reads `current_week.json` |
-| A1 | `compileWorkout()` in `engine/` | main | `engine/lib/`, `engine/scripts/` | Bob | golden-fixture byte-identical; dry-run diffs across the four repos explainable |
+| A1 | `compileWorkout()` in `engine/` | main | `engine/lib/`, `engine/scripts/`, `ui/vitest.config.ts`, `.github/workflows/ui-tests.yml` | Bob | golden-fixture byte-identical; dry-run diffs across the four repos explainable |
 | A2 | `workout_create` on ordinary turns, **own `commitFilesAtomic`** | A1 | `ui/api/coach-chat/`, bundle shim | Bob | a returning athlete's mid-conversation ask writes a schema-valid routine |
 | A4 | Soul + carve the compiler CLI | A2 | `platform/soul/`, `platform/`, `engine/scripts/` | Tech Lead | `validate-soul.mjs` clean; freshly carved repo can create a routine |
 | A6 | Recomposed SOUL + CLI into the BYO athlete repo | A4 | that athlete's repo | Tech Lead | that athlete asks for an upper body workout and gets one |
