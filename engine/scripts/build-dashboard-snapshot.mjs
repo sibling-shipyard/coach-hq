@@ -133,7 +133,12 @@ export function buildDashboardSnapshot(repoRootPath = REPO_ROOT) {
     const files = fs.readdirSync(templatesDirPath).filter((f) => f.endsWith(".json") && f !== "_manifest.json");
     for (const file of files) {
       try {
-        workouts.templates.push(JSON.parse(fs.readFileSync(path.join(templatesDirPath, file), "utf-8")));
+        const parsed = JSON.parse(fs.readFileSync(path.join(templatesDirPath, file), "utf-8"));
+        if (!parsed.phases) {
+          console.warn(`⚠ Skipping template ${file}: missing 'phases' array`);
+          continue;
+        }
+        workouts.templates.push(parsed);
       } catch (e) {
         console.warn(`⚠ Skipping template ${file}: ${e.message}`);
       }
@@ -151,6 +156,10 @@ export function buildDashboardSnapshot(repoRootPath = REPO_ROOT) {
     for (const file of files) {
       try {
         const session = JSON.parse(fs.readFileSync(path.join(sessionsDirPath, file), "utf-8"));
+        if (!session.phases) {
+          console.warn(`⚠ Skipping session ${file}: missing 'phases' array`);
+          continue;
+        }
         if (session.session_date && session.session_date < cutoff) {
           skippedOld++;
           continue;
