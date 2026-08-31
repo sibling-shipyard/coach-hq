@@ -23,8 +23,13 @@ export interface GeminiReply {
   memory_update?: { label: MemoryNoteLabel; text: string };
   // See responseSchema's sports_update for rationale.
   sports_update?: string[];
-  // See responseSchema's injury_event for the array rationale and wire shape.
-  injury_event?: { status: "active" | "resolved"; text?: string; flag_id?: string }[];
+  // See responseSchema's injury_flag for rationale - a brand-new injury the athlete has
+  // never mentioned before. No id: the server mints one, same discipline as quest_create.
+  injury_flag?: { text: string }[];
+  // See responseSchema's injury_event for the array rationale and wire shape. Update/resolve
+  // only - flag_id is required and must be a real id already shown in the athlete's injuries
+  // context. A brand-new injury goes through injury_flag instead.
+  injury_event?: { status: "active" | "resolved"; text?: string; flag_id: string }[];
   // See responseSchema's quest_event for the array, server-owned fields, and value rationale.
   quest_event?: { quest_id: string; status: "completed" | "missed" | "excused"; value?: string }[];
   // See responseSchema's profile_update for the array and value rationale.
@@ -91,8 +96,24 @@ const RESPONSE_PROPERTIES = {
   // Separate top-level memory.json field, not a labelled memory note. First Session Protocol
   // writes it when first stated; later chat may replace the full list.
   sports_update: { type: "array", items: { type: "string" } },
-  // Array (workout-backend-wiring live verification, same fix issue #410 already gave
-  // quest_event) - a turn can report more than one injury update.
+  // A brand-new injury the athlete has never mentioned before. No id in the wire shape -
+  // server mints one (coachIntents.ts's applyInjuryFlag), same discipline as quest_create.
+  // Split from injury_event (#693): a single optional-id field let Gemini invent a flag_id for
+  // a new injury, which injury_event's existing-match-or-throw guard then rejected every time.
+  injury_flag: {
+    type: "array",
+    items: {
+      type: "object",
+      properties: {
+        text: { type: "string", maxLength: INJURY_FLAG_TEXT_CAP },
+      },
+      required: ["text"],
+    },
+  },
+  // Update or resolve a flag already on file - flag_id required and must be a real id from the
+  // athlete's injuries context (activeInjuryFlagsSection in coachContext.ts). Array
+  // (workout-backend-wiring live verification, same fix issue #410 already gave quest_event) -
+  // a turn can report more than one injury update. A brand-new injury goes through injury_flag.
   injury_event: {
     type: "array",
     items: {
@@ -102,7 +123,7 @@ const RESPONSE_PROPERTIES = {
         text: { type: "string", maxLength: INJURY_FLAG_TEXT_CAP },
         flag_id: { type: "string" },
       },
-      required: ["status"],
+      required: ["status", "flag_id"],
     },
   },
   // Part 2 ledger split, step 3a - shipped and tested in isolation before profile_update
@@ -311,6 +332,7 @@ type ResponseField = keyof typeof RESPONSE_PROPERTIES;
 const FSP_ACTIONS = [
   "memory_update",
   "sports_update",
+  "injury_flag",
   "injury_event",
   "profile_update",
   "season_start",
@@ -321,6 +343,7 @@ const RETURNING_CLOSE_ACTIONS = [
   "coach_note",
   "memory_update",
   "sports_update",
+  "injury_flag",
   "injury_event",
   "quest_event",
   "profile_update",

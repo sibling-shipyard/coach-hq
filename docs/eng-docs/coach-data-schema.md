@@ -1,15 +1,15 @@
 # Coach data schema — every file, every enum
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
 
 ## Context
 
 The coach-chat/SOUL redesign replaced `state.md`/`coach_notes.md`/`challenge_v2.json` with a set
-of small typed JSON files, but there was never a single reference doc listing every file, every
+of small typed JSON files. There was never a single reference doc listing every file, every
 field, and every enum in one place — just the TypeScript in `ui/api/coach-chat/_lib/`. This doc
 is a faithful prose+table rendering of that TypeScript, sourced directly from
 `coachMemoryFiles.ts`, `coachQuestFiles.ts`, `coachWeekFiles.ts`, `coachWorkoutFiles.ts`,
-`workoutSchema.ts`, and `coachChatFiles.ts` — those files stay the source of truth; this doc
+`workoutSchema.ts`, and `coachChatFiles.ts`. Those files stay the source of truth; this doc
 should be re-verified against them whenever one changes.
 
 ## Files Coach owns or reads
@@ -221,7 +221,7 @@ or non-numeric `elapsed_time` are omitted from the histogram only — they still
 
 **`sports` keys are normalized `sport_type` values** — lowercased, with camelCase split on `_`
 (`WeightTraining` -> `weight_training`). The activity `category` field is a **sub-tag within** a
-sport (`RNK`/`FRN`/`CAS` are all Badminton; `CAL`/`FDN` are both WeightTraining) and is
+sport (`RNK`/`FRN`/`CAS` are all Badminton; `CAL`/`FDN` are both WeightTraining). It's
 deliberately **not** part of the key — bucketing on it shatters one sport across several buckets
 (#459).
 
@@ -254,16 +254,18 @@ mode/session-state combination shouldn't expose, rather than just discouraging i
 | Greeting | none (plus always `reply`, `session_closed`) |
 | Activity sync | none |
 | Returning ordinary | none |
-| First Session ordinary | `memory_update`, `sports_update`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
+| First Session ordinary | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
 | First Session close | the same, plus `coach_note` |
-| Returning close | `coach_note`, `memory_update`, `sports_update`, `injury_event`, `quest_event`, `profile_update`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
+| Returning close | `coach_note`, `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
 
 Each field's write path — which `turnWrites/*.ts` file consumes it, which JSON file it lands in —
 is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/turnWrites/README.md); this
 doc doesn't restate that table, it's the source.
 
 `profile_update.field` enum: `"name" \| "dob" \| "timezone" \| "height_cm" \| "weight_kg"`.
-`injury_event.status` enum: `"active" \| "resolved"`. `quest_event.status` enum: `"completed" \|
+`injury_flag` is new-injury-only — `{text}`, no id, the server mints one. `injury_event` is
+update/resolve-only — `flag_id` is required (a real id from Active Injury Flags), `status` enum:
+`"active" \| "resolved"`. `quest_event.status` enum: `"completed" \|
 "missed" \| "excused"`. `season_start`/`quest_create` are First-Session-only — there is no
 returning-athlete path for either.
 

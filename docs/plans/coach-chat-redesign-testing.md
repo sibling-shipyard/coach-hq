@@ -4,8 +4,9 @@
 
 ## Context
 
-Skanda's call, 2026-08-21: "nothing is tested properly" since the redesign stack (#437, #439,
-#443, #445, #446, #447, #448) shipped. That's accurate. What exists today is unit coverage only —
+Skanda's call, 2026-08-21: "nothing is tested properly." That's accurate, and it's been true since
+the redesign stack shipped (#437, #439, #443, #445, #446, #447, #448). What exists today is unit
+coverage only. That's
 15 test files under `ui/api/coach-chat/_tests/`, each testing one module in isolation
 (`coachTurn.test.ts`, `fspWrites.test.ts`, `renderCoachContext.test.ts`, etc.), plus 15 golden
 transcripts under `_tests/coach-chat-eval/transcripts/` that exercise the schema/write-mapping
@@ -15,17 +16,17 @@ hosted API since this stack landed. `docs/eng-docs/coach-chat-daily.md` and
 has been verified against a live conversation.
 
 This absorbs and supersedes a "Stack-wide real end-to-end verification" checklist that used to sit
-in the coach-chat open-items doc (since removed) — same content, promoted to its own file because
-it's the biggest single piece of remaining risk in this whole redesign, not a minor list item.
+in the coach-chat open-items doc (since removed) — same content, promoted to its own file. It's
+the biggest single piece of remaining risk in this whole redesign, not a minor list item.
 
 ## Why this matters more than it looks
 
 Every fix in this stack has been verified by reading code and running `tsc --noEmit` / unit
-tests / `compose-soul.mjs --check`. None of that catches: a Gemini call that actually returns a
-shape the schema didn't anticipate, a GitHub commit that silently fails on real auth, a prompt
-that reads fine in review but produces a bad reply against a real athlete's real history, or a
-frontend that renders a blank widget against real generated data instead of a fixture. Unit tests
-by construction test the code against inputs someone already thought of.
+tests / `compose-soul.mjs --check`. None of that catches a Gemini call that actually returns a
+shape the schema didn't anticipate, or a GitHub commit that silently fails on real auth. Nor does
+it catch a prompt that reads fine in review but produces a bad reply against a real athlete's
+real history, or a frontend that renders a blank widget against real generated data instead of a
+fixture. Unit tests by construction test the code against inputs someone already thought of.
 
 ## Re-verified 2026-08-25 — what's already done
 
@@ -61,7 +62,7 @@ log, not a note in this doc.
 **Daily flow — closed.**
 - Step 6 (cross-device staleness): confirmed both directions via a small one-off script
   (`handle()` called directly with a controlled `knownSha`, since the manual harness itself
-  doesn't send one) - a stale `knownSha` on an ordinary turn returns `stale: true`; a fresh one
+  doesn't send one). A stale `knownSha` on an ordinary turn returns `stale: true`; a fresh one
   doesn't. Also checked the closing-turn response never carries `stale` at all - not a bug,
   `CoachChat.tsx:515-527` returns before ever reading `result.stale` on a closed turn, so nothing
   client-side depends on it there.
@@ -84,16 +85,16 @@ log, not a note in this doc.
   totally sure, sometime in June I think", Coach's real reply asked a follow-up instead of
   committing a guessed date; no `profile.json` write happened on that turn. Only committed once
   given the exact date.
-- Step 5 (resumability) and step 6 (BYOB) are **not executable through this harness** - resumability
+- Step 5 (resumability) and step 6 (BYOB) are **not executable through this harness.** Resumability
   is a client-only mechanism (`CoachChatLocalCache.swift` / `coachChatModel.ts`'s
-  `localStorage` helpers), it never touches the server's `handle()` at all; BYOB means a real
+  `localStorage` helpers) — it never touches the server's `handle()` at all. BYOB means a real
   Claude Code session against `SOUL.claude.md`, a different runtime entirely. Both still open,
   need a different test method than `npm run test:coach-chat-manual`.
 
 **Scratch branches used this pass** (left in place, per this doc's own tracking convention - not
-cleaned up): `coach-skanda-2003` - `test/fsp-clean-1787829206`, `test/fsp-clean-1787829390-b`
+cleaned up). `coach-skanda-2003`: `test/fsp-clean-1787829206`, `test/fsp-clean-1787829390-b`
 (both real FSP runs, one hit closes successfully), plus assorted `test/manual-*` /
-`test/staleness-*` branches from the Daily-flow and cross-device runs. `coach-akash-suresh` -
+`test/staleness-*` branches from the Daily-flow and cross-device runs. `coach-akash-suresh`:
 `test/manual-*` branches from its Daily-flow runs.
 
 **Tracking:** every real run from this pass writes to the committed `tests/<YYYY-MM-DD>/` folder
@@ -125,13 +126,14 @@ can be tested for real against either.
 3. A greeting turn via the hosted API — confirm the actual reply, confirm no file writes fire
    (greeting shouldn't write).
 4. A handful of ordinary turns covering each action field the mode-specific schema exposes for
-   "ordinary" (`profile_update`, `memory_update`, `injury_event`, at
-   minimum) — run them through `npm run test:coach-chat-manual` and read the logged
+   "ordinary" (`profile_update`, `memory_update`, `injury_flag`, `injury_event`, at
+   minimum). Run them through `npm run test:coach-chat-manual` and read the logged
    `filesChanged.diff` for each turn to confirm the write landed in the shape
    `coach-data-schema.md` documents, not just that a commit happened. While here, read the
-   greet/ordinary reply itself for whether the Fitness Snapshot context (`coachContext.ts`'s
-   `fitnessSnapshotSection()`) reads sensibly against that repo's real activity mix (moved from
-   the old Frontend step 3 — this is a prompt-context check, not a render check).
+   greet/ordinary reply itself for whether the Fitness Snapshot context
+   (`coachContext.ts`'s `fitnessSnapshotSection()`) reads sensibly against that repo's real
+   activity mix. Moved from the old Frontend step 3 — this is a prompt-context check, not a
+   render check.
 5. A closing turn — confirm `coach_note` appends to `coach_log.json`, confirm any quest/session
    fields close correctly, confirm one atomic commit per ADR 0012 (not multiple).
 6. Cross-device staleness: open a second "device" (a second scratch conversation) mid-thread,
@@ -160,7 +162,7 @@ can be tested for real against either.
 
 ### Frontend — closed 2026-08-25
 
-Steps 1, 2, and 4 are done or moot per the re-verification above: split-ledger is the only shape
+Steps 1, 2, and 4 are done or moot per the re-verification above. Split-ledger is the only shape
 left in production (`challenge_v2` fully removed by #569/#571), and the day-count badge reads
 `coach_since` correctly on both web (#562) and iOS, code-verified directly. Nothing left to run
 here.
@@ -172,7 +174,7 @@ render check.
 
 Separate from the live-repo pass above: no test proves a real `athlete_insights.json` survives
 `loadCoachContext()` -> `renderCoachContext()` -> the actual `handleGreet`/ordinary-turn handler
-call sites together - today each layer is tested in isolation (`renderCoachContext.test.ts`,
+call sites together. Today each layer is tested in isolation (`renderCoachContext.test.ts`,
 `coachChatFiles.test.ts`, `activitySyncTurn.test.ts`), never chained. Add that chain test, plus a
 multi-sport render case and one extreme-value case (a 0-day gap, a single-session sport).
 

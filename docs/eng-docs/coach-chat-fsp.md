@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-26
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
 
 ## Context
 
@@ -86,14 +86,20 @@ The shared intake questions live in `B_engine.md`'s `s10_first_session_body` sec
 that section inline; hosted chat receives the same section through
 `platform/horcruxes/first-session.md`. Only recording differs: BYOB writes confirmed facts to the
 split JSON files, while chat emits structured actions as each answer lands. Chat walks through:
-warm intro → conversational intake → confirm → quest setup → transition. A missing name → `profile_update`; missing sports →
-`sports_update`; training
-frequency/fitness level → `memory_update` (`fitness_baseline`); the 3-6 month goal → `quest_create`'s
-`main_quest` (`memory.json` has no goal field — issue #408 moved that meaning to seasons/quests);
-upcoming events and a rough season timeline → `season_start` (no `phase` field, Part 2 dropped
-it); injuries → `injury_event`; date of birth/height/weight/city → `profile_update`
-(`dob`/`height_cm`/`weight_kg`/`timezone`); habit quests → `quest_create`'s `quests[]`. While the
-profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
+warm intro → conversational intake → confirm → quest setup → transition. Each fact maps to a
+structured action as it lands:
+- Missing name → `profile_update`; missing sports → `sports_update`.
+- Training frequency/fitness level → `memory_update` (`fitness_baseline`).
+- The 3-6 month goal → `quest_create`'s `main_quest` (`memory.json` has no goal field — issue
+  #408 moved that meaning to seasons/quests).
+- Upcoming events and a rough season timeline → `season_start` (no `phase` field, Part 2 dropped
+  it).
+- Injuries → `injury_flag` for a brand-new one (server mints the id), `injury_event` to
+  update/resolve one already on file (its real `flag_id`).
+- Date of birth/height/weight/city → `profile_update` (`dob`/`height_cm`/`weight_kg`/`timezone`).
+- Habit quests → `quest_create`'s `quests[]`.
+
+While the profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
 writes it produced in a small atomic commit. Day-to-day chat remains write-on-close. The closing
 turn still commits the thread and any remaining writes through the normal close path.
 `season_start`/`quest_create` are explicitly scoped in the prompt text to first-session/
@@ -152,7 +158,7 @@ GitHub read (`turnWrites/profileWrite.ts`'s `projectProfileCompletion`). This is
 `isFirstSessionRitualDone()` additionally requires `quests.main_quest` to be set — `main_quest` is
 meant to be set exactly once per athlete, so this naturally resolves to `false` forever once it's
 ever set, matching `isAthleteProfileComplete()`'s own per-field behavior. This is the fix for a
-live-tested gap: an athlete stating habit quests on the same turn that completed their profile
+live-tested gap. An athlete stating habit quests on the same turn that completed their profile
 used to see `quest_create` never fire, because the old single completion check had already stopped
 injecting First Session prompt context by then.
 

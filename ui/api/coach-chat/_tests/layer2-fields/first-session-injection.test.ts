@@ -30,6 +30,7 @@ describe("mode-specific response schemas", () => {
     expect(schemaFields("ordinary", true)).toEqual([
       "memory_update",
       "sports_update",
+      "injury_flag",
       "injury_event",
       "profile_update",
       "season_start",

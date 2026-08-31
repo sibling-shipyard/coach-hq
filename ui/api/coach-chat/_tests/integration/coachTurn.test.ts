@@ -96,7 +96,7 @@ describe("coach turn stages", () => {
           reply: "Logged.",
           session_closed: true,
           coach_note: "Strong session",
-          injury_event: [{ text: "Sore ankle", status: "active" }],
+          injury_flag: [{ text: "Sore ankle" }],
         },
         closing: true,
       }) as never,

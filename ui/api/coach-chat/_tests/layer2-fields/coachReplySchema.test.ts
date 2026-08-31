@@ -28,4 +28,12 @@ describe("coachReplySchema text caps", () => {
       maxLength: INJURY_FLAG_TEXT_CAP,
     });
   });
+
+  it("caps injury_flag[].text at INJURY_FLAG_TEXT_CAP", () => {
+    const props = generationConfigFor("closing", false).responseSchema.properties;
+    const injuryFlag = props.injury_flag as { items: { properties: { text: unknown } } };
+    expect(injuryFlag.items.properties.text).toMatchObject({
+      maxLength: INJURY_FLAG_TEXT_CAP,
+    });
+  });
 });

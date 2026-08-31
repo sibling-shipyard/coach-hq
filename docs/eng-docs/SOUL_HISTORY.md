@@ -25,6 +25,17 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.18 — "No Guessing on Injuries" · Aug 30, 2026
+**Superpower gained:** Coach no longer breaks the conversation reporting a brand-new injury.
+
+Coach would make up an id for an injury it had just heard about for the first time, as if it
+already existed on file. The server took that as a reference to something real, found nothing,
+and the whole reply failed to save.
+
+- A new injury never mentioned before is now sent without an id — the server mints one.
+- An id is only ever included when updating or resolving a flag already on record.
+**Why it mattered:** an athlete describing a fresh ACL surgery shouldn't get silence back.
+
 ## v5.17 — "Actually Saved" · Aug 30, 2026
 **Superpower gained:** Coach's First Session goal and habits actually land, and Coach uses what it already knows.
 

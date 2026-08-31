@@ -14,7 +14,7 @@ pure; this layer is where fetch-then-apply happens.
 | `chatWrite.ts`      | every turn                                    | `chat_history.json`                                      |
 | `coachNoteWrite.ts` | `coach_note`                                  | `coach_log.json`                                         |
 | `memoryWrite.ts`    | `memory_update`, `sports_update`              | `memory.json`                                            |
-| `injuryWrite.ts`    | `injury_event`                                | `injuries.json`                                          |
+| `injuryWrite.ts`    | `injury_flag`, `injury_event`                 | `injuries.json`                                          |
 | `questWrite.ts`     | `quest_event`, `quest_create`                 | `progress.json`, `quests.json`                           |
 | `seasonWrite.ts`    | `season_start`                                | `seasons.json`                                           |
 | `profileWrite.ts`   | `profile_update`                              | `profile.json`, plus the profile-completeness projection |

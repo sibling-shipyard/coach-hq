@@ -54,7 +54,7 @@ import { fspIncrementalWrites, ordinaryTurnResponse } from "./fspWrites.js";
 import { buildChatWrite } from "./turnWrites/chatWrite.js";
 import { buildCoachNoteWrite } from "./turnWrites/coachNoteWrite.js";
 import { buildMemoryFileWrite } from "./turnWrites/memoryWrite.js";
-import { buildInjuryEventWrite } from "./turnWrites/injuryWrite.js";
+import { buildInjuryWrites } from "./turnWrites/injuryWrite.js";
 import { buildQuestEventWrite, buildQuestCreateWrite } from "./turnWrites/questWrite.js";
 import { buildSeasonStartWrite } from "./turnWrites/seasonWrite.js";
 import { buildProfileUpdateWrite, projectProfileCompletion } from "./turnWrites/profileWrite.js";
@@ -288,6 +288,16 @@ function findOversizedTextField(
       cap: MEMORY_NOTE_TEXT_CAP,
     };
   }
+  const oversizedNewInjury = (reply.injury_flag ?? []).find(
+    (flag) => flag.text != null && flag.text.length > INJURY_FLAG_TEXT_CAP,
+  );
+  if (oversizedNewInjury) {
+    return {
+      field: "injury_flag[].text",
+      length: oversizedNewInjury.text!.length,
+      cap: INJURY_FLAG_TEXT_CAP,
+    };
+  }
   const oversizedInjury = (reply.injury_event ?? []).find(
     (event) => event.text != null && event.text.length > INJURY_FLAG_TEXT_CAP,
   );
@@ -416,11 +426,13 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     sportsUpdate,
   });
 
-  const injuryEvents = (reply.injury_event ?? []).filter(
-    (event) =>
-      event.status != null && (event.flag_id != null || (event.text?.trim().length ?? 0) > 0),
+  const newInjuries = (reply.injury_flag ?? []).filter(
+    (injury) => (injury.text?.trim().length ?? 0) > 0,
   );
-  const injuryEventWrite = buildInjuryEventWrite(repo, token, timezone, injuryEvents);
+  const injuryEvents = (reply.injury_event ?? []).filter(
+    (event) => event.status != null && (event.flag_id?.trim().length ?? 0) > 0,
+  );
+  const injuryWrite = buildInjuryWrites(repo, token, timezone, newInjuries, injuryEvents);
 
   const questEvents = reply.quest_event ?? [];
   const validQuestIds = new Set<string>(
@@ -522,7 +534,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const fspCandidates = [
     ...validUpdates,
     memoryFileWrite,
-    injuryEventWrite,
+    injuryWrite,
     questEventWrite,
     profileUpdateWrite,
     seasonStartWrite,
@@ -531,7 +543,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const optionalWrites = [
     coachNoteWrite,
     memoryFileWrite,
-    injuryEventWrite,
+    injuryWrite,
     questEventWrite,
     profileUpdateWrite,
     templateEditWrite,
@@ -604,6 +616,9 @@ export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
       invalidateCoachContext(turn.repo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error("[coach-chat] ordinary commitFilesAtomic failed:", err, {
+        traceId: turn.traceId,
+      });
       return Response.json(
         {
           error: `Coach replied but saving failed: ${message}`,

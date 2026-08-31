@@ -116,19 +116,57 @@ export function applySportsUpdate(
   return JSON.stringify(result, null, 2);
 }
 
-// injury_event { status, text?, flag_id? }: Step 4b. Server owns id/opened_at/resolved_at
-// entirely (gemini-flow.md's Action-field design rule #1) - Gemini only ever supplies the
-// status/text/flag_id semantic facts. Three cases, per coach-redesign-part1-memory.md:
-//   - no flag_id, status "active", text required -> new flag (server mints id, stamps
-//     opened_at = today, resolved_at: null)
-//   - flag_id present, status "active", text given -> update that flag's text in place; if it
-//     was previously resolved, reactivate it (clear resolved_at back to null)
-//   - flag_id present, status "resolved" -> stamp resolved_at = today, leave text as-is unless a
-//     new one is given
+// injury_flag { text }[]: a brand-new injury the athlete has never mentioned before. Server
+// owns id/opened_at/resolved_at entirely (gemini-flow.md's Action-field design rule #1) -
+// Gemini only ever supplies the semantic text, never an id. Split from injury_event (#693):
+// letting Gemini optionally supply a flag_id for "new vs update" made it invent one for new
+// injuries every time, which injury_event's existing-match-or-throw guard then rejected.
+export interface InjuryFlagInput {
+  text: string;
+}
+
+// Applied in order against an accumulating flags array, same repeat-safety story as
+// applyInjuryEvent below - a turn reporting several new injuries captures all of them.
+export function applyInjuryFlag(
+  content: string | null,
+  newInjuries: InjuryFlagInput[],
+  today: string,
+): string {
+  const parsed = parseJsonOrNull<{ flags?: InjuryFlag[] }>(content);
+  let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
+
+  for (const injury of newInjuries) {
+    const slug = injury.text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 24);
+    const id = `inj_${today.replace(/-/g, "")}_${slug || Math.random().toString(36).slice(2, 6)}`;
+    const newFlag: InjuryFlag = {
+      id,
+      text: injury.text.trim(),
+      status: "active",
+      opened_at: today,
+      resolved_at: null,
+    };
+    flags = [...flags, newFlag];
+  }
+
+  return JSON.stringify({ flags }, null, 2);
+}
+
+// injury_event { status, text?, flag_id }: update or resolve a flag already on file. Server owns
+// opened_at/resolved_at entirely (gemini-flow.md's Action-field design rule #1) - Gemini only
+// ever supplies status/text/flag_id, and flag_id must be a real id already shown in the
+// athlete's injuries context (activeInjuryFlagsSection in coachContext.ts). A brand-new injury
+// goes through injury_flag instead - see applyInjuryFlag above. Two cases:
+//   - status "active", text given -> update that flag's text in place; if it was previously
+//     resolved, reactivate it (clear resolved_at back to null)
+//   - status "resolved" -> stamp resolved_at = today, leave text as-is unless a new one is given
 export interface InjuryEvent {
   status: "active" | "resolved";
   text?: string;
-  flag_id?: string;
+  flag_id: string;
 }
 
 // Array (workout-backend-wiring live verification, same bug class issue #410 fixed for
@@ -136,8 +174,7 @@ export interface InjuryEvent {
 // athlete reported more than one in the same message (e.g. two separate flags resolving) -
 // found live, the reply claimed both were handled but only the first actually committed. Events
 // are applied in order against an accumulating flags array, so a turn reporting several updates
-// captures all of them, and a later event in the same batch sees an earlier one's new flag (e.g.
-// resolving a flag opened earlier in the same turn is possible, however unlikely in practice).
+// captures all of them.
 export function applyInjuryEvent(
   content: string | null,
   events: InjuryEvent[],
@@ -147,32 +184,14 @@ export function applyInjuryEvent(
   let flags: InjuryFlag[] = Array.isArray(parsed?.flags) ? parsed.flags : [];
 
   for (const event of events) {
-    if (!event.flag_id) {
-      // New flag - text is required (enforced by the caller before this is invoked), id minted
-      // server-side.
-      const slug = (event.text ?? "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "")
-        .slice(0, 24);
-      const id = `inj_${today.replace(/-/g, "")}_${slug || Math.random().toString(36).slice(2, 6)}`;
-      const newFlag: InjuryFlag = {
-        id,
-        text: (event.text ?? "").trim(),
-        status: "active",
-        opened_at: today,
-        resolved_at: null,
-      };
-      flags = [...flags, newFlag];
-      continue;
-    }
-
     if (!flags.some((flag) => flag.id === event.flag_id)) {
       // Gemini reported a flag_id that doesn't exist in the current file - either it
       // hallucinated one or the flags list changed underneath it since its context was built.
-      // Throwing here (instead of silently returning the array unchanged) is deliberate: a
-      // caller that commits this write should know the update didn't actually happen, not get a
-      // false "success". Throws for the WHOLE batch, same all-or-nothing discipline as
+      // Now that flag_id is required and every real id is shown in context (a new injury goes
+      // through injury_flag instead), a mismatch here genuinely means a bad reference. Throwing
+      // here (instead of silently returning the array unchanged) is deliberate: a caller that
+      // commits this write should know the update didn't actually happen, not get a false
+      // "success". Throws for the WHOLE batch, same all-or-nothing discipline as
       // applyWeekPlan's day-date validation - a batch with one bad id fails the whole call
       // rather than silently applying a partial patch.
       throw new Error(`injury_event: no flag with id "${event.flag_id}" in injuries.json`);

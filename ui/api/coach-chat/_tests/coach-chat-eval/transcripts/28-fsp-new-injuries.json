@@ -1,0 +1,22 @@
+{
+  "name": "fsp-new-injuries",
+  "description": "Issue #693 regression: during First Session with an empty injuries.json, reporting several brand-new injuries in one turn must fire injury_flag (not injury_event, which is now update/resolve-only and requires a real flag_id) and must not crash the write path. NOTE: this eval harness calls askGemini() with soul: \"\" (see this file's header comment), so it cannot exercise the real prompt guidance in platform/soul/B_engine.md - it only proves the schema/write path accepts the shape. The live bug (Gemini inventing a flag_id like \"left_knee_acl\" for a new injury under the old single-field design, which then couldn't be found in an empty injuries.json and threw) and the fix (splitting into injury_flag/injury_event) were verified separately against the real composed SOUL text, not via this harness.",
+  "mode": "ordinary",
+  "firstSession": true,
+  "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Badminton\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n(none yet)\n",
+  "history": [
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": [
+        "Good to know your fitness level. Any injuries or physical limitations I should know about?"
+      ]
+    }
+  ],
+  "userMessage": "Yeah a few. Left knee - I had ACL surgery done last year. Right shoulder and right elbow - badminton related injuries, they flare up often.",
+  "expect": {
+    "sessionClosed": false,
+    "actionFieldsPresent": ["injury_flag"]
+  }
+}

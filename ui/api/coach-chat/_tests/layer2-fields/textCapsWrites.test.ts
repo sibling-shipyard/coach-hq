@@ -10,7 +10,7 @@ vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
 
 import { buildCoachNoteWrite } from "../../_lib/turnWrites/coachNoteWrite.js";
 import { buildMemoryFileWrite } from "../../_lib/turnWrites/memoryWrite.js";
-import { buildInjuryEventWrite } from "../../_lib/turnWrites/injuryWrite.js";
+import { buildInjuryWrites } from "../../_lib/turnWrites/injuryWrite.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
@@ -42,14 +42,27 @@ describe("turnWrites text-cap backstop", () => {
     expect(parsed.notes.fitness_baseline.text.length).toBeLessThanOrEqual(MEMORY_NOTE_TEXT_CAP);
   });
 
-  it("buildInjuryEventWrite caps oversized injury_event[].text entries", async () => {
+  it("buildInjuryWrites caps oversized injury_flag[].text entries", async () => {
     const oversized = "i".repeat(INJURY_FLAG_TEXT_CAP + 400);
-    const write = buildInjuryEventWrite("owner/repo", "token", "UTC", [
-      { status: "active", text: oversized },
-    ]);
+    const write = buildInjuryWrites("owner/repo", "token", "UTC", [{ text: oversized }], []);
     expect(write).toBeDefined();
     const content = await write!.resolve();
     const parsed = JSON.parse(content) as { flags: { text: string }[] };
     expect(parsed.flags[0].text.length).toBeLessThanOrEqual(INJURY_FLAG_TEXT_CAP);
+  });
+
+  it("buildInjuryWrites caps oversized injury_event[].text entries", async () => {
+    const oversized = "i".repeat(INJURY_FLAG_TEXT_CAP + 400);
+    const write = buildInjuryWrites(
+      "owner/repo",
+      "token",
+      "UTC",
+      [],
+      [{ status: "active", flag_id: "inj_test", text: oversized }],
+    );
+    expect(write).toBeDefined();
+    // getFileRaw is mocked to null, so this event's flag_id will not exist in flags - it should
+    // throw, same discipline as applyInjuryEvent's existing "no flag with id" guard.
+    await expect(write!.resolve()).rejects.toThrow('no flag with id "inj_test"');
   });
 });
