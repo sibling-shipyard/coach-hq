@@ -32,7 +32,7 @@ Coach would make up an id for an injury it had just heard about for the first ti
 already existed on file. The server took that as a reference to something real, found nothing,
 and the whole reply failed to save.
 
-- A new injury never mentioned before is now sent without an id — the server mints one.
+- A new injury never mentioned before goes through without an id — one gets minted for it.
 - An id is only ever included when updating or resolving a flag already on record.
 **Why it mattered:** an athlete describing a fresh ACL surgery shouldn't get silence back.
 
