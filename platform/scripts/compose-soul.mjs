@@ -55,6 +55,7 @@ const LAYER_FILES = {
  * are no longer expected to `diff` clean against each other.
  */
 const CLAUDE_ONLY = ["claude"];
+const CHAT_ONLY = ["chat"];
 
 const ASSEMBLY = [
   // §1 Boot Sequence — chat is told to skip booting entirely.
@@ -128,7 +129,10 @@ const ASSEMBLY = [
       "s10_badminton_pointer",
       "s11",
       "s12_head",
-      "s12_updates",
+      "s12_updates_head",
+      "s12_updates_memory_chat_runtime",
+      "s12_updates_memory_claude_runtime",
+      "s12_updates_tail",
       "s12_coach_notes",
       "s12_checklist",
       "s12_checklist_shell",
@@ -154,6 +158,10 @@ const ASSEMBLY = [
       // its pointer are BYOB-only because the app can read neither. The one-line "never invent
       // games from HR" guardrail stays in both — chat sees badminton activities too.
       s10_badminton_pointer: CLAUDE_ONLY,
+      // BYOB has no server to mint an injury id; the two variants tell each runtime the
+      // id-minting rule that actually applies to it (Akash's #694 review comment).
+      s12_updates_memory_chat_runtime: CHAT_ONLY,
+      s12_updates_memory_claude_runtime: CLAUDE_ONLY,
       // The backend injects its own, longer greeting instruction on every turn.
       s10_greeting: CLAUDE_ONLY,
       // Shell validator + `git diff`.
