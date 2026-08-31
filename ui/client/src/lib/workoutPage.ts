@@ -21,6 +21,8 @@ export type WeekDay = {
   timing: WeekDayTiming;
   /** From current_week session status when source is plan; null otherwise. */
   planStatus: WeekDayPlanStatus | null;
+  templateId: string | null;
+  sessionFile: string | null;
 };
 
 export type WorkoutPageActivity = {
@@ -116,13 +118,13 @@ function resolveRunnable(
   return null;
 }
 
-function todayHeroFromSession(
+function heroFromSession(
   session: CurrentWeekSession,
-  today: string,
+  date: string,
   workouts: WorkoutsData,
 ): TodayHero {
   if (session.template_id) {
-    const resolved = resolveRunnable(session.template_id, session.session_file, today, workouts);
+    const resolved = resolveRunnable(session.template_id, session.session_file, date, workouts);
     if (resolved) {
       return { kind: "runnable", ...resolved, done: session.status === "done" };
     }
@@ -132,6 +134,33 @@ function todayHeroFromSession(
     title: session.title,
     durationMin: session.planned_duration_min,
   };
+}
+
+function todayHeroFromSession(
+  session: CurrentWeekSession,
+  today: string,
+  workouts: WorkoutsData,
+): TodayHero {
+  return heroFromSession(session, today, workouts);
+}
+
+/** Resolve the detail panel for a week row (runnable, mention, or rest). */
+export function resolveDayHero(day: WeekDay, workouts: WorkoutsData): TodayHero {
+  if (day.source === "empty") return { kind: "rest" };
+  if (day.templateId) {
+    const resolved = resolveRunnable(day.templateId, day.sessionFile, day.date, workouts);
+    if (resolved) {
+      return {
+        kind: "runnable",
+        ...resolved,
+        done: day.planStatus === "done",
+      };
+    }
+  }
+  if (day.title) {
+    return { kind: "mention", title: day.title, durationMin: day.durationMin };
+  }
+  return { kind: "rest" };
 }
 
 function dayTiming(date: string, today: string): WeekDayTiming {
@@ -153,6 +182,8 @@ function emptyDay(date: string, today: string): WeekDay {
     isToday: date === today,
     timing: dayTiming(date, today),
     planStatus: null,
+    templateId: null,
+    sessionFile: null,
   };
 }
 
@@ -180,6 +211,8 @@ function histWeekDays(dates: string[], today: string, activities: WorkoutPageAct
       isToday: date === today,
       timing: dayTiming(date, today),
       planStatus: null,
+      templateId: null,
+      sessionFile: null,
     };
   });
 }
@@ -236,6 +269,8 @@ export function selectWorkoutsPage(
           isToday: date === today,
           timing: dayTiming(date, today),
           planStatus: session.status,
+          templateId: session.template_id,
+          sessionFile: session.session_file,
         };
       }
       return emptyDay(date, today);

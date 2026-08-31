@@ -2866,7 +2866,7 @@ div.wi-trend-scrub__chip {
   }
 }
 
-/* Workouts page — week strip / today / library (A5) */
+/* Workouts page — week list / selected day / library (A5) */
 .wi-workouts-page {
   display: flex;
   flex-direction: column;
@@ -2874,60 +2874,58 @@ div.wi-trend-scrub__chip {
   margin-top: 28px;
 }
 
-.wi-workouts-plan .wi-plan-card__days {
-  gap: 10px;
+.wi-workouts-week-card {
+  margin-top: 0;
 }
 
-.wi-workouts-plan-day.is-today .wi-plan-day__label.is-today-label {
+.wi-workouts-week-card .wi-session-row {
+  gap: 14px;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.wi-workouts-week-row.is-today .wi-session-row__date.is-today-date {
   color: var(--wi-rust);
   font-weight: 700;
 }
 
-.wi-workouts-plan-day.is-today .wi-workouts-plan-slot:not(.is-empty) {
-  box-shadow:
-    0 0 0 2px var(--wi-surface),
-    0 0 0 3px var(--wi-rust);
+.wi-workouts-week-row.is-selected {
+  margin: 0 -12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgb(255 252 246 / 92%);
+  box-shadow: inset 3px 0 0 var(--wi-rust);
 }
 
-.wi-workouts-plan-slot {
-  height: auto;
-  min-height: 54px;
-  padding: 8px 6px;
+.wi-workouts-week-row:focus-visible {
+  outline: 2px solid var(--wi-rust);
+  outline-offset: 2px;
 }
 
-.wi-workouts-plan-slot.is-empty {
-  border-style: dashed;
-  border-color: #e2dcd0;
-  background: transparent;
+.wi-workouts-week-row.is-done > strong {
+  color: var(--wi-ink-muted);
 }
 
-.wi-workouts-plan-slot__empty {
-  color: #b9b3a5;
-  font-family: "Space Mono", monospace;
-  font-size: 10px;
+.wi-workouts-week-row.is-empty > strong {
+  color: var(--wi-ink-faint);
+  font-weight: 400;
 }
 
-.wi-workouts-plan-slot__title {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  color: inherit;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.25;
-  text-align: center;
+.wi-workouts-week-row.is-empty .wi-session-row__vein {
+  opacity: 0.35;
 }
 
-.wi-workouts-plan-day.is-done .wi-workouts-plan-slot {
-  opacity: 0.72;
+.wi-workouts-week-row.is-past:not(.is-done):not(.is-today) > strong {
+  color: var(--wi-ink-muted);
 }
 
-.wi-workouts-plan-day.is-past:not(.is-done):not(.is-today) .wi-workouts-plan-slot:not(.is-empty) {
-  opacity: 0.82;
-}
-
-.wi-workouts-today .wi-card-kicker {
+.wi-workouts-selected .wi-card-kicker {
   margin-bottom: 10px;
 }
 
@@ -3004,15 +3002,15 @@ div.wi-trend-scrub__chip {
   letter-spacing: 0.08em;
 }
 
-.wi-workouts-library__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 28px 48px;
-  margin-top: 14px;
+.wi-workouts-library__list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 12px;
 }
 
 .wi-workouts-library__group-label {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--wi-ink-faint);
   font-family: "Space Mono", monospace;
   font-size: 9px;
@@ -3118,21 +3116,10 @@ div.wi-trend-scrub__chip {
   white-space: nowrap;
 }
 
-@media (max-width: 960px) {
-  .wi-workouts-library__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px 32px;
-  }
-
+@media (max-width: 720px) {
   .wi-workouts-today-bar {
     grid-template-columns: 1fr;
     gap: 12px;
-  }
-}
-
-@media (max-width: 640px) {
-  .wi-workouts-library__grid {
-    grid-template-columns: 1fr;
   }
 }
 

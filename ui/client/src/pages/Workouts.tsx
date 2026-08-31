@@ -1,4 +1,4 @@
-import { CSSProperties, useMemo } from "react";
+import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { RepoDataGate } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
@@ -8,7 +8,12 @@ import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
 import { formatMinutesLabel } from "@/components/home-warm/formatUtils";
 import type { WarmSportId } from "@/components/home-warm/snapshots";
 import { Workout, WorkoutType, WorkoutsData } from "@/lib/workouts";
-import { selectWorkoutsPage, type TodayHero, type WeekDay } from "@/lib/workoutPage";
+import {
+  resolveDayHero,
+  selectWorkoutsPage,
+  type TodayHero,
+  type WeekDay,
+} from "@/lib/workoutPage";
 import { SportBadge, accentFor } from "@/components/workout-timer-warm/WorkoutTimerWidgets";
 import "@/components/home-warm/warm-instrument.css";
 
@@ -64,81 +69,74 @@ function asSport(value: string | null | undefined): WarmSportId {
   return "other";
 }
 
-function planDayLabel(date: string): { short: string; num: string } {
-  const short = new Date(`${date}T00:00:00Z`)
+function weekDateLabel(date: string): string {
+  const weekday = new Date(`${date}T00:00:00Z`)
     .toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" })
-    .toUpperCase()
-    .slice(0, 3);
-  const num = date.slice(8, 10).replace(/^0/, "");
-  return { short, num };
+    .toUpperCase();
+  const day = date.slice(8, 10).replace(/^0/, "");
+  return `${weekday} ${day}`;
 }
 
-function WorkoutPlanDay({ day }: { day: WeekDay }) {
+function weekRowDetail(day: WeekDay): string {
+  const duration = day.durationMin != null ? formatMinutesLabel(day.durationMin) : "";
+  if (day.planStatus === "done") return duration ? `Done · ${duration}` : "Done";
+  if (day.planStatus === "skipped") return "Skipped";
+  if (day.source === "activity") return duration || "Logged";
+  return duration;
+}
+
+function WorkoutWeekRow({
+  day,
+  selected,
+  onSelect,
+}: {
+  day: WeekDay;
+  selected: boolean;
+  onSelect: (date: string) => void;
+}) {
   const empty = day.source === "empty";
   const sport = asSport(day.sport);
-  const { short, num } = planDayLabel(day.date);
-  const duration = day.durationMin != null ? formatMinutesLabel(day.durationMin) : null;
-  const slotClass = [
-    "wi-plan-day__slot",
-    "wi-workouts-plan-slot",
-    empty ? "is-empty" : `is-${sport}`,
-    day.planStatus === "done" ? "is-done" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const dayClass = [
-    "wi-plan-day",
-    "wi-workouts-plan-day",
+  const detail = weekRowDetail(day);
+  const rowClass = [
+    "wi-session-row",
+    "wi-workouts-week-row",
     day.isToday ? "is-today" : "",
+    selected ? "is-selected" : "",
     day.planStatus === "done" ? "is-done" : "",
+    empty ? "is-empty" : "",
     day.timing === "past" && day.planStatus === "planned" ? "is-past" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className={dayClass} aria-current={day.isToday ? "date" : undefined}>
-      <span className={`wi-plan-day__label${day.isToday ? " is-today-label" : ""}`}>
-        <span className="wi-desktop-only">
-          {short} {num}
-        </span>
-        <span className="wi-mobile-only">{short.slice(0, 1)}</span>
+    <button
+      type="button"
+      className={rowClass}
+      onClick={() => onSelect(day.date)}
+      aria-current={selected ? "true" : day.isToday ? "date" : undefined}
+      aria-pressed={selected}
+    >
+      <span className={`wi-session-row__date${day.isToday ? " is-today-date" : ""}`}>
+        {weekDateLabel(day.date)}
       </span>
-      <div className={slotClass}>
-        {empty ? (
-          <span className="wi-workouts-plan-slot__empty">—</span>
-        ) : (
-          <>
-            <span className="wi-workouts-plan-slot__title">{day.title}</span>
-            {duration ? <small>{day.planStatus === "done" ? `Done · ${duration}` : duration}</small> : null}
-          </>
-        )}
-      </div>
-    </div>
+      <span className={`wi-session-row__vein is-${sport}`} aria-hidden />
+      <strong>{empty ? "—" : (day.title ?? "")}</strong>
+      {detail ? <span className="wi-session-row__detail">{detail}</span> : null}
+    </button>
   );
 }
 
-function LibraryRow({ workout }: { workout: Workout }) {
-  const sport = asSport(workout.workout_type);
-  return (
-    <Link href={`/workouts/${workout.id}`} className="wi-workouts-lib-row">
-      <span className={`wi-workouts-lib-row__vein is-${sport}`} aria-hidden />
-      <span className="wi-workouts-lib-row__title">{workout.title}</span>
-      <span className="wi-workouts-lib-row__meta">
-        {workout.estimated_duration_mins}m · {workout.location}
-      </span>
-    </Link>
-  );
-}
+function SelectedDayPanel({ day, hero }: { day: WeekDay; hero: TodayHero }) {
+  const label = day.isToday ? "TODAY" : weekDateLabel(day.date);
 
-function TodayBand({ hero }: { hero: TodayHero }) {
   if (hero.kind === "runnable") {
     const workout = hero.workout;
     const accent = accentFor(workout.workout_type);
     return (
-      <section className="wi-workouts-today">
+      <section className="wi-workouts-selected">
         <div className="wi-card-kicker">
-          <span>{hero.done ? "DONE TODAY" : "TODAY"}</span>
+          <span>{hero.done ? "DONE" : label}</span>
         </div>
         <Link
           href={`/workouts/${workout.id}`}
@@ -161,18 +159,42 @@ function TodayBand({ hero }: { hero: TodayHero }) {
       </section>
     );
   }
+
   if (hero.kind === "mention") {
     return (
-      <p className="wi-workouts-hero__line">
-        {hero.title}
-        {hero.durationMin != null ? <span>{hero.durationMin} min</span> : null}
-      </p>
+      <section className="wi-workouts-selected">
+        <div className="wi-card-kicker">
+          <span>{label}</span>
+        </div>
+        <p className="wi-workouts-hero__line">
+          {hero.title}
+          {hero.durationMin != null ? <span>{hero.durationMin} min</span> : null}
+        </p>
+      </section>
     );
   }
-  if (hero.kind === "rest") {
-    return <p className="wi-workouts-hero__line">Rest day — nothing scheduled.</p>;
-  }
-  return null;
+
+  return (
+    <section className="wi-workouts-selected">
+      <div className="wi-card-kicker">
+        <span>{label}</span>
+      </div>
+      <p className="wi-workouts-hero__line">Nothing scheduled.</p>
+    </section>
+  );
+}
+
+function LibraryRow({ workout }: { workout: Workout }) {
+  const sport = asSport(workout.workout_type);
+  return (
+    <Link href={`/workouts/${workout.id}`} className="wi-workouts-lib-row">
+      <span className={`wi-workouts-lib-row__vein is-${sport}`} aria-hidden />
+      <span className="wi-workouts-lib-row__title">{workout.title}</span>
+      <span className="wi-workouts-lib-row__meta">
+        {workout.estimated_duration_mins}m · {workout.location}
+      </span>
+    </Link>
+  );
 }
 
 export default function Workouts() {
@@ -203,6 +225,19 @@ function WorkoutsContent({ data }: { data: RepoData }) {
       athleteTimezone,
     );
   }, [athleteTimezone, data.activities, data.current_week, workoutsData]);
+
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!page.week?.length) return;
+    setSelectedDate((prev) => {
+      if (prev && page.week!.some((day) => day.date === prev)) return prev;
+      return page.week!.find((day) => day.isToday)?.date ?? page.week![0].date;
+    });
+  }, [page.week]);
+
+  const selectedDay = page.week?.find((day) => day.date === selectedDate) ?? null;
+  const selectedHero = selectedDay ? resolveDayHero(selectedDay, workoutsData) : null;
 
   const groups = useMemo(() => {
     const templates = (workoutsData.templates ?? []).filter((t) => t.id && !isManifestId(t.id));
@@ -241,25 +276,32 @@ function WorkoutsContent({ data }: { data: RepoData }) {
 
         <div className="wi-workouts-page">
           {page.week ? (
-            <section className="wi-plan-card wi-workouts-plan">
+            <section className="wi-sessions-card wi-workouts-week-card">
               <div className="wi-card-kicker">
                 <span>THIS WEEK</span>
               </div>
-              <div className="wi-plan-card__days" role="list">
+              <div className="wi-sessions-card__rows">
                 {page.week.map((day) => (
-                  <WorkoutPlanDay key={day.date} day={day} />
+                  <WorkoutWeekRow
+                    key={day.date}
+                    day={day}
+                    selected={day.date === selectedDate}
+                    onSelect={setSelectedDate}
+                  />
                 ))}
               </div>
             </section>
           ) : null}
 
-          <TodayBand hero={page.today} />
+          {selectedDay && selectedHero ? (
+            <SelectedDayPanel day={selectedDay} hero={selectedHero} />
+          ) : null}
 
           <section className="wi-workouts-library">
             <div className="wi-card-kicker">
               <span>LIBRARY</span>
             </div>
-            <div className="wi-workouts-library__grid">
+            <div className="wi-workouts-library__list">
               {groups.map((group) => (
                 <div key={group.type} className="wi-workouts-library__group">
                   <div className="wi-workouts-library__group-label">

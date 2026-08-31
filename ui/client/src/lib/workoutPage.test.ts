@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseCurrentWeek, type CurrentWeek, type CurrentWeekSession } from "@/lib/currentWeek";
 import type { Workout, WorkoutsData } from "@/lib/workouts";
-import { selectWorkoutsPage } from "./workoutPage";
+import { selectWorkoutsPage, resolveDayHero } from "./workoutPage";
 
 const STRENGTH: Workout = {
   id: "strength-a",
@@ -303,6 +303,23 @@ describe("selectWorkoutsPage", () => {
       expect(result.today.workout.id).toBe("strength-a");
     }
     expect(result.week?.[4]).toMatchObject({ date: "2026-01-16", source: "plan" });
+  });
+
+  it("resolveDayHero: week row with template_id opens the workout", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-17T12:00:00Z"));
+    const week = liveWeek({
+      timezone: "UTC",
+      monday: "2026-08-17",
+      sessionsByOffset: {
+        0: [session("2026-08-17")],
+      },
+    });
+    const result = selectWorkoutsPage(EMPTY_WORKOUTS, week, []);
+    const monday = result.week?.[0];
+    expect(monday).toBeDefined();
+    const hero = resolveDayHero(monday!, EMPTY_WORKOUTS);
+    expect(hero).toMatchObject({ kind: "runnable", from: "template" });
   });
 
   it("never crashes on garbage current_week, and skips _manifest templates", () => {
