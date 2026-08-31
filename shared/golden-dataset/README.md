@@ -49,7 +49,9 @@ day after. `generate-repo-data.mjs` builds every date relative to whenever it ru
 to actually be **regenerated**, not just read, each time you want fresh local data.
 
 It's wired into `ui`'s `predev`/`prebuild` npm scripts, so it runs automatically before Vite
-starts — `npm run dev` always gets a same-day-fresh fixture, no manual step. Output goes to
+starts — `npm run dev` always gets a same-day-fresh fixture, no manual step. The generated
+`current_week.json` is **`live`** with a populated week so `/workouts` demos today + this week
++ library locally (static Layer 1 stays placeholder for `/gallery` and iOS previews). Output goes to
 `repo-data/` (gitignored, same treatment as `ui/client/src/data/*.json`, which this replaces
 as `useRepoData.ts`'s dev-mode data source — see that file's own header comment for why
 `ui/client/src/data/*` itself is untouched: it's exclusively pipeline-managed per `AGENTS.md`).
