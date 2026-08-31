@@ -92,8 +92,6 @@ export function RageReportDialog({
     setSent(true);
   }
 
-  const visibleTrail = trail.slice(-8);
-
   return (
     <>
       {showTrigger ? (
@@ -146,7 +144,8 @@ export function RageReportDialog({
                     <h2 className="text-lg mb-2">What went wrong?</h2>
                     {reportingAvailable ? (
                       <p className="text-sm text-muted-foreground mb-4">
-                        Say it however you like. What you clicked just before is sent with it.
+                        Describe what happened in your own words. Your recent activity will be
+                        included to help us investigate.
                       </p>
                     ) : (
                       <p role="status" className="text-sm text-muted-foreground mb-4">
@@ -162,15 +161,27 @@ export function RageReportDialog({
                       placeholder="The coach answered as if it had not read my last message."
                       className="w-full p-3 mb-4 rounded-lg border bg-muted text-sm resize-none"
                     />
-                    {!reportingAvailable ? null : visibleTrail.length > 0 ? (
-                      <ul className="max-h-32 mb-6 overflow-y-auto text-xs text-muted-foreground space-y-1">
-                        {visibleTrail.map((item, index) => (
-                          <li key={`${item.timestamp ?? "t"}-${index}`}>{trailLine(item)}</li>
-                        ))}
-                      </ul>
+                    {!reportingAvailable ? null : trail.length > 0 ? (
+                      <div className="mb-6">
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {trail.length} recent {trail.length === 1 ? "action" : "actions"} will be
+                          included to help us investigate.
+                        </p>
+                        <details className="group">
+                          <summary className="w-fit text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+                            <span className="group-open:hidden">Show technical details</span>
+                            <span className="hidden group-open:inline">Hide technical details</span>
+                          </summary>
+                          <ul className="max-h-32 mt-2 overflow-y-auto rounded-lg border border-border/50 bg-muted/50 px-3 py-2 font-mono text-xs text-muted-foreground break-all space-y-1">
+                            {trail.map((item, index) => (
+                              <li key={`${item.timestamp ?? "t"}-${index}`}>{trailLine(item)}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      </div>
                     ) : (
                       <p className="text-xs text-muted-foreground mb-6">
-                        No recent clicks to send — the complaint still goes.
+                        No recent activity was recorded. You can still send the report.
                       </p>
                     )}
                     <div className="flex justify-end gap-3">
