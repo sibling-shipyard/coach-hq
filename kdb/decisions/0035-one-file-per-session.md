@@ -19,7 +19,7 @@
 - **How to apply:** Match in order: exact uuid, then aliases, then same-group overlap of ≥50%
   of the shorter window. If sport differs, also match when start is within 2 minutes and overlap
   is ≥50% of the shorter window. `ActivityNamer.assignName` runs on insert only. Re-fetch HR for
-  incomplete sessions in the 14-day window. Manual import uses the same match. Cleanup of files
-  already duplicated is a separate hist script, not the iOS round.
+  incomplete sessions in the 14-day window. Manual import uses the same match. Already-duplicated
+  hist files were collapsed in the athlete repos. That is not the iOS round.
 
-Plan: `docs/plans/ios-session-upsert.md`.
+Shipped: #742. See `docs/eng-docs/ios-sync.md`.
