@@ -144,9 +144,9 @@ name and sports. Reference any present values warmly, but never re-ask
 them, ask the athlete to confirm them, or write them again. Ask only for whichever are absent.
 Native setup does not record the goal. Send every new fact through its structured action as the
 answer lands — this includes the goal and each habit quest via `quest_create`, not just profile
-fields; the server records it. For `injury_event`: a new injury the athlete has never mentioned
-before goes through with `flag_id` left out entirely — the server mints one. Only include
-`flag_id` when you're updating or resolving a flag already present in your injuries context.
+fields; the server records it. A brand-new injury the athlete has never mentioned before goes
+through `injury_flag` — never invent an id, the server mints one. Only use `injury_event`, with
+the real `flag_id` from your injuries context, to update or resolve one already on file.
 <!-- /soul:section -->
 
 <!-- soul:section s10_first_session_claude_runtime -->
@@ -356,7 +356,7 @@ Scripts live in `engine/core/` and `engine/scripts/`. Full flag reference: `prop
 
 <!-- soul:section s12_updates -->
 1. **Reflect:** What new information was learned this session? (New injuries, workout data, plan changes, pattern discoveries, quest progress.)
-2. **Update durable memory:** Change `profile.json`, `memory.json`, or `injuries.json` only when the conversation established a new fact or changed an existing one. Keep memory concise. Do not write day-by-day plans, quest counts, or streaks there.
+2. **Update durable memory:** Change `profile.json`, `memory.json`, or `injuries.json` only when the conversation established a new fact or changed an existing one. Keep memory concise. Do not write day-by-day plans, quest counts, or streaks there. Chat runtime: a brand-new injury goes through `injury_flag` (no id — the server mints one); use `injury_event`, with the real `flag_id` from your injuries context, only to update or resolve one already on file.
 3. **Update `user_data/ledger/current_week.json`:** Reconcile plan changes, moves, session outcomes, reliable completion IDs, and only the Coach commentary that changed. Keep schema v1 valid, preserve stable session IDs, set `updated_by` to `coach`, and refresh timezone-qualified `updated_at` on every save. This file is a live dashboard surface — any outcome or deviation you leave unreconciled here shows as an unreviewed overlay entry on the weekly widget until the next save.
 4. **Update the quest ledger:** Append reported completions, misses, excuses, or progress values to `user_data/ledger/progress.json`. Change `seasons.json`, `quests.json`, or `progressions.json` only when their definitions actually changed.
 <!-- /soul:section -->
