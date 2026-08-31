@@ -2866,6 +2866,57 @@ div.wi-trend-scrub__chip {
   }
 }
 
+/* Workouts page — today / this week / library (A5) */
+.wi-workouts-band {
+  margin-top: 28px;
+}
+
+.wi-workouts-band__label {
+  color: var(--wi-ink-faint);
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wi-workouts-hero {
+  margin-top: 14px;
+  max-width: 520px;
+}
+
+.wi-workouts-hero__line {
+  margin: 14px 0 0;
+  color: var(--wi-ink);
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+.wi-workouts-hero__line > span {
+  margin-left: 10px;
+  color: var(--wi-ink-faint);
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.wi-workouts-week {
+  margin-top: 6px;
+}
+
+.wi-workouts-week .wi-session-row {
+  color: inherit;
+}
+
+.wi-workouts-week__empty {
+  opacity: 0.45;
+}
+
+.wi-workouts-band .wtx-list-groups {
+  margin-top: 14px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wi-engine-card,
   .wi-calories-card,
