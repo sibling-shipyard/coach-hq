@@ -7,8 +7,8 @@ the same activity group, then start within 2 minutes even when sport differs.
 
 Keeps the earliest file (first git add, then lowest `#N`, then filename). Copies HR fields
 and the stream sidecar from the copy with the most covered seconds. Writes loser uuids onto
-`aliases`. Deletes loser hist + stream. Does not rename remaining `#N` gaps and does not
-POST Coach.
+`aliases`. Deletes loser hist + stream. Then renames survivors to `{Sport} #{N}` in start
+order, per sport per calendar year, and sets `sync_state` counters to that max. No Coach.
 
 Dry-run is the default. `--apply` writes.
 
@@ -31,7 +31,7 @@ from typing import Any
 
 _here = Path(__file__).resolve().parent
 sys.path.insert(0, str(_here.parent / "lib"))
-from repo_layout import hist_dir  # noqa: E402
+from repo_layout import hist_dir, sync_state_path  # noqa: E402
 
 CROSS_SPORT_START_SLACK = timedelta(seconds=120)
 OVERLAP_RATIO = 0.5
@@ -331,6 +331,63 @@ def apply_plan(plan: Plan) -> None:
         p.unlink(missing_ok=True)
 
 
+def planned_names(records: list[Record]) -> list[tuple[Record, str]]:
+    """`{Sport} #{N}` in start order, per sport per calendar year (ActivityNamer)."""
+    groups: dict[tuple[str, int], list[Record]] = {}
+    for rec in records:
+        if not rec.sport:
+            continue
+        groups.setdefault((rec.sport, rec.start.year), []).append(rec)
+    changes: list[tuple[Record, str]] = []
+    for recs in groups.values():
+        recs.sort(key=lambda r: (r.start, r.filename))
+        for i, rec in enumerate(recs, 1):
+            new_name = f"{rec.sport} #{i}"
+            if rec.name != new_name:
+                changes.append((rec, new_name))
+    return changes
+
+
+def counters_for_latest_year(records: list[Record]) -> tuple[int, dict[str, int]]:
+    groups: dict[tuple[str, int], int] = {}
+    for rec in records:
+        if not rec.sport:
+            continue
+        key = (rec.sport.lower(), rec.start.year)
+        groups[key] = groups.get(key, 0) + 1
+    latest = max((year for (_, year) in groups), default=datetime.now().year)
+    counters = {sport: n for (sport, year), n in groups.items() if year == latest}
+    return latest, counters
+
+
+def write_name(rec: Record, new_name: str) -> None:
+    data = dict(rec.data)
+    data["name"] = new_name
+    rec.path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
+def write_counters(repo: Path, year: int, counters: dict[str, int]) -> None:
+    path = sync_state_path(repo)
+    state: dict[str, Any] = {}
+    if path.is_file():
+        try:
+            loaded = json.loads(path.read_text())
+            if isinstance(loaded, dict):
+                state = loaded
+        except (OSError, json.JSONDecodeError):
+            state = {}
+    state["counter_year"] = year
+    state["counters"] = dict(sorted(counters.items()))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n")
+
+
+def print_renames(changes: list[tuple[Record, str]], year: int, counters: dict[str, int]) -> None:
+    print(f"RENUMBER {len(changes)} name(s); {year} counters {json.dumps(counters, sort_keys=True)}")
+    for rec, new_name in changes:
+        print(f"  {rec.filename}: {rec.name!r} → {new_name!r}")
+
+
 def run(repo: Path, apply: bool) -> int:
     records = load_records(repo)
     hk = [r for r in records if r.is_hk]
@@ -342,19 +399,31 @@ def run(repo: Path, apply: bool) -> int:
                 c.members.append(other)
                 break
     plans = [p for c in clusters if (p := build_plan(c, repo))]
-    if not plans:
-        print("No duplicate HK clusters.")
-        return 0
-    print(f"{'APPLY' if apply else 'DRY-RUN'}: {len(plans)} cluster(s) to collapse\n")
-    for plan in plans:
-        print_plan(plan, repo)
-        print()
-    if apply:
+    if plans:
+        print(f"{'APPLY' if apply else 'DRY-RUN'}: {len(plans)} cluster(s) to collapse\n")
         for plan in plans:
-            apply_plan(plan)
-        print(f"Wrote {len(plans)} session file(s).")
+            print_plan(plan, repo)
+            print()
+        if apply:
+            for plan in plans:
+                apply_plan(plan)
+            print(f"Wrote {len(plans)} session file(s).")
+            records = load_records(repo)
+        else:
+            print("No files written. Pass --apply to collapse.\n")
     else:
-        print("No files written. Pass --apply to collapse.")
+        print("No duplicate HK clusters.")
+
+    changes = planned_names(records)
+    year, counters = counters_for_latest_year(records)
+    print_renames(changes, year, counters)
+    if apply:
+        for rec, new_name in changes:
+            write_name(rec, new_name)
+        write_counters(repo, year, counters)
+        print(f"Updated {sync_state_path(repo).relative_to(repo)}")
+    elif not plans:
+        print("No files written. Pass --apply to write.")
     return 0
 
 

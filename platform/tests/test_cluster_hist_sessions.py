@@ -151,7 +151,7 @@ class TestApply(unittest.TestCase):
             names = sorted(p.name for p in hist.glob("*.json"))
             self.assertEqual(names, [a.filename])
             body = json.loads((hist / a.filename).read_text())
-            self.assertEqual(body["name"], "WeightTraining #3")
+            self.assertEqual(body["name"], "WeightTraining #1")
             self.assertEqual(body["id"], "AAA")
             self.assertEqual(body["aliases"], ["BBB"])
             self.assertEqual(body["hr_zones"]["Zone 1"]["seconds"], 50)
@@ -159,6 +159,37 @@ class TestApply(unittest.TestCase):
             stream_a = repo / "user_data" / "activities" / "streams" / "AAA.json"
             self.assertTrue(stream_a.is_file())
             self.assertEqual(json.loads(stream_a.read_text())["activity_id"], "AAA")
+
+    def test_renumber_fills_gaps_and_resets_counter(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = self._repo(tmp)
+            early = rec("WeightTraining #1", "ONE", datetime(2026, 7, 23, 19, 34, 24), 100)
+            late = rec("WeightTraining #5", "FIVE", datetime(2026, 8, 29, 17, 39, 21), 100)
+            self._write_hist(repo, early)
+            self._write_hist(repo, late)
+            (repo / "user_data" / "activities" / "sync_state.json").write_text(
+                json.dumps({"counter_year": 2026, "counters": {"weighttraining": 7}})
+            )
+            with patch("sys.stdout", StringIO()):
+                chs.run(repo, apply=True)
+            hist = repo / "user_data" / "activities" / "hist"
+            names = {
+                json.loads(p.read_text())["name"]
+                for p in hist.glob("*.json")
+            }
+            self.assertEqual(names, {"WeightTraining #1", "WeightTraining #2"})
+            state = json.loads((repo / "user_data" / "activities" / "sync_state.json").read_text())
+            self.assertEqual(state["counters"]["weighttraining"], 2)
+            self.assertEqual(state["counter_year"], 2026)
+
+    def test_renumber_resets_each_calendar_year(self):
+        a = rec("Walk #1", "A", datetime(2025, 1, 1, 8, 0, 0), 100, sport="Walk")
+        b = rec("Walk #27", "B", datetime(2026, 6, 21, 21, 16, 44), 100, sport="Walk")
+        changes = chs.planned_names([a, b])
+        self.assertEqual(changes, [(b, "Walk #1")])
+        year, counters = chs.counters_for_latest_year([a, b])
+        self.assertEqual(year, 2026)
+        self.assertEqual(counters, {"walk": 1})
 
 
 if __name__ == "__main__":
