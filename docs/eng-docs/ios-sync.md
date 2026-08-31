@@ -85,9 +85,9 @@ sequenceDiagram
    - `category` is **not** auto-assigned at sync (left nil).
 
 6. **Commit** — `GitHubAPIClient.commitFiles()` batches the new activity file(s), any HR stream
-   sidecars, plus the updated `sync_state.json` into **one atomic commit** using GitHub's Git Data API (create blobs → read
-   HEAD → build tree → create commit → move the branch ref), retried against a fresh HEAD on a
-   non-fast-forward conflict. Pushed straight to `main`.
+   sidecars, plus the updated `sync_state.json` into **one atomic commit**. It uses GitHub's Git
+   Data API: create blobs, read HEAD, build a tree, create a commit, then move the branch ref. A
+   non-fast-forward conflict retries against a fresh HEAD. Pushed straight to `main`.
 7. **Wait for derived data** — updates the on-device activity cache immediately, then
    `refreshAfterSync` polls until `home.sync.timestamp` proves the user-repo pipeline has rebuilt
    fresh derived context.
@@ -192,11 +192,10 @@ losers too — it shows one row per session and names every app that recorded it
 grouping is the primitive and winner-picking the wrapper. Import uses the same overlap match,
 so a Garmin rewrite of a synced session does not offer Import.
 
-**Grouping is greedy, not transitive.** A recording joins the first winner it overlaps and starts
-its own cluster if it overlaps none, so a chain — A overlaps B, B overlaps C, A and C do not —
-splits into two clusters instead of merging into one. Deliberate: transitive grouping lets a run
-of near-misses swallow genuinely separate back-to-back sessions, and hiding a real workout is the
-worse failure.
+**Grouping is greedy, not transitive.** A recording joins the first winner it overlaps. It starts
+its own cluster if it overlaps none. A chain — A overlaps B, B overlaps C, A and C do not —
+splits into two clusters instead of one. Deliberate: transitive grouping lets near-misses swallow
+separate back-to-back sessions, and hiding a real workout is the worse failure.
 
 The rules live in `WorkoutDeduplicator.swift`, deliberately free of HealthKit types — `HKWorkout`
 cannot be constructed outside a device store, so anything touching it is untestable. Verify with:
