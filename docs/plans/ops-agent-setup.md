@@ -49,7 +49,7 @@ scored it: it is not a tidy-up, it is a broken file.
 |---|---|---|
 | T1.1 boot-cost script | #399 | ✅ shipped |
 | T1.2 settings.json repair | #400 | ✅ shipped — 8 MCP names in the first pass did not exist on this server; corrected in review |
-| T1.3 one check command | #399 | ✅ shipped as `platform/scripts/check.sh` |
+| T1.3 one check command | #399 | ✅ shipped as `platform/scripts/check.sh`; #737 extends it with pre-push enforcement and a fix-until-green handoff loop |
 | T1.4 `git add -A` hook | #400 | ✅ shipped — 15/15 on a payload matrix, and it blocked a real `git add .` during this review |
 | T1.5 role-doc diet + byte cap | #401 | ✅ shipped — see the measurement below before calling it a win |
 | T1.6 conditional SOUL read | #402 | ✅ shipped — the one large saving in the stack |
@@ -105,10 +105,10 @@ above are still open, so it stays. Delete it when they resolve, folding anything
 
 ### Found in review, filed as issues
 
-- #414 (P1) — iOS boot is the heaviest and the diet barely moved it
-- #415 (P2) — the path checker silently skips paths after an odd backtick, so "zero warnings" is a floor
-- #416 (P2) — staleness only polices docs that opted in via `Status: Current`
-- #417 (P2) — widen path-checking to `.claude/hooks/`, where a dead path misdirects every session
+- #414 (P1) — iOS boot is the heaviest and the diet barely moved it.
+- #415 (P2) — the path checker silently skips paths after an odd backtick, so "zero warnings" is a floor.
+- #416 (P2) — staleness only polices docs that opted in via `Status: Current`.
+- #417 (P2) — widen path-checking to `.claude/hooks/`, where a dead path misdirects every session.
 
 ## The loop, with the gates in it
 

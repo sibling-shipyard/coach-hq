@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 #
-# Repo-wide pre-commit gate. Enable once per clone:
-#
-#   git config core.hooksPath .githooks
+# Repo-wide fast pre-commit gate. check.sh enables it for the current clone.
 #
 # WHY THIS LIVES IN GIT, NOT IN AN AGENT
 # This repo is worked by Claude Code, Codex and Cursor. An agent hook only fires
 # for the agent it belongs to, so a rule enforced there is silently absent in the
 # other two tools. Every agent shells out to `git`, so a git hook is the only
-# enforcement point all three share. `check.sh` warns when core.hooksPath is
-# unset, so a clone that never ran the command above does not fail closed and
-# quiet.
+# enforcement point all three share. `check.sh` sets core.hooksPath in the
+# clone's repository config.
 #
 # Each check below runs against the STAGED content only, and prints what to do
 # rather than just refusing.

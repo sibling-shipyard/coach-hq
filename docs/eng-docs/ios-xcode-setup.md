@@ -1,6 +1,6 @@
 # iOS App: Xcode Setup Instructions
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-30 · Partial — see "Unverified claims"
+> Status: Current · Owner: iOS Builder · Verified: 2026-08-31 · Partial — see "Unverified claims"
 
 How to get the Coach HQ iOS app building and running on a physical iPhone from `main`.
 
@@ -125,11 +125,11 @@ committed settings, so local overrides just hide what CI will still see.
 
 ## CI
 
-`.github/workflows/ios-build.yml` compiles both schemes for the iOS Simulator on `macos-15` for
+`.github/workflows/ios-build.yml` compiles both schemes for the iOS Simulator on `macos-26` for
 every `ios/**` push and PR, with `CODE_SIGNING_ALLOWED=NO` and a `Secrets.swift` copied from the
-`.example`. It catches compile errors only — there is no XCTest target, and nothing about
-signing, devices, or HealthKit runtime behaviour is covered. Local build on a real phone is still
-the only way to verify behaviour.
+`.example`. It also runs `CoachHQTests` against the app scheme. Signing, devices, and HealthKit
+runtime behaviour are not covered. A local build on a real phone is still the only way to verify
+those behaviours.
 
 ## Layout
 

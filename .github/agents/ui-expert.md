@@ -18,7 +18,8 @@ Keep these current when `ui/client/` changes; rules in `docs/eng-docs/README.md`
 
 ## Gotchas
 
-- Before opening a PR, run `npm run check` from `ui/` (typecheck — its `precheck` builds the generated data first, so a clean checkout passes).
+- During UI work, `npm run check` is the fast typecheck; its `precheck` builds generated data.
+  It does not replace the full pre-push gate in `AGENTS.md` or the authoritative GitHub checks.
 - Widget work: read `ui/docs/reference-interactions/Widget Design Philosophy.md` first — Warm Instrument is visual *and* interaction spec; a re-skinned but interaction-flat widget is not done.
 - Optional motion (150–250ms lifts, hover scrubs) must honor `prefers-reduced-motion: reduce` — see Widget Design Philosophy and `reference-interactions-acceptance.md` G5.
 - CSS under `.wi-shell`: global button reset beats bare single-class selectors — use compound selectors; verify with `getComputedStyle` if type looks off.
