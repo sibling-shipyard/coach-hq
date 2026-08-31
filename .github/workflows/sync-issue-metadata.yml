@@ -1,0 +1,42 @@
+name: Sync Issue Metadata
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  sync-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Parse and apply metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          python3 -c '
+          import os, re, subprocess
+          body = os.environ.get("BODY", "")
+          issue_url = os.environ["ISSUE_URL"]
+
+          area_match = re.search(r"### Area\s+(area:[a-zA-Z0-9_-]+)", body)
+          type_match = re.search(r"### Type\s+(type:[a-zA-Z0-9_-]+)", body)
+          milestone_match = re.search(r"### Milestone\s+(M3|M4|Later)", body)
+
+          labels = []
+          if area_match:
+              labels.append(area_match.group(1))
+          if type_match:
+              labels.append(type_match.group(1))
+
+          cmd = ["gh", "issue", "edit", issue_url]
+          if labels:
+              cmd.extend(["--add-label", ",".join(labels)])
+          if milestone_match:
+              cmd.extend(["--milestone", milestone_match.group(1)])
+
+          if len(cmd) > 4:
+              subprocess.run(cmd, check=True)
+          '

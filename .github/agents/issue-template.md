@@ -17,7 +17,10 @@ Self-contained prompt for a worker. **Keep it one screen (~20 lines).** Worker s
 **Touch:** `path/file` — [one line each]
 **Don't touch:** [paths + why, if non-obvious]
 
+## P2/P3 (do NOT build)
+- [deferred nice-to-haves, one line each]
+
 Branch: `feat/<N>-<brief>` · mid-stack PR: `Refs: #N` · finishing PR: `Fixes: #N`
 ```
 
-Tech Lead writes issues this way. Workers implement **Done when** only. Do not build deferred items.
+Tech Lead writes issues this way. Workers implement **Done when** only; **P2/P3** goes to backlog, not the PR.
