@@ -2867,28 +2867,26 @@ div.wi-trend-scrub__chip {
 }
 
 /* Workouts page — today / this week / library (A5) */
-.wi-workouts-band {
-  margin-top: 28px;
+.wi-workouts-board {
+  max-width: 760px;
 }
 
-.wi-workouts-band__label {
-  color: var(--wi-ink-faint);
-  font-family: "Space Mono", monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.wi-workouts-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 8px;
 }
 
-.wi-workouts-hero {
-  margin-top: 14px;
-  max-width: 520px;
+.wi-workouts-today .wi-card-kicker,
+.wi-workouts-library .wi-card-kicker {
+  margin-bottom: 10px;
 }
 
 .wi-workouts-hero__line {
-  margin: 14px 0 0;
+  margin: 0;
   color: var(--wi-ink);
-  font-size: 18px;
+  font-size: 17px;
   letter-spacing: -0.01em;
 }
 
@@ -2901,238 +2899,46 @@ div.wi-trend-scrub__chip {
   letter-spacing: 0.08em;
 }
 
-.wi-workouts-week {
-  margin-top: 6px;
-  max-width: 640px;
+.wi-workouts-week-card {
+  margin-top: 0;
 }
 
-.wi-workouts-week-row {
-  display: grid;
-  grid-template-columns: 52px 3px minmax(0, 1fr) auto auto;
-  gap: 0 12px;
-  align-items: center;
-  min-height: 44px;
-  padding: 8px 10px;
-  margin: 0 -10px;
-  border-bottom: 1px solid #efe9dc;
+.wi-workouts-week-row.is-today .wi-session-row__date {
+  color: var(--wi-rust);
+}
+
+.wi-workouts-week-row.is-today:not(.is-in-hero) {
+  margin: 0 -12px;
+  padding: 14px 12px;
+  background: rgb(255 252 246 / 92%);
   border-radius: 8px;
-}
-
-.wi-workouts-week-row.is-today {
-  background: rgb(255 252 246 / 90%);
   box-shadow: inset 3px 0 0 var(--wi-rust);
 }
 
-.wi-workouts-week-row.is-done .wi-workouts-week-row__title {
+.wi-workouts-week-row.is-in-hero > strong {
   color: var(--wi-ink-muted);
-}
-
-.wi-workouts-week-row.is-done:not(.is-today) {
-  opacity: 0.72;
-}
-
-.wi-workouts-week-row:last-child {
-  border-bottom: 0;
-}
-
-.wi-workouts-week-row__date {
-  color: var(--wi-ink-muted);
-  font-family: "Space Mono", monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  line-height: 1.2;
-}
-
-.wi-workouts-week-row__vein {
-  width: 3px;
-  height: 22px;
-  border-radius: 2px;
-  background: var(--wi-ink-faint);
-}
-
-.wi-workouts-week-row__vein.is-badminton {
-  background: var(--wi-badminton);
-}
-
-.wi-workouts-week-row__vein.is-run {
-  background: var(--wi-run);
-}
-
-.wi-workouts-week-row__vein.is-calisthenics {
-  background: var(--wi-calisthenics);
-}
-
-.wi-workouts-week-row__vein.is-foundation {
-  background: var(--wi-foundation);
-}
-
-.wi-workouts-week-row__vein.is-cycling {
-  background: var(--wi-cycling);
-}
-
-.wi-workouts-week-row__vein.is-strength {
-  background: var(--wi-strength);
-}
-
-.wi-workouts-week-row__vein.is-weight_training {
-  background: var(--wi-weights);
-}
-
-.wi-workouts-week-row__vein.is-hike {
-  background: var(--wi-hike);
-}
-
-.wi-workouts-week-row__vein.is-walk {
-  background: var(--wi-walk);
-}
-
-.wi-workouts-week-row__vein.is-cricket {
-  background: var(--wi-cricket);
-}
-
-.wi-workouts-week-row__vein.is-football {
-  background: var(--wi-football);
-}
-
-.wi-workouts-week-row__vein.is-workout {
-  background: var(--wi-workout);
-}
-
-.wi-workouts-week-row__vein.is-swim {
-  background: var(--wi-swim);
-}
-
-.wi-workouts-week-row__title {
-  overflow: hidden;
-  color: var(--wi-ink);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wi-workouts-week-row__duration {
-  color: var(--wi-ink-muted);
-  font-family: "Space Mono", monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-}
-
-.wi-workouts-week-row__status {
-  color: var(--wi-ink-faint);
-  font-family: "Space Mono", monospace;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.wi-workouts-week-row.is-today .wi-workouts-week-row__status {
-  color: var(--wi-rust);
-}
-
-.wi-workouts-week-row.is-done .wi-workouts-week-row__status {
-  color: var(--wi-ink-muted);
-}
-
-.wi-workouts-week-row.is-upcoming .wi-workouts-week-row__status {
-  color: var(--wi-ink-muted);
-}
-
-.wi-workouts-week-row.is-today .wi-workouts-week-row__date {
-  color: var(--wi-rust);
-}
-
-.wi-workouts-week-row.is-empty .wi-workouts-week-row__title {
-  color: var(--wi-ink-faint);
-  font-size: 14px;
   font-weight: 500;
 }
 
-.wi-workouts-week-row.is-empty .wi-workouts-week-row__vein {
+.wi-workouts-week-row.is-empty > strong {
+  color: var(--wi-ink-faint);
+  font-weight: 400;
+}
+
+.wi-workouts-week-row.is-empty .wi-session-row__vein {
   opacity: 0.35;
 }
 
-.wi-workouts-library {
-  margin-top: 6px;
-  max-width: 640px;
+.wi-workouts-week-row.is-done > strong {
+  color: var(--wi-ink-muted);
 }
 
-.wi-workouts-library__group + .wi-workouts-library__group {
-  margin-top: 18px;
+.wi-workouts-week-row.is-past:not(.is-done):not(.is-today) > strong {
+  color: var(--wi-ink-muted);
 }
 
-.wi-workouts-library__group-label {
-  margin-bottom: 4px;
-  color: var(--wi-ink-faint);
-  font-family: "Space Mono", monospace;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.wi-workouts-library-row {
-  display: grid;
-  grid-template-columns: 3px minmax(0, 1fr) auto 16px;
-  gap: 0 12px;
-  align-items: center;
-  min-height: 40px;
-  padding: 6px 8px;
-  margin: 0 -8px;
-  border-bottom: 1px solid #efe9dc;
-  border-radius: 6px;
-  color: inherit;
-  text-decoration: none;
-  transition: background 150ms ease;
-}
-
-.wi-workouts-library-row:last-child {
-  border-bottom: 0;
-}
-
-.wi-workouts-library-row:hover {
-  background: rgb(255 252 246 / 80%);
-}
-
-.wi-workouts-library-row__vein {
-  width: 3px;
-  height: 18px;
-  border-radius: 2px;
-  background: var(--row-accent, var(--wi-ink-faint));
-}
-
-.wi-workouts-library-row__title {
-  overflow: hidden;
-  color: var(--wi-ink);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wi-workouts-library-row__meta {
-  color: var(--wi-ink-faint);
-  font-family: "Space Mono", monospace;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-}
-
-.wi-workouts-library-row__arrow {
-  color: var(--wi-ink-faint);
-  font-size: 14px;
-  line-height: 1;
-}
-
-.wi-workouts-band .wtx-list-groups {
-  margin-top: 14px;
+.wi-workouts-library .wtx-list-groups {
+  margin-top: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

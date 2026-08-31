@@ -637,6 +637,30 @@
   transform: translateY(-2px);
 }
 
+.wtx-list-card--compact {
+  gap: 6px;
+  padding: 16px 18px;
+}
+
+.wtx-list-card--compact .wtx-list-card__title {
+  font-size: 16px;
+}
+
+.wtx-list-card--compact .wtx-list-card__subtitle {
+  font-size: 12px;
+}
+
+.wtx-list-card--compact .wtx-list-card__note,
+.wtx-list-card--compact .wtx-list-card__tags {
+  display: none;
+}
+
+.wtx-list-card--compact .wtx-list-card__stats {
+  gap: 12px;
+  margin-top: 2px;
+  font-size: 10px;
+}
+
 .wtx-list-card__top {
   display: flex;
   align-items: flex-start;

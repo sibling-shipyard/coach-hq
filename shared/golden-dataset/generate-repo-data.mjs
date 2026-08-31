@@ -816,6 +816,13 @@ weekPlanByOffset[todayOffset] = [
   }),
 ];
 
+// Past planned days read as done so /workouts week band shows the state locally.
+for (let i = 0; i < todayOffset; i++) {
+  const sessions = weekPlanByOffset[i];
+  if (!sessions?.length) continue;
+  sessions[0] = { ...sessions[0], status: "done" };
+}
+
 const intents = ["train", "recovery", "train", "train", "open", "rest", "review"];
 
 const currentWeek = {
