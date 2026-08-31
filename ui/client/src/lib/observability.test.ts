@@ -14,6 +14,7 @@ const {
   setUser,
   setTag,
   captureMessage,
+  isEnabled,
   getIsolationScope,
   getCurrentScope,
 } = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const {
   setUser: vi.fn(),
   setTag: vi.fn(),
   captureMessage: vi.fn((): string => "event-id"),
+  isEnabled: vi.fn(() => true),
   getIsolationScope: vi.fn(() => ({
     getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }),
   })),
@@ -37,6 +39,7 @@ vi.mock("@sentry/react", async (importOriginal) => ({
   setUser,
   setTag,
   captureMessage,
+  isEnabled,
   getIsolationScope,
   getCurrentScope,
 }));
@@ -185,6 +188,7 @@ describe("setAthleteUser", () => {
 describe("submitRageReport", () => {
   beforeEach(() => {
     captureMessage.mockClear();
+    isEnabled.mockReturnValue(true);
     getIsolationScope.mockReturnValue({ getScopeData: () => ({ breadcrumbs: [] }) });
     getCurrentScope.mockReturnValue({ getScopeData: () => ({ breadcrumbs: [] }) });
   });
@@ -206,6 +210,10 @@ describe("submitRageReport", () => {
       getScopeData: () => ({
         breadcrumbs: [
           { category: "console", message: "should not ride" },
+          { category: "ui.input", message: "the complaint text" },
+          { category: "sentry.event", message: "prior-event-id" },
+          { category: "sentry.transaction", message: "internal-transaction-id" },
+          { category: "custom", message: "unknown category" },
           {
             category: "ui.click",
             message: "Home",
@@ -229,6 +237,33 @@ describe("submitRageReport", () => {
     });
   });
 
+  it("allow-lists only click, navigation, fetch and xhr items in the trail snapshot", async () => {
+    getIsolationScope.mockReturnValue({
+      getScopeData: () => ({
+        breadcrumbs: [
+          { category: "ui.click", message: "clicked" },
+          { category: "navigation", message: "navigated" },
+          { category: "fetch", message: "fetched" },
+          { category: "xhr", message: "requested" },
+          { category: "ui.input", message: "the complaint text" },
+          { category: "sentry.event", message: "prior-event-id" },
+          { category: "sentry.transaction", message: "internal-transaction-id" },
+          { category: "console", message: "logged text" },
+          { category: "custom", message: "unknown category" },
+          { message: "missing category" },
+        ],
+      }),
+    });
+    const { snapshotRageReportTrail } = await import("./observability");
+
+    expect(snapshotRageReportTrail().map((item) => item.category)).toEqual([
+      "ui.click",
+      "navigation",
+      "fetch",
+      "xhr",
+    ]);
+  });
+
   it("sends a passed-in trail instead of re-reading the scope, so the dialog list matches the event", async () => {
     const { submitRageReport } = await import("./observability");
     const trail = [{ category: "navigation", message: "/workouts", timestamp: 2 }];
@@ -245,6 +280,15 @@ describe("submitRageReport", () => {
 
     expect(submitRageReport("")).toBe(false);
     expect(submitRageReport("   \n  ")).toBe(false);
+    expect(captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("returns false and sends nothing when Sentry has no enabled client", async () => {
+    isEnabled.mockReturnValue(false);
+    const { isRageReportingAvailable, submitRageReport } = await import("./observability");
+
+    expect(isRageReportingAvailable()).toBe(false);
+    expect(submitRageReport("the screen froze")).toBe(false);
     expect(captureMessage).not.toHaveBeenCalled();
   });
 });

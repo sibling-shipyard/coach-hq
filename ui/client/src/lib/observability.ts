@@ -60,6 +60,8 @@ const apiTracePropagationTargets = [/^\/api\//];
  * `ui.click`, `navigation`, `fetch` and `xhr` survive, and they are the trail worth having: they
  * are what the athlete did, not what we said about it.
  */
+const RAGE_REPORT_TRAIL_CATEGORIES = new Set(["ui.click", "navigation", "fetch", "xhr"]);
+
 function dropConsoleBreadcrumbs(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrumb | null {
   return breadcrumb.category === "console" ? null : breadcrumb;
 }
@@ -107,6 +109,11 @@ export function setAthleteUser(repoFullName: string | null | undefined): void {
   Sentry.setTag("athlete_id", athleteId);
 }
 
+/** Whether this build has an enabled Sentry client that can accept a Rage Report. */
+export function isRageReportingAvailable(): boolean {
+  return Sentry.isEnabled();
+}
+
 /**
  * The scope one Rage Report is sent under: the athlete's own report of a failure that never threw.
  *
@@ -147,9 +154,9 @@ function compactTrailData(
 }
 
 /**
- * The click / navigation / fetch trail at this moment. Console crumbs never appear — they are
- * dropped at `beforeBreadcrumb`. Snapshot when the dialog opens so the list the athlete sees is
- * the list that gets sent, not clicks inside the dialog.
+ * The click / navigation / fetch trail at this moment. Snapshot when the dialog opens so the list
+ * the athlete sees is the list that gets sent, not clicks inside the dialog. The allow-list lives
+ * here so normal crash reports can keep other useful breadcrumb categories.
  */
 export function snapshotRageReportTrail(): RageReportTrailItem[] {
   const seen = new Set<Sentry.Breadcrumb>();
@@ -158,7 +165,9 @@ export function snapshotRageReportTrail(): RageReportTrailItem[] {
     ...scopeBreadcrumbs(Sentry.getIsolationScope),
     ...scopeBreadcrumbs(Sentry.getCurrentScope),
   ]) {
-    if (seen.has(crumb) || crumb.category === "console") continue;
+    if (seen.has(crumb) || !crumb.category || !RAGE_REPORT_TRAIL_CATEGORIES.has(crumb.category)) {
+      continue;
+    }
     seen.add(crumb);
     merged.push(crumb);
   }
@@ -187,7 +196,7 @@ export function submitRageReport(
   trail: RageReportTrailItem[] = snapshotRageReportTrail(),
 ): boolean {
   const complaint = message.trim();
-  if (!complaint) return false;
+  if (!complaint || !isRageReportingAvailable()) return false;
   Sentry.captureMessage(complaint, { ...RAGE_REPORT_SCOPE, extra: { trail } });
   return true;
 }

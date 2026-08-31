@@ -15,6 +15,7 @@
  * reach it: one host is inside that shell and the other is nowhere near it.
  */
 import {
+  isRageReportingAvailable,
   snapshotRageReportTrail,
   submitRageReport,
   type RageReportTrailItem,
@@ -53,6 +54,7 @@ export function RageReportDialog({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isControlled = openProp !== undefined;
   const open = isControlled ? openProp : uncontrolledOpen;
+  const reportingAvailable = isRageReportingAvailable();
   const onOpenChangeRef = useRef(onOpenChange);
   onOpenChangeRef.current = onOpenChange;
   const isControlledRef = useRef(isControlled);
@@ -142,18 +144,25 @@ export function RageReportDialog({
                 ) : (
                   <>
                     <h2 className="text-lg mb-2">What went wrong?</h2>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Say it however you like. What you clicked just before is sent with it.
-                    </p>
+                    {reportingAvailable ? (
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Say it however you like. What you clicked just before is sent with it.
+                      </p>
+                    ) : (
+                      <p role="status" className="text-sm text-muted-foreground mb-4">
+                        Reporting is not configured for this build.
+                      </p>
+                    )}
                     <textarea
                       ref={textareaRef}
                       value={message}
                       onChange={(event) => setMessage(event.target.value)}
                       rows={5}
+                      disabled={!reportingAvailable}
                       placeholder="The coach answered as if it had not read my last message."
                       className="w-full p-3 mb-4 rounded-lg border bg-muted text-sm resize-none"
                     />
-                    {visibleTrail.length > 0 ? (
+                    {!reportingAvailable ? null : visibleTrail.length > 0 ? (
                       <ul className="max-h-32 mb-6 overflow-y-auto text-xs text-muted-foreground space-y-1">
                         {visibleTrail.map((item, index) => (
                           <li key={`${item.timestamp ?? "t"}-${index}`}>{trailLine(item)}</li>
@@ -175,7 +184,7 @@ export function RageReportDialog({
                       <button
                         type="button"
                         onClick={send}
-                        disabled={!message.trim()}
+                        disabled={!reportingAvailable || !message.trim()}
                         className={cn(
                           "px-4 py-2 rounded-lg bg-primary text-primary-foreground",
                           "hover:opacity-90 cursor-pointer",
