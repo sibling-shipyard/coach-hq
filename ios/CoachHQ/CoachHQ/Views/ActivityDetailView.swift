@@ -893,6 +893,7 @@ struct ActivityDetailView: View {
                     PreMentalState(score: $0.score, word: $0.word)
                 } ?? currentActivity.preMentalState,
                 vsUsual: currentActivity.vsUsual,
+                aliases: currentActivity.aliases,
                 activityId: currentActivity.activityId,
                 idStr: currentActivity.idStr
             )

@@ -7,26 +7,54 @@ import Foundation
 /// `HKWorkout` directly is untestable. Kept Foundation-only so
 /// `ios/scripts/verify_workout_dedup.swift` can compile it with the plain `swiftc` CLI.
 struct DedupCandidate: Equatable {
-    /// `HKWorkout.uuid.uuidString` — the canonical id (ADR 0014).
+    /// `HKWorkout.uuid.uuidString` — the canonical id (ADR 0014) when this is a live
+    /// recording, or the committed file's `id` when this is a hist row.
     let uuid: String
     let sportType: String
     let start: Date
     let end: Date
     /// `ActivityMapper.sourcePriority` — apple 3 > garmin 2 > strava 1 > unknown 0.
     let sourcePriority: Int
-    /// True when a file for this uuid is already committed to the athlete repo.
+    /// True when a file for this uuid (or one of its aliases) is already committed.
     let isCommitted: Bool
+    /// Other HealthKit uuids already folded into this session (ADR 0035).
+    let aliases: [String]
+
+    init(
+        uuid: String,
+        sportType: String,
+        start: Date,
+        end: Date,
+        sourcePriority: Int,
+        isCommitted: Bool,
+        aliases: [String] = []
+    ) {
+        self.uuid = uuid
+        self.sportType = sportType
+        self.start = start
+        self.end = end
+        self.sourcePriority = sourcePriority
+        self.isCommitted = isCommitted
+        self.aliases = aliases
+    }
 
     var duration: TimeInterval { end.timeIntervalSince(start) }
+
+    var identityUUIDs: Set<String> {
+        Set(([uuid] + aliases).map { $0.uppercased() })
+    }
 }
 
 /// Collapses the same real-world session recorded by several apps down to one activity.
 ///
-/// Garmin and Strava both mirror Apple Watch workouts into HealthKit, so one session can
-/// appear two or three times with different uuids. Sync re-scans a fixed window on every
-/// round (see `HealthKitSyncManager.lookbackWindowDays`), which means those copies now land
-/// in the same batch even when they arrive days apart.
+/// Garmin Connect deletes a HealthKit workout and writes it again with a new uuid, so one
+/// gym can appear as a committed file plus a live recording that no longer share an id.
+/// Cluster live recordings together with committed hist rows; identity stays on the
+/// committed file (ADR 0035).
 enum WorkoutDeduplicator {
+
+    /// Starts within this window still match even when Garmin and Strava disagree on sport.
+    static let crossSportStartSlack: TimeInterval = 120
 
     /// One real-world session and every recording of it we found.
     struct Cluster: Equatable {
@@ -54,7 +82,8 @@ enum WorkoutDeduplicator {
     /// Committed beats source priority because the alternative rewrites history: if the
     /// Strava copy syncs on Monday and the Garmin copy only reaches the phone on Wednesday,
     /// preferring Garmin would commit a *second* file for a session already in `hist/`.
-    /// Keeping the committed copy is stable and never needs a delete.
+    /// Keeping the committed copy is stable and never needs a delete. The live recording
+    /// stays in `others` so sync can upsert HR into that file (ADR 0035).
     ///
     /// Grouping is greedy, not transitive: a recording joins the first winner it overlaps
     /// with, and starts its own cluster if it overlaps none. So a chain — A overlaps B,
@@ -86,15 +115,20 @@ enum WorkoutDeduplicator {
         cluster(candidates).map(\.winner.uuid)
     }
 
-    /// Two workouts are duplicates when they share a loose activity group and their time
-    /// windows overlap by at least half of the shorter workout's duration.
+    /// Two workouts are the same session when they share a uuid/alias, or their time
+    /// windows overlap by at least half of the shorter duration and either the activity
+    /// group matches or they started within `crossSportStartSlack`.
     static func areDuplicates(_ a: DedupCandidate, _ b: DedupCandidate) -> Bool {
-        guard sameActivityGroup(a.sportType, b.sportType) else { return false }
+        if !a.identityUUIDs.isDisjoint(with: b.identityUUIDs) { return true }
+        guard overlappingEnough(a, b) else { return false }
+        if sameActivityGroup(a.sportType, b.sportType) { return true }
+        return abs(a.start.timeIntervalSince(b.start)) <= crossSportStartSlack
+    }
 
+    static func overlappingEnough(_ a: DedupCandidate, _ b: DedupCandidate) -> Bool {
         let overlapStart = max(a.start, b.start)
         let overlapEnd = min(a.end, b.end)
         guard overlapEnd > overlapStart else { return false }
-
         let overlap = overlapEnd.timeIntervalSince(overlapStart)
         let shorter = min(a.duration, b.duration)
         return shorter > 0 && overlap / shorter >= 0.5
