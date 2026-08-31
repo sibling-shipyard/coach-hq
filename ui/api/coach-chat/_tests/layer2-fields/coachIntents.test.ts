@@ -3,6 +3,7 @@ import {
   applyCoachNote,
   applyMemoryUpdate,
   applySportsUpdate,
+  applyInjuryFlag,
   applyInjuryEvent,
   applyQuestEvent,
   applyProfileUpdate,
@@ -194,6 +195,48 @@ describe("applyMemoryUpdate", () => {
   });
 });
 
+describe("applyInjuryFlag", () => {
+  it("opens a new flag with a server-minted id and no resolved_at", () => {
+    const result = JSON.parse(
+      applyInjuryFlag(null, [{ text: "Left ankle tweak" }], "2026-08-18"),
+    );
+    expect(result.flags).toHaveLength(1);
+    const newFlag = result.flags[0];
+    expect(newFlag.text).toBe("Left ankle tweak");
+    expect(newFlag.status).toBe("active");
+    expect(newFlag.opened_at).toBe("2026-08-18");
+    expect(newFlag.resolved_at).toBeNull();
+    expect(newFlag.id).toMatch(/^inj_/);
+  });
+
+  it("starts a fresh flags array when content is null", () => {
+    const result = JSON.parse(
+      applyInjuryFlag(null, [{ text: "First injury" }], "2026-08-18"),
+    );
+    expect(result.flags).toHaveLength(1);
+    expect(result.flags[0].text).toBe("First injury");
+  });
+
+  it("treats malformed JSON as an empty flags array rather than throwing", () => {
+    const result = JSON.parse(
+      applyInjuryFlag("{not valid json", [{ text: "New injury" }], "2026-08-18"),
+    );
+    expect(result.flags).toHaveLength(1);
+  });
+
+  it("applies every new injury in the batch, not just the first", () => {
+    const result = JSON.parse(
+      applyInjuryFlag(null, [{ text: "New wrist tweak" }], "2026-08-18"),
+    );
+    // Confirms new-flag events accumulate correctly across calls (a second new flag doesn't
+    // clobber the first).
+    const second = JSON.parse(
+      applyInjuryFlag(JSON.stringify(result), [{ text: "Separate shoulder niggle" }], "2026-08-18"),
+    );
+    expect(second.flags).toHaveLength(2);
+  });
+});
+
 describe("applyInjuryEvent", () => {
   const EXISTING = JSON.stringify({
     flags: [
@@ -212,27 +255,6 @@ describe("applyInjuryEvent", () => {
         resolved_at: "2026-07-20",
       },
     ],
-  });
-
-  it("opens a new flag with a server-minted id and no resolved_at", () => {
-    const result = JSON.parse(
-      applyInjuryEvent(EXISTING, [{ status: "active", text: "Left ankle tweak" }], "2026-08-18"),
-    );
-    expect(result.flags).toHaveLength(3);
-    const newFlag = result.flags[2];
-    expect(newFlag.text).toBe("Left ankle tweak");
-    expect(newFlag.status).toBe("active");
-    expect(newFlag.opened_at).toBe("2026-08-18");
-    expect(newFlag.resolved_at).toBeNull();
-    expect(newFlag.id).toMatch(/^inj_/);
-  });
-
-  it("starts a fresh flags array when content is null", () => {
-    const result = JSON.parse(
-      applyInjuryEvent(null, [{ status: "active", text: "First injury" }], "2026-08-18"),
-    );
-    expect(result.flags).toHaveLength(1);
-    expect(result.flags[0].text).toBe("First injury");
   });
 
   it("updates an existing active flag's text without changing its id/opened_at", () => {
@@ -287,13 +309,6 @@ describe("applyInjuryEvent", () => {
     });
   });
 
-  it("treats malformed JSON as an empty flags array rather than throwing", () => {
-    const result = JSON.parse(
-      applyInjuryEvent("{not valid json", [{ status: "active", text: "New injury" }], "2026-08-18"),
-    );
-    expect(result.flags).toHaveLength(1);
-  });
-
   it("throws on an unknown flag_id instead of silently no-op'ing", () => {
     // A silent no-op here would let the caller commit a write that looks successful but changed
     // nothing - throwing lets the caller's existing error handling (commitFilesAtomic's catch)
@@ -325,22 +340,6 @@ describe("applyInjuryEvent", () => {
     const knee = result.flags.find((f: any) => f.id === "inj_knee");
     expect(elbow.status).toBe("resolved");
     expect(knee).toMatchObject({ status: "active", resolved_at: null, text: "Flared up again" });
-  });
-
-  it("lets a batch open a brand-new flag and resolve it in the same turn", () => {
-    const result = JSON.parse(
-      applyInjuryEvent(null, [{ status: "active", text: "New wrist tweak" }], "2026-08-18"),
-    );
-    // Confirms new-flag events accumulate correctly across a batch (a second new flag doesn't
-    // clobber the first) - the id-less branch appends rather than replaces.
-    const second = JSON.parse(
-      applyInjuryEvent(
-        JSON.stringify(result),
-        [{ status: "active", text: "Separate shoulder niggle" }],
-        "2026-08-18",
-      ),
-    );
-    expect(second.flags).toHaveLength(2);
   });
 });
 
