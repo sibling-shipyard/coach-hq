@@ -1,73 +1,87 @@
 # OpenRouter migration
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · Issue: #713
+> Status: Current · Owner: Tech Lead · Verified: 2026-08-31 · Issue: #713
 
 ## Context
 
-Three call sites reach Gemini independently, each with its own raw `fetch` and its own
-hardcoded model string. On 2026-08-30 `gemini-flash-latest` went 0/5 across two manual runs
-under real prompt load (#668), so `geminiClient.ts` was pinned to `gemini-pro-latest`. The
-other two callers were missed and still run flash. Athletes feel this as a coach that fails
-to answer.
-
-One client behind OpenRouter fixes the split and makes the model a config value.
+Three call sites still own Gemini request and response plumbing. #726 already moved all three
+onto `ui/api/_lib/geminiModel.ts`, so no caller is stranded on Flash. The remaining job is a
+reversible provider switch, not model-id consolidation.
 
 ## Goal
 
+```mermaid
+flowchart LR
+  A["Three Coach callers"] --> B["llmClient"]
+  B -->|LLM_PROVIDER=gemini| C["Direct Gemini adapter"]
+  B -->|LLM_PROVIDER=openrouter| D["OpenRouter adapter"]
+  C --> E["Gemini API"]
+  D --> F["OpenRouter"]
+  F --> G["Gemini model at cutover"]
 ```
-today                                       after
------                                       -----
-coach-chat.ts    -> geminiClient.ts  --+     coach-chat.ts     --+
-coach-message.ts -> raw fetch        --+->G  coach-message.ts  --+-> llmClient -> OpenRouter -> model
-coachWorkoutFiles-> raw fetch        --+     coachWorkoutFiles --+    (env)       (US providers)
 
-3 callers, 3 hardcoded models                1 caller path, 1 config value
-```
+Both adapters ship together. Production stays on direct Gemini until OpenRouter passes the
+same checks; only one adapter runs per request, so there are no shadow calls.
 
-Gemini stays the model through the switch. Holding it constant makes any behaviour change
-attributable to the plumbing rather than the model, and the existing 22-transcript gate
-becomes a before/after check on the migration itself.
+## OpenRouter readiness gate
+
+The four **Before build** rows unblock implementation. Every row must be green before production flips.
+
+| Gate | When | Result |
+|---|---|---|
+| Current baseline (#670) | Before build | All 24 transcripts pass on direct Gemini, with the real bundled SOUL; record commit SHA, model and result |
+| OpenRouter account | Before build | Production key exists, spend limit is set and the secret name is fixed |
+| Data handling | Before build | ZDR, denied data collection, required parameters and an explicit provider allow-list are locked |
+| Rollback | Before build | `LLM_PROVIDER` defaults to `gemini`; changing it requires a Vercel deployment, and the previous deployment is the rollback |
+| Contract probe | Before cutover | A synthetic request proves the cutover Gemini model accepts the full `coachReplySchema.ts` through strict JSON Schema |
+| Deterministic suite | Before cutover | `npm run check`, `npm run lint`, `npm run format:check` and `npm test` pass |
+| Live parity | Before cutover | OpenRouter passes the 24 real-SOUL transcripts plus chat, proactive-message and onboarding-template smoke checks |
+
+US-only data residency is not a gate. Exact provider slugs are fixed in the contract probe,
+before athlete health context is sent through OpenRouter.
+
+## Locked decisions
+
+- Direct Gemini keeps `soulCache.ts` and its explicit cached-content record while the fallback lives.
+- OpenRouter owns its caching; its adapter does not emulate Gemini cache names or Edge Config records.
+- Direct Gemini and OpenRouter have separate model ids. Gemini stays the model during cutover.
+- Telemetry records the selected adapter, configured model, and OpenRouter's resolved provider/model.
+- No runtime Edge Config flag and no dual-send comparison. A deployment flips the environment flag.
+- Retire the fallback after two stable weeks and successful chat, proactive-message and onboarding-template checks.
 
 ## Milestones
 
-| # | Milestone | Result |
-|---|---|---|
-| 1 | One model config | `grep -rn '"gemini-' ui/api` returns one file, not three |
-| 2 | `llmClient` calls OpenRouter, Gemini held constant | The gate returns the same verdict before and after the swap |
-| 3 | Model choice opens up | Changing model is an env edit; a non-Gemini model passes the gate |
-| 4 | Provider decision recorded | An ADR in `kdb/decisions/` names the provider and the default model |
+```mermaid
+flowchart LR
+  M0["M0 Green baseline"] --> M1["M1 Dual-provider deploy"] --> M2["M2 Cut over and retire"]
+```
+
+| # | Size | Milestone | Result |
+|---|---|---|---|
+| 0 | M | Build-ready baseline (#670) | Direct Gemini is green; the account, data policy and rollback are locked |
+| 1 | M | Dual-provider deploy | Both adapters pass deterministic tests and the contract probe; production still selects Gemini |
+| 2 | M | Cut over and retire | OpenRouter is stable for two weeks, the direct adapter is removed and the ADR records the decision |
 
 ## PR stack
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 1 | Single source for model ids; strands no caller on flash | `main` | `ui/api/_lib/llmConfig.ts`, `coach-chat/_lib/geminiClient.ts`, `coach-message/_lib/coachMessage.ts`, `coach-chat/_lib/coachWorkoutFiles.ts` | UI Expert | — | |
-| 2 | 2 | `llmClient` wraps OpenRouter; `geminiClient` routes through it | PR 1 | `ui/api/_lib/llmClient.ts`, `coach-chat/_lib/geminiClient.ts` | UI Expert | — | |
-| 3 | 2 | Other two callers route through `llmClient` | PR 2 | `coach-message/_lib/coachMessage.ts`, `coach-chat/_lib/coachWorkoutFiles.ts` | UI Expert | — | |
-| 4 | 3 | US-only provider routing pinned; caching resolved; second model proven | PR 3 | `ui/api/_lib/llmClient.ts`, `coach-chat/_lib/soulCache.ts`, `docs/eng-docs/env-vars.md`, `docs/eng-docs/gemini-flow.md` | UI Expert | — | |
-| 5 | 4 | ADR + doc upkeep | PR 4 | `kdb/decisions/`, `docs/eng-docs/llm-provider-current.md` | Tech Lead | — | |
+| 1 | 0 | Make the paid gate green and representative | `main` | `ui/scripts/eval-coach-chat.ts`, `ui/api/coach-chat/_tests/coach-chat-eval/**`, `.github/workflows/eval-coach-chat.yml` | UI Expert | — | |
+| 2 | 1 | Provider-neutral client, both adapters, three callers, telemetry and tests | PR 1 | `ui/api/_lib/`, `ui/api/coach-chat.ts`, `ui/api/coach-message.ts`, `ui/api/coach-chat/_lib/`, `ui/api/coach-message/_lib/`, matching `ui/api/**/_tests/`, `.github/workflows/eval-coach-chat.yml` | UI Expert | — | |
+| 3 | 2 | Remove direct Gemini after the observation gate; ADR, docs and plan cleanup | PR 2 | `ui/api/`, `ui/scripts/`, `.github/workflows/eval-coach-chat.yml`, `docs/eng-docs/`, `kdb/decisions/`, `docs/plans/chat-openrouter-migration.md` | UI Expert + Tech Lead | — | |
 
-Every PR touches `llmClient.ts` or a caller, so nothing here runs in parallel.
-
-## Open questions
-
-1. **Caching.** `soulCache.ts` creates explicit Gemini caches keyed by model, with names in
-   Vercel Edge Config. OpenRouter is not expected to expose that API. PR 4 either ports it to
-   `cache_control` passthrough or deletes it — confirm which before building.
-2. **Structured output.** `coachReplySchema.ts` drives Gemini `responseSchema`. Each model
-   behind the router needs its schema support proven by the gate, not assumed.
+Nothing runs in parallel: each milestone proves the base used by the next one.
 
 ## Done when
 
-1. No model id is hardcoded outside `ui/api/_lib/llmConfig.ts`.
-2. All three callers reach the model through `llmClient`.
-3. The 22-transcript gate gives the same verdict on Gemini before and after the swap.
-4. One non-Gemini model passes the gate with only an env change.
-5. An ADR records the provider choice — `llm-provider-future.md:200` says a shipped switch is
-   when one gets written.
+1. Direct Gemini and OpenRouter implement one internal contract, covered at each HTTP boundary.
+2. Chat, proactive messages and template adjustment all route through `llmClient`.
+3. Gemini through OpenRouter matches the green direct-Gemini gate with the real SOUL.
+4. Production completes the two-week observation gate and each of the three paths succeeds.
+5. The Gemini fallback, key, cache records and flag are removed; the ADR and current-state docs ship.
 
 ## Deferred
 
-- Choosing the production model on measured quality — that is `chat-coach-bench.md`, P1.
-- Streaming responses (#270).
-- Real history compaction rather than the `MAX_HISTORY_MESSAGES` hard cap (#572).
+- Choosing a non-Gemini production model on measured quality — `chat-coach-bench.md`, P1.
+- Streaming responses (#270), history compaction (#572), model routing and shadow comparisons.
+- Cache tuning and sticky session ids until production usage shows a cost or latency problem.
