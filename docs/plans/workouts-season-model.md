@@ -148,12 +148,28 @@ CLI wrapper.
 
 Kills both bug reports. Touches no athlete-repo paths, adds no new files to their repos.
 
+**A5 is the one the four live athletes actually see, and it is parallel with everything else.**
+A3 only changes first-session onboarding, and all four are past FSP — their repos already hold six
+committed library templates, and the page lists every one of them with no notion of today. Bug 1
+is half a storage bug and half a rendering bug, and only the rendering half is fixable for
+*existing* athletes. A5 has disjoint files (`ui/client/` only) and no dependency on A1–A4, so it
+can start immediately and ship first.
+
 | PR | outcome | base | files | owner | done when | trust it buys |
 |---|---|---|---|---|---|---|
 | A1 | `compileWorkout()` in `engine/` — minimal exercise list in, timer JSON out | main | `engine/lib/`, tests | Bob | golden-fixture test: same input → byte-identical output | a pure function with tests; nothing user-facing can break |
-| A2 | `workout_create` action + compiler wired into coach-chat; **workout actions available on ordinary turns** | A1 | `ui/api/coach-chat/_lib/`, `coachReplySchema.ts` | UI Expert | a mid-conversation ask writes a schema-valid routine | **bug 2 dies**; athlete asks and gets one |
-| A3 | FSP closes with a benchmark instead of a library dump; seeds `progressions.json`; injury gate preserved (invariant 7) | A2 | `coachWorkoutFiles.ts`, `coachTurn.ts`, `platform/soul/B_engine.md` | UI Expert | a fresh athlete gets a benchmark, not six workouts | **bug 1 dies** for new athletes |
-| A4 | BYO: compiler CLI carved into the skeleton, in the same PR the soul starts emitting exercise lists | A3 | `platform/scripts/carve-skeleton.mjs`, `engine/scripts/`, soul | Tech Lead | `validate-soul.mjs` clean; BYO athlete creates a routine end to end | BYO stops being a dead end |
+| A2 | `workout_create` action + compiler wired into coach-chat; **workout actions available on ordinary turns**, committing on that turn | A1 | `ui/api/coach-chat/_lib/`, `coachReplySchema.ts` | Bob | a mid-conversation ask writes a schema-valid routine | **bug 2 dies**; athlete asks and gets one |
+| A3 | FSP closes with a benchmark instead of a library dump; seeds `progressions.json`; injury gate preserved (invariant 7) | A2 | `coachWorkoutFiles.ts`, `coachTurn.ts` | Bob | a fresh athlete gets a benchmark, not six workouts | bug 1 cannot recur for the *next* athlete |
+| A4 | BYO: compiler CLI carved into the skeleton; **all** soul edits for Stack A land here in one compose run | A3 | `platform/scripts/carve-skeleton.mjs`, `engine/scripts/`, `platform/soul/B_engine.md` | Tech Lead | `validate-soul.mjs` clean; BYO athlete creates a routine end to end | BYO stops being a dead end |
+| A5 | Day-first Workouts page: the six states in §6, reading today's `current_week.json` and the existing `templates/` | main | `ui/client/` only | UI Expert | all six states render from a live repo's current data | **bug 1 dies for the four live athletes** — the only PR they see |
+
+**Commit rule — `workout_create` commits on its own turn.** Coach-chat otherwise commits on close
+(`coachTurn.ts:632`), so exposing the action on an ordinary turn without this would produce a chat
+reply and no file: the athlete is told they have a workout and the timer stays empty until they
+wrap the session. The narrow exception is a single action writing a single file through its own
+`commitFilesAtomic` call — the pattern `generateInitialTemplates` already uses mid-flow at
+`coachTurn.ts:573`. Everything else keeps commit-on-close. Only one of these two sentences may be
+true, and this is the one.
 
 **Paid gate (ADR 0024):** `npm run eval:coach-chat` runs once at the end of A2–A4, not per PR —
 A2 and A3 both touch prompt construction and the response schema, so it can actually fail there.
@@ -165,7 +181,7 @@ None of them fix "Coach can't create an upper body workout."
 
 | PR | outcome | base | owner | done when |
 |---|---|---|---|---|
-| B1 | goal + duration + blocks extend `seasons.json`; supersede the soul's "no block underneath" line | A4 | UI Expert | a goal conversation writes blocks and scheduled benchmarks |
+| B1 | goal + duration + blocks extend `seasons.json` | A4 | Bob (soul line → Tech Lead) | a goal conversation writes blocks and scheduled benchmarks |
 | B2 | `current_week.json` slimmed; week compiles from block intent; `season_start` path for returning athletes | B1 | Bob | kick-off compiles a full week; `session_plan`'s today-only stamp lifted |
 | B3 | deterministic reconciler + progression writes on completion | B2 | Bob | every row of §5 covered by tests |
 | B4 | **non-chat compile trigger** — week-boundary roll, owned by the sync workflow | B3 | Bob | a quiet Monday still has a compiled week; the timer is never empty |
@@ -204,9 +220,16 @@ athlete's behaviour genuinely changes: B2 (their week starts being generated for
 `plugins.json` + `isPluginEnabled` gates it, enablement is a **one-line PR per repo**, and
 rollback is a single revert — the repo *is* the datastore, so nothing partial survives.
 
-**Data moves in three steps, never one.** Dual-read → write new → delete old, with the iOS
-release shipped between steps two and three. `WorkoutService.swift:46,90` lists `templates/` and
-`sessions/` by path today, so a mid-stack rename takes the timer away from four live athletes.
+**Data moves in three steps, never one — and this applies to fields, not just folders.**
+Dual-read → write new → delete old.
+
+- *Folders* (B5/B6): `WorkoutService.swift:46,90` lists `templates/` and `sessions/` by path, so a
+  mid-stack rename takes the timer away from four live athletes. The iOS release ships between
+  steps two and three.
+- *Fields* (B2): slimming `current_week.json` is a breaking change even though the path is
+  unchanged. Every reader — web, iOS, `current-week.mts`, the snapshot builder — must tolerate a
+  missing `coach_read`, `session_file`, `origin`, `planned_load` **before** the writer stops
+  emitting them. Same three steps, same order.
 
 **`SCHEMA_VERSION` is a flag day.** `build-dashboard-snapshot.mjs` and `useRepoData.ts` bump
 together, and old app builds strand when it moves. Do it in B5 alongside the iOS release, never in
@@ -217,8 +240,9 @@ there, or Gemini writes garbage and the workflow commits it.
 
 ## 11. Done when
 
-- An athlete asks mid-conversation for an upper body workout and gets one. (Bug 2)
-- A new athlete's first screen is a benchmark, not six guessed workouts. (Bug 1)
+- An athlete asks mid-conversation for an upper body workout and gets one, committed on that turn. (Bug 2)
+- The Workouts page shows today, not a list of every template the athlete owns. (Bug 1, for the four live athletes — A5)
+- A new athlete's first screen is a benchmark, not six guessed workouts. (Bug 1, for the next athlete — A3)
 - Changing a progression changes the next compile with no edit to any routine file.
 - An athlete with an active injury flag is never offered a routine that conflicts with it.
 - A quiet Sunday still produces a compiled Monday. (B4)
