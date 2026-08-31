@@ -197,9 +197,7 @@ describe("applyMemoryUpdate", () => {
 
 describe("applyInjuryFlag", () => {
   it("opens a new flag with a server-minted id and no resolved_at", () => {
-    const result = JSON.parse(
-      applyInjuryFlag(null, [{ text: "Left ankle tweak" }], "2026-08-18"),
-    );
+    const result = JSON.parse(applyInjuryFlag(null, [{ text: "Left ankle tweak" }], "2026-08-18"));
     expect(result.flags).toHaveLength(1);
     const newFlag = result.flags[0];
     expect(newFlag.text).toBe("Left ankle tweak");
@@ -210,9 +208,7 @@ describe("applyInjuryFlag", () => {
   });
 
   it("starts a fresh flags array when content is null", () => {
-    const result = JSON.parse(
-      applyInjuryFlag(null, [{ text: "First injury" }], "2026-08-18"),
-    );
+    const result = JSON.parse(applyInjuryFlag(null, [{ text: "First injury" }], "2026-08-18"));
     expect(result.flags).toHaveLength(1);
     expect(result.flags[0].text).toBe("First injury");
   });
@@ -225,9 +221,7 @@ describe("applyInjuryFlag", () => {
   });
 
   it("applies every new injury in the batch, not just the first", () => {
-    const result = JSON.parse(
-      applyInjuryFlag(null, [{ text: "New wrist tweak" }], "2026-08-18"),
-    );
+    const result = JSON.parse(applyInjuryFlag(null, [{ text: "New wrist tweak" }], "2026-08-18"));
     // Confirms new-flag events accumulate correctly across calls (a second new flag doesn't
     // clobber the first).
     const second = JSON.parse(

@@ -53,9 +53,13 @@ describe("turnWrites text-cap backstop", () => {
 
   it("buildInjuryWrites caps oversized injury_event[].text entries", async () => {
     const oversized = "i".repeat(INJURY_FLAG_TEXT_CAP + 400);
-    const write = buildInjuryWrites("owner/repo", "token", "UTC", [], [
-      { status: "active", flag_id: "inj_test", text: oversized },
-    ]);
+    const write = buildInjuryWrites(
+      "owner/repo",
+      "token",
+      "UTC",
+      [],
+      [{ status: "active", flag_id: "inj_test", text: oversized }],
+    );
     expect(write).toBeDefined();
     // getFileRaw is mocked to null, so this event's flag_id will not exist in flags - it should
     // throw, same discipline as applyInjuryEvent's existing "no flag with id" guard.
