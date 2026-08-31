@@ -35,7 +35,8 @@ Keep these current when the backend changes; rules in `docs/eng-docs/README.md`.
 - `data:` commits to `main` for sync-only changes; scripts/workflows need branch + PR (see `.github/CONVENTIONS.md`).
 - `npm run dev:api` (`ui/scripts/local-api-server.mjs`) dynamically imports handlers and Node caches them by resolved path — restart the server after editing anything under `ui/api/`, or you're testing stale code.
 - Coach-chat prompt/schema/model/harness changes are the ADR 0024 gate: run `npm run eval:coach-chat` live and read the raw response before calling it done. Other coach-chat PRs skip it (it's a paid live-API run) and say so in the test plan.
-- Before opening a PR that touches `ui/`, run `npm run check` from `ui/` (typecheck — its `precheck` builds the generated data first, so a clean checkout passes).
+- During `ui/` work, `npm run check` is the fast typecheck; its `precheck` builds generated data.
+  It does not replace the full pre-push gate in `AGENTS.md` or the authoritative GitHub checks.
 
 ## Learnings
 

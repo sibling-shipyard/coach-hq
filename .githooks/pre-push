@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# Repo-wide pre-push gate. check.sh configures this hook for the current clone.
+# CI remains authoritative; this catches the same blocking failures before the round trip.
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)" || exit 1
+
+printf '\n[pre-push] Running the full local gate...\n'
+if ! bash "$ROOT/platform/scripts/check.sh" --quiet; then
+  printf '\n[pre-push] Push blocked. Fix the failed checks and try again.\n\n' >&2
+  exit 1
+fi
+
+printf '\n[pre-push] Full local gate passed.\n\n'
+exit 0

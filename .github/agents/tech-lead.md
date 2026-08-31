@@ -38,12 +38,11 @@ athlete mid-task. Catch yourself editing a file to satisfy a request? Delegate i
 
 ### Review is seven countable checks, not a verdict
 
-1. the named checks green — **read the evidence, don't re-run it.** `gh pr checks <n>` is the
-	check; `ios-build.yml` covers `ios/**`, `ui-tests.yml` covers `ui/`. CI runs the pushed SHA. A
-	local run proves less and costs more — it can pass on a dirty tree or fail only on a gitignored
-	`Secrets.swift`. Run locally when CI is red and you need the failure, or the PR changes the
-	build itself. Where no runner exists (`platform/tests/*.py`, #343/#329) you run it, and the fix
-	is to land the runner.
+1. the full local gate ran before first push, then the named GitHub checks are green — **read the
+	evidence, don't re-run it.** `gh pr checks <n>` is the check; `ios-build.yml` covers `ios/**`,
+	`ui-tests.yml` covers `ui/`, and `platform-tests.yml` covers `engine/**` plus
+	`platform/tests/**`. CI runs the pushed SHA and is authoritative. Run a failing check locally
+	when you need its evidence, or when the PR changes the check itself.
 2. the diff is a subset of the phase's declared files
 3. explicit paths were staged
 4. the PR's file list checked against the branch, not local `main`, which has under-reported one

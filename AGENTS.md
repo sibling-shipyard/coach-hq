@@ -136,7 +136,9 @@ then tab `a.`). Athlete may reference `1a` — match that item exactly.
 1. Plan (~10–20 lines): goal, end state, how we validate.
 2. **Stop for approval.**
 3. Execute smallest diff that hits end state.
-4. Review until clean → PR → short summary back to athlete.
+4. Review until clean, then run `bash platform/scripts/check.sh --quiet` before the first push.
+5. Push and open the PR. Wait for every relevant GitHub check; fix failures and repeat until green.
+6. CI is authoritative. Report completion only after the pushed SHA is green.
 
 **Docs:** One page max per `kdb/doc-style.md`. No long plans in issues or PR bodies.
 
