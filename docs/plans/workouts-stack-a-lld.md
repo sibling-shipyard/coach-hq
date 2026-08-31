@@ -207,15 +207,15 @@ An unexplained diff blocks the merge.
 **Goal:** an athlete asks mid-conversation and a routine file is committed on that turn.
 
 **Files**
-- `ui/api/coach-chat/_lib/coachReplySchema.ts` — the action field + turn-mode wiring
-- `ui/api/coach-chat/_lib/turnWrites/workoutWrite.ts` — `buildWorkoutCreateWrite`
-- `ui/api/coach-chat/_lib/coachWorkoutFiles.ts` — applier + invariant 7
-- `ui/api/coach-chat/_lib/coachTurn.ts` — own `commitFilesAtomic` for `workout_create`
-- `ui/api/coach-chat/_lib/coachPromptText.ts` — tell Coach the action exists
-- `ui/api/coach-chat/_lib/compileWorkout.bundle.d.ts` (new) — shim, `export *` from engine
-- `ui/scripts/bundle-compile-workout-api.mjs` (new) — copy `bundle-current-week-api.mjs`
-- `ui/package.json` — add the bundle script to `prebuild` / `predev`
-- `ui/api/coach-chat/_tests/layer2-fields/workoutCreate.test.ts` (new)
+- `ui/api/coach-chat/_lib/coachReplySchema.ts` — action field and turn-mode wiring.
+- `ui/api/coach-chat/_lib/turnWrites/workoutWrite.ts` — `buildWorkoutCreateWrite`.
+- `ui/api/coach-chat/_lib/coachWorkoutFiles.ts` — applier and invariant 7.
+- `ui/api/coach-chat/_lib/coachTurn.ts` — own `commitFilesAtomic` for `workout_create`.
+- `ui/api/coach-chat/_lib/coachPromptText.ts` — tell Coach the action exists.
+- `ui/api/coach-chat/_lib/compileWorkout.bundle.d.ts` (new) — shim, `export *` from engine.
+- `ui/scripts/bundle-compile-workout-api.mjs` (new) — copy `bundle-current-week-api.mjs`.
+- `ui/package.json` — add the bundle script to `prebuild` / `predev`.
+- `ui/api/coach-chat/_tests/layer2-fields/workoutCreate.test.ts` (new).
 
 **Schema** — add to `RESPONSE_PROPERTIES` beside `template_edit` (~line 144). Coach sends the
 spec, never timer physics:
@@ -270,10 +270,16 @@ On a closing turn, include the same write in the close commit as well (`RETURNIN
    `user_data/activities/workout_plans/templates/<id>.json` (**old path — no rename in Stack A**).
 5. Append the id to `_manifest.json` in the same atomic commit.
 
-**Tests** — eight: happy path writes a valid file; id collision suffixes; an active flag with no
-`injury_ack` entry throws; an acknowledged flag passes; unknown `progression_id` throws;
-ordinary-turn mode exposes the action; the committed file passes `validateWorkout`; **returning
-athlete (`wasProfileComplete: true`) still commits** — the case that would have no-op'd.
+**Tests** — eight, each its own case.
+
+1. Happy path writes a valid file.
+2. Id collision suffixes.
+3. An active flag with no `injury_ack` entry throws.
+4. An acknowledged flag passes.
+5. Unknown `progression_id` throws.
+6. Ordinary-turn mode exposes the action.
+7. The committed file passes `validateWorkout`.
+8. A returning athlete (`wasProfileComplete: true`) still commits — the case that would have no-op'd.
 
 **Validate:** `cd ui && npm run test` · manual: one ordinary turn asking for an upper body workout
 **Done when:** a mid-conversation ask produces a committed, schema-valid file the timer can open.

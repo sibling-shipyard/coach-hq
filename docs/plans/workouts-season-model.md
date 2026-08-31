@@ -75,12 +75,16 @@ end, and status — no phase or block underneath it", so adding blocks is a soul
 A second file named `season_plan.json` would be a second season object with the same name — worse.
 Superseding that soul line is part of Stack B, stated out loud.
 
-**`current_week.json` is not slimmed.** Out of scope, and the reason is a track record: four
-separate field-drop proposals here were each wrong against a real repo —
-`completion_activity_ids` (reconciliation), `original_date` (self-adjustment), `timezone`
-(`current-week.mts:554` decides "today" with it), and then `discipline`, `kind`, `title`,
-`planned_duration_min`, `data_status` (the null-template day below, plus `getAvailability()`).
-A field is dropped only after someone has read every consumer and written them down. Nobody has.
+**`current_week.json` is not slimmed.** Out of scope. Four drop proposals were each wrong
+against a real repo.
+
+- `completion_activity_ids` — reconciliation
+- `original_date` — self-adjustment
+- `timezone` — `current-week.mts:554` decides "today"
+- `discipline`, `kind`, `title`, `planned_duration_min`, `data_status` — null-template days
+  and `getAvailability()`
+
+A field is dropped only after someone has read every consumer. Nobody has.
 
 **Compiled files are disposable.** Committed so the timer and iOS read them offline, never treated
 as truth, never hand-edited. Delete the directory and the next compile rebuilds it.
@@ -97,10 +101,10 @@ sync prompt for a case that is rare.
 | Activity with no planned match | attached to the day as unplanned |
 | Two candidates, or an activity a day either side | `planned` + flagged → Coach |
 
-Coach sees only the flagged rows, and the case that earns it is self-adjustment: an athlete who
-moves Tuesday's session to Thursday without saying so reads as a missed anchor plus an orphan under
-rules alone, when the truth is one moved session. Coach sets `original_date`. The
-`session_reconcile` action already exists in `RETURNING_CLOSE_ACTIONS`.
+Coach sees only the flagged rows. The case that earns it is self-adjustment. An athlete who
+moves Tuesday to Thursday without saying so reads as a missed anchor plus an orphan. The truth
+is one moved session. Coach sets `original_date`. The `session_reconcile` action already exists
+in `RETURNING_CLOSE_ACTIONS`.
 
 **Who writes progressions (ADR 0023).** The reconciler, on a matched completion — not Coach
 noticing. Coach may *propose* a level change; code applies and rate-limits it. A signal nothing but
@@ -219,11 +223,10 @@ rollout:
 3. **Then merge**, and read Sentry (ADR 0032) the same day. First check is that compile failures
    are zero.
 
-**The flag earns its place in exactly three spots**, all in Stack B, all where an existing
-athlete's behaviour genuinely changes: B2 (their week starts being generated for them), B4
-(something writes without them asking), B6 (paths move under a running app). There,
-`plugins.json` + `isPluginEnabled` gates it, enablement is a **one-line PR per repo**, and
-rollback is a single revert — the repo *is* the datastore, so nothing partial survives.
+**The flag earns its place in three Stack B spots**, where an existing athlete's behaviour
+changes. B2 generates their week. B4 writes without them asking. B6 moves paths under a running
+app. There, `plugins.json` + `isPluginEnabled` gates it. Enablement is a **one-line PR per
+repo**. Rollback is a single revert — the repo *is* the datastore, so nothing partial survives.
 
 **Data moves in three steps, never one — and this applies to fields, not just folders.**
 Dual-read → write new → delete old.
