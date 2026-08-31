@@ -99,8 +99,7 @@ structured action as it lands:
 - Date of birth/height/weight/city → `profile_update` (`dob`/`height_cm`/`weight_kg`/`timezone`).
 - Habit quests → `quest_create`'s `quests[]`.
 
-While the
-profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
+While the profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
 writes it produced in a small atomic commit. Day-to-day chat remains write-on-close. The closing
 turn still commits the thread and any remaining writes through the normal close path.
 `season_start`/`quest_create` are explicitly scoped in the prompt text to first-session/

@@ -180,8 +180,8 @@ triggered the same failure mode — a runaway repetition loop that burns the out
 degenerate rambling, sometimes taking `session_closed` down with it. The three: `reasoning`
 (removed), `title` (removed, same symptom), `session_note` (tried during the 2026-08
 coach-memory redesign, pulled after one live reproduction). `coach_note` is the one field that's
-been reliable across
-dozens of real closes: short, single-purpose, declared early, no bookkeeping asked of it. Every
+been reliable across dozens of real closes: short, single-purpose, declared early, no bookkeeping
+asked of it. Every
 new action added to this schema is filtered through these four rules for that reason.
 
 ## Retries, timeouts, rate limits
