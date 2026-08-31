@@ -5,11 +5,11 @@
 ## Context
 
 The coach-chat/SOUL redesign replaced `state.md`/`coach_notes.md`/`challenge_v2.json` with a set
-of small typed JSON files, but there was never a single reference doc listing every file, every
+of small typed JSON files. There was never a single reference doc listing every file, every
 field, and every enum in one place — just the TypeScript in `ui/api/coach-chat/_lib/`. This doc
 is a faithful prose+table rendering of that TypeScript, sourced directly from
 `coachMemoryFiles.ts`, `coachQuestFiles.ts`, `coachWeekFiles.ts`, `coachWorkoutFiles.ts`,
-`workoutSchema.ts`, and `coachChatFiles.ts` — those files stay the source of truth; this doc
+`workoutSchema.ts`, and `coachChatFiles.ts`. Those files stay the source of truth; this doc
 should be re-verified against them whenever one changes.
 
 ## Files Coach owns or reads
@@ -221,7 +221,7 @@ or non-numeric `elapsed_time` are omitted from the histogram only — they still
 
 **`sports` keys are normalized `sport_type` values** — lowercased, with camelCase split on `_`
 (`WeightTraining` -> `weight_training`). The activity `category` field is a **sub-tag within** a
-sport (`RNK`/`FRN`/`CAS` are all Badminton; `CAL`/`FDN` are both WeightTraining) and is
+sport (`RNK`/`FRN`/`CAS` are all Badminton; `CAL`/`FDN` are both WeightTraining). It's
 deliberately **not** part of the key — bucketing on it shatters one sport across several buckets
 (#459).
 

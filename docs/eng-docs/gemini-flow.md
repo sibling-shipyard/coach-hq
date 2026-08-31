@@ -47,7 +47,7 @@ below.
 
 **Implicit caching** (Gemini's automatic, on-by-default behavior for 2.5+ models) discounts any
 byte-identical prefix it happens to have recently served, best-effort. This project relies on it
-only as a fallback — see below — but the reason it works at all is prompt *ordering*: everything
+only as a fallback — see below. The reason it works at all is prompt *ordering*: everything
 stable comes before anything that varies per call, so a byte-identical prefix exists in the
 first place. Minimum cacheable size is 2,048 tokens (Gemini 2.5 Flash); SOUL.md alone clears
 that ~6x over.
@@ -89,10 +89,10 @@ to that, it never blocks a reply.
 
 **Request-time staleness, distinct from cache-creation failure:** `getCachedSoulName()` can
 return a name that's since gone stale or been evicted server-side between its own read and the
-actual `generateContent` call — a different failure mode than *creating* a cache failing (which
-falls back to `null`/no-cache before the call even happens). If the actual call comes back `400`
-with a cache name set, `askGemini()` invalidates the stored record and retries once as a plain
-no-cache call, so this never surfaces to the athlete as a failed reply — it costs one extra
+actual `generateContent` call. This is a different failure mode than *creating* a cache failing
+(which falls back to `null`/no-cache before the call even happens). If the actual call comes back
+`400` with a cache name set, `askGemini()` invalidates the stored record and retries once as a
+plain no-cache call. This never surfaces to the athlete as a failed reply — it costs one extra
 round-trip, silently.
 
 ### Cache lifecycle (`soulCache.ts`)
@@ -104,9 +104,9 @@ round-trip, silently.
   `EDGE_CONFIG` (the SDK's own hardcoded default, which would need a manual rename in that flow
   to line up). `EDGE_CONFIG_ID` + `VERCEL_API_TOKEN` are for writes, since Edge Config has no
   write API of its own — only the Vercel REST API does.
-- TTL is 24 hours (was 2h until #624) - the content hash catches a SOUL redeploy immediately
+- TTL is 24 hours (was 2h until #624). The content hash catches a SOUL redeploy immediately
   regardless of TTL, so TTL only bounds how long a stale-but-unhashed edge case could
-  theoretically live, and a shorter TTL has a real cost: every expiry is a Global Config write,
+  theoretically live. A shorter TTL has a real cost too: every expiry is a Global Config write,
   and the free tier caps at 250/month. 2h implied ~360 writes/month before even counting the
   concurrent-cold-start race below - 24h keeps the baseline near 30/month.
 - Fails open at every step: no `GLOBAL_CONFIG` configured, a failed create call, a failed write —
@@ -115,11 +115,11 @@ round-trip, silently.
 - **Setup required** (operator action, not code): create a Vercel Edge Config store, connect it
   to the project, and set `EDGE_CONFIG_ID`/`VERCEL_API_TOKEN` in Vercel's env vars (prod +
   preview) for writes to persist across cold starts. See `docs/eng-docs/env-vars.md`.
-- Cache validity checks the model alongside the content hash, not folded into it — a
+- Cache validity checks the model alongside the content hash, not folded into it. A
   `GEMINI_MODEL` bump with SOUL text unchanged still invalidates, since a `cachedContents/...`
-  name is only valid for the model it was created against (the request-time retry above would
+  name is only valid for the model it was created against. The request-time retry above would
   also catch this, but checking up front avoids paying that round-trip when it's knowable
-  earlier).
+  earlier.
 - Every reply logs `[coach-chat] Gemini usage: prompt=<n> cached=<n>` (`finishGeminiResponse`) —
   the standing way to confirm caching is actually being hit on real traffic, not just configured.
   See "Done when" below.
@@ -150,7 +150,7 @@ check; prompt construction does not infer mode by searching injected text.
 **Text-field length caps (issue #462).** `coach_note`, `memory_update.text`, and
 `injury_flag[].text`/`injury_event[].text` each carry a `maxLength` in `RESPONSE_PROPERTIES`
 (`coachReplySchema.ts`), sourced from `engine/lib/text-caps.mts`. The same numbers are
-restated as a plain-text instruction per field in the prompt (`coachPromptText.ts`) — schema
+restated as a plain-text instruction per field in the prompt (`coachPromptText.ts`). Schema
 `maxLength` is a real constraint Gemini receives, not a guarantee it honors, so the prompt line
 is a second, cheap nudge reading the same constant. See "Retries" below for what happens when
 both still aren't enough.
@@ -170,16 +170,17 @@ not a guess:
 2. **One new field at a time, shipped and tested in isolation** before the next one is added —
    never two new fact fields in the same PR.
 3. **Prefer constrained values over free text.** An enum (`status`) or one of a small fixed set of
-   labels beats an open string wherever the shape allows it; only the field that's genuinely
+   labels beats an open string wherever the shape allows it. Only the field that's genuinely
    prose (`text`, `value`) should be unconstrained, and there should be at most one such field per
    action.
 4. **Commitment fields ordered before the narrative `reply`** in each mode-specific schema.
 
 **Why this is a hard rule, not a preference:** three independent free-text fields have each
 triggered the same failure mode — a runaway repetition loop that burns the output budget on
-degenerate rambling, sometimes taking `session_closed` down with it — `reasoning` (removed),
-`title` (removed, same symptom), `session_note` (tried during the 2026-08 coach-memory redesign,
-pulled after one live reproduction). `coach_note` is the one field that's been reliable across
+degenerate rambling, sometimes taking `session_closed` down with it. The three: `reasoning`
+(removed), `title` (removed, same symptom), `session_note` (tried during the 2026-08
+coach-memory redesign, pulled after one live reproduction). `coach_note` is the one field that's
+been reliable across
 dozens of real closes: short, single-purpose, declared early, no bookkeeping asked of it. Every
 new action added to this schema is filtered through these four rules for that reason.
 
@@ -187,21 +188,21 @@ new action added to this schema is filtered through these four rules for that re
 
 - The actual `generateContent` call uses its own longer timeout (`GEMINI_GENERATE_TIMEOUT_MS`,
   45s, `geminiClient.ts`) rather than the shared file-read default (`UPSTREAM_TIMEOUT_MS`, 25s,
-  `ui/api/_lib/httpTimeout.ts`) — closing turns routinely carry the largest prompts in the system (full
-  chat history and operational context) and the hardest output (a structured close-out), so they're the
-  turn most likely to legitimately need more than 25s. `ui/vercel.json` sets an explicit
-  `maxDuration: 300` for `api/coach-chat.ts` so the platform's own ceiling doesn't silently become
-  the real limit underneath this — confirmed against the live account (Fluid Compute is enabled),
-  which per Vercel's own changelog raises the Hobby plan's ceiling to the full 300s rather than
-  the 60s that applies without it.
+  `ui/api/_lib/httpTimeout.ts`). Closing turns routinely carry the largest prompts in the system
+  (full chat history and operational context) and the hardest output (a structured close-out),
+  so they're the turn most likely to legitimately need more than 25s. `ui/vercel.json` sets an
+  explicit `maxDuration: 300` for `api/coach-chat.ts` so the platform's own ceiling doesn't
+  silently become the real limit underneath this. Confirmed against the live account (Fluid
+  Compute is enabled), which per Vercel's own changelog raises the Hobby plan's ceiling to the
+  full 300s rather than the 60s that applies without it.
 - A 504 (our own timeout abort) or a genuine Gemini-side 503 ("model currently experiencing high
   demand") triggers exactly one retry with a short fixed backoff — both were previously fatal on
   the first hit. Confirmed via production Runtime Logs as the dominant cause of closing turns
   failing outright with nothing committed (the failure happens inside `askGemini`, before
   `commitFilesAtomic` is ever reached, so the athlete's close silently does nothing). This is
   additive to the existing stale-cache retry (a `400` when `cachedContent` has expired/was
-  evicted — see Cache lifecycle above) but capped at one retry **total**, not one per failure
-  kind — the 400-retry and the 504/503-retry are mutually exclusive branches (`if`/`else if`) on
+  evicted — see Cache lifecycle above), but capped at one retry **total**, not one per failure
+  kind. The 400-retry and the 504/503-retry are mutually exclusive branches (`if`/`else if`) on
   the same call, not independent checks that can both fire. Letting both fire back to back would
   allow a single unlucky request to chain 3 full 45s-budget calls (~135s), blowing through
   `maxDuration` regardless of how generous it's set. Capped like this, the worst case for one
@@ -211,9 +212,9 @@ new action added to this schema is filtered through these four rules for that re
   `askGemini()` invocation — if `coach_note`/`memory_update.text`/`injury_flag[].text`/
   `injury_event[].text` comes
   back over its `maxLength` cap (issue #462). This is content-triggered, not transport-triggered,
-  so it's independent of the 400/503/504 retry above and can stack with it: the true worst case
+  so it's independent of the 400/503/504 retry above and can stack with it. The true worst case
   for a closing turn that both hits a transport retry _and_ needs the text-cap reprompt is two
-  full `askGemini()` invocations, each up to ~90s, ~180s total — still under the 300s
+  full `askGemini()` invocations, each up to ~90s. That's ~180s total — still under the 300s
   `maxDuration` ceiling, but worth knowing this bullet's "2 calls" is per-invocation, not
   per-turn. No retry on a second text-cap violation — `capText` in `turnWrites/*.ts` truncates
   deterministically if the reprompt still overshoots.
@@ -231,7 +232,7 @@ new action added to this schema is filtered through these four rules for that re
 
 - `npm run eval:coach-chat` passes against a live key after any prompt-construction change.
 - A live call's `usageMetadata.cachedContentTokenCount` is nonzero on the second request in a
-  session, confirming explicit caching is actually hitting (not just configured) — check the
+  session, confirming explicit caching is actually hitting (not just configured). Check the
   standing `[coach-chat] Gemini usage: prompt=... cached=...` log line rather than a one-off
   script; verified live 2026-08-06, same `cached` value reused across two real messages in one
   session while `prompt` grew with history.

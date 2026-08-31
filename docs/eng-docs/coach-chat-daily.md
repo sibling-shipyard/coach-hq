@@ -57,7 +57,7 @@ flowchart LR
 
 `ui/api/coach-chat-context.ts` warms `loadCoachContext()`'s 60-second in-memory server cache
 (`ui/api/coach-chat/_lib/coachChatFiles.ts`) for profile, memory, injuries, recent coach notes,
-the split quest ledger, and the generated athlete fitness snapshot — SOUL is no longer fetched
+the split quest ledger, and the generated athlete fitness snapshot. SOUL is no longer fetched
 from the athlete's repo at all (see below). Web fires this once
 per app load from `App.tsx`'s `Gate` component (`ui/client/src/lib/prefetchCoachContext.ts`,
 fire-and-forget); iOS fires it from `MainTabView.swift`'s `.task` block as soon as the app is
@@ -69,9 +69,10 @@ top of the Gemini call.
 
 Landing on the chat tab never shows an empty composer. The client calls
 `POST {action: "greet"}`, handled by `handleGreet()`. During First Session it first commits any
-native onboarding hints; it never commits the greeting thread itself. Every call generates a fresh opener via Gemini (`"greeting"` mode: 1-3 sentence
-contextual opener, no day-count, no stat dump, no write actions in its schema, informed by
-current athlete context) and returns `{reply, threadId, threads, repoSha, profileComplete}` — `threadId` is
+native onboarding hints; it never commits the greeting thread itself. Every call generates a
+fresh opener via Gemini (`"greeting"` mode: 1-3 sentence contextual opener, no day-count, no stat
+dump, no write actions in its schema, informed by current athlete context). It returns
+`{reply, threadId, threads, repoSha, profileComplete}` — `threadId` is
 a fresh, never-persisted id (kept in the response only for shape stability; neither web nor iOS
 reads it) and `threads` is the existing committed list, unchanged.
 
@@ -79,21 +80,21 @@ The client materializes the greeting as an **uncommitted local thread** instead 
 `CoachChat.tsx` (`materializeGreeting()`), iOS in `CoachChatView.swift` (`greetNow()`) — using
 the same `local-<timestamp>` id convention both platforms use for a brand-new athlete-initiated
 thread. The greeting only actually lands in the repo if the athlete replies and that
-conversation later closes: its full message history, including the divider and Coach's opening
+conversation later closes. Its full message history, including the divider and Coach's opening
 line, rides along inside that eventual close-commit, exactly like an ordinary mid-conversation
 turn (nothing writes server-side until close).
 
 Before materializing a new greeting, both platforms clear the cache entry for any *previous
-unreplied* local greeting they find in current state (`materializeGreeting()`/`greetNow()`) — so
-repeatedly hitting "New conversation" without ever replying can't pile up multiple local-only
-cache entries for the same day. See `coach-chat-fsp.md`'s Resumability section for the
+unreplied* local greeting they find in current state (`materializeGreeting()`/`greetNow()`).
+This way, repeatedly hitting "New conversation" without ever replying can't pile up multiple
+local-only cache entries for the same day. See `coach-chat-fsp.md`'s Resumability section for the
 complementary restore-time fix (dropping a past-day unreplied greeting entirely, rather than just
 superseding a same-day one).
 
 **Accepted edge case:** without a server-side reuse check, two tabs/devices opened at almost the
 exact same moment on a day with no thread yet each independently materialize their own local
 greeting, with no reconciliation. If the athlete replies in one, that becomes the real
-conversation; if they reply in both, that's two genuine conversations, no different from
+conversation. If they reply in both, that's two genuine conversations, no different from
 deliberately starting a second one via "New conversation." Worst case costs one redundant Gemini
 call for a greeting nobody reads.
 
@@ -148,7 +149,7 @@ it.
 
 SOUL itself is bundled from `platform/SOUL.chat.md` — the coach-chat build of the two composed
 targets (ADR 0022) — at build time (`ui/scripts/build-soul.mjs`,
-wired into `predev`/`prebuild`) rather than fetched from the athlete's own repo — it's 100%
+wired into `predev`/`prebuild`), rather than fetched from the athlete's own repo. It's 100%
 generic, no per-athlete substitution happens anywhere in the carve process, so re-fetching it per
 athlete per turn was pure waste. See the ADR amending 0011 for the full rationale.
 
@@ -158,7 +159,7 @@ No lock. Every response includes `repoSha` — the HEAD sha (or post-commit sha 
 that response. The client remembers it per thread and sends it back as `knownSha` on the next
 message. If it doesn't match the actual current HEAD at request time (most likely: a session was
 wrapped on another device since), the server sets `stale: true` and bypasses the 60s context
-cache to re-read fresh — so Gemini's next reply reflects whatever changed. Both platforms show a
+cache to re-read fresh. That way Gemini's next reply reflects whatever changed. Both platforms show a
 toast: *"Coach caught up on changes from your other device."*
 
 ```mermaid
@@ -179,10 +180,10 @@ sequenceDiagram
 `CLOSE_SESSION_PATTERN` (a fixed regex — `wrap this session`, bare `wrap` with a short affirming
 filler, `done for today`, `bye coach`, `see you tomorrow`, `goodnight coach`, etc.) is only a
 **trigger to ask** Gemini to consider closing, never the close decision itself. Gemini reports
-back `session_closed: true|false` — a match with `session_closed: false` means Gemini asked a
+back `session_closed: true|false`. A match with `session_closed: false` means Gemini asked a
 clarifying question instead of closing (still no commit); only `closeIntent && session_closed ===
 true` actually closes. `closeIntent` is also true if a close-trigger message appeared in the last
-few turns (`wasCloseAttemptPending`) — otherwise, simply *answering* Coach's own clarifying
+few turns (`wasCloseAttemptPending`). Without that, simply *answering* Coach's own clarifying
 question (e.g. "8hrs" in response to "how'd you sleep?") would route as an ordinary turn and never
 get a chance to actually close, even though the athlete is mid-close-attempt. The web and iOS
 End Conversation buttons instead send `endConversationRequested: true`; `shouldRequestClose()`
@@ -256,11 +257,11 @@ consumes a retention slot — only threads that actually got a real close-out ev
   start HealthKit sync.
 
 - **Thread age labels**: the history list shows two distinct badges per thread — an *absolute*
-  day-count badge (`D-101`) and a *relative* age badge next to it, which shows a real date ("5th
-  AUG") rather than a `D-N` count, using `ChatThread.createdAt` (raw epoch ms). The leading
-  conversation-pane divider works the same way: "TODAY" for the active same-day thread, otherwise
-  the thread's real date, computed fresh from `dayOffset`/`createdAt` at render time rather than a
-  stored string — never a time-of-day.
+  day-count badge (`D-101`) and a *relative* age badge next to it. The relative badge shows a
+  real date ("5th AUG") rather than a `D-N` count, using `ChatThread.createdAt` (raw epoch ms).
+  The leading conversation-pane divider works the same way: "TODAY" for the active same-day
+  thread, otherwise the thread's real date, computed fresh from `dayOffset`/`createdAt` at render
+  time rather than a stored string — never a time-of-day.
 
   The absolute badge reads `profile.json`'s `coach_since` directly (ADR 0018), on both
   platforms. Web's `CoachChat.tsx` computes it via `challengeDayNumber()`
@@ -276,10 +277,10 @@ consumes a retention slot — only threads that actually got a real close-out ev
 
 `coach-chat.ts` (and its two companion endpoints) use the shared `resolveRepoAuth()` helper
 (`ui/api/auth/_lib/resolve-auth.ts`) — session cookie on web, `Authorization: Bearer <token>` +
-`X-Coach-Repo: owner/repo` on iOS. Sending a message never retries a raw network failure (a
-close-session commit could have already landed before the response was lost — blind retry would
-re-run Gemini and the commit a second time); a 5xx/429 *response* still retries, since the server
-confirmed nothing committed. A 401 shows a "sign in again" state on both platforms: web's shared
+`X-Coach-Repo: owner/repo` on iOS. Sending a message never retries a raw network failure — a
+close-session commit could have already landed before the response was lost, so blind retry
+would re-run Gemini and the commit a second time. A 5xx/429 *response* still retries, since the
+server confirmed nothing committed. A 401 shows a "sign in again" state on both platforms: web's shared
 `AccessRevokedCard`; iOS sets `authManager.sessionExpired`, surfaced by `MainTabView`'s app-wide
 `SessionExpiredView` overlay.
 
@@ -302,9 +303,9 @@ rather than assuming a fresh top-level file is free.
 
 ## Done when
 
-Landing on Coach Chat always shows Coach having already spoken, never an empty composer; a
+Landing on Coach Chat always shows Coach having already spoken, never an empty composer. A
 close-session commit lands as one atomic commit with only the split records that genuinely
-changed; two devices on the same thread self-correct via the staleness toast instead of silently
+changed. Two devices on the same thread self-correct via the staleness toast instead of silently
 diverging.
 
 ## Deferred
