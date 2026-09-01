@@ -13,7 +13,6 @@
 | 0009 | Refresh-token rotation for "stay logged in until logout" | cross-cutting |
 | 0010 | Remove Strava ingestion, relocate shared activity tools out of `strava/` | cross-cutting |
 | 0011 | HQ five-band layout (shared, ui, ios, platform, engine) | cross-cutting |
-| 0012 | Coach chat: atomic commits via Git Data API, count-based retention | cross-cutting |
 | 0013 | Canonical match history: iOS parses once, consumers read JSON | cross-cutting |
 | 0014 | Use HealthKit workout UUID as stable canonical id | cross-cutting |
 | 0015 | iOS app-launch state machine | ios |
@@ -37,14 +36,16 @@
 | 0034 | Agent-layer restructure: Bob the Builder split and Cyclops triage | cross-cutting |
 | 0035 | One committed file per real session | cross-cutting (iOS sync) |
 | 0036 | agent-kit: extract in place, then carve | cross-cutting |
+| 0037 | Chat history: full retention in storage, display still capped at 7 | cross-cutting (coach-chat API, web, iOS) |
 
 <details>
-<summary>Superseded / historical (3) — kept for the citations, not for the boot read</summary>
+<summary>Superseded / historical (4) — kept for the citations, not for the boot read</summary>
 
 | # | Title | Replaced by |
 |---|---|---|
 | 0002 | Wait to decide where the coach's "brain" lives | → 0022 |
 | 0003 | Start new users from a clean template, archive the original | Historical |
+| 0012 | Coach chat: atomic commits via Git Data API, count-based retention | → 0037 |
 | 0021 | coach-chat reads SOUL.md directly from HQ; terminal/BYO-Claude coaching mode retired | → 0022 |
 
 </details>

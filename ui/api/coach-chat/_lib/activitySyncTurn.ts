@@ -13,6 +13,7 @@ import {
   appendConversationTurn,
   CHAT_FILE_PATH,
   loadChatHistory,
+  pruneForResponse,
   sanitizeTitle,
   serializeChatHistory,
   THREAD_TITLE_MAX_CHARS,
@@ -80,7 +81,7 @@ export async function handleActivitySync(
       closed: false,
       duplicate: true,
       threadId: existing.id,
-      threads: withComputedDayOffsets(history.threads, timezone),
+      threads: withComputedDayOffsets(pruneForResponse(history.threads), timezone),
       repoSha: currentSha,
       profileComplete,
     });
@@ -194,7 +195,7 @@ export async function handleActivitySync(
       closed: false,
       duplicate: outcome.duplicate,
       threadId: outcome.thread.id,
-      threads: withComputedDayOffsets(outcome.threads, timezone),
+      threads: withComputedDayOffsets(pruneForResponse(outcome.threads), timezone),
       repoSha: result.commitSha,
       profileComplete,
     });
