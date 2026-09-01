@@ -67,6 +67,35 @@ Attempt 100% prevention — layer 2's existence is an admission that constrained
 formally airtight. The goal is "as close to never as the API allows, and never silent when it does
 happen" — not a guarantee no validation failure can ever occur.
 
+## Fix — GitHub commit failure must not discard the reply
+
+Found during this planning pass, not hypothetical: today, when `commitFilesAtomic` fails after its
+internal 3-attempt retry, `commitOrdinaryTurn`/`commitClosingTurn` (`coachTurn.ts:622-628`,
+`:684-690`) return only `{ error, traceId }` with a 502 — **Gemini's already-generated reply text is
+discarded entirely**, even though the model did its job. The athlete never sees what Coach said,
+only a save-failure message. This gets more consequential once every turn commits (A1) instead of
+only the closing turn — an outage now has one chance to bite per turn with a write, not once per
+conversation.
+
+Fix: the error response includes `turn.reply.reply` alongside the error, so the client can show
+Coach's actual words plus a clear "but I couldn't save that — try again?" rather than losing the
+reply along with the failed write. Bring iOS up to what web already does while here — today web
+surfaces the server's specific error string, iOS collapses any 5xx to a generic "something went
+wrong" (`UserFacingError.swift:35-42`) and loses even that detail. Both platforms show the same
+information: the reply, plus which save failed, plainly.
+
+## Fix — validation-failure signal is now a firm requirement, not left to Coach's next reply
+
+Previously: a rejected action (layer 3's corrective-retry-then-drop path) was surfaced only by
+folding it into next-turn context and trusting Coach to mention it — the same "hope the model
+remembers" pattern this whole redesign exists to move away from. Firm requirement now: the turn's
+response includes a structured field (e.g. `droppedActions: [{ field, reason }]`) whenever layer 3
+drops something, independent of whether Coach's own reply happens to mention it. The client shows
+an explicit, honest indicator when this is non-empty — not a scary error, but not silent either.
+Both platforms already run their own Sentry SDK (`@sentry/react` on web, `sentry-cocoa` on iOS,
+confirmed present, not new setup) — capture the dropped-action event there too, client-side, so a
+pattern is visible from both ends, not just the backend's `console.error`/Sentry capture.
+
 ## Tests
 
 - `coachReplySchema.test.ts`: assert `generationConfigFor` builds a request with the athlete's
@@ -80,9 +109,19 @@ happen" — not a guarantee no validation failure can ever occur.
 - CI (`validate-data.yml`): port the shape/enum checks that already exist for legacy
   `challenge_v2.json` (per-quest field checks) onto `quests.json`, and add `injuries.json` id
   format/uniqueness checks — closing the specific gaps #736 named.
+- New test: a forced `commitFilesAtomic` failure (mock the GitHub call) asserts the error response
+  still includes `turn.reply.reply`, on both the ordinary and closing paths.
+- New web test: the composer shows Coach's reply text plus a save-failed indicator when the commit
+  error response includes a reply.
+- New iOS test: `UserFacingError.friendlyMessage` (or its replacement) surfaces the same reply +
+  save-failed detail iOS currently drops — parity with web, not just "an error occurred."
+- New test: a turn producing a `droppedActions` entry is captured by both the backend's existing
+  Sentry pattern and a client-side capture on whichever platform received it.
 
 ## Done when
 
 Live-test: deliberately trigger a stale/invalid quest id reference on a scratch branch, confirm (a)
 the chat message and any other valid writes from that turn still land, (b) Sentry shows the
-rejected action, (c) the next turn's context references it.
+rejected action from both backend and client, (c) the client shows an explicit indicator, not just
+next-turn context. Separately, force a GitHub commit failure and confirm Coach's reply is still
+shown to the athlete on both web and iOS, with a clear save-failed message, not a discarded reply.
