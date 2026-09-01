@@ -46,21 +46,23 @@ DIRS=()
 CMDS=()
 POLICIES=()
 
-add_check() {
-  NAMES+=("$1")
-  DIRS+=("$2")
-  CMDS+=("$3")
-  POLICIES+=("$4")
-}
+# Read checks from checks.conf; skip blank lines and comments.
+# $REPO_ROOT in the dir field is expanded via parameter substitution.
+while IFS='|' read -r name dir cmd policy || [ -n "$name" ]; do
+  [[ -z "$name" || "$name" == \#* ]] && continue
+  dir="${dir/\$REPO_ROOT/$REPO_ROOT}"
+  NAMES+=("$name")
+  DIRS+=("$dir")
+  CMDS+=("$cmd")
+  POLICIES+=("${policy:-block}")
+done < "$SCRIPT_DIR/checks.conf"
 
-add_check "ui typecheck (npm run check)" "$REPO_ROOT/ui" "npm run check" block
-add_check "ui lint (npm run lint)" "$REPO_ROOT/ui" "npm run lint" block
-add_check "ui format (npm run format:check)" "$REPO_ROOT/ui" "npm run format:check" block
-add_check "ui tests (npm test)" "$REPO_ROOT/ui" "npm test" block
-add_check "compose-soul --check" "$REPO_ROOT" "node platform/scripts/compose-soul.mjs --check" block
-add_check "validate-soul" "$REPO_ROOT" "node platform/scripts/validate-soul.mjs" warn
-add_check "validate_kdb" "$REPO_ROOT" "python3 kdb/scripts/validate_kdb.py" block
-add_check "platform tests" "$REPO_ROOT" "python3 -m unittest discover -s platform/tests -p \"test_*.py\"" block
+# validate_kdb is hardcoded here — it is not in checks.conf because it validates
+# the repo's knowledge-base tooling (including checks.conf itself) and must always run last.
+NAMES+=("validate_kdb")
+DIRS+=("$REPO_ROOT")
+CMDS+=("python3 kdb/scripts/validate_kdb.py")
+POLICIES+=("block")
 
 TOTAL=${#NAMES[@]}
 STATUSES=()
