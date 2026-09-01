@@ -2,9 +2,25 @@
 
 > Status: Current · Owner: Tech Lead · Verified: 2026-09-01
 
-Execution detail for G1 in [`chat-commit-redesign.md`](chat-commit-redesign.md). Runs after C1
-(closing turn removed) and D1 (validation mechanism exists), so the trimmed set tests final
+Execution detail for G1 in [`chat-commit-redesign.md`](chat-commit-redesign.md). Closes #670. Runs
+after C1 (closing turn removed) and D1 (validation mechanism exists), so the trimmed set tests final
 behavior, not an intermediate state that's about to change again.
+
+## Also closes #670 — the eval CI check has never once passed
+
+`eval-coach-chat.yml` has been red on every run since it started (2026-08-25), across all 22-24
+transcripts, ~7 failures per run, never diagnosed as "rubric wrong" vs. "product wrong." A gate
+that's never been green isn't gating anything — nobody can currently tell a real regression from
+baseline noise it's already sitting in. This PR is the natural place to fix it: it already rewrites
+most of the transcript set, so build the new 10-14 in a way that's verified to actually pass, not
+just written and assumed correct.
+
+For every transcript **carried forward unchanged** from the old set (not rewritten by this PR),
+diagnose why it's been failing before keeping it — read the actual failure output, sort "the
+fixture/expectation is stale" from "this is a real, current product bug" (per the issue's own
+framing). A stale-rubric case gets its expectation corrected. A real bug gets filed as its own issue
+and the transcript kept red *deliberately*, documented as a known failure — not silently dropped
+just to make the gate pass.
 
 ## Current state
 
@@ -68,10 +84,13 @@ eng-docs sweep (other docs, SOUL) to H1 — this file only touches the testing d
 
 This PR *is* test infrastructure — its own verification is `npm run eval:coach-chat` actually
 running clean against the trimmed set, and `npm test` (the layered suite) staying green throughout
-since none of layer1/2/3 depend on the eval transcripts.
+since none of layer1/2/3 depend on the eval transcripts. Record the run per this repo's convention
+(`tests/<date>/eval/`) as the evidence the gate is real now, not just green by omission.
 
 ## Done when
 
 `ui/api/coach-chat/_tests/coach-chat-eval/transcripts/` holds 10-14 files, none testing deleted
 closing-turn behavior, at least 2 new ones covering behavior this redesign added.
+`eval-coach-chat.yml` is green on the pushed SHA — the first time this gate has ever passed — with
+any transcript still deliberately red backed by its own filed issue, not silently dropped.
 `docs/eng-docs/coach-chat-testing.md` accurately describes the post-redesign shape.
