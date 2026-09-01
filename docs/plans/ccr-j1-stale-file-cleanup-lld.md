@@ -17,6 +17,16 @@ repo. Confirm each has actually run against every athlete repo (git history / co
 the athlete repos, or `kdb/decisions/` for the schema change it migrated) before deleting — don't
 delete a migration script that's still owed to a repo nobody's checked yet.
 
+A second confirmed, still-live example, found while scoping this LLD: `engine/scripts/
+build-dashboard-snapshot.mjs`'s `loadLedger()` still carries a "legacy challenge_v2 fallback"
+(its own doc comment, line 7) — a dead-code lead originally named in the now-deleted
+`docs/plans/coach-chat-redesign-final-audit.md` (see below), from an older, already-fully-closed
+redesign (#378, closed, all 6 sub-issues closed). The epic that named it is done; the fallback
+itself was never actually removed. Check whether `challenge_v2.json` is still genuinely reachable
+by any current carve/onboarding path before deleting the fallback branch — a live but unreachable
+fallback is dead code; a reachable one needs its trigger path closed first, not just the fallback
+code removed.
+
 ## Scope — whole repo, not just coach-chat
 
 Sweep systematically, not just `ui/scripts/`:
