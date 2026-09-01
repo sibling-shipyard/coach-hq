@@ -87,6 +87,23 @@ function mondayOf(date) {
   return new Date(d.getFullYear(), d.getMonth(), diff);
 }
 
+function isoWeekId(dateString) {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const isoYear = date.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+  const daysSinceYearStart = Math.floor((date.getTime() - yearStart.getTime()) / 86_400_000) + 1;
+  const week = Math.ceil(daysSinceYearStart / 7);
+  return `${isoYear}-W${String(week).padStart(2, "0")}`;
+}
+
+function daysBetween(startDate, endDate) {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
+}
+
 function hrZones(seconds) {
   const [z1High, z2High, z3High, z4High] = DEFAULT_HR_ZONES;
   return {
@@ -698,21 +715,124 @@ const questHistory = {
 
 // ─── Current week (raw layer — date-relative, distinct from the static
 // shared/golden-dataset/current_week.json used by /welcome, /gallery, iOS) ──
+// Live + populated so local /workouts demos today + this week + library (A5).
+
+const GOLDEN_TIMEZONE = "Europe/London";
+
+function plannedSession(date, opts) {
+  const {
+    discipline,
+    kind,
+    title,
+    templateId = null,
+    durationMin,
+    priority = "anchor",
+    status = "planned",
+    coachNote = null,
+  } = opts;
+  return {
+    id: `${date}-${discipline}-golden`,
+    origin: "planned",
+    discipline,
+    kind,
+    title,
+    priority,
+    status,
+    planned_duration_min: durationMin,
+    planned_load: null,
+    template_id: templateId,
+    session_file: null,
+    coach_note: coachNote,
+    original_date: null,
+    completion_activity_ids: [],
+  };
+}
 
 const weekMonday = mondayOf(NOW);
-const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const intents = ["train", "recovery", "train", "train", "open", "rest", "review"];
+const weekStartStr = toLocalDateStr(weekMonday);
 const weekEnd = new Date(weekMonday);
 weekEnd.setDate(weekEnd.getDate() + 6);
+const weekEndStr = toLocalDateStr(weekEnd);
+const todayStr = toLocalDateStr(NOW);
+const todayOffset = Math.min(6, Math.max(0, daysBetween(weekStartStr, todayStr)));
+
+/** Offset → sessions for that day. Today always gets the runnable calisthenics slot. */
+const weekPlanByOffset = {
+  0: [
+    plannedSession(weekStartStr, {
+      discipline: "badminton",
+      kind: "competitive",
+      title: "Ranked court",
+      durationMin: 90,
+      priority: "anchor",
+      coachNote: "Hold quality when the score tightens.",
+    }),
+  ],
+  1: [
+    plannedSession(addDaysLocal(weekStartStr, 1), {
+      discipline: "strength",
+      kind: "strength",
+      title: "Strength A",
+      templateId: "strength-a",
+      durationMin: 40,
+      priority: "support",
+    }),
+  ],
+  3: [
+    plannedSession(addDaysLocal(weekStartStr, 3), {
+      discipline: "badminton",
+      kind: "friendly",
+      title: "Friendly court",
+      durationMin: 90,
+      priority: "anchor",
+    }),
+  ],
+  4: [
+    plannedSession(addDaysLocal(weekStartStr, 4), {
+      discipline: "cycling",
+      kind: "endurance",
+      title: "Easy spin",
+      durationMin: 50,
+      priority: "optional",
+    }),
+  ],
+};
+
+function addDaysLocal(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+weekPlanByOffset[todayOffset] = [
+  plannedSession(todayStr, {
+    discipline: "calisthenics",
+    kind: "strength",
+    title: "Calisthenics — Pull + Handstand",
+    templateId: "calisthenics-pull",
+    durationMin: 50,
+    priority: "support",
+    coachNote: "Stop one clean rep before grind.",
+  }),
+];
+
+// Past planned days read as done so /workouts week band shows the state locally.
+for (let i = 0; i < todayOffset; i++) {
+  const sessions = weekPlanByOffset[i];
+  if (!sessions?.length) continue;
+  sessions[0] = { ...sessions[0], status: "done" };
+}
+
+const intents = ["train", "recovery", "train", "train", "open", "rest", "review"];
 
 const currentWeek = {
   schema_version: 1,
-  data_status: "placeholder",
+  data_status: "live",
+  timezone: GOLDEN_TIMEZONE,
   week: {
-    id: `${weekMonday.getFullYear()}-W${String(Math.ceil((((weekMonday - new Date(weekMonday.getFullYear(), 0, 1)) / 86400000) + 1) / 7)).padStart(2, "0")}`,
-    start_date: toLocalDateStr(weekMonday),
-    end_date: toLocalDateStr(weekEnd),
-    status: "draft",
+    id: isoWeekId(weekStartStr),
+    start_date: weekStartStr,
+    end_date: weekEndStr,
     focus: "Protect the two court anchors; let the support work stay supportive.",
     guardrails: [
       "Keep the hard-dose ceiling intact after the second court session.",
@@ -722,18 +842,17 @@ const currentWeek = {
   coach_read: {
     headline: "Two anchors. One restraint.",
     body: "The week has enough stimulus already. Win it by protecting Monday and Thursday, then keep Friday genuinely optional.",
-    valid_from: toLocalDateStr(weekMonday),
-    valid_until: toLocalDateStr(weekEnd),
+    valid_from: weekStartStr,
+    valid_until: weekEndStr,
   },
-  days: dayNames.map((day, i) => {
-    const date = new Date(weekMonday);
-    date.setDate(date.getDate() + i);
+  days: Array.from({ length: 7 }, (_, i) => {
+    const date = addDaysLocal(weekStartStr, i);
+    const sessions = weekPlanByOffset[i] ?? [];
     return {
-      date: toLocalDateStr(date),
-      day,
-      intent: intents[i],
-      coach_note: null,
-      sessions: [],
+      date,
+      intent: sessions.length ? intents[i] : i >= 5 ? intents[i] : "open",
+      coach_note: sessions.length ? null : i >= 5 ? "Protect the adaptation day." : null,
+      sessions,
     };
   }),
   coach_comments: [],
