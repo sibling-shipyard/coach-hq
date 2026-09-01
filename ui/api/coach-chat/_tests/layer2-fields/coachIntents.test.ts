@@ -922,8 +922,29 @@ describe("applyQuestCreate", () => {
     expect(result.quests).toHaveLength(2);
   });
 
-  it("throws when no main_quest is given and the file has none to fall back to", () => {
-    expect(() =>
+  it("round-trips an explicit main_quest: null on file when none is given", () => {
+    const existingNoMainQuest = JSON.stringify({
+      version: 1,
+      _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+      weekly_targets: {},
+      main_quest: null,
+      quests: [],
+    });
+    const result = JSON.parse(
+      applyQuestCreate(
+        existingNoMainQuest,
+        { quests: [{ name: "Read daily", type: "daily_streak" }] },
+        "2026-08-18",
+        "t1",
+        new Date("2026-08-18T10:00:00Z"),
+      ),
+    );
+    expect(result.main_quest).toBeNull();
+    expect(result.quests).toHaveLength(1);
+  });
+
+  it("succeeds with a quests-only create when no main_quest is given and none is on file", () => {
+    const result = JSON.parse(
       applyQuestCreate(
         null,
         { quests: [{ name: "Read daily", type: "daily_streak" }] },
@@ -931,6 +952,9 @@ describe("applyQuestCreate", () => {
         "t1",
         new Date("2026-08-18T10:00:00Z"),
       ),
-    ).toThrow(/quest_create: no main_quest given/);
+    );
+    expect(result.main_quest).toBeNull();
+    expect(result.quests).toHaveLength(1);
+    expect(result.quests[0]).toMatchObject({ name: "Read daily", type: "daily_streak" });
   });
 });

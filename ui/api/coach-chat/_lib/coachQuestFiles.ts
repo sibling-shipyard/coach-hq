@@ -61,7 +61,7 @@ export interface QuestsJson {
   version: 1;
   _meta: { updated_at: string; updated_by: string; trace_id: string };
   weekly_targets: Record<string, WeeklyTarget>;
-  main_quest: MainQuest;
+  main_quest: MainQuest | null;
   quests: Quest[];
 }
 
