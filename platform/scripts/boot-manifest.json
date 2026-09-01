@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Tech Lead",
+    "files": [
+      "AGENTS.md",
+      ".github/agents/tech-lead.md",
+      "kdb/decisions/README.md",
+      { "path": "platform/SOUL.claude.md", "conditional": true }
+    ]
+  },
+  {
+    "name": "Bob the Builder",
+    "files": ["AGENTS.md", ".github/agents/bob-the-builder.md", "kdb/decisions/README.md"]
+  },
+  {
+    "name": "UI Expert",
+    "files": ["AGENTS.md", ".github/agents/ui-expert.md", "kdb/decisions/README.md"]
+  },
+  {
+    "name": "iOS Builder",
+    "files": [
+      "AGENTS.md",
+      ".github/agents/ios-builder.md",
+      "kdb/decisions/README.md",
+      { "path": "docs/eng-docs/ios-app-spec.md", "conditional": true },
+      { "path": "ios/DESIGN.md", "conditional": true }
+    ]
+  }
+]
