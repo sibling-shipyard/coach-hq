@@ -1,11 +1,12 @@
-# D2 — Sentry latency and error-capture instrumentation — LLD
+# D3 — Sentry latency and error-capture instrumentation — LLD
 
 > Status: Current · Owner: Tech Lead · Verified: 2026-09-01
 
-Execution detail for D2 in [`chat-commit-redesign.md`](chat-commit-redesign.md). Stacked on D1
-(captures its validation-failure points). Requested by Akash: GitHub-call and backend/overall
-latency, matching the Gemini latency instrumentation already in place, plus broader error-capture
-around the new failure points this redesign introduces.
+Execution detail for D3 in [`chat-commit-redesign.md`](chat-commit-redesign.md). Stacked on D2
+(captures its validation-failure points, from both D1's mechanism and D2's broader audit).
+Requested by Akash: GitHub-call and backend/overall latency, matching the Gemini latency
+instrumentation already in place, plus broader error-capture around the new failure points this
+redesign introduces.
 
 ## What already exists — the template to follow
 

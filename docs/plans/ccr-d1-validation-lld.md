@@ -57,7 +57,7 @@ independently — it's never at risk from a bad structured field, they're unrela
 structured-fact writes: validate every action **before** attempting to build any commit (not inside
 the blob-resolve closure, which aborts the whole batch on the first throw). Commit everything that
 passed; drop only what didn't. A rejected action never disappears silently — capture it to Sentry
-with enough detail to see the pattern (see D2), and fold it into next-turn context so Coach can
+with enough detail to see the pattern (see D3), and fold it into next-turn context so Coach can
 naturally follow up ("I couldn't quite save that habit update, can you confirm?") instead of the
 athlete finding out never.
 
