@@ -10,94 +10,116 @@ None of the mechanism is HQ-specific; it has just never left HQ.
 
 ## Decision
 
-Build `platform/agent-kit/` in HQ — carve to its own repo later, `coach-skeleton`'s pattern
-(ADR 0011). Lift the existing scripts near-verbatim; parameterize the two places they hardcode HQ.
+**Extract in place, then carve out** — the same pattern `carve-skeleton.mjs` already uses for
+`engine/`: that directory isn't a redesigned copy, it's HQ's actual running code, copied verbatim.
+No parallel "generic" tree built ahead of proof. Parameterize HQ's live scripts where they hardcode
+HQ specifics, run them as HQ's real enforcement for a while, then carve.
 
 ```mermaid
-flowchart TD
-  inv["Tier 1 — invariant<br/>.githooks + validate_kdb.py + check.sh<br/>referenced or copied verbatim"]
-  man["Tier 2 — managed blocks<br/>AGENTS.md operating rules + doc-style + CONVENTIONS<br/>copied between markers, drift-checked"]
-  loc["Tier 3 — local<br/>routing table, role docs, ADRs, CODEOWNERS<br/>owned by the repo, kit has no opinion"]
-  inv --> man --> loc
+flowchart LR
+  live["HQ's live files<br/>check.sh · boot-cost.mjs · validate_kdb.py<br/>.githooks · AGENTS.md · CLAUDE.md · .cursor/"]
+  live -->|"parameterize in place<br/>P1–P4"| gen["Same files, still HQ's real<br/>enforcement — now config-driven"]
+  gen -->|"carve-kit.mjs<br/>P5"| kit["sibling-shipyard/agent-kit"]
+  kit -->|"bootstrap/update.sh<br/>P6"| other["other repos"]
 ```
 
-**The two hardcoded spots, and the fix:**
+**The two hardcoded spots, and the fix — both land in HQ's real files, not a copy:**
 1. `check.sh`'s `add_check` calls are HQ's stack (`npm run check`, `compose-soul --check`, `python3
-   -m unittest`). Split it: a generic runner (tier 1, unchanged) reads its check list from
-   `platform/agent-kit/checks.conf` (tier 3, one line per repo: `name|dir|cmd|policy`). The KB
-   checks (`validate_kdb.py`) are always appended — they don't belong in the conf.
+   -m unittest`). Move them into `platform/scripts/checks.conf` (one line per check:
+   `name|dir|cmd|policy`); `check.sh` reads the conf. The KB checks (`validate_kdb.py`) stay
+   hardcoded in the script — every consumer runs them, so they don't belong in a conf.
 2. `boot-cost.mjs`'s `ROLES` array is a hardcoded transcription of HQ's role docs. Move it to
-   `platform/agent-kit/boot-manifest.json` (tier 3) — same "transcribed, not parsed" reasoning the
-   script's own comment gives, just relocated so the `.mjs` stops being repo-specific.
+   `platform/scripts/boot-manifest.json` — same "transcribed, not parsed" reasoning the script's
+   own comment already gives, just relocated so the `.mjs` stops being repo-specific.
 
-Everything else — ADR linting, path-existence checking, staleness, the Learnings cap, the git
-hooks, the pointer-adapter pattern (`CLAUDE.md`, `.cursor/rules/`) — is copied as-is.
+Both changes must be **behavior-neutral**: `checks.conf` reproduces today's exact check list,
+`boot-manifest.json` reproduces today's exact `ROLES` array. Diff `check.sh` / `boot-cost.mjs`
+output before and after each change — same rigor `compose-soul --check` already applies to drift.
+
+Everything else that's already generic gets marked, not moved: `.githooks/{pre-commit,pre-push}`,
+`kdb/scripts/{validate_kdb.py,gen_adr_index.py,adr_readability.py}` (the KB-format and staleness
+rules — the soul-history guard stays an HQ-only addendum, not exported), `CLAUDE.md`,
+`.cursor/rules/routing-gate.mdc`. `AGENTS.md` § How all agents work gets wrapped in
+`<!-- AGENT-KIT:START/END -->` markers **in place** — the marker is what the carve script reads,
+so there's no separate template file to keep in sync with the prose everyone actually boots from.
 
 ## Phases
 
 | id | files | deps | owner |
 |---|---|---|---|
-| P1 | `platform/agent-kit/{bootstrap/update.sh,VERSION,README.md}` | — | Backend Builder |
-| P2 | `platform/agent-kit/tools/{kdb/**,check.sh,boot-cost.mjs}` (tier 1) | P1 | Backend Builder |
-| P3 | `platform/agent-kit/blocks/**` (tier-2 managed text) | P1 | Backend Builder |
-| P4 | `platform/agent-kit/templates/**` (tier-3 one-time stamps, incl. CODEOWNERS generator) | P1 | Backend Builder |
-| P5 | `platform/agent-kit/adapters/**` | P1 | Backend Builder |
-| P6 | `kdb/decisions/0036-*.md`, `docs/eng-docs/agent-kit.md`, `AGENTS.md` | P2–P5 | Tech Lead |
+| P1 | `platform/scripts/{check.sh,checks.conf}` | — | Backend Builder |
+| P2 | `platform/scripts/{boot-cost.mjs,boot-manifest.json}` | — | Backend Builder |
+| P3 | `AGENTS.md`, `kdb/doc-style.md`, `.github/CONVENTIONS.md` (add `AGENT-KIT` markers, no prose change) | — | Backend Builder |
+| P4 | `platform/scripts/gen-codeowners.py`, `CODEOWNERS` | — | Backend Builder |
+| P5 | `platform/agent-kit/carve-kit.mjs`, `.github/agents/_template.md`, `kdb/decisions/0000-template.md` (copy target, no edit) | P1–P4 | Backend Builder |
+| P6 | `platform/agent-kit/bootstrap/{update.sh,VERSION,README.md}` | — | Backend Builder |
+| P7 | `kdb/decisions/0036-*.md`, `docs/eng-docs/agent-kit.md`, `AGENTS.md` (§ What This Repo Is) | P1–P6 | Tech Lead |
 
-P2–P5 touch disjoint trees, run in parallel once P1 lands.
+P1–P4 and P6 touch disjoint files and run in parallel. P5 depends on P1–P4 landing (it copies
+their output). P7 closes the plan.
 
 ### What each phase holds
 
-1. **P1 — bootstrap.** `update.sh`: POSIX shell + `python3`, no node, no agent required. Fetches
-	the pinned kit tag, rewrites tier-2 managed blocks, `--check` reports drift, `--dry-run` writes
-	nothing. Idempotent — a second run changes nothing.
-2. **P2 — invariant.** `check.sh` generalized to read `checks.conf`; `validate_kdb.py` +
-	`gen_adr_index.py` + `adr_readability.py` + `boot-cost.mjs` lifted verbatim, de-HQ'd per the two
-	fixes above. `.githooks/{pre-commit,pre-push}` copied unchanged — they're already generic.
-3. **P3 — managed blocks.** `AGENTS.md` § How all agents work (delegation, execution loop, P0–P3,
-	voice, Learnings cap), `kdb/doc-style.md`, the generic parts of `.github/CONVENTIONS.md`, ADR
-	template + README, issue template. Wrapped in `<!-- AGENT-KIT:START/END -->` markers, same trick
-	as the `ADR-INDEX` block already uses. Provider-neutral — no tool named in tier 1 or 2.
-4. **P4 — one-time stamps.** Root `AGENTS.md` shell with marker slots + a routing-table stub,
-	per-area `AGENTS.md`, role-doc template with a `## Learnings` slot, `checks.conf` and
-	`boot-manifest.json` starter files. A `gen-codeowners.py` that reads the same routing table
-	`AGENTS.md` already carries and emits `CODEOWNERS` — one source instead of a second table
-	someone forgets to update.
-5. **P5 — adapters.** `CLAUDE.md` → `@AGENTS.md`; `.cursor/rules/routing-gate.mdc` pointer; a
-	README note for Codex and Antigravity (both read `AGENTS.md` natively, no file needed).
-	`.claude/settings.json` + hooks are optional boosters — the README says outright they may catch
-	a problem earlier, never exclusively.
-6. **P6 — dogfood + docs.** Install into a scratch clone of a different real repo (not a throwaway
-	empty one — `checks.conf` needs a real toolchain to prove it against). ADR 0036 records the kit's
-	home and the tier split; `docs/eng-docs/agent-kit.md` is the reference doc.
+1. **P1 — check.sh.** Generic runner unchanged; check list moves to `checks.conf`. Prove
+	behavior-neutral: `bash platform/scripts/check.sh` runs the identical eight checks, same order.
+2. **P2 — boot-cost.mjs.** `ROLES` read from `boot-manifest.json` at runtime. Prove behavior-neutral:
+	`node platform/scripts/boot-cost.mjs --json` byte-identical to today's, modulo the `generated_at`
+	field.
+3. **P3 — markers, no prose edits.** Wrap the sections that are genuinely portable (delegation,
+	execution loop, P0–P3, voice, Learnings cap, doc-style typed phases, generic CONVENTIONS rules)
+	in `<!-- AGENT-KIT:START id="..." /END -->`. HQ-specific prose (the routing table, soul rules,
+	monorepo band layout) stays outside the markers. This PR changes zero rendered behavior — it's
+	pure annotation.
+4. **P4 — CODEOWNERS.** `gen-codeowners.py` reads `AGENTS.md`'s routing table (already the one
+	source for who owns what) and emits `CODEOWNERS`. Immediate HQ win, independent of the kit:
+	replaces a table that's asserted in `AGENTS.md`, `tech-lead.md`, and `cyclops.md` with zero
+	cross-check today.
+5. **P5 — carve-kit.mjs.** Mirrors `carve-skeleton.mjs`'s copy-map exactly: reads the marked
+	sections + `checks.conf`/`boot-manifest.json` (as starter/example, not copied verbatim —
+	consumer repos get their own) + `.githooks/` + `kdb/scripts/{validate_kdb.py minus soul-history
+	guard,gen_adr_index.py,adr_readability.py}` + adapters + two new generic templates
+	(`.github/agents/_template.md`, since HQ's own role docs are HQ-specific content, not a
+	template). Writes `sibling-shipyard/agent-kit`.
+6. **P6 — bootstrap/update.sh.** The one genuinely new, kit-only asset — HQ has no analog, since HQ
+	*is* the source, not a consumer. POSIX shell + `python3`, no node, no agent required. `--check`
+	reports drift against the pinned `VERSION`, `--dry-run` writes nothing, idempotent.
+7. **P7 — dogfood + docs.** Install the carved kit into a scratch clone of a different real repo.
+	ADR 0036 records the in-place-then-carve pattern (and why: `carve-skeleton.mjs` precedent, zero
+	duplication window); `docs/eng-docs/agent-kit.md` is the reference doc.
 
 ## Done when
 
-1. `bash platform/agent-kit/bootstrap/update.sh <fresh-repo>` stamps a working KB, and
-	`python3 tools/kdb/validate_kdb.py` passes there un-modified.
-2. `--check` reports clean on a second run; a local edit outside the markers survives an update.
-3. **Propagation test.** Bump a rule in `validate_kdb.py` in the kit, tag it. A consumer repo's
-	next `check.sh` run (tier 1, no file touched) picks it up; `AGENTS.md` § How all agents work
-	needs one `update.sh` run (tier 2); a repo pinned to the old tag is reported stale, not silently
-	behind.
-4. `grep -riE 'claude|cursor|codex|antigravity' blocks/ tools/` is empty.
-5. Deleting `adapters/` entirely leaves a repo whose rules still work and still enforce — `.githooks`
-	is tier 1, not an adapter.
-6. `gen-codeowners.py`'s output matches `AGENTS.md`'s routing table on a fresh stamp.
-7. HQ's own `check.sh` and `validate_kdb.py` still pass — nothing here moves HQ's files yet.
+1. P1–P4 land with **zero behavioral diff** to HQ's own `check.sh`, `boot-cost.mjs`, and rendered
+	`AGENTS.md` — verified by the before/after diffs named in each phase, not asserted.
+2. `python3 platform/scripts/gen-codeowners.py` output matches `AGENTS.md`'s routing table; HQ's
+	`CODEOWNERS` is real and reviewed.
+3. `node platform/agent-kit/carve-kit.mjs` produces a tree that installs clean into an empty repo:
+	`bash bootstrap/update.sh <fresh-repo>` stamps a working KB, `validate_kdb.py` passes un-modified.
+4. **Propagation test.** Bump a rule in HQ's `validate_kdb.py`, carve again, tag it. A consumer
+	repo's next `check.sh` run picks it up with no file touched (it's `.githooks`-invariant); a
+	marked `AGENTS.md` section needs one `update.sh` run; a repo pinned to an old tag is reported
+	stale, not silently behind.
+5. `grep -riE 'claude|cursor|codex|antigravity'` over the carved tree, excluding `adapters/`, is
+	empty.
+6. Deleting the carved tree's `adapters/` entirely leaves a repo whose rules still work and still
+	enforce — `.githooks` is invariant, not an adapter.
+7. HQ's own `check.sh` and `validate_kdb.py` still pass at every phase — this plan never has HQ red.
 
 ## Rejected
 
+- **Building `platform/agent-kit/` as a parallel tree, parameterized from scratch, dogfooded
+	elsewhere before touching HQ.** The original shape of this plan. Two live copies of the same
+	enforcement during the exact window meant to prove "improvements propagate without drift" is
+	the drift risk this whole plan exists to remove.
 - **Porting the 6-agent roster or the routing table itself.** Coach Phelps, Cyclops, and the
 	specific ownership boundaries are HQ's domain, not the kit's. The kit ships the *mechanism*
 	(routing gate lives in `AGENTS.md` §1, never a hook; role docs; ADRs) with placeholder content.
 
 ## Deferred
 
-- **P2** — migrate HQ itself onto the kit (`.claude/`, `kdb/scripts/`, `platform/scripts/check.sh`
-	become installed copies, `checks.conf` + `boot-manifest.json` externalize HQ's hardcoded bits).
-	Do after one other repo proves the kit.
-- **P2** — carve `platform/agent-kit/` out to `sibling-shipyard/agent-kit`.
-- **P3** — Claude Code plugin + marketplace wrapping the same bootstrap.
-- **P3** — boundary-drift CI check: a PR's changed-files list against the routing table's declared
-	scope, `warn` today, `block` once `gen-codeowners.py` output is trusted. Prove it at HQ first.
+- **Actually running `carve-kit.mjs` against a new GitHub repo** (creating
+	`sibling-shipyard/agent-kit`) is a deliberate operator action, same as any `coach-skeleton`
+	carve — athlete's call on timing, not automatic on P5 landing.
+- **P2** — Claude Code plugin + marketplace wrapping the same `bootstrap/update.sh`.
+- **P3** — boundary-drift CI check: a PR's changed-files list against `CODEOWNERS`, `warn` today,
+	`block` once P4 has run for a while. Prove it at HQ first.
