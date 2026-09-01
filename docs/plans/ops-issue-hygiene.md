@@ -1,12 +1,12 @@
 # Issue hygiene and Project 4
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-31 · Issue: [#747](https://github.com/sibling-shipyard/coach-hq/issues/747)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-01 · Issue: [#747](https://github.com/sibling-shipyard/coach-hq/issues/747)
 
 ## Context
 
 Issues are the record and [Project 4](https://github.com/orgs/sibling-shipyard/projects/4) is the
-human view. Auto-add works: all 84 open issues reach the board. Intake quality and status do not:
-22 bodies are empty, 66 use retired priority labels, 76 sit in Backlog, and one open issue is Done.
+human view. B0 froze 91 open issues, all already on the board. Intake quality and status do not:
+21 bodies are empty, 64 use retired priority labels, 78 lack an area and type, and one is Done.
 PR #748 also proved that `Refs: #N` does not trigger Project 4's built-in PR-link workflow.
 
 ## Decision / goal
@@ -43,18 +43,36 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  m0["M0 · Plan"] --> m1["M1 · Enforce new work"] --> m2["M2 · Prune 84 issues"] --> m3["M3 · Simplify Project 4"]
+  m0["M0 · Plan"] --> m1["M1 · Enforce new work"] --> m2["M2 · Prune B0 snapshot"] --> m3["M3 · Simplify Project 4"]
 ```
+
+## M2 batch protocol
+
+[#747](https://github.com/sibling-shipyard/coach-hq/issues/747) is the durable execution cursor. It
+holds the B0 snapshot plus each batch's exact issue-number manifest and checkmark. A new session
+starts at the first unchecked batch; issues opened after B0 are excluded because CI enforces them.
+
+| ID | Batch | Result |
+|---|---:|---|
+| B0 | snapshot | Classify every issue as closure, retained, or ambiguous. |
+| B1 | approved closures | Close only the B0 closure manifest the athlete approved. |
+| B2–Bn | 10 retained | Make each retained issue readable and contract-complete. |
+| BA–Bn | 5 ambiguous | Keep `needs-triage`; ask one concrete decision question without inventing intent. |
+| BF | global audit | Recount and prove every B0 issue reached its approved end state. |
+
+Every batch is propose → athlete approves → apply the complete contract in one pass → validate →
+record before/after counts in #747. Partial batch edits do not count as progress.
 
 ## PR stack
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| P0 | M0 | executable plan | `main` | `docs/plans/ops-issue-hygiene.md` | Tech Lead | — | this PR |
-| P1 | M1 | contract, forms, validator tests | `main` | `.github/ISSUE_TEMPLATE/**`, `.github/agents/issue-template.md`, `.github/workflows/sync-issue-metadata.yml`, `kdb/scripts/check_issue_contract.py`, `platform/tests/**` | Tech Lead | — | [#751](https://github.com/sibling-shipyard/coach-hq/pull/751) |
-| P1.1 | M1 | enforce the exact two-sentence preview | `main` | `kdb/scripts/check_issue_contract.py`, `platform/tests/test_issue_contract.py` | Tech Lead | — | in progress |
-| P2 | M1 | issue-event check, PR gate, Project status sync | P1 | `.github/workflows/issue-hygiene.yml`, `.github/workflows/pr-issue-link.yml`, `kdb/scripts/check_pr_issue_link.py`, `platform/tests/**` | Tech Lead | — | [#754](https://github.com/sibling-shipyard/coach-hq/pull/754) |
-| P3 | M3 | record the final board contract, delete plan | P2 | `.github/CONVENTIONS.md`, `ROADMAP.md`, `docs/plans/ops-issue-hygiene.md` | Tech Lead | — | pending |
+| P0 | M0 | executable plan | `main` | `docs/plans/ops-issue-hygiene.md` | Tech Lead | — | merged [#748](https://github.com/sibling-shipyard/coach-hq/pull/748) |
+| P1 | M1 | contract, forms, validator tests | `main` | `.github/ISSUE_TEMPLATE/**`, `.github/agents/issue-template.md`, `.github/workflows/sync-issue-metadata.yml`, `kdb/scripts/check_issue_contract.py`, `platform/tests/**` | Tech Lead | — | merged [#751](https://github.com/sibling-shipyard/coach-hq/pull/751) |
+| P1.1 | M1 | enforce the exact two-sentence preview | `main` | `kdb/scripts/check_issue_contract.py`, `platform/tests/test_issue_contract.py` | Tech Lead | — | merged [#761](https://github.com/sibling-shipyard/coach-hq/pull/761) |
+| P2 | M1 | issue-event check, PR gate, Project status sync | P1 | `.github/workflows/issue-hygiene.yml`, `.github/workflows/pr-issue-link.yml`, `kdb/scripts/check_pr_issue_link.py`, `platform/tests/**` | Tech Lead | — | merged [#754](https://github.com/sibling-shipyard/coach-hq/pull/754) |
+| P2.1 | M2 | resumable backlog cleanup protocol | `main` | `docs/plans/ops-issue-hygiene.md` | Tech Lead | — | this PR · `Refs: #747` · no backlog mutation |
+| P3 | M3 | record the final board contract, delete plan | `main` | `.github/CONVENTIONS.md`, `ROADMAP.md`, `docs/plans/ops-issue-hygiene.md` | Tech Lead | — | pending |
 
 ## Done when
 
