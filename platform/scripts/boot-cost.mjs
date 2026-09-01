@@ -26,40 +26,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = repoRoot(__dirname);
 
 /**
- * An entry is a bare path (unconditional) or `{ path, conditional: true }` — conditional means
- * the role doc reads it only in some situations, so it is shown on its own line but kept out of
- * the cold-boot total. Conditional entries today: Tech Lead's SOUL (unused on UI, CI, infra,
- * and PR-triage work) and iOS Builder's spec + DESIGN (architecture/sync vs View work).
+ * Role manifest: each entry has a `name` and a `files` array. A file entry is a bare path
+ * (unconditional) or `{ path, conditional: true }` — conditional means the role doc reads it
+ * only in some situations, so it is shown on its own line but kept out of the cold-boot total.
+ * Conditional entries today: Tech Lead's SOUL (unused on UI, CI, infra, and PR-triage work)
+ * and iOS Builder's spec + DESIGN (architecture/sync vs View work).
  */
-const ROLES = [
-  {
-    name: "Tech Lead",
-    files: [
-      "AGENTS.md",
-      ".github/agents/tech-lead.md",
-      "kdb/decisions/README.md",
-      { path: "platform/SOUL.claude.md", conditional: true },
-    ],
-  },
-  {
-    name: "Bob the Builder",
-    files: ["AGENTS.md", ".github/agents/bob-the-builder.md", "kdb/decisions/README.md"],
-  },
-  {
-    name: "UI Expert",
-    files: ["AGENTS.md", ".github/agents/ui-expert.md", "kdb/decisions/README.md"],
-  },
-  {
-    name: "iOS Builder",
-    files: [
-      "AGENTS.md",
-      ".github/agents/ios-builder.md",
-      "kdb/decisions/README.md",
-      { path: "docs/eng-docs/ios-app-spec.md", conditional: true },
-      { path: "ios/DESIGN.md", conditional: true },
-    ],
-  },
-];
+const ROLES = JSON.parse(
+  fs.readFileSync(new URL("./boot-manifest.json", import.meta.url), "utf8"),
+);
 
 /** Deliberately crude: no tokenizer is installed, and boot cost is a trend, not an invoice. */
 const estimateTokens = (bytes) => Math.round(bytes / 4);
