@@ -67,7 +67,7 @@ def fetch_block(block_name):
             return response.read().decode("utf-8")
     except urllib.error.URLError as e:
         # Fallback to main branch for testing/floating
-        fallback_url = f"https://raw.githubusercontent.com/sibling-shipyard/agent-kit/{ref}/blocks/{block_name}.md"
+        fallback_url = f"https://raw.githubusercontent.com/sibling-shipyard/agent-kit/main/blocks/{block_name}.md"
         req_fallback = urllib.request.Request(fallback_url)
         if "GITHUB_TOKEN" in os.environ:
             req_fallback.add_header("Authorization", f"token {os.environ['GITHUB_TOKEN']}")
