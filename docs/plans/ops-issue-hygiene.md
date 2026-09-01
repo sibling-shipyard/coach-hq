@@ -51,8 +51,8 @@ flowchart LR
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
 | P0 | M0 | executable plan | `main` | `docs/plans/ops-issue-hygiene.md` | Tech Lead | — | this PR |
-| P1 | M1 | contract, forms, validator tests | `main` | `.github/ISSUE_TEMPLATE/**`, `.github/agents/issue-template.md`, `kdb/scripts/check_issue_contract.py`, `platform/tests/**` | Tech Lead | — | pending |
-| P2 | M1 | issue-event check, PR gate, Project status sync | P1 | `.github/workflows/issue-hygiene.yml`, `.github/workflows/pr-issue-link.yml`, `kdb/scripts/check_pr_issue_link.py`, `platform/tests/**` | Tech Lead | — | pending |
+| P1 | M1 | contract, forms, validator tests | `main` | `.github/ISSUE_TEMPLATE/**`, `.github/agents/issue-template.md`, `.github/workflows/sync-issue-metadata.yml`, `kdb/scripts/check_issue_contract.py`, `platform/tests/**` | Tech Lead | — | [#751](https://github.com/sibling-shipyard/coach-hq/pull/751) |
+| P2 | M1 | issue-event check, PR gate, Project status sync | P1 | `.github/workflows/issue-hygiene.yml`, `.github/workflows/pr-issue-link.yml`, `kdb/scripts/check_pr_issue_link.py`, `platform/tests/**` | Tech Lead | — | in progress |
 | P3 | M3 | record the final board contract, delete plan | P2 | `.github/CONVENTIONS.md`, `ROADMAP.md`, `docs/plans/ops-issue-hygiene.md` | Tech Lead | — | pending |
 
 ## Done when

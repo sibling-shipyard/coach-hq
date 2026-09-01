@@ -8,7 +8,20 @@ name: PR issue link
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened, ready_for_review]
+    types:
+      [
+        opened,
+        edited,
+        synchronize,
+        reopened,
+        ready_for_review,
+        converted_to_draft,
+      ]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
 
 jobs:
   issue-link:
@@ -18,6 +31,8 @@ jobs:
       - name: Require Refs or Fixes in PR body
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 kdb/scripts/check_pr_issue_link.py
       - name: Enforce plan-delete-on-last-PR
         env:

@@ -1,0 +1,85 @@
+name: Issue hygiene
+
+on:
+  issues:
+    types:
+      [opened, edited, reopened, labeled, unlabeled, milestoned, demilestoned]
+  pull_request_target:
+    types:
+      [
+        opened,
+        edited,
+        synchronize,
+        reopened,
+        ready_for_review,
+        converted_to_draft,
+        closed,
+      ]
+
+permissions: {}
+
+jobs:
+  validate:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate issue contract
+        id: contract
+        continue-on-error: true
+        env:
+          ISSUE_JSON: ${{ toJson(github.event.issue) }}
+        run: python3 kdb/scripts/check_pr_issue_link.py check-issue-event
+      - name: Apply triage label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          VALID: ${{ steps.contract.outcome == 'success' }}
+        run: |
+          has_triage=$(gh issue view "$ISSUE_URL" --json labels --jq 'any(.labels[]; .name == "needs-triage")')
+          if [ "$VALID" = "true" ] && [ "$has_triage" = "true" ]; then
+            gh issue edit "$ISSUE_URL" --remove-label needs-triage
+          elif [ "$VALID" != "true" ] && [ "$has_triage" != "true" ]; then
+            gh issue edit "$ISSUE_URL" --add-label needs-triage
+          fi
+      - name: Keep invalid issue out of Ready
+        if: steps.contract.outcome == 'failure'
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          if [ -z "$PROJECT_TOKEN" ]; then
+            echo "::warning::PROJECT_TOKEN is not configured; the invalid issue was labeled, but Project 4 status was not changed."
+            exit 0
+          fi
+          python3 kdb/scripts/check_pr_issue_link.py ensure-invalid-backlog
+  sync-project:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Sync linked issues to Project 4
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_ACTION: ${{ github.event.action }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          if [ -z "$PROJECT_TOKEN" ]; then
+            echo "::warning::PROJECT_TOKEN is not configured; Project 4 status sync was skipped."
+            exit 0
+          fi
+          python3 kdb/scripts/check_pr_issue_link.py sync-pr
