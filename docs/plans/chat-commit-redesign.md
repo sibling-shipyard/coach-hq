@@ -51,11 +51,13 @@ flowchart LR
   C1 --> G1["G1 trim eval transcripts"]
   D1 --> G1
   D3 --> G2["G2 redesign layered\ntest suite"]
-  C2 --> H1["H1 docs + SOUL\nconsistency, closes #735"]
-  I1 --> H1
-  F1 --> H1
-  G1 --> H1
-  G2 --> H1
+  C2 --> J1["J1 stale/unused\nfile cleanup"]
+  I1 --> J1
+  F1 --> J1
+  G1 --> J1
+  G2 --> J1
+  J1 --> J2["J2 restructure ui/api/\n(coach-chat layers)"]
+  J2 --> H1["H1 docs + SOUL\nconsistency, closes #735"]
 ```
 
 ## Milestones (execution order)
@@ -77,10 +79,16 @@ flowchart LR
 | G1 | G — Update tests | Eval transcripts trimmed to 10-14, covering current behavior only, gate actually passes | C1, D1 | `ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`, `docs/eng-docs/coach-chat-testing.md` | [`ccr-g1-eval-transcripts-lld.md`](ccr-g1-eval-transcripts-lld.md) | Closes #670 — first-ever green run of this gate |
 | G2 | G — Update tests | Layered test suite (`layer1-gemini`/`layer2-fields`/`layer3-commit`/`integration`) redesigned for the final system, no stale assertions | D3 | `ui/api/coach-chat/_tests/{layer1-gemini,layer2-fields,layer3-commit,integration}/` | [`ccr-g2-layered-tests-lld.md`](ccr-g2-layered-tests-lld.md) | Each of the 3 real turn stages properly tested |
 | I1 | I — Progress UX | Cycling "thinking/parsing/updating" labels replace the plain dots; failure messages are accurate per real stage | D1 | web + iOS coach-chat composer/loading state | [`ccr-i1-progress-indicator-lld.md`](ccr-i1-progress-indicator-lld.md) | No new infra; true streaming deferred to issue #767 (P3) |
-| H1 | H — Final consistency | Every doc and SOUL layer reflects the shipped state | C2, D3, F1, G1, G2, I1 | `docs/eng-docs/*`, `platform/soul/A_identity.md`, `SOUL_HISTORY.md` | [`ccr-h1-docs-soul-consistency-lld.md`](ccr-h1-docs-soul-consistency-lld.md) | Closes #735; this plan's own docs deleted, folded into eng-docs |
+| J1 | J — Repo cleanup | Confirmed-dead files (migration scripts, orphaned exports) removed repo-wide, not just coach-chat | C2, D3, F1, G1, G2, I1 | `ui/scripts/`, `ui/api/`, `ui/client/`, `engine/` | [`ccr-j1-stale-file-cleanup-lld.md`](ccr-j1-stale-file-cleanup-lld.md) | Confirmed real example already found: 3 stale `migrate-coach-memory-part*.mjs` scripts |
+| J2 | J — Repo cleanup | Coach-chat's `_lib/` mirrors its own 3-layer test structure; rest of `ui/api/` audited | J1 | `ui/api/coach-chat/_lib/*` (file moves only, no logic change) | [`ccr-j2-api-restructure-lld.md`](ccr-j2-api-restructure-lld.md) | A file's path tells you which of the 3 real stages it belongs to |
+| H1 | H — Final consistency | Every doc and SOUL layer reflects the shipped state | J2 | `docs/eng-docs/*`, `platform/soul/A_identity.md`, `SOUL_HISTORY.md` | [`ccr-h1-docs-soul-consistency-lld.md`](ccr-h1-docs-soul-consistency-lld.md) | Closes #735; this plan's own docs deleted, folded into eng-docs |
 
 Each PR gets its own LLD, named `ccr-<pr-code>-<topic>-lld.md` — the prefix matches the PR column
-above, so the files sort in execution order. Read this doc for the shape of the whole redesign;
+above. Filename sort mostly tracks execution order, with one exception: **H1 runs last, after J2**,
+not alphabetically first among H/I/J — it's this redesign's true finish line (closes #735, deletes
+this plan's own docs), and needs J1/J2's changes already landed to document them accurately. Follow
+the table's row order above, not the alphabet, when in doubt. Read this doc for the shape of the
+whole redesign;
 read the LLD for the PR you're actually building.
 
 ## Done when

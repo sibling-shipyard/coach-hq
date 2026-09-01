@@ -28,9 +28,10 @@ after B1 instead of an impossible one masked by placeholder data.
    null` once; if null, `buildEmptyQuest()`; otherwise dispatch on `.type` as today.
 3. Thread `hasQuest` through `buildQuestSnapshot` (`warmHomeSnapshots.ts:288`) and the iOS-facing
    `questSnapshotS` variant (~line 847) onto `QuestSnapshot`.
-4. `QuestCard.tsx`: render an explicit empty state ("No quest set yet — tell Coach your goal.")
-   when `!quest.hasQuest`, instead of a misleading 0/0 progress bar. Exact copy/styling is a UI call
-   — keep consistent with any existing empty-state language elsewhere on the dashboard.
+4. `QuestCard.tsx`: render an explicit empty state (athlete's suggested tone: "We haven't set this
+   up yet — talk to Coach.") when `!quest.hasQuest`, instead of a misleading 0/0 progress bar. Exact
+   copy/styling is a UI call — keep consistent with any existing empty-state language elsewhere on
+   the dashboard.
 5. `ui/client/src/lib/challenge.ts`: `SplitLedger["quests"]["main_quest"]` (~line 152) → `| null`,
    matching the backend type it mirrors.
 
