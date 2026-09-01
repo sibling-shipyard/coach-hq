@@ -116,10 +116,31 @@ describe("coach turn stages", () => {
       wasProfileComplete: false,
       profileComplete: false,
       fspCandidates: [{ path: "user_data/coach/profile.json", content: "{}" }],
+      chatWrite: { path: "user_data/coach/chat_history.json", content: "{}" },
     } as never);
     expect(commitFilesAtomic).toHaveBeenCalledWith(
       expect.any(Array),
-      "coach: first session details recorded",
+      "coach: ordinary turn updates recorded",
+      expect.objectContaining({ repo: "owner/repo" }),
+    );
+    expect(await response.json()).toMatchObject({
+      reply: "Good work.",
+      closed: false,
+      repoSha: "commit-sha",
+    });
+  });
+
+  it("commits incremental writes on an ordinary turn for a returning, profile-complete athlete (#616)", async () => {
+    const response = await commitOrdinaryTurn({
+      ...baseTurn(),
+      wasProfileComplete: true,
+      profileComplete: true,
+      fspCandidates: [{ path: "user_data/coach/profile.json", content: "{}" }],
+      chatWrite: { path: "user_data/coach/chat_history.json", content: "{}" },
+    } as never);
+    expect(commitFilesAtomic).toHaveBeenCalledWith(
+      expect.any(Array),
+      "coach: ordinary turn updates recorded",
       expect.objectContaining({ repo: "owner/repo" }),
     );
     expect(await response.json()).toMatchObject({

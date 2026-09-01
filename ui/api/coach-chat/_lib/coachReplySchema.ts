@@ -339,14 +339,20 @@ const FSP_ACTIONS = [
   "quest_create",
 ] as const satisfies readonly ResponseField[];
 
-const RETURNING_CLOSE_ACTIONS = [
-  "coach_note",
+// Available on every turn for a returning athlete, closing or not (#616) - these report facts
+// the athlete just stated, not a session artifact that needs the closing ritual around it.
+const RETURNING_DATA_FACT_ACTIONS = [
   "memory_update",
   "sports_update",
   "injury_flag",
   "injury_event",
   "quest_event",
   "profile_update",
+] as const satisfies readonly ResponseField[];
+
+// Session artifacts still gated to closing turns only - removed from "closing" entirely in C1,
+// not here.
+const RETURNING_CLOSE_ONLY_ACTIONS = [
   "template_edit",
   "session_plan",
   "week_plan",
@@ -356,13 +362,15 @@ const RETURNING_CLOSE_ACTIONS = [
 
 function responsePropertiesFor(mode: TurnMode, firstSession: boolean) {
   const actionFields: readonly ResponseField[] =
-    mode === "greeting" || mode === "activity_sync" || (mode === "ordinary" && !firstSession)
+    mode === "greeting" || mode === "activity_sync"
       ? []
       : firstSession
         ? mode === "closing"
           ? ["coach_note", ...FSP_ACTIONS]
           : FSP_ACTIONS
-        : RETURNING_CLOSE_ACTIONS;
+        : mode === "closing"
+          ? ["coach_note", ...RETURNING_DATA_FACT_ACTIONS, ...RETURNING_CLOSE_ONLY_ACTIONS]
+          : RETURNING_DATA_FACT_ACTIONS;
   const fields: ResponseField[] = [...actionFields, "session_closed", "reply"];
   return Object.fromEntries(fields.map((key) => [key, RESPONSE_PROPERTIES[key]]));
 }

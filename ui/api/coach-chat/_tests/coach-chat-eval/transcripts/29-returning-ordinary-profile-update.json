@@ -1,0 +1,22 @@
+{
+  "name": "returning-ordinary-profile-update",
+  "description": "#616 - a returning (non-first-session) athlete states a real new profile value on an ordinary turn, no close requested. profile_update should be set and the turn should not close.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 75kg\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["Morning - how's the training going this week?"] }
+  ],
+  "userMessage": "Going well thanks. Quick thing, I weighed in this morning and I'm 76kg now.",
+  "expect": {
+    "sessionClosed": false,
+    "actionFieldsPresent": ["profile_update"],
+    "actionFieldsAbsent": [
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
+  }
+}

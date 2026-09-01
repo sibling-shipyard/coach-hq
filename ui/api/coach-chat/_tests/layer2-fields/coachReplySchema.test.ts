@@ -37,3 +37,51 @@ describe("coachReplySchema text caps", () => {
     });
   });
 });
+
+// #616: a returning athlete's ordinary (non-closing) turn used to get zero action fields at
+// all - the schema structurally forbade Gemini from ever producing a data-fact write outside a
+// close. A1 unlocks the data-fact subset on every turn; session artifacts stay closing-gated.
+describe("coachReplySchema returning-athlete action fields", () => {
+  it("unlocks data-fact fields on a returning, non-closing (ordinary) turn", () => {
+    const props = generationConfigFor("ordinary", false).responseSchema.properties;
+    expect(Object.keys(props)).toEqual(
+      expect.arrayContaining([
+        "memory_update",
+        "sports_update",
+        "injury_flag",
+        "injury_event",
+        "quest_event",
+        "profile_update",
+      ]),
+    );
+  });
+
+  it("keeps session-artifact fields and coach_note off a returning, ordinary turn", () => {
+    const props = generationConfigFor("ordinary", false).responseSchema.properties;
+    expect(Object.keys(props)).not.toEqual(
+      expect.arrayContaining([
+        "coach_note",
+        "template_edit",
+        "session_plan",
+        "week_plan",
+        "session_reconcile",
+        "plan_edit",
+      ]),
+    );
+  });
+
+  it("still includes coach_note and session-artifact fields on a returning closing turn", () => {
+    const props = generationConfigFor("closing", false).responseSchema.properties;
+    expect(Object.keys(props)).toEqual(
+      expect.arrayContaining([
+        "coach_note",
+        "memory_update",
+        "template_edit",
+        "session_plan",
+        "week_plan",
+        "session_reconcile",
+        "plan_edit",
+      ]),
+    );
+  });
+});
