@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildCountTargetQuest } from "./warmHomeModel";
+import { buildCountTargetQuest, buildWarmHomeModel } from "./warmHomeModel";
 import type { Activity } from "@/lib/activities";
 import type { SplitLedger, MainQuest } from "@/lib/challenge";
+import { GOLDEN_CURRENT_WEEK } from "@/lib/goldenDataset";
 
 // Regression coverage for the "Main Quest always shows 0/0" bug: buildQuest() only ever
 // implemented the weekly-floor main-quest model (sessions/weekly_floor), so a count_target main
@@ -78,5 +79,34 @@ describe("buildCountTargetQuest", () => {
     const result = buildCountTargetQuest(bare, [activity()], ledger(bare));
     expect(result.completed).toBe(0);
     expect(result.floor).toBe(10);
+  });
+});
+
+// Regression coverage for B2 (chat-commit-redesign): B1 made `main_quest` genuinely absent
+// until a real quest_create fires, so a fresh athlete's ledger has `quests.main_quest === null`.
+// buildWarmHomeModel must render the empty sentinel instead of throwing on `.type` of null.
+describe("buildWarmHomeModel", () => {
+  it("returns the empty quest sentinel when main_quest is null", () => {
+    const ledger = {
+      seasons: { current_season_id: null, seasons: [] },
+      quests: { weekly_targets: {}, main_quest: null, quests: [] },
+      progress: { rows: [] },
+      progressions: null,
+    };
+    const result = buildWarmHomeModel(
+      [],
+      ledger,
+      { timestamp: null, status: "none" },
+      GOLDEN_CURRENT_WEEK,
+    );
+    expect(result.quest).toEqual({
+      name: "",
+      completed: 0,
+      floor: 0,
+      loaded: 0,
+      skill: 0,
+      percent: 0,
+      hasQuest: false,
+    });
   });
 });
