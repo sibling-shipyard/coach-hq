@@ -25,8 +25,9 @@ since this redesign is already editing the exact SOUL sections that bug lives ne
 Every coach-chat turn commits whatever it produces, immediately, for every athlete in every mode —
 no data waits on a formal "close." That one change cascades. The closing-turn concept itself
 becomes removable (own PR). Chat history can safely retain everything instead of deleting older
-threads (own PR). And a coach_note narrative summary needs a new trigger that isn't "the athlete
-pressed End Conversation" — still being worked out, see the coach-log LLD's open questions.
+threads (own PR). And `coach_note` becomes a day-keyed row, updated in place by whichever turn's
+own Gemini call already touches that day — no separate trigger, no separate call, no dependency on
+"the athlete pressed End Conversation" at all.
 Placeholder data removal, returning-athlete quest/season access, a full validation audit (not
 deferred), Sentry latency profiling, coaching-style restoration, propagating all of it to the real
 athlete repos, trimming the eval-transcript suite to match, and a final docs/SOUL consistency pass
@@ -39,8 +40,7 @@ flowchart LR
   B1 --> B2["B2 client null-safety"]
   B2 --> B3["B3 seasons/quests for\nreturning athletes"]
   B3 --> C1["C1 remove closing turn"]
-  A2 --> C2["C2 coach log redesign"]
-  C1 --> C2
+  C1 --> C2["C2 coach log redesign\n(day-keyed running note)"]
   A1 --> D1["D1 self-correcting validation"]
   D1 --> D2["D2 full validation audit"]
   D2 --> D3["D3 Sentry latency + errors"]
@@ -65,7 +65,7 @@ flowchart LR
 | B2 | B — No placeholder data | Client renders "no quest yet" instead of crashing | B1 | `ui/client/src/components/home-warm/*` | [`ccr-b2-quest-client-lld.md`](ccr-b2-quest-client-lld.md) | Fresh-athlete dashboard safe |
 | B3 | B — No placeholder data | Returning athletes can set a new quest/season; old season auto-resolves | B2 | `coachReplySchema.ts`, `coachIntents.ts` | [`ccr-b3-seasons-quests-returning-lld.md`](ccr-b3-seasons-quests-returning-lld.md) | Quest/season parity for every athlete |
 | C1 | C — Simplify session model | No more closing turn, no End Conversation button | B3 | `closeSignal.ts` (deleted), `coachTurn.ts`, web + iOS composer | [`ccr-c1-remove-closing-turn-lld.md`](ccr-c1-remove-closing-turn-lld.md) | One turn shape, everywhere |
-| C2 | C — Simplify session model | `coach_note` generated without depending on a close | A2, C1 | `ui/api/coach-message.ts`, new day-summary path | [`ccr-c2-coach-log-lld.md`](ccr-c2-coach-log-lld.md) | **Open — see LLD, not finalized** |
+| C2 | C — Simplify session model | `coach_note` becomes a day-keyed row, updated inline, no separate trigger | C1 | `coachReplySchema.ts`, `coachIntents.ts`, `turnWrites/*.ts` | [`ccr-c2-coach-log-lld.md`](ccr-c2-coach-log-lld.md) | Zero extra Gemini calls, no dependency on a close |
 | D1 | D — Reliability | Validation failures self-correct instead of losing data | A1 | `coachReplySchema.ts`, `geminiClient.ts`, `coachIntents.ts` | [`ccr-d1-validation-lld.md`](ccr-d1-validation-lld.md) | Closes #736, no silent data loss on bad output |
 | D2 | D — Reliability | Every `user_data/` field gets a real shape/enum check, not just what D1 touched | D1 | `coachIntents.ts`, `turnWrites/*.ts`, `validate-data.yml`, `coachReplySchema.ts` | [`ccr-d2-validation-audit-lld.md`](ccr-d2-validation-audit-lld.md) | No unvalidated field left, incl. Claude/BYOB writes |
 | D3 | D — Reliability | GitHub + backend latency visible in Sentry, validation failures captured | D2 | `ui/api/_lib/sentry.ts` | [`ccr-d3-sentry-latency-lld.md`](ccr-d3-sentry-latency-lld.md) | Matches existing Gemini latency instrumentation |
@@ -89,5 +89,6 @@ and this plan itself all reflecting shipped reality) is the redesign's actual fi
 
 ## Deferred
 
-- Real scheduled cron for coach_log, if the reactive backfill (or whatever C2 resolves to) proves
-  insufficient once athlete count grows past a handful.
+- C2's documented fallback (reactive day-boundary backfill via `waitUntil`) and real scheduled cron,
+  both only if C2's chosen day-keyed design doesn't hold up in practice — see that LLD's own
+  Fallback section, not re-derived here.
