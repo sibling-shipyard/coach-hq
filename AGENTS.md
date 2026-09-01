@@ -70,6 +70,7 @@ only in a session. Agent-local memory (Claude's `~/.claude` memory, Cursor sessi
 **nothing another machine or tool would need**: the athlete works across multiple laptops and two
 tools, so anything left there is effectively lost. Found one stranded? Move it into the repo.
 
+<!-- AGENT-KIT:START id="how-all-agents-work" -->
 ## How all agents work
 
 Every agent (Tech Lead + workers) follows this. Role docs add scope; they don't override these rules.
@@ -168,6 +169,7 @@ only — ask on PR bodies and review replies too and you stop getting honest ans
 5. A changed locked/architectural decision needs a new or superseding ADR in `kdb/decisions/`.
 6. Fixing a false claim? `grep -rn` it across `docs/` and `kdb/` and fix the source in the same PR — the plan said the build uploads source maps because the runbook said so first.
 
+<!-- AGENT-KIT:END -->
 ## Universal Rules
 
 - Commit/branch/PR naming: see `.github/CONVENTIONS.md`

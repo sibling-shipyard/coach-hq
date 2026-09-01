@@ -4,6 +4,7 @@ Universal conventions for all agents. All agent docs reference this file — don
 
 ---
 
+<!-- AGENT-KIT:START id="conventions-generic" -->
 ## Commit Messages
 
 Format: `<prefix>: <description>`
@@ -95,6 +96,7 @@ PR (`AGENTS.md` § Doc upkeep). Git history is the archive.
 
 ---
 
+<!-- AGENT-KIT:END -->
 ## Direct-to-Main vs Branch + PR
 
 Paths below are the athlete-repo layout (`user_data/`, `gen/`) - HQ itself doesn't hold populated

@@ -1,3 +1,4 @@
+<!-- AGENT-KIT:START id="doc-style" -->
 # Doc style
 
 **Default: one page max (~20 lines of prose + 1–2 diagrams).** Brief beats thorough.
@@ -44,3 +45,4 @@ files. Follow `.github/CONVENTIONS.md` for stack mechanics, issue links, and bot
 ## Avoid
 - Section templates with 10 headings for a small change.
 - Long test plans, risk essays, appendices — those live in the LLD or the PR.
+<!-- AGENT-KIT:END -->
