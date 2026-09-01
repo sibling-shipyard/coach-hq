@@ -276,6 +276,10 @@ struct SetupView: View {
     @MainActor
     private func markRepoComplete() {
         guard !repoStepComplete else { return }
+        // Just watched GitHub finish creating coach-<login> from the template — any prior
+        // "onboarding complete" Keychain flag for that name belongs to a repo that no longer
+        // exists (deleted and recreated under this app's one fixed name). See clear()'s doc.
+        CoachSetupState.clear(repoFullName: "\(login)/coach-\(login)")
         repoStepComplete = true
         Haptics.success()
         WebAuthPresenter.shared.dismissBrowse()
