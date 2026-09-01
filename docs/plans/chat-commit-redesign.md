@@ -44,22 +44,21 @@ flowchart LR
 
 ## Milestones (execution order)
 
-| PR | Milestone | Outcome | Final base | Files (primary) | Result |
-|---|---|---|---|---|---|
-| A1 | A — Stop losing data | Every turn commits its writes, for every athlete, every mode | `main` | `ui/api/coach-chat/_lib/fspWrites.ts`, `coachTurn.ts`, `coachReplySchema.ts` | #616 closed, daily-flow writes persist |
-| A2 | A — Stop losing data | Chat history never deletes; clients still see only the latest 7 | A1 | `ui/api/coach-chat/_lib/chatThreads.ts`, response-building call sites | Full history retained, ADR supersedes #0012 |
-| B1 | B — No placeholder data | `main_quest`/`timezone` genuinely absent until real | A1 | `platform/scripts/carve-skeleton.mjs`, `coachQuestFiles.ts`, `coachIntents.ts` | Completion gates can't be fooled again |
-| B2 | B — No placeholder data | Client renders "no quest yet" instead of crashing | B1 | `ui/client/src/components/home-warm/*` | Fresh-athlete dashboard safe |
-| B3 | B — No placeholder data | Returning athletes can set a new quest/season; old season auto-resolves | B2 | `coachReplySchema.ts`, `coachIntents.ts` | Quest/season parity for every athlete |
-| C1 | C — Simplify session model | No more closing turn, no End Conversation button | B3 | `closeSignal.ts` (deleted), `coachTurn.ts`, web + iOS composer | One turn shape, everywhere |
-| C2 | C — Simplify session model | `coach_note` generated without depending on a close | A2, C1 | `ui/api/coach-message.ts`, new day-summary path | **Open — see LLD, not finalized** |
-| D1 | D — Reliability | Validation failures self-correct instead of losing data | A1 | `coachReplySchema.ts`, `geminiClient.ts`, `coachIntents.ts` | Closes #736, no silent data loss on bad output |
-| D2 | D — Reliability | GitHub + backend latency visible in Sentry, validation failures captured | D1 | `ui/api/_lib/sentry.ts` | Matches existing Gemini latency instrumentation |
-| E1 | E — Coaching style | `coaching_style` back, and it actually changes how Coach talks | none | `coachMemoryFiles.ts`, `platform/soul/*.md`, `carve-skeleton.mjs` | Independent, can land anytime |
+| PR | Milestone | Outcome | Final base | Files (primary) | LLD | Result |
+|---|---|---|---|---|---|---|
+| A1 | A — Stop losing data | Every turn commits its writes, for every athlete, every mode | `main` | `ui/api/coach-chat/_lib/fspWrites.ts`, `coachTurn.ts`, `coachReplySchema.ts` | [`ccr-persist-writes-lld.md`](ccr-persist-writes-lld.md) | #616 closed, daily-flow writes persist |
+| A2 | A — Stop losing data | Chat history never deletes; clients still see only the latest 7 | A1 | `ui/api/coach-chat/_lib/chatThreads.ts`, response-building call sites | [`ccr-history-retention-lld.md`](ccr-history-retention-lld.md) | Full history retained, ADR supersedes #0012 |
+| B1 | B — No placeholder data | `main_quest`/`timezone` genuinely absent until real | A1 | `platform/scripts/carve-skeleton.mjs`, `coachQuestFiles.ts`, `coachIntents.ts` | [`ccr-quest-placeholder-lld.md`](ccr-quest-placeholder-lld.md) | Completion gates can't be fooled again |
+| B2 | B — No placeholder data | Client renders "no quest yet" instead of crashing | B1 | `ui/client/src/components/home-warm/*` | [`ccr-quest-client-lld.md`](ccr-quest-client-lld.md) | Fresh-athlete dashboard safe |
+| B3 | B — No placeholder data | Returning athletes can set a new quest/season; old season auto-resolves | B2 | `coachReplySchema.ts`, `coachIntents.ts` | [`ccr-seasons-quests-returning-lld.md`](ccr-seasons-quests-returning-lld.md) | Quest/season parity for every athlete |
+| C1 | C — Simplify session model | No more closing turn, no End Conversation button | B3 | `closeSignal.ts` (deleted), `coachTurn.ts`, web + iOS composer | [`ccr-remove-closing-turn-lld.md`](ccr-remove-closing-turn-lld.md) | One turn shape, everywhere |
+| C2 | C — Simplify session model | `coach_note` generated without depending on a close | A2, C1 | `ui/api/coach-message.ts`, new day-summary path | [`ccr-coach-log-lld.md`](ccr-coach-log-lld.md) | **Open — see LLD, not finalized** |
+| D1 | D — Reliability | Validation failures self-correct instead of losing data | A1 | `coachReplySchema.ts`, `geminiClient.ts`, `coachIntents.ts` | [`ccr-validation-lld.md`](ccr-validation-lld.md) | Closes #736, no silent data loss on bad output |
+| D2 | D — Reliability | GitHub + backend latency visible in Sentry, validation failures captured | D1 | `ui/api/_lib/sentry.ts` | [`ccr-sentry-latency-lld.md`](ccr-sentry-latency-lld.md) | Matches existing Gemini latency instrumentation |
+| E1 | E — Coaching style | `coaching_style` back, and it actually changes how Coach talks | none | `coachMemoryFiles.ts`, `platform/soul/*.md`, `carve-skeleton.mjs` | [`ccr-coaching-style-lld.md`](ccr-coaching-style-lld.md) | Independent, can land anytime |
 
-Each PR gets its own LLD (linked from the table above via filename pattern
-`chat-commit-redesign-<topic>-lld.md`). Read this doc for the shape of the whole redesign; read
-the LLD for the PR you're actually building.
+Each PR gets its own LLD, named `ccr-<topic>-lld.md`. Read this doc for the shape of the whole
+redesign; read the LLD for the PR you're actually building.
 
 ## Done when
 
