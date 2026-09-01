@@ -43,21 +43,17 @@ non-Gemini/non-GitHub stages (prompt building, JSON parsing, reply validation) t
   Vercel runtime); note this explicitly as a gap this PR does not close, since Sentry only sees
   runtime, not CI.
 
-## Open question — should pipeline scripts get Sentry too?
+## Pipeline-script Sentry coverage — checked, not needed
 
 Checked project-wide, not just coach-chat, per the athlete's ask: every one of the 7 top-level
 `ui/api/*.ts` routes already uses `withSentryRoute` — no gap there, nothing to add. Client-side
 Sentry already runs on both web (`@sentry/react`) and iOS (`sentry-cocoa`) — also nothing new to set
 up, just more capture call sites within what already exists (see D1's client-side capture
-additions). The one real gap: `engine/scripts/` (the pipeline — `generate-athlete-insights.mjs`,
-`build-dashboard-snapshot.mjs`, `regenerate_derived.py`, and others), which runs only via GitHub
-Actions and has zero Sentry visibility — failures surface only in Actions logs. This isn't an
-oversight: `docs/eng-docs/sentry-runbook.md`'s coverage boundary explicitly scopes Sentry to
-"homepage, chat, Gemini, HealthKit sync, Rage Reports" and leaves pipeline scripts and outbound
-GitHub HTTP calls out on purpose. **Athlete's call, not assumed here:** was that boundary still
-right, or does "log everything properly" now extend to the pipeline too? If yes, that's new setup
-(Sentry auth/DSN wiring in a GitHub Actions context, not just adding calls to existing
-instrumentation) — worth its own small scoping pass, not silently bundled into this PR's diff.
+additions). The one real gap found: `engine/scripts/` (the pipeline), which runs only via GitHub
+Actions and has zero Sentry visibility. **Resolved: leave it out of scope.**
+`docs/eng-docs/sentry-runbook.md`'s coverage boundary already deliberately scopes Sentry to
+"homepage, chat, Gemini, HealthKit sync, Rage Reports" — the athlete confirmed that boundary stands,
+matching Akash's existing doc rather than reopening it. Not part of this PR's diff.
 
 ## Data-rules constraint (ADR 0032)
 

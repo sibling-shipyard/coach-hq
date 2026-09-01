@@ -41,18 +41,21 @@ flowchart LR
   B2 --> B3["B3 seasons/quests for\nreturning athletes"]
   B3 --> C1["C1 remove closing turn"]
   C1 --> C2["C2 coach log redesign\n(day-keyed running note)"]
-  A1 --> D1["D1 self-correcting validation"]
+  A1 --> D1["D1 self-correcting validation\n+ commit-failure UX"]
   D1 --> D2["D2 full validation audit"]
   D2 --> D3["D3 Sentry latency + errors"]
+  D1 --> I1["I1 staged progress\nindicator (web + iOS)"]
   E1["E1 coaching style"] --> F1
   B3 --> F1["F1 propagate to skeleton\n+ 5 athlete repos"]
   D2 --> F1
   C1 --> G1["G1 trim eval transcripts"]
   D1 --> G1
+  D3 --> G2["G2 redesign layered\ntest suite"]
   C2 --> H1["H1 docs + SOUL\nconsistency, closes #735"]
-  D3 --> H1
+  I1 --> H1
   F1 --> H1
   G1 --> H1
+  G2 --> H1
 ```
 
 ## Milestones (execution order)
@@ -72,7 +75,9 @@ flowchart LR
 | E1 | E — Coaching style | `coaching_style` back, and it actually changes how Coach talks | none | `coachMemoryFiles.ts`, `platform/soul/*.md`, `carve-skeleton.mjs` | [`ccr-e1-coaching-style-lld.md`](ccr-e1-coaching-style-lld.md) | Independent, can land anytime |
 | F1 | F — Propagate everywhere | Skeleton + all 5 athlete repos reflect the final schema, real backfilled values | B3, D2, E1 | 6 separate repo PRs, not HQ code | [`ccr-f1-repo-migration-lld.md`](ccr-f1-repo-migration-lld.md) | Closes #760 (child of #703) |
 | G1 | G — Update tests | Eval transcripts trimmed to 10-14, covering current behavior only | C1, D1 | `ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`, `docs/eng-docs/coach-chat-testing.md` | [`ccr-g1-eval-transcripts-lld.md`](ccr-g1-eval-transcripts-lld.md) | No dead-behavior tests, new coverage for what shipped |
-| H1 | H — Final consistency | Every doc and SOUL layer reflects the shipped state | C2, D3, F1, G1 | `docs/eng-docs/*`, `platform/soul/A_identity.md`, `SOUL_HISTORY.md` | [`ccr-h1-docs-soul-consistency-lld.md`](ccr-h1-docs-soul-consistency-lld.md) | Closes #735; this plan's own docs deleted, folded into eng-docs |
+| G2 | G — Update tests | Layered test suite (`layer1-gemini`/`layer2-fields`/`layer3-commit`/`integration`) redesigned for the final system, no stale assertions | D3 | `ui/api/coach-chat/_tests/{layer1-gemini,layer2-fields,layer3-commit,integration}/` | [`ccr-g2-layered-tests-lld.md`](ccr-g2-layered-tests-lld.md) | Each of the 3 real turn stages properly tested |
+| I1 | I — Progress UX | Cycling "thinking/parsing/updating" labels replace the plain dots; failure messages are accurate per real stage | D1 | web + iOS coach-chat composer/loading state | [`ccr-i1-progress-indicator-lld.md`](ccr-i1-progress-indicator-lld.md) | No new infra; true streaming deferred to issue #767 (P3) |
+| H1 | H — Final consistency | Every doc and SOUL layer reflects the shipped state | C2, D3, F1, G1, G2, I1 | `docs/eng-docs/*`, `platform/soul/A_identity.md`, `SOUL_HISTORY.md` | [`ccr-h1-docs-soul-consistency-lld.md`](ccr-h1-docs-soul-consistency-lld.md) | Closes #735; this plan's own docs deleted, folded into eng-docs |
 
 Each PR gets its own LLD, named `ccr-<pr-code>-<topic>-lld.md` — the prefix matches the PR column
 above, so the files sort in execution order. Read this doc for the shape of the whole redesign;
@@ -92,3 +97,7 @@ and this plan itself all reflecting shipped reality) is the redesign's actual fi
 - C2's documented fallback (reactive day-boundary backfill via `waitUntil`) and real scheduled cron,
   both only if C2's chosen day-keyed design doesn't hold up in practice — see that LLD's own
   Fallback section, not re-derived here.
+- True real-time streaming progress (I1's simulated cycling labels replaced with a live backend
+  signal) — filed as issue #767, P3.
+- `engine/scripts/` pipeline Sentry coverage — checked, deliberately out of scope; matches the
+  existing `docs/eng-docs/sentry-runbook.md` boundary, not reopened by D3.
