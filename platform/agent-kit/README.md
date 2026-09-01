@@ -14,6 +14,21 @@ flowchart TD
   inv --> man --> loc
 ```
 
+## Usage
+
+Run the bootstrap installer to fetch or update the managed rules:
+
+```bash
+# Update managed blocks
+./bootstrap/update.sh
+
+# Report drift without writing changes
+./bootstrap/update.sh --check
+
+# Dry-run the update process
+./bootstrap/update.sh --dry-run
+```
+
 ## Done when
 
 1. Bootstrapping into a new git repo stamps a functional Knowledge Base (KB).
