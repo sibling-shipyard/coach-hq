@@ -5,7 +5,15 @@ import { useRepoData, type RepoData } from "@/hooks/useRepoData";
 import { toLocalDateStr } from "@/lib/challenge";
 import type { SyncStatusPayload } from "@/components/home-warm/warmHomeModel";
 import { InstrumentHeader } from "@/components/home-warm/WarmInstrumentWidgets";
-import { Workout, WorkoutType, WorkoutsData, countExercises, countSets } from "@/lib/workouts";
+import {
+  Workout,
+  WorkoutType,
+  WorkoutsData,
+  countExercises,
+  countSets,
+  validTemplates,
+  validSessions,
+} from "@/lib/workouts";
 import {
   SportBadge,
   accentFor,
@@ -86,16 +94,16 @@ function WorkoutsContent({ data }: { data: RepoData }) {
 
   const groups = useMemo(() => {
     const today = toLocalDateStr(new Date());
-    const templateIds = new Set(workoutsData.templates.map((t) => t.id));
-    const templateCards = workoutsData.templates.map((template) => {
-      const todaySession = workoutsData.sessions.find(
-        (s) => s.id === template.id && s.session_date === today,
-      );
+    const templates = validTemplates(workoutsData);
+    const sessions = validSessions(workoutsData);
+    const templateIds = new Set(templates.map((t) => t.id));
+    const templateCards = templates.map((template) => {
+      const todaySession = sessions.find((s) => s.id === template.id && s.session_date === today);
       return { workout: todaySession ?? template, hasSession: !!todaySession };
     });
     // A one-off session for a workout type with no matching template (Coach gives a cali
     // session to an athlete with no cali template) has no template card to piggyback on above.
-    const standaloneCards = workoutsData.sessions
+    const standaloneCards = sessions
       .filter((s) => s.session_date === today && !templateIds.has(s.id))
       .map((session) => ({ workout: session, hasSession: true }));
     const cards = [...templateCards, ...standaloneCards];
