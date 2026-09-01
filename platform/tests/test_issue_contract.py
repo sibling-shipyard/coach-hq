@@ -87,5 +87,47 @@ class TestIssueContract(unittest.TestCase):
         res = self.run_check(title, body, labels, milestone)
         self.assertEqual(res.returncode, 0, res.stdout)
 
+    def test_one_sentence_intro_fails(self):
+        body = "We are adding feature X.\n\n## Done when\n1. pass\n\n## Scope\nTouch: files"
+        res = self.run_check(
+            "Area: add feature X", body, "area:ui, type:feature", "M3"
+        )
+        self.assertEqual(res.returncode, 1)
+        self.assertIn("exactly two sentence terminators", res.stdout)
+        self.assertIn("found 1", res.stdout)
+
+    def test_unchanged_form_placeholder_fails(self):
+        body = "### Issue Body\n\n[what changes] [why it matters]\n\n## Done when\n1. pass\n\n## Scope\nTouch: files"
+        res = self.run_check(
+            "Area: add feature X", body, "area:ui, type:feature", "M3"
+        )
+        self.assertEqual(res.returncode, 1)
+        self.assertIn("Replace the issue form placeholder", res.stdout)
+
+    def test_three_sentence_intro_fails(self):
+        body = "We are adding feature X. It matters because Y. This is extra.\n\n## Done when\n1. pass\n\n## Scope\nTouch: files"
+        res = self.run_check(
+            "Area: add feature X", body, "area:ui, type:feature", "M3"
+        )
+        self.assertEqual(res.returncode, 1)
+        self.assertIn("exactly two sentence terminators", res.stdout)
+        self.assertIn("found 3", res.stdout)
+
+    def test_dot_inside_file_name_is_not_a_sentence_terminator(self):
+        body = "Update foo.py in CI. This keeps the gate honest.\n\n## Done when\n1. pass\n\n## Scope\nTouch: files"
+        res = self.run_check(
+            "Area: add feature X", body, "area:ui, type:feature", "M3"
+        )
+        self.assertEqual(res.returncode, 0, res.stdout)
+
+    def test_intro_over_300_characters_fails(self):
+        body = f"{'A' * 148}. {'B' * 150}.\n\n## Done when\n1. pass\n\n## Scope\nTouch: files"
+        res = self.run_check(
+            "Area: add feature X", body, "area:ui, type:feature", "M3"
+        )
+        self.assertEqual(res.returncode, 1)
+        self.assertIn("Body intro must be at most 300 characters", res.stdout)
+        self.assertIn("found 301", res.stdout)
+
 if __name__ == "__main__":
     unittest.main()

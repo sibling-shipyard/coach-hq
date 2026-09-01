@@ -25,15 +25,38 @@ def main():
     if "## Scope" not in body_clean:
         errors.append("Body must contain '## Scope' section.")
 
-    lines = [line.strip() for line in body_clean.splitlines() if line.strip()]
-    # Ignore GitHub forms auto-generated headings
-    while lines and lines[0].startswith("### "):
+    lines = body_clean.splitlines()
+    while lines and not lines[0].strip():
         lines.pop(0)
+    # GitHub forms add this heading above the textarea value.
+    if lines and lines[0].strip() == "### Issue Body":
+        lines.pop(0)
+        while lines and not lines[0].strip():
+            lines.pop(0)
 
-    if not lines:
+    content = "\n".join(lines)
+    intro_block = re.split(r"(?m)^##(?:\s|$)", content, maxsplit=1)[0]
+    intro = " ".join(intro_block.split())
+
+    if not content.strip():
         errors.append("Body is empty.")
-    elif lines[0].startswith("#"):
+    elif content.lstrip().startswith("#"):
         errors.append("Body must start with two short sentences, no heading.")
+    elif not intro:
+        errors.append("Body must start with two short sentences, no heading.")
+    elif intro == "[what changes] [why it matters]":
+        errors.append("Replace the issue form placeholder with two short sentences.")
+    else:
+        terminator_count = len(re.findall(r"[.!?](?=\s|$)", intro))
+        if terminator_count != 2:
+            errors.append(
+                "Body intro must contain exactly two sentence terminators (. ! or ?); "
+                f"found {terminator_count}."
+            )
+        if len(intro) > 300:
+            errors.append(
+                f"Body intro must be at most 300 characters; found {len(intro)}."
+            )
 
     area_labels = [l for l in labels if l.startswith("area:")]
     type_labels = [l for l in labels if l.startswith("type:")]
