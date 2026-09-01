@@ -158,7 +158,7 @@ export interface SplitLedger {
       weekly_floor?: number;
       skill_cap?: number;
       sessions?: QuestSession[];
-    };
+    } | null;
     quests: Array<{
       id: string;
       name: string;

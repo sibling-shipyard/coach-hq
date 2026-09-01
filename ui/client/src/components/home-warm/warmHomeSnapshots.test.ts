@@ -70,6 +70,7 @@ describe("buildQuestSnapshot", () => {
     loaded: 0,
     skill: 0,
     percent: 0,
+    hasQuest: true,
   };
 
   it("default_not_done: value is completed_dates.length, target is eligible days since start", () => {

@@ -97,6 +97,7 @@ export interface QuestSnapshot {
   daysLeft: number;
   sideQuests: QuestSideSnapshot[];
   streakLabel?: string;
+  hasQuest: boolean;
 }
 
 export interface CoachReadSnapshot {
@@ -305,4 +306,5 @@ export interface QuestSnapshotS {
   completed: number;
   target: number;
   progressPercent: number;
+  hasQuest: boolean;
 }
