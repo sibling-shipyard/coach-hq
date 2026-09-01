@@ -111,6 +111,25 @@ export function getLatestSession(templateId: string, sessions: Workout[]): Worko
 }
 
 /**
+ * True for the workout_plans manifest sidecar (`_manifest.json`), which lists template ids
+ * but is not itself a workout. A stale committed snapshot can still carry one even after the
+ * generator excludes it, so the client filters defensively too.
+ */
+function isManifestId(id: string | undefined): boolean {
+  return !id || id === "_manifest" || id.endsWith("_manifest");
+}
+
+/** Real workout templates only — drops the manifest sidecar and anything missing `phases`. */
+export function validTemplates(workouts: WorkoutsData): Workout[] {
+  return (workouts.templates ?? []).filter((t) => !isManifestId(t.id) && Array.isArray(t.phases));
+}
+
+/** Real workout sessions only — drops anything missing `phases`. */
+export function validSessions(workouts: WorkoutsData): Workout[] {
+  return (workouts.sessions ?? []).filter((s) => s.id && Array.isArray(s.phases));
+}
+
+/**
  * Count total exercises across all phases.
  */
 export function countExercises(workout: Workout): number {

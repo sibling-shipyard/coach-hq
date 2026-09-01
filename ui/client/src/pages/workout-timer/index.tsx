@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "wouter";
 import { RepoDataGate } from "@/components/RepoDataGate";
 import { useRepoData, type RepoData } from "@/hooks/useRepoData";
-import { WorkoutsData } from "@/lib/workouts";
+import { WorkoutsData, validTemplates, validSessions } from "@/lib/workouts";
 import { toLocalDateStr } from "@/lib/challenge";
 import { WarmWorkoutOverview } from "./WarmWorkoutOverview";
 import { WarmActiveTimer } from "./WarmActiveTimer";
@@ -24,11 +24,11 @@ function WorkoutTimerContent({ data }: { data: RepoData }) {
 
   const workout = useMemo(() => {
     const today = toLocalDateStr(new Date());
-    const session = workoutsData.sessions.find(
+    const session = validSessions(workoutsData).find(
       (s) => s.id === workoutId && s.session_date === today,
     );
     if (session) return session;
-    return workoutsData.templates.find((t) => t.id === workoutId) ?? null;
+    return validTemplates(workoutsData).find((t) => t.id === workoutId) ?? null;
   }, [workoutsData, workoutId]);
 
   const [screen, setScreen] = useState<"overview" | "active" | "complete">("overview");
