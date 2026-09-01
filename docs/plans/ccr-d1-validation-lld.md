@@ -96,6 +96,32 @@ Both platforms already run their own Sentry SDK (`@sentry/react` on web, `sentry
 confirmed present, not new setup) — capture the dropped-action event there too, client-side, so a
 pattern is visible from both ends, not just the backend's `console.error`/Sentry capture.
 
+## Fix — Gemini-call failure gets its own honest, consistent message
+
+A third real failure point, distinct from the two above: the Gemini call itself never returns a
+usable reply at all (503/504/429, empty content, malformed JSON) — not "Coach replied but something
+after that failed," but "Coach never got to reply." Today this is handled inconsistently:
+
+- Only one retry happens, and only for 503/504 (`geminiClient.ts:150-158`, fixed 500ms backoff) —
+  429 and other errors get zero retry. This is not reliable at real conversation scale: issue #668's
+  own measurement shows `gemini-flash-latest` going 0-of-5 on real turns even with this retry
+  active, which is why the model is currently pinned to `gemini-pro-latest`
+  (`geminiModel.ts:5-10`). This PR does not change retry counts or model choice — that's #668's
+  territory, not duplicated here.
+- The response shape lacks `traceId` (`coachTurn.ts:349-360` returns `{ error: message }` only,
+  unlike the commit-failure path's `{ error, traceId }`) — inconsistent for no reason.
+- The raw upstream error text leaks straight to the athlete (e.g. a toast literally reading
+  `"Gemini request failed (503): ..."`) — not a message a non-technical person should see.
+- Both platforms currently show this **identically** to a commit failure — the exact same generic
+  "Coach didn't reply — try again," even though "Coach never replied" and "Coach replied but I
+  couldn't save it" are genuinely different situations for the athlete to understand.
+
+Fix: give this response the same `{ error, traceId }` shape as the commit-failure path (parity, not
+a new pattern), map the raw Gemini error to a friendly message instead of leaking it verbatim, and
+make sure the client shows a message distinct from both the commit-failure and validation-failure
+cases — ties directly into I1's staged progress indicator, which already names this as one of its
+three real failure shapes to display accurately.
+
 ## Tests
 
 - `coachReplySchema.test.ts`: assert `generationConfigFor` builds a request with the athlete's
@@ -117,6 +143,11 @@ pattern is visible from both ends, not just the backend's `console.error`/Sentry
   save-failed detail iOS currently drops — parity with web, not just "an error occurred."
 - New test: a turn producing a `droppedActions` entry is captured by both the backend's existing
   Sentry pattern and a client-side capture on whichever platform received it.
+- New test: a forced Gemini-call failure (mock a 503 with retry exhausted) asserts the response
+  carries `traceId` and a friendly message, not the raw upstream error string.
+- New web + iOS test: a Gemini-call failure, a commit failure, and a dropped-action all render
+  visibly different messages in the same test run — not three paths converging on one generic
+  string.
 
 ## Done when
 

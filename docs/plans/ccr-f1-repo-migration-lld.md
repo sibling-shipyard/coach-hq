@@ -7,36 +7,65 @@ Execution detail for F1 in [`chat-commit-redesign.md`](chat-commit-redesign.md).
 HQ, so the migration matches the final shape rather than an intermediate one. Executed as separate
 PRs in each target repo, not a single HQ PR — tracked here as one plan.
 
-## Why last, not per-PR
+## Ultimate goal — exact shape parity, not just this redesign's specific fields
 
-Doing this migration incrementally (once per HQ PR that touches schema) means either migrating
-athlete repos multiple times or missing something landed later in the stack. Batching it at the end
-matches #703's own stated intent ("Pushes are expensive — never drip; batch and roll out
-together") and means every target repo gets touched exactly once.
+The athlete's direction, broader than the field-by-field list below: **all 5 athlete repos and
+`sibling-shipyard/coach-skeleton` should end up structurally identical** — every repo has exactly
+what the skeleton has, nothing missing, nothing extra — with per-athlete *content* (real quest
+names, real activity history, real profile facts) obviously differing, but the *shape* (which files
+exist, which fixed-schema fields each file has) matching exactly. The field-specific backfill list
+below (`coaching_style`, `main_quest`, etc.) is this redesign's own contribution to that goal, not
+the whole of it — a full structural audit (below) is what actually closes it out.
 
-## Principle: backfill real values, never leave a new field blank
+## Step 0 — stamp the skeleton first; never hand-edit it
 
-The athlete's explicit direction: where this redesign adds or fixes a field on an *existing*
-athlete's repo, get the real answer directly (the athlete asks each person, outside the app) and
-write it in as part of this migration — don't add an empty field and rely on the app asking about it
-naturally next conversation. A fresh/never-onboarded repo is different — there, "blank until FSP
-fills it" is correct and intentional (that's the whole point of B1). This principle is specifically
-about repos that already have a real, established athlete on them.
+`sibling-shipyard/coach-skeleton` is not a normal repo to compare against as-is — it's entirely
+regenerated from HQ by `platform/scripts/carve-skeleton.mjs --push`
+(`git push -u origin main --force`, carve-skeleton.mjs:615), which force-pushes a fresh build from
+HQ's current `main`. **Never hand-edit the skeleton repo directly** — any manual change is
+overwritten the next time this script runs, and the script is the only source of truth for what the
+skeleton should contain.
 
-## Targets — 5 live athletes, not 4
+Run `node platform/scripts/carve-skeleton.mjs --push` (after B1, B3, D2, and E1 have all landed on
+HQ `main` — not before, or the skeleton reflects an intermediate shape) as the literal first step of
+this PR, before touching any athlete repo. Everything after this step compares against the
+freshly-stamped skeleton, not a stale clone.
 
-A 5th athlete has joined since this plan was first drafted. Full list, all cloned locally under
-`/home/skanda_suresh/Projects/coach-*`: `sibling-shipyard/coach-skeleton` (the stamped skeleton),
-`skanda-2003/coach-skanda-2003`, `akash-suresh/coach-akash-suresh`,
-`prateekdevaraju/coach-prateekdevaraju`, `date2022/coach-date2022`, and
-`shreyas-95-cyber/coach-shreyas-95-cyber` (new). **`git pull` each before starting** — the sync bot
-and the athletes themselves push to these directly, so a stale local clone is a real risk here, not
-a formality.
+## Step 1 — full structural diff, skeleton vs. every athlete repo
 
-## Real current state, checked directly against each repo (2026-09-01)
+Once Step 0 lands, diff each athlete repo's fixed-schema files (the exact set
+`carve-skeleton.mjs` writes — `writeJson(outDir, "user_data/...", ...)` calls, currently 13 files
+under `user_data/coach/` and `user_data/ledger/` plus `user_data/activities/sync_state.json`)
+against the same paths in the freshly-stamped skeleton. Two directions matter:
 
-Read straight from each repo's `quests.json`/`memory.json`/`profile.json` rather than assumed —
-this is what actually needs backfilling, not a generic template:
+- **Missing**: a fixed-schema file the skeleton has that an athlete repo doesn't. Confirmed real
+  example, found before Step 0 (re-verify after, in case the skeleton itself changes): 4 of the 5
+  athlete repos (`coach-skanda-2003`, `coach-akash-suresh`, `coach-prateekdevaraju`,
+  `coach-date2022`) are missing `user_data/coach/latest_message.json` entirely — only the newest
+  athlete (`coach-shreyas-95-cyber`, carved most recently) has it. It was added to the skeleton
+  template at some point after the first 4 were carved and never backfilled. Currently harmless
+  functionally (`parseLatestMessageFile` in `ui/api/coach-message/_lib/coachMessage.ts:450-451`
+  treats a missing file identically to `{schema_version: 1, message: null}`) — but exactly the class
+  of drift this step exists to catch and close.
+- **Extra**: a file an athlete repo has that the skeleton doesn't. A preliminary pass (against a
+  since-superseded skeleton clone, before Step 0's importance was clear — treat as a lead, not a
+  finding) suggested `coach-skanda-2003` and `coach-akash-suresh` may carry extra files under
+  `user_data/coach/` beyond the fixed set — re-run this comparison for real against the
+  freshly-stamped skeleton from Step 0, don't trust the preliminary numbers.
+
+Exclude naturally-per-athlete content from this diff — `user_data/activities/hist/*`,
+`user_data/activities/streams/*`, `user_data/activities/workout_plans/sessions/*` are expected to
+differ (real activity/session data), not structural drift.
+
+## Step 2 — the athlete decides, per item
+
+Present the Step 1 diff results as a plain list per repo. **Every keep-or-remove call is the
+athlete's, not assumed here** — bring the list, wait for the decision, then act on it.
+
+## Step 3 — this redesign's own field-specific backfill
+
+Real current state, checked directly against each repo (2026-09-01) — read straight from each
+repo's `quests.json`/`memory.json`/`profile.json` rather than assumed:
 
 | Repo | `main_quest` | `coaching_style` | `equipment` note | Notes |
 |---|---|---|---|---|
@@ -46,7 +75,7 @@ this is what actually needs backfilling, not a generic template:
 | `coach-date2022` | `"First Unassisted Pull-Up"` (real) | absent | populated (real gear list) | |
 | `coach-shreyas-95-cyber` | `"Rebuild Posture and Core Foundation"` (real) | absent | empty | New athlete, cloned for the first time this session. |
 
-## What changes, per field
+## What changes, per field (Step 3)
 
 1. **`coaching_style`** — backfill a real value for all 5, gathered by the athlete talking to each
    person directly. Akash's repo already has one (`"accountability"`) — confirm it's still accurate
@@ -83,28 +112,33 @@ Checklist, not to be left blank at execution time:
 - [ ] Whether Akash's, Prateek's, and Shreyas's equipment was ever actually stated and lost, or
   genuinely never discussed — and if stated, what it was.
 - [ ] Skanda's repo: intentional reset (go through FSP fresh) or real data to restore.
+- [ ] Step 2's per-item keep-or-remove decisions, once Step 1's real diff is in hand.
 - [ ] Flag here immediately if any other field this redesign adds turns out to need a real answer
   the same way — don't assume this list is exhaustive once D2's audit lands.
 
 ## Execution, per repo
 
-1. `git pull` (never skip, confirmed above).
+1. `git pull` (never skip — the sync bot and the athletes themselves push to these directly, so a
+   stale local clone is a real risk here, not a formality).
 2. `git checkout -b core/chat-commit-redesign-migration`.
-3. Apply exactly the changes this repo actually needs, using the real backfilled values gathered
-   above — never a placeholder, never left blank.
+3. Apply exactly the changes this repo actually needs — Step 2's structural decisions plus Step 3's
+   field backfills, using real values gathered above, never a placeholder, never left blank.
 4. Commit: `core: propagate chat-commit-redesign schema to this repo (#760)`.
 5. Push, open a PR in that repo, get it reviewed before merge — same discipline as any other PR,
    not a silent direct push despite being a mechanical change.
 
 ## Tests
 
-Per repo: a manual read of the resulting JSON confirms the intended post-migration state, with real
-values in every field this migration touches — no athlete should see Coach ask them something they
-already answered outside the app just because the field looked blank.
+Per repo: a manual read of the resulting JSON confirms the intended post-migration state — same
+fixed-schema shape as the freshly-stamped skeleton, real values in every field this migration
+touches, no athlete asked something they already answered outside the app just because the field
+looked blank.
 
 ## Done when
 
-All 6 repos (skeleton + 5 athletes) have their migration PR merged, each reviewed individually
-(these are real athlete repos, not a batch-and-forget operation), with every field backfilled from a
-real answer rather than left empty. #760 and #703's child-issue list updated to reflect this wave
-shipped.
+`node platform/scripts/carve-skeleton.mjs --push` has run and `sibling-shipyard/coach-skeleton`
+reflects the final post-redesign shape. All 5 athlete repos are structurally identical to it (no
+missing fixed-schema files, no unresolved extras) per the athlete's own per-item decisions, and
+every field this redesign touches carries a real backfilled value. Each of the 6 repo PRs (skeleton
+re-stamp counts as one) is merged individually. #760 and #703's child-issue list updated to reflect
+this wave shipped.
