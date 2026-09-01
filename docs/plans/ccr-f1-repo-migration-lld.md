@@ -67,13 +67,16 @@ athlete's, not assumed here** — bring the list, wait for the decision, then ac
 Real current state, checked directly against each repo (2026-09-01) — read straight from each
 repo's `quests.json`/`memory.json`/`profile.json` rather than assumed:
 
-| Repo | `main_quest` | `coaching_style` | `equipment` note | Notes |
-|---|---|---|---|---|
-| `coach-skanda-2003` | `"Load Bearing"` (real) | absent | populated (real gear list) | **`profile.json` is `{}` — empty.** This repo looks mid-reset, not a normal backfill case — confirm with the athlete before treating this like the others. |
-| `coach-akash-suresh` | `"Weekly Structured Sessions"` (real) | **already present: `"accountability"`** | empty | Leftover from before the feature was removed (#513/#515) — the field was deleted from the schema, but this repo's data was never cleaned up. Confirm with Akash this value is still accurate before keeping it as-is; don't silently trust stale data. |
-| `coach-prateekdevaraju` | **still the skeleton placeholder** (`"20 Strength Sessions"`, `_meta.updated_by: "skeleton-init"`) | absent | empty | **Live instance of the exact bug this whole redesign traces back to** — Prateek never got a real `quest_create`. Needs a real main quest backfilled, not just nulled — ask him directly what his actual goal is, same as any other backfill here. |
-| `coach-date2022` | `"First Unassisted Pull-Up"` (real) | absent | populated (real gear list) | |
-| `coach-shreyas-95-cyber` | `"Rebuild Posture and Core Foundation"` (real) | absent | empty | New athlete, cloned for the first time this session. |
+| Repo | `main_quest` | `current_season_id` | `coaching_style` | `equipment` note | Notes |
+|---|---|---|---|---|---|
+| `coach-skanda-2003` | `"Load Bearing"` (real) | `s_load_bearing_season` (real, active) | absent | populated (real gear list) | **`profile.json` is `{}` — empty.** This repo looks mid-reset, not a normal backfill case — confirm with the athlete before treating this like the others. |
+| `coach-akash-suresh` | `"Weekly Structured Sessions"` (real) | `s_the_transformation_v2` (real, active) | **already present: `"accountability"`** | empty | Leftover from before the feature was removed (#513/#515) — the field was deleted from the schema, but this repo's data was never cleaned up. Confirm with Akash this value is still accurate before keeping it as-is; don't silently trust stale data. |
+| `coach-prateekdevaraju` | **still the skeleton placeholder** (`"20 Strength Sessions"`, `_meta.updated_by: "skeleton-init"`) | `season_strength_weight_gain_sea_o1jd` (real, active) | absent | empty | **Live instance of the exact bug this whole redesign traces back to** — Prateek never got a real `quest_create`. Needs a real main quest backfilled, not just nulled — ask him directly what his actual goal is, same as any other backfill here. |
+| `coach-date2022` | `"First Unassisted Pull-Up"` (real) | `chin-over-the-bar` (real, active) | absent | populated (real gear list) | |
+| `coach-shreyas-95-cyber` | `"Rebuild Posture and Core Foundation"` (real) | `season_posture_core_rebuild_r9it` (real, active) | absent | empty | New athlete, cloned for the first time this session. |
+
+All 5 already have a real, active current season — B3's new `main_quest.season_id` link backfills
+cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn't real yet either).
 
 ## What changes, per field (Step 3)
 
@@ -83,24 +86,31 @@ repo's `quests.json`/`memory.json`/`profile.json` rather than assumed:
    before this PR can execute:** each of the 5 people's answer to E1's FSP question ("What works
    when things get hard: someone holding you accountable, someone cheering you on, or someone
    walking through the why?") — one of `accountability` / `encouragement` / `analysis` per person.
-2. **`main_quest`** — only `coach-prateekdevaraju` needs anything here (the other 4 already have a
-   real quest). **Info needed from the athlete:** Prateek's actual current 3-6 month goal, backfilled
-   as a real `main_quest` object (not nulled-and-wait) — same shape `applyQuestCreate` produces
-   (`id`, `name`, `type`, `target`, optional `count_pattern`).
-3. **`equipment`** — empty on `coach-akash-suresh`, `coach-prateekdevaraju`, `coach-shreyas-95-cyber`.
+2. **`main_quest`** — only `coach-prateekdevaraju` needs a real value backfilled (the other 4 already
+   have one). **Info needed from the athlete:** Prateek's actual current 3-6 month goal, backfilled
+   as a real `main_quest` object (`id`, `name`, `type`, `target`, optional `count_pattern`), plus his
+   real `season_id` (see next item — every athlete gets this field, Prateek's just needs a real
+   main_quest to attach it to).
+3. **`main_quest.season_id`** (new field from B3) — backfill onto all 5, not just Prateek. All 5
+   already have a real, active `current_season_id` (confirmed directly: `s_load_bearing_season`,
+   `s_the_transformation_v2`, `season_strength_weight_gain_sea_o1jd`, `chin-over-the-bar`,
+   `season_posture_core_rebuild_r9it`) — set each real `main_quest.season_id` to that athlete's own
+   `current_season_id`. No athlete input needed for this one, purely mechanical linking of two
+   values that already exist.
+4. **`equipment`** — empty on `coach-akash-suresh`, `coach-prateekdevaraju`, `coach-shreyas-95-cyber`.
    Worth being direct about why: this is exactly the field this session found being silently
    dropped by #616's write-loss bug — these 3 athletes may well have *stated* their equipment in a
    past conversation and had it lost, not simply never been asked. **Info needed from the athlete:**
    whether these 3 already said their equipment somewhere recoverable (check `chat_history.json` if
    any old threads survived, or just ask them directly) before assuming it's genuinely never been
    discussed.
-4. **`coach-skanda-2003`'s empty `profile.json`** — not a normal backfill case, flagging separately.
+5. **`coach-skanda-2003`'s empty `profile.json`** — not a normal backfill case, flagging separately.
    **Info needed from the athlete:** confirm whether this repo is intentionally mid-reset (matches
    the recent "clear stale onboarding-complete Keychain flag on repo recreate" fix) and should just
    go through FSP fresh, or whether real prior data needs restoring from somewhere.
-5. **`Season.status`'s widened enum** (B3) — no data change needed, existing `"active"` values stay
+6. **`Season.status`'s widened enum** (B3) — no data change needed, existing `"active"` values stay
    valid on all 5 repos.
-6. **Anything D2's full audit surfaces** beyond what's listed above — check once D2 lands, before
+7. **Anything D2's full audit surfaces** beyond what's listed above — check once D2 lands, before
    starting this PR, not assumed here.
 
 ## Info still needed from the athlete before this PR can execute
