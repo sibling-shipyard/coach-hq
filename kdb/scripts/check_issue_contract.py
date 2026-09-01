@@ -44,10 +44,10 @@ def main():
         errors.append("Body must start with two short sentences, no heading.")
     elif not intro:
         errors.append("Body must start with two short sentences, no heading.")
-    elif intro == "[what changes] [why it matters]":
+    elif "[what changes] [why it matters]" in intro:
         errors.append("Replace the issue form placeholder with two short sentences.")
     else:
-        terminator_count = len(re.findall(r"[.!?](?=\s|$)", intro))
+        terminator_count = len(re.findall(r"[.!?](?=(?:[*_~]+)?(?:\s|$))", intro))
         if terminator_count != 2:
             errors.append(
                 "Body intro must contain exactly two sentence terminators (. ! or ?); "

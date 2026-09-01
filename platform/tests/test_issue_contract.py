@@ -104,6 +104,21 @@ class TestIssueContract(unittest.TestCase):
         self.assertEqual(res.returncode, 1)
         self.assertIn("Replace the issue form placeholder", res.stdout)
 
+    def test_form_placeholder_with_appended_sentences_fails(self):
+        body = "### Issue Body\n\n[what changes] [why it matters] Add feature X. It matters because Y.\n\n## Done when\n1. pass\n\n## Scope\nTouch: files"
+        res = self.run_check(
+            "Area: add feature X", body, "area:ui, type:feature", "M3"
+        )
+        self.assertEqual(res.returncode, 1)
+        self.assertIn("Replace the issue form placeholder", res.stdout)
+
+    def test_markdown_bold_sentences_pass(self):
+        body = "**Add feature X.** **It matters because Y.**\n\n## Done when\n1. pass\n\n## Scope\nTouch: files"
+        res = self.run_check(
+            "Area: add feature X", body, "area:ui, type:feature", "M3"
+        )
+        self.assertEqual(res.returncode, 0, res.stdout)
+
     def test_three_sentence_intro_fails(self):
         body = "We are adding feature X. It matters because Y. This is extra.\n\n## Done when\n1. pass\n\n## Scope\nTouch: files"
         res = self.run_check(
