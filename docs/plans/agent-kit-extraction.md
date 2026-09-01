@@ -1,6 +1,6 @@
 # agent-kit — extract the HQ agent setup into a portable kit
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-01 · Issues: —
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-01 · Issues: #777, #778, #779, #780, #782, #781
 
 ## Context
 
@@ -37,23 +37,30 @@ Both changes must be **behavior-neutral**: `checks.conf` reproduces today's exac
 output before and after each change — same rigor `compose-soul --check` already applies to drift.
 
 Everything else that's already generic gets marked, not moved: `.githooks/{pre-commit,pre-push}`,
-`kdb/scripts/{validate_kdb.py,gen_adr_index.py,adr_readability.py}` (the KB-format and staleness
+`kdb/scripts/{validate_kdb.py,gen_adr_index.py,adr_readability.py,check_pr_issue_link.py,
+check_plan_delete.py,check_issue_contract.py}` (the KB-format, staleness, and issue/PR hygiene
 rules — the soul-history guard stays an HQ-only addendum, not exported), `CLAUDE.md`,
 `.cursor/rules/routing-gate.mdc`. `AGENTS.md` § How all agents work gets wrapped in
 `<!-- AGENT-KIT:START/END -->` markers **in place** — the marker is what the carve script reads,
 so there's no separate template file to keep in sync with the prose everyone actually boots from.
 
+**Related plan:** `docs/plans/ops-issue-hygiene.md` is still landing files in this same area
+(`check_issue_contract.py`'s CI wiring, `.github/workflows/issue-hygiene.yml`) — re-diff the
+`kdb/scripts/` list above against that plan's state before P5 runs, not just against this doc.
+
 ## Phases
 
-| id | files | deps | owner |
-|---|---|---|---|
-| P1 | `platform/scripts/{check.sh,checks.conf}` | — | Backend Builder |
-| P2 | `platform/scripts/{boot-cost.mjs,boot-manifest.json}` | — | Backend Builder |
-| P3 | `AGENTS.md`, `kdb/doc-style.md`, `.github/CONVENTIONS.md` (add `AGENT-KIT` markers, no prose change) | — | Backend Builder |
-| P4 | `platform/scripts/gen-codeowners.py`, `CODEOWNERS` | — | Backend Builder |
-| P5 | `platform/agent-kit/carve-kit.mjs`, `.github/agents/_template.md`, `kdb/decisions/0000-template.md` (copy target, no edit) | P1–P4 | Backend Builder |
-| P6 | `platform/agent-kit/bootstrap/{update.sh,VERSION,README.md}` | — | Backend Builder |
-| P7 | `kdb/decisions/0036-*.md`, `docs/eng-docs/agent-kit.md`, `AGENTS.md` (§ What This Repo Is) | P1–P6 | Tech Lead |
+| id | files | deps | owner | issue |
+|---|---|---|---|---|
+| P1 | `platform/scripts/{check.sh,checks.conf}` | — | Antigravity | #777 |
+| P2 | `platform/scripts/{boot-cost.mjs,boot-manifest.json}` | — | Antigravity | #778 |
+| P3 | `AGENTS.md`, `kdb/doc-style.md`, `.github/CONVENTIONS.md` (add `AGENT-KIT` markers, no prose change) | — | Antigravity | #779 |
+| P4 | `platform/scripts/gen-codeowners.py`, `CODEOWNERS` | — | Antigravity | #780 |
+| P5 | `platform/agent-kit/carve-kit.mjs`, `.github/agents/_template.md`, `kdb/decisions/0000-template.md` (copy target, no edit) | P1–P4 | Antigravity | #782 |
+| P6 | `platform/agent-kit/bootstrap/{update.sh,VERSION,README.md}` | — | Antigravity | #781 |
+| P7 | `kdb/decisions/0036-*.md`, `docs/eng-docs/agent-kit.md`, `AGENTS.md` (§ What This Repo Is) | P1–P6 | Tech Lead | — |
+
+Antigravity executes P1–P6 from the linked issues; Tech Lead reviews each PR and closes P7.
 
 P1–P4 and P6 touch disjoint files and run in parallel. P5 depends on P1–P4 landing (it copies
 their output). P7 closes the plan.
@@ -74,12 +81,14 @@ their output). P7 closes the plan.
 	source for who owns what) and emits `CODEOWNERS`. Immediate HQ win, independent of the kit:
 	replaces a table that's asserted in `AGENTS.md`, `tech-lead.md`, and `cyclops.md` with zero
 	cross-check today.
-5. **P5 — carve-kit.mjs.** Mirrors `carve-skeleton.mjs`'s copy-map exactly: reads the marked
-	sections + `checks.conf`/`boot-manifest.json` (as starter/example, not copied verbatim —
-	consumer repos get their own) + `.githooks/` + `kdb/scripts/{validate_kdb.py minus soul-history
-	guard,gen_adr_index.py,adr_readability.py}` + adapters + two new generic templates
-	(`.github/agents/_template.md`, since HQ's own role docs are HQ-specific content, not a
-	template). Writes `sibling-shipyard/agent-kit`.
+5. **P5 — carve-kit.mjs.** Mirrors `carve-skeleton.mjs`'s copy-map exactly. It reads the marked
+	sections, `checks.conf`/`boot-manifest.json` (as starter/example, not copied verbatim —
+	consumer repos get their own), `.githooks/`, and `kdb/scripts/{validate_kdb.py minus
+	soul-history guard,gen_adr_index.py,adr_readability.py,check_pr_issue_link.py,
+	check_plan_delete.py,check_issue_contract.py}`. It also reads adapters and two new generic
+	templates (`.github/agents/_template.md`, since HQ's own role docs are HQ-specific content,
+	not a template). Writes `sibling-shipyard/agent-kit`. Re-diff `kdb/scripts/` against this list
+	before implementing — `docs/plans/ops-issue-hygiene.md` is landing more files there.
 6. **P6 — bootstrap/update.sh.** The one genuinely new, kit-only asset — HQ has no analog, since HQ
 	*is* the source, not a consumer. POSIX shell + `python3`, no node, no agent required. `--check`
 	reports drift against the pinned `VERSION`, `--dry-run` writes nothing, idempotent.
