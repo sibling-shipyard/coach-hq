@@ -15,7 +15,7 @@ formal close, ever, today. Chasing that surfaced a cluster of related gaps worth
 Placeholder data sits elsewhere in the carve template too. Chat history deletes past 7 threads.
 Validation stops at text-length caps (#736). A coaching-style preference (`accountability` /
 `encouragement` / `analysis`) was deliberately removed and is now needed back with real SOUL
-wiring. And every schema/carve change here needs propagating to the 4 live athlete repos, not just
+wiring. And every schema/carve change here needs propagating to the 5 live athlete repos, not just
 future carves — tracked against the existing #703 batched-migration epic (child issue #760).
 Along the way, `platform/scripts/validate-soul.mjs`'s known writable-set gap (#735) gets closed too,
 since this redesign is already editing the exact SOUL sections that bug lives next to.
@@ -45,7 +45,7 @@ flowchart LR
   D1 --> D2["D2 full validation audit"]
   D2 --> D3["D3 Sentry latency + errors"]
   E1["E1 coaching style"] --> F1
-  B3 --> F1["F1 propagate to skeleton\n+ 4 athlete repos"]
+  B3 --> F1["F1 propagate to skeleton\n+ 5 athlete repos"]
   D2 --> F1
   C1 --> G1["G1 trim eval transcripts"]
   D1 --> G1
@@ -70,7 +70,7 @@ flowchart LR
 | D2 | D — Reliability | Every `user_data/` field gets a real shape/enum check, not just what D1 touched | D1 | `coachIntents.ts`, `turnWrites/*.ts`, `validate-data.yml`, `coachReplySchema.ts` | [`ccr-d2-validation-audit-lld.md`](ccr-d2-validation-audit-lld.md) | No unvalidated field left, incl. Claude/BYOB writes |
 | D3 | D — Reliability | GitHub + backend latency visible in Sentry, validation failures captured | D2 | `ui/api/_lib/sentry.ts` | [`ccr-d3-sentry-latency-lld.md`](ccr-d3-sentry-latency-lld.md) | Matches existing Gemini latency instrumentation |
 | E1 | E — Coaching style | `coaching_style` back, and it actually changes how Coach talks | none | `coachMemoryFiles.ts`, `platform/soul/*.md`, `carve-skeleton.mjs` | [`ccr-e1-coaching-style-lld.md`](ccr-e1-coaching-style-lld.md) | Independent, can land anytime |
-| F1 | F — Propagate everywhere | Skeleton + all 4 athlete repos reflect the final schema | B3, D2, E1 | 5 separate repo PRs, not HQ code | [`ccr-f1-repo-migration-lld.md`](ccr-f1-repo-migration-lld.md) | Closes #760 (child of #703) |
+| F1 | F — Propagate everywhere | Skeleton + all 5 athlete repos reflect the final schema, real backfilled values | B3, D2, E1 | 6 separate repo PRs, not HQ code | [`ccr-f1-repo-migration-lld.md`](ccr-f1-repo-migration-lld.md) | Closes #760 (child of #703) |
 | G1 | G — Update tests | Eval transcripts trimmed to 10-14, covering current behavior only | C1, D1 | `ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`, `docs/eng-docs/coach-chat-testing.md` | [`ccr-g1-eval-transcripts-lld.md`](ccr-g1-eval-transcripts-lld.md) | No dead-behavior tests, new coverage for what shipped |
 | H1 | H — Final consistency | Every doc and SOUL layer reflects the shipped state | C2, D3, F1, G1 | `docs/eng-docs/*`, `platform/soul/A_identity.md`, `SOUL_HISTORY.md` | [`ccr-h1-docs-soul-consistency-lld.md`](ccr-h1-docs-soul-consistency-lld.md) | Closes #735; this plan's own docs deleted, folded into eng-docs |
 
