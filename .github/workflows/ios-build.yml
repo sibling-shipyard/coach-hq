@@ -1,7 +1,7 @@
 name: iOS Build
 
-# Compiles the CoachHQ app + CoachHQWidgetExtension on every ios/ change, and runs the
-# CoachHQTests unit suite. No code signing needed (simulator only). It exists to catch compile
+# Compiles the CoachHQ app and its embedded CoachHQWidgetExtension on every ios/ change,
+# and runs the CoachHQTests unit suite. No code signing needed (simulator only). It catches compile
 # errors like the WorkoutType enum change in #256/#257, which had to be reviewed by hand since
 # there's no Mac in this dev loop otherwise.
 #
@@ -24,9 +24,6 @@ jobs:
     defaults:
       run:
         working-directory: ios/CoachHQ
-    strategy:
-      matrix:
-        scheme: [CoachHQ, CoachHQWidgetExtension]
     steps:
       - uses: actions/checkout@v5
 
@@ -44,29 +41,67 @@ jobs:
         # has production defaults that are enough to compile with.
         run: cp CoachHQ/Secrets.swift.example CoachHQ/Secrets.swift
 
-      - name: Build ${{ matrix.scheme }} for iOS Simulator
-        run: |
-          xcodebuild build \
-            -project CoachHQ.xcodeproj \
-            -scheme ${{ matrix.scheme }} \
-            -destination 'generic/platform=iOS Simulator' \
-            -skipMacroValidation \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Run unit tests
-        # Only on the app scheme - the widget extension has no test target of its own, and
-        # running this twice would just re-run the same suite.
+      - name: Build and run unit tests
+        # The app depends on the embedded widget target, so building the app scheme compiles
+        # the app, widget, and unit-test bundles once.
         #
         # OS=26.5 is pinned, and is why this job runs on macos-26. Simulator iOS 26.2 - the
         # newest macos-15 offered - has a bad free in swift_task_deinitOnExecutorImpl, so any
         # main-actor class released inside a synchronous test body kills the host (#585). If
-        # the image stops shipping 26.5 this fails loudly on an unknown destination; pick the
-        # next runtime up rather than dropping the pin.
-        if: matrix.scheme == 'CoachHQ'
+        # the image stops shipping 26.5, simulator resolution fails loudly; pick the next
+        # runtime up rather than dropping the pin.
+        #
+        # The runner and pinned simulator are both arm64. Matching architecture settings on
+        # both phases lets test-without-building reuse the generic simulator build artifacts.
         run: |
-          xcodebuild test \
+          SIMULATOR_NAME='iPhone 17 Pro'
+          SIMULATOR_RUNTIME='com.apple.CoreSimulator.SimRuntime.iOS-26-5'
+          SIMULATOR_UDID="$(
+            xcrun simctl list devices available --json | /usr/bin/python3 -c '
+          import json
+          import sys
+
+          runtime, name = sys.argv[1:]
+          devices = json.load(sys.stdin).get("devices", {}).get(runtime, [])
+          matches = [device for device in devices if device.get("name") == name]
+          if not matches:
+              sys.exit(f"Simulator {name} with runtime {runtime} is not available")
+          print(matches[0]["udid"])
+          ' "$SIMULATOR_RUNTIME" "$SIMULATOR_NAME"
+          )"
+          BOOT_LOG="$RUNNER_TEMP/simulator-boot.log"
+          xcrun simctl boot "$SIMULATOR_UDID" > "$BOOT_LOG" 2>&1 &
+          BOOT_PID=$!
+
+          BUILD_STATUS=0
+          xcodebuild build-for-testing \
             -project CoachHQ.xcodeproj \
             -scheme CoachHQ \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
+            -destination 'generic/platform=iOS Simulator' \
             -skipMacroValidation \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO || BUILD_STATUS=$?
+
+          BOOT_STATUS=0
+          wait "$BOOT_PID" || BOOT_STATUS=$?
+          if (( BOOT_STATUS != 0 )); then
+            cat "$BOOT_LOG"
+            echo "::error::Simulator boot failed with exit code $BOOT_STATUS"
+          fi
+          if (( BUILD_STATUS != 0 )); then
+            echo "::error::build-for-testing failed with exit code $BUILD_STATUS"
+          fi
+          if (( BOOT_STATUS != 0 || BUILD_STATUS != 0 )); then
+            exit 1
+          fi
+
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcodebuild test-without-building \
+            -project CoachHQ.xcodeproj \
+            -scheme CoachHQ \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -skipMacroValidation \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO
