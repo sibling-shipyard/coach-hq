@@ -19,33 +19,40 @@ import textwrap
 
 # ---------------------------------------------------------------------------
 # Scope map — mirrors AGENTS.md §The Team.
-# Order matters: GitHub evaluates CODEOWNERS top-to-bottom and the last
-# matching rule wins, so list the catch-all (*) first and specific paths last.
+# Order matters: top-to-bottom and the last matching rule wins, so list the 
+# catch-all (*) first and specific paths last.
 # ---------------------------------------------------------------------------
 #
-# Format: list of (glob_pattern, github_team_slug) tuples, in file order.
+# Format: list of (glob_pattern, agent_role) tuples, in file order.
 # Cyclops is intentionally absent — it is read-only and owns no paths.
+# We use agent role names (e.g. Tech-Lead) rather than GitHub @teams so 
+# we don't create the illusion of GitHub-native enforcement for unresolvable teams.
 #
 SCOPE_MAP: list[tuple[str, str]] = [
     # Catch-all: Tech Lead is the fallback reviewer for everything
-    ("*",                        "@sibling-shipyard/tech-lead"),
+    ("*",                                  "Tech-Lead"),
 
     # React dashboard — UI Expert
-    ("ui/client/",               "@sibling-shipyard/ui-expert"),
+    ("ui/client/",                         "UI-Expert"),
 
-    # Backend API, engine, observability, build scripts — Bob the Builder
-    ("ui/api/",                  "@sibling-shipyard/bob-the-builder"),
-    ("engine/",                  "@sibling-shipyard/bob-the-builder"),
-    ("ui/observability/",        "@sibling-shipyard/bob-the-builder"),
-    ("ui/scripts/",              "@sibling-shipyard/bob-the-builder"),
+    # Backend API, engine core, scripts, user data — Bob the Builder
+    ("ui/api/",                            "Bob-the-Builder"),
+    ("engine/core/",                       "Bob-the-Builder"),
+    ("scripts/",                           "Bob-the-Builder"),
+    ("ui/observability/",                  "Bob-the-Builder"),
+    ("ui/scripts/",                        "Bob-the-Builder"),
+    ("user_data/",                         "Bob-the-Builder"),
 
     # Native iOS app — iOS Builder
-    ("ios/",                     "@sibling-shipyard/ios-builder"),
+    ("ios/",                               "iOS-Builder"),
 
-    # Coaching memory, sessions, soul layers — Coach Phelps
-    ("user_data/",               "@sibling-shipyard/coach-phelps"),
-    ("sessions/",                "@sibling-shipyard/coach-phelps"),
-    ("platform/soul/",           "@sibling-shipyard/coach-phelps"),
+    # Coaching memory, sessions — Coach Phelps (overrides Bob's user_data/)
+    ("user_data/coach/",                   "Coach-Phelps"),
+    ("user_data/ledger/challenge_v2.json", "Coach-Phelps"),
+    ("sessions/",                          "Coach-Phelps"),
+    
+    # Soul layers — Tech Lead only (overrides Coach if anything matches, though path is separate)
+    ("platform/soul/",                     "Tech-Lead"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -57,6 +64,9 @@ HEADER = textwrap.dedent("""\
     # Edit that script, not this file.
     # Source of truth: AGENTS.md §The Team + .github/agents/*.md §Scope
     # Cyclops is read-only and owns no paths (intentionally absent).
+    #
+    # Note: Owners are internal agent roles, not GitHub users/teams. 
+    # This file is for agent and CI boundaries, not GitHub UI enforcement.
 
 """)
 
@@ -65,7 +75,7 @@ def generate(scope_map: list[tuple[str, str]]) -> str:
     """Return the full CODEOWNERS file content."""
     lines = [HEADER]
     for pattern, team in scope_map:
-        lines.append(f"{pattern:<30} {team}\n")
+        lines.append(f"{pattern:<38} {team}\n")
     return "".join(lines)
 
 

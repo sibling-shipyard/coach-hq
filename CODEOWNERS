@@ -2,14 +2,20 @@
 # Edit that script, not this file.
 # Source of truth: AGENTS.md §The Team + .github/agents/*.md §Scope
 # Cyclops is read-only and owns no paths (intentionally absent).
+#
+# Note: Owners are internal agent roles, not GitHub users/teams. 
+# This file is for agent and CI boundaries, not GitHub UI enforcement.
 
-*                              @sibling-shipyard/tech-lead
-ui/client/                     @sibling-shipyard/ui-expert
-ui/api/                        @sibling-shipyard/bob-the-builder
-engine/                        @sibling-shipyard/bob-the-builder
-ui/observability/              @sibling-shipyard/bob-the-builder
-ui/scripts/                    @sibling-shipyard/bob-the-builder
-ios/                           @sibling-shipyard/ios-builder
-user_data/                     @sibling-shipyard/coach-phelps
-sessions/                      @sibling-shipyard/coach-phelps
-platform/soul/                 @sibling-shipyard/coach-phelps
+*                                      Tech-Lead
+ui/client/                             UI-Expert
+ui/api/                                Bob-the-Builder
+engine/core/                           Bob-the-Builder
+scripts/                               Bob-the-Builder
+ui/observability/                      Bob-the-Builder
+ui/scripts/                            Bob-the-Builder
+user_data/                             Bob-the-Builder
+ios/                                   iOS-Builder
+user_data/coach/                       Coach-Phelps
+user_data/ledger/challenge_v2.json     Coach-Phelps
+sessions/                              Coach-Phelps
+platform/soul/                         Tech-Lead
