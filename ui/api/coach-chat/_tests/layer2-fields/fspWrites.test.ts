@@ -6,16 +6,16 @@ describe("fspIncrementalWrites", () => {
   const profile: FileEntry = { path: "user_data/coach/profile.json", content: "{}" };
   const season: FileEntry = { path: "user_data/ledger/seasons.json", content: "{}" };
 
-  it("keeps present FSP action writes for an incomplete athlete", () => {
-    expect(fspIncrementalWrites(false, [profile, undefined, season])).toEqual([profile, season]);
+  it("keeps present action writes for an incomplete athlete", () => {
+    expect(fspIncrementalWrites([profile, undefined, season])).toEqual([profile, season]);
   });
 
-  it("does not write ordinary turns after First Session is complete", () => {
-    expect(fspIncrementalWrites(true, [profile, season])).toEqual([]);
+  it("keeps present action writes regardless of profile completeness (#616)", () => {
+    expect(fspIncrementalWrites([profile, season])).toEqual([profile, season]);
   });
 
-  it("does not create an empty commit when Gemini reports no FSP actions", () => {
-    expect(fspIncrementalWrites(false, [undefined, undefined])).toEqual([]);
+  it("does not create an empty commit when Gemini reports no actions", () => {
+    expect(fspIncrementalWrites([undefined, undefined])).toEqual([]);
   });
 });
 
