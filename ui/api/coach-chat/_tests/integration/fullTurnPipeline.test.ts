@@ -273,7 +273,11 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     ]);
   });
 
-  it('issue #609: a template_edit sentinel of "none" still crashes the closing-turn commit (deliberately not fixed by this test suite)', async () => {
+  it('issue #609/D1 (#736): a template_edit sentinel of "none" no longer costs the chat message', async () => {
+    // D1 layer 3 splits the facts commit from the chat commit - a bad structured field
+    // (template_edit referencing a nonexistent template) fails only the facts commit; the chat
+    // message still lands, and the failure surfaces as a dropped action instead of a 502 that
+    // discarded everything, including the otherwise-valid chat write.
     const repo = createFakeRepo(repoFixture());
     const gemini = createFakeGemini([
       { reply: "All set for today.", template_edit: { template_id: "none" }, session_closed: true },
@@ -287,11 +291,83 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       endConversationRequested: true,
     });
 
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({ reply: "All set for today.", closed: true });
+    expect(body.droppedActions).toEqual([
+      expect.objectContaining({
+        field: "user_data/activities/workout_plans/templates/none.json",
+      }),
+    ]);
+    // The chat message committed despite the facts commit failing.
+    expect(repo.files.has("user_data/coach/chat_history.json")).toBe(true);
+  });
+
+  it("D1 (#736): a valid profile_update commits while an invalid quest_event (post-retry-exhaustion) is dropped, chat commits either way", async () => {
+    const repo = createFakeRepo(repoFixture());
+    // quests.json's only valid id is "q1" (QUESTS_WITH_MAIN). Gemini references "q99" both times
+    // - the initial reply and layer 2's one corrective retry - so the corrective retry exhausts
+    // and layer 3 drops just the quest_event, keeping the valid profile_update.
+    const badQuestReply = {
+      reply: "Logged your weight and marked the quest.",
+      profile_update: [{ field: "weight_kg", value: "77" }],
+      quest_event: [{ quest_id: "q99", status: "completed" }],
+    };
+    const gemini = createFakeGemini([badQuestReply, badQuestReply]);
+
+    const response = await runTurn("owner/repo-4", repo, gemini, {
+      threadId: "thread-4",
+      priorMessages: [],
+      trimmed: "Did my run and I'm 77kg now",
+      geminiMessage: "Did my run and I'm 77kg now",
+      endConversationRequested: false,
+    });
+
+    const body = await response.json();
+    expect(body).toMatchObject({
+      reply: "Logged your weight and marked the quest.",
+      closed: false,
+    });
+    expect(body.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
+    const committedProfile = JSON.parse(repo.files.get("user_data/coach/profile.json")!);
+    expect(committedProfile.weight_kg).toBe(77);
+    expect(repo.files.has("user_data/ledger/progress.json")).toBe(false);
+    expect(repo.files.has("user_data/coach/chat_history.json")).toBe(true);
+  });
+
+  it("D1 (#736): a forced chat-commit failure still returns Coach's reply on the ordinary path", async () => {
+    const repo = createFakeRepo(repoFixture());
+    const gemini = createFakeGemini([{ reply: "Got it, noted.", session_closed: false }]);
+    fetchWithTimeout.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.includes("generativelanguage.googleapis.com")) return gemini.handle(url);
+      // The only write on this ordinary turn is chatWrite - failing every blob upload forces
+      // the chat commit itself to fail (githubGitData.ts retries 3x, then throws).
+      if (url.endsWith("/git/blobs")) return jsonResponse(500, { message: "forced failure" });
+      return repo.handle(url, init);
+    });
+
+    const turnState = await loadTurnState(
+      {
+        threadId: "thread-5",
+        priorMessages: [],
+        trimmed: "Just checking in",
+        geminiMessage: "Just checking in",
+        endConversationRequested: false,
+      },
+      "owner/repo-5",
+      "test-token",
+      "test-api-key",
+    );
+    if (turnState instanceof Response) throw new Error("loadTurnState failed");
+    const replied = await requestCoachReply(turnState);
+    if (replied instanceof Response) throw new Error("requestCoachReply failed");
+    const writes = await buildTurnWrites(replied);
+    const response = await commitOrdinaryTurn(writes);
+
     expect(response.status).toBe(502);
     const body = await response.json();
-    expect(body.error).toContain('template_edit: no template with id "none"');
-    // Nothing landed - the whole commit failed atomically, including the otherwise-valid chat
-    // and coach_log writes bundled in the same turn.
-    expect(repo.files.has("user_data/coach/chat_history.json")).toBe(false);
+    expect(body.reply).toBe("Got it, noted.");
+    expect(body.error).toContain("saving failed");
+    expect(body.traceId).toBeTruthy();
   });
 });

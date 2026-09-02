@@ -35,7 +35,12 @@ import { CURRENT_WEEK_PATH } from "./coachWeekFiles.js";
 import { PROFILE_PATH, type ProfileJson, type MemoryJson } from "./coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./geminiClient.js";
-import { captureGeminiFailure } from "../../_lib/sentry.js";
+import { captureGeminiFailure, captureValidationFailure } from "../../_lib/sentry.js";
+import {
+  validateQuestEvents,
+  validateInjuryEvents,
+  type DroppedAction,
+} from "./turnWrites/validateActions.js";
 import {
   combineExtraContext,
   activeTemplatesContext,
@@ -105,6 +110,11 @@ interface TurnState extends TurnRequest {
   userMsg?: Extract<ChatMessage, { role: "user" }>;
   closingFiles?: ClosingFileContext;
   validTemplateIds: ReadonlySet<string>;
+  // D1 layer 1 (#736): extracted here, before the askGemini call, instead of only after (as
+  // buildTurnWrites did pre-D1) - generationConfigFor needs these to build the request's
+  // enum-constrained quest_id/flag_id fields, not just to validate the reply afterward.
+  validQuestIds: ReadonlySet<string>;
+  validInjuryFlagIds: ReadonlySet<string>;
   weekSessionsForContext: {
     id: string;
     date: string;
@@ -131,6 +141,10 @@ export interface TurnWrites extends RepliedTurn {
   profileComplete: boolean;
   projectedProfile: ProfileJson;
   projectedMemory: MemoryJson;
+  /** D1 (#736): actions layer 3 dropped rather than committing a bad reference. Firm requirement
+   * per the LLD - surfaced in the response independent of whether Coach's own reply happens to
+   * mention it, not left to "hope the model remembers." Empty when nothing was dropped. */
+  droppedActions: DroppedAction[];
 }
 
 export async function handleHistory(repo: string, token: string): Promise<Response> {
@@ -216,6 +230,17 @@ export async function loadTurnState(
   );
   const now = Date.now();
   const traceId = Math.random().toString(36).slice(2, 10);
+  const validQuestIds = new Set<string>(
+    [
+      quests?.main_quest?.id,
+      ...(quests?.quests ?? [])
+        .filter((quest) => quest.status === "active")
+        .map((quest) => quest.id),
+    ].filter((id): id is string => Boolean(id)),
+  );
+  const validInjuryFlagIds = new Set<string>(
+    (injuries?.flags ?? []).map((flag) => flag.id).filter((id): id is string => Boolean(id)),
+  );
   let closingFiles: ClosingFileContext | undefined;
   let validTemplateIds: ReadonlySet<string> = new Set();
   let weekSessionsForContext: TurnState["weekSessionsForContext"] = [];
@@ -267,6 +292,8 @@ export async function loadTurnState(
     closingFiles,
     validTemplateIds,
     weekSessionsForContext,
+    validQuestIds,
+    validInjuryFlagIds,
   };
 }
 
@@ -311,6 +338,53 @@ function findOversizedTextField(
   return null;
 }
 
+// D1 layer 2 (#736): schema constraints (layer 1) are strong but not formally airtight - this
+// codebase's own experience already shows maxLength is "a real constraint Gemini receives, not a
+// guarantee it honors" (docs/eng-docs/gemini-flow.md:154-155). Same shape as
+// findOversizedTextField above: detect the specific bad reference, name the actual valid ids in
+// one corrective reprompt, use the corrected result. A stale/hallucinated id that survives even
+// this is layer 3's job (buildTurnWrites) - drop just that action, never the whole turn.
+function findInvalidReference(
+  reply: GeminiReply,
+  validQuestIds: ReadonlySet<string>,
+  validInjuryFlagIds: ReadonlySet<string>,
+): { field: string; badId: string; validIds: readonly string[] } | null {
+  const badQuestEvent = (reply.quest_event ?? []).find(
+    (event) => event.quest_id != null && !validQuestIds.has(event.quest_id),
+  );
+  if (badQuestEvent) {
+    return {
+      field: "quest_event",
+      badId: badQuestEvent.quest_id,
+      validIds: [...validQuestIds],
+    };
+  }
+  const badInjuryEvent = (reply.injury_event ?? []).find(
+    (event) => event.flag_id != null && !validInjuryFlagIds.has(event.flag_id),
+  );
+  if (badInjuryEvent) {
+    return {
+      field: "injury_event",
+      badId: badInjuryEvent.flag_id,
+      validIds: [...validInjuryFlagIds],
+    };
+  }
+  return null;
+}
+
+// D1 (#736): a Gemini-call failure ("Coach never got to reply") gets its own honest, consistent
+// shape distinct from a commit failure ("Coach replied but I couldn't save it") - the raw
+// upstream error text (e.g. "Gemini request failed (503): ...") is not something a non-technical
+// athlete should see verbatim.
+function friendlyGeminiErrorMessage(status: number): string {
+  if (status === 429) return "Coach is getting a lot of requests right now - try again shortly.";
+  if (status === 503 || status === 504) {
+    return "Coach couldn't respond in time - try again in a moment.";
+  }
+  if (status >= 500) return "Something went wrong on our end - try again shortly.";
+  return "Coach couldn't reply to that - try rephrasing or try again.";
+}
+
 export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
   const mode = turn.closeIntent ? "closing" : "ordinary";
   const extraContext = combineExtraContext(
@@ -318,6 +392,10 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     activeTemplatesContext(turn.validTemplateIds),
     activeWeekSessionsContext(turn.weekSessionsForContext),
   );
+  const referenceIds = {
+    questIds: [...(turn.validQuestIds ?? [])],
+    injuryFlagIds: [...(turn.validInjuryFlagIds ?? [])],
+  };
   try {
     let reply = await askGemini(
       turn.apiKey,
@@ -331,6 +409,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       extraContext,
       turn.traceId,
       turn.timezone,
+      referenceIds,
     );
     // Content-triggered retry, not a transport one (that's geminiClient.ts's own retry on
     // timeout/rate-limit) - kept as its own explicit step here. Exactly one reprompt attempt; if
@@ -358,6 +437,7 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         extraContext,
         turn.traceId,
         turn.timezone,
+        referenceIds,
       );
       // The reprompt is a request, not a guarantee either - if Gemini still overshoots, capText
       // in turnWrites/* will truncate silently downstream. Log it here so a persistent
@@ -371,6 +451,53 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
         );
       }
     }
+    // D1 layer 2 (#736): same one-retry-cap discipline as the oversized-field reprompt above -
+    // exactly one corrective call, named to this specific bad reference. Runs after the text-cap
+    // reprompt (independent concerns, each capped at one retry, both stay inside the shared
+    // 45s-per-call / 300s-function budget). Layer 3 drops it if this also comes back bad.
+    const badReference = findInvalidReference(
+      reply,
+      turn.validQuestIds ?? new Set(),
+      turn.validInjuryFlagIds ?? new Set(),
+    );
+    if (badReference) {
+      console.warn("[coach-chat] reply referenced an invalid id, reprompting once:", badReference, {
+        traceId: turn.traceId,
+      });
+      const repromptMessage = [
+        turn.geminiMessage,
+        `\n[System note: your ${badReference.field} referenced id "${badReference.badId}", which`,
+        `does not exist. The only valid ids are: ${badReference.validIds.join(", ") || "(none)"}.`,
+        "Redo that field using only a valid id, or omit it if none apply; keep everything else",
+        "the same.]",
+      ].join(" ");
+      reply = await askGemini(
+        turn.apiKey,
+        turn.context.soul!,
+        turn.athleteContext,
+        turn.questContext,
+        turn.priorMessages,
+        repromptMessage,
+        mode,
+        turn.firstSession,
+        extraContext,
+        turn.traceId,
+        turn.timezone,
+        referenceIds,
+      );
+      const stillBad = findInvalidReference(
+        reply,
+        turn.validQuestIds ?? new Set(),
+        turn.validInjuryFlagIds ?? new Set(),
+      );
+      if (stillBad) {
+        console.warn(
+          "[coach-chat] reply still referenced an invalid id after reprompt, layer 3 will drop it:",
+          stillBad,
+          { traceId: turn.traceId },
+        );
+      }
+    }
     return {
       ...turn,
       reply,
@@ -378,7 +505,6 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
     };
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
-    const message = err instanceof Error ? err.message : String(err);
     console.error("[coach-chat] askGemini failed:", err);
     await captureGeminiFailure(err, {
       traceId: turn.traceId,
@@ -387,13 +513,16 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       turnMode: mode,
       athleteMessage: turn.geminiMessage,
     });
-    return Response.json({ error: message }, { status });
+    return Response.json(
+      { error: friendlyGeminiErrorMessage(status), traceId: turn.traceId },
+      { status },
+    );
   }
 }
 
 export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const { repo, token, timezone, traceId, reply } = turn;
-  const { profile, memory, seasons, quests } = turn.context;
+  const { profile, memory, seasons } = turn.context;
   const coachMsg: ChatMessage = {
     id: `c-${turn.now}`,
     role: "coach",
@@ -426,23 +555,32 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     sportsUpdate,
   });
 
+  // D1 layer 3 (#736): validate referential-id actions before any write is built - drop only the
+  // specific bad action, never abort the whole batch. By this point the reply already survived
+  // layer 1 (enum-constrained generation) and layer 2 (one corrective retry in
+  // requestCoachReply), so a rejection here should be rare; it's still not skipped, per the
+  // athlete's stated goal that a validation failure never silently costs other real data.
+  const droppedActions: DroppedAction[] = [];
+
+  const rawInjuryEvents = (reply.injury_event ?? []).filter(
+    (event) => event.status != null && (event.flag_id?.trim().length ?? 0) > 0,
+  );
+  const { valid: injuryEvents, dropped: droppedInjuryEvents } = validateInjuryEvents(
+    rawInjuryEvents,
+    turn.validInjuryFlagIds,
+  );
+  droppedActions.push(...droppedInjuryEvents);
+
   const newInjuries = (reply.injury_flag ?? []).filter(
     (injury) => (injury.text?.trim().length ?? 0) > 0,
   );
-  const injuryEvents = (reply.injury_event ?? []).filter(
-    (event) => event.status != null && (event.flag_id?.trim().length ?? 0) > 0,
-  );
   const injuryWrite = buildInjuryWrites(repo, token, timezone, newInjuries, injuryEvents);
 
-  const questEvents = reply.quest_event ?? [];
-  const validQuestIds = new Set<string>(
-    [
-      quests?.main_quest?.id,
-      ...(quests?.quests ?? [])
-        .filter((quest) => quest.status === "active")
-        .map((quest) => quest.id),
-    ].filter((id): id is string => Boolean(id)),
+  const { valid: questEvents, dropped: droppedQuestEvents } = validateQuestEvents(
+    reply.quest_event ?? [],
+    turn.validQuestIds,
   );
+  droppedActions.push(...droppedQuestEvents);
   const questEventWrite = buildQuestEventWrite(
     repo,
     token,
@@ -450,8 +588,19 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     traceId,
     questEvents,
     seasons?.current_season_id ?? "",
-    validQuestIds,
+    turn.validQuestIds,
   );
+
+  for (const dropped of droppedActions) {
+    console.error("[coach-chat] dropped a structured-fact action - bad reference:", dropped, {
+      traceId,
+    });
+    await captureValidationFailure(new Error(`${dropped.field}: ${dropped.reason}`), {
+      traceId,
+      field: dropped.field,
+      reason: dropped.reason,
+    });
+  }
 
   const profileUpdates = (reply.profile_update ?? []).filter(
     (update) => update.field != null && update.value != null,
@@ -567,6 +716,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     profileComplete,
     projectedProfile,
     projectedMemory,
+    droppedActions,
   };
 }
 
@@ -602,38 +752,75 @@ export async function generateTemplatesAfterCompletion(turn: TurnWrites): Promis
   }
 }
 
+// D1 layer 3 (#736): chat history is committed independently of the structured-fact writes -
+// what was said is never at risk from a bad structured field, they're unrelated data. Facts are
+// attempted first (already pre-validated by buildTurnWrites - see droppedActions), and a facts
+// commit failure is captured and folded into droppedActions rather than losing the athlete's
+// message too. The chat commit is the one true risk point left: if *that* fails, the fix from
+// this PR's "GitHub commit failure must not discard the reply" section applies - the response
+// carries Gemini's already-generated reply text alongside the error, instead of discarding it.
 export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
-  const writes = [...fspIncrementalWrites(turn.fspCandidates), turn.chatWrite];
-  let repoSha = turn.currentSha;
-  if (writes.length > 0) {
+  const factWrites = fspIncrementalWrites(turn.fspCandidates);
+  const commitFailureDrops: DroppedAction[] = [];
+  if (factWrites.length > 0) {
     try {
-      const result = await commitFilesAtomic(writes, "coach: ordinary turn updates recorded", {
+      await commitFilesAtomic(factWrites, "coach: ordinary turn updates recorded", {
         repo: turn.repo,
         branch: resolveCoachChatBranch(),
         token: turn.token,
       });
-      repoSha = result.commitSha;
       invalidateCoachContext(turn.repo);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error("[coach-chat] ordinary commitFilesAtomic failed:", err, {
+      console.error("[coach-chat] ordinary facts commitFilesAtomic failed:", err, {
         traceId: turn.traceId,
       });
-      return Response.json(
-        {
-          error: `Coach replied but saving failed: ${message}`,
-          traceId: turn.traceId,
-        },
-        { status: 502 },
-      );
+      await captureValidationFailure(err, {
+        traceId: turn.traceId,
+        field: "facts_commit",
+        reason: message,
+      });
+      for (const write of factWrites) {
+        commitFailureDrops.push({ field: write.path, reason: `save failed: ${message}` });
+      }
     }
   }
+
+  let repoSha: string;
+  try {
+    const result = await commitFilesAtomic([turn.chatWrite], "coach: chat message recorded", {
+      repo: turn.repo,
+      branch: resolveCoachChatBranch(),
+      token: turn.token,
+    });
+    repoSha = result.commitSha;
+    invalidateCoachContext(turn.repo);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[coach-chat] ordinary chat commitFilesAtomic failed:", err, {
+      traceId: turn.traceId,
+    });
+    return Response.json(
+      {
+        error: `Coach replied but saving failed: ${message}`,
+        traceId: turn.traceId,
+        reply: turn.reply.reply,
+      },
+      { status: 502 },
+    );
+  }
   await generateTemplatesAfterCompletion(turn);
-  return Response.json(
-    ordinaryTurnResponse(turn.reply.reply, repoSha, turn.stale, turn.profileComplete),
-  );
+  return Response.json({
+    ...ordinaryTurnResponse(turn.reply.reply, repoSha, turn.stale, turn.profileComplete),
+    droppedActions: [...(turn.droppedActions ?? []), ...commitFailureDrops],
+  });
 }
 
+// D1 layer 3 (#736): same split as commitOrdinaryTurn - facts (validUpdates + optionalWrites)
+// commit independently of chat history, so a facts-commit failure never costs the athlete's
+// message or the close itself. A facts failure is captured and folded into droppedActions; the
+// chat commit is the one that, on failure, returns the reply alongside the error rather than
+// discarding it.
 export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
   if (turn.validUpdates.length === 0 && !turn.trimmedCoachNote) {
     console.warn("[coach-chat] close landed with no coach_note.", {
@@ -641,18 +828,42 @@ export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
       traceId: turn.traceId,
     });
   }
-  const writes = [...turn.validUpdates, turn.chatWrite, ...turn.optionalWrites];
+  const factWrites = [...turn.validUpdates, ...turn.optionalWrites];
+  const commitFailureDrops: DroppedAction[] = [];
+  if (factWrites.length > 0) {
+    try {
+      await commitFilesAtomic(
+        factWrites,
+        `coach: chat — ${turn.computedTitle || "session update"}`,
+        {
+          repo: turn.repo,
+          branch: resolveCoachChatBranch(),
+          token: turn.token,
+        },
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[coach-chat] closing facts commitFilesAtomic failed:", err, {
+        traceId: turn.traceId,
+      });
+      await captureValidationFailure(err, {
+        traceId: turn.traceId,
+        field: "facts_commit",
+        reason: message,
+      });
+      for (const write of factWrites) {
+        commitFailureDrops.push({ field: write.path, reason: `save failed: ${message}` });
+      }
+    }
+  }
+
   let repoSha: string;
   try {
-    const result = await commitFilesAtomic(
-      writes,
-      `coach: chat — ${turn.computedTitle || "session update"}`,
-      {
-        repo: turn.repo,
-        branch: resolveCoachChatBranch(),
-        token: turn.token,
-      },
-    );
+    const result = await commitFilesAtomic([turn.chatWrite], "coach: chat message recorded", {
+      repo: turn.repo,
+      branch: resolveCoachChatBranch(),
+      token: turn.token,
+    });
     repoSha = result.commitSha;
     console.log(
       "[coach-chat] close-trace",
@@ -661,7 +872,8 @@ export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
         threadId: turn.finalThreadId,
         repo: turn.repo,
         coachNote: turn.trimmedCoachNote ? "present" : "empty",
-        committed: writes.map((write) => write.path),
+        committed: [...factWrites.map((write) => write.path), turn.chatWrite.path],
+        droppedFacts: commitFailureDrops.length,
         ms: Date.now() - turn.now,
       }),
     );
@@ -678,13 +890,14 @@ export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
         ms: Date.now() - turn.now,
       }),
     );
-    console.error("[coach-chat] closing commitFilesAtomic failed:", err, {
+    console.error("[coach-chat] closing chat commitFilesAtomic failed:", err, {
       traceId: turn.traceId,
     });
     return Response.json(
       {
         error: `Coach replied but saving failed: ${message}`,
         traceId: turn.traceId,
+        reply: turn.reply.reply,
       },
       { status: 502 },
     );
@@ -699,5 +912,6 @@ export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
     repoSha,
     profileComplete: turn.profileComplete,
     traceId: turn.traceId,
+    droppedActions: [...(turn.droppedActions ?? []), ...commitFailureDrops],
   });
 }

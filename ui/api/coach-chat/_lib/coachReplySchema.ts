@@ -375,8 +375,63 @@ function responsePropertiesFor(mode: TurnMode, firstSession: boolean) {
   return Object.fromEntries(fields.map((key) => [key, RESPONSE_PROPERTIES[key]]));
 }
 
+// D1 layer 1 (#736): quest_event.quest_id and injury_event.flag_id are the referential-id class
+// of bug #693 - free-text fields Gemini can hallucinate. Gemini's structured-output mode already
+// enforces `enum` server-side for the other constrained fields above; this makes a bad reference
+// structurally impossible to generate in the common case by threading that athlete's actual
+// current ids in as a real enum, scoped to this one request. Deep-clones RESPONSE_PROPERTIES's
+// affected leaves rather than mutating the shared const - generationConfigFor is called fresh
+// per request and must never leak one athlete's ids into another's cached schema shape.
+export interface AthleteReferenceIds {
+  questIds?: readonly string[];
+  injuryFlagIds?: readonly string[];
+}
+
+function withReferenceEnums(
+  properties: Record<string, unknown>,
+  ids: AthleteReferenceIds | undefined,
+): Record<string, unknown> {
+  if (!ids) return properties;
+  const next = { ...properties };
+  // An empty enum is a schema Gemini can't satisfy at all (every id would be "not in []") - only
+  // constrain when there's at least one real id to reference. No ids means the athlete has no
+  // quests/injuries yet, so the free-text field (and the existing throw-based guard downstream)
+  // stays the only defense, same as before this layer existed.
+  if (ids.questIds && ids.questIds.length > 0 && next.quest_event) {
+    const questEvent = next.quest_event as { items: { properties: Record<string, unknown> } };
+    next.quest_event = {
+      ...questEvent,
+      items: {
+        ...questEvent.items,
+        properties: {
+          ...questEvent.items.properties,
+          quest_id: { type: "string", enum: [...ids.questIds] },
+        },
+      },
+    };
+  }
+  if (ids.injuryFlagIds && ids.injuryFlagIds.length > 0 && next.injury_event) {
+    const injuryEvent = next.injury_event as { items: { properties: Record<string, unknown> } };
+    next.injury_event = {
+      ...injuryEvent,
+      items: {
+        ...injuryEvent.items,
+        properties: {
+          ...injuryEvent.items.properties,
+          flag_id: { type: "string", enum: [...ids.injuryFlagIds] },
+        },
+      },
+    };
+  }
+  return next;
+}
+
 /** The smallest legal response shape for this turn; forbidden actions are absent structurally. */
-export function generationConfigFor(mode: TurnMode, firstSession: boolean) {
+export function generationConfigFor(
+  mode: TurnMode,
+  firstSession: boolean,
+  ids?: AthleteReferenceIds,
+) {
   return {
     responseMimeType: "application/json",
     // Complex returning closes can legitimately combine several actions. Smaller modes keep the
@@ -384,7 +439,7 @@ export function generationConfigFor(mode: TurnMode, firstSession: boolean) {
     maxOutputTokens: 4096,
     responseSchema: {
       type: "object",
-      properties: responsePropertiesFor(mode, firstSession),
+      properties: withReferenceEnums(responsePropertiesFor(mode, firstSession), ids),
       required: ["reply", "session_closed"],
     },
   } as const;

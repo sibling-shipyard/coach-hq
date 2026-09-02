@@ -401,6 +401,28 @@ export class CoachChatRateLimitedError extends Error {
   }
 }
 
+/** D1 (#736): thrown instead of a plain Error when the server's error response carries a
+ * `reply` alongside `error` - Gemini generated a reply but the write that would have saved it
+ * failed after commitFilesAtomic's own retries. Distinguished from a plain Error/
+ * CoachChatRateLimitedError (which mean Coach never got to reply at all) so CoachChat.tsx can
+ * show Coach's actual words plus an honest "couldn't save that" indicator instead of discarding
+ * the reply along with the failed write. */
+export class CoachChatSaveFailedError extends Error {
+  reply: string;
+  traceId?: string;
+  constructor(message: string, reply: string, traceId?: string) {
+    super(message);
+    this.name = "CoachChatSaveFailedError";
+    this.reply = reply;
+    this.traceId = traceId;
+  }
+}
+
+export interface DroppedAction {
+  field: string;
+  reason: string;
+}
+
 // Mirrors githubGitData.ts's isTransient: retry a network failure or 5xx/429, never a 4xx
 // rejection (400/401/etc are real answers, not blips to paper over).
 function isTransientStatus(status: number): boolean {
@@ -490,13 +512,20 @@ function pruneRepoSha(currentThreadIds: readonly string[]): void {
 // `closed: true` response means an actual commit happened and `threads` reflects real repo state;
 // otherwise the caller is responsible for appending the reply to its own local thread.
 export type SendMessageResult =
-  | { closed: false; reply: string; stale?: boolean; profileComplete: boolean }
+  | {
+      closed: false;
+      reply: string;
+      stale?: boolean;
+      profileComplete: boolean;
+      droppedActions?: DroppedAction[];
+    }
   | {
       closed: true;
       reply: string;
       threadId: string;
       threads: ChatThread[];
       profileComplete: boolean;
+      droppedActions?: DroppedAction[];
     };
 
 export async function sendMessage(
@@ -525,7 +554,21 @@ export async function sendMessage(
   if (res.status === 401) throw new CoachChatAccessRevokedError();
   if (res.status === 429) throw new CoachChatRateLimitedError();
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      reply?: string;
+      traceId?: string;
+    };
+    // D1 (#736): a `reply` alongside `error` means Gemini generated a reply but the save
+    // failed - show the reply, not just a generic failure. Its absence means Coach never got to
+    // reply at all (a Gemini-call failure), which stays a plain Error.
+    if (body.reply) {
+      throw new CoachChatSaveFailedError(
+        body.error ?? `Coach chat request failed (${res.status})`,
+        body.reply,
+        body.traceId,
+      );
+    }
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
   }
   const body = (await res.json()) as SendMessageResult & { repoSha?: string };

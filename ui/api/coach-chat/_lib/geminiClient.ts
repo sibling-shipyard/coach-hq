@@ -6,7 +6,12 @@ import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./soulCache.js";
 import type { ChatMessage } from "./chatThreads.js";
 import { buildDynamicText, buildHistoryContents, staticSystemText } from "./coachPromptText.js";
-import { generationConfigFor, type GeminiReply, type TurnMode } from "./coachReplySchema.js";
+import {
+  generationConfigFor,
+  type AthleteReferenceIds,
+  type GeminiReply,
+  type TurnMode,
+} from "./coachReplySchema.js";
 
 export { GEMINI_MODEL };
 
@@ -22,6 +27,7 @@ export async function askGemini(
   extraContext?: string,
   traceId?: string,
   timezone = "UTC",
+  referenceIds?: AthleteReferenceIds,
 ): Promise<GeminiReply> {
   // Ordered for implicit-caching fallback: stable content (persona, instructions, few-shots,
   // usually state/quest_log) first, volatile today's-date last. See docs/eng-docs/gemini-flow.md.
@@ -94,7 +100,7 @@ export async function askGemini(
           },
         }),
     contents: buildContents(useCache),
-    generationConfig: generationConfigFor(mode, firstSession),
+    generationConfig: generationConfigFor(mode, firstSession, referenceIds),
   });
 
   // Closing turns carry a larger prompt (full history) than the shared UPSTREAM_TIMEOUT_MS (25s,

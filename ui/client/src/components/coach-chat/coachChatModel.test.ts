@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   activitySync,
   challengeDayNumber,
+  CoachChatSaveFailedError,
   fetchProactiveCoachMessage,
   fetchProfileStatus,
   materializeProactiveThread,
@@ -239,6 +240,70 @@ describe("sendMessage", () => {
       message: "",
       endConversationRequested: true,
     });
+  });
+
+  // D1 (#736): passes droppedActions straight through - CoachChat.tsx is what surfaces it.
+  it("passes droppedActions through on the response", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          reply: "Logged the weight, couldn't log the quest.",
+          closed: false,
+          profileComplete: true,
+          droppedActions: [{ field: "quest_event", reason: 'no quest with id "q99"' }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendMessage("thread-1", [], "did my run", false);
+
+    expect(result.droppedActions).toEqual([
+      { field: "quest_event", reason: 'no quest with id "q99"' },
+    ]);
+  });
+
+  // D1 (#736): a 502 that carries `reply` alongside `error` means Gemini generated a reply but
+  // the save failed - throws CoachChatSaveFailedError (carrying that reply) instead of a plain
+  // Error, so the caller can show the reply instead of discarding it.
+  it("throws CoachChatSaveFailedError, carrying the reply, when the error response includes one", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: "Coach replied but saving failed: GitHub timeout",
+          traceId: "trace-abc",
+          reply: "Nice work today, rest up.",
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(sendMessage("thread-1", [], "done for today", true)).rejects.toMatchObject({
+      name: "CoachChatSaveFailedError",
+      reply: "Nice work today, rest up.",
+      traceId: "trace-abc",
+    });
+  });
+
+  it("throws a plain Error, not CoachChatSaveFailedError, when the error response has no reply", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: "Coach couldn't respond in time - try again in a moment." }),
+          { status: 503, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(sendMessage("thread-1", [], "hello", false)).rejects.toThrow(
+      "Coach couldn't respond in time - try again in a moment.",
+    );
+    await expect(sendMessage("thread-1", [], "hello", false)).rejects.not.toBeInstanceOf(
+      CoachChatSaveFailedError,
+    );
   });
 });
 

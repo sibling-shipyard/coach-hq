@@ -85,3 +85,53 @@ describe("coachReplySchema returning-athlete action fields", () => {
     );
   });
 });
+
+// D1 layer 1 (#736): quest_id/flag_id are referential-id fields free of any static enum -
+// exactly the class of bug #693 (Gemini inventing an id). When the athlete's actual current ids
+// are passed in, they become a real `enum`, making a hallucinated id structurally impossible to
+// generate in the common case.
+describe("coachReplySchema dynamic reference-id enums (D1 #736, layer 1)", () => {
+  it("builds quest_event.quest_id as an enum of the athlete's actual current quest ids", () => {
+    const props = generationConfigFor("ordinary", false, {
+      questIds: ["q1", "q2"],
+    }).responseSchema.properties;
+    const questEvent = props.quest_event as { items: { properties: { quest_id: unknown } } };
+    expect(questEvent.items.properties.quest_id).toMatchObject({ enum: ["q1", "q2"] });
+  });
+
+  it("builds injury_event.flag_id as an enum of the athlete's actual current injury flag ids", () => {
+    const props = generationConfigFor("ordinary", false, {
+      injuryFlagIds: ["inj_a", "inj_b"],
+    }).responseSchema.properties;
+    const injuryEvent = props.injury_event as { items: { properties: { flag_id: unknown } } };
+    expect(injuryEvent.items.properties.flag_id).toMatchObject({ enum: ["inj_a", "inj_b"] });
+  });
+
+  it("leaves quest_id/flag_id as plain free-text fields when no ids are given (no ids to constrain to)", () => {
+    const withoutIds = generationConfigFor("ordinary", false).responseSchema.properties;
+    const questEvent = withoutIds.quest_event as { items: { properties: { quest_id: unknown } } };
+    expect(questEvent.items.properties.quest_id).not.toHaveProperty("enum");
+  });
+
+  it("leaves quest_id/flag_id as plain free-text fields when the athlete has none yet (empty enum is unsatisfiable)", () => {
+    const props = generationConfigFor("ordinary", false, {
+      questIds: [],
+      injuryFlagIds: [],
+    }).responseSchema.properties;
+    const questEvent = props.quest_event as { items: { properties: { quest_id: unknown } } };
+    expect(questEvent.items.properties.quest_id).not.toHaveProperty("enum");
+  });
+
+  it("does not mutate the shared schema shape across calls with different athletes' ids", () => {
+    const first = generationConfigFor("ordinary", false, { questIds: ["q1"] });
+    const second = generationConfigFor("ordinary", false, { questIds: ["q2"] });
+    const firstQuestEvent = first.responseSchema.properties.quest_event as {
+      items: { properties: { quest_id: { enum: string[] } } };
+    };
+    expect(firstQuestEvent.items.properties.quest_id.enum).toEqual(["q1"]);
+    const secondQuestEvent = second.responseSchema.properties.quest_event as {
+      items: { properties: { quest_id: { enum: string[] } } };
+    };
+    expect(secondQuestEvent.items.properties.quest_id.enum).toEqual(["q2"]);
+  });
+});
