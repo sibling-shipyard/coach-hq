@@ -4,7 +4,8 @@
  *
  * Reads athlete data via repo-layout path helpers. Matches the HQ snapshot shape for the shared dashboard
  * contract (schema_version: 1). A complete split ledger is atomic: partial split files are
- * ignored, and the legacy challenge_v2 fallback is used whole when available.
+ * ignored and `loadLedger()` returns null - there is no challenge_v2 fallback here (that code
+ * was removed; challenge_v2.json itself is still read elsewhere, see engine/lib/challenge_schema.py).
  *
  * Usage:
  *   node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
