@@ -891,6 +891,26 @@
   }
 }
 
+/* I1: the cycling stage label next to the bouncing dots. Each stage change remounts this span
+   (see CoachChatWidgets.tsx's `key={stageIndex}`), which replays the fade + slide-in below. */
+.cc-thinking-label {
+  font-size: 13px;
+  color: var(--wi-ink);
+  opacity: 0.75;
+  animation: cc-thinking-label-in 320ms ease-out;
+}
+
+@keyframes cc-thinking-label-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 0.75;
+    transform: translateX(0);
+  }
+}
+
 .cc-coach-wrap--empty {
   align-self: flex-start;
   margin-top: 12px;
