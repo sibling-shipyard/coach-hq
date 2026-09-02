@@ -381,6 +381,18 @@ describe("applyInjuryEvent", () => {
     ).toThrow('no flag with id "inj_nonexistent"');
   });
 
+  // D2 (ccr-d2-validation-audit-lld.md): applier-level double-check for the same enum
+  // coachReplySchema.ts's injury_event.status already constrains on the Gemini path.
+  it("throws on an invalid status instead of silently writing it", () => {
+    expect(() =>
+      applyInjuryEvent(
+        EXISTING,
+        [{ status: "cured" as any, flag_id: "inj_elbow" }],
+        "2026-08-18",
+      ),
+    ).toThrow('"cured" is not a valid status');
+  });
+
   // workout-backend-wiring live verification: an athlete reporting two injuries changing in the
   // same message used to silently lose the second one when this was a single object, same bug
   // class issue #410 fixed for quest_event.
@@ -600,6 +612,22 @@ describe("applyQuestEvent", () => {
         VALID_QUEST_IDS,
       ),
     ).toThrow('quest_event: no quest with id "not_a_real_quest" in quests.json');
+  });
+
+  // D2 (ccr-d2-validation-audit-lld.md): applier-level double-check for the same enum
+  // coachReplySchema.ts's quest_event.status already constrains on the Gemini path.
+  it("throws on an invalid status instead of silently writing it", () => {
+    expect(() =>
+      applyQuestEvent(
+        EXISTING,
+        [{ quest_id: "morning_routine", status: "in_progress" as any }],
+        "2026-08-16",
+        "s_2026_q2",
+        "t1",
+        new Date("2026-08-16T18:00:00Z"),
+        VALID_QUEST_IDS,
+      ),
+    ).toThrow('"in_progress" is not a valid status');
   });
 
   // Issue #410: quest_event became an array so a single turn can report multiple quest
