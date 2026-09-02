@@ -185,7 +185,8 @@ git fetch origin main && git worktree add -b <branch> /tmp/wt-<brief> origin/mai
 ```
 Remove it once the PR is open (`git worktree remove <path> --force`). Agents run concurrently here,
 and the shared checkout has already handed one agent's commits to another's branch. The primary
-checkout is not yours — leave it where you found it.
+checkout is not yours — leave it where you found it. Before force-pushing a branch with unexpected
+commits, rescue them (`git branch rescue/... <sha>`) or you orphan a colleague's only copy.
 
 **Git push:** Always use:
 ```bash
