@@ -257,14 +257,19 @@ Every field on `GeminiReply` (`coachReplySchema.ts`) is filtered per turn mode b
 `responsePropertiesFor()` — the response schema structurally omits any field the current
 mode/session-state combination shouldn't expose, rather than just discouraging it in prose.
 
+C1 removed the closing-turn concept entirely — there is no more ordinary/closing split, and
+`session_closed` is gone from the schema. Every returning-athlete turn now exposes the same full
+field set.
+
 | Mode | Fields exposed |
 |---|---|
-| Greeting | none (plus always `reply`, `session_closed`) |
+| Greeting | none (plus always `reply`) |
 | Activity sync | none |
-| Returning ordinary | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create` |
-| First Session ordinary | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
-| First Session close | the same, plus `coach_note` |
-| Returning close | `coach_note`, plus the returning-ordinary set above, plus `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
+| Returning | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
+| First Session | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
+
+`coach_note` is declared in the schema's raw property set but not selected by any mode above — it
+is dormant since C1; C2 redesigns it into a day-keyed row.
 
 Each field's write path — which `turnWrites/*.ts` file consumes it, which JSON file it lands in —
 is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/turnWrites/README.md); this
@@ -274,8 +279,8 @@ doc doesn't restate that table, it's the source.
 `injury_flag` is new-injury-only — `{text}`, no id, the server mints one. `injury_event` is
 update/resolve-only — `flag_id` is required (a real id from Active Injury Flags), `status` enum:
 `"active" \| "resolved"`. `quest_event.status` enum: `"completed" \|
-"missed" \| "excused"`. `season_start`/`quest_create` are First-Session-only — there is no
-returning-athlete path for either.
+"missed" \| "excused"`. `season_start`/`quest_create` are available to every athlete, First
+Session or returning (B3) — a season change and its goal always move together, one atomic action.
 
 ## File relationships
 

@@ -8,8 +8,9 @@ The one-time intake conversation that fills the split profile, memory, injury, s
 records for a brand-new athlete. Same backend endpoint and mechanics as day-to-day chat (see
 [`coach-chat-daily.md`](coach-chat-daily.md)) — focused prompt instructions and a client-side
 routing layer make sure a not-yet-intake'd athlete actually lands here. Reliability redesign
-shipped as #431/#432/#434: incremental writes as facts are given (not batched at close), and the
-End Conversation button gated on live completion state rather than thread existence.
+shipped as #431/#432/#434: incremental writes as facts are given, not held for a close-out turn
+(the close-out turn itself, and the End Conversation button that triggered it, are gone entirely
+since C1 — every turn just commits).
 
 Trigger: `isAthleteProfileComplete()` reads false. Completion requires a full profile, sports,
 and a current season — see "Completion signal" below for the exact check.
@@ -40,10 +41,7 @@ sequenceDiagram
         Server->>Server: commit facts from this turn incrementally
         Server-->>App: reply + fresh profileComplete
     end
-    App->>Server: "wrap this session" (close signal)
-    Server->>Gemini: closing mode + full context
-    Gemini-->>Server: any remaining intake actions
-    Server->>Server: close thread and commit remaining writes
+    Note over App,Server: whichever turn completes the profile\nstamps coach_since - no separate close-out turn (C1)
     Server-->>App: profileComplete: true, coach_since stamped
     App->>App: CoachSetupState.markComplete, OnboardingHints.clear()
 ```
@@ -77,8 +75,8 @@ hints.
 ### 3. The intake conversation itself
 
 First Session uses the same endpoint as day-to-day chat, with two narrow server differences:
-`handleGreet()` commits native onboarding fields directly, and ordinary turns may commit FSP facts
-before the conversation closes. `askGemini()`'s greeting-mode call includes
+`handleGreet()` commits native onboarding fields directly, and ordinary turns commit FSP facts as
+soon as each one is stated, not held for later. `askGemini()`'s greeting-mode call includes
 `onboardingHintsContext()` so the opener can use the just-recorded name and sports.
 The prompt tells Coach not to re-ask or emit action fields for those recorded values.
 
@@ -99,33 +97,33 @@ structured action as it lands:
 - Habit quests → `quest_create`'s `quests[]` (habit quests only — the goal moved to
   `season_start.main_quest`).
 
-While the profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
-writes it produced in a small atomic commit. Day-to-day chat remains write-on-close. The closing
-turn still commits the thread and any remaining writes through the normal close path.
+Each ordinary turn commits any profile, memory, injury, season, or quest writes it produced,
+along with `chat_history.json` itself, in one small atomic commit. Every turn is fully persisted,
+First Session or day-to-day — there is no separate close-out turn any more (C1).
 `season_start`/`quest_create` are available on every turn for every athlete (B3) — a returning
 athlete can start a new season with its goal, or add a habit quest, the same as during First
 Session.
 
 ### 4. Resumability
 
-If the athlete answers a few intake questions and kills the app, the thread never closed
-(`session_closed` never went `true`), so the server has **no committed copy of the thread** or its
-opener. The facts already gathered are safe: greet commits native fields and each ordinary FSP
-turn commits its structured intake writes. The conversation transcript itself remains client-side
-until close.
+The server commits every acknowledged turn, but an in-flight send hasn't been acknowledged yet.
+If the athlete types a message and kills the app before the response lands, that one message
+exists only in client-side state until the response (or a retry) confirms the commit. Greet
+itself also commits nothing (see step 1's opener), so an unreplied greeting is client-only too.
 
-What restores the conversation is a client-side cache, not the server, on **both platforms**:
+A client-side cache, not the server, restores an in-flight or unreplied conversation on **both
+platforms**:
 - **iOS**: `CoachChatView` mirrors the thread's message array to `CoachChatLocalCache`
   (`ios/CoachHQ/CoachHQ/Services/CoachChatLocalCache.swift`), keyed by repo + thread id, in
   `UserDefaults`, after every append.
 - **Web**: `CoachChat.tsx` does the same into `localStorage` (`coachChatModel.ts`'s
   `saveThreadLocally`/`restoreThreadMessagesLocally`/`clearThreadLocally`), keyed by thread id.
 
-Since a fully local thread (the normal state until close) never has a server counterpart to
-match against, restore does three things on load, not just one:
+Since a not-yet-acknowledged local thread never has a server counterpart to match against,
+restore does three things on load, not just one:
 1. Overlay the local cache onto any *server-known* thread whose cache has more messages than the
-   server copy (a thread whose close-commit landed but a stray local cache entry is still lying
-   around).
+   server copy (a thread whose commit already landed but a stray local cache entry is still
+   lying around).
 2. **Scan for orphaned local cache entries** — a thread id cached locally that never made it into
    the server's list at all — and materialize each one as its own thread. An orphaned thread never
    had a server-computed `createdAt`/`dayOffset` — both platforms recover a real creation time from
@@ -138,12 +136,12 @@ match against, restore does three things on load, not just one:
 
 `shouldOpenChatFirst()` still sees `profileComplete: false` and routes back to Chat on relaunch;
 `todayThread`/`ensureTodayThread` select the restored local thread directly rather than calling
-`greetNow()`/`greet()` again. The cache for a thread is dropped once its close-commit actually
+`greetNow()`/`greet()` again. The cache for a thread is dropped once its own commit actually
 lands and the server copy becomes truth.
 
-This is single-device only, by design — it does not sync the in-progress window across devices
-(issue #222 §D). A relaunch on a *different* device mid-conversation sees nothing for that thread
-at all until it closes.
+This is single-device only, by design — it does not sync the in-flight window across devices
+(issue #222 §D). A relaunch on a *different* device mid-send sees nothing for that unacknowledged
+message until the sending device's request resolves and its commit lands.
 
 ### 5. Completion signal
 

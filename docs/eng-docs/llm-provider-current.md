@@ -48,12 +48,12 @@ constraint. Rate-limit headroom and eventual model quality are.
 ## Architecture — grounding these numbers in what the code actually sends
 
 Verified against `ui/api/coach-chat.ts`: one Gemini call per turn, no separate/cheaper call for
-anything (close-session detection is a plain regex, `CLOSE_SESSION_PATTERN`,
-`coach-chat.ts:216-217`, not a model call — it just sets prompt `mode`; the model's own
-`session_closed` field in that same response is what gates a commit). The `systemInstruction`
-floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` + `rendered quest context`, sent
-in full every turn — roughly matches the ~15K input tokens/turn assumed above. Closing turns add
-four more full files on top.
+anything. There is no more separate close-session detection step at all (C1 removed
+`CLOSE_SESSION_PATTERN`/`session_closed` entirely — every turn just commits). The
+`systemInstruction` floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` +
+`rendered quest context`, sent in full every turn — roughly matches the ~15K input tokens/turn
+assumed above. A turn whose reply asks for a template/session-artifact write pays for the
+templates manifest and `current_week.json` on top of that, fetched lazily only when needed.
 
 **Fixed:** conversation history within a thread is now capped at `MAX_HISTORY_MESSAGES = 40`
 (previously the entire prior conversation resent every turn, unbounded — only *thread count* was

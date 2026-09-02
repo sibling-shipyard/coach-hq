@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-02
 
 ## Context
 
@@ -30,7 +30,7 @@ flowchart LR
     end
     subgraph dynamic["Dynamic (fresh every call)"]
         state["split athlete + quest context\n+ optional Fitness Snapshot"]
-        mode["mode-specific instructions\ngreeting / activity_sync / ordinary / closing"]
+        mode["mode-specific instructions\ngreeting / activity_sync / ordinary\n(no more closing mode - C1)"]
         schema["mode-specific response schema"]
         ts["todayContextLine()\nchanges every minute"]
     end
@@ -130,24 +130,23 @@ round-trip, silently.
 
 ## Response schema
 
-`generationConfigFor(mode, firstSession)` sends only fields legal for that turn. `reply` and
-`session_closed` are always required; forbidden actions are absent from the schema rather than
-discouraged only through prose.
+`generationConfigFor(mode, firstSession)` sends only fields legal for that turn. `reply` is always
+required; forbidden actions are absent from the schema rather than discouraged only through
+prose. C1 removed the closing-turn concept and `session_closed` along with it - there is no more
+ordinary/closing split, only `firstSession` still varies what's available.
 
 | Turn | Additional fields |
 |---|---|
 | Greeting | None |
 | Activity sync | None |
-| Returning ordinary | None |
-| First Session ordinary | Incremental profile, memory, coaching-style, sports, injury, season, and quest setup actions |
-| First Session close | The same intake actions plus `coach_note` |
-| Returning close | `coach_note` plus memory/profile/injury/quest, template/session/week-plan actions |
+| First Session | Incremental profile, memory, coaching-style, sports, injury, season, and quest setup actions |
+| Returning | Memory/profile/injury/quest/season/quest-create actions, plus template/session/week-plan actions - every field, every turn |
 
 The server owns dates, generated ids, timestamps, commit messages, and thread titles. Gemini
 reports semantic actions only. `firstSession` is passed explicitly from the profile-completion
 check; prompt construction does not infer mode by searching injected text.
 
-**Text-field length caps (issue #462).** `coach_note`, `memory_update.text`, and
+**Text-field length caps (issue #462).** `memory_update.text` and
 `injury_flag[].text`/`injury_event[].text` each carry a `maxLength` in `RESPONSE_PROPERTIES`
 (`coachReplySchema.ts`), sourced from `engine/lib/text-caps.mts`. The same numbers are
 restated as a plain-text instruction per field in the prompt (`coachPromptText.ts`). Schema
@@ -177,29 +176,26 @@ not a guess:
 
 **Why this is a hard rule, not a preference:** three independent free-text fields have each
 triggered the same failure mode — a runaway repetition loop that burns the output budget on
-degenerate rambling, sometimes taking `session_closed` down with it. The three: `reasoning`
-(removed), `title` (removed, same symptom), `session_note` (tried during the 2026-08
-coach-memory redesign, pulled after one live reproduction). `coach_note` is the one field that's
-been reliable across dozens of real closes: short, single-purpose, declared early, no bookkeeping
-asked of it. Every
-new action added to this schema is filtered through these four rules for that reason.
+degenerate rambling, sometimes taking the whole structured reply down with it. The three:
+`reasoning` (removed), `title` (removed, same symptom), `session_note` (tried during the 2026-08
+coach-memory redesign, pulled after one live reproduction). Every new action added to this schema
+is filtered through these four rules for that reason.
 
 ## Retries, timeouts, rate limits
 
 - The actual `generateContent` call uses its own longer timeout (`GEMINI_GENERATE_TIMEOUT_MS`,
   45s, `geminiClient.ts`) rather than the shared file-read default (`UPSTREAM_TIMEOUT_MS`, 25s,
-  `ui/api/_lib/httpTimeout.ts`). Closing turns routinely carry the largest prompts in the system
-  (full chat history and operational context) and the hardest output (a structured close-out),
-  so they're the turn most likely to legitimately need more than 25s. `ui/vercel.json` sets an
-  explicit `maxDuration: 300` for `api/coach-chat.ts` so the platform's own ceiling doesn't
-  silently become the real limit underneath this. Confirmed against the live account (Fluid
-  Compute is enabled), which per Vercel's own changelog raises the Hobby plan's ceiling to the
-  full 300s rather than the 60s that applies without it.
+  `ui/api/_lib/httpTimeout.ts`). A turn with a long conversation history carries a larger prompt
+  than the shared default fits comfortably, so it's the case most likely to legitimately need
+  more than 25s. `ui/vercel.json` sets an explicit `maxDuration: 300` for `api/coach-chat.ts` so
+  the platform's own ceiling doesn't silently become the real limit underneath this. Confirmed
+  against the live account (Fluid Compute is enabled), which per Vercel's own changelog raises
+  the Hobby plan's ceiling to the full 300s rather than the 60s that applies without it.
 - A 504 (our own timeout abort) or a genuine Gemini-side 503 ("model currently experiencing high
   demand") triggers exactly one retry with a short fixed backoff — both were previously fatal on
-  the first hit. Confirmed via production Runtime Logs as the dominant cause of closing turns
-  failing outright with nothing committed (the failure happens inside `askGemini`, before
-  `commitFilesAtomic` is ever reached, so the athlete's close silently does nothing). This is
+  the first hit. Confirmed via production Runtime Logs as a dominant cause of turns failing
+  outright with nothing committed (the failure happens inside `askGemini`, before
+  `commitFilesAtomic` is ever reached, so the athlete's message silently does nothing). This is
   additive to the existing stale-cache retry (a `400` when `cachedContent` has expired/was
   evicted — see Cache lifecycle above), but capped at one retry **total**, not one per failure
   kind. The 400-retry and the 504/503-retry are mutually exclusive branches (`if`/`else if`) on
@@ -209,15 +205,14 @@ new action added to this schema is filtered through these four rules for that re
   `askGemini()` invocation is 2 calls (~90s) — still real, but bounded and something
   `maxDuration` can actually be sized against.
 - Separately, `requestCoachReply` (`coachTurn.ts`) does its own single reprompt — a second, full
-  `askGemini()` invocation — if `coach_note`/`memory_update.text`/`injury_flag[].text`/
-  `injury_event[].text` comes
-  back over its `maxLength` cap (issue #462). This is content-triggered, not transport-triggered,
-  so it's independent of the 400/503/504 retry above and can stack with it. The true worst case
-  for a closing turn that both hits a transport retry _and_ needs the text-cap reprompt is two
-  full `askGemini()` invocations, each up to ~90s. That's ~180s total — still under the 300s
-  `maxDuration` ceiling, but worth knowing this bullet's "2 calls" is per-invocation, not
-  per-turn. No retry on a second text-cap violation — `capText` in `turnWrites/*.ts` truncates
-  deterministically if the reprompt still overshoots.
+  `askGemini()` invocation — if `memory_update.text`/`injury_flag[].text`/`injury_event[].text`
+  comes back over its `maxLength` cap (issue #462). This is content-triggered, not
+  transport-triggered, so it's independent of the 400/503/504 retry above and can stack with it.
+  The true worst case for a turn that both hits a transport retry _and_ needs the text-cap
+  reprompt is two full `askGemini()` invocations, each up to ~90s. That's ~180s total — still
+  under the 300s `maxDuration` ceiling, but worth knowing this bullet's "2 calls" is
+  per-invocation, not per-turn. No retry on a second text-cap violation — `capText` in
+  `turnWrites/*.ts` truncates deterministically if the reprompt still overshoots.
 - A 429 is surfaced as a typed error the client shows as "rate-limited, try again shortly" — see
   `coachChatModel.ts`'s `CoachChatRateLimitedError` / iOS's `UserFacingError.swift`. No
   server-side retry on the Gemini call itself (a 429 mid-generation isn't safely retryable the

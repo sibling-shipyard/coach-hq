@@ -408,7 +408,7 @@ function isTransientStatus(status: number): boolean {
 }
 
 // sendMessage() passes retryNetworkFailures: false - retrying a raw network failure (as opposed
-// to a confirmed 5xx/429 response) risks re-running a close-session commit that already landed.
+// to a confirmed 5xx/429 response) risks re-running a turn's commit that already landed.
 // See docs/eng-docs/coach-chat-flow.md's Resilience section.
 async function fetchWithRetry(
   input: RequestInfo,
@@ -455,25 +455,6 @@ export function rememberRepoSha(
   if (threadId && sha) lastKnownSha.set(threadId, sha);
 }
 
-export function shouldSendEndConversation(
-  pendingThreadIds: ReadonlySet<string>,
-  threadId: string | null,
-  explicitlyRequested: boolean,
-): boolean {
-  return explicitlyRequested || (threadId != null && pendingThreadIds.has(threadId));
-}
-
-export function updatePendingEndThreads(
-  pendingThreadIds: ReadonlySet<string>,
-  threadId: string,
-  pending: boolean,
-): Set<string> {
-  const next = new Set(pendingThreadIds);
-  if (pending) next.add(threadId);
-  else next.delete(threadId);
-  return next;
-}
-
 // Audit fix: lastKnownSha never had anything removing an entry once its thread was deleted or
 // aged out of the server's 7-thread retention cap - harmless in practice (a handful of small
 // string entries for as long as the tab stays open), but unbounded. Every call that returns a
@@ -485,25 +466,20 @@ function pruneRepoSha(currentThreadIds: readonly string[]): void {
   }
 }
 
-// Nothing is persisted server-side until the athlete says wrap/close - the server is stateless
-// per turn, so the client sends its own in-memory running history with every message. Only a
-// `closed: true` response means an actual commit happened and `threads` reflects real repo state;
-// otherwise the caller is responsible for appending the reply to its own local thread.
-export type SendMessageResult =
-  | { closed: false; reply: string; stale?: boolean; profileComplete: boolean }
-  | {
-      closed: true;
-      reply: string;
-      threadId: string;
-      threads: ChatThread[];
-      profileComplete: boolean;
-    };
+// C1: every turn commits fully now - there's no more "closed vs not" distinction, so the server
+// always returns the fresh committed thread list, same shape every time.
+export interface SendMessageResult {
+  reply: string;
+  threadId: string;
+  threads: ChatThread[];
+  profileComplete: boolean;
+  stale?: boolean;
+}
 
 export async function sendMessage(
   threadId: string | null,
   priorMessages: ChatMessage[],
   message: string,
-  endConversationRequested = false,
 ): Promise<SendMessageResult> {
   const knownSha = threadId ? lastKnownSha.get(threadId) : undefined;
   const res = await fetchWithRetry(
@@ -516,7 +492,6 @@ export async function sendMessage(
         messages: priorMessages,
         message,
         knownSha,
-        endConversationRequested,
       }),
     },
     3,
@@ -529,9 +504,7 @@ export async function sendMessage(
     throw new Error(body.error ?? `Coach chat request failed (${res.status})`);
   }
   const body = (await res.json()) as SendMessageResult & { repoSha?: string };
-  const effectiveThreadId = body.closed ? body.threadId : threadId;
-  rememberRepoSha(effectiveThreadId, body.repoSha);
-  if (!body.closed) return body;
+  rememberRepoSha(body.threadId, body.repoSha);
   pruneRepoSha(body.threads.map((t) => t.id));
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
@@ -618,13 +591,14 @@ export async function greet(): Promise<GreetResult> {
   return { ...body, threads: body.threads.map(normalizeThread) };
 }
 
-// Mirrors iOS's CoachChatLocalCache: nothing is persisted server-side until a thread closes (see
-// sendMessage's doc comment above), so an in-progress conversation only ever exists in this tab's
-// React state - a refresh loses it completely. Saved after every append, restored on load,
-// cleared on a successful close. Web has no per-account namespacing the way iOS's cache key
-// includes repoFullName - acceptable simplification since a browser's localStorage is already
-// scoped to one signed-in session/account at a time in practice, unlike a phone that could
-// plausibly hold multiple accounts' Keychain-backed sessions.
+// Mirrors iOS's CoachChatLocalCache: an in-flight send hasn't been acknowledged by the server yet
+// (every turn commits, but only once the response lands), so between the optimistic echo and that
+// response, a message only exists in this tab's React state - a refresh mid-request would lose it.
+// Saved after every append, restored on load, cleared once the server's response confirms the
+// commit landed. Web has no per-account namespacing the way iOS's cache key includes
+// repoFullName - acceptable simplification since a browser's localStorage is already scoped to
+// one signed-in session/account at a time in practice, unlike a phone that could plausibly hold
+// multiple accounts' Keychain-backed sessions.
 const LOCAL_CACHE_PREFIX = "coachChatLocalCache.";
 
 export function saveThreadLocally(threadId: string, messages: ChatMessage[]): void {
@@ -650,15 +624,15 @@ export function clearThreadLocally(threadId: string): void {
   try {
     localStorage.removeItem(LOCAL_CACHE_PREFIX + threadId);
   } catch {
-    // Not fatal - a leftover cache entry for an already-closed thread is harmless clutter, not a
-    // correctness problem (restore only ever adds messages on top of what the server already has
-    // for a thread id that exists server-side; it can't resurrect a closed thread's stale draft).
+    // Not fatal - a leftover cache entry for an already-committed thread is harmless clutter,
+    // not a correctness problem (restore only ever adds messages on top of what the server
+    // already has for a thread id that exists server-side; it can't resurrect a stale draft).
   }
 }
 
 /** Thread ids cached locally that never made it into `currentThreadIds` (the server's committed
  * list) - i.e. genuinely uncommitted conversations, not just a stale cache entry for something
- * that already closed. Scan happens once on load, before the first render decides what to show. */
+ * already committed. Scan happens once on load, before the first render decides what to show. */
 export function findOrphanedLocalThreadIds(currentThreadIds: readonly string[]): string[] {
   const known = new Set(currentThreadIds);
   const orphaned: string[] = [];

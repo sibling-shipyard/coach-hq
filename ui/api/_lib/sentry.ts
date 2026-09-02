@@ -408,7 +408,7 @@ export interface GeminiFailureDetails {
   /** Upstream HTTP status, or 500 when the throw carried none. */
   upstreamStatus: number;
   /**
-   * `TurnMode` — greeting, ordinary, closing, activity_sync — for the three `askGemini` call
+   * `TurnMode` — greeting, ordinary, activity_sync — for the three `askGemini` call
    * sites in coach-chat. Two more paths call `generateContent` directly and are not turns at
    * all: `proactive_message` (coach-message's `generateProactiveBody`) and `template_adjust`
    * (coach-chat's First Session template-adjustment pass in `coachWorkoutFiles.ts`).

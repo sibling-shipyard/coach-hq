@@ -8,11 +8,12 @@ const { commitFilesAtomic } = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
+const { getFileRaw } = vi.hoisted(() => ({ getFileRaw: vi.fn(async () => null) }));
 vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
   const original = await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
   return {
     ...original,
-    getFileRaw: vi.fn(async () => null),
+    getFileRaw,
     invalidateCoachContext: vi.fn(),
   };
 });
@@ -24,12 +25,7 @@ vi.mock("../../_lib/chatThreads.js", async (importOriginal) => {
   };
 });
 
-import {
-  buildTurnWrites,
-  commitClosingTurn,
-  commitOrdinaryTurn,
-  parseTurnRequest,
-} from "../../_lib/coachTurn.js";
+import { buildTurnWrites, commitTurn, parseTurnRequest } from "../../_lib/coachTurn.js";
 
 function baseTurn(overrides: Record<string, unknown> = {}) {
   return {
@@ -37,7 +33,6 @@ function baseTurn(overrides: Record<string, unknown> = {}) {
     priorMessages: [],
     trimmed: "Done for today",
     geminiMessage: "Done for today",
-    endConversationRequested: false,
     repo: "owner/repo",
     token: "token",
     apiKey: "key",
@@ -59,13 +54,9 @@ function baseTurn(overrides: Record<string, unknown> = {}) {
     athleteContext: "",
     questContext: "",
     firstSession: true,
-    closeIntent: false,
     now: Date.now(),
     traceId: "trace-1",
-    validTemplateIds: new Set<string>(),
-    weekSessionsForContext: [],
-    reply: { reply: "Good work.", session_closed: false },
-    closing: false,
+    reply: { reply: "Good work." },
     ...overrides,
   };
 }
@@ -73,6 +64,7 @@ function baseTurn(overrides: Record<string, unknown> = {}) {
 describe("coach turn stages", () => {
   beforeEach(() => {
     commitFilesAtomic.mockClear();
+    getFileRaw.mockClear();
   });
 
   it("parses an ordinary message without carrying the transport body forward", async () => {
@@ -85,7 +77,6 @@ describe("coach turn stages", () => {
     expect(result).toMatchObject({
       trimmed: "Felt strong",
       priorMessages: [],
-      endConversationRequested: false,
     });
   });
 
@@ -94,15 +85,13 @@ describe("coach turn stages", () => {
       baseTurn({
         reply: {
           reply: "Logged.",
-          session_closed: true,
-          coach_note: "Strong session",
           injury_flag: [{ text: "Sore ankle" }],
         },
-        closing: true,
       }) as never,
     );
+    // coach_note is dormant since C1 (see coachReplySchema.ts) - Gemini never sets it, so it
+    // never appears in optionalWrites even though buildCoachNoteWrite still exists for C2.
     expect(turn.optionalWrites.map((write) => write.path)).toEqual([
-      "user_data/coach/coach_log.json",
       "user_data/coach/injuries.json",
     ]);
     expect(turn.chatWrite.path).toBe("user_data/coach/chat_history.json");
@@ -110,47 +99,57 @@ describe("coach turn stages", () => {
     expect(turn.latestThreads).toHaveLength(1);
   });
 
+  // C1: template_edit/session_plan/week_plan/session_reconcile/plan_edit are available on any
+  // returning-athlete turn now, not gated to a closing turn any more - this turn has no close
+  // signal at all (there's no such concept left to signal). Also exercises the lazy
+  // templates-manifest fetch (correction #4): it only fires because this reply asked for
+  // template_edit.
+  it("commits a template_edit on an ordinary turn, no close signal needed", async () => {
+    const turn = await buildTurnWrites(
+      baseTurn({
+        firstSession: false,
+        reply: {
+          reply: "Removing that phase.",
+          template_edit: { template_id: "tpl-1" },
+        },
+      }) as never,
+    );
+    expect(turn.optionalWrites.map((write) => write.path)).toContain(
+      "user_data/activities/workout_plans/templates/tpl-1.json",
+    );
+    // The manifest fetch only happens because this reply carried template_edit - an ordinary
+    // turn with none of the session-artifact fields never pays for it (see the earlier test).
+    expect(getFileRaw).toHaveBeenCalledWith(
+      "owner/repo",
+      "user_data/activities/workout_plans/templates/_manifest.json",
+      "token",
+    );
+  });
+
   it("commits incremental First Session writes on an ordinary turn", async () => {
-    const response = await commitOrdinaryTurn({
+    const response = await commitTurn({
       ...baseTurn(),
       wasProfileComplete: false,
       profileComplete: false,
-      fspCandidates: [{ path: "user_data/coach/profile.json", content: "{}" }],
+      validUpdates: [{ path: "user_data/coach/profile.json", content: "{}" }],
       chatWrite: { path: "user_data/coach/chat_history.json", content: "{}" },
+      optionalWrites: [],
+      latestThreads: [],
+      finalThreadId: "thread-1",
+      computedTitle: "Felt strong",
     } as never);
     expect(commitFilesAtomic).toHaveBeenCalledWith(
       expect.any(Array),
-      "coach: ordinary turn updates recorded",
+      "coach: chat — Felt strong",
       expect.objectContaining({ repo: "owner/repo" }),
     );
     expect(await response.json()).toMatchObject({
       reply: "Good work.",
-      closed: false,
       repoSha: "commit-sha",
     });
   });
 
-  it("commits incremental writes on an ordinary turn for a returning, profile-complete athlete (#616)", async () => {
-    const response = await commitOrdinaryTurn({
-      ...baseTurn(),
-      wasProfileComplete: true,
-      profileComplete: true,
-      fspCandidates: [{ path: "user_data/coach/profile.json", content: "{}" }],
-      chatWrite: { path: "user_data/coach/chat_history.json", content: "{}" },
-    } as never);
-    expect(commitFilesAtomic).toHaveBeenCalledWith(
-      expect.any(Array),
-      "coach: ordinary turn updates recorded",
-      expect.objectContaining({ repo: "owner/repo" }),
-    );
-    expect(await response.json()).toMatchObject({
-      reply: "Good work.",
-      closed: false,
-      repoSha: "commit-sha",
-    });
-  });
-
-  it("commits chat and action writes together on a closing turn", async () => {
+  it("commits chat and action writes together for a returning, profile-complete athlete (#616)", async () => {
     const latestThreads = [
       {
         id: "thread-1",
@@ -160,14 +159,11 @@ describe("coach turn stages", () => {
         messages: [],
       },
     ];
-    const response = await commitClosingTurn({
-      ...baseTurn({
-        closing: true,
-        reply: { reply: "Good work.", session_closed: true },
-      }),
+    const response = await commitTurn({
+      ...baseTurn(),
       validUpdates: [{ path: "user_data/coach/profile.json", content: "{}" }],
       chatWrite: { path: "user_data/coach/chat_history.json", content: "{}" },
-      optionalWrites: [{ path: "user_data/coach/coach_log.json", content: "{}" }],
+      optionalWrites: [{ path: "user_data/coach/injuries.json", content: "{}" }],
       latestThreads,
       finalThreadId: "thread-1",
       computedTitle: "Done",
@@ -179,10 +175,10 @@ describe("coach turn stages", () => {
     ).toEqual([
       "user_data/coach/profile.json",
       "user_data/coach/chat_history.json",
-      "user_data/coach/coach_log.json",
+      "user_data/coach/injuries.json",
     ]);
     expect(await response.json()).toMatchObject({
-      closed: true,
+      reply: "Good work.",
       threadId: "thread-1",
       repoSha: "commit-sha",
     });

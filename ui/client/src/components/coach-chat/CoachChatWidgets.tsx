@@ -356,8 +356,6 @@ function Composer({
   value,
   onChange,
   onSubmit,
-  onEndConversation,
-  endConversationEnabled,
   round = false,
   disabled = false,
 }: {
@@ -365,8 +363,6 @@ function Composer({
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
-  onEndConversation?: () => void;
-  endConversationEnabled?: boolean;
   round?: boolean;
   disabled?: boolean;
 }) {
@@ -409,16 +405,6 @@ function Composer({
       >
         <SendIcon size={round ? 16 : 18} />
       </button>
-      {onEndConversation ? (
-        <button
-          className="cc-composer__end"
-          disabled={disabled || !endConversationEnabled}
-          onClick={onEndConversation}
-          type="button"
-        >
-          End Conversation
-        </button>
-      ) : null}
     </form>
   );
 }
@@ -538,8 +524,6 @@ export function ConversationPane({
   onBack,
   showBack,
   pending,
-  profileComplete,
-  onEndConversation,
   activities,
   onRetrySync,
 }: {
@@ -551,8 +535,6 @@ export function ConversationPane({
   onBack?: () => void;
   showBack?: boolean;
   pending?: boolean;
-  profileComplete: boolean;
-  onEndConversation: () => void;
   activities?: unknown;
   onRetrySync?: () => void;
 }) {
@@ -601,8 +583,6 @@ export function ConversationPane({
               onChange={onDraftChange}
               onSubmit={onSend}
               disabled={pending}
-              endConversationEnabled={profileComplete}
-              onEndConversation={onEndConversation}
             />
             <p className="cc-pane__footnote">
               COACH SEES YOUR LOAD, LEDGER, PLAN &amp; SPORT ANALYTICS · NOT SHARED BETWEEN ACCOUNTS

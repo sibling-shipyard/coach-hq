@@ -3,11 +3,11 @@
 This folder owns the hosted Coach Phelps implementation shared by web and iOS. The routed entry
 points stay one level up because Vercel maps literal file paths to URLs:
 
-| Route file                        | Endpoint                         | Responsibility                                                                |
-| --------------------------------- | -------------------------------- | ----------------------------------------------------------------------------- |
-| `../coach-chat.ts`                | `/api/coach-chat`                | Authenticate and dispatch GET history or POST greet/sync/message/close stages |
-| `../coach-chat-context.ts`        | `/api/coach-chat-context`        | Preload the same cached context used by chat                                  |
-| `../coach-chat-profile-status.ts` | `/api/coach-chat-profile-status` | Report FSP completion + live `coachSince` for the day badge                   |
+| Route file                        | Endpoint                         | Responsibility                                                          |
+| --------------------------------- | -------------------------------- | ----------------------------------------------------------------------- |
+| `../coach-chat.ts`                | `/api/coach-chat`                | Authenticate and dispatch GET history or POST greet/sync/message stages |
+| `../coach-chat-context.ts`        | `/api/coach-chat-context`        | Preload the same cached context used by chat                            |
+| `../coach-chat-profile-status.ts` | `/api/coach-chat-profile-status` | Report FSP completion + live `coachSince` for the day badge             |
 
 Do not move those files here without intentionally changing every client URL. See
 [`../README.md`](../README.md) and ADR 0017.
@@ -20,14 +20,15 @@ flowchart LR
     render --> prompt["Select prompt text + mode schema"]
     prompt --> gemini["Gemini returns semantic actions"]
     gemini --> apply["Server validates ids and applies actions"]
-    apply --> commit["Atomic Git commit on close,\nactivity-sync, or incremental FSP save"]
+    apply --> commit["Atomic Git commit every turn\n(message, activity-sync, or greet-time onboarding)"]
 ```
 
 - SOUL and the First Session horcrux are build outputs in `api/_generated/soul.ts`, not athlete-repo files.
 - Athlete context comes from `profile.json`, `memory.json`, `injuries.json`, the last five
   `coach_log.json` rows, the split quest ledger, and `gen/athlete_insights.json`.
-- Greetings and returning ordinary turns expose no write actions. First Session turns expose only
-  intake actions. Returning close turns expose the operational actions relevant to existing data.
+- Greetings and activity syncs expose no write actions. First Session turns expose only intake
+  actions. A returning athlete's turns expose every action field, data-fact and operational alike,
+  on every turn - there is no separate closing turn (C1).
 - Gemini reports facts and requested operations. The server owns ids, dates, timestamps, file
   shapes, commit messages, thread titles, validation, and atomic persistence.
 
@@ -74,14 +75,13 @@ must not depend on prompt text.
 | `activitySyncTurn.ts`  | Persist-on-sync Coach turn — one committed thread per verified batch                                      |
 | `turnWrites/`          | One file per `GeminiReply` action field's write-builder — see its own [README](_lib/turnWrites/README.md) |
 | `onboardingWrites.ts`  | Normalize native onboarding hints and suppress duplicate greet commits                                    |
-| `fspWrites.ts`         | Restrict ordinary-turn persistence to incremental First Session writes                                    |
+| `fspWrites.ts`         | Filter helper for a turn's own write candidates (kept for its unit tests; not wired into commitTurn)      |
 
 ### Conversation lifecycle
 
 | File             | Responsibility                                                                           |
 | ---------------- | ---------------------------------------------------------------------------------------- |
 | `chatThreads.ts` | Thread/message model, `chat_history.json`, seven-thread retention, server-derived titles |
-| `closeSignal.ts` | Typed/button/pending close-intent detection before Gemini makes the final close decision |
 
 ## Tests
 
