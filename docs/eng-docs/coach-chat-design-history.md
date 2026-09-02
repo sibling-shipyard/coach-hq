@@ -458,3 +458,53 @@ Manual test checklists have been filed and re-filed as the system changed undern
 (#222 for the original redesign, #267 for the caching/close-reliability pass, #280 for the
 close-save-reliability/greet-materialization pass) — see the current consolidated checklist
 issue for what's actually still unverified as of the latest pass.
+
+---
+
+## 2026-09-02 — Chat-commit redesign: every turn commits, no more placeholder data, no closing ritual
+
+Live FSP testing found `quest_create` silently dropping a stated goal - traced past the
+prompt-wording level into two structural bugs: `carve-skeleton.mjs` seeded a placeholder
+`main_quest` that fooled the completion gate, and `fspIncrementalWrites` discarded every
+ordinary-turn write once a profile was complete, so an established athlete could never save a
+profile change, injury, or quest update outside a formal close. Fixing that cascaded into a
+15-PR stack (A1-A2, B1-B3, C1-C2, D1-D3, E1, G1-G2, I1, J1-J2, this entry's own H1):
+
+- **A1/#616** - every turn commits its writes now, for every athlete, every mode; no more
+  incomplete-profile gate on ordinary-turn persistence.
+- **A2** - chat history retains everything in storage; the 7-thread cap moved to response time
+  only (ADR 0037, supersedes ADR 0012 on this point).
+- **B1-B3** - `main_quest`/`timezone` genuinely absent until real (no placeholder), the client
+  renders an honest empty state instead of crashing on it, and returning athletes get the same
+  season/quest access First Session had (`main_quest` now season-scoped via `season_id`).
+- **C1-C2** - the closing-turn concept is gone entirely (deleted `closeSignal.ts`,
+  `session_closed`, the End Conversation button); `coach_note` became a day-keyed row updated
+  inline by whichever turn's own Gemini call touches that day, no separate trigger or call.
+- **D1-D3** - self-correcting validation with a real corrective retry, a full audit of every
+  `user_data/` field's shape/enum, and GitHub-call + turn-processing Sentry spans matching the
+  existing Gemini instrumentation.
+- **E1** - `coaching_style` restored (`accountability`/`encouragement`/`analysis`), wired into
+  real SOUL voice rules, not just stored inertly.
+- **G1-G2** - the live-Gemini eval suite trimmed to 14 diagnosed transcripts (closes #670, its
+  first-ever green run since 2026-08-25), and the no-network layered suite audited clean against
+  the final system.
+- **I1** - a cycling "thinking/parsing/updating" progress indicator (web + iOS) replacing plain
+  dots, with failure messages accurate to the real stage that failed.
+- **J1-J2** - confirmed-dead files removed (three retired coach-memory migration scripts, the
+  unused `fspWrites.ts`), and `coach-chat/_lib/` restructured into `gemini/`/`decide/`/`commit/`
+  subdirectories mirroring the test suite's own three-layer split.
+- **H1 (this pass)** - closed #735 (SOUL §2's writable-set bullet listed 7 paths as bare
+  filenames sharing an earlier item's prefix in prose; `validate-soul.mjs`'s parser silently
+  dropped any backtick token without its own `/`, so they read fine to a human but were invisible
+  to the check - rewrote every path in full), plus this doc sweep.
+
+**F1** (propagate the final shape to `sibling-shipyard/coach-skeleton` and all 5 athlete repos,
+closes #760) runs after this whole stack merges to `main`, not staged alongside the rest - its
+own Step 0 stamps the skeleton from HQ `main` itself, so an unmerged stack means an intermediate
+shape. **K1** (one consolidated live-Gemini + live-scratch-repo pass against the fully integrated
+stack) is the actual gate before that merge - see this doc's own future entries for its outcome.
+
+No single ADR covers the whole redesign; individual locked decisions from it are ADR 0037
+(retention) and ADR 0038 (coaching-style restored). `docs/plans/chat-commit-redesign.md` and its
+`ccr-*-lld.md` files are deleted as of this PR, per this repo's plan-delete-on-last-PR rule -
+this entry, `coach-data-schema.md`, and `coach-chat-testing.md` carry what's still durable.
