@@ -1,6 +1,7 @@
 /** Shared bundled-SOUL and athlete-context reads for chat and preload routes. */
 import { SOUL } from "../../_generated/soul.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
+import { withGithubSpan } from "../../_lib/sentry.js";
 import {
   PROFILE_PATH,
   MEMORY_PATH,
@@ -90,29 +91,32 @@ export async function getFileRaw(
   attempts = 3,
 ): Promise<string | null> {
   const ref = encodeURIComponent(resolveCoachChatBranch());
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      const res = await fetchWithTimeout(
-        `https://api.github.com/repos/${repo}/contents/${path}?ref=${ref}`,
-        {
-          headers: GH_HEADERS_RAW(token),
-        },
-      );
-      if (res.status === 404) return null;
-      if (!res.ok) {
-        // .status lets the top-level handler tell a 401 (expired token) apart from other
-        // failures - iOS's Bearer auth has no cookie-refresh, so this is its only re-auth signal.
-        throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), {
-          status: res.status,
-        });
+  return withGithubSpan("contents/read", async (setStatus) => {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const res = await fetchWithTimeout(
+          `https://api.github.com/repos/${repo}/contents/${path}?ref=${ref}`,
+          {
+            headers: GH_HEADERS_RAW(token),
+          },
+        );
+        setStatus(res.status);
+        if (res.status === 404) return null;
+        if (!res.ok) {
+          // .status lets the top-level handler tell a 401 (expired token) apart from other
+          // failures - iOS's Bearer auth has no cookie-refresh, so this is its only re-auth signal.
+          throw Object.assign(new Error(`Failed to fetch ${path} (${res.status})`), {
+            status: res.status,
+          });
+        }
+        return await res.text();
+      } catch (err) {
+        if (!isTransientReadFailure(err) || attempt === attempts - 1) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
       }
-      return await res.text();
-    } catch (err) {
-      if (!isTransientReadFailure(err) || attempt === attempts - 1) throw err;
-      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
     }
-  }
-  throw new Error(`Failed to fetch ${path} - unreachable`); // keeps TS happy, loop always returns/throws
+    throw new Error(`Failed to fetch ${path} - unreachable`); // keeps TS happy, loop always returns/throws
+  });
 }
 
 export interface DirectoryEntry {
@@ -128,39 +132,42 @@ export async function listDirectory(
   attempts = 3,
 ): Promise<DirectoryEntry[] | null> {
   const ref = encodeURIComponent(resolveCoachChatBranch());
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      const res = await fetchWithTimeout(
-        `https://api.github.com/repos/${repo}/contents/${path}?ref=${ref}`,
-        { headers: GH_HEADERS_JSON(token) },
-      );
-      if (res.status === 404) return null;
-      if (!res.ok) {
-        throw Object.assign(new Error(`Failed to list ${path} (${res.status})`), {
-          status: res.status,
-        });
-      }
-      const body = (await res.json()) as unknown;
-      if (!Array.isArray(body)) return [];
-      return body.flatMap((entry) => {
-        if (
-          entry == null ||
-          typeof entry !== "object" ||
-          typeof (entry as DirectoryEntry).name !== "string" ||
-          typeof (entry as DirectoryEntry).type !== "string" ||
-          typeof (entry as DirectoryEntry).path !== "string"
-        ) {
-          return [];
+  return withGithubSpan("contents/list", async (setStatus) => {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      try {
+        const res = await fetchWithTimeout(
+          `https://api.github.com/repos/${repo}/contents/${path}?ref=${ref}`,
+          { headers: GH_HEADERS_JSON(token) },
+        );
+        setStatus(res.status);
+        if (res.status === 404) return null;
+        if (!res.ok) {
+          throw Object.assign(new Error(`Failed to list ${path} (${res.status})`), {
+            status: res.status,
+          });
         }
-        const item = entry as DirectoryEntry;
-        return [{ name: item.name, type: item.type, path: item.path }];
-      });
-    } catch (err) {
-      if (!isTransientReadFailure(err) || attempt === attempts - 1) throw err;
-      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+        const body = (await res.json()) as unknown;
+        if (!Array.isArray(body)) return [];
+        return body.flatMap((entry) => {
+          if (
+            entry == null ||
+            typeof entry !== "object" ||
+            typeof (entry as DirectoryEntry).name !== "string" ||
+            typeof (entry as DirectoryEntry).type !== "string" ||
+            typeof (entry as DirectoryEntry).path !== "string"
+          ) {
+            return [];
+          }
+          const item = entry as DirectoryEntry;
+          return [{ name: item.name, type: item.type, path: item.path }];
+        });
+      } catch (err) {
+        if (!isTransientReadFailure(err) || attempt === attempts - 1) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+      }
     }
-  }
-  throw new Error(`Failed to list ${path} - unreachable`);
+    throw new Error(`Failed to list ${path} - unreachable`);
+  });
 }
 
 export interface CoachContext {
@@ -197,21 +204,24 @@ export async function getHeadSha(
   token: string,
   branch = resolveCoachChatBranch(),
 ): Promise<string> {
-  const res = await fetchWithTimeout(
-    `https://api.github.com/repos/${repo}/git/ref/heads/${branch}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
+  return withGithubSpan("git/head", async (setStatus) => {
+    const res = await fetchWithTimeout(
+      `https://api.github.com/repos/${repo}/git/ref/heads/${branch}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
       },
-    },
-  );
-  if (!res.ok) {
-    throw Object.assign(new Error(`Failed to read HEAD (${res.status})`), { status: res.status });
-  }
-  const body = (await res.json()) as { object: { sha: string } };
-  return body.object.sha;
+    );
+    setStatus(res.status);
+    if (!res.ok) {
+      throw Object.assign(new Error(`Failed to read HEAD (${res.status})`), { status: res.status });
+    }
+    const body = (await res.json()) as { object: { sha: string } };
+    return body.object.sha;
+  });
 }
 
 // Server-side short-lived cache (A3): a client that just warmed context via coach-chat-

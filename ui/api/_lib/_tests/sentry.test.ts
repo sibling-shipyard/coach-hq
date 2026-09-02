@@ -563,6 +563,35 @@ describe("withGeminiSpan without a DSN", () => {
   });
 });
 
+describe("withGithubSpan without a DSN", () => {
+  it("runs the call untouched, so local runs and fork deploys open no span", async () => {
+    init.mockClear();
+    delete process.env.SENTRY_DSN;
+    const { withGithubSpan } = await loadSentry();
+
+    await expect(
+      withGithubSpan("git/blobs", async (setStatus) => {
+        setStatus(201);
+        return "blob-sha";
+      }),
+    ).resolves.toBe("blob-sha");
+    expect(init).not.toHaveBeenCalled();
+  });
+});
+
+describe("withProcessingSpan without a DSN", () => {
+  it("runs the call untouched, so local runs and fork deploys open no span", async () => {
+    init.mockClear();
+    delete process.env.SENTRY_DSN;
+    const { withProcessingSpan } = await loadSentry();
+
+    await expect(withProcessingSpan("build_turn_writes", async () => "writes")).resolves.toBe(
+      "writes",
+    );
+    expect(init).not.toHaveBeenCalled();
+  });
+});
+
 describe("setAthleteScope without a DSN", () => {
   it("names nobody, so local runs and fork deploys stay exactly as silent as before", async () => {
     init.mockClear();

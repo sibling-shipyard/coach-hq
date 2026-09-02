@@ -79,6 +79,8 @@ const {
   setAthleteScope,
   withContinuedTrace,
   withGeminiSpan,
+  withGithubSpan,
+  withProcessingSpan,
 } = await import("../sentry.js");
 
 /** Every error event the fake transport has received so far, in the order they were sent. */
@@ -98,9 +100,11 @@ function sentTransactions(): Event[] {
 }
 
 /**
- * Child spans do not ride inside `transaction.spans` on this SDK: v10 streams them as their own
- * `span` envelope items, with attribute values wrapped as `{ value, type }`. Same envelope, same
- * flush — but the assertions have to read them where they actually are.
+ * Most child spans stream as their own `span` envelope items on this SDK, with attribute values
+ * wrapped as `{ value, type }`. A span whose `op` matches a convention the `Http`/`NodeFetch`
+ * integrations recognize (e.g. `http.client`) instead rides inline in the transaction event's own
+ * `spans` array, plain (unwrapped) attributes, `description` instead of `name` - same envelope,
+ * same flush, different shape depending on `op`. Read both.
  */
 interface SpanItem {
   name: string;
@@ -109,8 +113,15 @@ interface SpanItem {
   attributes: Record<string, { value: unknown }>;
 }
 
+interface InlineSpan {
+  description: string;
+  status?: string;
+  op?: string;
+  data: Record<string, unknown>;
+}
+
 function sentSpans(): { name: string; status?: string; attributes: Record<string, unknown> }[] {
-  return sentEnvelopes
+  const standalone = sentEnvelopes
     .flatMap((envelope) =>
       envelope[1]
         .filter(([header]) => header.type === "span")
@@ -123,6 +134,14 @@ function sentSpans(): { name: string; status?: string; attributes: Record<string
         Object.entries(span.attributes).map(([key, wrapped]) => [key, wrapped.value]),
       ),
     }));
+  const inline = sentTransactions().flatMap((transaction) =>
+    ((transaction as unknown as { spans?: InlineSpan[] }).spans ?? []).map((span) => ({
+      name: span.description,
+      status: span.status,
+      attributes: span.data,
+    })),
+  );
+  return [...standalone, ...inline];
 }
 
 function request(headers: Record<string, string> = {}): Request {
@@ -340,6 +359,86 @@ describe("withGeminiSpan", () => {
 
     expect(sentTransactions()).toHaveLength(1);
     expect(sentSpans().map((span) => span.name)).toEqual(["generate_content gemini-flash-latest"]);
+  });
+});
+
+describe("withGithubSpan", () => {
+  /** A GitHub span only ships inside a route transaction - same shape production uses. */
+  async function githubSpanFrom(run: (setStatus: (status: number) => void) => Promise<unknown>) {
+    await withContinuedTrace(request(), async () => {
+      await withGithubSpan("git/blobs", run).catch(() => undefined);
+      return Response.json({ ok: true });
+    });
+    await drainWaitUntil();
+    return sentSpans()[0];
+  }
+
+  it("carries the operation label and status as http.client attributes", async () => {
+    const span = await githubSpanFrom(async (setStatus) => {
+      setStatus(201);
+      return "blob-sha";
+    });
+
+    expect(span?.name).toBe("github git/blobs");
+    expect(span?.attributes).toMatchObject({
+      "sentry.op": "http.client",
+      "github.operation": "git/blobs",
+      "github.status": 201,
+      outcome: "ok",
+    });
+  });
+
+  it("never carries a request URL or auth token - only the fixed operation label", async () => {
+    const span = await githubSpanFrom(async (setStatus) => {
+      setStatus(200);
+      return "ok";
+    });
+
+    expect(JSON.stringify(span?.attributes)).not.toMatch(/https?:|Bearer/);
+  });
+
+  it("marks the span an error and rethrows when the call fails", async () => {
+    const span = await githubSpanFrom(async () => {
+      throw new Error("GitHub /git/blobs failed (500)");
+    });
+
+    expect(span?.attributes).toMatchObject({ outcome: "error" });
+    // These two ops ride the transaction's own inline `spans` array (see sentSpans()'s comment),
+    // which keeps the SDK's raw OTel status keyword rather than gen_ai's normalized "error".
+    expect(span?.status).toBe("internal_error");
+  });
+});
+
+describe("withProcessingSpan", () => {
+  it("names the span after the turn stage and records outcome", async () => {
+    await withContinuedTrace(request(), async () => {
+      await withProcessingSpan("build_turn_writes", async () => "writes");
+      return Response.json({ ok: true });
+    });
+    await drainWaitUntil();
+
+    const span = sentSpans()[0];
+    expect(span?.name).toBe("coach_chat.build_turn_writes");
+    expect(span?.attributes).toMatchObject({
+      "sentry.op": "function",
+      "coach_chat.stage": "build_turn_writes",
+      outcome: "ok",
+    });
+  });
+
+  it("marks the span an error and rethrows when the stage fails", async () => {
+    let span: ReturnType<typeof sentSpans>[number] | undefined;
+    await withContinuedTrace(request(), async () => {
+      await withProcessingSpan("load_turn_state", async () => {
+        throw new Error("bad turn request");
+      }).catch(() => undefined);
+      return Response.json({ ok: true });
+    });
+    await drainWaitUntil();
+    span = sentSpans()[0];
+
+    expect(span?.attributes).toMatchObject({ outcome: "error" });
+    expect(span?.status).toBe("internal_error"); // see withGithubSpan's matching note above
   });
 });
 

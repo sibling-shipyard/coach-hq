@@ -17,7 +17,7 @@ import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIn
 import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
 import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
 import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/geminiClient.js";
-import { captureGeminiFailure, withSentryRoute } from "./_lib/sentry.js";
+import { captureGeminiFailure, withProcessingSpan, withSentryRoute } from "./_lib/sentry.js";
 import {
   combineExtraContext,
   firstSessionContext,
@@ -179,11 +179,13 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
   if (isGreetRequest(parsed)) return handleGreet(repo, token, apiKey, parsed.onboardingHints);
   if (isActivitySyncRequest(parsed)) return handleActivitySync(repo, token, apiKey, parsed);
 
-  const state = await loadTurnState(parsed, repo, token, apiKey);
+  const state = await withProcessingSpan("load_turn_state", () =>
+    loadTurnState(parsed, repo, token, apiKey),
+  );
   if (state instanceof Response) return state;
   const replied = await requestCoachReply(state);
   if (replied instanceof Response) return replied;
-  const turn = await buildTurnWrites(replied);
+  const turn = await withProcessingSpan("build_turn_writes", () => buildTurnWrites(replied));
   return commitTurn(turn);
 }
 
