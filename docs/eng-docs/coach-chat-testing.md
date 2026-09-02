@@ -1,6 +1,6 @@
 # Coach chat — testing
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-27
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-02
 
 ## Context
 
@@ -9,10 +9,10 @@ against known-real inputs on every `npm test`, and **live-API tools** that check
 and GitHub still behave the way our fixtures assume. Neither replaces the other - see "Two
 different questions" below.
 
-The layered tests exist because the pipeline itself has three layers (input -> decision, decision
--> file content, file content -> git commit), and a test suite shaped the same way tells you which
-layer broke instead of just "something in coach-chat is wrong." No formal `LlmClient`/`RepoBackend`
-interface exists yet for a future Supabase/other-LLM swap - `askGemini`'s
+The layered tests exist because the pipeline itself has three layers: input -> decision, decision
+-> file content, file content -> git commit. A test suite shaped the same way tells you which
+layer broke. That beats just hearing "something in coach-chat is wrong." No formal
+`LlmClient`/`RepoBackend` interface exists yet for a future Supabase/other-LLM swap - `askGemini`'s
 `(apiKey, ..., mode, ...) => Promise<GeminiReply>` signature and `commitFilesAtomic`'s
 `(FileEntry[], message, ctx) => Promise<{ commitSha }>` signature are the documented seam. Add a
 real interface only once a second implementation of either actually exists.
@@ -48,9 +48,22 @@ needs to leave a record someone can point at later.
 
 **`npm run eval:coach-chat`** (`ui/scripts/eval-coach-chat.ts`) - runs golden transcripts
 (`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`) against a live Gemini call. No real repo
-writes happen; it calls `askGemini()` directly, not the full commit pipeline. A transcript is
-either one message (`mode`/`userMessage`/`expect`) or a real multi-turn conversation
-(`turns: [...]`). Paid per call (ADR 0024), so it's manual/CI-gated, never on every PR.
+writes happen; it calls `askGemini()` directly, not the full commit pipeline - so it never
+exercises `coachTurn.ts`'s own reprompt (missing coach_note / oversized field), only the raw,
+single-shot model output. A transcript is either one message (`mode`/`userMessage`/`expect`) or a
+real multi-turn conversation (`turns: [...]`). Paid per call (ADR 0024), so it's manual/CI-gated,
+never on every PR.
+
+**The set (G1, #670):** 14 transcripts, trimmed from 29. Closing-turn behavior is gone (C1 removed
+the concept: no `mode: "closing"`, no `session_closed` field). The
+template_edit/session_plan/week_plan/session_reconcile/plan_edit field family is down to one
+representative transcript - the rest were real but budget-cut, see that transcript's own
+description. Every transcript was diagnosed against a live run before being kept, not just
+rewritten and assumed correct. A stale expectation got fixed; a real gap got its own issue and
+stays red on purpose - grep `KNOWN FAILURE` / `KNOWN FLAKY FAILURE` in the transcripts directory
+for the current list (#807 and #808 as of this write-up). A dynamic-enum/hallucination fixture (bad
+`flag_id`/`quest_id` reference) is deferred until D1 lands (corrective retry /
+rejection-with-Sentry-capture) - there is nothing to assert against yet.
 
 **`npm run test:coach-chat-manual`** (`ui/scripts/run-manual-coach-chat-test.ts`) - drives a real
 conversation through the real `handle()` in `coach-chat.ts` against a real athlete repo

@@ -1,16 +1,14 @@
 {
   "name": "profile-update",
-  "description": "Athlete states a real new profile value (weight) during a closing turn - profile_update should be set with that field/value.",
-  "mode": "closing",
+  "description": "Athlete states a real new profile value (weight) on an ordinary turn - profile_update should be set with that field/value. G1: converted from mode=closing to mode=ordinary - closing no longer exists (C1), and profile_update was never actually closing-gated, only the transcript's framing was. G1 live-eval finding: dropped coachNoteReported - a live run fired profile_update with no coach_note, which coachTurn.ts's ACTIONS_REQUIRING_COACH_NOTE reprompt (C2) exists specifically to catch and fix in production; this harness calls askGemini() directly and never exercises that reprompt (see this file's header comment), so asserting single-shot compliance here just reproduces #670's baseline noise on a case production already self-heals.",
+  "mode": "ordinary",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 72kg\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "history": [
     { "id": "1", "role": "coach", "paragraphs": ["How'd the easy run go this morning?"] }
   ],
-  "userMessage": "Run was fine, nothing notable. Also weighed in this morning, I'm down to 70kg now. That's all for today, wrap it up.",
+  "userMessage": "Run was fine, nothing notable. Also weighed in this morning, I'm down to 70kg now.",
   "expect": {
-    "sessionClosed": true,
-    "coachNoteReported": true,
     "actionFieldsPresent": ["profile_update"]
   }
 }

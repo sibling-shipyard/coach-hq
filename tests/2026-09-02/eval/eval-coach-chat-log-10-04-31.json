@@ -1,0 +1,81 @@
+[
+  {
+    "kind": "eval",
+    "name": "fsp-quest-create",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n(none yet)\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Got it, strength training twice a week, bad fitness level right now. If you look out 3 to 6 months, what's the one thing you most want to change or achieve? And any injuries I should know about?"
+          ]
+        }
+      ],
+      "userMessage": "By end of 2026, i want to be stronger overall. My shoulder was in bad shape a couple months ago, still recovering, and my left knee has issues too. Also, daily habits - I want to read a book for 10 mins and quit smoking and alcohol."
+    },
+    "output": {
+      "reply": "Got it. Getting stronger is the mission, but we have to be smart about that shoulder and knee. We'll prioritize pain-free range of motion and form. I've locked in both injuries so we protect them.\n\nI've set up your season to run through the end of 2026. If we stick to your 2x/week cadence, that's roughly 34 strength sessions between now and New Year's. I've also built your daily habit trackers: 10 minutes of reading, zero smoking, and zero alcohol. Cutting the smoke and booze is going to be massive for your recovery and strength gains.\n\nReady to put your first week of training on the board? Which two days are we lifting?",
+      "coach_note": "Athlete's main goal is to be stronger overall by the end of 2026. Doing strength training 2x/week. Noted recovering shoulder and left knee issues. Configured season ending 2026-12-31 with a target of 34 strength sessions. Added daily habit trackers for reading (10 mins), no smoking, and no alcohol.",
+      "injury_flag": [
+        {
+          "text": "Right/Left unspecified shoulder - recovering from being in bad shape a couple months ago."
+        },
+        {
+          "text": "Left knee issues."
+        }
+      ],
+      "memory_update": {
+        "label": "fitness_baseline",
+        "text": "Currently at a low fitness level, strength training twice a week. Goal is general strength by end of 2026. Managing a recovering shoulder and left knee issues."
+      },
+      "quest_create": {
+        "quests": [
+          {
+            "name": "Read 10 mins",
+            "type": "daily_streak",
+            "polarity": "default_not_done"
+          },
+          {
+            "name": "No Smoking",
+            "type": "daily_streak",
+            "polarity": "default_done"
+          },
+          {
+            "name": "No Alcohol",
+            "type": "daily_streak",
+            "polarity": "default_done"
+          }
+        ]
+      },
+      "season_start": {
+        "name": "End of 2026 Base Strength",
+        "start_date": "2026-09-02",
+        "end_date": "2026-12-31",
+        "main_quest": {
+          "name": "Strength Sessions",
+          "type": "count_target",
+          "target": 34
+        }
+      }
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected action field \"injury_event\" to be set, but it was absent/empty"
+    ],
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "coach_log.json",
+        "memory.json",
+        "injuries.json",
+        "quests.json",
+        "seasons.json"
+      ]
+    }
+  }
+]
