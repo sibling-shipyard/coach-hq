@@ -14,6 +14,8 @@ SPEC.loader.exec_module(MODULE)
 
 def issue_fixture(**overrides):
     issue = {
+        "number": 747,
+        "state": "open",
         "title": "Core: enforce readable issues",
         "body": (
             "This makes issue intake readable. It keeps the board useful.\n\n"
@@ -63,10 +65,55 @@ class TestPrIssueLink(unittest.TestCase):
             labels=[{"name": "area:core"}, {"name": "needs-triage"}],
         )
         errors = MODULE.linked_issue_errors(
-            [MODULE.IssueLink(747, False)], lambda _number: issue
+            [MODULE.IssueLink(747, False)],
+            lambda _number: issue,
+            lambda _number: None,
         )
         self.assertTrue(any("needs-triage" in error for error in errors))
         self.assertTrue(any("fails the issue contract" in error for error in errors))
+
+    def test_open_m3_task_must_reach_native_epic(self):
+        task = issue_fixture(labels=[{"name": "area:core"}, {"name": "type:chore"}])
+        errors = MODULE.hierarchy_errors(task, lambda _number: None)
+        self.assertEqual(
+            errors,
+            ["#747 does not reach an epic through native parent links."],
+        )
+
+    def test_task_can_reach_epic_through_one_parent(self):
+        task = issue_fixture()
+        parent = issue_fixture(number=748)
+        epic = issue_fixture(number=749, labels=[{"name": "epic"}])
+        parents = {747: parent, 748: epic, 749: None}
+        self.assertEqual(
+            MODULE.hierarchy_errors(task, lambda number: parents[number]), []
+        )
+
+    def test_epic_label_is_rejected_on_child_issue(self):
+        task = issue_fixture(labels=[{"name": "epic"}])
+        epic = issue_fixture(number=749, labels=[{"name": "epic"}])
+        parents = {747: epic, 749: None}
+        errors = MODULE.hierarchy_errors(task, lambda number: parents[number])
+        self.assertIn("#747 is a child issue but has the epic label.", errors)
+
+    def test_root_epic_must_be_open_and_share_milestone(self):
+        task = issue_fixture()
+        epic = issue_fixture(
+            number=749,
+            state="closed",
+            labels=[{"name": "epic"}],
+            milestone={"title": "M4: Ready for strangers"},
+        )
+        parents = {747: epic, 749: None}
+        errors = MODULE.hierarchy_errors(task, lambda number: parents[number])
+        self.assertIn("#747 reaches closed epic #749.", errors)
+        self.assertIn("#747 is M3 but reaches M4 epic #749.", errors)
+
+    def test_closed_and_later_issues_do_not_require_epic_path(self):
+        closed = issue_fixture(state="closed")
+        later = issue_fixture(milestone={"title": "Later"})
+        self.assertEqual(MODULE.hierarchy_errors(closed, lambda _number: None), [])
+        self.assertEqual(MODULE.hierarchy_errors(later, lambda _number: None), [])
 
     def test_status_selection_follows_pr_lifecycle(self):
         cases = [

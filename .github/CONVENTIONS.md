@@ -76,6 +76,11 @@ human view. Every issue uses the contract in `.github/agents/issue-template.md`:
 - Exactly one `area:*` label and one `type:*` label, plus an M3, M4, or Later milestone.
 - Effort is Low / Medium / High in Project 4. The retired `p0`–`p3` labels are not a priority scale.
 
+M3 and M4 use GitHub's native `Epic → parent → task` hierarchy. Every open non-epic issue in
+those milestones has one parent chain whose root is an open epic in the same milestone. Only that
+root carries the `epic` label; parent issues and tasks do not. Intake may remain unparented, but a
+linked implementation PR is blocked until each linked open M3/M4 issue has a valid epic path.
+
 `needs-triage` is automation-owned: it marks a malformed issue and blocks a linked PR. A valid issue
 that still needs a product or scope call uses `needs-decision` and asks one concrete question; do not
 start implementation until that question is answered.

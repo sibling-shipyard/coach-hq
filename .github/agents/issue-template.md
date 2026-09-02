@@ -24,3 +24,5 @@ Branch: `feat/<N>-<brief>` · mid-stack PR: `Refs: #N` · finishing PR: `Fixes: 
 ```
 
 Tech Lead writes issues this way. Workers implement **Done when** only; **P2/P3** goes to backlog, not the PR.
+For M3/M4 work, assign GitHub's native parent chain up to one same-milestone `epic` before linking
+an implementation PR. Only the root epic receives the `epic` label.

@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import urllib.request
+from urllib.error import HTTPError
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -108,21 +109,90 @@ def api_issue(repo, number, token):
         return json.loads(response.read().decode("utf-8"))
 
 
-def linked_issue_errors(links, fetch_issue, validator=run_issue_contract):
+def api_parent_issue(repo, number, token):
+    request = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/issues/{number}/parent",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def label_names(issue):
+    return {
+        label.get("name", "") if isinstance(label, dict) else label
+        for label in issue.get("labels") or []
+    }
+
+
+def hierarchy_errors(issue, fetch_parent):
+    """Require open M3/M4 work to reach one open, same-milestone epic."""
+    if issue.get("state", "open").lower() != "open":
+        return []
+    horizon = normalize_milestone(issue)
+    if horizon not in {"M3", "M4"}:
+        return []
+
+    chain = [issue]
+    seen = {issue.get("number")}
+    while True:
+        current = chain[-1]
+        parent = fetch_parent(current["number"])
+        if parent is None:
+            break
+        number = parent.get("number")
+        if number in seen:
+            return [f"#{issue['number']} has a cycle in its native parent chain."]
+        seen.add(number)
+        chain.append(parent)
+        if len(chain) > 10:
+            return [f"#{issue['number']} has a native parent chain deeper than 10 issues."]
+
+    errors = []
+    for child in chain[:-1]:
+        if "epic" in label_names(child):
+            errors.append(
+                f"#{child['number']} is a child issue but has the epic label."
+            )
+
+    root = chain[-1]
+    if "epic" not in label_names(root):
+        errors.append(
+            f"#{issue['number']} does not reach an epic through native parent links."
+        )
+        return errors
+    if root.get("state", "open").lower() != "open":
+        errors.append(f"#{issue['number']} reaches closed epic #{root['number']}.")
+    root_horizon = normalize_milestone(root)
+    if root_horizon != horizon:
+        errors.append(
+            f"#{issue['number']} is {horizon} but reaches {root_horizon or 'no-milestone'} "
+            f"epic #{root['number']}."
+        )
+    return errors
+
+
+def linked_issue_errors(links, fetch_issue, fetch_parent, validator=run_issue_contract):
     errors = []
     for link in links:
         issue = fetch_issue(link.number)
-        label_names = {
-            label.get("name", "") if isinstance(label, dict) else label
-            for label in issue.get("labels") or []
-        }
-        if "needs-triage" in label_names:
+        if "needs-triage" in label_names(issue):
             errors.append(f"#{link.number} has the needs-triage label.")
 
         result = validator(issue)
         if result.returncode:
             detail = (result.stdout or result.stderr).strip()
             errors.append(f"#{link.number} fails the issue contract:\n{detail}")
+        errors.extend(hierarchy_errors(issue, fetch_parent))
     return errors
 
 
@@ -242,7 +312,9 @@ def check_pr():
     try:
         repo, token = require_repo_and_token("GITHUB_TOKEN")
         errors = linked_issue_errors(
-            links, lambda number: api_issue(repo, number, token)
+            links,
+            lambda number: api_issue(repo, number, token),
+            lambda number: api_parent_issue(repo, number, token),
         )
     except Exception as exc:  # noqa: BLE001 - API failures must fail the merge gate
         print(f"pr-issue-link FAILED: could not validate linked issues: {exc}")
