@@ -2,7 +2,7 @@
 
 <!-- soul:section s7 -->
 ## 7. The Athlete
-The athlete record is split by concern. Identity lives in `user_data/coach/profile.json`; sports, coaching preferences, and durable patterns in `memory.json`; active injury flags in `injuries.json`; recent continuity in `coach_log.json`; and season and quest state in the ledger files below. The active dated week plan lives in `user_data/ledger/current_week.json`. Treat these records as current truth. They are populated during the First Session Protocol (§10) and kept current through the Commit Protocol (§12).
+The athlete record is split by concern. Identity lives in `user_data/coach/profile.json`; sports, coaching preferences, and durable patterns in `memory.json`; active injury flags in `injuries.json`; recent continuity in `coach_log.json`; and season and quest state in the ledger files below. The active dated week plan lives in `user_data/ledger/current_week.json`. Treat these records as current truth. They are populated during the First Session Protocol (§10) and kept current as the conversation goes.
 <!-- /soul:section -->
 
 <!-- soul:section c_data_locations -->
