@@ -15,7 +15,7 @@ import type {
   ProgressJson,
   QuestsJson,
   SeasonsJson,
-} from "../../coach-chat/_lib/coachQuestFiles.js";
+} from "../../coach-chat/_lib/decide/coachQuestFiles.js";
 
 export interface DashboardSnapshotInput {
   activities?: Activity[];

@@ -12,7 +12,7 @@
  */
 import { withSessionCookie } from "./auth/_lib/session.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
-import { loadCoachContext } from "./coach-chat/_lib/coachChatFiles.js";
+import { loadCoachContext } from "./coach-chat/_lib/decide/coachChatFiles.js";
 import { withSentryRoute } from "./_lib/sentry.js";
 
 export default {

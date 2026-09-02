@@ -16,12 +16,12 @@ on:
     branches: [main]
     paths:
       # Prompt construction
-      - 'ui/api/coach-chat/_lib/coachPromptText.ts'
-      - 'ui/api/coach-chat/_lib/coachContext.ts'
+      - 'ui/api/coach-chat/_lib/gemini/coachPromptText.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachContext.ts'
       # Response schema
-      - 'ui/api/coach-chat/_lib/coachReplySchema.ts'
+      - 'ui/api/coach-chat/_lib/gemini/coachReplySchema.ts'
       # Model config
-      - 'ui/api/coach-chat/_lib/geminiClient.ts'
+      - 'ui/api/coach-chat/_lib/gemini/geminiClient.ts'
       # Eval harness and fixtures
       - 'ui/scripts/eval-coach-chat.ts'
       - 'ui/api/coach-chat/_tests/coach-chat-eval/**'

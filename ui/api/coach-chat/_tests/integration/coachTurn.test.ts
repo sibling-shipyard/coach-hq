@@ -9,8 +9,8 @@ const { commitFilesAtomic } = vi.hoisted(() => ({
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
 const { getFileRaw } = vi.hoisted(() => ({ getFileRaw: vi.fn(async () => null) }));
-vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
+vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../_lib/decide/coachChatFiles.js")>();
   return {
     ...original,
     getFileRaw,

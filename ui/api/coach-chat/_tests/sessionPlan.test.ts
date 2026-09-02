@@ -4,7 +4,7 @@ import {
   renumberAfterSkip,
   sessionPath,
   templatePath,
-} from "../_lib/coachWorkoutFiles.js";
+} from "../_lib/decide/coachWorkoutFiles.js";
 import type { Workout } from "../../../client/src/lib/workouts.js";
 
 // coach-redesign workout-backend-wiring §4: session_plan action field. Covers the renumbering

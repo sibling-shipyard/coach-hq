@@ -1,7 +1,7 @@
 // quest_event / quest_create: progress.json and quests.json writes - see coachIntents.ts for the
 // pure appliers this wraps with I/O. Two functions, not one, because they land on different
 // files and fire independently (a turn can log progress without creating a quest, or vice versa).
-import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import { applyQuestEvent, applyQuestCreate, type QuestEvent } from "../coachIntents.js";

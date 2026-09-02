@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   validateQuestEvents,
   validateInjuryEvents,
-} from "../../_lib/turnWrites/validateActions.js";
+} from "../../_lib/decide/turnWrites/validateActions.js";
 
 // D1 layer 3 (#736): pre-validate before any write is built, so a bad reference never reaches
 // the applier's own throw-inside-commit guard in normal operation.

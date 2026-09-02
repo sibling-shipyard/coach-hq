@@ -12,7 +12,7 @@ import type { DashboardSnapshotInput } from "./auth/_lib/generate-widget-snapsho
 import { generateWidgetSnapshotsFromDashboardSnapshot } from "./auth/_lib/generate-widget-snapshots-from-dashboard-snapshot.bundle.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
-import { getFileRaw } from "./coach-chat/_lib/coachChatFiles.js";
+import { getFileRaw } from "./coach-chat/_lib/decide/coachChatFiles.js";
 import { withSentryRoute } from "./_lib/sentry.js";
 
 const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";

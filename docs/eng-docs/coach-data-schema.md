@@ -282,7 +282,7 @@ field set.
 `coach_log.json` section above.
 
 Each field's write path — which `turnWrites/*.ts` file consumes it, which JSON file it lands in —
-is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/turnWrites/README.md); this
+is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/decide/turnWrites/README.md); this
 doc doesn't restate that table, it's the source.
 
 `profile_update.field` enum: `"name" \| "dob" \| "timezone" \| "height_cm" \| "weight_kg"`.

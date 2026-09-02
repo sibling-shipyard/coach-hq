@@ -11,7 +11,7 @@ vi.mock("../../../_lib/httpTimeout.js", () => ({
   UPSTREAM_TIMEOUT_MS: 25_000,
 }));
 
-import { askGemini } from "../../_lib/geminiClient.js";
+import { askGemini } from "../../_lib/gemini/geminiClient.js";
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });

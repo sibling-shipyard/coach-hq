@@ -7,7 +7,7 @@ import {
   type ChatThread,
   type SyncedActivityListAttachment,
   type SyncedActivityRow,
-} from "./chatThreads.js";
+} from "../chatThreads.js";
 
 export interface ActivitySyncRequest {
   action: "activity_sync";

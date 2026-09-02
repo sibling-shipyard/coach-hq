@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
+vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../_lib/decide/coachChatFiles.js")>();
   return {
     ...original,
     getFileRaw: vi.fn(async () => null),
   };
 });
 
-import { buildCoachNoteWrite } from "../../_lib/turnWrites/coachNoteWrite.js";
-import { buildMemoryFileWrite } from "../../_lib/turnWrites/memoryWrite.js";
-import { buildInjuryWrites } from "../../_lib/turnWrites/injuryWrite.js";
+import { buildCoachNoteWrite } from "../../_lib/decide/turnWrites/coachNoteWrite.js";
+import { buildMemoryFileWrite } from "../../_lib/decide/turnWrites/memoryWrite.js";
+import { buildInjuryWrites } from "../../_lib/decide/turnWrites/injuryWrite.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,

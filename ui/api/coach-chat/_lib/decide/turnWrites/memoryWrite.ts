@@ -1,12 +1,12 @@
 // memory_update / coaching_style_update / sports_update: all three land in memory.json, so they
 // share one FileEntry and one usecase file - see coachIntents.ts for the pure appliers this wraps
 // with I/O.
-import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import { applyMemoryUpdate, applyCoachingStyleUpdate, applySportsUpdate } from "../coachIntents.js";
 import { MEMORY_PATH, type MemoryNoteLabel } from "../coachMemoryFiles.js";
-import { capText, MEMORY_NOTE_TEXT_CAP } from "../text-caps.bundle.js";
+import { capText, MEMORY_NOTE_TEXT_CAP } from "../../text-caps.bundle.js";
 
 export interface MemoryUpdateInput {
   label: MemoryNoteLabel;

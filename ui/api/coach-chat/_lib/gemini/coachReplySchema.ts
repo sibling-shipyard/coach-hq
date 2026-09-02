@@ -7,13 +7,13 @@
  * or title. `reasoning` removed too - it was suspected of acting as a release valve, letting the
  * model narrate intent there instead of committing it to coach_note.
  */
-import { MEMORY_NOTE_LABELS, type MemoryNoteLabel } from "./coachMemoryFiles.js";
-import type { WeekPlan, SessionReconcileEvent, PlanEditEvent } from "./coachWeekFiles.js";
+import { MEMORY_NOTE_LABELS, type MemoryNoteLabel } from "../decide/coachMemoryFiles.js";
+import type { WeekPlan, SessionReconcileEvent, PlanEditEvent } from "../decide/coachWeekFiles.js";
 import {
   COACH_LOG_TEXT_CAP,
   MEMORY_NOTE_TEXT_CAP,
   INJURY_FLAG_TEXT_CAP,
-} from "./text-caps.bundle.js";
+} from "../text-caps.bundle.js";
 
 export interface GeminiReply {
   reply: string;

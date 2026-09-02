@@ -1,5 +1,5 @@
 /** Thread model, persistence, title cleanup, and response-time display cap (ADR 0037). */
-import { getFileRaw } from "./coachChatFiles.js";
+import { getFileRaw } from "./decide/coachChatFiles.js";
 
 export const CHAT_FILE_PATH = "user_data/coach/chat_history.json";
 

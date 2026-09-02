@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { withComputedDayOffsets } from "../_lib/coachDay.js";
+import { withComputedDayOffsets } from "../_lib/decide/coachDay.js";
 import type { ChatThread } from "../_lib/chatThreads.js";
 
 // Regression coverage for the stale ageLabel bug: ageLabel used to be written once as the

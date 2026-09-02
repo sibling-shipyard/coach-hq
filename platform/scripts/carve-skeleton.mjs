@@ -43,7 +43,7 @@ const SKELETON_ENGINE_DIRS = ["lib", "core"];
 const WORKOUT_TEMPLATES = ["foundation.json", "strength_a.json"];
 
 // Current schema (post-redesign, ADR-driven split). Shapes sourced from the live TypeScript
-// interfaces — ui/api/coach-chat/_lib/coachMemoryFiles.ts (profile/memory/injuries/coach_log)
+// interfaces — ui/api/coach-chat/_lib/decide/coachMemoryFiles.ts (profile/memory/injuries/coach_log)
 // and coachQuestFiles.ts (seasons/quests/progress/progressions) — those files are the source
 // of truth if this ever drifts; verify against them, don't trust this comment.
 
