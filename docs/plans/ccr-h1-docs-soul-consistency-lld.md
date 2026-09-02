@@ -6,23 +6,27 @@ Execution detail for H1 in [`chat-commit-redesign.md`](chat-commit-redesign.md).
 absolute last — after every other PR in this redesign, so it documents the true final state rather
 than a moving target.
 
-## Closes #735 directly
+## Closes #735 directly — done, and not the way this section originally described
 
-`platform/scripts/validate-soul.mjs`'s writable-set check already found 7 paths §12 (the Commit
-Protocol) writes that §2 ("Your files, your push") doesn't declare:
-`user_data/coach/memory.json`, `user_data/ledger/current_week.json`, `user_data/coach/coach_log.json`,
-`user_data/coach/injuries.json`, `user_data/ledger/progress.json`, `user_data/ledger/quests.json`,
-`user_data/ledger/progressions.json`. Add all 7 to §2's declared list in `platform/soul/A_identity.md`,
-recompose (`node platform/scripts/compose-soul.mjs`), run
-`node platform/scripts/validate-soul.mjs --update-baseline`. This redesign is already editing §2/§12
-adjacent content in several PRs (E1's coaching-style section, C1's closing-ritual removal) — fixing
-this alongside means one recompose pass, not two.
+`platform/scripts/validate-soul.mjs`'s writable-set check found 7 paths §12 (the Commit Protocol)
+writes that §2 ("Your files, your push") appeared not to declare. **Corrected while executing this
+LLD.** The bullet lives in `platform/soul/B_engine.md`'s `s2_guardrails_git` section, not
+`A_identity.md` as this section originally said. It already named all 7 paths - as bare filenames
+sharing an earlier item's directory prefix in prose (e.g. `memory.json` right after
+`user_data/coach/profile.json`). `validate-soul.mjs`'s parser takes every backtick-wrapped token
+containing a `/` as a declared path, with no prefix inheritance, so those bare filenames were
+invisible to it though a human reads the bullet fine. Fixed by writing every path in the bullet
+in full, no implied prefix. Recomposed - confirmed `SOUL.chat.md`'s diff is empty (this section is
+`CLAUDE_ONLY`) and `validate-soul.mjs` reports 0 new findings on both builds. Also ran
+`--update-baseline`, which additionally cleared 9 already-resolved baseline entries this repo had
+carried since before this redesign - the first fully clean `check.sh --quiet` run this whole stack
+has had.
 
 ## Full sweep — every doc this redesign's PRs touch or invalidate
 
 Per `AGENTS.md` § Doc upkeep, run `grep -rl <changed-path> docs/eng-docs/` for every file this
-redesign's PRs actually changed, across A1 through G1, and update or delete what's now stale.
-Known candidates from research already done in this planning pass:
+redesign's PRs actually changed, across A1 through G1. Update or delete what's now stale.
+Known candidates from research already done in this planning pass.
 
 - `docs/eng-docs/coach-chat-design-history.md` — likely references closing-turn behavior C1 removes;
   confirm and update or fold the removed behavior's history into it (design-history docs record
@@ -62,18 +66,21 @@ PR:
 
 ## SOUL version history
 
-Per `AGENTS.md` § Doc upkeep #2: every soul-layer change across this redesign (C1's closing-ritual
+Per `AGENTS.md` § Doc upkeep #2, every soul-layer change across this redesign (C1's closing-ritual
 removal, E1's coaching-style section, any prompt wording from D1/D2's validation work) needs a
-`docs/eng-docs/SOUL_HISTORY.md` entry matching the post-cutover contract (Superpower + short scene +
-2-3 bullets + Why, ~12 lines) — one entry per PR that touched a soul layer, not one giant entry for
-the whole redesign, since each PR merges and ships independently.
+`docs/eng-docs/SOUL_HISTORY.md` entry. It should match the post-cutover contract - Superpower +
+short scene + 2-3 bullets + Why, ~12 lines. One entry per PR that touched a soul layer, not one
+giant entry for the whole redesign, since each PR merges and ships independently.
 
-## Plan-delete-on-last-PR
+## Plan-delete — K1's job, not H1's
 
-Per `AGENTS.md` § Doc upkeep #3: since this is the redesign's own finishing PR, fold anything
-durable from `docs/plans/chat-commit-redesign.md` and its LLDs into the matching eng-docs (mostly
-`coach-chat-design-history.md` and `coach-chat-testing.md`), then **delete the whole
-`docs/plans/ccr-*.md` + `chat-commit-redesign.md` set** in this same PR. Git history is the archive.
+**Correction, made while executing this LLD.** `chat-commit-redesign.md` itself says K1 runs last
+of all, after H1. K1's own LLD (`ccr-k1-final-test-pass-lld.md`) is explicit that it's the PR that
+deletes `docs/plans/chat-commit-redesign.md` and every `ccr-*.md` file, once its live pass is
+green - not H1. This section originally claimed H1 does the deletion; that was written before K1
+existed as its own milestone and never got updated. H1 folds durable content into eng-docs as it
+goes (see the doc sweep above), but leaves every `docs/plans/ccr-*.md` file and
+`chat-commit-redesign.md` itself in place for K1 to delete later.
 
 ## Tests
 
@@ -84,8 +91,8 @@ against the updated baseline.
 ## Done when
 
 #735 closed. No doc under `docs/eng-docs/` cites removed closing-turn behavior, the old retention
-cap, or unresolved placeholder-data issues as current. `docs/plans/chat-commit-redesign*.md` and
-`ccr-*.md` are deleted from the repo, their durable content living on in eng-docs instead.
-`coach-chat-redesign-final-audit.md` deleted, `coach-chat-2026-08-28-test-pass.md` deleted and
-PR #618 closed as superseded, `coach-chat-redesign-testing.md` rewritten to describe the
-post-redesign testing state accurately.
+cap, or unresolved placeholder-data issues as current. `coach-chat-redesign-final-audit.md`
+deleted, PR #618 closed as superseded (its own doc, `coach-chat-2026-08-28-test-pass.md`, never
+merged to any branch this stack is built on - nothing to delete for it),
+`coach-chat-redesign-testing.md` rewritten to describe the post-redesign testing state accurately.
+`docs/plans/chat-commit-redesign*.md` and `ccr-*.md` stay in place - K1 deletes them, not H1.
