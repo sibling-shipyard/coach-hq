@@ -45,24 +45,40 @@ both: carve output plus `platform/agent-kit/{bootstrap,VERSION,README.md}` verba
 2. `bootstrap/update.sh --check` reports drift on a stale marked file, `update.sh` fixes it from the
    local `blocks/` cache, a second `--check` is clean (idempotent) — **verified 2026-09-02**, dogfooded
    into a scratch clone of `coach-skeleton` (a real second repo, local only, nothing pushed).
-3. HQ's own `check.sh` and `validate_kdb.py` stayed green at every phase (P1–P6) — no parallel
+3. `carve-kit.mjs --init <target>` stamps a bare git repo with a working KB scaffold —
+   **verified 2026-09-02** (see below).
+4. HQ's own `check.sh` and `validate_kdb.py` stayed green at every phase (P1–P6) — no parallel
    enforcement copy existed at any point (ADR 0036).
+
+## `--init` — bare-repo scaffold
+
+```bash
+node platform/agent-kit/carve-kit.mjs              # carve to ../agent-kit (existing)
+node platform/agent-kit/carve-kit.mjs --init /path/to/repo [--force]
+```
+
+Stamps Tier-1 invariants (`kdb/scripts/`, `.githooks/`, `platform/scripts/check.sh`) and Tier-3
+local stubs (`AGENTS.md` routing table placeholder, `kdb/decisions/README.md` with index markers,
+role doc skeleton, issue templates). Tier-2 managed blocks start empty inside markers.
+
+After `--init`: link the carved kit as `.agent-kit/` (copy `bootstrap/` + `VERSION`), **`git add`
+and commit the scaffold**, then run `.agent-kit/bootstrap/update.sh`. `update.sh` uses
+`git ls-files` — on a fresh `git init` with no commits it is a no-op.
+
+Add `.agent-kit/` to the consumer's `.gitignore` — the kit is a local install/cache, not
+repo-owned prose.
+
+**Does not stamp:** GitHub workflows, a multi-agent roster, soul layers, or `docs/eng-docs/`.
+Consumers add agents to the routing table and role docs themselves.
 
 ## Known gap
 
-`update.sh` alone does not stamp a *working* KB in a bare repo. `kdb/scripts/validate_kdb.py` also
-needs `kdb/decisions/README.md` (with `gen_adr_index.py`'s index markers) and the role docs it
-cross-checks (`.github/agents/`, `kdb/doc-style.md` from the carved block, an issue template) —
-none of which `carve-kit.mjs` or `update.sh` stamp today. Confirmed by dogfooding: `validate_kdb.py`
-fails loudly (missing-file errors, not a crash) rather than silently passing, so a bare-repo install
-is caught, not silently broken. A `carve-kit.mjs --init <target>` step that stamps those files from
-`templates/` is the fix; out of scope here.
+None for the core carve + bootstrap + init loop.
 
 ## Deferred
 
 - Actually creating `sibling-shipyard/agent-kit` and pushing carve output — deliberate operator
   action, athlete's call on timing.
-- `carve-kit.mjs --init` to stamp a bare repo's KB scaffold (see Known gap).
 - Claude Code plugin + marketplace wrap for `bootstrap/update.sh`.
 - Boundary-drift CI check (PR's changed files vs `CODEOWNERS`) — prove `CODEOWNERS` (#780) at HQ
   first.
