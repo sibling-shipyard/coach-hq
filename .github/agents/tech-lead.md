@@ -139,8 +139,7 @@ nothing and hides the few lines that matter.
 - `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree — it passes locally and fails only in CI.
 - Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
 - Check `gh issue list` before filing audit findings — the roadmap usually tracks them already; a SOUL audit yielded 7 new issues from 13 candidates.
-- Leave the primary checkout on `main` when a subagent finishes — a branch left there catches the next session's commits. Before force-pushing a branch with unexpected commits, rescue them (`git branch rescue/... <sha>`) or you orphan a colleague's only copy.
 - Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is before planning around it.
-- Rebuild a stack when a call reverses mid-way, and never edit a file a later PR in the same stack deletes — appending the reversal makes the stack a diary of your thinking instead of the change.
 - Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
 - `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing: `git log <merge-base>..origin/main -- <the PR's files>` decides if a rebase is needed.
+- Run parsing scripts against a real marked file in review — static regex reading missed an `id="..."` vs bare-word marker mismatch that made update.sh silently no-op on every real file (PR 784).

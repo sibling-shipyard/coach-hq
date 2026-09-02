@@ -112,6 +112,10 @@ above it; the same edit on top costs nothing.
 **Plan docs:** the last PR that finishes a `docs/plans/` plan deletes that plan file in the same
 PR (`AGENTS.md` § Doc upkeep). Git history is the archive.
 
+**If a decision reverses mid-stack,** rebuild from the reversal point — don't append the fix.
+A stack that records your thinking instead of the change is a diary, not a diff.
+Never edit a file that a later PR in the same stack deletes.
+
 ---
 
 <!-- AGENT-KIT:END -->
