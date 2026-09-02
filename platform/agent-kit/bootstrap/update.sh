@@ -99,7 +99,7 @@ for filepath in files:
     
     while i < len(lines):
         line = lines[i]
-        match = re.match(r"^(?P<indent>[ \t]*)<!--\s*AGENT-KIT:START\s+(?P<block>[a-zA-Z0-9_-]+)\s*-->", line)
+        match = re.match(r"^(?P<indent>[ \t]*)<!--\s*AGENT-KIT:START\s+id=\"(?P<block>[^\"]+)\"\s*-->", line)
         if match:
             indent = match.group("indent")
             block_name = match.group("block")
