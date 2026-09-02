@@ -75,7 +75,7 @@ def fetch_block(block_name):
             with urllib.request.urlopen(req_fallback) as response_fallback:
                 return response_fallback.read().decode("utf-8")
         except urllib.error.URLError as e_fallback:
-            print(f"Error fetching block {block_name} from {url}: {e_fallback}", file=sys.stderr)
+            print(f"Error fetching block {block_name} from {fallback_url}: {e_fallback}", file=sys.stderr)
             sys.exit(1)
 
 drift_detected = False
