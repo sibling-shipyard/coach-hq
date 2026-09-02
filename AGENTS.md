@@ -47,6 +47,7 @@ hand-edit a composed SOUL.
 - `ui/` — shared hosted dashboard (HQ-only)
 - `ios/` — HealthKit sync app (HQ-only; commits history to user repo)
 - `platform/scripts/carve-skeleton.mjs` — operator tool to stamp `sibling-shipyard/coach-skeleton`
+- `platform/agent-kit/` — portable agent operating layer, carved from this file + `kdb/scripts/` (ADR 0036, `docs/eng-docs/platform-agent-kit.md`)
 - `.github/agents/` — multi-agent role docs (**HQ only**, not carved)
 - `kdb/` — engineering decisions (**HQ only**)
 - `docs/eng-docs/` — operator/architecture plans (**HQ only**)
