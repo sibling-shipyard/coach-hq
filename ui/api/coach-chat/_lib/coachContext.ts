@@ -25,6 +25,10 @@ export interface CoachContextStorage {
   injuries: InjuriesJson | null;
   coachLog: CoachLogJson | null;
   athleteInsights: AthleteInsightsJson | null;
+  // Athlete-local date (YYYY-MM-DD) - needed so recentSessionNotesSection can call out today's
+  // row by name (C2): coach_note is now a day-keyed overwrite, so Gemini needs to know which row,
+  // if any, it's revising today rather than just seeing it buried in the last-5 history list.
+  today: string;
 }
 
 export interface QuestContextStorage {
@@ -72,13 +76,21 @@ function equipmentSection(memory: MemoryJson | null): string {
   return ["## Equipment", text || "*(None recorded)*"].join("\n");
 }
 
-function recentSessionNotesSection(coachLog: CoachLogJson | null): string {
+function recentSessionNotesSection(coachLog: CoachLogJson | null, today: string): string {
   const rows = coachLog?.rows ?? [];
   const recent = rows.slice(-RECENT_SESSION_WINDOW).reverse(); // most recent first
+  const todaysRow = rows.find((r) => r.date === today);
+  // C2: coach_note is day-keyed now, so today's row (if it exists) is the one a new coach_note
+  // this turn would overwrite - called out by name, separately from the plain history list below,
+  // so Gemini revises it rather than treating it as one more past row to leave alone.
+  const todaysNoteLine = todaysRow
+    ? `**Today's existing note (${today}) - if you write coach_note this turn, this is what it replaces:** ${todaysRow.text}`
+    : `*(No note written yet today.)*`;
   const body =
     recent.length > 0 ? recent.map((r) => `- **${r.date}:** ${r.text}`).join("\n") : "*(Empty)*";
   return [
     `## Recent Session Notes *(rolling — last ${RECENT_SESSION_WINDOW} sessions)*`,
+    todaysNoteLine,
     body,
   ].join("\n");
 }
@@ -376,7 +388,7 @@ export function renderCoachContext(storage: CoachContextStorage): string {
   const sections = [
     profileSection(storage.profile, storage.memory),
     equipmentSection(storage.memory),
-    recentSessionNotesSection(storage.coachLog),
+    recentSessionNotesSection(storage.coachLog, storage.today),
     fitnessSnapshotSection(storage.athleteInsights),
     fitnessBaselineSection(storage.memory),
     activeInjuryFlagsSection(storage.injuries),

@@ -4,9 +4,7 @@ import { MEMORY_NOTE_TEXT_CAP, INJURY_FLAG_TEXT_CAP } from "../../_lib/text-caps
 
 // Issue #462, layer 1: the Gemini responseSchema carries maxLength for the free-text fields it
 // actually exposes, sourced from engine/lib/text-caps.mts so the numbers can't drift from the
-// write-time backstop in turnWrites/*.ts. coach_note's own cap isn't tested here any more - C1
-// removed it from every mode's schema (see the "keeps coach_note off" test below); C2 owns its
-// redesign and its own coverage.
+// write-time backstop in turnWrites/*.ts.
 describe("coachReplySchema text caps", () => {
   it("caps memory_update.text at MEMORY_NOTE_TEXT_CAP", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
@@ -54,11 +52,11 @@ describe("coachReplySchema returning-athlete action fields", () => {
     );
   });
 
-  // coach_note's redesign (a day-keyed row, updated inline) is C2's job - it stays out of the
-  // merged always-available set here, not carried forward from the old closing-only gate.
-  it("keeps coach_note off every turn until C2 redesigns it", () => {
+  // coach_note is day-keyed (coachIntents.ts's applyCoachNote), available on every
+  // returning-athlete turn.
+  it("includes coach_note on a returning-athlete turn", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
-    expect(Object.keys(props)).not.toContain("coach_note");
+    expect(Object.keys(props)).toContain("coach_note");
   });
 });
 

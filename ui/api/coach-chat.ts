@@ -107,6 +107,7 @@ async function handleGreet(
     injuries,
     coachLog,
     athleteInsights,
+    today: todayDateString(timezone, new Date()),
   });
   const questContext = renderQuestContext({
     seasons,

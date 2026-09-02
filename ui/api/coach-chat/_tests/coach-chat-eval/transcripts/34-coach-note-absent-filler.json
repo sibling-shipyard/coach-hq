@@ -1,0 +1,15 @@
+{
+  "name": "coach-note-absent-filler",
+  "description": "C2: coach_note stays genuinely optional on a turn with no other structured write - small talk with nothing worth remembering should not force a note into existence just because the field is now available every turn.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Recent Session Notes (rolling - last 5 sessions)\n*(No note written yet today.)*\n- 2026-08-17: Badminton match, won 2-1.\n- 2026-08-16: Strength session, all sets hit.\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["Morning - how's the week shaping up?"] }
+  ],
+  "userMessage": "Haha yeah it's been a long week, glad it's Friday.",
+  "expect": {
+    "sessionClosed": false,
+    "actionFieldsAbsent": ["coach_note", "quest_event", "profile_update", "memory_update"]
+  }
+}

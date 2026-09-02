@@ -146,9 +146,9 @@ The server owns dates, generated ids, timestamps, commit messages, and thread ti
 reports semantic actions only. `firstSession` is passed explicitly from the profile-completion
 check; prompt construction does not infer mode by searching injected text.
 
-**Text-field length caps (issue #462).** `memory_update.text` and
-`injury_flag[].text`/`injury_event[].text` each carry a `maxLength` in `RESPONSE_PROPERTIES`
-(`coachReplySchema.ts`), sourced from `engine/lib/text-caps.mts`. The same numbers are
+**Text-field length caps (issue #462).** `memory_update.text`,
+`injury_flag[].text`/`injury_event[].text`, and `coach_note` each carry a `maxLength` in
+`RESPONSE_PROPERTIES` (`coachReplySchema.ts`), sourced from `engine/lib/text-caps.mts`. The same numbers are
 restated as a plain-text instruction per field in the prompt (`coachPromptText.ts`). Schema
 `maxLength` is a real constraint Gemini receives, not a guarantee it honors, so the prompt line
 is a second, cheap nudge reading the same constant. See "Retries" below for what happens when
