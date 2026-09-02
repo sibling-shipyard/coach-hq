@@ -33,17 +33,18 @@ resolve its status before prepending the new one:
 ```ts
 const prevSeason = seasons.find((s) => s.id === parsed.current_season_id);
 if (prevSeason && prevSeason.status === "active") {
-  prevSeason.status = today < prevSeason.end_date ? "archived" : "completed";
+  prevSeason.status = today < prevSeason.end_date ? "retired" : "completed";
 }
 ```
 
-- **Started early** (`today < prevSeason.end_date`) → previous season becomes `"archived"` (ended
+- **Started early** (`today < prevSeason.end_date`) → previous season becomes `"retired"` (ended
   before its planned date).
 - **Started after the end date** (`today >= prevSeason.end_date`) → previous season becomes
   `"completed"` (reached its natural end).
 
-`Season.status` (`coachQuestFiles.ts`) needs the two new enum values added:
-`"active" | "completed" | "archived"`.
+No type change needed: `Season.status` (`coachQuestFiles.ts`) is already `"active" | "completed" |
+"retired"` — `"retired"` is declared but never actually written by any code today. This PR is what
+finally gives it a real meaning; don't add a fourth `"archived"` value, use the existing one.
 
 ## Resolved — `main_quest` is season-scoped, not independently settable
 
@@ -60,43 +61,52 @@ for its duration isn't really a season, so the two move as one unit, always. Con
    discouraged in the prompt. `quest_create` keeps handling habit quests (`quests[]`) on their own —
    those aren't season-scoped, this change doesn't touch them.
 3. **The season-transition logic above now carries the quest with it, in the same step.** When the
-   outgoing season resolves to `archived` or `completed`, its `main_quest` (matched by `season_id`)
-   moves into `quests[]` too, marked `status: "superseded"` — same "move it, don't destroy it"
-   discipline as habit quests already get, never silently lost. The new season's `main_quest` is set
-   from `season_start`'s own payload in the same call — never null-and-wait, since the action that
-   creates the season is the same action that sets its goal.
-4. **FSP's existing shape already does this naturally** (Step 4 pairs the goal with `season_start`
-   in one statement per `B_engine.md`) — confirm FSP's actual schema/applier call already matches
-   this bundled shape once this PR lands; if FSP still calls `quest_create.main_quest` separately
-   today, unify it onto the same `season_start`-bundled path rather than keeping two shapes for the
-   same concept.
+   outgoing season resolves to `retired` or `completed`, its `main_quest` (matched by `season_id`)
+   moves into `quests[]` too, marked `status: "retired"`. Same value and same meaning as the season
+   it belonged to — like the season fix above, this is an existing `Quest.status` value
+   (`"active" | "graduated" | "retired"`), not a new one. Same "move it, don't destroy it"
+   discipline as habit quests already get, never silently lost. The new season's `main_quest` is
+   set from `season_start`'s own payload in the same call — never null-and-wait, since the action
+   that creates the season is the same action that sets its goal.
+4. **Verified, not just conditional: `platform/soul/B_engine.md` Step 4 needs rewriting.** It
+   currently instructs the opposite of this PR's design — `quest_create.main_quest` and
+   `season_start` are described as separate, independently-triggered actions ("This is separate
+   from `season_start`... `quest_create` must fire regardless, never skipped because `season_start`
+   already covered part of the same sentence"). Rewrite Step 4 so the goal always rides inside
+   `season_start.main_quest`, never `quest_create.main_quest` (that field no longer exists per this
+   PR). Keep the habit-quests half of Step 4 (`quest_create.quests[]`) as-is — only the goal/season
+   pairing changes. This is a `platform/soul/*.md` edit: run `node platform/scripts/compose-soul.mjs`
+   after, commit both composed builds (`platform/SOUL.chat.md`, `platform/SOUL.claude.md`), and add
+   a `docs/eng-docs/SOUL_HISTORY.md` entry per `AGENTS.md`'s doc-upkeep rule.
 
 This also resolves the earlier open question about accidental overwrites from an ambiguous
-mid-conversation comment — that risk doesn't apply the same way anymore, since a `main_quest` change
-can now only happen alongside an actual season transition, which has its own clear trigger (a real
+mid-conversation comment. That risk doesn't apply the same way anymore: a `main_quest` change can
+now only happen alongside an actual season transition, which has its own clear trigger (a real
 season start), not a passing remark Gemini might misread.
 
 ## Tests
 
 - `coachIntents.test.ts`: `applySeasonStart` — new test asserting a prior active season transitions
-  to `"archived"` when started early, and to `"completed"` when started after its end date; existing
+  to `"retired"` when started early, and to `"completed"` when started after its end date; existing
   FSP case (no prior season) stays unchanged.
 - `coachIntents.test.ts`: same test extended to assert the outgoing season's `main_quest` (matched
-  by `season_id`) moves into `quests[]` with `status: "superseded"` in the same call, and the new
+  by `season_id`) moves into `quests[]` with `status: "retired"` in the same call, and the new
   season's `main_quest` (from `season_start`'s own payload) carries the new `season_id`.
 - `coachReplySchema.test.ts`: confirm a returning, non-first-session turn's schema includes
   `season_start` (with `main_quest` as part of its payload) and `quest_create` (habit quests only —
   confirm `main_quest` is no longer a valid standalone field on `quest_create`).
 - Regression test: `quest_create` called with `main_quest` but no accompanying `season_start` is
   rejected — confirm this can't happen even if attempted, not just discouraged in the prompt.
-- New eval fixture: a returning athlete starting a new season with its goal in the same statement,
-  asserting the old season+quest pair both resolve correctly (archived/completed, superseded) and
-  the new pair lands together.
+- New eval fixture, `32-returning-season-change-with-goal.json` (32 is next available, following
+  `27` through `31` already in `ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`). A
+  returning athlete starts a new season with its goal in the same statement. Assert the old
+  season+quest pair both resolve correctly (retired/completed, retired) and the new pair lands
+  together.
 
 ## Done when
 
 A returning athlete on a scratch branch can say "let's start a new season, with X as my goal" and
-have it land as one action — `quests.json`/`seasons.json` show the new season and its `main_quest`
-sharing a `season_id`, and the previous season's status and its old `main_quest`'s `"superseded"`
-status both resolve correctly depending on timing. Attempting to change `main_quest` without a
-season change is not possible, not just unprompted.
+have it land as one action. `quests.json`/`seasons.json` show the new season and its `main_quest`
+sharing a `season_id`. The previous season's status and its old `main_quest`'s `"retired"` status
+both resolve correctly depending on timing. Attempting to change `main_quest` without a season
+change is not possible, not just unprompted.
