@@ -1,6 +1,6 @@
 {
   "name": "fsp-quest-create",
-  "description": "Issue #674 regression: during First Session, a stated 3-6 month goal and named habit quests must produce season_start (main_quest bundled in, per B3) and quest_create (habit quests[] only), not be dropped or misfiled into memory_update alone. NOTE: this eval harness calls askGemini() with soul: \"\" (see this file's header comment), so it exercises the response schema and coachPromptText.ts logic only - it cannot catch a SOUL-prompt-wording regression. The actual fix for #674 was in platform/soul/B_engine.md and was verified separately with the real composed SOUL text, not via this harness.",
+  "description": "Issue #674 regression: during First Session, a stated 3-6 month goal and named habit quests must produce season_start (main_quest bundled in, per B3) and quest_create (habit quests[] only), not be dropped or misfiled into memory_update alone. NOTE: this eval harness calls askGemini() with soul: \"\" (see this file's header comment), so it exercises the response schema and coachPromptText.ts logic only - it cannot catch a SOUL-prompt-wording regression. The actual fix for #674 was in platform/soul/B_engine.md and was verified separately with the real composed SOUL text, not via this harness. G1 live-eval finding: expect used to name injury_event, stale since #693 split new-injury reporting into injury_flag (brand-new, no id) vs injury_event (update/resolve of an existing flag_id) - both shoulder and knee are stated here for the first time, so injury_flag is correct, confirmed against coachPromptText.ts's own guidance and a live Gemini run.",
   "mode": "ordinary",
   "firstSession": true,
   "stateMd": "## Athlete Profile\n- **Name:** Testing\n- **Sport(s) / Activities:** Strength Training\n- **Goal:** (not yet set)\n- **Timeline / Upcoming events:** (not yet set)\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
@@ -16,7 +16,6 @@
   ],
   "userMessage": "By end of 2026, i want to be stronger overall. My shoulder was in bad shape a couple months ago, still recovering, and my left knee has issues too. Also, daily habits - I want to read a book for 10 mins and quit smoking and alcohol.",
   "expect": {
-    "sessionClosed": false,
-    "actionFieldsPresent": ["season_start", "quest_create", "injury_event"]
+    "actionFieldsPresent": ["season_start", "quest_create", "injury_flag"]
   }
 }

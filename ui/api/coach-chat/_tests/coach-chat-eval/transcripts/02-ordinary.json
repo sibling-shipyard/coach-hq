@@ -1,6 +1,6 @@
 {
   "name": "ordinary",
-  "description": "Ordinary check-in turn, nothing that needs closing - should not close. Consistency touch for PR #428: added actionFieldsAbsent so 'nothing fires on an ordinary turn' is explicit and testable, not just implied by sessionClosed=false - all closing-only action fields must stay unset outside a closing turn. No extraContext added - none of these fields are reachable on an ordinary turn regardless of what context is available.",
+  "description": "G1 rewrite: post-C1 there is no closing ritual left, so an ordinary check-in that says something worth remembering should just commit right there - no 'wrap this up' phrasing anywhere in the message. This is the core claim C1/C2 make: every turn commits what it produces, immediately, not just a turn that asks to close. G1 live-eval finding: an earlier draft also asserted memory_update absent, but a live run correctly fired it (label fitness_baseline) off 'held goal pace, felt controlled' - that's legitimate durable context worth remembering, not a bug, so the assertion was dropped rather than the behavior fought.",
   "mode": "ordinary",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
@@ -11,11 +11,10 @@
       "paragraphs": ["Morning - how are the legs after yesterday's tempo run?"]
     }
   ],
-  "userMessage": "Legs feel a bit heavy today but nothing alarming, heading out for an easy run now.",
+  "userMessage": "Legs feel a bit heavy today but nothing alarming. Did the tempo run yesterday at goal pace the whole way, felt controlled.",
   "expect": {
-    "sessionClosed": false,
+    "coachNoteReported": true,
     "actionFieldsAbsent": [
-      "memory_update",
       "injury_event",
       "quest_event",
       "profile_update",

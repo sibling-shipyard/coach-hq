@@ -1,0 +1,52 @@
+[
+  {
+    "kind": "eval",
+    "name": "profile-update",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 72kg\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "How'd the easy run go this morning?"
+          ]
+        }
+      ],
+      "userMessage": "Run was fine, nothing notable. Also weighed in this morning, I'm down to 70kg now."
+    },
+    "output": {
+      "reply": "Solid work getting the run in, consistency is what gets us to that sub-45. I've logged the weight drop down to 70kg. Tracking well!",
+      "profile_update": [
+        {
+          "field": "weight_kg",
+          "value": "70"
+        }
+      ],
+      "session_reconcile": [],
+      "template_edit": {
+        "template_id": ""
+      },
+      "week_plan": {
+        "headline": "",
+        "body": "",
+        "days": []
+      }
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected a non-empty coach_note, got none"
+    ],
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "profile.json",
+        "workout_plans/templates/<id>.json (template_edit, id not derivable)",
+        "current_week.json"
+      ]
+    }
+  }
+]

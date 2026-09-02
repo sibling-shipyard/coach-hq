@@ -1,14 +1,14 @@
 {
   "name": "greeting",
-  "description": "Coach speaks first (A4) - no athlete message yet, must not close. Consistency touch for PR #428: added actionFieldsAbsent so 'nothing fires on a greeting' is an explicit, testable assertion rather than just implied by sessionClosed=false - a greeting has no athlete message at all, so no closing-only action field should ever be present. No extraContext added - a greeting has nothing for Gemini to reference yet.",
+  "description": "Coach speaks first (A4) - no athlete message yet, nothing should fire. Post-C1 cleanup (G1): dropped sessionClosed - there is no closing concept left to assert on, session_closed isn't even a field on GeminiReply anymore. actionFieldsAbsent alone is the real assertion here. No extraContext added - a greeting has nothing for Gemini to reference yet.",
   "mode": "greeting",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "history": [],
   "userMessage": "",
   "expect": {
-    "sessionClosed": false,
     "actionFieldsAbsent": [
+      "coach_note",
       "memory_update",
       "injury_event",
       "quest_event",
