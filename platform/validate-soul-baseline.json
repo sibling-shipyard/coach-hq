@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-16",
+  "generated_at": "2026-09-02",
   "why": "Known validate-soul findings as of the SOUL v5.8 trim PR 1, which changes no SOUL words. PRs 2-4 burn this down; the CI step flips to blocking when it reaches zero. Regenerate with: node platform/scripts/validate-soul.mjs --update-baseline",
   "causes": {
     "rot": "Dead instruction — path doesn't exist, was never writable, or the rule is obsolete. The trim fixes these.",
@@ -8,32 +8,12 @@
   },
   "findings": [
     {
-      "id": "chat::propagated-docs::propagated/docs/current-week-contract.md",
-      "cause": "rot"
-    },
-    {
-      "id": "chat::propagated-docs::propagated/docs/timer-state-machine.md",
-      "cause": "rot"
-    },
-    {
       "id": "chat::templates::recovery.json",
       "cause": "rot"
     },
     {
       "id": "chat::templates::strength_b.json",
       "cause": "rot"
-    },
-    {
-      "id": "chat::writable::user_data/activities/workout_plans/sessions",
-      "cause": "not-yet-rebuilt"
-    },
-    {
-      "id": "chat::writable::user_data/activities/workout_plans/sessions/YYYY-MM-DD_<workout_id>.json",
-      "cause": "not-yet-rebuilt"
-    },
-    {
-      "id": "chat::writable::user_data/ledger/current_week.json",
-      "cause": "not-yet-rebuilt"
     },
     {
       "id": "claude::paths-exist::gen/badminton_analytics_snapshot.json",
@@ -48,27 +28,11 @@
       "cause": "rot"
     },
     {
-      "id": "claude::propagated-docs::propagated/docs/current-week-contract.md",
-      "cause": "rot"
-    },
-    {
       "id": "claude::propagated-docs::propagated/docs/phelps-voice-profile.md",
       "cause": "rot"
     },
     {
-      "id": "claude::propagated-docs::propagated/docs/pipeline-tools.md",
-      "cause": "rot"
-    },
-    {
-      "id": "claude::propagated-docs::propagated/docs/season-close.md",
-      "cause": "rot"
-    },
-    {
       "id": "claude::propagated-docs::propagated/docs/soul-calibration.md",
-      "cause": "rot"
-    },
-    {
-      "id": "claude::propagated-docs::propagated/docs/timer-state-machine.md",
       "cause": "rot"
     },
     {
