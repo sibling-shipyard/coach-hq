@@ -459,6 +459,34 @@ export function turnErrorToastMessage(err: unknown): string | null {
   return err instanceof Error ? err.message : "Coach didn't reply - try again";
 }
 
+// I1: the three real D1 failure shapes each get their own accurate message instead of one
+// generic "something went wrong" - extracted as pure functions (rather than left inline in
+// CoachChat.tsx's catch block) purely so they're independently testable without mocking a fetch
+// round trip. CoachChat.tsx calls these and is the only caller.
+
+/** A turn succeeded but the server dropped one of the athlete's writes (a D1 validation
+ * rejection) - distinct from a save failure: Coach's reply is fine and already committed, only
+ * one field of it wasn't. Returns null when there's nothing to report. */
+export function droppedActionToastMessage(droppedActions?: DroppedAction[]): string | null {
+  if (!droppedActions || droppedActions.length === 0) return null;
+  return "Coach couldn't quite save one of your updates - it wasn't lost, just skipped";
+}
+
+/** What to tell the athlete when a turn throws. Returns null for
+ * CoachChatAccessRevokedError - CoachChat.tsx handles that with the "sign in again" card, not a
+ * toast. */
+export function turnErrorToastMessage(err: unknown): string | null {
+  if (err instanceof CoachChatAccessRevokedError) return null;
+  if (err instanceof CoachChatSaveFailedError) {
+    // Commit failure: Gemini's reply is real and already shown - this is honest about what
+    // specifically didn't save, not "Coach didn't reply" (which would be false: it did).
+    return "Coach replied, but I couldn't save it — try again?";
+  }
+  // Covers CoachChatRateLimitedError (its own message already explains the wait) and a
+  // generic Gemini-call failure where Coach never got to reply at all.
+  return err instanceof Error ? err.message : "Coach didn't reply — try again";
+}
+
 // Mirrors githubGitData.ts's isTransient: retry a network failure or 5xx/429, never a 4xx
 // rejection (400/401/etc are real answers, not blips to paper over).
 function isTransientStatus(status: number): boolean {
