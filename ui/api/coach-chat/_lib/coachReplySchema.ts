@@ -57,16 +57,23 @@ export interface GeminiReply {
   session_reconcile?: SessionReconcileEvent[];
   // See responseSchema's plan_edit and PlanEditEvent.
   plan_edit?: PlanEditEvent[];
-  // See responseSchema's season_start for scope and rationale.
-  season_start?: { name: string; start_date: string; end_date: string };
-  // See responseSchema's quest_create for scope and rationale.
-  quest_create?: {
-    main_quest?: {
+  // See responseSchema's season_start for scope and rationale. main_quest is bundled in, not
+  // optional (B3) - a season without a fixed goal for its duration isn't really a season, and
+  // the two now always move as one unit, always.
+  season_start?: {
+    name: string;
+    start_date: string;
+    end_date: string;
+    main_quest: {
       name: string;
       type: "daily_streak" | "progress" | "count_target" | "weekly_frequency";
       target: number;
       count_pattern?: string;
     };
+  };
+  // See responseSchema's quest_create for scope and rationale. Habit quests only (B3) - the main
+  // goal moved to season_start.main_quest; there is no standalone way to set it here anymore.
+  quest_create?: {
     quests?: {
       name: string;
       type: "daily_streak" | "progress" | "count_target" | "weekly_frequency";
@@ -274,23 +281,18 @@ const RESPONSE_PROPERTIES = {
       required: ["session_id", "discipline", "kind", "title"],
     },
   },
-  // First Session Protocol only - creates the athlete's first and only season through this
-  // field. There is no returning-athlete season-change path anywhere in the system - Weekly
-  // Kick-off/Sunday Session never write seasons.json, only current_week.json.
+  // Available to every athlete, first session or returning (B3) - starts a new season and its
+  // goal together, one atomic action. main_quest is required, not optional: starting a season
+  // without a goal, or setting a goal without starting a season, are both structurally
+  // impossible now, not just discouraged in the prompt. The server resolves the outgoing
+  // season's status and retires its old main_quest into quests.json in the same commit -
+  // coachIntents.ts's applySeasonStart.
   season_start: {
     type: "object",
     properties: {
       name: { type: "string" },
       start_date: { type: "string" },
       end_date: { type: "string" },
-    },
-    required: ["name", "start_date", "end_date"],
-  },
-  // First Session Protocol only - creates the athlete's main quest and any habit quests.
-  // Never used for a returning athlete's quest changes - there is no such path.
-  quest_create: {
-    type: "object",
-    properties: {
       main_quest: {
         type: "object",
         properties: {
@@ -304,6 +306,15 @@ const RESPONSE_PROPERTIES = {
         },
         required: ["name", "type", "target"],
       },
+    },
+    required: ["name", "start_date", "end_date", "main_quest"],
+  },
+  // Available to every athlete, first session or returning (B3) - habit quests only. The main
+  // goal moved to season_start.main_quest (above); there is no field here to set it anymore, so
+  // a goal change without an actual season change is structurally impossible.
+  quest_create: {
+    type: "object",
+    properties: {
       quests: {
         type: "array",
         items: {
@@ -341,6 +352,8 @@ const FSP_ACTIONS = [
 
 // Available on every turn for a returning athlete, closing or not (#616) - these report facts
 // the athlete just stated, not a session artifact that needs the closing ritual around it.
+// season_start and quest_create joined this set in B3 - a returning athlete can start a new
+// season with its goal, or add a habit quest, the same as during First Session, on any turn.
 const RETURNING_DATA_FACT_ACTIONS = [
   "memory_update",
   "sports_update",
@@ -348,6 +361,8 @@ const RETURNING_DATA_FACT_ACTIONS = [
   "injury_event",
   "quest_event",
   "profile_update",
+  "season_start",
+  "quest_create",
 ] as const satisfies readonly ResponseField[];
 
 // Session artifacts still gated to closing turns only - removed from "closing" entirely in C1,

@@ -58,6 +58,7 @@ import { buildMemoryFileWrite } from "./turnWrites/memoryWrite.js";
 import { buildInjuryWrites } from "./turnWrites/injuryWrite.js";
 import { buildQuestEventWrite, buildQuestCreateWrite } from "./turnWrites/questWrite.js";
 import { buildSeasonStartWrite } from "./turnWrites/seasonWrite.js";
+import { applyQuestCreate } from "./coachIntents.js";
 import { buildProfileUpdateWrite, projectProfileCompletion } from "./turnWrites/profileWrite.js";
 import { buildTemplateEditWrite, buildSessionPlanWrite } from "./turnWrites/workoutWrite.js";
 import { buildCurrentWeekWrite } from "./turnWrites/weekWrite.js";
@@ -487,11 +488,24 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     turn.validTemplateIds,
   );
 
+  const today = todayDateString(timezone, new Date());
+
   const seasonStart = reply.season_start;
-  const seasonStartWrite = buildSeasonStartWrite(repo, token, traceId, seasonStart);
+  const seasonStartWrites = buildSeasonStartWrite(repo, token, timezone, traceId, seasonStart);
 
   const questCreate = reply.quest_create;
-  const questCreateWrite = buildQuestCreateWrite(repo, token, timezone, traceId, questCreate);
+  let questCreateWrite = buildQuestCreateWrite(repo, token, timezone, traceId, questCreate);
+
+  // season_start's main_quest write and quest_create's habit-quest write can both target
+  // quests.json in the same turn - merge them into one resolver, same discipline as the
+  // profile_update/coach_since merge below (commitFilesAtomic does not merge duplicate paths).
+  if (seasonStartWrites && questCreateWrite) {
+    const resolveSeasonQuests = seasonStartWrites.questWrite.resolve;
+    const questCreateForTurn = questCreate!;
+    seasonStartWrites.questWrite.resolve = async () =>
+      applyQuestCreate(await resolveSeasonQuests(), questCreateForTurn, today, traceId, new Date());
+    questCreateWrite = undefined;
+  }
 
   const { wasProfileComplete, profileComplete, projectedProfile, projectedMemory } =
     projectProfileCompletion({
@@ -502,6 +516,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       sportsUpdate,
       hasSportsUpdate,
       seasonStart,
+      today,
       traceId,
     });
 
@@ -532,13 +547,16 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     validUpdates = validUpdates.filter((update) => update.path !== PROFILE_PATH);
   }
 
+  // seasonWrite must precede questWrite here - buildSeasonStartWrite's questWrite.resolve()
+  // reuses seasonWrite.resolve()'s cached computation and depends on it running first.
   const fspCandidates = [
     ...validUpdates,
     memoryFileWrite,
     injuryWrite,
     questEventWrite,
     profileUpdateWrite,
-    seasonStartWrite,
+    seasonStartWrites?.seasonWrite,
+    seasonStartWrites?.questWrite,
     questCreateWrite,
   ];
   const optionalWrites = [
@@ -550,7 +568,8 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     templateEditWrite,
     sessionPlanWrite,
     currentWeekWrite,
-    seasonStartWrite,
+    seasonStartWrites?.seasonWrite,
+    seasonStartWrites?.questWrite,
     questCreateWrite,
   ].filter((write): write is FileEntry => write != null);
 

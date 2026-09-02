@@ -377,53 +377,120 @@ function mintId(prefix: string, name: string): string {
   return `${prefix}_${slug || "x"}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
-// season_start { name, start_date, end_date }: First Session Protocol bug fix - there was no
-// write path to create a season at all, only applyQuestEvent logging progress against one that
-// already existed. FSP's quest-setup step needs to create the very first season. Server mints
-// the season id and sets it as current_season_id; the new season is prepended (newest-first, per
-// coachQuestFiles.ts's own doc comment on SeasonsJson.seasons) with status "active". No `phase`
-// field - Season doesn't have one, not inventing schema here.
+export interface SeasonStartResult {
+  seasonsContent: string;
+  questsContent: string;
+}
+
+// season_start { name, start_date, end_date, main_quest }: available to every athlete now, not
+// just First Session (B3) - resolves the outgoing season (if any) and moves its goal aside in
+// the same call, so a returning athlete can never leave a dangling "active" season behind.
+// Server mints the new season id and sets it current; the new season is prepended (newest-first,
+// per coachQuestFiles.ts's own doc comment on SeasonsJson.seasons) with status "active". No
+// `phase` field - Season doesn't have one, not inventing schema here.
+//
+// A prior current season that's still "active" resolves now: started early (before its own
+// end_date) becomes "retired", started after its end_date becomes "completed" - both already-
+// declared Season.status values, no new enum added. Its own main_quest (matched by season_id,
+// never just "whatever's on file" - an unrelated main_quest is never swept up) moves into
+// quests[] too, marked "retired" - same "move it, don't destroy it" discipline habit quests
+// already get. The new season's main_quest is set straight from this same call's payload -
+// never null-and-wait, since one action creates the season and its goal together.
 export function applySeasonStart(
-  content: string | null,
-  input: { name: string; start_date: string; end_date: string },
+  seasonsContent: string | null,
+  questsContent: string | null,
+  input: {
+    name: string;
+    start_date: string;
+    end_date: string;
+    main_quest: { name: string; type: QuestType; target: number; count_pattern?: string };
+  },
+  today: string,
   traceId: string,
   now: Date,
-): string {
-  const parsed = parseJsonOrNull<Partial<SeasonsJson>>(content) ?? {};
-  const seasons: Season[] = Array.isArray(parsed.seasons) ? parsed.seasons : [];
+): SeasonStartResult {
+  const parsedSeasons = parseJsonOrNull<Partial<SeasonsJson>>(seasonsContent) ?? {};
+  const seasons: Season[] = Array.isArray(parsedSeasons.seasons) ? parsedSeasons.seasons : [];
 
-  const id = mintId("season", input.name);
+  const prevSeason = seasons.find((s) => s.id === parsedSeasons.current_season_id);
+  let outgoingSeason: Season | null = null;
+  if (prevSeason && prevSeason.status === "active") {
+    prevSeason.status = today < prevSeason.end_date ? "retired" : "completed";
+    outgoingSeason = prevSeason;
+  }
+
+  const newSeasonId = mintId("season", input.name);
   const season: Season = {
-    id,
+    id: newSeasonId,
     name: input.name.trim(),
     start_date: input.start_date,
     end_date: input.end_date,
     status: "active",
   };
 
-  const result: SeasonsJson = {
+  const seasonsResult: SeasonsJson = {
     version: 1,
     _meta: { updated_at: now.toISOString(), updated_by: "model", trace_id: traceId },
-    current_season_id: id,
+    current_season_id: newSeasonId,
     seasons: [season, ...seasons],
   };
 
-  return JSON.stringify(result, null, 2);
+  const parsedQuests = parseJsonOrNull<Partial<QuestsJson>>(questsContent) ?? {};
+  let quests: Quest[] = Array.isArray(parsedQuests.quests) ? parsedQuests.quests : [];
+
+  const outgoingMainQuest = parsedQuests.main_quest;
+  if (outgoingSeason && outgoingMainQuest && outgoingMainQuest.season_id === outgoingSeason.id) {
+    quests = [
+      ...quests,
+      {
+        id: outgoingMainQuest.id,
+        name: outgoingMainQuest.name,
+        type: outgoingMainQuest.type,
+        start_date: outgoingSeason.start_date,
+        end_date: today,
+        status: "retired",
+        target: outgoingMainQuest.target,
+        ...(outgoingMainQuest.count_pattern
+          ? { count_pattern: outgoingMainQuest.count_pattern }
+          : {}),
+        source: "model",
+      },
+    ];
+  }
+
+  const mainQuest: MainQuest = {
+    id: mintId("mq", input.main_quest.name),
+    name: input.main_quest.name.trim(),
+    type: input.main_quest.type,
+    target: input.main_quest.target,
+    season_id: newSeasonId,
+    ...(input.main_quest.count_pattern ? { count_pattern: input.main_quest.count_pattern } : {}),
+  };
+
+  const questsResult: QuestsJson = {
+    version: 1,
+    _meta: { updated_at: now.toISOString(), updated_by: "model", trace_id: traceId },
+    weekly_targets: parsedQuests.weekly_targets ?? {},
+    main_quest: mainQuest,
+    quests,
+  };
+
+  return {
+    seasonsContent: JSON.stringify(seasonsResult, null, 2),
+    questsContent: JSON.stringify(questsResult, null, 2),
+  };
 }
 
-// quest_create { main_quest?, quests? }: First Session Protocol bug fix - applyQuestEvent only
-// ever logs progress against an existing quest_id and throws if it doesn't exist yet, so FSP's
-// quest-setup step (main goal, habit quests, season dates) had nothing to write to. Server mints
-// every id; FSP-created quests are source "model" (Coach is structuring them from the
-// conversation, not the athlete typing them directly into quests.json themselves) - the design
-// doc's own resolved question on this. main_quest, when given, replaces the file's current
-// main_quest entirely (there's only ever one). New quests are appended to quests[], status
-// "active", start_date today, end_date null - same "server owns bookkeeping" discipline as every
-// other applier in this file.
+// quest_create { quests? }: habit quests only - a goal can only ever change together with a
+// season change (via applySeasonStart), so this function never touches main_quest; whatever is
+// already on file passes through untouched. Server mints every id; FSP-created quests are source
+// "model" (Coach is structuring them from the conversation, not the athlete typing them directly
+// into quests.json themselves) - the design doc's own resolved question on this. New quests are
+// appended to quests[], status "active", start_date today, end_date null - same "server owns
+// bookkeeping" discipline as every other applier in this file.
 export function applyQuestCreate(
   content: string | null,
   input: {
-    main_quest?: { name: string; type: QuestType; target: number; count_pattern?: string };
     quests?: {
       name: string;
       type: QuestType;
@@ -438,20 +505,7 @@ export function applyQuestCreate(
 ): string {
   const parsed = parseJsonOrNull<Partial<QuestsJson>>(content) ?? {};
   const existingQuests: Quest[] = Array.isArray(parsed.quests) ? parsed.quests : [];
-
-  let mainQuest: MainQuest | null = parsed.main_quest ?? null;
-  if (input.main_quest) {
-    mainQuest = {
-      id: mintId("mq", input.main_quest.name),
-      name: input.main_quest.name.trim(),
-      type: input.main_quest.type,
-      target: input.main_quest.target,
-      ...(input.main_quest.count_pattern ? { count_pattern: input.main_quest.count_pattern } : {}),
-    };
-  }
-
-  // A quest_create call with no main_quest given and none on file is legal now - habit quests
-  // stated before any goal. mainQuest stays null and quests.json genuinely has no main_quest yet.
+  const mainQuest: MainQuest | null = parsed.main_quest ?? null;
 
   const newQuests: Quest[] = (input.quests ?? []).map((q) => ({
     id: mintId("q", q.name),
