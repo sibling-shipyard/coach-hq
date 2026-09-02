@@ -58,8 +58,9 @@ export interface Quest {
   target?: number;
   // progress only.
   unit?: string;
-  // weekly_frequency only - carried over from MainQuest when an outgoing season's goal retires
-  // into this array (B3), same "move it, don't destroy it" discipline habit quests already get.
+  // count_target only (same field MainQuest carries for activity-name matching) - carried over
+  // when an outgoing season's goal retires into this array (B3), same "move it, don't destroy
+  // it" discipline habit quests already get.
   count_pattern?: string;
   source: "model" | "athlete";
 }
