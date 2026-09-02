@@ -621,7 +621,13 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   // already committed via optionalWrites) the two notes are combined into that single write
   // instead of sending both.
   const droppedActionsNote = formatDroppedActionsNote(droppedActions);
-  const droppedActionsWrite = buildCoachNoteWrite(repo, token, timezone, traceId, droppedActionsNote);
+  const droppedActionsWrite = buildCoachNoteWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    droppedActionsNote,
+  );
   const coachNoteWrite = buildCoachNoteWrite(
     repo,
     token,
