@@ -24,6 +24,8 @@ function baseTurnState(overrides: Record<string, unknown> = {}) {
     firstSession: false,
     now: Date.now(),
     traceId: "trace-1",
+    validQuestIds: new Set<string>(["q1"]),
+    validInjuryFlagIds: new Set<string>(["inj_1"]),
     ...overrides,
   } as unknown as Parameters<typeof requestCoachReply>[0];
 }
@@ -140,6 +142,95 @@ describe("requestCoachReply missing-coach_note reprompt (C2)", () => {
       profile_update: [{ field: "weight_kg", value: "76" }],
       coach_note: "Athlete reported new weight: 76kg.",
       reply: "ok",
+    });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
+// D1 (#736), layer 2: a hallucinated/stale quest_id or flag_id gets one corrective reprompt,
+// naming the actual valid ids, before layer 3 (buildTurnWrites) would have to drop the action.
+describe("requestCoachReply invalid-reference reprompt (D1 #736, layer 2)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it("reprompts once on an invalid quest_id and commits the retry's corrected id", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Logged it.",
+        coach_note: "Marked the quest.",
+        quest_event: [{ quest_id: "q99", status: "completed" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Logged it.",
+        coach_note: "Marked the quest.",
+        quest_event: [{ quest_id: "q1", status: "completed" }],
+      });
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.quest_event).toEqual([
+      { quest_id: "q1", status: "completed" },
+    ]);
+  });
+
+  it("reprompts once on an invalid flag_id and commits the retry's corrected id", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Noted.",
+        coach_note: "Updated an injury.",
+        injury_event: [{ status: "resolved", flag_id: "inj_bogus" }],
+      })
+      .mockResolvedValueOnce({
+        reply: "Noted.",
+        coach_note: "Updated an injury.",
+        injury_event: [{ status: "resolved", flag_id: "inj_1" }],
+      });
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.injury_event).toEqual([
+      { status: "resolved", flag_id: "inj_1" },
+    ]);
+  });
+
+  it("does not reprompt a second time if the retry is still bad, but logs it for layer 3 to drop", async () => {
+    const stillBad = { quest_id: "q99", status: "completed" as const };
+    askGemini
+      .mockResolvedValueOnce({
+        reply: "Logged it.",
+        coach_note: "Marked the quest.",
+        quest_event: [stillBad],
+      })
+      .mockResolvedValueOnce({
+        reply: "Logged it.",
+        coach_note: "Marked the quest.",
+        quest_event: [stillBad],
+      });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.quest_event).toEqual([stillBad]);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[coach-chat] reply still referenced an invalid id after reprompt, layer 3 will drop it:",
+      expect.objectContaining({ field: "quest_event", badId: "q99" }),
+      expect.objectContaining({ traceId: "trace-1" }),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("does not reprompt when every referenced id is valid", async () => {
+    askGemini.mockResolvedValueOnce({
+      reply: "Logged it.",
+      coach_note: "Marked the quest.",
+      quest_event: [{ quest_id: "q1", status: "completed" }],
     });
 
     await requestCoachReply(baseTurnState());

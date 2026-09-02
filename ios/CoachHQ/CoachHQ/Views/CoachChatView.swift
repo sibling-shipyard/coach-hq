@@ -1,3 +1,4 @@
+import Sentry
 import SwiftUI
 
 /// Native Coach Chat — Warm Instrument continuous landing (`Coach Chat Mobile.dc.html` Turn 1).
@@ -802,6 +803,33 @@ struct CoachChatView: View {
             if result.stale == true {
                 toast = Toast(kind: .info, message: "Coach caught up on changes from your other device")
             }
+
+            // D1 (#736): a firm requirement, not left to Coach's own reply happening to mention
+            // it - an explicit, honest indicator whenever something was dropped, and a
+            // client-side Sentry capture so the pattern is visible from both ends, not just the
+            // backend's. Mirrors web's toast.info() + Sentry.captureMessage() in CoachChat.tsx.
+            // Nothing else needed here - `threads` (trusted above) already carries the reply.
+            if let dropped = result.droppedActions, !dropped.isEmpty {
+                toast = Toast(kind: .info, message: "Coach couldn't quite save one of your updates - it wasn't lost, just skipped")
+                SentrySDK.capture(message: "coach-chat: droppedActions in turn response") { scope in
+                    scope.setLevel(.warning)
+                    scope.setTag(value: String(dropped.count), key: "dropped_count")
+                    scope.setContext(value: ["dropped_actions": dropped.map { ["field": $0.field, "reason": $0.reason] }], key: "coach_turn")
+                }
+            }
+        } catch let error as CoachChatSaveFailedError {
+            // D1 (#736): a save failure that still carries Coach's reply is not "Coach didn't
+            // reply" - Gemini did its job, only the write failed. Keep the optimistic user
+            // message and show the reply text (rather than rolling everything back like every
+            // other failure below), with a clear, distinct "couldn't save that" indicator -
+            // parity with web's CoachChatSaveFailedError handling in CoachChat.tsx.
+            let coachMsg = ChatMessage.coach(id: "c-\(now)", paragraphs: [error.reply])
+            if let idx = threads.firstIndex(where: { $0.id == liveThreadId }) {
+                threads[idx].messages.append(coachMsg)
+                activeThreadId = liveThreadId
+                cacheThreadLocally(threads[idx])
+            }
+            errorMessage = UserFacingError.friendlyMessage(for: error)
         } catch let error as GitHubAPIError {
             rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
             if case .notAuthenticated = error {

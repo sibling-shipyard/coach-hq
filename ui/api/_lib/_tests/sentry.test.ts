@@ -179,6 +179,63 @@ describe("captureGeminiFailure", () => {
   });
 });
 
+// D1 (#736): a rejected/dropped structured-fact action (layer 3's applier/commit failure) must
+// be visible from Sentry alone, the same discipline captureGeminiFailure gives a whole-turn
+// failure above - this is the applier/commit half issue #736 called out as uninstrumented.
+describe("captureValidationFailure", () => {
+  const VALIDATION_DETAILS = {
+    traceId: "ab12cd34",
+    field: "quest_event",
+    reason: 'no quest with id "q99" - it may be stale or hallucinated',
+  };
+
+  beforeEach(() => {
+    captureException.mockClear();
+    flush.mockClear();
+    init.mockClear();
+    process.env.SENTRY_DSN = "https://public@o0.ingest.de.sentry.io/1";
+  });
+
+  afterEach(() => {
+    delete process.env.SENTRY_DSN;
+  });
+
+  it("tags the field and carries the reason in context", async () => {
+    const { captureValidationFailure } = await loadSentry();
+    const error = new Error('quest_event: no quest with id "q99" in quests.json');
+
+    const result = await captureValidationFailure(error, VALIDATION_DETAILS);
+
+    expect(captureException).toHaveBeenCalledWith(error, {
+      tags: { vercel_trace_id: "ab12cd34", validation_field: "quest_event" },
+      contexts: { coach_turn: { reason: VALIDATION_DETAILS.reason } },
+    });
+    expect(result).toEqual({ eventId: "event-id", sent: true });
+  });
+
+  it("omits vercel_trace_id on paths that mint no trace id", async () => {
+    const { captureValidationFailure } = await loadSentry();
+
+    await captureValidationFailure(new Error("boom"), {
+      ...VALIDATION_DETAILS,
+      traceId: undefined,
+    });
+
+    const [, context] = captureException.mock.calls[0] as [unknown, { tags: object }];
+    expect(context.tags).not.toHaveProperty("vercel_trace_id");
+  });
+
+  it("captures nothing without a DSN", async () => {
+    delete process.env.SENTRY_DSN;
+    const { captureValidationFailure } = await loadSentry();
+
+    expect(await captureValidationFailure(new Error("boom"), VALIDATION_DETAILS)).toEqual({
+      sent: false,
+    });
+    expect(captureException).not.toHaveBeenCalled();
+  });
+});
+
 describe("initServerMonitoring tracing", () => {
   beforeEach(() => {
     init.mockClear();
