@@ -55,7 +55,7 @@ flowchart LR
 ### 1. Preload (A3)
 
 `ui/api/coach-chat-context.ts` warms `loadCoachContext()`'s 60-second in-memory server cache
-(`ui/api/coach-chat/_lib/coachChatFiles.ts`) for profile, memory, injuries, recent coach notes,
+(`ui/api/coach-chat/_lib/decide/coachChatFiles.ts`) for profile, memory, injuries, recent coach notes,
 the split quest ledger, and the generated athlete fitness snapshot. SOUL is no longer fetched
 from the athlete's repo at all (see below). Web fires this once
 per app load from `App.tsx`'s `Gate` component (`ui/client/src/lib/prefetchCoachContext.ts`,
@@ -137,7 +137,7 @@ offers Retry. Card values are reread from the athlete repo; the request carries 
 schema is reply-only. The prompt sees the verified batch, fresh insights, live week when present,
 injuries, and recent continuity; the reply must stand alone and invent no cause.
 
-### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/geminiClient.ts`)
+### 3a. Prompt construction (`askGemini()`, `ui/api/coach-chat/_lib/gemini/geminiClient.ts`)
 
 The prompt splits into a **static** half (persona, fixed instructions, two few-shot examples —
 byte-identical for every athlete, every turn) and a **dynamic** half (rendered split context,
@@ -320,8 +320,8 @@ on the same thread self-correct via the staleness toast instead of silently dive
 
 `coach-chat.ts` is the HTTP handler only; turn-lifecycle stages live in
 `ui/api/coach-chat/_lib/coachTurn.ts`, and per-reply-field write construction lives in
-`ui/api/coach-chat/_lib/turnWrites/` — see [`ui/api/coach-chat/README.md`](../../ui/api/coach-chat/README.md)
-for the full module index and [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/turnWrites/README.md)
+`ui/api/coach-chat/_lib/decide/turnWrites/` — see [`ui/api/coach-chat/README.md`](../../ui/api/coach-chat/README.md)
+for the full module index and [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/decide/turnWrites/README.md)
 for the write-builder table.
 
 | File | Role |
@@ -329,19 +329,19 @@ for the write-builder table.
 | `ui/api/coach-chat.ts` | authentication, greet/sync handling, and HTTP-stage dispatch |
 | `ui/api/coach-chat-context.ts` | A3 preload endpoint |
 | `ui/api/coach-chat-profile-status.ts` | B2 First Session Protocol completion check |
-| `ui/api/coach-chat/_lib/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
-| `ui/api/coach-chat/_lib/activitySync.ts` | activity-sync batch id, hist lookup, attachment rows |
-| `ui/api/coach-chat/_lib/activitySyncTurn.ts` | persist-on-sync Coach turn |
-| `ui/api/coach-chat/_lib/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
-| `ui/api/coach-chat/_lib/geminiClient.ts` | Gemini transport — `askGemini()`, retry logic |
-| `ui/api/coach-chat/_lib/coachPromptText.ts` | prompt text and dynamic context construction |
-| `ui/api/coach-chat/_lib/coachReplySchema.ts` | reply types and mode-specific response schemas |
-| `ui/api/coach-chat/_lib/coachContext.ts` | renders athlete/quest context into prompt sections |
+| `ui/api/coach-chat/_lib/decide/coachChatFiles.ts` | shared file reads, context cache, `isAthleteProfileComplete` |
+| `ui/api/coach-chat/_lib/decide/activitySync.ts` | activity-sync batch id, hist lookup, attachment rows |
+| `ui/api/coach-chat/_lib/commit/activitySyncTurn.ts` | persist-on-sync Coach turn |
+| `ui/api/coach-chat/_lib/gemini/soulCache.ts` | explicit Gemini caching for the static prompt prefix — see `gemini-flow.md` |
+| `ui/api/coach-chat/_lib/gemini/geminiClient.ts` | Gemini transport — `askGemini()`, retry logic |
+| `ui/api/coach-chat/_lib/gemini/coachPromptText.ts` | prompt text and dynamic context construction |
+| `ui/api/coach-chat/_lib/gemini/coachReplySchema.ts` | reply types and mode-specific response schemas |
+| `ui/api/coach-chat/_lib/decide/coachContext.ts` | renders athlete/quest context into prompt sections |
 | `ui/api/coach-chat/_lib/chatThreads.ts` | thread model, `chat_history.json` persistence, response-time display cap |
-| `ui/api/coach-chat/_lib/coachDay.ts` | timezone/day-number math |
-| `ui/api/coach-chat/_lib/coachSinceStamp.ts` | server-owned `coach_since` completion stamp |
+| `ui/api/coach-chat/_lib/decide/coachDay.ts` | timezone/day-number math |
+| `ui/api/coach-chat/_lib/decide/coachSinceStamp.ts` | server-owned `coach_since` completion stamp |
 | `ui/api/coach-chat/_lib/coachTurn.ts` | message-turn orchestration, write assembly, and commit responses |
-| `ui/api/coach-chat/_lib/turnWrites/*.ts` | one file per reply action field's write-builder |
+| `ui/api/coach-chat/_lib/decide/turnWrites/*.ts` | one file per reply action field's write-builder |
 | `ui/api/coach-chat/_lib/text-caps.bundle.js` | esbuild bundle of `engine/lib/text-caps.mts`'s per-field length caps, for the Lambda runtime |
 | `ui/api/coach-chat/_lib/current-week.bundle.js` | esbuild bundle of `engine/lib/current-week.mts`'s `current_week.json` parser/validator, for the Lambda runtime |
 | `ui/api/_lib/fileEdits.ts` | write strategies — `applyStringEdits`, `applyJsonMergePatch` |

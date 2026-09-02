@@ -10,23 +10,23 @@ import {
   isFirstSessionRitualDone,
   loadCoachContext,
   resolveCoachChatBranch,
-} from "./coach-chat/_lib/coachChatFiles.js";
-import { withComputedDayOffsets, todayDateString } from "./coach-chat/_lib/coachDay.js";
+} from "./coach-chat/_lib/decide/coachChatFiles.js";
+import { withComputedDayOffsets, todayDateString } from "./coach-chat/_lib/decide/coachDay.js";
 import { loadChatHistory, pruneForResponse } from "./coach-chat/_lib/chatThreads.js";
-import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/coachIntents.js";
-import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/coachMemoryFiles.js";
-import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/coachContext.js";
-import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/geminiClient.js";
+import { applyProfileUpdate, applySportsUpdate } from "./coach-chat/_lib/decide/coachIntents.js";
+import { MEMORY_PATH, PROFILE_PATH } from "./coach-chat/_lib/decide/coachMemoryFiles.js";
+import { renderCoachContext, renderQuestContext } from "./coach-chat/_lib/decide/coachContext.js";
+import { askGemini, GEMINI_MODEL } from "./coach-chat/_lib/gemini/geminiClient.js";
 import { captureGeminiFailure, withProcessingSpan, withSentryRoute } from "./_lib/sentry.js";
 import {
   combineExtraContext,
   firstSessionContext,
   onboardingHintsContext,
   type OnboardingHints,
-} from "./coach-chat/_lib/coachPromptText.js";
-import type { GeminiReply } from "./coach-chat/_lib/coachReplySchema.js";
+} from "./coach-chat/_lib/gemini/coachPromptText.js";
+import type { GeminiReply } from "./coach-chat/_lib/gemini/coachReplySchema.js";
 import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
-import { onboardingChanges } from "./coach-chat/_lib/onboardingWrites.js";
+import { onboardingChanges } from "./coach-chat/_lib/decide/onboardingWrites.js";
 import {
   buildTurnWrites,
   commitTurn,
@@ -37,7 +37,7 @@ import {
   parseTurnRequest,
   requestCoachReply,
 } from "./coach-chat/_lib/coachTurn.js";
-import { handleActivitySync } from "./coach-chat/_lib/activitySyncTurn.js";
+import { handleActivitySync } from "./coach-chat/_lib/commit/activitySyncTurn.js";
 
 async function handleGreet(
   repo: string,

@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { askGemini } = vi.hoisted(() => ({ askGemini: vi.fn() }));
-vi.mock("../../_lib/geminiClient.js", () => ({ askGemini, GEMINI_MODEL: "gemini-flash-latest" }));
+vi.mock("../../_lib/gemini/geminiClient.js", () => ({
+  askGemini,
+  GEMINI_MODEL: "gemini-flash-latest",
+}));
 
 import { requestCoachReply } from "../../_lib/coachTurn.js";
 import { COACH_LOG_TEXT_CAP } from "../../_lib/text-caps.bundle.js";

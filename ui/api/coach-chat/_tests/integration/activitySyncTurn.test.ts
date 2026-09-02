@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 // Type-only, so these survive vi.hoisted running before the imports below. Without them the
 // mock bodies infer never[] / Promise<null> and reject every mockResolvedValue in this file.
-import type { DirectoryEntry } from "../../_lib/coachChatFiles.js";
+import type { DirectoryEntry } from "../../_lib/decide/coachChatFiles.js";
 import type { ChatHistoryFile } from "../../_lib/chatThreads.js";
 
 const {
@@ -45,9 +45,12 @@ const {
 
 vi.mock("../../../_lib/githubGitData.js", () => ({ commitFilesAtomic }));
 vi.mock("../../../_lib/sentry.js", () => ({ captureGeminiFailure }));
-vi.mock("../../_lib/geminiClient.js", () => ({ askGemini, GEMINI_MODEL: "gemini-flash-latest" }));
-vi.mock("../../_lib/coachChatFiles.js", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../../_lib/coachChatFiles.js")>();
+vi.mock("../../_lib/gemini/geminiClient.js", () => ({
+  askGemini,
+  GEMINI_MODEL: "gemini-flash-latest",
+}));
+vi.mock("../../_lib/decide/coachChatFiles.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../_lib/decide/coachChatFiles.js")>();
   return {
     ...original,
     getFileRaw,
@@ -70,8 +73,8 @@ import {
   activitySyncBatchId,
   commitActivitySyncHistory,
   findThreadForActivitySyncBatch,
-} from "../../_lib/activitySync.js";
-import { handleActivitySync } from "../../_lib/activitySyncTurn.js";
+} from "../../_lib/decide/activitySync.js";
+import { handleActivitySync } from "../../_lib/commit/activitySyncTurn.js";
 import type { ChatThread } from "../../_lib/chatThreads.js";
 import { isActivitySyncRequest, parseTurnRequest } from "../../_lib/coachTurn.js";
 

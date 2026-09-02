@@ -3,7 +3,7 @@
 // new season and its main_quest are one atomic action (B3): the new season id has to reach both
 // files, and the outgoing season's own main_quest (if any) needs to be read from quests.json to
 // retire it correctly.
-import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw } from "../coachChatFiles.js";
 import { todayDateString } from "../coachDay.js";
 import { applySeasonStart, type SeasonStartResult } from "../coachIntents.js";

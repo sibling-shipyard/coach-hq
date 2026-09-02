@@ -10,7 +10,7 @@
  * falls back to inlining the text in systemInstruction.
  */
 import { createClient } from "@vercel/edge-config";
-import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
+import { fetchWithTimeout } from "../../../_lib/httpTimeout.js";
 
 const edgeConfigClient = process.env.GLOBAL_CONFIG ? createClient(process.env.GLOBAL_CONFIG) : null;
 

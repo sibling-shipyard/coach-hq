@@ -18,7 +18,7 @@ import {
   type CurrentWeekDay,
   type CurrentWeekSession,
   type CurrentWeekSessionPriority,
-} from "./current-week.bundle.js";
+} from "../current-week.bundle.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 import { todayDateString } from "./coachDay.js";
 

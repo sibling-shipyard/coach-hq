@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../_lib/coachWeekFiles.js", async (importOriginal) => {
-  const orig = await importOriginal<typeof import("../../_lib/coachWeekFiles.js")>();
+vi.mock("../../_lib/decide/coachWeekFiles.js", async (importOriginal) => {
+  const orig = await importOriginal<typeof import("../../_lib/decide/coachWeekFiles.js")>();
   return {
     ...orig,
     applyWeekPlan: vi.fn(orig.applyWeekPlan),
@@ -9,7 +9,7 @@ vi.mock("../../_lib/coachWeekFiles.js", async (importOriginal) => {
   };
 });
 
-vi.mock("../../_lib/coachChatFiles.js", () => ({
+vi.mock("../../_lib/decide/coachChatFiles.js", () => ({
   getFileRaw: vi.fn(),
 }));
 
@@ -18,9 +18,9 @@ import {
   applySessionReconcile,
   CURRENT_WEEK_PATH,
   type WeekPlan,
-} from "../../_lib/coachWeekFiles.js";
-import { getFileRaw } from "../../_lib/coachChatFiles.js";
-import { buildCurrentWeekWrite } from "../../_lib/turnWrites/weekWrite.js";
+} from "../../_lib/decide/coachWeekFiles.js";
+import { getFileRaw } from "../../_lib/decide/coachChatFiles.js";
+import { buildCurrentWeekWrite } from "../../_lib/decide/turnWrites/weekWrite.js";
 
 function validPlan(): WeekPlan {
   const days = [

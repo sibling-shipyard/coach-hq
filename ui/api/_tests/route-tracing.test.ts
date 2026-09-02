@@ -46,7 +46,7 @@ const {
 vi.mock("../_lib/sentry.js", () => ({
   withSentryRoute,
 }));
-vi.mock("../coach-chat/_lib/coachChatFiles.js", () => ({
+vi.mock("../coach-chat/_lib/decide/coachChatFiles.js", () => ({
   loadCoachContext,
   isAthleteProfileComplete,
   getFileRaw,

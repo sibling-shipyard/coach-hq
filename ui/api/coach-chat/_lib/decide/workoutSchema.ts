@@ -8,7 +8,7 @@
  * violation found rather than collecting every one - callers only need to know "reject this",
  * not a full report.
  */
-import type { Workout } from "../../../client/src/lib/workouts.js";
+import type { Workout } from "../../../../client/src/lib/workouts.js";
 
 const WORKOUT_TYPES = new Set(["foundation", "strength", "recovery", "realign", "calisthenics"]);
 const EXERCISE_TYPES = new Set(["timed", "reps"]);

@@ -2,7 +2,7 @@
 // current thread to the front and re-serializing. Split out of coachTurn.ts so the transcript
 // concern reads on its own, separate from the athlete-data writes (memory, injuries, quests...)
 // a turn may also produce.
-import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import {
   CHAT_FILE_PATH,
   THREAD_TITLE_MAX_CHARS,
@@ -13,7 +13,7 @@ import {
   serializeChatHistory,
   type ChatMessage,
   type ChatThread,
-} from "../chatThreads.js";
+} from "../../chatThreads.js";
 
 export interface ChatWriteResult {
   chatWrite: ResolvedFileWrite;
