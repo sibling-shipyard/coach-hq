@@ -336,6 +336,7 @@ def changed_paths_vs_base():
     base, changed = diff_vs_base()
     return set(changed) if base is not None else None
 
+# AGENT-KIT:STRIP-START soul-history-guard-def
 def soul_history_guard():
     base, changed = diff_vs_base()
     if base is None:
@@ -346,11 +347,15 @@ def soul_history_guard():
             f"soul layer changed ({', '.join(layers)}) but {SOUL_HISTORY} is not in the diff "
             f"vs {base} — add the version entry (AGENTS.md 'Doc upkeep')")
     return None
+# AGENT-KIT:STRIP-END
 
+# AGENT-KIT:STRIP-START soul-history-guard-call
 skip_reason = soul_history_guard()
 if skip_reason:
     warnings.append(skip_reason)
+# AGENT-KIT:STRIP-END
 
+# AGENT-KIT:STRIP-START soul-history-lint
 # SOUL_HISTORY: lint only post-cutover entries (above `<!-- soul-history-cutover`).
 # Soft cap ~12 non-empty lines: Superpower + optional scene + ≤3 bullets + Why/What it cost.
 # Archive below the cutover is grandfathered — do not homogenize.
@@ -425,6 +430,8 @@ def lint_soul_history_entries():
                     f"(path / § / issue# / script / JSON name) — {text[:80]}")
 
 lint_soul_history_entries()
+# AGENT-KIT:STRIP-END
+
 
 # `Verified:` staleness. Docs carry `> Status: Current - Owner: <role> - Verified: YYYY-MM-DD`.
 # Only Current docs are re-verified; Historical/Superseded are dated records of a tree that is

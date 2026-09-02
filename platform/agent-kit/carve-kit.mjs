@@ -11,7 +11,7 @@ function sanitize(content) {
   return content
     .replace(/claude/gi, 'agent')
     .replace(/cursor/gi, 'ide')
-    .replace(/codex/gi, 'copilot')
+    .replace(/codex/gi, 'assistant')
     .replace(/antigravity/gi, 'workspace');
 }
 
@@ -57,8 +57,13 @@ function carve() {
 
       let content = fs.readFileSync(srcPath, 'utf8');
       if (f === 'validate_kdb.py') {
-         content = content.replace(/skip_reason = soul_history_guard\(\)\nif skip_reason:\n    warnings\.append\(skip_reason\)\n/g, '');
-         content = content.replace(/lint_soul_history_entries\(\)\n/g, '');
+         // Strip HQ-only soul_history blocks delimited by AGENT-KIT:STRIP-START/END.
+         // Sentinel-based: survives whitespace changes and refactors; fails loudly if guard leaks.
+         content = content.replace(/# AGENT-KIT:STRIP-START[^\n]*\n[\s\S]*?# AGENT-KIT:STRIP-END\n?/g, '');
+         if (content.includes('soul_history')) {
+           console.error('❌ soul_history guard not fully stripped from validate_kdb.py — check the AGENT-KIT:STRIP sentinels');
+           process.exit(1);
+         }
       }
       fs.writeFileSync(destPath, sanitize(content));
       if (f.endsWith('.py') || f.endsWith('.sh') || f.endsWith('.mjs')) {
@@ -72,15 +77,7 @@ function carve() {
 
   // 4. Tier 3 (Templates)
   const hqDecisionTpl = path.join(REPO_ROOT, "kdb/decisions/0000-template.md");
-  if (!fs.existsSync(hqDecisionTpl)) {
-    fs.mkdirSync(path.dirname(hqDecisionTpl), { recursive: true });
-    fs.writeFileSync(hqDecisionTpl, "");
-  }
   const hqAgentTpl = path.join(REPO_ROOT, ".github/agents/_template.md");
-  if (!fs.existsSync(hqAgentTpl)) {
-    fs.mkdirSync(path.dirname(hqAgentTpl), { recursive: true });
-    fs.writeFileSync(hqAgentTpl, "# Agent Role\n## Scope\n## Boot\n## Learnings\n");
-  }
 
   const templatesDir = path.join(KIT_ROOT, "templates");
   fs.mkdirSync(path.join(templatesDir, "kdb/decisions"), { recursive: true });
