@@ -328,7 +328,11 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     expect(updatedTemplate.phases[0].name).toBe("Main set");
   });
 
-  it('issue #609: a template_edit sentinel of "none" still crashes the commit (deliberately not fixed by this test suite)', async () => {
+  it('issue #609/D1 (#736): a template_edit sentinel of "none" no longer costs the chat message', async () => {
+    // D1 layer 3 splits the facts commit from the chat commit - a bad structured field
+    // (template_edit referencing a nonexistent template) fails only the facts commit; the chat
+    // message still lands, and the failure surfaces as a dropped action instead of a 502 that
+    // discarded everything, including the otherwise-valid chat write.
     const repo = createFakeRepo(repoFixture());
     const gemini = createFakeGemini([
       { reply: "All set for today.", template_edit: { template_id: "none" } },
@@ -341,12 +345,127 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       geminiMessage: "Change my template",
     });
 
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({ reply: "All set for today." });
+    expect(body.droppedActions).toEqual([
+      expect.objectContaining({
+        field: "user_data/activities/workout_plans/templates/none.json",
+      }),
+    ]);
+    // The chat message committed despite the facts commit failing.
+    expect(repo.files.has("user_data/coach/chat_history.json")).toBe(true);
+  });
+
+  it("D1 (#736): a valid profile_update commits while an invalid quest_event (post-retry-exhaustion) is dropped, chat commits either way", async () => {
+    const repo = createFakeRepo(repoFixture());
+    // quests.json's only valid id is "q1" (QUESTS_WITH_MAIN). Gemini references "q99" both times
+    // - the initial reply and layer 2's one corrective retry - so the corrective retry exhausts
+    // and layer 3 drops just the quest_event, keeping the valid profile_update. coach_note is
+    // included on both replies so C2's missingRequiredCoachNote reprompt never fires here - this
+    // test is only about the bad-reference reprompt, not the two enforcement rules interacting.
+    const badQuestReply = {
+      reply: "Logged your weight and marked the quest.",
+      coach_note: "Weight updated, quest completion reported.",
+      profile_update: [{ field: "weight_kg", value: "77" }],
+      quest_event: [{ quest_id: "q99", status: "completed" }],
+    };
+    const gemini = createFakeGemini([badQuestReply, badQuestReply]);
+
+    const response = await runTurn("owner/repo-4", repo, gemini, {
+      threadId: "thread-4",
+      priorMessages: [],
+      trimmed: "Did my run and I'm 77kg now",
+      geminiMessage: "Did my run and I'm 77kg now",
+    });
+
+    const body = await response.json();
+    expect(body).toMatchObject({
+      reply: "Logged your weight and marked the quest.",
+    });
+    expect(body.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
+    const committedProfile = JSON.parse(repo.files.get("user_data/coach/profile.json")!);
+    expect(committedProfile.weight_kg).toBe(77);
+    expect(repo.files.has("user_data/ledger/progress.json")).toBe(false);
+    expect(repo.files.has("user_data/coach/chat_history.json")).toBe(true);
+  });
+
+  it("D1 (#736): a forced chat-commit failure still returns Coach's reply", async () => {
+    const repo = createFakeRepo(repoFixture());
+    const gemini = createFakeGemini([{ reply: "Got it, noted." }]);
+    fetchWithTimeout.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (url.includes("generativelanguage.googleapis.com")) return gemini.handle(url);
+      // The only write on this turn is chatWrite - failing every blob upload forces the chat
+      // commit itself to fail (githubGitData.ts retries 3x, then throws).
+      if (url.endsWith("/git/blobs")) return jsonResponse(500, { message: "forced failure" });
+      return repo.handle(url, init);
+    });
+
+    const turnState = await loadTurnState(
+      {
+        threadId: "thread-5",
+        priorMessages: [],
+        trimmed: "Just checking in",
+        geminiMessage: "Just checking in",
+      },
+      "owner/repo-5",
+      "test-token",
+      "test-api-key",
+    );
+    if (turnState instanceof Response) throw new Error("loadTurnState failed");
+    const replied = await requestCoachReply(turnState);
+    if (replied instanceof Response) throw new Error("requestCoachReply failed");
+    const writes = await buildTurnWrites(replied);
+    const response = await commitTurn(writes);
+
     expect(response.status).toBe(502);
     const body = await response.json();
-    expect(body.error).toContain('template_edit: no template with id "none"');
-    // Nothing landed - the whole commit failed atomically, including the otherwise-valid chat
-    // write bundled in the same turn.
-    expect(repo.files.has("user_data/coach/chat_history.json")).toBe(false);
+    expect(body.reply).toBe("Got it, noted.");
+    expect(body.error).toContain("saving failed");
+    expect(body.traceId).toBeTruthy();
+  });
+
+  it("D1 (#736): a dropped action folds into the *next* turn's athleteContext, not just the response", async () => {
+    // Layer 3 drops the quest_event; the coach_note written this turn (required by C2 whenever
+    // another structured field fires) already gets a system note about it appended, proving the
+    // dropped-action note rides the same single coach_log.json write every turn already makes -
+    // not a separate suppressed-on-ordinary-turns mechanism.
+    const repo = createFakeRepo(repoFixture());
+    const badQuestReply = {
+      reply: "Marked the quest done.",
+      coach_note: "Reported a quest completion.",
+      quest_event: [{ quest_id: "q99", status: "completed" }],
+    };
+    const gemini = createFakeGemini([badQuestReply, badQuestReply]);
+
+    const firstTurn = await runTurn("owner/repo-d1-context", repo, gemini, {
+      threadId: "thread-6",
+      priorMessages: [],
+      trimmed: "Finished the run quest",
+      geminiMessage: "Finished the run quest",
+    });
+    const firstBody = await firstTurn.json();
+    expect(firstBody.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
+
+    // Not just committed - readable back as coach_log.json's own content.
+    expect(repo.files.get("user_data/coach/coach_log.json")).toContain("quest_event");
+
+    // The real proof: the *next* turn's loadTurnState (which is what feeds askGemini's prompt -
+    // coachTurn.ts's requestCoachReply passes turn.athleteContext straight through) actually
+    // contains the dropped-action detail, not just something committed nobody reads.
+    const secondTurnState = await loadTurnState(
+      {
+        threadId: "thread-6",
+        priorMessages: [],
+        trimmed: "Did I get credit for that?",
+        geminiMessage: "Did I get credit for that?",
+      },
+      "owner/repo-d1-context",
+      "test-token",
+      "test-api-key",
+    );
+    if (secondTurnState instanceof Response) throw new Error("loadTurnState failed");
+    expect(secondTurnState.athleteContext).toContain("quest_event");
   });
 
   // B3: a returning athlete starting a new season with its goal, plus a habit quest, in the same
