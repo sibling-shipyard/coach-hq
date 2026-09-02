@@ -175,7 +175,7 @@ not a guess:
 4. **Commitment fields ordered before the narrative `reply`** in each mode-specific schema.
 
 **Why this is a hard rule, not a preference:** three independent free-text fields have each
-triggered the same failure mode — a runaway repetition loop that burns the output budget on
+triggered the same failure mode. A runaway repetition loop burns the output budget on
 degenerate rambling, sometimes taking the whole structured reply down with it. The three:
 `reasoning` (removed), `title` (removed, same symptom), `session_note` (tried during the 2026-08
 coach-memory redesign, pulled after one live reproduction). Every new action added to this schema
