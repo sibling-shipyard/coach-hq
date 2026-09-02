@@ -370,4 +370,48 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     expect(body.error).toContain("saving failed");
     expect(body.traceId).toBeTruthy();
   });
+
+  it("D1 (#736): a dropped action folds into the *next* turn's athleteContext, not just the response", async () => {
+    // Layer 3 drops the quest_event on an ordinary (non-closing) turn - the model's own
+    // coach_note is deliberately never committed on an ordinary turn (fspWrites.ts), so this
+    // proves the dropped-action note gets its own write instead of silently riding along with
+    // that suppression.
+    const repo = createFakeRepo(repoFixture());
+    const badQuestReply = {
+      reply: "Marked the quest done.",
+      quest_event: [{ quest_id: "q99", status: "completed" }],
+    };
+    const gemini = createFakeGemini([badQuestReply, badQuestReply]);
+
+    const firstTurn = await runTurn("owner/repo-d1-context", repo, gemini, {
+      threadId: "thread-6",
+      priorMessages: [],
+      trimmed: "Finished the run quest",
+      geminiMessage: "Finished the run quest",
+      endConversationRequested: false,
+    });
+    const firstBody = await firstTurn.json();
+    expect(firstBody.droppedActions).toEqual([expect.objectContaining({ field: "quest_event" })]);
+
+    // Not just committed - readable back as coach_log.json's own content.
+    expect(repo.files.get("user_data/coach/coach_log.json")).toContain("quest_event");
+
+    // The real proof: the *next* turn's loadTurnState (which is what feeds askGemini's prompt -
+    // coachTurn.ts's requestCoachReply passes turn.athleteContext straight through) actually
+    // contains the dropped-action detail, not just something committed nobody reads.
+    const secondTurnState = await loadTurnState(
+      {
+        threadId: "thread-6",
+        priorMessages: [],
+        trimmed: "Did I get credit for that?",
+        geminiMessage: "Did I get credit for that?",
+        endConversationRequested: false,
+      },
+      "owner/repo-d1-context",
+      "test-token",
+      "test-api-key",
+    );
+    if (secondTurnState instanceof Response) throw new Error("loadTurnState failed");
+    expect(secondTurnState.athleteContext).toContain("quest_event");
+  });
 });

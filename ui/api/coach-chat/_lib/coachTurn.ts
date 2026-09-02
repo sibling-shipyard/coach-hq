@@ -520,6 +520,16 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
   }
 }
 
+// D1: a short, plain-English coach_log.json row naming what got dropped this turn - not the raw
+// `DroppedAction.reason` string (written for a Sentry/console reader), phrased instead as
+// something Coach itself can read back next turn and act on naturally. Undefined when nothing
+// was dropped, so it never adds an empty line to the combined coach_note.
+function formatDroppedActionsNote(droppedActions: DroppedAction[]): string | undefined {
+  if (droppedActions.length === 0) return undefined;
+  const fields = droppedActions.map((dropped) => dropped.field).join(", ");
+  return `[System note: couldn't save an update this turn (${fields}) - the reference didn't match anything on file. If it's still relevant, check back in with the athlete and redo it.]`;
+}
+
 export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   const { repo, token, timezone, traceId, reply } = turn;
   const { profile, memory, seasons } = turn.context;
@@ -546,14 +556,6 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   });
 
   const trimmedCoachNote = reply.coach_note?.trim();
-  const coachNoteWrite = buildCoachNoteWrite(repo, token, timezone, traceId, reply.coach_note);
-
-  const sportsUpdate = (reply.sports_update ?? []).filter((sport) => sport.trim().length > 0);
-  const hasSportsUpdate = sportsUpdate.length > 0;
-  const memoryFileWrite = buildMemoryFileWrite(repo, token, timezone, traceId, {
-    memoryUpdate: reply.memory_update,
-    sportsUpdate,
-  });
 
   // D1 layer 3 (#736): validate referential-id actions before any write is built - drop only the
   // specific bad action, never abort the whole batch. By this point the reply already survived
@@ -601,6 +603,39 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
       reason: dropped.reason,
     });
   }
+
+  // D1: a rejected action never disappears silently - fold it into the *next* turn's context so
+  // Coach can naturally follow up ("I couldn't quite save that habit update, can you confirm?")
+  // instead of the athlete finding out never. coach_log.json's "Recent Session Notes" section
+  // (renderCoachContext) is already the existing continuity mechanism every turn reads from -
+  // reusing it here (instead of inventing a new persisted field) means the very next Gemini call
+  // sees this as real context, not just a hope that this turn's reply happens to mention it.
+  //
+  // fspIncrementalWrites deliberately omits coach-log writes on ordinary turns (fspWrites.ts) -
+  // the model's own free-text coach_note is reserved for session-close summaries. That design
+  // does not fit this system-authored note: a dropped action can happen mid-conversation, and
+  // "next turn" usually means the very next message in the *same* live thread, not whenever the
+  // athlete eventually wraps. So it gets its own write (droppedActionsWrite), included in
+  // fspCandidates below so it commits on ordinary turns too. commitFilesAtomic does not merge two
+  // writes to the same path, so on a *closing* turn (where the model's own coachNoteWrite is
+  // already committed via optionalWrites) the two notes are combined into that single write
+  // instead of sending both.
+  const droppedActionsNote = formatDroppedActionsNote(droppedActions);
+  const droppedActionsWrite = buildCoachNoteWrite(repo, token, timezone, traceId, droppedActionsNote);
+  const coachNoteWrite = buildCoachNoteWrite(
+    repo,
+    token,
+    timezone,
+    traceId,
+    [trimmedCoachNote, droppedActionsNote].filter(Boolean).join("\n") || undefined,
+  );
+
+  const sportsUpdate = (reply.sports_update ?? []).filter((sport) => sport.trim().length > 0);
+  const hasSportsUpdate = sportsUpdate.length > 0;
+  const memoryFileWrite = buildMemoryFileWrite(repo, token, timezone, traceId, {
+    memoryUpdate: reply.memory_update,
+    sportsUpdate,
+  });
 
   const profileUpdates = (reply.profile_update ?? []).filter(
     (update) => update.field != null && update.value != null,
@@ -688,6 +723,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     profileUpdateWrite,
     seasonStartWrite,
     questCreateWrite,
+    droppedActionsWrite,
   ];
   const optionalWrites = [
     coachNoteWrite,
@@ -822,7 +858,7 @@ export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
 // chat commit is the one that, on failure, returns the reply alongside the error rather than
 // discarding it.
 export async function commitClosingTurn(turn: TurnWrites): Promise<Response> {
-  if (turn.validUpdates.length === 0 && !turn.trimmedCoachNote) {
+  if (turn.validUpdates.length === 0 && !turn.trimmedCoachNote && !turn.droppedActions?.length) {
     console.warn("[coach-chat] close landed with no coach_note.", {
       athleteMessage: turn.trimmed,
       traceId: turn.traceId,

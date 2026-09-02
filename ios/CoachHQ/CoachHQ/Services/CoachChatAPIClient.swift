@@ -124,7 +124,16 @@ final class CoachChatAPIClient {
         return false
     }
 
-    private func send(_ req: URLRequest, operation: String, retryNetworkFailures: Bool = true) async throws -> Data {
+    /// `failureMapper` lets a specific call (sendMessage below) turn a non-2xx body into a more
+    /// specific error than the generic GitHubAPIError.requestFailed - e.g. D1's
+    /// CoachChatSaveFailedError when the body carries a `reply` alongside `error`. Returning nil
+    /// falls through to the generic mapping, same as before this parameter existed.
+    private func send(
+        _ req: URLRequest,
+        operation: String,
+        retryNetworkFailures: Bool = true,
+        failureMapper: ((Data, Int) -> Error?)? = nil,
+    ) async throws -> Data {
         try await withRetry(retryNetworkFailures: retryNetworkFailures) {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse else {
@@ -134,6 +143,9 @@ final class CoachChatAPIClient {
                 throw GitHubAPIError.notAuthenticated
             }
             if !(200...299).contains(http.statusCode) {
+                if let failureMapper, let mapped = failureMapper(data, http.statusCode) {
+                    throw mapped
+                }
                 let detail = (try? JSONDecoder().decode(ChatAPIErrorBody.self, from: data))?.error
                     ?? String(data: data, encoding: .utf8)
                 throw GitHubAPIError.requestFailed(operation: operation, status: http.statusCode, detail: detail)
@@ -222,7 +234,20 @@ final class CoachChatAPIClient {
             if let knownSha = await Self.shaStore.sha(for: threadId) { body["knownSha"] = knownSha }
         }
         let req = try request("POST", body: body, auth: auth)
-        let data = try await send(req, operation: "Sending message", retryNetworkFailures: false)
+        // D1 (#736): a `reply` alongside `error` means Gemini generated a reply but the save
+        // failed - throw CoachChatSaveFailedError so the reply isn't discarded along with the
+        // failed write. Its absence means Coach never got to reply at all (a Gemini-call
+        // failure), which stays the generic GitHubAPIError.
+        let data = try await send(req, operation: "Sending message", retryNetworkFailures: false) { data, status in
+            guard let body = try? JSONDecoder().decode(ChatAPIErrorBody.self, from: data), let reply = body.reply else {
+                return nil
+            }
+            return CoachChatSaveFailedError(
+                message: body.error ?? "Coach chat request failed (\(status))",
+                reply: reply,
+                traceId: body.traceId,
+            )
+        }
         let decoded = try JSONDecoder().decode(ChatSendResponse.self, from: data)
         await Self.shaStore.rememberAndPrune(
             threadId: decoded.closed ? decoded.threadId : threadId,
