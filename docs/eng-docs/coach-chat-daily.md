@@ -196,13 +196,15 @@ On every returning-athlete turn:
   `session_plan`, `week_plan`, `session_reconcile`, or `plan_edit`. Most ordinary turns never
   touch those fields and never pay for the extra GitHub reads. A wrong or invented template/session
   id just fails validation and drops that one write; it doesn't corrupt anything.
-- If `memory_update.text` or an `injury_flag[].text`/`injury_event[].text` comes back over its
-  length cap, `requestCoachReply()` (`coachTurn.ts`) reprompts Gemini once for that field before
-  proceeding — one extra `askGemini()` round trip on this turn only. See `gemini-flow.md`'s
-  "Text-field length caps" and "Retries" sections for the full three-layer design (schema
-  `maxLength`, this reprompt, and the deterministic `capText` truncation backstop in
-  `turnWrites/*.ts` if the reprompt still overshoots). `coach_note` is dormant since C1 removed it
-  from every mode's schema — C2 redesigns it into a day-keyed row.
+- If `memory_update.text`, an `injury_flag[].text`/`injury_event[].text`, or `coach_note` comes
+  back over its length cap, `requestCoachReply()` (`coachTurn.ts`) reprompts Gemini once for that
+  field before proceeding — one extra `askGemini()` round trip on this turn only. See
+  `gemini-flow.md`'s "Text-field length caps" and "Retries" sections for the full three-layer
+  design (schema `maxLength`, this reprompt, and the deterministic `capText` truncation backstop in
+  `turnWrites/*.ts` if the reprompt still overshoots). The same reprompt also fires when a reply
+  sets another structured field but leaves `coach_note` unset (C2's `missingRequiredCoachNote`
+  check), combined into one system-note message if both trip at once. `coach_note` is day-keyed
+  now (see `coach-data-schema.md`'s `coach_log.json` section), not the old closing-only append.
 - A `week_plan`/`plan_edit` write to `current_week.json` is checked by
   `assertCurrentWeekCommitReady()` (`coachWeekFiles.ts`) — the same pass/fail rule as
   `validate-current-week` — right before the content is handed to `commitFilesAtomic()`. A

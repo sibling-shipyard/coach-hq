@@ -187,6 +187,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       {
         reply: "Got it, noted your birthday.",
         profile_update: [{ field: "dob", value: "1995-01-01" }],
+        coach_note: "Athlete's date of birth confirmed: 1995-01-01.",
       },
     ]);
 
@@ -215,6 +216,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       {
         reply: "Got it, updated your weight.",
         profile_update: [{ field: "weight_kg", value: "76" }],
+        coach_note: "Athlete reported new weight: 76kg.",
       },
     ]);
 
@@ -388,6 +390,7 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
           main_quest: { name: "Run a marathon", type: "count_target", target: 1 },
         },
         quest_create: { quests: [{ name: "Stretch daily", type: "daily_streak" }] },
+        coach_note: "Started a new season: Marathon Build. Added a daily stretch habit quest.",
       },
     ]);
 

@@ -28,9 +28,11 @@ function baseTurnState(overrides: Record<string, unknown> = {}) {
   } as unknown as Parameters<typeof requestCoachReply>[0];
 }
 
-// No mode ever requests coach_note from Gemini (see coachReplySchema.ts), so it can't exercise
-// the reprompt below. The reprompt is generic across every capped free-text field regardless, so
-// memory_update.text stands in for it here instead.
+// The reprompt is generic across every capped free-text field, so memory_update.text stands in
+// for the size-cap scenario below. Every fixture here also carries a coach_note, because
+// coach_note is required whenever memory_update fires too (see the missingRequiredCoachNote-only
+// tests further down for that check on its own) - each test below stays isolated to the one
+// reprompt reason it names.
 describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
   beforeEach(() => {
     askGemini.mockReset();
@@ -40,9 +42,14 @@ describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
     const oversized = "x".repeat(COACH_LOG_TEXT_CAP + 500);
     const corrected = "A short note within budget.";
     askGemini
-      .mockResolvedValueOnce({ memory_update: { label: "baseline", text: oversized }, reply: "ok" })
+      .mockResolvedValueOnce({
+        memory_update: { label: "baseline", text: oversized },
+        coach_note: "note",
+        reply: "ok",
+      })
       .mockResolvedValueOnce({
         memory_update: { label: "baseline", text: corrected },
+        coach_note: "note",
         reply: "ok",
       });
 
@@ -55,9 +62,14 @@ describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
   it("does not reprompt a second time if the reprompt also comes back oversized, but logs it", async () => {
     const oversized = "x".repeat(COACH_LOG_TEXT_CAP + 500);
     askGemini
-      .mockResolvedValueOnce({ memory_update: { label: "baseline", text: oversized }, reply: "ok" })
       .mockResolvedValueOnce({
         memory_update: { label: "baseline", text: oversized },
+        coach_note: "note",
+        reply: "ok",
+      })
+      .mockResolvedValueOnce({
+        memory_update: { label: "baseline", text: oversized },
+        coach_note: "note",
         reply: "ok",
       });
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -67,16 +79,66 @@ describe("requestCoachReply text-cap reprompt (issue #462, layer 2)", () => {
     expect(askGemini).toHaveBeenCalledTimes(2);
     expect("reply" in result && result.reply.memory_update?.text).toBe(oversized);
     expect(warnSpy).toHaveBeenCalledWith(
-      "[coach-chat] reply still over its text cap after reprompt, capText will truncate it:",
-      expect.objectContaining({ field: "memory_update.text" }),
+      "[coach-chat] reply still has a content violation after reprompt:",
+      expect.objectContaining({
+        stillOversized: expect.objectContaining({ field: "memory_update.text" }),
+        stillMissingNote: false,
+      }),
       expect.objectContaining({ traceId: "trace-1" }),
     );
     warnSpy.mockRestore();
   });
 
-  it("does not reprompt when the reply is already within every cap", async () => {
+  it("does not reprompt when the reply is already within every cap and coach_note is present", async () => {
     askGemini.mockResolvedValueOnce({
       memory_update: { label: "baseline", text: "Fine." },
+      coach_note: "note",
+      reply: "ok",
+    });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+});
+
+// C2's enforcement rule: coach_note is required whenever another structured write also fired
+// this turn. Same reprompt mechanism as the size-cap check above, exercised in isolation here.
+describe("requestCoachReply missing-coach_note reprompt (C2)", () => {
+  beforeEach(() => {
+    askGemini.mockReset();
+  });
+
+  it("reprompts exactly once when profile_update fires with no coach_note, then commits the corrected reply", async () => {
+    askGemini
+      .mockResolvedValueOnce({
+        profile_update: [{ field: "weight_kg", value: "76" }],
+        reply: "ok",
+      })
+      .mockResolvedValueOnce({
+        profile_update: [{ field: "weight_kg", value: "76" }],
+        coach_note: "Athlete reported new weight: 76kg.",
+        reply: "ok",
+      });
+
+    const result = await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(2);
+    expect("reply" in result && result.reply.coach_note).toBe("Athlete reported new weight: 76kg.");
+  });
+
+  it("does not reprompt a filler turn with no other structured writes and no coach_note", async () => {
+    askGemini.mockResolvedValueOnce({ reply: "Heavy legs happen, keep it honest today." });
+
+    await requestCoachReply(baseTurnState());
+
+    expect(askGemini).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reprompt when profile_update fires alongside a coach_note", async () => {
+    askGemini.mockResolvedValueOnce({
+      profile_update: [{ field: "weight_kg", value: "76" }],
+      coach_note: "Athlete reported new weight: 76kg.",
       reply: "ok",
     });
 

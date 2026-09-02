@@ -19,14 +19,13 @@ import {
 } from "./coachQuestFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 
-// coach_note: appends one row to coach_log.json - the single merged continuity log
-// (coach-redesign-part1-memory.md) that absorbed what used to be split across coach_notes.md
-// (write-only, append) and rolling_state.json (a separate bounded last-N-sessions array read back
-// into every turn's prompt). This is now the only write either of those did: an unbounded,
-// append-only row log. Windowing to "last N" happens at render time (coachContext.ts), not by
-// truncating storage here - the full history is worth keeping. Malformed/missing current content
-// is treated as an empty log rather than thrown, same defensive default the other appliers below
-// use for their own files.
+// coach_note: writes one row per calendar day to coach_log.json, the single merged continuity
+// log. Day-keyed, mirroring applyQuestEvent's (quest_id, date) pattern below: a turn on a day
+// with an existing row overwrites that row's text/ts/trace_id in place - the note is a running
+// revision of today, not an append log, since a turn on any ordinary conversation can update it,
+// not just a dedicated closing step. A turn on a new day creates a fresh row. Malformed/missing
+// current content is treated as an empty log rather than thrown, same defensive default the
+// other appliers below use for their own files.
 export function applyCoachNote(
   content: string | null,
   note: string,
@@ -36,16 +35,21 @@ export function applyCoachNote(
 ): string {
   const parsed = parseJsonOrNull<{ rows?: CoachLogRow[] }>(content);
   const rows: CoachLogRow[] = Array.isArray(parsed?.rows) ? parsed.rows : [];
-  const id = `sess_${dateString}_${Math.random().toString(36).slice(2, 6)}`;
+  const existingIndex = rows.findIndex((r) => r.date === dateString);
   const row: CoachLogRow = {
-    id,
+    id:
+      existingIndex >= 0
+        ? rows[existingIndex].id
+        : `sess_${dateString}_${Math.random().toString(36).slice(2, 6)}`,
     date: dateString,
     ts: now.toISOString(),
     type: "chat",
     text: note.trim(),
     trace_id: traceId,
   };
-  return JSON.stringify({ version: 1, rows: [...rows, row] }, null, 2);
+  const nextRows =
+    existingIndex >= 0 ? rows.map((r, i) => (i === existingIndex ? row : r)) : [...rows, row];
+  return JSON.stringify({ version: 1, rows: nextRows }, null, 2);
 }
 
 // memory_update {label, text}: Gemini states which labelled box changed and its new text; the

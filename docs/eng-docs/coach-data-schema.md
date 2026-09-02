@@ -59,7 +59,16 @@ Open/resolved injury flags. Written by `turnWrites/injuryWrite.ts` (`buildInjury
 ### `user_data/coach/coach_log.json`
 
 Rolling session continuity log — replaced `state.md`'s narrative sections and `coach_notes.md`.
-Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`).
+Written by `turnWrites/coachNoteWrite.ts` (`buildCoachNoteWrite`), which calls `coachIntents.ts`'s
+`applyCoachNote`.
+
+Day-keyed, not append-only (C2): one row per calendar date. A `coach_note` on a day with an
+existing row overwrites that row's `text`/`ts`/`trace_id` in place, reusing its `id`; a `coach_note`
+on a new day appends a fresh row. `coach_note` is available on every ordinary turn (see
+`gemini-flow.md`'s Action-field table). It is required whenever the same reply also sets
+`profile_update`, `memory_update`, `injury_flag`, `injury_event`, `quest_event`, `quest_create`, or
+`season_start`. `coachTurn.ts`'s `missingRequiredCoachNote` corrective-retry check enforces this,
+the same mechanism `findOversizedTextField` already used for the text-cap reprompt.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -265,11 +274,11 @@ field set.
 |---|---|
 | Greeting | none (plus always `reply`) |
 | Activity sync | none |
-| Returning | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
-| First Session | `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
+| Returning | `coach_note`, `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `quest_event`, `profile_update`, `season_start`, `quest_create`, `template_edit`, `session_plan`, `week_plan`, `session_reconcile`, `plan_edit` |
+| First Session | `coach_note`, `memory_update`, `sports_update`, `injury_flag`, `injury_event`, `profile_update`, `season_start`, `quest_create` |
 
-`coach_note` is declared in the schema's raw property set but not selected by any mode above — it
-is dormant since C1; C2 redesigns it into a day-keyed row.
+`coach_note` (C2) is a day-keyed row, not the old closing-only append — see the
+`coach_log.json` section above.
 
 Each field's write path — which `turnWrites/*.ts` file consumes it, which JSON file it lands in —
 is documented in [`turnWrites/README.md`](../../ui/api/coach-chat/_lib/turnWrites/README.md); this
