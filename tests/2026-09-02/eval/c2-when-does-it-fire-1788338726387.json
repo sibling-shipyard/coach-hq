@@ -1,0 +1,54 @@
+[
+  {
+    "turn": "filler-greeting-reply",
+    "message": "hey, just got back from work",
+    "coachNoteFired": false,
+    "reply": "Hey. Long day? Take a breath. How's the body feeling right now?"
+  },
+  {
+    "turn": "note-worthy-injury",
+    "message": "my left knee's been aching a bit since yesterday's run, nothing major but noticing it on stairs",
+    "coachNoteFired": true,
+    "coachNoteText": "Athlete reported left knee aching since yesterday's run, noticeable on stairs.",
+    "reply": "Look, stairs don't lie. Joints will always tell you when they need a minute. Good on you for catching it early. We don't push through joint aches. What was on the schedule for today? We need to pivot to some light mobility or just rest it out completely."
+  },
+  {
+    "turn": "filler-smalltalk",
+    "message": "haha yeah it's been a long week",
+    "coachNoteFired": false,
+    "reply": "I get it. Long weeks add up. That fatigue bleeds into the body, which is probably why that knee is barking today. We are not rolling the dice on it. What did we have on the board for today? Let's figure out if we are swapping it for mobility or just taking a flat zero."
+  },
+  {
+    "turn": "note-worthy-quest",
+    "message": "did my cold shower this morning, day 12 in a row now",
+    "coachNoteFired": true,
+    "coachNoteText": "Athlete reported left knee aching since yesterday's run, noticeable on stairs. Logged 12th consecutive day of cold shower streak.",
+    "reply": "Twelve days straight. That's the process right there. Doing the uncomfortable stuff even when the week is dragging and your body is barking. Love to see it. Now, about that knee—are we calling today a full rest day, or do you want to hit a quick upper body and mobility session?"
+  },
+  {
+    "turn": "filler-question",
+    "message": "what's on the plan for tomorrow?",
+    "coachNoteFired": false,
+    "reply": "I don't have the week's board pulled up right now. But honestly, with that knee acting up on the stairs today, whatever we do tomorrow is going to depend entirely on how you wake up feeling. If it's still barking, we stay off it, maybe just upper body or core. If it's completely cleared, we can look at some light cross-training or mobility. Let's see what the morning brings. Sound fair?"
+  },
+  {
+    "turn": "note-worthy-followup-same-topic",
+    "message": "knee's actually feeling better now, think it was just the new shoes, gonna keep an eye on it",
+    "coachNoteFired": true,
+    "coachNoteText": "Athlete reported left knee aching since yesterday's run, noticeable on stairs (later reported feeling better, attributed to new running shoes). Logged 12th consecutive day of cold shower streak.",
+    "reply": "New shoes will absolutely do that. Your body has to re-learn how to strike the ground every time you switch. Glad it is backing off. Still, let's not test fate today. Keep things light tonight and see how it feels tomorrow morning. What are you getting into for the rest of the evening?"
+  },
+  {
+    "turn": "filler-ack",
+    "message": "ok sounds good, thanks",
+    "coachNoteFired": false,
+    "reply": "Good deal. I have everything saved on my end. Get some rest and we will see how it feels tomorrow."
+  },
+  {
+    "turn": "note-worthy-plan-change",
+    "message": "actually gonna skip tomorrow's run, got a work trip, back Thursday",
+    "coachNoteFired": true,
+    "coachNoteText": "Athlete reported left knee aching since yesterday's run, noticeable on stairs (later reported feeling better, attributed to new running shoes). Logged 12th consecutive day of cold shower streak. Skipping tomorrow's run due to a work trip, returning Thursday.",
+    "reply": "Look, life happens. Travel takes a toll on the body anyway, and with that knee just settling down, an extra day off isn't a bad thing. Take care of business. We will pick it back up when you are back on Thursday. Safe travels."
+  }
+]
