@@ -11,6 +11,7 @@ import {
   MEMORY_NOTE_LABELS,
   type ProfileJson,
   type MemoryJson,
+  type CoachingStyle,
 } from "../coachMemoryFiles.js";
 import type { SeasonsJson } from "../coachQuestFiles.js";
 
@@ -44,6 +45,7 @@ export function projectProfileCompletion(params: {
   profileUpdates: ProfileUpdate[];
   sportsUpdate: string[];
   hasSportsUpdate: boolean;
+  coachingStyleUpdate: CoachingStyle | undefined;
   seasonStart: Parameters<typeof applySeasonStart>[2] | undefined;
   today: string;
   traceId: string;
@@ -55,6 +57,7 @@ export function projectProfileCompletion(params: {
     profileUpdates,
     sportsUpdate,
     hasSportsUpdate,
+    coachingStyleUpdate,
     seasonStart,
     today,
     traceId,
@@ -86,6 +89,7 @@ export function projectProfileCompletion(params: {
       trace_id: "",
     },
     sports: hasSportsUpdate ? sportsUpdate : (memory?.sports ?? []),
+    coaching_style: coachingStyleUpdate ?? memory?.coaching_style ?? null,
     notes:
       memory?.notes ??
       (Object.fromEntries(

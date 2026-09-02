@@ -34,6 +34,7 @@ describe("turnWrites text-cap backstop", () => {
     const oversized = "m".repeat(MEMORY_NOTE_TEXT_CAP + 800);
     const write = buildMemoryFileWrite("owner/repo", "token", "UTC", "trace-1", {
       memoryUpdate: { label: "fitness_baseline", text: oversized },
+      coachingStyleUpdate: undefined,
       sportsUpdate: [],
     });
     expect(write).toBeDefined();
