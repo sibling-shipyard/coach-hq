@@ -3,17 +3,19 @@
 > Status: Current · Owner: Tech Lead · Verified: 2026-09-01
 
 Execution detail for F1 in [`chat-commit-redesign.md`](chat-commit-redesign.md). Closes #760
-(child of the #703 batched-migration epic). Runs **last** — after B1, B3, D2, and E1 have landed in
-HQ, so the migration matches the final shape rather than an intermediate one. Executed as separate
-PRs in each target repo, not a single HQ PR — tracked here as one plan.
+(child of the #703 batched-migration epic). Runs **after this whole redesign has merged to `main`**,
+past K1 — not just after B1/B3/D2/E1 are built, since Step 0 stamps the skeleton from HQ `main`
+itself and an unmerged stack means an intermediate shape. Nothing in J1/J2/H1/K1 depends on F1 in
+return; it closes #760 on its own schedule, independent of the rest of this plan. Executed as
+separate PRs in each target repo, not a single HQ PR — tracked here as one plan.
 
 ## Ultimate goal — exact shape parity, not just this redesign's specific fields
 
-The athlete's direction, broader than the field-by-field list below: **all 5 athlete repos and
+The athlete's direction is broader than the field-by-field list below. **All 5 athlete repos and
 `sibling-shipyard/coach-skeleton` should end up structurally identical** — every repo has exactly
-what the skeleton has, nothing missing, nothing extra — with per-athlete *content* (real quest
-names, real activity history, real profile facts) obviously differing, but the *shape* (which files
-exist, which fixed-schema fields each file has) matching exactly. The field-specific backfill list
+what the skeleton has, nothing missing, nothing extra. Per-athlete *content* (real quest names,
+real activity history, real profile facts) obviously differs, but the *shape* (which files exist,
+which fixed-schema fields each file has) should match exactly. The field-specific backfill list
 below (`coaching_style`, `main_quest`, etc.) is this redesign's own contribution to that goal, not
 the whole of it — a full structural audit (below) is what actually closes it out.
 
@@ -39,7 +41,7 @@ under `user_data/coach/` and `user_data/ledger/` plus `user_data/activities/sync
 against the same paths in the freshly-stamped skeleton. Two directions matter:
 
 - **Missing**: a fixed-schema file the skeleton has that an athlete repo doesn't. Confirmed real
-  example, found before Step 0 (re-verify after, in case the skeleton itself changes): 4 of the 5
+  example, found before Step 0 (re-verify after, in case the skeleton itself changes). 4 of the 5
   athlete repos (`coach-skanda-2003`, `coach-akash-suresh`, `coach-prateekdevaraju`,
   `coach-date2022`) are missing `user_data/coach/latest_message.json` entirely — only the newest
   athlete (`coach-shreyas-95-cyber`, carved most recently) has it. It was added to the skeleton
@@ -47,11 +49,11 @@ against the same paths in the freshly-stamped skeleton. Two directions matter:
   functionally (`parseLatestMessageFile` in `ui/api/coach-message/_lib/coachMessage.ts:450-451`
   treats a missing file identically to `{schema_version: 1, message: null}`) — but exactly the class
   of drift this step exists to catch and close.
-- **Extra**: a file an athlete repo has that the skeleton doesn't. A preliminary pass (against a
-  since-superseded skeleton clone, before Step 0's importance was clear — treat as a lead, not a
-  finding) suggested `coach-skanda-2003` and `coach-akash-suresh` may carry extra files under
-  `user_data/coach/` beyond the fixed set — re-run this comparison for real against the
-  freshly-stamped skeleton from Step 0, don't trust the preliminary numbers.
+- **Extra**: a file an athlete repo has that the skeleton doesn't. A preliminary pass, against a
+  since-superseded skeleton clone before Step 0's importance was clear, suggested
+  `coach-skanda-2003` and `coach-akash-suresh` may carry extra files under `user_data/coach/`
+  beyond the fixed set. Treat that as a lead, not a finding — re-run this comparison for real
+  against the freshly-stamped skeleton from Step 0, don't trust the preliminary numbers.
 
 Exclude naturally-per-athlete content from this diff — `user_data/activities/hist/*`,
 `user_data/activities/streams/*`, `user_data/activities/workout_plans/sessions/*` are expected to
@@ -83,14 +85,15 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
 1. **`coaching_style`** — backfill a real value for all 5, gathered by the athlete talking to each
    person directly. Akash's repo already has one (`"accountability"`) — confirm it's still accurate
    rather than assume; the other 4 need a real answer from scratch. **Info needed from the athlete
-   before this PR can execute:** each of the 5 people's answer to E1's FSP question ("What works
-   when things get hard: someone holding you accountable, someone cheering you on, or someone
-   walking through the why?") — one of `accountability` / `encouragement` / `analysis` per person.
+   before this PR can execute:** each of the 5 people's answer to E1's FSP question. It asks what
+   works when things get hard — someone holding you accountable, someone cheering you on, or
+   someone walking through the why. One of `accountability` / `encouragement` / `analysis` per
+   person.
 2. **`main_quest`** — only `coach-prateekdevaraju` needs a real value backfilled (the other 4 already
    have one). **Info needed from the athlete:** Prateek's actual current 3-6 month goal, backfilled
-   as a real `main_quest` object (`id`, `name`, `type`, `target`, optional `count_pattern`), plus his
-   real `season_id` (see next item — every athlete gets this field, Prateek's just needs a real
-   main_quest to attach it to).
+   as a real `main_quest` object (`id`, `name`, `type`, `target`, optional `count_pattern`). Also his
+   real `season_id` — see the next item; every athlete gets this field, Prateek's just needs a real
+   `main_quest` to attach it to.
 3. **`main_quest.season_id`** (new field from B3) — backfill onto all 5, not just Prateek. All 5
    already have a real, active `current_season_id` (confirmed directly: `s_load_bearing_season`,
    `s_the_transformation_v2`, `season_strength_weight_gain_sea_o1jd`, `chin-over-the-bar`,
@@ -98,7 +101,7 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
    `current_season_id`. No athlete input needed for this one, purely mechanical linking of two
    values that already exist.
 4. **`equipment`** — empty on `coach-akash-suresh`, `coach-prateekdevaraju`, `coach-shreyas-95-cyber`.
-   Worth being direct about why: this is exactly the field this session found being silently
+   Worth being direct about why. This is exactly the field this session found being silently
    dropped by #616's write-loss bug — these 3 athletes may well have *stated* their equipment in a
    past conversation and had it lost, not simply never been asked. **Info needed from the athlete:**
    whether these 3 already said their equipment somewhere recoverable (check `chat_history.json` if
@@ -139,10 +142,10 @@ Checklist, not to be left blank at execution time:
 
 ## Tests
 
-Per repo: a manual read of the resulting JSON confirms the intended post-migration state — same
+Per repo, a manual read of the resulting JSON confirms the intended post-migration state. Same
 fixed-schema shape as the freshly-stamped skeleton, real values in every field this migration
-touches, no athlete asked something they already answered outside the app just because the field
-looked blank.
+touches, and no athlete asked something they already answered outside the app just because the
+field looked blank.
 
 ## Done when
 
