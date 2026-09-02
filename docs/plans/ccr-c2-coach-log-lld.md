@@ -35,11 +35,10 @@ any turn that also produced another structured write this turn (`profile_update`
 `injury_flag`, `injury_event`, `quest_event`, `quest_create`, `season_start`). This is
 server-enforced via the schema/turn-writes logic, same discipline as D1's dynamic-enum work: if
 something changed, the model doesn't get to silently skip recording it. On a turn with zero other
-structured writes
-(small talk, a check-in with nothing to report), `coach_note` stays genuinely optional — nothing was
-at risk of being forgotten there either. This directly answers the reliability concern the athlete
-raised: it's not "hope Gemini remembers," it's "the schema requires it exactly when something
-happened."
+structured writes (small talk, a check-in with nothing to report), `coach_note` stays genuinely
+optional — nothing was at risk of being forgotten there either. This directly answers the
+reliability concern the athlete raised: it's not "hope Gemini remembers," it's "the schema requires
+it exactly when something happened."
 
 **Why this satisfies "coach log should not be present when there is no activity or chat that
 happened":** it's true by construction, not by a separate check. A day with zero messages never
