@@ -25,6 +25,19 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.20 — "The Note That Remembers Today" · Sep 2, 2026
+**Superpower gained:** Coach's daily note updates itself as the day happens, in either runtime.
+
+The old note only wrote once, at a closing ritual chat no longer has. Chat's own SOUL text still
+described that ritual, and a season that could only ever be set once - both wrong for what it does.
+
+- One row per day, revised in place as the conversation continues - never appended to.
+- Required whenever something else changed that turn (a fact, a quest result, an injury).
+- Chat's SOUL text no longer describes a closing ritual it doesn't have, or a season locked in
+  once and never changed.
+**Why it mattered:** a coach that only remembers at the end of a conversation that never ends
+doesn't remember at all.
+
 ## v5.19 — "A Season Always Carries Its Goal" · Sep 2, 2026
 **Superpower gained:** an established athlete can start a new season with a real goal, any day.
 
