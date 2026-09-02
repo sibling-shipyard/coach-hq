@@ -377,18 +377,56 @@ struct CoachChatSyncRetryRow: View {
     }
 }
 
+// I1 (#767's simpler predecessor): every turn really does go through these three stages in
+// order (ask Gemini, parse the reply into structured writes, commit to the repo - the same
+// shape docs/eng-docs/coach-chat-testing.md's layer1/layer2/layer3 split already tests
+// separately). Cycles on a fixed timer, not any real backend signal - true stage-by-stage
+// progress reflecting actual server state is #767, deliberately not built here. Mirrors web's
+// THINKING_STAGE_LABELS in CoachChatWidgets.tsx.
+enum CoachChatThinkingStage {
+    static let labels = [
+        "Coach is thinking…",
+        "Parsing Coach's thoughts…",
+        "Updating your log…",
+    ]
+    // Tuned to a guess at typical turn latency, not measured yet - re-tune once D3's Sentry
+    // spans give real per-stage numbers (see the I1 LLD).
+    static let intervalMs = 2600
+
+    /// Pure step function (extracted out of the view's `.task` loop so it's unit-testable
+    /// without waiting on real Task.sleep timers) - holds on the last stage instead of looping
+    /// if a turn runs long, since "updating your log" stays true for however much longer the
+    /// commit takes.
+    static func next(from current: Int) -> Int {
+        current < labels.count - 1 ? current + 1 : current
+    }
+}
+
 struct CoachChatThinkingBubble: View {
     @State private var activeDot: Int = 0
+    @State private var stageIndex: Int = 0
 
     var body: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .frame(width: 6, height: 6)
-                    .foregroundStyle(WarmInstrument.inkFaint)
-                    .offset(y: activeDot == index ? -4 : 0)
-                    .animation(.easeInOut(duration: 0.25), value: activeDot)
+        HStack(spacing: 10) {
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .frame(width: 6, height: 6)
+                        .foregroundStyle(WarmInstrument.inkFaint)
+                        .offset(y: activeDot == index ? -4 : 0)
+                        .animation(.easeInOut(duration: 0.25), value: activeDot)
+                }
             }
+            Text(CoachChatThinkingStage.labels[stageIndex])
+                .font(.system(size: 13))
+                .foregroundStyle(WarmInstrument.inkMuted)
+                // `id` forces a fresh view identity on every stage change so the transition
+                // below (fade + slight slide) replays instead of only firing once.
+                .id(stageIndex)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .move(edge: .leading)),
+                    removal: .opacity
+                ))
         }
         .padding(.horizontal, 15)
         .padding(.vertical, 14)
@@ -410,6 +448,15 @@ struct CoachChatThinkingBubble: View {
                     try? await Task.sleep(for: .milliseconds(300))
                 }
                 try? await Task.sleep(for: .milliseconds(200))
+            }
+        }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(CoachChatThinkingStage.intervalMs))
+                if Task.isCancelled { break }
+                withAnimation(.easeOut(duration: 0.32)) {
+                    stageIndex = CoachChatThinkingStage.next(from: stageIndex)
+                }
             }
         }
     }

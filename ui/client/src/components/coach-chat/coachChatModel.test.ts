@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   activitySync,
   challengeDayNumber,
+  CoachChatAccessRevokedError,
+  CoachChatRateLimitedError,
   CoachChatSaveFailedError,
   droppedActionToastMessage,
   fetchProactiveCoachMessage,
@@ -14,6 +16,7 @@ import {
   selectProactiveCoachMessage,
   sendMessage,
   syncedActivityList,
+  turnErrorToastMessage,
   type ChatAttachment,
   type ChatMessage,
   type ChatThread,
@@ -397,12 +400,38 @@ describe("attachments on a thread", () => {
   });
 });
 
-describe("droppedActionToastMessage", () => {
-  it("uses the soft copy for a pure validation drop - data committed, one reference was bad", () => {
+// I1: each of D1's three real failure shapes gets its own accurate message, not one generic
+// "something went wrong" toast.
+describe("turn failure messages (I1)", () => {
+  it("reports a commit failure distinctly from a Gemini-call failure", () => {
+    const saveFailed = new CoachChatSaveFailedError("save failed", "Coach's actual reply text");
+    expect(turnErrorToastMessage(saveFailed)).toBe(
+      "Coach replied, but I couldn't save it - try again?",
+    );
+  });
+
+  it("reports a generic Gemini-call failure using the error's own message", () => {
+    expect(turnErrorToastMessage(new Error("Coach chat request failed (500)"))).toBe(
+      "Coach chat request failed (500)",
+    );
+    expect(turnErrorToastMessage("not an Error instance")).toBe("Coach didn't reply - try again");
+  });
+
+  it("reports a rate-limit distinctly, via its own explanatory message", () => {
+    expect(turnErrorToastMessage(new CoachChatRateLimitedError())).toBe(
+      "Coach is getting a lot of requests right now - wait a moment and try again",
+    );
+  });
+
+  it("defers access-revoked to the sign-in-again card instead of a toast", () => {
+    expect(turnErrorToastMessage(new CoachChatAccessRevokedError())).toBeNull();
+  });
+
+  it("reports a dropped action distinctly from both failure toasts, only when one was dropped", () => {
+    expect(droppedActionToastMessage(undefined)).toBeNull();
+    expect(droppedActionToastMessage([])).toBeNull();
     expect(
-      droppedActionToastMessage([
-        { field: "quest_event", reason: "no such quest", kind: "validation" },
-      ]),
+      droppedActionToastMessage([{ field: "ledger.entries[0].load", reason: "out of range" }]),
     ).toBe("Coach couldn't quite save one of your updates - it wasn't lost, just skipped");
   });
 
@@ -422,5 +451,14 @@ describe("droppedActionToastMessage", () => {
     expect(droppedActionToastMessage([{ field: "quest_event", reason: "no such quest" }])).toBe(
       "Coach couldn't quite save one of your updates - it wasn't lost, just skipped",
     );
+  });
+
+  it("gives all three real failure shapes their own distinct message", () => {
+    const messages = new Set([
+      turnErrorToastMessage(new CoachChatSaveFailedError("x", "reply")),
+      turnErrorToastMessage(new Error("Coach chat request failed (500)")),
+      droppedActionToastMessage([{ field: "f", reason: "r" }]),
+    ]);
+    expect(messages.size).toBe(3);
   });
 });
