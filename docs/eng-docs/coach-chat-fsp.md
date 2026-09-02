@@ -1,6 +1,6 @@
 # Coach Chat — First Session Protocol
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-02
 
 ## Context
 
@@ -90,20 +90,21 @@ warm intro → conversational intake → confirm → quest setup → transition.
 structured action as it lands:
 - Missing name → `profile_update`; missing sports → `sports_update`.
 - Training frequency/fitness level → `memory_update` (`fitness_baseline`).
-- The 3-6 month goal → `quest_create`'s `main_quest` (`memory.json` has no goal field — issue
-  #408 moved that meaning to seasons/quests).
-- Upcoming events and a rough season timeline → `season_start` (no `phase` field, Part 2 dropped
-  it).
+- Upcoming events, a rough season timeline, AND the 3-6 month goal → `season_start`, bundled
+  together in one call. `main_quest` is part of its own payload (B3) — `memory.json` has no goal
+  field, issue #408 moved that meaning to seasons/quests. No `phase` field, Part 2 dropped it.
 - Injuries → `injury_flag` for a brand-new one (server mints the id), `injury_event` to
   update/resolve one already on file (its real `flag_id`).
 - Date of birth/height/weight/city → `profile_update` (`dob`/`height_cm`/`weight_kg`/`timezone`).
-- Habit quests → `quest_create`'s `quests[]`.
+- Habit quests → `quest_create`'s `quests[]` (habit quests only — the goal moved to
+  `season_start.main_quest`).
 
 While the profile is incomplete, each ordinary turn commits any profile, memory, injury, season, or quest
 writes it produced in a small atomic commit. Day-to-day chat remains write-on-close. The closing
 turn still commits the thread and any remaining writes through the normal close path.
-`season_start`/`quest_create` are explicitly scoped in the prompt text to first-session/
-new-athlete onboarding only, never for a returning athlete's season or quest changes.
+`season_start`/`quest_create` are available on every turn for every athlete (B3) — a returning
+athlete can start a new season with its goal, or add a habit quest, the same as during First
+Session.
 
 ### 4. Resumability
 
@@ -155,12 +156,12 @@ GitHub read (`turnWrites/profileWrite.ts`'s `projectProfileCompletion`). This is
 `coach_since` stamping (ADR 0018) and initial workout template generation
 (`generateInitialTemplates`) on the real false→true transition.
 
-`isFirstSessionRitualDone()` additionally requires `quests.main_quest` to be set — `main_quest` is
-meant to be set exactly once per athlete, so this naturally resolves to `false` forever once it's
-ever set, matching `isAthleteProfileComplete()`'s own per-field behavior. This is the fix for a
-live-tested gap. An athlete stating habit quests on the same turn that completed their profile
-used to see `quest_create` never fire, because the old single completion check had already stopped
-injecting First Session prompt context by then.
+`isFirstSessionRitualDone()` additionally requires `quests.main_quest` to be set — once the very
+first one lands, this resolves to `true` forever, matching `isAthleteProfileComplete()`'s own
+per-field behavior; it does not re-check on a later season change (B3), only on First Session
+completion. This is the fix for a live-tested gap. An athlete stating habit quests on the same
+turn that completed their profile used to see `quest_create` never fire, because the old single
+completion check had already stopped injecting First Session prompt context by then.
 
 ## Done when
 

@@ -791,66 +791,166 @@ describe("applySportsUpdate", () => {
 });
 
 describe("applySeasonStart", () => {
-  const EXISTING = JSON.stringify({
-    version: 1,
-    _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
-    current_season_id: "season_old_aaaa",
-    seasons: [
-      {
-        id: "season_old_aaaa",
-        name: "Old Season",
-        start_date: "2026-01-01",
-        end_date: "2026-06-01",
-        status: "completed",
-      },
-    ],
-  });
+  const SEASON_INPUT = {
+    name: "Marathon Build",
+    start_date: "2026-08-18",
+    end_date: "2026-12-01",
+    main_quest: { name: "Run a marathon", type: "count_target" as const, target: 1 },
+  };
 
-  it("mints a real id and sets current_season_id", () => {
-    const result = JSON.parse(
-      applySeasonStart(
-        EXISTING,
-        { name: "Marathon Build", start_date: "2026-08-18", end_date: "2026-12-01" },
-        "t1",
-        new Date("2026-08-18T10:00:00Z"),
-      ),
+  it("mints a real id and sets current_season_id - no prior season (FSP case)", () => {
+    const result = applySeasonStart(
+      null,
+      null,
+      SEASON_INPUT,
+      "2026-08-18",
+      "t1",
+      new Date("2026-08-18T10:00:00Z"),
     );
-    expect(result.current_season_id).toMatch(/^season_marathon_build_/);
-    expect(result.seasons[0].id).toBe(result.current_season_id);
-    expect(result.seasons[0]).toMatchObject({
+    const seasons = JSON.parse(result.seasonsContent);
+    expect(seasons.current_season_id).toMatch(/^season_marathon_build_/);
+    expect(seasons.seasons[0].id).toBe(seasons.current_season_id);
+    expect(seasons.seasons[0]).toMatchObject({
       name: "Marathon Build",
       start_date: "2026-08-18",
       end_date: "2026-12-01",
       status: "active",
     });
-    // Newest-first: prepended, old season still present after it.
-    expect(result.seasons[1].id).toBe("season_old_aaaa");
-    expect(result.seasons).toHaveLength(2);
+    expect(seasons.seasons).toHaveLength(1);
+
+    const quests = JSON.parse(result.questsContent);
+    expect(quests.main_quest).toMatchObject({
+      name: "Run a marathon",
+      type: "count_target",
+      target: 1,
+      season_id: seasons.current_season_id,
+    });
+    expect(quests.quests).toHaveLength(0);
   });
 
   it("never invents a phase field - Season has none", () => {
-    const result = JSON.parse(
-      applySeasonStart(
-        EXISTING,
-        { name: "Marathon Build", start_date: "2026-08-18", end_date: "2026-12-01" },
-        "t1",
-        new Date("2026-08-18T10:00:00Z"),
-      ),
+    const result = applySeasonStart(
+      null,
+      null,
+      SEASON_INPUT,
+      "2026-08-18",
+      "t1",
+      new Date("2026-08-18T10:00:00Z"),
     );
-    expect(result.seasons[0].phase).toBeUndefined();
+    expect(JSON.parse(result.seasonsContent).seasons[0].phase).toBeUndefined();
   });
 
-  it("starts a fresh file with just the new season when content is null", () => {
-    const result = JSON.parse(
-      applySeasonStart(
-        null,
-        { name: "First Season", start_date: "2026-08-18", end_date: "2026-12-01" },
-        "t1",
-        new Date("2026-08-18T10:00:00Z"),
-      ),
+  it("started early: prior active season resolves to retired, its main_quest retires into quests[]", () => {
+    const existingSeasons = JSON.stringify({
+      version: 1,
+      _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+      current_season_id: "season_old_aaaa",
+      seasons: [
+        {
+          id: "season_old_aaaa",
+          name: "Old Season",
+          start_date: "2026-01-01",
+          end_date: "2026-12-01",
+          status: "active",
+        },
+      ],
+    });
+    const existingQuests = JSON.stringify({
+      version: 1,
+      _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+      weekly_targets: {},
+      main_quest: {
+        id: "mq_old_aaaa",
+        name: "Old Goal",
+        type: "count_target",
+        target: 10,
+        season_id: "season_old_aaaa",
+      },
+      quests: [],
+    });
+
+    const result = applySeasonStart(
+      existingSeasons,
+      existingQuests,
+      SEASON_INPUT,
+      "2026-08-18", // before the old season's 2026-12-01 end_date - started early
+      "t1",
+      new Date("2026-08-18T10:00:00Z"),
     );
-    expect(result.seasons).toHaveLength(1);
-    expect(result.current_season_id).toBe(result.seasons[0].id);
+
+    const seasons = JSON.parse(result.seasonsContent);
+    const newSeasonId = seasons.current_season_id;
+    expect(seasons.seasons[1]).toMatchObject({ id: "season_old_aaaa", status: "retired" });
+    expect(seasons.seasons[0].id).toBe(newSeasonId);
+
+    const quests = JSON.parse(result.questsContent);
+    expect(quests.main_quest).toMatchObject({ name: "Run a marathon", season_id: newSeasonId });
+    expect(quests.quests).toHaveLength(1);
+    expect(quests.quests[0]).toMatchObject({
+      id: "mq_old_aaaa",
+      name: "Old Goal",
+      type: "count_target",
+      target: 10,
+      status: "retired",
+      start_date: "2026-01-01",
+      end_date: "2026-08-18",
+      source: "model",
+    });
+  });
+
+  it("started after end date: prior active season resolves to completed", () => {
+    const existingSeasons = JSON.stringify({
+      version: 1,
+      _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+      current_season_id: "season_old_aaaa",
+      seasons: [
+        {
+          id: "season_old_aaaa",
+          name: "Old Season",
+          start_date: "2026-01-01",
+          end_date: "2026-06-01",
+          status: "active",
+        },
+      ],
+    });
+
+    const result = applySeasonStart(
+      existingSeasons,
+      null,
+      SEASON_INPUT,
+      "2026-08-18", // after the old season's 2026-06-01 end_date
+      "t1",
+      new Date("2026-08-18T10:00:00Z"),
+    );
+    const seasons = JSON.parse(result.seasonsContent);
+    expect(seasons.seasons[1]).toMatchObject({ id: "season_old_aaaa", status: "completed" });
+  });
+
+  it("leaves an already-resolved prior season (not active) untouched", () => {
+    const existingSeasons = JSON.stringify({
+      version: 1,
+      _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+      current_season_id: "season_old_aaaa",
+      seasons: [
+        {
+          id: "season_old_aaaa",
+          name: "Old Season",
+          start_date: "2026-01-01",
+          end_date: "2026-06-01",
+          status: "completed",
+        },
+      ],
+    });
+    const result = applySeasonStart(
+      existingSeasons,
+      null,
+      SEASON_INPUT,
+      "2026-08-18",
+      "t1",
+      new Date("2026-08-18T10:00:00Z"),
+    );
+    const seasons = JSON.parse(result.seasonsContent);
+    expect(seasons.seasons[1]).toMatchObject({ id: "season_old_aaaa", status: "completed" });
   });
 });
 
@@ -859,7 +959,13 @@ describe("applyQuestCreate", () => {
     version: 1,
     _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
     weekly_targets: {},
-    main_quest: { id: "mq_old_aaaa", name: "Old Goal", type: "count_target", target: 10 },
+    main_quest: {
+      id: "mq_old_aaaa",
+      name: "Old Goal",
+      type: "count_target",
+      target: 10,
+      season_id: "season_old_aaaa",
+    },
     quests: [
       {
         id: "q_old_bbbb",
@@ -873,12 +979,11 @@ describe("applyQuestCreate", () => {
     ],
   });
 
-  it("sets main_quest and appends new quests with source model", () => {
+  it("appends new quests with source model, never touching main_quest", () => {
     const result = JSON.parse(
       applyQuestCreate(
         EXISTING,
         {
-          main_quest: { name: "Run a marathon", type: "count_target", target: 1 },
           quests: [{ name: "Stretch daily", type: "daily_streak", polarity: "default_done" }],
         },
         "2026-08-18",
@@ -886,12 +991,8 @@ describe("applyQuestCreate", () => {
         new Date("2026-08-18T10:00:00Z"),
       ),
     );
-    expect(result.main_quest).toMatchObject({
-      name: "Run a marathon",
-      type: "count_target",
-      target: 1,
-    });
-    expect(result.main_quest.id).toMatch(/^mq_run_a_marathon_/);
+    // main_quest is untouched - quest_create has no field to set it with.
+    expect(result.main_quest.id).toBe("mq_old_aaaa");
     // Existing quest untouched, new one appended.
     expect(result.quests).toHaveLength(2);
     expect(result.quests[0].id).toBe("q_old_bbbb");
@@ -908,7 +1009,7 @@ describe("applyQuestCreate", () => {
     expect(newQuest.id).toMatch(/^q_stretch_daily_/);
   });
 
-  it("keeps the existing main_quest when none is given, only appending quests", () => {
+  it("keeps the existing main_quest untouched, only appending quests", () => {
     const result = JSON.parse(
       applyQuestCreate(
         EXISTING,
