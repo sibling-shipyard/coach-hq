@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
-const KIT_ROOT = path.resolve(REPO_ROOT, "../agent-kit");
+const KIT_ROOT = process.env.AGENT_KIT_ROOT
+  ? path.resolve(process.env.AGENT_KIT_ROOT)
+  : path.resolve(REPO_ROOT, "../agent-kit");
 const INIT_TEMPLATES_SRC = path.join(__dirname, "templates/init");
 
 const EXEC_SUFFIXES = new Set([".py", ".sh", ".mjs"]);
@@ -32,6 +34,14 @@ function sanitize(content) {
     .replace(
       /Coach's voice rules \(`platform\/soul\/A_identity\.md` §3\) apply to you\./g,
       "Coach's voice rules (your repo's identity doc) apply to you.",
+    )
+    .replace(
+      /Otherwise git, `kdb\/decisions\/` and `SOUL_HISTORY\.md` are the archive\./g,
+      "Otherwise git and `kdb/decisions/` are the archive.",
+    )
+    .replace(
+      /2\. Changed a soul layer or a composed build\? Add a version entry to `docs\/eng-docs\/SOUL_HISTORY\.md`[^\n]*/g,
+      "2. Changed a composed identity doc? Add a version entry to your project's change-history doc (see `kdb/doc-style.md`).",
     );
 }
 
@@ -53,15 +63,16 @@ function extractBlocks(fileRelPaths) {
   }
 }
 
-function copyTree(srcDir, destDir, { force = false, executable = false } = {}) {
+function copyTree(srcDir, destDir, { force = false, executable = false, created = null } = {}) {
   if (!fs.existsSync(srcDir)) return { copied: 0, skipped: 0 };
   let copied = 0;
   let skipped = 0;
+  const destExisted = fs.existsSync(destDir);
   for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
     const srcPath = path.join(srcDir, entry.name);
     const destPath = path.join(destDir, entry.name);
     if (entry.isDirectory()) {
-      const sub = copyTree(srcPath, destPath, { force, executable });
+      const sub = copyTree(srcPath, destPath, { force, executable, created });
       copied += sub.copied;
       skipped += sub.skipped;
     } else if (entry.isFile()) {
@@ -69,14 +80,17 @@ function copyTree(srcDir, destDir, { force = false, executable = false } = {}) {
         skipped += 1;
         continue;
       }
+      const fileExisted = fs.existsSync(destPath);
       fs.mkdirSync(path.dirname(destPath), { recursive: true });
       fs.copyFileSync(srcPath, destPath);
       if (executable || EXEC_SUFFIXES.has(path.extname(entry.name))) {
         fs.chmodSync(destPath, 0o755);
       }
+      if (created && !fileExisted) created.push(destPath);
       copied += 1;
     }
   }
+  if (created && !destExisted && copied > 0) created.push(destDir);
   return { copied, skipped };
 }
 
@@ -87,6 +101,13 @@ function copyInitTemplatesToKit() {
   }
   const dest = path.join(KIT_ROOT, "templates/init");
   copyTree(INIT_TEMPLATES_SRC, dest, { force: true, executable: true });
+}
+
+function overlayInitCheckSh() {
+  const initCheckSh = path.join(KIT_ROOT, "templates/init/platform/scripts/check.sh");
+  fs.mkdirSync(path.dirname(initCheckSh), { recursive: true });
+  fs.copyFileSync(path.join(REPO_ROOT, "platform/scripts/check.sh"), initCheckSh);
+  fs.chmodSync(initCheckSh, 0o755);
 }
 
 function carve() {
@@ -160,6 +181,8 @@ function carve() {
 
   // 5. Init scaffold templates (source in HQ, copied to carved kit)
   copyInitTemplatesToKit();
+  // check.sh is HQ live prose — overlay from source, never hand-maintain under templates/init/
+  overlayInitCheckSh();
 
   // 6. Git hooks
   const githooksSrc = path.join(REPO_ROOT, ".githooks");
@@ -192,6 +215,12 @@ function stampFile(src, dest, force) {
   return "copied";
 }
 
+function rollbackInit(created) {
+  for (const p of created.reverse()) {
+    fs.rmSync(p, { recursive: true, force: true });
+  }
+}
+
 function init(targetPath, force) {
   if (!fs.existsSync(KIT_ROOT) || !fs.existsSync(path.join(KIT_ROOT, "tools/kdb"))) {
     console.log("Agent kit not found — carving first…");
@@ -204,42 +233,58 @@ function init(targetPath, force) {
     process.exit(1);
   }
 
+  const created = [];
   let copied = 0;
   let skipped = 0;
 
-  for (const rel of INIT_TEXT_MANIFEST) {
-    const src = path.join(KIT_ROOT, "templates/init", rel);
-    const dest = path.join(target, rel);
-    if (!fs.existsSync(src)) {
-      console.error(`❌ missing init template in kit: templates/init/${rel}`);
-      process.exit(1);
+  try {
+    for (const rel of INIT_TEXT_MANIFEST) {
+      const src = path.join(KIT_ROOT, "templates/init", rel);
+      const dest = path.join(target, rel);
+      if (!fs.existsSync(src)) {
+        throw new Error(`missing init template in kit: templates/init/${rel}`);
+      }
+      const existed = fs.existsSync(dest);
+      const result = stampFile(src, dest, force);
+      if (result === "copied") {
+        copied += 1;
+        if (!existed) created.push(dest);
+      } else {
+        skipped += 1;
+      }
     }
-    const result = stampFile(src, dest, force);
-    if (result === "copied") copied += 1;
-    else skipped += 1;
+
+    const adrTplSrc = path.join(KIT_ROOT, "templates/kdb/decisions/0000-template.md");
+    const adrTplDest = path.join(target, "kdb/decisions/0000-template.md");
+    const adrExisted = fs.existsSync(adrTplDest);
+    const adrResult = stampFile(adrTplSrc, adrTplDest, force);
+    if (adrResult === "copied") {
+      copied += 1;
+      if (!adrExisted) created.push(adrTplDest);
+    } else {
+      skipped += 1;
+    }
+
+    const kdbResult = copyTree(
+      path.join(KIT_ROOT, "tools/kdb"),
+      path.join(target, "kdb/scripts"),
+      { force, executable: true, created },
+    );
+    copied += kdbResult.copied;
+    skipped += kdbResult.skipped;
+
+    const hooksResult = copyTree(
+      path.join(KIT_ROOT, "tools/githooks"),
+      path.join(target, ".githooks"),
+      { force, executable: true, created },
+    );
+    copied += hooksResult.copied;
+    skipped += hooksResult.skipped;
+  } catch (err) {
+    rollbackInit(created);
+    console.error(`❌ init failed: ${err.message}`);
+    process.exit(1);
   }
-
-  const adrTplSrc = path.join(KIT_ROOT, "templates/kdb/decisions/0000-template.md");
-  const adrTplDest = path.join(target, "kdb/decisions/0000-template.md");
-  const adrResult = stampFile(adrTplSrc, adrTplDest, force);
-  if (adrResult === "copied") copied += 1;
-  else skipped += 1;
-
-  const kdbResult = copyTree(
-    path.join(KIT_ROOT, "tools/kdb"),
-    path.join(target, "kdb/scripts"),
-    { force, executable: true },
-  );
-  copied += kdbResult.copied;
-  skipped += kdbResult.skipped;
-
-  const hooksResult = copyTree(
-    path.join(KIT_ROOT, "tools/githooks"),
-    path.join(target, ".githooks"),
-    { force, executable: true },
-  );
-  copied += hooksResult.copied;
-  skipped += hooksResult.skipped;
 
   console.log(`✓ Agent kit initialized at ${target} (${copied} copied, ${skipped} skipped)`);
 }
@@ -248,7 +293,10 @@ function usage() {
   console.log(`Usage:
   node platform/agent-kit/carve-kit.mjs              Carve kit to ../agent-kit
   node platform/agent-kit/carve-kit.mjs --init <dir> Stamp KB scaffold into <dir>
-  node platform/agent-kit/carve-kit.mjs --init <dir> --force  Overwrite existing files`);
+  node platform/agent-kit/carve-kit.mjs --init <dir> --force  Overwrite existing files
+
+Env:
+  AGENT_KIT_ROOT  Carve/init output directory (default: <repo>/../agent-kit)`);
 }
 
 function parseArgs(argv) {

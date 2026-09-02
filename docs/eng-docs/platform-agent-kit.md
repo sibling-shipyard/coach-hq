@@ -47,19 +47,28 @@ both: carve output plus `platform/agent-kit/{bootstrap,VERSION,README.md}` verba
    into a scratch clone of `coach-skeleton` (a real second repo, local only, nothing pushed).
 3. `carve-kit.mjs --init <target>` stamps a bare git repo with a working KB scaffold —
    **verified 2026-09-02** (see below).
-4. HQ's own `check.sh` and `validate_kdb.py` stayed green at every phase (P1–P6) — no parallel
-   enforcement copy existed at any point (ADR 0036).
+4. HQ's own `check.sh` and `validate_kdb.py` stayed green at every phase (P1–P6) — no second
+   live enforcement tree at HQ; carve output is derived, not hand-maintained (ADR 0036).
 
 ## `--init` — bare-repo scaffold
 
 ```bash
-node platform/agent-kit/carve-kit.mjs              # carve to ../agent-kit (existing)
+node platform/agent-kit/carve-kit.mjs              # carve to ../agent-kit (default)
+AGENT_KIT_ROOT=/tmp/my-kit node platform/agent-kit/carve-kit.mjs   # override output dir
 node platform/agent-kit/carve-kit.mjs --init /path/to/repo [--force]
 ```
 
 Stamps Tier-1 invariants (`kdb/scripts/`, `.githooks/`, `platform/scripts/check.sh`) and Tier-3
 local stubs (`AGENTS.md` routing table placeholder, `kdb/decisions/README.md` with index markers,
 role doc skeleton, issue templates). Tier-2 managed blocks start empty inside markers.
+
+**checks.conf:** `--init` stamps the empty consumer stub at
+`templates/init/platform/scripts/checks.conf` (validate_kdb only until the repo adds its own
+checks). `templates/checks.conf` in the carved kit is an HQ reference example — not what `--init`
+writes.
+
+**check.sh:** carved from HQ's live `platform/scripts/check.sh` on every `carve()` — never a static
+copy under `templates/init/`.
 
 After `--init`: link the carved kit as `.agent-kit/` (copy `bootstrap/` + `VERSION`), **`git add`
 and commit the scaffold**, then run `.agent-kit/bootstrap/update.sh`. `update.sh` uses
