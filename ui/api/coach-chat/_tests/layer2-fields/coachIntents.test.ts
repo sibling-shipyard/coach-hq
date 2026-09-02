@@ -385,11 +385,7 @@ describe("applyInjuryEvent", () => {
   // coachReplySchema.ts's injury_event.status already constrains on the Gemini path.
   it("throws on an invalid status instead of silently writing it", () => {
     expect(() =>
-      applyInjuryEvent(
-        EXISTING,
-        [{ status: "cured" as any, flag_id: "inj_elbow" }],
-        "2026-08-18",
-      ),
+      applyInjuryEvent(EXISTING, [{ status: "cured" as any, flag_id: "inj_elbow" }], "2026-08-18"),
     ).toThrow('"cured" is not a valid status');
   });
 
