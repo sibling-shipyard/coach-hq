@@ -12,9 +12,9 @@ self-serve (ADR 0030). There is no operator step to plan around.
 > calisthenics; football and cycling are not built. This is a live athlete today, not a future
 > persona — it moves #313 ahead of the homescreen work and makes #346 current, not M4.
 
-**Priority:** milestones and epics, below. The `p0`–`p3` issue labels are retired — nothing read
-them, nobody sorted by them, and having a second scale next to the review tiers (`P0`/`P1`/`P2` in
-`AGENTS.md`) only ever caused confusion. Delete the four labels on GitHub when convenient.
+**Priority:** milestones and epics, below. Every open issue has one area, one work type, and an M3,
+M4, or Later horizon. The `p0`–`p3` labels are retired and removed; `needs-decision` marks a valid
+issue whose one product question must be answered before implementation.
 
 ## ✅ M2: Onboard Nats — and Prateek, unaided
 
@@ -42,32 +42,32 @@ _Supporting:_ #292 now in M3
 
 ### Epic: New-user magic (#302)
 
-- [ ] #303 Setup flow becomes a beautiful journey — Medium
+- [ ] #303 Define the setup journey improvements — Medium (`needs-decision`)
 - [ ] #304 Empty activity history handling — Low
 - [x] #305 First-session 1-year history — absorbed into #360
-- [ ] #306 First-session chat works — Medium (exit test; real work)
+- [ ] #306 Pass the first-session Coach-chat exit test — Medium
 - [x] #362 First-session predicate can never complete
 
 ### Epic: Sport-agnostic core (#313)
 
-- [ ] #346 Signup-as-runner/cyclist reality check — Effort not set (**moved from M4** — Prateek is that athlete)
+- [ ] #346 Verify signup journeys for runners and cyclists — Effort not set (**moved from M4** — Prateek is that athlete)
 - [ ] #460 Category sub-tags under each sport — Low
 - [ ] #315 Badminton + calisthenics analytics — Medium
-- [ ] #314 Home widgets not sport-hardcoded — Medium
+- [ ] #314 Make Home widgets sport-agnostic — Medium
 - [ ] #365 Generic workout templates — Medium (blocked until #360 loads templates)
 - [ ] #367 Quest / gamification audit — Medium
 - [ ] #156 HealthKit enrichment — High (pick old PR vs day-grain proposal first)
-	- [ ] #501 HealthKit day-grain recovery signals (resting HR, HRV, VO₂ Max, sleep) — Effort not set
-	- [ ] #495 HR zones: one source of truth, derived from resting + max HR — Effort not set
+	- [ ] #501 Persist day-grain HealthKit recovery signals — Effort not set
+	- [ ] #495 Unify heart-rate zone boundaries and colors — Effort not set
 - [x] #316 seasons/phases + quest_history — absorbed into #86/#378; leftover is #411
 
 ### Epic: Homescreen UX (#307)
 
 - [ ] #308 iOS home bug batch — Low (needs the list)
-- [ ] #309 Redesign home page — High
+- [ ] #309 Define the concrete Home redesign delta — High (`needs-decision`)
 - [ ] #311 Web visual tokens: reuse iOS colors — Low
 	- [ ] #310 Better SVG activity icons — Low
-- [ ] #312 Webapp bug batch (WhatsApp list) — Medium (needs the list)
+- [ ] #312 Recover or replace the missing web bug list — Medium (`needs-decision`)
 - [ ] #354 Widget entitlements not referenced — Low
 
 ### Epic: Coach depth (#317)
@@ -76,37 +76,37 @@ _Supporting:_ #292 now in M3
 - [x] #318 SOUL split (post-trim)
 - [ ] #360 Ordinary-turn context — Medium
 	- [ ] #322 Shrink coach-notes — Low
-- [ ] #323 Chat polish — Medium
-	- [ ] #270 Stream Gemini replies — Medium
+- [ ] #323 Improve Coach-chat flow and stream replies — Medium
+	- [ ] #270 Stream Coach replies across web and iOS — Medium
 - [ ] #320 Comment widget powered properly — Medium
-- [ ] #319 Coach patterns per user — High
-- [ ] #321 First-week narrative / strength benchmark — High
-- [ ] #324 Cycles, injuries, pregnancy, new sports — High
+- [ ] #319 Distill durable athlete patterns from the Coach log — High
+- [ ] #321 Define the first-week and strength-benchmark outcome — High (`needs-decision`)
+- [ ] #324 Split advanced coaching scenarios into testable outcomes — High (`needs-decision`)
 
 ### Epic: Platform hardening (#325)
 
-- [ ] #473 Coach-chat write path — Medium
-	- [ ] #576 Can't write main_quest floor/weight or progressions._meta — Effort not set
-	- [ ] #577 plan_edit can't touch week.guardrails[] or do free-form edits — Effort not set
-	- [ ] #575 coach_log.json phase_close/week_close row folding decision — Effort not set
-	- [ ] #565 progress.json / quests.json source enum: drop dead values — Effort not set
-	- [ ] #411 Season recap ritual — Medium (later)
-	- [ ] #359 Archive writes silently dropped — Low (**silent data loss; cheap to fix, worth pulling forward**)
-	- [ ] #361 Validate week file before save — Low
+- [x] #473 Coach-chat write path — closed Sep 1; recaps stay absent by decision and week writes validate
+	- [ ] #576 Write supported per-athlete schema extensions — Effort not set
+	- [ ] #577 Support bounded edits to week guardrails — Effort not set
+	- [ ] #575 Fold phase and week closures out of the Coach log — Effort not set
+	- [ ] #565 Remove unused source enum values from Coach data — Effort not set
+	- [ ] #411 Decide whether season-closing recaps should return — Medium (later)
+	- [x] #359 Archive writes stay dropped by decision
+	- [x] #361 Validate week file before save
 - [ ] #462 Storage caps (free-text limits) — Low
-	- [ ] #436 Rotate coach_log.json — Low
-- [ ] #327 How updates reach athlete repos — High (hold: may die if we go backend)
-	- [ ] #326 Plugin install flow — High
-- [ ] #454 Athlete-repo leftovers — Medium
-	- [ ] #419 Schema version-2 policy — Medium
-- [ ] #329 Coach-chat eval + clean view — Medium
-	- [ ] #573 Judge-model persona/voice scoring in the eval harness — Effort not set
+- [ ] #436 Bound Coach-log storage without losing continuity — Low
+- [ ] #327 Deliver authenticated updates to athlete repositories — High
+	- [ ] #326 Install Coach plugins through the repository updater — High
+- [ ] #454 Decide the fate of athlete-repository leftovers — Medium
+	- [ ] #419 Define migration policy before Coach data reaches version 2 — Medium
+- [ ] #329 Present a clean Coach-chat voice evaluation — Medium
+	- [ ] #573 Score Coach persona and voice in the evaluation harness — Effort not set
 - [ ] #585 Observability + iOS rage reports — Effort not set (plan open: PR #587)
-- [ ] #566 Consolidate coach-chat's 3 routes behind a catch-all — Effort not set
-- [ ] #572 Conversation compaction for coach-chat history window — Effort not set
-- [ ] #574 Background-finish redesign for closing turns (async close) — Effort not set
-- [ ] #493 Sweep docs/plans/ — 10 files marked Current, several belong to closed epics — Effort not set
-- [ ] #492 Revisit a dedicated coach-band agent when #317 starts — Effort not set
+- [ ] #566 Consolidate Coach-chat routes behind one handler — Effort not set
+- [ ] #572 Compact Coach-chat history without losing context — Effort not set
+- [ ] #574 Finish Coach-chat closing turns asynchronously — Effort not set
+- [ ] #493 Sweep stale plans and preserve only durable guidance — Effort not set
+- [ ] #492 Reconsider a dedicated Coach-band agent when churn grows — Effort not set
 - [x] #564 Delete provision-user.sh's dead --migrate mode — overtaken: the whole script is deleted (ADR 0030/0031)
 - [ ] #292 vs_usual baseline during sync — Low (PR open)
 - [x] #328 Docs audit + agent framework (incl #130)
@@ -120,9 +120,9 @@ _Supporting:_ #292 now in M3
 
 ### Epic: Stretch features — M3 (#330)
 
-- [ ] #332 Product page polish — Low
-	- [ ] #333 Animations — Low
-- [ ] #331 Per-activity screens — High
+- [ ] #332 Polish product-page spacing and motion — Low
+	- [ ] #333 Improve product-page motion and reduced-motion behavior — Low
+- [ ] #331 Add a standalone activity detail page on the web — High
 - [x] #334 Remove dead code (parent)
 - [x] #288 Split coach-chat.ts
 - [x] #223 Unused web chat starters
@@ -141,23 +141,25 @@ Schema migration done. Season recap leftover moved to #473 / #411.
 
 ### Epic: New features — M4 (#335)
 
-- [ ] #336 Live Activity
-- [ ] #337 Apple Watch app
-- [ ] #338 Rich interactions for widgets (calendar, contextual empty states, motion)
-- [ ] #339 Animations pass
-- [ ] #340 Category tagging via rules
-- [ ] #341 Sleep analytics (rebuild)
+- [ ] #336 Show an active coaching state with Live Activities
+- [ ] #337 Define and build the Apple Watch companion
+- [ ] #338 Add calendar and contextual interactions to widgets
+- [ ] #339 Complete the approved product motion pass
+- [ ] #340 Assign activity categories with deterministic rules
+- [ ] #341 Rebuild sleep analytics from HealthKit data
 
 ### Epic: Ready for strangers — M4 (#342)
 
-- [ ] #343 Testing framework: LLM benchmarks + iOS UI tests
-- [ ] #344 Product page dashboard check
-- [ ] #345 Remove "Phelps" everywhere (rebrand)
+- [ ] #343 Add Coach benchmarks and iOS UI tests
+- [ ] #344 Define the product-page dashboard check (`needs-decision`)
+- [ ] #345 Replace the Phelps product name
+- [ ] #487 Define the no-watch coaching outcome (`needs-decision`)
 
-## 🧊 Backlog — P2
+## 🧊 Later / standalone backlog
 
-- #68 calories 12k hardcode · #21 Vercel KV races · #239 silent re-auth
-- #247 bob: prune unwanted keys from old activities (Skanda & Akash repos)
+- M4: #68 fabricated calorie target · #21 session revocation/user registry · #239 GitHub re-auth
+- Later: #43 half-marathon GPS over-distance tolerance
+- M3 Backlog: #247 size a safe projection of activity history files
 
 ## 🔀 Decisions to take
 
@@ -172,6 +174,11 @@ Schema migration done. Season recap leftover moved to #473 / #411.
 - [ ] **Season recap** — later (#411)
 
 ## ✅ Done
+
+**Sep 1 — Issue hygiene + Project 4:** the frozen 91-issue backlog was classified and normalized;
+all non-closure issues pass the enforced title/body/category/milestone contract. Project 4 now has
+maintained status automation plus Needs triage, Now, Later, and By area views. Seven valid product
+questions use `needs-decision`; #247 and #670 were corrected from open-and-Done to Backlog.
 
 **Aug 25 — Priority labels retired + sport-agnostic pulled forward:** the `p0`–`p3` issue labels are gone. Nothing automated read them, nobody sorted by them, and a second scale beside the review tiers only caused confusion — including one agent misreading a stale `p0` as current. Milestones and epics do the sorting. #313 moved ahead of #307 and #346 moved out of M4 — Prateek plays football and cycles, neither of which the product handles. HealthKit shape resolved by closing #162.
 

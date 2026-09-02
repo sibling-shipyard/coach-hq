@@ -66,6 +66,24 @@ Prefill: `.github/PULL_REQUEST_TEMPLATE.md`. Issues: `.github/agents/issue-templ
 3. Closing keywords (`Fixes` / `Closes` / `Resolves`) only on the finishing PR — first merge
    must not close a multi-PR issue.
 
+## Issues and Project 4
+
+Issues are the work record; [Project 4](https://github.com/orgs/sibling-shipyard/projects/4) is the
+human view. Every issue uses the contract in `.github/agents/issue-template.md`:
+
+- `Area: plain-English problem or outcome` title, at most 90 characters.
+- Exactly two short preview sentences, then `## Done when` and `## Scope`.
+- Exactly one `area:*` label and one `type:*` label, plus an M3, M4, or Later milestone.
+- Effort is Low / Medium / High in Project 4. The retired `p0`–`p3` labels are not a priority scale.
+
+`needs-triage` is automation-owned: it marks a malformed issue and blocks a linked PR. A valid issue
+that still needs a product or scope call uses `needs-decision` and asks one concrete question; do not
+start implementation until that question is answered.
+
+Project status follows Backlog → Ready → In progress → In review → Done. Ready is a human triage
+decision; draft PRs set In progress, ready PRs set In review, and a merged finishing PR sets Done.
+Use the Needs triage, Now, Later, and By area views instead of a second priority field.
+
 ---
 
 ## Stacked PRs
