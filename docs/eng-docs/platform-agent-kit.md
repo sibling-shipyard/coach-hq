@@ -43,7 +43,7 @@ both: carve output plus `platform/agent-kit/{bootstrap,VERSION,README.md}` verba
 1. `carve-kit.mjs` produces a tree; `grep -riE 'claude|cursor|codex|antigravity'` over it is empty —
    **verified 2026-09-02**.
 2. `bootstrap/update.sh --check` reports drift on a stale marked file, `update.sh` fixes it from the
-   local `blocks/` cache, a second `--check` is clean (idempotent) — **verified 2026-09-02**, dogfogged
+   local `blocks/` cache, a second `--check` is clean (idempotent) — **verified 2026-09-02**, dogfooded
    into a scratch clone of `coach-skeleton` (a real second repo, local only, nothing pushed).
 3. HQ's own `check.sh` and `validate_kdb.py` stayed green at every phase (P1–P6) — no parallel
    enforcement copy existed at any point (ADR 0036).
