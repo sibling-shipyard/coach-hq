@@ -274,10 +274,6 @@ for fp in sorted((ROOT / ".github" / "agents").glob("*.md")):
             f"{fp.relative_to(ROOT)}: '## Learnings' block is {size}B, cap is {LEARNINGS_CAP}B — "
             "promote the durable entries into the relevant docs/eng-docs/ doc and delete the rest")
 
-# A soul-layer diff must carry a SOUL_HISTORY.md entry. AGENTS.md spells out why this one
-# cannot be a grep: a SOUL version change need not touch any path a text scan would look at,
-# so the only honest signal is the diff itself.
-#
 # Base resolution, in order: GITHUB_BASE_REF (set by Actions on a pull_request) -> origin/main
 # -> main. Compare against `git merge-base <base> HEAD`, not the base tip: a two-dot diff
 # against the tip would also report files that moved on the base since we branched, which has
@@ -287,8 +283,6 @@ for fp in sorted((ROOT / ".github" / "agents").glob("*.md")):
 # SKIPPED with a warning and never errors. It has to be that way: every local run on main and
 # every shallow CI checkout would otherwise hard-fail on a diff the script simply cannot see,
 # and a guard that red-lights when blind gets switched off within a day.
-SOUL_LAYERS = "platform/soul/"
-SOUL_HISTORY = "docs/eng-docs/SOUL_HISTORY.md"
 
 def git(*args):
     """Run a git command in ROOT. Returns stripped stdout, or None if it failed/git is missing."""
@@ -337,6 +331,12 @@ def changed_paths_vs_base():
     return set(changed) if base is not None else None
 
 # AGENT-KIT:STRIP-START soul-history-guard-def
+# A soul-layer diff must carry a SOUL_HISTORY.md entry. AGENTS.md spells out why this one
+# cannot be a grep: a SOUL version change need not touch any path a text scan would look at,
+# so the only honest signal is the diff itself.
+SOUL_LAYERS = "platform/soul/"
+SOUL_HISTORY = "docs/eng-docs/SOUL_HISTORY.md"
+
 def soul_history_guard():
     base, changed = diff_vs_base()
     if base is None:
