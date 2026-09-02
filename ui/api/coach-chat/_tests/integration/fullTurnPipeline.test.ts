@@ -24,8 +24,7 @@ import {
   loadTurnState,
   requestCoachReply,
   buildTurnWrites,
-  commitOrdinaryTurn,
-  commitClosingTurn,
+  commitTurn,
   type TurnRequest,
 } from "../../_lib/coachTurn.js";
 
@@ -169,7 +168,7 @@ async function runTurn(
   const replied = await requestCoachReply(turnState);
   if (replied instanceof Response) return replied;
   const writes = await buildTurnWrites(replied);
-  return replied.closing ? commitClosingTurn(writes) : commitOrdinaryTurn(writes);
+  return commitTurn(writes);
 }
 
 describe("full turn pipeline (layers 1-3 wired together, network mocked only)", () => {
@@ -196,11 +195,10 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       priorMessages: [],
       trimmed: "I was born Jan 1 1995",
       geminiMessage: "I was born Jan 1 1995",
-      endConversationRequested: false,
     });
 
     const body = await response.json();
-    expect(body).toMatchObject({ reply: "Got it, noted your birthday.", closed: false });
+    expect(body).toMatchObject({ reply: "Got it, noted your birthday." });
     expect(body.repoSha).not.toBe("head-sha-0");
     const committedProfile = JSON.parse(repo.files.get("user_data/coach/profile.json")!);
     expect(committedProfile.dob).toBe("1995-01-01");
@@ -225,44 +223,94 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       priorMessages: [],
       trimmed: "I'm 76kg now",
       geminiMessage: "I'm 76kg now",
-      endConversationRequested: false,
     });
 
     const body = await response.json();
-    expect(body).toMatchObject({ reply: "Got it, updated your weight.", closed: false });
+    expect(body).toMatchObject({ reply: "Got it, updated your weight." });
     expect(body.repoSha).not.toBe("head-sha-0");
     const committedProfile = JSON.parse(repo.files.get("user_data/coach/profile.json")!);
     expect(committedProfile.weight_kg).toBe(76);
   });
 
-  it("a closing turn with a coach_note commits chat + coach_log together and reports closed", async () => {
-    const repo = createFakeRepo(repoFixture());
+  // A real, schema-valid template - mirrors templateEdit.test.ts's fixture, needed here because
+  // applyTemplateEdit's final step (validateWorkout) rejects anything less than a full Workout.
+  const VALID_TEMPLATE = JSON.stringify({
+    id: "strength_b",
+    title: "Strength B",
+    subtitle: "Upper body focus",
+    workout_type: "strength",
+    estimated_duration_mins: 45,
+    location: "gym",
+    equipment: ["dumbbells"],
+    coaching_note: "Keep form tight.",
+    phases: [
+      {
+        name: "Warmup",
+        duration: "10 min",
+        default_rest_secs: 30,
+        exercises: [
+          {
+            num: 1,
+            name: "Arm circles",
+            type: "timed",
+            duration_secs: 30,
+            sets: 1,
+            form_cue: "Slow.",
+            why: "Warm up.",
+          },
+        ],
+      },
+      {
+        name: "Main set",
+        duration: "30 min",
+        default_rest_secs: 60,
+        exercises: [
+          {
+            num: 2,
+            name: "Push-ups",
+            type: "reps",
+            reps: 12,
+            sets: 3,
+            form_cue: "Elbows in.",
+            why: "Chest strength.",
+          },
+        ],
+      },
+    ],
+  });
+
+  // C1: template_edit commits on an ordinary turn now - there is no closing turn left to gate
+  // it behind. This also exercises the lazy templates-manifest fetch (correction #4): the
+  // manifest is only read from the fake repo because this reply asked for template_edit.
+  it("a template_edit commits chat + the template together on an ordinary turn, no close signal", async () => {
+    const repo = createFakeRepo(
+      repoFixture({
+        "user_data/activities/workout_plans/templates/_manifest.json": JSON.stringify({
+          template_ids: ["strength_b"],
+        }),
+        "user_data/activities/workout_plans/templates/strength_b.json": VALID_TEMPLATE,
+      }),
+    );
     const gemini = createFakeGemini([
       {
-        reply: "Nice work today, rest up.",
-        coach_note: "Athlete reported feeling strong.",
-        session_closed: true,
+        reply: "Dropped the warmup from Strength B going forward.",
+        template_edit: { template_id: "strength_b", skip_phases: ["Warmup"] },
       },
     ]);
 
     const response = await runTurn("owner/repo-2", repo, gemini, {
       threadId: "thread-2",
       priorMessages: [],
-      trimmed: "That's it for today, thanks coach",
-      geminiMessage: "That's it for today, thanks coach",
-      endConversationRequested: true,
+      trimmed: "Drop the warmup from my strength template for good",
+      geminiMessage: "Drop the warmup from my strength template for good",
     });
 
     const body = await response.json();
     expect(body).toMatchObject({
-      reply: "Nice work today, rest up.",
-      closed: true,
+      reply: "Dropped the warmup from Strength B going forward.",
       threadId: "thread-2",
     });
     expect(repo.files.has("user_data/coach/chat_history.json")).toBe(true);
-    expect(repo.files.get("user_data/coach/coach_log.json")).toContain(
-      "Athlete reported feeling strong.",
-    );
     const chatHistory = JSON.parse(repo.files.get("user_data/coach/chat_history.json")!);
     // A new thread's first turn leads with the divider (see appendConversationTurn in
     // chatThreads.ts) - only a thread with prior messages appends without one.
@@ -271,27 +319,31 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       "user",
       "coach",
     ]);
+    const updatedTemplate = JSON.parse(
+      repo.files.get("user_data/activities/workout_plans/templates/strength_b.json")!,
+    );
+    expect(updatedTemplate.phases).toHaveLength(1);
+    expect(updatedTemplate.phases[0].name).toBe("Main set");
   });
 
-  it('issue #609: a template_edit sentinel of "none" still crashes the closing-turn commit (deliberately not fixed by this test suite)', async () => {
+  it('issue #609: a template_edit sentinel of "none" still crashes the commit (deliberately not fixed by this test suite)', async () => {
     const repo = createFakeRepo(repoFixture());
     const gemini = createFakeGemini([
-      { reply: "All set for today.", template_edit: { template_id: "none" }, session_closed: true },
+      { reply: "All set for today.", template_edit: { template_id: "none" } },
     ]);
 
     const response = await runTurn("owner/repo-3", repo, gemini, {
       threadId: "thread-3",
       priorMessages: [],
-      trimmed: "Done, see you tomorrow",
-      geminiMessage: "Done, see you tomorrow",
-      endConversationRequested: true,
+      trimmed: "Change my template",
+      geminiMessage: "Change my template",
     });
 
     expect(response.status).toBe(502);
     const body = await response.json();
     expect(body.error).toContain('template_edit: no template with id "none"');
     // Nothing landed - the whole commit failed atomically, including the otherwise-valid chat
-    // and coach_log writes bundled in the same turn.
+    // write bundled in the same turn.
     expect(repo.files.has("user_data/coach/chat_history.json")).toBe(false);
   });
 
@@ -344,11 +396,10 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
       priorMessages: [],
       trimmed: "New season - I want to run a marathon, and I'll stretch daily too",
       geminiMessage: "New season - I want to run a marathon, and I'll stretch daily too",
-      endConversationRequested: false,
     });
 
     const body = await response.json();
-    expect(body).toMatchObject({ reply: "New season locked in.", closed: false });
+    expect(body).toMatchObject({ reply: "New season locked in." });
 
     const seasons = JSON.parse(repo.files.get("user_data/ledger/seasons.json")!);
     expect(seasons.seasons.find((s: { id: string }) => s.id === "s_old")).toMatchObject({

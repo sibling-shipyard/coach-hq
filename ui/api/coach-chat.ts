@@ -29,8 +29,7 @@ import { FIRST_SESSION_PROTOCOL } from "./_generated/soul.js";
 import { onboardingChanges } from "./coach-chat/_lib/onboardingWrites.js";
 import {
   buildTurnWrites,
-  commitClosingTurn,
-  commitOrdinaryTurn,
+  commitTurn,
   handleHistory,
   isActivitySyncRequest,
   isGreetRequest,
@@ -184,7 +183,7 @@ export async function handle(req: Request, auth: RepoAuthContext): Promise<Respo
   const replied = await requestCoachReply(state);
   if (replied instanceof Response) return replied;
   const turn = await buildTurnWrites(replied);
-  return turn.closing ? commitClosingTurn(turn) : commitOrdinaryTurn(turn);
+  return commitTurn(turn);
 }
 
 export default {

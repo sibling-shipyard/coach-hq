@@ -455,9 +455,7 @@ struct CoachChatComposer: View {
     @FocusState.Binding var isFocused: Bool
     var placeholder: String = "Message Coach…"
     var isSending: Bool = false
-    var canEndConversation: Bool = false
     let onSend: () -> Void
-    let onEndConversation: () -> Void
 
     @State private var fieldHeight = CoachChatMessageField.minHeight
 
@@ -489,17 +487,6 @@ struct CoachChatComposer: View {
                     .clipShape(Circle())
             }
             .disabled(!canSend)
-
-            Button(action: onEndConversation) {
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(WarmInstrument.paper)
-                    .frame(width: 32, height: 32)
-                    .background(canEndConversation && !isSending ? WarmInstrument.accent : WarmInstrument.inkFaint)
-                    .clipShape(Circle())
-            }
-            .disabled(!canEndConversation || isSending)
-            .accessibilityLabel("End Conversation")
         }
         .padding(.leading, 16)
         .padding(.trailing, 8)
@@ -927,7 +914,7 @@ private struct CoachChatPreviewHost: View {
             }
             .background(WarmInstrument.chatSurface)
             CoachChatStarterChips(prompts: CoachChatPreviewData.starterPrompts) { draft = $0 }
-            CoachChatComposer(draft: $draft, isFocused: $composerFocused, onSend: {}, onEndConversation: {})
+            CoachChatComposer(draft: $draft, isFocused: $composerFocused, onSend: {})
                 .padding(.bottom, 8)
                 .background(WarmInstrument.chatSurface)
         }

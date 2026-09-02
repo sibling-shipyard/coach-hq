@@ -130,8 +130,8 @@ const DEFAULT_SESSION_PRIORITY: CurrentWeekSessionPriority = "support";
  *   this pipeline, because the failure mode this session belongs to is different in kind.
  * - `data_status` is always written "live", never "draft". The contract's draft/live split exists
  *   for a multi-turn confirmation flow ("draft while facts are still being confirmed"), but
- *   week_plan is a single closing-turn action field, same shape as every other action field in this
- *   pipeline (coach_note, quest_event, ...) - by the time Gemini reports it, the kickoff
+ *   week_plan is a single-turn action field, same shape as every other action field in this
+ *   pipeline (memory_update, quest_event, ...) - by the time Gemini reports it, the kickoff
  *   conversation already happened and the plan reflects what was actually discussed and agreed.
  *   There's no second "confirm" turn built into this schema, and leaving weeks permanently stuck
  *   at "draft" would defeat the point of writing this file at all. If a genuine multi-turn
