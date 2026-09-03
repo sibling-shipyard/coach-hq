@@ -1,6 +1,6 @@
 # F1 — Propagate to skeleton and all athlete repos — LLD
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-01
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-03
 
 Execution detail for F1 in [`chat-commit-redesign.md`](chat-commit-redesign.md). Closes #760
 (child of the #703 batched-migration epic). Runs **after this whole redesign has merged to `main`**,
@@ -115,6 +115,16 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
    valid on all 5 repos.
 7. **Anything D2's full audit surfaces** beyond what's listed above — check once D2 lands, before
    starting this PR, not assumed here.
+8. **`timezone`** (B1) — checked directly against all 5 repos (2026-09-03): every one already
+   carries a real IANA value (`coach-skanda-2003`: `Asia/Kolkata`, `coach-akash-suresh`:
+   `Europe/London`, `coach-prateekdevaraju`: `Europe/London`, `coach-date2022`: `Europe/London`,
+   `coach-shreyas-95-cyber`: `America/Los_Angeles`). B1's `timezone: null` placeholder fix only
+   changed the carve *template* going forward — it never leaked into any live repo's data. No
+   backfill needed; re-confirm at Step 0 in case a repo changed since this check.
+9. **`coach_log.json`** (C2) — checked against C2's LLD and a live repo's file (2026-09-03): C2
+   changes *write* behavior (overwrite same calendar day's row instead of always appending), not
+   the file's shape — `{version, rows: [{id, date, ts, type, text, trace_id}]}` is unchanged. Step
+   1's structural diff should find nothing here; no migration of existing rows needed.
 
 ## Info still needed from the athlete before this PR can execute
 
@@ -128,6 +138,8 @@ Checklist, not to be left blank at execution time:
 - [ ] Step 2's per-item keep-or-remove decisions, once Step 1's real diff is in hand.
 - [ ] Flag here immediately if any other field this redesign adds turns out to need a real answer
   the same way — don't assume this list is exhaustive once D2's audit lands.
+- [x] `timezone` (B1) and `coach_log.json` shape (C2) — checked 2026-09-03, no backfill/migration
+  needed for either, see Step 3 items 8 and 9 above.
 
 ## Execution, per repo
 
