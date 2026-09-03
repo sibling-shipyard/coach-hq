@@ -417,6 +417,21 @@ describe("generated message validation", () => {
     );
     expect(fetcher).toHaveBeenCalledOnce();
   });
+
+  it("sends the API key as a header, never in the URL (issue #638)", async () => {
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit) =>
+      Response.json({
+        candidates: [{ content: { parts: [{ text: JSON.stringify({ body: "Good work." }) }] } }],
+      }),
+    );
+
+    await generateProactiveBody("test-api-key", "prompt", fetcher);
+
+    expect(fetcher).toHaveBeenCalledOnce();
+    const [url, init] = fetcher.mock.calls[0];
+    expect(url).not.toContain("key=");
+    expect(init?.headers).toMatchObject({ "x-goog-api-key": "test-api-key" });
+  });
 });
 
 describe("idempotency and resolved writes", () => {

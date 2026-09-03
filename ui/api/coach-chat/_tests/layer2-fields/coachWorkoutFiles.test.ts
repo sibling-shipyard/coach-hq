@@ -1,8 +1,18 @@
 import { describe, it, expect, vi } from "vitest";
+
+const { fetchWithTimeout } = vi.hoisted(() => ({
+  fetchWithTimeout: vi.fn(),
+}));
+vi.mock("../../../_lib/httpTimeout.js", () => ({
+  fetchWithTimeout,
+  UPSTREAM_TIMEOUT_MS: 25_000,
+}));
+
 import {
   selectTemplates,
   generateInitialTemplates,
   loadWorkoutLibraryIndex,
+  adjustTemplatesWithGemini,
   type WorkoutLibraryIndexEntry,
 } from "../../_lib/coachWorkoutFiles.js";
 import type { ProfileJson, MemoryJson, InjuriesJson } from "../../_lib/coachMemoryFiles.js";
@@ -357,5 +367,25 @@ describe("generateInitialTemplates", () => {
     for (const entry of templates) {
       expect("content" in entry).toBe(true);
     }
+  });
+});
+
+describe("adjustTemplatesWithGemini", () => {
+  it("sends the API key as a header, never in the URL (issue #638)", async () => {
+    fetchWithTimeout.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: JSON.stringify({ adjustments: [] }) }] } }],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await adjustTemplatesWithGemini("test-api-key", [], memory({ sports: ["general_fitness"] }));
+
+    expect(fetchWithTimeout).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchWithTimeout.mock.calls[0];
+    expect(url as string).not.toContain("key=");
+    expect((init as RequestInit).headers).toMatchObject({ "x-goog-api-key": "test-api-key" });
   });
 });

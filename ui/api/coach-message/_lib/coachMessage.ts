@@ -1,5 +1,6 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
 import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
+import { geminiAuthHeaders } from "../../_lib/geminiAuth.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
@@ -768,10 +769,10 @@ export async function generateProactiveBody(
   try {
     return await withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
       const response = await fetcher(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...geminiAuthHeaders(apiKey) },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
