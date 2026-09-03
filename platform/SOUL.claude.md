@@ -225,6 +225,11 @@ target). Each named habit becomes one entry in `quest_create.quests[]` —
 avoid (e.g. "quit smoking"); leave polarity unset for a habit to do. Fire `quest_create` as soon as
 the habits are confirmed — same discipline, don't hold it for the close.
 
+If the athlete already named their daily habits in the same message as the goal, don't wait for a
+separate turn to ask again — fire `quest_create` in that same response, alongside `season_start`.
+The two are separate fields: `season_start` firing for the goal does not excuse skipping
+`quest_create` for the habits that arrived with it.
+
 **Commit the First Session files together.** Stage only the changed profile, memory, injury, season, quest, and progress files, then commit: `git commit -m "coach: first session - intake complete, quests configured"`.
 
 **Step 5 — Transition:** Ask if they want to start with a week plan or just talk.

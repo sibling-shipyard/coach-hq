@@ -35,6 +35,23 @@ Run against the final integrated branch (every PR in this stack landed, right be
    dropped without a wrap-up cue, and `quest_create` flaky (~1 in 3) when a habit is stated
    alongside `season_start` after profile completion. Confirm still-reproducing, still-open, or
    fixed by something later in the stack — don't let them go stale unconfirmed.
+   - **#808 — prompt strengthened, not yet live-verified (2026-09-03).** Root cause: the
+     pre-redesign closing-turn prompt had a dedicated "this is the field most likely to get
+     missed" warning for `quest_create`. C1 removed the closing-turn path entirely, and the
+     surviving FSP ordinary-turn text never carried that warning over — `season_start` and
+     `quest_create` sat as two clauses in one flat sentence with no mention of the pairing risk.
+     Fixed in both places that actually reach a live turn. `coachPromptText.ts`'s FSP
+     ordinary-turn block is testable via `30-fsp-quest-create-after-profile-complete.json`'s
+     existing eval harness, which runs with `soul: ""`. `B_engine.md`'s Step 4 reaches the
+     hosted app too — its First Session section is horcrux-injected per-turn, not part of the
+     static `SOUL.chat.md` prefix. Confirmed via `compose-soul.mjs` diffing
+     `platform/horcruxes/first-session.md`, not just the two SOUL builds. Local gate green,
+     `validate-soul` clean. **What this doesn't prove:** whether the prompt change actually moves
+     the ~1-in-3 live failure rate — that needs a real Gemini run, deliberately left for K1's own
+     live pass rather than run here.
+   - **#807 — untouched by this pass.** Same G1 batch, different failure shape (`plan_edit`
+     agreed in prose, no field set at all, not a pairing-drop) — needs its own root-cause dig, not
+     assumed to share #808's fix.
 5. **The HLD's own "Done when" section, run for real**, on one fresh scratch athlete repo. FSP
    goal, habits, and injuries all land in the same conversation regardless of when profile fields
    complete. A returning athlete's ordinary "I'm 76kg now" persists without closing. `quests.json`
