@@ -11,6 +11,7 @@ describe("scrubSentryEvent", () => {
           "Set-Cookie": "refresh=secret",
           "x-github-token": "github-secret",
           "X-Session-Token": "session-secret",
+          "X-Goog-Api-Key": "gemini-secret",
           Accept: "application/json",
         },
       },
@@ -22,6 +23,7 @@ describe("scrubSentryEvent", () => {
       "Set-Cookie": "[Filtered]",
       "x-github-token": "[Filtered]",
       "X-Session-Token": "[Filtered]",
+      "X-Goog-Api-Key": "[Filtered]",
       Accept: "application/json",
     });
   });

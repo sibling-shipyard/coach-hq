@@ -6,6 +6,7 @@ const CREDENTIAL_KEYS = new Set([
   "set-cookie",
   "x-github-token",
   "x-session-token",
+  "x-goog-api-key",
   "gemini_api_key",
   "session_secret",
   "github_app_client_secret",
