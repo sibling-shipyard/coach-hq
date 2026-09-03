@@ -195,7 +195,13 @@ class TestQuests(unittest.TestCase):
                 root,
                 "user_data/ledger/quests.json",
                 {
-                    "main_quest": {"id": "mq1", "name": "Run a marathon", "type": "progress", "target": 42},
+                    "main_quest": {
+                        "id": "mq1",
+                        "name": "Run a marathon",
+                        "type": "progress",
+                        "target": 42,
+                        "season_id": "s1",
+                    },
                     "quests": [
                         {
                             "id": "q1",
@@ -208,6 +214,47 @@ class TestQuests(unittest.TestCase):
                     ],
                 },
             )
+            self.assertEqual(validate_data_shape.check_quests(root), [])
+
+    def test_main_quest_missing_season_id_fails(self):
+        # B3's applySeasonStart silently fails to retire an outgoing goal when season_id is
+        # absent instead of erroring - this is the CI-layer check that catches that shape before
+        # it reaches a real athlete repo.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(
+                root,
+                "user_data/ledger/quests.json",
+                {"main_quest": {"id": "mq1", "name": "Run a marathon", "type": "progress", "target": 42}},
+            )
+            errors = validate_data_shape.check_quests(root)
+            self.assertTrue(any("season_id" in e for e in errors))
+
+    def test_main_quest_empty_season_id_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(
+                root,
+                "user_data/ledger/quests.json",
+                {
+                    "main_quest": {
+                        "id": "mq1",
+                        "name": "Run a marathon",
+                        "type": "progress",
+                        "target": 42,
+                        "season_id": "",
+                    }
+                },
+            )
+            errors = validate_data_shape.check_quests(root)
+            self.assertTrue(any("season_id" in e for e in errors))
+
+    def test_null_main_quest_passes(self):
+        # main_quest: null (B1) is the genuine, legal "no goal set yet" state - nothing to
+        # validate, not an error.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root, "user_data/ledger/quests.json", {"main_quest": None, "quests": []})
             self.assertEqual(validate_data_shape.check_quests(root), [])
 
     def test_bad_quest_type_fails(self):
