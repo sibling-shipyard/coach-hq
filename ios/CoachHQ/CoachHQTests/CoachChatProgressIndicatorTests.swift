@@ -60,7 +60,10 @@ final class CoachChatProgressIndicatorTests: XCTestCase {
         """
         let decoded = try JSONDecoder().decode(ChatSendResponse.self, from: Data(json.utf8))
         XCTAssertEqual(decoded.droppedActions?.count, 1)
-        XCTAssertEqual(decoded.droppedActions?.first, DroppedAction(field: "ledger.entries[0].load", reason: "out of range"))
+        XCTAssertEqual(
+            decoded.droppedActions?.first,
+            DroppedAction(field: "ledger.entries[0].load", reason: "out of range", kind: nil)
+        )
     }
 
     func testOrdinaryTurnHasNoDroppedActions() throws {
