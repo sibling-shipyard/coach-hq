@@ -88,7 +88,7 @@ flowchart LR
 Each PR gets its own LLD, named `ccr-<pr-code>-<topic>-lld.md` — the prefix matches the PR column
 above. Filename sort mostly tracks execution order, with three exceptions. **H1 runs after J2**, not
 alphabetically first among H/I/J — it needs J1/J2's changes already landed to document them
-accurately. **K1 runs last of the HQ stack**, after H1 — it's this redesign's true finish line
+accurately. **K1 runs last of the HQ stack**, after H1 - it's this redesign's true finish line
 (deletes this plan's own docs once its live pass is green), not H1 anymore now that K1 exists.
 **F1 runs after K1, not where its letter suggests.** Its Step 0 stamps the skeleton from HQ `main`,
 so it needs the whole stack actually merged, not just built. Nothing in J1/J2/H1/K1 depends on F1 in
