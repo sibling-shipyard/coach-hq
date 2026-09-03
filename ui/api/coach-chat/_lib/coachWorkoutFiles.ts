@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
-import { geminiAuthHeaders } from "../../_lib/geminiAuth.js";
+import { GEMINI_API_BASE_URL, geminiAuthHeaders } from "../../_lib/geminiAuth.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
 import type { FileEntry } from "../../_lib/githubGitData.js";
@@ -338,7 +338,7 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
 
   return withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
     const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      `${GEMINI_API_BASE_URL}/models/${GEMINI_MODEL}:generateContent`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", ...geminiAuthHeaders(apiKey) },

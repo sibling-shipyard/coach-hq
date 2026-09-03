@@ -1,6 +1,6 @@
 /** Gemini request construction, explicit-cache use, one retry, and response parsing. */
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { geminiAuthHeaders } from "../../_lib/geminiAuth.js";
+import { GEMINI_API_BASE_URL, geminiAuthHeaders } from "../../_lib/geminiAuth.js";
 import { withGeminiSpan, type GeminiUsage } from "../../_lib/sentry.js";
 import { log } from "../../_lib/log.js";
 import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
@@ -104,7 +104,7 @@ export async function askGemini(
 
   const callGemini = (useCache: boolean): Promise<Response> =>
     fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      `${GEMINI_API_BASE_URL}/models/${GEMINI_MODEL}:generateContent`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", ...geminiAuthHeaders(apiKey) },

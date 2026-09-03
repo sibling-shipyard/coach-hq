@@ -10,7 +10,7 @@
  * falls back to inlining the text in systemInstruction.
  */
 import { createClient } from "@vercel/edge-config";
-import { geminiAuthHeaders } from "../../_lib/geminiAuth.js";
+import { GEMINI_API_BASE_URL, geminiAuthHeaders } from "../../_lib/geminiAuth.js";
 import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
 
 const edgeConfigClient = process.env.GLOBAL_CONFIG ? createClient(process.env.GLOBAL_CONFIG) : null;
@@ -118,7 +118,7 @@ async function createCache(
 ): Promise<string | null> {
   try {
     const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/cachedContents`,
+      `${GEMINI_API_BASE_URL}/cachedContents`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", ...geminiAuthHeaders(apiKey) },
