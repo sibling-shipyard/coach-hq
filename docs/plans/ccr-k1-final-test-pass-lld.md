@@ -35,20 +35,33 @@ Run against the final integrated branch (every PR in this stack landed, right be
    dropped without a wrap-up cue, and `quest_create` flaky (~1 in 3) when a habit is stated
    alongside `season_start` after profile completion. Confirm still-reproducing, still-open, or
    fixed by something later in the stack — don't let them go stale unconfirmed.
-   - **#808 — prompt strengthened, not yet live-verified (2026-09-03).** Root cause: the
-     pre-redesign closing-turn prompt had a dedicated "this is the field most likely to get
+   - **#808 — prompt strengthened, live-tested, still flaky (2026-09-03, PR #824).** Root cause:
+     the pre-redesign closing-turn prompt had a dedicated "this is the field most likely to get
      missed" warning for `quest_create`. C1 removed the closing-turn path entirely, and the
      surviving FSP ordinary-turn text never carried that warning over — `season_start` and
      `quest_create` sat as two clauses in one flat sentence with no mention of the pairing risk.
-     Fixed in both places that actually reach a live turn. `coachPromptText.ts`'s FSP
-     ordinary-turn block is testable via `30-fsp-quest-create-after-profile-complete.json`'s
-     existing eval harness, which runs with `soul: ""`. `B_engine.md`'s Step 4 reaches the
-     hosted app too — its First Session section is horcrux-injected per-turn, not part of the
-     static `SOUL.chat.md` prefix. Confirmed via `compose-soul.mjs` diffing
-     `platform/horcruxes/first-session.md`, not just the two SOUL builds. Local gate green,
-     `validate-soul` clean. **What this doesn't prove:** whether the prompt change actually moves
-     the ~1-in-3 live failure rate — that needs a real Gemini run, deliberately left for K1's own
-     live pass rather than run here.
+     Fixed in both places that actually reach a live turn: `coachPromptText.ts`'s FSP
+     ordinary-turn block, and `B_engine.md`'s Step 4. The latter reaches the hosted app too,
+     since its First Session section is horcrux-injected per-turn, not part of the static
+     `SOUL.chat.md` prefix. Live-tested (5 fresh runs each via
+     `npm run eval:coach-chat -- --only 30-fsp-quest --fresh`). Also fixed
+     `eval-coach-chat.ts`'s `PROMPT_SOURCES` in the same PR. J2 moved
+     `coachPromptText.ts`/`coachReplySchema.ts`/`geminiClient.ts` into `_lib/gemini/`, and the
+     eval harness's cache-fingerprint list still pointed at the pre-J2 paths. It had been silently
+     unrunnable on the stack tip since J2 landed. **`gemini-flash-latest`: 0/5 pass** —
+     same failure every run, `season_start`/`sports_update` fire, `quest_create` never does, and
+     both the reply text and `coach_note` explicitly claim the habits are saved anyway.
+     **`gemini-pro-latest` (the real production model, per `geminiModel.ts`'s pin): 4/5
+     pass** — an improvement over the ~1-in-3 baseline this issue was filed against. Still not
+     reliable, and n=5 is a small sample. The prompt fix alone is not sufficient, at least on
+     flash. Live evidence points at a structural cause beyond wording.
+     `.github/agents/bob-the-builder.md`'s own Learning says Gemini's `responseSchema` fills
+     properties roughly in declaration order. `quest_create` is declared **last** in both
+     `FSP_ACTIONS` and `RETURNING_ACTIONS` (`coachReplySchema.ts`) — same position regardless of
+     model, which would explain why prompt wording alone couldn't move flash's rate at all.
+     **Not yet tried:** reorder `quest_create` earlier in both action-field lists (e.g. beside
+     `season_start` in the data-fact half, not trailing every other field), then re-test both
+     models. Left for a follow-up on #808, not blocking this pass.
    - **#807 — untouched by this pass.** Same G1 batch, different failure shape (`plan_edit`
      agreed in prose, no field set at all, not a pairing-drop) — needs its own root-cause dig, not
      assumed to share #808's fix.
