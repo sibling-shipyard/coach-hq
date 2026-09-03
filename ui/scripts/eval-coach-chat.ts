@@ -173,9 +173,9 @@ const MODEL = GEMINI_MODEL;
 // them are unchanged - otherwise the cache would vouch for a prompt that no longer exists.
 const PROMPT_SOURCES = [
   path.join(uiRoot, "api", "_lib", "geminiModel.ts"),
-  path.join(uiRoot, "api", "coach-chat", "_lib", "coachPromptText.ts"),
-  path.join(uiRoot, "api", "coach-chat", "_lib", "coachReplySchema.ts"),
-  path.join(uiRoot, "api", "coach-chat", "_lib", "geminiClient.ts"),
+  path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "coachPromptText.ts"),
+  path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "coachReplySchema.ts"),
+  path.join(uiRoot, "api", "coach-chat", "_lib", "gemini", "geminiClient.ts"),
 ];
 
 interface CacheEntry {
