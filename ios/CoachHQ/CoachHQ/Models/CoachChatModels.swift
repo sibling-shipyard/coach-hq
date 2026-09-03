@@ -328,6 +328,9 @@ struct ChatThreadsResponse: Decodable {
 struct DroppedAction: Codable, Equatable {
     let field: String
     let reason: String
+    /// "commit_failure" means the data never landed at all (an infra failure, not a bad
+    /// reference) - mirrors the server's DroppedAction.kind.
+    let kind: String?
 }
 
 /// POST /api/coach-chat response. Every turn commits fully now (C1) - `threadId`/`threads` are

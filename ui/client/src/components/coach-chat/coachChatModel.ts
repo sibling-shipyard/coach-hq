@@ -421,6 +421,19 @@ export class CoachChatSaveFailedError extends Error {
 export interface DroppedAction {
   field: string;
   reason: string;
+  // "commit_failure" means the data never landed at all (an infra failure, not a bad reference) -
+  // mirrors the server's ui/api/coach-chat/_lib/turnWrites/validateActions.ts DroppedAction.
+  kind?: "validation" | "commit_failure";
+}
+
+// A commit_failure means the data genuinely never saved - "wasn't lost, just skipped" would be
+// dishonest there. Any commit_failure in the batch makes the whole toast say so; a pure
+// validation drop (a stale reference, everything else committed fine) keeps the softer copy.
+export function droppedActionToastMessage(droppedActions: DroppedAction[]): string {
+  const hasCommitFailure = droppedActions.some((d) => d.kind === "commit_failure");
+  return hasCommitFailure
+    ? "Coach's reply saved, but one of your updates didn't - try mentioning it again"
+    : "Coach couldn't quite save one of your updates - it wasn't lost, just skipped";
 }
 
 // Mirrors githubGitData.ts's isTransient: retry a network failure or 5xx/429, never a 4xx

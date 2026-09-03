@@ -18,6 +18,7 @@ import {
   activitySync,
   challengeDayNumber,
   computeLocalDayOffset,
+  droppedActionToastMessage,
   epochMsFromMessageId,
   fetchProactiveCoachMessage,
   fetchThreads,
@@ -533,7 +534,7 @@ function CoachChatContent({ data }: { data: RepoData }) {
       // capture so the pattern is visible from both ends, not just the backend's. Nothing else
       // needed here - result.threads (trusted above) already carries the committed reply.
       if (result.droppedActions && result.droppedActions.length > 0) {
-        toast.info("Coach couldn't quite save one of your updates - it wasn't lost, just skipped");
+        toast.info(droppedActionToastMessage(result.droppedActions));
         Sentry.captureMessage("coach-chat: droppedActions in turn response", {
           level: "warning",
           tags: { dropped_count: result.droppedActions.length },

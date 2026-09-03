@@ -3,6 +3,7 @@ import {
   activitySync,
   challengeDayNumber,
   CoachChatSaveFailedError,
+  droppedActionToastMessage,
   fetchProactiveCoachMessage,
   fetchProfileStatus,
   materializeProactiveThread,
@@ -393,5 +394,33 @@ describe("attachments on a thread", () => {
     expect(retryActivityIdsFromThread(pending)).toEqual([
       "hk:11111111-1111-1111-1111-111111111111",
     ]);
+  });
+});
+
+describe("droppedActionToastMessage", () => {
+  it("uses the soft copy for a pure validation drop - data committed, one reference was bad", () => {
+    expect(
+      droppedActionToastMessage([
+        { field: "quest_event", reason: "no such quest", kind: "validation" },
+      ]),
+    ).toBe("Coach couldn't quite save one of your updates - it wasn't lost, just skipped");
+  });
+
+  it("uses the honest copy when any dropped action is a commit_failure - data genuinely never saved", () => {
+    expect(
+      droppedActionToastMessage([
+        {
+          field: "user_data/coach/profile.json",
+          reason: "save failed: 500",
+          kind: "commit_failure",
+        },
+      ]),
+    ).toBe("Coach's reply saved, but one of your updates didn't - try mentioning it again");
+  });
+
+  it("treats an absent kind as validation (server default)", () => {
+    expect(droppedActionToastMessage([{ field: "quest_event", reason: "no such quest" }])).toBe(
+      "Coach couldn't quite save one of your updates - it wasn't lost, just skipped",
+    );
   });
 });

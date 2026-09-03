@@ -14,6 +14,13 @@ import type { QuestEvent, InjuryEvent } from "../coachIntents.js";
 export interface DroppedAction {
   field: string;
   reason: string;
+  // "validation" (default when absent): a single bad reference (stale quest_id/flag_id/etc) -
+  // that one field dropped, everything else in the turn committed fine. "commit_failure": the
+  // whole atomic commit for this turn's facts never landed (infra failure, not a bad reference) -
+  // the data is genuinely gone, not "skipped", and unlike a validation drop it can't be folded
+  // into this turn's own coach_note (commitTurn discovers it after buildTurnWrites already
+  // decided what to write). Client-facing copy needs to say something different for each.
+  kind?: "validation" | "commit_failure";
 }
 
 export function validateQuestEvents(

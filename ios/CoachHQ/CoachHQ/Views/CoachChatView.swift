@@ -810,7 +810,13 @@ struct CoachChatView: View {
             // backend's. Mirrors web's toast.info() + Sentry.captureMessage() in CoachChat.tsx.
             // Nothing else needed here - `threads` (trusted above) already carries the reply.
             if let dropped = result.droppedActions, !dropped.isEmpty {
-                toast = Toast(kind: .info, message: "Coach couldn't quite save one of your updates - it wasn't lost, just skipped")
+                // A commit_failure means the data genuinely never saved - "wasn't lost, just
+                // skipped" would be dishonest there. Mirrors web's droppedActionToastMessage().
+                let hasCommitFailure = dropped.contains { $0.kind == "commit_failure" }
+                let message = hasCommitFailure
+                    ? "Coach's reply saved, but one of your updates didn't - try mentioning it again"
+                    : "Coach couldn't quite save one of your updates - it wasn't lost, just skipped"
+                toast = Toast(kind: .info, message: message)
                 SentrySDK.capture(message: "coach-chat: droppedActions in turn response") { scope in
                     scope.setLevel(.warning)
                     scope.setTag(value: String(dropped.count), key: "dropped_count")
