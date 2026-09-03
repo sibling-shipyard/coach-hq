@@ -4,10 +4,10 @@
 
 Execution detail for F1 in [`chat-commit-redesign.md`](chat-commit-redesign.md). Closes #760
 (child of the #703 batched-migration epic). Runs **after this whole redesign has merged to `main`**,
-past K1 — not just after B1/B3/D2/E1 are built, since Step 0 stamps the skeleton from HQ `main`
+past K1 - not just after B1/B3/D2/E1 are built, since Step 0 stamps the skeleton from HQ `main`
 itself and an unmerged stack means an intermediate shape. Nothing in J1/J2/H1/K1 depends on F1 in
 return; it closes #760 on its own schedule, independent of the rest of this plan. Executed as
-separate PRs in each target repo, not a single HQ PR — tracked here as one plan.
+separate PRs in each target repo, not a single HQ PR - tracked here as one plan.
 
 ## Ultimate goal — exact shape parity, not just this redesign's specific fields
 
@@ -52,7 +52,7 @@ against the same paths in the freshly-stamped skeleton. Two directions matter:
 - **Extra**: a file an athlete repo has that the skeleton doesn't. A preliminary pass, against a
   since-superseded skeleton clone before Step 0's importance was clear, suggested
   `coach-skanda-2003` and `coach-akash-suresh` may carry extra files under `user_data/coach/`
-  beyond the fixed set. Treat that as a lead, not a finding — re-run this comparison for real
+  beyond the fixed set. Treat that as a lead, not a finding - re-run this comparison for real
   against the freshly-stamped skeleton from Step 0, don't trust the preliminary numbers.
 
 Exclude naturally-per-athlete content from this diff — `user_data/activities/hist/*`,
@@ -86,13 +86,13 @@ cleanly onto every existing real `main_quest` (Prateek's excepted, since his isn
    person directly. Akash's repo already has one (`"accountability"`) — confirm it's still accurate
    rather than assume; the other 4 need a real answer from scratch. **Info needed from the athlete
    before this PR can execute:** each of the 5 people's answer to E1's FSP question. It asks what
-   works when things get hard — someone holding you accountable, someone cheering you on, or
+   works when things get hard - someone holding you accountable, someone cheering you on, or
    someone walking through the why. One of `accountability` / `encouragement` / `analysis` per
    person.
 2. **`main_quest`** — only `coach-prateekdevaraju` needs a real value backfilled (the other 4 already
    have one). **Info needed from the athlete:** Prateek's actual current 3-6 month goal, backfilled
    as a real `main_quest` object (`id`, `name`, `type`, `target`, optional `count_pattern`). Also his
-   real `season_id` — see the next item; every athlete gets this field, Prateek's just needs a real
+   real `season_id` - see the next item; every athlete gets this field, Prateek's just needs a real
    `main_quest` to attach it to.
 3. **`main_quest.season_id`** (new field from B3) — backfill onto all 5, not just Prateek. All 5
    already have a real, active `current_season_id` (confirmed directly: `s_load_bearing_season`,
