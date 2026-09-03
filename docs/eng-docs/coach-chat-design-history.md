@@ -506,5 +506,6 @@ stack) is the actual gate before that merge - see this doc's own future entries 
 
 No single ADR covers the whole redesign; individual locked decisions from it are ADR 0037
 (retention) and ADR 0038 (coaching-style restored). `docs/plans/chat-commit-redesign.md` and its
-`ccr-*-lld.md` files are deleted as of this PR, per this repo's plan-delete-on-last-PR rule -
-this entry, `coach-data-schema.md`, and `coach-chat-testing.md` carry what's still durable.
+`ccr-*-lld.md` files stay in place for now - K1 deletes them once its live pass is green, not
+this PR - but this entry, `coach-data-schema.md`, and `coach-chat-testing.md` already carry
+whatever from them is durable.
