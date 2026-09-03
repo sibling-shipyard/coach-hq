@@ -54,7 +54,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { fetchWithTimeout } from "../api/_lib/httpTimeout.js";
-import { getHeadSha } from "../api/coach-chat/_lib/coachChatFiles.js";
+import { getHeadSha } from "../api/coach-chat/_lib/decide/coachChatFiles.js";
 import { handle } from "../api/coach-chat.js";
 import type { RepoAuthContext } from "../api/auth/_lib/resolve-auth.js";
 import { writeTestLog, type TestLogEntry } from "./lib/testLog.js";
