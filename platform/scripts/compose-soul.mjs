@@ -129,6 +129,7 @@ const ASSEMBLY = [
       "s10_badminton_pointer",
       "s11",
       "s12_head",
+      "s12_head_chat_runtime",
       "s12_updates_head",
       "s12_updates_memory_chat_runtime",
       "s12_updates_memory_claude_runtime",
@@ -187,6 +188,7 @@ const ASSEMBLY = [
       // schema-driven action fields already are its enforcement mechanism, turn by turn, not a
       // checklist run once at the end of a session.
       s12_head: CLAUDE_ONLY,
+      s12_head_chat_runtime: CHAT_ONLY,
       s12_updates_head: CLAUDE_ONLY,
       s12_checklist: CLAUDE_ONLY,
       s12_checklist_shell: CLAUDE_ONLY,

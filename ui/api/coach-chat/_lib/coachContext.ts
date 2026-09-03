@@ -78,14 +78,18 @@ function equipmentSection(memory: MemoryJson | null): string {
 
 function recentSessionNotesSection(coachLog: CoachLogJson | null, today: string): string {
   const rows = coachLog?.rows ?? [];
-  const recent = rows.slice(-RECENT_SESSION_WINDOW).reverse(); // most recent first
   const todaysRow = rows.find((r) => r.date === today);
   // C2: coach_note is day-keyed now, so today's row (if it exists) is the one a new coach_note
   // this turn would overwrite - called out by name, separately from the plain history list below,
-  // so Gemini revises it rather than treating it as one more past row to leave alone.
+  // so Gemini revises it rather than treating it as one more past row to leave alone. Excluded
+  // from `recent` below so today's text isn't shown twice under two different headings.
   const todaysNoteLine = todaysRow
     ? `**Today's existing note (${today}) - if you write coach_note this turn, this is what it replaces:** ${todaysRow.text}`
     : `*(No note written yet today.)*`;
+  const recent = rows
+    .filter((r) => r.date !== today)
+    .slice(-RECENT_SESSION_WINDOW)
+    .reverse(); // most recent first
   const body =
     recent.length > 0 ? recent.map((r) => `- **${r.date}:** ${r.text}`).join("\n") : "*(Empty)*";
   return [

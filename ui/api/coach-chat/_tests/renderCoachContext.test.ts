@@ -205,6 +205,23 @@ describe("renderCoachContext section shape", () => {
     expect(section.indexOf("2026-08-17")).toBeLessThan(section.indexOf("2026-08-16"));
   });
 
+  it("does not repeat today's row in the rolling list when it's already called out separately", () => {
+    // 2026-08-17 has a real row in the fixture above - it should appear once, via "Today's
+    // existing note", not a second time in the rolling last-5 list underneath it.
+    const text = renderCoachContext({
+      profile,
+      memory,
+      injuries,
+      coachLog,
+      athleteInsights: null,
+      today: "2026-08-17",
+    });
+    const section = text.split("## Recent Session Notes")[1].split("## Fitness Baseline")[0];
+    expect(section).toContain("Today's existing note (2026-08-17)");
+    const occurrences = section.split("Badminton match, won 2-1.").length - 1;
+    expect(occurrences).toBe(1);
+  });
+
   it("renders the three Learned Patterns subsections from their three separate notes labels", () => {
     const text = renderCoachContext({
       profile,
