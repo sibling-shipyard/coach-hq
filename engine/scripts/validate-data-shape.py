@@ -180,6 +180,15 @@ def check_quests(root: Path) -> list[str]:
         mq_type = main_quest.get("type")
         if mq_type is not None and mq_type not in QUEST_TYPES:
             errors.append(f"{path}: main_quest.type must be one of {QUEST_TYPES}, got {mq_type!r}")
+        # season_id (B3): links a real main_quest to the season it belongs to - applySeasonStart
+        # (coachIntents.ts) uses it to tell an outgoing goal apart from a new one when a season
+        # changes. A present-but-real main_quest missing it, or holding a non-string, is exactly
+        # the pre-B3 shape that made that retirement check silently fail instead of firing.
+        season_id = main_quest.get("season_id")
+        if season_id is None:
+            errors.append(f"{path}: main_quest.season_id is required on a real main_quest")
+        elif not isinstance(season_id, str) or not season_id:
+            errors.append(f"{path}: main_quest.season_id must be a non-empty string, got {season_id!r}")
     quests = data.get("quests")
     if not isinstance(quests, list):
         return errors
