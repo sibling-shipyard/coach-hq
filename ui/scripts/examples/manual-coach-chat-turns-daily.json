@@ -1,11 +1,18 @@
 [
-  { "greet": true, "message": "" },
-  { "message": "My weight is 72kg today." },
-  { "message": "Also I noticed my left hip is a bit sore." },
-  { "message": "I finished a 5k run today." },
   {
-    "message": "That's it for today, wrap this up.",
-    "endConversationRequested": true,
-    "expect": { "sessionClosed": true }
+    "greet": true,
+    "message": ""
+  },
+  {
+    "message": "My weight is 72kg today."
+  },
+  {
+    "message": "Also I noticed my left hip is a bit sore."
+  },
+  {
+    "message": "I finished a 5k run today."
+  },
+  {
+    "message": "That's it for today, wrap this up."
   }
 ]

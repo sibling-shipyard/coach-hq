@@ -24,14 +24,14 @@
  *   npm run test:coach-chat-manual -- --repo owner/name --local-path /path --turns turns.json
  *   npm run test:coach-chat-manual -- --athlete skanda --branch test/reuse-me --message "..."
  *
- * turns.json is an array of { message, endConversationRequested?, expect? }. Set `greet: true`
- * on turns[0] to open the run with a real greet turn first - its real threadId carries into
- * every turn after it, so the whole run stays one conversation instead of the greet and the
- * follow-ups silently landing in two different threads.
+ * turns.json is an array of { message }. Set `greet: true` on turns[0] to open the run with a
+ * real greet turn first - its real threadId carries into every turn after it, so the whole run
+ * stays one conversation instead of the greet and the follow-ups silently landing in two
+ * different threads. There is no closing turn any more (C1) - every turn is the same shape, and
+ * a run just ends when you run out of turns to send.
  *
- * See scripts/examples/ for three realistic multi-turn examples - `expect` is optional on every
- * turn (manual runs don't need one, it's fine to just read the reply), used here only on the
- * closing turn to confirm the session actually closed:
+ * See scripts/examples/ for three realistic multi-turn examples (manual runs don't need an
+ * assertion, it's fine to just read the reply):
  *   - manual-coach-chat-turns.example.json - vague "felt a bit off" -> hip pain clarified 2 turns
  *     later -> close. Same incremental-disclosure idea eval-coach-chat.ts's turns[] transcripts
  *     test, just against a real athlete repo instead of fixture data.
@@ -89,18 +89,10 @@ const ATHLETE_REPOS: Record<string, { repo: string; localPath: string }> = {
 
 interface ManualTurn {
   message: string;
-  endConversationRequested?: boolean;
   // Only meaningful on turns[0]: run a real greet turn first and adopt its real threadId for
   // every turn that follows, instead of minting a synthetic one - see the threadId handling
   // below for why this matters.
   greet?: true;
-  // Only sessionClosed - the real HTTP response (ordinaryTurnResponse()/commitClosingTurn() in
-  // coachTurn.ts) never echoes raw action fields (quest_event, injury_event, etc.) back to the
-  // caller, only { reply, closed, repoSha/threadId/threads, profileComplete, traceId }. There is
-  // no honest way to check "did quest_event fire" from this response - filesChanged's real diff
-  // is the actual evidence for what a turn wrote, which is exactly the point of this being a
-  // manual/observed test rather than eval's derived one.
-  expect?: { sessionClosed?: boolean };
 }
 
 interface ManualLogEntry extends TestLogEntry {
@@ -298,7 +290,6 @@ async function main() {
             threadId,
             messages,
             message: turn.message,
-            endConversationRequested: turn.endConversationRequested ?? false,
           };
 
       const res = await handle(
@@ -311,9 +302,9 @@ async function main() {
       );
       const json = (await res.json()) as Record<string, unknown>;
 
-      // Adopt the server's real threadId whenever a response actually returns one (greet always
-      // does; a closing turn does too) - keeps a scripted "greet, then respond" run in one real
-      // thread instead of the greet's thread and the follow-ups' synthetic one silently diverging.
+      // Adopt the server's real threadId whenever a response actually returns one (every turn
+      // does) - keeps a scripted "greet, then respond" run in one real thread instead of the
+      // greet's thread and the follow-ups' synthetic one silently diverging.
       if (typeof json.threadId === "string") threadId = json.threadId;
 
       if (!turn.greet) {
@@ -331,19 +322,11 @@ async function main() {
             : [{ id: `d-${now}`, role: "divider" as const, label: "Today" }, ...turnMessages];
       }
 
-      let result: "PASS" | "FAIL" | "ERROR";
+      // No response-shape assertion any more - there's no closed/session_closed signal left to
+      // check (C1). A manual run's real evidence is filesChanged's observed git diff below, not
+      // a field on the response; res.ok is the only automatic signal worth recording here.
+      let result: "PASS" | "ERROR" = res.ok ? "PASS" : "ERROR";
       const failures: string[] = [];
-      const hasAssertion = turn.expect?.sessionClosed !== undefined;
-      if (hasAssertion) {
-        if (Boolean(json.closed) !== turn.expect!.sessionClosed) {
-          failures.push(
-            `expected session_closed=${turn.expect!.sessionClosed}, got ${Boolean(json.closed)}`,
-          );
-        }
-        result = failures.length === 0 ? "PASS" : "FAIL";
-      } else {
-        result = res.ok ? "PASS" : "ERROR";
-      }
 
       let shaAfterFailed = false;
       const shaAfter = await getHeadSha(repo, token).catch(() => {
@@ -354,17 +337,12 @@ async function main() {
       let filesChanged: ManualLogEntry["filesChanged"];
       if (shaBeforeFailed || shaAfterFailed) {
         // Can't tell what changed - saying "observed: no files" here would be a lie, since a
-        // real commit may well have landed. Record that honestly in filesChanged either way, but
-        // don't clobber a real assertion's own verdict: if turn.expect actually checked
-        // session_closed against the response and it passed/failed, that's true regardless of
-        // whether we could also observe the commit - losing that signal is worse than keeping it
-        // alongside a visible "files unconfirmed" note. Only escalate to ERROR when there was no
-        // real assertion at all (a bare res.ok "PASS" is weak on its own, and losing the audit
-        // trail on top of it leaves nothing worth trusting in this entry).
+        // real commit may well have landed. A bare res.ok "PASS" is weak on its own, and losing
+        // the audit trail on top of it leaves nothing worth trusting in this entry, so escalate.
         failures.push(
           "sha lookup failed before or after this turn - cannot confirm what changed, if anything",
         );
-        if (!hasAssertion) result = "ERROR";
+        result = "ERROR";
         filesChanged = { confidence: "observed", files: [], diff: "" };
       } else if (shaBefore != null && shaAfter != null && shaBefore !== shaAfter) {
         execFileSync("git", ["-C", localPath, "fetch", "origin", branch], { stdio: "pipe" });
@@ -443,7 +421,6 @@ async function main() {
     console.log("At least one passing turn has an unconfirmed audit trail - see its failures[].");
   if (!logWritten) console.log("Run log failed to write - see the warning above.");
 
-  if (entries.some((e) => e.result === "FAIL")) process.exit(1);
   if (entries.some((e) => e.result === "ERROR") || hasUnconfirmedAudit || !logWritten)
     process.exit(2);
 }
