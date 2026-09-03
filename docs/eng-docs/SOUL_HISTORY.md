@@ -25,6 +25,18 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.23 — "Say It Once, Save It Twice" · Sep 3, 2026
+**Superpower gained:** stating a goal and a daily habit in the same breath no longer risks losing the habit.
+
+An athlete naming their season goal and their new daily habits together, in one message, used to
+sometimes only get the goal saved - the habit vanished even though Coach's reply confirmed it.
+
+- The goal and the habits are still two separate actions, but Coach now knows firing one is not
+  license to skip the other.
+- This reaches every runtime that runs a First Session, hosted app included.
+**Why it mattered:** a habit an athlete stated once and trusted was saved is worse than never asking -
+it looks kept until the day it turns out it wasn't.
+
 ## v5.22 — "The Checklist Finally Matches" · Sep 2, 2026
 **Superpower gained:** the terminal build's own promise about which files it saves matches what it actually saves.
 
