@@ -851,7 +851,11 @@ export async function commitTurn(turn: TurnWrites): Promise<Response> {
         reason: message,
       });
       for (const write of factWrites) {
-        commitFailureDrops.push({ field: write.path, reason: `save failed: ${message}` });
+        commitFailureDrops.push({
+          field: write.path,
+          reason: `save failed: ${message}`,
+          kind: "commit_failure",
+        });
       }
     }
   }
