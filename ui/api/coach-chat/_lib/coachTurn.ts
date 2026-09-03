@@ -90,6 +90,12 @@ interface TurnState extends TurnRequest {
   stale: boolean;
   context: Awaited<ReturnType<typeof loadCoachContext>>;
   timezone: string;
+  // Computed once here and reused everywhere this turn needs "today" (athleteContext,
+  // questContext, and later buildCoachNoteWrite's day-keyed overwrite) - recomputing it
+  // independently at commit time, after an askGemini round trip (or a reprompt's second one),
+  // can land on a different day than what Gemini was actually shown if the turn straddles local
+  // midnight.
+  today: string;
   athleteContext: string;
   questContext: string;
   firstSession: boolean;
@@ -193,6 +199,7 @@ export async function loadTurnState(
   const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
   const now = Date.now();
   const traceId = Math.random().toString(36).slice(2, 10);
+  const today = todayDateString(timezone, new Date());
 
   return {
     ...request,
@@ -203,20 +210,21 @@ export async function loadTurnState(
     stale,
     context,
     timezone,
+    today,
     athleteContext: renderCoachContext({
       profile,
       memory,
       injuries,
       coachLog,
       athleteInsights,
-      today: todayDateString(timezone, new Date()),
+      today,
     }),
     questContext: renderQuestContext({
       seasons,
       quests,
       progress,
       progressions,
-      today: todayDateString(timezone, new Date()),
+      today,
     }),
     firstSession,
     now,
@@ -414,7 +422,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   });
 
   const trimmedCoachNote = reply.coach_note?.trim();
-  const coachNoteWrite = buildCoachNoteWrite(repo, token, timezone, traceId, reply.coach_note);
+  const coachNoteWrite = buildCoachNoteWrite(repo, token, turn.today, traceId, reply.coach_note);
 
   const sportsUpdate = (reply.sports_update ?? []).filter((sport) => sport.trim().length > 0);
   const hasSportsUpdate = sportsUpdate.length > 0;
@@ -502,7 +510,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     validTemplateIds,
   );
 
-  const today = todayDateString(timezone, new Date());
+  const { today } = turn;
 
   const seasonStart = reply.season_start;
   const seasonStartWrites = buildSeasonStartWrite(repo, token, timezone, traceId, seasonStart);

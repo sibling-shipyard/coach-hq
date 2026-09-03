@@ -354,6 +354,12 @@ Scripts live in `engine/core/` and `engine/scripts/`. Full flag reference: `prop
 **Before ending ANY conversation, you MUST perform this closing ritual:**
 <!-- /soul:section -->
 
+<!-- soul:section s12_head_chat_runtime -->
+## 12. Session Updates
+There is no closing ritual here - every turn saves as it goes. These are the rules for what gets
+written and how, on any turn something real happened:
+<!-- /soul:section -->
+
 <!-- soul:section s12_updates_head -->
 1. **Reflect:** What new information was learned this session? (New injuries, workout data, plan changes, pattern discoveries, quest progress.)
 <!-- /soul:section -->
