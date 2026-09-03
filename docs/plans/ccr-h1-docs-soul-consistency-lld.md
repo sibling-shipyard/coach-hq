@@ -6,7 +6,7 @@ Execution detail for H1 in [`chat-commit-redesign.md`](chat-commit-redesign.md).
 absolute last — after every other PR in this redesign, so it documents the true final state rather
 than a moving target.
 
-## Closes #735 directly — done, and not the way this section originally described
+## Closes #735 directly - done, and not the way this section originally described
 
 `platform/scripts/validate-soul.mjs`'s writable-set check found 7 paths §12 (the Commit Protocol)
 writes that §2 ("Your files, your push") appeared not to declare. **Corrected while executing this
@@ -72,7 +72,7 @@ removal, E1's coaching-style section, any prompt wording from D1/D2's validation
 short scene + 2-3 bullets + Why, ~12 lines. One entry per PR that touched a soul layer, not one
 giant entry for the whole redesign, since each PR merges and ships independently.
 
-## Plan-delete — K1's job, not H1's
+## Plan-delete - K1's job, not H1's
 
 **Correction, made while executing this LLD.** `chat-commit-redesign.md` itself says K1 runs last
 of all, after H1. K1's own LLD (`ccr-k1-final-test-pass-lld.md`) is explicit that it's the PR that
