@@ -144,10 +144,8 @@ describe("cache safety", () => {
       true,
     );
     expect(dynamic).toContain("Save each concrete fact on the same turn it is learned");
-    expect(dynamic).toContain(
-      "season_start (with the main goal bundled into its main_quest field)",
-    );
-    expect(dynamic).toContain("soon as the first season and goal are agreed");
+    expect(dynamic).toContain("season_start as soon as the first season and goal are agreed");
+    expect(dynamic).toContain("main_quest (the goal) and new_habits");
     expect(dynamic).toContain("Do not set template_edit, session_plan, week_plan");
   });
 

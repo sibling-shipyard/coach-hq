@@ -431,6 +431,33 @@ function mintId(prefix: string, name: string): string {
   return `${prefix}_${slug || "x"}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+// Shared by applyQuestCreate and applySeasonStart's new_habits (#808) - both append habit quests
+// with identical server-owned bookkeeping (minted id, active status, today's start_date, no end
+// date, source "model"). One mapping so the two entry points can never silently diverge.
+function buildNewQuests(
+  quests: {
+    name: string;
+    type: QuestType;
+    polarity?: "default_done" | "default_not_done";
+    target?: number;
+    unit?: string;
+  }[],
+  today: string,
+): Quest[] {
+  return quests.map((q) => ({
+    id: mintId("q", q.name),
+    name: q.name.trim(),
+    type: q.type,
+    start_date: today,
+    end_date: null,
+    status: "active",
+    ...(q.polarity ? { polarity: q.polarity } : {}),
+    ...(q.target != null ? { target: q.target } : {}),
+    ...(q.unit ? { unit: q.unit } : {}),
+    source: "model",
+  }));
+}
+
 export interface SeasonStartResult {
   seasonsContent: string;
   questsContent: string;
@@ -449,7 +476,10 @@ export interface SeasonStartResult {
 // never just "whatever's on file" - an unrelated main_quest is never swept up) moves into
 // quests[] too, marked "retired" - same "move it, don't destroy it" discipline habit quests
 // already get. The new season's main_quest is set straight from this same call's payload -
-// never null-and-wait, since one action creates the season and its goal together.
+// never null-and-wait, since one action creates the season and its goal together. new_habits
+// (#808) appends through the same buildNewQuests helper applyQuestCreate uses - a habit stated
+// alongside a new goal in the same message lands here, required so Gemini can't skip it the way
+// it was skipping the separate quest_create field.
 export function applySeasonStart(
   seasonsContent: string | null,
   questsContent: string | null,
@@ -458,6 +488,13 @@ export function applySeasonStart(
     start_date: string;
     end_date: string;
     main_quest: { name: string; type: QuestType; target: number; count_pattern?: string };
+    new_habits: {
+      name: string;
+      type: QuestType;
+      polarity?: "default_done" | "default_not_done";
+      target?: number;
+      unit?: string;
+    }[];
   },
   today: string,
   traceId: string,
@@ -521,12 +558,14 @@ export function applySeasonStart(
     ...(input.main_quest.count_pattern ? { count_pattern: input.main_quest.count_pattern } : {}),
   };
 
+  const newHabits = buildNewQuests(input.new_habits, today);
+
   const questsResult: QuestsJson = {
     version: 1,
     _meta: { updated_at: now.toISOString(), updated_by: "model", trace_id: traceId },
     weekly_targets: parsedQuests.weekly_targets ?? {},
     main_quest: mainQuest,
-    quests,
+    quests: [...quests, ...newHabits],
   };
 
   return {
@@ -561,18 +600,7 @@ export function applyQuestCreate(
   const existingQuests: Quest[] = Array.isArray(parsed.quests) ? parsed.quests : [];
   const mainQuest: MainQuest | null = parsed.main_quest ?? null;
 
-  const newQuests: Quest[] = (input.quests ?? []).map((q) => ({
-    id: mintId("q", q.name),
-    name: q.name.trim(),
-    type: q.type,
-    start_date: today,
-    end_date: null,
-    status: "active",
-    ...(q.polarity ? { polarity: q.polarity } : {}),
-    ...(q.target != null ? { target: q.target } : {}),
-    ...(q.unit ? { unit: q.unit } : {}),
-    source: "model",
-  }));
+  const newQuests: Quest[] = buildNewQuests(input.quests ?? [], today);
 
   const result: QuestsJson = {
     version: 1,

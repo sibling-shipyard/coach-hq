@@ -264,7 +264,16 @@ async function askWithRetry(params: AskParams): Promise<Awaited<ReturnType<typeo
  * is "nothing here", same as omitting it, not a real write. Shared by filesForReply() and
  * checkTranscript() so a future semantics change (e.g. treating 0 as real) only needs one edit.
  */
+// field accepts one dot-path level (e.g. "season_start.new_habits") for a nested check - #808's
+// new_habits lives inside season_start's own object, not as a top-level action field, so a plain
+// top-level lookup can't see it.
 function isSet(record: Record<string, unknown>, field: string): boolean {
+  const dot = field.indexOf(".");
+  if (dot !== -1) {
+    const parent = record[field.slice(0, dot)];
+    if (parent == null || typeof parent !== "object") return false;
+    return isSet(parent as Record<string, unknown>, field.slice(dot + 1));
+  }
   const value = record[field];
   if (value === undefined || value === null || value === "" || value === false) return false;
   if (Array.isArray(value)) return value.length > 0;

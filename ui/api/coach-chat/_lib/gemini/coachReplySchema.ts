@@ -61,7 +61,11 @@ export interface GeminiReply {
   plan_edit?: PlanEditEvent[];
   // See responseSchema's season_start for scope and rationale. main_quest is bundled in, not
   // optional (B3) - a season without a fixed goal for its duration isn't really a season, and
-  // the two now always move as one unit, always.
+  // the two now always move as one unit, always. new_habits (#808) is required too, not because
+  // a habit must exist every time but because Gemini's responseSchema enforces `required` at the
+  // object level - forcing it to explicitly address habits (even with an empty array) is what
+  // makes main_quest itself reliable, and #808 needed that same guarantee for the habit that
+  // often arrives bundled with a new goal in the same message.
   season_start?: {
     name: string;
     start_date: string;
@@ -72,6 +76,13 @@ export interface GeminiReply {
       target: number;
       count_pattern?: string;
     };
+    new_habits: {
+      name: string;
+      type: "daily_streak" | "progress" | "count_target" | "weekly_frequency";
+      polarity?: "default_done" | "default_not_done";
+      target?: number;
+      unit?: string;
+    }[];
   };
   // See responseSchema's quest_create for scope and rationale. Habit quests only (B3) - the main
   // goal moved to season_start.main_quest; there is no standalone way to set it here anymore.
@@ -298,6 +309,11 @@ const RESPONSE_PROPERTIES = {
   // impossible now, not just discouraged in the prompt. The server resolves the outgoing
   // season's status and retires its old main_quest into quests.json in the same commit -
   // coachIntents.ts's applySeasonStart.
+  // new_habits (#808): required so Gemini must explicitly address it whenever season_start
+  // fires - empty array when no habit was mentioned - the same structural guarantee that
+  // already makes main_quest itself reliable. A goal and a new daily habit often arrive in the
+  // same message; this is where that habit goes, not the separate quest_create field (that one
+  // stays for a habit stated with no season change at all).
   season_start: {
     type: "object",
     properties: {
@@ -317,8 +333,25 @@ const RESPONSE_PROPERTIES = {
         },
         required: ["name", "type", "target"],
       },
+      new_habits: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            type: {
+              type: "string",
+              enum: ["daily_streak", "progress", "count_target", "weekly_frequency"],
+            },
+            polarity: { type: "string", enum: ["default_done", "default_not_done"] },
+            target: { type: "number" },
+            unit: { type: "string" },
+          },
+          required: ["name", "type"],
+        },
+      },
     },
-    required: ["name", "start_date", "end_date", "main_quest"],
+    required: ["name", "start_date", "end_date", "main_quest", "new_habits"],
   },
   // Available to every athlete, first session or returning (B3) - habit quests only. The main
   // goal moved to season_start.main_quest (above); there is no field here to set it anymore, so
