@@ -242,10 +242,38 @@ model correctly matched `inj_right_knee`, no hallucinated or wrong-sibling id.
   same shape as before (asked for date of birth despite it being real data), confirming it's not
   branch-specific noise - same root cause as the finding above.
 
-Every result — pass, fail, or gap closed — gets recorded here before any further code change,
-including the #808 structural schema fix proposed above (nesting `new_habits` inside `season_start`
-so it's `required` the way `main_quest` already is). Not implemented yet: parked until this audit
-is complete, so every fix lands as one coordinated pass instead of one field at a time.
+### Scope clarifications from the athlete (2026-09-04)
+
+- **Finding 3 (FSP re-ask ignores known context) is not a real product bug.** iOS onboarding
+  already supplies name/sports as real context before FSP ever runs on the phone - the manual
+  harness's scratch-branch scenario artificially triggered FSP mid-conversation via the
+  `coaching_style` gate, a shape the real app doesn't hit the same way. Already fixed once before,
+  differently. Not pursued further here.
+- **Finding 2 (`coaching_style` gate re-triggers FSP) is not a code bug either** - it resolves once
+  F1's backfill runs. No code fix pending on it.
+- **Findings 1 (#808) and 4 (spurious unrelated fields) are the two real problems**, confirmed by
+  the athlete, and the only two this pass is fixing.
+
+### #808 — structural fix implemented and live-tested (2026-09-04, flash only)
+
+Implemented exactly as designed above: `new_habits` added as a **required** array inside
+`season_start`'s own schema object (`coachReplySchema.ts`). `applySeasonStart` appends it through a
+`buildNewQuests` helper shared with `applyQuestCreate` (`coachIntents.ts`). Both prompt branches
+and `B_engine.md`'s `s5b1`/`s10_first_session_finish` point habits-with-a-season-change at
+`new_habits` instead of the separate `quest_create` field. Transcripts `27`/`30`/`35` updated to
+expect `season_start.new_habits`, `eval-coach-chat.ts`'s `isSet` extended for one dot-path level.
+All 635 unit tests pass, including a new dedicated `coachIntents.test.ts` case.
+
+Live-tested, flash only (5 fresh runs each): **FSP: 5/5 pass** (one run hit an unrelated JSON-parse
+infra error, cleanly re-run). **Returning: 4/5 pass**, and the one failure's `new_habits` still
+fired correctly - the only thing wrong was finding 4's spurious `template_edit`/`week_plan` noise,
+unrelated to #808. **#808 is 10/10 on the actual habit-capture question across both branches on
+flash** - a complete fix, where wording (Track 1) and field reordering (Track 2) both plateaued.
+The required-field structural guarantee, the same mechanism that already made `main_quest`
+reliable, is what actually closed this. Not yet tested on `pro-latest` or against real repo data
+(`coach-skanda`/`coach-skanda-testing`) - next.
+
+Every result — pass, fail, or gap closed — gets recorded here before any further code change.
 
 ## What this deliberately does not do
 

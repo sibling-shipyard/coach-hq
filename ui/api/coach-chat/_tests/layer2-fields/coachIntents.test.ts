@@ -932,6 +932,13 @@ describe("applySeasonStart", () => {
     start_date: "2026-08-18",
     end_date: "2026-12-01",
     main_quest: { name: "Run a marathon", type: "count_target" as const, target: 1 },
+    new_habits: [] as {
+      name: string;
+      type: "daily_streak" | "progress" | "count_target" | "weekly_frequency";
+      polarity?: "default_done" | "default_not_done";
+      target?: number;
+      unit?: string;
+    }[],
   };
 
   it("mints a real id and sets current_season_id - no prior season (FSP case)", () => {
@@ -962,6 +969,33 @@ describe("applySeasonStart", () => {
       season_id: seasons.current_season_id,
     });
     expect(quests.quests).toHaveLength(0);
+  });
+
+  it("#808: new_habits appends as habit quests in the same call as the season/goal", () => {
+    const result = applySeasonStart(
+      null,
+      null,
+      {
+        ...SEASON_INPUT,
+        new_habits: [{ name: "Morning mobility", type: "daily_streak", target: 10, unit: "min" }],
+      },
+      "2026-08-18",
+      "t1",
+      new Date("2026-08-18T10:00:00Z"),
+    );
+    const quests = JSON.parse(result.questsContent);
+    expect(quests.quests).toHaveLength(1);
+    expect(quests.quests[0]).toMatchObject({
+      name: "Morning mobility",
+      type: "daily_streak",
+      status: "active",
+      start_date: "2026-08-18",
+      end_date: null,
+      target: 10,
+      unit: "min",
+      source: "model",
+    });
+    expect(quests.quests[0].id).toMatch(/^q_morning_mobility_/);
   });
 
   it("never invents a phase field - Season has none", () => {
