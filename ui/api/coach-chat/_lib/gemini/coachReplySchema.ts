@@ -350,16 +350,22 @@ const RESPONSE_PROPERTIES = {
 
 type ResponseField = keyof typeof RESPONSE_PROPERTIES;
 
+// season_start/quest_create sit right after coach_note, not at the tail before reply - #808
+// found Gemini's responseSchema fills fields roughly in declaration order, and this pair is
+// the one most often silently dropped when it lands last (see .github/agents/bob-the-builder.md's
+// Learning). Live-tested: declaring them last left quest_create missing on both FSP and
+// returning-athlete pairing turns, on both flash and pro-latest, even after prompt wording alone
+// was strengthened.
 const FSP_ACTIONS = [
   "coach_note",
+  "season_start",
+  "quest_create",
   "memory_update",
   "coaching_style_update",
   "sports_update",
   "injury_flag",
   "injury_event",
   "profile_update",
-  "season_start",
-  "quest_create",
 ] as const satisfies readonly ResponseField[];
 
 // Available on every turn for a returning athlete (#616 unlocked the data-fact half; C1 folds
@@ -369,8 +375,12 @@ const FSP_ACTIONS = [
 // coach_note is here too - day-keyed (coachIntents.ts's applyCoachNote), available on every
 // returning turn; coachTurn.ts enforces it's present whenever another structured write fires
 // this turn.
+// season_start/quest_create moved up next to coach_note for the same reason as FSP_ACTIONS
+// above - declared last, they were the field most often silently dropped on live Gemini.
 const RETURNING_ACTIONS = [
   "coach_note",
+  "season_start",
+  "quest_create",
   "memory_update",
   "coaching_style_update",
   "sports_update",
@@ -378,8 +388,6 @@ const RETURNING_ACTIONS = [
   "injury_event",
   "quest_event",
   "profile_update",
-  "season_start",
-  "quest_create",
   "template_edit",
   "session_plan",
   "week_plan",
