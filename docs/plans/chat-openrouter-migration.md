@@ -48,7 +48,8 @@ before production flips.
 | Gate | When | Owner | Result |
 |---|---|---|---|
 | OpenRouter account | Before build | Skanda | Production key exists, spend limit is set and the secret name is fixed |
-| Data handling | Before build | Skanda | ZDR, denied data collection, required parameters and an explicit provider allow-list are locked |
+| Account data policy | Before build | Skanda | ZDR is required per provider family, and no endpoint that trains on request data is allowed |
+| Request provider policy | Before build | UI Expert | Every OpenRouter call sends an explicit provider allow-list, `require_parameters` and denied data collection in its own body |
 | Rollback | Before build | Skanda | `LLM_PROVIDER` defaults to `gemini`; changing it requires a Vercel deployment, and the previous deployment is the rollback |
 | Contract probe | Before build | UI Expert | A synthetic request proves the cutover model accepts the proactive `{body}` schema through strict JSON Schema |
 | Current baseline (#670) | Before chat cutover | Skanda | All transcripts pass on direct Gemini, with the real bundled SOUL; record commit SHA, model and result |
