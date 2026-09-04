@@ -1,6 +1,6 @@
 # Coach chat — testing
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-02
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-04
 
 ## Context
 
@@ -57,16 +57,20 @@ single-shot model output. A transcript is either one message (`mode`/`userMessag
 real multi-turn conversation (`turns: [...]`). Paid per call (ADR 0024), so it's manual/CI-gated,
 never on every PR.
 
-**The set (G1, #670):** 14 transcripts, trimmed from 29. Closing-turn behavior is gone (C1 removed
-the concept: no `mode: "closing"`, no `session_closed` field). The
-template_edit/session_plan/week_plan/session_reconcile/plan_edit field family is down to one
-representative transcript - the rest were real but budget-cut, see that transcript's own
-description. Every transcript was diagnosed against a live run before being kept, not just
-rewritten and assumed correct. A stale expectation got fixed; a real gap got its own issue and
-stays red on purpose - grep `KNOWN FAILURE` / `KNOWN FLAKY FAILURE` in the transcripts directory
-for the current list (#807 and #808 as of this write-up). A dynamic-enum/hallucination fixture (bad
-`flag_id`/`quest_id` reference) is deferred until D1 lands (corrective retry /
-rejection-with-Sentry-capture) - there is nothing to assert against yet.
+**The set:** 23 transcripts as of the K1 testing pass (2026-09-04). G1 (#670) trimmed the original
+29 down to 14. C2 added 2 more (`coach_note` day-keying, `#33`/`#34`). K1 added 8 more, closing
+live-coverage gaps found during that pass (`#35`-`#42`) - `memory_update`, `sports_update`,
+returning `coaching_style_update`, a dynamic-enum/hallucination guard, and one each for
+`week_plan`/`session_reconcile`. Closing-turn behavior is gone (C1 removed the concept: no
+`mode: "closing"`, no `session_closed` field). `session_plan` still has zero dedicated coverage as
+of this write-up - flagged for whenever the workouts/`current_week` area gets its own redesign,
+since its shape will likely change anyway. Every transcript was diagnosed against a live run before
+being kept, not just rewritten and assumed correct. A stale expectation got fixed; a real gap got
+its own issue and stays red on purpose - grep `KNOWN FAILURE` / `KNOWN FLAKY FAILURE` in the
+transcripts directory for the current list. #807 and #808 (both filed during G1's own pass) are
+resolved as of K1; the one open live gap is `#27`'s `injury_flag` drop on a dense multi-fact FSP
+turn, not yet fixed - see `docs/plans/ccr-k1-final-test-pass-lld.md` for the evidence. The
+dynamic-enum/hallucination guard once deferred pending D1 is in now too (`#40`), D1 having landed.
 
 **`npm run test:coach-chat-manual`** (`ui/scripts/run-manual-coach-chat-test.ts`) - drives a real
 conversation through the real `handle()` in `coach-chat.ts` against a real athlete repo
