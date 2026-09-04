@@ -269,6 +269,7 @@ describe("withGeminiSpan", () => {
     completionTokens: 412,
     totalTokens: 13_416,
     cachedPromptTokens: 12_800,
+    thinkingTokens: 1_680,
   };
 
   /** A Gemini span only ships inside a route transaction — that is the shape production uses. */
@@ -299,6 +300,7 @@ describe("withGeminiSpan", () => {
       "gen_ai.usage.output_tokens": 412,
       "gen_ai.usage.total_tokens": 13_416,
       "gen_ai.usage.input_tokens.cached": 12_800,
+      "gen_ai.usage.output_tokens.reasoning": 1_680,
       outcome: "ok",
     });
   });
@@ -320,6 +322,7 @@ describe("withGeminiSpan", () => {
 
     expect(span?.attributes).toMatchObject({ "gen_ai.usage.input_tokens": 10 });
     expect(span?.attributes).not.toHaveProperty("gen_ai.usage.output_tokens");
+    expect(span?.attributes).not.toHaveProperty("gen_ai.usage.output_tokens.reasoning");
   });
 
   it("marks the span an error and rethrows when the call fails", async () => {
