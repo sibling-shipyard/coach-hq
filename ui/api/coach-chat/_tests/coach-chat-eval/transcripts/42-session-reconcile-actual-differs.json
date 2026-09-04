@@ -1,0 +1,13 @@
+{
+  "name": "session-reconcile-actual-differs",
+  "description": "Observe-only gap (K1 testing audit, 2026-09-04): session_reconcile has never been independently tested live. The athlete reports doing something different from what was planned today - the case coachPromptText.ts calls out explicitly (set actual alongside the outcome status).",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "extraContext": "Current week's sessions (use these exact session_ids for session_reconcile AND plan_edit - match the date to what the athlete actually means, never guess):\n- session_id: sess-today-run | date: 2026-09-04 | Easy Run | status: planned",
+  "history": [{ "id": "1", "role": "coach", "paragraphs": ["How'd today go?"] }],
+  "userMessage": "Skipped the run, my knee felt off this morning. Did a swim instead, easy 30 mins.",
+  "expect": {
+    "actionFieldsPresent": ["session_reconcile"]
+  }
+}
