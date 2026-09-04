@@ -417,6 +417,40 @@ describe("generated message validation", () => {
     );
     expect(fetcher).toHaveBeenCalledOnce();
   });
+
+  it("sends the measured output token budget", async () => {
+    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.generationConfig.maxOutputTokens).toBe(3_072);
+      return Response.json({
+        candidates: [
+          { content: { parts: [{ text: JSON.stringify({ body: "That looked controlled." }) }] } },
+        ],
+      });
+    });
+    await generateProactiveBody("key", "prompt", fetcher);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("surfaces a truncated MAX_TOKENS response as a specific failure, not a generic parse error", async () => {
+    // Reproduces the #827 shape: thinking ate the whole budget, so content is a truncated
+    // fragment that is not valid JSON.
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        candidates: [
+          {
+            finishReason: "MAX_TOKENS",
+            content: { parts: [{ text: "Here is the JSON requested:" }] },
+          },
+        ],
+        usageMetadata: { thoughtsTokenCount: 1_680, candidatesTokenCount: 8 },
+      }),
+    );
+    await expect(generateProactiveBody("key", "prompt", fetcher)).rejects.toThrow(
+      /MAX_TOKENS.*thinkingTokens=1680/,
+    );
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
 });
 
 describe("idempotency and resolved writes", () => {

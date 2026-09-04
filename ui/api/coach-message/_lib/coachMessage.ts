@@ -10,6 +10,15 @@ const MAX_ACTIVITY_ID_LENGTH = 80;
 const MAX_MESSAGE_LENGTH = 360;
 const MAX_SENTENCE_LENGTH = 180;
 const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
+/**
+ * gemini-pro-latest cannot disable thinking (thinkingBudget: 0 -> 400 "This model only works in
+ * thinking mode") and thinking tokens bill against maxOutputTokens, so the budget has to clear
+ * the model's thinking usage plus the ~50-190 tokens the JSON body itself needs. Measured live
+ * against the real buildProactivePrompt output (SOUL + few-shot pairs + a representative activity
+ * batch, ~29,600 prompt chars) on 2026-09-04: 10 runs, thinkingTokenCount 1219-1734, all
+ * finish=STOP. 3072 leaves >1300 tokens of headroom over the observed ceiling (#827).
+ */
+const PROACTIVE_MAX_OUTPUT_TOKENS = 3_072;
 
 const HEALTHKIT_ACTIVITY_ID =
   /^healthkit:[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
@@ -781,7 +790,7 @@ export async function generateProactiveBody(
                 properties: { body: { type: "string" } },
                 required: ["body"],
               },
-              maxOutputTokens: 180,
+              maxOutputTokens: PROACTIVE_MAX_OUTPUT_TOKENS,
             },
           }),
         },
@@ -795,11 +804,15 @@ export async function generateProactiveBody(
         );
       }
       const payload = (await response.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        candidates?: Array<{
+          content?: { parts?: Array<{ text?: string }> };
+          finishReason?: string;
+        }>;
         usageMetadata?: {
           promptTokenCount?: number;
           candidatesTokenCount?: number;
           totalTokenCount?: number;
+          thoughtsTokenCount?: number;
         };
       };
       if (payload.usageMetadata) {
@@ -808,6 +821,16 @@ export async function generateProactiveBody(
           completionTokens: payload.usageMetadata.candidatesTokenCount,
           totalTokens: payload.usageMetadata.totalTokenCount,
         });
+      }
+      const finishReason = payload.candidates?.[0]?.finishReason;
+      if (finishReason === "MAX_TOKENS") {
+        // Distinguish from a generic parse failure: this is a budget problem, not a malformed
+        // response, and the thinking token count says whether PROACTIVE_MAX_OUTPUT_TOKENS needs
+        // to grow again (see the comment on that constant).
+        throw new CoachMessageError(
+          `Gemini truncated its response before finishing (MAX_TOKENS, thinkingTokens=${payload.usageMetadata?.thoughtsTokenCount ?? "unknown"})`,
+          502,
+        );
       }
       const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) throw new CoachMessageError("Gemini returned no content", 502);
