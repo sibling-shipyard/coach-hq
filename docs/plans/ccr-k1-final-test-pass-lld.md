@@ -108,6 +108,60 @@ Run against the final integrated branch (every PR in this stack landed, right be
 6. **`bash platform/scripts/check.sh --quiet`**, clean, on the actual final integrated tip — not
    per-PR (already done), the merged whole.
 
+## Testing coverage audit (2026-09-04)
+
+Chasing #808 in isolation surfaced a bigger question: how much of coach-chat's real behavior has
+never been checked against a live model at all, not just this redesign's own new fields? Full
+inventory of the 16 `eval:coach-chat` transcripts against every one of `coachReplySchema.ts`'s 15
+action fields, plus what only the manual harness's real observed diffs can answer.
+
+**Covered by `eval:coach-chat` (single-shot, derived file-impact only):** `coach_note` (day-keyed
+required-with/absent, `#33`/`#34`), `injury_flag` (FSP only, `#28`), `injury_event` (array + 3-turn
+incremental disclosure, `#11`/`#25`), `quest_event` (array, `#10`). Also `profile_update` (`#12`,
+FSP via `#30` turn 1), `coaching_style_update` (FSP only, `#29`), `season_start`
+(`#27`/`#30`/`#32`/`#35`), `quest_create` (`#27`/`#30`/`#35`/`#36`). Plus the baseline modes:
+greeting (`#01`), ordinary ADR-clean (`#02`), activity_sync (`#20`).
+
+**Never independently tested live, any mode:** `memory_update`, `sports_update`. Also
+`coaching_style_update` on a *returning* athlete - an explicit mid-relationship style-change
+request, FSP-only coverage today. Also `template_edit`, `session_plan`, `week_plan`,
+`session_reconcile` - this whole family is "down to one representative transcript" by the README's
+own admission. `#19` only tests `plan_edit` vs `template_edit` disambiguation, not whether any of
+these four actually fire correctly on their own. A dynamic-enum/hallucination fixture (bad
+`flag_id`/`quest_id` reference, D1's corrective retry) was explicitly deferred in the README pending
+D1. D1 has since landed in this stack, and the fixture was never revisited.
+
+**Structurally can't be answered by `eval:coach-chat` at all.** It calls `askGemini()` directly, one
+shot, no commit pipeline, no `coachTurn.ts` reprompt logic, `"derived"` file-impact only - see
+`docs/eng-docs/coach-chat-testing.md`'s own "derived" vs "observed" distinction. That leaves several
+real questions unanswered: whether `coach_note` really updates one row in place across multiple
+turns the same day, instead of duplicating it. Whether it's genuinely absent on an inactive day.
+The actual tone difference `coaching_style` produces across a real multi-turn conversation. Whether
+a full FSP conversation (name through injuries, 8+ turns) actually flips profile-complete at the
+right moment and reads back its own earlier turns' saves correctly. Whether an ordinary turn's
+`injury_event`/`quest_event` reference a *real* `flag_id`/`quest_id` read from actual repo state,
+not a canned fixture. Only `test:coach-chat-manual` against a real scratch branch (`coach-skanda`),
+with real Gemini calls and real GitHub commits, gives an `"observed"` (ground-truth) answer to any
+of these - this redesign has never run it. The three 2026-08-26/27/30 manual logs in `tests/`
+predate C2/E1 landing and don't count as current evidence.
+
+**Revised plan — test everything before fixing anything further.** Two tracks, `flash` first
+throughout. Drop to `pro-latest` only if `flash` itself starts erroring, not just failing a
+field-check - a clean 200 with a field missing is not a `flash` problem, see #808's evidence above:
+- **Track A — fill the eval gaps.** New single-shot transcripts for every field in the "never
+  tested live" list above, plus the unblocked dynamic-enum/hallucination fixture. Fast, cheap,
+  catches schema-shape regressions.
+- **Track B — manual harness, real multi-turn/multi-day conversations.** A full FSP run (one
+  continuous conversation, not fragments), a multi-day `coach_note` run (K1 item 2), a
+  same-fact-two-styles run (K1 item 3), and #808's own compound scenario run start-to-finish with
+  real writes, not derived guesses. This is the only track that can answer "what actually gets
+  saved."
+
+Every result — pass, fail, or gap closed — gets recorded here before any further code change,
+including the #808 structural schema fix proposed above (nesting `new_habits` inside `season_start`
+so it's `required` the way `main_quest` already is). Not implemented yet: parked until this audit
+is complete, so every fix lands as one coordinated pass instead of one field at a time.
+
 ## What this deliberately does not do
 
 Re-review already-reviewed PRs' code. This is a live-behavior pass, not a second code review —
