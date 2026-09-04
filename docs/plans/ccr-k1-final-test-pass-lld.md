@@ -270,8 +270,21 @@ fired correctly - the only thing wrong was finding 4's spurious `template_edit`/
 unrelated to #808. **#808 is 10/10 on the actual habit-capture question across both branches on
 flash** - a complete fix, where wording (Track 1) and field reordering (Track 2) both plateaued.
 The required-field structural guarantee, the same mechanism that already made `main_quest`
-reliable, is what actually closed this. Not yet tested on `pro-latest` or against real repo data
-(`coach-skanda`/`coach-skanda-testing`) - next.
+reliable, is what actually closed this. Not yet tested on `pro-latest`.
+
+**Real-data confirmation, `coach-skanda-testing` (2026-09-04, flash).** Reset a scratch branch
+(`test/fresh-fsp-k1`) to genuine skeleton-init state via `carve-skeleton.mjs --dry-run` (no
+placeholder data - `main_quest: null`, `current_season_id: null`, matching K1 item 5's own bar).
+Ran a real First Session through the manual harness end to end: greet, name/sports intake, profile
+completion. Then one turn stating both the goal ("finish a half-Ironman by next June") and a daily
+habit ("stretching for 15 minutes every morning") together - the exact compound scenario #808 was
+filed against. `season_start.new_habits` fired with the real habit. Confirmed via direct read of
+the committed `quests.json`: `main_quest` ("Finish Half-Ironman") and the habit quest ("Morning
+stretch (15m)") both landed in the same real commit. First `"observed"` (not `"derived"`)
+confirmation of the fix, on a genuinely fresh athlete, closing the loop this issue started from.
+Bonus: D1's self-correcting reprompt fired live on this same run (a first attempt without
+`coach_note` got a system-note retry and succeeded) - first live confirmation of that mechanism
+too, not something this pass set out to test but worth recording.
 
 ### Finding 4 — Phase 1 (prompt restraint) implemented and live-tested (2026-09-04, flash only)
 
