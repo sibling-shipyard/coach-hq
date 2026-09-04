@@ -178,6 +178,17 @@ field-check - a clean 200 with a field missing is not a `flash` problem, see #80
   empty now (`name`/`dob`/`timezone`/`height_cm`/`weight_kg` all real, confirmed directly). F1's own
   "re-confirm at Step 0" caveat already anticipates this kind of drift; flagging for whoever
   executes F1, not fixed here.
+- **The FSP re-trigger above also re-asked for data it already had.** Answering the coaching-style
+  question on the same branch (`coaching_style_update: 'accountability'` fired correctly, clean
+  real diff to `memory.json`) got a reply that also asked for date of birth and city, both already
+  real values in `profile.json`. `renderCoachContext`'s `profileSection`
+  (`coachContext.ts:60-73`) does render the real age-derived-from-dob and timezone into every
+  turn's context regardless of `firstSession` - the data reaches the model. `coachPromptText.ts`'s
+  `firstSession` branch (`:98+`) never instructs it to check that context and skip fields already
+  answered - the canned intake script reads as written for a genuinely blank profile. Distinct
+  from the `coaching_style` gate bug above: this would surface for *any* athlete who ever gets
+  bumped back into FSP with a partially-known profile, not just the one missing field. Not fixed
+  here - noted for the same coordinated pass.
 
 Every result — pass, fail, or gap closed — gets recorded here before any further code change,
 including the #808 structural schema fix proposed above (nesting `new_habits` inside `season_start`
