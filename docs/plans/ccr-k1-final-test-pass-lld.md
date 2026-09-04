@@ -349,6 +349,32 @@ model or prompt bug - a stale test assertion testing something outside this harn
 
 Every result — pass, fail, or gap closed — gets recorded here before any further code change.
 
+### Full eval:coach-chat suite run, flash, all 23 transcripts (2026-09-04)
+
+`npm run eval:coach-chat -- --fresh`, no filter, full run: **18/23 pass, 2 infra errors** (flash
+JSON malformation, known pattern, not investigated further), **3 genuine failures**. Two were stale
+test assertions, same class as `#10`, now fixed:
+
+- **`#25` (`incremental-injury-disclosure`) turn 3** - asserted `coachNoteReported: true` on a pure
+  closing-filler turn ("Anyway, that's the update. Heading out now.") with no new fact - the
+  injury was already logged in turn 2's own `coach_note`. Predates `#34`'s own established
+  correction ("skip it for small talk... with no new information" - `COACH_NOTE_GUIDANCE`).
+  Changed to assert `coach_note` **absent**, matching `#34`'s discipline.
+- **`#33` (`coach-note-required-with-quest-event`)** - same shape as `#10`/`#12`: `quest_event`
+  fired, `coach_note` didn't. Same root cause and fix - the real guarantee lives in `coachTurn.ts`'s
+  reprompt (`coachTurn-reprompt.test.ts` covers it deterministically), not in Gemini's first-try
+  compliance, which this single-shot harness can't exercise. Loosened to match `#10`/`#12`.
+
+**One genuine, new, unfixed gap:** `#27` (`fsp-quest-create`) - a dense FSP turn stating a goal,
+two injuries (shoulder + knee), and three habits all at once. Re-tested 5x: 3 real pass, 1 real
+fail (`injury_flag` absent despite two injuries stated), 1 infra error. `season_start.new_habits`
+fired correctly in every run - #808's fix holds even under this much simultaneous load. `injury_flag`
+is a plain top-level optional field with no structural coupling forcing it to fire, the same
+category `quest_create` was in before #808's fix. Same class of problem, different field, not
+covered by that fix (habits are naturally nested inside `season_start`; injuries aren't - there's
+no comparable place to nest them). Left unfixed - a genuinely dense multi-fact FSP turn is a real,
+if less frequent, exposure. Worth a future pass, not attempted here given scope.
+
 ### Workouts/current-week fields — observe only, per the athlete's explicit instruction (2026-09-04)
 
 The athlete is planning to redesign `current_week`/workouts separately and asked this pass to test
