@@ -167,6 +167,26 @@ final class DescriptionParserTests: XCTestCase {
         XCTAssertTrue(parsed.isPlainNote)
         XCTAssertEqual(parsed.preMentalState, ParsedPreMentalState(score: 6, word: "flat"))
         XCTAssertEqual(parsed.notes, "Legs never woke up.")
+
+        // A note writes no match_history.json, so formatting is the only place PRE can
+        // survive. Dropping it here would delete a line the athlete typed.
+        let formatted = DescriptionParser.formatDescription(parsed)
+        XCTAssertEqual(formatted, "Legs never woke up.\nPRE: 6, flat")
+        let reparsed = try XCTUnwrap(DescriptionParser.parseRawDescription(formatted))
+        XCTAssertEqual(reparsed.preMentalState, parsed.preMentalState)
+        XCTAssertEqual(reparsed.notes, parsed.notes)
+    }
+
+    func testRankSurvivesOnANoteOnlyDescription() throws {
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("#rank 4\nEasy shakeout."))
+        XCTAssertTrue(parsed.isPlainNote)
+        XCTAssertEqual(parsed.rank, 4)
+
+        let formatted = DescriptionParser.formatDescription(parsed)
+        XCTAssertEqual(formatted, "Easy shakeout.\n#rank 4")
+        let reparsed = try XCTUnwrap(DescriptionParser.parseRawDescription(formatted))
+        XCTAssertEqual(reparsed.rank, 4)
+        XCTAssertEqual(reparsed.notes, "Easy shakeout.")
     }
 
     func testMalformedMatchTextWithNoGamesIsKeptAsProse() throws {

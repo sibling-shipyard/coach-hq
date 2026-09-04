@@ -253,7 +253,16 @@ enum DescriptionParser {
         // A note has no games to summarize, so it formats to itself — a "0W-0L (0%)" header
         // over someone's training note would be nonsense, and would break the round trip.
         if parsed.isPlainNote {
-            return parsed.notes ?? ""
+            var noteLines: [String] = []
+            if let notes = parsed.notes, !notes.isEmpty { noteLines.append(notes) }
+            // Re-emit the metadata the parser lifted out of the text. On a match these survive
+            // in match_history.json; a note writes no history, so anything not put back here is
+            // deleted from what the athlete typed.
+            if let rank = parsed.rank { noteLines.append("#rank \(rank)") }
+            if let pre = parsed.preMentalState {
+                noteLines.append("PRE: \(pre.score), \(pre.word)")
+            }
+            return noteLines.joined(separator: "\n")
         }
 
         var lines: [String] = []
