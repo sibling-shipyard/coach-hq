@@ -143,3 +143,4 @@ nothing and hides the few lines that matter.
 - Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
 - `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing: `git log <merge-base>..origin/main -- <the PR's files>` decides if a rebase is needed.
 - Run parsing scripts against a real marked file in review — static regex reading missed an `id="..."` vs bare-word marker mismatch that made update.sh silently no-op on every real file (PR 784).
+- Freshness-gate a plan against open PR branches, not just HEAD: `git diff origin/main...<stack-tip>` over the plan's file column — an unmerged stack had rewritten every file one plan targeted.
