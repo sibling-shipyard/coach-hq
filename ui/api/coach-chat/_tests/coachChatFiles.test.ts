@@ -127,7 +127,7 @@ function quests(overrides: Partial<QuestsJson> = {}): QuestsJson {
     version: 1,
     _meta: { updated_at: "2026-08-18", updated_by: "model", trace_id: "t1" },
     weekly_targets: {},
-    main_quest: { id: "q1", name: "Get faster", type: "progress", target: 100 },
+    main_quest: { id: "q1", name: "Get faster", type: "progress", target: 100, season_id: "s1" },
     quests: [],
     ...overrides,
   };
