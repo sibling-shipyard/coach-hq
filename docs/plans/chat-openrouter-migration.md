@@ -37,7 +37,7 @@ Two external dependencies, both outside this plan:
 
 | Dependency | Why it blocks |
 |---|---|
-| #638 (PR 823) | Adds the shared Gemini base-URL and auth-header module, the seam `llmClient` replaces. Merge it first or PR 1 rewrites it |
+| #638 (PR 823) | Adds the shared Gemini base-URL and auth-header module, the seam `llmClient` replaces. PR 1 branches off 823 rather than waiting: whichever lands second rewrites the other's call sites |
 | #670 (PR 810) | The 24-transcript baseline. Gates the **chat** cutover only — `coach-message` has no transcript coverage |
 
 ## OpenRouter readiness gate
@@ -106,9 +106,12 @@ flowchart LR
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 1 | `llmClient`, both adapters, `coach-message` only, telemetry and tests | `main` (after #823) | `ui/api/_lib/`, `ui/api/coach-message.ts`, `ui/api/coach-message/_lib/`, `ui/api/coach-message/_tests/`, `ui/api/_lib/_tests/` | Bob the Builder | — | |
+| 1 | 1 | `llmClient`, both adapters, `coach-message` only, telemetry and tests | `feat/638-gemini-key-header` (PR 823) | `ui/api/_lib/`, `ui/api/coach-message.ts`, `ui/api/coach-message/_lib/`, `ui/api/coach-message/_tests/`, `ui/api/_lib/_tests/` | Bob the Builder | — | |
 | 2 | 2 | Chat and template adjustment move onto `llmClient` | PR 1, after the chat stack lands | `ui/api/coach-chat.ts`, `ui/api/coach-chat/_lib/`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts`, `.github/workflows/eval-coach-chat.yml` | Bob the Builder | — | |
 | 3 | 3 | Remove direct Gemini after the observation gate; ADR, docs and plan cleanup | PR 2 | `ui/api/`, `ui/scripts/`, `.github/workflows/eval-coach-chat.yml`, `docs/eng-docs/`, `kdb/decisions/`, `docs/plans/chat-openrouter-migration.md` | Bob the Builder + Tech Lead | — | |
+
+PR 1 stacks on 823's branch and is retargeted to `main` once 823 merges, per `.github/CONVENTIONS.md`.
+823 is green, approved and needs no rebase, but it waits on the chat redesign stack (#769 - #824).
 
 Nothing runs in parallel: each milestone proves the base used by the next one. PR 2 cannot open
 until #821 has merged, or its diff fights that rename.
