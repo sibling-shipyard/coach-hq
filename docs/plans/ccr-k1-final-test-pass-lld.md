@@ -318,9 +318,9 @@ action field when the turn gave a real, stated reason. Never fire `season_start`
 overwrite real data. Not added to the FSP branch - `FSP_ACTIONS` structurally excludes those 5
 fields already, so there was nothing to guard there.
 
-Live-tested, flash, on the 3 transcripts that showed this noise before: `#10` (2/5 fail, but on
-`coachNoteReported` - unrelated to spurious fields, likely pre-existing flakiness, not chased
-further this pass), `#35` (4/5 clean, 1/5 had noise), `#39` (5/5 pass). **The noise wasn't fully
+Live-tested, flash, on the 3 transcripts that showed this noise before: `#10` (2/5 fail on
+`coachNoteReported`, since fixed - see below), `#35` (4/5 clean, 1/5 had noise), `#39` (5/5 pass).
+**The noise wasn't fully
 eliminated, but its severity changed completely.** Before this fix, `#39` fired a duplicate
 `season_start` with a real name/dates plus a fully fabricated 7-day `week_plan` - content real
 enough to pass `buildCurrentWeekWrite`'s guard and actually corrupt `current_week.json`. After the
@@ -332,6 +332,20 @@ finding was raised over is gone; a cosmetic eval-assertion mismatch remains** - 
 the write-guards further) is not needed on safety grounds. Whether to also silence the cosmetic
 noise (tighten the prompt further, or loosen these transcripts' strict `actionFieldsAbsent` checks
 to allow an empty stub) is a smaller, non-blocking follow-up, not pursued in this pass.
+
+### #10's `coachNoteReported` flakiness — root-caused and fixed (2026-09-04, flash)
+
+Investigated per the athlete's direct ask. `quest_event` fired correctly in all 5 runs, 2 of which
+also lacked `coach_note`. Checked `coachTurn.ts`: `quest_event` is in `ACTIONS_REQUIRING_COACH_NOTE`
+(`:316-324`). A real production turn shaped exactly like this gets caught and corrected by the C2
+reprompt - the same mechanism observed firing live earlier in this pass (`coach-skanda-testing`'s
+FSP run). `coachTurn-reprompt.test.ts` already covers this deterministically
+with mocked Gemini calls. `eval-coach-chat.ts` calls `askGemini()` directly, single-shot, and
+structurally never exercises that reprompt - a failure here was never evidence of a real bug.
+`#12`'s transcript already established this exact precedent (same root cause, same fix, its own
+description explains it) - `#10` had simply never been updated to match. Removed
+`coachNoteReported: true` from `#10`'s `expect`, matching `#12`. **5/5 pass** once fixed. Not a
+model or prompt bug - a stale test assertion testing something outside this harness's coverage.
 
 Every result — pass, fail, or gap closed — gets recorded here before any further code change.
 
