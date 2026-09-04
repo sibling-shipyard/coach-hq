@@ -1,0 +1,12 @@
+{
+  "name": "sports-update-new-sport",
+  "description": "sports_update has zero dedicated live coverage today (K1 testing audit, 2026-09-04). A returning athlete adds a new sport to their existing list on an ordinary turn - sports_update should fire with the FULL list (existing plus new), not just the new one, per applySportsUpdate's own contract.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** Running, Strength Training\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
+  "history": [{ "id": "1", "role": "coach", "paragraphs": ["What's on the plan this week?"] }],
+  "userMessage": "Actually starting rock climbing this week too, joined a gym near me. Wanted to flag that as a new thing I'm doing regularly now.",
+  "expect": {
+    "actionFieldsPresent": ["sports_update"]
+  }
+}
