@@ -74,6 +74,18 @@ function initialState(): UseRepoDataResult {
   return { data: null, loading: true, error: null, schemaUnsupported: false, accessRevoked: false };
 }
 
+/**
+ * Whether a non-ok `/api/repo-file` status is ours to fix, rather than an answer.
+ *
+ * `repo-file.ts` answers revoked access (`:52`) and a repo that has not synced yet (`:64`)
+ * without capturing either, because neither is a fault. Capturing them on this side would put
+ * an error event behind every unsynced athlete's dashboard load, and give one failure two
+ * verdicts across the two halves of its own trace.
+ */
+export function repoFileStatusIsFault(status: number): boolean {
+  return status !== 401 && status !== 404;
+}
+
 function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void {
   let cancelled = false;
 
@@ -84,13 +96,16 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         // A refusal never throws here — it becomes an error card, so nothing else in the client
-        // records that the dashboard came up empty. The status is what separates a revoked
-        // token (401, the athlete re-signs in) from a repo-file fault (502, ours to fix).
-        captureFetchFailure("/api/repo-file", {
-          kind: "server",
-          status: res.status,
-          detail: body.error,
-        });
+        // records that the dashboard came up empty.
+        //
+        // 401 and 404 are the exceptions — see `repoFileStatusIsFault`.
+        if (repoFileStatusIsFault(res.status)) {
+          captureFetchFailure("/api/repo-file", {
+            kind: "server",
+            status: res.status,
+            detail: body.error,
+          });
+        }
         setState({
           data: null,
           loading: false,
