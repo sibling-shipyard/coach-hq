@@ -28,6 +28,7 @@ on:
       - 'gen/widget_snapshots.json'
       - 'user_data/activities/workout_plans/sessions/*.json'
       - 'engine/scripts/validate-text-caps.py'
+      - 'engine/scripts/validate-data-shape.py'
   pull_request:
     paths:
       - 'user_data/coach/profile.json'
@@ -42,6 +43,7 @@ on:
       - 'gen/widget_snapshots.json'
       - 'user_data/activities/workout_plans/sessions/*.json'
       - 'engine/scripts/validate-text-caps.py'
+      - 'engine/scripts/validate-data-shape.py'
 
 jobs:
   validate-json:
@@ -135,6 +137,9 @@ jobs:
 
       - name: Validate Coach free-text length caps
         run: python3 engine/scripts/validate-text-caps.py
+
+      - name: Validate user_data field/enum shapes
+        run: python3 engine/scripts/validate-data-shape.py
 
       - name: Validate legacy challenge_v2.json shape
         run: |
