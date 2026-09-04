@@ -48,19 +48,19 @@ flowchart LR
   M1["M1 A check that catches this"] --> M2["M2 One shared SOUL cache"] --> M3["M3 Close the continuity gap"]
 ```
 
-| # | Size | Milestone | Result |
-|---|---|---|---|
-| 1 | S | A check that catches this | One scheduled job calls the real model through `llmClient` and fails on an invalid reply |
-| 2 | M | One shared SOUL cache | `coach-chat` and `coach-message` resolve the same cache entry; coach-message's input bill drops ~90% |
-| 3 | S | Close the continuity gap | coach-chat knows what the last proactive message said, or an ADR records why it should not |
+| # | Size | Milestone | State | Result |
+|---|---|---|---|---|
+| 1 | S | A check that catches this | not started | One scheduled job calls the real model through `llmClient` and fails on an invalid reply |
+| 2 | M | One shared SOUL cache | not started | `coach-chat` and `coach-message` resolve the same cache entry; coach-message's input bill drops ~90% |
+| 3 | S | Close the continuity gap | not started | coach-chat knows what the last proactive message said, or an ADR records why it should not |
 
 ## PR stack
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 1 | Live-model smoke check on a schedule, failing loudly on a truncated or unparseable reply | `main` | `ui/scripts/`, `.github/workflows/`, `ui/api/_lib/_tests/` | Bob the Builder | — | |
-| 2 | 2 | Cache SOUL alone; both callers move their own instructions into the dynamic half | PR 1 | `ui/api/_lib/`, `ui/api/coach-chat/_lib/`, `ui/api/coach-message/_lib/`, matching `_tests/`, `docs/eng-docs/gemini-flow.md` | Bob the Builder | — | |
-| 3 | 3 | coach-chat reads `latest_message.json`, or an ADR says why not | PR 2 | `ui/api/coach-chat/_lib/`, `ui/api/coach-chat/_tests/`, `kdb/decisions/` | Bob the Builder | — | |
+| 1 | 1 | Live-model smoke check on a schedule, failing loudly on a truncated or unparseable reply | `main` | `ui/scripts/`, `.github/workflows/`, `ui/api/_lib/_tests/` | Bob the Builder | — | not started |
+| 2 | 2 | Cache SOUL alone; both callers move their own instructions into the dynamic half | PR 1 | `ui/api/_lib/`, `ui/api/coach-chat/_lib/`, `ui/api/coach-message/_lib/`, matching `_tests/`, `docs/eng-docs/gemini-flow.md` | Bob the Builder | — | not started |
+| 3 | 3 | coach-chat reads `latest_message.json`, or an ADR says why not | PR 2 | `ui/api/coach-chat/_lib/`, `ui/api/coach-chat/_tests/`, `kdb/decisions/` | Bob the Builder | — | not started |
 
 ## Done when
 
