@@ -57,3 +57,4 @@ Cyclops uses file paths to route, per ADR 0034:
 ## Learnings
 
 - Sentry issue paths must be org-scoped (`/organizations/sibling-shipyard/issues/<id>/`). The unscoped form 404s, which reads as a deleted issue.
+- The daily digest is `sentry-digest.mjs` + `sentry-digest.yml`, kept in one `ops:digest` issue. Quiet days rewrite the body and stay silent; only new issues or rage reports comment.

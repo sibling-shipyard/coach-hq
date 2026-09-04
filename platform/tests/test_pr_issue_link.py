@@ -1,6 +1,9 @@
 import importlib.util
+import json
+import os
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT_PATH = (
@@ -114,6 +117,19 @@ class TestPrIssueLink(unittest.TestCase):
         later = issue_fixture(milestone={"title": "Later"})
         self.assertEqual(MODULE.hierarchy_errors(closed, lambda _number: None), [])
         self.assertEqual(MODULE.hierarchy_errors(later, lambda _number: None), [])
+
+    def test_digest_label_exempts_an_issue_from_the_contract(self):
+        # The standing digest issue is a dashboard: no milestone, no epic, rewritten daily.
+        naked = {"number": 900, "state": "open", "title": "Ops: Sentry health digest",
+                 "body": "x", "labels": [{"name": "ops:digest"}]}
+        with mock.patch.dict(os.environ, {"ISSUE_JSON": json.dumps(naked)}, clear=False):
+            self.assertEqual(MODULE.check_issue_event(), 0)
+
+    def test_unlabelled_issue_still_runs_the_contract(self):
+        bad = {"number": 901, "state": "open", "title": "no area prefix",
+               "body": "x", "labels": [{"name": "area:core"}]}
+        with mock.patch.dict(os.environ, {"ISSUE_JSON": json.dumps(bad)}, clear=False):
+            self.assertEqual(MODULE.check_issue_event(), 1)
 
     def test_status_selection_follows_pr_lifecycle(self):
         cases = [

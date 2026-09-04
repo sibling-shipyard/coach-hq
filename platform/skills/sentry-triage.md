@@ -50,6 +50,15 @@ node platform/skills/query-sentry.mjs event <issue-id>
 node platform/skills/query-sentry.mjs athletes <issue-id>
 ```
 
+**5. The health digest** (what the scheduled workflow posts; `--window 24h` or `7d`)
+
+```bash
+node platform/skills/sentry-digest.mjs --window 24h
+```
+
+Prints the markdown body to stdout. Add `--out-body <path> --out-meta <path>` to write the body
+and a JSON summary instead — that is how `sentry-digest.yml` calls it.
+
 ## How to triage
 
 1. Start with `list`.
