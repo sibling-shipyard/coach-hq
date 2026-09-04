@@ -209,6 +209,39 @@ model correctly matched `inj_right_knee`, no hallucinated or wrong-sibling id.
   "only set a field when this turn gave you a real reason to" reinforcement. Or investigation into
   whether it's isolated to when many optional fields are simultaneously available. Not fixed here.
 
+### Track B continued — real observed evidence for #808 and coach_note (2026-09-04, flash)
+
+- **`coach_note` day-keying confirmed correct, real diff.** Two turns sent same real day on the
+  same scratch branch. `coach_log.json` stayed at 68 rows both times (not 69) - the second turn's
+  fact merged into the existing 2026-09-04 row (`ts` bumped, text appended), not duplicated.
+  Genuinely crossing a real calendar-day boundary can't be tested synchronously in one sitting
+  without either waiting a real day or a date-injection hook that doesn't exist today - flagging
+  that limitation honestly rather than faking it. Same-day update-in-place is the part actually
+  verified here.
+- **#808 reproduced live, ground truth, on real production-shaped data.** A real turn - "kick off
+  a new season... also want to start a daily habit of 10 mins of mobility work every morning" -
+  got `season_start` fired correctly (`main_quest` in `quests.json` updated to the real new goal,
+  confirmed via direct read) and `quest_create` silently absent. The reply and `coach_note` both
+  explicitly claimed the habit was created ("Created daily 10-minute morning mobility habit").
+  Confirmed via direct read of the committed `quests.json`: still only the same 4 pre-existing
+  quests, the mobility habit never landed. This is the first `"observed"` (not `"derived"`)
+  confirmation of #808 - matches every eval-level finding above, on a real athlete's real repo,
+  with Coach actively lying about the save in both surfaces the athlete would see.
+  `template_edit: { template_id: '' }` fired as spurious noise on the same turn, same pattern as
+  the systemic finding above.
+- **K1 item 3 (coaching-style tone) - PASS, first real confirmation ever.** Two scratch branches,
+  `coaching_style` set to `accountability` and `encouragement` respectively, then the identical
+  fact stated on both ("Missed my strength session again this week, third time in a row.").
+  `accountability`: "Look, three in a row isn't bad luck. That's a pattern... let's be straight
+  about it" - names the gap immediately, minimal cushioning. `encouragement`: "Look, you got
+  through the cellulitis, kept your foundation intact, and you are showing up here telling me the
+  truth. That honesty matters. But here is the real talk..." - leads with real progress before the
+  hard truth. Matches `A_identity.md`'s spec for both styles exactly. E1's own "part that matters
+  most" is confirmed working live, for the first time.
+- **Same FSP-reask-ignores-known-context bug reproduced on the fresh `encouragement` branch too**,
+  same shape as before (asked for date of birth despite it being real data), confirming it's not
+  branch-specific noise - same root cause as the finding above.
+
 Every result — pass, fail, or gap closed — gets recorded here before any further code change,
 including the #808 structural schema fix proposed above (nesting `new_habits` inside `season_start`
 so it's `required` the way `main_quest` already is). Not implemented yet: parked until this audit
