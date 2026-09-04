@@ -11,6 +11,11 @@ coach-message, waitlist, ...), not scoped to any single feature.
   same reasoning as `fileEdits.test.ts` sitting here: the module isn't coach-chat-specific, so its
   tests shouldn't be nested under coach-chat's test directory either.
 
+- **`smokeCoachMessage.test.ts`** - the assertion half of `ui/scripts/smoke-coach-message.ts`, the
+  live-model canary for coach-message (ADR 0037). No model runs here: it checks that a truncated
+  reply, an unparseable one, and one that breaks the `{body}` contract are told apart and named
+  per adapter. The paid call belongs to `.github/workflows/smoke-coach-message.yml`.
+
 **What's mocked in `githubGitData.test.ts`:** `fetchWithTimeout` (from `_lib/httpTimeout.js`),
 routed by URL/method to answer the specific GitHub REST calls `commitFilesAtomic` makes. That's
 the only fake - the real blob-then-tree-then-commit-then-ref sequence, real payload construction,

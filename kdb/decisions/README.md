@@ -37,6 +37,7 @@
 | 0034 | Agent-layer restructure: Bob the Builder split and Cyclops triage | cross-cutting |
 | 0035 | One committed file per real session | cross-cutting (iOS sync) |
 | 0036 | agent-kit: extract in place, then carve | cross-cutting |
+| 0037 | A scheduled canary is the second kind of paid check | cross-cutting |
 
 <details>
 <summary>Superseded / historical (3) — kept for the citations, not for the boot read</summary>
