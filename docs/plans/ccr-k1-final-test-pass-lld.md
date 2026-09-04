@@ -335,6 +335,28 @@ to allow an empty stub) is a smaller, non-blocking follow-up, not pursued in thi
 
 Every result — pass, fail, or gap closed — gets recorded here before any further code change.
 
+### Workouts/current-week fields — observe only, per the athlete's explicit instruction (2026-09-04)
+
+The athlete is planning to redesign `current_week`/workouts separately and asked this pass to test
+and log gaps there without fixing anything. Two new transcripts, flash:
+
+- **`week_plan` (`#41`, Weekly Kick-off Ritual) - real reliability gap, not touched.** When the
+  athlete's ask was ambiguous (loose trip timing, no exact dates), the model correctly asked
+  clarifying questions instead of committing - that's the prompt's own instruction working as
+  designed, not a bug. With an unambiguous "just build my normal week" ask: **2 clean passes, 3
+  JSON-malformation errors out of 5** (`Unterminated string`, `Expected double-quoted property
+  name`). When it does commit, the content is correct - the schema is large (7 days, each with a
+  sessions array) and flash appears prone to truncating or malforming output at that size. A real,
+  distinct reliability finding, separate from #808/#4 - not pursued given the redesign is coming.
+- **`session_reconcile` (`#42`) - solid, no gap found.** 5/5 clean passes, athlete reports skipping
+  a planned run and substituting a swim. `status: "done"` (not `"skipped"`) with `actual` describing
+  the substitution is the correct shape per the 2-value enum (`done`/`skipped` - "done" means
+  something happened, `actual` says what). Bonus: `injury_flag` correctly co-fired for the knee
+  discomfort mentioned in the same message.
+- **`template_edit`/`plan_edit` (`#19`)** - already covered above under #807's resolution, 5/5 clean.
+- **`session_plan`** - still has zero dedicated live coverage. Not tested this pass (time-boxed);
+  flag for whenever the workouts redesign lands, since its shape will likely change anyway.
+
 ## What this deliberately does not do
 
 Re-review already-reviewed PRs' code. This is a live-behavior pass, not a second code review —

@@ -1,0 +1,18 @@
+{
+  "name": "week-plan-kickoff-ritual",
+  "description": "Observe-only gap (K1 testing audit, 2026-09-04): week_plan has never been independently tested live, only via #19's plan_edit/template_edit disambiguation. The athlete explicitly asks to plan the week - this is the clean trigger case for the Weekly Kick-off Ritual.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running, badminton\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 6 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+  "history": [
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": ["Monday, fresh week ahead - what's on your mind?"]
+    }
+  ],
+  "userMessage": "I don't have a plan for this week yet - go ahead and lay out the full week for me now, nothing unusual going on, just build it around my normal training.",
+  "expect": {
+    "actionFieldsPresent": ["week_plan"]
+  }
+}
