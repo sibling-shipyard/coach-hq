@@ -136,11 +136,12 @@ nothing and hides the few lines that matter.
 
 ## Learnings
 
-- `git check-ignore` can't match a directory-only pattern (trailing slash) when the directory is absent — verify anything touching gitignored generated data against a simulated clean checkout, not a dev tree — it passes locally and fails only in CI.
-- Bundle unrelated infra (codegen, pre-build automation) with a bugfix only when the athlete approves — otherwise split the PR.
-- Check `gh issue list` before filing audit findings — the roadmap usually tracks them already; a SOUL audit yielded 7 new issues from 13 candidates.
-- Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is before planning around it.
+- `git check-ignore` misses a directory-only pattern when the directory is absent — verify gitignored generated data against a simulated clean checkout; a dev tree passes and only CI fails.
+- Bundle unrelated infra (codegen, pre-build automation) with a bugfix only if the athlete approves — otherwise split the PR.
+- Check `gh issue list` before filing audit findings — the roadmap usually tracks them; one SOUL audit yielded 7 new issues from 13 candidates.
+- Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is first.
 - Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
-- `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing: `git log <merge-base>..origin/main -- <the PR's files>` decides if a rebase is needed.
-- Run parsing scripts against a real marked file in review — static regex reading missed an `id="..."` vs bare-word marker mismatch that made update.sh silently no-op on every real file (PR 784).
+- `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing; `git log <merge-base>..origin/main -- <PR files>` decides a rebase.
+- Run parsing scripts against a real marked file in review — static regex reading missed an `id="..."` vs bare-word marker mismatch that made update.sh silently no-op on every real file.
 - Freshness-gate a plan against open PR branches, not just HEAD: `git diff origin/main...<stack-tip>` over the plan's file column — an unmerged stack had rewritten every file one plan targeted.
+- Run `kdb/scripts/check_issue_contract.py` before `gh issue create` — nothing runs it until a PR links the issue; M3/M4 also need a native parent link to an `epic`.

@@ -41,6 +41,16 @@ if [ "$(git -C "$REPO_ROOT" config --local --get core.hooksPath 2>/dev/null)" !=
   fi
 fi
 
+# A fresh worktree has no ui/node_modules, so every npm check below exits 127 and the pre-push
+# hook blocks on four failures that name no cause. Catch it once, here, with the fix attached.
+if [ -f "$REPO_ROOT/ui/package.json" ] && [ ! -d "$REPO_ROOT/ui/node_modules" ]; then
+  echo "error: $REPO_ROOT/ui/node_modules is missing - every ui check would exit 127." >&2
+  echo "  Same package.json as your primary checkout? Symlink it, do not reinstall:" >&2
+  echo "    ln -s <primary-checkout>/ui/node_modules $REPO_ROOT/ui/node_modules" >&2
+  echo "  Otherwise: (cd $REPO_ROOT/ui && npm ci)" >&2
+  exit 2
+fi
+
 NAMES=()
 DIRS=()
 CMDS=()
