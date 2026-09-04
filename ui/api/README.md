@@ -42,8 +42,14 @@ Import it into Postman and set three collection variables:
 | `baseUrl`       | Production, or a Vercel Preview URL. Must be `https` — the session cookie is `Secure` |
 | `sessionCookie` | The `coach_session` cookie value, copied from browser DevTools. Ships empty           |
 | `activityId`    | An id that exists in the athlete repo: `strava:<digits>` or `healthkit:<UUID>`        |
+| `refreshToken`  | Only for `Auth → refresh`, the iOS-only token exchange. Ships empty                   |
 
 Start with `Auth → me`. If that 401s the cookie is wrong or expired and nothing else will work.
+Run `Auth → logout` last — it clears the cookie and everything after it 401s.
 
-`POST /api/coach-message` writes `user_data/coach/latest_message.json` to the athlete repo. Set
-`COACH_CHAT_BRANCH` on the deployment first unless you mean that to land on their real `main`.
+Three requests commit to GitHub, and `baseUrl` defaults to production:
+
+- `POST /api/coach-message` and `POST /api/coach-chat` write to the **athlete's** repo. Set
+  `COACH_CHAT_BRANCH` on the deployment first unless you mean that to land on their real `main`.
+- `POST /api/waitlist` writes `platform/waitlist.json` in **this** repo and needs no cookie, so
+  it is the one that goes off by accident.

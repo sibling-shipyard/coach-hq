@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Coach HQ API",
-    "description": "Coach HQ endpoints, generated from ui/api/ on 2026-09-04.\n\nAUTH: every request except Waitlist needs the `coach_session` cookie. It is HttpOnly + Secure + SameSite=Lax, so you cannot read it from JS and you cannot use plain http.\n\nTo get one:\n1. Sign in to the deployment in a browser (Preview or Production).\n2. DevTools -> Application -> Cookies -> pick `coach_session`.\n3. Copy its value into this collection's `sessionCookie` variable.\n4. Run `Auth / me` to confirm it works before anything else.\n\nThe cookie rotates (ADR 0009). If requests start 401ing, re-copy it.\n\nWARNING - coach-message and coach-chat WRITE to the athlete's GitHub repo. The target branch is `process.env.COACH_CHAT_BRANCH ?? \"main\"`. Unless COACH_CHAT_BRANCH is set on the deployment you are hitting, a test call commits to the athlete's real `main` and overwrites user_data/coach/latest_message.json.",
+    "description": "Coach HQ endpoints, generated from ui/api/ on 2026-09-04.\n\nAUTH: every request except Waitlist needs the `coach_session` cookie. It is HttpOnly + Secure + SameSite=Lax, so you cannot read it from JS and you cannot use plain http.\n\nTo get one:\n1. Sign in to the deployment in a browser (Preview or Production).\n2. DevTools -> Application -> Cookies -> pick `coach_session`.\n3. Copy its value into this collection's `sessionCookie` variable.\n4. Run `Auth / me` to confirm it works before anything else.\n\nThe cookie rotates (ADR 0009). If requests start 401ing, re-copy it.\n\nWARNING - three requests here commit to GitHub, and `baseUrl` defaults to production.\n- coach-message and coach-chat WRITE to the athlete's repo, on branch `process.env.COACH_CHAT_BRANCH ?? \"main\"`. Unless COACH_CHAT_BRANCH is set on the deployment you are hitting, a test call commits to the athlete's real `main` and overwrites user_data/coach/latest_message.json.\n- Waitlist WRITES to this HQ repo (platform/waitlist.json) and needs no cookie, so it is the one you can fire without meaning to.\n\nEverything else is read-only. Auth / logout writes nothing but ends the session, so run it last.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -19,6 +19,11 @@
       "key": "activityId",
       "value": "strava:123456789",
       "description": "Must satisfy isStrictActivityId: strava:<digits> or healthkit:<UUID>. Must exist in the athlete repo."
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "description": "Only for Auth / refresh, which is the iOS path and is NOT cookie-authed. iOS holds this in Keychain; there is no way to read one out of a browser."
     }
   ],
   "auth": { "type": "noauth" },
@@ -53,15 +58,17 @@
           }
         },
         {
-          "name": "refresh",
+          "name": "refresh - iOS token exchange (POST, not cookie-authed)",
           "request": {
-            "method": "GET",
-            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}" },
             "url": {
               "raw": "{{baseUrl}}/api/auth/refresh",
               "host": ["{{baseUrl}}"],
               "path": ["api", "auth", "refresh"]
-            }
+            },
+            "description": "handleRefresh (auth/[...action].ts) is POST-only and 405s on GET. The session cookie is not its auth - possession of a valid refresh_token is, which is why no Cookie header is sent. This exists for iOS, which keeps its refresh_token in Keychain; a browser session cannot produce one, so leave this request alone unless you have a token to test with."
           }
         },
         {
@@ -78,7 +85,7 @@
           }
         },
         {
-          "name": "logout",
+          "name": "logout - run this LAST, it kills the session",
           "request": {
             "method": "GET",
             "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
@@ -86,7 +93,8 @@
               "raw": "{{baseUrl}}/api/auth/logout",
               "host": ["{{baseUrl}}"],
               "path": ["api", "auth", "logout"]
-            }
+            },
+            "description": "Clears coach_session and 302s to /. Postman follows the redirect by default, so a 200 with the app's HTML is the success case here, not a failure.\n\nRunning this invalidates the value in `sessionCookie` - every other request starts 401ing until you sign in again and re-copy it."
           }
         }
       ]
@@ -136,6 +144,19 @@
     {
       "name": "Coach chat",
       "item": [
+        {
+          "name": "GET /api/coach-chat - history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/coach-chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "coach-chat"]
+            },
+            "description": "Read-only - the same route, dispatched on method (coach-chat.ts's handle()). The cheapest way to see what a POST turn actually committed, without spending a model call."
+          }
+        },
         {
           "name": "POST /api/coach-chat - greet",
           "request": {
@@ -248,9 +269,14 @@
             },
             "description": "gen/dashboard_snapshot.json via the GitHub Contents API. Run Auth / list-my-repos first or this 400s."
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "Waitlist (WRITES to the HQ repo)",
+      "item": [
         {
-          "name": "POST /api/waitlist",
+          "name": "POST /api/waitlist - commits to coach-phelps-hq",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -260,7 +286,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "waitlist"]
             },
-            "description": "Public. Check ui/api/waitlist.ts for the exact field names before relying on this one."
+            "description": "The only unauthenticated route here - no cookie needed, which is exactly why it is easy to fire by accident.\n\nWRITES: appends {email, created_at, source} to platform/waitlist.json and commits it to WAITLIST_GITHUB_REPO, which defaults to sibling-shipyard/coach-phelps-hq - this repo, not an athlete's. With baseUrl left at production, sending this puts test@example.com in the real waitlist and you clean it up by hand.\n\nBody is {email, source?}; `website` is a honeypot field - set it and the route silently accepts and discards the signup."
           }
         }
       ]
