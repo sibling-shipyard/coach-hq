@@ -1,6 +1,6 @@
 # Vercel environment variables
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-29
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-04
 
 ## Context
 
@@ -18,7 +18,8 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 | `GITHUB_APP_CLIENT_SECRET` | `ui/api/auth/[...action].ts` | Same as above. Also silently becomes the OAuth-state HMAC key if `SESSION_SECRET` is unset (see below). |
 | `SESSION_SECRET` | `ui/api/auth/_lib/session.ts`, `ui/api/auth/[...action].ts` | `session.ts` throws outright for web sessions (must be 32 random bytes, base64-encoded). For the OAuth `state` HMAC specifically, falls back to `CLIENT_SECRET` instead of throwing — logs a `[auth]` warning on cold start if this happens. |
 | `GITHUB_APP_SLUG` | `ui/api/auth/[...action].ts` | Falls back to `"coach-phelps"` — only matters if the App is ever renamed. |
-| `GEMINI_API_KEY` | `ui/api/coach-chat.ts`, `ui/api/coach-message.ts` | Chat and post-sync Coach generation fail with a clean 500 before a model call. |
+| `GEMINI_API_KEY` | `ui/api/coach-chat.ts`, `ui/api/coach-message.ts` (direct Gemini adapter — the default) | Chat always, and post-sync Coach generation when `LLM_PROVIDER` is unset or `"gemini"`, fail with a clean 500 before a model call. |
+| `OPENROUTER_API_KEY` | `ui/api/coach-message.ts` (OpenRouter adapter, `ui/api/_lib/llmAdapters/openRouterAdapter.ts`) | Only read when `LLM_PROVIDER=openrouter`. Post-sync Coach generation fails with a clean 500 before a model call on a deployment that sets it (#713). |
 | `WAITLIST_GITHUB_TOKEN` (or `GITHUB_PAT`) | `ui/api/waitlist.ts` | Waitlist signups fail (`waitlistConfig()` returns null). |
 | `WAITLIST_GITHUB_REPO` | `ui/api/waitlist.ts` | Falls back to `sibling-shipyard/coach-phelps-hq` — logs a `[waitlist]` warning on first use if unset. Only matters if the waitlist should write elsewhere. |
 
@@ -31,6 +32,7 @@ iOS sign-in working. This is the canonical list — check it against the Vercel 
 | `VERCEL_API_TOKEN` | `ui/api/coach-chat/_lib/soulCache.ts` | Same fallback — needed alongside `EDGE_CONFIG_ID` because Edge Config has no write API of its own, only reads; writes go through the Vercel REST API. |
 | `VERCEL_TEAM_ID` | `ui/api/coach-chat/_lib/soulCache.ts` | Only needed if the Vercel project lives under a team account — omit for a personal-account project. |
 | `COACH_CHAT_BRANCH` | `ui/api/coach-chat.ts` | Falls back to `"main"` — the intended default for real athlete traffic, not a misconfiguration, so no `console.warn` on this one (would fire on every production close otherwise). Set to a scratch branch when testing a real close end-to-end (see `coach-chat-design-history.md`'s 2026-08-14/15 entry), so a test run's commit doesn't land on an athlete's actual `main`. |
+| `LLM_PROVIDER` | `ui/api/_lib/llmClient.ts` (`selectLlmAdapter`), read by `ui/api/coach-message.ts` | Falls back to `"gemini"` — the default, and what production runs. No `console.warn`: this is the intended rollback state, not a misconfiguration (docs/plans/chat-openrouter-migration.md). Only the exact value `"openrouter"` selects the OpenRouter adapter; any other value, including a typo, stays on direct Gemini (#713). |
 | `SENTRY_DSN` | `ui/api/_lib/sentry.ts` | Server-side error capture is off — `initServerMonitoring()` returns false and nothing is sent. Set to the `coach-hq-api` project DSN (EU region). |
 | `VITE_SENTRY_DSN` | `ui/client/src/lib/observability.ts` | Browser error capture is off. Set to the `coach-hq-web` project DSN; Vite bakes it into the client bundle at build time, so it must exist at build, not just at runtime. |
 | `SENTRY_RELEASE` / `VITE_SENTRY_RELEASE` | server / browser Sentry setup | Both fall back to `VERCEL_GIT_COMMIT_SHA`, then to `development` if that is missing too. The browser gets it via `ui/vite.config.ts`, which bakes the value into the bundle at build time. Left at `development`, Sentry has no release to match uploaded source maps against. |

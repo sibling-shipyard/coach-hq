@@ -295,13 +295,21 @@ export function setAthleteScope(repoFullName: string): void {
   scope.setTag("athlete_id", athleteId);
 }
 
-/** Token counts Gemini returns in `usageMetadata`, named as this codebase reads them. */
+/**
+ * Token counts a `generate_content`-shaped call returns, named as Gemini's `usageMetadata` reads
+ * them — reused as-is by the OpenRouter adapter (#713), whose `usage` fields map onto the same
+ * names. `resolvedProvider`/`resolvedModel` are OpenRouter-only: the upstream it actually routed
+ * to, which is the whole point of provider routing, so it has to reach the span (locked decision,
+ * docs/plans/chat-openrouter-migration.md).
+ */
 export interface GeminiUsage {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
   cachedPromptTokens?: number;
   thinkingTokens?: number;
+  resolvedProvider?: string;
+  resolvedModel?: string;
 }
 
 /**
@@ -314,8 +322,8 @@ export interface GeminiUsage {
  */
 const GEN_AI_OPERATION = "generate_content";
 
-function usageAttributes(usage: GeminiUsage): Record<string, number> {
-  const pairs: [string, number | undefined][] = [
+function usageAttributes(usage: GeminiUsage): Record<string, number | string> {
+  const numberPairs: [string, number | undefined][] = [
     ["gen_ai.usage.input_tokens", usage.promptTokens],
     ["gen_ai.usage.output_tokens", usage.completionTokens],
     ["gen_ai.usage.total_tokens", usage.totalTokens],
@@ -326,9 +334,14 @@ function usageAttributes(usage: GeminiUsage): Record<string, number> {
     // the span under-reports cost on any thinking-capable model.
     ["gen_ai.usage.output_tokens.reasoning", usage.thinkingTokens],
   ];
-  return Object.fromEntries(
-    pairs.filter((pair): pair is [string, number] => pair[1] !== undefined),
-  );
+  const stringPairs: [string, string | undefined][] = [
+    ["gen_ai.response.provider", usage.resolvedProvider],
+    ["gen_ai.response.model", usage.resolvedModel],
+  ];
+  return Object.fromEntries([
+    ...numberPairs.filter((pair): pair is [string, number] => pair[1] !== undefined),
+    ...stringPairs.filter((pair): pair is [string, string] => pair[1] !== undefined),
+  ]);
 }
 
 /**
@@ -344,6 +357,10 @@ function usageAttributes(usage: GeminiUsage): Record<string, number> {
 export function withGeminiSpan<T>(
   model: string,
   run: (recordUsage: (usage: GeminiUsage) => void) => Promise<T>,
+  // Static, known before the call starts — e.g. `{"llm.adapter": "openrouter"}` (#713). Response
+  // data that's only known after the call (OpenRouter's resolved provider/model) goes through
+  // `recordUsage` instead, since `usageAttributes` runs once the response is parsed.
+  extraAttributes: Record<string, string> = {},
 ): Promise<T> {
   if (!initServerMonitoring()) return run(() => {});
   return Sentry.startSpan(
@@ -354,6 +371,7 @@ export function withGeminiSpan<T>(
         "gen_ai.system": "google_genai",
         "gen_ai.operation.name": GEN_AI_OPERATION,
         "gen_ai.request.model": model,
+        ...extraAttributes,
       },
     },
     async (span) => {

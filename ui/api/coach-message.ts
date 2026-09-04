@@ -1,6 +1,7 @@
 /** Authenticated post-sync Coach generation and latest-message persistence. */
 import { commitFilesAtomic } from "./_lib/githubGitData.js";
 import { fetchWithTimeout } from "./_lib/httpTimeout.js";
+import { selectLlmAdapter } from "./_lib/llmClient.js";
 import { SOUL } from "./_generated/soul.js";
 import { resolveRepoAuth, type RepoAuthContext } from "./auth/_lib/resolve-auth.js";
 import { withSessionCookie } from "./auth/_lib/session.js";
@@ -65,13 +66,7 @@ async function handle(req: Request, auth: RepoAuthContext): Promise<Response> {
   const result = await generateAndStoreCoachMessage(activityIds, {
     readFile: (path) => getFileRaw(repo, path, token),
     listActivityFiles: () => listActivityFiles(repo, token),
-    generateBody: (prompt) => {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new CoachMessageError("Coach message generation is not configured", 500);
-      }
-      return generateProactiveBody(apiKey, prompt);
-    },
+    generateBody: (prompt) => generateProactiveBody(selectLlmAdapter(), prompt),
     commitFiles: (files, message) =>
       commitFilesAtomic(files, message, {
         repo,

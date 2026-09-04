@@ -33,15 +33,21 @@ schema at 180 output tokens: no soul cache, no `coachReplySchema`, no reprompt l
 chat redesign stack (#769 → #824) also leaves that file untouched, while J2 (#821) moves chat's
 whole `_lib/` tree. Chat therefore waits for that stack; `coach-message` does not.
 
-Precursor, already in flight: #827 fixes `coach-message`'s output budget, which thinking tokens
-had made unusable. PR 1 inherits the corrected budget.
+Precursor, merged: #827 (PR 831) fixed `coach-message`'s output budget, which thinking tokens
+had made unusable. PR 1 inherits the corrected budget straight from `main`.
 
-Two external dependencies, both outside this plan:
+One external dependency, outside this plan:
 
 | Dependency | Why it blocks |
 |---|---|
-| #638 (PR 823) | Adds the shared Gemini base-URL and auth-header module, the seam `llmClient` replaces. PR 1 branches off 823 rather than waiting: whichever lands second rewrites the other's call sites |
 | #670 (PR 810) | The 24-transcript baseline. Gates the **chat** cutover only — `coach-message` has no transcript coverage |
+
+**#638 (PR 823) is no longer a PR 1 dependency.** PR 1's Gemini adapter writes the
+`x-goog-api-key` header natively, so 823 gates nothing here. #831 merged while 823 was open,
+leaving 823's `coachMessage.test.ts` hunk conflicting. #821 (J2) also moves every file 823
+touches (`coachWorkoutFiles.ts` to `_lib/decide/`; `geminiClient.ts` and `soulCache.ts` to
+`_lib/gemini/`) — landing 823 before J2 is a rename-vs-edit conflict, after is a small patch.
+823 lands after J2, by its own owner.
 
 ## OpenRouter readiness gate
 
@@ -101,7 +107,7 @@ flowchart LR
 | # | Size | Milestone | State | Result |
 |---|---|---|---|---|
 | 0 | S | Account ready | ✅ done 2026-09-04 | The key, spend limit, data policy and rollback are locked; no code |
-| 1 | M | `coach-message` pilot | blocked on PR 823 | `llmClient` and both adapters exist; proactive messages run on OpenRouter in production |
+| 1 | M | `coach-message` pilot | PR 1 in review | `llmClient` and both adapters exist; proactive messages run on OpenRouter in production |
 | 2 | M | Chat and templates | not started | The remaining two callers reach the model through `llmClient`; production still selects Gemini for chat |
 | 3 | M | Cut over and retire | not started | OpenRouter is stable for two weeks, the direct adapter is removed and the ADR records the decision |
 
@@ -109,12 +115,9 @@ flowchart LR
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 1 | `llmClient`, both adapters, `coach-message` only, telemetry and tests | `feat/638-gemini-key-header` (PR 823) | `ui/api/_lib/`, `ui/api/coach-message.ts`, `ui/api/coach-message/_lib/`, `ui/api/coach-message/_tests/`, `ui/api/_lib/_tests/` | Bob the Builder | — | not started — stacks on 823, which waits on the chat redesign stack (#769 - #824) |
+| 1 | 1 | `llmClient`, both adapters, `coach-message` only, telemetry and tests | `main` | `ui/api/_lib/`, `ui/api/coach-message.ts`, `ui/api/coach-message/_lib/`, `ui/api/coach-message/_tests/`, `ui/api/_lib/_tests/` | Bob the Builder | — | in review — Refs #713 |
 | 2 | 2 | Chat and template adjustment move onto `llmClient` | PR 1, after the chat stack lands | `ui/api/coach-chat.ts`, `ui/api/coach-chat/_lib/`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts`, `.github/workflows/eval-coach-chat.yml` | Bob the Builder | — | not started |
 | 3 | 3 | Remove direct Gemini after the observation gate; ADR, docs and plan cleanup | PR 2 | `ui/api/`, `ui/scripts/`, `.github/workflows/eval-coach-chat.yml`, `docs/eng-docs/`, `kdb/decisions/`, `docs/plans/chat-openrouter-migration.md` | Bob the Builder + Tech Lead | — | not started |
-
-PR 1 stacks on 823's branch and is retargeted to `main` once 823 merges, per `.github/CONVENTIONS.md`.
-823 is green, approved and needs no rebase, but it waits on the chat redesign stack (#769 - #824).
 
 Nothing runs in parallel: each milestone proves the base used by the next one. PR 2 cannot open
 until #821 has merged, or its diff fights that rename.
