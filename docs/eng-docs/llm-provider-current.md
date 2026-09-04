@@ -88,20 +88,16 @@ see the new ADR amending 0011 for the full rationale.
 
 ## Eval — how we actually pick, not vibes
 
-**Harness built** (`ui/scripts/eval-coach-chat.ts`, `npm run eval:coach-chat`, 7 transcripts in
-`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`): greeting, ordinary check-in, close-session happy
-path, close-session with missing info (must ask, not fabricate a save), quest completion,
-injury/sore flag handling, false-positive close-signal. It runs each transcript through the real
-`askGemini()` and checks the *objective* rubric automatically: valid schema, no fabricated
-"saved" language, every `file_updates` path is coach-writable and matches what the turn mode
-allows, `session_closed` only true where expected.
+**Harness** (`ui/scripts/eval-coach-chat.ts`, `npm run eval:coach-chat`) - see
+[`coach-chat-testing.md`](coach-chat-testing.md) for the current, accurate description of the
+suite (14 diagnosed transcripts as of G1/#670, the closing-turn concept C1 removed no longer
+exists to test, `session_closed` is gone from the schema). This section only tracks the
+provider-decision angle below, not the suite's own shape.
 
 **Not automated yet** — still manual/future work:
 1. Voice/persona match to SOUL.md — needs a judge-model call per transcript (real added cost per
    run), a decision the athlete should weigh in on before it's default-on.
-2. The full 15-25-transcript target from the original plan — 7 covers every code branch in
-   `askGemini`/`resolveFileUpdate` for now; more are cheap to add once real usage data shows which
-   scenarios matter most.
+2. More transcripts as real usage data shows which scenarios matter most.
 3. Multi-judge scoring across model families (to avoid the same self-preference risk that showed
    up in this doc's first draft) — depends on #1 existing first.
 

@@ -40,4 +40,4 @@ Keep these current when the backend changes; rules in `docs/eng-docs/README.md`.
 
 ## Learnings
 
-- Gemini's `responseSchema` in `ui/api/coach-chat.ts` fills properties roughly in declaration order — declare commitment fields (`file_updates`, `coach_note`) ahead of narrative ones (`title`, `session_closed`, `reply` last). Reduces skipped fields; doesn't eliminate them.
+- Gemini's `responseSchema` (`coachReplySchema.ts`) fills properties roughly in declaration order — declare commitment fields (`coach_note`, `profile_update`, etc.) ahead of narrative ones (`reply` last). Reduces skipped fields; doesn't eliminate them.

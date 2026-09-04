@@ -25,6 +25,20 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.22 — "The Checklist Finally Matches" · Sep 2, 2026
+**Superpower gained:** the terminal build's own promise about which files it saves matches what it actually saves.
+
+Nothing about what Coach does changed - it already saved memory, injuries, the coaching log, and
+the season and quest files exactly as promised. But the automated check meant to catch a gap like
+that couldn't read half the list, because of how it was written down.
+
+- The list of files Coach commits directly now spells out every one in full, not shorthand that
+  only made sense to someone reading closely.
+- The check that watches for drift between what's promised and what's actually written can finally
+  see the whole list.
+**Why it mattered:** a promise a machine can't verify isn't really being kept - it just hasn't
+broken yet.
+
 ## v5.20 — "The Note That Remembers Today" · Sep 2, 2026
 **Superpower gained:** Coach's daily note updates itself as the day happens, in either runtime.
 
