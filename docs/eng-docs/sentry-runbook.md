@@ -188,9 +188,12 @@ Five constraints to check before editing Sentry setup.
 
 ## Coverage boundary
 
-**Counted:** homepage, chat, Gemini, HealthKit sync, Rage Reports from web and iOS, and React
-render-crash paths. That means the browser's own pageload and navigation spans, one manual
-`http.server` span on each wrapped API route, and the Gemini spans we open by hand. A web report
+**Counted:** homepage, chat, Gemini, HealthKit sync, Rage Reports from web and iOS, React
+render-crash paths, and the two client fetches the dashboard cannot start without —
+`/api/auth/me` and `/api/repo-file` (`captureFetchFailure` in
+`ui/client/src/lib/observability.ts`). That means the browser's own pageload and navigation
+spans, one manual `http.server` span on each wrapped API route, and the Gemini spans we open by
+hand. A web report
 carries the SDK's own click, navigation and fetch breadcrumbs as its timeline, copied onto
 `extra.trail` when the dialog opens. `beforeBreadcrumb` drops the `console` ones, because those
 would carry arbitrary logged text on a path ADR 0032 scoped to failed Gemini calls.
@@ -203,6 +206,14 @@ six months idle. A non-2xx from GitHub, or a 200 whose body carries neither a to
 is a fault. And a session cookie that will not decrypt is a fault — a rotated `SESSION_SECRET`
 looks exactly like signing out — except when jose codes it `ERR_JWT_EXPIRED`, which really is a
 cookie that aged out. A 404 before first sync and a revoked install stay uncaptured everywhere.
+
+**A client fetch failure says which half of the trace to look at.** `fetch_failure:network` means
+the request never got a response: there is no API event to join it to, and `online:false` says the
+athlete's connection was the reason. `fetch_failure:server` means the API answered, so its own
+event sits on the same `trace_id` and `status_code` says what it decided. Drops are
+`level:warning`, refusals `level:error`. Both group on endpoint, kind and status rather than on the
+minified stack, so one revoked token stays one issue to resolve and a real outage is a count that
+climbs.
 
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
 

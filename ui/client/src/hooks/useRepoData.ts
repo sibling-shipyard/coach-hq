@@ -16,6 +16,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import dashboardSnapshotRaw from "../data/dashboard_snapshot.json";
+import { captureFetchFailure } from "../lib/observability";
 export interface RepoData {
   activities: unknown[];
   ledger?: any;
@@ -82,6 +83,14 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        // A refusal never throws here — it becomes an error card, so nothing else in the client
+        // records that the dashboard came up empty. The status is what separates a revoked
+        // token (401, the athlete re-signs in) from a repo-file fault (502, ours to fix).
+        captureFetchFailure("/api/repo-file", {
+          kind: "server",
+          status: res.status,
+          detail: body.error,
+        });
         setState({
           data: null,
           loading: false,
@@ -116,16 +125,19 @@ function fetchRepoData(setState: (state: UseRepoDataResult) => void): () => void
         accessRevoked: false,
       });
     })
-    .catch(() => {
-      if (!cancelled) {
-        setState({
-          data: null,
-          loading: false,
-          error: "Failed to load your data",
-          schemaUnsupported: false,
-          accessRevoked: false,
-        });
-      }
+    .catch((error: unknown) => {
+      if (cancelled) return;
+      // Everything that lands here failed in transit: a rejected `fetch`, or a body that could
+      // not be read because the connection dropped part-way through it. The API answered
+      // nothing, so this event is the only record the dashboard went blank.
+      captureFetchFailure("/api/repo-file", { kind: "network", error });
+      setState({
+        data: null,
+        loading: false,
+        error: "Failed to load your data",
+        schemaUnsupported: false,
+        accessRevoked: false,
+      });
     });
 
   return () => {

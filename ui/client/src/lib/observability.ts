@@ -4,8 +4,9 @@
  * Errors plus distributed tracing: `browserTracingIntegration` attaches `sentry-trace` and
  * `baggage` to outgoing requests that match `tracePropagationTargets`, so the API's Sentry events
  * land on the same trace as the browser's. Identity comes from `setAthleteUser`, called by
- * `AuthContext`; React render crashes come from `ErrorBoundary`'s `componentDidCatch`, and
- * failures that never threw come from `submitRageReport`, called by `RageReportDialog`.
+ * `AuthContext`; React render crashes come from `ErrorBoundary`'s `componentDidCatch`, data
+ * fetches the client turns into an error screen come from `captureFetchFailure`, and failures
+ * only the athlete can see come from `submitRageReport`, called by `RageReportDialog`.
  * Env: VITE_SENTRY_DSN (unset → no-op), optional VITE_SENTRY_RELEASE / VITE_SENTRY_ENVIRONMENT /
  * VITE_SENTRY_TRACES_SAMPLE_RATE. Release and environment are wired from Vercel at build time
  * by `ui/vite.config.ts`; a browser bundle has no other way to know which deploy it is.
@@ -199,4 +200,89 @@ export function submitRageReport(
   if (!complaint || !isRageReportingAvailable()) return false;
   Sentry.captureMessage(complaint, { ...RAGE_REPORT_SCOPE, extra: { trail } });
   return true;
+}
+
+/**
+ * How a data fetch failed, and the two cases are not the same failure.
+ *
+ * `network` is a rejected `fetch()`: the request never got an HTTP response at all — the athlete
+ * is in a tunnel, the tab is offline, DNS died, or the connection dropped mid-body so reading it
+ * threw. Nothing about it reaches the server, so it exists nowhere else; the API side of the
+ * trace has no row to join.
+ *
+ * `server` is a response we did not want: the API answered, so `withSentryRoute` already has its
+ * own half of the trace and `status` says what it decided. This side is here for what the athlete
+ * saw, and to make the pair findable from one search.
+ */
+export type FetchFailure =
+  | { kind: "network"; error: unknown }
+  | { kind: "server"; status: number; detail?: string };
+
+/** Whether the browser thinks it has a connection. Absent outside a browser, such as in tests. */
+function browserIsOnline(): boolean | undefined {
+  return typeof navigator === "undefined" ? undefined : navigator.onLine;
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+}
+
+/**
+ * Report a data fetch the client turned into UI state instead of throwing.
+ *
+ * Only for a failure the athlete is shown — a blank dashboard, a bounce to the login screen. A
+ * fetch that degrades on purpose (the latency warmers in `prefetchCoachContext.ts` and
+ * `useWidgetSnapshots.ts`) stays silent: the athlete never learns it happened, and neither
+ * should the issue stream.
+ *
+ * `endpoint` is the literal path, never the request URL — a URL can carry a query string, and a
+ * tag value is not scrubbed the way an event body is.
+ *
+ * The `fingerprint` is what makes these usable. Nothing uploads source maps
+ * (`docs/eng-docs/sentry-runbook.md`), so the stack is minified and grouping on it would scatter
+ * one broken endpoint across issues named after whichever bundle chunk it unwound through.
+ * Grouping on endpoint + kind + status instead means one revoked token is one issue an operator
+ * can resolve once, and a real outage is a count that climbs.
+ *
+ * `level` carries the triage call the fingerprint cannot: a network drop is the athlete's
+ * connection and a refusal is ours to explain, so the first is a warning and the second an error.
+ */
+export function captureFetchFailure(endpoint: string, failure: FetchFailure): void {
+  if (failure.kind === "network") {
+    const online = browserIsOnline();
+    Sentry.captureException(new Error(`${endpoint} never reached the server`), {
+      level: "warning",
+      fingerprint: ["fetch_failure", endpoint, "network"],
+      tags: {
+        fetch_endpoint: endpoint,
+        fetch_failure: "network",
+        // The tunnel test, and the reason it is a tag rather than only context: `online:false`
+        // is the athlete's connection and `online:true` is a request that left the device and
+        // died somewhere we own. One search separates them.
+        ...(online === undefined ? {} : { online: String(online) }),
+      },
+      contexts: {
+        fetch: {
+          endpoint,
+          failure: "network",
+          reason: describeError(failure.error),
+          online,
+        },
+      },
+    });
+    return;
+  }
+
+  Sentry.captureException(new Error(`${endpoint} answered ${failure.status}`), {
+    level: "error",
+    fingerprint: ["fetch_failure", endpoint, "server", String(failure.status)],
+    tags: {
+      fetch_endpoint: endpoint,
+      fetch_failure: "server",
+      status_code: String(failure.status),
+    },
+    contexts: {
+      fetch: { endpoint, failure: "server", status: failure.status, detail: failure.detail },
+    },
+  });
 }
