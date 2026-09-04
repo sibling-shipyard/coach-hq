@@ -8,19 +8,19 @@ behavior, not an intermediate state that's about to change again.
 
 ## Also closes #670 — the eval CI check has never once passed
 
-`eval-coach-chat.yml` has been red on every run since it started (2026-08-25), across all 22-24
-transcripts, ~7 failures per run, never diagnosed as "rubric wrong" vs. "product wrong." A gate
-that's never been green isn't gating anything — nobody can currently tell a real regression from
-baseline noise it's already sitting in. This PR is the natural place to fix it: it already rewrites
-most of the transcript set, so build the new 10-14 in a way that's verified to actually pass, not
-just written and assumed correct.
+`eval-coach-chat.yml` has been red on every run since it started (2026-08-25). All 22-24
+transcripts, ~7 failures per run — never diagnosed as "rubric wrong" vs. "product wrong." A gate
+that's never been green isn't gating anything; nobody can tell a real regression from the baseline
+noise it's already sitting in. This PR is the natural place to fix it: it already rewrites most of
+the transcript set, so build the new 10-14 verified to actually pass, not just written and assumed
+correct.
 
 For every transcript **carried forward unchanged** from the old set (not rewritten by this PR),
-diagnose why it's been failing before keeping it — read the actual failure output, sort "the
+diagnose why it's been failing before keeping it. Read the actual failure output, and sort "the
 fixture/expectation is stale" from "this is a real, current product bug" (per the issue's own
-framing). A stale-rubric case gets its expectation corrected. A real bug gets filed as its own issue
-and the transcript kept red *deliberately*, documented as a known failure — not silently dropped
-just to make the gate pass.
+framing). A stale-rubric case gets its expectation corrected. A real bug gets filed as its own
+issue and the transcript kept red *deliberately*, documented as a known failure — not silently
+dropped just to make the gate pass.
 
 ## Current state
 
@@ -34,10 +34,10 @@ chunk of them test behavior this redesign deletes outright.
 
 Anything testing closing-turn-specific behavior that C1 removes:
 `03-close-happy-path.json`, `07-false-positive-close-signal.json`,
-`09-coach-note-only-close.json`, `22-multi-write-close.json`, and any other transcript whose
+`09-coach-note-only-close.json`, `22-multi-write-close.json`. Same for any other transcript whose
 `expect` block asserts on `session_closed`, `mode: "closing"`, or a closing-only action field
-(`template_edit`/`session_plan`/`week_plan`/`session_reconcile`/`plan_edit` — check each once C1's
-actual field-availability change is known, since some of these move to always-available per C1).
+(`template_edit`/`session_plan`/`week_plan`/`session_reconcile`/`plan_edit`). Check each one once
+C1's field-availability change is known — some of these move to always-available.
 
 ## Target shape: 5-7 simple + 5-7 multi-turn, ~10-14 total
 
@@ -66,6 +66,15 @@ close-detection specifically:**
 - **New**: FSP goal + habits stated *after* profile fields complete in the same conversation — the
   exact live bug this whole redesign traces back to (B1's fix, matches the eval fixture already
   planned in that LLD — coordinate, don't duplicate).
+- **New — a real finding from B1's own live re-test, not yet covered by any fixture**: profile
+  basics, the goal, and the habits all stated together in **one single turn** (not spread across
+  turns like fixture #30 tests). B1's live test found `quest_create` did *not* fire in that case —
+  only `season_start`/`sports_update` did — and needed an explicit follow-up nudge before it fired.
+  Unclear from that test alone whether this is correct behavior (`B_engine.md` Step 4 says quests
+  get set up "near the end," so the model may have correctly judged intake wasn't done yet) or a
+  real prompt-reliability gap. Add this exact scenario as its own fixture and use a real run to
+  settle which — don't guess, and don't silently drop it because #30 already covers a
+  similar-looking but structurally different case (separate turns, not one combined turn).
 - Contradictory instruction (`24-contradictory-instruction.json`) — keep if still a real edge case
   post-redesign, drop if C1's simplification makes it moot.
 

@@ -9,8 +9,8 @@ Execution detail for B1 in [`chat-commit-redesign.md`](chat-commit-redesign.md).
 `platform/scripts/carve-skeleton.mjs` seeds two non-empty fields into every new athlete repo:
 `QUESTS_TEMPLATE.main_quest` (a real "20 Strength Sessions" placeholder) and
 `PROFILE_TEMPLATE.timezone: "UTC"`. The `main_quest` placeholder is the root cause of `quest_create`
-never firing during FSP: `isFirstSessionRitualDone()` (`coachChatFiles.ts:336-343`) checks
-`Boolean(quests?.main_quest)`, which the placeholder satisfies from carve time, so the gate flips
+never firing during FSP. `isFirstSessionRitualDone()` (`coachChatFiles.ts:336-343`) checks
+`Boolean(quests?.main_quest)`, which the placeholder satisfies from carve time. So the gate flips
 "done" the instant profile basics land — regardless of whether a real quest was ever created.
 Confirmed live: after a full FSP conversation stating goal + 3 habits, `quests.json` was still the
 untouched skeleton default.
@@ -50,12 +50,12 @@ any goal — would otherwise turn into a hard 502.
 
 ## Already safe, confirmed by direct read — no change needed
 
-`coachContext.ts:286` (`const mainQuest = quests?.main_quest;` then a real `if (mainQuest) {...}
-else "*(None set)*"`, already tested), `coachTurn.ts:440` (optional-chained),
-`coachChatFiles.ts:342`'s `Boolean(quests?.main_quest)` (this is the line whose behavior becomes
-*correct* once the placeholder is gone — no code change, just real data),
-`engine/scripts/build-dashboard-snapshot.mjs` (zero references to `main_quest`, passes `quests.json`
-through structurally).
+`coachContext.ts:286` already has a real `if (mainQuest) {...} else "*(None set)*"` branch and is
+already tested. `coachTurn.ts:440` is already optional-chained.
+`coachChatFiles.ts:342`'s `Boolean(quests?.main_quest)` is the line whose behavior becomes
+*correct* once the placeholder is gone — no code change there, just real data.
+`engine/scripts/build-dashboard-snapshot.mjs` has zero references to `main_quest`; it passes
+`quests.json` through structurally.
 
 ## Tests
 
@@ -65,11 +65,13 @@ through structurally).
 - `coachChatFiles.test.ts`: add an `isFirstSessionRitualDone` case with `main_quest: null`
   explicitly (not just a fully-null quests file).
 - Two new eval fixtures (`ui/api/coach-chat/_tests/coach-chat-eval/transcripts/`, following the
-  `NN-description.json` convention — see `27-fsp-quest-create.json`, `28-fsp-new-injuries.json`):
-  - `29-fsp-quest-create-after-profile-complete.json` — profile lands early, goal + habits stated
+  `NN-description.json` convention — see `27-fsp-quest-create.json`, `28-fsp-new-injuries.json`).
+  A1's own PR already claimed `29` (`29-returning-ordinary-profile-update.json`), so these are `30`
+  and `31`:
+  - `30-fsp-quest-create-after-profile-complete.json` — profile lands early, goal + habits stated
     later in the same conversation. Asserts `quest_create` fires. Only meaningful once A1 has
     landed (writes have to actually persist).
-  - `30-equipment-after-profile-complete.json` — equipment `memory_update` after profile
+  - `31-equipment-after-profile-complete.json` — equipment `memory_update` after profile
     completion, ordinary turn, asserts immediate commit.
 - Check for a carve-skeleton snapshot/golden-file test; update expected `quests.json`/`profile.json`
   fixtures if one exists.
