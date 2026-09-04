@@ -25,6 +25,18 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.24 — "Same Trick, Later in the Season" · Sep 4, 2026
+**Superpower gained:** v5.23's fix now covers a returning athlete too, not just a First Session.
+
+The same silent habit-drop v5.23 fixed for a brand-new athlete turned out to have an identical
+opening for a returning one starting a fresh season - the fix had only reached one of the two paths.
+
+- Starting a new season with a new goal, and naming a new daily habit in that same message, now
+  saves both - same as it already worked for First Session.
+- One rule, two places it needed saying: the engine-wide season rule, not just the First Session one.
+**Why it mattered:** the bug was never First-Session-specific: it was "goal and habit in one
+message," and a returning athlete hits that exact sentence just as often as a new one.
+
 ## v5.23 — "Say It Once, Save It Twice" · Sep 3, 2026
 **Superpower gained:** stating a goal and a daily habit in the same breath no longer risks losing the habit.
 
