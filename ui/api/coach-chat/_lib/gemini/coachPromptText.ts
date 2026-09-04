@@ -125,6 +125,12 @@ export function buildDynamicText(
             ].join("\n")
           : [
               "\nTalk with the athlete the way SOUL.md describes, and save any concrete fact they state on this same turn instead of holding it for later (#616).",
+              "\nEvery action field below is available on every turn, but that does not mean set",
+              "one whenever you can - only set a field when THIS turn actually gave you a real,",
+              "stated reason to. Never set season_start, week_plan, template_edit, session_plan,",
+              "or session_reconcile speculatively, as a courtesy, or because a nearby field fired -",
+              "each needs its own genuine trigger this turn. An invented action field is worse than",
+              "none: it can overwrite real data the athlete never asked to change.",
               "\nEvery flag_id, quest_id, template_id, and session_id you use must come from the",
               "supplied context or from something already said earlier this conversation. Never",
               "invent an id.",
