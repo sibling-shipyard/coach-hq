@@ -82,6 +82,7 @@ export interface QuestModel {
   loaded: number;
   skill: number;
   percent: number;
+  hasQuest: boolean;
 }
 
 export interface WarmHomeModel {
@@ -418,6 +419,19 @@ function buildQuest(mainQuest: MainQuest): QuestModel {
     loaded,
     skill,
     percent: floor > 0 ? Math.min(100, (completed / floor) * 100) : 0,
+    hasQuest: true,
+  };
+}
+
+function buildEmptyQuest(): QuestModel {
+  return {
+    name: "",
+    completed: 0,
+    floor: 0,
+    loaded: 0,
+    skill: 0,
+    percent: 0,
+    hasQuest: false,
   };
 }
 
@@ -427,7 +441,7 @@ function buildQuest(mainQuest: MainQuest): QuestModel {
 // not Strava-specific despite the field's "count_from" label, it's a generic name match that
 // works the same way against HealthKit-sourced activity names.
 export function buildCountTargetQuest(
-  mainQuest: MainQuest | SplitLedger["quests"]["main_quest"],
+  mainQuest: MainQuest | NonNullable<SplitLedger["quests"]["main_quest"]>,
   activities: Activity[],
   ledger: any,
 ): QuestModel {
@@ -450,6 +464,7 @@ export function buildCountTargetQuest(
     loaded: 0,
     skill: 0,
     percent: floor > 0 ? Math.min(100, (completed / floor) * 100) : 0,
+    hasQuest: true,
   };
 }
 
@@ -480,9 +495,12 @@ export function buildWarmHomeModel(
     coachRead: contract.coach_read,
     commitments: buildCommitments(activities),
     planDays: buildPlanDays(contract),
-    quest:
-      (ledger.quests?.main_quest ?? ledger.main_quest).type === "count_target"
-        ? buildCountTargetQuest(ledger.quests?.main_quest ?? ledger.main_quest, activities, ledger)
-        : buildQuest((ledger.quests?.main_quest ?? ledger.main_quest) as MainQuest),
+    quest: (() => {
+      const mainQuest = ledger.quests?.main_quest ?? ledger.main_quest ?? null;
+      if (mainQuest === null) return buildEmptyQuest();
+      return mainQuest.type === "count_target"
+        ? buildCountTargetQuest(mainQuest, activities, ledger)
+        : buildQuest(mainQuest as MainQuest);
+    })(),
   };
 }

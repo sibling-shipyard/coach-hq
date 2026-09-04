@@ -5,6 +5,17 @@ import type { QuestSnapshot } from "../snapshots";
 export function QuestCard({ quest, compact = false }: { quest: QuestSnapshot; compact?: boolean }) {
   const progress = quest.target > 0 ? clamp((quest.completed / quest.target) * 100, 0, 100) : 0;
 
+  if (!quest.hasQuest) {
+    return (
+      <section className={`wi-quest-card is-empty ${compact ? "is-compact" : ""}`.trim()}>
+        <div className="wi-card-kicker">
+          <span>MAIN QUEST</span>
+        </div>
+        <p className="wi-quest-card__empty">We haven't set this up yet — talk to Coach.</p>
+      </section>
+    );
+  }
+
   return (
     <section className={`wi-quest-card ${compact ? "is-compact" : ""}`.trim()}>
       <div className="wi-card-kicker">
