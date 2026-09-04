@@ -102,6 +102,7 @@ export async function handleActivitySync(
     injuries: context.injuries,
     coachLog: context.coachLog,
     athleteInsights: context.athleteInsights,
+    today: todayDateString(timezone, new Date()),
   });
   const questContext = renderQuestContext({
     seasons: context.seasons,

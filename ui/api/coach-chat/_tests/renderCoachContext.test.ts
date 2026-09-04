@@ -135,7 +135,14 @@ describe("renderCoachContext section shape", () => {
   };
 
   it("produces every section header Coach/SOUL expects to find by name", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
+    const text = renderCoachContext({
+      profile,
+      memory,
+      injuries,
+      coachLog,
+      athleteInsights: null,
+      today: "2026-08-18",
+    });
     for (const header of [
       "## Athlete Profile",
       "## Equipment",
@@ -150,7 +157,14 @@ describe("renderCoachContext section shape", () => {
   });
 
   it("fills the Athlete Profile section from profile.json + memory.json", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
+    const text = renderCoachContext({
+      profile,
+      memory,
+      injuries,
+      coachLog,
+      athleteInsights: null,
+      today: "2026-08-18",
+    });
     expect(text).toContain("- **Name:** Test Athlete");
     expect(text).toContain("- **Sport(s) / Activities:** badminton, strength");
     expect(text).toContain("- **Timezone:** Asia/Kolkata");
@@ -159,13 +173,27 @@ describe("renderCoachContext section shape", () => {
   });
 
   it("only lists active injury flags, using the exact flag_id", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
+    const text = renderCoachContext({
+      profile,
+      memory,
+      injuries,
+      coachLog,
+      athleteInsights: null,
+      today: "2026-08-18",
+    });
     expect(text).toContain("inj_knee");
     expect(text).not.toContain("inj_elbow");
   });
 
   it("windows Recent Session Notes to the last 5 rows, most recent first", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
+    const text = renderCoachContext({
+      profile,
+      memory,
+      injuries,
+      coachLog,
+      athleteInsights: null,
+      today: "2026-08-18",
+    });
     const section = text.split("## Recent Session Notes")[1].split("## Fitness Baseline")[0];
     expect(section).toContain("2026-08-17");
     expect(section).toContain("2026-08-16");
@@ -177,8 +205,32 @@ describe("renderCoachContext section shape", () => {
     expect(section.indexOf("2026-08-17")).toBeLessThan(section.indexOf("2026-08-16"));
   });
 
+  it("does not repeat today's row in the rolling list when it's already called out separately", () => {
+    // 2026-08-17 has a real row in the fixture above - it should appear once, via "Today's
+    // existing note", not a second time in the rolling last-5 list underneath it.
+    const text = renderCoachContext({
+      profile,
+      memory,
+      injuries,
+      coachLog,
+      athleteInsights: null,
+      today: "2026-08-17",
+    });
+    const section = text.split("## Recent Session Notes")[1].split("## Fitness Baseline")[0];
+    expect(section).toContain("Today's existing note (2026-08-17)");
+    const occurrences = section.split("Badminton match, won 2-1.").length - 1;
+    expect(occurrences).toBe(1);
+  });
+
   it("renders the three Learned Patterns subsections from their three separate notes labels", () => {
-    const text = renderCoachContext({ profile, memory, injuries, coachLog, athleteInsights: null });
+    const text = renderCoachContext({
+      profile,
+      memory,
+      injuries,
+      coachLog,
+      athleteInsights: null,
+      today: "2026-08-18",
+    });
     expect(text).toContain("Responds well to short intervals.");
     expect(text).toContain("Under-eats on heavy training days.");
     expect(text).toContain("Motivation dips mid-week.");
@@ -191,6 +243,7 @@ describe("renderCoachContext section shape", () => {
       injuries: null,
       coachLog: null,
       athleteInsights: null,
+      today: "2026-08-18",
     });
     expect(text).toContain("## Athlete Profile");
     expect(text).toContain("- **Timezone:** UTC");
@@ -218,6 +271,7 @@ describe("renderCoachContext section shape", () => {
           },
         },
       },
+      today: "2026-08-18",
     });
     expect(text).toContain("## Fitness Snapshot (last 365 days)");
     expect(text).toContain(
@@ -249,6 +303,7 @@ describe("renderCoachContext section shape", () => {
           },
         },
       },
+      today: "2026-08-18",
     });
     expect(text).toContain("1 session in the window");
     expect(text).not.toContain("1 sessions");
@@ -291,6 +346,7 @@ describe("renderCoachContext section shape", () => {
           },
         },
       },
+      today: "2026-08-18",
     });
     const snapshot = text.split("## Fitness Snapshot")[1].split("## Fitness Baseline")[0];
     const badmintonPos = snapshot.indexOf("Badminton");
@@ -326,6 +382,7 @@ describe("renderCoachContext section shape", () => {
         window_days: 365,
         sports,
       },
+      today: "2026-08-18",
     });
     expect(text).toContain("(+ 1 more sport)");
     expect(text).not.toContain("Zeta"); // 6th sport capped
@@ -351,6 +408,7 @@ describe("renderCoachContext section shape", () => {
           },
         },
       } as never,
+      today: "2026-08-18",
     });
     expect(text).toContain("**Run:** 20 sessions in the window");
     expect(text).toContain("longest gap 14 days; last session 5 days ago.");
@@ -378,6 +436,7 @@ describe("renderCoachContext section shape", () => {
           },
         },
       },
+      today: "2026-08-18",
     });
     expect(text).toContain("## Fitness Snapshot (last 90 days)");
   });
@@ -443,6 +502,7 @@ describe("renderCoachContext section shape", () => {
       injuries,
       coachLog,
       athleteInsights: athleteInsights as never,
+      today: "2026-08-18",
     });
     expect(text).not.toContain("Fitness Snapshot");
   });

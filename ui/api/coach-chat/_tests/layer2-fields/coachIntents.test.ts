@@ -107,6 +107,71 @@ describe("applyCoachNote", () => {
     );
     expect(result.rows[0].text).toBe("padded on both sides");
   });
+
+  // C2: day-keyed overwrite, mirroring applyQuestEvent's (quest_id, date) upsert pattern below -
+  // one row per calendar day, revised in place rather than appended to on a repeat turn.
+  const DAY_KEYED_EXISTING = JSON.stringify({
+    version: 1,
+    rows: [
+      {
+        id: "sess_2026-08-15_old1",
+        date: "2026-08-15",
+        ts: "2026-08-15T18:00:00.000Z",
+        type: "chat",
+        text: "Rest day.",
+        trace_id: "old",
+      },
+      {
+        id: "sess_2026-08-16_old2",
+        date: "2026-08-16",
+        ts: "2026-08-16T09:00:00.000Z",
+        type: "chat",
+        text: "Knee soreness noted after yesterday's run.",
+        trace_id: "old",
+      },
+    ],
+  });
+
+  it("creates a fresh row on a new day rather than touching yesterday's row", () => {
+    const result = JSON.parse(
+      applyCoachNote(
+        DAY_KEYED_EXISTING,
+        "5k run, felt strong.",
+        "2026-08-17",
+        "t2",
+        new Date("2026-08-17T18:00:00Z"),
+      ),
+    );
+    expect(result.rows).toHaveLength(3);
+    expect(result.rows[0].text).toBe("Rest day."); // yesterday untouched
+    expect(result.rows[1].text).toBe("Knee soreness noted after yesterday's run.");
+    const newRow = result.rows[2];
+    expect(newRow.date).toBe("2026-08-17");
+    expect(newRow.text).toBe("5k run, felt strong.");
+    expect(newRow.trace_id).toBe("t2");
+    expect(newRow.id).toMatch(/^sess_2026-08-17_/);
+  });
+
+  it("overwrites today's existing row in place on a same-day update, reusing its id", () => {
+    const result = JSON.parse(
+      applyCoachNote(
+        DAY_KEYED_EXISTING,
+        "Knee soreness noted after yesterday's run (later reported feeling better).",
+        "2026-08-16",
+        "t2",
+        new Date("2026-08-16T20:00:00Z"),
+      ),
+    );
+    expect(result.rows).toHaveLength(2); // no new row added
+    expect(result.rows.map((r: { date: string }) => r.date)).toEqual(["2026-08-15", "2026-08-16"]);
+    const updated = result.rows[1];
+    expect(updated.id).toBe("sess_2026-08-16_old2"); // id reused, not re-minted
+    expect(updated.text).toBe(
+      "Knee soreness noted after yesterday's run (later reported feeling better).",
+    );
+    expect(updated.trace_id).toBe("t2");
+    expect(updated.ts).toBe("2026-08-16T20:00:00.000Z");
+  });
 });
 
 describe("applyMemoryUpdate", () => {

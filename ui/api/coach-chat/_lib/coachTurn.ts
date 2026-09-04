@@ -90,6 +90,12 @@ interface TurnState extends TurnRequest {
   stale: boolean;
   context: Awaited<ReturnType<typeof loadCoachContext>>;
   timezone: string;
+  // Computed once here and reused everywhere this turn needs "today" (athleteContext,
+  // questContext, and later buildCoachNoteWrite's day-keyed overwrite) - recomputing it
+  // independently at commit time, after an askGemini round trip (or a reprompt's second one),
+  // can land on a different day than what Gemini was actually shown if the turn straddles local
+  // midnight.
+  today: string;
   athleteContext: string;
   questContext: string;
   firstSession: boolean;
@@ -193,6 +199,7 @@ export async function loadTurnState(
   const firstSession = !isFirstSessionRitualDone(profile, memory, seasons, quests);
   const now = Date.now();
   const traceId = Math.random().toString(36).slice(2, 10);
+  const today = todayDateString(timezone, new Date());
 
   return {
     ...request,
@@ -203,19 +210,21 @@ export async function loadTurnState(
     stale,
     context,
     timezone,
+    today,
     athleteContext: renderCoachContext({
       profile,
       memory,
       injuries,
       coachLog,
       athleteInsights,
+      today,
     }),
     questContext: renderQuestContext({
       seasons,
       quests,
       progress,
       progressions,
-      today: todayDateString(timezone, new Date()),
+      today,
     }),
     firstSession,
     now,
@@ -265,6 +274,30 @@ function findOversizedTextField(
   return null;
 }
 
+// C2's enforcement rule: coach_note is required whenever the same reply also produced another
+// structured write, since that's exactly the case where something happened worth remembering and
+// Gemini doesn't get to silently skip recording it (JSON schema can't express "required only if
+// another field is present," so this is a post-hoc check, same as findOversizedTextField above).
+// A turn with none of these other fields (small talk, a check-in with nothing to report) leaves
+// coach_note genuinely optional.
+const ACTIONS_REQUIRING_COACH_NOTE = [
+  "profile_update",
+  "memory_update",
+  "injury_flag",
+  "injury_event",
+  "quest_event",
+  "quest_create",
+  "season_start",
+] as const satisfies readonly (keyof GeminiReply)[];
+
+function missingRequiredCoachNote(reply: GeminiReply): boolean {
+  if (reply.coach_note && reply.coach_note.trim()) return false;
+  return ACTIONS_REQUIRING_COACH_NOTE.some((field) => {
+    const value = reply[field];
+    return Array.isArray(value) ? value.length > 0 : value != null;
+  });
+}
+
 export async function requestCoachReply(turn: TurnState): Promise<Response | RepliedTurn> {
   const mode: TurnMode = "ordinary";
   const extraContext = combineExtraContext(
@@ -285,18 +318,37 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       turn.timezone,
     );
     // Content-triggered retry, not a transport one (that's geminiClient.ts's own retry on
-    // timeout/rate-limit) - kept as its own explicit step here. Exactly one reprompt attempt; if
-    // that also comes back oversized, layer 3's capText backstop in turnWrites/* handles it.
+    // timeout/rate-limit) - kept as its own explicit step here. Exactly one reprompt attempt,
+    // covering both content violations findOversizedTextField and missingRequiredCoachNote can
+    // find - a turn could in principle trip both at once, and one combined reprompt naming both
+    // problems costs the same one extra call as fixing either alone, instead of two sequential
+    // reprompts doubling latency. If the reprompt doesn't fully fix it, layer 3's capText
+    // backstop in turnWrites/* handles the size side and the missing-note side is simply
+    // accepted as-is (no note ever silently invented from nothing).
     const violation = findOversizedTextField(reply);
-    if (violation) {
-      console.warn("[coach-chat] reply field over its text cap, reprompting once:", violation, {
+    const missingNote = missingRequiredCoachNote(reply);
+    if (violation || missingNote) {
+      console.warn("[coach-chat] reply content violation, reprompting once:", {
+        violation,
+        missingNote,
         traceId: turn.traceId,
       });
+      const notes: string[] = [];
+      if (violation) {
+        notes.push(
+          `your ${violation.field} was ${violation.length} characters, over the ${violation.cap}` +
+            " character limit - redo just that field within budget",
+        );
+      }
+      if (missingNote) {
+        notes.push(
+          "you produced a structured update this turn but no coach_note - a coach_note is" +
+            " required whenever anything else changed, so add one summarizing it",
+        );
+      }
       const repromptMessage = [
         turn.geminiMessage,
-        `\n[System note: your ${violation.field} was ${violation.length} characters, over the`,
-        `${violation.cap} character limit. Redo just that field within budget; keep everything`,
-        "else the same.]",
+        `\n[System note: ${notes.join("; also, ")}. Keep everything else the same.]`,
       ].join(" ");
       reply = await askGemini(
         turn.apiKey,
@@ -313,12 +365,14 @@ export async function requestCoachReply(turn: TurnState): Promise<Response | Rep
       );
       // The reprompt is a request, not a guarantee either - if Gemini still overshoots, capText
       // in turnWrites/* will truncate silently downstream. Log it here so a persistent
-      // oversize-then-truncate pattern shows up somewhere instead of vanishing into the backstop.
+      // oversize-then-truncate or still-missing-note pattern shows up somewhere instead of
+      // vanishing silently.
       const stillOversized = findOversizedTextField(reply);
-      if (stillOversized) {
+      const stillMissingNote = missingRequiredCoachNote(reply);
+      if (stillOversized || stillMissingNote) {
         console.warn(
-          "[coach-chat] reply still over its text cap after reprompt, capText will truncate it:",
-          stillOversized,
+          "[coach-chat] reply still has a content violation after reprompt:",
+          { stillOversized, stillMissingNote },
           { traceId: turn.traceId },
         );
       }
@@ -368,7 +422,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
   });
 
   const trimmedCoachNote = reply.coach_note?.trim();
-  const coachNoteWrite = buildCoachNoteWrite(repo, token, timezone, traceId, reply.coach_note);
+  const coachNoteWrite = buildCoachNoteWrite(repo, token, turn.today, traceId, reply.coach_note);
 
   const sportsUpdate = (reply.sports_update ?? []).filter((sport) => sport.trim().length > 0);
   const hasSportsUpdate = sportsUpdate.length > 0;
@@ -456,7 +510,7 @@ export async function buildTurnWrites(turn: RepliedTurn): Promise<TurnWrites> {
     validTemplateIds,
   );
 
-  const today = todayDateString(timezone, new Date());
+  const { today } = turn;
 
   const seasonStart = reply.season_start;
   const seasonStartWrites = buildSeasonStartWrite(repo, token, timezone, traceId, seasonStart);

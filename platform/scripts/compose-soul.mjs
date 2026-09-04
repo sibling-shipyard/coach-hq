@@ -129,11 +129,13 @@ const ASSEMBLY = [
       "s10_badminton_pointer",
       "s11",
       "s12_head",
+      "s12_head_chat_runtime",
       "s12_updates_head",
       "s12_updates_memory_chat_runtime",
       "s12_updates_memory_claude_runtime",
       "s12_updates_tail",
-      "s12_coach_notes",
+      "s12_coach_notes_chat_runtime",
+      "s12_coach_notes_claude_runtime",
       "s12_checklist",
       "s12_checklist_shell",
       "s12_commit_push",
@@ -162,6 +164,11 @@ const ASSEMBLY = [
       // id-minting rule that actually applies to it (Akash's #694 review comment).
       s12_updates_memory_chat_runtime: CHAT_ONLY,
       s12_updates_memory_claude_runtime: CLAUDE_ONLY,
+      // C2: coach_note is a server-owned day-keyed overwrite in chat (coachIntents.ts's
+      // applyCoachNote), still a git-committed append-only row in BYOB - the two variants tell
+      // each runtime the mechanic that actually applies to it, same split as the memory pair above.
+      s12_coach_notes_chat_runtime: CHAT_ONLY,
+      s12_coach_notes_claude_runtime: CLAUDE_ONLY,
       // The backend injects its own, longer greeting instruction on every turn.
       s10_greeting: CLAUDE_ONLY,
       // Shell validator + `git diff`.
@@ -170,14 +177,23 @@ const ASSEMBLY = [
       s10_logging_lookup: CLAUDE_ONLY,
       s10_logging_notes: CLAUDE_ONLY,
       s10_logging_autoname: CLAUDE_ONLY,
-      // Close detection in chat is deterministic (closeSignal.ts), not modelled here.
+      // Close detection in chat has no equivalent at all - there is no explicit closing signal
+      // to detect once C1 removed the closing-turn concept from the chat runtime entirely.
       s10_end_of_day: CLAUDE_ONLY,
       // archive/week_plans.md write.
       s10_sunday_archive: CLAUDE_ONLY,
       // §11 is script tables end to end.
       s11: CLAUDE_ONLY,
+      // The closing ritual itself (git-commit checklist) has no chat-runtime equivalent - chat's
+      // schema-driven action fields already are its enforcement mechanism, turn by turn, not a
+      // checklist run once at the end of a session.
+      s12_head: CLAUDE_ONLY,
+      s12_head_chat_runtime: CHAT_ONLY,
+      s12_updates_head: CLAUDE_ONLY,
+      s12_checklist: CLAUDE_ONLY,
       s12_checklist_shell: CLAUDE_ONLY,
       s12_commit_push: CLAUDE_ONLY,
+      s12_confirm: CLAUDE_ONLY,
       s12_interim_rollback: CLAUDE_ONLY,
     },
   },
