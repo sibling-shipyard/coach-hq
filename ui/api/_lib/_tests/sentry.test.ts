@@ -63,7 +63,10 @@ const DETAILS = {
   traceId: "ab12cd34",
   model: "gemini-flash-latest",
   upstreamStatus: 503,
-  turnMode: "closing",
+  // TurnMode dropped "closing" when C1 removed the closing turn (coachReplySchema.ts) - it's
+  // "greeting" | "ordinary" | "activity_sync" now. This field is just a string here, so any
+  // value works, but a real one keeps the example honest.
+  turnMode: "ordinary",
   athleteMessage: "legs felt heavy on the last interval",
 };
 
@@ -95,7 +98,7 @@ describe("captureGeminiFailure", () => {
         vercel_trace_id: "ab12cd34",
         model: "gemini-flash-latest",
         upstream_status: 503,
-        turn_mode: "closing",
+        turn_mode: "ordinary",
       },
       contexts: { coach_turn: { athlete_message: DETAILS.athleteMessage } },
     });

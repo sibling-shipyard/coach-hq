@@ -12,38 +12,39 @@ folded into its final consistency pass, not the other way around.
 
 Real question asked while scoping this: `ui/api/` is shared backend for both web and iOS, so why
 does it live under the frontend-sounding `ui/` folder? Answer, already on record, not something to
-revisit here: `kdb/decisions/0011-hq-four-band-layout.md` explicitly considered moving it —
-"Move `ui/api/` to `platform/` now → the right logical home, but Vercel's root directory is `ui/`;
-deferred to the deploy rewire." `docs/eng-docs/hq-restructure-plan.md` goes further and locks it as
-a stated non-goal for the current restructure phase: "rename `ui/` → `frontend/`, move `ui/api/`
-out of `ui/`." Vercel's file-based routing needs `api/` as a direct child of whatever directory
-Vercel treats as project root, and that root is configured as `ui/` — moving it means a real deploy
-reconfiguration, already identified, deliberately deferred, not an oversight. This PR does not touch
-that; it's about what's *inside* `ui/api/`, not where `ui/api/` itself lives.
+revisit here. `kdb/decisions/0011-hq-four-band-layout.md` already considered moving it there:
+the right logical home, but deferred, since Vercel's root directory is `ui/`, to the deploy
+rewire. `docs/eng-docs/hq-restructure-plan.md` goes further, locking a move as a stated non-goal
+for the current restructure phase. Vercel's file-based routing needs `api/` as a direct child of
+whatever directory Vercel treats as project root, and that root is configured as `ui/`. Moving it
+means a real deploy reconfiguration, already identified, deliberately deferred, not an oversight.
+This PR does not touch that; it's about what's *inside* `ui/api/`, not where `ui/api/` itself
+lives.
 
 ## Scope — audit the whole `ui/api/` tree, design coach-chat's layers explicitly
 
 `ui/api/` today has auth (`ui/api/auth/`), coach-chat (`ui/api/coach-chat/`), and several
 standalone routes (`coach-message.ts`, `coach-chat-profile-status.ts`, `repo-file.ts`,
 `waitlist.ts`, `widget-snapshots.ts`) plus shared `_lib/` helpers at the `ui/api/` root. Audit each
-area for whether its current layout actually helps a new developer find what they're looking for —
-this LLD specifies coach-chat's redesign in detail since that's explicitly named; the rest gets the
+area for whether its current layout actually helps a new developer find what they're looking for.
+This LLD specifies coach-chat's redesign in detail since that's explicitly named; the rest gets the
 same audit question without a locked answer here (don't over-design what isn't asked for).
 
 **Coach-chat's `_lib/` is currently flat** — 22 files (as of this redesign's start, before its own
 churn) sitting directly in `ui/api/coach-chat/_lib/`, one subdirectory already carved out
-(`turnWrites/`). This mirrors the codebase's own three-layer testing philosophy in name only
-(`docs/eng-docs/coach-chat-testing.md`: input → decision, decision → file content, file content →
-git commit) — the *tests* are organized by layer (`_tests/layer1-gemini/`, `layer2-fields/`,
-`layer3-commit/`), but the *source* they test isn't. Mirror that structure in `_lib/` itself, so a
-developer can tell which layer a file belongs to by its path, not just by reading it:
+(`turnWrites/`). This mirrors the codebase's own three-layer testing philosophy in name only.
+The `docs/eng-docs/coach-chat-testing.md` layers are input → decision, decision → file content,
+file content → git commit. The *tests* are organized by layer (`_tests/layer1-gemini/`,
+`layer2-fields/`, `layer3-commit/`), but the *source* they test isn't. Mirror that structure in
+`_lib/` itself, so a developer can tell which layer a file belongs to by its path, not just by
+reading it:
 
 - `_lib/gemini/` — the Gemini call itself: `geminiClient.ts`, `coachReplySchema.ts`,
   `coachPromptText.ts`, `soulCache.ts`.
-- `_lib/decide/` (or a name matching whatever this redesign's own work settles on) — decision → file
-  content: `coachIntents.ts`, `coachChatFiles.ts`, `coachMemoryFiles.ts`, `coachQuestFiles.ts`,
-  `coachWeekFiles.ts`, `coachWorkoutFiles.ts`, `coachContext.ts`, `coachDay.ts`, `fspWrites.ts`,
-  `turnWrites/` (already a subdirectory, folds in here).
+- `_lib/decide/` (name TBD, match whatever this redesign's own work settles on) — decision → file
+  content. Includes `coachIntents.ts`, `coachChatFiles.ts`, `coachMemoryFiles.ts`,
+  `coachQuestFiles.ts`, `coachWeekFiles.ts`, `coachWorkoutFiles.ts`, `coachContext.ts`,
+  `coachDay.ts`, `fspWrites.ts`, `turnWrites/` (already a subdirectory, folds in here).
 - `_lib/commit/` — file content → git commit: whatever of `chatThreads.ts`, `coachSinceStamp.ts`,
   `activitySync.ts`/`activitySyncTurn.ts` is actually commit-stage logic rather than decision-stage
   (check each, don't assume by name).
@@ -55,6 +56,16 @@ adds new files (dynamic-enum helpers, the corrective-retry logic), C2 adds the d
 logic, D2 may add new validation helpers. Finalize the exact file list and folder boundaries against
 what actually exists after I1, not against this snapshot — this LLD gives the shape and the
 reasoning, not a frozen file list.
+
+**Two findings from G2's audit, open for J2 (or J1) to resolve.**
+- `fspWrites.ts`, listed above under `_lib/decide/`, is dead. `commitTurn` (C1/D1's unified commit
+  path) builds its writes from `turn.validUpdates`/`turn.optionalWrites` directly, and no production
+  code calls `fspIncrementalWrites`/`ordinaryTurnResponse` any more. Check whether J1 already deleted
+  it before assuming it needs a move.
+- Layer3-commit's real test file is `ui/api/_lib/_tests/githubGitData.test.ts` today, not under
+  `coach-chat/_tests/`, since `commitFilesAtomic` is shared, not coach-chat-specific. Decide whether
+  it moves under `coach-chat/_tests/layer3-commit/` to match the `_lib/commit/` split above, or
+  layer3 stays outside `coach-chat/` on both the source and test side.
 
 ## Execution
 
