@@ -137,4 +137,20 @@ describe("askGemini", () => {
     );
     expect(generateCalls).toHaveLength(2);
   });
+
+  it("sends the API key as a header, never in the URL (issue #638)", async () => {
+    // Also exercises soulCache.ts's cachedContents call - both requests askGemini triggers.
+    routeByUrl(
+      jsonResponse(200, { name: "cachedContents/abc123" }),
+      geminiEnvelope({ reply: "Nice work this week.", session_closed: false }),
+    );
+
+    await askGemini(...args);
+
+    expect(fetchWithTimeout.mock.calls.length).toBeGreaterThan(0);
+    for (const [url, init] of fetchWithTimeout.mock.calls) {
+      expect(url as string).not.toContain("key=");
+      expect((init as RequestInit).headers).toMatchObject({ "x-goog-api-key": "test-api-key" });
+    }
+  });
 });

@@ -60,10 +60,11 @@ function configuredSecrets(): string[] {
 /**
  * Never record an outbound request as a span.
  *
- * The URL is the whole problem: `geminiClient.ts` puts the API key in the query string, and both
- * outbound instrumentations copy the full URL onto the span (`url.full`) before anything gets a
- * chance to filter it. `ignoreOutgoingRequests` runs first and returns before a span or a
- * breadcrumb exists, so the credential is never captured rather than captured and redacted.
+ * Gemini calls now send the API key as an `x-goog-api-key` header, not a URL query string (#638),
+ * but both outbound instrumentations still copy the full URL and headers onto the span (`url.full`,
+ * request headers) before anything gets a chance to filter it. `ignoreOutgoingRequests` runs first
+ * and returns before a span or a breadcrumb exists, so the credential is never captured rather
+ * than captured and redacted - kept as defence in depth even with the URL clean.
  *
  * `disableIncomingRequestSpans` removes the SDK's duplicate `http.server` span. The route wrapper
  * opens the one we keep because it carries the handled response's `outcome`.
