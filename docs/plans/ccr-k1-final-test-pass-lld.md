@@ -286,6 +286,23 @@ Bonus: D1's self-correcting reprompt fired live on this same run (a first attemp
 `coach_note` got a system-note retry and succeeded) - first live confirmation of that mechanism
 too, not something this pass set out to test but worth recording.
 
+### #807 — RESOLVED, was a stale-fixture false negative, not a live model bug (2026-09-04, flash)
+
+Re-tested `#19` (`plan-edit-vs-template-edit-disambiguation.json`), the transcript #807 was filed
+against. Initial 5 runs: 0/5, reply text was "you don't have a session scheduled tomorrow" every
+time. Not #807's originally reported shape (Gemini agreeing in prose but dropping the field) - the
+model was actually reasoning correctly against broken input. The fixture's session date was
+hardcoded to `2026-08-19`, long in the past relative to the real date this ran against - "tomorrow"
+genuinely matched nothing. Fixed the date to be realistically one day ahead; **5/5 pass** once
+corrected, `plan_edit` and `coach_note` both fire correctly, real `session_id` and `template_id`
+referenced. **#807 is resolved** - whatever originally caused it (likely fixed incidentally by D1's
+reprompt work or general prompt hardening since G1) is gone, and the transcript had been silently
+reporting a false failure for some unknown period. **Systemic risk worth flagging:** any eval
+transcript with a hardcoded absolute session/plan date will rot the same way and misreport a live
+regression that isn't real. No transcript-freshness check exists today. Not fixed here (would need
+either relative-date templating in the harness or a periodic freshness audit) - noted as a real gap
+for a future pass, out of this pass's two-problem scope.
+
 ### Finding 4 — Phase 1 (prompt restraint) implemented and live-tested (2026-09-04, flash only)
 
 Added an explicit restraint instruction to `coachPromptText.ts`'s returning branch. Only set an
