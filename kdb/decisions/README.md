@@ -37,6 +37,7 @@
 | 0035 | One committed file per real session | cross-cutting (iOS sync) |
 | 0036 | agent-kit: extract in place, then carve | cross-cutting |
 | 0037 | Chat history: full retention in storage, display still capped at 7 | cross-cutting (coach-chat API, web, iOS) |
+| 0038 | Coaching style restored, this time wired into SOUL's voice rules | cross-cutting (coach-chat backend, SOUL) |
 
 <details>
 <summary>Superseded / historical (4) — kept for the citations, not for the boot read</summary>
@@ -59,6 +60,7 @@ optional **How to apply**. Start from `0000-template.md` — it carries the writ
 There is no ADR 0004. The number was never used; nothing was deleted.
 
 Rules:
+
 - Add an ADR only when a choice is expensive to reverse, or a future agent might re-argue
   it. A decision nobody contests doesn't need one.
 - Never rewrite an ADR to change its meaning. Supersede: add a new ADR and set the old

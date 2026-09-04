@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   applyCoachNote,
   applyMemoryUpdate,
+  applyCoachingStyleUpdate,
   applySportsUpdate,
   applyInjuryFlag,
   applyInjuryEvent,
@@ -825,6 +826,52 @@ describe("applyProfileUpdate", () => {
     expect(result.coach_since).toBeNull();
     expect(result.name).toBe("");
     expect(result.timezone).toBe("UTC");
+  });
+});
+
+describe("applyCoachingStyleUpdate", () => {
+  const EXISTING = JSON.stringify({
+    version: 1,
+    _meta: { updated_at: "2026-08-01", updated_by: "model", trace_id: "old" },
+    sports: ["badminton"],
+    coaching_style: null,
+    notes: {
+      fitness_baseline: { text: "old baseline", updated_at: "2026-08-01", trace_id: "old" },
+      coaching_priorities: { text: "old priorities", updated_at: "2026-08-01", trace_id: "old" },
+      "learned_patterns.training": { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.nutrition": { text: "", updated_at: "", trace_id: "" },
+      "learned_patterns.mental": { text: "", updated_at: "", trace_id: "" },
+      equipment: { text: "old equipment", updated_at: "2026-08-01", trace_id: "old" },
+    },
+  });
+
+  it("sets coaching_style, leaves everything else untouched", () => {
+    const result = JSON.parse(
+      applyCoachingStyleUpdate(EXISTING, "accountability", "2026-08-18", "t2"),
+    );
+    expect(result.coaching_style).toBe("accountability");
+    expect(result.sports).toEqual(["badminton"]);
+    expect(result.notes.equipment.text).toBe("old equipment");
+    expect(result._meta).toEqual({ updated_at: "2026-08-18", updated_by: "model", trace_id: "t2" });
+  });
+
+  it("throws on a value outside the three-enum set", () => {
+    expect(() => applyCoachingStyleUpdate(EXISTING, "supportive", "2026-08-18", "t2")).toThrow(
+      /coaching_style_update/,
+    );
+  });
+
+  it("starts a fresh file with the given style when content is null", () => {
+    const result = JSON.parse(applyCoachingStyleUpdate(null, "analysis", "2026-08-18", "t1"));
+    expect(result.coaching_style).toBe("analysis");
+    expect(result.sports).toEqual([]);
+  });
+
+  it("treats malformed JSON as a fresh file rather than throwing", () => {
+    const result = JSON.parse(
+      applyCoachingStyleUpdate("{not valid json", "encouragement", "2026-08-18", "t1"),
+    );
+    expect(result.coaching_style).toBe("encouragement");
   });
 });
 

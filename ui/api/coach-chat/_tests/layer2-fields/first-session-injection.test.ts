@@ -30,6 +30,7 @@ describe("mode-specific response schemas", () => {
     expect(fields).toEqual([
       "coach_note",
       "memory_update",
+      "coaching_style_update",
       "sports_update",
       "injury_flag",
       "injury_event",
@@ -49,6 +50,7 @@ describe("mode-specific response schemas", () => {
     expect(fields).toEqual([
       "coach_note",
       "memory_update",
+      "coaching_style_update",
       "sports_update",
       "injury_flag",
       "injury_event",

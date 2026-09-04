@@ -1,6 +1,6 @@
 # Coach Phelps: SOUL History
 
-> Status: Historical · Owner: Tech Lead · Verified: 2026-08-23
+> Status: Historical · Owner: Tech Lead · Verified: 2026-09-02
 
 How a generic motivational chatbot became Coach Phelps. Every version, what it gained, and what
 it cost.
@@ -51,6 +51,18 @@ actually saved.
 - A goal can no longer exist on its own, floating free of the season it belongs to.
 **Why it mattered:** a goal that outlives its season, or a season nobody can ever replace, isn't
 how training actually works.
+
+## v5.21 — "How You Like It" · Sep 2, 2026
+**Superpower gained:** Coach actually talks differently depending on how you said you want to be pushed.
+
+The checkbox came off at v5.16 because a signup screen was the wrong place for it. But the field
+went with it, and nothing ever replaced it — so "how they like to be coached" never once changed a
+reply. It came back conversationally, this time actually wired into how Coach talks.
+
+- First Session asks it as a real question, not a form: accountability, encouragement, or working through the why.
+- Coach delivers the same hard truths and the same praise either way, just paced differently — direct and unpadded, or progress-first, or reasoning-first.
+- Changeable any time the athlete says so, not locked in at signup.
+**Why it mattered:** a preference that never touches a single reply is a stored fact, not a coaching relationship.
 
 ## v5.18 — "No Guessing on Injuries" · Aug 30, 2026
 **Superpower gained:** Coach no longer breaks the conversation reporting a brand-new injury.
