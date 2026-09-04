@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-31
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-05
 
 ## Context
 
@@ -253,6 +253,11 @@ GitHub Actions run**. The workflow records only added or modified history paths,
 `vs_usual` baseline to eligible files that do not already contain one, and rebuilds
 `gen/dashboard_snapshot.json`, `gen/athlete_insights.json`, `gen/quest_history.json`, and
 `gen/sync_status.json`. Deleted or older activity files are not enriched.
+
+A run that **fails** rebuilds none of those, so `home.sync.timestamp` never advances and
+`refreshAfterSync(since:)` polls until it gives up. Such a run commits `gen/sync_failure.json`
+instead — timestamp, the step that died, and the run URL — so a stale Home screen can be told
+apart from a fresh one.
 
 **So the app must wait for that second run, not for its own commit.** That regeneration takes
 ~30s. A single immediate `WidgetSnapshotStore.refresh()` races the pipeline and then caches stale
