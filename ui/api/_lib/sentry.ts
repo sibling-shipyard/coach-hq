@@ -369,6 +369,59 @@ export function withGeminiSpan<T>(
   );
 }
 
+/**
+ * Wrap one GitHub Git Data API call (or retry loop) in an `http.client` span.
+ *
+ * `operation` is a fixed label like "git/blobs" or "contents/read" - never the request URL,
+ * repo name, or a `user_data/` file path, per ADR 0032. `run` is handed a `setStatus` callback
+ * so the HTTP status code lands on the span even though it is only known inside the call.
+ */
+export function withGithubSpan<T>(
+  operation: string,
+  run: (setStatus: (status: number) => void) => Promise<T>,
+): Promise<T> {
+  if (!initServerMonitoring()) return run(() => {});
+  return Sentry.startSpan(
+    {
+      name: `github ${operation}`,
+      op: "http.client",
+      attributes: { "github.operation": operation },
+    },
+    async (span) => {
+      try {
+        const result = await run((status) => span.setAttribute("github.status", status));
+        span.setAttribute("outcome", "ok");
+        return result;
+      } catch (error) {
+        span.setAttribute("outcome", "error");
+        throw error;
+      }
+    },
+  );
+}
+
+/**
+ * Wrap one in-process turn stage (no Gemini or GitHub call of its own, though it may call
+ * functions that open their own nested spans) in a `function` span, so "our own processing"
+ * shows up directly instead of only as the remainder under the outer `http.server` span.
+ */
+export function withProcessingSpan<T>(stage: string, run: () => Promise<T>): Promise<T> {
+  if (!initServerMonitoring()) return run();
+  return Sentry.startSpan(
+    { name: `coach_chat.${stage}`, op: "function", attributes: { "coach_chat.stage": stage } },
+    async (span) => {
+      try {
+        const result = await run();
+        span.setAttribute("outcome", "ok");
+        return result;
+      } catch (error) {
+        span.setAttribute("outcome", "error");
+        throw error;
+      }
+    },
+  );
+}
+
 export interface CaptureResult {
   /** Sentry's id for the event, and the string to search on in the UI. */
   eventId?: string;
