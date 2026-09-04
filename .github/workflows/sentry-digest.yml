@@ -1,0 +1,88 @@
+name: Sentry digest
+
+# Daily rewrites the standing issue's body and stays silent unless something is new; weekly always
+# comments with the 7d rollup. A report that notifies on a quiet day stops being read by week two.
+on:
+  schedule:
+    - cron: "30 2 * * *" # 08:00 IST, daily
+    - cron: "0 3 * * 1" # 08:30 IST, Mondays - the weekly rollup
+  workflow_dispatch:
+    inputs:
+      window:
+        description: "Window to report on"
+        type: choice
+        options: ["24h", "7d"]
+        default: "24h"
+
+permissions: {}
+
+concurrency:
+  group: sentry-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Pick the window
+        id: window
+        env:
+          CRON: ${{ github.event.schedule }}
+          INPUT_WINDOW: ${{ inputs.window }}
+        run: |
+          if [ -n "$INPUT_WINDOW" ]; then
+            window="$INPUT_WINDOW"
+          elif [ "$CRON" = "0 3 * * 1" ]; then
+            window="7d"
+          else
+            window="24h"
+          fi
+          echo "window=$window" >> "$GITHUB_OUTPUT"
+
+      - name: Build the digest
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          DIGEST_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "::error::SENTRY_AUTH_TOKEN is not configured; the digest cannot read Sentry."
+            exit 1
+          fi
+          node platform/skills/sentry-digest.mjs \
+            --window "${{ steps.window.outputs.window }}" \
+            --out-body "$RUNNER_TEMP/body.md" \
+            --out-meta "$RUNNER_TEMP/meta.json" \
+            --out-comment "$RUNNER_TEMP/comment.md"
+
+      - name: Update the standing issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Found by label, not a pinned number, so setup is the Sentry secret alone.
+          number=$(gh issue list --label "ops:digest" --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            gh label create "ops:digest" \
+              --description "Standing operational digest, exempt from the issue contract" \
+              --color "1D76DB" --force
+            gh issue create --title "Ops: Sentry health digest" --label "ops:digest" \
+              --body-file "$RUNNER_TEMP/body.md"
+            exit 0
+          fi
+
+          gh issue edit "$number" --body-file "$RUNNER_TEMP/body.md"
+
+          # The script writes a comment file only when the window is worth a notification.
+          if [ -f "$RUNNER_TEMP/comment.md" ]; then
+            gh issue comment "$number" --body-file "$RUNNER_TEMP/comment.md"
+          else
+            echo "Quiet window: body refreshed, no comment."
+          fi

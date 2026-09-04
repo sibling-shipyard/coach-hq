@@ -329,8 +329,18 @@ def check_pr():
     return 0
 
 
+# A standing operational issue is a dashboard, not tracked work: it has no milestone and no epic
+# by design, and `sentry-digest.yml` rewrites its body daily. Without this it would fail the
+# contract and be re-labelled needs-triage every morning.
+EXEMPT_LABELS = {"ops:digest"}
+
+
 def check_issue_event():
     issue = json.loads(os.environ.get("ISSUE_JSON") or "{}")
+    exempt = EXEMPT_LABELS & label_names(issue)
+    if exempt:
+        print(f"issue-contract SKIPPED: carries the {sorted(exempt)[0]} label.")
+        return 0
     result = run_issue_contract(issue)
     if result.stdout:
         print(result.stdout, end="")
