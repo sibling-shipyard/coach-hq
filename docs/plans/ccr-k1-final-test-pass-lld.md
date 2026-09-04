@@ -80,10 +80,24 @@ Run against the final integrated branch (every PR in this stack landed, right be
      Confirmed genuine on a full run log, not a transcript-setup artifact. The audit's own
      field-order check found `season_start`/`quest_create` sit at positions 8-9 of 9 in
      `FSP_ACTIONS` (last, right before `reply`), and at 9-10 of 15 in `RETURNING_ACTIONS`.
-     That's nominally less exposed there, yet the live result is worse, not better. Wording alone does not fix
-     either path. Reordering `quest_create` (and re-testing both branches, both models) is no
-     longer a nice-to-have follow-up — it's the next thing to try before this issue can be called
-     fixed. Not yet done; decision pending.
+     That's nominally less exposed there, yet the live result is worse, not better. Wording alone
+     does not fix either path.
+   - **#808 — field order reordered and re-tested, hypothesis rejected (2026-09-04, PR #824).**
+     Moved `season_start`/`quest_create` from the tail of `FSP_ACTIONS`/`RETURNING_ACTIONS` to
+     right after `coach_note` (both arrays), on the theory that Gemini's declaration-order fill
+     tendency was the structural cause the prompt fix couldn't reach. Updated the two schema
+     tests in `first-session-injection.test.ts` that asserted the old order. Re-ran all 4
+     combinations, 5 fresh runs each: **FSP flash 0/5** (unchanged), **FSP pro 4/5** (unchanged),
+     **returning flash 0/5** (unchanged), **returning pro 1/5** (up from 0/5, still mostly
+     failing). Reordering moved almost nothing — pro-latest's FSP rate is identical before and
+     after, and flash didn't move at all on either branch. The field-order theory is not the
+     (or not the whole) explanation; something else is driving the drop. Kept the reorder in
+     since it's a plausible minor contributor and has no measured downside (all existing tests
+     still pass), but it does not fix #808 on its own. A schema-level `required` marker isn't an
+     option — Gemini structured output doesn't enforce conditional requireds across sibling
+     fields. **Not yet tried:** a two-pass approach (detect the compound case, ask Gemini to
+     confirm the habit was captured), or a stricter self-check instruction referencing the
+     specific fired field. #808 stays open, unresolved by this PR.
    - **#807 — untouched by this pass.** Same G1 batch, different failure shape (`plan_edit`
      agreed in prose, no field set at all, not a pairing-drop) — needs its own root-cause dig, not
      assumed to share #808's fix.

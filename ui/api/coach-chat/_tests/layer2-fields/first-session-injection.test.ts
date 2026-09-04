@@ -29,14 +29,14 @@ describe("mode-specific response schemas", () => {
     const fields = schemaFields("ordinary", true);
     expect(fields).toEqual([
       "coach_note",
+      "season_start",
+      "quest_create",
       "memory_update",
       "coaching_style_update",
       "sports_update",
       "injury_flag",
       "injury_event",
       "profile_update",
-      "season_start",
-      "quest_create",
       "reply",
     ]);
     expect(fields).not.toContain("quest_event");
@@ -49,6 +49,8 @@ describe("mode-specific response schemas", () => {
     const fields = schemaFields("ordinary", false);
     expect(fields).toEqual([
       "coach_note",
+      "season_start",
+      "quest_create",
       "memory_update",
       "coaching_style_update",
       "sports_update",
@@ -56,8 +58,6 @@ describe("mode-specific response schemas", () => {
       "injury_event",
       "quest_event",
       "profile_update",
-      "season_start",
-      "quest_create",
       "template_edit",
       "session_plan",
       "week_plan",
