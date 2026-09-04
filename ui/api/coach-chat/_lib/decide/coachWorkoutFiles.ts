@@ -19,14 +19,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
-import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
-import type { FileEntry } from "../../_lib/githubGitData.js";
+import { GEMINI_MODEL } from "../../../_lib/geminiModel.js";
+import { fetchWithTimeout } from "../../../_lib/httpTimeout.js";
+import { captureGeminiFailure, withGeminiSpan } from "../../../_lib/sentry.js";
+import type { FileEntry } from "../../../_lib/githubGitData.js";
 import type { ProfileJson, MemoryJson, InjuriesJson } from "./coachMemoryFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
 import { validateWorkout } from "./workoutSchema.js";
-import type { Workout } from "../../../client/src/lib/workouts.js";
+import type { Workout } from "../../../../client/src/lib/workouts.js";
 
 export const TEMPLATES_PATH_PREFIX = "user_data/activities/workout_plans/templates/";
 // coach-redesign workout-backend-wiring §4: session snapshot write path. Same directory
@@ -50,8 +50,8 @@ export interface WorkoutLibraryIndexEntry {
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// ui/api/coach-chat/_lib -> repo root is four levels up.
-const LIBRARY_DIR = path.resolve(here, "..", "..", "..", "..", "shared", "workout-library");
+// ui/api/coach-chat/_lib/decide -> repo root is five levels up.
+const LIBRARY_DIR = path.resolve(here, "..", "..", "..", "..", "..", "shared", "workout-library");
 
 export function loadWorkoutLibraryIndex(): WorkoutLibraryIndexEntry[] {
   const raw = fs.readFileSync(path.join(LIBRARY_DIR, "index.json"), "utf-8");

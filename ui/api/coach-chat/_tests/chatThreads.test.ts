@@ -6,7 +6,7 @@ import {
   mergeThreadToFront,
   type ChatThread,
 } from "../_lib/chatThreads.js";
-import { withComputedDayOffsets } from "../_lib/coachDay.js";
+import { withComputedDayOffsets } from "../_lib/decide/coachDay.js";
 
 // part3-rollout: chat_history.json no longer persists ageLabel/status/dayOffset - both are
 // dead weight on disk (dayOffset/ageLabel get overwritten by withComputedDayOffsets on every

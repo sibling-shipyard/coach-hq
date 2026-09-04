@@ -9,7 +9,7 @@ import {
   getFileRaw,
   getHeadSha,
   resolveCoachChatBranch,
-} from "./coach-chat/_lib/coachChatFiles.js";
+} from "./coach-chat/_lib/decide/coachChatFiles.js";
 import {
   CoachMessageError,
   generateAndStoreCoachMessage,

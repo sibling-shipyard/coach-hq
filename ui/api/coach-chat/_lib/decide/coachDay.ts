@@ -5,7 +5,7 @@
  * field, read by the caller) rather than parsing it out of state.md prose - state.md no longer
  * exists.
  */
-import type { ApiChatThread, ChatThread } from "./chatThreads.js";
+import type { ApiChatThread, ChatThread } from "../chatThreads.js";
 
 // Calendar-day difference between a thread's createdAt and "today," both resolved in the
 // athlete's own timezone rather than UTC - a thread created at 11pm IST shouldn't already read

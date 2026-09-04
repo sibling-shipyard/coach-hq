@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { MemoryJson, ProfileJson } from "../../_lib/coachMemoryFiles.js";
-import { onboardingChanges } from "../../_lib/onboardingWrites.js";
+import type { MemoryJson, ProfileJson } from "../../_lib/decide/coachMemoryFiles.js";
+import { onboardingChanges } from "../../_lib/decide/onboardingWrites.js";
 
 const profile = { name: "Skanda" } as ProfileJson;
 const memory = { sports: ["Badminton", "Strength"] } as MemoryJson;

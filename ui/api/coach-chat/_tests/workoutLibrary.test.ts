@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateWorkout as validateWorkoutSchema } from "../_lib/workoutSchema.js";
+import { validateWorkout as validateWorkoutSchema } from "../_lib/decide/workoutSchema.js";
 
 // coach-redesign workout-backend-wiring §1: shared/workout-library/templates/ is the generic
 // starter template set that post-first-session template generation picks from (not built yet -

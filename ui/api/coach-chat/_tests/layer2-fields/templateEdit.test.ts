@@ -3,7 +3,7 @@ import {
   applyTemplateEdit,
   validTemplateIdsFromManifest,
   templatePath,
-} from "../../_lib/coachWorkoutFiles.js";
+} from "../../_lib/decide/coachWorkoutFiles.js";
 import type { Workout } from "../../../../client/src/lib/workouts.js";
 
 // coach-redesign workout-backend-wiring §3: template_edit action field. Purely mechanical now -

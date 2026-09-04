@@ -50,10 +50,10 @@ const CARVE_SCRIPT = path.join(REPO_ROOT, "platform", "scripts", "carve-skeleton
 const TEMPLATE_SRC_DIR = path.join(REPO_ROOT, "platform", "skeleton-templates");
 const COACH_WRITE_MODULES = [
   "chatThreads.ts",
-  "coachMemoryFiles.ts",
-  "coachQuestFiles.ts",
-  "coachWeekFiles.ts",
-  "coachWorkoutFiles.ts",
+  "decide/coachMemoryFiles.ts",
+  "decide/coachQuestFiles.ts",
+  "decide/coachWeekFiles.ts",
+  "decide/coachWorkoutFiles.ts",
 ].map((file) => path.join(REPO_ROOT, "ui/api/coach-chat/_lib", file));
 
 const CHECKS = {

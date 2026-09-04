@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { renderCoachContext } from "../_lib/coachContext.js";
+import { renderCoachContext } from "../_lib/decide/coachContext.js";
 import type {
   ProfileJson,
   MemoryJson,
   InjuriesJson,
   CoachLogJson,
-} from "../_lib/coachMemoryFiles.js";
+} from "../_lib/decide/coachMemoryFiles.js";
 
 // Part 1 of the coach-memory redesign (coach-redesign-part1-memory.md) replaced state.md's raw
 // prose with profile.json/memory.json/injuries.json/coach_log.json. This is no longer a byte-for-

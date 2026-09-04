@@ -11,7 +11,7 @@ import {
   applySeasonStart,
   applyQuestCreate,
   type ProfileUpdate,
-} from "../../_lib/coachIntents.js";
+} from "../../_lib/decide/coachIntents.js";
 
 describe("applyCoachNote", () => {
   it("starts a new log with one row when content is null", () => {

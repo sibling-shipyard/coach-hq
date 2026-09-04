@@ -1,5 +1,5 @@
 /** Persist-on-sync Coach turn: one committed thread per verified activity batch. */
-import { commitFilesAtomic, type ResolvedFileWrite } from "../../_lib/githubGitData.js";
+import { commitFilesAtomic, type ResolvedFileWrite } from "../../../_lib/githubGitData.js";
 import {
   getFileRaw,
   getHeadSha,
@@ -7,8 +7,8 @@ import {
   loadCoachContext,
   parseJsonOrNull,
   resolveCoachChatBranch,
-} from "./coachChatFiles.js";
-import { todayDateString, todayDividerLabel, withComputedDayOffsets } from "./coachDay.js";
+} from "../decide/coachChatFiles.js";
+import { todayDateString, todayDividerLabel, withComputedDayOffsets } from "../decide/coachDay.js";
 import {
   appendConversationTurn,
   CHAT_FILE_PATH,
@@ -20,16 +20,16 @@ import {
   truncateTitle,
   type ChatMessage,
   type ChatThread,
-} from "./chatThreads.js";
-import { renderCoachContext, renderQuestContext } from "./coachContext.js";
-import { askGemini, GEMINI_MODEL } from "./geminiClient.js";
-import { captureGeminiFailure } from "../../_lib/sentry.js";
+} from "../chatThreads.js";
+import { renderCoachContext, renderQuestContext } from "../decide/coachContext.js";
+import { askGemini, GEMINI_MODEL } from "../gemini/geminiClient.js";
+import { captureGeminiFailure } from "../../../_lib/sentry.js";
 import {
   activeWeekSessionsContext,
   activitySyncBatchContext,
   combineExtraContext,
-} from "./coachPromptText.js";
-import { CURRENT_WEEK_PATH } from "./coachWeekFiles.js";
+} from "../gemini/coachPromptText.js";
+import { CURRENT_WEEK_PATH } from "../decide/coachWeekFiles.js";
 import {
   ACTIVITY_SYNC_USER_TEXT,
   activitySyncBatchId,
@@ -40,7 +40,7 @@ import {
   syncedActivityListAttachment,
   syncThreadTitle,
   type ActivitySyncRequest,
-} from "./activitySync.js";
+} from "../decide/activitySync.js";
 
 async function weekSessionsForContext(repo: string, token: string) {
   const currentWeekRaw = await getFileRaw(repo, CURRENT_WEEK_PATH, token).catch(() => null);

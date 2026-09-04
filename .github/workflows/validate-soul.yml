@@ -20,11 +20,11 @@ on:
       # A change to any of these can create or resolve a finding without touching SOUL itself.
       - 'platform/scripts/carve-skeleton.mjs'
       - 'platform/skeleton-templates/**'
-      - 'ui/api/coach-chat/_lib/coachSinceStamp.ts'
-      - 'ui/api/coach-chat/_lib/coachMemoryFiles.ts'
-      - 'ui/api/coach-chat/_lib/coachQuestFiles.ts'
-      - 'ui/api/coach-chat/_lib/coachWeekFiles.ts'
-      - 'ui/api/coach-chat/_lib/coachWorkoutFiles.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachSinceStamp.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachMemoryFiles.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachQuestFiles.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachWeekFiles.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts'
       - 'ui/api/coach-chat/_lib/chatThreads.ts'
       - 'docs/eng-docs/coach-chat-flow.md'
   pull_request:
@@ -41,11 +41,11 @@ on:
       # A change to any of these can create or resolve a finding without touching SOUL itself.
       - 'platform/scripts/carve-skeleton.mjs'
       - 'platform/skeleton-templates/**'
-      - 'ui/api/coach-chat/_lib/coachSinceStamp.ts'
-      - 'ui/api/coach-chat/_lib/coachMemoryFiles.ts'
-      - 'ui/api/coach-chat/_lib/coachQuestFiles.ts'
-      - 'ui/api/coach-chat/_lib/coachWeekFiles.ts'
-      - 'ui/api/coach-chat/_lib/coachWorkoutFiles.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachSinceStamp.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachMemoryFiles.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachQuestFiles.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachWeekFiles.ts'
+      - 'ui/api/coach-chat/_lib/decide/coachWorkoutFiles.ts'
       - 'ui/api/coach-chat/_lib/chatThreads.ts'
       - 'docs/eng-docs/coach-chat-flow.md'
 

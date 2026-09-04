@@ -1,7 +1,7 @@
 /** Shared bundled-SOUL and athlete-context reads for chat and preload routes. */
-import { SOUL } from "../../_generated/soul.js";
-import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { withGithubSpan } from "../../_lib/sentry.js";
+import { SOUL } from "../../../_generated/soul.js";
+import { fetchWithTimeout } from "../../../_lib/httpTimeout.js";
+import { withGithubSpan } from "../../../_lib/sentry.js";
 import {
   PROFILE_PATH,
   MEMORY_PATH,

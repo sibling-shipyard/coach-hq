@@ -3,7 +3,7 @@
 // for coach_since / initial templates). Both live here because the projection is computed from
 // the same profileUpdates this file's write applies - one usecase: "did this turn complete the
 // athlete's profile."
-import type { ResolvedFileWrite } from "../../../_lib/githubGitData.js";
+import type { ResolvedFileWrite } from "../../../../_lib/githubGitData.js";
 import { getFileRaw, isAthleteProfileComplete, parseJsonOrNull } from "../coachChatFiles.js";
 import { applyProfileUpdate, applySeasonStart, type ProfileUpdate } from "../coachIntents.js";
 import {
