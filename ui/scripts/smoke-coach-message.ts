@@ -33,6 +33,7 @@ import { fileURLToPath } from "node:url";
 import { SOUL } from "../api/_generated/soul.js";
 import { selectLlmAdapter, type LlmProviderName } from "../api/_lib/llmClient.js";
 import {
+  PROACTIVE_MAX_OUTPUT_TOKENS,
   PROACTIVE_RESPONSE_SCHEMA,
   buildProactivePrompt,
   loadProactiveContext,
@@ -51,11 +52,6 @@ export const ADAPTER_KEYS: Record<LlmProviderName, string> = {
   gemini: "GEMINI_API_KEY",
   openrouter: "OPENROUTER_API_KEY",
 };
-
-/** The output budget production sends. Kept here rather than exported from `coachMessage.ts`,
- * which owns it as a private constant — a canary reading a smaller budget than production would
- * report truncation production never sees, and a larger one would hide it. */
-const PROACTIVE_MAX_OUTPUT_TOKENS = 3_072;
 
 const RETRY_DELAY_MS = 2_000;
 const EXCERPT_CHARS = 200;

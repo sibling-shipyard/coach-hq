@@ -58,13 +58,14 @@ flowchart LR
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 1 | Live-model smoke check on a schedule, failing loudly on a truncated or unparseable reply | `feat/713-llm-client-review` | `ui/scripts/`, `.github/workflows/`, `ui/api/_lib/_tests/`, `kdb/decisions/` | Bob the Builder | — | built: `smoke-coach-message.ts` + daily workflow + ADR 0037; 21 mocked tests, live call unrun (needs `OPENROUTER_API_KEY` in Actions) |
+| 1 | 1 | Live-model smoke check on a schedule, failing loudly on a truncated or unparseable reply | `feat/713-llm-client-review` | `ui/scripts/`, `.github/workflows/`, `ui/api/_lib/_tests/`, `kdb/decisions/`, `ui/api/coach-message/_lib/` (one export) | Bob the Builder | — | built: `smoke-coach-message.ts` + daily workflow + ADR 0037; 21 mocked tests, live call unrun (needs `OPENROUTER_API_KEY` in Actions) |
 | 2 | 2 | Cache SOUL alone; both callers move their own instructions into the dynamic half | PR 1 | `ui/api/_lib/`, `ui/api/coach-chat/_lib/`, `ui/api/coach-message/_lib/`, matching `_tests/`, `docs/eng-docs/gemini-flow.md` | Bob the Builder | — | not started |
 | 3 | 3 | coach-chat reads `latest_message.json`, or an ADR says why not | PR 2 | `ui/api/coach-chat/_lib/`, `ui/api/coach-chat/_tests/`, `kdb/decisions/` | Bob the Builder | — | not started |
 
 ## Decisions taken while building
 
 Milestone 1 only. One row per call a reasonable builder could have made the other way.
+Rows 10-12 were taken by the Tech Lead in review, after the rows above.
 
 | # | Decision | Why | Reversible? |
 |---|---|---|---|
@@ -77,6 +78,9 @@ Milestone 1 only. One row per call a reasonable builder could have made the othe
 | 7 | The canary calls production's own `validateGeneratedBody` rather than its own schema check | If production would 502 on the reply, the canary goes red on it. Cost: a stray em dash from the model is a real red | yes |
 | 8 | Retry once on transport, never on a contract failure; exit 2 for transport, 1 for contract | ADR 0024: most Gemini reds are 503s, and a canary whose reds are weather stops being read | yes |
 | 9 | ADR 0037 sits beside ADR 0024 instead of widening it | 0024 works because of one sentence — name what this diff could catch. Widening it to cover diffless checks blunts it | no — reversing means superseding an ADR |
+| 10 | Export `PROACTIVE_MAX_OUTPUT_TOKENS` from `coachMessage.ts` instead of copying it into the canary | The canary exists to catch an output-budget failure (#827). A second copy of the budget drifts silently, and a canary sending a different budget than production reports truncation production never sees — or misses the truncation it does | yes |
+| 11 | `permissions: contents: read` and `timeout-minutes: 10` on the workflow | A scheduled job holding a default write token is standing risk for no gain, and two live calls that hang would otherwise burn runner minutes until GitHub's 6-hour cap | yes |
+| 12 | ADR 0037 is attributed to Tech Lead, not the builder who drafted it | ADRs are Tech Lead's to accept (`.github/agents/tech-lead.md`). Briefing a worker to write one was a scoping error; the content stands | yes |
 
 ## Done when
 

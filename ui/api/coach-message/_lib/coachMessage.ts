@@ -20,7 +20,7 @@ const MAX_SENTENCE_LENGTH = 180;
  * per-provider tuning knob. OpenRouter's own reasoning effort is capped separately (see
  * `openRouterAdapter.ts`) and stays well under this ceiling.
  */
-const PROACTIVE_MAX_OUTPUT_TOKENS = 3_072;
+export const PROACTIVE_MAX_OUTPUT_TOKENS = 3_072;
 
 /** The strict-schema shape both adapters return for a proactive message: one string field. */
 export const PROACTIVE_RESPONSE_SCHEMA: LlmJsonSchema = {

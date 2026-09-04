@@ -1,6 +1,6 @@
 # 0037 — A scheduled canary is the second kind of paid check
 
-- **Status:** Accepted · 2026-09-05 · Bob the Builder
+- **Status:** Accepted · 2026-09-05 · Tech Lead
 - **Area:** cross-cutting
 - **Context:** ADR 0024 made every paid check name what it could catch in the diff under test.
   That question has no answer for a failure that arrives with no diff. Google changed

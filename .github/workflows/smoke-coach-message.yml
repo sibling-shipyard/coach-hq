@@ -21,9 +21,14 @@ on:
     - cron: '15 6 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   smoke-coach-message:
     runs-on: ubuntu-latest
+    # Two live calls, each with a 45s adapter timeout and one retry. Anything past this is hung.
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: ui
