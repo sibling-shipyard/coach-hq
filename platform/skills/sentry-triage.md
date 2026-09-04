@@ -25,10 +25,11 @@ node platform/skills/query-sentry.mjs list
 ```
 
 `--query` replaces the default `is:unresolved` clause. The script still appends
-`environment:production` unless the query already names an environment:
+`environment:production` unless the query already names an environment. `--limit` caps the
+result count (default 100):
 
 ```bash
-node platform/skills/query-sentry.mjs list --query "is:unresolved level:error"
+node platform/skills/query-sentry.mjs list --query "is:unresolved level:error" --limit 20
 ```
 
 **2. Issue details** (id from `list`, e.g. `123456789`)
@@ -43,9 +44,17 @@ node platform/skills/query-sentry.mjs issue <issue-id>
 node platform/skills/query-sentry.mjs event <issue-id>
 ```
 
+**4. Who it hit** (`athlete_id` breakdown, counts and first/last seen)
+
+```bash
+node platform/skills/query-sentry.mjs athletes <issue-id>
+```
+
 ## How to triage
 
 1. Start with `list`.
 2. For a relevant issue, `event <issue-id>` for the stack.
-3. Route from file paths and ADR 0034 (`ui/api/` → Bob, `ui/client/` → UI Expert, `ios/` → iOS Builder).
-4. Do not make code changes. Output a one-page incident brief: what broke, where, who owns it.
+3. `athletes <issue-id>` when you need the blast radius — one athlete's bad afternoon and a
+   fleet-wide fault have the same event count and different fixes.
+4. Route from file paths and ADR 0034 (`ui/api/` → Bob, `ui/client/` → UI Expert, `ios/` → iOS Builder).
+5. Do not make code changes. Output a one-page incident brief: what broke, where, who owns it.

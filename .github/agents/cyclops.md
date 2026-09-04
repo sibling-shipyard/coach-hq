@@ -56,4 +56,4 @@ Cyclops uses file paths to route, per ADR 0034:
 
 ## Learnings
 
-- _(none yet)_
+- Sentry issue paths must be org-scoped (`/organizations/sibling-shipyard/issues/<id>/`). The unscoped form 404s, which reads as a deleted issue.
