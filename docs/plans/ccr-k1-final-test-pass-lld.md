@@ -273,6 +273,29 @@ The required-field structural guarantee, the same mechanism that already made `m
 reliable, is what actually closed this. Not yet tested on `pro-latest` or against real repo data
 (`coach-skanda`/`coach-skanda-testing`) - next.
 
+### Finding 4 — Phase 1 (prompt restraint) implemented and live-tested (2026-09-04, flash only)
+
+Added an explicit restraint instruction to `coachPromptText.ts`'s returning branch. Only set an
+action field when the turn gave a real, stated reason. Never fire `season_start`, `week_plan`,
+`template_edit`, `session_plan`, or `session_reconcile` speculatively - an invented field can
+overwrite real data. Not added to the FSP branch - `FSP_ACTIONS` structurally excludes those 5
+fields already, so there was nothing to guard there.
+
+Live-tested, flash, on the 3 transcripts that showed this noise before: `#10` (2/5 fail, but on
+`coachNoteReported` - unrelated to spurious fields, likely pre-existing flakiness, not chased
+further this pass), `#35` (4/5 clean, 1/5 had noise), `#39` (5/5 pass). **The noise wasn't fully
+eliminated, but its severity changed completely.** Before this fix, `#39` fired a duplicate
+`season_start` with a real name/dates plus a fully fabricated 7-day `week_plan` - content real
+enough to pass `buildCurrentWeekWrite`'s guard and actually corrupt `current_week.json`. After the
+fix, every remaining instance is an empty stub (`{template_id: ''}`,
+`{headline: '', body: '', days: []}`) - checked directly against `#35`'s one remaining failure's
+full output. Every existing write-path guard (`buildTemplateEditWrite`, `buildSessionPlanWrite`,
+`buildCurrentWeekWrite`) already no-ops on exactly this shape. **The real corruption risk this
+finding was raised over is gone; a cosmetic eval-assertion mismatch remains** - Phase 2 (hardening
+the write-guards further) is not needed on safety grounds. Whether to also silence the cosmetic
+noise (tighten the prompt further, or loosen these transcripts' strict `actionFieldsAbsent` checks
+to allow an empty stub) is a smaller, non-blocking follow-up, not pursued in this pass.
+
 Every result — pass, fail, or gap closed — gets recorded here before any further code change.
 
 ## What this deliberately does not do
