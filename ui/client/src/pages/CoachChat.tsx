@@ -36,6 +36,7 @@ import {
   syncedActivityList,
   threadStatus,
   truncateTitle,
+  turnErrorToastMessage,
   type ChatMessage,
   type ChatThread,
   type GreetResult,
@@ -531,14 +532,15 @@ function CoachChatContent({ data }: { data: RepoData }) {
 
       // D1 (#736): a firm requirement, not left to Coach's own reply happening to mention it -
       // an explicit, honest indicator whenever something was dropped, and a client-side Sentry
-      // capture so the pattern is visible from both ends, not just the backend's. Nothing else
-      // needed here - result.threads (trusted above) already carries the committed reply.
-      if (result.droppedActions && result.droppedActions.length > 0) {
-        toast.info(droppedActionToastMessage(result.droppedActions));
+      // capture so the pattern is visible from both ends, not just the backend's.
+      const droppedActions = result.droppedActions;
+      const droppedMessage = droppedActionToastMessage(droppedActions);
+      if (droppedMessage && droppedActions) {
+        toast.info(droppedMessage);
         Sentry.captureMessage("coach-chat: droppedActions in turn response", {
           level: "warning",
-          tags: { dropped_count: result.droppedActions.length },
-          contexts: { coach_turn: { dropped_actions: result.droppedActions } },
+          tags: { dropped_count: droppedActions.length },
+          contexts: { coach_turn: { dropped_actions: droppedActions } },
         });
       }
     } catch (err: unknown) {
@@ -560,7 +562,9 @@ function CoachChatContent({ data }: { data: RepoData }) {
           ),
         );
         if (activeThreadId) saveThreadLocally(activeThreadId, updatedMessages);
-        toast.error("Coach replied, but I couldn't save it — try again?");
+        toast.error(
+          turnErrorToastMessage(err) ?? "Coach replied, but I couldn't save it - try again?",
+        );
         return;
       }
       // Roll back the optimistic echo - either drop the message from an existing thread, or
@@ -588,7 +592,8 @@ function CoachChatContent({ data }: { data: RepoData }) {
         // what happened, same toast treatment (including duration) as any other error. This is
         // Coach never getting to reply at all - distinct from the CoachChatSaveFailedError case
         // above, which keeps the reply on screen.
-        toast.error(err instanceof Error ? err.message : "Coach didn't reply — try again");
+        const message = turnErrorToastMessage(err);
+        if (message) toast.error(message);
       }
       setDraft(trimmed);
     } finally {

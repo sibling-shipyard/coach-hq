@@ -28,10 +28,10 @@ becomes removable (own PR). Chat history can safely retain everything instead of
 threads (own PR). And `coach_note` becomes a day-keyed row, updated in place by whichever turn's
 own Gemini call already touches that day — no separate trigger, no separate call, no dependency on
 "the athlete pressed End Conversation" at all.
-Placeholder data removal, returning-athlete quest/season access, a full validation audit (not
-deferred), Sentry latency profiling, coaching-style restoration, propagating all of it to the real
-athlete repos, trimming the eval-transcript suite to match, and a final docs/SOUL consistency pass
-are each their own milestone.
+Placeholder data removal, returning-athlete quest/season access, and a full validation audit (not
+deferred) are each their own milestone. So are Sentry latency profiling, coaching-style
+restoration, propagating all of it to the real athlete repos, trimming the eval-transcript suite
+to match, and a final docs/SOUL consistency pass.
 
 ```mermaid
 flowchart LR
@@ -58,6 +58,7 @@ flowchart LR
   G2 --> J1
   J1 --> J2["J2 restructure ui/api/\n(coach-chat layers)"]
   J2 --> H1["H1 docs + SOUL\nconsistency, closes #735"]
+  H1 --> K1["K1 final live test pass\nbefore merge to main"]
 ```
 
 ## Milestones (execution order)
@@ -81,14 +82,15 @@ flowchart LR
 | I1 | I — Progress UX | Cycling "thinking/parsing/updating" labels replace the plain dots; failure messages are accurate per real stage | D1 | web + iOS coach-chat composer/loading state | [`ccr-i1-progress-indicator-lld.md`](ccr-i1-progress-indicator-lld.md) | No new infra; true streaming deferred to issue #767 (P3) |
 | J1 | J — Repo cleanup | Confirmed-dead files (migration scripts, orphaned exports) removed repo-wide, not just coach-chat | C2, D3, F1, G1, G2, I1 | `ui/scripts/`, `ui/api/`, `ui/client/`, `engine/` | [`ccr-j1-stale-file-cleanup-lld.md`](ccr-j1-stale-file-cleanup-lld.md) | Confirmed real example already found: 3 stale `migrate-coach-memory-part*.mjs` scripts |
 | J2 | J — Repo cleanup | Coach-chat's `_lib/` mirrors its own 3-layer test structure; rest of `ui/api/` audited | J1 | `ui/api/coach-chat/_lib/*` (file moves only, no logic change) | [`ccr-j2-api-restructure-lld.md`](ccr-j2-api-restructure-lld.md) | A file's path tells you which of the 3 real stages it belongs to |
-| H1 | H — Final consistency | Every doc and SOUL layer reflects the shipped state | J2 | `docs/eng-docs/*`, `platform/soul/A_identity.md`, `SOUL_HISTORY.md` | [`ccr-h1-docs-soul-consistency-lld.md`](ccr-h1-docs-soul-consistency-lld.md) | Closes #735; this plan's own docs deleted, folded into eng-docs |
+| H1 | H — Final consistency | Every doc and SOUL layer reflects the shipped state | J2 | `docs/eng-docs/*`, `platform/soul/A_identity.md`, `SOUL_HISTORY.md` | [`ccr-h1-docs-soul-consistency-lld.md`](ccr-h1-docs-soul-consistency-lld.md) | Closes #735 |
+| K1 | K — Final live test pass | One consolidated live-Gemini + live-scratch-repo pass against the fully integrated stack, the actual gate before merge to `main` | H1 | `tests/<date>/eval/` run logs, no code | [`ccr-k1-final-test-pass-lld.md`](ccr-k1-final-test-pass-lld.md) | This plan's own docs deleted once green, folded into eng-docs |
 
 Each PR gets its own LLD, named `ccr-<pr-code>-<topic>-lld.md` — the prefix matches the PR column
-above. Filename sort mostly tracks execution order, with one exception: **H1 runs last, after J2**,
-not alphabetically first among H/I/J — it's this redesign's true finish line (closes #735, deletes
-this plan's own docs), and needs J1/J2's changes already landed to document them accurately. Follow
-the table's row order above, not the alphabet, when in doubt. Read this doc for the shape of the
-whole redesign;
+above. Filename sort mostly tracks execution order, with two exceptions: **H1 runs after J2**, not
+alphabetically first among H/I/J — it needs J1/J2's changes already landed to document them
+accurately. **K1 runs last of all**, after H1 — it's this redesign's true finish line (deletes this
+plan's own docs once its live pass is green), not H1 anymore now that K1 exists. Follow the table's
+row order above, not the alphabet, when in doubt. Read this doc for the shape of the whole redesign;
 read the LLD for the PR you're actually building.
 
 ## Done when
@@ -97,8 +99,9 @@ Every LLD's own "Done when" is met, and `bash platform/scripts/check.sh --quiet`
 PR. A live re-test on a fresh scratch athlete repo confirms three things. FSP goal, habits, and
 injuries all land in the same conversation regardless of when profile fields complete. An
 established athlete's ordinary "I'm 76kg now" persists without closing. And `quests.json` /
-`profile.json` show no skeleton-init placeholder data after carve. H1's own "Done when" (docs, SOUL,
-and this plan itself all reflecting shipped reality) is the redesign's actual finish line.
+`profile.json` show no skeleton-init placeholder data after carve. K1's own "Done when" (one
+consolidated live pass against the fully integrated stack, this plan itself deleted once it's
+green) is the redesign's actual finish line.
 
 ## Deferred
 
