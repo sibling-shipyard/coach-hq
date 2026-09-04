@@ -450,4 +450,34 @@ export async function captureGeminiFailure(
   return { eventId, sent };
 }
 
+/**
+ * D1 (#736): what a rejected/dropped structured-fact write must carry to see the pattern from
+ * Sentry alone - an applier throw (bad quest/injury reference surviving layer 1's enum and
+ * layer 2's corrective retry) or the whole facts commit failing after commitFilesAtomic's own
+ * retries. Never the whole-turn Gemini failure path above - captureGeminiFailure covers that.
+ */
+export interface ValidationFailureDetails {
+  traceId?: string;
+  /** Which action field this failure is about, e.g. "quest_event" or "injury_event". */
+  field: string;
+  /** Human-readable reason, safe to show the athlete verbatim in droppedActions. */
+  reason: string;
+}
+
+export async function captureValidationFailure(
+  error: unknown,
+  details: ValidationFailureDetails,
+): Promise<CaptureResult> {
+  if (!initServerMonitoring()) return { sent: false };
+  const eventId = Sentry.captureException(error, {
+    tags: {
+      ...(details.traceId ? { vercel_trace_id: details.traceId } : {}),
+      validation_field: details.field,
+    },
+    contexts: { coach_turn: { reason: details.reason } },
+  });
+  const sent = await Sentry.flush(FLUSH_TIMEOUT_MS);
+  return { eventId, sent };
+}
+
 export { Sentry };

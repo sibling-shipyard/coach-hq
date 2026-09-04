@@ -18,6 +18,11 @@ enum UserFacingError {
         if let auth = error as? AuthError {
             return auth.errorDescription ?? "Sign-in didn't work. Try again."
         }
+        // D1 (#736): Gemini did reply, only the save failed - parity with web's toast.error
+        // text in CoachChat.tsx, distinct from both a Gemini-call failure and a generic error.
+        if error is CoachChatSaveFailedError {
+            return "Coach replied, but I couldn't save it — try again?"
+        }
 
         // Translate GitHubAPIError cases to human-readable copy.
         if let apiError = error as? GitHubAPIError {
