@@ -105,6 +105,13 @@ Run against the final integrated branch (every PR in this stack landed, right be
    goal, habits, and injuries all land in the same conversation regardless of when profile fields
    complete. A returning athlete's ordinary "I'm 76kg now" persists without closing. `quests.json`
    / `profile.json` show no skeleton-init placeholder data after carve.
+   **DONE (2026-09-04, flash, `coach-skanda-testing` branch `test/fresh-fsp-k1`, reset to genuine
+   `carve-skeleton.mjs` output).** All three confirmed live with real observed diffs. Goal + habit
+   landed together (#808's fix, already recorded above). An injury flagged in a later turn of the
+   same conversation - `injury_flag`, real minted id, `coach_since` correctly set on profile
+   completion, 7 initial workout templates auto-seeded. An ordinary post-completion weight update
+   (`profile_update: weight_kg`) committed with zero closing ritual. No placeholder data at any
+   point - confirmed `main_quest: null`/`current_season_id: null` pre-FSP, real values post.
 6. **`bash platform/scripts/check.sh --quiet`**, clean, on the actual final integrated tip — not
    per-PR (already done), the merged whole.
 
