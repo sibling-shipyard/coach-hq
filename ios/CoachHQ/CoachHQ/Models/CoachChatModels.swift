@@ -323,15 +323,13 @@ struct ChatThreadsResponse: Decodable {
     let threads: [ChatThread]
 }
 
-/// POST /api/coach-chat response. `threadId`/`threads` are absent on an ordinary turn even when
-/// FSP fields were incrementally committed; `closed` only reports the conversation close.
-/// `repoSha`/`stale` are A5 (cross-device staleness detection). `profileComplete` is refreshed
-/// after every turn so the explicit end-conversation control can enable as soon as FSP finishes.
+/// POST /api/coach-chat response. Every turn commits fully now (C1) - `threadId`/`threads` are
+/// always the fresh committed state, no more `closed` flag to check. `repoSha`/`stale` are A5
+/// (cross-device staleness detection). `profileComplete` is refreshed after every turn.
 struct ChatSendResponse: Decodable {
     let reply: String
-    let closed: Bool
-    let threadId: String?
-    let threads: [ChatThread]?
+    let threadId: String
+    let threads: [ChatThread]
     let repoSha: String?
     let stale: Bool?
     let profileComplete: Bool?

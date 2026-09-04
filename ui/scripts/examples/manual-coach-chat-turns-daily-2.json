@@ -1,11 +1,18 @@
 [
-  { "greet": true, "message": "" },
-  { "message": "I didn't sleep well last night, only about 4 hours." },
-  { "message": "I skipped the gym today because I felt too tired." },
-  { "message": "Tomorrow I will do my scheduled Workout A though." },
   {
-    "message": "That's it for today, wrap this up.",
-    "endConversationRequested": true,
-    "expect": { "sessionClosed": true }
+    "greet": true,
+    "message": ""
+  },
+  {
+    "message": "I didn't sleep well last night, only about 4 hours."
+  },
+  {
+    "message": "I skipped the gym today because I felt too tired."
+  },
+  {
+    "message": "Tomorrow I will do my scheduled Workout A though."
+  },
+  {
+    "message": "That's it for today, wrap this up."
   }
 ]

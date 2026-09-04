@@ -6,11 +6,11 @@
 
 `coach-chat.ts` calls Gemini directly via raw `fetch` (`gemini-flash-latest`). **Unblocked:**
 Cloud Billing is live on the project (confirmed 2026-08-06, AI Studio Billing page shows "Paid 1
-· $250 Billing Account Tier Cap", ₹2,500 prepaid credit), and the Rate Limit dashboard confirms
-Tier 1 is active — real testing is no longer rate-limited at this account's scale. See Options
-below for the exact numbers. The long-term provider call still gets made in ~2 weeks once the
-system is robust enough to have real usage data and an eval to judge it by — billing doesn't
-close that question, it just removes the reason it was urgent.
+· $250 Billing Account Tier Cap", ₹2,500 prepaid credit). The Rate Limit dashboard confirms Tier
+1 is active — real testing is no longer rate-limited at this account's scale. See Options below
+for the exact numbers. The long-term provider call still gets made in ~2 weeks, once the system
+is robust enough to have real usage data and an eval to judge it by. Billing doesn't close that
+question, it just removes the reason it was urgent.
 
 ## Options
 
@@ -48,12 +48,12 @@ constraint. Rate-limit headroom and eventual model quality are.
 ## Architecture — grounding these numbers in what the code actually sends
 
 Verified against `ui/api/coach-chat.ts`: one Gemini call per turn, no separate/cheaper call for
-anything (close-session detection is a plain regex, `CLOSE_SESSION_PATTERN`,
-`coach-chat.ts:216-217`, not a model call — it just sets prompt `mode`; the model's own
-`session_closed` field in that same response is what gates a commit). The `systemInstruction`
-floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` + `rendered quest context`, sent
-in full every turn — roughly matches the ~15K input tokens/turn assumed above. Closing turns add
-four more full files on top.
+anything. There is no more separate close-session detection step at all (C1 removed
+`CLOSE_SESSION_PATTERN`/`session_closed` entirely — every turn just commits). The
+`systemInstruction` floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` +
+`rendered quest context`, sent in full every turn — roughly matches the ~15K input tokens/turn
+assumed above. A turn whose reply asks for a template/session-artifact write pays for the
+templates manifest and `current_week.json` on top of that, fetched lazily only when needed.
 
 **Fixed:** conversation history within a thread is now capped at `MAX_HISTORY_MESSAGES = 40`
 (previously the entire prior conversation resent every turn, unbounded — only *thread count* was
@@ -62,8 +62,8 @@ own repo on every turn either — see Caching below.
 
 ## Caching
 
-Prompt caching bills a repeated prefix at a fraction of full price — but the mechanism differs by
-provider, and one of them needs no work at all:
+Prompt caching bills a repeated prefix at a fraction of full price. The mechanism differs by
+provider though, and one of them needs no work at all.
 
 - **Gemini:** implicit caching is on by default for every Gemini 2.5+ model, no code, no opt-in —
   90% off cached tokens, minimum cacheable prefix 1,024 tokens (well under our ~13K-token prefix).
@@ -76,13 +76,13 @@ provider, and one of them needs no work at all:
 right after `soul` in the system-instruction prefix, ahead of `state.md`/`rendered quest context` — a value
 that changes every minute broke any cache placed after it. It's now the *last* element in the
 `systemInstruction` array instead of the 3rd, so persona + instructions + state + quest_log stay
-a stable, cacheable prefix and only the timestamp changes turn to turn. Same pass also added 3
-worked few-shot examples inside that cached prefix (persona consistency, fewer structured-output
-errors — cached, so it's a one-time cost) and a hidden `reasoning` field ahead of the JSON answer
-(stripped before the reply reaches the athlete).
+a stable, cacheable prefix and only the timestamp changes turn to turn. Same pass also added
+3 worked few-shot examples inside that cached prefix — persona consistency, fewer
+structured-output errors, cached so it's a one-time cost. It also added a hidden `reasoning`
+field ahead of the JSON answer, stripped before the reply reaches the athlete.
 
 **Also fixed:** in-thread history is now capped at `MAX_HISTORY_MESSAGES = 40` (was fully
-unbounded — see Architecture above), and SOUL is bundled from `platform/SOUL.chat.md` at build time
+unbounded — see Architecture above). SOUL is bundled from `platform/SOUL.chat.md` at build time
 instead of being fetched from the athlete's own repo every turn (`ui/scripts/build-soul.mjs`) —
 see the new ADR amending 0011 for the full rationale.
 

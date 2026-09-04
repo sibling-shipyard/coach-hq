@@ -19,10 +19,6 @@ struct CoachChatView: View {
     @State private var threadsLoading = true
     @State private var sending = false
     @State private var profileComplete = false
-    // An explicit close can legitimately produce a follow-up instead of closing. Keep that
-    // intent attached to the live thread so the athlete's answer stays in closing mode without
-    // inventing a user close phrase in the transcript.
-    @State private var pendingExplicitCloseThreadIds: Set<String> = []
     @State private var errorMessage: String?
     @State private var showErrorDialog = false
     @State private var showHistorySheet = false
@@ -344,11 +340,7 @@ struct CoachChatView: View {
                 isFocused: $composerFocused,
                 placeholder: coachIsReplying ? "Coach is replying…" : composerPlaceholder,
                 isSending: coachIsReplying,
-                canEndConversation: profileComplete,
-                onSend: { Task { await send(from: resolvedSendThreadId()) } },
-                onEndConversation: {
-                    Task { await send(from: resolvedSendThreadId(), endConversationRequested: true) }
-                }
+                onSend: { Task { await send(from: resolvedSendThreadId()) } }
             )
         }
         .padding(.top, 8)
@@ -555,7 +547,6 @@ struct CoachChatView: View {
     private func clearThreadState() {
         threads = []
         activeThreadId = nil
-        pendingExplicitCloseThreadIds.removeAll()
         threadsLoading = true
     }
 
@@ -585,7 +576,6 @@ struct CoachChatView: View {
                     preservingThreadId: requestedSeed
                 )
             } ?? fetched
-            pendingExplicitCloseThreadIds.formIntersection(threads.map(\.id))
             if openRequestedProactiveRoute() {
                 return
             } else if let today = todayThread {
@@ -652,8 +642,8 @@ struct CoachChatView: View {
             // repeated "New conversation" taps (or a retry after a failed first greet) would
             // otherwise each leave their own local-cache entry that's never cleared (found via
             // code review: nothing calls CoachChatLocalCache.clear for an unreplied greeting,
-            // only a real close does). Clearing here means at most one unreplied local greeting's
-            // cache entry can ever exist at a time.
+            // only a real reply's commit does). Clearing here means at most one unreplied local
+            // greeting's cache entry can ever exist at a time.
             if let repo = authManager.repoFullName {
                 threads.removeAll { existing in
                     guard existing.id.hasPrefix("local-"),
@@ -662,7 +652,6 @@ struct CoachChatView: View {
                     let real = existing.messages.filter { $0.role != .divider }
                     guard real.count == 1, real[0].role == .coach else { return false }
                     CoachChatLocalCache.clear(repoFullName: repo, threadId: existing.id)
-                    pendingExplicitCloseThreadIds.remove(existing.id)
                     return true
                 }
             }
@@ -761,34 +750,23 @@ struct CoachChatView: View {
         threads[idx].messages.removeAll { $0.id == message.id }
     }
 
-    private func send(from targetId: String?, endConversationRequested: Bool = false) async {
+    private func send(from targetId: String?) async {
         guard let apiClient else { return }
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !sending else { return }
-        guard endConversationRequested ? profileComplete : !trimmed.isEmpty else { return }
+        guard !sending, !trimmed.isEmpty else { return }
 
         if !chatWelcomeShown { chatWelcomeShown = true }
 
         let priorMessages = priorMessagesForSend(targetId: targetId)
-        // Track whether this send created the local thread so a failed typed reply can roll the
-        // thread back. An explicit close request deliberately keeps the thread and pending state
-        // across failure, ready for a retry or a follow-up answer.
+        // Track whether this send created the local thread so a failed send can roll it back.
         let threadExistedBefore = targetId != nil && threads.contains(where: { $0.id == targetId })
         let liveThreadId = materializeThreadIfNeeded(for: targetId)
-        if endConversationRequested {
-            pendingExplicitCloseThreadIds.insert(liveThreadId)
-        }
-        let explicitClosePending = pendingExplicitCloseThreadIds.contains(liveThreadId)
 
-        if !endConversationRequested {
-            draft = ""
-        }
+        draft = ""
 
         let now = Date().timeIntervalSince1970 * 1000
-        let userMsg = endConversationRequested ? nil : ChatMessage.user(id: "u-\(now)", text: trimmed)
-        if let userMsg {
-            appendUserMessage(userMsg, to: liveThreadId)
-        }
+        let userMsg = ChatMessage.user(id: "u-\(now)", text: trimmed)
+        appendUserMessage(userMsg, to: liveThreadId)
 
         sending = true
         defer { sending = false }
@@ -797,8 +775,7 @@ struct CoachChatView: View {
             let result = try await apiClient.sendMessage(
                 threadId: targetId,
                 priorMessages: priorMessages,
-                message: endConversationRequested ? "" : trimmed,
-                endConversationRequested: explicitClosePending
+                message: trimmed
             )
 
             if let complete = result.profileComplete {
@@ -809,55 +786,35 @@ struct CoachChatView: View {
                 }
             }
 
-            if result.closed, let newThreads = result.threads {
-                pendingExplicitCloseThreadIds.remove(liveThreadId)
-                threads = newThreads
-                activeThreadId = result.threadId
-                // The close-commit just landed server-side, so the server copy is now the
-                // truth - drop the local cache for this thread (issue #244 resumability).
-                if let repo = authManager.repoFullName {
-                    CoachChatLocalCache.clear(repoFullName: repo, threadId: liveThreadId)
-                }
-                // B3: only the real signal - this close-turn's committed state.md actually has a
-                // filled-in Athlete Profile. Every prior close (day-to-day chat, or an earlier
-                // First Session turn that wasn't actually the finishing one) must NOT mark
-                // complete - that was the premature-completion bug B3 replaces.
-                return
+            // C1: every turn commits fully now - the server's `threads` is always fresh,
+            // committed truth, so trust it outright instead of appending the reply ourselves.
+            threads = result.threads
+            activeThreadId = result.threadId
+            // The commit just landed server-side, so the server copy is now the truth - drop
+            // the local cache for this thread (issue #244 resumability).
+            if let repo = authManager.repoFullName {
+                CoachChatLocalCache.clear(repoFullName: repo, threadId: liveThreadId)
             }
 
             // A5: the server detected this thread's repo state changed since we last saw it
-            // (most likely a session was wrapped on another device) and already re-read fresh
+            // (most likely another device sent a message first) and already re-read fresh
             // context before replying - explain why Coach's answer might reference something new.
             if result.stale == true {
                 toast = Toast(kind: .info, message: "Coach caught up on changes from your other device")
             }
-
-            let coachMsg = ChatMessage.coach(id: "c-\(now)", paragraphs: [result.reply])
-            if let idx = threads.firstIndex(where: { $0.id == liveThreadId }) {
-                threads[idx].messages.append(coachMsg)
-                threads[idx].preview = String(result.reply.prefix(80))
-                threads[idx].ageLabel = "NOW"
-                threads[idx].status = .active
-                activeThreadId = liveThreadId
-                cacheThreadLocally(threads[idx])
-            }
         } catch let error as GitHubAPIError {
-            if let userMsg {
-                rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
-            }
+            rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
             if case .notAuthenticated = error {
                 authManager.sessionExpired = true
                 clearThreadState()
             } else {
                 errorMessage = UserFacingError.friendlyMessage(for: error)
             }
-            if !endConversationRequested { draft = trimmed }
+            draft = trimmed
         } catch {
-            if let userMsg {
-                rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
-            }
+            rollbackFailedSend(userMsg, threadId: liveThreadId, threadExistedBefore: threadExistedBefore)
             errorMessage = "Coach didn't reply — try again"
-            if !endConversationRequested { draft = trimmed }
+            draft = trimmed
         }
     }
 
@@ -869,7 +826,6 @@ struct CoachChatView: View {
             }
         } else {
             threads.removeAll { $0.id == threadId }
-            pendingExplicitCloseThreadIds.remove(threadId)
             if activeThreadId == threadId { activeThreadId = nil }
             if let repo = authManager.repoFullName {
                 CoachChatLocalCache.clear(repoFullName: repo, threadId: threadId)

@@ -1,28 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { generationConfigFor } from "../../_lib/coachReplySchema.js";
-import {
-  COACH_LOG_TEXT_CAP,
-  MEMORY_NOTE_TEXT_CAP,
-  INJURY_FLAG_TEXT_CAP,
-} from "../../_lib/text-caps.bundle.js";
+import { MEMORY_NOTE_TEXT_CAP, INJURY_FLAG_TEXT_CAP } from "../../_lib/text-caps.bundle.js";
 
-// Issue #462, layer 1: the Gemini responseSchema carries maxLength for the three free-text
-// fields, sourced from engine/lib/text-caps.mts so the numbers can't drift from the write-time
-// backstop in turnWrites/*.ts.
+// Issue #462, layer 1: the Gemini responseSchema carries maxLength for the free-text fields it
+// actually exposes, sourced from engine/lib/text-caps.mts so the numbers can't drift from the
+// write-time backstop in turnWrites/*.ts. coach_note's own cap isn't tested here any more - C1
+// removed it from every mode's schema (see the "keeps coach_note off" test below); C2 owns its
+// redesign and its own coverage.
 describe("coachReplySchema text caps", () => {
-  it("caps coach_note at COACH_LOG_TEXT_CAP on a returning close", () => {
-    const props = generationConfigFor("closing", false).responseSchema.properties;
-    expect(props.coach_note).toMatchObject({ maxLength: COACH_LOG_TEXT_CAP });
-  });
-
   it("caps memory_update.text at MEMORY_NOTE_TEXT_CAP", () => {
-    const props = generationConfigFor("closing", false).responseSchema.properties;
+    const props = generationConfigFor("ordinary", false).responseSchema.properties;
     const memoryUpdate = props.memory_update as { properties: { text: unknown } };
     expect(memoryUpdate.properties.text).toMatchObject({ maxLength: MEMORY_NOTE_TEXT_CAP });
   });
 
   it("caps injury_event[].text at INJURY_FLAG_TEXT_CAP", () => {
-    const props = generationConfigFor("closing", false).responseSchema.properties;
+    const props = generationConfigFor("ordinary", false).responseSchema.properties;
     const injuryEvent = props.injury_event as { items: { properties: { text: unknown } } };
     expect(injuryEvent.items.properties.text).toMatchObject({
       maxLength: INJURY_FLAG_TEXT_CAP,
@@ -30,7 +23,7 @@ describe("coachReplySchema text caps", () => {
   });
 
   it("caps injury_flag[].text at INJURY_FLAG_TEXT_CAP", () => {
-    const props = generationConfigFor("closing", false).responseSchema.properties;
+    const props = generationConfigFor("ordinary", false).responseSchema.properties;
     const injuryFlag = props.injury_flag as { items: { properties: { text: unknown } } };
     expect(injuryFlag.items.properties.text).toMatchObject({
       maxLength: INJURY_FLAG_TEXT_CAP,
@@ -38,11 +31,11 @@ describe("coachReplySchema text caps", () => {
   });
 });
 
-// #616: a returning athlete's ordinary (non-closing) turn used to get zero action fields at
-// all - the schema structurally forbade Gemini from ever producing a data-fact write outside a
-// close. A1 unlocks the data-fact subset on every turn; session artifacts stay closing-gated.
+// C1: the closing-turn concept is gone - every returning-athlete turn now gets the same action
+// fields, data-fact and session-artifact alike, instead of the old ordinary/closing split (#616
+// unlocked the data-fact half only; this finishes the job for the session-artifact half).
 describe("coachReplySchema returning-athlete action fields", () => {
-  it("unlocks data-fact fields on a returning, non-closing (ordinary) turn", () => {
+  it("includes both data-fact and session-artifact fields on any returning-athlete turn", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
     expect(Object.keys(props)).toEqual(
       expect.arrayContaining([
@@ -52,37 +45,20 @@ describe("coachReplySchema returning-athlete action fields", () => {
         "injury_event",
         "quest_event",
         "profile_update",
+        "template_edit",
+        "session_plan",
+        "week_plan",
+        "session_reconcile",
+        "plan_edit",
       ]),
     );
   });
 
-  it("keeps session-artifact fields and coach_note off a returning, ordinary turn", () => {
+  // coach_note's redesign (a day-keyed row, updated inline) is C2's job - it stays out of the
+  // merged always-available set here, not carried forward from the old closing-only gate.
+  it("keeps coach_note off every turn until C2 redesigns it", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
-    expect(Object.keys(props)).not.toEqual(
-      expect.arrayContaining([
-        "coach_note",
-        "template_edit",
-        "session_plan",
-        "week_plan",
-        "session_reconcile",
-        "plan_edit",
-      ]),
-    );
-  });
-
-  it("still includes coach_note and session-artifact fields on a returning closing turn", () => {
-    const props = generationConfigFor("closing", false).responseSchema.properties;
-    expect(Object.keys(props)).toEqual(
-      expect.arrayContaining([
-        "coach_note",
-        "memory_update",
-        "template_edit",
-        "session_plan",
-        "week_plan",
-        "session_reconcile",
-        "plan_edit",
-      ]),
-    );
+    expect(Object.keys(props)).not.toContain("coach_note");
   });
 });
 
@@ -90,13 +66,8 @@ describe("coachReplySchema returning-athlete action fields", () => {
 // start a new season or set a new goal through chat, on any turn. They join the same
 // always-available data-fact set memory_update/profile_update already got in A1/B1.
 describe("coachReplySchema returning-athlete season/quest access (B3)", () => {
-  it("includes season_start and quest_create on a returning, non-first-session, non-closing turn", () => {
+  it("includes season_start and quest_create on a returning, non-first-session turn", () => {
     const props = generationConfigFor("ordinary", false).responseSchema.properties;
-    expect(Object.keys(props)).toEqual(expect.arrayContaining(["season_start", "quest_create"]));
-  });
-
-  it("includes season_start and quest_create on a returning, non-first-session closing turn too", () => {
-    const props = generationConfigFor("closing", false).responseSchema.properties;
     expect(Object.keys(props)).toEqual(expect.arrayContaining(["season_start", "quest_create"]));
   });
 
@@ -126,13 +97,11 @@ describe("coachReplySchema returning-athlete season/quest access (B3)", () => {
   // prompt. Confirmed two ways: quest_create's schema has no main_quest field at all (above), and
   // season_start requires main_quest, so a goal-less season is equally impossible.
   it("makes a goal change without a season change structurally impossible on any turn", () => {
-    for (const mode of ["ordinary", "closing"] as const) {
-      for (const firstSession of [true, false]) {
-        const props = generationConfigFor(mode, firstSession).responseSchema.properties;
-        if (!props.quest_create) continue;
-        const questCreate = props.quest_create as { properties: Record<string, unknown> };
-        expect(questCreate.properties.main_quest).toBeUndefined();
-      }
+    for (const firstSession of [true, false]) {
+      const props = generationConfigFor("ordinary", firstSession).responseSchema.properties;
+      if (!props.quest_create) continue;
+      const questCreate = props.quest_create as { properties: Record<string, unknown> };
+      expect(questCreate.properties.main_quest).toBeUndefined();
     }
   });
 });
