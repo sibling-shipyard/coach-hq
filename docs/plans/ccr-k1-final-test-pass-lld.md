@@ -190,6 +190,25 @@ field-check - a clean 200 with a field missing is not a `flash` problem, see #80
   bumped back into FSP with a partially-known profile, not just the one missing field. Not fixed
   here - noted for the same coordinated pass.
 
+### Track A results (`eval:coach-chat`, flash, new transcripts `#37`-`#40`)
+
+4/4 passed on the first fresh run each: `memory_update` (`#37`), `sports_update` (`#38`),
+returning-athlete `coaching_style_update` (`#39`). Also the dynamic-enum guard (`#40` - 3
+similarly-named real `flag_id`s in context, athlete describes an update by body part only). The
+model correctly matched `inj_right_knee`, no hallucinated or wrong-sibling id.
+
+- **NEW, systemic — returning-athlete turns spontaneously invent unrelated optional action
+  fields.** `#39`'s full output (a turn that only asked to change coaching style) also fired a
+  duplicate `season_start` for a goal already stated in `stateMd`, plus a fully fabricated 7-day
+  `week_plan`. Nothing in the athlete's message asked for either. This isn't isolated to `#39`:
+  the same shape of noise (`template_edit`/`week_plan`/`session_plan` appearing unprompted) showed
+  up repeatedly across `#808`'s own testing (`#10`, `#30`, `#35`, `#36` runs, this session). Every
+  action field being unconditionally available on every returning-athlete turn (C1) means nothing
+  in the schema or prompt currently constrains the model to only set what *this turn* actually
+  established. Cross-cutting, not specific to any one field - likely needs its own prompt-level
+  "only set a field when this turn gave you a real reason to" reinforcement. Or investigation into
+  whether it's isolated to when many optional fields are simultaneously available. Not fixed here.
+
 Every result — pass, fail, or gap closed — gets recorded here before any further code change,
 including the #808 structural schema fix proposed above (nesting `new_habits` inside `season_start`
 so it's `required` the way `main_quest` already is). Not implemented yet: parked until this audit

@@ -1,0 +1,14 @@
+{
+  "name": "memory-update-learned-pattern",
+  "description": "memory_update has zero dedicated live coverage today (K1 testing audit, 2026-09-04) despite being available on every ordinary turn since A1. A returning athlete states a durable training pattern (not a one-off fact) - memory_update should fire with learned_patterns.training as the label, not get folded into coach_note alone or dropped.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K\n",
+  "history": [
+    { "id": "1", "role": "coach", "paragraphs": ["How'd this week's runs feel overall?"] }
+  ],
+  "userMessage": "Noticed something - I always run noticeably better in the evening than the morning, my pace is consistently 20-30 seconds faster per km. Worth keeping in mind for how you plan things going forward.",
+  "expect": {
+    "actionFieldsPresent": ["memory_update"]
+  }
+}
