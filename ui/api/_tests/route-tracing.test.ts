@@ -45,6 +45,9 @@ const {
 
 vi.mock("../_lib/sentry.js", () => ({
   withSentryRoute,
+  // session.ts captures a cookie that will not decrypt through the module directly, not through
+  // the route context, so a partial factory here would leave it undefined at call time.
+  captureServerException,
 }));
 vi.mock("../coach-chat/_lib/coachChatFiles.js", () => ({
   loadCoachContext,
@@ -261,7 +264,25 @@ describe("routes that read an athlete", () => {
     expect(captureServerException).not.toHaveBeenCalled();
   });
 
-  it("does not capture a handled failure - only a throw", async () => {
+  it("captures the 502 widget-snapshots forwards without ever throwing", async () => {
+    // The pattern this whole issue is about: the failure is built into a Response and returned,
+    // so the route wrapper's catch never runs and only an explicit capture records it.
+    // `cause` is what fetchRepoDashboardSnapshot sets on a fault and omits on an answer.
+    const boom = new Error("GitHub returned 503 for dashboard_snapshot.json");
+    fetchRepoDashboardSnapshot.mockResolvedValue({
+      error: "Failed to fetch your data from GitHub",
+      status: 502,
+      cause: boom,
+    });
+
+    const res = await widgetSnapshots.fetch(bearerRequest("widget-snapshots"));
+
+    expect(res.status).toBe(502);
+    expect(setAthleteScope).toHaveBeenCalledWith(REPO);
+    expect(captureServerException).toHaveBeenCalledWith(boom);
+  });
+
+  it("does not capture the 404 it forwards - the repo has not synced", async () => {
     // A missing snapshot is an answer, not a fault: GitHub replied, the repo has not synced.
     fetchRepoDashboardSnapshot.mockResolvedValue({ error: "not synced yet", status: 404 });
 

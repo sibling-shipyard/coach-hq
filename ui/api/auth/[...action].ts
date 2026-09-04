@@ -305,6 +305,12 @@ async function callbackImpl(url: URL, sentry: SentryRouteContext): Promise<Respo
   });
 
   if (!userRes.ok) {
+    // Unlike token_exchange_failed above, this is never an answer: the token was minted seconds
+    // ago by the exchange, so /user refusing it means GitHub is failing or the grant was pulled
+    // mid-flow. The athlete gets bounced to a generic auth error and nothing else records why.
+    const err = new Error(`GitHub /user returned ${userRes.status} during auth callback`);
+    console.error("[auth/callback]", err);
+    await sentry.captureException(err);
     return callbackErrorRedirect(url.origin, "user_fetch_failed", platform, popup);
   }
 
@@ -456,7 +462,16 @@ export async function handleRefresh(req: Request, sentry: SentryRouteContext): P
     !tokenBody?.refresh_token ||
     !tokenBody?.expires_in
   ) {
-    // Refresh token expired (6mo idle) or revoked - genuine "sign in again" case.
+    // One 401 covers two different events. GitHub answers this endpoint 200 with an `error`
+    // field even when it rejects a grant, so a 200 naming an error is the expected end of a
+    // session - the refresh token aged out after 6mo idle, or was revoked - and the athlete
+    // signs in again. Anything else is GitHub failing, and it signs the athlete out just the
+    // same with no other record: a 5xx or 429, or a 200 carrying neither tokens nor an error.
+    if (!tokenRes.ok || typeof tokenBody?.error !== "string") {
+      const err = new Error(`GitHub refresh returned ${tokenRes.status} with no usable token`);
+      console.error("[auth/refresh]", err);
+      await sentry.captureException(err);
+    }
     return Response.json({ error: "refresh_failed" }, { status: 401 });
   }
 

@@ -40,4 +40,5 @@ Keep these current when the backend changes; rules in `docs/eng-docs/README.md`.
 
 ## Learnings
 
+- `withSentryRoute` (`ui/api/_lib/sentry.ts`) captures only what **throws** — a route that builds a failure into a `Response` must call `captureException` itself. `ui/api/_tests/route-tracing.test.ts` holds the line.
 - Gemini's `responseSchema` in `ui/api/coach-chat.ts` fills properties roughly in declaration order — declare commitment fields (`file_updates`, `coach_note`) ahead of narrative ones (`title`, `session_closed`, `reply` last). Reduces skipped fields; doesn't eliminate them.
