@@ -93,6 +93,10 @@ before athlete health context is sent through OpenRouter.
 - OpenRouter is the better side of this constraint. `reasoning: {effort: "low"}` on
   `google/gemini-3.8-flash` returns 0 reasoning tokens and a valid reply. Direct
   `gemini-pro-latest` cannot be pushed below ~400 thinking tokens on the same prompt.
+- The resolved provider/model on a span cannot prove the ZDR pin held. With `only: ["google-vertex"]`
+  pinned, OpenRouter answers `provider: "Google"` and echoes the slug requested (observed 2026-09-05,
+  4 runs) — the same strings an unpinned call would return. The pin is enforced by the request body
+  and the account data policy, and those are what an audit reads.
 - Telemetry records the selected adapter, configured model, and OpenRouter's resolved provider/model.
 - No runtime Edge Config flag and no dual-send comparison. A deployment flips the environment flag.
 - Retire the fallback after two stable weeks and successful chat, proactive-message and onboarding-template checks.

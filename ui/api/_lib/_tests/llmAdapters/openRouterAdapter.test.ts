@@ -29,7 +29,10 @@ function okResponse(overrides: Record<string, unknown> = {}) {
       completion_tokens: 40,
       completion_tokens_details: { reasoning_tokens: 0 },
     },
-    provider: "google-vertex",
+    // Observed live on 2026-09-05 with `only: ["google-vertex"]` pinned, 4 runs: OpenRouter names
+    // the provider `Google` and echoes the slug we asked for. It does not report a Vertex-specific
+    // provider or model, so these strings cannot confirm the ZDR pin held — the request body does.
+    provider: "Google",
     model: OPENROUTER_MODEL,
     ...overrides,
   });
@@ -69,9 +72,7 @@ describe("createOpenRouterAdapter", () => {
   });
 
   it("carries OpenRouter's resolved provider and model back to the caller", async () => {
-    const fetcher = vi.fn(async () =>
-      okResponse({ provider: "google-vertex", model: "vertex/gemini-3.8-flash-001" }),
-    );
+    const fetcher = vi.fn(async () => okResponse());
     const adapter = createOpenRouterAdapter(
       { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
       fetcher,
@@ -80,8 +81,8 @@ describe("createOpenRouterAdapter", () => {
     expect(result.telemetry).toEqual({
       adapter: "openrouter",
       model: "google/gemini-3.8-flash",
-      resolvedProvider: "google-vertex",
-      resolvedModel: "vertex/gemini-3.8-flash-001",
+      resolvedProvider: "Google",
+      resolvedModel: "google/gemini-3.8-flash",
     });
   });
 

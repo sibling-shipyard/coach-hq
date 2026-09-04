@@ -6,7 +6,14 @@
  * no endpoint list, so a provider allow-list cannot be pinned to one.
  *
  * `reasoning: {enabled: false}` returns a 400 on this model; `{effort: "low"}` is what gets 0
- * reasoning tokens instead (verified live).
+ * reasoning tokens instead (verified live, 3/3 at `max_tokens: 1024`). Give it too small a budget
+ * and reasoning eats the whole thing: at 64 it came back `finish_reason: "length"` with null
+ * content, which is the truncation branch below.
+ *
+ * The response cannot confirm the pin. OpenRouter reports `provider: "Google"` and echoes the slug
+ * it was asked for, so `gen_ai.response.provider` reads the same whether the request pinned Vertex
+ * or not (observed 2026-09-05, 4 runs). ZDR rests on this request body and the account setting —
+ * do not read a span as proof of it.
  */
 import { fetchWithTimeout } from "../httpTimeout.js";
 import { withGeminiSpan } from "../sentry.js";
