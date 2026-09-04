@@ -262,102 +262,39 @@ struct CoachChatEmptyThreadPrompt: View {
     }
 }
 
-/// Deterministic synced-batch list. Terracotta is reserved for load; tap opens Activity Detail
-/// when SyncCache has the row, otherwise the row still renders.
+/// Deterministic synced-batch list rendered in the same WarmCard + CardKicker style as the
+/// home feed's ledger card, so both surfaces share identical visual treatment.
 struct CoachChatSyncedActivityList: View {
     let activities: [SyncedActivityRow]
     var onSelect: (SyncedActivityRow) -> Void
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(activities.count == 1 ? "SESSION SYNCED" : "\(activities.count) SESSIONS SYNCED")
-                .font(WarmInstrument.monoLabel(8.5))
-                .tracking(1.2)
-                .foregroundStyle(WarmInstrument.inkFaint)
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
-                .padding(.bottom, 6)
+    private var sessionLabel: String {
+        activities.count == 1 ? "1 SESSION" : "\(activities.count) SESSIONS"
+    }
 
-            ForEach(Array(activities.enumerated()), id: \.element.id) { index, row in
-                Button {
-                    onSelect(row)
-                } label: {
-                    CoachChatSyncedActivityRow(row: row)
-                }
-                .buttonStyle(.plain)
-                if index < activities.count - 1 {
-                    Divider().overlay(WarmInstrument.headerRule)
-                        .padding(.leading, 14)
+    var body: some View {
+        WarmCard {
+            VStack(alignment: .leading, spacing: 0) {
+                CardKicker(label: "SESSION SYNCED", trailing: sessionLabel)
+                    .padding(.bottom, 12)
+
+                ForEach(Array(activities.enumerated()), id: \.element.id) { index, row in
+                    Button {
+                        onSelect(row)
+                    } label: {
+                        ActivityLedgerRow(vm: row.asRowViewModel)
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    if index < activities.count - 1 {
+                        Divider().overlay(WarmInstrument.headerRule)
+                    }
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(WarmInstrument.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(WarmInstrument.border, lineWidth: 1)
-        )
     }
 }
 
-private struct CoachChatSyncedActivityRow: View {
-    let row: SyncedActivityRow
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: Theme.sportIcon(for: row.sport))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.sportBadge(for: row.sport).color)
-                .frame(width: 28, height: 28)
-                .background(Theme.sportBadge(for: row.sport).color.opacity(0.1))
-                .clipShape(Circle())
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(row.title.isEmpty ? Theme.sportBadge(for: row.sport).label.capitalized : row.title)
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(WarmInstrument.ink)
-                    .lineLimit(1)
-                Text(metaLine)
-                    .font(WarmInstrument.monoLabel(9.5))
-                    .foregroundStyle(WarmInstrument.inkFaint)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if let load = row.load {
-                Text("+\(load)")
-                    .font(WarmInstrument.figures(12, weight: .bold))
-                    .foregroundStyle(WarmInstrument.accent)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .contentShape(Rectangle())
-    }
-
-    private var metaLine: String {
-        [Self.timeLabel(row.start), Self.durationLabel(row.durationSeconds)]
-            .filter { !$0.isEmpty }
-            .joined(separator: " · ")
-    }
-
-    private static func timeLabel(_ start: String) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        formatter.timeZone = .current
-        guard let date = formatter.date(from: String(start.prefix(19))) else { return "" }
-        let out = DateFormatter()
-        out.dateFormat = "h:mm a"
-        return out.string(from: date)
-    }
-
-    private static func durationLabel(_ seconds: Int) -> String {
-        let minutes = max(0, seconds) / 60
-        if minutes < 60 { return "\(minutes)m" }
-        return "\(minutes / 60)h \(minutes % 60)m"
-    }
-}
 
 struct CoachChatSyncRetryRow: View {
     let action: () -> Void
@@ -482,21 +419,21 @@ struct CoachChatComposer: View {
 
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(WarmInstrument.paper)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(canSend ? WarmInstrument.accent : WarmInstrument.inkFaint)
-                    .clipShape(Circle())
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .disabled(!canSend)
 
             Button(action: onEndConversation) {
                 Image(systemName: "stop.fill")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(WarmInstrument.paper)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 28, height: 28)
                     .background(canEndConversation && !isSending ? WarmInstrument.accent : WarmInstrument.inkFaint)
-                    .clipShape(Circle())
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             .disabled(!canEndConversation || isSending)
             .accessibilityLabel("End Conversation")
@@ -505,9 +442,9 @@ struct CoachChatComposer: View {
         .padding(.trailing, 8)
         .padding(.vertical, 6)
         .background(WarmInstrument.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
                     isFocused ? WarmInstrument.accent.opacity(0.55) : Color(red: 0xdd / 255, green: 0xd4 / 255, blue: 0xc3 / 255),
                     lineWidth: 1
