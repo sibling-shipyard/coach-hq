@@ -20,10 +20,22 @@ function schemaFields(mode: TurnMode, firstSession: boolean): string[] {
 }
 
 describe("mode-specific response schemas", () => {
-  it("allows no write actions on greetings or returning ordinary turns", () => {
+  it("allows no write actions on greetings or activity syncs", () => {
     expect(schemaFields("greeting", true)).toEqual(["session_closed", "reply"]);
     expect(schemaFields("activity_sync", false)).toEqual(["session_closed", "reply"]);
-    expect(schemaFields("ordinary", false)).toEqual(["session_closed", "reply"]);
+  });
+
+  it("unlocks data-fact actions (not session artifacts) on a returning ordinary turn (#616)", () => {
+    expect(schemaFields("ordinary", false)).toEqual([
+      "memory_update",
+      "sports_update",
+      "injury_flag",
+      "injury_event",
+      "quest_event",
+      "profile_update",
+      "session_closed",
+      "reply",
+    ]);
   });
 
   it("allows only incremental intake actions during an ordinary First Session turn", () => {
@@ -122,7 +134,7 @@ describe("cache safety", () => {
       true,
     );
     expect(dynamic).not.toContain("<first_session>");
-    expect(dynamic).toContain("Nothing about this turn gets saved anywhere");
+    expect(dynamic).toContain("save any concrete fact they state on this same turn");
   });
 
   it("tells Gemini to emit action fields immediately on an ordinary First Session turn", () => {
