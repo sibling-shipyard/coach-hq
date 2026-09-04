@@ -107,7 +107,7 @@ flowchart LR
 | # | Size | Milestone | State | Result |
 |---|---|---|---|---|
 | 0 | S | Account ready | ✅ done 2026-09-04 | The key, spend limit, data policy and rollback are locked; no code |
-| 1 | M | `coach-message` pilot | PR 1 in review | `llmClient` and both adapters exist; proactive messages run on OpenRouter in production |
+| 1 | M | `coach-message` pilot | PR 833 in review | `llmClient` and both adapters exist; proactive messages run on OpenRouter in production |
 | 2 | M | Chat and templates | not started | The remaining two callers reach the model through `llmClient`; production still selects Gemini for chat |
 | 3 | M | Cut over and retire | not started | OpenRouter is stable for two weeks, the direct adapter is removed and the ADR records the decision |
 
@@ -115,7 +115,7 @@ flowchart LR
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 1 | `llmClient`, both adapters, `coach-message` only, telemetry and tests | `main` | `ui/api/_lib/`, `ui/api/coach-message.ts`, `ui/api/coach-message/_lib/`, `ui/api/coach-message/_tests/`, `ui/api/_lib/_tests/` | Bob the Builder | — | in review — Refs #713 |
+| 1 | 1 | `llmClient`, both adapters, `coach-message` only, telemetry and tests | `main` | `ui/api/_lib/`, `ui/api/coach-message.ts`, `ui/api/coach-message/_lib/`, `ui/api/coach-message/_tests/`, `ui/api/_lib/_tests/` | Bob the Builder | — | PR 833 in review — Refs #713 |
 | 2 | 2 | Chat and template adjustment move onto `llmClient` | PR 1, after the chat stack lands | `ui/api/coach-chat.ts`, `ui/api/coach-chat/_lib/`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts`, `.github/workflows/eval-coach-chat.yml` | Bob the Builder | — | not started |
 | 3 | 3 | Remove direct Gemini after the observation gate; ADR, docs and plan cleanup | PR 2 | `ui/api/`, `ui/scripts/`, `.github/workflows/eval-coach-chat.yml`, `docs/eng-docs/`, `kdb/decisions/`, `docs/plans/chat-openrouter-migration.md` | Bob the Builder + Tech Lead | — | not started |
 
