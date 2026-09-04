@@ -1,0 +1,269 @@
+{
+  "info": {
+    "name": "Coach HQ API",
+    "description": "Coach HQ endpoints, generated from ui/api/ on 2026-09-04.\n\nAUTH: every request except Waitlist needs the `coach_session` cookie. It is HttpOnly + Secure + SameSite=Lax, so you cannot read it from JS and you cannot use plain http.\n\nTo get one:\n1. Sign in to the deployment in a browser (Preview or Production).\n2. DevTools -> Application -> Cookies -> pick `coach_session`.\n3. Copy its value into this collection's `sessionCookie` variable.\n4. Run `Auth / me` to confirm it works before anything else.\n\nThe cookie rotates (ADR 0009). If requests start 401ing, re-copy it.\n\nWARNING - coach-message and coach-chat WRITE to the athlete's GitHub repo. The target branch is `process.env.COACH_CHAT_BRANCH ?? \"main\"`. Unless COACH_CHAT_BRANCH is set on the deployment you are hitting, a test call commits to the athlete's real `main` and overwrites user_data/coach/latest_message.json.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://coach-hq.vercel.app",
+      "description": "Production, or paste a Vercel Preview URL. Must be https - the session cookie is Secure."
+    },
+    {
+      "key": "sessionCookie",
+      "value": "",
+      "description": "Value of the coach_session cookie, copied from browser DevTools."
+    },
+    {
+      "key": "activityId",
+      "value": "strava:123456789",
+      "description": "Must satisfy isStrictActivityId: strava:<digits> or healthkit:<UUID>. Must exist in the athlete repo."
+    }
+  ],
+  "auth": { "type": "noauth" },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "me - check the session works",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Start here. If this 401s, the cookie is wrong or expired and nothing else will work."
+          }
+        },
+        {
+          "name": "list-my-repos - resolves repo_full_name",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/list-my-repos",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "list-my-repos"]
+            },
+            "description": "repo-file returns 400 'No repo resolved yet' until this has run for the session."
+          }
+        },
+        {
+          "name": "refresh",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "start - begin OAuth (browser, not Postman)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "start"]
+            },
+            "description": "Redirects to GitHub. Open in a browser; Postman will not complete the OAuth round trip usefully."
+          }
+        },
+        {
+          "name": "logout",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coach message (proactive)",
+      "item": [
+        {
+          "name": "POST /api/coach-message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "coach_session={{sessionCookie}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"activity_ids\": [\"{{activityId}}\"]\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/coach-message",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "coach-message"]
+            },
+            "description": "The endpoint the OpenRouter pilot moves. No sync needed - it is a plain POST.\n\nBody contract is strict (validateActivityIdsPayload): exactly one key, `activity_ids`, an array of 1..MAX_ACTIVITY_IDS strict ids. Any extra key is a 400.\n\nWRITES user_data/coach/latest_message.json in the athlete repo. Set COACH_CHAT_BRANCH on the deployment first if you do not want that on main.\n\nExpected 200: {\"message\": \"...\", \"delivered\": true}\n502 'Gemini returned invalid JSON' was the #827 bug. 502 'Gemini truncated its response before finishing (MAX_TOKENS...)' is the post-fix, honest version."
+          }
+        },
+        {
+          "name": "POST - malformed body (should 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "coach_session={{sessionCookie}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activity_ids\": [\"{{activityId}}\"],\n  \"extra\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/coach-message",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "coach-message"]
+            },
+            "description": "Expect 400 'Request body must contain only activity_ids'. Cheap way to confirm you are hitting the real route and not a cached shell."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coach chat",
+      "item": [
+        {
+          "name": "POST /api/coach-chat - greet",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "coach_session={{sessionCookie}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"greet\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/coach-chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "coach-chat"]
+            },
+            "description": "Cheapest real chat call. `onboardingHints` is optional."
+          }
+        },
+        {
+          "name": "POST /api/coach-chat - ordinary turn",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "coach_session={{sessionCookie}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"How did last week look?\",\n  \"messages\": [],\n  \"threadId\": null,\n  \"knownSha\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/coach-chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "coach-chat"]
+            },
+            "description": "`messages` is prior turns, `knownSha` guards the commit. WRITES to the athlete repo."
+          }
+        },
+        {
+          "name": "POST /api/coach-chat - activity_sync",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "coach_session={{sessionCookie}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"activity_sync\",\n  \"activity_ids\": [\"{{activityId}}\"],\n  \"knownSha\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/coach-chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "coach-chat"]
+            }
+          }
+        },
+        {
+          "name": "GET /api/coach-chat-context",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/coach-chat-context",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "coach-chat-context"]
+            },
+            "description": "Read-only. Safe to call freely."
+          }
+        },
+        {
+          "name": "GET /api/coach-chat-profile-status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/coach-chat-profile-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "coach-chat-profile-status"]
+            },
+            "description": "Read-only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Data (read-only)",
+      "item": [
+        {
+          "name": "GET /api/widget-snapshots",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/widget-snapshots",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "widget-snapshots"]
+            },
+            "description": "Reads user_data/coach/latest_message.json among other things - handy for confirming what a coach-message call actually wrote."
+          }
+        },
+        {
+          "name": "GET /api/repo-file",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Cookie", "value": "coach_session={{sessionCookie}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/repo-file",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "repo-file"]
+            },
+            "description": "gen/dashboard_snapshot.json via the GitHub Contents API. Run Auth / list-my-repos first or this 400s."
+          }
+        },
+        {
+          "name": "POST /api/waitlist",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@example.com\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/waitlist",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "waitlist"]
+            },
+            "description": "Public. Check ui/api/waitlist.ts for the exact field names before relying on this one."
+          }
+        }
+      ]
+    }
+  ]
+}

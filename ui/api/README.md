@@ -31,3 +31,19 @@ files total, well under the cap.
 | `auth/_lib/`, `auth/_tests/`                   | See [`auth/README.md`](auth/README.md)                                                                                                                                                                                                                                                 |
 | `coach-chat/_lib/`, `coach-chat/_tests/`       | See [`coach-chat/README.md`](coach-chat/README.md)                                                                                                                                                                                                                                     |
 | `coach-message/_lib/`, `coach-message/_tests/` | Proactive-message context projection, Gemini boundary, resolved write, and deterministic tests                                                                                                                                                                                         |
+
+## Calling these routes by hand
+
+[`coach-hq.postman_collection.json`](coach-hq.postman_collection.json) covers every route above.
+Import it into Postman and set three collection variables:
+
+| Variable        | Set it to                                                                             |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `baseUrl`       | Production, or a Vercel Preview URL. Must be `https` — the session cookie is `Secure` |
+| `sessionCookie` | The `coach_session` cookie value, copied from browser DevTools. Ships empty           |
+| `activityId`    | An id that exists in the athlete repo: `strava:<digits>` or `healthkit:<UUID>`        |
+
+Start with `Auth → me`. If that 401s the cookie is wrong or expired and nothing else will work.
+
+`POST /api/coach-message` writes `user_data/coach/latest_message.json` to the athlete repo. Set
+`COACH_CHAT_BRANCH` on the deployment first unless you mean that to land on their real `main`.
