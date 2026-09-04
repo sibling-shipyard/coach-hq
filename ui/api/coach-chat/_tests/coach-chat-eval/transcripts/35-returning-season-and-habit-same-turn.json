@@ -1,0 +1,25 @@
+{
+  "name": "returning-season-and-habit-same-turn",
+  "description": "#808 follow-up: same silent-drop shape as the FSP case, but for a returning athlete. B3 made season_start and quest_create both available on any turn, not just First Session. A returning athlete naming a new season goal and a new daily habit in the same message must get both fields set, not just season_start. NOTE: this harness calls askGemini() with soul: \"\" (see this file's header comment), so it exercises coachPromptText.ts's returning-athlete branch only, not the B_engine.md SOUL addition - that reaches the hosted app's real SOUL.chat.md prefix but isn't covered by this local eval.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K done last week\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 75kg\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K (done)\n",
+  "history": [
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": ["Great finish on the 10K last week - what's next?"]
+    }
+  ],
+  "userMessage": "I want to start a new season now, training for a marathon. Goal: finish under 4 hours by 2027-03-01, starting today. Also want to build a daily habit of stretching for 10 mins.",
+  "expect": {
+    "actionFieldsPresent": ["season_start", "quest_create"],
+    "actionFieldsAbsent": [
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
+  }
+}

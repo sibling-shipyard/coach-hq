@@ -62,6 +62,28 @@ Run against the final integrated branch (every PR in this stack landed, right be
      **Not yet tried:** reorder `quest_create` earlier in both action-field lists (e.g. beside
      `season_start` in the data-fact half, not trailing every other field), then re-test both
      models. Left for a follow-up on #808, not blocking this pass.
+   - **#808 — returning-athlete path found and fixed the same day, still not resolved
+     (2026-09-04, PR #824).** A full line-by-line audit of the SOUL layers and
+     `coachPromptText.ts` (prompted by wanting to be sure this PR was actually complete before
+     merging) found the first commit only strengthened the First Session branch. B3 already made
+     `season_start`/`quest_create` available to a returning athlete on any turn. The returning
+     branch (`coachPromptText.ts`'s non-FSP block, and `B_engine.md`'s `s5b1` "Current Season"
+     rule) had zero pairing warning — the exact same bug shape, unfixed. Added the matching
+     warning to both. `s5b1` has no `keyTargets` override, so it lands in `SOUL.chat.md`'s static
+     prefix directly — confirmed via `compose-soul.mjs`, no horcrux dependency this time. New eval
+     transcript `35-returning-season-and-habit-same-turn.json` (a returning athlete starting a new
+     season and naming a new daily habit in the same message; the harness runs with `soul: ""`, so
+     this only exercises `coachPromptText.ts`, not the SOUL addition). 5 fresh runs each:
+     **`gemini-flash-latest`: 0/5. `gemini-pro-latest`: 0/5.** Worse than the FSP path's 4/5 on
+     pro, and the prompt fix moved neither model at all here — `season_start` fires every time,
+     `quest_create` never does, reply text and `coach_note` both claim the habit is saved anyway.
+     Confirmed genuine on a full run log, not a transcript-setup artifact. The audit's own
+     field-order check found `season_start`/`quest_create` sit at positions 8-9 of 9 in
+     `FSP_ACTIONS` (last, right before `reply`), and at 9-10 of 15 in `RETURNING_ACTIONS`.
+     That's nominally less exposed there, yet the live result is worse, not better. Wording alone does not fix
+     either path. Reordering `quest_create` (and re-testing both branches, both models) is no
+     longer a nice-to-have follow-up — it's the next thing to try before this issue can be called
+     fixed. Not yet done; decision pending.
    - **#807 — untouched by this pass.** Same G1 batch, different failure shape (`plan_edit`
      agreed in prose, no field set at all, not a pairing-drop) — needs its own root-cause dig, not
      assumed to share #808's fix.
