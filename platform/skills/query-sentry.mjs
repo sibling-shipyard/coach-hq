@@ -12,6 +12,9 @@ import path from "node:path";
 import process from "node:process";
 
 const ORG_SLUG = "sibling-shipyard";
+// Every issue path is org-scoped. Sentry's unscoped `/issues/<id>/` form 404s, and the 404 is
+// indistinguishable from a deleted issue - so it reads as "nothing there", not "wrong URL".
+const ORG = `/organizations/${ORG_SLUG}`;
 const TOKEN_FILE = path.join(os.homedir(), ".config", "sentry-token");
 const TOKEN_HINT =
   "Set SENTRY_AUTH_TOKEN or write the token to ~/.config/sentry-token (chmod 600). Never paste it into chat.";
@@ -30,6 +33,11 @@ function readToken() {
 }
 
 const TOKEN = readToken();
+
+function flagValue(name) {
+  const at = process.argv.indexOf(name);
+  return at >= 0 ? process.argv[at + 1] : undefined;
+}
 
 function listQuery(raw) {
   const query = raw || "is:unresolved";
@@ -79,15 +87,13 @@ async function main() {
 
   try {
     if (command === "list") {
-      const flagAt = process.argv.indexOf("--query");
-      const rawQuery = flagAt >= 0 ? process.argv[flagAt + 1] : undefined;
       const params = new URLSearchParams({
-        query: listQuery(rawQuery),
-        limit: "10",
+        query: listQuery(flagValue("--query")),
+        limit: flagValue("--limit") ?? "100",
         // All three projects (web, api, ios). The org issues endpoint does not default to that.
         project: "-1",
       });
-      const data = await request(`/organizations/${ORG_SLUG}/issues/?${params}`);
+      const data = await request(`${ORG}/issues/?${params}`);
       if (!Array.isArray(data)) {
         throw new Error(`Unexpected issues payload: ${JSON.stringify(data)}`);
       }
@@ -107,10 +113,10 @@ async function main() {
         ),
       );
     } else if (command === "issue" && arg1) {
-      const data = await request(`/issues/${arg1}/`);
+      const data = await request(`${ORG}/issues/${arg1}/`);
       console.log(JSON.stringify(data, null, 2));
     } else if (command === "event" && arg1) {
-      const data = await request(`/issues/${arg1}/events/latest/`);
+      const data = await request(`${ORG}/issues/${arg1}/events/latest/`);
       console.log(
         JSON.stringify(
           {
@@ -123,11 +129,30 @@ async function main() {
           2,
         ),
       );
+    } else if (command === "athletes" && arg1) {
+      const data = await request(`${ORG}/issues/${arg1}/tags/athlete_id/`);
+      console.log(
+        JSON.stringify(
+          {
+            uniqueAthletes: data.uniqueValues,
+            totalEvents: data.totalValues,
+            athletes: (data.topValues ?? []).map((v) => ({
+              athlete_id: v.value,
+              count: v.count,
+              firstSeen: v.firstSeen,
+              lastSeen: v.lastSeen,
+            })),
+          },
+          null,
+          2,
+        ),
+      );
     } else {
       console.error("Usage:");
-      console.error("  query-sentry.mjs list [--query \"<query>\"]");
+      console.error("  query-sentry.mjs list [--query \"<query>\"] [--limit <n>]");
       console.error("  query-sentry.mjs issue <issue-id>");
       console.error("  query-sentry.mjs event <issue-id>");
+      console.error("  query-sentry.mjs athletes <issue-id>");
       process.exit(1);
     }
   } catch (error) {
