@@ -820,6 +820,7 @@ export async function generateProactiveBody(
           promptTokens: payload.usageMetadata.promptTokenCount,
           completionTokens: payload.usageMetadata.candidatesTokenCount,
           totalTokens: payload.usageMetadata.totalTokenCount,
+          thinkingTokens: payload.usageMetadata.thoughtsTokenCount,
         });
       }
       const finishReason = payload.candidates?.[0]?.finishReason;

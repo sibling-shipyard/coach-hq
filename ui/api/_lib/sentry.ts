@@ -301,6 +301,7 @@ export interface GeminiUsage {
   completionTokens?: number;
   totalTokens?: number;
   cachedPromptTokens?: number;
+  thinkingTokens?: number;
 }
 
 /**
@@ -319,6 +320,11 @@ function usageAttributes(usage: GeminiUsage): Record<string, number> {
     ["gen_ai.usage.output_tokens", usage.completionTokens],
     ["gen_ai.usage.total_tokens", usage.totalTokens],
     ["gen_ai.usage.input_tokens.cached", usage.cachedPromptTokens],
+    // Not in Sentry's own gen_ai set (no reasoning/thinking token attribute exists there yet) —
+    // named to match the `.cached` qualifier pattern above. Thinking tokens bill against the
+    // same output budget as `completionTokens` but are absent from it (#827), so without this
+    // the span under-reports cost on any thinking-capable model.
+    ["gen_ai.usage.output_tokens.reasoning", usage.thinkingTokens],
   ];
   return Object.fromEntries(
     pairs.filter((pair): pair is [string, number] => pair[1] !== undefined),
