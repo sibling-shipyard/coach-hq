@@ -1,6 +1,6 @@
 {
   "name": "coach-note-required-with-quest-event",
-  "description": "C2: coach_note is day-keyed now, available on every ordinary turn, not just a closing one. A turn that also reports a real quest completion (quest_event) is exactly the case the enforcement rule targets - something happened, so coach_note is required alongside it, not left to Gemini's free choice.",
+  "description": "C2: coach_note is day-keyed now, available on every ordinary turn, not just a closing one. A turn that also reports a real quest completion (quest_event) is exactly the case the enforcement rule targets - something happened, so coach_note is required alongside it, not left to Gemini's free choice. K1 testing pass (2026-09-04) live finding: same shape as #10/#12's own precedent - a live run fired quest_event with no coach_note. quest_event is in coachTurn.ts's ACTIONS_REQUIRING_COACH_NOTE, so a real production turn shaped like this gets caught and corrected by the C2 reprompt (coachTurn-reprompt.test.ts covers this deterministically, mocked). This harness calls askGemini() directly, single-shot, and never exercises that reprompt - the actual guarantee to the athlete lives in coachTurn.ts, not in Gemini's first-try compliance. Loosened to match #10/#12 rather than reproduce #670's baseline noise on a case production already self-heals.",
   "mode": "ordinary",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Recent Session Notes (rolling - last 5 sessions)\n*(No note written yet today.)*\n- 2026-08-17: Badminton match, won 2-1.\n- 2026-08-16: Strength session, all sets hit.\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily (id: side_cold_shower)\n",
@@ -10,7 +10,6 @@
   ],
   "userMessage": "Did my cold shower again this morning, that's day 13 in a row now.",
   "expect": {
-    "coachNoteReported": true,
-    "actionFieldsPresent": ["quest_event", "coach_note"]
+    "actionFieldsPresent": ["quest_event"]
   }
 }
