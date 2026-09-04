@@ -1,0 +1,92 @@
+[
+  {
+    "kind": "eval",
+    "name": "incremental-injury-disclosure [turn 1/3]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how'd the run go?"
+          ]
+        }
+      ],
+      "userMessage": "Run was fine, though something felt a bit off in the back half. Nothing major."
+    },
+    "output": {
+      "reply": "Good that you got it done. What do you mean by 'a bit off' - a muscular tweak, form breaking down, or just general fatigue setting in? Let's keep an eye on it."
+    },
+    "result": "PASS",
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json"
+      ]
+    }
+  },
+  {
+    "kind": "eval",
+    "name": "incremental-injury-disclosure [turn 2/3]",
+    "input": {
+      "mode": "ordinary",
+      "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
+      "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
+      "history": [
+        {
+          "id": "1",
+          "role": "coach",
+          "paragraphs": [
+            "Morning - how'd the run go?"
+          ]
+        },
+        {
+          "id": "u-1788343436006",
+          "role": "user",
+          "text": "Run was fine, though something felt a bit off in the back half. Nothing major."
+        },
+        {
+          "id": "c-1788343436006",
+          "role": "coach",
+          "paragraphs": [
+            "Good that you got it done. What do you mean by 'a bit off' - a muscular tweak, form breaking down, or just general fatigue setting in? Let's keep an eye on it."
+          ]
+        }
+      ],
+      "userMessage": "Actually thinking about it more, my left hip has been sore for 3 days now, not just today."
+    },
+    "output": {
+      "reply": "Three days changes the conversation. A lingering niggle is exactly how real injuries start. Where exactly on the left hip? And is it a dull ache or a sharp pain? Hold off on any hard efforts until we figure this out.",
+      "injury_flag": [
+        {
+          "text": "Left hip soreness lingering for 3 days, noticed particularly in the back half of a run."
+        }
+      ],
+      "session_reconcile": [],
+      "template_edit": {
+        "template_id": "none"
+      },
+      "week_plan": {
+        "headline": "none",
+        "body": "none",
+        "days": []
+      }
+    },
+    "result": "FAIL",
+    "failures": [
+      "expected action field \"injury_event\" to be set, but it was absent/empty"
+    ],
+    "filesChanged": {
+      "confidence": "derived",
+      "files": [
+        "chat_history.json",
+        "injuries.json",
+        "workout_plans/templates/none.json (template_edit)",
+        "current_week.json"
+      ]
+    }
+  }
+]

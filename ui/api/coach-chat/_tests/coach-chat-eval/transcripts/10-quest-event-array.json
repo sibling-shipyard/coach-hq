@@ -1,16 +1,15 @@
 {
   "name": "quest-event-array",
-  "description": "Issue #410 regression: athlete reports two separate quest completions in one closing message - both must land as separate entries in the quest_event array, not just the first.",
-  "mode": "closing",
+  "description": "Issue #410 regression: athlete reports two separate quest completions in one ordinary message - both must land as separate entries in the quest_event array, not just the first. G1: converted from mode=closing to mode=ordinary - closing no longer exists (C1), and quest_event was never actually closing-gated, only the transcript's framing was.",
+  "mode": "ordinary",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
   "extraContext": "Current quests (use these exact quest_ids for quest_event):\n- quest_id: q-sub45 | type: main | main quest\n- quest_id: q-coldshower | type: streak | status: active",
   "history": [
     { "id": "1", "role": "coach", "paragraphs": ["Morning - how'd today go on the two fronts?"] }
   ],
-  "userMessage": "Two things to log: nailed the cold shower again this morning, that's done for today. And I hit today's tempo run target, that counts as today's progress on the sub-45 10K quest too - mark both of those complete. Wrap this up.",
+  "userMessage": "Two things to log: nailed the cold shower again this morning, that's done for today. And I hit today's tempo run target, that counts as today's progress on the sub-45 10K quest too - mark both of those complete.",
   "expect": {
-    "sessionClosed": true,
     "coachNoteReported": true,
     "actionFieldsPresent": ["quest_event"]
   }

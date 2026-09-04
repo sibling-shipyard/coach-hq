@@ -16,7 +16,6 @@
   ],
   "userMessage": "Yeah a few. Left knee - I had ACL surgery done last year. Right shoulder and right elbow - badminton related injuries, they flare up often.",
   "expect": {
-    "sessionClosed": false,
     "actionFieldsPresent": ["injury_flag"]
   }
 }

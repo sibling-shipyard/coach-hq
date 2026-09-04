@@ -13,7 +13,6 @@
   ],
   "userMessage": "I want to start a new season now, training for a marathon. Goal: finish under 4 hours by 2027-03-01, starting today.",
   "expect": {
-    "sessionClosed": false,
     "actionFieldsPresent": ["season_start"],
     "actionFieldsAbsent": [
       "template_edit",

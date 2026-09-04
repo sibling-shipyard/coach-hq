@@ -1,6 +1,6 @@
 {
   "name": "activity-sync",
-  "description": "M0 sync turn: stand-alone reply to a verified batch the athlete did not type. No invented cause. Question only if the answer changes coaching.",
+  "description": "M0 sync turn: stand-alone reply to a verified batch the athlete did not type. No invented cause. Question only if the answer changes coaching. G1: dropped sessionClosed - there is no closing concept left to assert on.",
   "mode": "activity_sync",
   "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K in 8 weeks\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n\n## Training Log\n(no entries yet)\n",
   "questLog": "## Active Quests\n- Main: Sub-45 10K\n- Side: Cold shower daily\n",
@@ -8,7 +8,6 @@
   "history": [],
   "userMessage": "[Activity sync. Respond to the verified batch in context. The athlete did not type this.]",
   "expect": {
-    "sessionClosed": false,
     "actionFieldsAbsent": [
       "memory_update",
       "injury_event",
