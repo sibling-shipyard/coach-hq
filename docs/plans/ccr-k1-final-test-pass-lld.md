@@ -157,6 +157,28 @@ field-check - a clean 200 with a field missing is not a `flash` problem, see #80
   real writes, not derived guesses. This is the only track that can answer "what actually gets
   saved."
 
+### Track B results so far (`test:coach-chat-manual`, real repo, scratch branch)
+
+- **CRITICAL — E1's `coaching_style` gate re-triggers full FSP for an established athlete
+  (2026-09-04, flash, `coach-skanda`, scratch branch `test/manual-2026-09-04T12-52-14-684Z`).**
+  `isAthleteProfileComplete` (`coachChatFiles.ts:330-332`) requires a real `coaching_style` enum
+  value. `coach-skanda`'s `memory.json` predates E1 and has none set. A real ordinary message
+  ("Feeling okay, elbow is fine today.") to this 67-session athlete got the full First Session
+  introduction back - "let me introduce myself properly... I'm Coach Phelps... what is your date
+  of birth?" - mid-conversation, unprompted, plus the coaching-style intake question. Commit
+  mechanics themselves are solid: the same turn's `injury_event` correctly updated an existing
+  flag by its real `flag_id` (`inj_right_elbow_golfer_s_elbow_medial_epicon`), real observed diff
+  landed clean (`chat_history.json`/`coach_log.json`/`injuries.json`, commit `e72f7c7`). The bug is
+  purely the FSP re-trigger. F1's LLD already tracks `coaching_style` backfill as a needed step for
+  all 5 real athlete repos (`ccr-f1-repo-migration-lld.md` Step 3, item 1) - so this is a known,
+  planned gap, not a surprise. But it means **F1 is a hard blocker before this ships to any real
+  athlete**, not just a nice-to-have follow-up: shipping E1's gate live without the backfill would
+  reset every existing athlete's onboarding on their next message. Also found in passing: F1's own
+  cached table says `coach-skanda-2003`'s `profile.json` was `{}` as of 2026-09-01 - it is not
+  empty now (`name`/`dob`/`timezone`/`height_cm`/`weight_kg` all real, confirmed directly). F1's own
+  "re-confirm at Step 0" caveat already anticipates this kind of drift; flagging for whoever
+  executes F1, not fixed here.
+
 Every result — pass, fail, or gap closed — gets recorded here before any further code change,
 including the #808 structural schema fix proposed above (nesting `new_habits` inside `season_start`
 so it's `required` the way `main_quest` already is). Not implemented yet: parked until this audit
