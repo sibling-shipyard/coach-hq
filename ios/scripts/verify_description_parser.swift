@@ -2,9 +2,10 @@ import Foundation
 
 // Standalone verification harness for DescriptionParser.swift.
 //
-// There is no Xcode test target in this project, so this ports every case from
-// platform/tests/test_parse_match_description.py as plain assertions and runs them via the
-// `swift`/`swiftc` CLI directly against the app's DescriptionParser.swift.
+// Ports every case from platform/tests/test_parse_match_description.py as plain assertions
+// and runs them via the `swift`/`swiftc` CLI directly against the app's DescriptionParser.swift,
+// with no simulator. `CoachHQTests/DescriptionParserTests.swift` is the suite CI runs; this one
+// stays for a fast local loop on a machine with no Xcode.
 //
 // Usage:
 //   swiftc ios/CoachHQ/CoachHQ/Services/DescriptionParser.swift \
@@ -253,11 +254,12 @@ struct Verify {
             t.check("test_15_empty_input: whitespace only", DescriptionParser.parseRawDescription("   \n\n  ") == nil)
         }
 
-        // ── Test 16: Only metadata, no games ───────────────────────────────
+        // ── Test 16: Only metadata, no games → plain note (#766) ───────────
         do {
             let raw = "#notes Just warming up\n#rank 5"
             let result = DescriptionParser.parseRawDescription(raw)
-            t.check("test_16_only_metadata: nil", result == nil)
+            t.check("test_16_only_metadata: plain note", result?.isPlainNote == true)
+            t.check("test_16_only_metadata: notes kept", result?.notes == "Just warming up")
         }
 
         // ── Test 17: Win percentage rounding ───────────────────────────────

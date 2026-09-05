@@ -1,13 +1,12 @@
 import Foundation
 
-/// Canonical badminton match parser (ADR 0013). Parses raw scores pasted on-device
+/// Canonical activity-description parser (ADR 0013).
 ///
-/// Parses raw badminton match descriptions (pasted into the description field on-device)
-/// and produces:
-///   1. A formatted description string (same shape the old Strava pipeline used to write)
-///   2. A structured `MatchSession` for `user_data/activities/match_history.json`
+/// Reads whatever the athlete typed into an activity's description on-device and produces:
+///   1. A formatted description string
+///   2. For match sports, a structured `MatchSession` for `user_data/activities/match_history.json`
 ///
-/// Supports input format for ranked/friendly games:
+/// Match input format for ranked/friendly games:
 ///     {partner} me vs {opp1}/{opp2} {our_score}-{their_score}
 ///     Or for singles:
 ///     me vs {opponent} {our_score}-{their_score}
@@ -17,6 +16,10 @@ import Foundation
 ///     #rank N
 ///     PRE: score, word
 ///     ---           (separator: ranked above, friendlies below)
+///
+/// Anything with no recognizable game line is a plain free-text note: it comes back as
+/// `notes` with `isPlainNote == true`, and formats back to itself unchanged. That is what
+/// lets every sport — not just badminton and tennis — carry a description.
 ///
 /// This file is Foundation-only (no UIKit/SwiftUI) so it can be unit-tested standalone
 /// via `ios/scripts/verify_description_parser.swift`.
@@ -46,6 +49,10 @@ struct ParsedDescription: Equatable {
     var friendlies: [ParsedGame]
     var hasSeparator: Bool
     var warnings: [String]
+
+    /// True when no game line parsed, so `notes` holds the athlete's free text and there is
+    /// nothing to write to `match_history.json`.
+    var isPlainNote: Bool { ranked.isEmpty && friendlies.isEmpty }
 }
 
 // MARK: - match_history.json models
@@ -126,10 +133,21 @@ enum DescriptionParser {
         description.contains(formattedMarker)
     }
 
-    /// Parses a raw match description string.
+    /// Parses a raw activity description.
     ///
-    /// Returns nil if the input is empty, already formatted, or has no parseable games.
-    static func parseRawDescription(_ raw: String) -> ParsedDescription? {
+    /// Input with at least one recognizable game line comes back as a match. Anything else
+    /// comes back as a plain free-text note. Returns nil only when the input is empty, or
+    /// when it is already a formatted match (which must not be re-parsed).
+    ///
+    /// `allowMatchParsing` is the sport gate, and it is load-bearing: `match_history.json` is
+    /// canonical for the win rate every consumer reads (ADR 0013), so only a score-entry sport
+    /// may produce a match. Pass `false` and every input is a note, including text that would
+    /// otherwise parse as games — a run is not a badminton session because someone typed a score
+    /// into it. Callers pass `Theme.sportSupportsScoreEntry(for:)`.
+    static func parseRawDescription(
+        _ raw: String,
+        allowMatchParsing: Bool = true
+    ) -> ParsedDescription? {
         if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return nil
         }
@@ -145,6 +163,9 @@ enum DescriptionParser {
         var warnings: [String] = []
         var inFriendlies = false
         var hasSeparator = false
+        // Every line no rule claimed, kept verbatim (blank lines included) so a free-text
+        // note round-trips with its paragraph breaks intact.
+        var freeTextLines: [String] = []
 
         let normalized = raw
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,7 +176,10 @@ enum DescriptionParser {
         for (idx, line) in lines.enumerated() {
             let i = idx + 1
             let lineStripped = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            if lineStripped.isEmpty { continue }
+            if lineStripped.isEmpty {
+                freeTextLines.append("")
+                continue
+            }
 
             // Metadata: #notes
             if lineStripped.lowercased().hasPrefix("#notes ") {
@@ -187,19 +211,39 @@ enum DescriptionParser {
                 continue
             }
 
-            if matches(rawMarkerRegex, lineStripped) {
+            if allowMatchParsing, matches(rawMarkerRegex, lineStripped) {
                 if let game = parseGameLine(lineStripped) {
                     if inFriendlies { friendlyGames.append(game) } else { rankedGames.append(game) }
                 } else {
                     warnings.append("Line \(i) skipped: malformed input '\(lineStripped)'")
+                    freeTextLines.append(lineStripped)
                 }
                 continue
             }
+
+            freeTextLines.append(lineStripped)
         }
 
         let allGames = rankedGames + friendlyGames
         if allGames.isEmpty {
-            return nil
+            // No game parsed, so this is free text. Warnings are dropped with the match
+            // reading: a line that failed the game regex is just prose in a note.
+            let leftover = freeTextLines
+                .joined(separator: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let note = [notes ?? "", leftover]
+                .filter { !$0.isEmpty }
+                .joined(separator: "\n")
+            if note.isEmpty { return nil }
+            return ParsedDescription(
+                notes: note,
+                rank: rank,
+                preMentalState: preMentalState,
+                ranked: [],
+                friendlies: [],
+                hasSeparator: false,
+                warnings: []
+            )
         }
 
         return ParsedDescription(
@@ -215,6 +259,21 @@ enum DescriptionParser {
 
     /// Turns a parsed description into the formatted description string.
     static func formatDescription(_ parsed: ParsedDescription) -> String {
+        // A note has no games to summarize, so it formats to itself — a "0W-0L (0%)" header
+        // over someone's training note would be nonsense, and would break the round trip.
+        if parsed.isPlainNote {
+            var noteLines: [String] = []
+            if let notes = parsed.notes, !notes.isEmpty { noteLines.append(notes) }
+            // Re-emit the metadata the parser lifted out of the text. On a match these survive
+            // in match_history.json; a note writes no history, so anything not put back here is
+            // deleted from what the athlete typed.
+            if let rank = parsed.rank { noteLines.append("#rank \(rank)") }
+            if let pre = parsed.preMentalState {
+                noteLines.append("PRE: \(pre.score), \(pre.word)")
+            }
+            return noteLines.joined(separator: "\n")
+        }
+
         var lines: [String] = []
 
         // Notes at top

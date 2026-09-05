@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Shows a synced activity's stats and (for Badminton) lets the user log match scores.
-/// Layout: headerBar → Beat 01 hero → Beat 02 ribbon → Beat 03 vs-usual → Beat 04 scores
+/// Shows a synced activity's stats and lets the athlete write a description for it: match
+/// scores on a score-entry sport, a free-text note on every other sport.
+/// Layout: headerBar → Beat 01 hero → Beat 02 ribbon → Beat 03 vs-usual → Beat 04 description
 
 private let matchWinColor  = Color(red: 0x1A/255, green: 0x47/255, blue: 0x31/255) // deep green
 private let matchLossColor = Color(red: 0xa3/255, green: 0x46/255, blue: 0x2c/255) // warm red
@@ -20,7 +21,7 @@ struct ActivityDetailView: View {
     @State private var errorMessage: String?
     @State private var statsRevealed: Bool
     @State private var statsProgress: Double = 0
-    @State private var showingScoreSheet = false
+    @State private var showingDescriptionSheet = false
     @State private var toast: Toast?
     @State private var isSavingCategory = false
 
@@ -50,7 +51,11 @@ struct ActivityDetailView: View {
     }
 
     private var parsed: ParsedDescription? {
-        DescriptionParser.parseRawDescription(descriptionText)
+        // The sport gate. Before notes opened to every sport this was structural — the editor
+        // only rendered under `supportsScoreEntry`, so nothing else could reach the match path.
+        // The editor is now on everywhere, so the gate has to be stated instead of implied, or
+        // match text typed on a run writes a session into match_history.json (ADR 0013).
+        DescriptionParser.parseRawDescription(descriptionText, allowMatchParsing: supportsScoreEntry)
     }
 
     private var hrZoneTotal: Double {
@@ -68,7 +73,7 @@ struct ActivityDetailView: View {
                     heroCard
                     ribbonCard
                     usualCard
-                    if supportsScoreEntry { scoreSection }
+                    descriptionSection
                     if let errorMessage {
                         Text(errorMessage)
                             .font(.caption)
@@ -88,8 +93,8 @@ struct ActivityDetailView: View {
         .hidesMainTabBar()
         .edgeBackSwipe { dismiss() }
         .toast($toast)
-        .sheet(isPresented: $showingScoreSheet) {
-            ScoreEntrySheet(
+        .sheet(isPresented: $showingDescriptionSheet) {
+            DescriptionEditorSheet(
                 entry: entry,
                 descriptionText: $descriptionText,
                 isSaving: $isSaving,
@@ -509,19 +514,24 @@ struct ActivityDetailView: View {
         return n % 2 == 0 ? (sorted[n/2 - 1] + sorted[n/2]) / 2 : sorted[n/2]
     }
 
-    // MARK: - Beat 04: Score section (Badminton only)
+    // MARK: - Beat 04: Description section (every sport)
+
+    /// Label for the empty prompt, which has no content to name yet: a score-entry sport
+    /// asks for scores, everything else asks for a note.
+    private var emptyDescriptionLabel: String {
+        supportsScoreEntry ? "MATCH SCORES" : "NOTES"
+    }
 
     @ViewBuilder
-    private var scoreSection: some View {
+    private var descriptionSection: some View {
         if let desc = savedDescription {
             if let matchData = FormattedMatchData.parse(desc) {
                 richScoreCard(matchData)
             } else {
-                // Raw fallback — shouldn't normally happen for valid saved descriptions
-                rawScoreCard(desc)
+                noteCard(desc)
             }
         } else {
-            emptyScorePrompt
+            emptyDescriptionPrompt
         }
     }
 
@@ -532,7 +542,7 @@ struct ActivityDetailView: View {
                 HStack {
                     MonoLabel("MATCH SCORES")
                     Spacer()
-                    Button { openScoreSheet() } label: {
+                    Button { openDescriptionSheet() } label: {
                         MonoLabel("EDIT", size: 9.5, color: WarmInstrument.accent)
                     }
                     .buttonStyle(.plain)
@@ -596,20 +606,23 @@ struct ActivityDetailView: View {
         .staggerReveal(delay: 0.20)
     }
 
-    private func rawScoreCard(_ desc: String) -> some View {
-        Button { openScoreSheet() } label: {
+    /// Free-text description, and the fallback for match text that didn't format cleanly.
+    private func noteCard(_ desc: String) -> some View {
+        Button { openDescriptionSheet() } label: {
             WarmCard(padding: 16, fill: WarmInstrument.surfaceMuted) {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        MonoLabel("MATCH SCORES")
+                        MonoLabel("NOTES")
                         Spacer()
                         Image(systemName: "pencil")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(WarmInstrument.inkFaint)
                     }
                     Text(desc)
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(.system(size: 13))
                         .foregroundColor(WarmInstrument.ink)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -618,21 +631,23 @@ struct ActivityDetailView: View {
         .staggerReveal(delay: 0.20)
     }
 
-    private var emptyScorePrompt: some View {
-        Button { openScoreSheet() } label: {
+    private var emptyDescriptionPrompt: some View {
+        Button { openDescriptionSheet() } label: {
             WarmCard(padding: 16, dashed: true) {
                 VStack(alignment: .leading, spacing: 12) {
-                    MonoLabel("MATCH SCORES")
+                    MonoLabel(emptyDescriptionLabel)
                     HStack(spacing: 12) {
-                        Image(systemName: "figure.badminton")
+                        Image(systemName: supportsScoreEntry ? "figure.badminton" : "square.and.pencil")
                             .font(.system(size: 22, weight: .medium))
                             .foregroundColor(badge.color)
                             .frame(width: 30)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Log match scores")
+                            Text(supportsScoreEntry ? "Log match scores" : "Add a note")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(Theme.ink)
-                            Text("Paste your results from this session")
+                            Text(supportsScoreEntry
+                                 ? "Paste your results from this session"
+                                 : "Anything Coach should know about this session")
                                 .font(.system(size: 12))
                                 .foregroundColor(WarmInstrument.inkMuted)
                         }
@@ -648,11 +663,11 @@ struct ActivityDetailView: View {
         .staggerReveal(delay: 0.20)
     }
 
-    private func openScoreSheet() {
+    private func openDescriptionSheet() {
         Haptics.tap()
         descriptionText = savedDescription ?? ""
         errorMessage = nil
-        showingScoreSheet = true
+        showingDescriptionSheet = true
     }
 
     // MARK: - Category chip
@@ -849,7 +864,7 @@ struct ActivityDetailView: View {
 
     private func saveAndSync() async {
         guard let parsed else {
-            errorMessage = "Nothing to save yet — paste scores in a recognized format first."
+            errorMessage = "Nothing to save yet — type a note or paste scores first."
             return
         }
 
@@ -898,29 +913,39 @@ struct ActivityDetailView: View {
                 idStr: currentActivity.idStr
             )
 
-            let dateStr = String(currentActivity.startDateLocal.prefix(10))
-            let newEntry = DescriptionParser.buildStructuredEntry(parsed, date: dateStr, activityId: nil)
-
-            let history = try await readMatchHistoryForSave()
-            var sessions = history.sessions
-            sessions.removeAll { $0.date == dateStr }
-            sessions.append(newEntry)
-            sessions.sort { $0.date > $1.date }
-            let updatedHistory = MatchHistory(version: 1, sessions: sessions)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
+            var files: [(path: String, data: Data)] = [
+                (path: "user_data/activities/hist/\(entry.fileName)", data: try encoder.encode(updatedActivity)),
+            ]
+
+            // A free-text note has no games, so match_history.json stays untouched — writing a
+            // 0W-0L session there would corrupt the win rate every consumer reads (ADR 0013).
+            if !parsed.isPlainNote {
+                let dateStr = String(currentActivity.startDateLocal.prefix(10))
+                let newEntry = DescriptionParser.buildStructuredEntry(parsed, date: dateStr, activityId: nil)
+                let history = try await readMatchHistoryForSave()
+                var sessions = history.sessions
+                sessions.removeAll { $0.date == dateStr }
+                sessions.append(newEntry)
+                sessions.sort { $0.date > $1.date }
+                let updatedHistory = MatchHistory(version: 1, sessions: sessions)
+                files.append(
+                    (path: "user_data/activities/match_history.json", data: try encoder.encode(updatedHistory))
+                )
+            }
+
             try await apiClient.commitFiles(
-                [
-                    (path: "user_data/activities/hist/\(entry.fileName)", data: try encoder.encode(updatedActivity)),
-                    (path: "user_data/activities/match_history.json", data: try encoder.encode(updatedHistory)),
-                ],
-                message: "ios: add scores for \(currentActivity.name)"
+                files,
+                message: parsed.isPlainNote
+                    ? "ios: add note for \(currentActivity.name)"
+                    : "ios: add scores for \(currentActivity.name)"
             )
 
             SyncCache.updateActivity(fileName: entry.fileName, activity: updatedActivity)
             activity = updatedActivity
-            showingScoreSheet = false
+            showingDescriptionSheet = false
             toast = Toast(kind: .success, message: "Saved and synced to GitHub")
             Haptics.success()
         } catch {
@@ -930,9 +955,11 @@ struct ActivityDetailView: View {
     }
 }
 
-// MARK: - Score entry sheet
+// MARK: - Description editor sheet
 
-private struct ScoreEntrySheet: View {
+/// Match-score entry on a score-entry sport, a plain note everywhere else. Same editor and
+/// same `description` field either way — only the labels and preview differ.
+private struct DescriptionEditorSheet: View {
     let entry: SyncCacheEntry
     @Binding var descriptionText: String
     @Binding var isSaving: Bool
@@ -944,6 +971,7 @@ private struct ScoreEntrySheet: View {
 
     private var badge: (label: String, color: Color) { Theme.sportBadge(for: entry.sportType) }
     private var parsed: ParsedDescription? { DescriptionParser.parseRawDescription(descriptionText) }
+    private var supportsScoreEntry: Bool { Theme.sportSupportsScoreEntry(for: entry.sportType) }
 
     var body: some View {
         ScrollView {
@@ -987,7 +1015,7 @@ private struct ScoreEntrySheet: View {
     private var sheetHeader: some View {
         HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Log Match Scores")
+                Text(supportsScoreEntry ? "Log Match Scores" : "Add a Note")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Theme.ink)
                 HStack(spacing: 5) {
@@ -1010,7 +1038,7 @@ private struct ScoreEntrySheet: View {
 
     private var editorSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            MonoLabel("Paste scores")
+            MonoLabel(supportsScoreEntry ? "Paste scores or write a note" : "Write a note")
             WarmCard(padding: 0) {
                 TextEditor(text: $descriptionText)
                     .font(.system(size: 14, design: .monospaced))
@@ -1029,8 +1057,11 @@ private struct ScoreEntrySheet: View {
 
     @ViewBuilder
     private var previewSection: some View {
-        // Resolve to FormattedMatchData regardless of whether the text is raw or already-saved
+        // Resolve to FormattedMatchData regardless of whether the text is raw or already-saved.
+        // Gated on the sport too: `FormattedMatchData.parse` only looks for a "Games:" block, so
+        // description text saved before the gate existed would still render a match card here.
         let matchData: FormattedMatchData? = {
+            guard supportsScoreEntry else { return nil }
             if let p = parsed {
                 return FormattedMatchData.parse(DescriptionParser.formatDescription(p))
             }
@@ -1042,21 +1073,51 @@ private struct ScoreEntrySheet: View {
             WarmCard(fill: WarmInstrument.surfaceMuted) {
                 if let match = matchData {
                     miniMatchPreview(match, warnings: parsed?.warnings ?? [])
+                } else if let note = parsed?.notes, parsed?.isPlainNote == true {
+                    notePreview(note)
                 } else if descriptionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Paste scores above. Example format:")
-                            .font(.system(size: 13))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                        Text("Partner me vs Opp1 / Opp2  21–18\nme vs Opponent  18–21")
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(WarmInstrument.inkFaint)
-                    }
+                    emptyPreviewHint
                 } else {
-                    Text("No games recognized yet — keep typing or check the format.")
+                    Text("Nothing to save yet — this looks like an already-saved match.")
                         .font(.system(size: 13))
                         .foregroundColor(WarmInstrument.inkFaint)
                         .italic()
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var emptyPreviewHint: some View {
+        if supportsScoreEntry {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Paste scores above, or just write a note. Example score format:")
+                    .font(.system(size: 13))
+                    .foregroundColor(WarmInstrument.inkFaint)
+                Text("Partner me vs Opp1 / Opp2  21–18\nme vs Opponent  18–21")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(WarmInstrument.inkFaint)
+            }
+        } else {
+            Text("Write anything worth remembering — how it felt, what hurt, what you changed.")
+                .font(.system(size: 13))
+                .foregroundColor(WarmInstrument.inkFaint)
+        }
+    }
+
+    private func notePreview(_ note: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(note)
+                .font(.system(size: 13))
+                .foregroundColor(WarmInstrument.ink)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+            if supportsScoreEntry {
+                Text("Saves as a note — no games recognized in this text.")
+                    .font(.system(size: 11))
+                    .foregroundColor(WarmInstrument.inkFaint)
+                    .italic()
             }
         }
     }
