@@ -26,6 +26,7 @@ const ROUTES = [
   [/^\/api\/coach-chat$/, "../api/coach-chat.ts"],
   [/^\/api\/coach-chat-context$/, "../api/coach-chat-context.ts"],
   [/^\/api\/coach-chat-profile-status$/, "../api/coach-chat-profile-status.ts"],
+  [/^\/api\/coach-message$/, "../api/coach-message.ts"],
   [/^\/api\/waitlist$/, "../api/waitlist.ts"],
   [/^\/api\/widget-snapshots$/, "../api/widget-snapshots.ts"],
 ];
