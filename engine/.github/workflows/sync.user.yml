@@ -117,7 +117,9 @@ jobs:
       # numbers as if they were current. This writes the run's own gravestone. It cannot trust
       # anything the dead step left behind, so it re-derives its state from origin/main and
       # pushes that one file. Failing here would only hide the original failure, so it never
-      # exits non-zero — it annotates and stops.
+      # exits non-zero — it annotates and stops. `set +e` is what makes that true: GitHub runs
+      # this block under `bash -e`, which would otherwise abort on a transient `git fetch` and
+      # skip both the annotation and the retry.
       - name: Record sync failure
         if: failure()
         env:
@@ -126,6 +128,7 @@ jobs:
           SYNC_RUN_ID: ${{ github.run_id }}
           SYNC_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
+          set +e
           if [ ! -d .git ]; then
             echo "::error::Sync failed before checkout — nowhere to record it. Run: $SYNC_RUN_URL"
             exit 0

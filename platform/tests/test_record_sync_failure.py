@@ -69,6 +69,18 @@ class TestSyncWorkflow(unittest.TestCase):
         self.assertNotIn("sync_status.json", recorder)
         self.assertIn("git reset --hard origin/main", recorder)
 
+    def test_recorder_disables_errexit_so_it_can_always_annotate(self):
+        # GitHub runs `run:` under `bash -e`. Without `set +e` a transient `git fetch` aborts
+        # the step, skipping the ::error:: annotation and the two remaining retries — so the
+        # "never exits non-zero" guarantee in the comment above it would be false.
+        recorder = WORKFLOW.split("- name: Record sync failure", 1)[1]
+        run_body = recorder.split("run: |", 1)[1]
+        self.assertIn("set +e", run_body)
+        self.assertLess(
+            run_body.index("set +e"), run_body.index("git fetch origin main"),
+            "set +e must come before the first command that can fail",
+        )
+
     def test_success_path_still_writes_only_the_files_it_always_wrote(self):
         success = WORKFLOW.split("- name: Record sync failure", 1)[0]
         self.assertEqual(success.count("git add gen/quest_history.json gen/sync_status.json"), 2)
