@@ -52,7 +52,7 @@ const PROFILE_TEMPLATE = {
   coach_since: null,
   name: "",
   dob: null,
-  timezone: "UTC",
+  timezone: null, // every real reader falls back to "UTC" at the call site
   height_cm: null,
   weight_kg: null,
 };
@@ -92,20 +92,14 @@ const SEASONS_TEMPLATE = {
   seasons: [],
 };
 
-// main_quest is required by QuestsJson — seeded with real example content (same spirit as the
-// old CHALLENGE_V2_TEMPLATE) so an athlete's coaching model has something to edit from day one,
-// not an empty required field.
+// main_quest starts genuinely absent — quest_create sets it for real once the athlete states a
+// goal. A seeded placeholder here used to fool isFirstSessionRitualDone()'s completion gate
+// (coachChatFiles.ts) into flipping "done" before any real quest existed.
 const QUESTS_TEMPLATE = {
   version: 1,
   _meta: { updated_at: null, updated_by: "skeleton-init", trace_id: null },
   weekly_targets: {},
-  main_quest: {
-    id: "main",
-    name: "20 Strength Sessions",
-    type: "count_target",
-    target: 20,
-    count_pattern: "^WeightTraining\\s*#",
-  },
+  main_quest: null,
   quests: [],
 };
 
