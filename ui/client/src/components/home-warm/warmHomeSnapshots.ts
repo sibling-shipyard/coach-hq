@@ -343,6 +343,7 @@ export function buildQuestSnapshot(ledger: any, quest: WarmHomeModel["quest"]): 
     loaded: Number(quest.loaded.toFixed(1)),
     daysLeft: Math.max(0, 6 - mondayIndex),
     sideQuests,
+    hasQuest: quest.hasQuest,
   };
 }
 
@@ -852,6 +853,7 @@ function questSnapshotS(quest: QuestSnapshot): QuestSnapshotS {
     completed: quest.completed,
     target: quest.target,
     progressPercent,
+    hasQuest: quest.hasQuest,
   };
 }
 
