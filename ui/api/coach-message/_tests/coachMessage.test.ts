@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FileEntry } from "../../_lib/githubGitData.js";
+import type { LlmAdapter } from "../../_lib/llmClient.js";
 import {
   CoachMessageError,
   MAX_ACTIVITY_IDS,
   PROACTIVE_FEW_SHOT_PAIRS,
+  PROACTIVE_RESPONSE_SCHEMA,
   buildProactivePrompt,
   generateAndStoreCoachMessage,
   generateProactiveBody,
@@ -15,6 +17,20 @@ import {
   type CoachMessageDependencies,
   type LatestCoachMessage,
 } from "../_lib/coachMessage.js";
+
+/** A fake adapter, standing in for either real one — `generateProactiveBody` only needs the
+ * `LlmAdapter` contract (name, model, `generate`), never a specific provider's transport. */
+function fakeAdapter(overrides: Partial<LlmAdapter> = {}): LlmAdapter {
+  return {
+    name: "gemini",
+    model: "gemini-pro-latest",
+    generate: vi.fn(async () => ({
+      text: JSON.stringify({ body: "That looked controlled." }),
+      telemetry: { adapter: "gemini" as const, model: "gemini-pro-latest" },
+    })),
+    ...overrides,
+  };
+}
 
 const UUID = "8F3AE2C1-4D90-4A87-9A75-5A36A0FB954C";
 const OTHER_UUID = "9A4BE3D2-5E01-4B98-AA86-6B47B10CA65D";
@@ -393,63 +409,56 @@ describe("generated message validation", () => {
     expect(() => validateGeneratedBody(body)).toThrow(message);
   });
 
-  it("uses a message-only Gemini schema", async () => {
-    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      expect(body.generationConfig.responseSchema).toEqual({
-        type: "object",
-        properties: { body: { type: "string" } },
-        required: ["body"],
-      });
-      expect(JSON.stringify(body)).not.toContain("file_updates");
-      return Response.json({
-        candidates: [
-          {
-            content: {
-              parts: [{ text: JSON.stringify({ body: "That looked controlled." }) }],
-            },
-          },
-        ],
-      });
+  it("asks the adapter for the shared output budget and the message-only schema", async () => {
+    const adapter = fakeAdapter();
+    await expect(generateProactiveBody(adapter, "prompt")).resolves.toBe("That looked controlled.");
+    expect(adapter.generate).toHaveBeenCalledExactlyOnceWith({
+      prompt: "prompt",
+      maxOutputTokens: 3_072,
+      responseSchema: PROACTIVE_RESPONSE_SCHEMA,
     });
-    await expect(generateProactiveBody("key", "prompt", fetcher)).resolves.toBe(
-      "That looked controlled.",
+  });
+
+  it("rejects text from the adapter that is not valid JSON", async () => {
+    const adapter = fakeAdapter({
+      generate: vi.fn(async () => ({
+        text: "Here is the JSON requested:",
+        telemetry: { adapter: "gemini" as const, model: "gemini-pro-latest" },
+      })),
+    });
+    await expect(generateProactiveBody(adapter, "prompt")).rejects.toThrow(
+      "gemini returned invalid JSON",
     );
-    expect(fetcher).toHaveBeenCalledOnce();
   });
 
-  it("sends the measured output token budget", async () => {
-    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      expect(body.generationConfig.maxOutputTokens).toBe(3_072);
-      return Response.json({
-        candidates: [
-          { content: { parts: [{ text: JSON.stringify({ body: "That looked controlled." }) }] } },
-        ],
-      });
+  it("rejects a JSON body with the wrong shape", async () => {
+    const adapter = fakeAdapter({
+      generate: vi.fn(async () => ({
+        text: JSON.stringify({ body: "fine", file_updates: {} }),
+        telemetry: { adapter: "gemini" as const, model: "gemini-pro-latest" },
+      })),
     });
-    await generateProactiveBody("key", "prompt", fetcher);
-    expect(fetcher).toHaveBeenCalledOnce();
+    await expect(generateProactiveBody(adapter, "prompt")).rejects.toThrow(
+      "gemini returned an invalid message shape",
+    );
   });
 
-  it("surfaces a truncated MAX_TOKENS response as a specific failure, not a generic parse error", async () => {
-    // Reproduces the #827 shape: thinking ate the whole budget, so content is a truncated
-    // fragment that is not valid JSON.
-    const fetcher = vi.fn(async () =>
-      Response.json({
-        candidates: [
-          {
-            finishReason: "MAX_TOKENS",
-            content: { parts: [{ text: "Here is the JSON requested:" }] },
-          },
-        ],
-        usageMetadata: { thoughtsTokenCount: 1_680, candidatesTokenCount: 8 },
+  it("rethrows a failure the adapter itself surfaces, such as a truncated MAX_TOKENS response", async () => {
+    // Reproduces the #827 shape at the boundary the Gemini adapter now owns
+    // (`_lib/_tests/llmAdapters/geminiAdapter.test.ts` covers the HTTP call itself).
+    const adapter = fakeAdapter({
+      generate: vi.fn(async () => {
+        throw Object.assign(
+          new Error(
+            "Gemini truncated its response before finishing (MAX_TOKENS, thinkingTokens=1680)",
+          ),
+          { status: 502 },
+        );
       }),
-    );
-    await expect(generateProactiveBody("key", "prompt", fetcher)).rejects.toThrow(
+    });
+    await expect(generateProactiveBody(adapter, "prompt")).rejects.toThrow(
       /MAX_TOKENS.*thinkingTokens=1680/,
     );
-    expect(fetcher).toHaveBeenCalledOnce();
   });
 });
 

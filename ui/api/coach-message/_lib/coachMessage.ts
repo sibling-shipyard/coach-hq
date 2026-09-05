@@ -1,7 +1,6 @@
 import type { FileEntry, ResolvedFileWrite } from "../../_lib/githubGitData.js";
-import { GEMINI_MODEL } from "../../_lib/geminiModel.js";
-import { fetchWithTimeout } from "../../_lib/httpTimeout.js";
-import { captureGeminiFailure, withGeminiSpan } from "../../_lib/sentry.js";
+import { captureGeminiFailure } from "../../_lib/sentry.js";
+import type { LlmAdapter, LlmJsonSchema } from "../../_lib/llmClient.js";
 import { parseCurrentWeek, type CurrentWeek } from "../../coach-chat/_lib/current-week.bundle.js";
 
 export const LATEST_COACH_MESSAGE_PATH = "user_data/coach/latest_message.json";
@@ -9,7 +8,6 @@ export const MAX_ACTIVITY_IDS = 20;
 const MAX_ACTIVITY_ID_LENGTH = 80;
 const MAX_MESSAGE_LENGTH = 360;
 const MAX_SENTENCE_LENGTH = 180;
-const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
 /**
  * gemini-pro-latest cannot disable thinking (thinkingBudget: 0 -> 400 "This model only works in
  * thinking mode") and thinking tokens bill against maxOutputTokens, so the budget has to clear
@@ -17,8 +15,23 @@ const GEMINI_GENERATE_TIMEOUT_MS = 45_000;
  * against the real buildProactivePrompt output (SOUL + few-shot pairs + a representative activity
  * batch, ~29,600 prompt chars) on 2026-09-04: 10 runs, thinkingTokenCount 1219-1734, all
  * finish=STOP. 3072 leaves >1300 tokens of headroom over the observed ceiling (#827).
+ *
+ * Shared across both adapters (#713): it is an upper bound passed to whichever one runs, not a
+ * per-provider tuning knob. OpenRouter's own reasoning effort is capped separately (see
+ * `openRouterAdapter.ts`) and stays well under this ceiling.
  */
 const PROACTIVE_MAX_OUTPUT_TOKENS = 3_072;
+
+/** The strict-schema shape both adapters return for a proactive message: one string field. */
+export const PROACTIVE_RESPONSE_SCHEMA: LlmJsonSchema = {
+  name: "proactive",
+  schema: {
+    type: "object",
+    properties: { body: { type: "string" } },
+    required: ["body"],
+    additionalProperties: false,
+  },
+};
 
 const HEALTHKIT_ACTIVITY_ID =
   /^healthkit:[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
@@ -769,88 +782,34 @@ export function buildProactivePrompt(soul: string, context: ProactiveContext): s
   ].join("\n\n");
 }
 
-export async function generateProactiveBody(
-  apiKey: string,
-  prompt: string,
-  fetcher: typeof fetchWithTimeout = fetchWithTimeout,
-): Promise<string> {
+/**
+ * Ask the selected adapter for a proactive message body. HTTP, auth, the provider's schema
+ * shape, and the truncation guard all live in the adapter (`llmAdapters/`, #713) — this function
+ * owns only what's specific to coach-message: the shared output-token ceiling, parsing the
+ * adapter's raw JSON text against the `{body}` contract, and the Sentry failure capture.
+ */
+export async function generateProactiveBody(adapter: LlmAdapter, prompt: string): Promise<string> {
   try {
-    return await withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
-      const response = await fetcher(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: "object",
-                properties: { body: { type: "string" } },
-                required: ["body"],
-              },
-              maxOutputTokens: PROACTIVE_MAX_OUTPUT_TOKENS,
-            },
-          }),
-        },
-        GEMINI_GENERATE_TIMEOUT_MS,
-      );
-      if (!response.ok) {
-        const detail = await response.text();
-        throw new CoachMessageError(
-          `Gemini request failed (${response.status}): ${detail}`,
-          response.status === 429 ? 429 : 502,
-        );
-      }
-      const payload = (await response.json()) as {
-        candidates?: Array<{
-          content?: { parts?: Array<{ text?: string }> };
-          finishReason?: string;
-        }>;
-        usageMetadata?: {
-          promptTokenCount?: number;
-          candidatesTokenCount?: number;
-          totalTokenCount?: number;
-          thoughtsTokenCount?: number;
-        };
-      };
-      if (payload.usageMetadata) {
-        recordUsage({
-          promptTokens: payload.usageMetadata.promptTokenCount,
-          completionTokens: payload.usageMetadata.candidatesTokenCount,
-          totalTokens: payload.usageMetadata.totalTokenCount,
-          thinkingTokens: payload.usageMetadata.thoughtsTokenCount,
-        });
-      }
-      const finishReason = payload.candidates?.[0]?.finishReason;
-      if (finishReason === "MAX_TOKENS") {
-        // Distinguish from a generic parse failure: this is a budget problem, not a malformed
-        // response, and the thinking token count says whether PROACTIVE_MAX_OUTPUT_TOKENS needs
-        // to grow again (see the comment on that constant).
-        throw new CoachMessageError(
-          `Gemini truncated its response before finishing (MAX_TOKENS, thinkingTokens=${payload.usageMetadata?.thoughtsTokenCount ?? "unknown"})`,
-          502,
-        );
-      }
-      const text = payload.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new CoachMessageError("Gemini returned no content", 502);
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text) as unknown;
-      } catch {
-        throw new CoachMessageError("Gemini returned invalid JSON", 502);
-      }
-      if (!isObject(parsed) || Object.keys(parsed).length !== 1 || !("body" in parsed)) {
-        throw new CoachMessageError("Gemini returned an invalid message shape", 502);
-      }
-      return validateGeneratedBody(parsed.body);
+    const result = await adapter.generate({
+      prompt,
+      maxOutputTokens: PROACTIVE_MAX_OUTPUT_TOKENS,
+      responseSchema: PROACTIVE_RESPONSE_SCHEMA,
     });
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.text) as unknown;
+    } catch {
+      throw new CoachMessageError(`${adapter.name} returned invalid JSON`, 502);
+    }
+    if (!isObject(parsed) || Object.keys(parsed).length !== 1 || !("body" in parsed)) {
+      throw new CoachMessageError(`${adapter.name} returned an invalid message shape`, 502);
+    }
+    return validateGeneratedBody(parsed.body);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     console.error("[coach-message] generateProactiveBody failed:", err);
     await captureGeminiFailure(err, {
-      model: GEMINI_MODEL,
+      model: adapter.model,
       upstreamStatus: status,
       turnMode: "proactive_message",
       // The proactive message is generated from activity/context data, not athlete-typed text —
