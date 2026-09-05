@@ -57,7 +57,7 @@ git worktree remove /tmp/wt-<brief> --force
 
 Never switch branches in the primary checkout. Leave it on `main`. Commit prefix per
 `.github/CONVENTIONS.md`: `feat:` for A1–A2, `core:` for A4, `ui:` for A5, `ios:` for A5-ios,
-each with `(#727)`. No `Co-Authored-By` footers.
+each with `(#727)`.
 
 ---
 

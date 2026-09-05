@@ -24,7 +24,8 @@ Example: `coach: day-8 — shoulder-modified workout, strong session`
 
 **feat/fix must reference the issue:** `feat: add session heatmap (#12)`
 
-No `Co-Authored-By` footers on any commit.
+**Footers:** an agent commit carries whatever attribution footer its harness sets — Claude Code
+adds `Co-Authored-By` and a session link. Human commits need none. Nothing checks either way.
 
 ---
 
