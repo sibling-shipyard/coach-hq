@@ -1,6 +1,6 @@
 # Observability
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-05 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 ## Context
 
@@ -87,9 +87,33 @@ Read these before drawing a conclusion from a green dashboard.
 1. A deliberate failure carries both its error event and its ended `http.server` span, under one trace id and one release.
 2. Every dashboard widget filters to production and returns a real row.
 3. A new or repeated production error reaches the operator within 15 minutes.
+4. A scheduled digest answers "was yesterday fine?" without anyone opening Sentry.
 
 Items 1 and 2 are proven. The rules behind 3 are built and active on all three projects. None has
 yet been seen firing on a real production error — the next one is the proof, and it arrives by email.
+
+## The digest
+
+`sentry-digest.mjs` builds one health report; `.github/workflows/sentry-digest.yml` runs it daily
+at 08:00 IST and weekly on Mondays, and keeps it in one standing issue labelled `ops:digest`.
+
+The design rule is that **a quiet day is silent**. Daily runs rewrite the issue body and comment
+only when something is new or an athlete filed a rage report; the weekly run always comments. A
+report that notifies every morning is skipped by week two, so the notification has to mean something.
+
+Two consequences worth knowing:
+
+- Counts are **windowed**, not lifetime. A fixed bug falls to zero in the digest while its Sentry
+  issue still shows every event it ever caused.
+- The body carries an `athlete_id` breakdown, because one athlete's bad afternoon and a fleet-wide
+  fault produce the same event count and need different fixes.
+
+The standing issue is exempt from the issue contract (`check_pr_issue_link.py`, `EXEMPT_LABELS`).
+It has no milestone and no epic by design, and the daily rewrite would otherwise re-label it
+`needs-triage` every morning.
+
+The digest does not replace the alert rules in `sentry-runbook.md`. Those carry the 15-minute path
+for a new error; the digest is the daily read.
 
 ## Deferred
 
@@ -99,5 +123,4 @@ yet been seen firing on a real production error — the next one is the proof, a
 - Web `resource.*` span pruning.
 - Athlete consent controls and opt-out ([#590](https://github.com/sibling-shipyard/coach-hq/issues/590)); session replay; log warehousing beyond 30 days.
 - Cyclops v2 (auto-triage via webhook).
-- Proactive Cyclops digest (weekly automated health summary).
 - Agent-to-agent incident coordination.
