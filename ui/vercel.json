@@ -2,7 +2,7 @@
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- .",
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then exit 1; else git diff --quiet HEAD^ HEAD -- .; fi",
   "functions": {
     "api/coach-chat.ts": { "maxDuration": 300 }
   },
