@@ -1,6 +1,6 @@
 # OpenRouter migration
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-04 · Issue: #713
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-05 · Issue: #713
 
 ## Context
 
@@ -59,8 +59,8 @@ Every row must be green before production flips.
 | OpenRouter account | Before build | Skanda | Done. Key exists; `$20/month` cap set at both account and key level; secret is `OPENROUTER_API_KEY` in Vercel Production and Preview |
 | Account data policy | Before build | Skanda | Done. ZDR required on all five provider families; free endpoints that train on request data are off. Google ZDR routes Gemini via Vertex, not AI Studio |
 | Request provider policy | Before build | Bob the Builder | Every OpenRouter call sends an explicit provider allow-list, `require_parameters` and denied data collection in its own body. The allow-list is `Google` (Vertex), never `Google AI Studio` |
-| Rollback | Before build | Skanda | `LLM_PROVIDER` defaults to `gemini`; changing it requires a Vercel deployment, and the previous deployment is the rollback |
-| Contract probe | Before build | Bob the Builder | Done 2026-09-04, against the real `buildProactivePrompt` output (6,924 prompt tokens). `google/gemini-3.8-flash` via `only: ["google-vertex"]`, `reasoning: {effort: "low"}`, `max_tokens: 1024` returns a valid strict-schema `{body}`: `finish=stop`, 0 reasoning tokens, $0.0053 |
+| Rollback | Before build | Skanda | `LLM_PROVIDER` defaults to `gemini`; changing it requires a Vercel deployment, and the previous deployment is the rollback. **The rollback is only real while the direct Gemini key has credit** — on a depleted key the fallback returns 429 on every call, and on a free-tier key `gemini-pro-latest` is quota 0 |
+| Contract probe | Before build | Bob the Builder | Done 2026-09-04, against `buildProactivePrompt` output for a **fixture** athlete (6,924 prompt tokens; real athlete files give 12,295 — see Measured below). `google/gemini-3.8-flash` via `only: ["google-vertex"]`, `reasoning: {effort: "low"}`, `max_tokens: 1024` returns a valid strict-schema `{body}`: `finish=stop`, 0 reasoning tokens, $0.0053 |
 | Current baseline (#670) | Before chat cutover | Skanda | All transcripts pass on direct Gemini, with the real bundled SOUL; record commit SHA, model and result |
 | Chat contract probe | Before chat cutover | Bob the Builder | A synthetic request proves the cutover Gemini model accepts the full `coachReplySchema.ts` through strict JSON Schema |
 | Deterministic suite | Before each cutover | Bob the Builder | `npm run check`, `npm run lint`, `npm run format:check` and `npm test` pass |
@@ -68,6 +68,38 @@ Every row must be green before production flips.
 
 US-only data residency is not a gate. Exact provider slugs are fixed in the contract probe,
 before athlete health context is sent through OpenRouter.
+
+## Measured on real athlete data, 2026-09-05
+
+The contract probe above used a hand-built athlete. Pointing `loadProactiveContext` at a live
+athlete repo instead roughly doubles the prompt, so every figure derived from 6,924 tokens is low.
+
+| | one activity | four activities |
+|---|---|---|
+| Prompt tokens | 12,295 | 14,444 |
+| Cost per call, `google/gemini-3.8-flash` | $0.0094 | $0.0110 |
+| Latency, median of 3 | 2.4s | 1.9s |
+
+Three findings that change how the next measurement gets taken:
+
+1. **Vertex discounts an exact repeat of the whole prompt, not a shared prefix.** Two prompts
+   sharing a 6,876-token opening — the entire soul, instructions and few-shots — and differing
+   only in the athlete block reported `cached_tokens: 0` on the second. A discount appears only
+   when the whole prompt repeats byte for byte, which production never does. Measure caching with
+   a varying tail, or the harness reports a discount production never receives.
+2. **An unpinned OpenRouter model measures its routing, not the model.** `deepseek/deepseek-v4-flash`
+   has 15 provider endpoints of very different speed, and unpinned calls landed on a different one
+   each time, reading 15–59s. Pinned to one provider with reasoning off, the same prompt runs
+   ~2–3s. Pin the provider before drawing any conclusion about a model.
+3. **The ZDR account policy is enforced, and provably.** Five of those 15 endpoints are refused
+   with `ZDR violation (account settings)`. That is the audit evidence the readiness gate wants;
+   the resolved provider on a span still is not.
+
+Two smaller ones worth not rediscovering: `GET /api/v1/generation` returns 404 under this
+account's `data_collection: "deny"`, so per-call cost must come from `usage: {include: true}` in
+the request body. And a free-tier `GEMINI_API_KEY` has a hard quota of 0 on `gemini-pro-latest`
+(which resolves to `gemini-3.1-pro`), so a free key cannot exercise the pin in
+`ui/api/_lib/geminiModel.ts` at all.
 
 ## Locked decisions
 

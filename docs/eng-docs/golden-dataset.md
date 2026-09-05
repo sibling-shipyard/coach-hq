@@ -37,6 +37,10 @@ from ~84% to ~60% and roughly tripled the heatmap gap count.
 
 ## Two constraints that will bite you
 
+**Verify gitignored generated data against a simulated clean checkout.** `git check-ignore` misses
+a directory-only pattern when the directory is absent, so a dev tree that already has the folder
+passes and only CI fails.
+
 **Route clustering needs a bit-for-bit repeated distance.** `runningLensModel.ts` buckets routes
 with `Math.round((distance / 500) * 500)`, which is a no-op — it resolves to the exact distance in
 metres, so "close enough" never clusters. The generator's recurring route is therefore a fixed

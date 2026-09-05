@@ -1,6 +1,6 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-20
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-05
 
 ## Context
 
@@ -40,7 +40,12 @@ changes its "with cache" cost from ~$19 to ~$3.24.
 
 DeepSeek deferred — cheapest on paper, but no published RPM/TPM (dynamic throttling, same
 unpredictability we're leaving Gemini free tier for) plus a data-residency question for athlete
-health data we haven't resolved. Not worth it at this volume regardless.
+health data we haven't resolved. Not worth it at this volume regardless. **Both blockers now have
+partial answers** (2026-09-05, reached through OpenRouter rather than direct): the account's ZDR
+policy refuses 5 of the model's 15 provider endpoints outright, which answers data residency by
+enforcement rather than by promise; and pinning a provider replaces dynamic-throttling roulette
+with one known host, at the cost of that host's own rate limit and no fallback. Measured numbers
+are in `docs/plans/chat-openrouter-migration.md`.
 
 At 4 users, every paid option costs single-digit-to-low-double-digit dollars/month — cost isn't the
 constraint. Rate-limit headroom and eventual model quality are.
@@ -67,7 +72,14 @@ provider, and one of them needs no work at all:
 
 - **Gemini:** implicit caching is on by default for every Gemini 2.5+ model, no code, no opt-in —
   90% off cached tokens, minimum cacheable prefix 1,024 tokens (well under our ~13K-token prefix).
-  Confirmed via Google's own developer blog and API docs.
+  Confirmed via Google's own developer blog and API docs. **Measured behaviour does not match that
+  description on the coach-message path.** Sending two prompts that share a 6,876-token prefix and
+  differ only in their tail returned `cached_tokens: 0` on the second; a discount appeared only
+  when the entire prompt repeated byte for byte (2026-09-05, `google/gemini-3.8-flash` via
+  OpenRouter pinned to Vertex — see `docs/plans/coach-message-rebuild.md`). Chat runs a different
+  path — direct AI Studio, not Vertex — so this does not disprove the row above for chat. It does
+  mean **nobody should assume the prefix discount without measuring it on their own path**, with a
+  varying tail.
 - **Claude:** explicit `cache_control` breakpoints — a real code change, but cached tokens are
   also excluded from the ITPM rate limit, not just cheaper, which raises effective throughput too.
 - **GPT-5 mini:** automatic for prompts over 1,024 tokens, same as Gemini — no code change.
@@ -123,6 +135,7 @@ pending — that's the one thing left before this doc's job is finished.
 
 ## Deferred
 
-- DeepSeek — revisit only if cost becomes decisive at real scale, and only after the rate-limit and
-  data-residency questions have real answers.
+- DeepSeek — revisit only if cost becomes decisive at real scale. The rate-limit and data-residency
+  questions now have partial answers (see Options); what is still missing is a contract probe and a
+  provider allow-list, tracked under #713.
 - Committing to Haiku/GPT-5-mini/Gemini-paid long-term — decided after the eval, not now.

@@ -146,6 +146,9 @@ coach data (ADR 0011, R5); these conventions apply once carved out to a real ath
 
 **If in doubt:** use a branch.
 
+**One PR, one reason.** Unrelated infrastructure — codegen, pre-build automation, a formatting
+pass — rides along with a bugfix only if the athlete approves it first. Otherwise split the PR.
+
 **SOUL changes:** edit `soul/A_identity.md`, `soul/B_engine.md`, and/or `soul/C_athlete.md`, then run
 `node platform/scripts/compose-soul.mjs` and commit the layer edits plus both regenerated builds,
 `platform/SOUL.chat.md` and `platform/SOUL.claude.md` (ADR 0022). Never hand-edit a composed SOUL.
