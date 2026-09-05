@@ -135,7 +135,7 @@ const SEASON = JSON.stringify({
   seasons: [{ id: "s1", name: "Base", start_date: "2026-01-01", end_date: "2026-12-31" }],
 });
 const QUESTS_WITH_MAIN = JSON.stringify({
-  main_quest: { id: "q1", name: "Consistency", type: "daily_streak", target: 1 },
+  main_quest: { id: "q1", name: "Consistency", type: "daily_streak", target: 1, season_id: "s1" },
 });
 
 function repoFixture(overrides: Record<string, string> = {}) {
@@ -293,5 +293,81 @@ describe("full turn pipeline (layers 1-3 wired together, network mocked only)", 
     // Nothing landed - the whole commit failed atomically, including the otherwise-valid chat
     // and coach_log writes bundled in the same turn.
     expect(repo.files.has("user_data/coach/chat_history.json")).toBe(false);
+  });
+
+  // B3: a returning athlete starting a new season with its goal, plus a habit quest, in the same
+  // turn - exercises the real two-file season_start write (seasonWrite/questWrite ordering in
+  // turnWrites/seasonWrite.ts) merged with quest_create's own quests.json write, through the
+  // actual commit pipeline rather than the pure appliers alone.
+  it("a returning athlete's season_start with main_quest retires the old season+goal and bundles a habit quest, one commit", async () => {
+    const repo = createFakeRepo(
+      repoFixture({
+        "user_data/ledger/seasons.json": JSON.stringify({
+          current_season_id: "s_old",
+          seasons: [
+            {
+              id: "s_old",
+              name: "Base",
+              start_date: "2026-01-01",
+              end_date: "2026-12-01",
+              status: "active",
+            },
+          ],
+        }),
+        "user_data/ledger/quests.json": JSON.stringify({
+          main_quest: {
+            id: "q_old",
+            name: "Old Goal",
+            type: "count_target",
+            target: 10,
+            season_id: "s_old",
+          },
+          quests: [],
+        }),
+      }),
+    );
+    const gemini = createFakeGemini([
+      {
+        reply: "New season locked in.",
+        season_start: {
+          name: "Marathon Build",
+          start_date: "2026-08-18",
+          end_date: "2027-02-01",
+          main_quest: { name: "Run a marathon", type: "count_target", target: 1 },
+        },
+        quest_create: { quests: [{ name: "Stretch daily", type: "daily_streak" }] },
+      },
+    ]);
+
+    const response = await runTurn("owner/repo-4", repo, gemini, {
+      threadId: "thread-4",
+      priorMessages: [],
+      trimmed: "New season - I want to run a marathon, and I'll stretch daily too",
+      geminiMessage: "New season - I want to run a marathon, and I'll stretch daily too",
+      endConversationRequested: false,
+    });
+
+    const body = await response.json();
+    expect(body).toMatchObject({ reply: "New season locked in.", closed: false });
+
+    const seasons = JSON.parse(repo.files.get("user_data/ledger/seasons.json")!);
+    expect(seasons.seasons.find((s: { id: string }) => s.id === "s_old")).toMatchObject({
+      status: "retired",
+    });
+    const newSeasonId = seasons.current_season_id;
+    expect(newSeasonId).not.toBe("s_old");
+
+    const quests = JSON.parse(repo.files.get("user_data/ledger/quests.json")!);
+    expect(quests.main_quest).toMatchObject({ name: "Run a marathon", season_id: newSeasonId });
+    // Old goal retired into quests[], and the habit quest from quest_create landed alongside it -
+    // the season_start/quest_create merge onto one quests.json write actually worked.
+    expect(quests.quests).toHaveLength(2);
+    expect(quests.quests.find((q: { id: string }) => q.id === "q_old")).toMatchObject({
+      status: "retired",
+    });
+    expect(quests.quests.find((q: { name: string }) => q.name === "Stretch daily")).toMatchObject({
+      type: "daily_streak",
+      source: "model",
+    });
   });
 });

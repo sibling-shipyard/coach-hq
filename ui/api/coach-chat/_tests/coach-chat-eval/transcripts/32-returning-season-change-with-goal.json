@@ -1,0 +1,26 @@
+{
+  "name": "returning-season-change-with-goal",
+  "description": "B3 - a returning (non-first-session) athlete starts a new season with a new goal in the same statement, no close requested. season_start (with main_quest bundled in) should fire, not the old separate quest_create.main_quest shape - there is no schema field for that anymore. Old season/goal resolution (retired vs completed, and the old main_quest moving into quests[]) is exercised directly in coachIntents.test.ts, not by this Gemini-facing check.",
+  "mode": "ordinary",
+  "stateMd": "## Athlete Profile\n- **Name:** Skanda\n- **Sport(s) / Activities:** running\n- **Goal:** sub-45 10K\n- **Timeline / Upcoming events:** 10K done last week\n- **Coaching style preference:** direct\n- **Timezone:** UTC\n- **Weight:** 75kg\n\n## Training Log\n(no entries yet)\n",
+  "questLog": "## Active Quests\n- Main: Sub-45 10K (done)\n",
+  "history": [
+    {
+      "id": "1",
+      "role": "coach",
+      "paragraphs": ["Great finish on the 10K last week - what's next?"]
+    }
+  ],
+  "userMessage": "I want to start a new season now, training for a marathon. Goal: finish under 4 hours by 2027-03-01, starting today.",
+  "expect": {
+    "sessionClosed": false,
+    "actionFieldsPresent": ["season_start"],
+    "actionFieldsAbsent": [
+      "template_edit",
+      "session_plan",
+      "week_plan",
+      "session_reconcile",
+      "plan_edit"
+    ]
+  }
+}

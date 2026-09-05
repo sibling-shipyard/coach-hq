@@ -25,6 +25,20 @@ an old entry if it is truly bloated *and* you can compress without bleaching the
 
 ---
 
+## v5.19 — "A Season Always Carries Its Goal" · Sep 2, 2026
+**Superpower gained:** an established athlete can start a new season with a real goal, any day.
+
+Only a first-ever session could set a season or a goal at all. Someone finishing a marathon build
+and ready to name what's next had no way to say so — Coach could talk about it, but nothing
+actually saved.
+
+- Starting a new season and setting its goal happen together, one statement, any time.
+- The season that's ending resolves cleanly, and its old goal moves into quest history instead
+  of vanishing.
+- A goal can no longer exist on its own, floating free of the season it belongs to.
+**Why it mattered:** a goal that outlives its season, or a season nobody can ever replace, isn't
+how training actually works.
+
 ## v5.18 — "No Guessing on Injuries" · Aug 30, 2026
 **Superpower gained:** Coach no longer breaks the conversation reporting a brand-new injury.
 

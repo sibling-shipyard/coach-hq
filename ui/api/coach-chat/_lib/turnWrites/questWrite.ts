@@ -39,7 +39,7 @@ export function buildQuestCreateWrite(
   traceId: string,
   questCreate: Parameters<typeof applyQuestCreate>[1] | undefined,
 ): ResolvedFileWrite | undefined {
-  if (!questCreate || (!questCreate.main_quest && (questCreate.quests?.length ?? 0) === 0)) {
+  if (!questCreate || (questCreate.quests?.length ?? 0) === 0) {
     return undefined;
   }
   return {

@@ -44,7 +44,8 @@ export function projectProfileCompletion(params: {
   profileUpdates: ProfileUpdate[];
   sportsUpdate: string[];
   hasSportsUpdate: boolean;
-  seasonStart: Parameters<typeof applySeasonStart>[1] | undefined;
+  seasonStart: Parameters<typeof applySeasonStart>[2] | undefined;
+  today: string;
   traceId: string;
 }): ProfileProjection {
   const {
@@ -55,6 +56,7 @@ export function projectProfileCompletion(params: {
     sportsUpdate,
     hasSportsUpdate,
     seasonStart,
+    today,
     traceId,
   } = params;
 
@@ -90,16 +92,22 @@ export function projectProfileCompletion(params: {
         MEMORY_NOTE_LABELS.map((label) => [label, { text: "", updated_at: "", trace_id: "" }]),
       ) as MemoryJson["notes"]),
   };
-  const projectedSeasons = seasonStart?.name?.trim()
-    ? parseJsonOrNull<SeasonsJson>(
-        applySeasonStart(
-          seasons ? JSON.stringify(seasons) : null,
-          seasonStart,
-          traceId,
-          new Date(),
-        ),
-      )
-    : seasons;
+  // Only the seasons.json half of applySeasonStart's output is needed here - this is a
+  // profile-completeness projection, not a real write, so quests.json content is never read or
+  // returned (passing null costs nothing: the seasons.json half never depends on it).
+  const projectedSeasons =
+    seasonStart?.name?.trim() && seasonStart.main_quest
+      ? parseJsonOrNull<SeasonsJson>(
+          applySeasonStart(
+            seasons ? JSON.stringify(seasons) : null,
+            null,
+            seasonStart,
+            today,
+            traceId,
+            new Date(),
+          ).seasonsContent,
+        )
+      : seasons;
   const profileComplete = isAthleteProfileComplete(
     projectedProfile,
     projectedMemory,

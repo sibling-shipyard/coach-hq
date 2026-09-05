@@ -39,6 +39,10 @@ export interface MainQuest {
   type: QuestType;
   target: number;
   count_pattern?: string;
+  // The season this goal belongs to (B3) - main_quest now only ever changes together with a
+  // season change, so this is the explicit, queryable link, not just something that happens to
+  // coincide procedurally.
+  season_id: string;
 }
 
 export interface Quest {
@@ -54,6 +58,10 @@ export interface Quest {
   target?: number;
   // progress only.
   unit?: string;
+  // count_target only (same field MainQuest carries for activity-name matching) - carried over
+  // when an outgoing season's goal retires into this array (B3), same "move it, don't destroy
+  // it" discipline habit quests already get.
+  count_pattern?: string;
   source: "model" | "athlete";
 }
 
