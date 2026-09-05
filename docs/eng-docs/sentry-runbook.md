@@ -68,12 +68,13 @@ condition would fire once and stay silent forever after.
 Both surfaces set the same `rage_report` fingerprint, so each project's reports group into one
 issue. They do not share an issue: web is `coach-hq-web`, iOS is `coach-hq-ios`.
 
-**Absence has its own check, and it is CI, not Sentry.** The `Span health` workflow
-(`.github/workflows/span-health.yml`) runs `ui/scripts/check-span-health.mjs` daily at 09:00 UTC
-and fails when production served traffic in the last 24 hours and sent no `http.server` span. It
-needs a `SENTRY_AUTH_TOKEN` repository secret; without one it warns and passes. A Sentry alert
-cannot express this, because it sees only one dataset at a time and cannot say "traffic happened
-but spans did not" — a quiet day would fire it every time.
+**No alert covers absence, so ask by hand:** `node ui/scripts/check-span-health.mjs` exits non-zero
+when production served traffic in the last 24 hours and sent no `http.server` span — the shape of
+#878, where errors kept arriving and every dashboard looked healthy. `SPAN_HEALTH_WINDOW` takes any
+Sentry `statsPeriod`. Sentry itself cannot ask this: an alert sees one dataset at a time, so it
+cannot say "traffic happened but spans did not", and "no spans" alone fires on every quiet day.
+Nothing runs this on a schedule yet — that decision belongs to a single owned cron policy, not to
+whichever PR needed a check first.
 
 ## Query from a terminal
 
@@ -87,7 +88,7 @@ TOKEN=${SENTRY_AUTH_TOKEN:-$(cat ~/.config/sentry-token)}
 `SENTRY_AUTH_TOKEN` is Sentry's own conventional name — `sentry-cli` and `@sentry/vite-plugin` read
 it with no configuration, so the parked source-map and dSYM upload needs no second variable. In CI
 it is meant to be a GitHub Actions secret of that name, exposed as an env var — **no such secret
-exists yet**, so `Span health` warns and passes until someone runs
+exists yet**, so nothing in CI can read Sentry until someone runs
 `gh secret set SENTRY_AUTH_TOKEN < ~/.config/sentry-token`. Never prefix it `VITE_`, because Vite
 bakes those into the client bundle.
 
@@ -138,8 +139,8 @@ release before calling a fix verified; green CI proves only that the code merged
 **An absent span is not evidence the endpoint was never called.** Before you read Sentry's silence
 as a finding, confirm a recent span exists on the release production is serving. In #878 the span
 pipeline was dead while errors kept arriving, and the missing `/api/coach-message` spans were read
-as a broken iOS sync (#874) rather than broken reporting. `Span health` (the daily workflow)
-catches this within a day; between runs, check by hand. `stats_v2` tells you *why* a payload never
+as a broken iOS sync (#874) rather than broken reporting. `check-span-health.mjs` above answers
+this in one command. `stats_v2` tells you *why* a payload never
 landed and the events API cannot: query it with `groupBy=outcome&groupBy=reason` and a
 `client_discard` row names the SDK-side reason — `sample_rate`, `event_processor`, `before_send`.
 

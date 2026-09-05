@@ -10,22 +10,39 @@
  * store on a day nobody used the product is normal. Traffic is anything the org recorded —
  * an API error, a browser span — and spans are `http.server` on `coach-hq-api`.
  *
- * Env: SENTRY_AUTH_TOKEN (absent → warn and pass, so a fork's scheduled run is not a red X),
+ * Run it by hand. Nothing schedules it: what runs on a timer is one owned decision, not something
+ * each PR settles for itself.
+ *
+ * Env: SENTRY_AUTH_TOKEN, falling back to `~/.config/sentry-token` the way the runbook does.
  * SPAN_HEALTH_WINDOW (a Sentry `statsPeriod`, default `24h`) so the failing branch can be
- * exercised by hand against a window you know is empty.
+ * exercised against a window you know is empty.
  */
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 const ORG = "sibling-shipyard";
 const WINDOW = process.env.SPAN_HEALTH_WINDOW || "24h";
 const API_PROJECT = "coach-hq-api";
 const WEB_PROJECT = "coach-hq-web";
 
-const token = process.env.SENTRY_AUTH_TOKEN;
-if (!token) {
-  console.warn("::warning::SENTRY_AUTH_TOKEN is not configured; span health was not checked.");
-  process.exit(0);
+function readToken() {
+  if (process.env.SENTRY_AUTH_TOKEN) return process.env.SENTRY_AUTH_TOKEN;
+  try {
+    return readFileSync(join(homedir(), ".config", "sentry-token"), "utf8").trim();
+  } catch {
+    return "";
+  }
 }
 
-/** One `count()` from Sentry's discover API. Throws on anything but a 200, so CI sees the fault. */
+const token = readToken();
+if (!token) {
+  console.error(
+    "No Sentry token. Export SENTRY_AUTH_TOKEN or write ~/.config/sentry-token - see docs/eng-docs/sentry-runbook.md.",
+  );
+  process.exit(2);
+}
+
+/** One `count()` from Sentry's discover API. Throws on anything but a 200, so a fault is loud. */
 async function count({ dataset, project, query }) {
   const url = new URL(`https://sentry.io/api/0/organizations/${ORG}/events/`);
   url.searchParams.set("dataset", dataset);
@@ -55,7 +72,7 @@ console.log(
 
 if (traffic > 0 && apiSpans === 0) {
   console.error(
-    `::error::Production served traffic in the last ${WINDOW} and sent no http.server spans. ` +
+    `Production served traffic in the last ${WINDOW} and sent no http.server spans. ` +
       `Tracing is broken; treat every span-based finding as unreliable until it is fixed. ` +
       `See docs/eng-docs/sentry-runbook.md.`,
   );
