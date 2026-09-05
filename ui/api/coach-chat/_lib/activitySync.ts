@@ -2,7 +2,6 @@
 import { createHash } from "node:crypto";
 import { getFileRaw, listDirectory, parseJsonOrNull } from "./coachChatFiles.js";
 import {
-  applyRetention,
   mergeThreadToFront,
   type ChatAttachment,
   type ChatThread,
@@ -124,7 +123,7 @@ export function commitActivitySyncHistory(
     return { threads, duplicate: true, thread: existing };
   }
   return {
-    threads: applyRetention(mergeThreadToFront(threads, newThread)),
+    threads: mergeThreadToFront(threads, newThread),
     duplicate: false,
     thread: newThread,
   };

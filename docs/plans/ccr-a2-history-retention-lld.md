@@ -33,11 +33,11 @@ Move the cap from **write time** (delete) to **response time** (slice, non-destr
    `applyRetention` and just delete the write-time call site — implementer's call), stop calling it
    at write time in `turnWrites/chatWrite.ts:56` and `activitySync.ts:127`. The file keeps growing,
    unbounded, forever.
-2. Add a display-slice applied at the two places threads get sent to a client:
+2. Add a display-slice applied at every place threads get sent to a client:
    - GET-history endpoint (`handleHistory`, `coachTurn.ts:136-145`).
-   - Ordinary/closing turn POST response's `threads` field (`coachChatModel.ts:532-536`'s
-     server-side counterpart).
-   Both should return `threads.slice(0, MAX_RETAINED_THREADS)` off the already-newest-first array —
+   - Closing turn POST response's `threads` field (`commitClosingTurn`, `coachTurn.ts:698`).
+   - Activity-sync turn response's `threads` field (`activitySyncTurn.ts:83` and `:197`).
+   All should return `threads.slice(0, MAX_RETAINED_THREADS)` off the already-newest-first array —
    same constant, same number, just applied on the way out instead of the way in.
 3. No client changes needed on web or iOS — confirmed neither has independent logic to update.
 

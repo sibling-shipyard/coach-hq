@@ -10,7 +10,6 @@ import {
   truncateTitle,
   loadChatHistory,
   mergeThreadToFront,
-  applyRetention,
   serializeChatHistory,
   type ChatMessage,
   type ChatThread,
@@ -53,9 +52,9 @@ export function buildChatWrite(params: {
         preview: replyText.slice(0, 80),
         messages: allMessages,
       };
-      const retained = applyRetention(mergeThreadToFront(fresh.threads, thread));
-      latestThreads.splice(0, latestThreads.length, ...retained);
-      return serializeChatHistory(retained, new Date().toISOString(), traceId);
+      const merged = mergeThreadToFront(fresh.threads, thread);
+      latestThreads.splice(0, latestThreads.length, ...merged);
+      return serializeChatHistory(merged, new Date().toISOString(), traceId);
     },
   };
   return { chatWrite, latestThreads, finalThreadId, computedTitle };
