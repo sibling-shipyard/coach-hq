@@ -45,6 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (!res.ok) {
+          // 401 is the answer this endpoint exists to give. Anything else is a fault the athlete
+          // cannot tell apart from being signed out: `ensureFreshSession` returns "Site
+          // misconfigured" as a 500 *response*, so the API does not capture it either, and a
+          // deploy missing GITHUB_APP_CLIENT_ID shows everyone a login screen recorded nowhere.
+          if (res.status !== 401) {
+            captureFetchFailure("/api/auth/me", { kind: "server", status: res.status });
+          }
           setState({ status: "unauthenticated" });
           return;
         }
