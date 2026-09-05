@@ -51,7 +51,11 @@ struct ActivityDetailView: View {
     }
 
     private var parsed: ParsedDescription? {
-        DescriptionParser.parseRawDescription(descriptionText)
+        // The sport gate. Before notes opened to every sport this was structural — the editor
+        // only rendered under `supportsScoreEntry`, so nothing else could reach the match path.
+        // The editor is now on everywhere, so the gate has to be stated instead of implied, or
+        // match text typed on a run writes a session into match_history.json (ADR 0013).
+        DescriptionParser.parseRawDescription(descriptionText, allowMatchParsing: supportsScoreEntry)
     }
 
     private var hrZoneTotal: Double {
@@ -1053,8 +1057,11 @@ private struct DescriptionEditorSheet: View {
 
     @ViewBuilder
     private var previewSection: some View {
-        // Resolve to FormattedMatchData regardless of whether the text is raw or already-saved
+        // Resolve to FormattedMatchData regardless of whether the text is raw or already-saved.
+        // Gated on the sport too: `FormattedMatchData.parse` only looks for a "Games:" block, so
+        // description text saved before the gate existed would still render a match card here.
         let matchData: FormattedMatchData? = {
+            guard supportsScoreEntry else { return nil }
             if let p = parsed {
                 return FormattedMatchData.parse(DescriptionParser.formatDescription(p))
             }

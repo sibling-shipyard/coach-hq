@@ -74,9 +74,12 @@ The iOS app owns naming and enrichment at commit time to ensure a single, clean 
 ### Activity Description Input
 `ActivityDetailView` lets the athlete write a description for **any** activity, stored in the
 activity JSON's `description` field. `DescriptionParser` decides what the text is:
-- Text with at least one `{partner} me vs {opps} {score}` line is a match. It formats into the
-  summary + `Games:` block and also writes a session to `user_data/activities/match_history.json`
-  (ADR 0013). Only score-entry sports (`Theme.sportSupportsScoreEntry`) get the match-styled card.
+- **On a score-entry sport only**, text with at least one `{partner} me vs {opps} {score}` line
+  is a match: it formats into the summary + `Games:` block and writes a session to
+  `user_data/activities/match_history.json` (ADR 0013). `Theme.sportSupportsScoreEntry` is the
+  gate and today it is badminton alone. The editor is open to every sport, so the gate is passed
+  explicitly into `DescriptionParser.parseRawDescription(_:allowMatchParsing:)` — on any other
+  sport the same text is a note, because match history is canonical for the win rate.
 - Anything else is a plain free-text note. It is stored verbatim and writes no match history.
 - Either way the text reaches Coach through the existing `description` projection.
 

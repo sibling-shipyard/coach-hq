@@ -138,7 +138,16 @@ enum DescriptionParser {
     /// Input with at least one recognizable game line comes back as a match. Anything else
     /// comes back as a plain free-text note. Returns nil only when the input is empty, or
     /// when it is already a formatted match (which must not be re-parsed).
-    static func parseRawDescription(_ raw: String) -> ParsedDescription? {
+    ///
+    /// `allowMatchParsing` is the sport gate, and it is load-bearing: `match_history.json` is
+    /// canonical for the win rate every consumer reads (ADR 0013), so only a score-entry sport
+    /// may produce a match. Pass `false` and every input is a note, including text that would
+    /// otherwise parse as games — a run is not a badminton session because someone typed a score
+    /// into it. Callers pass `Theme.sportSupportsScoreEntry(for:)`.
+    static func parseRawDescription(
+        _ raw: String,
+        allowMatchParsing: Bool = true
+    ) -> ParsedDescription? {
         if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return nil
         }
@@ -202,7 +211,7 @@ enum DescriptionParser {
                 continue
             }
 
-            if matches(rawMarkerRegex, lineStripped) {
+            if allowMatchParsing, matches(rawMarkerRegex, lineStripped) {
                 if let game = parseGameLine(lineStripped) {
                     if inFriendlies { friendlyGames.append(game) } else { rankedGames.append(game) }
                 } else {

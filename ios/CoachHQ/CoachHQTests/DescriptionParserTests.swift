@@ -2,7 +2,7 @@ import XCTest
 @testable import CoachHQ
 
 /// Covers the two halves of `DescriptionParser`: match text still parses and formats exactly
-/// as it did (regression guard for badminton and tennis), and anything else is kept as a
+/// as it did (regression guard for the score-entry sport), and anything else is kept as a
 /// plain free-text note so every sport can carry a description (#766).
 final class DescriptionParserTests: XCTestCase {
 
@@ -32,7 +32,7 @@ final class DescriptionParserTests: XCTestCase {
     }
 
     func testSinglesMatchRoundTrips() throws {
-        // Tennis and badminton singles take the partner-less form.
+        // Singles takes the partner-less form.
         let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("me vs Ravi 6-4"))
         XCTAssertFalse(parsed.isPlainNote)
         XCTAssertEqual(parsed.ranked.first?.isSingles, true)
@@ -205,5 +205,32 @@ final class DescriptionParserTests: XCTestCase {
     func testCarriageReturnsAreNormalized() throws {
         let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("First line.\r\nSecond line."))
         XCTAssertEqual(parsed.notes, "First line.\nSecond line.")
+    }
+
+    // MARK: - Sport gate
+
+    func testMatchTextOnANonScoreEntrySportIsJustANote() throws {
+        // The gate that stops a run writing into match_history.json. Same input as
+        // testDoublesMatchRoundTrips, parsed for a sport that does not do scores.
+        let raw = "Tony me vs Alston/Wei 21-18"
+        let asMatch = try XCTUnwrap(DescriptionParser.parseRawDescription(raw))
+        XCTAssertFalse(asMatch.isPlainNote)
+
+        let asNote = try XCTUnwrap(
+            DescriptionParser.parseRawDescription(raw, allowMatchParsing: false)
+        )
+        XCTAssertTrue(asNote.isPlainNote)
+        XCTAssertEqual(asNote.notes, raw)
+        XCTAssertTrue(asNote.ranked.isEmpty)
+        XCTAssertTrue(asNote.friendlies.isEmpty)
+        // isPlainNote is what ActivityDetailView.saveAndSync checks before writing history.
+        XCTAssertEqual(DescriptionParser.formatDescription(asNote), raw)
+    }
+
+    func testTheGateMatchesTheOnlyScoreEntrySport() {
+        // If this changes, the doc in ios-app-spec.md changes with it.
+        XCTAssertTrue(Theme.sportSupportsScoreEntry(for: "Badminton"))
+        XCTAssertFalse(Theme.sportSupportsScoreEntry(for: "Tennis"))
+        XCTAssertFalse(Theme.sportSupportsScoreEntry(for: "Run"))
     }
 }
