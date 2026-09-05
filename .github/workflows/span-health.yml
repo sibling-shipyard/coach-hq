@@ -1,0 +1,36 @@
+name: Span health
+
+# Fails when production served traffic in the last 24h and sent no API `http.server` spans.
+# #878 ran for hours undetected because errors kept arriving: nothing here watches for absence,
+# and a silent tracing pipeline makes every Sentry-based diagnosis quietly wrong.
+#
+# Self-included in the path filters so a change to the check runs on its own PR (see
+# platform-tests.yml for why).
+on:
+  schedule:
+    # 09:00 UTC, after a European morning of traffic but before the operator needs the answer.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'ui/scripts/check-span-health.mjs'
+      - '.github/workflows/span-health.yml'
+
+permissions: {}
+
+jobs:
+  span-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check that production is still sending spans
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: node ui/scripts/check-span-health.mjs
