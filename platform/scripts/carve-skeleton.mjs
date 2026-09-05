@@ -30,6 +30,7 @@ const PLATFORM_DIR = path.join(REPO_ROOT, "platform");
 const SKELETON_SCRIPT_FILES = [
   "scripts/regenerate_derived.py",
   "scripts/record_sync_failure.py",
+  "scripts/notify_sync_failure.py",
   "scripts/build-dashboard-snapshot.mjs",
   "scripts/generate-athlete-insights.mjs",
   "scripts/generate_quest_history.py",
@@ -480,14 +481,45 @@ function copyEngineTemplate(outDir, filename) {
   fs.copyFileSync(src, dest);
 }
 
+/** The one line in sync.user.yml that carries a value HQ does not commit. */
+const SYNC_DSN_PLACEHOLDER = '          SENTRY_DSN: ""';
+
+/**
+ * Stamp the Sentry DSN into the carved Sync workflow.
+ *
+ * A DSN is write-only — it can send events, not read them — and ours already ships in the
+ * public web bundle, so it needs no athlete secret and no GitHub secret. It is not committed
+ * at HQ either: the operator exports `SENTRY_DSN` when they carve. Unset, the carve still
+ * succeeds and the athlete's failed syncs simply reach nobody, so it says so loudly.
+ */
+function stampSyncDsn(yaml) {
+  const dsn = (process.env.SENTRY_DSN || "").trim();
+  if (!yaml.includes(SYNC_DSN_PLACEHOLDER)) {
+    throw new Error(
+      `sync.user.yml no longer has the line \`${SYNC_DSN_PLACEHOLDER.trim()}\` — ` +
+        "the carved workflow would silently lose its Sentry alert",
+    );
+  }
+  if (!dsn) {
+    console.warn(
+      "warning: SENTRY_DSN is not set — the carved repo will not report failed syncs.\n" +
+        "  Export the coach-hq-api project DSN and carve again to turn alerts on.",
+    );
+    return yaml;
+  }
+  // Function form: a `$` in the DSN would otherwise be read as a replacement pattern.
+  return yaml.replace(SYNC_DSN_PLACEHOLDER, () => `          SENTRY_DSN: "${dsn}"`);
+}
+
 function copyWorkflows(outDir) {
   const wfDir = path.join(outDir, ".github/workflows");
   fs.mkdirSync(wfDir, { recursive: true });
 
-  fs.copyFileSync(
+  const sync = fs.readFileSync(
     path.join(ENGINE_DIR, ".github/workflows/sync.user.yml"),
-    path.join(wfDir, "sync.yml"),
+    "utf8",
   );
+  fs.writeFileSync(path.join(wfDir, "sync.yml"), stampSyncDsn(sync));
 
   for (const wf of ["validate-data.yml", "apply-coach-patch.yml"]) {
     fs.copyFileSync(path.join(ENGINE_DIR, ".github/workflows", wf), path.join(wfDir, wf));

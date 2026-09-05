@@ -117,9 +117,10 @@ jobs:
       # numbers as if they were current. This writes the run's own gravestone. It cannot trust
       # anything the dead step left behind, so it re-derives its state from origin/main and
       # pushes that one file. Failing here would only hide the original failure, so it never
-      # exits non-zero — it annotates and stops. `set +e` is what makes that true: GitHub runs
-      # this block under `bash -e`, which would otherwise abort on a transient `git fetch` and
-      # skip both the annotation and the retry.
+      # exits non-zero — it annotates and stops. It also sends one Sentry event, because a file
+      # in the repo is only read by someone who already suspects something is wrong. `set +e` is
+      # what makes the never-fail promise true: GitHub runs this block under `bash -e`, which
+      # would otherwise abort on a transient `git fetch` and skip the annotation and the retries.
       - name: Record sync failure
         if: failure()
         env:
@@ -127,8 +128,18 @@ jobs:
           SYNC_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           SYNC_RUN_ID: ${{ github.run_id }}
           SYNC_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SYNC_ATHLETE_ID: ${{ github.repository_owner }}
+          # Stamped in at carve time by platform/scripts/carve-skeleton.mjs. A Sentry DSN
+          # only writes — it cannot read an event back — so it is not a secret and the athlete
+          # sets nothing. Empty here means no alert; the record file below is still written.
+          SENTRY_DSN: ""
         run: |
           set +e
+          # First, and behind `||`: the alert is the half that reaches a human, and it is the
+          # only half that still works when this job cannot push. It exits 0 on every internal
+          # failure; the `||` covers the case where checkout died and the script is not there.
+          python3 engine/scripts/notify_sync_failure.py \
+            || echo "::warning::Could not alert Sentry about this failed Sync. Run: $SYNC_RUN_URL"
           if [ ! -d .git ]; then
             echo "::error::Sync failed before checkout — nowhere to record it. Run: $SYNC_RUN_URL"
             exit 0

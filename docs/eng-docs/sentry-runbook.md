@@ -27,6 +27,10 @@ flowchart LR
 2. Create `coach-hq-web` (React), `coach-hq-api` (Node), and `coach-hq-ios` (Cocoa) projects — the
    single Developer-plan user owns all three. Put `VITE_SENTRY_DSN` and `SENTRY_DSN` in Vercel Production and
    Preview. Put the public iOS DSN in the uncommitted `Secrets.swift` used by the app build.
+   Athlete repos report failed Sync runs into `coach-hq-api` (tag `operation:sync`): export the
+   same `SENTRY_DSN` before `node platform/scripts/carve-skeleton.mjs`, which stamps it into the
+   Sync workflow it carves. A DSN only writes, so it needs no athlete secret. Carve
+   without it and the script warns; the repo it produces reports nothing.
 3. **Nothing uploads source maps or dSYMs yet — there is no setup step here to do.**
    `ui/vite.config.ts` loads no Sentry plugin and `@sentry/vite-plugin` is not a dependency, so
    web stack frames arrive minified. iOS is the same story for a different reason: the repo builds

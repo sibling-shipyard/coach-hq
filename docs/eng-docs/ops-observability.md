@@ -1,6 +1,6 @@
 # Observability
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-05 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 ## Context
 
@@ -16,11 +16,19 @@ flowchart LR
   W["Web ui/client"] --> S["Sentry Germany<br/>30 days"]
   A["API ui/api"] --> S
   I["iOS app"] --> S
+  Y["Athlete repo Sync workflow"] --> S
   I --> T["On-phone timeline<br/>200 events, 24h"]
   T -->|"athlete picks what to send"| S
   S --> D["Coach HQ health dashboard"]
   S --> L["Alerts"]
 ```
+
+The fourth sender is not one of ours to deploy: each athlete's repo runs the carved Sync
+workflow, and a failed run posts one event straight from the runner
+(`engine/scripts/notify_sync_failure.py`) into `coach-hq-api`, tagged `operation:sync`. It sends
+the failed step, the run URL and id, and `athlete_id` — nothing else, and nothing at all when the
+run is green. Its DSN is stamped in at carve time, so the athlete sets no secret. It uses the
+stdlib over `urllib`, not the SDK: the step that died may be the one that installs dependencies.
 
 Nothing leaves the phone until the athlete taps Submit on a Rage Report. The web has the same
 control in the header menu, and needs no on-device timeline: the browser SDK already keeps click,
