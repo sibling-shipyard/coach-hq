@@ -102,6 +102,36 @@ the request body. And a free-tier `GEMINI_API_KEY` has a hard quota of 0 on `gem
 (which resolves to `gemini-3.1-pro`), so a free key cannot exercise the pin in
 `ui/api/_lib/geminiModel.ts` at all.
 
+## Flipping the flag takes two steps, and the second is silent
+
+**Set the variable, then rebuild.** Vercel resolves environment variables when a deployment is
+built, so a deployment created before the variable existed never sees it. Nothing warns you.
+
+A deployment missing `LLM_PROVIDER` runs direct Gemini while you believe it runs OpenRouter, so a
+green pilot proves the opposite of what it looks like. Worse, a deployment missing
+`COACH_CHAT_BRANCH` falls back to `"main"` and commits a test message into an athlete's real
+history. Both were live on a Preview during the 2026-09-05 pilot; the check below caught them.
+
+Before trusting any run, compare the deployment's build time against the variable's `updatedAt`:
+
+```
+GET https://api.vercel.com/v13/deployments/<host>        -> createdAt
+GET https://api.vercel.com/v9/projects/<id>/env          -> updatedAt per key
+```
+
+Build time must be later. `COACH_CHAT_BRANCH` belongs on Preview and Development only — production
+must fall through to `"main"`, which is where a real athlete's message belongs.
+
+**Proof of which adapter ran comes from Sentry, not from the reply.** The span carries
+`llm.adapter`, and a passing reply looks identical either way:
+
+```
+dataset=spans  query=span.op:gen_ai.*  field=llm.adapter  field=environment
+```
+
+OpenRouter's credits meter is not the instrument — it lags a couple of minutes, and reading it too
+early says "no charge" for a call that was in fact billed.
+
 ## Locked decisions
 
 - `coach-message` is the pilot. Chat and template adjustment follow it, not alongside it.
@@ -144,7 +174,7 @@ flowchart LR
 | # | Size | Milestone | State | Result |
 |---|---|---|---|---|
 | 0 | S | Account ready | ✅ done 2026-09-04 | The key, spend limit, data policy and rollback are locked; no code |
-| 1 | M | `coach-message` pilot | PR 833 in review | `llmClient` and both adapters exist; proactive messages run on OpenRouter in production |
+| 1 | M | `coach-message` pilot | ✅ done 2026-09-05 | `llmClient` and both adapters shipped; proactive messages proven on OpenRouter against a live Preview deployment, with real athlete files and a real commit |
 | 2 | M | Chat and templates | not started | The remaining two callers reach the model through `llmClient`; production still selects Gemini for chat |
 | 3 | M | Cut over and retire | not started | OpenRouter is stable for two weeks, the direct adapter is removed and the ADR records the decision |
 
@@ -152,7 +182,7 @@ flowchart LR
 
 | PR | milestone | outcome | final base | files | owner | parallel with | result |
 |---|---|---|---|---|---|---|---|
-| 1 | 1 | `llmClient`, both adapters, `coach-message` only, telemetry and tests | `main` | `ui/api/_lib/`, `ui/api/coach-message.ts`, `ui/api/coach-message/_lib/`, `ui/api/coach-message/_tests/`, `ui/api/_lib/_tests/` | Bob the Builder | — | PR 833 in review — Refs #713 |
+| 1 | 1 | `llmClient`, both adapters, `coach-message` only, telemetry and tests | `main` | `ui/api/_lib/`, `ui/api/coach-message.ts`, `ui/api/coach-message/_lib/`, `ui/api/coach-message/_tests/`, `ui/api/_lib/_tests/` | Bob the Builder | — | ✅ merged — PRs 833, 843, 856, 857, 858 |
 | 2 | 2 | Chat and template adjustment move onto `llmClient` | PR 1, after the chat stack lands | `ui/api/coach-chat.ts`, `ui/api/coach-chat/_lib/`, `ui/api/coach-chat/_tests/`, `ui/scripts/eval-coach-chat.ts`, `.github/workflows/eval-coach-chat.yml` | Bob the Builder | — | not started |
 | 3 | 3 | Remove direct Gemini after the observation gate; ADR, docs and plan cleanup | PR 2 | `ui/api/`, `ui/scripts/`, `.github/workflows/eval-coach-chat.yml`, `docs/eng-docs/`, `kdb/decisions/`, `docs/plans/chat-openrouter-migration.md` | Bob the Builder + Tech Lead | — | not started |
 
