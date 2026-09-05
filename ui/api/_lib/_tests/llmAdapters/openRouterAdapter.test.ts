@@ -4,7 +4,11 @@
  * the caller — the whole point of provider routing (docs/plans/chat-openrouter-migration.md).
  */
 import { describe, expect, it, vi } from "vitest";
-import { createOpenRouterAdapter, OPENROUTER_MODEL } from "../../llmAdapters/openRouterAdapter.js";
+import {
+  createOpenRouterAdapter,
+  OPENROUTER_MODEL,
+  visibleOutputTokens,
+} from "../../llmAdapters/openRouterAdapter.js";
 import type { LlmRequest } from "../../llmClient.js";
 
 const REQUEST: LlmRequest = {
@@ -119,6 +123,27 @@ describe("createOpenRouterAdapter", () => {
       fetcher,
     );
     await expect(adapter.generate(REQUEST)).rejects.toThrow(/no choices and no error/);
+  });
+
+  it("reports visible output tokens, not OpenRouter's reasoning-inclusive count (#853)", () => {
+    // The live shape: completion 372 = 40 shown to the athlete + 332 reasoning (2026-09-05).
+    expect(
+      visibleOutputTokens({
+        completion_tokens: 372,
+        completion_tokens_details: { reasoning_tokens: 332 },
+      }),
+    ).toBe(40);
+    // No reasoning reported is the common case on `effort: "low"` and must pass through unchanged.
+    expect(visibleOutputTokens({ completion_tokens: 40 })).toBe(40);
+    // Absent usage stays absent — `usageAttributes` omits it rather than sending a zero.
+    expect(visibleOutputTokens(undefined)).toBeUndefined();
+    // A provider reporting more reasoning than completion must not yield a negative span value.
+    expect(
+      visibleOutputTokens({
+        completion_tokens: 10,
+        completion_tokens_details: { reasoning_tokens: 99 },
+      }),
+    ).toBe(0);
   });
 
   it("rejects when OPENROUTER_API_KEY is unset, before making a request", async () => {

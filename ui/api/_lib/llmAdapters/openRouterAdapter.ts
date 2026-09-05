@@ -41,6 +41,24 @@ interface OpenRouterResponse {
   model?: string;
 }
 
+/**
+ * OpenRouter's `completion_tokens` counts reasoning tokens; Gemini's `candidatesTokenCount` does
+ * not. Both feed `gen_ai.usage.output_tokens`, so without this the same attribute would mean two
+ * different things and any cross-provider comparison would be wrong by exactly the reasoning
+ * count. Subtracting leaves visible output on both sides, with reasoning still reported on its
+ * own as `thinkingTokens`. `total_tokens` stays inclusive, which both providers already agree on.
+ *
+ * Measured 2026-09-05, `reasoning: {effort: "high"}`: completion 372, reasoning 332, and a
+ * 176-character reply — 372 - 332 = the 40 tokens actually shown to the athlete.
+ */
+export function visibleOutputTokens(usage: OpenRouterResponse["usage"]): number | undefined {
+  const completion = usage?.completion_tokens;
+  if (completion === undefined) return undefined;
+  const reasoning = usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+  // Never negative: a provider that reports these inconsistently must not produce a nonsense span.
+  return Math.max(completion - reasoning, 0);
+}
+
 export function createOpenRouterAdapter(
   env: NodeJS.ProcessEnv,
   fetcher: typeof fetchWithTimeout = fetchWithTimeout,
@@ -104,7 +122,7 @@ export function createOpenRouterAdapter(
           // point of provider routing and must reach the span regardless (locked decision).
           recordUsage({
             promptTokens: payload.usage?.prompt_tokens,
-            completionTokens: payload.usage?.completion_tokens,
+            completionTokens: visibleOutputTokens(payload.usage),
             totalTokens: payload.usage?.total_tokens,
             thinkingTokens: payload.usage?.completion_tokens_details?.reasoning_tokens,
             resolvedProvider,
