@@ -1,6 +1,6 @@
 # Gemini integration — how it works
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-31
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-05
 
 ## Context
 
@@ -11,13 +11,20 @@ the same way `coach-chat-flow.md` is the one reference for the request lifecycle
 
 ## Model and endpoint
 
-`gemini-flash-latest` (Google's maintained alias — dated model ids keep getting sunset early;
-see `ui/api/coach-chat/_lib/geminiClient.ts`), called via raw `fetch` to `generateContent`, no SDK
-(`GEMINI_API_KEY` env var). One call per turn, no streaming (issue #270).
+Chat runs `gemini-pro-latest`, pinned in `ui/api/_lib/geminiModel.ts:11`. Flash is the intended
+model and the pin is temporary — #668 moved off it after capacity failures, not quality ones.
+Called via raw `fetch` to `generateContent`, no SDK (`GEMINI_API_KEY` env var). One call per turn,
+no streaming (issue #270).
 
-`ui/api/coach-message.ts` uses the same model and key for one post-sync call. Its separate
-message-only schema gets bounded repo-owned activity context, including `effort_shape` but never
-raw HR points; it does not use chat actions, history, or the explicit chat cache.
+`ui/api/coach-message.ts` no longer shares that model and key. It reaches the model through
+`ui/api/_lib/llmClient.ts`, which picks one adapter per request from `LLM_PROVIDER`: the default
+`gemini` is the same direct call described above, and `openrouter` sends the request to OpenRouter
+instead (#713). Its separate message-only schema gets bounded repo-owned activity context,
+including `effort_shape` but never raw HR points; it does not use chat actions, history, or the
+explicit chat cache.
+
+Chat and template adjustment still call Gemini directly. They move onto `llmClient` in PR 2 of
+#713.
 
 ## Prompt shape: static prefix + dynamic block
 

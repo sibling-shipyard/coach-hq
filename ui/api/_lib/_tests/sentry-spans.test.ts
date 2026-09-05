@@ -272,12 +272,26 @@ describe("withGeminiSpan", () => {
     thinkingTokens: 1_680,
   };
 
+  /**
+   * What OpenRouter reports back, observed live on 2026-09-05 with `only: ["google-vertex"]`
+   * pinned: the provider name is `Google` and the model is the slug we asked for, not a
+   * Vertex-specific one. See the note in docs/plans/chat-openrouter-migration.md — these strings
+   * cannot tell Vertex apart from AI Studio, so the ZDR pin is proven by the request, not by this.
+   */
+  const OPENROUTER_USAGE = {
+    resolvedProvider: "Google",
+    resolvedModel: "google/gemini-3.8-flash",
+  };
+
   /** A Gemini span only ships inside a route transaction — that is the shape production uses. */
   async function geminiSpanFrom(
-    run: (record: (usage: Partial<typeof USAGE>) => void) => Promise<unknown>,
+    run: (
+      record: (usage: Partial<typeof USAGE & typeof OPENROUTER_USAGE>) => void,
+    ) => Promise<unknown>,
+    extraAttributes?: Record<string, string>,
   ) {
     await withContinuedTrace(request(), async () => {
-      await withGeminiSpan("gemini-flash-latest", run).catch(() => undefined);
+      await withGeminiSpan("gemini-flash-latest", run, extraAttributes).catch(() => undefined);
       return Response.json({ ok: true });
     });
     await drainWaitUntil();
@@ -303,6 +317,37 @@ describe("withGeminiSpan", () => {
       "gen_ai.usage.output_tokens.reasoning": 1_680,
       outcome: "ok",
     });
+  });
+
+  it("carries the adapter tag and OpenRouter's resolved provider and model (#713)", async () => {
+    const span = await geminiSpanFrom(
+      async (record) => {
+        record({ ...USAGE, ...OPENROUTER_USAGE });
+        return "reply";
+      },
+      { "llm.adapter": "openrouter", "gen_ai.system": "openrouter" },
+    );
+
+    expect(span?.attributes).toMatchObject({
+      // The static third argument reaches the span, and overrides a default set alongside it.
+      "llm.adapter": "openrouter",
+      "gen_ai.system": "openrouter",
+      // Response-time routing data, which only `recordUsage` can know.
+      "gen_ai.response.provider": "Google",
+      "gen_ai.response.model": "google/gemini-3.8-flash",
+    });
+  });
+
+  it("omits the resolved provider and model on the direct Gemini path", async () => {
+    const span = await geminiSpanFrom(async (record) => {
+      record(USAGE);
+      return "reply";
+    });
+
+    expect(span?.attributes).toMatchObject({ "gen_ai.system": "google_genai" });
+    expect(span?.attributes).not.toHaveProperty("gen_ai.response.provider");
+    expect(span?.attributes).not.toHaveProperty("gen_ai.response.model");
+    expect(span?.attributes).not.toHaveProperty("llm.adapter");
   });
 
   it("never carries prompt or reply text on a turn that worked (ADR 0032)", async () => {
