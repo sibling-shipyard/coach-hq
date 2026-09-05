@@ -29,6 +29,7 @@ const PLATFORM_DIR = path.join(REPO_ROOT, "platform");
 /** Scripts carved into engine/scripts/ */
 const SKELETON_SCRIPT_FILES = [
   "scripts/regenerate_derived.py",
+  "scripts/record_sync_failure.py",
   "scripts/build-dashboard-snapshot.mjs",
   "scripts/generate-athlete-insights.mjs",
   "scripts/generate_quest_history.py",
@@ -392,9 +393,19 @@ After sync, \`gen/dashboard_snapshot.json\` and \`gen/athlete_insights.json\` re
 
 ---
 
+## 6. Turn on failure alerts
+
+GitHub does **not** notify you about failed Actions runs unless you ask it to, and a failed Sync
+leaves the app showing your previous numbers. Two minutes, once:
+
+**github.com → your avatar → Settings → Notifications → Actions** — tick **Email** and
+**Only notify for failed workflows**.
+
+---
+
 ## Troubleshooting
 
-- **Sync workflow fails:** open **Actions → Sync** and read the failed run's log. The workflow uses the built-in \`GITHUB_TOKEN\` (no secret to set); if pushes are rejected, confirm the repo's **Settings → Actions → General → Workflow permissions** is set to **Read and write**.
+- **Sync workflow fails:** \`gen/sync_failure.json\` names the step that died and links the run. Open **Actions → Sync** and read that run's log. Until the next green Sync, everything in \`gen/\` is from the last one that worked. The workflow uses the built-in \`GITHUB_TOKEN\` (no secret to set); if pushes are rejected, confirm the repo's **Settings → Actions → General → Workflow permissions** is set to **Read and write**.
 `;
 
 function parseArgs(argv) {
