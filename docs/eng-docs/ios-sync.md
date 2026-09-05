@@ -256,10 +256,10 @@ GitHub Actions run**. The workflow records only added or modified history paths,
 
 A run that **fails** rebuilds none of those, so `home.sync.timestamp` never advances and
 `refreshAfterSync(since:)` polls until it gives up. Such a run commits `gen/sync_failure.json`
-— timestamp, the step that died, and the run URL. Nothing reads it yet: the app, the dashboard
-and `widget-snapshots` all still show the last good numbers with no sign they are stale. The file
-is the record a reader will need, and the operator's answer to "why is this stale", not a
-distinction any surface makes today.
+— timestamp, the step that died, and the run URL. No app surface reads it: the app, the dashboard
+and `widget-snapshots` all still show the last good numbers with no sign they are stale. The same
+step also sends one Sentry event, so the operator hears about it within a minute; the file is what
+they read next, and the answer to "why is this stale", not a distinction any surface makes today.
 
 **So the app must wait for that second run, not for its own commit.** That regeneration takes
 ~30s. A single immediate `WidgetSnapshotStore.refresh()` races the pipeline and then caches stale

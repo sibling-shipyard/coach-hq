@@ -241,7 +241,7 @@ Read the script when they disagree — it is what runs.
 
 | Source (HQ) | Skeleton destination | Band |
 |---|---|---|
-| `engine/scripts/` (5 runtime + validate wrapper) | `engine/scripts/` | `engine/` |
+| `engine/scripts/` (8 runtime + validate wrapper) | `engine/scripts/` | `engine/` |
 | `engine/lib/`, `engine/core/` | `engine/` | `engine/` |
 | `engine/.github/workflows/` (3 user workflows) | `.github/workflows/` | `engine/` |
 | `platform/skeleton-templates/` (2 samples) | `user_data/.../templates/` | `platform/` |
@@ -252,6 +252,10 @@ Read the script when they disagree — it is what runs.
 | Generated init templates | `user_data/*`, `gen/*` placeholders | skeleton stamps only |
 | `user_data/`, `gen/` at HQ | **never copied** | — |
 | `ui/`, `ios/`, `kdb/`, `.github/agents/` | not copied | HQ-only |
+
+`sync.user.yml` is the one file the carve rewrites rather than copies: it stamps the operator's
+`SENTRY_DSN` into the workflow so a failed Sync reports itself, with no athlete-set secret
+(`sentry-runbook.md` § Set up once). Carve without that variable and the script warns.
 
 `platform/SOUL.chat.md` never leaves HQ — the hosted app bundles it at build time (ADR 0022).
 The bare `propagated/SOUL.md` name is retired; neither runtime owns it.
