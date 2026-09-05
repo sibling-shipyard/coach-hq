@@ -13,11 +13,13 @@ export interface RepoDashboardSnapshotFailure {
   /**
    * Set only when the failure is a fault rather than an answer, so a caller captures on its
    * presence instead of re-deriving the distinction from the status. A 404 carries none: the
-   * repo has not synced yet. The two 502s do: GitHub is down, or the snapshot will not parse,
-   * and the athlete's dashboard is blank with nothing else recording why. Messages match
-   * `repo-file.ts`, which answers the identical failures on the identical file, so one search
-   * finds both routes' events. They do not share an issue: Sentry groups on the stack trace, and
-   * these are two `new Error()` in two files.
+   * repo has not synced yet. Neither does a 401 or 403: a revoked or expired GitHub App
+   * installation is fixed by signing in again, not by retrying, matching `repo-file.ts`'s
+   * identical check on the identical file. The remaining 502s do: GitHub is down, or the
+   * snapshot will not parse, and the athlete's dashboard is blank with nothing else recording
+   * why. Messages match `repo-file.ts`, which answers the identical failures on the identical
+   * file, so one search finds both routes' events. They do not share an issue: Sentry groups on
+   * the stack trace, and these are two `new Error()` in two files.
    */
   cause?: Error;
 }
@@ -39,6 +41,14 @@ export async function fetchRepoDashboardSnapshot(
     return {
       error: "gen/dashboard_snapshot.json not found in your repo — has it synced yet?",
       status: 404,
+    };
+  }
+  if (contentsRes.status === 401 || contentsRes.status === 403) {
+    // A revoked/expired GitHub App installation, matching repo-file.ts's identical check on the
+    // identical file: the fix is signing in again, not retrying, so this stays uncaptured.
+    return {
+      error: "Failed to fetch your data from GitHub",
+      status: 502,
     };
   }
   if (!contentsRes.ok) {

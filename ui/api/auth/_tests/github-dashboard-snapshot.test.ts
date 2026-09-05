@@ -2,7 +2,7 @@
  * `fetchRepoDashboardSnapshot` returns its failures instead of throwing, so its callers cannot
  * rely on the route wrapper to record them. `cause` is the flag that tells a caller which of
  * those returned failures is a fault worth capturing - these assert it is set on exactly the
- * two that are, and absent on the one that is an answer.
+ * two that are, and absent on the three that are answers.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { fetchRepoDashboardSnapshot } from "../_lib/github-dashboard-snapshot.js";
@@ -27,6 +27,24 @@ describe("fetchRepoDashboardSnapshot", () => {
     const result = await fetchRepoDashboardSnapshot(REPO, "gh-token");
 
     expect(result).toMatchObject({ status: 404 });
+    expect(result).not.toHaveProperty("cause");
+  });
+
+  it("leaves a 401 with no cause - a revoked GitHub App installation, fixed by signing in again", async () => {
+    stubGitHub(new Response("nope", { status: 401 }));
+
+    const result = await fetchRepoDashboardSnapshot(REPO, "gh-token");
+
+    expect(result).toMatchObject({ status: 502 });
+    expect(result).not.toHaveProperty("cause");
+  });
+
+  it("leaves a 403 with no cause - same revoked-install answer as a 401", async () => {
+    stubGitHub(new Response("nope", { status: 403 }));
+
+    const result = await fetchRepoDashboardSnapshot(REPO, "gh-token");
+
+    expect(result).toMatchObject({ status: 502 });
     expect(result).not.toHaveProperty("cause");
   });
 
