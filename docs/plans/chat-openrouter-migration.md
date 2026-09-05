@@ -102,9 +102,17 @@ the request body. And a free-tier `GEMINI_API_KEY` has a hard quota of 0 on `gem
 (which resolves to `gemini-3.1-pro`), so a free key cannot exercise the pin in
 `ui/api/_lib/geminiModel.ts` at all.
 
-## Flipping the flag takes two steps, and the second is silent
+## Flipping the flag takes three steps, and two of them are silent
 
-**Set the variable, then rebuild.** Vercel resolves environment variables when a deployment is
+**Deploy the code, set the variable, then rebuild.** All three, in that order.
+
+**A redeploy rebuilds the same commit.** It does not pick up newer code. Production ran
+`bc83c6e` (2026-09-04) for a full day after `llmClient` landed on `main`, so `LLM_PROVIDER` sat
+there meaning nothing — no adapter existed to read it. Redeploying twice changed nothing, because
+each redeploy rebuilt the same pre-adapter commit. Promote a deployment built from current `main`,
+or push a commit that touches `ui/`; a redeploy alone never ships new code.
+
+**Then set the variable and rebuild.** Vercel resolves environment variables when a deployment is
 built, so a deployment created before the variable existed never sees it. Nothing warns you.
 
 A deployment missing `LLM_PROVIDER` runs direct Gemini while you believe it runs OpenRouter, so a
@@ -112,14 +120,17 @@ green pilot proves the opposite of what it looks like. Worse, a deployment missi
 `COACH_CHAT_BRANCH` falls back to `"main"` and commits a test message into an athlete's real
 history. Both were live on a Preview during the 2026-09-05 pilot; the check below caught them.
 
-Before trusting any run, compare the deployment's build time against the variable's `updatedAt`:
+Comparing timestamps is necessary but **not sufficient** — it says the variable was present, not
+that the code that reads it was. Before trusting any run, check both:
 
 ```
 GET https://api.vercel.com/v13/deployments/<host>        -> createdAt
 GET https://api.vercel.com/v9/projects/<id>/env          -> updatedAt per key
 ```
 
-Build time must be later. `COACH_CHAT_BRANCH` belongs on Preview and Development only — production
+Build time must be later, **and** the deployment's commit must contain the adapters. The cheap
+check for the second one is the span: no `llm.adapter` attribute at all means pre-adapter code,
+not a misconfigured flag. `COACH_CHAT_BRANCH` belongs on Preview and Development only — production
 must fall through to `"main"`, which is where a real athlete's message belongs.
 
 **Proof of which adapter ran comes from Sentry, not from the reply.** The span carries
