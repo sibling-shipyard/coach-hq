@@ -603,11 +603,11 @@ export async function generateTemplatesAfterCompletion(turn: TurnWrites): Promis
 }
 
 export async function commitOrdinaryTurn(turn: TurnWrites): Promise<Response> {
-  const writes = fspIncrementalWrites(turn.wasProfileComplete, turn.fspCandidates);
+  const writes = [...fspIncrementalWrites(turn.fspCandidates), turn.chatWrite];
   let repoSha = turn.currentSha;
   if (writes.length > 0) {
     try {
-      const result = await commitFilesAtomic(writes, "coach: first session details recorded", {
+      const result = await commitFilesAtomic(writes, "coach: ordinary turn updates recorded", {
         repo: turn.repo,
         branch: resolveCoachChatBranch(),
         token: turn.token,
