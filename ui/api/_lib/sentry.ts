@@ -414,7 +414,7 @@ export async function captureServerException(error: unknown): Promise<CaptureRes
 }
 
 /** Queue an error without draining the client; the request wrapper owns the escaped-error flush. */
-function queueServerException(error: unknown): string | undefined {
+export function queueServerException(error: unknown): string | undefined {
   if (!initServerMonitoring()) return undefined;
   return Sentry.captureException(error);
 }

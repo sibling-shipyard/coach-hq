@@ -3,11 +3,13 @@
  *
  * `sentry.ts` itself is proved against a real SDK in `api/_lib/_tests/sentry-spans.test.ts`.
  * What is unproved there is this route's wiring, and the catch-all makes that its own question:
- * one file answers seven URLs, three of its handlers swallow a throw into a redirect or a 502, and
- * identity is established inside it rather than read at the top. So the three helpers are faked
- * here and the assertions are about which of them each action calls.
+ * one file answers seven URLs, several of its handlers turn a fault into a redirect or a status
+ * rather than throwing it, and identity is established inside it rather than read at the top. So
+ * the three helpers are faked here and the assertions are about which of them each action calls,
+ * including on the paths where nothing ever throws.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { EncryptJWT } from "jose";
 import { encryptSession, buildCookie, SESSION_COOKIE } from "../_lib/session.js";
 import { signOAuthState } from "../_lib/pkce.js";
 import { InstallationLookupFailedError, MarkerLookupFailedError } from "../_lib/repo-resolution.js";
@@ -16,22 +18,29 @@ process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 process.env.GITHUB_APP_CLIENT_ID ??= "test-client-id";
 process.env.GITHUB_APP_CLIENT_SECRET ??= "test-client-secret";
 
-const { captureServerException, setAthleteScope, withSentryRoute } = vi.hoisted(() => ({
-  captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
-  setAthleteScope: vi.fn(),
-  withSentryRoute: vi.fn(
-    async (
-      _req: Request,
-      handler: (sentry: {
-        captureException: typeof captureServerException;
-        setAthleteScope: typeof setAthleteScope;
-      }) => Promise<unknown>,
-    ) => handler({ captureException: captureServerException, setAthleteScope }),
-  ),
-}));
+const { captureServerException, queueServerException, setAthleteScope, withSentryRoute } =
+  vi.hoisted(() => ({
+    captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
+    queueServerException: vi.fn((_error: unknown) => "event-id"),
+    setAthleteScope: vi.fn(),
+    withSentryRoute: vi.fn(
+      async (
+        _req: Request,
+        handler: (sentry: {
+          captureException: typeof captureServerException;
+          setAthleteScope: typeof setAthleteScope;
+        }) => Promise<unknown>,
+      ) => handler({ captureException: captureServerException, setAthleteScope }),
+    ),
+  }));
 
 vi.mock("../../_lib/sentry.js", () => ({
   withSentryRoute,
+  // session.ts reaches for this module directly - a cookie that will not decrypt is caught
+  // below any route context - so a partial factory would leave it undefined at call time. It
+  // queues rather than captures: it runs on every authenticated request and must not flush.
+  captureServerException,
+  queueServerException,
 }));
 
 const { default: handler } = await import("../[...action].js");
@@ -52,10 +61,29 @@ async function sessionCookie(repoFullName?: string): Promise<string> {
   return buildCookie(SESSION_COOKIE, token, 1000).split(";")[0];
 }
 
+/** A cookie encrypted with this key but already past its `exp` - jose codes it ERR_JWT_EXPIRED. */
+async function expiredSessionCookie(): Promise<string> {
+  const key = Uint8Array.from(Buffer.from(SESSION_SECRET, "base64"));
+  const token = await new EncryptJWT({ login: "alice" })
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+    .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
+    .setExpirationTime(Math.floor(Date.now() / 1000) - 60)
+    .encrypt(key);
+  return buildCookie(SESSION_COOKIE, token, 1000).split(";")[0];
+}
+
 function authRequest(action: string, cookie?: string, method = "GET"): Request {
   return new Request(`https://example.com/api/auth/${action}`, {
     method,
     headers: cookie ? { cookie } : {},
+  });
+}
+
+function refreshRequest(): Request {
+  return new Request("https://example.com/api/auth/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: "rt" }),
   });
 }
 
@@ -172,16 +200,79 @@ describe("auth catch-all error capture", () => {
     const boom = new Error("token endpoint unreachable");
     fetchMock.mockRejectedValue(boom);
 
-    const res = await handler.fetch(
-      new Request("https://example.com/api/auth/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: "rt" }),
-      }),
-    );
+    const res = await handler.fetch(refreshRequest());
 
     expect(captureServerException).toHaveBeenCalledWith(boom);
     expect(res.status).toBe(502);
+  });
+
+  it("captures the /user failure that callback turns into a redirect, not a throw", async () => {
+    // Returned, never thrown: without this capture the athlete lands on auth_error and Sentry
+    // holds nothing. The token was minted one call earlier, so /user refusing it is a fault.
+    fetchMock
+      .mockResolvedValueOnce(
+        Response.json({
+          access_token: "gh-token",
+          refresh_token: "gh-refresh",
+          expires_in: 28800,
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    const state = await signOAuthState(
+      { codeVerifier: "v", platform: "web", popup: false },
+      SESSION_SECRET,
+    );
+
+    const res = await handler.fetch(
+      new Request(
+        `https://example.com/api/auth/callback?code=abc&state=${encodeURIComponent(state)}`,
+      ),
+    );
+
+    expect(res.headers.get("location")).toContain("auth_error=user_fetch_failed");
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect((captureServerException.mock.calls[0][0] as Error).message).toContain("503");
+  });
+
+  it("captures a refresh that failed because GitHub did, not because the grant died", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 503 }));
+
+    const res = await handler.fetch(refreshRequest());
+
+    // The athlete's answer is unchanged - they are signed out either way.
+    expect(res.status).toBe(401);
+    expect(captureServerException).toHaveBeenCalledOnce();
+    expect((captureServerException.mock.calls[0][0] as Error).message).toContain("503");
+  });
+
+  it("does not capture a refresh token that simply expired or was revoked", async () => {
+    // GitHub answers 200 with an `error` field when it rejects a grant. That is the expected
+    // end of a 6-month session, not an incident: the athlete signs in again.
+    fetchMock.mockResolvedValue(Response.json({ error: "bad_refresh_token" }));
+
+    const res = await handler.fetch(refreshRequest());
+
+    expect(res.status).toBe(401);
+    expect(captureServerException).not.toHaveBeenCalled();
+  });
+
+  it("queues a session cookie that will not decrypt, without flushing", async () => {
+    // A rotated SESSION_SECRET and a tampered cookie both land here, and both look exactly like
+    // "not signed in" to the athlete. It queues: decryptSession runs on every authenticated
+    // request, so an awaited flush here would stall all of them on the very failure it reports.
+    const res = await handler.fetch(authRequest("me", `${SESSION_COOKIE}=not-a-real-jwe-at-all`));
+
+    expect(res.status).toBe(401);
+    expect(queueServerException).toHaveBeenCalledOnce();
+    expect(captureServerException).not.toHaveBeenCalled();
+  });
+
+  it("does not report a session cookie that only aged out", async () => {
+    const res = await handler.fetch(authRequest("me", await expiredSessionCookie()));
+
+    expect(res.status).toBe(401);
+    expect(queueServerException).not.toHaveBeenCalled();
+    expect(captureServerException).not.toHaveBeenCalled();
   });
 
   it("does not capture a handled rejection - only a throw", async () => {

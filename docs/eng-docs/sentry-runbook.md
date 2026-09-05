@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-05 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
 region for 30 days on the Developer plan — fixed by the plan, not a dial we hold; Vercel and
@@ -194,6 +194,15 @@ render-crash paths. That means the browser's own pageload and navigation spans, 
 carries the SDK's own click, navigation and fetch breadcrumbs as its timeline, copied onto
 `extra.trail` when the dialog opens. `beforeBreadcrumb` drops the `console` ones, because those
 would carry arbitrary logged text on a path ADR 0032 scoped to failed Gemini calls.
+
+**A failure a route returns instead of throwing is only counted if that route captures it by
+hand** — `withSentryRoute` sees throws, and a fault built into a `Response` never reaches it. Two
+lines separate a fault from an answer, and both show up in triage. GitHub answering `/user` or the
+token endpoint with a rejection body is an answer: a bad code, a refresh token that aged out after
+six months idle. A non-2xx from GitHub, or a 200 whose body carries neither a token nor an error,
+is a fault. And a session cookie that will not decrypt is a fault — a rotated `SESSION_SECRET`
+looks exactly like signing out — except when jose codes it `ERR_JWT_EXPIRED`, which really is a
+cookie that aged out. A 404 before first sync and a revoked install stay uncaptured everywhere.
 
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
 

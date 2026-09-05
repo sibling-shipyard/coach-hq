@@ -45,6 +45,14 @@ export default {
           ),
         ]);
         if ("error" in fetched) {
+          // Forwarded, not thrown, so `withSentryRoute` never sees it. `fetched.cause` is set
+          // only on the two failures that are faults - a GitHub 5xx and a snapshot that will
+          // not parse - and repo-file.ts captures those same two on the same file. Its 404 is
+          // an answer: the repo has not synced yet.
+          if (fetched.cause) {
+            console.error("[widget-snapshots]", fetched.cause);
+            await captureException(fetched.cause);
+          }
           return withSessionCookie(
             Response.json({ error: fetched.error }, { status: fetched.status }),
             auth.setCookie,
