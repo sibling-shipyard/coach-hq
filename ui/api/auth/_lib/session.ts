@@ -10,7 +10,7 @@
  * base64-encoded), used directly as an A256GCM key.
  */
 import { EncryptJWT, jwtDecrypt } from "jose";
-import { captureServerException } from "../../_lib/sentry.js";
+import { queueServerException } from "../../_lib/sentry.js";
 
 export const SESSION_COOKIE = "coach_session";
 export const OAUTH_STATE_COOKIE = "coach_oauth_state";
@@ -74,8 +74,13 @@ export async function decryptSession(token: string): Promise<SessionPayload | nu
     // SESSION_MAX_AGE_SEC is the one case that really is signed out; jose codes it
     // ERR_JWT_EXPIRED and it stays uncaptured.
     if ((err as { code?: unknown } | null)?.code !== JWT_EXPIRED) {
+      // Queued, never flushed here. decryptSession runs under ensureFreshSession on every
+      // authenticated request, and captureServerException awaits a 2s flush - so on the very
+      // failure this exists to reveal (a rotated SESSION_SECRET) every request from every
+      // athlete would wait on it, and any caller could trigger that with a junk cookie. The
+      // route wrapper already owns one flush per request; this rides it.
       console.error("[auth/session] session cookie did not decrypt", err);
-      await captureServerException(err);
+      queueServerException(err);
     }
     return null;
   }

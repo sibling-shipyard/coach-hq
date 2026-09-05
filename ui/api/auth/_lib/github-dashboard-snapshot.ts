@@ -15,8 +15,9 @@ export interface RepoDashboardSnapshotFailure {
    * presence instead of re-deriving the distinction from the status. A 404 carries none: the
    * repo has not synced yet. The two 502s do: GitHub is down, or the snapshot will not parse,
    * and the athlete's dashboard is blank with nothing else recording why. Messages match
-   * `repo-file.ts`, which answers the identical failures on the identical file, so both routes
-   * group into one Sentry issue.
+   * `repo-file.ts`, which answers the identical failures on the identical file, so one search
+   * finds both routes' events. They do not share an issue: Sentry groups on the stack trace, and
+   * these are two `new Error()` in two files.
    */
   cause?: Error;
 }

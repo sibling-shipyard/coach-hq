@@ -36,8 +36,8 @@ describe("fetchRepoDashboardSnapshot", () => {
     const result = await fetchRepoDashboardSnapshot(REPO, "gh-token");
 
     expect(result).toMatchObject({ status: 502 });
-    // Same message repo-file.ts builds, so the identical failure on the identical file groups
-    // into one Sentry issue rather than two.
+    // Same message repo-file.ts builds, so one search finds the identical failure on the
+    // identical file from either route. Not one issue - Sentry groups on the stack trace.
     expect("cause" in result && result.cause?.message).toBe(
       "GitHub returned 503 for dashboard_snapshot.json",
     );

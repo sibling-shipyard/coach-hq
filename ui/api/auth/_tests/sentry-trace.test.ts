@@ -18,25 +18,29 @@ process.env.SESSION_SECRET ??= Buffer.alloc(32, 7).toString("base64");
 process.env.GITHUB_APP_CLIENT_ID ??= "test-client-id";
 process.env.GITHUB_APP_CLIENT_SECRET ??= "test-client-secret";
 
-const { captureServerException, setAthleteScope, withSentryRoute } = vi.hoisted(() => ({
-  captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
-  setAthleteScope: vi.fn(),
-  withSentryRoute: vi.fn(
-    async (
-      _req: Request,
-      handler: (sentry: {
-        captureException: typeof captureServerException;
-        setAthleteScope: typeof setAthleteScope;
-      }) => Promise<unknown>,
-    ) => handler({ captureException: captureServerException, setAthleteScope }),
-  ),
-}));
+const { captureServerException, queueServerException, setAthleteScope, withSentryRoute } =
+  vi.hoisted(() => ({
+    captureServerException: vi.fn(async (_error: unknown) => ({ sent: true })),
+    queueServerException: vi.fn((_error: unknown) => "event-id"),
+    setAthleteScope: vi.fn(),
+    withSentryRoute: vi.fn(
+      async (
+        _req: Request,
+        handler: (sentry: {
+          captureException: typeof captureServerException;
+          setAthleteScope: typeof setAthleteScope;
+        }) => Promise<unknown>,
+      ) => handler({ captureException: captureServerException, setAthleteScope }),
+    ),
+  }));
 
 vi.mock("../../_lib/sentry.js", () => ({
   withSentryRoute,
   // session.ts reaches for this module directly - a cookie that will not decrypt is caught
-  // below any route context - so a partial factory would leave it undefined at call time.
+  // below any route context - so a partial factory would leave it undefined at call time. It
+  // queues rather than captures: it runs on every authenticated request and must not flush.
   captureServerException,
+  queueServerException,
 }));
 
 const { default: handler } = await import("../[...action].js");
@@ -252,19 +256,22 @@ describe("auth catch-all error capture", () => {
     expect(captureServerException).not.toHaveBeenCalled();
   });
 
-  it("captures a session cookie that will not decrypt", async () => {
+  it("queues a session cookie that will not decrypt, without flushing", async () => {
     // A rotated SESSION_SECRET and a tampered cookie both land here, and both look exactly like
-    // "not signed in" to the athlete.
+    // "not signed in" to the athlete. It queues: decryptSession runs on every authenticated
+    // request, so an awaited flush here would stall all of them on the very failure it reports.
     const res = await handler.fetch(authRequest("me", `${SESSION_COOKIE}=not-a-real-jwe-at-all`));
 
     expect(res.status).toBe(401);
-    expect(captureServerException).toHaveBeenCalledOnce();
+    expect(queueServerException).toHaveBeenCalledOnce();
+    expect(captureServerException).not.toHaveBeenCalled();
   });
 
-  it("does not capture a session cookie that only aged out", async () => {
+  it("does not report a session cookie that only aged out", async () => {
     const res = await handler.fetch(authRequest("me", await expiredSessionCookie()));
 
     expect(res.status).toBe(401);
+    expect(queueServerException).not.toHaveBeenCalled();
     expect(captureServerException).not.toHaveBeenCalled();
   });
 

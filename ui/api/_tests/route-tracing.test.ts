@@ -17,6 +17,7 @@ const REPO = "alice/coach-alice";
 
 const {
   captureServerException,
+  queueServerException,
   setAthleteScope,
   withSentryRoute,
   loadCoachContext,
@@ -26,6 +27,7 @@ const {
   commitFilesAtomic,
 } = vi.hoisted(() => ({
   captureServerException: vi.fn(async () => ({ sent: true })),
+  queueServerException: vi.fn((_error: unknown) => "event-id"),
   setAthleteScope: vi.fn(),
   withSentryRoute: vi.fn(
     async (
@@ -45,9 +47,10 @@ const {
 
 vi.mock("../_lib/sentry.js", () => ({
   withSentryRoute,
-  // session.ts captures a cookie that will not decrypt through the module directly, not through
+  // session.ts reports a cookie that will not decrypt through the module directly, not through
   // the route context, so a partial factory here would leave it undefined at call time.
   captureServerException,
+  queueServerException,
 }));
 vi.mock("../coach-chat/_lib/coachChatFiles.js", () => ({
   loadCoachContext,
