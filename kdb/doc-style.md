@@ -43,6 +43,7 @@ files. Follow `.github/CONVENTIONS.md` for stack mechanics, issue links, and bot
 - Mermaid: quote labels `id["Label"]`, no semicolons in diagrams, one idea per chart.
 
 ## Avoid
+- Consent, compliance or approval scaffolding nobody asked for — ask whose requirement it is first.
 - Section templates with 10 headings for a small change.
 - Long test plans, risk essays, appendices — those live in the LLD or the PR.
 <!-- AGENT-KIT:END -->

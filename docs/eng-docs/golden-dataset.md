@@ -23,8 +23,8 @@ calendar date, so two people running dev on the same day get identical data.
 
 ## The generator must produce bad weeks, not just good ones
 
-An early version produced perfectly clean data — activity every day, nothing missed — and a
-whole class of UI states could never be exercised locally: heatmap gaps, a foundation streak
+An early version produced perfectly clean data — activity every day, nothing missed. A whole
+class of UI states could then never be exercised locally: heatmap gaps, a foundation streak
 reset, a stalled milestone, a calisthenics week under floor, an unstarted quest's empty state.
 
 So the generator deliberately emits blackout blocks (one excused, e.g. travel), single-day
@@ -36,6 +36,10 @@ as "trains every single day"; probabilities dropped active-day coverage over the
 from ~84% to ~60% and roughly tripled the heatmap gap count.
 
 ## Two constraints that will bite you
+
+**Verify gitignored generated data against a simulated clean checkout.** `git check-ignore` misses
+a directory-only pattern when the directory is absent, so a dev tree that already has the folder
+passes and only CI fails.
 
 **Route clustering needs a bit-for-bit repeated distance.** `runningLensModel.ts` buckets routes
 with `Math.round((distance / 500) * 500)`, which is a no-op — it resolves to the exact distance in

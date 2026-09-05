@@ -1,16 +1,15 @@
 # Coach chat LLM provider
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-20
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-05
 
 ## Context
 
 `coach-chat.ts` calls Gemini directly via raw `fetch` (`gemini-flash-latest`). **Unblocked:**
-Cloud Billing is live on the project (confirmed 2026-08-06, AI Studio Billing page shows "Paid 1
-· $250 Billing Account Tier Cap", ₹2,500 prepaid credit), and the Rate Limit dashboard confirms
-Tier 1 is active — real testing is no longer rate-limited at this account's scale. See Options
-below for the exact numbers. The long-term provider call still gets made in ~2 weeks once the
-system is robust enough to have real usage data and an eval to judge it by — billing doesn't
-close that question, it just removes the reason it was urgent.
+Cloud Billing is live on the project, confirmed 2026-08-06 — the AI Studio Billing page shows
+"Paid 1 · $250 Billing Account Tier Cap" against ₹2,500 prepaid credit. The Rate Limit dashboard
+confirms Tier 1 is active, so real testing is no longer rate-limited at this account's scale. See Options
+below for the exact numbers. The long-term provider call still gets made in ~2 weeks, once there is real usage data and an
+eval to judge it by. Billing does not close that question. It removes the reason it was urgent.
 
 ## Options
 
@@ -40,17 +39,22 @@ changes its "with cache" cost from ~$19 to ~$3.24.
 
 DeepSeek deferred — cheapest on paper, but no published RPM/TPM (dynamic throttling, same
 unpredictability we're leaving Gemini free tier for) plus a data-residency question for athlete
-health data we haven't resolved. Not worth it at this volume regardless.
+health data we haven't resolved. Not worth it at this volume regardless. **Both blockers now have
+partial answers**, measured 2026-09-05 through OpenRouter rather than direct. The account's ZDR
+policy refuses 5 of the model's 15 provider endpoints outright, answering data residency by
+enforcement rather than by promise. Pinning a provider replaces dynamic-throttling roulette with
+one known host, at the cost of that host's own rate limit and no fallback. Measured numbers
+are in `docs/plans/chat-openrouter-migration.md`.
 
 At 4 users, every paid option costs single-digit-to-low-double-digit dollars/month — cost isn't the
 constraint. Rate-limit headroom and eventual model quality are.
 
 ## Architecture — grounding these numbers in what the code actually sends
 
-Verified against `ui/api/coach-chat.ts`: one Gemini call per turn, no separate/cheaper call for
-anything (close-session detection is a plain regex, `CLOSE_SESSION_PATTERN`,
-`coach-chat.ts:216-217`, not a model call — it just sets prompt `mode`; the model's own
-`session_closed` field in that same response is what gates a commit). The `systemInstruction`
+Verified against `ui/api/coach-chat.ts`: one Gemini call per turn, and no separate or cheaper
+call for anything else. Close-session detection is a plain regex, `CLOSE_SESSION_PATTERN`
+(`coach-chat.ts:216-217`), not a model call — it only sets the prompt `mode`. The model's own
+`session_closed` field in that same response is what gates a commit. The `systemInstruction`
 floor is real SOUL.md size: ~49,700 bytes ≈ ~12,400 tokens, plus `state.md` + `rendered quest context`, sent
 in full every turn — roughly matches the ~15K input tokens/turn assumed above. Closing turns add
 four more full files on top.
@@ -62,12 +66,19 @@ own repo on every turn either — see Caching below.
 
 ## Caching
 
-Prompt caching bills a repeated prefix at a fraction of full price — but the mechanism differs by
-provider, and one of them needs no work at all:
+Prompt caching bills a repeated prefix at a fraction of full price. The mechanism differs by
+provider, and one of them needs no work at all.
 
 - **Gemini:** implicit caching is on by default for every Gemini 2.5+ model, no code, no opt-in —
   90% off cached tokens, minimum cacheable prefix 1,024 tokens (well under our ~13K-token prefix).
-  Confirmed via Google's own developer blog and API docs.
+  Confirmed via Google's own developer blog and API docs. **Measured behaviour does not match that
+  description on the coach-message path.** Two prompts sharing a 6,876-token prefix, differing only in their tail, returned
+  `cached_tokens: 0` on the second. A discount appeared only when the whole prompt repeated byte
+  for byte. Measured 2026-09-05 on `google/gemini-3.8-flash` through OpenRouter, pinned to Vertex;
+  the run is in `docs/plans/coach-message-rebuild.md`. Chat runs a different
+  path — direct AI Studio, not Vertex — so this does not disprove the row above for chat. It does
+  mean **nobody should assume the prefix discount without measuring it on their own path**, with a
+  varying tail.
 - **Claude:** explicit `cache_control` breakpoints — a real code change, but cached tokens are
   also excluded from the ITPM rate limit, not just cheaper, which raises effective throughput too.
 - **GPT-5 mini:** automatic for prompts over 1,024 tokens, same as Gemini — no code change.
@@ -76,15 +87,15 @@ provider, and one of them needs no work at all:
 right after `soul` in the system-instruction prefix, ahead of `state.md`/`rendered quest context` — a value
 that changes every minute broke any cache placed after it. It's now the *last* element in the
 `systemInstruction` array instead of the 3rd, so persona + instructions + state + quest_log stay
-a stable, cacheable prefix and only the timestamp changes turn to turn. Same pass also added 3
-worked few-shot examples inside that cached prefix (persona consistency, fewer structured-output
-errors — cached, so it's a one-time cost) and a hidden `reasoning` field ahead of the JSON answer
-(stripped before the reply reaches the athlete).
+a stable, cacheable prefix and only the timestamp changes turn to turn. The same pass added 3 worked
+few-shot examples inside that cached prefix, for persona consistency and fewer structured-output
+errors; they are cached, so they cost once. It also added a hidden `reasoning` field ahead of the
+JSON answer, stripped before the reply reaches the athlete.
 
-**Also fixed:** in-thread history is now capped at `MAX_HISTORY_MESSAGES = 40` (was fully
-unbounded — see Architecture above), and SOUL is bundled from `platform/SOUL.chat.md` at build time
-instead of being fetched from the athlete's own repo every turn (`ui/scripts/build-soul.mjs`) —
-see the new ADR amending 0011 for the full rationale.
+**Also fixed:** in-thread history is now capped at `MAX_HISTORY_MESSAGES = 40`, having been
+fully unbounded (see Architecture above). SOUL is bundled from `platform/SOUL.chat.md` at build
+time by `ui/scripts/build-soul.mjs`, rather than fetched from the athlete's own repo every turn.
+The ADR amending 0011 carries the full rationale.
 
 ## Eval — how we actually pick, not vibes
 
@@ -123,6 +134,7 @@ pending — that's the one thing left before this doc's job is finished.
 
 ## Deferred
 
-- DeepSeek — revisit only if cost becomes decisive at real scale, and only after the rate-limit and
-  data-residency questions have real answers.
+- DeepSeek — revisit only if cost becomes decisive at real scale. The rate-limit and data-residency
+  questions now have partial answers (see Options); what is still missing is a contract probe and a
+  provider allow-list, tracked under #713.
 - Committing to Haiku/GPT-5-mini/Gemini-paid long-term — decided after the eval, not now.

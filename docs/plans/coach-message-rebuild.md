@@ -1,6 +1,6 @@
 # coach-message: build it properly
 
-> Status: Blocked on the OpenRouter migration · Owner: Tech Lead · Verified: 2026-09-04 · Issue: #828
+> Status: Blocked on the OpenRouter migration · Owner: Tech Lead · Verified: 2026-09-05 · Issue: #828
 
 ## Context
 
@@ -38,8 +38,30 @@ The uncached static prefix is.
 |---|---|---|
 | SOUL share of the proactive prompt | 5,371 of ~6,859 tokens (78%) | section split of `buildProactivePrompt` output |
 | SOUL share of chat's cached prefix | 5,371 of 5,795 tokens (93%) | `staticSystemText(SOUL)` |
-| Cache discount coach-message receives | none | 3 identical back-to-back calls, `cachedContentTokenCount = 0` each |
+| Cache discount coach-message receives | none | 3 identical back-to-back calls, `cachedContentTokenCount = 0` each. Re-confirmed 2026-09-05 through OpenRouter — see Why M2 is still needed |
 | Thinking-token variance, same prompt | 893 → 1,519 | 3 runs, `gemini-pro-latest` |
+
+## Why M2 is still needed — the confirming experiment
+
+Repeating an identical prompt *does* earn a discount, which makes a naive harness report caching
+that production never sees. Five calls through OpenRouter to `google/gemini-3.8-flash`, in order:
+
+| Call | What changed | Prompt tokens | Cached | Cost |
+|---|---|---|---|---|
+| 1 | first time seen | 12,226 | 0 | $0.00938 |
+| 2 | identical repeat | 12,226 | 8,169 | $0.00378 |
+| 3 | **same 6,876-token soul prefix, new athlete block** | 14,374 | **0** | $0.01091 |
+| 4 | identical repeat of call 1 | 12,226 | 8,169 | $0.00382 |
+| 5 | identical repeat of call 3 | 14,374 | 12,259 | $0.00263 |
+
+Call 3 is the answer. A shared prefix earns nothing; only a byte-for-byte repeat of the whole
+prompt does. Every real call carries a different athlete block, so production pays the cold price
+every time. M2 stands.
+
+One data point for how to build it: `deepseek/deepseek-v4-flash` served by DeepInfra reported
+11,264 of 11,388 prompt tokens cached **with a varying tail** — real prefix caching on the same
+seam. Whether that is worth changing model for is #713's question, not this plan's, but it shows
+the discount M2 wants is achievable without building a cache ourselves.
 
 ## Milestones
 

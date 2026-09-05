@@ -65,6 +65,10 @@ athlete mid-task. Catch yourself editing a file to satisfy a request? Delegate i
 
 Tiers are defined once in `AGENTS.md` § Priorities, and are the only scale.
 
+**Run a parsing script against a real marked file, don't read its regex.** Static reading once
+missed an `id="..."` versus bare-word marker mismatch that made `update.sh` a silent no-op on
+every real file.
+
 ### Which subagent, and how many
 
 A fresh subagent boots cold — `AGENTS.md`, its role doc, then the files. That boot is the cost, not
@@ -136,12 +140,12 @@ nothing and hides the few lines that matter.
 
 ## Learnings
 
-- `git check-ignore` misses a directory-only pattern when the directory is absent — verify gitignored generated data against a simulated clean checkout; a dev tree passes and only CI fails.
-- Bundle unrelated infra (codegen, pre-build automation) with a bugfix only if the athlete approves — otherwise split the PR.
 - Check `gh issue list` before filing audit findings — the roadmap usually tracks them; one SOUL audit yielded 7 new issues from 13 candidates.
-- Agents pad plans with consent/compliance scaffolding nobody asked for — ask whose requirement it is first.
 - Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
 - `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing; `git log <merge-base>..origin/main -- <PR files>` decides a rebase.
-- Run parsing scripts against a real marked file in review — static regex reading missed an `id="..."` vs bare-word marker mismatch that made update.sh silently no-op on every real file.
 - Freshness-gate a plan against open PR branches, not just HEAD: `git diff origin/main...<stack-tip>` over the plan's file column — an unmerged stack had rewritten every file one plan targeted.
 - Run `kdb/scripts/check_issue_contract.py` before `gh issue create` — nothing runs it until a PR links the issue; M3/M4 also need a native parent link to an `epic`.
+- Pin `provider.only` before benchmarking any OpenRouter model — 15 hosts serve `deepseek/deepseek-v4-flash` between 2s and 59s, so an unpinned run measures the routing, not the model.
+- Measure prompt caching with a varying tail. An identical repeat reports a discount production never receives (`docs/plans/coach-message-rebuild.md`).
+- OpenRouter per-call cost comes from `usage: {include: true}` in the request body — `/api/v1/generation` 404s under this account's `data_collection: "deny"`.
+- A free-tier `GEMINI_API_KEY` is quota 0 on `gemini-pro-latest`, so it cannot exercise `ui/api/_lib/geminiModel.ts`'s pin at all.
