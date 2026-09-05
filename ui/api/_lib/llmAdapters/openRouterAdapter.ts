@@ -28,6 +28,9 @@ interface OpenRouterResponse {
     message?: { content?: string };
     finish_reason?: string;
   }>;
+  // OpenRouter reports an upstream refusal, a moderation block or a provider outage as HTTP 200
+  // with this object and no `choices` at all — the transport succeeded, the generation did not.
+  error?: { code?: number | string; message?: string };
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
@@ -107,6 +110,23 @@ export function createOpenRouterAdapter(
             resolvedProvider,
             resolvedModel,
           });
+          if (payload.error) {
+            // Carry OpenRouter's own code and message through. Without them a 200-with-error is
+            // indistinguishable from an empty reply, and Sentry records a failure with no cause.
+            const code = payload.error.code ?? "no code";
+            const detail = payload.error.message ?? "no message";
+            throw Object.assign(
+              new Error(`OpenRouter returned an error with HTTP 200 (${code}): ${detail}`),
+              { status: 502 },
+            );
+          }
+          if (!payload.choices?.length) {
+            // Distinct from the empty-content case below: no choice was produced at all, and
+            // OpenRouter said nothing about why.
+            throw Object.assign(new Error("OpenRouter returned no choices and no error"), {
+              status: 502,
+            });
+          }
           const finishReason = payload.choices?.[0]?.finish_reason;
           if (finishReason === "length") {
             // OpenRouter's truncation signal, the equivalent of Gemini's MAX_TOKENS guard (#827).

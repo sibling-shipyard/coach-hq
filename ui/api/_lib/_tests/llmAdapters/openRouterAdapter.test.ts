@@ -99,6 +99,28 @@ describe("createOpenRouterAdapter", () => {
     await expect(adapter.generate(REQUEST)).rejects.toThrow(/finish=length/);
   });
 
+  it("surfaces OpenRouter's own code and message when a 200 carries an error (#852)", async () => {
+    const fetcher = vi.fn(async () =>
+      Response.json({ error: { code: 429, message: "Provider returned error" } }),
+    );
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await expect(adapter.generate(REQUEST)).rejects.toThrow(
+      /HTTP 200 \(429\): Provider returned error/,
+    );
+  });
+
+  it("reports a 200 with neither choices nor an error as its own case (#852)", async () => {
+    const fetcher = vi.fn(async () => Response.json({ provider: "Google" }));
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await expect(adapter.generate(REQUEST)).rejects.toThrow(/no choices and no error/);
+  });
+
   it("rejects when OPENROUTER_API_KEY is unset, before making a request", async () => {
     const fetcher = vi.fn();
     const adapter = createOpenRouterAdapter({} as NodeJS.ProcessEnv, fetcher);
