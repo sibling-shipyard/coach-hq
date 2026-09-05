@@ -144,8 +144,6 @@ nothing and hides the few lines that matter.
 - Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
 - `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing; `git log <merge-base>..origin/main -- <PR files>` decides a rebase.
 - Freshness-gate a plan against open PR branches, not just HEAD: `git diff origin/main...<stack-tip>` over the plan's file column — an unmerged stack had rewritten every file one plan targeted.
-- Run `kdb/scripts/check_issue_contract.py` before `gh issue create` — nothing runs it until a PR links the issue; M3/M4 also need a native parent link to an `epic`.
-- Pin `provider.only` before benchmarking any OpenRouter model — 15 hosts serve `deepseek/deepseek-v4-flash` between 2s and 59s, so an unpinned run measures the routing, not the model.
-- Measure prompt caching with a varying tail. An identical repeat reports a discount production never receives (`docs/plans/coach-message-rebuild.md`).
-- OpenRouter per-call cost comes from `usage: {include: true}` in the request body — `/api/v1/generation` 404s under this account's `data_collection: "deny"`.
-- A free-tier `GEMINI_API_KEY` is quota 0 on `gemini-pro-latest`, so it cannot exercise `ui/api/_lib/geminiModel.ts`'s pin at all.
+- Run `kdb/scripts/check_issue_contract.py` before `gh issue create` — nothing runs it until a PR links the issue. It wants the bare milestone code (`M3`); `gh issue create` wants the full title (`M3: Scale to 10 users`). M3/M4 also need a native parent link to an open `epic` in the same milestone, and the repo has few — file as `Later` or create the epic first.
+- Never quote a provider number from memory — pinning, cache measurement, where cost comes from and free-tier quota are all in `docs/eng-docs/chat-provider-bench.md`, measured.
+- A deployment proves nothing until you know its commit. `llm.adapter` absent from a `gen_ai` span means pre-adapter code, not a bad flag; a Vercel redeploy rebuilds the same commit.
