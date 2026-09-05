@@ -68,10 +68,13 @@ condition would fire once and stay silent forever after.
 Both surfaces set the same `rage_report` fingerprint, so each project's reports group into one
 issue. They do not share an issue: web is `coach-hq-web`, iOS is `coach-hq-ios`.
 
-**No alert covers absence, so ask by hand:** `node ui/scripts/check-span-health.mjs` exits non-zero
-when production served traffic in the last 24 hours and sent no `http.server` span — the shape of
-#878, where errors kept arriving and every dashboard looked healthy. `SPAN_HEALTH_WINDOW` takes any
-Sentry `statsPeriod`. Sentry itself cannot ask this: an alert sees one dataset at a time, so it
+**No alert covers absence, so ask by hand.** `node ui/scripts/check-span-health.mjs` exits non-zero
+when production served traffic in the last 24 hours and sent no `http.server` span. That is the
+shape of #878: errors kept arriving and every dashboard looked healthy. Traffic counts all three
+surfaces, iOS included: #878's own evidence was a HealthKit sync from the phone, and an athlete who
+syncs without opening the dashboard leaves no browser span and no API error.
+`SPAN_HEALTH_WINDOW` takes any Sentry `statsPeriod`. Sentry itself cannot ask this: an alert sees
+one dataset at a time, so it
 cannot say "traffic happened but spans did not", and "no spans" alone fires on every quiet day.
 Nothing runs this on a schedule yet — that decision belongs to a single owned cron policy, not to
 whichever PR needed a check first.
