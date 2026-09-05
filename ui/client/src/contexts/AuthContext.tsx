@@ -12,7 +12,7 @@
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { isLocalDevBypass } from "../lib/devMode";
-import { setAthleteUser } from "../lib/observability";
+import { captureFetchFailure, setAthleteUser } from "../lib/observability";
 
 export type AuthStatus = "loading" | "local" | "unauthenticated" | "authenticated" | "auth_error";
 
@@ -45,6 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
 
         if (!res.ok) {
+          // 401 is the answer this endpoint exists to give. Anything else is a fault the athlete
+          // cannot tell apart from being signed out: `ensureFreshSession` returns "Site
+          // misconfigured" as a 500 *response*, so the API does not capture it either, and a
+          // deploy missing GITHUB_APP_CLIENT_ID shows everyone a login screen recorded nowhere.
+          if (res.status !== 401) {
+            captureFetchFailure("/api/auth/me", { kind: "server", status: res.status });
+          }
           setState({ status: "unauthenticated" });
           return;
         }
@@ -90,8 +97,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!cancelled) setState({ status: "auth_error", errorType: "lookup_failed" });
         }
       })
-      .catch(() => {
-        if (!cancelled) setState({ status: "unauthenticated" });
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        // The one failure that looks like success: a request that never reached the API leaves
+        // the athlete on the login screen, indistinguishable from a normal sign-out, and the
+        // API half of the trace has nothing on it. Capture before the state change, because the
+        // state change is what hides it.
+        captureFetchFailure("/api/auth/me", { kind: "network", error });
+        setState({ status: "unauthenticated" });
       });
 
     return () => {

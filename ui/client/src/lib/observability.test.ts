@@ -14,6 +14,7 @@ const {
   setUser,
   setTag,
   captureMessage,
+  captureException,
   isEnabled,
   getIsolationScope,
   getCurrentScope,
@@ -23,6 +24,7 @@ const {
   setUser: vi.fn(),
   setTag: vi.fn(),
   captureMessage: vi.fn((): string => "event-id"),
+  captureException: vi.fn((_error: unknown, _context?: unknown): string => "event-id"),
   isEnabled: vi.fn(() => true),
   getIsolationScope: vi.fn(() => ({
     getScopeData: () => ({ breadcrumbs: [] as { category?: string }[] }),
@@ -39,6 +41,7 @@ vi.mock("@sentry/react", async (importOriginal) => ({
   setUser,
   setTag,
   captureMessage,
+  captureException,
   isEnabled,
   getIsolationScope,
   getCurrentScope,
@@ -290,5 +293,103 @@ describe("submitRageReport", () => {
     expect(isRageReportingAvailable()).toBe(false);
     expect(submitRageReport("the screen froze")).toBe(false);
     expect(captureMessage).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The pair a triage has to tell apart: a request that never reached the API, and one the API
+ * refused. The assertions are about the fields an operator searches on — the tags and the
+ * fingerprint — because with no source maps the stack trace is not one of them.
+ */
+interface CapturedFetch {
+  level: string;
+  fingerprint: string[];
+  tags: Record<string, string>;
+  contexts: { fetch: { reason?: string; detail?: string; online?: boolean } };
+}
+
+/** The nth `captureException` call, typed as what `captureFetchFailure` passes it. */
+function capturedFetch(index: number): { error: Error; context: CapturedFetch } {
+  const call = captureException.mock.calls[index];
+  return { error: call?.[0] as Error, context: call?.[1] as CapturedFetch };
+}
+
+describe("captureFetchFailure", () => {
+  beforeEach(() => {
+    captureException.mockClear();
+    vi.stubGlobal("navigator", { onLine: true });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("tags a rejected fetch as a network failure, with the browser's own reason", async () => {
+    const { captureFetchFailure } = await import("./observability");
+
+    captureFetchFailure("/api/auth/me", {
+      kind: "network",
+      error: new TypeError("Failed to fetch"),
+    });
+
+    const { error, context } = capturedFetch(0);
+    expect(error.message).toBe("/api/auth/me never reached the server");
+    expect(context.level).toBe("warning");
+    expect(context.tags).toEqual({
+      fetch_endpoint: "/api/auth/me",
+      fetch_failure: "network",
+      online: "true",
+    });
+    expect(context.contexts.fetch.reason).toBe("TypeError: Failed to fetch");
+  });
+
+  it("records that the athlete was offline, which makes the drop theirs and not ours", async () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    const { captureFetchFailure } = await import("./observability");
+
+    captureFetchFailure("/api/repo-file", { kind: "network", error: new Error("Load failed") });
+
+    const { context } = capturedFetch(0);
+    expect(context.tags.online).toBe("false");
+    expect(context.contexts.fetch.online).toBe(false);
+  });
+
+  it("tags a refusal with its status, so a revoked token is not read as an outage", async () => {
+    const { captureFetchFailure } = await import("./observability");
+
+    captureFetchFailure("/api/repo-file", {
+      kind: "server",
+      status: 401,
+      detail: "Your GitHub access was revoked or expired",
+    });
+
+    const { error, context } = capturedFetch(0);
+    expect(error.message).toBe("/api/repo-file answered 401");
+    expect(context.level).toBe("error");
+    expect(context.tags).toEqual({
+      fetch_endpoint: "/api/repo-file",
+      fetch_failure: "server",
+      status_code: "401",
+    });
+    expect(context.contexts.fetch.detail).toBe("Your GitHub access was revoked or expired");
+  });
+
+  it("groups by endpoint, kind and status rather than by an unreadable minified stack", async () => {
+    const { captureFetchFailure } = await import("./observability");
+
+    captureFetchFailure("/api/repo-file", { kind: "network", error: new Error("boom") });
+    captureFetchFailure("/api/repo-file", { kind: "server", status: 502 });
+
+    expect(capturedFetch(0).context.fingerprint).toEqual([
+      "fetch_failure",
+      "/api/repo-file",
+      "network",
+    ]);
+    expect(capturedFetch(1).context.fingerprint).toEqual([
+      "fetch_failure",
+      "/api/repo-file",
+      "server",
+      "502",
+    ]);
   });
 });
