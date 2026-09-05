@@ -1,7 +1,7 @@
 # User-repo sync (coach-skeleton / coach-<user>). iOS path only — the HealthKit app commits
 # history directly, this just regenerates derived files (quest_history, sync_status,
 # dashboard_snapshot, athlete_insights) on every push. A run that dies instead commits
-# gen/sync_failure.json, so a dashboard serving stale numbers can be told from a fresh one.
+# gen/sync_failure.json — the record of why gen/ is stale. No surface reads it yet.
 
 name: Sync
 
