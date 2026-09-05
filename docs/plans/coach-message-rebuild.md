@@ -58,9 +58,9 @@ Call 3 is the answer. A shared prefix earns nothing; only a byte-for-byte repeat
 prompt does. Every real call carries a different athlete block, so production pays the cold price
 every time. M2 stands.
 
-One data point for how to build it: `deepseek/deepseek-v4-flash` served by DeepInfra reported
-11,264 of 11,388 prompt tokens cached **with a varying tail** — real prefix caching on the same
-seam. Whether that is worth changing model for is #713's question, not this plan's, but it shows
+One data point for how to build it: four DeepSeek hosts on OpenRouter — Venice, Parasail,
+NextBit and DeepInfra — return 74–99% cache hits **with a varying tail**, which is real prefix
+caching on the same seam (`docs/eng-docs/chat-provider-bench.md`). Whether that is worth changing model for is #713's question, not this plan's, but it shows
 the discount M2 wants is achievable without building a cache ourselves.
 
 ## Milestones

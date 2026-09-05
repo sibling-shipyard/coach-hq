@@ -73,6 +73,7 @@ before athlete health context is sent through OpenRouter.
 
 The contract probe above used a hand-built athlete. Pointing `loadProactiveContext` at a live
 athlete repo instead roughly doubles the prompt, so every figure derived from 6,924 tokens is low.
+Full method, the DeepSeek sweep and the ZDR delta are in `docs/eng-docs/chat-provider-bench.md`.
 
 | | one activity | four activities |
 |---|---|---|
