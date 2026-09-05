@@ -87,10 +87,9 @@ TOKEN=${SENTRY_AUTH_TOKEN:-$(cat ~/.config/sentry-token)}
 
 `SENTRY_AUTH_TOKEN` is Sentry's own conventional name — `sentry-cli` and `@sentry/vite-plugin` read
 it with no configuration, so the parked source-map and dSYM upload needs no second variable. In CI
-it is meant to be a GitHub Actions secret of that name, exposed as an env var — **no such secret
-exists yet**, so nothing in CI can read Sentry until someone runs
-`gh secret set SENTRY_AUTH_TOKEN < ~/.config/sentry-token`. Never prefix it `VITE_`, because Vite
-bakes those into the client bundle.
+it is a repository secret of that name, exposed as an env var — added 2026-09-05, so any workflow
+before that date could not read Sentry at all. Nothing consumes it yet. Never prefix it `VITE_`,
+because Vite bakes those into the client bundle.
 
 On a shared or long-lived machine prefer the file, `chmod 600`. An environment variable is
 inherited by every child process and shows up in a plain `env` dump; the file does not.
