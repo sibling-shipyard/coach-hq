@@ -75,6 +75,35 @@ class TestPrIssueLink(unittest.TestCase):
         self.assertTrue(any("needs-triage" in error for error in errors))
         self.assertTrue(any("fails the issue contract" in error for error in errors))
 
+    def test_digest_label_exempts_an_issue_from_the_contract(self):
+        # The standing digest issue is a dashboard: no milestone, no epic, rewritten daily.
+        naked = {"number": 900, "state": "open", "title": "Ops: Sentry health digest",
+                 "body": "x", "labels": [{"name": "ops:digest"}]}
+        with mock.patch.dict(os.environ, {"ISSUE_JSON": json.dumps(naked)}, clear=False):
+            self.assertEqual(MODULE.check_issue_event(), 0)
+
+    def test_unlabelled_issue_still_runs_the_contract(self):
+        bad = {"number": 901, "state": "open", "title": "no area prefix",
+               "body": "x", "labels": [{"name": "area:core"}]}
+        with mock.patch.dict(os.environ, {"ISSUE_JSON": json.dumps(bad)}, clear=False):
+            self.assertEqual(MODULE.check_issue_event(), 1)
+
+    def test_standing_label_exempts_a_linked_issue_from_the_pr_link_contract(self):
+        # No milestone, no area/type labels, no ## Done when -- by design, and still no error.
+        standing = {
+            "number": 902,
+            "state": "open",
+            "title": "Ops: bookkeeping / learnings log",
+            "body": "Standing pointer for nit-class PRs.",
+            "labels": [{"name": "ops:standing"}],
+        }
+        errors = MODULE.linked_issue_errors(
+            [MODULE.IssueLink(902, False)],
+            lambda _number: standing,
+            lambda _number: None,
+        )
+        self.assertEqual(errors, [])
+
     def test_open_m3_task_must_reach_native_epic(self):
         task = issue_fixture(labels=[{"name": "area:core"}, {"name": "type:chore"}])
         errors = MODULE.hierarchy_errors(task, lambda _number: None)
