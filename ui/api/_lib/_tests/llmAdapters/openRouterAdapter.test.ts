@@ -4,7 +4,32 @@
  * the caller — the whole point of provider routing (docs/plans/chat-openrouter-migration.md).
  */
 import { describe, expect, it, vi } from "vitest";
+import type { GeminiUsage } from "../../sentry.js";
+
+/**
+ * `withGeminiSpan` owns the `recordUsage` callback, so the only way to see what the adapter
+ * actually hands the span is to stand in for it. The stand-in still runs the callback and
+ * returns its value, so every other test in this file behaves exactly as it did against the
+ * real one.
+ */
+const { withGeminiSpan, recordedUsage } = vi.hoisted(() => {
+  const recordedUsage: GeminiUsage[] = [];
+  return {
+    recordedUsage,
+    withGeminiSpan: vi.fn(
+      async (
+        _model: string,
+        run: (record: (usage: GeminiUsage) => void) => Promise<string>,
+        _attributes?: Record<string, string>,
+      ) => run((usage) => void recordedUsage.push(usage)),
+    ),
+  };
+});
+
+vi.mock("../../sentry.js", () => ({ withGeminiSpan }));
+
 import {
+  cachedPromptTokens,
   createOpenRouterAdapter,
   OPENROUTER_MODEL,
   visibleOutputTokens,
@@ -52,6 +77,10 @@ describe("createOpenRouterAdapter", () => {
       expect(body.messages).toEqual([{ role: "user", content: "prompt" }]);
       expect(body.reasoning).toEqual({ effort: "low" });
       expect(body.max_tokens).toBe(3_072);
+      // Without this OpenRouter omits `cost` and `prompt_tokens_details.cached_tokens` from the
+      // response — the generation-stats endpoint that would otherwise carry cost 404s under this
+      // account's `data_collection: "deny"` (#889).
+      expect(body.usage).toEqual({ include: true });
       expect(body.provider).toEqual({
         only: ["google-vertex"],
         require_parameters: true,
@@ -146,11 +175,72 @@ describe("createOpenRouterAdapter", () => {
     ).toBe(0);
   });
 
+  it("passes prompt_tokens_details.cached_tokens through, absent and zero kept distinct (#889)", () => {
+    // Present: the exact-repeat discount landed.
+    expect(cachedPromptTokens({ prompt_tokens_details: { cached_tokens: 8_169 } })).toBe(8_169);
+    // Absent: the field never arrived — usage: {include: true} wasn't honored, or the provider
+    // doesn't report caching. Must stay undefined so the span omits it rather than sending a
+    // false zero (usageAttributes filters undefined, not zero).
+    expect(cachedPromptTokens({ prompt_tokens_details: {} })).toBeUndefined();
+    expect(cachedPromptTokens(undefined)).toBeUndefined();
+    // Zero: the field arrived and reported a real cache miss (#713 — a varying athlete block
+    // never earns Vertex's exact-repeat discount). Distinct from absent above.
+    expect(cachedPromptTokens({ prompt_tokens_details: { cached_tokens: 0 } })).toBe(0);
+  });
+
   it("rejects when OPENROUTER_API_KEY is unset, before making a request", async () => {
     const fetcher = vi.fn();
     const adapter = createOpenRouterAdapter({} as NodeJS.ProcessEnv, fetcher);
     await expect(adapter.generate(REQUEST)).rejects.toMatchObject({ status: 500 });
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("hands the span the cached-token count and the cost it read off the wire (#889)", async () => {
+    // The two fields exist to be *seen*. Deleting both lines from the adapter's `recordUsage`
+    // call left the whole api/ suite green (41 files, 552 tests) before this test existed: the
+    // parser was covered and the span mapping was covered, but nothing joined them.
+    recordedUsage.length = 0;
+    const fetcher = vi.fn(async () =>
+      okResponse({
+        usage: {
+          prompt_tokens: 12_226,
+          completion_tokens: 40,
+          completion_tokens_details: { reasoning_tokens: 0 },
+          prompt_tokens_details: { cached_tokens: 8_169 },
+          cost: 0.0102,
+        },
+      }),
+    );
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+
+    await adapter.generate(REQUEST);
+
+    expect(recordedUsage).toHaveLength(1);
+    expect(recordedUsage[0]).toMatchObject({
+      promptTokens: 12_226,
+      cachedPromptTokens: 8_169,
+      costUsd: 0.0102,
+    });
+  });
+
+  it("leaves cached tokens and cost off the span when the wire omits them (#889)", async () => {
+    // A provider that reports no caching, or a request where `usage: {include: true}` was not
+    // honored. Absent must stay absent: `usageAttributes` filters `undefined`, so a 0 here would
+    // publish a false "no cache hit" instead of "we do not know".
+    recordedUsage.length = 0;
+    const fetcher = vi.fn(async () => okResponse());
+    const adapter = createOpenRouterAdapter(
+      { OPENROUTER_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+
+    await adapter.generate(REQUEST);
+
+    expect(recordedUsage[0].cachedPromptTokens).toBeUndefined();
+    expect(recordedUsage[0].costUsd).toBeUndefined();
   });
 
   it("maps a non-2xx response to a 429 or 502", async () => {

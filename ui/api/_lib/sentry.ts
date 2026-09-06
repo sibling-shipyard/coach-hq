@@ -321,6 +321,8 @@ export interface GeminiUsage {
   totalTokens?: number;
   cachedPromptTokens?: number;
   thinkingTokens?: number;
+  /** USD for the whole call. OpenRouter-only (#889) — direct Gemini reports no per-call cost. */
+  costUsd?: number;
   resolvedProvider?: string;
   resolvedModel?: string;
 }
@@ -346,6 +348,9 @@ function usageAttributes(usage: GeminiUsage): Record<string, number | string> {
     // same output budget as `completionTokens` but are absent from it (#827), so without this
     // the span under-reports cost on any thinking-capable model.
     ["gen_ai.usage.output_tokens.reasoning", usage.thinkingTokens],
+    // Also not in Sentry's set. OpenRouter-only (#889) — direct Gemini has no per-call cost to
+    // report, so this stays absent rather than 0 on that path (filtered below, same as the rest).
+    ["gen_ai.usage.cost.usd", usage.costUsd],
   ];
   const stringPairs: [string, string | undefined][] = [
     ["gen_ai.response.provider", usage.resolvedProvider],
