@@ -194,6 +194,11 @@ commits, rescue them (`git branch rescue/... <sha>`) or you orphan a colleague's
 including other agents' concurrent sessions, so a `pop`/`apply` can land someone else's WIP on
 your tree; use `git diff`/`git show`/a throwaway commit instead.
 
+**Resolving a rebase conflict:** never `git checkout --ours/--theirs <file>` — it takes the whole
+file from one side, silently dropping every hunk that already merged cleanly. Edit the markers in
+place. Then diff each branch's own contribution, before against after: added/removed lines only,
+as hunk headers shift on their own.
+
 **Git push:** Always use:
 ```bash
 git pull --rebase origin main && git push origin main
