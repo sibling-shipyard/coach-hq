@@ -15,7 +15,7 @@
 import fs from "node:fs";
 import process from "node:process";
 
-import { ORG, flagValue, readToken, request, update } from "./_sentry-api.mjs";
+import { ORG, eventsUrl, flagValue, readToken, request, update } from "./_sentry-api.mjs";
 
 const TOKEN = readToken();
 const get = (apiPath) => request(apiPath, TOKEN);
@@ -101,6 +101,43 @@ function table(header, rows) {
     .concat("\n");
 }
 
+/**
+ * Every `http.server` span carries `operation` (per-route: `coach-chat`, `coach-message`, ...)
+ * and `outcome` (`ok`/`error`) - see `ui/api/_lib/sentry.ts`. Discover's `field=operation` +
+ * `field=outcome` + `field=count()` returns one row per (operation, outcome) pair already
+ * grouped, so this just folds the two outcome rows per operation into one totals row.
+ */
+function operationsUrl(statsPeriod) {
+  return eventsUrl({
+    dataset: "spans",
+    fields: ["operation", "outcome", "count()"],
+    query: "span.op:http.server",
+    statsPeriod,
+  });
+}
+
+function operationStats(discoverRows) {
+  const totals = new Map();
+  for (const row of discoverRows) {
+    const operation = row.operation ?? "(untagged)";
+    const count = Number(row["count()"] ?? 0);
+    const entry = totals.get(operation) ?? { operation, ok: 0, error: 0 };
+    if (row.outcome === "ok") entry.ok += count;
+    else if (row.outcome === "error") entry.error += count;
+    totals.set(operation, entry);
+  }
+  return [...totals.values()]
+    .map((entry) => ({ ...entry, calls: entry.ok + entry.error }))
+    .sort((a, b) => b.calls - a.calls);
+}
+
+function operationRows(operations) {
+  return operations.map((o) => {
+    const rate = o.calls ? `${((o.ok / o.calls) * 100).toFixed(0)}%` : "—";
+    return `| \`${o.operation}\` | ${o.calls} | ${rate} |`;
+  });
+}
+
 function issueRows(issues) {
   return issues.map((i) => {
     const raw = (i.title ?? "").replace(/\|/g, "\\|");
@@ -140,9 +177,35 @@ function shouldNotify(windowKey, meta) {
   return meta.newCount > 0 || meta.rageCount > 0;
 }
 
-function renderBody({ window, generatedAt, open, fresh, athletes, rage, resolved, dryRun }) {
+function renderBody({
+  window,
+  generatedAt,
+  open,
+  fresh,
+  athletes,
+  rage,
+  resolved,
+  dryRun,
+  operations,
+}) {
   const out = [];
   out.push(`_Generated ${generatedAt} · window: ${window.label} · production only._`);
+  out.push("");
+
+  out.push("## Calls by operation");
+  out.push("");
+  if (!operations.length) {
+    out.push("No API calls recorded in this window.");
+  } else {
+    out.push(table(["Operation", "Calls", "Success rate"], operationRows(operations)));
+    const totalCalls = operations.reduce((sum, o) => sum + o.calls, 0);
+    const totalOk = operations.reduce((sum, o) => sum + o.ok, 0);
+    const overallRate = totalCalls ? ((totalOk / totalCalls) * 100).toFixed(0) : "—";
+    out.push(
+      `${totalCalls} calls across ${operations.length} operation(s) in the ${window.label}, ` +
+        `${overallRate}% overall success rate. A 4xx counts as an error here, on purpose.`,
+    );
+  }
   out.push("");
 
   out.push("## Auto-resolved (no events this window)");
@@ -225,10 +288,11 @@ async function main() {
   const generatedAt = new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC";
   const baseQuery = "is:unresolved environment:production";
 
-  const [open, fresh, rage] = await Promise.all([
+  const [open, fresh, rage, operationEvents] = await Promise.all([
     get(issuesUrl(baseQuery, window.statsPeriod)),
     get(issuesUrl(`${baseQuery} firstSeen:${window.firstSeen}`, window.statsPeriod)),
     get(issuesUrl(RAGE_QUERY, window.statsPeriod)),
+    get(operationsUrl(window.statsPeriod)),
   ]);
   for (const [name, value] of [
     ["open", open],
@@ -239,11 +303,29 @@ async function main() {
       throw new Error(`Unexpected ${name} issues payload: ${JSON.stringify(value)}`);
     }
   }
+  // The Discover/events endpoint answers `{ data, meta }`, not a bare array like the issues ones.
+  if (!Array.isArray(operationEvents?.data)) {
+    throw new Error(`Unexpected operations payload: ${JSON.stringify(operationEvents)}`);
+  }
 
   const dryRun = process.argv.includes("--dry-run");
   const resolved = await resolveStale(open, dryRun);
   const athletes = await athleteBreakdown(open);
-  const body = renderBody({ window, generatedAt, open, fresh, athletes, rage, resolved, dryRun });
+  const operations = operationStats(operationEvents.data);
+  const body = renderBody({
+    window,
+    generatedAt,
+    open,
+    fresh,
+    athletes,
+    rage,
+    resolved,
+    dryRun,
+    operations,
+  });
+
+  const totalCalls = operations.reduce((sum, o) => sum + o.calls, 0);
+  const totalOk = operations.reduce((sum, o) => sum + o.ok, 0);
 
   const meta = {
     window: key,
@@ -256,6 +338,15 @@ async function main() {
     autoResolvedTitles: resolved.map((i) => i.title),
     totalEvents: open.reduce((sum, i) => sum + windowCount(i), 0),
     topAthlete: athletes.rows[0]?.athlete ?? null,
+    operations: operations.map((o) => ({
+      operation: o.operation,
+      calls: o.calls,
+      ok: o.ok,
+      error: o.error,
+      successRate: o.calls ? Number(((o.ok / o.calls) * 100).toFixed(1)) : null,
+    })),
+    totalCalls,
+    overallSuccessRate: totalCalls ? Number(((totalOk / totalCalls) * 100).toFixed(1)) : null,
     // A rage report that is also new appears in both lists; the reader wants it once.
     highlights: [...new Map([...fresh, ...rage].map((i) => [i.id, i])).values()].map((i) => ({
       title: i.title,

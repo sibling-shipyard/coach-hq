@@ -92,3 +92,31 @@ export function listQuery(raw) {
   const query = raw || "is:unresolved";
   return /\benvironment:/.test(query) ? query : `${query} environment:production`;
 }
+
+/**
+ * Our `operation`/`outcome` tags (`ui/api/_lib/sentry.ts`) only mean something on this project.
+ * An unscoped query (`project: "-1"`, as the issues endpoints use) pulls in `http.server` spans
+ * from web/iOS too, which carry an unrelated `outcome` value (e.g. a sync job's `"nothing_new"`)
+ * and no `operation` tag at all - confirmed against the live API while building the M2 digest
+ * section, and the same scoping `ui/scripts/check-span-health.mjs` already uses.
+ */
+export const API_PROJECT = "coach-hq-api";
+
+/**
+ * Build a Discover/Events API URL (`/organizations/{org}/events/`) for aggregating **spans**,
+ * not issues - the query/aggregation surface behind the `Coach HQ health` Sentry dashboard
+ * (id 5873386), used here so the digest can report call volume and success rate the Issues API
+ * (`issuesUrl` in `sentry-digest.mjs`) has no concept of. `request()` returns this endpoint's body
+ * as `{ data, meta }`, unlike the issues endpoints' bare array - callers read `.data`.
+ */
+export function eventsUrl({ dataset, fields, query, statsPeriod, project = API_PROJECT }) {
+  const params = new URLSearchParams({
+    dataset,
+    project,
+    environment: "production",
+    statsPeriod,
+    query,
+  });
+  for (const field of fields) params.append("field", field);
+  return `${ORG}/events/?${params}`;
+}
