@@ -139,6 +139,8 @@ then tab `a.`). Athlete may reference `1a` — match that item exactly.
 2. **Stop for approval.**
 3. Execute smallest diff that hits end state.
 4. Review until clean, then run `bash platform/scripts/check.sh --quiet` before the first push.
+	Commit first: the prose gates read the committed diff (`validate_kdb.py`), so a run on an
+	uncommitted tree cannot see your edits and passing there does not predict the push.
 5. Push and open the PR. Wait for every relevant GitHub check; fix failures and repeat until green.
 6. CI is authoritative. Report completion only after the pushed SHA is green.
 

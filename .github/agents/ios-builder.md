@@ -23,8 +23,13 @@ Keep these current when `ios/` changes; rules in `docs/eng-docs/README.md`.
 - Auth: GitHub App + PKCE via `ui/api/auth/` — `Secrets.swift` only sets `dashboardBaseURL`; don't duplicate OAuth config in Swift.
 - Activity JSON must match `ui/client/src/lib/activities.ts`; encode with `.prettyPrinted` + `.sortedKeys`.
 - Test sync via `TestModeManager` → `test/sync` branch only — never sync test data to `main`.
-- The sandbox cannot run Xcode. GitHub's `iOS Build` check is authoritative: it builds both schemes
-  and runs `CoachHQTests` on `macos-26`. Signing, device, and HealthKit behaviour still need user verification.
+- Xcode runs here — check before assuming it does not. `xcodebuild -version` and
+  `xcrun simctl list devices available` say what is installed; the iPhone 17 Pro / iOS 26.5 simulator
+  `ios-build.yml` pins is usually present. Run the suite locally first: it takes seconds against a
+  10-minute CI round-trip. Redirect and grep, never pipe a build into context:
+  `xcodebuild test ... > /tmp/build.log 2>&1; grep -E "error:|Executed [0-9]+ test|\*\* TEST" /tmp/build.log`
+- GitHub's `iOS Build` check is still authoritative: it builds both schemes and runs `CoachHQTests`
+  on `macos-26`. Signing, device, and HealthKit behaviour still need user verification.
 
 ## Learnings
 
