@@ -61,7 +61,11 @@ export function request(apiPath, token) {
             }
             return;
           }
-          reject(new Error(`API Error ${res.statusCode}: ${data}`));
+          // Carries the status so callers can tell a 404 ("nothing there") from a 429 or a
+          // 5xx ("ask again"). Without it every failure looks the same to a `catch`.
+          const error = new Error(`API Error ${res.statusCode}: ${data}`);
+          error.status = res.statusCode;
+          reject(error);
         });
       },
     );

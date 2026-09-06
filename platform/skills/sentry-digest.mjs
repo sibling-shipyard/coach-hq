@@ -51,9 +51,13 @@ async function athleteBreakdown(issues) {
     let data;
     try {
       data = await get(`${ORG}/issues/${issue.id}/tags/athlete_id/`);
-    } catch {
-      // A tag key absent from an issue 404s. That is "nobody tagged", not a failed digest -
-      // and auth is already proven by the time we get here, so this cannot be a dead token.
+    } catch (error) {
+      // A tag key absent from an issue 404s: that is "nobody tagged", not a failed digest.
+      // Anything else - a 429 from the rate limit this serial loop exists to respect, or a
+      // 5xx - is a lookup we did not get an answer to. Counting those as "nobody tagged"
+      // silently shrinks the athlete table exactly when Sentry is struggling, and prints a
+      // confident "N issue(s) carried no athlete_id tag" that is simply wrong.
+      if (error.status !== 404) throw error;
       unattributed.push(issue);
       continue;
     }
