@@ -47,22 +47,25 @@ about a third of what we send.
 
 ## What the dashboard answers
 
-**Coach HQ health**, id `5873386`. All seven questions have a widget and every widget has returned
-a real production row.
+**Coach HQ health**, id `5873386`. Six widgets, one per live question — question 4 (crash-free
+sessions) is dropped, see below. The dashboard's saved default window is 7D, matching the digest.
 
 | # | Question | Reads |
 |---|---|---|
-| 1 | What is breaking? | errors, grouped by title |
+| 1 | What is breaking? | errors, grouped by title — not release, which fragmented one bug into one row per deploy until the M3 cleanup below |
 | 2 | Is the coach answering? | `POST /api/coach-chat` spans, `outcome`, p95 |
 | 3 | Is the app fast enough? | `span.op:pageload`, p75 by route |
-| 4 | Are we crashing? | crash-free sessions, web and iOS only |
-| 5 | What do tokens cost? | `gen_ai.usage.total_tokens` by model; `gen_ai.usage.cost.usd` on the OpenRouter path only (#889) |
-| 6 | Is phone data arriving? | `transaction:healthkit.sync`, outcome and item count |
-| 7 | Is an athlete angry? | `operation:rage_report`, newest first; web and iOS are separate projects |
+| 4 | What do tokens cost? | `gen_ai.usage.total_tokens` by model; `gen_ai.usage.cost.usd` on the OpenRouter path only (#889) |
+| 5 | Is phone data arriving? | `transaction:healthkit.sync`, outcome and item count |
+| 6 | Is an athlete angry? | `operation:rage_report`, newest first; web and iOS are separate projects |
 
-Only web and iOS belong in question 4. The serverless API counts a session per request, so its
-session rate is traffic disguised as health. Over 30 days that is 7091 API "sessions" against 71
-web and 28 iOS.
+**Crash-free session rate (web + iOS) was dropped** (#904, M3): at single-digit real sessions the
+rate whipsaws between 0% and 100% on one crash next to one clean session, which is noise, not
+signal. The serverless API was already excluded — it counts a session per request, so its rate is
+traffic disguised as health (7091 API "sessions" over 30 days against 71 web and 28 iOS). No
+minimum-session-count gate exists in this query language, so "drop" was the lower-risk of the
+plan's two accepted options; reinstate as a raw session count (not a rate) if volume ever
+justifies it.
 
 ## What this does not cover
 
