@@ -146,6 +146,15 @@ this in one command. `stats_v2` tells you *why* a payload never
 landed and the events API cannot: query it with `groupBy=outcome&groupBy=reason` and a
 `client_discard` row names the SDK-side reason — `sample_rate`, `event_processor`, `before_send`.
 
+**Probing a Preview deployment by hand needs two headers, and a malformed trace header lies.**
+Deployment protection wants both `x-vercel-protection-bypass: <secret>` and
+`x-vercel-set-bypass-cookie: false`; with only the first you get a 200 from a cookie-setting page,
+the function never runs, and it reads as a served request that produced no span. The secret is the
+single key of `.protectionBypass` from `GET https://api.vercel.com/v9/projects/coach-hq` — read it
+inline, never into a file. A `sentry-trace` you write by hand must be exactly 32 hex characters of
+trace id and 16 of span id. The SDK ignores a malformed one and starts a fresh, sampled trace, so a
+test of an inherited decision silently proves nothing.
+
 ## Triage
 
 1. Record the issue URL, timestamp, project, `operation`, `trace_id`, `athlete_id`, and release.
@@ -186,7 +195,7 @@ landed and the events API cannot: query it with `groupBy=outcome&groupBy=reason`
 
 ## Traps
 
-Six constraints to check before editing Sentry setup.
+Seven constraints to check before editing Sentry setup.
 
 1. **`beforeSend` is error events only.** Transactions and spans are separate payloads with their
    own hooks. Wire `beforeSendTransaction` and `beforeSendSpan` too, or the credential scrubber
@@ -211,6 +220,15 @@ Six constraints to check before editing Sentry setup.
    `ios/CoachHQ/CoachHQ/Services/DiagnosticsManager.swift` sets
    `options.enableFileIOTracing = false`. Enabling it captures keyboard and system file reads
    that bury useful spans and spend quota.
+7. **A caller's `sampled=0` beats `tracesSampleRate`.** Sentry decides a root span's fate from
+   the incoming `sentry-trace` flag first, so a negative parent decision discards our transaction
+   whatever rate we set. Clients send one routinely: a fetch made while no sampled transaction is
+   active propagates a negative decision. That is the `sample_rate` discards on
+   `coach-hq-api` while the rate was 1 (#884). `sentry.ts` passes a `tracesSampler` that returns
+   our own rate and reads no parent flag, in either direction. Do not put `tracesSampleRate` back:
+   with both set the SDK ignores the flat rate, so it would read as a working knob that does
+   nothing. The cost is a server span whose client trace holds no transaction — deliberate, since
+   ADR 0032 makes the API the primary debug surface.
 
 ## Coverage boundary
 

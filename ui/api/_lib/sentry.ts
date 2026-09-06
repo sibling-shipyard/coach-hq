@@ -6,7 +6,7 @@
  * Env: SENTRY_DSN (unset → no-op, so local and fork deploys stay silent),
  * optional SENTRY_RELEASE / SENTRY_ENVIRONMENT / SENTRY_TRACES_SAMPLE_RATE.
  *
- * `tracesSampleRate` turns on tracing so this side speaks the same wire format as the browser:
+ * `tracesSampler` turns on tracing so this side speaks the same wire format as the browser:
  * the client SDK attaches `sentry-trace` and `baggage` to its `/api/...` calls
  * (`ui/client/src/lib/observability.ts`) and an event on the continued trace joins the browser's
  * in the Sentry trace view, with no id of our own.
@@ -47,6 +47,27 @@ export const sentryTracesSampleRate = ((raw: string | undefined): number => {
   }
   return parsed;
 })(process.env.SENTRY_TRACES_SAMPLE_RATE);
+
+/**
+ * Sample this API's own transactions at our own rate, whatever the caller decided.
+ *
+ * A plain `tracesSampleRate` is not the rate a root span gets when the request carries a
+ * `sentry-trace` header: the SDK honours the parent's decision first, and `sampled=0` wins over
+ * any rate we set. Callers send that routinely — a browser or iOS fetch made while no sampled
+ * transaction is active propagates a negative decision — which is why most `coach-hq-api`
+ * transactions were discarded as `sample_rate` while the rate was 1 (#884).
+ *
+ * The accepted cost: a server span can now exist whose client trace carries no transaction, so a
+ * trace view can show the API half alone. That is deliberate — ADR 0032 makes the API the primary
+ * debug surface, and its reporting must not depend on what a caller decided.
+ *
+ * A caller's *positive* decision is ignored too, so this is one rule rather than two. Honouring it
+ * would hand the busiest client the API's volume — web and iOS both sample at 1 — and
+ * `SENTRY_TRACES_SAMPLE_RATE` would stop meaning anything the first time an operator turns it down.
+ */
+export function sentryTracesSampler(): number {
+  return sentryTracesSampleRate;
+}
 
 /** Values that must never reach Sentry verbatim, passed to the scrubber per event. */
 function configuredSecrets(): string[] {
@@ -91,7 +112,7 @@ export function initServerMonitoring(): boolean {
     dsn: process.env.SENTRY_DSN,
     release: sentryRelease,
     environment: sentryEnvironment,
-    tracesSampleRate: sentryTracesSampleRate,
+    tracesSampler: sentryTracesSampler,
     // Same name as the defaults, so these replace them instead of running beside them. `Http`
     // covers `node:http`/`https`, `NodeFetch` covers global `fetch` — Gemini and the GitHub API
     // both go through the second one.
