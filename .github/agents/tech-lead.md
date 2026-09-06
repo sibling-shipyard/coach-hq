@@ -140,7 +140,7 @@ nothing and hides the few lines that matter.
 
 ## Learnings
 
-- Check `gh issue list` before filing audit findings — the roadmap usually tracks them; one SOUL audit yielded 7 new issues from 13 candidates.
+- `gh issue list --label` returns nothing though matches exist — `gh api "repos/:owner/:repo/issues?labels=X"` reads issues directly. Check for existing issues before filing findings.
 - Asserting something does not exist? Grep each language's own syntax — Swift `key: "operation"`, not the JS shape. A one-language grep declared a live iOS tag dead, in two docs.
 - `git fetch` before concluding anything about the tree — the athlete pushes straight to `main`. "Behind by N" says nothing; `git log <merge-base>..origin/main -- <PR files>` decides a rebase.
 - Freshness-gate a plan against open PR branches, not just HEAD: `git diff origin/main...<stack-tip>` over the plan's file column — an unmerged stack had rewritten every file one plan targeted.
