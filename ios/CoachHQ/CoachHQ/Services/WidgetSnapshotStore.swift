@@ -157,12 +157,21 @@ class WidgetSnapshotStore: ObservableObject {
         return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
     }
 
+    /// Seconds to wait before each `refreshAfterSync` attempt. Exposed so a give-up report can
+    /// state the budget it actually spent instead of hard-coding the number a second time.
+    static let syncPollWaits: [UInt64] = [0, 15, 15, 20, 20, 30]
+
+    /// Total seconds `refreshAfterSync` waits before giving up.
+    static var syncPollBudgetSeconds: Int { Int(syncPollWaits.reduce(0, +)) }
+
+    /// `home.sync.timestamp` as last fetched — the pipeline time Home is actually showing.
+    var lastObservedSyncTimestamp: String? { snapshots?.home.sync.timestamp }
+
     /// Polls Home snapshots after a HealthKit commit until the user-repo sync workflow
     /// has regenerated `gen/dashboard_snapshot.json` (timestamp in `home.sync`) or attempts exhaust.
     @discardableResult
     func refreshAfterSync(since commitFinishedAt: Date) async -> Bool {
-        let waitSeconds: [UInt64] = [0, 15, 15, 20, 20, 30]
-        for (attempt, delay) in waitSeconds.enumerated() {
+        for (attempt, delay) in Self.syncPollWaits.enumerated() {
             if attempt > 0 {
                 try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
             }
@@ -170,6 +179,17 @@ class WidgetSnapshotStore: ObservableObject {
             if snapshotsAreFresh(since: commitFinishedAt) { return true }
         }
         return false
+    }
+
+    /// One more fetch-and-check after `refreshAfterSync` has given up.
+    ///
+    /// The give-up path spends a GitHub round-trip asking what the pipeline run did, and the run
+    /// can finish inside that window — or have finished just before it, with the regenerated
+    /// snapshot not yet readable. Either way the last poll's answer is already out of date by the
+    /// time a verdict is formed, so ask once more before calling a green run stale.
+    func recheckFreshness(since commitFinishedAt: Date) async -> Bool {
+        await refresh(showSpinner: false)
+        return snapshotsAreFresh(since: commitFinishedAt)
     }
 
     private func snapshotsAreFresh(since commitFinishedAt: Date) -> Bool {

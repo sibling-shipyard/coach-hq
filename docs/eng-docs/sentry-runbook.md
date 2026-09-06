@@ -1,6 +1,6 @@
 # Sentry operator runbook
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-05 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-06 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 Sentry is the shared debug view for the four opted-in beta athletes. Data stays in the Germany
 region for 30 days on the Developer plan — fixed by the plan, not a dial we hold; Vercel and
@@ -223,6 +223,7 @@ hand. A web report
 carries the SDK's own click, navigation and fetch breadcrumbs as its timeline, copied onto
 `extra.trail` when the dialog opens. `beforeBreadcrumb` drops the `console` ones, because those
 would carry arbitrary logged text on a path ADR 0032 scoped to failed Gemini calls.
+Also counted: a sync whose numbers never refreshed, `healthkit.sync.stale`, described next.
 
 **A failure a route returns instead of throwing is only counted if that route captures it by
 hand** — `withSentryRoute` sees throws, and a fault built into a `Response` never reaches it. Two
@@ -240,6 +241,33 @@ event sits on the same `trace_id` and `status_code` says what it decided. Drops 
 `level:warning`, refusals `level:error`. Both group on endpoint, kind and status rather than on the
 minified stack, so one revoked token stays one issue to resolve and a real outage is a count that
 climbs.
+
+**A sync whose numbers never refreshed is split across two levels on purpose (#883).**
+`operation:healthkit.sync.stale` fires when iOS committed a sync and the athlete's figures never
+moved inside the 100-second poll. Giving up is not proof the sync failed: the pipeline takes about
+30 seconds, but a queued runner can outlast the poll on a healthy run. So iOS asks GitHub what the
+run for that exact commit did, and reports the answer. A green run is re-checked against one more
+snapshot read first, so a run that finished during the lookup reports nothing at all.
+
+| `verdict` | what happened | level |
+|---|---|---|
+| `pipeline_failed` | the run finished and did not succeed | error |
+| `pipeline_never_ran` | GitHub has no run for that commit | error |
+| `pipeline_green_but_stale` | the run succeeded and the numbers still did not move | error |
+| `pipeline_still_running` | the run was queued or in progress | warning |
+| `pipeline_status_unknown` | the run status could not be read | warning |
+
+Two things follow for triage. **A real failure can arrive as a warning.** `pipeline_status_unknown`
+means the Actions lookup itself failed — most likely an installation whose token lacks the App's
+`actions` permission — so the pipeline underneath may well be broken and unreported. A run of these
+is a reason to check the install, not to relax. So when an athlete says their numbers are stale,
+search `operation:healthkit.sync.stale` with **no level filter**, then read `verdict`.
+
+**The events carry the sync, not just the fault.** `commit_sha`, `committed_at`, `run_url`,
+`snapshot_sync_timestamp` and `call_site` are on every one, so a report names the exact push and
+links its Actions run. `call_site:post_commit` is the automatic poll; `coach_turn_retry` is the
+athlete tapping Retry in Chat, which polls the same commit again and can report it twice. Test-mode
+syncs report nothing — they commit to `test/sync`, a branch the workflow never watches.
 
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
 

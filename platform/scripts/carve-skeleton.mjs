@@ -473,6 +473,11 @@ function copyWorkflows(outDir) {
   const wfDir = path.join(outDir, ".github/workflows");
   fs.mkdirSync(wfDir, { recursive: true });
 
+  // The carved name `sync.yml` is a contract, not a detail. iOS asks GitHub what this workflow
+  // did with a pushed commit by that exact filename — `GitHubAPIClient.syncWorkflowRun(headSHA:)`
+  // requests `/actions/workflows/sync.yml/runs`. Rename it here and that call 404s, so every
+  // failed sync degrades to an unactionable "status unknown" warning and no real failure ever
+  // surfaces. Change both sides together (#883).
   fs.copyFileSync(
     path.join(ENGINE_DIR, ".github/workflows/sync.user.yml"),
     path.join(wfDir, "sync.yml"),

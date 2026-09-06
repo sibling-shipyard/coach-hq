@@ -39,6 +39,11 @@ class HealthKitSyncManager: ObservableObject {
     private var coachChatClient: CoachChatAPIClient?
     private var activitySyncEpoch = 0
 
+    /// SHA of the last commit this app pushed to the athlete repo. `reportStaleSync` needs it
+    /// to ask GitHub about the exact Actions run that push triggered; `Retry` in Chat re-polls
+    /// for the same commit, so both call sites want this one value.
+    private var lastSyncCommitSHA: String?
+
     struct SyncResult: Equatable {
         enum Outcome: Equatable { case synced(Int), nothingNew, failed(String) }
         let outcome: Outcome
@@ -226,6 +231,70 @@ class HealthKitSyncManager: ObservableObject {
         try? await UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: - Stale-sync reporting
+
+    /// Reports a post-commit poll that gave up before the athlete's numbers moved. Only ever
+    /// called from a `fresh == false` branch, so a sync that catches up sends nothing.
+    ///
+    /// See `StaleSyncVerdict` for why this asks GitHub instead of reporting every give-up as an
+    /// error. `callSite` separates the automatic post-commit poll from the athlete tapping
+    /// Retry in Chat, which polls the same commit again.
+    private func reportStaleSync(
+        callSite: String,
+        commitSHA: String?,
+        freshnessSince: Date,
+        operationID: UUID
+    ) async {
+        // Test mode commits to `test/sync`, a branch the Sync workflow does not watch, so its
+        // snapshots can never refresh. Every test sync would report a phantom failure.
+        guard TestModeManager.shared.targetBranch == "main" else { return }
+        // `fresh` is also false when no widget store is wired up. Nothing was polled then, so
+        // there is nothing to say about the pipeline.
+        guard let widgetStore else { return }
+
+        var verdict = StaleSyncVerdict.pipelineStatusUnknown
+        var run: SyncWorkflowRun?
+        if let apiClient, let commitSHA {
+            do {
+                run = try await apiClient.syncWorkflowRun(headSHA: commitSHA)
+                verdict = .from(run: run)
+            } catch {
+                verdict = .pipelineStatusUnknown
+            }
+        }
+
+        // A green run means the last poll's answer is the suspect, not the pipeline: the run can
+        // finish during the GitHub round-trip above, or land its snapshot a moment after the poll
+        // read it. Ask once more, and if the numbers have since moved this was never a stale sync.
+        if verdict.needsFreshnessRecheck, await widgetStore.recheckFreshness(since: freshnessSince) {
+            return
+        }
+
+        let iso = ISO8601DateFormatter()
+        var metadata: [String: String] = [
+            "verdict": verdict.rawValue,
+            "call_site": callSite,
+            "waited_seconds": String(WidgetSnapshotStore.syncPollBudgetSeconds),
+            "commit_sha": commitSHA ?? "unknown",
+            "committed_at": iso.string(from: freshnessSince),
+            "snapshot_sync_timestamp": widgetStore.lastObservedSyncTimestamp ?? "none"
+        ]
+        if let run {
+            metadata["run_status"] = run.status
+            metadata["run_conclusion"] = run.conclusion ?? "none"
+            metadata["run_started_at"] = run.runStartedAt ?? "none"
+            metadata["run_url"] = run.htmlURL ?? "none"
+        }
+
+        DiagnosticsManager.capture(
+            message: verdict.summary,
+            severity: verdict.isFault ? .fault : .warning,
+            operation: "healthkit.sync.stale",
+            operationID: operationID,
+            metadata: metadata
+        )
+    }
+
     // MARK: - Activity-sync Coach turn
 
     private func publishActivitySyncTurnIfEnabled(
@@ -264,6 +333,13 @@ class HealthKitSyncManager: ObservableObject {
             }
             if fresh {
                 await refreshEnrichedActivities(fileNames: turn.activities.map(\.fileName))
+            } else {
+                await reportStaleSync(
+                    callSite: "coach_turn_retry",
+                    commitSHA: lastSyncCommitSHA,
+                    freshnessSince: turn.freshnessSince,
+                    operationID: UUID()
+                )
             }
             guard ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: activitySyncEpoch) else { return }
             await advanceActivitySyncTurn(snapshotsFresh: fresh)
@@ -733,7 +809,11 @@ class HealthKitSyncManager: ObservableObject {
             // This is a lower bound, not the API-return time: even a very fast workflow
             // must write a snapshot timestamp after the instant that triggered its push.
             let pipelineFreshnessLowerBound = Date()
-            try await apiClient.commitFiles(filesToCommit, message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")")
+            let commitSHA = try await apiClient.commitFiles(
+                filesToCommit,
+                message: "sync: HealthKit — \(n) activit\(n == 1 ? "y" : "ies")"
+            )
+            lastSyncCommitSHA = commitSHA
 
             for (fileName, activity) in upsertedForCache {
                 SyncCache.upsert(SyncCacheEntry(
@@ -781,6 +861,7 @@ class HealthKitSyncManager: ObservableObject {
             let repoFullName = apiClient.repoFullName
             let shouldStartCoachTurn = activitySyncTurn != nil
             let epoch = activitySyncEpoch
+            let syncOperationID = diagnosticOperation.id
             Task {
                 let fresh: Bool
                 if let ws {
@@ -790,6 +871,13 @@ class HealthKitSyncManager: ObservableObject {
                 }
                 if fresh {
                     await self.refreshEnrichedActivities(fileNames: syncedFileNames)
+                } else {
+                    await self.reportStaleSync(
+                        callSite: "post_commit",
+                        commitSHA: commitSHA,
+                        freshnessSince: pipelineFreshnessLowerBound,
+                        operationID: syncOperationID
+                    )
                 }
                 if shouldStartCoachTurn,
                    ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch) {
@@ -1436,6 +1524,69 @@ struct YearSummary {
         longestStreak: 0,
         mostActiveDayOfWeek: -1
     )
+}
+
+// MARK: - Stale-sync verdict
+
+/// What it means when a post-commit poll never saw the athlete's numbers move.
+///
+/// `WidgetSnapshotStore.refreshAfterSync` returning `false` is not the same as the sync
+/// failing. The pipeline normally finishes in about 30 seconds and the poll waits about 100,
+/// but a queued or serialized GitHub Actions runner can outlast that on a perfectly healthy
+/// run. So the give-up path asks GitHub what the run for this commit actually did, and only a
+/// run that died — or never existed — is reported as an error. Anything we cannot pin down
+/// goes out as a warning instead, because a noisy alert gets muted and a muted alert reports
+/// nothing at all.
+enum StaleSyncVerdict: String, Equatable {
+    /// The run finished and did not succeed. The 5-of-7 `Checkout` failures on record land here.
+    case pipelineFailed = "pipeline_failed"
+    /// GitHub has no run for this commit: the workflow never started.
+    case pipelineNeverRan = "pipeline_never_ran"
+    /// The run went green and the numbers still did not move, confirmed by a second snapshot
+    /// read after the run finished — the pipeline wrote nothing new.
+    case pipelineGreenButStale = "pipeline_green_but_stale"
+    /// Still queued or in progress. Slow, not broken.
+    case pipelineStillRunning = "pipeline_still_running"
+    /// The status lookup itself failed, so we cannot say which of the above it was.
+    case pipelineStatusUnknown = "pipeline_status_unknown"
+
+    static func from(run: SyncWorkflowRun?) -> StaleSyncVerdict {
+        guard let run else { return .pipelineNeverRan }
+        guard run.status == "completed" else { return .pipelineStillRunning }
+        return run.conclusion == "success" ? .pipelineGreenButStale : .pipelineFailed
+    }
+
+    /// Whether this verdict must be re-checked against a fresh snapshot before it is reported.
+    ///
+    /// Only the green run needs it, and it needs it badly: a successful run says the numbers were
+    /// *going* to move, so the poll's last answer is the thing in doubt, not the pipeline. Every
+    /// other verdict describes a run that did not produce new numbers at all, and re-reading the
+    /// snapshot cannot change that.
+    var needsFreshnessRecheck: Bool { self == .pipelineGreenButStale }
+
+    /// True for the verdicts that mean something is broken and someone should look.
+    var isFault: Bool {
+        switch self {
+        case .pipelineFailed, .pipelineNeverRan, .pipelineGreenButStale: return true
+        case .pipelineStillRunning, .pipelineStatusUnknown: return false
+        }
+    }
+
+    /// The Sentry issue title. Fixed strings, so each verdict groups into its own issue.
+    var summary: String {
+        switch self {
+        case .pipelineFailed:
+            return "Sync pipeline failed; the athlete's numbers did not update"
+        case .pipelineNeverRan:
+            return "Sync pipeline never ran; the athlete's numbers did not update"
+        case .pipelineGreenButStale:
+            return "Sync pipeline finished green but the athlete's numbers did not update"
+        case .pipelineStillRunning:
+            return "Sync pipeline still running past the poll budget"
+        case .pipelineStatusUnknown:
+            return "Sync did not refresh and the pipeline status could not be read"
+        }
+    }
 }
 
 // MARK: - Errors
