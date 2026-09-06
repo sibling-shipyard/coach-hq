@@ -2,9 +2,10 @@ import Foundation
 
 // Standalone verification harness for DescriptionParser.swift.
 //
-// There is no Xcode test target in this project, so this ports every case from
-// platform/tests/test_parse_match_description.py as plain assertions and runs them via the
-// `swift`/`swiftc` CLI directly against the app's DescriptionParser.swift.
+// Ports every case from platform/tests/test_parse_match_description.py as plain assertions
+// and runs them via the `swift`/`swiftc` CLI directly against the app's DescriptionParser.swift,
+// with no simulator. `CoachHQTests/DescriptionParserTests.swift` is the suite CI runs; this one
+// stays for a fast local loop on a machine with no Xcode.
 //
 // Usage:
 //   swiftc ios/CoachHQ/CoachHQ/Services/DescriptionParser.swift \
@@ -50,7 +51,7 @@ struct Verify {
         // ── Test 1: Happy path — single Thursday friendly ──────────────────
         do {
             let raw = "Tony me vs Alston/Wei 21-18"
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             t.check("test_01_happy_path_single_game: parsed not nil", parsed != nil)
             if let parsed = parsed {
                 let out = DescriptionParser.formatDescription(parsed)
@@ -74,7 +75,7 @@ struct Verify {
                 "Tim me vs Alston/Wei 19-21",
                 "Tony me vs Alex/Yin 15-21",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             t.check("test_02_full_session_11_games: parsed not nil", parsed != nil)
             if let parsed = parsed {
                 let out = DescriptionParser.formatDescription(parsed)
@@ -94,7 +95,7 @@ struct Verify {
                 "Manu me vs Joe/Tien 19-21",
                 "Manu me vs Richard/Kean 14-21",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             t.check("test_03_ranked_plus_friendlies: parsed not nil", parsed != nil)
             if let parsed = parsed {
                 let out = DescriptionParser.formatDescription(parsed)
@@ -115,7 +116,7 @@ struct Verify {
         // ── Test 4: #rank metadata ─────────────────────────────────────────
         do {
             let raw = "#rank 4\nTony me vs Alston/Wei 21-18"
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_04_rank_metadata: contains Rank: #4", out.contains("| Rank: #4"))
         }
@@ -123,7 +124,7 @@ struct Verify {
         // ── Test 5: #notes metadata ────────────────────────────────────────
         do {
             let raw = "#notes Good session. Played calm.\nTony me vs Alston/Wei 21-18"
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             let lines = out.components(separatedBy: "\n")
             t.check("test_05_notes_metadata: first line is notes", lines.first == "Good session. Played calm.")
@@ -136,7 +137,7 @@ struct Verify {
                 "#rank 7",
                 "Tony me vs Alston/Wei 21-18",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             let lines = out.components(separatedBy: "\n")
             t.check("test_06: first line is notes", lines.first == "Great day")
@@ -150,7 +151,7 @@ struct Verify {
                 "#notes Tired legs",
                 "Tony me vs Alston/Wei 21-18",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             let lines = out.components(separatedBy: "\n")
             t.check("test_07: first line is notes", lines.first == "Tired legs")
@@ -160,7 +161,7 @@ struct Verify {
         // ── Test 8: Deuce scores ───────────────────────────────────────────
         do {
             let raw = "Ivor me vs Alston/Martin 23-25"
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_08_deuce_scores", out.contains("L 23-25 w/ Ivor vs Alston + Martin"))
         }
@@ -168,7 +169,7 @@ struct Verify {
         // ── Test 9: Partner with space in name ─────────────────────────────
         do {
             let raw = "Dom L me vs Kean/Harry S 21-16"
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_09_partner_with_space", out.contains("w/ Dom L vs Kean + Harry S"))
         }
@@ -176,7 +177,7 @@ struct Verify {
         // ── Test 10: Singles Grammar ───────────────────────────────────────
         do {
             let raw = "me vs Alston 21-18"
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_10_singles: contains formatted output without w/", out.contains("W 21-18 vs Alston"))
             let afterGames = out.components(separatedBy: "Games:").last ?? ""
@@ -184,7 +185,7 @@ struct Verify {
             
             // Partner prefix means doubles, NOT singles
             let rawDoubles = "Ivor me vs Alston 21-18"
-            let parsedDoubles = DescriptionParser.parseRawDescription(rawDoubles)
+            let parsedDoubles = DescriptionParser.parseRawDescription(rawDoubles, allowMatchParsing: true)
             let outDoubles = parsedDoubles.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_10_doubles: partner treated as doubles", outDoubles.contains("W 21-18 w/ Ivor vs Alston"))
         }
@@ -196,7 +197,7 @@ struct Verify {
                 "Tony me vs Alston/Wei",
                 "Tony me vs Alston/Wei 15-21",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             t.check("test_11: parsed not nil", parsed != nil)
             if let parsed = parsed {
                 t.check("test_11: exactly 1 warning", parsed.warnings.count == 1)
@@ -214,7 +215,7 @@ struct Verify {
                 "Tony Alston/Wei 21-18",
                 "Tony me vs Alston/Wei 15-21",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             t.check("test_12: parsed not nil", parsed != nil)
             if let parsed = parsed {
                 let out = DescriptionParser.formatDescription(parsed)
@@ -230,7 +231,7 @@ struct Verify {
                 "Had a great time tonight",
                 "Tony me vs Alston/Wei 15-21",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             t.check("test_13: parsed not nil", parsed != nil)
             if let parsed = parsed {
                 t.check("test_13: no warnings", parsed.warnings.isEmpty)
@@ -243,21 +244,22 @@ struct Verify {
         // ── Test 14: Already formatted (idempotent) ────────────────────────
         do {
             let formatted = "4W-7L (36%)\n\nGames:\nW 21-18 w/ Tony vs Alston + Wei"
-            let result = DescriptionParser.parseRawDescription(formatted)
+            let result = DescriptionParser.parseRawDescription(formatted, allowMatchParsing: true)
             t.check("test_14_already_formatted: nil", result == nil)
         }
 
         // ── Test 15: Empty input ───────────────────────────────────────────
         do {
-            t.check("test_15_empty_input: empty string", DescriptionParser.parseRawDescription("") == nil)
-            t.check("test_15_empty_input: whitespace only", DescriptionParser.parseRawDescription("   \n\n  ") == nil)
+            t.check("test_15_empty_input: empty string", DescriptionParser.parseRawDescription("", allowMatchParsing: true) == nil)
+            t.check("test_15_empty_input: whitespace only", DescriptionParser.parseRawDescription("   \n\n  ", allowMatchParsing: true) == nil)
         }
 
-        // ── Test 16: Only metadata, no games ───────────────────────────────
+        // ── Test 16: Only metadata, no games → plain note (#766) ───────────
         do {
             let raw = "#notes Just warming up\n#rank 5"
-            let result = DescriptionParser.parseRawDescription(raw)
-            t.check("test_16_only_metadata: nil", result == nil)
+            let result = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
+            t.check("test_16_only_metadata: plain note", result?.isPlainNote == true)
+            t.check("test_16_only_metadata: notes kept", result?.notes == "Just warming up")
         }
 
         // ── Test 17: Win percentage rounding ───────────────────────────────
@@ -267,7 +269,7 @@ struct Verify {
                 "Tony me vs Alston/Wei 18-21",
                 "Tony me vs Alston/Wei 15-21",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_17_win_pct_rounding: 1W-2L (33%)", out.contains("1W-2L (33%)"))
         }
@@ -279,7 +281,7 @@ struct Verify {
                 "Tony me vs Alston/Wei 21-15",
                 "Tony me vs Alston/Wei 21-10",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_18_all_wins: 3W-0L (100%)", out.contains("3W-0L (100%)"))
         }
@@ -291,7 +293,7 @@ struct Verify {
                 "Tony me vs Alston/Wei 15-21",
                 "Tony me vs Alston/Wei 10-21",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_19_all_losses: 0W-3L (0%)", out.contains("0W-3L (0%)"))
         }
@@ -304,7 +306,7 @@ struct Verify {
                 "Tony me vs Alex/Yin 13-21",
                 "---",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_20: contains Games:", out.contains("Games:"))
             t.check("test_20: no Friendlies:", !out.contains("Friendlies:"))
@@ -314,7 +316,7 @@ struct Verify {
         // ── Test 21: Case-insensitive "me vs" ──────────────────────────────
         do {
             let raw = "Tony ME VS Alston/Wei 21-18"
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             t.check("test_21: parsed not nil", parsed != nil)
             let out = parsed.map { DescriptionParser.formatDescription($0) } ?? ""
             t.check("test_21_case_insensitive", out.contains("W 21-18 w/ Tony vs Alston + Wei"))
@@ -326,7 +328,7 @@ struct Verify {
                 "Tony me vs Alston/Wei 21-18",
                 "Tony me vs Alex/Yin 13-21",
             ].joined(separator: "\n")
-            let parsed = DescriptionParser.parseRawDescription(raw)
+            let parsed = DescriptionParser.parseRawDescription(raw, allowMatchParsing: true)
             t.check("test_structured_entry: parsed not nil", parsed != nil)
             if let parsed = parsed {
                 let entry = DescriptionParser.buildStructuredEntry(parsed, date: "2026-03-27", activityId: 12345678)

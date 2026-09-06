@@ -1,11 +1,11 @@
 # Coach HQ iOS App: Architecture & Spec (Post-Strava)
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-23
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-04
 
 ## Overview
 The Coach HQ iOS app is a native Swift/SwiftUI client that acts as a bridge between Apple HealthKit and the user's personal GitHub repository. 
 
-Due to Strava deprecating free API access, this app replaces the legacy Strava-dependent sync pipeline entirely. It enables true multi-user support (e.g., Sky and his brother) without requiring a centralized backend, database, or third-party API dependencies.
+This app replaces the Strava-dependent sync pipeline entirely, because Strava deprecated free API access. It enables true multi-user support (e.g., Sky and his brother) without requiring a centralized backend, database, or third-party API dependencies.
 
 The app is "dumb" by design: it reads from and writes to GitHub. The AI Coach (running via Manus/Claude) and the Netlify dashboard remain unchanged, continuing to use the GitHub repo as their single source of truth.
 
@@ -43,11 +43,11 @@ ingestion that make the system seamless, and nothing else. Strict design boundar
 - **Sign-in surface — plain `WKWebView`, and passkey 2FA will never work in it.** Login runs in an
   in-app `WKWebView` (`WebAuthPresenter.swift`, `WebAuthBrowserStore.swift`, `InAppAuthWebView.swift`),
   chosen over `ASWebAuthenticationSession`/`SFSafariViewController` so the OAuth flow shares a cookie
-  jar with GitHub browse-mode pages. Consequence: choosing a **passkey** for GitHub 2FA fails silently
-  — WebAuthn needs the OS to intercept `navigator.credentials.get()`, which `WKWebView` only does with
-  the restricted `com.apple.developer.web-browser` entitlement (Apple grants it to browser apps only)
-  *and* a `webcredentials` entry in `github.com`'s association file (not ours to edit). Both are hard
-  external gates, not implementation gaps — issue #238 investigated and closed on this. TOTP, GitHub
+  jar with GitHub browse-mode pages. Consequence: choosing a **passkey** for GitHub 2FA fails silently.
+  WebAuthn needs the OS to intercept `navigator.credentials.get()`. `WKWebView` only does that with
+  the restricted `com.apple.developer.web-browser` entitlement, which Apple grants to browser apps
+  only, *and* a `webcredentials` entry in `github.com`'s association file, which is not ours to edit.
+  Both are hard external gates, not implementation gaps — issue #238 investigated and closed on this. TOTP, GitHub
   Mobile push, and recovery codes are plain form submits and all work; they are the supported path.
   Switching this one flow to `ASWebAuthenticationSession` would enable passkeys at the cost of the
   shared cookie jar — a deliberate trade to reopen only if passkey support is wanted badly enough.
@@ -71,12 +71,17 @@ The iOS app owns naming and enrichment at commit time to ensure a single, clean 
 ### File Naming
 - **Prefix:** HealthKit-sourced files will use the `hk_` prefix (e.g., `hk_2026-06-26_calisthenics_31.json`) to distinguish them from legacy Strava files.
 
-### Badminton Score Input
-Instead of typing scores into Strava descriptions, users will input them directly in the app.
-- Upon detecting a new Badminton workout, the app prompts the user: "Badminton session detected — add scores?"
-- The user pastes scores in the exact same text format used previously (e.g., `21-15, 21-18`).
-- The app appends this text to the `description` field of the activity JSON before committing.
-- Downstream parsing logic (`parse_descriptions.py`) remains completely unchanged.
+### Activity Description Input
+`ActivityDetailView` lets the athlete write a description for **any** activity, stored in the
+activity JSON's `description` field. `DescriptionParser` decides what the text is:
+- **On a score-entry sport only**, text with at least one `{partner} me vs {opps} {score}` line
+  is a match: it formats into the summary + `Games:` block and writes a session to
+  `user_data/activities/match_history.json` (ADR 0013). `Theme.sportSupportsScoreEntry` is the
+  gate and today it is badminton alone. The editor is open to every sport, so the gate is passed
+  explicitly into `DescriptionParser.parseRawDescription(_:allowMatchParsing:)` — on any other
+  sport the same text is a note, because match history is canonical for the win rate.
+- Anything else is a plain free-text note. It is stored verbatim and writes no match history.
+- Either way the text reaches Coach through the existing `description` projection.
 
 ## Phase 2 (v0.2): Native Workout Timer
 
