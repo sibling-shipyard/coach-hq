@@ -18,7 +18,10 @@ class TestVsUsualWorkflow(unittest.TestCase):
         self.assertIn("CHANGED_ACTIVITY_PATHS<<EOF", workflow)
         self.assertIn("git diff --name-only --diff-filter=AM", workflow)
         self.assertIn("-- user_data/activities/hist/ || true", workflow)
-        self.assertEqual(workflow.count("git add user_data/activities/hist/"), 2)
+        # Both sites now stage history through `add_history` (#850): a bare `git add` on
+        # that path cannot survive a fresh carve. `test_sync_workflow.py` guards the helper.
+        self.assertEqual(workflow.count("\n          add_history\n"), 1)
+        self.assertEqual(workflow.count("\n            add_history\n"), 1)
 
     def test_pipeline_passes_only_changed_activity_paths_to_enrichment(self):
         raw_paths = "\n".join(

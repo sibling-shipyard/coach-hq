@@ -65,9 +65,24 @@ jobs:
 
       - name: Commit pipeline changes
         run: |
+          # Stage the athlete's activity history. Two states break a plain `git add` here and
+          # they need different handling, which is why this is a function and not one flag:
+          #   - the carved .gitignore lists user_data/activities/hist/, so a file sitting there
+          #     untracked is refused (exit 1) without -f;
+          #   - on a fresh carve the directory does not exist at all, and `git add` on a missing
+          #     pathspec is a fatal 128 that -f does not change.
+          # Real history arrives already tracked: iOS commits it through the Git Data API, which
+          # does not consult .gitignore. So this stages the same files it always did.
+          add_history() {
+            hist=user_data/activities/hist
+            [ -d "$hist" ] || return 0
+            [ -n "$(ls -A "$hist" 2>/dev/null)" ] || return 0
+            git add -f "$hist/"
+          }
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add user_data/activities/hist/
+          add_history
           git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
           git add gen/quest_history.json gen/sync_status.json
           if git diff --cached --quiet; then
@@ -85,7 +100,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             python3 engine/scripts/regenerate_derived.py
-            git add user_data/activities/hist/
+            add_history
             node engine/scripts/build-dashboard-snapshot.mjs --dashboard-snapshot
             node engine/scripts/generate-athlete-insights.mjs
             git add -f gen/dashboard_snapshot.json gen/athlete_insights.json
