@@ -47,22 +47,25 @@ about a third of what we send.
 
 ## What the dashboard answers
 
-**Coach HQ health**, id `5873386`. All seven questions have a widget and every widget has returned
-a real production row.
+**Coach HQ health**, id `5873386`. Six widgets, one per live question — question 4 (crash-free
+sessions) is dropped, see below. The dashboard's saved default window is 7D, matching the digest.
 
 | # | Question | Reads |
 |---|---|---|
-| 1 | What is breaking? | errors, grouped by title |
+| 1 | What is breaking? | errors, grouped by title — not release, which fragmented one bug into one row per deploy until the M3 cleanup below |
 | 2 | Is the coach answering? | `POST /api/coach-chat` spans, `outcome`, p95 |
 | 3 | Is the app fast enough? | `span.op:pageload`, p75 by route |
-| 4 | Are we crashing? | crash-free sessions, web and iOS only |
-| 5 | What do tokens cost? | `gen_ai.usage.total_tokens` by model; `gen_ai.usage.cost.usd` on the OpenRouter path only (#889) |
-| 6 | Is phone data arriving? | `transaction:healthkit.sync`, outcome and item count |
-| 7 | Is an athlete angry? | `operation:rage_report`, newest first; web and iOS are separate projects |
+| 4 | What do tokens cost? | `gen_ai.usage.total_tokens` by model; `gen_ai.usage.cost.usd` on the OpenRouter path only (#889) |
+| 5 | Is phone data arriving? | `transaction:healthkit.sync`, outcome and item count |
+| 6 | Is an athlete angry? | `operation:rage_report`, newest first; web and iOS are separate projects |
 
-Only web and iOS belong in question 4. The serverless API counts a session per request, so its
-session rate is traffic disguised as health. Over 30 days that is 7091 API "sessions" against 71
-web and 28 iOS.
+**Crash-free session rate (web + iOS) was dropped** (#904, M3): at single-digit real sessions the
+rate whipsaws between 0% and 100% on one crash next to one clean session, which is noise, not
+signal. The serverless API was already excluded — it counts a session per request, so its rate is
+traffic disguised as health (7091 API "sessions" over 30 days against 71 web and 28 iOS). No
+minimum-session-count gate exists in this query language, so "drop" was the lower-risk of the
+plan's two accepted options; reinstate as a raw session count (not a rate) if volume ever
+justifies it.
 
 ## What this does not cover
 
@@ -130,6 +133,24 @@ an invented number, and are marked with a `~` in the body and `costEstimated: tr
 empty today: `chat-provider-bench.md` never billed production's actual model, `gemini-pro-latest`
 — no working paid key existed when it was measured — so every model in production today reports
 "no pricing data" until a real measurement exists.
+
+The operation table also carries a trend line: total calls and overall success rate, first half of
+the window against second half. `halfWindowRanges` in `sentry-digest.mjs` builds the two ranges
+using the events endpoint's `start`/`end` params rather than `statsPeriod`, since those give an
+explicit, non-overlapping range. The events endpoint has no `interval`/day-bucket grouping of its own — that lives on the
+separate `events-stats` time-series endpoint — so two flat-table queries reusing `operationStats`
+was simpler than a second query shape. A swing under 1 call/day or 3 points of success rate reads
+as "flat" rather than flipping on noise from single-digit counts.
+
+The `## By athlete` table also carries tokens and cost per athlete, joined from a `gen_ai.
+generate_content` span query grouped by `user.id` — not the `athlete_id` tag the rest of the
+digest uses. `athlete_id` is a custom tag set on the per-request isolation scope
+(`setAthleteScope`), and Sentry's spans dataset does not copy scope tags onto descendant spans, so
+it reads `null` on every `gen_ai.generate_content` span (confirmed live, 2026-09-06). `user.id`
+comes from the same call's `scope.setUser(...)` instead, which Sentry treats as a promoted field
+that *does* propagate to child spans — populated on every sampled span. The two halves of the
+table (issue events keyed on `athlete_id`, tokens keyed on `user.id`) are joined on that shared id
+string; an athlete present on only one side shows `—` on the other, not a dropped row.
 
 Every run also auto-resolves any open issue with zero events in the window (`PUT
 .../issues/{id}/` with `status: resolved`), in series, and reports the count and titles in the
