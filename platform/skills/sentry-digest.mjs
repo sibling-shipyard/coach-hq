@@ -138,6 +138,98 @@ function operationRows(operations) {
   });
 }
 
+/**
+ * Every `gen_ai.generate_content` span (`ui/api/_lib/sentry.ts`, shared by the direct-Gemini and
+ * OpenRouter adapters) carries `gen_ai.request.model` and `gen_ai.usage.{input,output,total}_
+ * tokens`. Same implicit group-by as `operationsUrl`: a non-aggregate field alongside aggregate
+ * functions returns one row per model already summed.
+ */
+function tokensUrl(statsPeriod) {
+  return eventsUrl({
+    dataset: "spans",
+    fields: [
+      "gen_ai.request.model",
+      "sum(gen_ai.usage.input_tokens)",
+      "sum(gen_ai.usage.output_tokens)",
+      "sum(gen_ai.usage.total_tokens)",
+      "count()",
+    ],
+    query: "span.op:gen_ai.generate_content",
+    statsPeriod,
+  });
+}
+
+/**
+ * `gen_ai.usage.cost.usd` is OpenRouter-only (#889); direct Gemini never sets it. Sentry's spans
+ * dataset also types this attribute as a string, so `sum(gen_ai.usage.cost.usd)` 400s
+ * ("Its a string type field") — confirmed live against this project, 2026-09-06. Fetched as raw
+ * per-span rows instead, filtered to spans that actually carry it (a small set), and summed in
+ * `tokenStats` below.
+ */
+function costUrl(statsPeriod) {
+  return eventsUrl({
+    dataset: "spans",
+    fields: ["gen_ai.request.model", "gen_ai.usage.cost.usd"],
+    query: "span.op:gen_ai.generate_content has:gen_ai.usage.cost.usd",
+    statsPeriod,
+  });
+}
+
+/**
+ * $/M tokens for models that never report a real `gen_ai.usage.cost.usd` (the direct-Gemini
+ * path) — used to *estimate* $ from token counts. Every entry must trace to a real figure in
+ * `docs/eng-docs/chat-provider-bench.md`, never an invented number (M4 brief).
+ *
+ * Empty today, on purpose: that doc's own "Still missing" section says production's model,
+ * `gemini-pro-latest`, was never billed during benchmarking — no working paid key existed at the
+ * time, so the direct-Gemini arm measured `gemini-flash-latest` instead, and even that arm reads
+ * "not billed on this path" (a free-tier key). The doc's only real cost figure
+ * (`google/gemini-3.8-flash` via OpenRouter, $0.0094-$0.0110/call) already reaches this script as
+ * measured `cost.usd`, not something to re-derive here. Add a `{ input, output }` ($/M tokens)
+ * entry, cited, once a paid direct-Gemini key produces a real per-token measurement.
+ */
+const PRICING_USD_PER_MTOK = {};
+
+/**
+ * One row per model: real tokens always, real `cost.usd` when Sentry has it, else an amount
+ * estimated from `PRICING_USD_PER_MTOK`, else `null` ("no pricing data" — never a guess).
+ */
+function tokenStats(tokenRows, costRows) {
+  const realCost = new Map();
+  for (const row of costRows) {
+    const model = row["gen_ai.request.model"] ?? "(untagged)";
+    const cost = Number(row["gen_ai.usage.cost.usd"]);
+    if (!Number.isFinite(cost)) continue;
+    realCost.set(model, (realCost.get(model) ?? 0) + cost);
+  }
+  return tokenRows
+    .map((row) => {
+      const model = row["gen_ai.request.model"] ?? "(untagged)";
+      const inputTokens = Number(row["sum(gen_ai.usage.input_tokens)"] ?? 0);
+      const outputTokens = Number(row["sum(gen_ai.usage.output_tokens)"] ?? 0);
+      const totalTokens = Number(row["sum(gen_ai.usage.total_tokens)"] ?? 0);
+      const calls = Number(row["count()"] ?? 0);
+      const measured = realCost.get(model);
+      if (measured !== undefined) {
+        return { model, calls, inputTokens, outputTokens, totalTokens, costUsd: measured, estimated: false };
+      }
+      const pricing = PRICING_USD_PER_MTOK[model];
+      const costUsd = pricing
+        ? (inputTokens / 1e6) * pricing.input + (outputTokens / 1e6) * pricing.output
+        : null;
+      return { model, calls, inputTokens, outputTokens, totalTokens, costUsd, estimated: costUsd !== null };
+    })
+    .sort((a, b) => b.totalTokens - a.totalTokens);
+}
+
+function tokenRows(models) {
+  return models.map((m) => {
+    const cost =
+      m.costUsd === null ? "no pricing data" : `${m.estimated ? "~" : ""}$${m.costUsd.toFixed(4)}`;
+    return `| \`${m.model}\` | ${m.calls} | ${m.inputTokens} | ${m.outputTokens} | ${m.totalTokens} | ${cost} |`;
+  });
+}
+
 function issueRows(issues) {
   return issues.map((i) => {
     const raw = (i.title ?? "").replace(/\|/g, "\\|");
@@ -187,6 +279,7 @@ function renderBody({
   resolved,
   dryRun,
   operations,
+  tokens,
 }) {
   const out = [];
   out.push(`_Generated ${generatedAt} · window: ${window.label} · production only._`);
@@ -204,6 +297,32 @@ function renderBody({
     out.push(
       `${totalCalls} calls across ${operations.length} operation(s) in the ${window.label}, ` +
         `${overallRate}% overall success rate. A 4xx counts as an error here, on purpose.`,
+    );
+  }
+  out.push("");
+
+  out.push("## Tokens & cost by model");
+  out.push("");
+  if (!tokens.length) {
+    out.push("No `gen_ai.generate_content` spans recorded in this window.");
+  } else {
+    out.push(
+      table(
+        ["Model", "Calls", "Input tokens", "Output tokens", "Total tokens", "Cost (USD)"],
+        tokenRows(tokens),
+      ),
+    );
+    const totalTokens = tokens.reduce((sum, t) => sum + t.totalTokens, 0);
+    const notes = [];
+    if (tokens.some((t) => t.costUsd !== null && t.estimated)) {
+      notes.push("`~` is estimated from tokens, not billed.");
+    }
+    if (tokens.some((t) => t.costUsd === null)) {
+      notes.push('"no pricing data" means no billed cost and no pricing figure for that model yet.');
+    }
+    out.push(
+      `${totalTokens} tokens across ${tokens.length} model(s) in the ${window.label}.` +
+        (notes.length ? ` ${notes.join(" ")}` : ""),
     );
   }
   out.push("");
@@ -288,11 +407,13 @@ async function main() {
   const generatedAt = new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC";
   const baseQuery = "is:unresolved environment:production";
 
-  const [open, fresh, rage, operationEvents] = await Promise.all([
+  const [open, fresh, rage, operationEvents, tokenEvents, costEvents] = await Promise.all([
     get(issuesUrl(baseQuery, window.statsPeriod)),
     get(issuesUrl(`${baseQuery} firstSeen:${window.firstSeen}`, window.statsPeriod)),
     get(issuesUrl(RAGE_QUERY, window.statsPeriod)),
     get(operationsUrl(window.statsPeriod)),
+    get(tokensUrl(window.statsPeriod)),
+    get(costUrl(window.statsPeriod)),
   ]);
   for (const [name, value] of [
     ["open", open],
@@ -304,14 +425,21 @@ async function main() {
     }
   }
   // The Discover/events endpoint answers `{ data, meta }`, not a bare array like the issues ones.
-  if (!Array.isArray(operationEvents?.data)) {
-    throw new Error(`Unexpected operations payload: ${JSON.stringify(operationEvents)}`);
+  for (const [name, value] of [
+    ["operations", operationEvents],
+    ["tokens", tokenEvents],
+    ["cost", costEvents],
+  ]) {
+    if (!Array.isArray(value?.data)) {
+      throw new Error(`Unexpected ${name} payload: ${JSON.stringify(value)}`);
+    }
   }
 
   const dryRun = process.argv.includes("--dry-run");
   const resolved = await resolveStale(open, dryRun);
   const athletes = await athleteBreakdown(open);
   const operations = operationStats(operationEvents.data);
+  const tokens = tokenStats(tokenEvents.data, costEvents.data);
   const body = renderBody({
     window,
     generatedAt,
@@ -322,6 +450,7 @@ async function main() {
     resolved,
     dryRun,
     operations,
+    tokens,
   });
 
   const totalCalls = operations.reduce((sum, o) => sum + o.calls, 0);
@@ -347,6 +476,18 @@ async function main() {
     })),
     totalCalls,
     overallSuccessRate: totalCalls ? Number(((totalOk / totalCalls) * 100).toFixed(1)) : null,
+    tokens: tokens.map((t) => ({
+      model: t.model,
+      calls: t.calls,
+      inputTokens: t.inputTokens,
+      outputTokens: t.outputTokens,
+      totalTokens: t.totalTokens,
+      costUsd: t.costUsd === null ? null : Number(t.costUsd.toFixed(6)),
+      // null means no cost at all (no billed figure, no pricing table entry) - distinct from a
+      // real $0 estimate, which `estimated: true` with a non-null costUsd would represent.
+      costEstimated: t.costUsd === null ? null : t.estimated,
+    })),
+    totalTokens: tokens.reduce((sum, t) => sum + t.totalTokens, 0),
     // A rage report that is also new appears in both lists; the reader wants it once.
     highlights: [...new Map([...fresh, ...rage].map((i) => [i.id, i])).values()].map((i) => ({
       title: i.title,
