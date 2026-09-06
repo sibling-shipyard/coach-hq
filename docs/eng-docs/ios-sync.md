@@ -94,7 +94,10 @@ sequenceDiagram
 8. **Ask Coach once** — sends the round's sorted `healthkit:<UUID>` ids to
    `/api/coach-message`. A valid response triggers one more widget-snapshot refresh so Home reads
    the durable `latest_message.json` projection. Generation, write, decode, or refresh failure
-   never changes sync success.
+   never changes sync success. Upserts carry no ids here — only inserts do
+   (`PostSyncFanout.coachActivityIds`). When the round sends nothing, the reason lands on the
+   diagnostics timeline and as a Sentry breadcrumb (`coach.post_sync_message` / `skipped`):
+   superseded epoch, no coach client, no repo, repo changed mid-sync, or no new activities.
 9. **Notify only after delivery** — the generic “Coach is reviewing” notification does not
    exist. A local notification is scheduled only when the endpoint returns `should_notify: true`;
    its body is the exact Coach body and its account-scoped route carries the same body and seed.

@@ -207,6 +207,84 @@ final class ActivitySyncCoachTurnTests: XCTestCase {
         XCTAssertEqual(ActivitySyncIDs.qualified(list.activities[0].id), "hk:11111111-1111-1111-1111-111111111111")
     }
 
+    // MARK: - Post-sync fan-out
+
+    func testUpsertOnlyBatchRefreshesTheCacheAndSendsNoCoachTurn() {
+        let upserted = Self.committed(id: "aaaaaaaa-1111-1111-1111-111111111111", file: "upserted.json")
+        let cacheFiles = PostSyncFanout.cacheFileNames(inserted: [], upserted: [upserted])
+        let coachIds = PostSyncFanout.coachActivityIds(inserted: [])
+
+        XCTAssertEqual(cacheFiles, ["upserted.json"])
+        XCTAssertTrue(coachIds.isEmpty)
+        XCTAssertEqual(Self.skipReason(coachActivityIdCount: coachIds.count), .noNewActivities)
+    }
+
+    func testInsertedActivitySendsACoachTurnAndBothKindsRefreshTheCache() {
+        let inserted = Self.committed(id: "bbbbbbbb-2222-2222-2222-222222222222", file: "inserted.json")
+        let upserted = Self.committed(id: "aaaaaaaa-1111-1111-1111-111111111111", file: "upserted.json")
+        let cacheFiles = PostSyncFanout.cacheFileNames(inserted: [inserted], upserted: [upserted])
+        let coachIds = PostSyncFanout.coachActivityIds(inserted: [inserted])
+
+        XCTAssertEqual(cacheFiles, ["inserted.json", "upserted.json"])
+        XCTAssertEqual(coachIds, ["healthkit:BBBBBBBB-2222-2222-2222-222222222222"])
+        XCTAssertNil(Self.skipReason(coachActivityIdCount: coachIds.count))
+    }
+
+    func testSkipReasonNamesTheConditionThatStoppedTheTurn() {
+        XCTAssertEqual(Self.skipReason(epochApplies: false), .supersededByNewerSync)
+        XCTAssertEqual(Self.skipReason(hasCoachClient: false), .noCoachClient)
+        XCTAssertEqual(Self.skipReason(batchRepoFullName: nil), .noRepo)
+        XCTAssertEqual(Self.skipReason(liveRepoFullName: "someone/else"), .repoChangedMidSync)
+    }
+
+    func testSkipReasonReportsTheFirstFailureNotTheLast() {
+        XCTAssertEqual(
+            Self.skipReason(epochApplies: false, coachActivityIdCount: 0),
+            .supersededByNewerSync
+        )
+    }
+
+    private static func committed(id: String, file: String) -> (fileName: String, activity: Activity) {
+        (fileName: file, activity: Activity(
+            name: "Badminton #12",
+            sportType: "Badminton",
+            startDateLocal: "2026-08-23T18:00:00",
+            elapsedTime: 4200,
+            movingTime: 4200,
+            calories: 510,
+            distance: 0,
+            totalElevationGain: 0,
+            averageHeartrate: 151,
+            maxHeartrate: 181,
+            hasHeartrate: true,
+            hrZones: nil,
+            description: nil,
+            totalPhotoCount: 0,
+            averageSpeed: 0,
+            maxSpeed: 0,
+            deviceName: "Apple Watch",
+            source: "healthkit",
+            activityId: id
+        ))
+    }
+
+    /// All five conditions passing, so each test overrides only the one it is about.
+    private static func skipReason(
+        epochApplies: Bool = true,
+        hasCoachClient: Bool = true,
+        batchRepoFullName: String? = "akash-suresh/coach-akash",
+        liveRepoFullName: String? = "akash-suresh/coach-akash",
+        coachActivityIdCount: Int = 1
+    ) -> PostSyncFanout.SkipReason? {
+        PostSyncFanout.skipReason(
+            epochApplies: epochApplies,
+            hasCoachClient: hasCoachClient,
+            batchRepoFullName: batchRepoFullName,
+            liveRepoFullName: liveRepoFullName,
+            coachActivityIdCount: coachActivityIdCount
+        )
+    }
+
     private static let fixtureDraft = SyncedActivityDraft(
         activityId: "11111111-1111-1111-1111-111111111111",
         fileName: "hk_2026-08-22_11111111-1111-1111-1111-111111111111.json",
