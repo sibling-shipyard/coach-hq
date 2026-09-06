@@ -200,7 +200,7 @@ describe("initServerMonitoring tracing", () => {
     const { initServerMonitoring } = await loadSentry();
     initServerMonitoring();
     return init.mock.calls[0][0] as {
-      tracesSampleRate: number;
+      tracesSampler: (samplingContext?: { parentSampled?: boolean }) => number;
       tracePropagationTargets: unknown[];
       sendDefaultPii: boolean;
       integrations: { name: string }[];
@@ -211,20 +211,28 @@ describe("initServerMonitoring tracing", () => {
   }
 
   it("samples every trace when the var is unset, so a browser trace has an API half", async () => {
-    expect((await initOptions()).tracesSampleRate).toBe(1);
+    expect((await initOptions()).tracesSampler()).toBe(1);
   });
 
   it("reads SENTRY_TRACES_SAMPLE_RATE when the operator turns the rate down", async () => {
     process.env.SENTRY_TRACES_SAMPLE_RATE = "0.25";
 
-    expect((await initOptions()).tracesSampleRate).toBe(0.25);
+    expect((await initOptions()).tracesSampler()).toBe(0.25);
+  });
+
+  // Both directions, because it is one rule: our rate decides, so a caller can neither switch
+  // our reporting off (#884) nor hold it above the rate an operator set.
+  it.each([false, true])("uses our own rate when the caller decided %s", async (parentSampled) => {
+    process.env.SENTRY_TRACES_SAMPLE_RATE = "0.25";
+
+    expect((await initOptions()).tracesSampler({ parentSampled })).toBe(0.25);
   });
 
   it("falls back to 1 and warns on a value Sentry would read as tracing-off", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     process.env.SENTRY_TRACES_SAMPLE_RATE = "all";
 
-    expect((await initOptions()).tracesSampleRate).toBe(1);
+    expect((await initOptions()).tracesSampler()).toBe(1);
     expect(warn).toHaveBeenCalledOnce();
     warn.mockRestore();
   });
@@ -233,7 +241,7 @@ describe("initServerMonitoring tracing", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     process.env.SENTRY_TRACES_SAMPLE_RATE = "100";
 
-    expect((await initOptions()).tracesSampleRate).toBe(1);
+    expect((await initOptions()).tracesSampler()).toBe(1);
     expect(warn).toHaveBeenCalledWith(
       "[sentry] SENTRY_TRACES_SAMPLE_RATE=100 must be from 0 to 1 - using 1",
     );
@@ -249,7 +257,7 @@ describe("initServerMonitoring tracing", () => {
     const options = await initOptions();
 
     expect(options.sendDefaultPii).toBe(false);
-    expect(options.tracesSampleRate).toBe(1);
+    expect(options.tracesSampler()).toBe(1);
     expect(
       options.beforeSend({ extra: { detail: "key=configured-gemini-key" } }).extra.detail,
     ).toBe("key=[Filtered]");

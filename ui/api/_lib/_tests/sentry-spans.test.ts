@@ -275,6 +275,25 @@ describe("withContinuedTrace server span", () => {
 
     expect(sentTransactions()[0]?.contexts?.trace?.trace_id).toBe(traceId);
   });
+
+  // The caller does not get to switch our reporting off. Sentry honours a parent's `sampled=0`
+  // ahead of `tracesSampleRate`, and clients send one routinely — a fetch made while no sampled
+  // transaction is active propagates a negative decision. That discarded most `coach-hq-api`
+  // transactions as `sample_rate` while the rate was 1 (#884). The header must be well formed
+  // (32 hex trace id, 16 hex span id) or the SDK ignores it and starts a fresh, sampled trace,
+  // which would make this test pass for the wrong reason.
+  it("sends the span when the caller's trace says it was not sampled", async () => {
+    const traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+
+    await withContinuedTrace(
+      request({ "sentry-trace": `${traceId}-b7ad6b7169203331-0` }),
+      async () => Response.json({ ok: true }),
+    );
+    await drainWaitUntil();
+
+    expect(sentTransactions()).toHaveLength(1);
+    expect(sentTransactions()[0]?.contexts?.trace?.trace_id).toBe(traceId);
+  });
 });
 
 describe("withGeminiSpan", () => {
