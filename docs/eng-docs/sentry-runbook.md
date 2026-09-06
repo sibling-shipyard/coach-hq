@@ -219,7 +219,9 @@ render-crash paths, and the two client fetches the dashboard cannot start withou
 `/api/auth/me` and `/api/repo-file` (`captureFetchFailure` in
 `ui/client/src/lib/observability.ts`). That means the browser's own pageload and navigation
 spans, one manual `http.server` span on each wrapped API route, and the Gemini spans we open by
-hand. A web report
+hand. On the OpenRouter path, that span also carries `gen_ai.usage.cost.usd` (USD for the whole
+call) and `gen_ai.usage.input_tokens.cached` (#889) — direct Gemini has neither, since Vertex
+reports no per-call cost on that path. A web report
 carries the SDK's own click, navigation and fetch breadcrumbs as its timeline, copied onto
 `extra.trail` when the dialog opens. `beforeBreadcrumb` drops the `console` ones, because those
 would carry arbitrary logged text on a path ADR 0032 scoped to failed Gemini calls.

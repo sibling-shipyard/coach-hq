@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import {
+  cachedPromptTokens,
   createOpenRouterAdapter,
   OPENROUTER_MODEL,
   visibleOutputTokens,
@@ -52,6 +53,10 @@ describe("createOpenRouterAdapter", () => {
       expect(body.messages).toEqual([{ role: "user", content: "prompt" }]);
       expect(body.reasoning).toEqual({ effort: "low" });
       expect(body.max_tokens).toBe(3_072);
+      // Without this OpenRouter omits `cost` and `prompt_tokens_details.cached_tokens` from the
+      // response — the generation-stats endpoint that would otherwise carry cost 404s under this
+      // account's `data_collection: "deny"` (#889).
+      expect(body.usage).toEqual({ include: true });
       expect(body.provider).toEqual({
         only: ["google-vertex"],
         require_parameters: true,
@@ -144,6 +149,19 @@ describe("createOpenRouterAdapter", () => {
         completion_tokens_details: { reasoning_tokens: 99 },
       }),
     ).toBe(0);
+  });
+
+  it("passes prompt_tokens_details.cached_tokens through, absent and zero kept distinct (#889)", () => {
+    // Present: the exact-repeat discount landed.
+    expect(cachedPromptTokens({ prompt_tokens_details: { cached_tokens: 8_169 } })).toBe(8_169);
+    // Absent: the field never arrived — usage: {include: true} wasn't honored, or the provider
+    // doesn't report caching. Must stay undefined so the span omits it rather than sending a
+    // false zero (usageAttributes filters undefined, not zero).
+    expect(cachedPromptTokens({ prompt_tokens_details: {} })).toBeUndefined();
+    expect(cachedPromptTokens(undefined)).toBeUndefined();
+    // Zero: the field arrived and reported a real cache miss (#713 — a varying athlete block
+    // never earns Vertex's exact-repeat discount). Distinct from absent above.
+    expect(cachedPromptTokens({ prompt_tokens_details: { cached_tokens: 0 } })).toBe(0);
   });
 
   it("rejects when OPENROUTER_API_KEY is unset, before making a request", async () => {

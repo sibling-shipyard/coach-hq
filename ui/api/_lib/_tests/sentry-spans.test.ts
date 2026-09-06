@@ -295,6 +295,9 @@ describe("withGeminiSpan", () => {
   const OPENROUTER_USAGE = {
     resolvedProvider: "Google",
     resolvedModel: "google/gemini-3.8-flash",
+    // USD for the whole call, from `usage: {include: true}` (#889) — direct Gemini has no
+    // per-call cost, so this field is OpenRouter-only here too.
+    costUsd: 0.0102,
   };
 
   /** A Gemini span only ships inside a route transaction — that is the shape production uses. */
@@ -349,6 +352,8 @@ describe("withGeminiSpan", () => {
       // Response-time routing data, which only `recordUsage` can know.
       "gen_ai.response.provider": "Google",
       "gen_ai.response.model": "google/gemini-3.8-flash",
+      // Cost, OpenRouter-only (#889).
+      "gen_ai.usage.cost.usd": 0.0102,
     });
   });
 
@@ -362,6 +367,8 @@ describe("withGeminiSpan", () => {
     expect(span?.attributes).not.toHaveProperty("gen_ai.response.provider");
     expect(span?.attributes).not.toHaveProperty("gen_ai.response.model");
     expect(span?.attributes).not.toHaveProperty("llm.adapter");
+    // Cost is OpenRouter-only — direct Gemini reports none, and absent must not become 0.
+    expect(span?.attributes).not.toHaveProperty("gen_ai.usage.cost.usd");
   });
 
   it("never carries prompt or reply text on a turn that worked (ADR 0032)", async () => {

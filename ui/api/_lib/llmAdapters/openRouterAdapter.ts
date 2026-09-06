@@ -36,6 +36,11 @@ interface OpenRouterResponse {
     completion_tokens?: number;
     total_tokens?: number;
     completion_tokens_details?: { reasoning_tokens?: number };
+    // Both populated only when the request sends `usage: {include: true}` — the readiness gate's
+    // finding that `/api/v1/generation` 404s under this account's `data_collection: "deny"`
+    // (docs/eng-docs/chat-provider-bench.md § Gotchas). `cost` is USD for the whole call.
+    cost?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
   };
   provider?: string;
   model?: string;
@@ -57,6 +62,18 @@ export function visibleOutputTokens(usage: OpenRouterResponse["usage"]): number 
   const reasoning = usage?.completion_tokens_details?.reasoning_tokens ?? 0;
   // Never negative: a provider that reports these inconsistently must not produce a nonsense span.
   return Math.max(completion - reasoning, 0);
+}
+
+/**
+ * `prompt_tokens_details.cached_tokens` only arrives when the request sends `usage: {include:
+ * true}`. Passed through undefined-safe on purpose: absent and zero are different facts on the
+ * wire — absent means the field never arrived (caching status unknown), zero means it arrived
+ * and reported no cached prefix (a real cache miss, e.g. #713's finding that a varying athlete
+ * block never earns Vertex's exact-repeat discount). `usageAttributes` (sentry.ts) already omits
+ * `undefined` rather than sending a false zero, so this must not collapse the two either.
+ */
+export function cachedPromptTokens(usage: OpenRouterResponse["usage"]): number | undefined {
+  return usage?.prompt_tokens_details?.cached_tokens;
 }
 
 export function createOpenRouterAdapter(
@@ -99,6 +116,10 @@ export function createOpenRouterAdapter(
                 },
                 max_tokens: request.maxOutputTokens,
                 reasoning: { effort: "low" },
+                // Without this OpenRouter omits `cost` and `prompt_tokens_details.cached_tokens`
+                // from the response, and the generation-stats endpoint that would otherwise carry
+                // cost 404s under this account's `data_collection: "deny"` (#889, bench doc).
+                usage: { include: true },
                 provider: {
                   only: ["google-vertex"],
                   require_parameters: true,
@@ -124,7 +145,9 @@ export function createOpenRouterAdapter(
             promptTokens: payload.usage?.prompt_tokens,
             completionTokens: visibleOutputTokens(payload.usage),
             totalTokens: payload.usage?.total_tokens,
+            cachedPromptTokens: cachedPromptTokens(payload.usage),
             thinkingTokens: payload.usage?.completion_tokens_details?.reasoning_tokens,
+            costUsd: payload.usage?.cost,
             resolvedProvider,
             resolvedModel,
           });

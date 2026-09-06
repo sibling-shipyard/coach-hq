@@ -1,6 +1,6 @@
 # Observability
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-08-30 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-06 · ADR: [0032](../../kdb/decisions/0032-sentry-data-rules.md)
 
 ## Context
 
@@ -56,7 +56,7 @@ a real production row.
 | 2 | Is the coach answering? | `POST /api/coach-chat` spans, `outcome`, p95 |
 | 3 | Is the app fast enough? | `span.op:pageload`, p75 by route |
 | 4 | Are we crashing? | crash-free sessions, web and iOS only |
-| 5 | What do tokens cost? | `gen_ai.usage.total_tokens` by model |
+| 5 | What do tokens cost? | `gen_ai.usage.total_tokens` by model; `gen_ai.usage.cost.usd` on the OpenRouter path only (#889) |
 | 6 | Is phone data arriving? | `transaction:healthkit.sync`, outcome and item count |
 | 7 | Is an athlete angry? | `operation:rage_report`, newest first; web and iOS are separate projects |
 
