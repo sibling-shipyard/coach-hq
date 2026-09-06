@@ -116,6 +116,21 @@ programmatically instead of by hand. The project scope matters: querying unscope
 `http.server` spans from the web and iOS projects too, which carry an unrelated `outcome` value
 and no `operation` tag at all.
 
+Every run also queries `span.op:gen_ai.generate_content` for a "Tokens & cost by model" table:
+input/output/total tokens per `gen_ai.request.model`, grouped the same way as the operation
+query. `gen_ai.usage.cost.usd` is real, billed cost, but OpenRouter-only (#889). Sentry's spans
+dataset also types that attribute as a string, so `sum()` on it 400s. It is fetched as raw
+per-span rows instead (filtered to spans that carry it) and summed in the script.
+
+A model with real cost data uses it directly. A model with tokens but no cost field (the
+direct-Gemini path) is priced instead from `PRICING_USD_PER_MTOK` in `sentry-digest.mjs`. Those
+$/token figures must trace to a real measurement in `docs/eng-docs/chat-provider-bench.md`, never
+an invented number, and are marked with a `~` in the body and `costEstimated: true` in
+`meta.json`. A model with neither reports "no pricing data" rather than a guess. That table is
+empty today: `chat-provider-bench.md` never billed production's actual model, `gemini-pro-latest`
+— no working paid key existed when it was measured — so every model in production today reports
+"no pricing data" until a real measurement exists.
+
 Every run also auto-resolves any open issue with zero events in the window (`PUT
 .../issues/{id}/` with `status: resolved`), in series, and reports the count and titles in the
 body's "Auto-resolved" section. This replaced the manual cleanup #902 needed (~15 API calls by
