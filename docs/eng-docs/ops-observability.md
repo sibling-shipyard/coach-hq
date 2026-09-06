@@ -131,6 +131,24 @@ empty today: `chat-provider-bench.md` never billed production's actual model, `g
 — no working paid key existed when it was measured — so every model in production today reports
 "no pricing data" until a real measurement exists.
 
+The operation table also carries a trend line: total calls and overall success rate, first half of
+the window against second half. `halfWindowRanges` in `sentry-digest.mjs` builds the two ranges
+using the events endpoint's `start`/`end` params rather than `statsPeriod`, since those give an
+explicit, non-overlapping range. The events endpoint has no `interval`/day-bucket grouping of its own — that lives on the
+separate `events-stats` time-series endpoint — so two flat-table queries reusing `operationStats`
+was simpler than a second query shape. A swing under 1 call/day or 3 points of success rate reads
+as "flat" rather than flipping on noise from single-digit counts.
+
+The `## By athlete` table also carries tokens and cost per athlete, joined from a `gen_ai.
+generate_content` span query grouped by `user.id` — not the `athlete_id` tag the rest of the
+digest uses. `athlete_id` is a custom tag set on the per-request isolation scope
+(`setAthleteScope`), and Sentry's spans dataset does not copy scope tags onto descendant spans, so
+it reads `null` on every `gen_ai.generate_content` span (confirmed live, 2026-09-06). `user.id`
+comes from the same call's `scope.setUser(...)` instead, which Sentry treats as a promoted field
+that *does* propagate to child spans — populated on every sampled span. The two halves of the
+table (issue events keyed on `athlete_id`, tokens keyed on `user.id`) are joined on that shared id
+string; an athlete present on only one side shows `—` on the other, not a dropped row.
+
 Every run also auto-resolves any open issue with zero events in the window (`PUT
 .../issues/{id}/` with `status: resolved`), in series, and reports the count and titles in the
 body's "Auto-resolved" section. This replaced the manual cleanup #902 needed (~15 API calls by

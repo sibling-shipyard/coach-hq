@@ -108,14 +108,21 @@ export const API_PROJECT = "coach-hq-api";
  * (id 5873386), used here so the digest can report call volume and success rate the Issues API
  * (`issuesUrl` in `sentry-digest.mjs`) has no concept of. `request()` returns this endpoint's body
  * as `{ data, meta }`, unlike the issues endpoints' bare array - callers read `.data`.
+ *
+ * `start`/`end` (ISO 8601) is an alternative to `statsPeriod` for an arbitrary, non-"last N"
+ * range - confirmed live against this endpoint (2026-09-06) for the digest's trend-delta halves,
+ * which need e.g. "3.5 days ago to now" rather than a relative window. This endpoint has no
+ * `interval`/`byDay` grouping (that lives on the separate `events-stats` time-series endpoint,
+ * also confirmed live) - two `start`/`end` queries against the flat table is simpler here and
+ * reuses the exact same row shape and grouping every other digest query already parses.
  */
-export function eventsUrl({ dataset, fields, query, statsPeriod, project = API_PROJECT }) {
+export function eventsUrl({ dataset, fields, query, statsPeriod, start, end, project = API_PROJECT }) {
   const params = new URLSearchParams({
     dataset,
     project,
     environment: "production",
-    statsPeriod,
     query,
+    ...(start && end ? { start, end } : { statsPeriod }),
   });
   for (const field of fields) params.append("field", field);
   return `${ORG}/events/?${params}`;

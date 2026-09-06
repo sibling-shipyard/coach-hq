@@ -22,8 +22,8 @@ const get = (apiPath) => request(apiPath, TOKEN);
 const resolveIssue = (id) => update(`${ORG}/issues/${id}/`, TOKEN, { status: "resolved" });
 
 const WINDOWS = {
-  "24h": { statsPeriod: "24h", firstSeen: "-24h", label: "last 24 hours" },
-  "7d": { statsPeriod: "7d", firstSeen: "-7d", label: "last 7 days" },
+  "24h": { statsPeriod: "24h", firstSeen: "-24h", label: "last 24 hours", hours: 24 },
+  "7d": { statsPeriod: "7d", firstSeen: "-7d", label: "last 7 days", hours: 24 * 7 },
 };
 
 // Rage reports are messages, not errors (ops-observability.md), so they never appear in an
@@ -139,6 +139,73 @@ function operationRows(operations) {
 }
 
 /**
+ * A snapshot on its own doesn't say whether things are getting better or worse - split the
+ * window into two equal halves (e.g. 3.5d + 3.5d for a 7d window) and compare. `eventsUrl`'s
+ * `start`/`end` params (not `statsPeriod`) give each half an explicit, non-overlapping range.
+ */
+function halfWindowRanges(window) {
+  const totalMs = window.hours * 60 * 60 * 1000;
+  const now = Date.now();
+  const start = new Date(now - totalMs).toISOString();
+  const mid = new Date(now - totalMs / 2).toISOString();
+  const end = new Date(now).toISOString();
+  return { first: { start, end: mid }, second: { start: mid, end } };
+}
+
+function operationsRangeUrl({ start, end }) {
+  return eventsUrl({
+    dataset: "spans",
+    fields: ["operation", "outcome", "count()"],
+    query: "span.op:http.server",
+    start,
+    end,
+  });
+}
+
+/**
+ * "Climbing"/"falling" only means something past a little noise on single-digit daily counts -
+ * a swing smaller than `epsilon` reads as "flat" rather than flipping on rounding.
+ */
+function trendDirection(before, after, epsilon) {
+  if (before === null || after === null) return null;
+  const diff = after - before;
+  if (Math.abs(diff) < epsilon) return "flat";
+  return diff > 0 ? "climbing" : "falling";
+}
+
+/** Total calls and overall success rate, first half of the window vs second half. */
+function trendStats(window, firstOps, secondOps) {
+  const totalCalls = (ops) => ops.reduce((sum, o) => sum + o.calls, 0);
+  const totalOk = (ops) => ops.reduce((sum, o) => sum + o.ok, 0);
+  const callsFirst = totalCalls(firstOps);
+  const callsSecond = totalCalls(secondOps);
+  const halfDays = window.hours / 2 / 24;
+  const callsPerDayFirst = halfDays ? callsFirst / halfDays : callsFirst;
+  const callsPerDaySecond = halfDays ? callsSecond / halfDays : callsSecond;
+  const rateFirst = callsFirst ? (totalOk(firstOps) / callsFirst) * 100 : null;
+  const rateSecond = callsSecond ? (totalOk(secondOps) / callsSecond) * 100 : null;
+  return {
+    callsPerDayFirst,
+    callsPerDaySecond,
+    callsDirection: trendDirection(callsPerDayFirst, callsPerDaySecond, Math.max(1, callsPerDayFirst * 0.1)),
+    successRateFirst: rateFirst,
+    successRateSecond: rateSecond,
+    rateDirection: trendDirection(rateFirst, rateSecond, 3),
+  };
+}
+
+function trendLine(window, trend) {
+  const fmtCalls = (n) => (Number.isFinite(n) ? Math.round(n) : "—");
+  const fmtRate = (n) => (n === null ? "—" : `${n.toFixed(0)}%`);
+  return (
+    `Trend, first half vs second half of the ${window.label}: ` +
+    `${fmtCalls(trend.callsPerDayFirst)} → ${fmtCalls(trend.callsPerDaySecond)} calls/day ` +
+    `(${trend.callsDirection ?? "flat"}), ${fmtRate(trend.successRateFirst)} → ` +
+    `${fmtRate(trend.successRateSecond)} success rate (${trend.rateDirection ?? "flat"}).`
+  );
+}
+
+/**
  * Every `gen_ai.generate_content` span (`ui/api/_lib/sentry.ts`, shared by the direct-Gemini and
  * OpenRouter adapters) carries `gen_ai.request.model` and `gen_ai.usage.{input,output,total}_
  * tokens`. Same implicit group-by as `operationsUrl`: a non-aggregate field alongside aggregate
@@ -222,12 +289,95 @@ function tokenStats(tokenRows, costRows) {
     .sort((a, b) => b.totalTokens - a.totalTokens);
 }
 
+/** Shared by the model table and the athlete table - same three states, same markers. */
+function formatCost(costUsd, estimated) {
+  return costUsd === null ? "no pricing data" : `${estimated ? "~" : ""}$${costUsd.toFixed(4)}`;
+}
+
 function tokenRows(models) {
   return models.map((m) => {
-    const cost =
-      m.costUsd === null ? "no pricing data" : `${m.estimated ? "~" : ""}$${m.costUsd.toFixed(4)}`;
-    return `| \`${m.model}\` | ${m.calls} | ${m.inputTokens} | ${m.outputTokens} | ${m.totalTokens} | ${cost} |`;
+    return `| \`${m.model}\` | ${m.calls} | ${m.inputTokens} | ${m.outputTokens} | ${m.totalTokens} | ${formatCost(m.costUsd, m.estimated)} |`;
   });
+}
+
+/**
+ * Every `gen_ai.generate_content` span's `user.id` carries the same athlete id as the
+ * `athlete_id` tag on `http.server` spans (both set from `setAthleteScope` in
+ * `ui/api/_lib/sentry.ts`) - but `athlete_id` itself is a custom *tag*, set on the per-request
+ * isolation scope, and Sentry's spans dataset does not copy scope tags onto descendant spans:
+ * confirmed live (2026-09-06) that `athlete_id` reads `null` on every `gen_ai.generate_content`
+ * span. `user.id` comes from `scope.setUser(...)` instead, which Sentry treats as a promoted
+ * field and *does* propagate to every child span - also confirmed live, populated on 100% of
+ * sampled `gen_ai.generate_content` spans. Group by this field, not `athlete_id`.
+ */
+function athleteTokensUrl(statsPeriod) {
+  return eventsUrl({
+    dataset: "spans",
+    fields: [
+      "user.id",
+      "gen_ai.request.model",
+      "sum(gen_ai.usage.input_tokens)",
+      "sum(gen_ai.usage.output_tokens)",
+      "sum(gen_ai.usage.total_tokens)",
+      "count()",
+    ],
+    query: "span.op:gen_ai.generate_content",
+    statsPeriod,
+  });
+}
+
+/** Same "typed as a string" 400 as `costUrl` - raw rows, filtered to spans that carry it. */
+function athleteCostUrl(statsPeriod) {
+  return eventsUrl({
+    dataset: "spans",
+    fields: ["user.id", "gen_ai.request.model", "gen_ai.usage.cost.usd"],
+    query: "span.op:gen_ai.generate_content has:gen_ai.usage.cost.usd",
+    statsPeriod,
+  });
+}
+
+/**
+ * One row per athlete, folding every model they used into one calls/tokens/cost total - same
+ * three cost states as `tokenStats` (real, estimated, "no pricing data"), just grouped one level
+ * up. An athlete who used more than one model gets `estimated: true` if *any* of their calls were
+ * estimated rather than billed - good enough for "who is this costing us" without a full
+ * per-athlete-per-model table.
+ */
+function athleteTokenStats(tokenRows, costRows) {
+  const realCost = new Map();
+  for (const row of costRows) {
+    const key = `${row["user.id"] ?? "(unknown)"} ${row["gen_ai.request.model"] ?? "(untagged)"}`;
+    const cost = Number(row["gen_ai.usage.cost.usd"]);
+    if (!Number.isFinite(cost)) continue;
+    realCost.set(key, (realCost.get(key) ?? 0) + cost);
+  }
+  const totals = new Map();
+  for (const row of tokenRows) {
+    const athlete = row["user.id"] ?? "(unknown)";
+    const model = row["gen_ai.request.model"] ?? "(untagged)";
+    const inputTokens = Number(row["sum(gen_ai.usage.input_tokens)"] ?? 0);
+    const outputTokens = Number(row["sum(gen_ai.usage.output_tokens)"] ?? 0);
+    const totalTokens = Number(row["sum(gen_ai.usage.total_tokens)"] ?? 0);
+    const calls = Number(row["count()"] ?? 0);
+    const measured = realCost.get(`${athlete} ${model}`);
+    const pricing = PRICING_USD_PER_MTOK[model];
+    const modelCost =
+      measured !== undefined
+        ? measured
+        : pricing
+          ? (inputTokens / 1e6) * pricing.input + (outputTokens / 1e6) * pricing.output
+          : null;
+    const modelEstimated = measured === undefined && modelCost !== null;
+    const entry = totals.get(athlete) ?? { athlete, calls: 0, totalTokens: 0, costUsd: null, estimated: false };
+    entry.calls += calls;
+    entry.totalTokens += totalTokens;
+    if (modelCost !== null) {
+      entry.costUsd = (entry.costUsd ?? 0) + modelCost;
+      if (modelEstimated) entry.estimated = true;
+    }
+    totals.set(athlete, entry);
+  }
+  return [...totals.values()].sort((a, b) => b.totalTokens - a.totalTokens);
 }
 
 function issueRows(issues) {
@@ -235,6 +385,36 @@ function issueRows(issues) {
     const raw = (i.title ?? "").replace(/\|/g, "\\|");
     const title = raw.length > 70 ? `${raw.slice(0, 69)}…` : raw;
     return `| [${title}](${i.permalink}) | \`${i.project.slug}\` | ${windowCount(i)} |`;
+  });
+}
+
+/**
+ * The `## By athlete` table's two halves come from different data sources - error events
+ * (`athleteBreakdown`, keyed on the issues API's `athlete_id` tag) and model spans
+ * (`athleteTokenStats`, keyed on `user.id` - see that function's comment for why) - joined here on
+ * the athlete id string both share. An athlete with calls but no errors, or errors but no calls,
+ * is real and shown with `—` on the side that has nothing to report, not dropped.
+ */
+function athleteRows(eventRows, tokenStatsRows) {
+  const tokenByAthlete = new Map(tokenStatsRows.map((t) => [t.athlete, t]));
+  const seen = new Set(eventRows.map((r) => r.athlete));
+  const merged = [
+    ...eventRows.map((r) => ({ ...r, tokenEntry: tokenByAthlete.get(r.athlete) })),
+    ...tokenStatsRows
+      .filter((t) => !seen.has(t.athlete))
+      .map((t) => ({ athlete: t.athlete, events: 0, issues: 0, tokenEntry: t })),
+  ];
+  return merged.sort(
+    (a, b) => b.events - a.events || (b.tokenEntry?.totalTokens ?? 0) - (a.tokenEntry?.totalTokens ?? 0),
+  );
+}
+
+function athleteTableRows(rows) {
+  return rows.map((r) => {
+    const t = r.tokenEntry;
+    const tokens = t ? t.totalTokens : "—";
+    const cost = t ? formatCost(t.costUsd, t.estimated) : "—";
+    return `| \`${r.athlete}\` | ${r.events} | ${r.issues} | ${tokens} | ${cost} |`;
   });
 }
 
@@ -275,11 +455,14 @@ function renderBody({
   open,
   fresh,
   athletes,
+  athleteMerged,
+  athleteTokens,
   rage,
   resolved,
   dryRun,
   operations,
   tokens,
+  trend,
 }) {
   const out = [];
   out.push(`_Generated ${generatedAt} · window: ${window.label} · production only._`);
@@ -298,6 +481,8 @@ function renderBody({
       `${totalCalls} calls across ${operations.length} operation(s) in the ${window.label}, ` +
         `${overallRate}% overall success rate. A 4xx counts as an error here, on purpose.`,
     );
+    out.push("");
+    out.push(trendLine(window, trend));
   }
   out.push("");
 
@@ -361,18 +546,18 @@ function renderBody({
 
   out.push("## By athlete");
   out.push("");
-  if (!athletes.rows.length) {
-    out.push("No events carried an `athlete_id` tag in this window.");
+  if (!athleteMerged.length) {
+    out.push("No events or model calls could be attributed to an athlete in this window.");
   } else {
     out.push(
-      table(
-        ["Athlete", "Events", "Issues"],
-        athletes.rows.map((r) => `| \`${r.athlete}\` | ${r.events} | ${r.issues} |`),
-      ),
+      table(["Athlete", "Events", "Issues", "Tokens", "Cost"], athleteTableRows(athleteMerged)),
     );
     out.push(
       "One athlete holding most of the events is usually one incident, not many bugs. Check that first.",
     );
+    if (athleteTokens.some((t) => t.costUsd !== null && t.estimated)) {
+      out.push("`~` is estimated from tokens, not billed — see the tokens table above.");
+    }
     if (athletes.unattributed.length) {
       out.push("");
       out.push(`${athletes.unattributed.length} issue(s) carried no \`athlete_id\` tag.`);
@@ -406,14 +591,30 @@ async function main() {
 
   const generatedAt = new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC";
   const baseQuery = "is:unresolved environment:production";
+  const halves = halfWindowRanges(window);
 
-  const [open, fresh, rage, operationEvents, tokenEvents, costEvents] = await Promise.all([
+  const [
+    open,
+    fresh,
+    rage,
+    operationEvents,
+    tokenEvents,
+    costEvents,
+    athleteTokenEvents,
+    athleteCostEvents,
+    firstHalfEvents,
+    secondHalfEvents,
+  ] = await Promise.all([
     get(issuesUrl(baseQuery, window.statsPeriod)),
     get(issuesUrl(`${baseQuery} firstSeen:${window.firstSeen}`, window.statsPeriod)),
     get(issuesUrl(RAGE_QUERY, window.statsPeriod)),
     get(operationsUrl(window.statsPeriod)),
     get(tokensUrl(window.statsPeriod)),
     get(costUrl(window.statsPeriod)),
+    get(athleteTokensUrl(window.statsPeriod)),
+    get(athleteCostUrl(window.statsPeriod)),
+    get(operationsRangeUrl(halves.first)),
+    get(operationsRangeUrl(halves.second)),
   ]);
   for (const [name, value] of [
     ["open", open],
@@ -429,6 +630,10 @@ async function main() {
     ["operations", operationEvents],
     ["tokens", tokenEvents],
     ["cost", costEvents],
+    ["athlete tokens", athleteTokenEvents],
+    ["athlete cost", athleteCostEvents],
+    ["trend first half", firstHalfEvents],
+    ["trend second half", secondHalfEvents],
   ]) {
     if (!Array.isArray(value?.data)) {
       throw new Error(`Unexpected ${name} payload: ${JSON.stringify(value)}`);
@@ -440,17 +645,27 @@ async function main() {
   const athletes = await athleteBreakdown(open);
   const operations = operationStats(operationEvents.data);
   const tokens = tokenStats(tokenEvents.data, costEvents.data);
+  const athleteTokens = athleteTokenStats(athleteTokenEvents.data, athleteCostEvents.data);
+  const athleteMerged = athleteRows(athletes.rows, athleteTokens);
+  const trend = trendStats(
+    window,
+    operationStats(firstHalfEvents.data),
+    operationStats(secondHalfEvents.data),
+  );
   const body = renderBody({
     window,
     generatedAt,
     open,
     fresh,
     athletes,
+    athleteMerged,
+    athleteTokens,
     rage,
     resolved,
     dryRun,
     operations,
     tokens,
+    trend,
   });
 
   const totalCalls = operations.reduce((sum, o) => sum + o.calls, 0);
@@ -488,6 +703,22 @@ async function main() {
       costEstimated: t.costUsd === null ? null : t.estimated,
     })),
     totalTokens: tokens.reduce((sum, t) => sum + t.totalTokens, 0),
+    trend: {
+      callsPerDayFirst: Number(trend.callsPerDayFirst.toFixed(1)),
+      callsPerDaySecond: Number(trend.callsPerDaySecond.toFixed(1)),
+      callsDirection: trend.callsDirection,
+      successRateFirst: trend.successRateFirst === null ? null : Number(trend.successRateFirst.toFixed(1)),
+      successRateSecond: trend.successRateSecond === null ? null : Number(trend.successRateSecond.toFixed(1)),
+      rateDirection: trend.rateDirection,
+    },
+    athletes: athleteMerged.map((r) => ({
+      athlete: r.athlete,
+      events: r.events,
+      issues: r.issues,
+      totalTokens: r.tokenEntry?.totalTokens ?? 0,
+      costUsd: r.tokenEntry?.costUsd ?? null,
+      costEstimated: r.tokenEntry?.costUsd == null ? null : r.tokenEntry.estimated,
+    })),
     // A rage report that is also new appears in both lists; the reader wants it once.
     highlights: [...new Map([...fresh, ...rage].map((i) => [i.id, i])).values()].map((i) => ({
       title: i.title,
