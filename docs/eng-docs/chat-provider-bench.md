@@ -1,6 +1,6 @@
 # Coach model provider bench
 
-> Status: Current · Owner: Tech Lead · Verified: 2026-09-05
+> Status: Current · Owner: Tech Lead · Verified: 2026-09-06
 
 How direct Gemini, Gemini through OpenRouter, and DeepSeek behave on the **real**
 `coach-message` prompt. Measured 2026-09-05 against a live athlete repo, not a fixture.
@@ -60,6 +60,49 @@ Several DeepSeek hosts behave the opposite way. Venice, Parasail, NextBit and De
 returned 74–99% cache hits **with a varying tail**, which is the vLLM/SGLang prefix-caching
 pattern. That is the discount `coach-message-rebuild.md` M2 wants, without building a cache.
 
+## Explicit cache marker (#890)
+
+Same varying-tail method, extended with one question: does OpenRouter's explicit
+`cache_control: {type: "ephemeral"}` breakpoint change Vertex's answer, and how does that compare
+to DeepSeek's automatic caching? Six real HealthKit activities, one per call, same call sequence
+sent to all four arms so DeepSeek carries the same method as Gemini.
+
+Splitting the prompt at the `<athlete_context>` boundary and marking the prefix (5,553 tokens by
+Gemini's own count) with `cache_control` produced an immediate, stable discount:
+
+| Call | No marker | Marker | Venice | Parasail |
+|---|---|---|---|---|
+| 1 | 0% | 48% | 0% | 0% |
+| 2 | 0% | 48% | 62% | 0% |
+| 3 | 0% | 48% | 62% | 62% |
+| 4 | 0% | 48% | 62% | 62% |
+| 5 | 0% | 47% | 60% | 60% |
+| 6 | 35% | 48% | 62% | 62% |
+
+Cost per call: no marker $0.0087–$0.0090, dropping to $0.0061 only on call 6. Marker: $0.0050–
+$0.0053, every call. Venice and Parasail: $0.0009–$0.0018, cheapest once warm.
+
+**The marker earned a discount the unmarked calls never reliably got.** Six identical-prefix,
+varying-tail calls with no marker stayed at 0% cached until the sixth. A fresh unmarked call sent
+minutes later, after other traffic, read 0% again — that state does not persist. The marked
+requests hit ~48% from the very first call and held it.
+
+One open question this run cannot answer: the marked and unmarked requests may key Vertex's cache
+differently. A `content` array is a different wire shape than a plain string, even carrying the
+same text. That would explain why the unmarked warm-up on call 6 never carried into the marked
+arm's first call. Confirming that needs two more runs, each in its own fresh cache window, and is
+out of scope here.
+
+DeepSeek needed one prior call to warm, then held 60–62% with no marker at all. That is lower than
+the 74–99% the wider provider sweep below found, on a different (proactive, not conversational)
+prompt shape.
+
+**Recommendation:** if Gemini stays the model, ship the marker. It is the only path that earns any
+discount on the athlete_context turn, since production never repeats a prompt exactly. If DeepSeek
+is the target anyway on cost, no marker work is needed there.
+
+Probe script: `ui/scripts/prefix-cache-probe.ts` — throwaway, not wired into any npm script or CI.
+
 ## DeepSeek — credible, with one real problem
 
 42 calls across seven ZDR-reachable, structured-output-capable providers.
@@ -104,6 +147,12 @@ hide this, because the reachable set never has to compete with either.
   endpoint returns 404 under this account's `data_collection: "deny"`.
 - **A free-tier `GEMINI_API_KEY` is quota 0 on `gemini-pro-latest`**, which resolves to
   `gemini-3.1-pro`. A free key cannot exercise the pin in `ui/api/_lib/geminiModel.ts` at all.
+- **An unmarked prefix can still earn a partial discount**, but only after several back-to-back
+  identical-prefix calls, and the state does not survive other traffic in between (#890). No
+  single unmarked call can be relied on to hit.
+- **The stable prefix measured 5,553 tokens by Gemini's own count on 2026-09-06** (#890), against
+  this doc's earlier 6,876-token estimate from 2026-09-05. Trust `cached_tokens`/`cache_write_tokens`
+  on the wire over any token count computed ahead of a live call.
 
 ## Still missing
 
