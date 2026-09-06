@@ -7,6 +7,7 @@ not match" — and only the first is cured by `-f`. These tests run the real she
 of the workflow rather than reading it, because a regex over YAML cannot tell the two apart.
 """
 
+import os
 import re
 import subprocess
 import tempfile
@@ -32,7 +33,7 @@ def run_in_repo(script: str, setup: str) -> subprocess.CompletedProcess:
             "set -e\n"
             f"cd {tmp}\n"
             "git init -q .\n"
-            "git config user.email t@t\nGIT_CONFIG_GLOBAL= git config user.name t\n"
+            "git config user.email t@t\ngit config user.name t\n"
             f"printf '{HIST}/\\n' > .gitignore\n"
             "git add .gitignore\n"
             "git commit -qm init\n"
@@ -41,7 +42,17 @@ def run_in_repo(script: str, setup: str) -> subprocess.CompletedProcess:
             f"{add_history_source()}"
             f"{script}\n"
         )
-        return subprocess.run(["bash", "-c", full], capture_output=True, text=True, cwd=tmp)
+        # Strip GIT_* before shelling out. The pre-push hook exports GIT_DIR and
+        # GIT_INDEX_FILE, which a child `git init` inherits — the inner commands would
+        # then operate on the real repo instead of this temp one. CI runs unittest
+        # directly and never sees that, so without this the suite is green in CI and
+        # blocks every push locally.
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        env["GIT_CONFIG_GLOBAL"] = os.devnull
+        env["GIT_CONFIG_SYSTEM"] = os.devnull
+        return subprocess.run(
+            ["bash", "-c", full], capture_output=True, text=True, cwd=tmp, env=env
+        )
 
 
 class TestAddHistory(unittest.TestCase):
