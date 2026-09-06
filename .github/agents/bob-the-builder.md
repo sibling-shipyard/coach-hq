@@ -40,5 +40,6 @@ Keep these current when the backend changes; rules in `docs/eng-docs/README.md`.
 
 ## Learnings
 
+- In a fresh worktree, 13 `ui/api` test files fail on a missing `ui/api/_generated/soul.js`. It is a build artifact, not a code error — run `node ui/scripts/build-soul.mjs` first. (The pre-push hook already prints the `ui/node_modules` symlink fix; nothing warns you about this one.)
 - `withSentryRoute` (`ui/api/_lib/sentry.ts`) captures only what **throws** — a route that builds a failure into a `Response` must call `captureException` itself. `ui/api/_tests/route-tracing.test.ts` holds the line.
 - Gemini's `responseSchema` in `ui/api/coach-chat.ts` fills properties roughly in declaration order — declare commitment fields (`file_updates`, `coach_note`) ahead of narrative ones (`title`, `session_closed`, `reply` last). Reduces skipped fields; doesn't eliminate them.
