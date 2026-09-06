@@ -48,7 +48,9 @@ about a third of what we send.
 ## What the dashboard answers
 
 **Coach HQ health**, id `5873386`. Six widgets, one per live question — question 4 (crash-free
-sessions) is dropped, see below. The dashboard's saved default window is 7D, matching the digest.
+sessions) is dropped, see below. The dashboard's saved default window is 7D, matching the digest —
+set via a top-level `period` field on `PUT /organizations/{org}/dashboards/{id}/`; `filters.period`
+looks like the right place but silently doesn't round-trip (confirmed live, 2026-09-06).
 
 | # | Question | Reads |
 |---|---|---|

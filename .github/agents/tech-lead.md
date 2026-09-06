@@ -41,8 +41,11 @@ athlete mid-task. Catch yourself editing a file to satisfy a request? Delegate i
 1. the full local gate ran before first push, then the named GitHub checks are green — **read the
 	evidence, don't re-run it.** `gh pr checks <n>` is the check; `ios-build.yml` covers `ios/**`,
 	`ui-tests.yml` covers `ui/`, and `platform-tests.yml` covers `engine/**` plus
-	`platform/tests/**`. CI runs the pushed SHA and is authoritative. Run a failing check locally
-	when you need its evidence, or when the PR changes the check itself.
+	`platform/tests/**` and `platform/skills/**`. CI runs the pushed SHA and is authoritative. Run
+	a failing check locally when you need its evidence, or when the PR changes the check itself.
+	A new `checks.conf` line is local-only unless some workflow's path trigger also covers it —
+	`grep -rl "check.sh\|checks.conf" .github/workflows/` finds none that call it, so #911 added a
+	test with no CI enforcement until this line's own path list was extended to catch it.
 2. the diff is a subset of the phase's declared files
 3. explicit paths were staged
 4. the PR's file list checked against the branch, not local `main`, which has under-reported one
