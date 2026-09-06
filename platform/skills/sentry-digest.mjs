@@ -14,10 +14,15 @@
  */
 import fs from "node:fs";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 
 import { ORG, eventsUrl, flagValue, readToken, request, update } from "./_sentry-api.mjs";
 
-const TOKEN = readToken();
+// `sentry-digest.test.mjs` imports this module for its pure functions, with no Sentry token and
+// no network access. Reading the token (which exits the process if none is found) and running
+// `main()` stay gated on being invoked as the CLI, not merely imported.
+const isMain = process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;
+const TOKEN = isMain ? readToken() : undefined;
 const get = (apiPath) => request(apiPath, TOKEN);
 const resolveIssue = (id) => update(`${ORG}/issues/${id}/`, TOKEN, { status: "resolved" });
 
@@ -85,8 +90,10 @@ async function athleteBreakdown(issues) {
  * here - that reopen is the safety net, not something this script needs to reason about.
  *
  * One request per issue, in series: same rate-limit reasoning as `athleteBreakdown`.
+ * `dryRun: true` skips the PUT entirely, so the filter logic is exercised with no network call —
+ * that is the path `sentry-digest.test.mjs` uses.
  */
-async function resolveStale(issues, dryRun) {
+export async function resolveStale(issues, dryRun) {
   const stale = issues.filter((issue) => windowCount(issue) === 0);
   for (const issue of stale) {
     if (!dryRun) await resolveIssue(issue.id);
@@ -116,7 +123,7 @@ function operationsUrl(statsPeriod) {
   });
 }
 
-function operationStats(discoverRows) {
+export function operationStats(discoverRows) {
   const totals = new Map();
   for (const row of discoverRows) {
     const operation = row.operation ?? "(untagged)";
@@ -166,7 +173,7 @@ function operationsRangeUrl({ start, end }) {
  * "Climbing"/"falling" only means something past a little noise on single-digit daily counts -
  * a swing smaller than `epsilon` reads as "flat" rather than flipping on rounding.
  */
-function trendDirection(before, after, epsilon) {
+export function trendDirection(before, after, epsilon) {
   if (before === null || after === null) return null;
   const diff = after - before;
   if (Math.abs(diff) < epsilon) return "flat";
@@ -174,7 +181,7 @@ function trendDirection(before, after, epsilon) {
 }
 
 /** Total calls and overall success rate, first half of the window vs second half. */
-function trendStats(window, firstOps, secondOps) {
+export function trendStats(window, firstOps, secondOps) {
   const totalCalls = (ops) => ops.reduce((sum, o) => sum + o.calls, 0);
   const totalOk = (ops) => ops.reduce((sum, o) => sum + o.ok, 0);
   const callsFirst = totalCalls(firstOps);
@@ -259,9 +266,13 @@ const PRICING_USD_PER_MTOK = {};
 
 /**
  * One row per model: real tokens always, real `cost.usd` when Sentry has it, else an amount
- * estimated from `PRICING_USD_PER_MTOK`, else `null` ("no pricing data" — never a guess).
+ * estimated from `pricingTable`, else `null` ("no pricing data" — never a guess).
+ *
+ * `pricingTable` defaults to `PRICING_USD_PER_MTOK` (empty in production today, see its comment);
+ * the parameter exists so `sentry-digest.test.mjs` can exercise the "estimated" branch without
+ * mutating module state.
  */
-function tokenStats(tokenRows, costRows) {
+export function tokenStats(tokenRows, costRows, pricingTable = PRICING_USD_PER_MTOK) {
   const realCost = new Map();
   for (const row of costRows) {
     const model = row["gen_ai.request.model"] ?? "(untagged)";
@@ -280,7 +291,7 @@ function tokenStats(tokenRows, costRows) {
       if (measured !== undefined) {
         return { model, calls, inputTokens, outputTokens, totalTokens, costUsd: measured, estimated: false };
       }
-      const pricing = PRICING_USD_PER_MTOK[model];
+      const pricing = pricingTable[model];
       const costUsd = pricing
         ? (inputTokens / 1e6) * pricing.input + (outputTokens / 1e6) * pricing.output
         : null;
@@ -290,7 +301,7 @@ function tokenStats(tokenRows, costRows) {
 }
 
 /** Shared by the model table and the athlete table - same three states, same markers. */
-function formatCost(costUsd, estimated) {
+export function formatCost(costUsd, estimated) {
   return costUsd === null ? "no pricing data" : `${estimated ? "~" : ""}$${costUsd.toFixed(4)}`;
 }
 
@@ -343,7 +354,7 @@ function athleteCostUrl(statsPeriod) {
  * estimated rather than billed - good enough for "who is this costing us" without a full
  * per-athlete-per-model table.
  */
-function athleteTokenStats(tokenRows, costRows) {
+export function athleteTokenStats(tokenRows, costRows, pricingTable = PRICING_USD_PER_MTOK) {
   const realCost = new Map();
   for (const row of costRows) {
     const key = `${row["user.id"] ?? "(unknown)"} ${row["gen_ai.request.model"] ?? "(untagged)"}`;
@@ -360,7 +371,7 @@ function athleteTokenStats(tokenRows, costRows) {
     const totalTokens = Number(row["sum(gen_ai.usage.total_tokens)"] ?? 0);
     const calls = Number(row["count()"] ?? 0);
     const measured = realCost.get(`${athlete} ${model}`);
-    const pricing = PRICING_USD_PER_MTOK[model];
+    const pricing = pricingTable[model];
     const modelCost =
       measured !== undefined
         ? measured
@@ -745,7 +756,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message);
-  process.exit(1);
-});
+if (isMain) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
+}
