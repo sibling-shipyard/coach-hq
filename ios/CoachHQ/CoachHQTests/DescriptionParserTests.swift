@@ -14,7 +14,7 @@ final class DescriptionParserTests: XCTestCase {
             "Tony me vs Alex/Yin 13-21",
         ].joined(separator: "\n")
 
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(raw))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(raw, allowMatchParsing: true))
         XCTAssertFalse(parsed.isPlainNote)
         XCTAssertEqual(parsed.ranked.count, 2)
 
@@ -33,7 +33,7 @@ final class DescriptionParserTests: XCTestCase {
 
     func testSinglesMatchRoundTrips() throws {
         // Singles takes the partner-less form.
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("me vs Ravi 6-4"))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("me vs Ravi 6-4", allowMatchParsing: true))
         XCTAssertFalse(parsed.isPlainNote)
         XCTAssertEqual(parsed.ranked.first?.isSingles, true)
         XCTAssertNil(parsed.ranked.first?.partner)
@@ -58,7 +58,7 @@ final class DescriptionParserTests: XCTestCase {
             "Tony me vs Alex/Yin 15-21",
         ].joined(separator: "\n")
 
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(raw))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(raw, allowMatchParsing: true))
         XCTAssertEqual(parsed.notes, "Legs heavy from Tuesday")
         XCTAssertEqual(parsed.rank, 4)
         XCTAssertEqual(parsed.preMentalState, ParsedPreMentalState(score: 7, word: "sharp"))
@@ -88,7 +88,7 @@ final class DescriptionParserTests: XCTestCase {
             "---",
             "me vs Ravi 13-21",
         ].joined(separator: "\n")
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(raw))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(raw, allowMatchParsing: true))
         let session = DescriptionParser.buildStructuredEntry(parsed, date: "2026-03-27", activityId: 42)
 
         XCTAssertEqual(session.date, "2026-03-27")
@@ -103,7 +103,7 @@ final class DescriptionParserTests: XCTestCase {
             "Tony me vs Alston/Wei 21-18",
             "me vs nonsense",
         ].joined(separator: "\n")
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(raw))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(raw, allowMatchParsing: true))
         XCTAssertEqual(parsed.ranked.count, 1)
         XCTAssertEqual(parsed.warnings.count, 1)
         // The bad line is dropped from the formatted match, not smuggled in as a note.
@@ -113,13 +113,13 @@ final class DescriptionParserTests: XCTestCase {
     func testFormattedMatchIsNotReparsed() {
         let formatted = "4W-7L (36%)\n\nGames:\nW 21-18 w/ Tony vs Alston + Wei"
         XCTAssertTrue(DescriptionParser.isAlreadyFormatted(formatted))
-        XCTAssertNil(DescriptionParser.parseRawDescription(formatted))
+        XCTAssertNil(DescriptionParser.parseRawDescription(formatted, allowMatchParsing: true))
     }
 
     // MARK: - Plain free-text notes (#766)
 
     func testPlainSentenceBecomesANote() throws {
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("Easy shakeout, calves tight."))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("Easy shakeout, calves tight.", allowMatchParsing: true))
         XCTAssertTrue(parsed.isPlainNote)
         XCTAssertEqual(parsed.notes, "Easy shakeout, calves tight.")
         XCTAssertTrue(parsed.ranked.isEmpty)
@@ -129,7 +129,7 @@ final class DescriptionParserTests: XCTestCase {
 
     func testNoteFormatsBackToItself() throws {
         let note = "Long ride into a headwind.\n\nBonked at 80km — need to eat earlier."
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(note))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription(note, allowMatchParsing: true))
         XCTAssertEqual(DescriptionParser.formatDescription(parsed), note)
     }
 
@@ -137,33 +137,33 @@ final class DescriptionParserTests: XCTestCase {
         // Reopening a saved note must not rewrite it — the editor reparses what it saved.
         let note = "Shoulder twinged on the last set."
         let once = DescriptionParser.formatDescription(
-            try XCTUnwrap(DescriptionParser.parseRawDescription(note))
+            try XCTUnwrap(DescriptionParser.parseRawDescription(note, allowMatchParsing: true))
         )
         let twice = DescriptionParser.formatDescription(
-            try XCTUnwrap(DescriptionParser.parseRawDescription(once))
+            try XCTUnwrap(DescriptionParser.parseRawDescription(once, allowMatchParsing: true))
         )
         XCTAssertEqual(once, note)
         XCTAssertEqual(twice, note)
     }
 
     func testNoteNeedsNoNotesPrefixButStillHonoursOne() throws {
-        let withPrefix = try XCTUnwrap(DescriptionParser.parseRawDescription("#notes Felt strong"))
+        let withPrefix = try XCTUnwrap(DescriptionParser.parseRawDescription("#notes Felt strong", allowMatchParsing: true))
         XCTAssertTrue(withPrefix.isPlainNote)
         XCTAssertEqual(withPrefix.notes, "Felt strong")
 
-        let without = try XCTUnwrap(DescriptionParser.parseRawDescription("Felt strong"))
+        let without = try XCTUnwrap(DescriptionParser.parseRawDescription("Felt strong", allowMatchParsing: true))
         XCTAssertEqual(without.notes, "Felt strong")
     }
 
     func testMetadataOnlyInputKeepsItsNote() throws {
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("#notes Just warming up\n#rank 5"))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("#notes Just warming up\n#rank 5", allowMatchParsing: true))
         XCTAssertTrue(parsed.isPlainNote)
         XCTAssertEqual(parsed.notes, "Just warming up")
         XCTAssertEqual(parsed.rank, 5)
     }
 
     func testPreStateSurvivesOnANoteOnlyDescription() throws {
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("PRE: 6, flat\nLegs never woke up."))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("PRE: 6, flat\nLegs never woke up.", allowMatchParsing: true))
         XCTAssertTrue(parsed.isPlainNote)
         XCTAssertEqual(parsed.preMentalState, ParsedPreMentalState(score: 6, word: "flat"))
         XCTAssertEqual(parsed.notes, "Legs never woke up.")
@@ -172,38 +172,38 @@ final class DescriptionParserTests: XCTestCase {
         // survive. Dropping it here would delete a line the athlete typed.
         let formatted = DescriptionParser.formatDescription(parsed)
         XCTAssertEqual(formatted, "Legs never woke up.\nPRE: 6, flat")
-        let reparsed = try XCTUnwrap(DescriptionParser.parseRawDescription(formatted))
+        let reparsed = try XCTUnwrap(DescriptionParser.parseRawDescription(formatted, allowMatchParsing: true))
         XCTAssertEqual(reparsed.preMentalState, parsed.preMentalState)
         XCTAssertEqual(reparsed.notes, parsed.notes)
     }
 
     func testRankSurvivesOnANoteOnlyDescription() throws {
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("#rank 4\nEasy shakeout."))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("#rank 4\nEasy shakeout.", allowMatchParsing: true))
         XCTAssertTrue(parsed.isPlainNote)
         XCTAssertEqual(parsed.rank, 4)
 
         let formatted = DescriptionParser.formatDescription(parsed)
         XCTAssertEqual(formatted, "Easy shakeout.\n#rank 4")
-        let reparsed = try XCTUnwrap(DescriptionParser.parseRawDescription(formatted))
+        let reparsed = try XCTUnwrap(DescriptionParser.parseRawDescription(formatted, allowMatchParsing: true))
         XCTAssertEqual(reparsed.rank, 4)
         XCTAssertEqual(reparsed.notes, "Easy shakeout.")
     }
 
     func testMalformedMatchTextWithNoGamesIsKeptAsProse() throws {
         // "me vs" with no score is not a game line, so it must survive as prose.
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("me vs the hill again"))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("me vs the hill again", allowMatchParsing: true))
         XCTAssertTrue(parsed.isPlainNote)
         XCTAssertEqual(parsed.notes, "me vs the hill again")
         XCTAssertTrue(parsed.warnings.isEmpty)
     }
 
     func testEmptyInputIsStillNil() {
-        XCTAssertNil(DescriptionParser.parseRawDescription(""))
-        XCTAssertNil(DescriptionParser.parseRawDescription("   \n\n  "))
+        XCTAssertNil(DescriptionParser.parseRawDescription("", allowMatchParsing: true))
+        XCTAssertNil(DescriptionParser.parseRawDescription("   \n\n  ", allowMatchParsing: true))
     }
 
     func testCarriageReturnsAreNormalized() throws {
-        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("First line.\r\nSecond line."))
+        let parsed = try XCTUnwrap(DescriptionParser.parseRawDescription("First line.\r\nSecond line.", allowMatchParsing: true))
         XCTAssertEqual(parsed.notes, "First line.\nSecond line.")
     }
 
@@ -213,7 +213,7 @@ final class DescriptionParserTests: XCTestCase {
         // The gate that stops a run writing into match_history.json. Same input as
         // testDoublesMatchRoundTrips, parsed for a sport that does not do scores.
         let raw = "Tony me vs Alston/Wei 21-18"
-        let asMatch = try XCTUnwrap(DescriptionParser.parseRawDescription(raw))
+        let asMatch = try XCTUnwrap(DescriptionParser.parseRawDescription(raw, allowMatchParsing: true))
         XCTAssertFalse(asMatch.isPlainNote)
 
         let asNote = try XCTUnwrap(

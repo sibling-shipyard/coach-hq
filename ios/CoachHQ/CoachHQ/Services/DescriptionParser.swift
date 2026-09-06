@@ -144,9 +144,12 @@ enum DescriptionParser {
     /// may produce a match. Pass `false` and every input is a note, including text that would
     /// otherwise parse as games — a run is not a badminton session because someone typed a score
     /// into it. Callers pass `Theme.sportSupportsScoreEntry(for:)`.
+    ///
+    /// It has no default on purpose. Two call sites were written against a defaulted
+    /// `true` and both got the gate wrong by saying nothing, so the compiler asks instead.
     static func parseRawDescription(
         _ raw: String,
-        allowMatchParsing: Bool = true
+        allowMatchParsing: Bool
     ) -> ParsedDescription? {
         if raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return nil
