@@ -108,6 +108,14 @@ Two consequences worth knowing:
 - The body carries an `athlete_id` breakdown, because one athlete's bad afternoon and a fleet-wide
   fault produce the same event count and need different fixes.
 
+Every run also queries the Discover/events API (`/organizations/{org}/events/`, `dataset=spans`,
+project scoped to `coach-hq-api`) for a "Calls by operation" table: total calls and `ok`/`error`
+success rate per `operation` tag, grouped straight from `span.op:http.server` rows. This is the
+same query surface as the `Coach HQ health` dashboard's widgets (id 5873386), done
+programmatically instead of by hand. The project scope matters: querying unscoped pulls in
+`http.server` spans from the web and iOS projects too, which carry an unrelated `outcome` value
+and no `operation` tag at all.
+
 Every run also auto-resolves any open issue with zero events in the window (`PUT
 .../issues/{id}/` with `status: resolved`), in series, and reports the count and titles in the
 body's "Auto-resolved" section. This replaced the manual cleanup #902 needed (~15 API calls by
