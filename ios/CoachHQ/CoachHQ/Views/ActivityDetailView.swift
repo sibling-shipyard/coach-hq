@@ -525,7 +525,9 @@ struct ActivityDetailView: View {
     @ViewBuilder
     private var descriptionSection: some View {
         if let desc = savedDescription {
-            if let matchData = FormattedMatchData.parse(desc) {
+            // Sport gate again: `FormattedMatchData.parse` only looks for a "Games:" block, so
+            // without it a description carrying one renders a match card on any sport.
+            if supportsScoreEntry, let matchData = FormattedMatchData.parse(desc) {
                 richScoreCard(matchData)
             } else {
                 noteCard(desc)
@@ -970,7 +972,11 @@ private struct DescriptionEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private var badge: (label: String, color: Color) { Theme.sportBadge(for: entry.sportType) }
-    private var parsed: ParsedDescription? { DescriptionParser.parseRawDescription(descriptionText) }
+    /// Same gate as `ActivityDetailView.parsed`. Without it the preview reads a run's
+    /// "me vs X 21-18" as a match while the save path correctly stores a note.
+    private var parsed: ParsedDescription? {
+        DescriptionParser.parseRawDescription(descriptionText, allowMatchParsing: supportsScoreEntry)
+    }
     private var supportsScoreEntry: Bool { Theme.sportSupportsScoreEntry(for: entry.sportType) }
 
     var body: some View {
