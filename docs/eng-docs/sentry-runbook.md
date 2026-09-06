@@ -68,6 +68,17 @@ condition would fire once and stay silent forever after.
 Both surfaces set the same `rage_report` fingerprint, so each project's reports group into one
 issue. They do not share an issue: web is `coach-hq-web`, iOS is `coach-hq-ios`.
 
+**No alert covers absence, so ask by hand.** `node ui/scripts/check-span-health.mjs` exits non-zero
+when production served traffic in the last 24 hours and sent no `http.server` span. That is the
+shape of #878: errors kept arriving and every dashboard looked healthy. Traffic counts all three
+surfaces, iOS included: #878's own evidence was a HealthKit sync from the phone, and an athlete who
+syncs without opening the dashboard leaves no browser span and no API error.
+`SPAN_HEALTH_WINDOW` takes any Sentry `statsPeriod`. Sentry itself cannot ask this: an alert sees
+one dataset at a time, so it
+cannot say "traffic happened but spans did not", and "no spans" alone fires on every quiet day.
+Nothing runs this on a schedule yet — that decision belongs to a single owned cron policy, not to
+whichever PR needed a check first.
+
 ## Query from a terminal
 
 The token never lives in the repo. Take it from the environment, falling back to a local file, so
@@ -79,8 +90,9 @@ TOKEN=${SENTRY_AUTH_TOKEN:-$(cat ~/.config/sentry-token)}
 
 `SENTRY_AUTH_TOKEN` is Sentry's own conventional name — `sentry-cli` and `@sentry/vite-plugin` read
 it with no configuration, so the parked source-map and dSYM upload needs no second variable. In CI
-it is a GitHub Actions secret of that name, exposed as an env var; never prefix it `VITE_`, because
-Vite bakes those into the client bundle.
+it is a repository secret of that name, exposed as an env var — added 2026-09-05, so any workflow
+before that date could not read Sentry at all. Nothing consumes it yet. Never prefix it `VITE_`,
+because Vite bakes those into the client bundle.
 
 On a shared or long-lived machine prefer the file, `chmod 600`. An environment variable is
 inherited by every child process and shows up in a plain `env` dump; the file does not.
@@ -126,6 +138,14 @@ shares the store, and deliberate test failures can otherwise look like a product
 A release tag is not proof of a deploy. Confirm that production traffic carries the expected
 release before calling a fix verified; green CI proves only that the code merged.
 
+**An absent span is not evidence the endpoint was never called.** Before you read Sentry's silence
+as a finding, confirm a recent span exists on the release production is serving. In #878 the span
+pipeline was dead while errors kept arriving, and the missing `/api/coach-message` spans were read
+as a broken iOS sync (#874) rather than broken reporting. `check-span-health.mjs` above answers
+this in one command. `stats_v2` tells you *why* a payload never
+landed and the events API cannot: query it with `groupBy=outcome&groupBy=reason` and a
+`client_discard` row names the SDK-side reason — `sample_rate`, `event_processor`, `before_send`.
+
 ## Triage
 
 1. Record the issue URL, timestamp, project, `operation`, `trace_id`, `athlete_id`, and release.
@@ -166,7 +186,7 @@ release before calling a fix verified; green CI proves only that the code merged
 
 ## Traps
 
-Five constraints to check before editing Sentry setup.
+Six constraints to check before editing Sentry setup.
 
 1. **`beforeSend` is error events only.** Transactions and spans are separate payloads with their
    own hooks. Wire `beforeSendTransaction` and `beforeSendSpan` too, or the credential scrubber
@@ -181,7 +201,13 @@ Five constraints to check before editing Sentry setup.
    rethrown Gemini failure to one event: the detailed capture goes first and wins. Rethrow a
    *fresh* error with the same message and you get two.
    Proved in `ui/api/_lib/_tests/sentry-spans.test.ts`.
-5. **Keep iOS file-I/O tracing off.**
+5. **The Node SDK drops 3xx and 4xx transactions unless you tell it not to.**
+   `httpIntegration`'s `dropSpansForIncomingRequestStatusCodes` defaults to `[[401, 404],
+   [301, 303], [305, 399]]`, and the event processor that applies it runs on **every**
+   transaction — ours included. `disableIncomingRequestSpans: true` does not switch it off; it
+   gates span creation only. `sentry.ts` passes an empty list, because a 401 here is an expired
+   session and a 404 is a snapshot the athlete's repo never got (#878).
+6. **Keep iOS file-I/O tracing off.**
    `ios/CoachHQ/CoachHQ/Services/DiagnosticsManager.swift` sets
    `options.enableFileIOTracing = false`. Enabling it captures keyboard and system file reads
    that bury useful spans and spend quota.

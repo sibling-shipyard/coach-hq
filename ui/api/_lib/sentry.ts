@@ -70,6 +70,18 @@ function configuredSecrets(): string[] {
  */
 const ignoreEveryOutgoingRequest = () => true;
 
+/**
+ * Keep every status code, against the SDK's default of dropping 301-303, 305-399 and 401-404.
+ *
+ * That default is written for auto-instrumented server spans, where a 404 is a scanner and a 304
+ * is a cache hit. It is applied by an event processor on **every** transaction, including the one
+ * `withContinuedTrace` opens by hand, and `disableIncomingRequestSpans` does not switch it off —
+ * only span creation is gated, the processor still runs (`httpServerSpansIntegration.processEvent`
+ * in `@sentry/node-core`). Ours are the statuses that matter most: a 401 is an expired session and
+ * a 404 is a snapshot the athlete's repo never got, and both reached Sentry as silence (#878).
+ */
+const KEEP_SPANS_FOR_EVERY_STATUS: number[] = [];
+
 let initialized = false;
 
 export function initServerMonitoring(): boolean {
@@ -87,6 +99,7 @@ export function initServerMonitoring(): boolean {
       Sentry.httpIntegration({
         ignoreOutgoingRequests: ignoreEveryOutgoingRequest,
         disableIncomingRequestSpans: true,
+        dropSpansForIncomingRequestStatusCodes: KEEP_SPANS_FOR_EVERY_STATUS,
       }),
       Sentry.nativeNodeFetchIntegration({ ignoreOutgoingRequests: ignoreEveryOutgoingRequest }),
     ],

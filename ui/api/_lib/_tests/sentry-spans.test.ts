@@ -198,6 +198,20 @@ describe("withContinuedTrace server span", () => {
     expect(transaction.contexts?.trace?.status).toBe("internal_error");
   });
 
+  // 401 and 404 sit inside the SDK's own `dropSpansForIncomingRequestStatusCodes` default, and
+  // 302 inside its 3xx range. Its filter runs on every transaction, including the one this
+  // wrapper opens by hand, so without the override in `sentry.ts` an expired session or a missing
+  // snapshot reaches Sentry as silence (#878).
+  it.each([302, 401, 403, 404])("sends the span for a %i response", async (status) => {
+    await withContinuedTrace(request(), async () => Response.json({ error: "no" }, { status }));
+    await drainWaitUntil();
+
+    const [transaction] = sentTransactions();
+    expect(transaction?.contexts?.trace?.data).toMatchObject({
+      "http.response.status_code": status,
+    });
+  });
+
   it("sends the span even when the handler throws, before the error propagates", async () => {
     await expect(
       withContinuedTrace(request(), async () => {
