@@ -851,12 +851,11 @@ class HealthKitSyncManager: ObservableObject {
             // isSyncing for this; it only affects the widget home cache, not the sync flow.
             // A failed Coach turn must not fail this sync — list + Retry stay in Chat.
             let ws = widgetStore
-            let syncedFileNames = (syncedForCache + upsertedForCache).map(\.fileName)
-            let coachActivityIds = syncedForCache.compactMap { item -> String? in
-                guard let raw = item.activity.activityId,
-                      let uuid = UUID(uuidString: raw) else { return nil }
-                return "healthkit:\(uuid.uuidString.uppercased())"
-            }.sorted()
+            let syncedFileNames = PostSyncFanout.cacheFileNames(
+                inserted: syncedForCache,
+                upserted: upsertedForCache
+            )
+            let coachActivityIds = PostSyncFanout.coachActivityIds(inserted: syncedForCache)
             let coachClient = coachMessageClient
             let repoFullName = apiClient.repoFullName
             let shouldStartCoachTurn = activitySyncTurn != nil
@@ -883,12 +882,32 @@ class HealthKitSyncManager: ObservableObject {
                    ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch) {
                     await self.advanceActivitySyncTurn(snapshotsFresh: fresh)
                 }
-                guard fresh,
-                      ActivitySyncEpoch.shouldApply(turnEpoch: epoch, currentEpoch: self.activitySyncEpoch),
+                guard fresh else { return }
+                let epochApplies = ActivitySyncEpoch.shouldApply(
+                    turnEpoch: epoch,
+                    currentEpoch: self.activitySyncEpoch
+                )
+                guard epochApplies,
                       let coachClient,
                       let repoFullName,
                       apiClient.repoFullName == repoFullName,
-                      !coachActivityIds.isEmpty else { return }
+                      !coachActivityIds.isEmpty else {
+                    if let reason = PostSyncFanout.skipReason(
+                        epochApplies: epochApplies,
+                        hasCoachClient: coachClient != nil,
+                        batchRepoFullName: repoFullName,
+                        liveRepoFullName: apiClient.repoFullName,
+                        coachActivityIdCount: coachActivityIds.count
+                    ) {
+                        DiagnosticsManager.record(
+                            category: "coach.post_sync_message",
+                            message: "skipped",
+                            operationID: syncOperationID,
+                            metadata: ["reason": reason.rawValue]
+                        )
+                    }
+                    return
+                }
                 await CoachMessagePostSyncDelivery.run(
                     activityIds: coachActivityIds,
                     repoFullName: repoFullName,
@@ -1600,5 +1619,63 @@ enum HealthKitError: Error, LocalizedError {
         case .notAvailable: return "HealthKit is not available on this device."
         case .authorizationDenied: return "HealthKit authorization was denied."
         }
+    }
+}
+
+// MARK: - Post-sync fan-out
+
+/// Splits a committed sync batch between the two things that follow it: the activity cache
+/// refresh, and the proactive Coach turn. Pure, so the split and the skip rules are testable
+/// without running a sync.
+enum PostSyncFanout {
+    /// Every file the batch wrote, inserts and upserts alike — an upsert changed that activity's
+    /// data, so its cached copy is stale until refreshed.
+    static func cacheFileNames(
+        inserted: [(fileName: String, activity: Activity)],
+        upserted: [(fileName: String, activity: Activity)]
+    ) -> [String] {
+        (inserted + upserted).map(\.fileName)
+    }
+
+    /// Inserts only, and it must stay that way. An upsert is an activity an earlier sync already
+    /// committed, being rewritten with better heart-rate coverage, an alias or a name — Coach has
+    /// spoken about it, and sending it again fires a second proactive message about one workout.
+    /// `HealthKitSyncManager.drafts(from:)` splits the same way for the in-app turn.
+    static func coachActivityIds(
+        inserted: [(fileName: String, activity: Activity)]
+    ) -> [String] {
+        inserted.compactMap { item -> String? in
+            guard let raw = item.activity.activityId,
+                  let uuid = UUID(uuidString: raw) else { return nil }
+            return "healthkit:\(uuid.uuidString.uppercased())"
+        }.sorted()
+    }
+
+    /// Why a post-sync Coach turn was not requested. Recorded on every skip: one silent `guard`
+    /// makes a dropped Coach turn look exactly like a sync that had nothing to say.
+    enum SkipReason: String {
+        case supersededByNewerSync = "superseded_by_newer_sync"
+        case noCoachClient = "no_coach_client"
+        case noRepo = "no_repo"
+        case repoChangedMidSync = "repo_changed_mid_sync"
+        case noNewActivities = "no_new_activities"
+    }
+
+    /// Nil when the turn should be sent. Order matches the caller's `guard`, so the reason names
+    /// the condition that actually stopped it. Snapshot freshness is gated ahead of this call and
+    /// is not an input here.
+    static func skipReason(
+        epochApplies: Bool,
+        hasCoachClient: Bool,
+        batchRepoFullName: String?,
+        liveRepoFullName: String?,
+        coachActivityIdCount: Int
+    ) -> SkipReason? {
+        guard epochApplies else { return .supersededByNewerSync }
+        guard hasCoachClient else { return .noCoachClient }
+        guard let batchRepoFullName else { return .noRepo }
+        guard liveRepoFullName == batchRepoFullName else { return .repoChangedMidSync }
+        guard coachActivityIdCount > 0 else { return .noNewActivities }
+        return nil
     }
 }
