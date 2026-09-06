@@ -250,7 +250,7 @@ class HealthKitSyncManager: ObservableObject {
         guard TestModeManager.shared.targetBranch == "main" else { return }
         // `fresh` is also false when no widget store is wired up. Nothing was polled then, so
         // there is nothing to say about the pipeline.
-        guard widgetStore != nil else { return }
+        guard let widgetStore else { return }
 
         var verdict = StaleSyncVerdict.pipelineStatusUnknown
         var run: SyncWorkflowRun?
@@ -263,6 +263,13 @@ class HealthKitSyncManager: ObservableObject {
             }
         }
 
+        // A green run means the last poll's answer is the suspect, not the pipeline: the run can
+        // finish during the GitHub round-trip above, or land its snapshot a moment after the poll
+        // read it. Ask once more, and if the numbers have since moved this was never a stale sync.
+        if verdict.needsFreshnessRecheck, await widgetStore.recheckFreshness(since: freshnessSince) {
+            return
+        }
+
         let iso = ISO8601DateFormatter()
         var metadata: [String: String] = [
             "verdict": verdict.rawValue,
@@ -270,7 +277,7 @@ class HealthKitSyncManager: ObservableObject {
             "waited_seconds": String(WidgetSnapshotStore.syncPollBudgetSeconds),
             "commit_sha": commitSHA ?? "unknown",
             "committed_at": iso.string(from: freshnessSince),
-            "snapshot_sync_timestamp": widgetStore?.lastObservedSyncTimestamp ?? "none"
+            "snapshot_sync_timestamp": widgetStore.lastObservedSyncTimestamp ?? "none"
         ]
         if let run {
             metadata["run_status"] = run.status
@@ -1535,7 +1542,8 @@ enum StaleSyncVerdict: String, Equatable {
     case pipelineFailed = "pipeline_failed"
     /// GitHub has no run for this commit: the workflow never started.
     case pipelineNeverRan = "pipeline_never_ran"
-    /// The run went green and the numbers still did not move — the pipeline wrote nothing new.
+    /// The run went green and the numbers still did not move, confirmed by a second snapshot
+    /// read after the run finished — the pipeline wrote nothing new.
     case pipelineGreenButStale = "pipeline_green_but_stale"
     /// Still queued or in progress. Slow, not broken.
     case pipelineStillRunning = "pipeline_still_running"
@@ -1547,6 +1555,14 @@ enum StaleSyncVerdict: String, Equatable {
         guard run.status == "completed" else { return .pipelineStillRunning }
         return run.conclusion == "success" ? .pipelineGreenButStale : .pipelineFailed
     }
+
+    /// Whether this verdict must be re-checked against a fresh snapshot before it is reported.
+    ///
+    /// Only the green run needs it, and it needs it badly: a successful run says the numbers were
+    /// *going* to move, so the poll's last answer is the thing in doubt, not the pipeline. Every
+    /// other verdict describes a run that did not produce new numbers at all, and re-reading the
+    /// snapshot cannot change that.
+    var needsFreshnessRecheck: Bool { self == .pipelineGreenButStale }
 
     /// True for the verdicts that mean something is broken and someone should look.
     var isFault: Bool {

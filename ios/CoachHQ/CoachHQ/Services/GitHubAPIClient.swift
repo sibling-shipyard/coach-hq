@@ -468,6 +468,12 @@ class GitHubAPIClient {
     /// distinguishable: the caller reports "never ran" as a fault and "could not ask" as a
     /// warning. Filtered by workflow file because `validate-data.yml` runs on the same push.
     ///
+    /// **`sync.yml` is a cross-repo coupling.** The athlete repo gets that filename only because
+    /// `platform/scripts/carve-skeleton.mjs` renames `engine/.github/workflows/sync.user.yml` to
+    /// it on carve. Nothing enforces the pair. Rename the carved file and this request 404s,
+    /// which throws, which turns every stale sync into a "status unknown" warning and hides the
+    /// failures this call exists to find. The carve site carries the matching comment.
+    ///
     /// Deliberately outside `withRetry`: this is called on a path that is already reporting a
     /// problem, and `withRetry` captures its own failures to Sentry. An installation whose
     /// token lacks the App's `actions` permission would otherwise emit a second Sentry error

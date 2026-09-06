@@ -181,6 +181,17 @@ class WidgetSnapshotStore: ObservableObject {
         return false
     }
 
+    /// One more fetch-and-check after `refreshAfterSync` has given up.
+    ///
+    /// The give-up path spends a GitHub round-trip asking what the pipeline run did, and the run
+    /// can finish inside that window — or have finished just before it, with the regenerated
+    /// snapshot not yet readable. Either way the last poll's answer is already out of date by the
+    /// time a verdict is formed, so ask once more before calling a green run stale.
+    func recheckFreshness(since commitFinishedAt: Date) async -> Bool {
+        await refresh(showSpinner: false)
+        return snapshotsAreFresh(since: commitFinishedAt)
+    }
+
     private func snapshotsAreFresh(since commitFinishedAt: Date) -> Bool {
         guard let timestamp = snapshots?.home.sync.timestamp,
               let pipelineAt = Self.parseSyncTimestamp(timestamp) else { return false }

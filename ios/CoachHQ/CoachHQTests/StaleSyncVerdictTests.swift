@@ -60,6 +60,17 @@ final class StaleSyncVerdictTests: XCTestCase {
         XCTAssertFalse(StaleSyncVerdict.pipelineStatusUnknown.isFault)
     }
 
+    func testOnlyTheGreenRunIsRecheckedBeforeReporting() {
+        // The run can finish during the GitHub lookup, so a `success` verdict is asked once more
+        // whether the numbers have since moved. Every other verdict describes a run that produced
+        // no new numbers at all, and a second snapshot read cannot change that.
+        XCTAssertTrue(StaleSyncVerdict.pipelineGreenButStale.needsFreshnessRecheck)
+        XCTAssertFalse(StaleSyncVerdict.pipelineFailed.needsFreshnessRecheck)
+        XCTAssertFalse(StaleSyncVerdict.pipelineNeverRan.needsFreshnessRecheck)
+        XCTAssertFalse(StaleSyncVerdict.pipelineStillRunning.needsFreshnessRecheck)
+        XCTAssertFalse(StaleSyncVerdict.pipelineStatusUnknown.needsFreshnessRecheck)
+    }
+
     func testEachVerdictHasItsOwnStableSentryTitle() {
         let all: [StaleSyncVerdict] = [
             .pipelineFailed, .pipelineNeverRan, .pipelineGreenButStale,
