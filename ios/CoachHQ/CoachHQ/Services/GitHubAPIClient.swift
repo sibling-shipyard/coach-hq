@@ -397,7 +397,10 @@ class GitHubAPIClient {
     /// Commits multiple files in a single Git commit using the Git Data API. The tree/commit/ref
     /// sequence runs inside `withRetry` - a non-fast-forward ref update throws a transient
     /// 409-class error and rebuilds against a fresh HEAD. Blobs are reused across attempts.
-    func commitFiles(_ files: [(path: String, data: Data)], message: String) async throws {
+    /// Returns the SHA of the commit that landed, which is what `syncWorkflowRun(headSHA:)`
+    /// needs to find the Actions run this push triggered.
+    @discardableResult
+    func commitFiles(_ files: [(path: String, data: Data)], message: String) async throws -> String {
         let base = try baseURL
 
         // Sequential, not a task group, to avoid Swift 6 actor-isolation issues.
@@ -413,7 +416,7 @@ class GitHubAPIClient {
             blobs.append((file.path, sha))
         }
 
-        try await withRetry("Committing changes", attempts: 3) {
+        return try await withRetry("Committing changes", attempts: 3) {
             // 1. Get current HEAD SHA (fresh each attempt)
             let refData = try await get("\(base)/git/ref/heads/\(targetBranch)", label: "Reading branch \(targetBranch)")
             let headSHA = try JSONDecoder().decode(GitRef.self, from: refData).object.sha
@@ -452,7 +455,31 @@ class GitHubAPIClient {
                     detail: Self.gitHubMessage(from: respData)
                 )
             }
+            return newCommitSHA
         }
+    }
+
+    // MARK: - Sync workflow status
+
+    /// Asks GitHub what the athlete repo's `Sync` workflow did with one pushed commit.
+    ///
+    /// `nil` means GitHub answered and has no run for that SHA — the workflow never started.
+    /// A throw means the question itself failed, which is a different thing and must stay
+    /// distinguishable: the caller reports "never ran" as a fault and "could not ask" as a
+    /// warning. Filtered by workflow file because `validate-data.yml` runs on the same push.
+    ///
+    /// Deliberately outside `withRetry`: this is called on a path that is already reporting a
+    /// problem, and `withRetry` captures its own failures to Sentry. An installation whose
+    /// token lacks the App's `actions` permission would otherwise emit a second Sentry error
+    /// on every stale sync.
+    func syncWorkflowRun(headSHA: String) async throws -> SyncWorkflowRun? {
+        let base = try baseURL
+        _ = await authManager.validToken()
+        let data = try await get(
+            "\(base)/actions/workflows/sync.yml/runs?head_sha=\(headSHA)&per_page=1",
+            label: "Reading Sync workflow status"
+        )
+        return try JSONDecoder().decode(SyncWorkflowRunList.self, from: data).workflowRuns.first
     }
 
     private func get(_ urlString: String, label: String) async throws -> Data {
@@ -633,6 +660,30 @@ private struct GitCommitResponse: Decodable, Sendable {
 
 private struct GitBlob: Decodable, Sendable { let sha: String }
 private struct GitTree: Decodable, Sendable { let sha: String }
+
+/// One run of the athlete repo's `Sync` workflow, as GitHub reports it.
+/// `conclusion` is null until `status == "completed"`.
+struct SyncWorkflowRun: Decodable, Sendable, Equatable {
+    let status: String
+    let conclusion: String?
+    let htmlURL: String?
+    let runStartedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case status
+        case conclusion
+        case htmlURL = "html_url"
+        case runStartedAt = "run_started_at"
+    }
+}
+
+struct SyncWorkflowRunList: Decodable, Sendable {
+    let workflowRuns: [SyncWorkflowRun]
+
+    enum CodingKeys: String, CodingKey {
+        case workflowRuns = "workflow_runs"
+    }
+}
 
 /// Errors that explain themselves: which operation failed, the HTTP status,
 /// and GitHub's own message when available. Retries happen automatically for

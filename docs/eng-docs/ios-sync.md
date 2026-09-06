@@ -1,6 +1,6 @@
 # iOS (HealthKit) Sync — how it works
 
-> Status: Current · Owner: iOS Builder · Verified: 2026-08-31
+> Status: Current · Owner: iOS Builder · Verified: 2026-09-06
 
 ## Context
 
@@ -265,6 +265,19 @@ wins, while a legitimate activity with no qualifying baseline uses the last succ
 body after those attempts. The poll and refetch run after ordinary sync completion; timeout,
 total read failure, or an unavailable optional widget store leaves the original device-cache
 entries in place without turning sync into a failure.
+
+**A poll that runs out of attempts is reported, not swallowed (#883).** The ladder is
+`WidgetSnapshotStore.syncPollWaits` — `[0, 15, 15, 20, 20, 30]`, so 100 seconds against a
+pipeline that takes about 30. That headroom is roughly 3x, but a queued or serialized runner can
+still outlast it on a healthy run, so a give-up is not by itself proof the sync failed. Instead
+`HealthKitSyncManager.reportStaleSync` asks GitHub what the run for that exact commit SHA did —
+`GET /actions/workflows/sync.yml/runs?head_sha=…`, via the App's `actions` permission — and
+`StaleSyncVerdict` turns the answer into one of five outcomes. A run that failed, never started,
+or went green while the numbers stayed put is captured to Sentry as an **error**; a run still
+queued or in progress, and a status lookup we could not complete, are captured as **warnings**.
+Both call sites report (the automatic post-commit poll, and Retry in Chat), tagged `call_site`.
+Test mode reports nothing: it commits to `test/sync`, which the workflow does not watch, so its
+snapshots can never refresh. A sync that does catch up sends nothing at all.
 
 Only after that freshness proof does iOS call `/api/coach-message` with 1–20 canonical HealthKit
 ids from the committed round. The client sends no metrics and accepts at most a 16KB response. A

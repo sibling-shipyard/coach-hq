@@ -79,6 +79,22 @@ enum DiagnosticsScrubber {
     }
 }
 
+/// How loud a captured message is. Keeps `SentryLevel` inside this file, so callers describe
+/// what they found rather than importing the SDK to say it.
+enum DiagnosticSeverity {
+    /// Something is broken and someone should look.
+    case fault
+    /// Worth recording, not worth alerting on.
+    case warning
+
+    var sentryLevel: SentryLevel {
+        switch self {
+        case .fault: return .error
+        case .warning: return .warning
+        }
+    }
+}
+
 /// The local diagnostic timeline. Bounded by count, bytes, and age per ADR 0031, and cleared
 /// on sign-out. It lives in memory only: a Rage Report is filed in the session the problem
 /// happened in, so surviving a relaunch buys nothing, and not writing diagnostics to disk means
@@ -317,6 +333,28 @@ enum DiagnosticsManager {
         record(category: operation, message: "failed", operationID: operationID, metadata: metadata)
         guard isEnabled else { return }
         SentrySDK.capture(error: error) { scope in
+            scope.setTag(value: operation, key: "operation")
+            scope.setTag(value: operationID.uuidString, key: "operation_id")
+            scope.setExtras(DiagnosticsScrubber.scrub(metadata))
+        }
+    }
+
+    /// Captures a problem that has no `Error` to throw — a sync whose numbers never refreshed
+    /// is a verdict, not a throw site. `severity` is the load-bearing argument: it separates
+    /// "this is broken" (worth alerting on) from "we could not tell", so an alert scoped to
+    /// `level:error` stays quiet on the cases we cannot pin down. `message` is the Sentry issue
+    /// title, so pass a fixed string and put the varying parts in `metadata`.
+    static func capture(
+        message: String,
+        severity: DiagnosticSeverity,
+        operation: String,
+        operationID: UUID,
+        metadata: [String: String] = [:]
+    ) {
+        record(category: operation, message: message, operationID: operationID, metadata: metadata)
+        guard isEnabled else { return }
+        SentrySDK.capture(message: message) { scope in
+            scope.setLevel(severity.sentryLevel)
             scope.setTag(value: operation, key: "operation")
             scope.setTag(value: operationID.uuidString, key: "operation_id")
             scope.setExtras(DiagnosticsScrubber.scrub(metadata))
