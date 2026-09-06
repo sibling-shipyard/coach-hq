@@ -191,6 +191,11 @@ and the shared checkout has already handed one agent's commits to another's bran
 checkout is not yours — leave it where you found it. Before force-pushing a branch with unexpected
 commits, rescue them (`git branch rescue/... <sha>`) or you orphan a colleague's only copy.
 
+**Resolving a rebase conflict:** never `git checkout --ours/--theirs <file>` — it takes the whole
+file from one side, silently dropping every hunk that already merged cleanly. Edit the markers in
+place. Then diff each branch's own contribution, before against after: added/removed lines only,
+as hunk headers shift on their own.
+
 **Git push:** Always use:
 ```bash
 git pull --rebase origin main && git push origin main

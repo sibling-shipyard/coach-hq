@@ -51,6 +51,29 @@ if [ -f "$REPO_ROOT/ui/package.json" ] && [ ! -d "$REPO_ROOT/ui/node_modules" ];
   exit 2
 fi
 
+# A ui/node_modules symlinked from another checkout resolves, but predates any dependency the
+# current branch adds - npm then fails with "Cannot find package X", which reads like a code
+# error and sends you looking in the wrong place. Name the real cause here instead.
+if [ -f "$REPO_ROOT/ui/package.json" ] && [ -d "$REPO_ROOT/ui/node_modules" ]; then
+  MISSING_DEPS=$(node -e '
+    const fs = require("fs");
+    const path = require("path");
+    const root = process.argv[1];
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "ui/package.json"), "utf8"));
+    const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+    const missing = declared.filter((d) => !fs.existsSync(path.join(root, "ui/node_modules", d)));
+    process.stdout.write(missing.join(", "));
+  ' "$REPO_ROOT")
+  if [ -n "$MISSING_DEPS" ]; then
+    echo "error: $REPO_ROOT/ui/node_modules is stale - these declared deps are not installed:" >&2
+    echo "    $MISSING_DEPS" >&2
+    echo "  Symlinked from another checkout? That copy predates deps this branch adds." >&2
+    echo "  Fix (rm -rf drops a symlink without touching its target):" >&2
+    echo "    (cd $REPO_ROOT/ui && rm -rf node_modules && npm ci)" >&2
+    exit 2
+  fi
+fi
+
 NAMES=()
 DIRS=()
 CMDS=()
