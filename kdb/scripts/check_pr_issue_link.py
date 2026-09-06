@@ -181,12 +181,22 @@ def hierarchy_errors(issue, fetch_parent):
     return errors
 
 
+# A standing issue (an ops digest, a bookkeeping/learnings log) is a dashboard, not tracked
+# work: it has no milestone or epic by design, so it can never meet the issue contract or the
+# hierarchy check. Exempt it wherever that contract is enforced — at issue-edit time
+# (check_issue_event) and at PR-link time (linked_issue_errors) alike.
+EXEMPT_LABELS = {"ops:digest", "ops:standing"}
+
+
 def linked_issue_errors(links, fetch_issue, fetch_parent, validator=run_issue_contract):
     errors = []
     for link in links:
         issue = fetch_issue(link.number)
         if "needs-triage" in label_names(issue):
             errors.append(f"#{link.number} has the needs-triage label.")
+
+        if EXEMPT_LABELS & label_names(issue):
+            continue
 
         result = validator(issue)
         if result.returncode:
@@ -327,12 +337,6 @@ def check_pr():
         return 1
     print("pr-issue-link OK: " + ", ".join(f"#{link.number}" for link in links))
     return 0
-
-
-# A standing operational issue is a dashboard, not tracked work: it has no milestone and no epic
-# by design, and `sentry-digest.yml` rewrites its body daily. Without this it would fail the
-# contract and be re-labelled needs-triage every morning.
-EXEMPT_LABELS = {"ops:digest"}
 
 
 def check_issue_event():
