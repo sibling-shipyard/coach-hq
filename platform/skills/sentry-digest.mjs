@@ -6,16 +6,20 @@
  * notification - a comment. The workflow posts a comment if and only if that file exists, so the
  * "stay quiet on a quiet day" rule lives here in one place rather than in shell.
  *
+ * Also auto-resolves every open issue with zero events in-window (Sentry reopens it if it fires
+ * again). Pass `--dry-run` to compute and report that list without calling Sentry's PUT.
+ *
  *   node platform/skills/sentry-digest.mjs --window 24h \
  *     --out-body body.md --out-meta meta.json --out-comment comment.md
  */
 import fs from "node:fs";
 import process from "node:process";
 
-import { ORG, flagValue, readToken, request } from "./_sentry-api.mjs";
+import { ORG, flagValue, readToken, request, update } from "./_sentry-api.mjs";
 
 const TOKEN = readToken();
 const get = (apiPath) => request(apiPath, TOKEN);
+const resolveIssue = (id) => update(`${ORG}/issues/${id}/`, TOKEN, { status: "resolved" });
 
 const WINDOWS = {
   "24h": { statsPeriod: "24h", firstSeen: "-24h", label: "last 24 hours" },
@@ -74,6 +78,22 @@ async function athleteBreakdown(issues) {
   return { rows, unattributed };
 }
 
+/**
+ * An open issue with zero events in-window has gone quiet; resolve it so the backlog doesn't
+ * need a person to clear it by hand (#902 took ~15 manual API calls). Sentry flips an issue back
+ * to unresolved the moment it fires again, so there is no false-negative risk to guard against
+ * here - that reopen is the safety net, not something this script needs to reason about.
+ *
+ * One request per issue, in series: same rate-limit reasoning as `athleteBreakdown`.
+ */
+async function resolveStale(issues, dryRun) {
+  const stale = issues.filter((issue) => windowCount(issue) === 0);
+  for (const issue of stale) {
+    if (!dryRun) await resolveIssue(issue.id);
+  }
+  return stale;
+}
+
 function table(header, rows) {
   if (!rows.length) return "";
   return [`| ${header.join(" | ")} |`, `|${header.map(() => "---").join("|")}|`, ...rows]
@@ -120,9 +140,22 @@ function shouldNotify(windowKey, meta) {
   return meta.newCount > 0 || meta.rageCount > 0;
 }
 
-function renderBody({ window, generatedAt, open, fresh, athletes, rage }) {
+function renderBody({ window, generatedAt, open, fresh, athletes, rage, resolved, dryRun }) {
   const out = [];
   out.push(`_Generated ${generatedAt} · window: ${window.label} · production only._`);
+  out.push("");
+
+  out.push("## Auto-resolved (no events this window)");
+  out.push("");
+  if (!resolved.length) {
+    out.push("None this run.");
+  } else {
+    const verb = dryRun ? "would be auto-resolved" : "auto-resolved";
+    const titles = resolved.map((i) => `[${(i.title ?? "").slice(0, 70)}](${i.permalink})`);
+    out.push(`${resolved.length} issue(s) ${verb} (no events this window): ${titles.join(", ")}`);
+    out.push("");
+    out.push("Sentry reopens an issue the moment it fires again — check here before reopening by hand.");
+  }
   out.push("");
 
   out.push(`## New or regressed in the ${window.label}`);
@@ -207,15 +240,20 @@ async function main() {
     }
   }
 
+  const dryRun = process.argv.includes("--dry-run");
+  const resolved = await resolveStale(open, dryRun);
   const athletes = await athleteBreakdown(open);
-  const body = renderBody({ window, generatedAt, open, fresh, athletes, rage });
+  const body = renderBody({ window, generatedAt, open, fresh, athletes, rage, resolved, dryRun });
 
   const meta = {
     window: key,
     generatedAt,
+    dryRun,
     openCount: open.length,
     newCount: fresh.length,
     rageCount: rage.length,
+    autoResolvedCount: resolved.length,
+    autoResolvedTitles: resolved.map((i) => i.title),
     totalEvents: open.reduce((sum, i) => sum + windowCount(i), 0),
     topAthlete: athletes.rows[0]?.athlete ?? null,
     // A rage report that is also new appears in both lists; the reader wants it once.

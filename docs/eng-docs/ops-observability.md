@@ -108,6 +108,12 @@ Two consequences worth knowing:
 - The body carries an `athlete_id` breakdown, because one athlete's bad afternoon and a fleet-wide
   fault produce the same event count and need different fixes.
 
+Every run also auto-resolves any open issue with zero events in the window (`PUT
+.../issues/{id}/` with `status: resolved`), in series, and reports the count and titles in the
+body's "Auto-resolved" section. This replaced the manual cleanup #902 needed (~15 API calls by
+hand). Sentry reopens an issue the moment it fires again, so there is no separate undo path —
+`--dry-run` computes and reports the list without calling Sentry, for testing against live data.
+
 The standing issue is exempt from the issue contract (`check_pr_issue_link.py`, `EXEMPT_LABELS`).
 It has no milestone and no epic by design, and the daily rewrite would otherwise re-label it
 `needs-triage` every morning.

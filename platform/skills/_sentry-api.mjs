@@ -32,17 +32,19 @@ export function readToken() {
   process.exit(1);
 }
 
-export function request(apiPath, token) {
+export function request(apiPath, token, { method = "GET", body } = {}) {
   return new Promise((resolve, reject) => {
+    const payload = body === undefined ? undefined : JSON.stringify(body);
     const req = https.request(
       {
         hostname: "sentry.io",
         path: `/api/0${apiPath}`,
-        method: "GET",
+        method,
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
           "User-Agent": "CoachHQ-Cyclops/1.0",
+          ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}),
         },
       },
       (res) => {
@@ -70,8 +72,14 @@ export function request(apiPath, token) {
       },
     );
     req.on("error", reject);
+    if (payload) req.write(payload);
     req.end();
   });
+}
+
+/** PUT to update an issue (e.g. `{ status: "resolved" }`). Same error/status handling as `request`. */
+export function update(apiPath, token, body) {
+  return request(apiPath, token, { method: "PUT", body });
 }
 
 export function flagValue(name, argv = process.argv) {
