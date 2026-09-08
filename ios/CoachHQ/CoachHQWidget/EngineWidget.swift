@@ -62,7 +62,8 @@ struct EngineWidgetView: View {
         VStack(alignment: .leading, spacing: 8) {
             header(weekLabel: engine.weekLabel, signal: engine.signal)
             readout(load: engine.load, verdict: engine.compactVerdict)
-            bandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh)
+            let scale = EngineGraphics.localScale(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh)
+            engineBandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh, scaleLow: scale.low, scaleHigh: scale.high)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -73,9 +74,10 @@ struct EngineWidgetView: View {
         VStack(alignment: .leading, spacing: 8) {
             header(weekLabel: engine.weekLabel, signal: engine.signal)
             readout(load: engine.load, verdict: engine.compactVerdict ?? engine.verdict)
-            bandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh)
+            engineBandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh, scaleLow: engine.scaleLow, scaleHigh: engine.scaleHigh)
             if !engine.trend.isEmpty {
-                trendSparkline(engine.trend)
+                EngineGraphics.trendSparkline(engine.trend, color: .white.opacity(0.85), lineWidth: 2)
+                    .frame(height: 28)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -87,12 +89,28 @@ struct EngineWidgetView: View {
         VStack(alignment: .leading, spacing: 10) {
             header(weekLabel: engine.weekLabel, signal: engine.signal)
             readout(load: engine.load, verdict: engine.verdict)
-            bandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh)
+            engineBandStrip(load: engine.load, bandLow: engine.bandLow, bandHigh: engine.bandHigh, scaleLow: engine.scaleLow, scaleHigh: engine.scaleHigh)
             if !engine.trend.isEmpty {
-                trendSparkline(engine.trend)
+                EngineGraphics.trendSparkline(engine.trend, color: .white.opacity(0.85), lineWidth: 2)
+                    .frame(height: 28)
             }
             if !engine.mix.isEmpty {
-                mixBar(engine.mix, totalHours: engine.totalHours)
+                VStack(alignment: .leading, spacing: 5) {
+                    EngineGraphics.mixBar(
+                        engine.mix,
+                        totalHours: engine.totalHours,
+                        segmentSpacing: 1,
+                        segmentCornerRadius: 0,
+                        minSegmentWidth: 0,
+                        outerClip: AnyShape(Capsule()),
+                        showRemainder: false
+                    )
+                    .frame(height: 7)
+
+                    Text(String(format: "%.1fH LOGGED", engine.totalHours))
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.7))
+                }
             }
             Text(engine.method)
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
@@ -101,7 +119,7 @@ struct EngineWidgetView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - Shared pieces (mirror the in-app Engine widget's math 1:1)
+    // MARK: - Shared pieces (band strip / trend / mix maths live in EngineGraphics, W3)
 
     private func header(weekLabel: String, signal: String) -> some View {
         HStack {
@@ -119,7 +137,7 @@ struct EngineWidgetView: View {
 
     private func readout(load: Double, verdict: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(numberString(load))
+            Text(EngineGraphics.numberString(load))
                 .font(.system(size: 32, weight: .heavy, design: .monospaced))
                 .foregroundColor(.white)
             Text(verdict)
@@ -129,71 +147,24 @@ struct EngineWidgetView: View {
         }
     }
 
-    private func bandStrip(load: Double, bandLow: Double?, bandHigh: Double?) -> some View {
-        GeometryReader { geo in
-            let low = bandLow ?? load * 0.8
-            let high = max(bandHigh ?? load * 1.2, low + 1)
-            let scaleLow = min(low, load) * 0.85
-            let scaleHigh = max(high, load) * 1.15 + 1
-            let range = max(1, scaleHigh - scaleLow)
-            let xLow = CGFloat((low - scaleLow) / range) * geo.size.width
-            let xHigh = CGFloat((high - scaleLow) / range) * geo.size.width
-            let xLoad = CGFloat((load - scaleLow) / range) * geo.size.width
-
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.18)).frame(height: 5)
-                Capsule()
-                    .fill(Color.white.opacity(0.55))
-                    .frame(width: max(8, xHigh - xLow), height: 8)
-                    .offset(x: xLow)
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 8, height: 8)
-                    .offset(x: xLoad - 4)
-            }
-        }
+    private func engineBandStrip(load: Double, bandLow: Double?, bandHigh: Double?, scaleLow: Double, scaleHigh: Double) -> some View {
+        EngineGraphics.bandStrip(
+            load: load,
+            bandLow: bandLow,
+            bandHigh: bandHigh,
+            scaleLow: scaleLow,
+            scaleHigh: scaleHigh,
+            progress: 1,
+            trackHeight: 5,
+            bandHeight: 8,
+            dotSize: 8,
+            minBandWidth: 8,
+            clampDotOffset: false,
+            trackColor: Color.white.opacity(0.18),
+            bandColor: Color.white.opacity(0.55),
+            dotColor: .white
+        )
         .frame(height: 10)
-    }
-
-    private func trendSparkline(_ points: [TrendPointSnapshot]) -> some View {
-        let values = points.map(\.value)
-        let minV = values.min() ?? 0
-        let maxV = values.max() ?? 1
-        let range = max(1, maxV - minV)
-        return GeometryReader { geo in
-            Path { path in
-                for (index, point) in points.enumerated() {
-                    let x = points.count > 1
-                        ? geo.size.width * CGFloat(index) / CGFloat(points.count - 1)
-                        : geo.size.width
-                    let y = geo.size.height - geo.size.height * CGFloat((point.value - minV) / range)
-                    if index == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
-                }
-            }
-            .stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-        }
-        .frame(height: 28)
-    }
-
-    private func mixBar(_ mix: [LoadMixSnapshot], totalHours: Double) -> some View {
-        let denominator = max(totalHours, mix.reduce(0) { $0 + $1.hours }, 1)
-        return VStack(alignment: .leading, spacing: 5) {
-            GeometryReader { geo in
-                HStack(spacing: 1) {
-                    ForEach(mix.filter { $0.hours > 0 }) { item in
-                        Rectangle()
-                            .fill(WarmInstrument.color(hex: item.color))
-                            .frame(width: geo.size.width * CGFloat(item.hours / denominator))
-                    }
-                }
-                .clipShape(Capsule())
-            }
-            .frame(height: 7)
-
-            Text(String(format: "%.1fH LOGGED", totalHours))
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .foregroundColor(.white.opacity(0.7))
-        }
     }
 
     private var emptyState: some View {
@@ -208,10 +179,6 @@ struct EngineWidgetView: View {
                 .foregroundColor(.white.opacity(0.85))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func numberString(_ value: Double) -> String {
-        value == value.rounded() ? "\(Int(value))" : String(format: "%.1f", value)
     }
 }
 
