@@ -44,7 +44,14 @@ export async function askGemini(
   // first, volatile today's-date last. See docs/eng-docs/gemini-flow.md. `cachePrefix` carries
   // this to the seam; the Gemini adapter decides whether it's actually cached this call.
   const cachePrefix = staticSystemText(soul);
-  const system = buildDynamicText(athleteContext, questLog, mode, firstSession, extraContext, timezone);
+  const system = buildDynamicText(
+    athleteContext,
+    questLog,
+    mode,
+    firstSession,
+    extraContext,
+    timezone,
+  );
   const finalTurn: LlmMessage = {
     role: "user",
     text: mode === "greeting" ? "[Begin the conversation.]" : userMessage,

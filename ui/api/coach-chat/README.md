@@ -51,11 +51,11 @@ Day-number design: [ADR 0018](../../../kdb/decisions/0018-coach-since-day-number
 
 ### Gemini boundary
 
-| File                  | Responsibility                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `coachPromptText.ts`  | Static cached prefix, dynamic mode instructions, history window, and optional context blocks                  |
+| File                  | Responsibility                                                                                                                                                    |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `coachPromptText.ts`  | Static cached prefix, dynamic mode instructions, history window, and optional context blocks                                                                      |
 | `coachReplySchema.ts` | `GeminiReply`, `TurnMode`, and the mode-specific structured-output schemas (`additionalProperties: false` at every object level, enforced by `LlmJsonSchemaNode`) |
-| `geminiClient.ts`     | Build the prompt/request and parse replies, then run it through `selectLlmAdapter` (`_lib/llmClient.ts`)      |
+| `geminiClient.ts`     | Build the prompt/request and parse replies, then run it through `selectLlmAdapter` (`_lib/llmClient.ts`)                                                          |
 
 The explicit soul cache and the retry-on-400/503/504 logic live behind the seam now, in
 `../../_lib/llmAdapters/geminiAdapter.ts` and its `geminiSoulCache.ts` helper (#713 M2 PR 2) - not

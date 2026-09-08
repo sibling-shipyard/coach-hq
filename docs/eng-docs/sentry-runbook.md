@@ -292,8 +292,8 @@ syncs report nothing — they commit to `test/sync`, a branch the workflow never
 **Not counted. Do not infer whole-product uptime or traffic from this dashboard.**
 
 - **Outbound HTTP from the API, deliberately.** Both Node instrumentations copy the full request URL
-  onto the span, and template adjustment's own Gemini call (`coachWorkoutFiles.ts`) still passes the
-  key in the query string — coach-message and chat moved to header auth (`x-goog-api-key`) via
+  onto the span. Template adjustment's own Gemini call (`coachWorkoutFiles.ts`) still passes the key
+  in the query string. Coach-message and chat moved to header auth (`x-goog-api-key`) via
   `_lib/llmAdapters/geminiAdapter.ts` (#713 M2 PR 1/PR 2); template adjustment is the one caller left
   on the old query-string auth, pending M2 PR 3. An `http.client` span would therefore still be a
   credential in Sentry for that one caller, and `beforeSend` never catches it — that hook fires for
