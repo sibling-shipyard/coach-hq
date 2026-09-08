@@ -88,6 +88,74 @@ describe("createGeminiAdapter", () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
+  it("strips additionalProperties at every nesting level, not just the top (#713 M2 PR 2)", async () => {
+    // Regression: a shallow top-level-only strip passed this file's other test (a flat,
+    // one-property schema, coach-message's real shape) but sent a nested `additionalProperties`
+    // straight through to Gemini on a schema this deep - confirmed live, Gemini's 400 named the
+    // exact nested path (generation_config.response_schema.properties[...].value...items). Chat's
+    // real schema nests this deep (coachReplySchema.ts's week_plan/season_start).
+    const nestedRequest: LlmRequest = {
+      ...REQUEST,
+      responseSchema: {
+        name: "coach_reply",
+        schema: {
+          type: "object",
+          properties: {
+            week_plan: {
+              type: "object",
+              properties: {
+                days: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: { date: { type: "string" } },
+                    required: ["date"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              additionalProperties: false,
+            },
+          },
+          required: [],
+          additionalProperties: false,
+        },
+      },
+    };
+    const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      expect(JSON.stringify(body.generationConfig.responseSchema)).not.toContain(
+        "additionalProperties",
+      );
+      expect(body.generationConfig.responseSchema).toEqual({
+        type: "object",
+        properties: {
+          week_plan: {
+            type: "object",
+            properties: {
+              days: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: { date: { type: "string" } },
+                  required: ["date"],
+                },
+              },
+            },
+          },
+        },
+        required: [],
+      });
+      return okResponse("fine");
+    });
+    const adapter = createGeminiAdapter(
+      { GEMINI_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      fetcher,
+    );
+    await adapter.generate(nestedRequest);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it("omits systemInstruction and sends one user content block when system is empty (#713)", async () => {
     // coach-message has no natural system/user split — this must be the exact wire shape it
     // always sent: no systemInstruction field at all, one user content block.

@@ -17,8 +17,35 @@
 import { GEMINI_MODEL } from "../geminiModel.js";
 import { fetchWithTimeout } from "../httpTimeout.js";
 import { withGeminiSpan } from "../sentry.js";
-import type { LlmAdapter, LlmRequest, LlmResult } from "../llmClient.js";
+import type { LlmAdapter, LlmJsonSchemaNode, LlmRequest, LlmResult } from "../llmClient.js";
 import { getCachedSoulName, invalidateCachedSoulName } from "./geminiSoulCache.js";
+
+type GeminiSchemaNode =
+  | { type: "string"; enum?: readonly string[]; maxLength?: number }
+  | { type: "number" }
+  | { type: "boolean" }
+  | { type: "array"; items: GeminiSchemaNode }
+  | { type: "object"; properties: Record<string, GeminiSchemaNode>; required?: readonly string[] };
+
+/**
+ * Gemini's own `responseSchema` has no `additionalProperties` field, at any nesting level —
+ * unlike OpenRouter's strict `json_schema`, which requires it on every object node
+ * (`LlmJsonSchemaNode`, `llmClient.ts`). A shallow strip at the top level was enough for
+ * coach-message's flat one-property schema (#713 M2 PR 1); chat's schema nests up to five levels
+ * deep (`coachReplySchema.ts`'s `week_plan`/`season_start`), and Gemini rejects the field wherever
+ * it survives, naming the exact nested path in its 400 (confirmed live, #713 M2 PR 2). Recurse.
+ */
+function toGeminiResponseSchema(node: LlmJsonSchemaNode): GeminiSchemaNode {
+  if (node.type === "array") return { type: "array", items: toGeminiResponseSchema(node.items) };
+  if (node.type !== "object") return node;
+  return {
+    type: "object",
+    properties: Object.fromEntries(
+      Object.entries(node.properties).map(([key, value]) => [key, toGeminiResponseSchema(value)]),
+    ),
+    ...(node.required ? { required: node.required } : {}),
+  };
+}
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -103,14 +130,12 @@ export function createGeminiAdapter(
             })),
         generationConfig: {
           responseMimeType: "application/json",
-          // Gemini's responseSchema has no additionalProperties field — OpenRouter's
-          // strict json_schema needs one, Gemini rejects fields it doesn't recognize, so
-          // only the three fields it understands cross over.
-          responseSchema: {
-            type: request.responseSchema.schema.type,
+          responseSchema: toGeminiResponseSchema({
+            type: "object",
             properties: request.responseSchema.schema.properties,
             required: request.responseSchema.schema.required,
-          },
+            additionalProperties: false,
+          }),
           maxOutputTokens: request.maxOutputTokens,
         },
       });
