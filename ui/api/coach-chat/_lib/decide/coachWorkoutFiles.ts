@@ -20,8 +20,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { GEMINI_MODEL } from "../../../_lib/geminiModel.js";
-import { fetchWithTimeout } from "../../../_lib/httpTimeout.js";
-import { captureGeminiFailure, withGeminiSpan } from "../../../_lib/sentry.js";
+import { captureGeminiFailure } from "../../../_lib/sentry.js";
+import {
+  selectLlmAdapter,
+  type LlmJsonSchema,
+  type LlmJsonSchemaNode,
+} from "../../../_lib/llmClient.js";
 import type { FileEntry } from "../../../_lib/githubGitData.js";
 import type { ProfileJson, MemoryJson, InjuriesJson } from "./coachMemoryFiles.js";
 import { parseJsonOrNull } from "./coachChatFiles.js";
@@ -292,6 +296,50 @@ export type AdjustTemplatesFn = (
   memory: MemoryJson,
 ) => Promise<TemplateAdjustment[]>;
 
+// The one array item's own properties - typed and checked in isolation (#713 M2 PR 3, same
+// compiler-verified-completeness idiom as coachReplySchema.ts's RESPONSE_PROPERTIES) so the
+// `satisfies` check catches a missing `additionalProperties` on any nested object node here,
+// not just eyeballing. None of these three leaves are objects themselves, so there's nothing to
+// nest today, but the check stays in place for whoever adds one next.
+const ADJUSTMENT_ITEM_PROPERTIES = {
+  template_id: { type: "string" },
+  coaching_note: { type: "string" },
+  progression_notes: { type: "string" },
+} as const satisfies Record<string, LlmJsonSchemaNode>;
+
+// The full strict-mode schema for this call, typed as LlmJsonSchema directly - that annotation
+// alone makes the compiler demand `additionalProperties: false` on both the top-level object and
+// the `adjustments` array's item object, at any depth, the same guarantee PR 2's separate
+// `satisfies` step gave RESPONSE_PROPERTIES's 19 objects.
+const TEMPLATE_ADJUSTMENT_RESPONSE_SCHEMA: LlmJsonSchema = {
+  name: "template_adjustments",
+  schema: {
+    type: "object",
+    properties: {
+      adjustments: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: ADJUSTMENT_ITEM_PROPERTIES,
+          required: ["template_id"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["adjustments"],
+    additionalProperties: false,
+  },
+};
+
+// #713 M2 PR 3: reaches the model through the same provider-neutral seam every other caller
+// uses (llmClient.ts's selectLlmAdapter) instead of opening its own socket. `system: ""` because
+// this call has no natural system/user split - one flat prompt, same as coach-message
+// (geminiClient.ts's askGemini keeps this shape too, for the same reason). The env override
+// mirrors askGemini's own convention: apiKey arrives as a parameter (threaded down from
+// coach-chat.ts's process.env.GEMINI_API_KEY read) rather than this file reading env directly, so
+// this stays a pure function of its arguments for tests. No cachePrefix (no stable prefix to
+// cache) and no manual usage recording - both adapters already wrap `generate()` in their own
+// Sentry span, so a second span here would double-count.
 export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templates, memory) => {
   const level = inferLevel(memory);
   const prompt = [
@@ -309,69 +357,17 @@ export const adjustTemplatesWithGemini: AdjustTemplatesFn = async (apiKey, templ
     ),
   ].join("\n");
 
-  const body = {
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      maxOutputTokens: 1024,
-      responseSchema: {
-        type: "object",
-        properties: {
-          adjustments: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                template_id: { type: "string" },
-                coaching_note: { type: "string" },
-                progression_notes: { type: "string" },
-              },
-              required: ["template_id"],
-            },
-          },
-        },
-        required: ["adjustments"],
-      },
-    },
-  };
-
-  return withGeminiSpan(GEMINI_MODEL, async (recordUsage) => {
-    const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      },
-      20_000,
-    );
-    if (!res.ok) {
-      const detail = await res.text();
-      throw Object.assign(
-        new Error(`Gemini template-adjustment call failed (${res.status}): ${detail}`),
-        { status: res.status },
-      );
-    }
-    const json = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-      usageMetadata?: {
-        promptTokenCount?: number;
-        candidatesTokenCount?: number;
-        totalTokenCount?: number;
-      };
-    };
-    if (json.usageMetadata) {
-      recordUsage({
-        promptTokens: json.usageMetadata.promptTokenCount,
-        completionTokens: json.usageMetadata.candidatesTokenCount,
-        totalTokens: json.usageMetadata.totalTokenCount,
-      });
-    }
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error("Gemini template-adjustment call returned no content");
-    const parsed = JSON.parse(text) as { adjustments?: TemplateAdjustment[] };
-    return Array.isArray(parsed.adjustments) ? parsed.adjustments : [];
+  const adapter = selectLlmAdapter({ ...process.env, GEMINI_API_KEY: apiKey });
+  const result = await adapter.generate({
+    system: "",
+    messages: [{ role: "user", text: prompt }],
+    maxOutputTokens: 1024,
+    responseSchema: TEMPLATE_ADJUSTMENT_RESPONSE_SCHEMA,
+    timeoutMs: 20_000,
   });
+
+  const parsed = JSON.parse(result.text) as { adjustments?: TemplateAdjustment[] };
+  return Array.isArray(parsed.adjustments) ? parsed.adjustments : [];
 };
 
 /**
