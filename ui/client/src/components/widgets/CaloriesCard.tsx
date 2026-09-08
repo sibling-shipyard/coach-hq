@@ -1,6 +1,6 @@
 import { type MouseEvent as ReactMouseEvent, useState } from "react";
-import { clamp, formatCompact } from "../formatUtils";
-import type { CaloriesSnapshot } from "../snapshots";
+import { clamp, formatCompact } from "./formatUtils";
+import type { CaloriesSnapshot } from "./snapshots";
 
 export function CaloriesCard({ calories }: { calories: CaloriesSnapshot }) {
   const [hoverDay, setHoverDay] = useState<number | null>(null);

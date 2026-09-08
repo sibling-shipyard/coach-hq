@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { SessionRow } from "../atoms/SessionRow";
-import type { RecentSessionSnapshot } from "../snapshots";
+import { SessionRow } from "./SessionRow";
+import type { RecentSessionSnapshot } from "./snapshots";
 
 export function RecentSessionsCard({
   sessions,

@@ -7,9 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { ActivityGlyph } from "../ActivityGlyph";
-import { clamp } from "../formatUtils";
-import type { PlanDaySnapshot, WeeklyPlanSnapshot } from "../snapshots";
+import { ActivityGlyph } from "./ActivityGlyph";
+import { clamp } from "./formatUtils";
+import type { PlanDaySnapshot, WeeklyPlanSnapshot } from "./snapshots";
 
 type PlanAssignment = Pick<
   PlanDaySnapshot,

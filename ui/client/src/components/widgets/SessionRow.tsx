@@ -1,4 +1,4 @@
-import type { RecentSessionSnapshot } from "../snapshots";
+import type { RecentSessionSnapshot } from "./snapshots";
 
 export function SessionRow({ session }: { session: RecentSessionSnapshot }) {
   return (
